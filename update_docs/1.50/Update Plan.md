@@ -158,10 +158,15 @@
 
 ## 5. Documentation & Reporting
 - Update Version 1.50 documentation set (update_task_list, update_milestone_list, update_progress_tracker, changelog, release notes).
+
+## 6. Design Execution Alignment
+- Leverage the dedicated design plan to drive parity across mobile and web, ensuring engineering receives annotated specifications and risk mitigation guidance.【F:update_docs/1.50/Design Plan.md†L4-L66】
+- Track design changes and approvals centrally, providing traceability for compliance and QA stakeholders through the new changelog.【F:update_docs/1.50/Design_Change_log.md†L4-L74】
+- Synchronise design milestones, tasks, and progress metrics with programme governance so that design readiness gates feed directly into release decisioning.【F:update_docs/1.50/design_update_milestone_list.md†L1-L48】【F:update_docs/1.50/design_update_task_list.md†L1-L66】【F:update_docs/1.50/design_update_progress_tracker.md†L1-L31】
 - Deliver end-of-update report summarizing outcomes, metrics, residual risks, and follow-up actions.
 - Ensure support and marketing collateral align with new capabilities and compliance obligations.
 
-## 6. Governance & Timeline
+## 7. Governance & Timeline
 - Align tasks with 5 milestone waves (Security Foundations, Engagement Enablement, Compliance & Enterprise, Mobile Application Completion, Launch Readiness).
 - Hold weekly release council, bi-weekly demos, and daily cross-squad syncs with progress reporting via tracker.
 - Enforce exit criteria per milestone: security sign-off, feature parity validations, compliance approvals, and production rehearsals.

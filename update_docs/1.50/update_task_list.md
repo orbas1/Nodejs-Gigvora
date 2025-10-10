@@ -98,3 +98,17 @@ All tasks currently sit at **0%** completion. Each subtask must reach 100% along
 
 **Required Testing & Artifacts**
 - Mobile regression reports, performance benchmarks, accessibility audits, localization verification logs, store submission checklist, release readiness sign-offs.
+
+## Task 8 – Cross-Platform Design Enablement – 5%
+**Integration Coverage**
+- Design • Front-end • User phone app • Provider phone app • QA • Compliance • Product
+
+**Subtasks**
+1. ✅/⬜ Consolidate design token library and publish engineering-ready exports across platforms (5%).【F:update_docs/1.50/design_update_task_list.md†L4-L15】
+2. ✅/⬜ Realign navigation/IA and deliver annotated specs for mobile/web, including fallback behaviours (0%).【F:update_docs/1.50/design_update_task_list.md†L17-L28】
+3. ✅/⬜ Redesign priority surfaces (dashboards, chat, feed, financial workflows) with high-fidelity assets and approvals (0%).【F:update_docs/1.50/design_update_task_list.md†L30-L43】
+4. ✅/⬜ Execute accessibility, compliance, and usability validation with documented remediation plans (0%).【F:update_docs/1.50/design_update_task_list.md†L45-L66】
+5. ✅/⬜ Support engineering implementation, log QA variances, and maintain the design change log (0%).【F:update_docs/1.50/design_update_task_list.md†L58-L66】
+
+**Required Testing & Artifacts**
+- Token export verification logs, annotated IA maps, design QA checklist, usability and accessibility reports, compliance sign-off, updated `Design_Change_log.md` entries.【F:update_docs/1.50/Design_Change_log.md†L4-L90】【F:update_docs/1.50/design_update_progress_tracker.md†L1-L31】

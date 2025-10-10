@@ -89,3 +89,24 @@
 - Full-system regression (backend, web, Flutter, provider app), performance and chaos testing.
 - Production rehearsal deployments, rollback validation, monitoring/alerting configuration review.
 - Stakeholder sign-off sessions and launch readiness reviews documented.
+
+## Milestone 6 – Cross-Platform Design Alignment & QA (Weeks 1-10, 5% complete)
+**Goals:** Deliver the design foundations, blueprints, prototypes, and validation activities required to support engineering and compliance for Version 1.50.
+
+**Included Tasks:**
+- Task 1 – Token Library Consolidation (design_update_task_list Task 1).
+- Task 2 – Navigation & IA Alignment (design_update_task_list Task 2).
+- Task 3 – Core Surface Redesign (design_update_task_list Task 3).
+- Task 4 – Accessibility & Compliance Readiness (design_update_task_list Task 4).
+- Task 5 – Prototype & Usability Validation (design_update_task_list Task 5).
+- Task 6 – Implementation Support & QA (design_update_task_list Task 6).
+
+**Key Deliverables:**
+- Tokenised design system, responsive layout frameworks, and interaction pattern libraries aligned to Version 1.50 scope.【F:update_docs/1.50/design_update_milestone_list.md†L4-L23】
+- Annotated high-fidelity screen sets and interactive prototypes across mobile and web experiences.【F:update_docs/1.50/design_update_milestone_list.md†L25-L37】
+- Usability, accessibility, and compliance validation packets ready for release sign-off.【F:update_docs/1.50/design_update_milestone_list.md†L39-L48】
+
+**Quality Gates & Tests:**
+- WCAG 2.1 AA accessibility verification and remediation tracking across updated components.
+- Moderated usability studies with prioritised remediation and documented approvals.
+- Design QA checklist completion with logged variances and approvals for engineering implementation.【F:update_docs/1.50/design_update_task_list.md†L34-L66】【F:update_docs/1.50/design_update_progress_tracker.md†L1-L31】
