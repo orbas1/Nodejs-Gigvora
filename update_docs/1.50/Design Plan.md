@@ -53,6 +53,7 @@ The Version 1.50 design effort establishes a unified multi-platform experience t
 - Coordinate with backend and data squads on migration rehearsal checkpoints to guarantee design artefacts remain consistent with production schemas and auditing expectations.
 - Partner with engineering on a production-grade seed dataset covering application stages, messaging threads, notification cadences, analytics rollups, and provider workspace membership so prototypes and QA reviews exercise realistic states.
 - Document sanitized response schemas for the new Sequelize service layer (applications, messaging, notifications, analytics, provider workspaces) so UI copy, IA, and accessibility guidance reflect only publicly exposed fields and caching behaviour.
+- Publish backend schema overview, ER diagram, and data governance addendum with matching automated tests to ground design QA, compliance reviews, and narrative updates in authoritative artefacts.【F:gigvora-backend-nodejs/docs/schema-overview.md†L3-L52】【F:gigvora-backend-nodejs/docs/er-diagram.md†L1-L33】【F:gigvora-backend-nodejs/docs/data-governance.md†L3-L25】【F:gigvora-backend-nodejs/tests/applicationService.test.js†L1-L84】
 
 ## 5. Risks & Mitigations
 | Risk | Probability | Impact | Mitigation |

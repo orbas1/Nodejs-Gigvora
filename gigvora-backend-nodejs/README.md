@@ -32,6 +32,7 @@ The API will be available at `http://localhost:5000`.
 - `src/services` – Business logic for authentication and 2FA email code handling.
 - `database/migrations` – Schema definition for the relational data store.
 - `database/seeders` – Starter data to explore the platform locally.
+- `docs/` – Authoritative schema overview, ER diagrams, and governance policies for engineering and compliance review.
 
 ## API Surface (initial draft)
 
@@ -46,3 +47,13 @@ The API will be available at `http://localhost:5000`.
 - `GET /api/search` – Explorer search endpoint returning jobs, gigs, projects, launchpads, volunteering, and people.
 
 This base delivers the foundational scaffolding for the Gigvora platform so the team can iterate quickly on product features.
+
+## Testing & Quality Gates
+
+- Run `npm test` to execute the Jest integration suite covering application lifecycles, messaging, notifications, and provider workspace governance across an in-memory SQLite database.
+- Coverage artefacts are emitted to `coverage/` and should be attached to CI runs for regression tracking.
+
+## Data Governance
+
+- Reference `docs/schema-overview.md` for table-level details and ownership of new entities.
+- Consult `docs/er-diagram.md` and `docs/data-governance.md` before designing new features to ensure retention, masking, and access rules remain compliant.

@@ -20,6 +20,7 @@ Version 1.50 introduces a coordinated design refresh across the Flutter mobile a
 | APP-006 | Application Workflow & Provider Ops | Introduced application review states, omnichannel messaging contexts, notification tiers, and provider workspace controls synced to new persistence tables. | `Screens_Update.md`, `Logic_Flow_update.md`, `provider_application_logic_flow_changes.md` |
 | DATA-001 | Reference Data & QA Enablement | Curated production-grade seed dataset aligning application stages, messaging timelines, notification cadences, analytics rollups, and provider workspace membership scenarios for design QA and prototype parity. | `Design Plan.md`, `Dummy_Data_Requirements.md`, `Screens_Update.md` |
 | DATA-002 | Service Contract Alignment | Captured sanitized response schemas and cache expectations for the new ORM-backed services powering applications, messaging, notifications, analytics, and provider workspaces. | `Design Plan.md`, `ui-ux_updates/Application Design Update/Logic_Flow_update.md`, `ui-ux_updates/web_application_logic_flow_changes.md` |
+| DATA-003 | Data Governance & Testing Enablement | Published backend schema overview, ER diagram, and data governance policy with aligned Jest coverage, giving design, QA, and compliance teams authoritative reference material. | `docs/schema-overview.md`, `docs/er-diagram.md`, `docs/data-governance.md`, `tests/` |
 
 ## Detailed Updates
 ### Application (Flutter) Ecosystem
@@ -65,6 +66,7 @@ Version 1.50 introduces a coordinated design refresh across the Flutter mobile a
 - Added provider workspace governance diagrams showcasing invite lifecycle, membership status states, and compliance note handling tied to new provider workspace tables.
 - Published reference data states and sample payloads so cross-platform prototypes and QA scripts mirror production analytics, messaging, notification, and provider workspace scenarios seeded in the backend.
 - Mapped sanitized payload fields, cache lifetimes, and error messaging patterns from the ORM/service layer to UI copy, ensuring cross-platform experiences reveal only supported data while surfacing loading/retry states tied to cache invalidation.
+- Introduced backend schema overview, ER diagram, and governance policy with matching automation coverage to anchor design QA, compliance sign-off, and persona-led narrative updates.【F:gigvora-backend-nodejs/docs/schema-overview.md†L3-L52】【F:gigvora-backend-nodejs/docs/er-diagram.md†L1-L33】【F:gigvora-backend-nodejs/docs/data-governance.md†L3-L25】【F:gigvora-backend-nodejs/tests/applicationService.test.js†L1-L84】
 
 ## Approval & Versioning
 - **Design Authority:** Lead Product Designer (UI/UX) – accountable for enforcing token updates and component library parity.
