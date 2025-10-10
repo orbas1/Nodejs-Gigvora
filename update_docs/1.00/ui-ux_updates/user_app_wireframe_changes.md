@@ -22,12 +22,15 @@
 - **Card anatomy:** Meta chips row, title, snippet, CTA button (Apply, Pitch, View program, Join mission) aligned left.
 - **Empty state:** Centered card with illustration placeholder, message, and CTA to adjust filters or enable alerts.
 - **Pull-to-refresh:** Native indicator resets list; CTA row persists.
+- **Detail drill-in:** Tapping card transitions to dedicated detail screen with hero, description, requirements, timeline, related opportunities carousel, and sticky bottom CTA.
+- **Saved items:** Bookmark icon toggles, saved view accessible via header action listing cards with sort controls.
 
 ## Profile Screen
 - **Hero section:** Cover gradient, avatar, display name, tagline, and CTA buttons (Edit profile, Share profile).
 - **Stats row:** Cards for Connections, Launchpad badges, Endorsements.
 - **Sections:** About, Experience timeline, Projects, Portfolio gallery, Launchpad progress, Volunteer history.
 - **Action footer:** Buttons for Message, Invite to project, Endorse.
+- **Edit mode:** Stepper-style editor for personal info, skills, availability, and showcase media with inline preview.
 
 ## Authentication & Onboarding
 - **Login:** Card with email/password fields, remember toggle, SSO placeholders, forgot password link, CTA button.
@@ -42,12 +45,17 @@
 ## Notifications & Inbox
 - **Notification centre:** Modal sheet listing grouped notifications (Projects, Launchpad, Volunteering) with mark-all read.
 - **Inbox:** Two-tab layout (Messages, Requests); conversation list shows avatar, snippet, timestamp; detail view includes attachments and quick actions.
+- **Request approval:** Dedicated screen summarising project invites with Accept/Decline CTA and context details.
+- **System alerts:** Inline banners for compliance reminders, profile completeness nudges, and launchpad milestone updates.
 
 ## Settings & Support
 - **Settings list:** Sections for Account, Preferences, Notifications, Security with toggles/switches.
 - **Support hub:** Search input, top articles, contact support CTA, and status of open tickets.
+- **Device management:** List of active sessions with revoke button, showing device type and last active timestamp.
+- **Privacy controls:** Toggles for profile visibility, data sharing preferences, and export data request CTA.
 
 ## Accessibility & Responsiveness
 - Supports large text with dynamic type scaling; cards reflow to ensure CTAs remain visible.
 - Landscape layout shifts to dual-pane for tablets: navigation rail left, content right.
 - VoiceOver/TalkBack labels provided for chips, buttons, and banners; semantics tags applied to lists for smooth navigation.
+- Orientation-specific hints ensure hero imagery compresses gracefully; bottom nav converts to rail on tablets with width ≥ 1024px.

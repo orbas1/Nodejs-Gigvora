@@ -25,17 +25,25 @@
 2. **Filtering & search:** Text input updates Riverpod state; controller fetches filtered results and updates UI in real time.
 3. **Empty/error states:** Lists display category-specific copy; offline banners and retry actions appear when repository errors occur.
 4. **CTA instrumentation:** Primary buttons call controller method to record engagement (apply, pitch, etc.) and optionally deep link to detail views.
+5. **Detail screen:** When opening a listing, detail controller fetches extended metadata, tracks view analytics, and exposes actions (save, share, apply) with optimistic state updates.
+6. **Bookmark sync:** Saved opportunities persist to secure storage and sync with backend when online; offline toggles queue updates.
 
 ## Launchpad & Volunteering Engagement
 1. **Program discovery:** Launchpad list emphasises track metadata; CTA leads to program detail flow (webview or native) with registration steps.
 2. **Volunteer missions:** Cards highlight organisation and location; CTA opens mission detail with ability to commit hours and sync to calendar.
+3. **Progress tracking:** Launchpad detail stream listens for module completion events and updates badges plus reminders schedule.
+4. **Calendar integration:** Volunteer commitments push to device calendar via permissioned API; cancellations update server and notify organisers.
 
 ## Profile & Community
 1. **Profile screen:** Loads user data, including stats and activity timeline; allows editing and share actions.
 2. **Connections & messaging:** Accept/decline invites update relationship state; messaging integration launches conversation threads.
 3. **Badges & progress:** Launchpad badges and volunteer history aggregated to display personal growth metrics.
+4. **Profile editing:** Multi-step form caches progress, validates sections, and only publishes once all mandatory fields satisfied.
+5. **Portfolio uploads:** Media uploads leverage background isolate to stream bytes; progress indicators update UI while ensuring resumable transfers.
 
 ## Notifications & Offline Behaviour
 1. **Notifications:** Polling/websocket events populate centre; tapping entry deep links to relevant screen and marks read.
 2. **Offline mode:** Offline cache serves last synced data; banners inform user and disable destructive actions until reconnection.
 3. **Error recovery:** Pull-to-refresh triggers forced repository refresh; persistent failures prompt support CTA.
+4. **Session watchdog:** Token expiry triggers forced logout sequence with prompt to re-authenticate, preserving unsent drafts locally.
+5. **Feature flags:** Remote config toggles new modules; caching ensures safe fallback when flags disabled mid-session.

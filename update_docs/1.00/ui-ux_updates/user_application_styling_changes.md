@@ -11,17 +11,24 @@
 - **Inputs:** Rounded 16px corners, filled backgrounds, accent-focused border on focus, label text in `#475569` for softer guidance.
 - **Chips:** Rounded 20px, pale blue background `#EFF6FF`, accent text; used for filters, metadata, and statuses.
 - **Cards:** Shared `GigvoraCard` widget with 24px radius, light border, and drop shadow `rgba(30,41,59,0.08)` to mimic web cards.
+- **Detail sections:** Section headers `text-lg font-semibold`, content blocks separated by `Divider()` using `Color(0xFFE2E8F0)`.
+- **Bottom sheets:** `RoundedRectangleBorder` radius 28px, top drag handle, accent-coloured confirm button pinned to safe area.
+- **List tiles:** 20px leading icons, 16px vertical padding, trailing arrow tinted accent for navigation clarity.
 
 ## Feedback & States
 - **Offline/Cache banners:** Amber/danger/neutral palettes for offline, error, and cache states with iconography aligning to Material tokens.
 - **Skeletons:** Placeholder shimmer for lists while fetching; emphasises continuity of layout to avoid jarring shifts.
 - **Snackbars:** Dark slate background, white bold text, floating behaviour for unobtrusive alerts.
+- **Success states:** `SnackBar` variant with accent background and white text for confirmation actions; confetti animation reserved for major milestones (profile completion, launchpad graduation).
+- **Error dialogs:** Use accent outline around modal, emphasise destructive CTA with red fill and safe secondary action.
 
 ## Motion & Transitions
 - Material motion defaults at ≤200ms; page transitions use standard fade-through to maintain perception of speed.
 - Pull-to-refresh uses stretching overscroll with accent indicator.
+- Shared axis transition for stepping through onboarding forms; hero animations for card-to-detail expansions.
 
 ## Accessibility
 - Minimum touch targets 48x48; haptic feedback for primary CTA presses and pull-to-refresh success.
 - Contrast ratios preserved for accent text on light surfaces; focus highlights shown for keyboard/controller navigation scenarios.
 - Semantic labelling ensures screen readers announce list counts, filter state, and CTA purpose.
+- Text scaling tested up to 200%; dynamic layout prevents truncated CTAs by enabling vertical scroll sections; voice control hints provided via tooltip overlays.

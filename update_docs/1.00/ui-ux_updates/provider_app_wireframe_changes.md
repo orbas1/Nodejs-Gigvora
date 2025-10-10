@@ -25,6 +25,12 @@
 - **Milestone review:** Card stack with deliverable preview, submission metadata, acceptance buttons, and dispute escalation link.
 - **File manager:** Grid of file tiles with preview thumbnails, storage badges (R2), and version history modal.
 
+## Opportunity & Candidate Detail Views
+- **Opportunity detail:** Dedicated page with hero summary, status badge, share/save icons, and quick metrics (views, applications, matches). Tabs for Overview, Requirements, Compensation, Applicants, Activity.
+- **Applicant roster:** Responsive table/cards showing avatar, tags, match score, application date, and stage. Inline actions for shortlist, schedule, decline.
+- **Candidate deep dive:** Split layout with resume preview, interview notes, rubric scoring slider, and CTA cluster (Advance, Offer, Decline, Request info).
+- **Offer builder:** Modal sequence capturing compensation package, start date, and contract attachments with preview before sending.
+
 ## Communications & Support
 - **Inbox:** Two-pane messaging layout with conversation list, unread counters, and quick filters (All, Projects, Launchpad, Disputes).
 - **Chat thread:** Header shows participant avatars, project tag, and quick actions (Schedule call, Open board). Composer supports attachments, slash commands for templates, and read receipts.
@@ -36,6 +42,13 @@
 - **Team management:** Table for team members with role dropdowns, invitation states, and permission chips (Projects, Ads, Finance).
 - **Brand assets:** Upload area for logos, cover imagery, and brand guidelines with live preview.
 - **Billing & escrow:** Accordion exposing payouts schedule, wallet balance, invoice download, and dispute ledger.
+- **Integration centre:** Cards for connecting ATS, calendar, CRM, and analytics with status chips and reconnect CTAs.
+
+## Analytics & Ads Command Centre
+- **Performance overview:** KPI tiles for application volume, conversion rate, cost-per-application, and launchpad engagement.
+- **Chart deck:** Line/bar/area charts with timeframe selectors, segmentation chips, and export buttons.
+- **Ads manager:** Campaign list with spend progress bars, status indicators, and quick edit/pause controls.
+- **Insights feed:** Recommendations cards highlighting underperforming listings, suggested budget adjustments, and trending skill gaps.
 
 ## Responsive & Accessibility Considerations
 - Desktop-first with collapsible sidebars for <1280px, responsive card stacking for tablet, and simplified single-column flows on mobile.

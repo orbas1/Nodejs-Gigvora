@@ -17,23 +17,33 @@
 - **Cards:** Hero feed preview, search results, testimonial quotes use consistent `border`, `bg-surface`, `rounded-3xl`, `shadow-xl shadow-accent/10` for emphasis.
 - **Badges & chips:** `rounded-full px-3 py-1` with accent/neutral variants; used in hero metrics, search metadata, and timeline entries.
 - **Status banners:** `border-slate-100 bg-surfaceMuted/80` for subtle messaging, amber/danger variations for alerts.
+- **Accordions & tabs:** `border-b border-slate-200` separators, accent indicator for active tab, smooth height transitions.
+- **Modal overlays:** `bg-slate-900/70` scrim, panel `rounded-3xl` with `p-8` padding, drop shadow `shadow-2xl shadow-slate-900/20`.
+- **Tables:** `table-auto w-full`, header `bg-slate-50 text-slate-500 uppercase tracking-[0.35em]`, row hover `bg-slate-50`.
 
 ## Forms & Inputs
 - **Inputs:** `rounded-full` or `rounded-3xl` shapes, `border-slate-200`, `focus:border-accent focus:ring-0`; placeholder text `text-slate-400`.
 - **Form sections:** `space-y-6` stacking, helper text `text-xs text-slate-500`, inline validation `text-rose-500` (to be standardised across flows).
+- **Multi-step forms:** Progress trackers using accent steps, `divide-y` separators, sticky summary column on desktop.
+- **File upload:** Dotted `border-2 border-dashed border-slate-300`, accent hover, inline preview thumbnails with `rounded-xl` mask.
 
 ## Imagery & Iconography
 - **Logos:** `LOGO_URL` used in header and hero feed card; sized via `h-12 w-auto` and `h-8 w-auto` for brand consistency.
 - **Icons:** Heroicons outline for nav toggle, command icons; sized `h-6 w-6` inside `rounded-full` buttons.
+- **Illustrations:** Gradient overlays `from-accent/10 via-white to-white` ensuring copy legible; drop shadows align with card system.
 
 ## Motion & Interaction
 - **Transitions:** `transition hover:-translate-y-0.5` on cards, `duration-300` for underline animations, `hover:shadow-soft` for interactive depth.
 - **Scroll behaviour:** Sticky header ensures nav accessible; gradient overlays fade as user scrolls, maintaining focus on content.
+- **Accordion animation:** `transition-[max-height] duration-300 ease-in-out` for FAQ/accordion components to convey openness.
+- **Button feedback:** `focus-visible:ring-4 focus-visible:ring-accent/30` for strong keyboard cues; `active:translate-y-0.5` for pressed state.
 
 ## Accessibility
 - **Focus states:** Buttons/links maintain default outline plus accent border on focus for keyboard navigation.
 - **Contrast:** Blue accent on white ensures ratio compliance; dark text on light gradients avoids readability issues.
 - **Responsive nav:** Mobile drawer ensures touch targets sized `px-4 py-2` with adequate spacing.
+- **ARIA labelling:** Tab/accordion components include `aria-expanded` & `aria-controls`; modal containers enforce focus trap.
+- **Skip links:** `sr-only focus:not-sr-only` pattern ensures accessible skip-to-content anchor at top of page.
 
 ## Documentation Reference
 - Expanded token tables, CSS variable mappings, and SCSS architecture are detailed in `Web Application Design Update/Version 1.00 update/` to standardise implementation across teams.

@@ -24,20 +24,27 @@
 - **Tables:** Zebra striping using `#F1F5F9`; sticky headers with subtle shadow for horizontal scroll contexts.
 - **Cards:** Compose header (title + status chip), body text, CTA row; optional footer for metadata like "Last updated".
 - **Stepper:** Accent progress bar with numbered dots, tooltips for upcoming steps, and inline error summary.
+- **Data visualisations:** Charts use monochromatic accent gradients with white gridlines; tooltips adopt dark slate background with white text.
+- **Modals/drawers:** Elevated surfaces `rgba(15,23,42,0.16)` overlay, `rounded-3xl`, `shadow-2xl` for clarity.
+- **Tag pills:** Soft `#E0F2FE` fill, uppercase 12px text, inner shadow for tactile feel.
 
 ## States & Feedback
 - **Loading:** Skeleton cards with animated shimmer; spinner reserved for blocking operations (publishing, exports).
 - **Empty:** Friendly illustration, message, and CTA (e.g., "Post your first opportunity").
 - **Error:** High-contrast banner with action button (Retry, Contact support); inline field errors highlight border in danger hue.
 - **Offline:** Amber banner pinned top-of-screen with reconnect CTA; cached data flagged with italic note.
+- **Success:** Toasts with green border accent, checkmark icon, auto-dismiss after 4 seconds unless action present.
+- **Warning:** Goldenrod border with subtle striped background to emphasise compliance alerts.
 
 ## Responsive Behaviour
 - Breakpoints align with 320/480/768/1024/1280/1536.
 - On tablet, cards stack vertically and steppers convert to vertical timeline.
 - On mobile, sticky bottom bar surfaces main actions; tables collapse into card lists with key fields stacked.
+- Large monitor (>1536px) introduces content max-width to prevent overly long line lengths and anchors analytics charts centrally.
 
 ## Accessibility & Compliance
 - Minimum contrast ratio 4.5:1 for text; 3:1 for large display type.
 - Focus state uses 3px accent outline + 2px white offset to ensure visibility on dark backgrounds.
 - Motion reduced mode disables parallax/blur backgrounds and uses fade transitions.
 - Support for keyboard/assistive navigation: skip-to-content link, logical tab order, ARIA labels on icons.
+- Descriptive alt text required on uploaded assets; modals trap focus until closed; high contrast mode toggles available in settings.
