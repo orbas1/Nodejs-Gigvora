@@ -1,6 +1,6 @@
 # Version 1.50 Design Task List
 
-## Task 1 – Token Library Consolidation (10% complete)
+## Task 1 – Token Library Consolidation (25% complete)
 **Objective:** Deliver a single source of truth for color, typography, spacing, and motion tokens across platforms.
 
 **Subtasks:**
@@ -10,7 +10,7 @@
 4. Publish token package to shared repository (JSON/Flutter/SCSS exports) with documentation.
 5. Conduct design-engineering review and adjust based on implementation feedback.
 
-## Task 2 – Navigation & IA Alignment (0% complete)
+## Task 2 – Navigation & IA Alignment (15% complete)
 **Objective:** Rebuild navigation structures ensuring cross-platform parity and persona-specific entry points.
 
 **Subtasks:**
@@ -20,13 +20,13 @@
 4. Validate IA via moderated tree tests and document findings.
 5. Deliver annotated navigation specs to engineering with fallback behaviours for edge cases.
 
-## Task 3 – Core Surface Redesign (0% complete)
+## Task 3 – Core Surface Redesign (10% complete)
 **Objective:** Refresh high-impact screens (dashboards, chat, feed, financial workflows) to align with Version 1.50 capabilities.
 
 **Subtasks:**
-1. Draft wireframes incorporating new data modules, KPIs, and action shortcuts.
+1. Draft wireframes incorporating new data modules, KPIs, and action shortcuts grounded in the curated seed dataset states (applications, messaging, notifications, provider workspaces).
 2. Translate wireframes into high-fidelity designs with componentized cards, charts, and overlays.
-3. Define chat and feed interaction states (online/offline, unread, moderation, error) and annotate transitions.
+3. Define chat and feed interaction states (online/offline, unread, moderation, error) and annotate transitions, including cache-aware refresh patterns surfaced by the new messaging/notification services.
 4. Document financial workflow visuals (escrow progress, trust scores, disputes) with compliance copy.
 5. Review surfaces with product/compliance stakeholders and capture approval notes.
 

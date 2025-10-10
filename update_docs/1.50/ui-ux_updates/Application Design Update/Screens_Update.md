@@ -26,6 +26,30 @@ Version 1.50 expands the phone app to 62 core screens organised across onboardin
 - **Escrow Timeline:** Integrated timeline showing escrow stages with CTA for release or dispute.
 - **Launchpad Coach:** Guided progress interface with readiness score and checklist.
 - **Volunteer Spotlight:** Dedicated screen to highlight volunteer opportunities with shareable cards.
+- **Secure Authentication Stack:** Revised login, MFA, and recovery screens with biometric confirmation hooks and rotation messaging.
+
+### Authentication – Login & MFA
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ AppBar: Logo centred | Help icon (top right)                                  │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ ContentStack                                                                   │
+│  • Heading ("Welcome back") + body copy referencing secure session hand-off    │
+│  • FormGroup 1: Email field (inline validation, helper text)                   │
+│  • FormGroup 2: Password field (toggle visibility, forgot link)                │
+│  • Primary CTA: "Request 2FA code" (disabled until valid input)               │
+│  • Secondary CTA: Link to password recovery                                    │
+│  • Inline status region for cooldown and lockout messaging                     │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ MFA Sheet (post-request)                                                       │
+│  • Countdown timer + resend button (appears after 60s)                         │
+│  • Code input (6 slots) with auto-advance + accessibility friendly fallback    │
+│  • Device fingerprint summary + "Trust this device" switch                     │
+│  • Secondary CTA: "Use authenticator app" (future)                            │
+│  • Warning banner when attempts >= 3                                           │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+- **Interactions:** Countdown disables resend until timer elapses. Lockout state replaces CTA with support escalation link.
 
 ## Deprecated Screens
 - Legacy “Messages” and “Support” tabs replaced by unified inbox.
@@ -114,6 +138,75 @@ The following blueprints translate the conceptual groupings above into concrete,
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 - **Interactions:** Swiping a thread reveals quick actions (Archive, Pin, Mark Read). Support wizard launches context-aware form.
+
+### Application Review Board
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ AppBar: "Applications" | SegmentControl(All / Shortlist / Interviews / Offers) │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ FilterRow: TargetType chips (Jobs, Gigs, Projects, Launchpad, Volunteer)       │
+│            Status dropdown (Submitted, Under Review, Hired, Rejected)         │
+│            DateRange picker + Export button                                   │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ TableHeader: Candidate | Role | Stage | Score | Updated | Actions              │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ ApplicationRow (loop):                                                        │
+│  • Column 1: Avatar + Name + Persona Chip                                    │
+│  • Column 2: Role title + Target workspace badge                              │
+│  • Column 3: Stage pill (colour-coded) + inline dropdown to advance stage     │
+│  • Column 4: Score dial (0-100) editable + tooltip linking to review history  │
+│  • Column 5: Relative timestamp + SLA badge                                   │
+│  • Column 6: Actions (Open review drawer, Send message, Archive)              │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ ReviewDrawer (slide over):                                                    │
+│  • Tabs: Overview | Notes | Audit Log                                         │
+│  • Overview shows cover letter preview, attachments, and metadata             │
+│  • Notes tab lists reviewer comments with timestamps                          │
+│  • Audit Log exposes status events referencing analytics + compliance IDs     │
+│  • Footer: Buttons [Advance Stage] [Reject] [Schedule Interview]              │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+- **Interactions:** Stage pill updates trigger confirmation modal with comment entry to ensure audit completeness; analytics event emitters capture stage change, rejection reason, and export usage.
+- **Data Contract:** Table rows hydrate from the sanitised `Application` service payload; suppressed metadata fields surface a "Limited visibility" chip and prompt refresh when cache invalidation callbacks fire.
+
+### Notification Preferences
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ AppBar: "Notification Settings" | CTA: Restore defaults                       │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ DeliveryGrid (cards for Push, Email, SMS, In-App)                             │
+│  • Each card includes toggle, digest frequency dropdown, quiet hour selector  │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ CategoryMatrix (table):                                                       │
+│  • Rows: System, Messages, Projects, Financial, Compliance, Marketing         │
+│  • Columns: Push, Email, SMS, In-App with checkboxes                          │
+│  • Last column: Escalation rule summary                                       │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ QuietHoursCard: Time pickers + timezone badge                                 │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ DigestPreview: Sample email preview with CTA to send test message             │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+- **Interactions:** Digest frequency change prompts toast confirming analytics tracking update. Quiet hours enforce validation to avoid overlap and display warning if compliance alerts disabled.
+- **Data Contract:** Channel toggles mirror `NotificationPreference` service responses, with inline banners when quiet-hour enforcement delays in-app delivery based on backend cache evaluation.
+
+### Provider Workspace Directory
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ AppBar: "Workspaces" | CTA: Create workspace                                 │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ StatsRow: Active count, Pending invites, Suspended                            │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ WorkspaceCards (grid):                                                        │
+│  • Card header: Workspace name + type pill (Agency/Company/Recruiter/Partner) │
+│  • Body: Owner avatar, timezone, default currency, intake email               │
+│  • Footer: Buttons [Open], [Manage Members], [View Notes]                     │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ InvitePanel (side): Pending invites list with resend/cancel actions           │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+- **Interactions:** Creating workspace launches modal capturing slug and compliance requirements. Manage Members opens nested screen aligning with provider membership statuses.
+- **Data Contract:** Member list and invite panes read from the provider workspace service with badge states derived from sanitised payload flags (`status`, `role`) and display audit chips when cache indicates pending invalidation.
 
 ### Settings Home
 ```

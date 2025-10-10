@@ -12,6 +12,9 @@
 - Buttons retain 12px radius with accent solid, outline, ghost, and destructive variants; loading states display inline spinner and disable repeated submission.
 - Tabs redesigned with underline indicator, responsive overflow dropdown, and preserved filter state in URL parameters.
 - Data visualisation updated with brand palette tokens (accent ramp, semantic success/warning/danger) and enriched tooltips referencing definitions.
+- Application tables adopt compact density with zebra striping, inline dropdowns for stage changes, and score dials using semantic gradients tied to analytics thresholds.
+- Notification centre cards inherit category accent borders, quiet-hour chips, and digest frequency badges consistent with the new preference controls.
+- Provider workspace cards utilise split headers featuring workspace type pill + status chip, while member modals share the same 16px radius and stacked button layout defined for admin flows.
 
 ## Imagery & Iconography
 - Updated icon library to duotone style on 24px grid with 1.5px stroke, aligning with new tokenised colour ramp.
@@ -24,6 +27,7 @@
 ## Accessibility
 - Ensured WCAG AA compliance across backgrounds/text combos.
 - Keyboard navigation improved with visible focus states and skip links.
+- Added aria-live regions for application stage confirmations, notification preference updates, and provider member invites to support assistive technologies.
 
 ## Documentation Alignment
 - Detailed styling tokens, component variants, and SCSS structure are captured in `Web Application Design Update/Stylings.md`, `Css.md`, and `Scss.md` to guide development implementation.

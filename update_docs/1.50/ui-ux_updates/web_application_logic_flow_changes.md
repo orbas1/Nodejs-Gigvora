@@ -3,6 +3,8 @@
 ## Authentication & Workspace Selection
 - Added unified login that routes users to previously active workspace (talent, provider, admin). Multi-tenant users receive workspace selector immediately after authentication.
 - MFA enforcement mirrors phone experience; fallback to hardware keys supported on desktop.
+- Introduced lockout rules (5 attempts / 15 minutes), resend cooldown timers, and device fingerprint capture feeding security dashboards.
+- Verification step now exposes contextual error messaging, audit log references, and links to incident response documentation.
 
 ## Dashboard Logic
 - Personalised dashboards built from modular widgets; logic prioritises compliance alerts, financial tasks, and pending communications.
@@ -13,9 +15,17 @@
 - Jobs board integrates ATS pipeline; moving candidates between stages triggers notifications and updates analytics.
 - Contest workflows enforce submission windows with automated status changes and scoreboard updates.
 
+## Applications & Talent Pipeline
+- Application management grid surfaces cross-entity candidates (jobs, gigs, projects, launchpad, volunteer) with stage progression controls and inline scoring tied to analytics rollups.
+- Review drawer records notes, attachments, and audit events, ensuring compliance logs and notification triggers execute per migration specifications.
+- Bulk actions (advance, reject, export) batch asynchronous jobs, surfacing status toasts and retry guidance for failed operations.
+- Sanitised payload awareness banner informs admins when sensitive metadata is withheld by the ORM service, offering a "request escalation" workflow and refreshing cached data on demand.
+
 ## Communication & Support
 - Persistent chat panel inherits context from current page. Support tickets spawn side drawers with knowledge base suggestions before submission.
 - Video call hand-off now available from chat for escalated disputes or onboarding sessions.
+- Notification centre honours category-level toggles, digest cadence, and quiet hours; overrides for compliance alerts bypass quiet hours with explicit warnings.
+- Messaging drawers respect cached read states supplied by the service layer, visually indicating when data is stale and offering manual refresh aligned to backend invalidation hooks.
 
 ## Financial Operations
 - Escrow and invoicing flows include audit trail access, bulk actions, and export options.
