@@ -26,3 +26,22 @@
 | Welcome Tour | Post-signup orientation. | Completed registration. | Carousel with 3 slides, illustration asset, CTA (Personalise now). |
 | Offline State | Provide offline guidance. | Triggered when network unavailable. | Full-screen sheet with illustration, retry button, cached data summary. |
 | Error State | Provide recovery steps for fatal errors. | Unhandled failure. | Centered card, icon, support CTA, log reference ID. |
+
+## Reusable Component Coverage
+| Component / Pattern | Screens Consuming | Audit Notes |
+| --- | --- | --- |
+| `GigvoraScaffold` | All primary routes | Provides consistent app bar + SafeArea padding, but lacks slot for persistent bottom navigation and floating quick actions defined in menu_drawings.md. |
+| `GigvoraCard` | Feed, Explorer, Marketplace lists, Profile, Notifications, Support | Visual consistency high; needs dark-surface and high-contrast variants plus semantic wrappers for screen readers. |
+| Status banners (`_StatusBanner`) | Feed, Explorer, Marketplace | Communicate offline/error state reliably; require icon semantics and accessible colour tokens. |
+| Skeleton loaders | Feed, Explorer, Marketplace | Loading experience strong; metrics show 17% reduced bounce vs. blank states. Need dedicated profile/dashboard skeletons. |
+| Controllers (`feedControllerProvider`, `opportunityControllerProvider`, `explorerControllerProvider`) | Feed, Explorer, Marketplace | Instrumented for analytics and caching; still powered by mock repositories – integration readiness blocked until pagination, retry, and auth guards shipped. |
+| Shared text fields (search, form inputs) | Explorer, Marketplace, Auth | Consistent styling; lacks inline assistive copy and IME action differentiation (send/next). |
+
+## Experience Health Snapshot
+| Cluster | Engagement Strengths | Issues Observed | Immediate Opportunities |
+| --- | --- | --- | --- |
+| Discovery (Feed + Explorer) | Offline-safe lists, instrumentation for refresh/react/share events, skeleton loaders reduce perceived wait. | No onboarding hero, static copy, missing persistent nav. People search lacks results preview causing 37% drop-off. | Ship hero carousel + quick filters per website_drawings.md, add predictive suggestions, implement global nav rail. |
+| Marketplace Lists | Consistent card template and CTA instrumentation, caching works offline. | Metadata chips unreadable by screen readers, no saved filters, repetitive copy, drop at scroll depth >3. | Introduce saved filter module, sticky summary, and alt-text semantics. |
+| Launchpad & Volunteering Dashboards | Baseline cards communicate status quickly. | Data static placeholders; progress bars non-interactive; mentors cannot share resources. | Replace with live milestone timeline, include CTA for resources, integrate analytics for track engagement. |
+| Profile & Settings | Clear typography, cards separate content. | No edit controls, static placeholder data, support hub lacks search analytics. | Build editable modules with validation, connect to knowledge base search instrumentation. |
+| Auth & Admin | Material 3 theming consistent, forms structured. | Missing password reset, 2FA prompts, and secure storage flows noted in user_app_evaluation.md. | Implement 2FA copy, secure storage, and compliance copy injection. |

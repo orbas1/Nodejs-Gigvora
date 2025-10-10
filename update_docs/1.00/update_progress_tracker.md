@@ -3,22 +3,27 @@
 ## Phone Application Design Track
 | Metric | Score (0-100%) | Evidence / Commentary |
 |--------|----------------|-----------------------|
-| Design Quality Grade | 62% | Core journeys mapped but hero carousel visual polish mid-fidelity; iconography overhaul pending. |
-| Design Organisation Grade | 68% | IA drafts organised; component library re-tagging still underway. |
-| Design Position Grade | 55% | Discovery vs. booking positioning articulated yet competitive narrative incomplete. |
-| Design Text Grade | 58% | Microcopy guidelines drafted; localisation validation outstanding. |
+| Design Quality Grade | 68% | Full-screen audit captured 22 routes with quantified issues, enabling prioritised remediation backlog. |
+| Design Organisation Grade | 74% | Inventory of screens/components completed; tracker updated with evidence links for engineering handoff. |
+| Design Position Grade | 58% | Stakeholder feedback logged, clarifying positioning between onboarding, discovery, and retention loops. |
+| Design Text Grade | 60% | Compliance/legal copy requirements captured for offline/error overlays; localisation review still pending. |
 | Design Colour Grade | 64% | Light/dark token coverage established; high-contrast palette pending accessibility review. |
 | Design Render Grade | 50% | 40% of hero states rendered in high fidelity; motion specs pending. |
-| Compliance Grade | 46% | Accessibility audit not yet executed; legal copy updates outstanding. |
+| Compliance Grade | 52% | Accessibility audit gaps documented (semantics, contrast, focus order) with remediation plan scheduled. |
 | Security Grade | 52% | Biometric screens identified; security review not scheduled. |
-| Design Functionality Grade | 60% | Booking stepper defined; payment error states need mapping. |
-| Design Images Grade | 48% | Placeholder imagery still used; asset library integration pending. |
-| Design Usability Grade | 57% | Guerrilla testing positive; formal study scheduled next sprint. |
+| Design Functionality Grade | 62% | Flow health assessment highlights CTA and navigation blockers with action items. |
+| Design Images Grade | 52% | Placeholder imagery still used; audit flagged asset sourcing priorities for hero and onboarding. |
+| Design Usability Grade | 61% | Analytics drop-offs quantified (feed bounce, explorer abandonment) to inform usability experiments. |
 | Bugs-Less Grade | 70% | Design debt documented with owners; validation ongoing. |
-| Test Grade | 40% | Draft usability protocol exists; no formal tests run. |
-| QA Grade | 38% | QA alignment meeting pending; test cases not authored. |
-| Design Accuracy Grade | 63% | Figma and specs mostly aligned; minor component variance noted. |
-| Overall Grade | 56% | Architectural direction solid; compliance, imagery, and testing lagging. |
+| Test Grade | 55% | Instrumentation review plus analytics baselines captured; moderated study scripts next. |
+| QA Grade | 45% | QA engaged with audit outputs; awaiting test case authoring in next sprint. |
+| Design Accuracy Grade | 65% | Specs reconciled with existing widgets; gaps logged for nav + CTA semantics. |
+| Overall Grade | 60% | Audit delivers production-grade baseline; compliance and rendering streams continue. |
+
+### Task Progress – Phone Application Track
+| Task | Status | Evidence / Notes |
+| --- | --- | --- |
+| Audit Current Mobile Experience | 100% | Inventory, analytics, accessibility, and stakeholder feedback captured in `Application Design Update.md`, `Screens_list.md`, and `Logic_Flow_map.md`. |
 
 ## Web Application Design Track
 | Metric | Score (0-100%) | Evidence / Commentary |
@@ -45,3 +50,4 @@
 - Prioritise imagery sourcing and asset management for both platforms.
 - Launch moderated usability studies to feed into milestone M3 deliverables.
 - Formalise QA engagement with component-level acceptance criteria and regression plans.
+- Convert mobile audit findings into annotated wireframes and accessibility backlog ahead of M1 sign-off.
