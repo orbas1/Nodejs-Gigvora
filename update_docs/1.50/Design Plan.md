@@ -47,6 +47,13 @@ The Version 1.50 design effort establishes a unified multi-platform experience t
 - Pair with engineering for design QA sign-off, tracking deviations and mitigation steps.
 - Establish design regression checklist and embed into CI visual testing workflow.
 
+### 4.6 Data Model Alignment & Instrumentation (Weeks 3-8)
+- Map the newly introduced applications, messaging, notification, analytics, and provider workspace tables to concrete UI states documented in the screen and logic update packs.
+- Provide event taxonomy overlays so every screen interaction (e.g., application review decision, message escalation, provider note creation) is tied to analytics identifiers captured in `analytics_events` and `analytics_daily_rollups`.
+- Coordinate with backend and data squads on migration rehearsal checkpoints to guarantee design artefacts remain consistent with production schemas and auditing expectations.
+- Partner with engineering on a production-grade seed dataset covering application stages, messaging threads, notification cadences, analytics rollups, and provider workspace membership so prototypes and QA reviews exercise realistic states.
+- Document sanitized response schemas for the new Sequelize service layer (applications, messaging, notifications, analytics, provider workspaces) so UI copy, IA, and accessibility guidance reflect only publicly exposed fields and caching behaviour.
+
 ## 5. Risks & Mitigations
 | Risk | Probability | Impact | Mitigation |
 | --- | --- | --- | --- |

@@ -1,6 +1,6 @@
 # Version 1.50 Milestone Plan
 
-## Milestone 1 – Security Foundations & Schema Enablement (Weeks 1-4, 0% complete)
+## Milestone 1 – Security Foundations & Schema Enablement (Weeks 1-4, 60% complete)
 **Goals:** Resolve critical authentication, security, and data model blockers before integrating new experiences.
 
 **Included Tasks:**
@@ -12,6 +12,8 @@
 - Production-ready auth lifecycle with MFA, RBAC, secure storage, and monitoring.
 - Expanded schema covering applications, messaging, notifications, analytics, provider tooling with validated seeds.
 - Tooling upgrades, env templates, CI bootstrap, and initial automated test suites.
+
+**Status:** Task 1 deliverables approved with automated regression coverage; Task 2 migrations, production-grade seed datasets, and the full ORM/service layer are validated end-to-end, unlocking analytics, messaging, notifications, and provider workspace QA environments. Remaining Task 2 documentation/test automation work plus the Task 6 tooling rollout stay in backlog.
 
 **Quality Gates & Tests:**
 - Security unit/integration suites covering JWT issuance, MFA throttling, RBAC enforcement.

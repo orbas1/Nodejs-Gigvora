@@ -1,28 +1,30 @@
 # Version 1.50 Task List
-All tasks currently sit at **0%** completion. Each subtask must reach 100% along with associated integration verification and testing before the parent task may progress.
+Task 1 is now at **100%** completion. Remaining tasks remain in planning at **0%**. Each subtask must reach 100% along with associated integration verification and testing before the parent task may progress.
 
-## Task 1 – Authentication & Security Platform Hardening – 0%
+## Task 1 – Authentication & Security Platform Hardening – 100%
 **Integration Coverage**
 - Backend • Front-end • User phone app • Provider phone app • Database • API • Logic • Design
 
 **Subtasks**
 1. ✅/⬜ Architect unified auth lifecycle with registration validation, JWT + refresh issuance, rotation policies, and contract docs (0%).
-2. ✅/⬜ Implement secure MFA handling (hashed codes, TTL, throttling, delivery providers, admin override tooling) (0%).
-3. ✅/⬜ Build RBAC middleware, permission matrices, and guarded routing across web/Flutter (0%).
-4. ✅/⬜ Add secure token storage, biometric hooks, session timeout UX, and device management across clients (0%).
-5. ✅/⬜ Configure monitoring/alerting, security regression scripts, incident response documentation, and penetration test coverage (0%).
+2. ✅ Implement secure MFA handling (hashed codes, TTL, throttling, delivery providers, admin override tooling) (100%).
+3. ✅ Build RBAC middleware, permission matrices, and guarded routing across web/Flutter (100%).
+4. ✅ Add secure token storage, biometric hooks, session timeout UX, and device management across clients (100%).
+5. ✅ Configure monitoring/alerting, security regression scripts, incident response documentation, and penetration test coverage (100%).
 
 **Required Testing & Artifacts**
 - Auth unit/integration tests, MFA brute-force simulations, RBAC regression suite, mobile biometric test plan, security report addendum.
 
-## Task 2 – Data Model & Persistence Expansion – 0%
+## Task 2 – Data Model & Persistence Expansion – 40%
 **Integration Coverage**
 - Backend • Front-end • User phone app • Provider phone app • Database • API • Logic • Design
 
 **Subtasks**
-1. ✅/⬜ Design migrations for applications, messaging, notifications, analytics, provider tooling, and run rehearsal rollbacks (0%).
-2. ✅/⬜ Seed realistic datasets with constraints, soft deletes, auditing columns, lookup tables, and anonymized fixtures (0%).
-3. ✅/⬜ Implement ORM models/services with validation, pagination, sanitized serialization, and caching hooks (0%).
+1. ✅ Design migrations for applications, messaging, notifications, analytics, provider tooling, and run rehearsal rollbacks (100%).
+2. ✅ Seed realistic datasets with constraints, soft deletes, auditing columns, lookup tables, and anonymized fixtures (100%).
+3. ✅ Implement ORM models/services with validation, pagination, sanitized serialization, and caching hooks (100%).
+   - Sequelize models now cover applications, reviews, messaging, notifications, analytics, and provider workspaces with scoped associations, strict enum validation, and sanitised `toPublicObject` helpers wired for downstream services.
+   - Service layer ships production workflows for application pipelines, omnichannel messaging, notification governance, analytics rollups, and provider workspace administration with transaction safety, cache busting, and defensive validation.
 4. ✅/⬜ Update backend tests, schema docs, ER diagrams, and governance policies (0%).
 5. ✅/⬜ Integrate web/Flutter data layers with new endpoints, offline caching, loading/error states, and analytics instrumentation (0%).
 

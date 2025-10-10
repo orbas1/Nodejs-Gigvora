@@ -14,6 +14,7 @@
    - Ship home dashboard variants, project workspace, jobs/gigs listings, and unified inbox.
    - Align with backend teams on escrow and dispute data handling.
    - Run usability tests with talent and client personas.
+   - Deliver application review board blueprint with stage management, scoring, and analytics audit feeds to mirror new schema.
 3. **Phase 3 – Engagement & Growth (Weeks 6-7)**
    - Implement live feed, post composer, recommendations hub, and Launchpad coach.
    - Integrate analytics instrumentation requirements.
@@ -22,6 +23,7 @@
    - Deliver ads manager, volunteer hub, agency dashboards, and contest workflows.
    - Conduct compliance review for FCA messaging and audit trails.
    - Finalise blueprint docs for volunteer spotlight, dispute timeline, and analytics drill-down flows.
+   - Document provider workspace directory, invite lifecycle, and compliance note screens aligned to provider tooling tables.
 5. **Phase 5 – Polish & Handoff (Weeks 10-11)**
    - Visual QA, motion refinement, and localization review.
    - Prepare handoff packages for engineering with Zeplin/Figma exports, redlines, and widget annotations.

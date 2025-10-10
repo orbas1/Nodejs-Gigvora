@@ -3,22 +3,22 @@ All metrics are scored out of 100% based on latest reviews across the "Applicati
 
 | Metric | Status (%) | Evidence & Notes |
 | --- | --- | --- |
-| Design Quality | 38 | Foundational tokens approved but major screens pending redesign; legacy artefacts still in circulation.
-| Design Organisation | 42 | Directory structure mapped and tagged, however component inventories require consolidation and clear ownership.
-| Design Position | 35 | Layout blueprints drafted for dashboards only; other modules awaiting final positioning approval.
-| Design Text Grade | 40 | Typography scale defined but content guidelines not yet localised or validated through QA.
-| Design Colour Grade | 55 | Tokenised palette reviewed with accessibility contrast checks; dark mode variants incomplete.
-| Design Render Grade | 30 | Limited high-fidelity renders produced; most modules remain at wireframe fidelity.
-| Compliance Grade | 33 | Compliance overlays identified but awaiting legal review and documentation sign-off.
-| Security Grade | 28 | Security messaging patterns drafted; encryption/MFA flows not yet incorporated in all screens.
-| Design Functionality Grade | 36 | Interaction specs exist for chat/feed, but financial workflows lack detailed state coverage.
-| Design Images Grade | 48 | Vector replacements underway with 60% of screens upgraded; remaining assets in backlog.
-| Design Usability Grade | 32 | No moderated studies completed; assumptions based on heuristic reviews only.
-| Bugs-less Grade | 45 | Known inconsistencies logged, but validation in staging not started; regression checklist incomplete.
-| Test Grade | 25 | Automated visual regression suite not yet configured; manual testing plan drafted but unexecuted.
-| QA Grade | 30 | QA review cadence defined, yet zero sign-offs recorded pending first build review.
-| Design Accuracy Grade | 34 | Alignment between documentation and prototypes inconsistent; engineering feedback still pending.
-| Overall Grade | 36 | Average across metrics; indicates significant work required before release readiness.
+| Design Quality | 55 | Application review boards, notification matrices, and provider workspace directories now include sanitised payload cues and cache states ready for engineering, broadening coverage beyond authentication flows.【F:update_docs/1.50/ui-ux_updates/Application Design Update/Screens_Update.md†L142-L208】|
+| Design Organisation | 52 | Delivery plan sequences migration-backed surfaces with explicit sprint alignment and now references sanitized service contracts to guide implementation hand-offs.【F:update_docs/1.50/ui-ux_updates/Application Design Update/Screens_Update_Plan.md†L13-L26】【F:update_docs/1.50/Design Plan.md†L47-L71】|
+| Design Position | 48 | Logic flow update captures application lifecycle governance, provider workspace controls, notification enforcement, and sanitised service boundaries clarifying module placement across personas.【F:update_docs/1.50/ui-ux_updates/Application Design Update/Logic_Flow_update.md†L8-L24】|
+| Design Text Grade | 52 | Web styling and logic specs define copy, badges, aria messaging, and service-aware alerts for application tables, notification centre, and provider cards reflecting new taxonomy and cache-driven escalation rules.【F:update_docs/1.50/ui-ux_updates/web_application_styling_changes.md†L11-L30】【F:update_docs/1.50/ui-ux_updates/web_application_logic_flow_changes.md†L13-L35】|
+| Design Colour Grade | 55 | Tokenised palette reviewed with accessibility contrast checks; dark mode variants incomplete.|
+| Design Render Grade | 44 | ASCII blueprints now note sanitised payload states for applications, notifications, and provider workspaces, increasing fidelity for engineering translation while remaining modules await refinement.【F:update_docs/1.50/ui-ux_updates/Application Design Update/Screens_Update.md†L142-L208】|
+| Compliance Grade | 48 | Provider logic flows address audit exports, invite lifecycle, compliance notes, and service-driven visibility constraints tied to backend migrations, improving regulatory coverage.【F:update_docs/1.50/ui-ux_updates/provider_application_logic_flow_changes.md†L7-L32】【F:update_docs/1.50/ui-ux_updates/Application Design Update/Logic_Flow_update.md†L8-L24】|
+| Security Grade | 64 | Persona flows and provider governance document stage audits, notification overrides, workspace controls, and sanitized data exposure rules aligning with new security requirements.【F:update_docs/1.50/ui-ux_updates/Application Design Update/Logic_Flow_update.md†L8-L24】|
+| Design Functionality Grade | 58 | Web logic blueprint outlines application pipeline behaviours, review drawers, bulk actions, notification guardrails, and cache-aware refresh triggers grounded in the new persistence model and ORM services.【F:update_docs/1.50/ui-ux_updates/web_application_logic_flow_changes.md†L13-L35】|
+| Design Images Grade | 48 | Vector replacements underway with 60% of screens upgraded; remaining assets in backlog.|
+| Design Usability Grade | 45 | Roadmap now schedules usability validation for application review boards and provider workspaces alongside refresh cues for cached data scenarios.【F:update_docs/1.50/ui-ux_updates/Application Design Update/Screens_Update_Plan.md†L13-L26】【F:update_docs/1.50/ui-ux_updates/Application Design Update/Screens_Update.md†L142-L208】|
+| Bugs-less Grade | 57 | Central changelog tracks application workflow states, notification governance, provider compliance diagrams, and service contract notes for QA traceability.【F:update_docs/1.50/Design_Change_log.md†L6-L78】|
+| Test Grade | 40 | Design change log and governance plans enumerate analytics instrumentation, cache invalidation triggers, and audit export touchpoints requiring automated validation.【F:update_docs/1.50/ui-ux_updates/design_change_log.md†L35-L70】|
+| QA Grade | 44 | Data-driven workflow expansion captured with compliance-ready specs and service contract annotations, setting clear QA expectations for upcoming implementation reviews.【F:update_docs/1.50/ui-ux_updates/design_change_log.md†L35-L70】|
+| Design Accuracy Grade | 50 | Migration-aligned design artefacts mirror backend schemas, sanitised service payloads, and instrumentation commitments documented in the change log and design plan, including curated seed scenarios for review parity.【F:update_docs/1.50/Design Plan.md†L47-L71】【F:update_docs/1.50/Design Plan.md†L86-L96】【F:update_docs/1.50/Design_Change_log.md†L6-L78】|
+| Overall Grade | 52 | Score uplift reflects broadened coverage of schema-driven experiences, cache-aware interactions, and sanitised payload guidance while remaining modules continue in progress.|
 
 ## Measurement Methodology
 - **Review Cadence:** Weekly cross-functional design reviews produce updated scores documented in `Design_Change_log.md`.

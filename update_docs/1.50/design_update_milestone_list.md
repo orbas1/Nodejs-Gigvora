@@ -1,12 +1,15 @@
 # Version 1.50 Design Milestone Plan
 
-## Milestone 1 – Foundations & Tokenisation (Week 1, 10% complete)
+## Milestone 1 – Foundations & Tokenisation (Week 1, 35% complete)
 **Objectives:** Establish shared design language, audit current debt, and publish token libraries required for downstream work.
 
 **Deliverables:**
 - Color, typography, elevation, spacing, and motion tokens distributed to engineering repositories.
 - Updated accessibility baseline report highlighting urgent parity gaps.
 - Signed-off IA draft for mobile and web navigation.
+- Applications/messaging/provider workspace flows documented with analytics instrumentation notes to mirror new persistence layer rollout.
+- Reference dataset scenarios mapped to seeded backend tables so prototypes and QA flows surface production-grade states during reviews.
+- Sanitised service payload matrix outlining fields exposed by the ORM-backed APIs, cache lifetimes, and associated UI messaging rules.
 
 **Entry/Exit Criteria:**
 - Entry: Kick-off sign-off, access to legacy designs, compliance requirements captured.

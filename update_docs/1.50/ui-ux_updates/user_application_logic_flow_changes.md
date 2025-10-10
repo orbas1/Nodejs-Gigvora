@@ -19,6 +19,7 @@
 - **Jobs & Gigs Filters:** Preference profiles (skills, rates, locations) inform default filter states. Saved searches can trigger push/email alerts.
 - **Auto-Assign Handling:** When auto-assigned, talent receives modal with accept/decline actions and recommended next steps. Declines request reason to feed analytics.
 - **Recommendations:** Launchpad readiness score influences gig/job suggestions, highlighting prerequisites when not yet eligible.
+- **Application Review Visibility:** Candidates can track stage progression, see reviewer notes once shared, and receive system notifications when status updates trigger compliance or SLA thresholds.
 
 ## Communication & Support
 - **Unified Inbox:** Conversations grouped by type. Opening a thread loads contextual actions (approve offer, open dispute). Support tickets escalate with SLA tags and transcript export options.
@@ -31,6 +32,7 @@
 ## Settings & Preferences
 - **Notification Controls:** Users can configure delivery channel per category (push, email, in-app). Quiet hours supported.
 - **Privacy:** Toggle for profile visibility (public, invite-only, hidden). Job seekers can mask employer details while still applying.
+- **Analytics & History:** Notification preference changes log to activity history so users can audit digest, quiet hour, and escalation overrides.
 
 ## Error Recovery
 - **Offline Drafts:** Posts, applications, and messages store locally until sync. Conflicts prompt merge dialog.
