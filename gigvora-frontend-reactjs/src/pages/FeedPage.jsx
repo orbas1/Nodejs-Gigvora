@@ -27,35 +27,38 @@ const samplePosts = [
 export default function FeedPage() {
   return (
     <section className="relative overflow-hidden py-20">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(0,245,201,0.08),_transparent_65%)]" aria-hidden="true" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(191,219,254,0.35),_transparent_65%)]" aria-hidden="true" />
       <div className="relative mx-auto max-w-5xl px-6">
         <PageHeader
           eyebrow="Live feed"
           title="Real-time stories, launches, and wins"
           description="See what freelancers, agencies, companies, and communities are building across the Gigvora network."
           actions={(
-            <button className="rounded-full bg-accent px-5 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-accent/30 transition hover:shadow-accent/50">
+            <button className="rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark">
               Share an update
             </button>
           )}
         />
         <div className="space-y-6">
           {samplePosts.map((post) => (
-            <article key={post.id} className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-lg shadow-black/10 transition hover:border-accent/40 hover:bg-white/10">
-              <div className="flex items-center justify-between text-xs text-white/50">
+            <article
+              key={post.id}
+              className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-soft"
+            >
+              <div className="flex items-center justify-between text-xs text-slate-400">
                 <span>{post.role}</span>
                 <span>{post.time}</span>
               </div>
-              <h2 className="mt-3 text-lg font-semibold text-white">{post.author}</h2>
-              <p className="mt-2 text-sm text-white/70">{post.content}</p>
-              <div className="mt-4 flex flex-wrap gap-3 text-xs text-white/60">
-                <button className="rounded-full border border-white/15 px-4 py-2 transition hover:border-accent/40 hover:text-white">
+              <h2 className="mt-3 text-lg font-semibold text-slate-900">{post.author}</h2>
+              <p className="mt-2 text-sm text-slate-600">{post.content}</p>
+              <div className="mt-4 flex flex-wrap gap-3 text-xs text-slate-500">
+                <button className="rounded-full border border-slate-200 px-4 py-2 transition hover:border-accent hover:text-accent">
                   React
                 </button>
-                <button className="rounded-full border border-white/15 px-4 py-2 transition hover:border-accent/40 hover:text-white">
+                <button className="rounded-full border border-slate-200 px-4 py-2 transition hover:border-accent hover:text-accent">
                   Comment
                 </button>
-                <button className="rounded-full border border-white/15 px-4 py-2 transition hover:border-accent/40 hover:text-white">
+                <button className="rounded-full border border-slate-200 px-4 py-2 transition hover:border-accent hover:text-accent">
                   Share
                 </button>
               </div>

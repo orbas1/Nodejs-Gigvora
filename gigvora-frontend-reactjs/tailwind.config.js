@@ -4,12 +4,17 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: '#0b0b0b',
-        accent: '#00f5c9',
-        secondary: '#1f2933',
+        accent: '#2563eb',
+        accentSoft: '#dbeafe',
+        accentDark: '#1d4ed8',
+        surface: '#ffffff',
+        surfaceMuted: '#f1f5f9',
       },
       fontFamily: {
         inter: ['"Inter"', 'sans-serif'],
+      },
+      boxShadow: {
+        soft: '0 20px 45px -25px rgba(37, 99, 235, 0.35)',
       },
     },
   },

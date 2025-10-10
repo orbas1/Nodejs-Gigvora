@@ -19,7 +19,7 @@ export default function SearchPage() {
 
   return (
     <section className="relative overflow-hidden py-20">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom,_rgba(0,245,201,0.1),_transparent_60%)]" aria-hidden="true" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom,_rgba(191,219,254,0.35),_transparent_65%)]" aria-hidden="true" />
       <div className="relative mx-auto max-w-6xl px-6">
         <PageHeader
           eyebrow="Explorer"
@@ -34,8 +34,8 @@ export default function SearchPage() {
               onClick={() => setSelectedCategory(category)}
               className={`rounded-full px-4 py-2 transition ${
                 selectedCategory === category
-                  ? 'bg-accent text-slate-950 shadow shadow-accent/40'
-                  : 'border border-white/15 text-white/70 hover:border-accent/40 hover:text-white'
+                  ? 'bg-accent text-white shadow-soft'
+                  : 'border border-slate-200 text-slate-600 hover:border-accent hover:text-accent'
               }`}
             >
               {category}
@@ -44,11 +44,14 @@ export default function SearchPage() {
         </div>
         <div className="mt-10 grid gap-5">
           {filteredResults.map((result) => (
-            <article key={result.id} className="rounded-3xl border border-white/10 bg-white/5 p-6 transition hover:border-accent/40 hover:bg-white/10">
-              <span className="text-xs font-semibold uppercase tracking-[0.35em] text-accent">{result.category}</span>
-              <h2 className="mt-3 text-lg font-semibold text-white">{result.title}</h2>
-              <p className="mt-2 text-sm text-white/70">{result.description}</p>
-              <button className="mt-5 inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-xs font-semibold text-white/80 transition hover:border-accent/50 hover:text-white">
+            <article
+              key={result.id}
+              className="rounded-3xl border border-slate-200 bg-white p-6 transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-soft"
+            >
+              <span className="text-xs font-semibold uppercase tracking-[0.35em] text-accentDark">{result.category}</span>
+              <h2 className="mt-3 text-lg font-semibold text-slate-900">{result.title}</h2>
+              <p className="mt-2 text-sm text-slate-600">{result.description}</p>
+              <button className="mt-5 inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent">
                 View details <span aria-hidden="true">→</span>
               </button>
             </article>

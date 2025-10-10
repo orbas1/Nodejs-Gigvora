@@ -4,10 +4,9 @@ import Footer from '../components/Footer.jsx';
 
 export default function MainLayout() {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-slate-950 text-white">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(0,245,201,0.08),_transparent_55%)]" />
-      <div className="pointer-events-none absolute -top-40 right-0 h-96 w-96 rounded-full bg-accent/10 blur-3xl" />
-      <div className="pointer-events-none absolute bottom-0 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-accent/5 blur-3xl" />
+    <div className="relative min-h-screen bg-gradient-to-b from-white via-white to-surfaceMuted text-slate-900">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-[radial-gradient(circle_at_top,_rgba(37,99,235,0.15),_transparent_60%)]" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-1/4 bg-[radial-gradient(circle_at_top_right,_rgba(219,234,254,0.7),_transparent_65%)] lg:block" />
       <div className="relative z-10 flex min-h-screen flex-col">
         <Header />
         <main className="flex-1">

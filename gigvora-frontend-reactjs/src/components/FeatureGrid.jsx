@@ -19,20 +19,23 @@ const features = [
 
 export default function FeatureGrid() {
   return (
-    <section className="border-y border-white/5 bg-slate-950/70 py-20">
+    <section className="border-y border-slate-200/70 bg-white py-20">
       <div className="mx-auto max-w-6xl px-6">
         <div className="mb-14 max-w-2xl space-y-4">
-          <h2 className="text-3xl font-semibold text-white sm:text-4xl">Everything you need to launch, hire, and grow</h2>
-          <p className="text-base text-white/70">
+          <h2 className="text-3xl font-semibold text-slate-900 sm:text-4xl">Everything you need to launch, hire, and grow</h2>
+          <p className="text-base text-slate-600">
             Gigvora fuses marketplace capabilities with a professional community so freelancers, companies, agencies, and career seekers each have a tailored home base.
           </p>
         </div>
         <div className="grid gap-6 md:grid-cols-2">
           {features.map((feature) => (
-            <div key={feature.title} className="group relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900/90 via-slate-900 to-slate-950 p-8 transition duration-300 hover:border-accent/50 hover:shadow-xl hover:shadow-accent/10">
-              <div className="absolute -top-8 -right-6 h-24 w-24 rounded-full bg-accent/5 blur-2xl transition duration-300 group-hover:bg-accent/20" aria-hidden="true" />
-              <h3 className="text-xl font-semibold text-white">{feature.title}</h3>
-              <p className="mt-3 text-sm text-white/70">{feature.description}</p>
+            <div
+              key={feature.title}
+              className="group relative overflow-hidden rounded-3xl border border-slate-200 bg-surface p-8 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-accent/60 hover:shadow-soft"
+            >
+              <div className="absolute -top-10 -right-8 h-24 w-24 rounded-full bg-accentSoft blur-2xl transition duration-300 group-hover:bg-accent/30" aria-hidden="true" />
+              <h3 className="text-xl font-semibold text-slate-900">{feature.title}</h3>
+              <p className="mt-3 text-sm text-slate-600">{feature.description}</p>
             </div>
           ))}
         </div>

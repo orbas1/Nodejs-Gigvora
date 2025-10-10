@@ -34,26 +34,26 @@ export default function CompanyRegisterPage() {
 
   return (
     <section className="relative overflow-hidden py-20">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(0,245,201,0.12),_transparent_60%)]" aria-hidden="true" />
-      <div className="absolute left-12 top-1/2 h-72 w-72 -translate-y-1/2 rounded-full bg-accent/10 blur-3xl" aria-hidden="true" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(191,219,254,0.4),_transparent_65%)]" aria-hidden="true" />
+      <div className="absolute left-12 top-1/2 h-72 w-72 -translate-y-1/2 rounded-full bg-accent/20 blur-3xl" aria-hidden="true" />
       <div className="relative mx-auto max-w-5xl px-6">
         <PageHeader
           eyebrow="Partner with Gigvora"
           title={`Build your ${type === 'company' ? 'company' : 'agency'} hub`}
           description="Set up a branded home to recruit talent, post gigs, and collaborate with the Gigvora network."
           actions={(
-            <div className="flex rounded-full border border-white/15 bg-slate-950/70 p-1 text-xs font-semibold">
+            <div className="flex rounded-full border border-slate-200 bg-surfaceMuted p-1 text-xs font-semibold">
               <button
                 type="button"
                 onClick={() => setType('company')}
-                className={`flex-1 rounded-full px-4 py-2 transition ${type === 'company' ? 'bg-accent text-slate-950' : 'text-white/70'}`}
+                className={`flex-1 rounded-full px-4 py-2 transition ${type === 'company' ? 'bg-accent text-white' : 'text-slate-600 hover:text-accent'}`}
               >
                 Company
               </button>
               <button
                 type="button"
                 onClick={() => setType('agency')}
-                className={`flex-1 rounded-full px-4 py-2 transition ${type === 'agency' ? 'bg-accent text-slate-950' : 'text-white/70'}`}
+                className={`flex-1 rounded-full px-4 py-2 transition ${type === 'agency' ? 'bg-accent text-white' : 'text-slate-600 hover:text-accent'}`}
               >
                 Agency
               </button>
@@ -61,10 +61,10 @@ export default function CompanyRegisterPage() {
           )}
         />
         <div className="grid gap-10 lg:grid-cols-[1.2fr,0.8fr] lg:items-start">
-          <form onSubmit={handleSubmit} className="space-y-6 rounded-3xl border border-white/10 bg-white/5 p-10 shadow-2xl shadow-accent/10">
+          <form onSubmit={handleSubmit} className="space-y-6 rounded-3xl border border-slate-200 bg-white p-10 shadow-soft">
             <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-2">
-                <label htmlFor="companyName" className="text-sm font-medium text-white">
+                <label htmlFor="companyName" className="text-sm font-medium text-slate-700">
                   {type === 'company' ? 'Company' : 'Agency'} name
                 </label>
                 <input
@@ -72,12 +72,12 @@ export default function CompanyRegisterPage() {
                   name="companyName"
                   value={form.companyName}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-sm text-white outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/40"
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                   required
                 />
               </div>
               <div className="space-y-2">
-                <label htmlFor="website" className="text-sm font-medium text-white">
+                <label htmlFor="website" className="text-sm font-medium text-slate-700">
                   Website
                 </label>
                 <input
@@ -85,12 +85,12 @@ export default function CompanyRegisterPage() {
                   name="website"
                   value={form.website}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-sm text-white outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/40"
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                   placeholder="https://"
                 />
               </div>
               <div className="md:col-span-2 space-y-2">
-                <label htmlFor="focusArea" className="text-sm font-medium text-white">
+                <label htmlFor="focusArea" className="text-sm font-medium text-slate-700">
                   Focus area / mission
                 </label>
                 <textarea
@@ -99,11 +99,11 @@ export default function CompanyRegisterPage() {
                   value={form.focusArea}
                   onChange={handleChange}
                   rows={3}
-                  className="w-full rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-sm text-white outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/40"
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                 />
               </div>
               <div className="space-y-2">
-                <label htmlFor="contactName" className="text-sm font-medium text-white">
+                <label htmlFor="contactName" className="text-sm font-medium text-slate-700">
                   Primary contact
                 </label>
                 <input
@@ -111,12 +111,12 @@ export default function CompanyRegisterPage() {
                   name="contactName"
                   value={form.contactName}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-sm text-white outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/40"
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                   required
                 />
               </div>
               <div className="space-y-2">
-                <label htmlFor="email" className="text-sm font-medium text-white">
+                <label htmlFor="email" className="text-sm font-medium text-slate-700">
                   Contact email
                 </label>
                 <input
@@ -125,12 +125,12 @@ export default function CompanyRegisterPage() {
                   type="email"
                   value={form.email}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-sm text-white outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/40"
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                   required
                 />
               </div>
               <div className="space-y-2">
-                <label htmlFor="teamSize" className="text-sm font-medium text-white">
+                <label htmlFor="teamSize" className="text-sm font-medium text-slate-700">
                   Team size
                 </label>
                 <input
@@ -138,11 +138,11 @@ export default function CompanyRegisterPage() {
                   name="teamSize"
                   value={form.teamSize}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-sm text-white outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/40"
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                 />
               </div>
               <div className="space-y-2">
-                <label htmlFor="location" className="text-sm font-medium text-white">
+                <label htmlFor="location" className="text-sm font-medium text-slate-700">
                   HQ location
                 </label>
                 <input
@@ -150,17 +150,20 @@ export default function CompanyRegisterPage() {
                   name="location"
                   value={form.location}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-sm text-white outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/40"
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                 />
               </div>
             </div>
-            <button type="submit" className="w-full rounded-full bg-accent px-8 py-3 text-base font-semibold text-slate-950 shadow-lg shadow-accent/30 transition hover:shadow-accent/50">
+            <button
+              type="submit"
+              className="w-full rounded-full bg-accent px-8 py-3 text-base font-semibold text-white shadow-soft transition hover:bg-accentDark"
+            >
               Launch {type === 'company' ? 'company' : 'agency'} hub
             </button>
           </form>
-          <aside className="space-y-6 rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900/80 via-slate-900 to-slate-950 p-8">
-            <h2 className="text-xl font-semibold text-white">Why partners love Gigvora</h2>
-            <ul className="space-y-4 text-sm text-white/70">
+          <aside className="space-y-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+            <h2 className="text-xl font-semibold text-slate-900">Why partners love Gigvora</h2>
+            <ul className="space-y-4 text-sm text-slate-600">
               {partnershipPillars.map((item) => (
                 <li key={item} className="flex gap-3">
                   <span className="mt-1 inline-flex h-2.5 w-2.5 rounded-full bg-accent" aria-hidden="true" />
@@ -168,8 +171,8 @@ export default function CompanyRegisterPage() {
                 </li>
               ))}
             </ul>
-            <div className="rounded-2xl border border-white/10 bg-slate-950/70 p-5 text-sm text-white/70">
-              <p className="font-semibold text-white">Dedicated success team</p>
+            <div className="rounded-2xl border border-slate-200 bg-surfaceMuted p-5 text-sm text-slate-600">
+              <p className="font-semibold text-slate-900">Dedicated success team</p>
               <p className="mt-2">
                 Our concierge crew helps craft your first listings, migrate applicants, and launch branded campaigns that mirror the Gigvora aesthetic.
               </p>

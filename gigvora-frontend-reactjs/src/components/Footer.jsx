@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { LOGO_URL } from '../constants/branding.js';
 
 const footerLinks = [
   { label: 'About', to: '/about' },
@@ -9,9 +10,13 @@ const footerLinks = [
 
 export default function Footer() {
   return (
-    <footer className="border-t border-white/10 bg-slate-950/80">
-      <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-10 text-sm text-white/60 md:flex-row md:items-center md:justify-between">
-        <p className="text-white/50">&copy; {new Date().getFullYear()} Gigvora. Crafted for modern talent ecosystems.</p>
+    <footer className="border-t border-slate-200 bg-white/90">
+      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-6 py-12 text-sm text-slate-500 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-3 text-slate-600">
+          <img src={LOGO_URL} alt="Gigvora" className="h-9 w-auto" />
+          <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Gigvora</p>
+        </div>
+        <p className="text-slate-500">&copy; {new Date().getFullYear()} Gigvora. Crafted for modern talent ecosystems.</p>
         <nav className="flex flex-wrap items-center gap-4">
           {footerLinks.map((item) => (
             <Link key={item.label} to={item.to} className="transition hover:text-accent">
