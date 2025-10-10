@@ -1,23 +1,27 @@
+import { useMemo, useState } from 'react';
 import PageHeader from '../components/PageHeader.jsx';
-
-const projects = [
-  {
-    id: 1,
-    title: 'Experience Launchpad Sprint 03',
-    summary: 'A 6-week product build pairing founders with rising talent to ship MVP experiments.',
-    collaborators: 24,
-    stage: 'Accepting applications',
-  },
-  {
-    id: 2,
-    title: 'Creator Studio Collective',
-    summary: 'Cross-functional storytellers teaming up with agencies on branded podcast pilots.',
-    collaborators: 18,
-    stage: 'In progress',
-  },
-];
+import DataStatus from '../components/DataStatus.jsx';
+import useOpportunityListing from '../hooks/useOpportunityListing.js';
+import analytics from '../services/analytics.js';
+import { formatRelativeTime } from '../utils/date.js';
 
 export default function ProjectsPage() {
+  const [query, setQuery] = useState('');
+  const { data, error, loading, fromCache, lastUpdated, refresh, debouncedQuery } = useOpportunityListing('projects', query, {
+    pageSize: 25,
+  });
+
+  const listing = data ?? {};
+  const items = useMemo(() => (Array.isArray(listing.items) ? listing.items : []), [listing.items]);
+
+  const handleJoin = (project) => {
+    analytics.track(
+      'web_project_join_cta',
+      { id: project.id, title: project.title, query: debouncedQuery || null },
+      { source: 'web_app' },
+    );
+  };
+
   return (
     <section className="relative overflow-hidden py-20">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(191,219,254,0.35),_transparent_65%)]" aria-hidden="true" />
@@ -26,20 +30,68 @@ export default function ProjectsPage() {
           eyebrow="Projects"
           title="Co-create on mission-driven initiatives"
           description="Join collaborative squads building products, content, and community programs across the Gigvora ecosystem."
+          meta={
+            <DataStatus
+              loading={loading}
+              fromCache={fromCache}
+              lastUpdated={lastUpdated}
+              onRefresh={() => refresh({ force: true })}
+            />
+          }
         />
+        <div className="mb-6 max-w-xl">
+          <label className="sr-only" htmlFor="project-search">
+            Search projects
+          </label>
+          <input
+            id="project-search"
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search by domain, collaborators, or status"
+            className="w-full rounded-full border border-slate-200 bg-white px-5 py-3 text-sm shadow-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
+          />
+        </div>
+        {error ? (
+          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            Unable to load the latest projects. {error.message || 'Please refresh to sync the current initiatives.'}
+          </div>
+        ) : null}
+        {loading && !items.length ? (
+          <div className="space-y-4">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className="animate-pulse rounded-3xl border border-slate-200 bg-white p-6">
+                <div className="h-3 w-1/4 rounded bg-slate-200" />
+                <div className="mt-3 h-4 w-2/3 rounded bg-slate-200" />
+                <div className="mt-2 h-3 w-full rounded bg-slate-200" />
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {!loading && !items.length ? (
+          <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
+            {debouncedQuery
+              ? 'No collaborative projects match your filters. Try expanding your criteria.'
+              : 'Project cohorts from Gigvora teams and partners will appear here as they go live.'}
+          </div>
+        ) : null}
         <div className="space-y-6">
-          {projects.map((project) => (
+          {items.map((project) => (
             <article
               key={project.id}
               className="rounded-3xl border border-slate-200 bg-white p-6 transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-soft"
             >
               <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
-                <span>{project.stage}</span>
-                <span>{project.collaborators} collaborators</span>
+                {project.status ? <span>{project.status}</span> : null}
+                <span className="text-slate-400">Updated {formatRelativeTime(project.updatedAt)}</span>
               </div>
               <h2 className="mt-3 text-xl font-semibold text-slate-900">{project.title}</h2>
-              <p className="mt-2 text-sm text-slate-600">{project.summary}</p>
-              <button className="mt-5 inline-flex items-center gap-2 rounded-full border border-slate-200 px-5 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent">
+              <p className="mt-2 text-sm text-slate-600">{project.description}</p>
+              <button
+                type="button"
+                onClick={() => handleJoin(project)}
+                className="mt-5 inline-flex items-center gap-2 rounded-full border border-slate-200 px-5 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+              >
                 Join project <span aria-hidden="true">→</span>
               </button>
             </article>

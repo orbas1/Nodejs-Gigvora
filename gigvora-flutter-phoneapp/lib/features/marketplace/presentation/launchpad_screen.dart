@@ -1,53 +1,23 @@
 import 'package:flutter/material.dart';
-import '../../../theme/widgets.dart';
+
+import '../data/models/opportunity.dart';
+import 'opportunity_list.dart';
 
 class LaunchpadScreen extends StatelessWidget {
   const LaunchpadScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final cohorts = [
-      {
-        'name': 'Launchpad Cohort • Product Builders',
-        'dates': 'June 2024',
-        'mentors': 'Mentors: Ava Founder, Leo Freelancer',
-      },
-      {
-        'name': 'Launchpad Cohort • Creative Producers',
-        'dates': 'August 2024',
-        'mentors': 'Mentors: Nova Agency, Atlas Studios',
-      },
-    ];
-
-    return GigvoraScaffold(
+    return OpportunityListScreen(
+      category: OpportunityCategory.launchpad,
       title: 'Experience Launchpad',
       subtitle: 'Mentored sprints to accelerate your experience',
-      body: ListView.separated(
-        itemCount: cohorts.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (context, index) {
-          final cohort = cohorts[index];
-          return GigvoraCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(cohort['name']!, style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 4),
-                Text(
-                  cohort['dates']!,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                ),
-                const SizedBox(height: 4),
-                Text(cohort['mentors']!, style: Theme.of(context).textTheme.bodySmall),
-                const SizedBox(height: 12),
-                ElevatedButton(onPressed: () {}, child: const Text('Apply to cohort')),
-              ],
-            ),
-          );
-        },
-      ),
+      ctaLabel: 'Apply to cohort',
+      searchPlaceholder: 'Search cohorts by track or mentor',
+      emptyDefaultMessage:
+          'Cohorts unlock as new sprints go live. Check back soon for upcoming launchpad programmes.',
+      emptySearchMessage:
+          'No cohorts matched those filters yet. Try another keyword or refresh for the latest schedule.',
     );
   }
 }

@@ -30,7 +30,7 @@
 4. Document financial workflow visuals (escrow progress, trust scores, disputes) with compliance copy.
 5. Review surfaces with product/compliance stakeholders and capture approval notes.
 
-**Progress Update:** Schema overview, ER diagram, and governance pack are published to keep redesign decisions aligned with sanitised payloads, retention requirements, and automated QA coverage.【F:gigvora-backend-nodejs/docs/schema-overview.md†L3-L52】【F:gigvora-backend-nodejs/docs/er-diagram.md†L1-L33】【F:gigvora-backend-nodejs/docs/data-governance.md†L3-L25】【F:gigvora-backend-nodejs/tests/applicationService.test.js†L1-L84】
+**Progress Update:** Schema overview, ER diagram, and governance pack are published to keep redesign decisions aligned with sanitised payloads, retention requirements, and automated QA coverage.【F:gigvora-backend-nodejs/docs/schema-overview.md†L3-L52】【F:gigvora-backend-nodejs/docs/er-diagram.md†L1-L33】【F:gigvora-backend-nodejs/docs/data-governance.md†L3-L25】【F:gigvora-backend-nodejs/tests/applicationService.test.js†L1-L84】 Flutter feed, marketplace, and explorer flows now mirror those artefacts with offline banners, cache messaging, and analytics cues wired into production repositories, providing concrete interaction patterns for design QA.【F:gigvora-flutter-phoneapp/lib/features/feed/presentation/feed_screen.dart†L1-L213】【F:gigvora-flutter-phoneapp/lib/features/marketplace/presentation/opportunity_list.dart†L1-L189】【F:gigvora-flutter-phoneapp/lib/features/explorer/presentation/explorer_screen.dart†L1-L278】
 
 ## Task 4 – Accessibility & Compliance Readiness (0% complete)
 **Objective:** Ensure all redesigned assets meet WCAG 2.1 AA and regulatory standards.

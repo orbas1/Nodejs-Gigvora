@@ -1,4 +1,4 @@
-export default function PageHeader({ eyebrow, title, description, actions }) {
+export default function PageHeader({ eyebrow, title, description, actions, meta }) {
   return (
     <header className="mb-12 space-y-6">
       {eyebrow ? (
@@ -13,6 +13,7 @@ export default function PageHeader({ eyebrow, title, description, actions }) {
         </div>
         {actions ? <div className="flex shrink-0 flex-wrap gap-3">{actions}</div> : null}
       </div>
+      {meta ? <div className="text-sm text-slate-500">{meta}</div> : null}
     </header>
   );
 }
