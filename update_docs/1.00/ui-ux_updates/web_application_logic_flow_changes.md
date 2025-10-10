@@ -30,21 +30,29 @@
 1. **Shared sections:** Each page reuses hero, filter controls, and list components to maintain familiarity.
 2. **Opportunity cards:** Present summary info, meta chips, and primary CTAs (Apply, Pitch, Join) to convert interest into action.
 3. **Support modules:** Side panels display stats, tips, or recommended actions to guide users.
+4. **Detail route:** Navigating to `/opportunity/:id` fetches extended data, updates breadcrumb navigation, and surfaces sticky CTA block; analytics log view + conversion events.
+5. **Saved search prompts:** If user logged in, prompt to save filters; logic stores preferences and triggers notification digest.
 
 ## Projects & Collaboration
 1. **Projects page:** Highlights project management features, offers quick access to boards, chat, and file sharing.
 2. **Launchpad & Volunteering:** Provide curated programs and missions with filterable cards and CTAs for registration or commitment.
 3. **Groups & Connections:** Encourage community building with join/invite flows and suggestions.
+4. **Event workflows:** Group events allow RSVP, add-to-calendar, and share; state updates list counts and sends confirmation email.
+5. **Project creation:** Slide-over form validates required fields, generates project slug, and redirects to workspace on success.
 
 ## Profile & Personalisation
 1. **Dynamic sections:** Profile page aggregates about info, experience, portfolio, launchpad achievements, volunteering history, and recommendations.
 2. **Actionable CTAs:** Buttons for messaging, inviting to projects, endorsing skills, and sharing profile link.
 3. **Contextual modules:** Sidebar surfaces contact details, badges, and quick share actions.
+4. **Edit flow:** Multi-step edit wizard autosaves progress, warns on unsaved changes, and refreshes read-only view upon publish.
+5. **Share modal:** Copy link triggers toast; selecting PDF export calls backend service, shows progress indicator, and emails download link when ready.
 
 ## Responsiveness & Accessibility
 1. **Responsive classes:** Tailwind utilities adapt layout for mobile/desktop, ensuring nav collapse and card stacking.
 2. **Accessibility features:** Semantic headings, focus outlines, ARIA labels, and high-contrast accent usage maintain compliance.
 3. **Performance cues:** Lazy loading, skeletons, and caching reduce perceived latency while analytics capture usage patterns.
+4. **Reduced motion:** Prefers-reduced-motion media queries disable parallax backgrounds and swap transitions for fades.
+5. **Localization readiness:** Copy sources centralised; RTL layout adjustments tested for nav order and card alignment.
 
 ## Documentation Reference
 - Full flow diagrams, stage-by-stage logic, and mermaid map documented in `Web Application Design Update/Version 1.00 update/Logic_Flow_update.md` and `Logic_Flow_map.md`.

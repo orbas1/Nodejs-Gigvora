@@ -34,3 +34,24 @@
 - Web: focus outlines preserved on nav, buttons, chips; large-touch variants for cards; ARIA labelling on CTA groups.
 - Mobile: Material 3 theming ensures minimum 44px touch targets, high-contrast banners for error/offline states, and haptic cues on key actions.
 - Shared design QA includes snapshot comparisons, motion guidelines (≤200ms transitions), and documentation of state variants (loading, empty, error) for all core screens.
+
+## Detailed Page-Level Adjustments
+### Web Experience
+- **Opportunity details:** Dedicated page layout now mirrors listing cards—hero summary with meta chips, sticky action rail (`Apply`, `Share`, `Save`), and accordion tabs for description, requirements, compensation, FAQ, and employer snapshot.
+- **Knowledge base:** Support centre reorganised into searchable collections with card previews, breadcrumb navigation, and contextual contact CTA.
+- **Footer depth:** Additional columns for security, compliance, and accessibility statements plus social proof badges and certification seals.
+
+### User Mobile App
+- **Opportunity detail sheet:** Full-screen modal with hero, status badge, quick actions (Save, Apply), scrollable sections for overview, requirements, compensation, company profile, and similar opportunities carousel.
+- **Launchpad detail:** Tabbed layout (Overview, Curriculum, Mentors, Updates) with sticky CTA to enrol or continue progress; progress tracker badges displayed inline.
+- **Support & tickets:** Settings → Support restructured into categories, active tickets list, and escalation CTA with status icons.
+
+### Provider App
+- **Candidate review modal:** Split-pane design with candidate summary, resume preview, evaluation rubric, and decision buttons pinned to footer.
+- **Ads campaign builder:** Wizard-style layout capturing objective, budget, creatives, and schedule with live preview of placement on web/mobile surfaces.
+- **Compliance centre:** Dashboard view for escrow ledger, dispute resolution timeline, audit logs, and download links for compliance reports.
+
+## Cross-Platform Documentation & Hand-off
+- Updated redlines include spacing, component usage, and data binding notes per screen to reduce implementation ambiguity.
+- Figma libraries synchronised with Tailwind tokens and Flutter theme classes; naming aligned for programmatic extraction.
+- QA checklist expanded to cover accessibility audits, localisation readiness, and responsive stress tests down to 320px width.

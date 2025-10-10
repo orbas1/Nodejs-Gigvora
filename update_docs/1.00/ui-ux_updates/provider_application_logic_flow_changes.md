@@ -24,6 +24,12 @@
 3. **Escrow release:** Upon approval, escrow ledger releases funds; finance view updates balance, invoices generated for download.
 4. **Dispute management:** If flagged, flow routes to mediation centre with evidence upload, communication timeline, and final decision logging.
 
+## 4a. Ads & Promotion Lifecycle
+1. **Campaign creation:** Provider selects objective (visibility, applicants, launchpad signups) → defines audience filters and budget.
+2. **Creative assembly:** Uploads imagery/copy or selects templates; preview renders placements for web cards and mobile list tiles.
+3. **Approval & launch:** Compliance rules validate content; once approved, campaign status toggles live and metrics begin streaming to analytics.
+4. **Optimisation:** Automated alerts suggest budget adjustments; provider can pause, duplicate, or edit targeting.
+
 ## 5. Launchpad & Volunteer Coordination
 1. **Cohort creation:** Provider defines cohort goal, timeline, and capacity; invites mentors and sets curriculum modules.
 2. **Participant onboarding:** Accepted participants receive onboarding tasks; progress tracked via milestone completion and skill badges.
@@ -36,8 +42,19 @@
 3. **Alerting:** Threshold breaches (e.g., dispute spike) trigger notifications and highlight modules on dashboard.
 4. **Export:** Providers can export CSV/Share link for stakeholders; exports respect role-based access.
 
+## 6a. Notifications & Messaging
+1. **System alerts:** Compliance, escrow, and application updates push to notification centre and optionally email/SMS based on preferences.
+2. **Inbox management:** Messages streamed via websocket; unread counts update header, and actions (reply, archive) sync across devices.
+3. **Escalations:** Critical alerts (disputes, payment failures) escalate with layered notifications (banner + modal) until resolved.
+
 ## 7. Support & Feedback
 1. **Self-service:** Knowledge base search suggestions appear as provider types; results open inline.
 2. **Ticketing:** If unresolved, provider opens ticket specifying category (technical, compliance, billing) and severity; attachments supported.
 3. **Resolution loop:** Support agent responses appear in thread; provider marks resolved or escalates to dispute resolution.
 4. **Feedback:** After resolution, satisfaction survey triggers, feeding NPS analytics.
+
+## 8. Governance & Compliance
+1. **Audit logging:** Every critical action (publish listing, change budget, release escrow) writes to immutable log accessible via compliance centre.
+2. **Role enforcement:** Permission checks guard sensitive routes; UI conditionally renders options based on assigned scopes.
+3. **Document management:** Uploaded contracts and compliance forms versioned with retention policies; expired documents trigger reminder flow.
+4. **Data retention:** Export/delete requests follow GDPR-compliant pipeline with confirmation modals and email receipts.

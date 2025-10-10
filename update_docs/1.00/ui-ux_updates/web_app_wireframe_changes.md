@@ -39,35 +39,49 @@
 - **Opportunity list:** Card stack with meta chips, description, CTA button; includes bookmark icon.
 - **Insights sidebar:** Stats on number of listings, average budgets, recommended actions.
 - **Pagination:** Load more button or infinite scroll with progress indicator.
+- **Detail view:** Routed page with hero summary, structured content tabs (Overview, Requirements, Compensation, Company), sticky CTA column, and related opportunities grid.
+- **Alert banners:** Inline notifications for verification requirements or saved searches available for login state.
 
 ## Groups & Connections Pages
 - **Groups:** Grid of group cards with cover image, member count, join button, and tags; detail view with posts & events.
 - **Connections:** Two-column layout showing suggestions on left and pending invites on right; includes "Import contacts" CTA.
+- **Member detail:** Modal with avatar, summary, shared connections, and quick connect message field.
+- **Event board:** Calendar/list toggle for group events with RSVP buttons and share links.
 
 ## Projects Page
 - **Overview banner:** Highlights project workspace features with CTA to create project.
 - **Tabs:** Active projects, Archived, Templates; each uses card list with progress bars and team avatars.
 - **Detail card:** Summary, upcoming milestones, and quick actions (Open board, Message team, Add files).
+- **Template library:** Modal with preview thumbnails, requirements, and "Use template" CTA.
+- **Project creation flow:** Slide-over form capturing project basics, timeline, team, resources; review step prior to launch.
 
 ## Launchpad Experience
 - **Hero band:** Program explanation, cohort stats, CTA to explore tracks.
 - **Track cards:** Each shows track focus, duration, mentors, and register CTA.
 - **Success stories:** Carousel of alumni achievements.
+- **Curriculum outline:** Accordion listing modules with badges for live/async sessions, prerequisites, and downloadable resources.
+- **Mentor roster:** Card grid with mentor bios, expertise tags, and contact CTA for accepted participants.
 
 ## Volunteering Hub
 - **Mission cards:** Display organisation, role, commitment, location, and apply CTA.
 - **Impact stats:** Visual summary of volunteer hours and partner NGOs.
 - **Filter stack:** Duration, cause area, remote toggle.
+- **Mission detail:** Tabbed layout for overview, requirements, logistics, organiser profile, and testimonials.
+- **Availability scheduler:** Inline calendar for selecting volunteer shifts with confirmation modal.
 
 ## Profile Page
 - **Header:** Cover gradient, avatar, action buttons.
 - **Content sections:** About, Experience, Projects, Portfolio, Launchpad progress, Volunteering timeline, Recommendations.
 - **Sidebar:** Contact info, badges, social links, share profile CTA.
+- **Edit profile overlay:** Multi-step wizard with autosave, preview mode, and validation summary.
+- **Share modal:** Offers copy link, share to LinkedIn/Twitter, and download PDF resume.
 
 ## Responsive Behaviour
 - Breakpoints adjust nav to hamburger, convert grids to stacked cards, and collapse sidebars under content.
 - CTA buttons expand to full width under 768px; forms switch to single-column.
 - Radial backgrounds scale/shift to avoid clipping on mobile.
+- Medium screens (768–1024px) introduce sticky sub-nav for long-form detail pages; ensures quick jumps between sections.
+- Desktop >1440px adds max-width wrappers plus background illustration offsets to prevent white space imbalance.
 
 ## Documentation Reference
 - Detailed measurements, component tokens, and content guidelines now reside in `Web Application Design Update/Version 1.00 update/` to support build hand-off and QA traceability.
