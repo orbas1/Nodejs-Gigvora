@@ -37,7 +37,12 @@ class JobsScreen extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text('${job['company']} • ${job['location']}', style: Theme.of(context).textTheme.bodySmall),
                 const SizedBox(height: 4),
-                Text(job['salary']!, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white70)),
+                Text(
+                  job['salary']!,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
                 const SizedBox(height: 12),
                 ElevatedButton(onPressed: () {}, child: const Text('Apply now')),
               ],

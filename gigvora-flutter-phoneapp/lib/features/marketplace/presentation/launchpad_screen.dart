@@ -33,7 +33,12 @@ class LaunchpadScreen extends StatelessWidget {
               children: [
                 Text(cohort['name']!, style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 4),
-                Text(cohort['dates']!, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white70)),
+                Text(
+                  cohort['dates']!,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
                 const SizedBox(height: 4),
                 Text(cohort['mentors']!, style: Theme.of(context).textTheme.bodySmall),
                 const SizedBox(height: 12),

@@ -25,7 +25,10 @@ class GigvoraScaffold extends StatelessWidget {
             if (subtitle != null)
               Text(
                 subtitle!,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white70),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
           ],
         ),
@@ -51,9 +54,16 @@ class GigvoraCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0x11000000),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: const Color(0x22FFFFFF)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x141E293B),
+            offset: Offset(0, 10),
+            blurRadius: 30,
+          ),
+        ],
       ),
       padding: const EdgeInsets.all(20),
       child: child,

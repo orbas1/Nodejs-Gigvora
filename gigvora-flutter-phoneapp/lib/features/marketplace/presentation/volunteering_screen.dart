@@ -35,7 +35,12 @@ class VolunteeringScreen extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(role['organization']!, style: Theme.of(context).textTheme.bodySmall),
                 const SizedBox(height: 4),
-                Text(role['commitment']!, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white70)),
+                Text(
+                  role['commitment']!,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
                 const SizedBox(height: 12),
                 OutlinedButton(onPressed: () {}, child: const Text('Volunteer now')),
               ],

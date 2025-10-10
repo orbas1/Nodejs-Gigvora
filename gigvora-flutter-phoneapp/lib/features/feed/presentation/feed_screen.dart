@@ -39,7 +39,12 @@ class FeedScreen extends StatelessWidget {
               children: [
                 Text(post['author']!, style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 4),
-                Text(post['time']!, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white54)),
+                Text(
+                  post['time']!,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
                 const SizedBox(height: 12),
                 Text(post['content']!, style: Theme.of(context).textTheme.bodyMedium),
                 const SizedBox(height: 12),
