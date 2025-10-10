@@ -63,3 +63,10 @@
 | Increased complexity of theming tokens causes implementation errors | Medium | Medium | Provide developer handoff kit with JSON tokens and usage documentation, plus linting rules. |
 | Accessibility regressions | High | Low | Conduct accessibility audits pre-launch and engage external reviewers for compliance certification. |
 | Performance issues on lower-end devices | Medium | Medium | Use lightweight imagery, lazy load heavy modules, and set FPS monitoring in QA builds. |
+
+## Audit Findings Integration (2024-05-10)
+- **Navigation debt:** Introduce persistent bottom navigation and contextual quick actions in Sprint 3 to address 26% bounce when users rely on back stack. Wireframes in menu_drawings.md will be uplifted to high fidelity for engineering by 2024-05-14.
+- **Onboarding + hero strategy:** Feed redesign must prioritise dynamic hero modules with onboarding education and recommended creators to recover the 26% sub-15s bounce noted in analytics. Token system will include gradient overlays supporting accessible text contrast.
+- **Accessibility remediation:** Add Semantics wrappers and accessible color tokens to shared components (cards, chips, icon buttons). Accessibility QA to run contrast + TalkBack scripts before M2 sign-off. Dynamic type scaling tests (up to 200%) added to CI golden tests.
+- **Launchpad experience:** Replace placeholder dashboards with milestone timeline, quick resource drawer, and notification hooks that satisfy mentor feedback. Content design to define resource taxonomy by 2024-05-16.
+- **Compliance copy:** Offline/error overlays will embed legal disclaimers and support CTAs to satisfy compliance review, shipping with localisation keys so legal can maintain copy.

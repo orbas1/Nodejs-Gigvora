@@ -24,6 +24,7 @@
 - **Feed & Explorer:** Pull-to-refresh lists, offline/cached banners, skeleton loaders, and analytics-tracked interactions help users stay informed even with intermittent connectivity.
 - **Marketplace:** Shared `OpportunityListScreen` orchestrates jobs/gigs/projects/launchpad/volunteering with search, chips, CTA buttons, and empty-state cards tailored per category.
 - **Profile & Auth:** Profile screen surfaces card-based metrics, while auth flows support freelancer + company registration, emphasising KYC readiness.
+- **Audit insights (2024-05-10):** Documented engagement drop-offs (26% bounce on feed, 37% abandonment on explorer people search), accessibility gaps (missing semantics, low-contrast chips), and stakeholder asks (hero onboarding, compliance copy) to steer redesign backlog and QA plans.
 
 ## Provider App Updates
 - Provider dashboard wireframes introduce pipeline summaries (applications, invites, milestones), quick actions (post opportunity, create launchpad), and compliance banners (escrow status, dispute alerts).
