@@ -1,47 +1,21 @@
-# Version 1.00 – UI/UX Progress Tracker
+# Version 1.00 – Progress Tracker
 
-## Phone Application Design Track
-| Metric | Score (0-100%) | Evidence / Commentary |
-|--------|----------------|-----------------------|
-| Design Quality Grade | 62% | Core journeys mapped but hero carousel visual polish mid-fidelity; iconography overhaul pending. |
-| Design Organisation Grade | 68% | IA drafts organised; component library re-tagging still underway. |
-| Design Position Grade | 55% | Discovery vs. booking positioning articulated yet competitive narrative incomplete. |
-| Design Text Grade | 58% | Microcopy guidelines drafted; localisation validation outstanding. |
-| Design Colour Grade | 64% | Light/dark token coverage established; high-contrast palette pending accessibility review. |
-| Design Render Grade | 50% | 40% of hero states rendered in high fidelity; motion specs pending. |
-| Compliance Grade | 46% | Accessibility audit not yet executed; legal copy updates outstanding. |
-| Security Grade | 52% | Biometric screens identified; security review not scheduled. |
-| Design Functionality Grade | 60% | Booking stepper defined; payment error states need mapping. |
-| Design Images Grade | 48% | Placeholder imagery still used; asset library integration pending. |
-| Design Usability Grade | 57% | Guerrilla testing positive; formal study scheduled next sprint. |
-| Bugs-Less Grade | 70% | Design debt documented with owners; validation ongoing. |
-| Test Grade | 40% | Draft usability protocol exists; no formal tests run. |
-| QA Grade | 38% | QA alignment meeting pending; test cases not authored. |
-| Design Accuracy Grade | 63% | Figma and specs mostly aligned; minor component variance noted. |
-| Overall Grade | 56% | Architectural direction solid; compliance, imagery, and testing lagging. |
+Progress metrics are updated twice weekly. Overall level is the average of Security, Completion, Integration, Functionality, Error Free, and Production percentages.
 
-## Web Application Design Track
-| Metric | Score (0-100%) | Evidence / Commentary |
-|--------|----------------|-----------------------|
-| Design Quality Grade | 65% | Homepage/navigation concepts validated; booking flow visuals incomplete. |
-| Design Organisation Grade | 72% | IA and templates organised; CMS handoff docs incomplete. |
-| Design Position Grade | 60% | Brand narrative drafted; awaiting marketing alignment. |
-| Design Text Grade | 55% | Copy refresh underway; compliance text pending legal review. |
-| Design Colour Grade | 70% | Palette aligned with tokens; hover contrast checks outstanding. |
-| Design Render Grade | 58% | Hero/testimonial renders complete; configurator mid-fidelity. |
-| Compliance Grade | 50% | Accessibility requirements documented; legal copy in review queue. |
-| Security Grade | 48% | Security messaging defined; MFA UI patterns unvetted. |
-| Design Functionality Grade | 62% | Booking logic mapped; multi-day event edge cases unresolved. |
-| Design Images Grade | 52% | Imagery guidelines defined; assets not finalised. |
-| Design Usability Grade | 59% | Internal testing positive; external sessions scheduled. |
-| Bugs-Less Grade | 74% | Known design defects tracked; partial template behaviour needs QA. |
-| Test Grade | 45% | Research plan approved; moderated studies not yet started. |
-| QA Grade | 42% | QA roadmap exists; component acceptance criteria missing. |
-| Design Accuracy Grade | 66% | Components synced with design system; responsive tables pending documentation. |
-| Overall Grade | 59% | Navigation/homepage strong; compliance, security, imagery workstreams behind. |
+| Task | Security | Completion | Integration | Functionality | Error Free | Production | Overall | Commentary |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Task 1 – Flutter App Platform & Mobile Integration | 32% | 18% | 20% | 22% | 24% | 16% | 22% | Monorepo scaffolded, auth spike complete; awaiting full module implementation and CI hardening. |
+| Task 2 – Communication & Engagement Suite | 28% | 14% | 16% | 18% | 20% | 12% | 18% | Messaging refactor design ready; live feed ranking prototype pending backend deployment. |
+| Task 3 – Trust, Payments & Infrastructure Compliance | 35% | 12% | 15% | 14% | 18% | 10% | 17% | Escrow vendor contract drafted; compliance workshops scheduled, Cloudflare R2 infra request in review. |
+| Task 4 – Discovery, Matching & Experience Automation | 26% | 10% | 12% | 14% | 16% | 8% | 14% | Meilisearch POC running locally; auto-assign requirements captured, volunteer flows in UX draft. |
+| Task 5 – Profiles, User Types & Employment Systems | 24% | 11% | 13% | 15% | 17% | 9% | 15% | Profile schema proposal under review; ATS scope validated with stakeholders, awaiting migrations. |
+| Task 6 – Project, Gig & Operations Management | 22% | 9% | 11% | 13% | 15% | 7% | 13% | Project module wireframes approved; gig analytics requirements pending data sign-off. |
+| Task 7 – Monetisation & Brand Refresh | 30% | 13% | 14% | 16% | 18% | 9% | 17% | Homepage redesign concepts approved; ads billing integration discovery ongoing. |
 
-## Cross-Track Actions
-- Schedule joint accessibility and legal reviews to accelerate compliance scores.
-- Prioritise imagery sourcing and asset management for both platforms.
-- Launch moderated usability studies to feed into milestone M3 deliverables.
-- Formalise QA engagement with component-level acceptance criteria and regression plans.
+## Cross-Task Risk Watchlist
+- Compliance approvals and FCA sandbox access remain critical path items for Task 3; mitigation includes weekly legal syncs.
+- Messaging and live feed infrastructure (Task 2) needs capacity planning to sustain expected load increases; infra tickets open.
+- Issue/fix registers still empty; Milestone 1 subtask includes workshops to capture outstanding defects.
+
+## Next Update
+- Refresh metrics after Milestone 1 closure reviews and integrate beta readiness scores for Flutter modules and live feed backend.
