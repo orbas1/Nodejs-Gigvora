@@ -34,3 +34,6 @@
 - **Focus states:** Buttons/links maintain default outline plus accent border on focus for keyboard navigation.
 - **Contrast:** Blue accent on white ensures ratio compliance; dark text on light gradients avoids readability issues.
 - **Responsive nav:** Mobile drawer ensures touch targets sized `px-4 py-2` with adequate spacing.
+
+## Documentation Reference
+- Expanded token tables, CSS variable mappings, and SCSS architecture are detailed in `Web Application Design Update/Version 1.00 update/` to standardise implementation across teams.
