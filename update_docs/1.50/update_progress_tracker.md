@@ -71,6 +71,26 @@ All metrics are currently initialized at **0%**. Update values as work advances.
 | └─ Subtask 4: Device farm & accessibility QA | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
 | └─ Subtask 5: Store submission readiness | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
 
+## Design Progress Overview – Cross-Platform Design Enablement
+| Metric | Status (%) | Evidence & Notes |
+| --- | --- | --- |
+| Design Quality | 38 | Foundational tokens approved but major screens pending redesign; legacy artefacts still in circulation.【F:update_docs/1.50/design_update_progress_tracker.md†L1-L31】
+| Design Organisation | 42 | Directory structure mapped and tagged, however component inventories require consolidation and clear ownership.【F:update_docs/1.50/design_update_progress_tracker.md†L1-L31】
+| Design Position | 35 | Layout blueprints drafted for dashboards only; other modules awaiting final positioning approval.【F:update_docs/1.50/design_update_progress_tracker.md†L1-L31】
+| Design Text Grade | 40 | Typography scale defined but content guidelines not yet localised or validated through QA.【F:update_docs/1.50/design_update_progress_tracker.md†L1-L31】
+| Design Colour Grade | 55 | Tokenised palette reviewed with accessibility contrast checks; dark mode variants incomplete.【F:update_docs/1.50/design_update_progress_tracker.md†L1-L31】
+| Design Render Grade | 30 | Limited high-fidelity renders produced; most modules remain at wireframe fidelity.【F:update_docs/1.50/design_update_progress_tracker.md†L1-L31】
+| Compliance Grade | 33 | Compliance overlays identified but awaiting legal review and documentation sign-off.【F:update_docs/1.50/design_update_progress_tracker.md†L1-L31】
+| Security Grade | 28 | Security messaging patterns drafted; encryption/MFA flows not yet incorporated in all screens.【F:update_docs/1.50/design_update_progress_tracker.md†L1-L31】
+| Design Functionality Grade | 36 | Interaction specs exist for chat/feed, but financial workflows lack detailed state coverage.【F:update_docs/1.50/design_update_progress_tracker.md†L1-L31】
+| Design Images Grade | 48 | Vector replacements underway with 60% of screens upgraded; remaining assets in backlog.【F:update_docs/1.50/design_update_progress_tracker.md†L1-L31】
+| Design Usability Grade | 32 | No moderated studies completed; assumptions based on heuristic reviews only.【F:update_docs/1.50/design_update_progress_tracker.md†L1-L31】
+| Bugs-less Grade | 45 | Known inconsistencies logged, but validation in staging not started; regression checklist incomplete.【F:update_docs/1.50/design_update_progress_tracker.md†L1-L31】
+| Test Grade | 25 | Automated visual regression suite not yet configured; manual testing plan drafted but unexecuted.【F:update_docs/1.50/design_update_progress_tracker.md†L1-L31】
+| QA Grade | 30 | QA review cadence defined, yet zero sign-offs recorded pending first build review.【F:update_docs/1.50/design_update_progress_tracker.md†L1-L31】
+| Design Accuracy Grade | 34 | Alignment between documentation and prototypes inconsistent; engineering feedback still pending.【F:update_docs/1.50/design_update_progress_tracker.md†L1-L31】
+| Overall Grade | 36 | Aggregated mean across metrics, indicating material gaps before design sign-off.【F:update_docs/1.50/design_update_progress_tracker.md†L1-L31】
+
 ## Aggregate View
 | Category | Average Security | Average Completion | Average Integration | Average Functionality | Average Error Free | Average Production | Overall |
 | --- | --- | --- | --- | --- | --- | --- | --- |
