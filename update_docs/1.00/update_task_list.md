@@ -1,70 +1,113 @@
-# Version 1.00 – UI/UX Task Catalogue
+# Version 1.00 – Detailed Task List
 
-## Phone Application Design Tasks
-1. **Audit Current Mobile Experience**
-   - Inventory existing screens, flows, and reusable components.
-   - Map analytics data to identify drop-off and engagement hotspots.
-   - Document accessibility gaps (contrast, tap targets, screen reader support).
-   - Capture stakeholder feedback and outstanding product requirements.
-2. **Redefine Information Architecture**
-   - Facilitate card-sorting workshop with users and stakeholders.
-   - Produce updated sitemap covering discovery, booking, messaging, wallet, and profile.
-   - Validate navigation flows with low-fidelity prototypes.
-   - Finalise persistent navigation schema and contextual shortcuts.
-   - Align architecture with backend service availability and caching rules.
-3. **Create Theme & Token System**
-   - Audit existing colour, typography, spacing, and icon assets for reuse.
-   - Define master token set (base, semantic, contextual) with accessibility constraints.
-   - Prototype light, dark, high-contrast variants across key layouts.
-   - Collaborate with engineering to export tokens into Flutter formats.
-   - Set up governance model for future theme contributions.
-4. **Produce High-Fidelity Screens & Prototype**
-   - Design hero carousel, segmented feed, booking flow, messaging hub.
-   - Integrate motion guidelines and micro-interactions.
-   - Annotate component states (default, pressed, disabled, error).
-   - Conduct moderated usability tests; capture findings and iterate.
-5. **Accessibility & Localisation Compliance**
-   - Run accessibility checklist on updated designs.
-   - Define localisation expansion rules and content guardrails.
-   - Document voice-over scripts and alt text requirements.
-   - Partner with QA to translate accessibility requirements into test cases.
-6. **Implementation Support & QA Handoff**
-   - Prepare redlines, asset exports, responsive specs.
-   - Host design walkthroughs with iOS/Android squads.
-   - Establish bug triage process for design regressions.
-   - Review staging builds and log deviations; sign off readiness.
+## Task 1 – Flutter App Platform & Mobile Integration (8% Complete)
+- **Subtask 1.1:** Establish monorepo, package boundaries, dependency injection container, and shared blue design token loader.
+- **Subtask 1.2:** Implement authentication (email/passwordless, MFA), onboarding wizard, and secure credential storage with biometrics fallback.
+- **Subtask 1.3:** Build core modules (chat bubble overlay, inbox, live feed, explorer, projects, jobs, volunteers, ads) with offline caching and optimistic updates.
+- **Subtask 1.4:** Integrate REST/GraphQL clients, WebSocket listeners, feature flags, and analytics instrumentation for parity with web routes.
+- **Subtask 1.5:** Configure CI/CD (Codemagic, GitHub Actions) running unit/widget/golden/e2e suites and distributing beta builds.
+- **Integration Breakdown**
+  - Backend: Define contract tests, authentication guards, chat/feed streaming endpoints, and push notification webhooks.
+  - Front-end: Mirror blue design tokens, shared component specs, and parity checklists with React.
+  - User Phone App: Implement Flutter UX, accessibility, push, deep links, and offline strategies.
+  - Provider Phone App: Align agency/company mobile experiences, ensuring compatibility or migration path.
+  - Database: Add sync metadata tables, notification token store, and offline queue reconciliation logs.
+  - API: Harden pagination, rate limits, GraphQL fragments, and mobile-friendly error schemas.
+  - Logic: Embed availability toggles, trust score preview, auto-assign acceptance logic, and offline fallback rules.
+  - Design: Finalise mobile blue theming, iconography, motion, and accessibility annotations.
 
-## Web Application Design Tasks
-1. **Baseline Audit & Analytics Review**
-   - Capture screenshots of current pages/components across breakpoints.
-   - Analyse funnel analytics for homepage → booking conversion performance.
-   - Document SEO, accessibility, performance issues impacting engagement.
-   - Gather qualitative insights from support and sales feedback.
-2. **Information Architecture & Navigation Redesign**
-   - Run workshops to define taxonomy and priority journeys.
-   - Prototype mega-menu structures and test internally.
-   - Map contextual quick actions and authentication states to navigation.
-   - Validate IA via remote tree tests.
-   - Finalise navigation specifications including hover/focus states.
-3. **Responsive System & Component Library**
-   - Define grid behaviour and breakpoints with spacing scales.
-   - Update components to support new grid behaviour and typography.
-   - Document interactive states for cards, accordions, tabs, forms.
-   - Align with engineering on CSS variables/tokens and QA process.
-   - Build component usage examples for CMS authors and developers.
-4. **Booking Flow Redesign & Testing**
-   - Create high-fidelity screens for requirements, scheduling, payment.
-   - Design sticky summary with real-time pricing updates.
-   - Prototype inline validation and guidance patterns.
-   - Conduct usability sessions; iterate based on findings.
-5. **Content, Imagery, and Theming**
-   - Develop guidelines for hero imagery, illustration style, video usage.
-   - Curate testimonial and partner asset library with rights confirmed.
-   - Define editorial workflows for seasonal swaps and partial template injections.
-   - Collaborate with marketing on persona-based copy variations.
-6. **Accessibility, Compliance, and QA Handoff**
-   - Execute accessibility review including keyboard and screen reader testing.
-   - Update compliance copy with legal sign-off.
-   - Prepare redlines, spec sheets, asset exports for engineering teams.
-   - Support QA in writing test cases and verifying staging builds.
-   - Establish post-launch monitoring for conversion and accessibility regressions.
+## Task 2 – Communication & Engagement Suite (6% Complete)
+- **Subtask 2.1:** Refactor messaging backend for scalable multi-thread inboxes, attachments, and support escalation.
+- **Subtask 2.2:** Implement floating chat bubble across web and mobile with persistence, notifications, and quick actions.
+- **Subtask 2.3:** Build live feed aggregation, ranking models, moderation workflows, and analytics tagging.
+- **Subtask 2.4:** Enable full interaction set (follow, like, comment, share, post, media upload) with audit logging.
+- **Subtask 2.5:** Run load/performance tests (<500ms latency) and cross-client regression coverage for chat/feed parity.
+- **Integration Breakdown**
+  - Backend: Messaging microservice, moderation APIs, feed ranking jobs, notification fan-out.
+  - Front-end: React components for chat bubble, feed composer, moderation queue UI, skeleton states.
+  - User Phone App: Flutter widgets for feed interactions, offline drafts, push triggers, bubble overlay.
+  - Provider Phone App: Agency/company chat inboxes, feed analytics, moderation actions.
+  - Database: Conversation/threads tables, feed content store, reaction/comment indexes, moderation logs.
+  - API: GraphQL subscriptions, REST endpoints for posts/comments, support escalation routes.
+  - Logic: Rate limiting, spam detection, escalation rules, notification dedupe, content flag review SLA.
+  - Design: Micro-interactions, accessibility shortcuts, blue brand typography and iconography.
+
+## Task 3 – Trust, Payments & Infrastructure Compliance (5% Complete)
+- **Subtask 3.1:** Integrate FCA escrow provider covering funding, releases, refunds, dispute triggers, and audit exports.
+- **Subtask 3.2:** Implement multi-stage dispute workflow with timers, fee capture, mediator assignments, and evidence intake.
+- **Subtask 3.3:** Deploy Cloudflare R2 storage service with signed URLs, lifecycle policies, and cost monitoring.
+- **Subtask 3.4:** Extend ledger, reconciliation dashboards, anomaly detection, and financial reporting APIs.
+- **Subtask 3.5:** Complete compliance deliverables (KYC/KYB, GDPR reviews, threat modelling, penetration testing) with documented runbooks.
+- **Integration Breakdown**
+  - Backend: Escrow microservices, dispute orchestrator, ledger reconciliation, signed URL service.
+  - Front-end: Financial status UI, dispute timelines, trust badges, compliance prompts.
+  - User Phone App: Dispute stage UI, payment status notifications, evidence upload with offline queueing.
+  - Provider Phone App: Agency/company finance dashboards, dispute monitoring, payout approvals.
+  - Database: Double-entry ledger, dispute cases, compliance audit trails, storage metadata.
+  - API: Secure payment endpoints, webhook processors, compliance exports, signed URL issuance.
+  - Logic: Escrow state machine, fraud heuristics, timer automation, ledger balancing jobs.
+  - Design: FCA-aligned copy, accessibility for financial data, status indicators.
+
+## Task 4 – Discovery, Matching & Experience Automation (4% Complete)
+- **Subtask 4.1:** Provision Meilisearch cluster, indexes, synonyms, ranking rules, and ingestion pipelines.
+- **Subtask 4.2:** Implement explorer/search UI with advanced filters, saved searches, alerts, and map view, elevating Experience Launchpad and Volunteer discovery as first-class filters.
+- **Subtask 4.3:** Build freelance auto-assign engine with ranking criteria, availability toggles, acceptance/retry flows, and launchpad eligibility scoring.
+- **Subtask 4.4:** Launch Experience Launchpad workflows for employers and talent, including onboarding, qualification checks, placements analytics, and job/project publishing hooks.
+- **Subtask 4.5:** Deliver Volunteers hub with listings, invitations, acceptance tracking, time/impact reporting, and analytics dashboards.
+- **Integration Breakdown**
+  - Backend: Search ingestion services, matching engine, volunteer/launchpad services, analytics emitters.
+  - Front-end: React explorer UI, saved search manager, volunteer dashboards, launchpad modals.
+  - User Phone App: Flutter explorer screens, auto-assign queue, launchpad notifications, volunteer flows.
+  - Provider Phone App: Agency/company search, assignments, volunteer management UI.
+  - Database: Indexed views, match scoring tables, volunteer availability, launchpad criteria.
+  - API: Search endpoints, auto-assign toggles, launchpad/volunteer actions, alert subscriptions.
+  - Logic: Relevance scoring, eligibility rules, retry algorithms, compliance gates for launchpad roles.
+  - Design: Filter tokens, card layouts, accessibility for dense data, blue-themed UI consistency.
+
+## Task 5 – Profiles, User Types & Employment Systems (5% Complete)
+- **Subtask 5.1:** Refactor profile schema and UI for new sections, references, trust score display, and availability toggles.
+- **Subtask 5.2:** Implement trust score calculations, likes/follows counters, and analytics instrumentation powering launchpad, volunteer, and jobs board targeting.
+- **Subtask 5.3:** Build agency dashboards (HR, payments distribution, projects/gigs pipeline, graduate-to-agency) for web/mobile with volunteer staffing and launchpad cohort views.
+- **Subtask 5.4:** Build company dashboards (headhunter, job listings, ATS stages, interview calendar) with permissions, exposing Experience Launchpad and volunteer funnels.
+- **Subtask 5.5:** Expand Employment/Jobs board with screener questions, CV builder/upload, admin panels, ATS automation, volunteer listings, and launchpad opportunity management.
+- **Integration Breakdown**
+  - Backend: Profile service, trust scoring, ATS pipelines, agency/company permissions.
+  - Front-end: Component-based profile UI, dashboards, CV builder, interview scheduler.
+  - User Phone App: Profile editing, status toggles, agency/company mobile dashboards, ATS updates.
+  - Provider Phone App: Approvals, HR management, pipeline visibility for agency/company staff.
+  - Database: Profile tables, references, ATS stages, interview slots, follow relationships.
+  - API: GraphQL fragments, ATS CRUD, trust score endpoints, availability toggles.
+  - Logic: Status automation, trust algorithms, permission checks, CV parsing workflows.
+  - Design: Component guidelines, accessibility for complex forms, brand-aligned dashboards.
+
+## Task 6 – Project, Gig & Operations Management (4% Complete)
+- **Subtask 6.1:** Enhance project creation flow with budgets, milestones, objectives, and in-project chat hooks.
+- **Subtask 6.2:** Upgrade gig creation/management dashboards with analytics, compliance checks, and scheduling.
+- **Subtask 6.3:** Deliver project management module (tasks, dependencies, hourly tracking, progress analytics, group projects).
+- **Subtask 6.4:** Integrate auto-assign, escrow milestones, notifications, and hourly tracking into workflows.
+- **Subtask 6.5:** Build reporting dashboards for project health, gig performance, and agency participation.
+- **Integration Breakdown**
+  - Backend: Project services, gig APIs, time tracking, analytics pipelines, notification services.
+  - Front-end: React dashboards, Kanban/Gantt visuals, chat embed, reporting widgets.
+  - User Phone App: Project timelines, task updates, gig approvals, time logging, notifications.
+  - Provider Phone App: Agency oversight screens, approvals, payment summaries, performance metrics.
+  - Database: Projects, tasks, milestones, objectives, time logs, gig analytics tables.
+  - API: Project/gig endpoints, WebSocket updates, reporting exports, notification hooks.
+  - Logic: Dependency resolution, progress scoring, escalation rules, graduate-to-agency triggers.
+  - Design: Operational dashboards, status badges, accessible data visualisations.
+
+## Task 7 – Monetisation & Brand Refresh (3% Complete)
+- **Subtask 7.1:** Rebuild homepage with responsive blue theming, SEO schema, conversion funnels, and accessibility.
+- **Subtask 7.2:** Refresh website/mobile design systems (tokens, typography, iconography, motion) and publish documentation.
+- **Subtask 7.3:** Implement Gigvora Ads suite (campaign wizard, targeting, budgeting, creatives, reporting, billing integrations).
+- **Subtask 7.4:** Configure Cloudflare R2 media delivery, CDN tuning, observability dashboards, and cost alerts.
+- **Subtask 7.5:** Prepare marketing collateral, onboarding tours, and monetisation analytics dashboards.
+- **Integration Breakdown**
+  - Backend: Ads APIs, billing connectors, analytics streaming, homepage content management.
+  - Front-end: Homepage redesign, ads management console, responsive components, performance tuning.
+  - User Phone App: Ads modules, design refresh, homepage parity, marketing prompts.
+  - Provider Phone App: Agency/company monetisation dashboards, ads tracking screens.
+  - Database: Ads campaigns, budgets, metrics, homepage CMS data, media metadata.
+  - API: Ads CRUD/reporting, CDN signed URLs, marketing analytics, homepage content endpoints.
+  - Logic: Budget pacing, targeting eligibility, A/B testing, SEO/performance automation.
+  - Design: Blue brand assets, ad creative guidelines, responsive layout patterns.
