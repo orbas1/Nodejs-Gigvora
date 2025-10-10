@@ -1,6 +1,6 @@
 # Version 1.50 Milestone Plan
 
-## Milestone 1 – Security Foundations & Schema Enablement (Weeks 1-4, 60% complete)
+## Milestone 1 – Security Foundations & Schema Enablement (Weeks 1-4, 75% complete)
 **Goals:** Resolve critical authentication, security, and data model blockers before integrating new experiences.
 
 **Included Tasks:**
@@ -13,7 +13,7 @@
 - Expanded schema covering applications, messaging, notifications, analytics, provider tooling with validated seeds.
 - Tooling upgrades, env templates, CI bootstrap, and initial automated test suites.
 
-**Status:** Task 1 deliverables approved with automated regression coverage; Task 2 migrations, production-grade seed datasets, and the full ORM/service layer are validated end-to-end, unlocking analytics, messaging, notifications, and provider workspace QA environments. Remaining Task 2 documentation/test automation work plus the Task 6 tooling rollout stay in backlog.
+**Status:** Task 1 deliverables approved with automated regression coverage; Task 2 migrations, production-grade seed datasets, the full ORM/service layer, and the supporting documentation/test automation pack (schema overview, ER diagram, governance policy, Jest suites) are validated end-to-end, unlocking analytics, messaging, notifications, and provider workspace QA environments. Remaining Task 2 client integration work plus the Task 6 tooling rollout stay in backlog.【F:gigvora-backend-nodejs/docs/schema-overview.md†L3-L52】【F:gigvora-backend-nodejs/docs/data-governance.md†L3-L25】【F:gigvora-backend-nodejs/tests/applicationService.test.js†L1-L84】
 
 **Quality Gates & Tests:**
 - Security unit/integration suites covering JWT issuance, MFA throttling, RBAC enforcement.

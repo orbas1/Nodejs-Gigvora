@@ -1,9 +1,11 @@
 import { Sequelize, DataTypes, Op } from 'sequelize';
 import databaseConfig from '../config/database.js';
 
-export const sequelize = new Sequelize({
-  ...databaseConfig,
-});
+const { url: databaseUrl, ...sequelizeOptions } = databaseConfig;
+
+export const sequelize = databaseUrl
+  ? new Sequelize(databaseUrl, sequelizeOptions)
+  : new Sequelize(sequelizeOptions);
 
 const dialect = sequelize.getDialect();
 const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB : DataTypes.JSON;

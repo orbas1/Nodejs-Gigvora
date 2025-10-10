@@ -11,4 +11,9 @@ module.exports = {
     port: process.env.DB_PORT,
     dialect: 'mysql',
   },
+  test: {
+    dialect: 'sqlite',
+    storage: process.env.DB_STORAGE || ':memory:',
+    logging: false,
+  },
 };
