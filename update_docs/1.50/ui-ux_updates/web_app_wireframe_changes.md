@@ -24,3 +24,6 @@
 ## Accessibility & Responsiveness
 - Breakpoints tuned for 1440, 1280, 1024, and 768 widths, ensuring parity with phone design tokens.
 - High-contrast and reduced motion toggles accessible from footer.
+
+## Documentation Alignment
+- Reference `Web Application Design Update/` for component-level specs, copy decks, and asset requirements to maintain fidelity between wireframes and implementation.

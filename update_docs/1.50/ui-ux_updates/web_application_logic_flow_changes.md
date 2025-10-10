@@ -28,3 +28,6 @@
 ## Error Handling & Recovery
 - Autosave for long forms (jobs, projects, campaigns) every 30 seconds.
 - Unsaved changes modal warns before navigation away; includes "Save draft" or "Discard" options.
+
+## Documentation Alignment
+- Detailed component-level logic, flow diagrams, and edge case handling are expanded within `Web Application Design Update/Logic_Flow_update.md` and `Logic_Flow_map.md` for engineering hand-off.
