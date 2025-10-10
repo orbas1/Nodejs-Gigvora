@@ -1,48 +1,22 @@
 import 'package:flutter/material.dart';
-import '../../../theme/widgets.dart';
+
+import '../data/models/opportunity.dart';
+import 'opportunity_list.dart';
 
 class ProjectsScreen extends StatelessWidget {
   const ProjectsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final projects = [
-      {
-        'title': 'Experience Launchpad Sprint 03',
-        'stage': 'Accepting applications',
-        'collaborators': '24 collaborators',
-      },
-      {
-        'title': 'Creator Studio Collective',
-        'stage': 'In progress',
-        'collaborators': '18 collaborators',
-      },
-    ];
-
-    return GigvoraScaffold(
+    return OpportunityListScreen(
+      category: OpportunityCategory.project,
       title: 'Projects',
       subtitle: 'Collaborate with teams building new products',
-      body: ListView.separated(
-        itemCount: projects.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (context, index) {
-          final project = projects[index];
-          return GigvoraCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(project['title']!, style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 4),
-                Text(project['stage']!, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.tealAccent)),
-                const SizedBox(height: 4),
-                Text(project['collaborators']!, style: Theme.of(context).textTheme.bodySmall),
-                const SizedBox(height: 12),
-                OutlinedButton(onPressed: () {}, child: const Text('Join project')),
-              ],
-            ),
-          );
-        },
-      ),
+      ctaLabel: 'Request access',
+      searchPlaceholder: 'Search projects by focus area or status',
+      emptyDefaultMessage:
+          'We\'re syncing projects from agencies, companies, and launchpad cohorts. Check back shortly.',
+      emptySearchMessage: 'No projects matched your filters just yet. Try another keyword or refresh soon.',
     );
   }
 }

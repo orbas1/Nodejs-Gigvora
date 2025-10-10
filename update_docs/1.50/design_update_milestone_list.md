@@ -10,6 +10,7 @@
 - Applications/messaging/provider workspace flows documented with analytics instrumentation notes to mirror new persistence layer rollout.
 - Reference dataset scenarios mapped to seeded backend tables so prototypes and QA flows surface production-grade states during reviews.
 - Sanitised service payload matrix outlining fields exposed by the ORM-backed APIs, cache lifetimes, and associated UI messaging rules.
+- Flutter feed, marketplace, and explorer screens updated with offline banners, loading skeletons, and analytics CTAs grounded in the shared repositories to keep mobile UX aligned with the documented payloads.【F:gigvora-flutter-phoneapp/lib/features/feed/presentation/feed_screen.dart†L1-L213】【F:gigvora-flutter-phoneapp/lib/features/marketplace/presentation/opportunity_list.dart†L1-L189】【F:gigvora-flutter-phoneapp/lib/features/explorer/presentation/explorer_screen.dart†L1-L278】
 - Backend schema overview, ER diagram, and governance pack synchronised with automated tests to anchor design QA and compliance checkpoints.【F:gigvora-backend-nodejs/docs/schema-overview.md†L3-L52】【F:gigvora-backend-nodejs/docs/er-diagram.md†L1-L33】【F:gigvora-backend-nodejs/docs/data-governance.md†L3-L25】
 
 **Entry/Exit Criteria:**
