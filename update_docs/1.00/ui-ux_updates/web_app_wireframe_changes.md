@@ -68,3 +68,6 @@
 - Breakpoints adjust nav to hamburger, convert grids to stacked cards, and collapse sidebars under content.
 - CTA buttons expand to full width under 768px; forms switch to single-column.
 - Radial backgrounds scale/shift to avoid clipping on mobile.
+
+## Documentation Reference
+- Detailed measurements, component tokens, and content guidelines now reside in `Web Application Design Update/Version 1.00 update/` to support build hand-off and QA traceability.

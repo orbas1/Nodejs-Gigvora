@@ -45,3 +45,6 @@
 1. **Responsive classes:** Tailwind utilities adapt layout for mobile/desktop, ensuring nav collapse and card stacking.
 2. **Accessibility features:** Semantic headings, focus outlines, ARIA labels, and high-contrast accent usage maintain compliance.
 3. **Performance cues:** Lazy loading, skeletons, and caching reduce perceived latency while analytics capture usage patterns.
+
+## Documentation Reference
+- Full flow diagrams, stage-by-stage logic, and mermaid map documented in `Web Application Design Update/Version 1.00 update/Logic_Flow_update.md` and `Logic_Flow_map.md`.
