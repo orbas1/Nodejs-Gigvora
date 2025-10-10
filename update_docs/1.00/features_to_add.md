@@ -1,122 +1,199 @@
 # Version 1.00 – Features to Add
 
-## Platform Foundations
-1. **Flutter Mobile Application (iOS & Android)**
-   - **Core Screens:** Onboarding, authentication (passwordless + MFA), dashboard, live feed, explorer/search, project management, gig/job listings, chat/inbox, ads manager, profile settings.
-   - **Navigation & Architecture:** Modular feature packages, Bloc/Provider state management, background sync, deep linking, and push notification handling.
-   - **API Contracts:** REST/GraphQL endpoints for authentication, feed, chat, search, payments, projects, ATS, and ads. Requires pagination, filtering, and offline caching strategies.
+## Executive Summary Table
+| Feature Cluster | Major Deliverables | Key Users | Integration Touchpoints |
+| --- | --- | --- | --- |
+| Mobile Platform | Flutter app, blue design system, phone integrations | All users | REST/GraphQL APIs, Firebase, Cloudflare R2 |
+| Collaboration & Community | Floating chat bubble, inbox upgrade, live feed | Freelancers, agencies, support | Messaging service, notifications, moderation tools |
+| Trust & Transactions | FCA escrow, disputes revamp, project management | Clients, finance, freelancers | Payments provider, ledger DB, Cloudflare R2 |
+| Discovery & Automation | Meilisearch explorer, auto-assign, launchpad, volunteers | Companies, agencies, job seekers | Search engine, rules engine, analytics |
+| Profiles & User Types | Profile overhaul, agency/company modules, ATS, status toggles | All account types | Profile schema, permissions, HRIS integrations |
+| Monetisation & Infra | Gigvora Ads suite, homepage/web redesign, Cloudflare R2 | Marketing, companies | Billing, analytics, CDN |
 
-2. **Mobile Upgrade & Blue Design System**
-   - **Design Tokens:** Palette (`Gigvora Blue #0A5BE0`, gradients), typography scale, spacing, shadows shared across web and mobile.
-   - **Component Library:** Buttons, cards, modals, badges, availability toggles, media uploaders with motion specs and accessibility annotations.
-   - **Responsive Assets:** SVG/icon set, illustration refresh, and dark-mode variants aligned with new brand.
+---
 
-3. **Cloudflare R2 Integration**
-   - **Storage Buckets:** Segmented for profiles, feed media, ads creatives, dispute evidence.
-   - **APIs & Security:** Signed URL service, lifecycle policies (archival/retention), encryption at rest, CDN configuration.
-   - **Tooling:** Upload widgets, background workers for image optimisation and video transcoding.
+## 1. Mobile Platform Foundations
+### 1.1 Flutter Mobile Application (iOS & Android)
+- **Screens & Navigation**
+  | Module | Screens | Key Widgets/Components |
+  | --- | --- | --- |
+  | Authentication | Welcome, login/signup (passwordless + MFA), onboarding wizard | Animated hero, stepper, social auth buttons |
+  | Dashboard | Home overview, quick actions, notifications | Metrics cards, CTA tiles, presence indicators |
+  | Live Feed | Feed list, post detail, composer, media gallery | Infinite list, reaction bar, poll widget, share drawer |
+  | Explorer/Search | Results grid/list, advanced filters, saved searches, entity detail overlays | Filter chips, map view, tags, follow buttons |
+  | Projects & Auto-Assign | Project list, timeline, tasks, auto-assign queue | Kanban, gantt preview, accept/decline modal |
+  | Chat & Support | Inbox list, conversation detail, support escalation | Floating chat bubble overlay, quick reply chips |
+  | Jobs & ATS | Job listings, application form, status tracker, interview calendar | Multi-step form, calendar picker, document uploader |
+  | Launchpad & Volunteers | Onboarding, matched opportunities, invitations | Criteria checklist, opportunity cards, accept/reject sheet |
+  | Gigvora Ads | Campaign list, campaign editor, metrics dashboard | Budget slider, creative preview, KPI charts |
+  | Profile & Settings | Profile overview, edit sections, status toggles, trust score | Component cards, progress tracker, toggle controls |
+- **Architecture & Utilities**: Modular packages (auth, feed, messaging, search, payments, ads), Bloc/Provider state management, Dio/Retrofit networking, GraphQL client, secure storage, feature flag service, analytics (Segment/Firebase), error logging (Sentry).
+- **API Integration**: REST/GraphQL endpoints for chat, feed, search, projects, jobs, escrow, ads, volunteers, launchpad; JSON:API or GraphQL pagination; offline caching (Hive/Sqflite) and background sync.
+- **Testing & Quality**: Unit/widget/golden tests, integration tests, end-to-end flows with Appium, accessibility audits, performance profiling (<16ms frame build, cold start ≤3s).
 
-## Collaboration & Communication
-4. **Chat & Inbox Upgrade with Floating Bubble**
-   - **Features:** Persistent floating bubble on web/mobile, context switching to support or project chats, typing indicators, read receipts, quick action shortcuts.
-   - **Tech Requirements:** WebSocket messaging service, queue-backed push notifications, escalation API to support team, chat transcript storage on R2.
-   - **Mobile Tie-In:** Native overlay in Flutter with draggable positioning and offline draft support.
+### 1.2 Blue Design System & Mobile Upgrade
+- **Design Tokens**: Colour palette (Gigvora Blue #0A5BE0 gradients, secondary neutrals), typography scale, spacing, elevation, motion curves exported for Flutter and React.
+- **Component Library**: Buttons, cards, modals, forms, badges, availability toggles, presence indicators, charts, navigation bars, skeleton loaders, empty states.
+- **Asset Refresh**: SVG icon set, illustrations, animations (Lottie), onboarding walkthrough, contextual tooltips, dark mode variants.
 
-5. **Project Management Suite**
-   - **Modules:** Budgets, milestones, tasks (with assignments, deadlines, dependencies), objectives/OKRs, hourly tracking (timer + manual entry), progress reporting, in-project chat, group project spaces, agency escalation.
-   - **Data Model Additions:** `projects`, `project_tasks`, `project_objectives`, `project_milestones`, `time_logs`, `project_members`, `project_chat_threads` tables.
-   - **Functionalities:** Gantt/timeline views, dashboard metrics, export to CSV/PDF, integration with escrow milestones.
+### 1.3 Phone App Integration
+- **APIs**: Authentication guards, push notification service, search/auto-assign endpoints, ads billing endpoints.
+- **Pages/Screens**: Mirror web functionality with adaptive layouts for tablets, integrate dynamic links for shared feed posts.
+- **Actions**: Accept/reject projects, escalate disputes, share posts, toggle availability, edit profile sections, manage ad campaigns.
 
-6. **Disputes Workflow Revamp**
-   - **Stages:** Startup (evidence submission), Offers (partial refund proposals), Mediation (triage with mediator), Arbitration (fee-backed binding resolution).
-   - **System Needs:** Stage timers, notification matrix, arbitration fee processing, dispute audit logs, mediator tooling UI, outcome recording.
-   - **Mobile Experience:** Dedicated screens for dispute status, evidence upload (camera/gallery), and offer responses.
+---
 
-7. **Live Feed Ecosystem**
-   - **Content Types:** Text posts, media galleries, documents, shares (gigs, projects, companies, volunteers), polls.
-   - **Engagement:** Follow, like, comment threads, share to inbox, bookmarking, reporting/flagging.
-   - **Infrastructure:** Feed aggregation service, ranking algorithm, caching, moderation queue, analytics events.
+## 2. Collaboration & Community
+### 2.1 Chat & Inbox Upgrade with Floating Bubble
+- **Functional Enhancements**: Draggable floating chat bubble across web/mobile, multi-thread inbox, quick replies, read receipts, typing indicators, support channel escalation.
+- **Backend/Infrastructure**: WebSocket messaging service, queue-backed push notifications, transcript archival on Cloudflare R2, SLA tracking.
+- **Mobile Implementation**: Overlay widget with position memory, offline draft support, message retries.
 
-## Discovery, Matching & Automation
-8. **Explorer & Search 2.0**
-   - **Engine:** Meilisearch deployment with synonyms, typo tolerance, and segmentation indices for profiles, projects, gigs, companies, volunteers, ads.
-   - **Filters:** Industry, skills, languages, rate, availability toggles, trust score thresholds, launchpad/volunteer flags, compliance status.
-   - **Interface:** Saved searches, alert subscriptions, inline previews, map view for geographic targeting.
-   - **Mobile Alignment:** Flutter screens mirroring filters, plus quick actions for voice search and biometric login shortcuts.
+### 2.2 Live Feed Ecosystem
+- **Content Types**: Text, images, videos, documents, polls, shares of gigs/projects/companies/volunteers, achievements.
+- **Interactions**: Follow/unfollow, like, comment threads, share to inbox, bookmark, report/flag, trending algorithms.
+- **Supporting Services**: Feed aggregation, ranking algorithm, moderation queue, analytics events, CDN-optimised media delivery.
 
-9. **Freelance Auto-Assign Engine**
-   - **Workflow:** Opt-in toggle during project creation, ranking queue of available freelancers based on rating, area, language, hourly rate, reviews.
-   - **Rules & Controls:** Accept/decline windows, fallback escalation, logging, manual override by project owner.
-   - **Integrations:** Notifications (push/email), project management sync, analytics for fill rates, API endpoints for third-party triggers.
+---
 
-10. **Experience Launchpad**
-    - **Purpose:** Marketplace for early-career talent with curated low-risk gigs and jobs.
-    - **Features:** Employer criteria setup (skills, education, area), automatic matching pipeline, onboarding wizard for new freelancers/job seekers, interview auto-scheduling for matched roles.
-    - **Automation:** Auto project/job assignment when criteria met, status dashboards, educational content modules, satisfaction survey loop.
+## 3. Trust, Transactions & Governance
+### 3.1 FCA-Compliant Escrow System
+- **Components**: Client/freelancer escrow accounts, platform fee management, KYC/KYB verification workflows, double-entry ledger, reconciliation dashboards, audit logs.
+- **User Journeys**: Fund project milestones, track escrow status, partial releases, initiate disputes, view payment history.
+- **Compliance**: FCA sandbox testing, multi-factor approvals, daily reconciliation, secure data residency, reporting exports.
 
-11. **Volunteers Hub**
-    - **Capabilities:** Volunteer listing pages, invite workflows, acceptance/rejection handling, integration with project/job flows once accepted.
-    - **Data Extensions:** Flags on profiles, volunteer availability schedules, cause categories, hours tracking for impact reports.
-    - **Mobile Delivery:** Volunteer tab in app with push alerts for relevant invitations.
+### 3.2 Disputes Workflow Revamp
+- **Stages**: Startup (evidence upload), Offers (partial refund negotiations), Mediation (mediator facilitation), Arbitration (fee-backed final decision).
+- **Features**: Timers with reminders, evidence management, fee collection, mediator dashboards, resolution outcomes, analytics.
+- **Phone App Integration**: Dispute overview screen, stage progression, evidence capture via camera/gallery, push alerts.
 
-## User Types & Profiles
-12. **Profile Overhaul**
-    - **Sections:** Agency type, company type, qualifications, experience timeline, references (employer-verified), trust score (calculated from verification, reviews, completion rates), likes, followers/following, availability toggles, areas served.
-    - **Design:** Component-based layout with widgets that can be reused on mobile and web; editable blocks with draft mode.
-    - **Backend:** Schema updates for new attributes, analytics events for interactions, privacy controls, GraphQL fragments for modular fetching.
+### 3.3 Project Management Module
+- **Core Modules**: Budgets, milestones, timeline/Gantt, tasks (with dependencies), objectives/OKRs, hourly tracking (timer & manual logs), progress analytics, in-project chat, group/agency projects.
+- **Data Model Additions**: `projects`, `project_members`, `project_roles`, `project_tasks`, `task_dependencies`, `milestones`, `time_logs`, `project_objectives`, `project_chat_threads` tables.
+- **Integrations**: Escrow milestones, auto-assign engine, notifications, analytics dashboards, export to CSV/PDF.
 
-13. **Agency User Type**
-    - **Dashboards:** HR tools (talent roster, utilisation), payment distribution (split invoicing), project & gig pipelines, resource planning.
-    - **Features:** Agency project type with team assignments, graduate-to-agency conversion from freelancer teams, internal messaging, KPI reports.
-    - **APIs:** Agency roles/permissions, payout rules, bulk invite/import endpoints, integration with project management suite.
+---
 
-14. **Company User Type**
-    - **Functions:** Headhunter management, job listing builder, project oversight, ATS analytics.
-    - **Modules:** Hiring team collaboration, approvals workflow, interview scheduling, vendor management.
-    - **Integrations:** Calendar (Google/Microsoft), HRIS exports, compliance checks for company verification.
+## 4. Discovery, Matching & Automation
+### 4.1 Explorer & Search (Meilisearch)
+- **Engine Setup**: Meilisearch cluster, synonyms, typo tolerance, segmentation indices for profiles/projects/gigs/jobs/volunteers/ads.
+- **Filters & Targeting**: Industry, skills, languages, rates, availability, trust score, location radius, launchpad status, volunteer flags, company/agency types.
+- **Interfaces**: Saved searches, alert subscriptions, inline previews, map view, voice search (mobile), quick actions (follow, chat, share).
+- **Phone App Coverage**: Dedicated screens, filter drawers, offline caching, analytics instrumentation.
 
-15. **Employment / Jobs Board Expansion**
-    - **Features:** Full job detail pages, application forms with screener questions, stage-based ATS pipeline, dashboards for applicants, admin oversight for moderation.
-    - **Profile Enhancements:** CV builder (template-driven) or upload, portfolio attachments, cover letter templates.
-    - **Supporting Tools:** Interview calendar with reminders, candidate scoring, analytics, API endpoints for job posting automation.
+### 4.2 Freelance Auto-Assign Engine
+- **Workflow**: Opt-in toggle during project creation, ranking queue based on rating, area, language, hourly rate, review count, availability status.
+- **Controls**: Accept/decline timers, fallback routing, manual override, audit logs, notifications (push/email/in-app).
+- **Mobile Integration**: Assignment queue screen, accept/reject interactions, escalation to support.
 
-## Commerce & Monetisation
-16. **FCA-Compliant Escrow System**
-    - **Components:** Escrow accounts (client, freelancer, platform fees), compliance checks (KYC/KYB), ledger tracking, dispute hooks, release/partial release flows.
-    - **Security:** Two-factor approvals, audit logs, reconciliation dashboards, automated reporting to finance team.
-    - **Mobile Support:** Funding, milestone tracking, release actions, and dispute initiation from Flutter app.
+### 4.3 Experience Launchpad
+- **Employer Tools**: Criteria setup (skills, education, area), job/project submission wizard, low-risk compensation guidance.
+- **Talent Experience**: Launchpad onboarding, skill verification, auto-matching to opportunities, interview scheduling triggers, educational content.
+- **Automation**: Match scoring, auto project/job assignment, satisfaction surveys, performance dashboards.
 
-17. **Gigvora Ads Suite**
-    - **Campaign Types:** PPC, CPC, CPM with geographic targeting, audience filters, and scheduling.
-    - **Tools:** Creative builder (image/video uploads, copy suggestions), budget pacing, bid adjustments, conversion tracking, upsell prompts within project/job flows.
-    - **Analytics:** Dashboards for impressions, clicks, conversions, cost metrics, predictive spend estimates.
+### 4.4 Volunteers Hub
+- **Features**: Volunteer profiles, availability schedules, cause categories, invite flows, acceptance/rejection handling, impact hours tracking.
+- **Integration**: Project/job pipelines, live feed sharing, ads upsell for volunteer initiatives, analytics tracking.
+- **Phone App**: Volunteer tab, push alerts, history log, share to feed.
 
-## Additional Enhancements
-18. **Homepage & Website Redesign**
-    - **Scope:** Rebuild hero, solution overview, testimonials, CTA zones, footer; apply blue branding across layout system.
-    - **SEO/Content:** Structured data, improved page speed, new illustrations, accessibility compliance.
-    - **Conversion Hooks:** Inline lead capture, live feed preview, app download prompts.
+---
 
-19. **Mobile Design Recreation**
-    - **Elements:** Flutter theming, reimagined navigation (tab + floating actions), motion guidelines, adaptive layout for tablets.
-    - **Assets:** Animation library, onboarding walkthroughs, contextual tooltips.
+## 5. Profiles, User Types & Employment
+### 5.1 Profile Overhaul
+- **New Sections**: Agency type, company type, qualifications, experience timeline, references (employer-verified), trust score, likes, follows/followers counts, areas served, availability toggles (online, looking for work, available to freelance).
+- **Component-Based Layout**: Reusable widgets for web/mobile, drag-and-drop ordering, draft mode, quick edit modals.
+- **Backend Enhancements**: Schema extensions, trust score algorithm, verification logs, GraphQL fragments, privacy controls.
 
-20. **Profile Status Toggles**
-    - **Controls:** Online, looking for work, available to freelance – multi-select toggles with automation rules.
-    - **System Logic:** Impact search ranking, trigger notifications, update live feed presence badges.
-    - **Mobile/Web Sync:** Real-time updates via presence service; user preferences stored server-side.
+### 5.2 Agency User Type
+- **Dashboard Modules**: Human resources roster, utilisation analytics, payments distribution (split invoicing), project/gig pipeline, resource planning, graduate-to-agency conversions.
+- **APIs & Permissions**: Role-based access, bulk invites/imports, payment rules, integration with project management and auto-assign.
+- **Mobile Support**: Agency overview, team assignments, approvals, notifications.
 
-21. **Explorer-Level Search Enhancements for Mobile**
-    - **Screens:** Dedicated explorer, saved searches, results list, detail overlays.
-    - **Actions:** Apply filters, follow entities, trigger chat, bookmark, or share directly from search results.
-    - **APIs:** Sync with Meilisearch queries, offline cache of last results, instrumentation for search analytics.
+### 5.3 Company User Type
+- **Functions**: Headhunter management, job listing builder, project oversight, vendor management.
+- **ATS Integration**: Interview scheduling (Google/Microsoft calendar integration), approvals workflow, candidate scoring dashboards.
+- **Mobile Screens**: Hiring overview, candidate pipeline, interview calendar, notifications.
 
-22. **Auto Assign & Launchpad Mobile Coverage**
-    - **Screens:** Project auto-assign toggle, assignment review queue, launchpad onboarding, matched opportunities list.
-    - **Actions:** Accept/decline, request info, escalate to support.
-    - **APIs:** Reuse matching service endpoints, push notifications, event tracking for conversion funnels.
+### 5.4 Employment / Jobs Board Expansion
+- **Job Lifecycle**: Job creation wizard, screener questions setup, stage-based ATS pipeline, dashboard for recruiters, admin moderation tools.
+- **Candidate Experience**: Application forms, CV builder (template-driven) or upload, cover letter templates, interview scheduling, status updates.
+- **Data & Integrations**: ATS analytics, export to HRIS, CV attachments stored in Cloudflare R2, mobile parity.
 
-23. **Volunteer & Ads Integration in App**
-    - **Volunteer Screens:** Discovery, invites, accepted opportunities, history/logging.
-    - **Ads Screens:** Campaign list, editor, performance dashboards, billing preferences, alert setup.
-    - **Cross-Feature Hooks:** Ability to promote volunteer initiatives via ads, share volunteer wins in live feed.
+### 5.5 Profile Status Toggles
+- **Controls**: Online, looking for work, available to freelance – multi-select toggles with automation rules affecting search ranking and notifications.
+- **System Logic**: Presence service, status audit log, analytics tracking, automatic expiry/reminders.
+- **Mobile/Web Sync**: Real-time updates, UI badges, push/email alerts.
+
+---
+
+## 6. Monetisation, Brand & Infrastructure
+### 6.1 Gigvora Ads Suite
+- **Campaign Types**: PPC, CPC, CPM with geographic targeting, demographic/skill filters, scheduling windows, ad placements (feed, search, profile, dashboard banners).
+- **Creation Workflow**: Campaign wizard, creative upload (image/video), copy suggestions, budget pacing, bid adjustments, audience preview, review/approval flow.
+- **Metrics & Reporting**: Impressions, clicks, conversions, cost metrics (CPA, CPC, CPM), predictive spend, A/B testing, alerting, export options.
+- **Integration**: Billing provider, analytics events, ability to promote volunteer initiatives or launchpad roles.
+
+### 6.2 Homepage & Website Blue Rebrand
+- **Scope**: Hero redesign, solution overview, testimonials, CTA zones, footer, navigation, responsive layout, SEO schema, structured data, performance optimisations.
+- **Content Hooks**: Live feed preview, mobile app download prompts, trust indicators, compliance messaging, case studies.
+- **Accessibility & Performance**: WCAG 2.1 AA compliance, LCP ≤2.5s, CLS ≤0.1, responsive imagery, lazy loading.
+
+### 6.3 Cloudflare R2 Integration
+- **Storage Strategy**: Segmented buckets for profile media, feed posts, ads creatives, dispute evidence, volunteer/launchpad documents.
+- **Security & Access**: Signed URL service, lifecycle policies (standard, infrequent access, archival), encryption at rest, MFA for admin access.
+- **Tooling**: Upload widgets, background workers for image optimisation/video transcoding, monitoring alerts, cost dashboards.
+
+---
+
+## 7. Supporting Tables & Functions
+| Table/Service | Purpose | Key Fields / Functions |
+| --- | --- | --- |
+| `user_profiles` (extended) | Store new profile data | `agency_type`, `company_type`, `qualifications`, `experience_entries`, `trust_score`, `likes_count`, `followers_count`, `areas`, `status_flags` |
+| `references` | Employer-verified references | `reference_id`, `user_id`, `employer_id`, `rating`, `comments`, `status` |
+| `launchpad_matches` | Track launchpad auto-matching | `match_id`, `candidate_id`, `opportunity_id`, `score`, `status`, `notified_at` |
+| `volunteer_invitations` | Manage volunteer invites | `invite_id`, `volunteer_id`, `project_id`, `status`, `responded_at` |
+| `ads_campaigns` | Manage ad campaigns | `campaign_id`, `owner_id`, `type`, `budget`, `bid`, `targeting`, `status`, `metrics` |
+| `escrow_transactions` | Ledger for FCA compliance | `transaction_id`, `project_id`, `state`, `amount`, `fee`, `released_at`, `disputed_at` |
+| `disputes` | Multi-stage dispute records | `dispute_id`, `project_id`, `stage`, `timer_end`, `fee_due`, `mediator_id`, `resolution` |
+| `project_tasks` | Project management tasks | `task_id`, `project_id`, `assignee_id`, `status`, `due_date`, `dependency_ids` |
+| `search_indices` | Meilisearch config metadata | `index_type`, `primary_key`, `synonyms`, `ranking_rules`, `last_indexed_at` |
+
+### Core Functions/APIs
+- `POST /api/v1/projects/{id}/auto-assign/toggle` – Enable/disable auto-assign with criteria payload.
+- `POST /api/v1/disputes/{id}/offers` – Submit or respond to partial payment offers with validation rules.
+- `GET /api/v1/launchpad/matches` – Retrieve auto-matched opportunities, including acceptance actions.
+- `POST /api/v1/volunteers/invitations/{id}/respond` – Accept or decline volunteer invitations; triggers workflow.
+- `POST /graphql` (Gigvora Ads mutations) – Create/update campaigns, creatives, budgets.
+- `GET /api/v1/search` – Meilisearch-backed global search with filter parameters and pagination metadata.
+- `POST /api/v1/escrow/{project_id}/release` – Process milestone release with compliance checks and ledger updates.
+- `PATCH /api/v1/profile/status` – Update availability toggles, triggers presence broadcast and analytics.
+
+---
+
+## 8. Acceptance Criteria Highlights
+- Flutter app passes store review guidelines (iOS/Android), supports biometrics, and meets crash-free >99%.
+- Escrow transactions audited with zero reconciliation discrepancies; disputes resolved within defined SLA per stage.
+- Live feed supports ≥10k daily posts with latency <500ms for interactions; moderation queue processes flagged content within 2 hours.
+- Meilisearch explorer delivers relevant results with search success rate ≥85% (measured via analytics).
+- Auto-assign increases project fill rate by ≥25%; launchpad placements complete within 14 days on average.
+- Volunteer hub achieves ≥45% invitation acceptance, integrated analytics track volunteer hours.
+- Gigvora Ads suite manages campaigns with accurate spend reporting (<1% variance) and supports ad scheduling/targeting rules.
+- Profile completion average rises to ≥90% due to new sections and guided prompts.
+
+---
+
+## 9. Dependencies & Enablers
+- Vendor contracts (escrow provider, KYC/KYB, Cloudflare R2, push notification services, analytics tools).
+- Infrastructure provisioning (Meilisearch cluster, R2 buckets, CI/CD pipelines).
+- Compliance/legal documentation for FCA, disputes, launchpad/volunteer policies.
+- Data migration tooling for profile, project, ads, launchpad tables.
+- Support and marketing enablement materials for launch communications.
+
+---
+
+## 10. Measurement & Monitoring
+- **Dashboards**: Engagement (messages, feed), financial (escrow volume, disputes), adoption (profile completion, ATS usage), growth (launchpad fills, volunteer invites), monetisation (ads revenue).
+- **Alerts**: Escrow reconciliation failures, search latency spikes, app crash rate thresholds, ads overspend, volunteer invite backlog.
+- **Feedback Loops**: In-app surveys, beta cohorts, support ticket tagging, NPS segmented by user type.
+
+These features collectively deliver the Version 1.00 vision: a blue-branded, mobile-first Gigvora platform with FCA-compliant trust mechanisms, dynamic collaboration, powerful discovery, and monetisation engines ready for global scale.
