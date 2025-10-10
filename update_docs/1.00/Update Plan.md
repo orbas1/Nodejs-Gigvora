@@ -58,10 +58,10 @@ Version 1.00 unifies Gigvora’s mobile, web, and service layers into a producti
 4. **Discovery, Matching & Experience Automation – 4%**
    - **Subtasks**
      1. Deploy Meilisearch cluster with indexes for profiles, projects, gigs, jobs, volunteers, ads, and launchpad entries.
-     2. Implement LinkedIn-grade filters, saved searches, alerts, and map view for explorer flows.
+     2. Implement LinkedIn-grade filters, saved searches, alerts, and map view for explorer flows, surfacing Experience Launchpad and Volunteer-specific filters.
      3. Build freelance auto-assign engine with ranking criteria (rating, area, language, rates, reviews, availability toggles).
-     4. Launch Experience Launchpad workflows (employer criteria, talent onboarding, auto matching, scheduling).
-     5. Deliver Volunteers hub with listings, invitation flows, acceptance tracking, and reporting dashboards.
+     4. Launch Experience Launchpad workflows (employer criteria, talent onboarding, auto matching, scheduling) across web, Flutter, and provider dashboards.
+     5. Deliver Volunteers hub with listings, invitation flows, acceptance tracking, and reporting dashboards tightly integrated with project/job pipelines.
    - **Integration Coverage**
      - Backend: Search ingestion pipelines, matching engine, volunteer/launchpad services, analytics emitters.
      - Front-end: Advanced filter UI, saved search modals, launchpad & volunteer dashboards.
@@ -74,11 +74,11 @@ Version 1.00 unifies Gigvora’s mobile, web, and service layers into a producti
 
 5. **Profiles, User Types & Employment Systems – 5%**
    - **Subtasks**
-     1. Refactor profile schema for new sections (agency/company type, qualifications, experience, references, areas).
-     2. Implement trust score calculation, likes/follows counters, and availability toggle service with audit logs.
-     3. Deliver agency dashboards (HR management, payments distribution, projects/gigs pipeline, graduate-to-agency conversions).
-     4. Build company dashboards (headhunter management, job listings, ATS stages, interview calendar, analytics).
-     5. Expand Employment/Jobs board (job creation wizard, screener questions, CV upload/builder, ATS admin tooling).
+     1. Refactor profile schema for new sections (agency/company type, qualifications, experience, references, areas) with Experience Launchpad eligibility flags and volunteer opt-ins.
+     2. Implement trust score calculation, likes/follows counters, and availability toggle service with audit logs powering search, auto-assign, launchpad, and volunteer flows.
+     3. Deliver agency dashboards (HR management, payments distribution, projects/gigs pipeline, graduate-to-agency conversions) including volunteer assignments and launchpad cohort monitoring.
+     4. Build company dashboards (headhunter management, job listings, ATS stages, interview calendar, analytics) with Experience Launchpad and volunteers surfaced as sourcing channels.
+     5. Expand Employment/Jobs board (job creation wizard, screener questions, CV upload/builder, ATS admin tooling) covering Experience Launchpad postings, volunteer opportunities, and full ATS reporting.
    - **Integration Coverage**
      - Backend: Profile services, trust scoring, ATS pipelines, agency/company permission layers.
      - Front-end: Component-based profile UI, dashboards, CV builder, interview scheduling interfaces.

@@ -34,9 +34,9 @@
     3. Harden Cloudflare R2 pipelines for live feed media, ads creatives, and dispute uploads.
 - **Task 3.2 – Discovery & Matching Rollout**
   - Subtasks:
-    1. Productionise Meilisearch cluster with indexers and analytics instrumentation.
-    2. Launch auto-assign engine with acceptance/retry logic and availability toggles.
-    3. Release Experience Launchpad and Volunteers hub with employer/talent workflows.
+    1. Productionise Meilisearch cluster with indexers and analytics instrumentation, including Launchpad/Volunteer-specific ranking rules.
+    2. Launch auto-assign engine with acceptance/retry logic, Experience Launchpad eligibility scoring, and availability toggles.
+    3. Release Experience Launchpad and Volunteers hub with employer/talent workflows across web, Flutter, and provider dashboards, including reporting on placements and participation.
 
 ## Milestone 4: Operational Excellence & User Archetypes (Weeks 12–14) – 24% Complete
 - **Task 4.1 – Profiles, Agencies & Companies**
@@ -46,9 +46,9 @@
     3. Ship company dashboards (headhunter, job listings, interview calendar, ATS analytics).
 - **Task 4.2 – Project, Gig & Employment Modules**
   - Subtasks:
-    1. Release project management module (tasks, milestones, time tracking, in-project chat).
-    2. Upgrade gig creation/management and integrate with auto-assign and escrow milestones.
-    3. Expand employment/jobs board (screener questions, CV builder/upload, admin panels).
+    1. Release project management module (tasks, milestones, time tracking, in-project chat) with volunteer staffing hooks.
+    2. Upgrade gig creation/management and integrate with auto-assign, Experience Launchpad matching, and escrow milestones.
+    3. Expand employment/jobs board (screener questions, CV builder/upload, admin panels) covering volunteer listings, launchpad opportunities, and analytics by candidate type.
 
 ## Milestone 5: Stabilisation, Testing & Launch (Weeks 15–18) – 30% Complete
 - **Task 5.1 – Quality, Security & Compliance Sign-off**

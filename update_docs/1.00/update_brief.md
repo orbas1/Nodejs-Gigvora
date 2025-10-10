@@ -4,7 +4,7 @@
 Version 1.00 elevates Gigvora from a feature-rich beta to a fully orchestrated, FCA-compliant marketplace with omnichannel parity. Guided by the comprehensive roadmap in `Update Plan.md`, the milestone schedule, and progress tracker, this release unites Flutter, React, Node.js, and infrastructure teams to deliver blue-branded experiences, secure financial flows, and automation for discovery, projects, and monetisation. Empty pre-update issue/fix registers prompted an embedded discovery effort so defects and gaps are captured as part of Milestone 1.
 
 ## Strategic Goals
-1. **Omnichannel Delivery:** Achieve full parity across web and Flutter apps, covering chat, live feed, explorer/search, projects, jobs, volunteers, and ads with blue theming.
+1. **Omnichannel Delivery:** Achieve full parity across web and Flutter apps, covering chat, live feed, explorer/search, projects, jobs, Experience Launchpad, volunteers, and ads with blue theming.
 2. **Trust & Compliance:** Launch FCA-aligned escrow, disputes, and ledger infrastructure with Cloudflare R2 media governance, ensuring auditable payments and dispute resolution.
 3. **Intelligent Growth:** Provide LinkedIn-grade discovery, auto-assign, Experience Launchpad, and Volunteer matching to accelerate project/job fulfilment.
 4. **User Archetypes & Employment:** Empower freelancers, agencies, companies, and volunteers through upgraded profiles, dashboards, ATS flows, and availability toggles.
@@ -27,14 +27,14 @@ Version 1.00 elevates Gigvora from a feature-rich beta to a fully orchestrated, 
 - Cloudflare R2 storage for disputes, feed media, ads creatives with signed URLs, lifecycle policies, and monitoring.
 
 ### Discovery, Matching & Experience Automation (Task 4)
-- Meilisearch deployment with indexes for profiles, projects, gigs, jobs, volunteers, ads, launchpad.
-- Advanced filters, saved searches, alerts, map view, and analytics instrumentation.
-- Auto-assign engine, Experience Launchpad, and Volunteers hub spanning web, Flutter, and provider dashboards.
+- Meilisearch deployment with indexes for profiles, projects, gigs, jobs, volunteers, ads, and Experience Launchpad cohorts.
+- Advanced filters, saved searches, alerts, map view, and analytics instrumentation surfacing launchpad and volunteer-specific signals.
+- Auto-assign engine, Experience Launchpad, and Volunteers hub spanning web, Flutter, and provider dashboards, with placements reporting.
 
 ### Profiles, User Types & Employment (Task 5)
-- Profile refactor (agency/company type, qualifications, experience, references, areas, trust score, likes/follows, status toggles).
-- Agency dashboards (HR, payments distribution, projects/gigs pipeline) and company dashboards (headhunter, ATS, interview calendar).
-- Employment/jobs board expansion (screener questions, CV builder/upload, ATS admin panels, analytics).
+- Profile refactor (agency/company type, qualifications, experience, references, areas, trust score, likes/follows, status toggles) with launchpad eligibility and volunteer availability flags.
+- Agency dashboards (HR, payments distribution, projects/gigs pipeline) and company dashboards (headhunter, ATS, interview calendar) exposing volunteer and launchpad pipelines.
+- Employment/jobs board expansion (screener questions, CV builder/upload, ATS admin panels, analytics) including Experience Launchpad opportunities, volunteer listings, and ATS automations.
 
 ### Project, Gig & Operations Management (Task 6)
 - Project creation, gig management upgrades, project management module (tasks, milestones, objectives, time tracking, group projects, in-project chat).
@@ -48,8 +48,8 @@ Version 1.00 elevates Gigvora from a feature-rich beta to a fully orchestrated, 
 ## Milestones & Dependencies
 - **Milestone 1 (Weeks 1–3):** Vendor contracting, environment setup, issue discovery workshops, architecture baselines.
 - **Milestone 2 (Weeks 4–7):** Flutter foundations, chat/live feed parity, homepage & profile rebuild.
-- **Milestone 3 (Weeks 8–11):** Escrow/disputes rollout, Meilisearch productionisation, auto-assign, launchpad, volunteers.
-- **Milestone 4 (Weeks 12–14):** Profile/agency/company dashboards, project management module, jobs board expansion.
+- **Milestone 3 (Weeks 8–11):** Escrow/disputes rollout, Meilisearch productionisation, auto-assign, Experience Launchpad, volunteers go-live.
+- **Milestone 4 (Weeks 12–14):** Profile/agency/company dashboards, project management module, jobs board/launchpad/volunteer expansion.
 - **Milestone 5 (Weeks 15–18):** Full regression, compliance sign-off, marketing enablement, phased launch & hypercare.
 
 Dependencies include FCA sandbox approval, Cloudflare R2 provisioning, Meilisearch infrastructure, schema migrations, and cross-squad coordination. Risk mitigations appear in `update_progress_tracker.md` and include weekly compliance syncs, capacity planning for messaging, and rapid population of issue/fix registers.
@@ -68,7 +68,7 @@ Dependencies include FCA sandbox approval, Cloudflare R2 provisioning, Meilisear
 ## Expected Outcomes
 - ≥95% feature parity between web and Flutter apps with crash-free sessions ≥99% and navigation latency ≤1s on target devices.
 - FCA-compliant escrow/dispute flows with zero reconciliation gaps and documented audit trails.
-- LinkedIn-grade search experience with improved fill rates via auto-assign, launchpad, and volunteer automation.
+- LinkedIn-grade search experience with improved fill rates via auto-assign, Experience Launchpad, and volunteer automation.
 - Rich profiles and dashboards driving ≥90% profile completion, ATS adoption, and agency/company operational readiness.
 - Monetisation readiness through Gigvora Ads and blue-branded marketing assets supporting growth targets.
 

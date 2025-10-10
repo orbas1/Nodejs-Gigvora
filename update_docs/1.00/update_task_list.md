@@ -50,10 +50,10 @@
 
 ## Task 4 – Discovery, Matching & Experience Automation (4% Complete)
 - **Subtask 4.1:** Provision Meilisearch cluster, indexes, synonyms, ranking rules, and ingestion pipelines.
-- **Subtask 4.2:** Implement explorer/search UI with advanced filters, saved searches, alerts, and map view.
-- **Subtask 4.3:** Build freelance auto-assign engine with ranking criteria, availability toggles, acceptance/retry flows.
-- **Subtask 4.4:** Launch Experience Launchpad workflows for employers and talent, including onboarding and auto matching.
-- **Subtask 4.5:** Deliver Volunteers hub with listings, invitations, acceptance tracking, and analytics dashboards.
+- **Subtask 4.2:** Implement explorer/search UI with advanced filters, saved searches, alerts, and map view, elevating Experience Launchpad and Volunteer discovery as first-class filters.
+- **Subtask 4.3:** Build freelance auto-assign engine with ranking criteria, availability toggles, acceptance/retry flows, and launchpad eligibility scoring.
+- **Subtask 4.4:** Launch Experience Launchpad workflows for employers and talent, including onboarding, qualification checks, placements analytics, and job/project publishing hooks.
+- **Subtask 4.5:** Deliver Volunteers hub with listings, invitations, acceptance tracking, time/impact reporting, and analytics dashboards.
 - **Integration Breakdown**
   - Backend: Search ingestion services, matching engine, volunteer/launchpad services, analytics emitters.
   - Front-end: React explorer UI, saved search manager, volunteer dashboards, launchpad modals.
@@ -66,10 +66,10 @@
 
 ## Task 5 – Profiles, User Types & Employment Systems (5% Complete)
 - **Subtask 5.1:** Refactor profile schema and UI for new sections, references, trust score display, and availability toggles.
-- **Subtask 5.2:** Implement trust score calculations, likes/follows counters, and analytics instrumentation.
-- **Subtask 5.3:** Build agency dashboards (HR, payments distribution, projects/gigs pipeline, graduate-to-agency) for web/mobile.
-- **Subtask 5.4:** Build company dashboards (headhunter, job listings, ATS stages, interview calendar) with permissions.
-- **Subtask 5.5:** Expand Employment/Jobs board with screener questions, CV builder/upload, admin panels, and ATS automation.
+- **Subtask 5.2:** Implement trust score calculations, likes/follows counters, and analytics instrumentation powering launchpad, volunteer, and jobs board targeting.
+- **Subtask 5.3:** Build agency dashboards (HR, payments distribution, projects/gigs pipeline, graduate-to-agency) for web/mobile with volunteer staffing and launchpad cohort views.
+- **Subtask 5.4:** Build company dashboards (headhunter, job listings, ATS stages, interview calendar) with permissions, exposing Experience Launchpad and volunteer funnels.
+- **Subtask 5.5:** Expand Employment/Jobs board with screener questions, CV builder/upload, admin panels, ATS automation, volunteer listings, and launchpad opportunity management.
 - **Integration Breakdown**
   - Backend: Profile service, trust scoring, ATS pipelines, agency/company permissions.
   - Front-end: Component-based profile UI, dashboards, CV builder, interview scheduler.
