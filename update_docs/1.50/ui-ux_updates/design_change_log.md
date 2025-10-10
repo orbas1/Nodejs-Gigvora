@@ -32,6 +32,11 @@ Version 1.50 is the first production-grade design system pass that unifies the G
    - Global search exposes saved searches, quick filters, and cross-entity results with icon-coded tabs.
    - Recommendation surfaces (Suggested gigs, Suggested talent, Launchpad matches) now share skeleton states and empty-state education blocks.
 
+6. **Web Application Redesign**
+   - Established a comprehensive `Web Application Design Update` specification containing component, page, logic, and asset requirements for the React web experience.
+   - Rebuilt web navigation with omnibox command palette, persona-aware marketing home, and responsive sidebar/tab behaviours aligned with provider and user app wireframe changes.
+   - Finalised cross-platform design tokens (colour, typography, spacing) ensuring parity with Flutter theming and readiness for future dark mode.
+
 ## Accessibility & Performance Initiatives
 - Achieved minimum 4.5:1 contrast ratios for text against primary and secondary backgrounds.
 - Increased tap target size to 48px with responsive padding to reduce accidental input on smaller phones.
