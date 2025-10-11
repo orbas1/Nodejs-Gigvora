@@ -18,3 +18,11 @@
 - **Focus:** Outline 2dp `#38BDF8`, drop shadow `0 0 0 4 rgba(56, 189, 248, 0.35)`.
 - **Loading:** Primary/secondary buttons display circular progress indicator (24dp) replacing icon, text fades to 0%.
 - **Disabled:** Reduce opacity to 48%, disable shadows, maintain accessible contrast (text `#94A3B8`).
+- **Success Feedback:** On completion of primary action (e.g., application submitted), button briefly pulses (scale 1.03 → 1.00 over 220ms) and transitions to success state with check icon for 1.2s before returning to default.
+- **Haptics:** Provide medium impact feedback for primary CTA taps, light impact for chip selection, none for disabled states.
+
+## Implementation Notes
+- Reuse `GigvoraButton` component with theming extension for colors/typography; support `ButtonSize.small` (height 44dp), `medium` (52dp), `large` (60dp) for accessibility variants.
+- Outline buttons require `BorderSide(width: 1.5, color: GigvoraTheme.colors.primary)` and maintain 16dp corner radius for visual harmony with cards.
+- Chips implement `ChoiceChip` with custom `shape: StadiumBorder()` and `pressElevation: 0`; selected state uses `foregroundColor` override for white text on accent background when high contrast needed.
+- Document button usage in `component_gallery.md` with screenshot references (light/dark theme) to expedite QA.

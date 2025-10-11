@@ -19,6 +19,12 @@ Provide consistent mock data for design QA, prototype testing, and automated UI 
    - Fields: `id`, `category`, `title`, `body`, `timestamp`, `isRead`, `actionRoute`.
 6. **Messages (`messages.json`):**
    - Conversations with `id`, `participant`, `messages[]` (sender, text, timestamp, attachments, status).
+7. **Support Articles (`support_articles.json`):**
+   - Fields: `id`, `title`, `summary`, `category`, `icon`, `updatedAt`, `content`, `relatedArticles[]`.
+8. **Data Export Jobs (`export_jobs.json`):**
+   - Fields: `id`, `createdAt`, `status`, `fileSize`, `expiresAt`, `downloadUrl`, `includesSensitiveData`.
+9. **NPS Survey Results (`nps_responses.json`):**
+   - Fields: `id`, `score`, `comment`, `submittedAt`, `triggerSource`. Use to simulate data binding when user submits feedback.
 
 ## Data Governance
 - Use synthetic organisations and names; no real personal data.
@@ -32,3 +38,4 @@ Provide consistent mock data for design QA, prototype testing, and automated UI 
 
 ## Analytics Simulation
 - For prototypes, include `analytics` property on dummy records to simulate event logging (e.g., `expectedCTR`, `targetSegment`).
+- Generate synthetic distributions (e.g., NPS average 8.2) for analytics dashboards to test chart rendering.

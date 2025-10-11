@@ -40,3 +40,15 @@
 ## Implementation Notes
 - Define `ColorScheme` custom in Flutter to align with tokens; ensure dark mode variant (future) uses inverted surfaces (#0F172A background, #1E293B surface) while keeping accent consistent.
 - Document tokens in design system JSON for cross-platform alignment (`tokens/color.json`).
+- Create semantic aliases (`color.ctaPrimary`, `color.badgeRemote`, `color.badgeUrgent`) to avoid hardcoding hex values in product code.
+- Provide swatch documentation with contrast ratios; include `color-contrast-report.md` exported from Stark plugin for accessibility evidence.
+
+## Colour Pairing Guidelines
+- Pair `#2563EB` with neutral surfaces for readability; avoid pairing with warm tones (e.g., `#F59E0B`) unless separated by neutral spacing to prevent visual clash.
+- Use warning `#F59E0B` only on banners, icons, or status badges—limit to one prominent element per viewport.
+- Badge palette: Remote `#0EA5E9`, Hybrid `#6366F1`, Urgent `#DC2626`, Paid `#16A34A`. Ensure text remains white for readability.
+
+## Testing & QA
+- Validate gradients on low-end Android devices for banding; if observed, export as high-resolution PNG backgrounds.
+- Run automated accessibility tests using `flutter_test` + `accessibility_testers` plugin to confirm colour contrast thresholds across states.
+- Keep color tokens in sync with web design system by running weekly diff check between Flutter token JSON and Tailwind config.

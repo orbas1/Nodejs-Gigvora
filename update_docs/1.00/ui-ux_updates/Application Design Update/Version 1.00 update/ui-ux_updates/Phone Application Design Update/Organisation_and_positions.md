@@ -29,3 +29,17 @@
 - Headlines align left, CTA buttons right-aligned in toolbars when width >400dp; on smaller screens, CTA stack vertically.
 - Use `Spacer` to push metadata or icons to edges while maintaining consistent 16dp gap.
 - All icons 24dp (except hero/illustrations). Keep consistent baseline for text by aligning using `Baseline` widget where needed.
+
+## Spatial Token Reference
+- `space.xs` = 4dp (micro spacing between icon and label), `space.sm` = 8dp, `space.md` = 16dp, `space.lg` = 24dp, `space.xl` = 32dp, `space.2xl` = 48dp.
+- Vertical rhythm for forms: label 8dp above input, helper text 6dp below input, section separators 24dp.
+- Navigation safe area offsets: bottom 20dp (iOS), 16dp (Android) to ensure CTA bars avoid home indicator.
+
+## Positioning for New Surfaces
+- **Support Hub:** Hero card top with 24dp margin; search field overlaps hero by -32dp using `Positioned` within `Stack`. Article grid uses `SliverGridDelegateWithFixedCrossAxisCount` with crossAxisSpacing 16dp.
+- **Data Export Status:** Use `ListView.separated`, each tile 72dp height, progress bar positioned 12dp from bottom, download button trailing with 16dp margin.
+- **NPS Modal:** Modal height 340dp, rating chips arranged in two rows (5 chips each) with 12dp gap. Comment field spans width minus 24dp padding and anchored above button row (buttons separated by 12dp).
+
+## Motion Anchors & Gestures
+- Transition origins align with component positions: FAB expands from bottom-right anchor, radial quick actions centre on nav icon coordinates.
+- Drag handles on bottom sheets placed 12dp from top centre (width 40dp, height 4dp). Ensure sheet stops align with natural content breakpoints (e.g., 60%, 90% height).

@@ -17,3 +17,7 @@
 | `IllustratedEmptyState` | Feedback | Illustration + copy + CTA stack. | Empty lists (saved, search). |
 | `SettingsToggleRow` | Input | Row with title, subtitle, trailing switch. | Settings categories. |
 | `SupportCard` | CTA | Card with icon, description, contact action. | Support hub contact options. |
+| `ExportStatusTile` | Status | Row with job name, timestamp, progress indicator, download CTA. | Data export status screen. |
+| `NpsSurvey` | Modal | Rating chips 1–10, optional textarea, submit/skip buttons. | Satisfaction survey entry points. |
+| `QuickActionRadial` | Menu | Circular menu fan-out for long-press on nav icons (up to 3 actions). | Bottom nav shortcuts. |
+| `HeroMetric` | Display | Large numeric metric with caption and trend arrow. | Feed hero, dashboards, analytics toasts. |

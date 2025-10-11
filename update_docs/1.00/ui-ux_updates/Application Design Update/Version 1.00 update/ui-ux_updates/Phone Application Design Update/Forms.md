@@ -30,3 +30,15 @@
 ## Implementation Notes
 - Wrap forms in `Form` + `GlobalKey` for validation; use `FocusScope` to manage keyboard.
 - Provide `LoadingButton` variant for asynchronous submissions to show spinner and prevent duplicate taps.
+- Persist form drafts locally using Hive for long flows (company onboarding). Auto-save triggered every field change and on screen background.
+- Display inline progress summary for multi-step flows (`Section 2 of 5`) to reduce abandonment.
+
+## Error & Edge Cases
+- When server validation fails, surface message at field level and show summary banner at top referencing fields needing attention.
+- For offline submissions, queue request and show toast "Saved offline – will sync when connected" with `View queue` CTA linking to status screen.
+- Implement `Retry` CTA for file upload failures; display file size limit and supported formats under upload card.
+
+## Compliance Requirements
+- Company registration must collect legal name, tax ID, compliance documents; include checkbox acknowledging terms (link to PDF). Provide tooltip with explanation for each required document.
+- Admin login OTP flow enforces timer and `Resend in 00:45` label; once timer hits 0, display `Resend code` ghost button.
+- Data export flow requires explicit consent check ("Include personal notes") with description of data coverage.

@@ -49,3 +49,5 @@
 ## Error & Offline Overlays
 1. Global error handler pushes full-screen overlay route with severity-coded icon (error/warning/info).
 2. Offline detection listens to connectivity stream; when offline, show persistent banner and optional offline screen triggered by manual refresh failure.
+3. Actions triggered while offline stored in local queue; once connectivity restored, confirm with toast or escalate to error overlay if conflict occurs.
+4. Error overlay provides `Contact support` button linking to support hub with prefilled diagnostic ID.

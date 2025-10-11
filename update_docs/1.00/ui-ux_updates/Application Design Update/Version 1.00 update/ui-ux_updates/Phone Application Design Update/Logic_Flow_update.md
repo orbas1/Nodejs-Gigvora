@@ -35,3 +35,14 @@ The Version 1.00 phone app introduces a modular routing stack, offline-aware rep
 - Use `SliverList` for feed and marketplace to reduce memory usage; virtualization ensures smooth scroll.
 - Pre-cache hero images using `cached_network_image` with LRU cache (max 100MB) to avoid redundant fetches.
 - Limit animation rebuilds by leveraging `ValueListenableBuilder` for counters and progress bars.
+
+## Offline & Sync Strategy
+- Local database (Hive) stores feed, opportunities, messages, and settings toggles. Sync tasks run every 15 minutes when connectivity resumes, respecting battery saver mode.
+- Conflict resolution: last-write-wins for simple fields, merge strategy for arrays (e.g., volunteer hours). Display toast when local actions successfully sync.
+- Provide manual sync trigger in settings > Advanced, calling `syncManager.forceSync()` with progress modal (circular indicator 48dp).
+
+## Instrumentation Timeline
+- Phase 1 (Sprint 2): Implement feed, explorer, marketplace events and screen impressions.
+- Phase 2 (Sprint 3): Add dashboard-specific milestones (`launchpad_stage_completed`, `volunteer_hours_logged`).
+- Phase 3 (Sprint 4): Capture settings interactions, support contact attempts, and offline retries for reliability tracking.
+- All events include `appVersion`, `userType`, and `networkState` fields to support analytics segmentation.

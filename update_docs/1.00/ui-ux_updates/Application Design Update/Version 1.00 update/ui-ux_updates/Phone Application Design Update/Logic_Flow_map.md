@@ -28,3 +28,8 @@
 - **Data Flow:** `Repository` layer feeds into `Controller` providers which expose state to widgets. Each screen subscribes to relevant providers; updates propagate reactively.
 - **Modal Return Paths:** Overlays (search, notifications, offline) return to previous context on dismiss, maintaining scroll state.
 - **Analytics Hooks:** Each node emits `screen_view` and action events; success flows trigger confetti Lottie for major achievements (e.g., launchpad milestone completion).
+- **Conditional Branches:**
+  - Launchpad enrolment gate surfaces CTA to join; if declined, user redirected to curated programs list.
+  - Volunteering log hours flow checks membership + verification; failed verification routes to support contact sheet.
+  - Settings → Data export initiates async job with progress banner; completion triggers inbox message with download link.
+- **Error Recovery:** Every destructive action (delete account, cancel application) surfaces confirmation modal and logs event `destructive_confirm`. If network error occurs mid-flow, user receives inline banner plus retry option preserving form state.

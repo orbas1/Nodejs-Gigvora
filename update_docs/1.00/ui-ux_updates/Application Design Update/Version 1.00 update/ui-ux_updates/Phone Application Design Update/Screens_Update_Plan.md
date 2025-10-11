@@ -31,3 +31,19 @@
 - All primary flows meet <400ms interactive response time on mid-tier Android (Pixel 4a) with offline caching fallback.
 - User testing (n=12) indicates ≥20% improvement in task completion speed for finding relevant opportunities.
 - App Store/Play Store design consistency checklists satisfied, no WCAG AA regressions.
+
+## Resource Allocation Matrix
+| Role | Sprint 1 | Sprint 2 | Sprint 3 | Sprint 4 |
+| --- | --- | --- | --- | --- |
+| Product Designer | Handoff tokens, component QA | Redline core screens | Depth screen QA | Support surfaces polish |
+| UX Writer | Copy audit for hero/feed | Marketplace microcopy | Profile & settings localisation | Error/support messaging |
+| Motion Designer | Define micro-interaction library | Pair with dev on hero & FAB animations | Dashboard progress choreography | Lottie QA |
+| Flutter Engineer A | Scaffold navigation + shared widgets | Feed/explorer implementation | Opportunity detail + dashboards | Notifications/inbox |
+| Flutter Engineer B | Component gallery + theming | Marketplace verticals | Profile + portfolio | Settings/auth flows |
+| QA Specialist | Set up test plans | Execute regression on core flows | Usability + accessibility testing | Beta release sign-off |
+
+## Risk Mitigation & Checkpoints
+- **Design drift:** Weekly crit sessions with PM + Engineering to review in-progress builds against Zeplin specs. Use `Design_update_progress_tracker.md` to capture variances and resolution dates.
+- **Performance regression:** Integrate `profile_mode` builds at end of each sprint; capture frame render metrics (<16ms) and memory usage (<220MB) on representative devices.
+- **Asset delivery lag:** Pre-schedule illustration exports by Sprint 2 mid-week; maintain checklist in `Screens_update_images_and _vectors.md` with owner + due date. Backup placeholder gradients available if final art slips.
+- **Compliance review:** Legal/brand review scheduled end Sprint 3; provide annotated walkthrough (15-min Loom) covering sensitive flows (auth, data export, delete account).

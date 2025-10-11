@@ -41,3 +41,19 @@
 ## Offline & Error States
 - Full-screen overlay with gradient tinted illustration, supporting copy (Inter 18/26 medium) and CTA pair (primary, outline) sized 52dp height.
 - Provide diagnostic detail using code block style container (background `#1E293B`, monospaced Inter 14/20) for error reference IDs.
+
+## Support Hub & Knowledge Base
+- Landing hero card spans 344dp width, 180dp height with `linear-gradient(140deg, #1D4ED8, #60A5FA)` background, overlay illustration 160×160 right-aligned.
+- Search field 52dp height with inset shadow `0 12 32 rgba(15,23,42,0.08)` and clear button. Autocomplete dropdown uses 44dp rows, 12dp padding.
+- Featured articles grid: two-column layout (item width 160dp, height 140dp) on phone, three-column on tablet. Each tile includes icon (32dp), title (16/24 semibold), snippet (14/20 medium), and "Read more" inline CTA.
+- Contact options displayed as stacked cards (height 120dp) with icon bubble 48dp, gradient accent stripe 6dp on left (#38BDF8). Buttons follow secondary CTA styling.
+
+## Welcome Tour & Onboarding Carousel
+- Carousel height 420dp, card radius 24dp, padding 24dp. Illustrations sized 220×160 with parallax offset 12dp when swiping.
+- Pagination dots 8dp diameter, active dot elongated to 24×8dp with accent gradient fill. Buttons pinned bottom with safe-area aware 20dp margins.
+- Provide optional skip text button (ghost style) top-right; ensure accessible focus order (Skip → content → Next/CTA).
+
+## Tablet & Fold Optimisations
+- For widths >840dp, feed/explorer adopt dual-pane layout (list left 40%, detail preview right 60%). Maintain 24dp gutter and card max width 420dp.
+- Foldable portrait (display width ~673dp) uses adaptive navigation rail in lieu of bottom nav; rail buttons 72dp height with icon 28dp.
+- Launchpad and Volunteering dashboards support 2-column card grid (card width 328dp, gap 16dp). Progress timeline extends full height with sticky summary column.
