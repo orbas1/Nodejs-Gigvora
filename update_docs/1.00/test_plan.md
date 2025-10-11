@@ -10,6 +10,7 @@
 - Implemented an integration test booting the application shell via `integration_test`, proving navigation wiring survives dependency overrides and enabling future end-to-end expansion.
 - Expanded backend coverage with messaging service suites that simulate support-case escalations, inbox pagination, and cache invalidation plus supertest-powered HTTP flows verifying controllers, routes, and validation around escalation, assignment, and resolution actions.
 - Hardened discovery service tests to assert deterministic ordering, dialect-aware search predicates, and pagination metadata so analytics surfaces consume stable datasets across SQLite and production engines.
+- Added Meilisearch search-index service tests using a stub client to validate synonym configuration, freshness scoring, and cross-category aggregation ahead of React/Flutter integration tests.
 
 ## Execution Strategy
 - GitHub Actions publishes coverage artefacts (`**/coverage/lcov.info`) for ingestion by SonarQube and internal dashboards. Failures on any analysis or test step block merges.
@@ -21,3 +22,4 @@
 - Extend the integration test suite to cover GraphQL failure handling and realtime reconnection telemetry as backend mocks become available.
 - Add golden baselines for redesigned dashboards once finalised by design, enabling the CI golden stage to protect layout fidelity.
 - Layer supertest-driven smoke suites for discovery and analytics routes after caching and rate limiting are implemented.
+- Wire Appium/E2E coverage around explorer filters once Meilisearch-backed search hits mobile staging.

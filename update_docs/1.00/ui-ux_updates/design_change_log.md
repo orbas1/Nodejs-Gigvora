@@ -17,7 +17,7 @@
 - **Engagement feed:** Card template now exposes viewer reaction state, share confirmations, moderation badges, and analytics-friendly metadata rows shared with mobile.
 - **Main layout:** Sticky header with responsive nav, floating accent underline for active routes, gradient-backed body, and CTA cluster (`Login`, `Join Now`).
 - **Homepage:** Hero emphasises marketplace narrative, feed teaser card, metrics row, and CTA pair; partner logos, feature cards, and testimonials align to 3/4-column grids for scannability.
-- **Discovery surfaces:** Search uses segmented category tabs, debounced query inputs, caching state banners, and card-based result grid with meta chips. Jobs/gigs/projects/volunteering pages inherit filtered list patterns and CTA scaffolds for deeper detail views.
+- **Discovery surfaces:** Search uses segmented category tabs, debounced query inputs, caching state banners, and card-based result grid with meta chips. Jobs/gigs/projects/volunteering pages inherit filtered list patterns and CTA scaffolds for deeper detail views, now wired to Meilisearch freshness scoring, remote badges, and synonym-driven chip groupings to mirror backend ranking.
 - **Community:** Launchpad, volunteering, groups, and connections adopt section headers with badges, timeline cards, and join buttons to reinforce network-first behaviour.
 - **Trust Center:** Introduced operations dashboard layout featuring escrow KPI tiles, release queue table, dispute cards, and Cloudflare R2 evidence messaging aligned to the blue design system.
 - **Trust Center (Aug 09):** Finalised KPI thresholds, operations copy, and evidence health messaging to mirror the signed-off runbook, ensuring design artefacts match the shipped React implementation.

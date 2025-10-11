@@ -15,7 +15,7 @@
 - **Header:** Sticky `bg-white/95` with backdrop blur, accent underline animation for active nav, responsive mobile drawer with `rounded-2xl` links.
 - **Buttons:** Primary CTA `bg-accent text-white shadow-soft hover:bg-accentDark`; secondary CTA `border-slate-200 hover:border-accent hover:text-accent`; pill forms for nav chips.
 - **Cards:** Hero feed preview, search results, testimonial quotes use consistent `border`, `bg-surface`, `rounded-3xl`, `shadow-xl shadow-accent/10` for emphasis.
-- **Badges & chips:** `rounded-full px-3 py-1` with accent/neutral variants; used in hero metrics, search metadata, and timeline entries.
+- **Badges & chips:** `rounded-full px-3 py-1` with accent/neutral variants; used in hero metrics, search metadata, and timeline entries, including new remote-role and launchpad eligibility badges sourced from Meilisearch metadata.
 - **Status banners:** `border-slate-100 bg-surfaceMuted/80` for subtle messaging, amber/danger variations for alerts.
 - **Accordions & tabs:** `border-b border-slate-200` separators, accent indicator for active tab, smooth height transitions.
 - **Modal overlays:** `bg-slate-900/70` scrim, panel `rounded-3xl` with `p-8` padding, drop shadow `shadow-2xl shadow-slate-900/20`.

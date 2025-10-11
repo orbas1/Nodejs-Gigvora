@@ -38,7 +38,7 @@
     1. Productionise Meilisearch cluster with indexers and analytics instrumentation, including Launchpad/Volunteer-specific ranking rules.
     2. Launch auto-assign engine with acceptance/retry logic, Experience Launchpad eligibility scoring, and availability toggles.
     3. Release Experience Launchpad and Volunteers hub with employer/talent workflows across web, Flutter, and provider dashboards, including reporting on placements and participation.
-- **Status Update:** Escrow domain, dispute orchestration, Cloudflare R2 integration, and Trust Center UI are production-ready with operations hand-off complete; discovery automation (Meilisearch, auto-assign, Launchpad/Volunteer surfaces) kicks off next, with readiness scorecards tracked under Task 4.
+- **Status Update:** Escrow domain, dispute orchestration, Cloudflare R2 integration, and Trust Center UI are production-ready with operations hand-off complete; discovery automation now has Meilisearch live in staging/production with scripted ingestion, unlocking auto-assign and Launchpad/Volunteer surfaces as the next focus with readiness scorecards tracked under Task 4.
 
 ## Milestone 4: Operational Excellence & User Archetypes (Weeks 12–14) – 24% Complete
 - **Task 4.1 – Profiles, Agencies & Companies**
