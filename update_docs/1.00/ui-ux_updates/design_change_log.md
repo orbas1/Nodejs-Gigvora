@@ -13,10 +13,14 @@
 - **Token runtime loader:** Flutter apps now consume the JSON token exports via a dedicated design-system package, ensuring colour, spacing, and typography stay in lockstep with the React implementation.
 
 ## Web Application Updates
+- **Messaging entrypoint:** Floating chat bubble persists across layouts with unread count badge, support shortcut, and search/composer modal linking to the authenticated messaging centre.
+- **Engagement feed:** Card template now exposes viewer reaction state, share confirmations, moderation badges, and analytics-friendly metadata rows shared with mobile.
 - **Main layout:** Sticky header with responsive nav, floating accent underline for active routes, gradient-backed body, and CTA cluster (`Login`, `Join Now`).
 - **Homepage:** Hero emphasises marketplace narrative, feed teaser card, metrics row, and CTA pair; partner logos, feature cards, and testimonials align to 3/4-column grids for scannability.
 - **Discovery surfaces:** Search uses segmented category tabs, debounced query inputs, caching state banners, and card-based result grid with meta chips. Jobs/gigs/projects/volunteering pages inherit filtered list patterns and CTA scaffolds for deeper detail views.
 - **Community:** Launchpad, volunteering, groups, and connections adopt section headers with badges, timeline cards, and join buttons to reinforce network-first behaviour.
+- **Trust Center:** Introduced operations dashboard layout featuring escrow KPI tiles, release queue table, dispute cards, and Cloudflare R2 evidence messaging aligned to the blue design system.
+- **Trust Center (Aug 09):** Finalised KPI thresholds, operations copy, and evidence health messaging to mirror the signed-off runbook, ensuring design artefacts match the shipped React implementation.
 - **Auth & Admin:** Registration split between individual/company, each using stepped forms with helper text; admin login emphasises secure entry with accent callouts and audit reminders.
 - **Documentation suite:** Version 1.00 now includes detailed component, styling, page, and data specifications under `Web Application Design Update/Version 1.00 update/` for engineering hand-off.
 
@@ -38,6 +42,7 @@
 
 ## Detailed Page-Level Adjustments
 ### Web Experience
+- **Feed interactions:** Redesigned feed grid with reaction palette, inline comment drawer, share modal, and moderation alerts mapped to backend payloads.
 - **Opportunity details:** Dedicated page layout now mirrors listing cards—hero summary with meta chips, sticky action rail (`Apply`, `Share`, `Save`), and accordion tabs for description, requirements, compensation, FAQ, and employer snapshot.
 - **Knowledge base:** Support centre reorganised into searchable collections with card previews, breadcrumb navigation, and contextual contact CTA.
 - **Footer depth:** Additional columns for security, compliance, and accessibility statements plus social proof badges and certification seals.

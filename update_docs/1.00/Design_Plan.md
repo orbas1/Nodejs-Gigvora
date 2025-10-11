@@ -16,16 +16,18 @@ Deliver a cohesive, themeable Gigvora experience that makes talent discovery, bo
 - **Discovery Feed**: Modular hero carousel, segmented feed (For You / Trending / Near You), and card-based community spotlights with theme overlays.
 - **Booking Workflow**: Four-step stepper (Package → Customise → Schedule → Confirm) with sticky pricing summary, inline validation, and compliance copy tied to product area.
 - **Experience Launchpad & Volunteers**: Dedicated dashboards surfaced through discovery filters with new cards highlighting readiness status, required actions, and CTA to book or join.
-- **Messages & Support**: Consolidated inbox with status pills, quick actions, and support escalation entry points; chat composer includes templates, attachments, and theme-aware stickers, plus offline send queues, deterministic retries, and accessibility-compliant overlays for long sessions. Support timelines now surface escalation metadata (priority badges, SLA timers, assigned agent chips) mapped directly to the backend controller payloads to keep UI and service contracts aligned.
+- **Messages & Support**: Consolidated inbox with status pills, quick actions, and support escalation entry points; floating chat bubble anchors messaging access across app and web, maintaining unread counts and priority badges even when minimised. Chat composer includes templates, attachments, and theme-aware stickers, plus offline send queues, deterministic retries, and accessibility-compliant overlays for long sessions. Support timelines surface escalation metadata (priority badges, SLA timers, assigned agent chips) mapped directly to backend controller payloads and analytics events to keep UI and service contracts aligned.
 - **Ads & Monetisation**: Dedicated tab with campaign list, pacing meters, and multi-step composer covering targeting, creatives, budget, and scheduling; includes offline draft autosave and compliance banners for financial disclosures.
 - **Profile & Reputation**: Dynamic profile canvas combining headline, metrics, availability, programme affiliations, and experience timeline with design hooks for analytics, feature flags, and real-time status messaging shared with the live feed.
 
 ### Responsive Web Experience (React)
+- **Engagement Feed**: Dialect-aware ranking, viewer state (reaction/share), moderation controls, and analytics tagging powering the refreshed feed across platforms; includes optimistic comment and share flows with accessibility copy.
 - **Homepage**: 12-column fluid grid with hero, trust carousel, dynamic catalogue, and “Start a Request” CTA bars built from partials so marketing can mix hero, themed imagery, and testimonials per campaign.
 - **Navigation**: Mega-menu featuring creator categories, Experience Launchpad, Volunteers, Agencies, and Monetisation; persistent search and account controls.
 - **Booking & Checkout**: Single-page configurator with step indicators, sticky summary, inline error states, and compliance tooltips.
 - **Knowledge & Support Pages**: New structured templates for FAQs, compliance disclosures, and help centre content using the same partial library.
 - **Provider Dashboards**: Table, card, and chart patterns aligned with mobile experiences, including theme-safe density and iconography.
+- **Trust Center**: Operations-grade dashboard presenting escrow KPIs, release queues, dispute workload, and evidence health messaging with accessibility-first typography and audit copy.
 
 ### Provider Tools (Web & Mobile)
 - **Agency Dashboards**: Pipeline overview, financial health, and volunteer staffing views using new data visualisation tokens.

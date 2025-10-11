@@ -19,6 +19,9 @@
 - Document interactive states for cards, accordions, tabs, and forms.
 - Align with engineering on CSS variables/tokens and design QA process.
 - Build component usage examples for CMS authors and developers.
+- Document floating chat bubble layout spec across breakpoints and capture QA checklist items for overlay stacking (Complete).
+- Document Trust Center operations dashboard modules (KPI tiles, release queue table, dispute cards) with analytics tags and compliance copy (Complete).
+
 
 ## Task 4 – Booking Flow Redesign & Testing
 - Create high-fidelity screens covering requirements intake, scheduling, and payment summary.

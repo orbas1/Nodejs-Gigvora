@@ -17,6 +17,8 @@
 | 2024-05-09 | Footer & secondary navigation   | Static footer lacking localisation and support links.                           | Global footer with localisation selector, support entry points, compliance links, and dynamic content slots.                       | Support regional rollouts and ensure legal compliance.                                         |
 | 2024-05-09 | Accessibility enhancements      | Limited focus on keyboard navigation and ARIA labelling.                        | Full keyboard focus order, ARIA roles, skip links, and focus-visible treatments defined for all interactive components.            | Achieve WCAG AA compliance and improve usability for assistive technologies.                    |
 
+| 2024-08-02 | Messaging & Feed overlay | Chat and feed access scattered across nav links with no persistent entry or viewer state feedback. | Floating chat bubble with inbox preview, support shortcut, and feed cards displaying viewer reactions, share confirmations, and moderation badges. | Keep users engaged with real-time context while aligning UI with new backend viewer state payloads. |
+| 2024-08-09 | Trust Center operations UI | Draft dashboard copy lacked KPI thresholds and evidence messaging alignment with ops processes. | Finalised KPI thresholds, release/refund copy, and evidence health banners aligned to the operations runbook and backend payloads. | Ensures operations teams can act directly from the React dashboard with accurate compliance messaging. |
 ## Dependencies & Follow-up
 - Coordinate with CMS team to support partial template injection for hero and testimonial sections.
 - Engage localisation vendor to populate new footer and navigation content.

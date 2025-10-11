@@ -15,11 +15,12 @@ The logic flow consolidates marketing, discovery, collaboration, and account sur
 3. Filter drawer submissions update `filters` context; `DataStatus` component displays `loading → cached → live` states.
 4. Empty state surfaces recommended actions (link to `Launchpad` or `Post opportunity`).
 
-## Stage 3: Engage (Feed & Community)
-1. Feed uses `/api/feed` with infinite scroll (page size 12). IntersectionObserver loads next page at 80% viewport.
-2. Post interactions: `Like` triggers optimistic update; failure reverts state and shows toast.
-3. `Share update` CTA opens modal with composer (rich text, attachments). Autosave drafts every 20s.
-4. Groups and Launchpad sections highlight community stats and `Join` CTAs, linking to detail routes.
+## Stage 3: Engage (Feed, Community & Messaging)
+1. Feed requests `/api/feed` with page size 12 and caches via appCache (TTL 20s); viewer state merges reaction/share records by post to hydrate UI. IntersectionObserver prefetches next page at 75% viewport with rank score metadata for analytics.
+2. Reaction palette (`like`, `celebrate`, `support`, `insightful`, `curious`) toggles optimistic state locally then calls `POST /api/feed/:id/reactions`; errors revert counts and raise inline toasts.
+3. Comment drawer opens via `GET /api/feed/:id/comments`, lazy-loads replies, and uses inline composer posting to `POST /api/feed/:id/comments` with optimistic prepend and error recovery.
+4. Share modal posts to `POST /api/feed/:id/share`, triggers analytics `web_feed_share_submit`, and updates viewer state to prevent duplicate share increments.
+5. Floating chat bubble subscribes to `GET /api/messaging/threads`; selecting a thread fetches messages (`GET /api/messaging/threads/:id/messages`) while composer sends via `POST /api/messaging/threads/:id/messages`. Support CTA opens prefilled escalation modal hitting `/api/messaging/threads/:id/escalate`.
 
 ## Stage 4: Convert (Opportunities & Registration)
 1. Opportunity details `/opportunities/:id` load hero summary, metrics, and apply form.
@@ -32,6 +33,13 @@ The logic flow consolidates marketing, discovery, collaboration, and account sur
 2. Dashboard fetches summary metrics, tasks queue, and notifications; modules collapsible with persisted state.
 3. Profile completeness indicator calculates from filled sections; prompts to add missing info.
 4. Settings entry ensures MFA toggles, notification preferences, and billing accessible within 2 clicks.
+
+## Stage 6: Monitor (Trust Center)
+1. Finance/compliance operators navigate to `/trust-center` via global nav or deep link.
+2. Page loads `GET /api/trust/overview` to hydrate escrow totals, dispute queues, release ageing buckets, and active accounts; data cached in `react-query` with 60s TTL.
+3. Release queue action triggers `POST /api/trust/escrow/transactions/:id/release` with actor note; upon success, `fetchTrustOverview` invalidates cache and success banner appears.
+4. Dispute cards display deadlines; evidence upload CTA routes to dispute detail (future iteration) or instructs ops to log via backend tool.
+5. Cloudflare R2 status tile surfaces signed URL health; any fetch error downgrades status banner to amber with retry CTA.
 
 ## Error & Offline Handling
 - Offline detection triggers banner; forms disable network actions but allow local draft save.

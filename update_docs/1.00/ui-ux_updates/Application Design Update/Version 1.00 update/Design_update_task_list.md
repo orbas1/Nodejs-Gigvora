@@ -22,6 +22,8 @@
 
 ## Task 4 – Produce High-Fidelity Screens & Prototype
 - Design high-fidelity screens for hero carousel, segmented feed, booking flow, and messaging hub.
+- Document floating chat bubble overlay spec with offline badges, support escalation copy, and analytics hooks.
+
 - Integrate motion guidelines and micro-interactions within Figma prototype.
 - Annotate states (default, hover, pressed, disabled, error) for interactive components.
 - Conduct moderated usability tests with target personas.

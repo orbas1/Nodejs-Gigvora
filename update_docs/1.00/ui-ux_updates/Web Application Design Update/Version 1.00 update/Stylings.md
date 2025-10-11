@@ -54,3 +54,22 @@
 - Minimum text contrast ratio 4.5:1. Buttons maintain 3:1 even on hover.
 - Focus order matches visual order, skip link located top-left (1px border, becomes visible on focus).
 - Support for dark-mode not yet targeted but tokens prepared for inversion (documented for future release).
+
+## Messaging Bubble
+- Bubble container: 64px diameter, gradient fill `linear-gradient(135deg,#2563EB,#1D4ED8)` with inner shadow `inset 0 2px 6px rgba(255,255,255,0.28)` and drop shadow `0 16px 32px -16px rgba(37,99,235,0.42)`.
+- Unread badge: 18px pill using `surface/softBlue` background, accent text, positioned top-right with translate adjustments for focus ring.
+- Expanded panel width 360px desktop, 100% viewport minus 32px margins on mobile; background `surface/elevated` with blur `backdrop-filter: blur(12px)` for overlay feel.
+- Input tokens reuse `radius-lg`, `surface/base`, and focus ring tokens; send button uses accent gradient with disabled state 45% opacity.
+- Support button uses outline style with `border: 1px solid rgba(37,99,235,0.24)` and hover fill `rgba(37,99,235,0.08)`.
+
+## Feed Engagement Styling
+- Reaction chips: pill buttons 36px height, 14px font-size, `surface/base` default with `surface/softBlue` hover and `surface/accent` active state; icons tinted `#1D4ED8`.
+- Comment drawer uses `border-top: 1px solid rgba(15,23,42,0.08)`, background `#FFFFFF`, and sticky footer composer with drop shadow `0 -8px 16px -12px rgba(15,23,42,0.12)`.
+- Share modal overlay `rgba(15,23,42,0.48)` with glass card `backdrop-filter: blur(18px)` and accent header.
+- Moderation badges: uppercase label 10px, `background: rgba(249,115,22,0.16)` with text `#EA580C`.
+
+## Trust Center Styling
+- KPI tiles reuse `surface/elevated` with accent underline `linear-gradient(90deg,#2563EB,#1D4ED8)` at 4px height and typography scale `T-Title 700` for amounts.
+- Release queue table cells use `font-weight: 600` for references, `font-weight: 500` for amounts; action buttons apply accent gradient with disabled opacity 0.45.
+- Dispute cards adopt `border: 1px solid rgba(15,23,42,0.08)` and stage badge colours: intake `rgba(37,99,235,0.12)`, mediation `rgba(14,165,233,0.14)`, arbitration `rgba(249,115,22,0.14)`, resolved `rgba(34,197,94,0.14)`.
+- R2 evidence health tile uses dark gradient background (`linear-gradient(120deg,#0B1B3F,#1E3A8A)`) with dot indicators `#22C55E` for nominal state and `#F97316` for degraded.

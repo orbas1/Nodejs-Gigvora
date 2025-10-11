@@ -35,9 +35,10 @@
 - Inline chat assist for clarifications and package adjustments.
 
 ### Support & Account Areas
-- Redesigned dashboard showing upcoming gigs, invoices, and messages.
+- Redesigned dashboard showing upcoming gigs, invoices, and messages with embedded chat bubble trigger and unread counters.
 - Unified settings pages for profile, notifications, payment methods, and security controls.
-- Embedded help centre widgets with search, quick articles, and live support escalation.
+- Embedded help centre widgets with search, quick articles, and live support escalation; floating chat bubble persists across routes providing instant support escalation.
+- Trust Center operations dashboard showcasing escrow KPIs, release queues, dispute workload, and evidence health messaging for finance/compliance teams.
 
 ## Design System Integration
 - Token-driven theming (colour, typography, spacing, border radius, shadows) shared with mobile design library.

@@ -31,9 +31,10 @@
 - **Success Criteria**:
   - Development-ready specs with redlines, interaction notes, and copy ready for localisation.
   - Usability test findings show ≥15% improvement in task success vs. baseline prototypes.
-- **Status Update**: Messaging overlay, support escalation timelines, live feed composer, marketplace offline states, and ads console specs are complete with annotated copy, motion, and accessibility notes; refreshed profile detail canvas and live feed streaming banners now match production build requirements. Wallet and volunteer imagery packages remain in progress.
+- **Status Update**: Messaging overlay, support escalation timelines, live feed composer, marketplace offline states, and ads console specs are complete with annotated copy, motion, and accessibility notes; refreshed profile detail canvas, live feed streaming banners, and the Trust Center operations dashboard now match production build requirements with operations runbook alignment. Wallet and volunteer imagery packages remain in progress.
 
 ## Milestone 4: Validation & Launch Readiness (Weeks 10–12)
+- **Status Update**: Chat bubble overlays, feed moderation queues, and analytics tagging documentation are ready for QA sign-off; accessibility audits and wallet/volunteer imagery remain scheduled for the next sprint.
 - **Objectives**: Complete QA, compliance, and rollout materials.
 - **Key Deliverables**:
   - Accessibility audit report, remediation log, and signed compliance statements (FCA, GDPR, PCI).
