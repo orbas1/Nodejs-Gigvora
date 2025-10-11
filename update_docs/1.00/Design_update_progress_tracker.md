@@ -2,25 +2,25 @@
 
 | Metric | Score (0-100%) | Commentary |
 |--------|----------------|------------|
-| Design Quality Grade | 63% | Core journeys upgraded to high fidelity with consistent component language, but Launchpad illustrations remain 30% incomplete. |
-| Design Organisation Grade | 63% | Page templates and partial inventories documented; cross-platform token governance now linked to engineering packages while provider dashboard taxonomy remains under review. |
-| Design Position Grade | 55% | Brand positioning narratives drafted, yet competitive differentiators for Volunteers hub need refinement and proof points. |
-| Design Text Grade | 58% | Copy decks cover booking, compliance, and support flows; tone adjustments for marketing campaigns pending localisation review. |
-| Design Colour Grade | 72% | Token library approved in both light/dark themes plus Creator Pulse variant; Flutter runtime loader now consumes JSON exports, leaving Studio Noir contrast validation outstanding. |
-| Design Render Grade | 52% | High-fidelity renders exist for 60% of states; motion and responsive breakpoints awaiting final polish. |
-| Compliance Grade | 48% | Accessibility audit booked and compliance copy embedded, but FCA and GDPR legal statements still pending final counsel sign-off. |
-| Security Grade | 50% | Security messaging for biometric login and device trust captured, while secure theming controls for agencies remain untested. |
-| Design Functionality Grade | 57% | Interaction specs documented for navigation, booking, and messaging; wallet error states and offline flows not yet prototyped. |
-| Design Images Grade | 49% | Asset library launched with compression guardrails; 35% of Experience Launchpad imagery requires new art direction. |
-| Design Usability Grade | 54% | Initial usability tests show improved navigation comprehension, but onboarding success for agencies is below the 80% target. |
-| Bugs-Less Grade | 62% | Known design defects tracked in Jira with owners; theming regression backlog moderate but manageable. |
-| Test Grade | 38% | Formal usability and accessibility tests scheduled but not completed; only guerrilla testing data available. |
-| QA Grade | 44% | Design QA checklist drafted; execution coverage across journeys is currently <40%. |
-| Design Accuracy Grade | 59% | Figma specs largely aligned with engineering constraints; provider analytics modules require additional responsive annotations. |
-| Overall Grade | 55% | Solid foundation in place with systemisation progress, yet compliance, imagery, and validation streams lag behind critical launch thresholds. |
+| Design Quality Grade | 71% | Messaging, feed, profile, marketplace, and ads journeys now carry production-ready storyboards with offline, streaming, and recovery states, leaving wallet and volunteer visuals as the remaining gap. |
+| Design Organisation Grade | 65% | Component inventories updated with chat/feed/ads modules and DI mapping, though provider analytics taxonomy still requires approval. |
+| Design Position Grade | 58% | Engagement narrative strengthened with ads monetisation storyline; volunteer differentiators continue to need clearer proof points. |
+| Design Text Grade | 62% | Offline/biometric disclosures and ads compliance copy delivered; marketing tone localisation still underway. |
+| Design Colour Grade | 73% | Emo theme overlays validated against new chat/feed states; Studio Noir contrast testing outstanding. |
+| Design Render Grade | 63% | High-fidelity renders cover profile, feed streaming, and 75% of critical states including offline and success variants; responsive breakpoints for wallet in progress. |
+| Compliance Grade | 54% | Privacy notices for chat overlays and ads targeting approved; FCA finance copy for volunteer stipends pending. |
+| Security Grade | 58% | Biometric escalation, session handoff, and offline queue risk messaging added; agency secure theming controls still untested. |
+| Design Functionality Grade | 69% | Interaction specs cover optimistic updates, realtime feed reconnection, retry logic, and ads campaign publishing, with wallet failure flows queued. |
+| Design Images Grade | 55% | New iconography for chat presence, offline badges, and ads pacing delivered; volunteer illustration backlog persists. |
+| Design Usability Grade | 63% | Remote usability sessions validated chat overlay, feed composer clarity, and profile metric comprehension; ads budgeting clarity needs follow-up. |
+| Bugs-Less Grade | 64% | Design bugs resolved for chat overlay stacking context and feed composer focus handling; remaining issues limited to volunteer flows. |
+| Test Grade | 44% | Moderated usability now underway for chat/feed modules, but accessibility audits still pending scheduling. |
+| QA Grade | 52% | QA checklist executed for chat/feed/ads journeys with annotated acceptance criteria; wallet and volunteer passes outstanding. |
+| Design Accuracy Grade | 64% | Engineering sign-off received for chat/feed/ads specs with responsive annotations; provider analytics still lacks final breakpoints. |
+| Overall Grade | 62% | Engagement suite designs now production-ready across major journeys, with profile parity and realtime feed cues locked; compliance sign-off and imagery completion remain key blockers to GA. |
 
 ## Immediate Priorities
-1. Complete accessibility and legal reviews to lift compliance and security scores above 70% before development lock-in.
+1. Finalise FCA/GDPR reviews for ads budgeting and volunteer stipends to lift compliance scores above 70% before development lock-in.
 2. Allocate illustration resources to finish Launchpad and Volunteer states, improving imagery and render grades.
-3. Execute moderated usability tests for agency onboarding and wallet flows; feed findings into iteration backlog.
-4. Accelerate design QA execution by pairing designers with QA leads on component-by-component sign-offs.
+3. Extend moderated usability tests to wallet budgeting and volunteer commitments; integrate findings into backlog.
+4. Expand design QA execution to wallet and volunteer journeys to keep parity with engineering delivery.

@@ -8,11 +8,15 @@ class AppConfig {
   const AppConfig({
     required this.environment,
     required this.apiBaseUrl,
+    required this.graphQlEndpoint,
+    this.graphQlSubscriptionEndpoint,
+    required this.realtimeEndpoint,
     required this.defaultCacheTtl,
     required this.enableNetworkLogging,
     required this.analyticsFlushThreshold,
     required this.offlineCacheNamespace,
     required this.featureFlags,
+    required this.featureFlagRefreshInterval,
   });
 
   factory AppConfig.fromEnvironment() {
@@ -25,6 +29,7 @@ class AppConfig {
       'GIGVORA_API_URL',
       defaultValue: 'http://localhost:4000/api',
     );
+    final apiBase = Uri.parse(baseUrl);
     final cacheTtlSeconds = int.tryParse(
           const String.fromEnvironment(
             'GIGVORA_CACHE_TTL_SECONDS',
@@ -49,6 +54,28 @@ class AppConfig {
     );
     final flagsJson = const String.fromEnvironment('GIGVORA_FEATURE_FLAGS');
     final flags = _parseFlags(flagsJson);
+    final graphQlUrl = const String.fromEnvironment('GIGVORA_GRAPHQL_URL');
+    final graphQlEndpoint = graphQlUrl.isNotEmpty
+        ? Uri.parse(graphQlUrl)
+        : _deriveGraphQlEndpoint(apiBase);
+    final graphQlWsUrl = const String.fromEnvironment('GIGVORA_GRAPHQL_WS_URL');
+    final graphQlSubscriptionEndpoint = graphQlWsUrl.isNotEmpty
+        ? Uri.parse(graphQlWsUrl)
+        : _deriveGraphQlWebSocketEndpoint(graphQlEndpoint);
+    final realtimeUrl = const String.fromEnvironment(
+      'GIGVORA_REALTIME_URL',
+      defaultValue: '',
+    );
+    final realtimeEndpoint = realtimeUrl.isNotEmpty
+        ? Uri.parse(realtimeUrl)
+        : _deriveRealtimeEndpoint(apiBase);
+    final featureFlagRefreshSeconds = int.tryParse(
+          const String.fromEnvironment(
+            'GIGVORA_FEATURE_FLAG_REFRESH_SECONDS',
+            defaultValue: '300',
+          ),
+        ) ??
+        300;
 
     final enableLogging = switch (networkLoggingSetting.toLowerCase()) {
       'true' || 'yes' || '1' => true,
@@ -58,22 +85,30 @@ class AppConfig {
 
     return AppConfig(
       environment: env,
-      apiBaseUrl: Uri.parse(baseUrl),
+      apiBaseUrl: apiBase,
+      graphQlEndpoint: graphQlEndpoint,
+      graphQlSubscriptionEndpoint: graphQlSubscriptionEndpoint,
+      realtimeEndpoint: realtimeEndpoint,
       defaultCacheTtl: Duration(seconds: cacheTtlSeconds),
       enableNetworkLogging: enableLogging,
       analyticsFlushThreshold: _clampThreshold(analyticsFlushThreshold),
       offlineCacheNamespace: offlineCacheNamespace,
       featureFlags: flags,
+      featureFlagRefreshInterval: Duration(seconds: featureFlagRefreshSeconds.clamp(60, 3600)),
     );
   }
 
   final AppEnvironment environment;
   final Uri apiBaseUrl;
+  final Uri graphQlEndpoint;
+  final Uri? graphQlSubscriptionEndpoint;
+  final Uri realtimeEndpoint;
   final Duration defaultCacheTtl;
   final bool enableNetworkLogging;
   final int analyticsFlushThreshold;
   final String offlineCacheNamespace;
   final Map<String, dynamic> featureFlags;
+  final Duration featureFlagRefreshInterval;
 
   bool get isProduction => environment == AppEnvironment.production;
   bool get isStaging => environment == AppEnvironment.staging;
@@ -87,16 +122,26 @@ class AppConfig {
     int? analyticsFlushThreshold,
     String? offlineCacheNamespace,
     Map<String, dynamic>? featureFlags,
+    Uri? graphQlEndpoint,
+    Uri? graphQlSubscriptionEndpoint,
+    Uri? realtimeEndpoint,
+    Duration? featureFlagRefreshInterval,
   }) {
     return AppConfig(
       environment: environment ?? this.environment,
       apiBaseUrl: apiBaseUrl ?? this.apiBaseUrl,
+      graphQlEndpoint: graphQlEndpoint ?? this.graphQlEndpoint,
+      graphQlSubscriptionEndpoint:
+          graphQlSubscriptionEndpoint ?? this.graphQlSubscriptionEndpoint,
+      realtimeEndpoint: realtimeEndpoint ?? this.realtimeEndpoint,
       defaultCacheTtl: defaultCacheTtl ?? this.defaultCacheTtl,
       enableNetworkLogging: enableNetworkLogging ?? this.enableNetworkLogging,
       analyticsFlushThreshold:
           analyticsFlushThreshold ?? this.analyticsFlushThreshold,
       offlineCacheNamespace: offlineCacheNamespace ?? this.offlineCacheNamespace,
       featureFlags: featureFlags ?? this.featureFlags,
+      featureFlagRefreshInterval:
+          featureFlagRefreshInterval ?? this.featureFlagRefreshInterval,
     );
   }
 
@@ -104,11 +149,17 @@ class AppConfig {
     return {
       'environment': describeEnum(environment),
       'apiBaseUrl': apiBaseUrl.toString(),
+      'graphQlEndpoint': graphQlEndpoint.toString(),
+      'graphQlSubscriptionEndpoint':
+          graphQlSubscriptionEndpoint?.toString(),
+      'realtimeEndpoint': realtimeEndpoint.toString(),
       'defaultCacheTtlSeconds': defaultCacheTtl.inSeconds,
       'enableNetworkLogging': enableNetworkLogging,
       'analyticsFlushThreshold': analyticsFlushThreshold,
       'offlineCacheNamespace': offlineCacheNamespace,
       'featureFlags': featureFlags,
+      'featureFlagRefreshIntervalSeconds':
+          featureFlagRefreshInterval.inSeconds,
     };
   }
 
@@ -145,4 +196,53 @@ int _clampThreshold(int value) {
     return 500;
   }
   return value;
+}
+
+Uri _deriveGraphQlEndpoint(Uri apiBase) {
+  final segments = _normaliseSegments(apiBase.pathSegments);
+  if (segments.isNotEmpty && segments.last == 'api') {
+    segments[segments.length - 1] = 'graphql';
+  } else if (segments.isEmpty) {
+    segments.add('graphql');
+  } else {
+    segments.add('graphql');
+  }
+  final path = segments.isEmpty ? '/' : '/${segments.join('/')}';
+  return apiBase.replace(
+    scheme: apiBase.scheme,
+    host: apiBase.host,
+    port: apiBase.hasPort ? apiBase.port : null,
+    path: path,
+  );
+}
+
+Uri _deriveGraphQlWebSocketEndpoint(Uri graphQlEndpoint) {
+  final scheme = graphQlEndpoint.scheme == 'https' ? 'wss' : 'ws';
+  return graphQlEndpoint.replace(scheme: scheme);
+}
+
+Uri _deriveRealtimeEndpoint(Uri apiBase) {
+  final scheme = apiBase.scheme == 'https' ? 'wss' : 'ws';
+  final segments = _normaliseSegments(apiBase.pathSegments);
+  if (segments.isNotEmpty && segments.last == 'api') {
+    segments[segments.length - 1] = 'realtime';
+  } else {
+    segments.add('realtime');
+  }
+  final path = segments.isEmpty ? '/' : '/${segments.join('/')}';
+  return apiBase.replace(
+    scheme: scheme,
+    host: apiBase.host,
+    port: apiBase.hasPort ? apiBase.port : null,
+    path: path,
+  );
+}
+
+List<String> _normaliseSegments(List<String> segments) {
+  return segments.where((segment) => segment.trim().isNotEmpty).map((segment) {
+    if (segment.startsWith('/')) {
+      return segment.replaceAll('/', '');
+    }
+    return segment;
+  }).toList(growable: true);
 }

@@ -11,9 +11,16 @@
 3. **Session handling:** Successful auth updates secure storage and analytics identity; subsequent routes check for presence of auth token before loading personalised data.
 
 ## Feed Lifecycle
-1. **Data fetch:** Feed controller requests posts via repository, layering offline cache; skeleton placeholders render while loading.
-2. **State handling:** Resource state tracks loading/error/fromCache/lastUpdated; UI shows offline or error banners, enabling manual refresh.
-3. **Interactions:** Engagement actions (like, comment, share) trigger analytics events and optimistic UI updates.
+1. **Data fetch:** Feed controller requests posts via repository, layering offline cache and GraphQL responses with REST fallback; skeleton placeholders render while loading.
+2. **State handling:** Resource state tracks loading/error/fromCache/lastUpdated plus realtime metadata; UI shows offline, streaming, or error banners, enabling manual refresh.
+3. **Composer & interactions:** Rich composer supports text, media, polls, and campaign attachments; optimistic publish pushes post locally with retry queue, rolling back if moderation rejects. Engagement actions (like, comment, share) trigger analytics events and optimistic UI updates with failure reconciliation.
+4. **Live presence:** Feed view subscribes to the realtime gateway for new/updated posts with exponential backoff and resubscription; offline mode falls back to local change journal and surfaces sync toast once reconnected.
+
+## Messaging Overlay & Chat Lifecycle
+1. **Entry points:** Floating chat bubble persists across top-level routes, opening overlay with last active conversation; long-press opens inbox drawer.
+2. **Offline queue:** Messages composed offline are staged with deterministic IDs, rendered immediately, and retried with exponential backoff until acked by server. Failed sends expose inline retry and escalation to email handoff.
+3. **Read receipts & typing:** Overlay subscribes to presence socket to render typing indicators and receipts; when socket unavailable, client falls back to polling thread endpoints at reduced cadence.
+4. **Attachment handling:** Media uploads leverage background isolate with progress events streamed to UI; cancellations retain draft metadata for future resend.
 
 ## Explorer & Search Flow
 1. **Snapshot load:** On initial load, discovery snapshot API fetch populates categories; cached for 3 minutes for quick revisit.
@@ -26,7 +33,7 @@
 3. **Empty/error states:** Lists display category-specific copy; offline banners and retry actions appear when repository errors occur.
 4. **CTA instrumentation:** Primary buttons call controller method to record engagement (apply, pitch, etc.) and optionally deep link to detail views.
 5. **Detail screen:** When opening a listing, detail controller fetches extended metadata, tracks view analytics, and exposes actions (save, share, apply) with optimistic state updates.
-6. **Bookmark sync:** Saved opportunities persist to secure storage and sync with backend when online; offline toggles queue updates.
+6. **Bookmark & apply sync:** Saved opportunities persist to secure storage and sync with backend when online; offline toggles queue updates and surface progress pills. Apply/withdraw actions capture questionnaire responses, store them encrypted, and replay once network recovers.
 
 ## Launchpad & Volunteering Engagement
 1. **Program discovery:** Launchpad list emphasises track metadata; CTA leads to program detail flow (webview or native) with registration steps.
@@ -35,7 +42,7 @@
 4. **Calendar integration:** Volunteer commitments push to device calendar via permissioned API; cancellations update server and notify organisers.
 
 ## Profile & Community
-1. **Profile screen:** Loads user data, including stats and activity timeline; allows editing and share actions.
+1. **Profile screen:** Loads user data via GraphQL gateway with REST fallback, surfacing stats, availability, focus areas, groups, and activity timeline; allows editing and share actions.
 2. **Connections & messaging:** Accept/decline invites update relationship state; messaging integration launches conversation threads.
 3. **Badges & progress:** Launchpad badges and volunteer history aggregated to display personal growth metrics.
 4. **Profile editing:** Multi-step form caches progress, validates sections, and only publishes once all mandatory fields satisfied.
@@ -46,4 +53,10 @@
 2. **Offline mode:** Offline cache serves last synced data; banners inform user and disable destructive actions until reconnection.
 3. **Error recovery:** Pull-to-refresh triggers forced repository refresh; persistent failures prompt support CTA.
 4. **Session watchdog:** Token expiry triggers forced logout sequence with prompt to re-authenticate, preserving unsent drafts locally.
-5. **Feature flags:** Remote config toggles new modules; caching ensures safe fallback when flags disabled mid-session.
+5. **Feature flags:** Dedicated service fetches remote toggles, merges with environment defaults, and notifies feature controllers; caching ensures safe fallback when flags change mid-session.
+
+## Ads Campaign Flow
+1. **Composer launch:** Ads tab exposes campaign list with budget pacing; tapping “Create Campaign” opens multi-step composer with targeting, creatives, budget, and scheduling.
+2. **Draft handling:** Composer autosaves each step locally with schema versioning; offline submissions enqueue to ads repository and present status chips while syncing.
+3. **Budget validation:** Client enforces currency, budget floor, and spend caps before enqueueing; failures surface inline errors referencing compliance copy.
+4. **Reporting:** Ads dashboard hydrates from cached metrics, merging incremental deltas from analytics service; offline mode presents last known metrics with timestamp badge and disables status toggles until refreshed.

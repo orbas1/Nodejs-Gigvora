@@ -24,6 +24,33 @@ final analyticsBootstrapProvider = FutureProvider<void>((ref) async {
   await analytics.flushQueue();
 });
 
+final featureFlagServiceProvider = Provider<FeatureFlagService>((ref) {
+  return ServiceLocator.read<FeatureFlagService>();
+});
+
+final featureFlagsBootstrapProvider = FutureProvider<void>((ref) async {
+  final service = ref.watch(featureFlagServiceProvider);
+  await service.bootstrap();
+});
+
+final featureFlagStreamProvider = StreamProvider<Map<String, dynamic>>((ref) {
+  final service = ref.watch(featureFlagServiceProvider);
+  return service.stream;
+});
+
+final graphQlGatewayProvider = Provider<GraphQLGateway>((ref) {
+  return ServiceLocator.read<GraphQLGateway>();
+});
+
+final realtimeGatewayProvider = Provider<RealtimeGateway>((ref) {
+  return ServiceLocator.read<RealtimeGateway>();
+});
+
+final realtimeStatusProvider = StreamProvider<RealtimeConnectionState>((ref) {
+  final gateway = ref.watch(realtimeGatewayProvider);
+  return gateway.statusStream;
+});
+
 final designTokenLoaderProvider = Provider<GigvoraThemeLoader>((ref) {
   return GigvoraThemeLoader();
 });

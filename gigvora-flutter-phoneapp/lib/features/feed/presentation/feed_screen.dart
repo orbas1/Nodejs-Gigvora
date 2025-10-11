@@ -13,6 +13,8 @@ class FeedScreen extends ConsumerWidget {
     final state = ref.watch(feedControllerProvider);
     final controller = ref.read(feedControllerProvider.notifier);
     final posts = state.data ?? const <FeedPost>[];
+    final realtimeEnabled = state.metadata['realtimeEnabled'] == true;
+    final realtimeConnected = state.metadata['realtimeConnected'] == true;
 
     return GigvoraScaffold(
       title: 'Live Feed',
@@ -33,6 +35,20 @@ class FeedScreen extends ConsumerWidget {
               background: const Color(0xFFFEF3C7),
               foreground: const Color(0xFF92400E),
               message: 'You are viewing cached updates while we reconnect.',
+            ),
+          if (realtimeEnabled && realtimeConnected)
+            const _StatusBanner(
+              icon: Icons.bolt,
+              background: Color(0xFFE0F2FE),
+              foreground: Color(0xFF0369A1),
+              message: 'Live updates are streaming in real-time from the community.',
+            )
+          else if (realtimeEnabled && !realtimeConnected && !state.fromCache)
+            const _StatusBanner(
+              icon: Icons.sync,
+              background: Color(0xFFF3E8FF),
+              foreground: Color(0xFF6B21A8),
+              message: 'Reconnecting to the live feed stream…',
             ),
           if (state.hasError && !state.loading)
             _StatusBanner(

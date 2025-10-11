@@ -4,7 +4,10 @@ import 'package:http/http.dart' as http;
 import '../analytics/analytics_service.dart';
 import '../cache/offline_cache.dart';
 import '../config/app_config.dart';
+import '../config/feature_flag_service.dart';
 import '../network/api_client.dart';
+import '../network/graphql_gateway.dart';
+import '../network/realtime_gateway.dart';
 
 class ServiceLocator {
   ServiceLocator._();
@@ -18,6 +21,9 @@ class ServiceLocator {
     AppConfig? config,
     List<ApiRequestInterceptor>? requestInterceptors,
     List<ApiResponseInterceptor>? responseInterceptors,
+    AuthTokenResolver? authTokenResolver,
+    Duration? realtimePingInterval,
+    Duration? realtimeReconnectDelay,
   }) async {
     if (_configured) {
       await reset();
@@ -48,6 +54,38 @@ class ServiceLocator {
     );
     _getIt.registerSingleton<AnalyticsService>(analytics);
 
+    final graphQlGateway = GraphQLGateway(
+      config: resolvedConfig,
+      cache: offlineCache,
+      httpClient: _getIt<http.Client>(),
+      authTokenResolver: authTokenResolver,
+    );
+    _getIt.registerSingleton<GraphQLGateway>(
+      graphQlGateway,
+      dispose: (client) => client.dispose(),
+    );
+
+    final featureFlagService = FeatureFlagService(
+      apiClient: apiClient,
+      cache: offlineCache,
+      config: resolvedConfig,
+    );
+    _getIt.registerSingleton<FeatureFlagService>(
+      featureFlagService,
+      dispose: (service) => service.dispose(),
+    );
+
+    final realtimeGateway = RealtimeGateway(
+      config: resolvedConfig,
+      authTokenResolver: authTokenResolver,
+      pingInterval: realtimePingInterval,
+      reconnectBaseDelay: realtimeReconnectDelay,
+    );
+    _getIt.registerSingleton<RealtimeGateway>(
+      realtimeGateway,
+      dispose: (gateway) => gateway.dispose(),
+    );
+
     _configured = true;
     return resolvedConfig;
   }
@@ -58,6 +96,24 @@ class ServiceLocator {
 
   static Future<void> reset() async {
     final futures = <Future<void>>[];
+
+    if (_getIt.isRegistered<RealtimeGateway>()) {
+      final gateway = _getIt<RealtimeGateway>();
+      futures.add(gateway.dispose());
+      _getIt.unregister<RealtimeGateway>();
+    }
+
+    if (_getIt.isRegistered<FeatureFlagService>()) {
+      final service = _getIt<FeatureFlagService>();
+      futures.add(service.dispose());
+      _getIt.unregister<FeatureFlagService>();
+    }
+
+    if (_getIt.isRegistered<GraphQLGateway>()) {
+      final gateway = _getIt<GraphQLGateway>();
+      futures.add(gateway.dispose());
+      _getIt.unregister<GraphQLGateway>();
+    }
 
     if (_getIt.isRegistered<AnalyticsService>()) {
       _getIt.unregister<AnalyticsService>();
