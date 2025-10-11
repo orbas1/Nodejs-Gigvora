@@ -18,10 +18,10 @@
   - Logic: Embed availability toggles, trust score preview, auto-assign acceptance logic, and offline fallback rules.
   - Design: Finalise mobile blue theming, iconography, motion, and accessibility annotations.
 
-## Task 2 – Communication & Engagement Suite (6% Complete)
-- **Subtask 2.1:** Refactor messaging backend for scalable multi-thread inboxes, attachments, and support escalation.
+## Task 2 – Communication & Engagement Suite (24% Complete)
+- **Subtask 2.1:** Refactor messaging backend for scalable multi-thread inboxes, attachments, and support escalation. **Status: 55% – Support-case aware inbox logic, SQLite-safe migrations, REST controllers, and combined service/controller Jest suites now cover escalation, assignment, resolution, and caching paths; file attachments and push fan-out remain.**
 - **Subtask 2.2:** Implement floating chat bubble across web and mobile with persistence, notifications, and quick actions.
-- **Subtask 2.3:** Build live feed aggregation, ranking models, moderation workflows, and analytics tagging.
+- **Subtask 2.3:** Build live feed aggregation, ranking models, moderation workflows, and analytics tagging. **Status: 20% – Discovery listings stabilised with deterministic ordering and dialect-aware search fallbacks feeding analytics snapshot dashboards; live ranking engine integration follows backend queue upgrades.**
 - **Subtask 2.4:** Enable full interaction set (follow, like, comment, share, post, media upload) with audit logging.
 - **Subtask 2.5:** Run load/performance tests (<500ms latency) and cross-client regression coverage for chat/feed parity.
 - **Integration Breakdown**

@@ -7,3 +7,6 @@
 ## Tooling
 - Melos script catalogue expanded with `test:unit`, `test:golden`, `test:integration`, and `ci:verify` entries to standardise local and CI execution.
 - GitHub Actions now installs Temurin JDK 17 and Flutter 3.19.6 explicitly, ensuring consistent Gradle and Xcode compatibility across runners.
+
+## Backend
+- Added `supertest` to the Node.js backend devDependencies so HTTP controller flows can be validated end-to-end alongside service-level Jest suites.

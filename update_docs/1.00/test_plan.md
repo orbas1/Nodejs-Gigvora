@@ -8,12 +8,16 @@
 - Added deterministic unit tests for `AppConfig` to validate environment helpers and copy-with overrides used across the mobile bootstrap pipeline.
 - Introduced widget tests for `GigvoraApp` covering loading and resolved theme states with Riverpod overrides.
 - Implemented an integration test booting the application shell via `integration_test`, proving navigation wiring survives dependency overrides and enabling future end-to-end expansion.
+- Expanded backend coverage with messaging service suites that simulate support-case escalations, inbox pagination, and cache invalidation plus supertest-powered HTTP flows verifying controllers, routes, and validation around escalation, assignment, and resolution actions.
+- Hardened discovery service tests to assert deterministic ordering, dialect-aware search predicates, and pagination metadata so analytics surfaces consume stable datasets across SQLite and production engines.
 
 ## Execution Strategy
 - GitHub Actions publishes coverage artefacts (`**/coverage/lcov.info`) for ingestion by SonarQube and internal dashboards. Failures on any analysis or test step block merges.
 - Codemagic uses secure environment groups (`gigvora-android-signing`, `gigvora-ios-signing`, `gigvora-distribution`) to access signing assets and distribution credentials, guaranteeing that only tested builds reach TestFlight and Play Internal Testing.
 - Local developers can reproduce the CI steps with `melos run ci:verify`, aligning workstation and pipeline checks.
+- Node.js contributors can execute `npm test` inside `gigvora-backend-nodejs` to exercise the refreshed Jest matrix, which now provisions SQLite storage automatically and validates both service and HTTP layers for the communication suite.
 
 ## Next Steps
 - Extend the integration test suite to cover GraphQL failure handling and realtime reconnection telemetry as backend mocks become available.
 - Add golden baselines for redesigned dashboards once finalised by design, enabling the CI golden stage to protect layout fidelity.
+- Layer supertest-driven smoke suites for discovery and analytics routes after caching and rate limiting are implemented.

@@ -31,7 +31,7 @@
 - **Success Criteria**:
   - Development-ready specs with redlines, interaction notes, and copy ready for localisation.
   - Usability test findings show ≥15% improvement in task success vs. baseline prototypes.
-- **Status Update**: Messaging overlay, live feed composer, marketplace offline states, and ads console specs are complete with annotated copy, motion, and accessibility notes; refreshed profile detail canvas and live feed streaming banners now match production build requirements. Wallet and volunteer imagery packages remain in progress.
+- **Status Update**: Messaging overlay, support escalation timelines, live feed composer, marketplace offline states, and ads console specs are complete with annotated copy, motion, and accessibility notes; refreshed profile detail canvas and live feed streaming banners now match production build requirements. Wallet and volunteer imagery packages remain in progress.
 
 ## Milestone 4: Validation & Launch Readiness (Weeks 10–12)
 - **Objectives**: Complete QA, compliance, and rollout materials.

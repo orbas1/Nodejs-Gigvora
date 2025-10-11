@@ -5,16 +5,28 @@ import {
   MessageParticipant,
   Message,
   MessageAttachment,
+  SupportCase,
   User,
   MESSAGE_CHANNEL_TYPES,
   MESSAGE_THREAD_STATES,
   MESSAGE_TYPES,
+  SUPPORT_CASE_STATUSES,
+  SUPPORT_CASE_PRIORITIES,
 } from '../models/index.js';
-import { ValidationError, NotFoundError, AuthorizationError } from '../utils/errors.js';
+import { ApplicationError, ValidationError, NotFoundError, AuthorizationError } from '../utils/errors.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
+import notificationService from './notificationService.js';
 
 const THREAD_CACHE_TTL = 60;
 const MESSAGE_CACHE_TTL = 15;
+const INBOX_CACHE_TTL = 30;
+const SUPPORT_ESCALATION_NOTIFY_USER_IDS = (process.env.SUPPORT_ESCALATION_NOTIFY_USER_IDS ?? '')
+  .split(',')
+  .map((value) => Number.parseInt(value.trim(), 10))
+  .filter((value) => Number.isInteger(value));
+const SHOULD_QUEUE_SUPPORT_NOTIFICATIONS =
+  String(process.env.SUPPRESS_SUPPORT_NOTIFICATIONS ?? '').toLowerCase() !== 'true' &&
+  process.env.NODE_ENV !== 'test';
 
 function normalizeMetadata(metadata, context) {
   if (metadata == null) return null;
@@ -39,6 +51,18 @@ function assertThreadState(state) {
 function assertMessageType(messageType) {
   if (!MESSAGE_TYPES.includes(messageType)) {
     throw new ValidationError(`Unsupported message type "${messageType}".`);
+  }
+}
+
+function assertSupportStatus(status) {
+  if (!SUPPORT_CASE_STATUSES.includes(status)) {
+    throw new ValidationError(`Unsupported support status "${status}".`);
+  }
+}
+
+function assertSupportPriority(priority) {
+  if (!SUPPORT_CASE_PRIORITIES.includes(priority)) {
+    throw new ValidationError(`Unsupported support priority "${priority}".`);
   }
 }
 
@@ -82,6 +106,7 @@ function sanitizeThread(thread) {
       ? Object.fromEntries(Object.entries(plain.metadata).filter(([key]) => !/^(_|internal|private)/i.test(key)))
       : null,
     participants: Array.isArray(thread.participants) ? thread.participants.map((p) => sanitizeParticipant(p)) : undefined,
+    supportCase: thread.supportCase ? sanitizeSupportCase(thread.supportCase) : undefined,
   };
 }
 
@@ -116,11 +141,112 @@ function sanitizeMessage(message) {
   };
 }
 
-function flushThreadCache(threadId) {
+function sanitizeSupportCase(supportCase) {
+  if (!supportCase) return null;
+  const plain = supportCase.get ? supportCase.get({ plain: true }) : supportCase;
+  const sanitizedMetadata = plain.metadata && typeof plain.metadata === 'object'
+    ? Object.fromEntries(Object.entries(plain.metadata).filter(([key]) => !/^(_|internal|private)/i.test(key)))
+    : null;
+
+  return {
+    id: plain.id,
+    threadId: plain.threadId,
+    status: plain.status,
+    priority: plain.priority,
+    reason: plain.reason,
+    metadata: sanitizedMetadata,
+    escalatedBy: plain.escalatedBy,
+    escalatedAt: plain.escalatedAt,
+    assignedTo: plain.assignedTo,
+    assignedBy: plain.assignedBy,
+    assignedAt: plain.assignedAt,
+    firstResponseAt: plain.firstResponseAt,
+    resolvedAt: plain.resolvedAt,
+    resolvedBy: plain.resolvedBy,
+    resolutionSummary: plain.resolutionSummary,
+    escalatedByUser: supportCase.escalatedByUser
+      ? {
+          id: supportCase.escalatedByUser.id,
+          firstName: supportCase.escalatedByUser.firstName,
+          lastName: supportCase.escalatedByUser.lastName,
+          email: supportCase.escalatedByUser.email,
+        }
+      : null,
+    assignedAgent: supportCase.assignedAgent
+      ? {
+          id: supportCase.assignedAgent.id,
+          firstName: supportCase.assignedAgent.firstName,
+          lastName: supportCase.assignedAgent.lastName,
+          email: supportCase.assignedAgent.email,
+        }
+      : null,
+    resolvedByUser: supportCase.resolvedByUser
+      ? {
+          id: supportCase.resolvedByUser.id,
+          firstName: supportCase.resolvedByUser.firstName,
+          lastName: supportCase.resolvedByUser.lastName,
+          email: supportCase.resolvedByUser.email,
+        }
+      : null,
+  };
+}
+
+async function createSystemMessage(threadId, body, metadata = {}, trx) {
+  const normalized = normalizeMetadata(
+    {
+      ...(metadata && typeof metadata === 'object' ? metadata : {}),
+      category: 'support',
+    },
+    'Message',
+  );
+
+  await Message.create(
+    {
+      threadId,
+      senderId: null,
+      messageType: 'system',
+      body: body?.trim() || 'Support update',
+      metadata: normalized,
+      deliveredAt: new Date(),
+    },
+    { transaction: trx },
+  );
+
+  if (trx) {
+    await MessageThread.update({ lastMessageAt: new Date() }, { where: { id: threadId }, transaction: trx });
+  } else {
+    const thread = await MessageThread.findByPk(threadId);
+    if (thread) {
+      thread.lastMessageAt = new Date();
+      await thread.save();
+    }
+  }
+}
+
+async function queueSupportNotification(payload, options) {
+  if (!SHOULD_QUEUE_SUPPORT_NOTIFICATIONS) {
+    return;
+  }
+
+  try {
+    await queueSupportNotification(payload, options);
+  } catch (error) {
+    if (process.env.NODE_ENV !== 'test') {
+      console.warn('Failed to queue support notification', error);
+    }
+  }
+}
+
+function flushThreadCache(threadId, participantIds = []) {
   appCache.flushByPrefix('messaging:threads:list');
   if (threadId) {
     appCache.delete(`messaging:thread:${threadId}`);
     appCache.flushByPrefix(`messaging:messages:${threadId}`);
+  }
+  if (Array.isArray(participantIds)) {
+    participantIds.filter(Boolean).forEach((userId) => {
+      appCache.flushByPrefix(`messaging:inbox:${userId}`);
+    });
   }
 }
 
@@ -135,6 +261,15 @@ async function ensureParticipant(threadId, userId, trx) {
     throw new AuthorizationError('User is not a participant in this thread.');
   }
   return participant;
+}
+
+async function getParticipantUserIds(threadId, trx) {
+  const participants = await MessageParticipant.findAll({
+    where: { threadId },
+    transaction: trx,
+    attributes: ['userId'],
+  });
+  return participants.map((participant) => participant.userId);
 }
 
 export async function createThread({ subject, channelType = 'direct', createdBy, participantIds = [], metadata = {} }) {
@@ -182,8 +317,6 @@ export async function createThread({ subject, channelType = 'direct', createdBy,
     return createdThread;
   });
 
-  flushThreadCache(thread.id);
-
   const hydrated = await MessageThread.findByPk(thread.id, {
     include: [
       {
@@ -191,8 +324,11 @@ export async function createThread({ subject, channelType = 'direct', createdBy,
         as: 'participants',
         include: [{ model: User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'email'] }],
       },
+      { model: SupportCase, as: 'supportCase', include: [{ model: User, as: 'assignedAgent' }, { model: User, as: 'escalatedByUser' }, { model: User, as: 'resolvedByUser' }] },
     ],
   });
+
+  flushThreadCache(thread.id, uniqueParticipantIds);
 
   return sanitizeThread(hydrated ?? thread);
 }
@@ -254,14 +390,18 @@ export async function appendMessage(threadId, senderId, { messageType = 'text', 
     return createdMessage;
   });
 
-  flushThreadCache(threadId);
-
   const hydrated = await Message.findByPk(message.id, {
     include: [
       { model: MessageAttachment, as: 'attachments' },
       { model: User, as: 'sender', attributes: ['id', 'firstName', 'lastName', 'email'] },
     ],
   });
+
+  const participants = await MessageParticipant.findAll({ where: { threadId }, attributes: ['userId'] });
+  flushThreadCache(
+    threadId,
+    participants.map((participant) => participant.userId),
+  );
 
   return sanitizeMessage(hydrated ?? message);
 }
@@ -307,19 +447,34 @@ export async function listMessages(threadId, pagination = {}, { includeSystem = 
   });
 }
 
-export async function getThread(threadId, { withParticipants = false } = {}) {
-  const cacheKey = `messaging:thread:${threadId}:${withParticipants ? 'withParticipants' : 'base'}`;
+export async function getThread(threadId, { withParticipants = false, includeSupportCase = false } = {}) {
+  const cacheKey = `messaging:thread:${threadId}:${withParticipants ? 'withParticipants' : 'base'}:${includeSupportCase ? 'withSupport' : 'noSupport'}`;
   return appCache.remember(cacheKey, THREAD_CACHE_TTL, async () => {
     const thread = await MessageThread.findByPk(threadId, {
-      include: withParticipants
-        ? [
-            {
-              model: MessageParticipant,
-              as: 'participants',
-              include: [{ model: User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'email'] }],
-            },
-          ]
-        : [],
+      include: [
+        ...(withParticipants
+          ? [
+              {
+                model: MessageParticipant,
+                as: 'participants',
+                include: [{ model: User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'email'] }],
+              },
+            ]
+          : []),
+        ...(includeSupportCase
+          ? [
+              {
+                model: SupportCase,
+                as: 'supportCase',
+                include: [
+                  { model: User, as: 'assignedAgent', attributes: ['id', 'firstName', 'lastName', 'email'] },
+                  { model: User, as: 'escalatedByUser', attributes: ['id', 'firstName', 'lastName', 'email'] },
+                  { model: User, as: 'resolvedByUser', attributes: ['id', 'firstName', 'lastName', 'email'] },
+                ],
+              },
+            ]
+          : []),
+      ],
     });
 
     if (!thread) {
@@ -330,20 +485,199 @@ export async function getThread(threadId, { withParticipants = false } = {}) {
   });
 }
 
+export async function listThreadsForUser(
+  userId,
+  { channelTypes, states, search, unreadOnly = false, includeParticipants = true, includeSupport = true } = {},
+  pagination = {},
+) {
+  if (!userId) {
+    throw new ValidationError('userId is required to list inbox threads.');
+  }
+
+  const { page = 1, pageSize = 25 } = pagination;
+  const safePage = Math.max(Number(page) || 1, 1);
+  const safeSize = Math.min(Math.max(Number(pageSize) || 25, 1), 100);
+  const offset = (safePage - 1) * safeSize;
+
+  const normalizedChannelTypes = Array.isArray(channelTypes) ? channelTypes.filter(Boolean) : [];
+  normalizedChannelTypes.forEach((type) => assertChannelType(type));
+
+  const normalizedStates = Array.isArray(states) ? states.filter(Boolean) : [];
+  normalizedStates.forEach((state) => assertThreadState(state));
+
+  const sanitizedSearch = search?.trim();
+  const likeOperator = Op.iLike ?? Op.like;
+
+  const cacheKey = buildCacheKey(`messaging:inbox:${userId}`, {
+    filters: {
+      channelTypes: normalizedChannelTypes,
+      states: normalizedStates,
+      search: sanitizedSearch || null,
+      unreadOnly,
+      includeParticipants,
+      includeSupport,
+    },
+    page: safePage,
+    pageSize: safeSize,
+  });
+
+  return appCache.remember(cacheKey, INBOX_CACHE_TTL, async () => {
+    const include = [
+      {
+        model: MessageParticipant,
+        as: 'viewerParticipants',
+        required: true,
+        where: { userId },
+        attributes: ['id', 'userId', 'threadId', 'lastReadAt', 'mutedUntil', 'notificationsEnabled'],
+      },
+    ];
+
+    if (includeParticipants) {
+      include.push({
+        model: MessageParticipant,
+        as: 'participants',
+        include: [{ model: User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'email'] }],
+      });
+    }
+
+    if (includeSupport) {
+      include.push({
+        model: SupportCase,
+        as: 'supportCase',
+        include: [
+          { model: User, as: 'assignedAgent', attributes: ['id', 'firstName', 'lastName', 'email'] },
+          { model: User, as: 'escalatedByUser', attributes: ['id', 'firstName', 'lastName', 'email'] },
+          { model: User, as: 'resolvedByUser', attributes: ['id', 'firstName', 'lastName', 'email'] },
+        ],
+      });
+    }
+
+    const where = {};
+    if (normalizedChannelTypes.length > 0) {
+      where.channelType = { [Op.in]: normalizedChannelTypes };
+    }
+    if (normalizedStates.length > 0) {
+      where.state = { [Op.in]: normalizedStates };
+    }
+    if (sanitizedSearch) {
+      where[Op.or] = [
+        { subject: { [likeOperator]: `%${sanitizedSearch}%` } },
+      ];
+      if (includeParticipants) {
+        where[Op.or].push(
+          { '$participants.user.firstName$': { [likeOperator]: `%${sanitizedSearch}%` } },
+          { '$participants.user.lastName$': { [likeOperator]: `%${sanitizedSearch}%` } },
+          { '$participants.user.email$': { [likeOperator]: `%${sanitizedSearch}%` } },
+        );
+      }
+    }
+    if (unreadOnly) {
+      where[Op.and] = [
+        ...(where[Op.and] ?? []),
+        {
+          [Op.and]: [
+            { lastMessageAt: { [Op.not]: null } },
+            {
+              [Op.or]: [
+                { '$viewerParticipants.lastReadAt$': null },
+                sequelize.where(
+                  sequelize.col('MessageThread.lastMessageAt'),
+                  '>',
+                  sequelize.col('viewerParticipants.lastReadAt'),
+                ),
+              ],
+            },
+          ],
+        },
+      ];
+    }
+
+    let rows;
+    let count;
+    try {
+      ({ rows, count } = await MessageThread.findAndCountAll({
+        where,
+        include,
+        order: [
+          ['lastMessageAt', 'DESC'],
+          ['createdAt', 'DESC'],
+        ],
+        limit: safeSize,
+        offset,
+        distinct: true,
+        subQuery: false,
+      }));
+    } catch (error) {
+      throw new ApplicationError('Unable to load inbox threads.', 500, {
+        userId,
+        cause: error,
+      });
+    }
+
+    const data = await Promise.all(
+      rows.map(async (thread) => {
+        const sanitized = sanitizeThread(thread);
+        const viewerParticipant = Array.isArray(thread.viewerParticipants)
+          ? thread.viewerParticipants.find((participant) => participant.userId === userId)
+          : null;
+
+        let unreadCount = 0;
+        if (viewerParticipant && thread.lastMessageAt) {
+          const since = viewerParticipant.lastReadAt ?? new Date(0);
+          if (!viewerParticipant.lastReadAt || thread.lastMessageAt > since) {
+            unreadCount = await Message.count({
+              where: {
+                threadId: thread.id,
+                createdAt: { [Op.gt]: since },
+              },
+            });
+          }
+        }
+
+        return {
+          ...sanitized,
+          viewerState: viewerParticipant
+            ? {
+                participantId: viewerParticipant.id,
+                lastReadAt: viewerParticipant.lastReadAt,
+                mutedUntil: viewerParticipant.mutedUntil,
+                notificationsEnabled: viewerParticipant.notificationsEnabled,
+              }
+            : null,
+          unreadCount,
+        };
+      }),
+    );
+
+    return {
+      data,
+      pagination: {
+        page: safePage,
+        pageSize: safeSize,
+        total: count,
+        totalPages: Math.ceil(count / safeSize) || 1,
+      },
+    };
+  });
+}
+
 export async function markThreadRead(threadId, userId) {
   await sequelize.transaction(async (trx) => {
     const participant = await ensureParticipant(threadId, userId, trx);
-    participant.lastReadAt = new Date();
+    const thread = await MessageThread.findByPk(threadId, { transaction: trx, lock: trx.LOCK.UPDATE });
+    const markTimestamp = thread?.lastMessageAt ? new Date(thread.lastMessageAt) : new Date();
+    participant.lastReadAt = markTimestamp;
     await participant.save({ transaction: trx });
   });
 
-  flushThreadCache(threadId);
+  flushThreadCache(threadId, [userId]);
   return { success: true };
 }
 
 export async function updateThreadState(threadId, state) {
   assertThreadState(state);
 
+  let participantIds = [];
   await sequelize.transaction(async (trx) => {
     const thread = await MessageThread.findByPk(threadId, { transaction: trx, lock: trx.LOCK.UPDATE });
     if (!thread) {
@@ -352,10 +686,11 @@ export async function updateThreadState(threadId, state) {
 
     thread.state = state;
     await thread.save({ transaction: trx });
+    participantIds = await getParticipantUserIds(threadId, trx);
   });
 
-  flushThreadCache(threadId);
-  return getThread(threadId, { withParticipants: true });
+  flushThreadCache(threadId, participantIds);
+  return getThread(threadId, { withParticipants: true, includeSupportCase: true });
 }
 
 export async function muteThread(threadId, userId, until) {
@@ -366,8 +701,304 @@ export async function muteThread(threadId, userId, until) {
     await participant.save({ transaction: trx });
   });
 
-  flushThreadCache(threadId);
+  flushThreadCache(threadId, [userId]);
   return { success: true };
+}
+
+export async function escalateThreadToSupport(
+  threadId,
+  userId,
+  { reason, priority = 'medium', metadata = {} } = {},
+) {
+  if (!threadId) {
+    throw new ValidationError('threadId is required to escalate a support case.');
+  }
+  if (!userId) {
+    throw new ValidationError('userId is required to escalate a support case.');
+  }
+  if (!reason || !reason.trim()) {
+    throw new ValidationError('Escalation reason is required.');
+  }
+  assertSupportPriority(priority);
+  const normalizedMetadata = normalizeMetadata(metadata, 'Support case');
+
+  const { supportCaseId, participantIds } = await sequelize.transaction(async (trx) => {
+    await ensureParticipant(threadId, userId, trx);
+
+    const now = new Date();
+    let supportCase = await SupportCase.findOne({
+      where: { threadId },
+      transaction: trx,
+      lock: trx.LOCK.UPDATE,
+    });
+
+    if (!supportCase) {
+      supportCase = await SupportCase.create(
+        {
+          threadId,
+          status: 'triage',
+          priority,
+          reason: reason.trim(),
+          metadata: normalizedMetadata,
+          escalatedBy: userId,
+          escalatedAt: now,
+        },
+        { transaction: trx },
+      );
+    } else {
+      supportCase.priority = priority;
+      supportCase.status = 'triage';
+      supportCase.reason = reason.trim();
+      supportCase.metadata = {
+        ...(supportCase.metadata ?? {}),
+        ...normalizedMetadata,
+      };
+      supportCase.escalatedBy = userId;
+      supportCase.escalatedAt = now;
+      supportCase.resolvedAt = null;
+      supportCase.resolvedBy = null;
+      supportCase.resolutionSummary = null;
+      await supportCase.save({ transaction: trx });
+    }
+
+    await createSystemMessage(
+      threadId,
+      `Support escalation requested: ${reason.trim()}`,
+      { event: 'escalated', priority },
+      trx,
+    );
+
+    return {
+      supportCaseId: supportCase.id,
+      participantIds: await getParticipantUserIds(threadId, trx),
+    };
+  });
+
+  flushThreadCache(threadId, participantIds);
+
+  const hydrated = await SupportCase.findByPk(supportCaseId, {
+    include: [
+      { model: User, as: 'assignedAgent', attributes: ['id', 'firstName', 'lastName', 'email'] },
+      { model: User, as: 'escalatedByUser', attributes: ['id', 'firstName', 'lastName', 'email'] },
+      { model: User, as: 'resolvedByUser', attributes: ['id', 'firstName', 'lastName', 'email'] },
+    ],
+  });
+
+  const sanitized = sanitizeSupportCase(hydrated);
+
+  const recipients = new Set(
+    participantIds
+      .filter((participantId) => participantId !== userId)
+      .concat(SUPPORT_ESCALATION_NOTIFY_USER_IDS),
+  );
+
+  await Promise.all(
+    Array.from(recipients).map((recipientId) =>
+      queueSupportNotification(
+        {
+          userId: recipientId,
+          category: 'message',
+          priority: priority === 'urgent' ? 'high' : 'normal',
+          type: 'support_case_escalated',
+          title: 'Support case escalated',
+          body: `Thread #${threadId} has been escalated with priority ${priority}.`,
+          payload: {
+            threadId,
+            supportCaseId: sanitized.id,
+            priority,
+          },
+        },
+        { bypassQuietHours: priority === 'urgent' },
+      ),
+    ),
+  );
+
+  return sanitized;
+}
+
+export async function assignSupportAgent(threadId, agentId, { assignedBy, notifyAgent = true } = {}) {
+  if (!threadId) {
+    throw new ValidationError('threadId is required to assign a support agent.');
+  }
+  if (!agentId) {
+    throw new ValidationError('agentId is required to assign a support agent.');
+  }
+
+  const { supportCaseId, participantIds, priority } = await sequelize.transaction(async (trx) => {
+    const supportCase = await SupportCase.findOne({
+      where: { threadId },
+      transaction: trx,
+      lock: trx.LOCK.UPDATE,
+    });
+    if (!supportCase) {
+      throw new NotFoundError('Support case not found for this thread.');
+    }
+
+    const agent = await User.findByPk(agentId, {
+      transaction: trx,
+      attributes: ['id', 'firstName', 'lastName', 'email'],
+    });
+    if (!agent) {
+      throw new ValidationError('Assigned agent does not exist.');
+    }
+
+    supportCase.assignedTo = agentId;
+    supportCase.assignedBy = assignedBy ?? agentId;
+    supportCase.assignedAt = new Date();
+    if (!supportCase.firstResponseAt) {
+      supportCase.firstResponseAt = new Date();
+    }
+    if (supportCase.status === 'triage') {
+      supportCase.status = 'in_progress';
+    }
+    await supportCase.save({ transaction: trx });
+
+    await createSystemMessage(
+      threadId,
+      `Support case assigned to ${agent.firstName} ${agent.lastName}`,
+      { event: 'assigned', assignedTo: agentId },
+      trx,
+    );
+
+    return {
+      supportCaseId: supportCase.id,
+      participantIds: await getParticipantUserIds(threadId, trx),
+      priority: supportCase.priority,
+    };
+  });
+
+  flushThreadCache(threadId, participantIds);
+
+  const hydrated = await SupportCase.findByPk(supportCaseId, {
+    include: [
+      { model: User, as: 'assignedAgent', attributes: ['id', 'firstName', 'lastName', 'email'] },
+      { model: User, as: 'escalatedByUser', attributes: ['id', 'firstName', 'lastName', 'email'] },
+      { model: User, as: 'resolvedByUser', attributes: ['id', 'firstName', 'lastName', 'email'] },
+    ],
+  });
+
+  const sanitized = sanitizeSupportCase(hydrated);
+
+  if (notifyAgent) {
+    await queueSupportNotification(
+      {
+        userId: agentId,
+        category: 'message',
+        priority: priority === 'urgent' ? 'high' : 'normal',
+        type: 'support_case_assigned',
+        title: 'New support case assignment',
+        body: `You have been assigned to support thread #${threadId}.`,
+        payload: {
+          threadId,
+          supportCaseId: sanitized.id,
+        },
+      },
+      { bypassQuietHours: priority === 'urgent' },
+    );
+  }
+
+  return sanitized;
+}
+
+export async function updateSupportCaseStatus(
+  threadId,
+  status,
+  { actorId, resolutionSummary, metadataPatch = {} } = {},
+) {
+  if (!threadId) {
+    throw new ValidationError('threadId is required to update a support case.');
+  }
+  assertSupportStatus(status);
+  const patch = metadataPatch && typeof metadataPatch === 'object' ? metadataPatch : {};
+
+  const { supportCaseId, participantIds, priority } = await sequelize.transaction(async (trx) => {
+    const supportCase = await SupportCase.findOne({
+      where: { threadId },
+      transaction: trx,
+      lock: trx.LOCK.UPDATE,
+    });
+    if (!supportCase) {
+      throw new NotFoundError('Support case not found for this thread.');
+    }
+
+    supportCase.status = status;
+    if (Object.keys(patch).length > 0) {
+      supportCase.metadata = {
+        ...(supportCase.metadata ?? {}),
+        ...patch,
+      };
+    }
+
+    if (status === 'in_progress' && !supportCase.firstResponseAt) {
+      supportCase.firstResponseAt = new Date();
+    }
+
+    if (['resolved', 'closed'].includes(status)) {
+      supportCase.resolvedAt = new Date();
+      supportCase.resolvedBy = actorId ?? supportCase.resolvedBy ?? null;
+      if (resolutionSummary?.trim()) {
+        supportCase.resolutionSummary = resolutionSummary.trim();
+      }
+    } else if (status === 'waiting_on_customer') {
+      supportCase.resolvedAt = null;
+      supportCase.resolvedBy = null;
+      supportCase.resolutionSummary = null;
+    }
+
+    await supportCase.save({ transaction: trx });
+
+    const summary =
+      status === 'resolved'
+        ? resolutionSummary?.trim() || 'Support case resolved.'
+        : `Support case status updated to ${status.replace(/_/g, ' ')}`;
+
+    await createSystemMessage(threadId, summary, { event: 'status_change', status }, trx);
+
+    return {
+      supportCaseId: supportCase.id,
+      participantIds: await getParticipantUserIds(threadId, trx),
+      priority: supportCase.priority,
+    };
+  });
+
+  flushThreadCache(threadId, participantIds);
+
+  const hydrated = await SupportCase.findByPk(supportCaseId, {
+    include: [
+      { model: User, as: 'assignedAgent', attributes: ['id', 'firstName', 'lastName', 'email'] },
+      { model: User, as: 'escalatedByUser', attributes: ['id', 'firstName', 'lastName', 'email'] },
+      { model: User, as: 'resolvedByUser', attributes: ['id', 'firstName', 'lastName', 'email'] },
+    ],
+  });
+
+  const sanitized = sanitizeSupportCase(hydrated);
+
+  if (['resolved', 'closed'].includes(status)) {
+    await Promise.all(
+      participantIds
+        .filter((participantId) => participantId !== actorId)
+        .map((participantId) =>
+          queueSupportNotification(
+            {
+              userId: participantId,
+              category: 'message',
+              priority: priority === 'urgent' ? 'high' : 'normal',
+              type: 'support_case_resolved',
+              title: 'Support case resolved',
+              body: sanitized.resolutionSummary || 'Support case resolved.',
+              payload: {
+                threadId,
+                supportCaseId: sanitized.id,
+                status,
+              },
+            },
+            { bypassQuietHours: priority === 'urgent' },
+          ),
+        ),
+    );
+  }
+
+  return sanitized;
 }
 
 export default {
@@ -375,7 +1006,11 @@ export default {
   appendMessage,
   listMessages,
   getThread,
+  listThreadsForUser,
   markThreadRead,
   updateThreadState,
   muteThread,
+  escalateThreadToSupport,
+  assignSupportAgent,
+  updateSupportCaseStatus,
 };

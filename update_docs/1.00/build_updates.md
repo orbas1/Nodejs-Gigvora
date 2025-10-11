@@ -9,3 +9,8 @@
 ## Operational Readiness
 - Documented CI environment dependencies (Flutter, Java, Melos) in the pipeline so onboarding engineers inherit reproducible builds without additional scripting.
 - Coverage artefacts from GitHub Actions are retained for SonarQube ingestion, enabling compliance with internal quality gates and telemetry dashboards.
+
+## Node.js Backend QA Hardening
+- Updated the Sequelize SQLite configuration to bootstrap `tmp/` storage automatically and align pool settings with single-connection Jest usage, eliminating flakiness when running migration-backed suites locally or in CI.
+- Added a backend-specific `.gitignore` to quarantine transient SQLite files, coverage output, and node modules so cross-team contributions do not accidentally commit artefacts created by the refreshed test harness.
+- Wired supertest-backed controller suites into the Node.js backend pipeline, proving REST endpoints, caching, and support escalation flows behave consistently when exercised end-to-end.

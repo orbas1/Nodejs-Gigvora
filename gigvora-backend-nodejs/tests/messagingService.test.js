@@ -5,6 +5,11 @@ import {
   listMessages,
   getThread,
   updateThreadState,
+  markThreadRead,
+  listThreadsForUser,
+  escalateThreadToSupport,
+  assignSupportAgent,
+  updateSupportCaseStatus,
 } from '../src/services/messagingService.js';
 import { createUser } from './helpers/factories.js';
 import { AuthorizationError } from '../src/utils/errors.js';
@@ -78,5 +83,71 @@ describe('messagingService', () => {
     const reloaded = await getThread(thread.id, { withParticipants: true });
     expect(reloaded.state).toBe('locked');
     expect(reloaded.participants?.length).toBe(2);
+  });
+
+  it('produces inbox rollups with support escalation lifecycle data', async () => {
+    const requester = await createUser({ email: 'requester@gigvora.test', userType: 'user' });
+    const collaborator = await createUser({ email: 'collaborator@gigvora.test', userType: 'user' });
+    const supportAgent = await createUser({ email: 'support@gigvora.test', userType: 'admin' });
+
+    const thread = await createThread({
+      subject: 'Payment issue',
+      createdBy: requester.id,
+      participantIds: [collaborator.id],
+      metadata: { projectId: 501, origin: 'web_inbox' },
+    });
+
+    await appendMessage(thread.id, requester.id, {
+      messageType: 'text',
+      body: 'Hi there, could you confirm the escrow status?',
+    });
+
+    const collaboratorInbox = await listThreadsForUser(collaborator.id, { includeParticipants: true }, { pageSize: 5 });
+    expect(collaboratorInbox.data[0]).toMatchObject({ id: thread.id, unreadCount: 1 });
+
+    const supportCase = await escalateThreadToSupport(thread.id, collaborator.id, {
+      reason: 'Escrow payout failed to release',
+      priority: 'urgent',
+      metadata: { escalationChannel: 'inbox', severity: 'p1' },
+    });
+    expect(supportCase).toMatchObject({ status: 'triage', priority: 'urgent', escalatedBy: collaborator.id });
+
+    const assignment = await assignSupportAgent(thread.id, supportAgent.id, { assignedBy: requester.id });
+    expect(assignment).toMatchObject({ status: 'in_progress', assignedTo: supportAgent.id });
+
+    const resolved = await updateSupportCaseStatus(thread.id, 'resolved', {
+      actorId: supportAgent.id,
+      resolutionSummary: 'Escrow ledger reconciled and payout released.',
+    });
+    expect(resolved).toMatchObject({ status: 'resolved', resolutionSummary: 'Escrow ledger reconciled and payout released.' });
+
+    await markThreadRead(thread.id, requester.id);
+
+    const hydratedThread = await getThread(thread.id, { withParticipants: true });
+    const requesterParticipant = hydratedThread.participants?.find((participant) => participant.userId === requester.id);
+    expect(requesterParticipant?.lastReadAt).not.toBeNull();
+
+    const requesterInbox = await listThreadsForUser(
+      requester.id,
+      { includeParticipants: true, includeSupport: true },
+      { pageSize: 5 },
+    );
+
+    expect(requesterInbox.data[0]).toMatchObject({
+      id: thread.id,
+      unreadCount: 0,
+      supportCase: expect.objectContaining({
+        status: 'resolved',
+        priority: 'urgent',
+        assignedTo: supportAgent.id,
+      }),
+    });
+    expect(requesterInbox.data[0].viewerState).toMatchObject({
+      participantId: expect.any(Number),
+      notificationsEnabled: true,
+    });
+
+    const unreadOnly = await listThreadsForUser(requester.id, { unreadOnly: true }, { pageSize: 5 });
+    expect(unreadOnly.data).toHaveLength(0);
   });
 });
