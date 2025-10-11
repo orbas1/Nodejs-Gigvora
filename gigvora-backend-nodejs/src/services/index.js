@@ -8,3 +8,4 @@ export { default as providerWorkspaceService } from './providerWorkspaceService.
 export { default as discoveryService } from './discoveryService.js';
 export { default as trustService } from './trustService.js';
 export { default as searchIndexService } from './searchIndexService.js';
+export { default as searchSubscriptionService } from './searchSubscriptionService.js';

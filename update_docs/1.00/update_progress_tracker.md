@@ -7,7 +7,7 @@ Progress metrics are updated twice weekly. Overall level is the average of Secur
 | Task 1 – Flutter App Platform & Mobile Integration | 74% | 82% | 80% | 78% | 72% | 76% | 77% | GitHub Actions and Codemagic pipelines now execute melos-managed analysis, unit/widget/golden/integration suites with coverage, publish Android/iOS release artefacts, and gate merges on telemetry-backed health checks; focus shifts to CI runbook automation and telemetry dashboard UX polish. |
 | Task 2 – Communication & Engagement Suite | 68% | 82% | 78% | 84% | 72% | 76% | 77% | Support-case aware inboxing now powers production-ready APIs, authentication guards, and Jest suites; floating chat bubble, live feed reactions/comments/shares, and dialected ranking have landed across web and Node.js services with staging telemetry clean. |
 | Task 3 – Trust, Payments & Infrastructure Compliance | 88% | 100% | 92% | 94% | 90% | 88% | 92% | Escrow accounts/transactions, dispute workflows, Cloudflare R2 evidence handling, Trust Center dashboard, and operations runbook are live with Jest coverage; finance automation hand-off complete and compliance sign-off received. |
-| Task 4 – Discovery, Matching & Experience Automation | 42% | 35% | 34% | 36% | 30% | 32% | 35% | Meilisearch cluster now boots with hardened indexes, synonym packs, freshness scoring, and CLI ingestion syncing jobs/gigs/projects/volunteering data; React/Flutter teams can consume the live search API while auto-assign and launchpad build-out follow next. |
+| Task 4 – Discovery, Matching & Experience Automation | 44% | 52% | 48% | 55% | 42% | 50% | 49% | React explorer now consumes the Meilisearch fabric end-to-end with geo-bounded map view, filter drawer facets, saved-search alerts, and analytics hooks wired to the new subscription APIs; next focus is auto-assign orchestration and launchpad workflow build-out. |
 | Task 5 – Profiles, User Types & Employment Systems | 24% | 11% | 13% | 15% | 17% | 9% | 15% | Profile schema proposal under review; ATS scope validated; jobs board, launchpad, and volunteer data models queued for migration sign-off. |
 | Task 6 – Project, Gig & Operations Management | 22% | 9% | 11% | 13% | 15% | 7% | 13% | Project module wireframes approved; gig analytics requirements pending data sign-off. |
 | Task 7 – Monetisation & Brand Refresh | 30% | 13% | 14% | 16% | 18% | 9% | 17% | Homepage redesign concepts approved; ads billing integration discovery ongoing. |
@@ -21,6 +21,7 @@ Progress metrics are updated twice weekly. Overall level is the average of Secur
 
 ## Next Update
 - Track auto-assign service bring-up alongside Experience Launchpad integration while folding volunteer imagery QA outcomes into the next report.
+- Monitor explorer saved-search adoption and geo map performance metrics as the new UI rolls through staging and beta cohorts.
 
 ## Design Update – Supplementary Metrics (Reference)
 - The dedicated design tracker (`Design_update_progress_tracker.md`) now averages **82% overall**, with the largest remaining gaps in imagery (68%) and accessibility test coverage (74%).

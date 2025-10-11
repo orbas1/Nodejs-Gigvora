@@ -54,6 +54,50 @@ class FakeIndex {
       });
     }
 
+    const filters = Array.isArray(options.filter) ? options.filter : options.filter ? [options.filter] : [];
+    if (filters.length) {
+      const matchesExpression = (doc, expression) => {
+        if (Array.isArray(expression)) {
+          return expression.some((inner) => matchesExpression(doc, inner));
+        }
+        if (typeof expression !== 'string') {
+          return true;
+        }
+        if (expression.startsWith('_geoBoundingBox')) {
+          const numbers = expression.match(/-?\d+\.?\d*/g) || [];
+          if (numbers.length !== 4) {
+            return true;
+          }
+          const [north, east, south, west] = numbers.map(Number.parseFloat);
+          const geo = doc._geo;
+          if (!geo) {
+            return false;
+          }
+          return geo.lat <= north && geo.lat >= south && geo.lng <= east && geo.lng >= west;
+        }
+        if (expression.includes(' IN ')) {
+          const [field, values] = expression.split(' IN ');
+          const matches = values.match(/"([^"]+)"/g) || [];
+          const allowed = matches.map((value) => value.replace(/"/g, ''));
+          return allowed.includes(`${doc[field.trim()] ?? ''}`);
+        }
+        if (expression.includes('>=')) {
+          const [field, value] = expression.split('>=');
+          const trimmedValue = value.replace(/"/g, '').trim();
+          const docValue = `${doc[field.trim()] ?? ''}`;
+          return docValue >= trimmedValue;
+        }
+        if (expression.includes('=')) {
+          const [field, value] = expression.split('=');
+          const trimmed = value.replace(/"/g, '').trim();
+          return `${doc[field.trim()] ?? ''}` === trimmed;
+        }
+        return true;
+      };
+
+      docs = docs.filter((doc) => filters.every((expression) => matchesExpression(doc, expression)));
+    }
+
     const sort = options.sort ?? [];
     if (sort.length) {
       docs.sort((a, b) => {
@@ -85,11 +129,30 @@ class FakeIndex {
     const limit = options.limit ?? docs.length;
     const hits = docs.slice(offset, offset + limit);
 
+    let facetDistribution = null;
+    if (Array.isArray(options.facets) && options.facets.length) {
+      facetDistribution = {};
+      for (const facet of options.facets) {
+        const counts = new Map();
+        for (const doc of docs) {
+          const value = doc[facet];
+          if (value === undefined || value === null) {
+            continue;
+          }
+          const key = Array.isArray(value) ? value.join('|') : value;
+          counts.set(key, (counts.get(key) ?? 0) + 1);
+        }
+        facetDistribution[facet] = Object.fromEntries(counts.entries());
+      }
+    }
+
     return {
       hits,
       estimatedTotalHits: docs.length,
       limit,
       offset,
+      facetDistribution,
+      processingTimeMs: 1,
     };
   }
 }
@@ -144,33 +207,43 @@ describe('searchIndexService', () => {
         description: 'Design accessible experiences and support discovery analytics.',
         location: 'Remote - EU',
         employmentType: 'Full-time',
+        geoLocation: { lat: 52.52, lng: 13.405, country: 'DE', city: 'Berlin', isRemote: true },
       }),
       Job.create({
         title: 'Data Reliability Engineer',
         description: 'Own data pipelines and SRE automation.',
         location: 'London',
         employmentType: 'Contract',
+        geoLocation: { lat: 51.5072, lng: -0.1276, country: 'GB', city: 'London' },
       }),
       Gig.create({
         title: 'Marketing Site Revamp',
         description: 'Upgrade hero, testimonial, and discovery partials.',
         budget: '$6,500',
         duration: '6 weeks',
+        location: 'Berlin',
+        geoLocation: { lat: 52.52, lng: 13.405, country: 'DE', city: 'Berlin' },
       }),
       Project.create({
         title: 'Experience Launchpad Rollout',
         description: 'Coordinate cross-team rollout for launchpad cohorts.',
         status: 'In Progress',
+        location: 'London',
+        geoLocation: { lat: 51.5072, lng: -0.1276, country: 'GB', city: 'London' },
       }),
       ExperienceLaunchpad.create({
         title: 'Emerging Leaders Fellowship',
         description: 'Mentored leadership journey with analytics mastery.',
         track: 'Leadership',
+        location: 'London',
+        geoLocation: { lat: 51.5072, lng: -0.1276, country: 'GB', city: 'London' },
       }),
       Volunteering.create({
         title: 'Community Mentor',
         organization: 'Gigvora Foundation',
         description: 'Provide weekly mentoring for launchpad cohorts remotely.',
+        location: 'Hybrid - Berlin',
+        geoLocation: { lat: 52.52, lng: 13.405, country: 'DE', city: 'Berlin', isRemote: true },
       }),
     ]);
 
@@ -205,6 +278,41 @@ describe('searchIndexService', () => {
     expect(result.total).toBe(1);
     expect(result.hits[0].title).toContain('Remote Product Designer');
     expect(result.hits[0].isRemote).toBe(true);
+  });
+
+  it('supports filter expressions, facets, and returns metadata', async () => {
+    const result = await searchOpportunityIndex(
+      'job',
+      {
+        query: '',
+        page: 1,
+        pageSize: 10,
+        filters: ['employmentType = "Full-time"', 'isRemote = true'],
+        facets: ['employmentType', 'isRemote', 'geoCountry'],
+      },
+      { client, logger: noopLogger },
+    );
+
+    expect(result.total).toBe(1);
+    expect(result.facetDistribution).toBeTruthy();
+    expect(result.facetDistribution.employmentType['Full-time']).toBe(1);
+    expect(result.processingTimeMs).toBe(1);
+  });
+
+  it('filters opportunities within a bounding box', async () => {
+    const result = await searchOpportunityIndex(
+      'gig',
+      {
+        query: '',
+        page: 1,
+        pageSize: 10,
+        filters: ['_geoBoundingBox(53.0, 14.0, 52.0, 13.0)'],
+      },
+      { client, logger: noopLogger },
+    );
+
+    expect(result.total).toBe(1);
+    expect(result.hits[0].title).toContain('Marketing Site Revamp');
   });
 
   it('aggregates cross-category hits for global discovery search', async () => {

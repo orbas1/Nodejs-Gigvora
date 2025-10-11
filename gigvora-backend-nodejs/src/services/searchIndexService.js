@@ -23,6 +23,9 @@ const opportunityIndexDefinitions = {
       'employmentCategory',
       'isRemote',
       'location',
+      'geoCountry',
+      'geoRegion',
+      'geoCity',
       'createdAtDate',
       'updatedAtDate',
     ],
@@ -41,10 +44,14 @@ const opportunityIndexDefinitions = {
     indexName: 'opportunities_gigs',
     primaryKey: 'id',
     model: Gig,
-    searchableAttributes: ['title', 'description', 'duration'],
+    searchableAttributes: ['title', 'description', 'duration', 'location'],
     filterableAttributes: [
       'durationCategory',
       'budgetCurrency',
+      'location',
+      'geoCountry',
+      'geoRegion',
+      'geoCity',
       'createdAtDate',
       'updatedAtDate',
     ],
@@ -62,8 +69,8 @@ const opportunityIndexDefinitions = {
     indexName: 'opportunities_projects',
     primaryKey: 'id',
     model: Project,
-    searchableAttributes: ['title', 'description', 'status'],
-    filterableAttributes: ['status', 'createdAtDate', 'updatedAtDate'],
+    searchableAttributes: ['title', 'description', 'status', 'location'],
+    filterableAttributes: ['status', 'location', 'geoCountry', 'geoRegion', 'geoCity', 'createdAtDate', 'updatedAtDate'],
     sortableAttributes: ['freshnessScore', 'updatedAtTimestamp'],
     customRanking: ['desc(freshnessScore)', 'desc(updatedAtTimestamp)'],
     synonyms: {
@@ -76,8 +83,8 @@ const opportunityIndexDefinitions = {
     indexName: 'opportunities_launchpads',
     primaryKey: 'id',
     model: ExperienceLaunchpad,
-    searchableAttributes: ['title', 'description', 'track'],
-    filterableAttributes: ['track', 'createdAtDate', 'updatedAtDate'],
+    searchableAttributes: ['title', 'description', 'track', 'location'],
+    filterableAttributes: ['track', 'location', 'geoCountry', 'geoRegion', 'geoCity', 'createdAtDate', 'updatedAtDate'],
     sortableAttributes: ['freshnessScore', 'updatedAtTimestamp'],
     customRanking: ['desc(freshnessScore)', 'desc(updatedAtTimestamp)'],
     synonyms: {
@@ -91,8 +98,17 @@ const opportunityIndexDefinitions = {
     indexName: 'opportunities_volunteering',
     primaryKey: 'id',
     model: Volunteering,
-    searchableAttributes: ['title', 'description', 'organization'],
-    filterableAttributes: ['organization', 'isRemote', 'createdAtDate', 'updatedAtDate'],
+    searchableAttributes: ['title', 'description', 'organization', 'location'],
+    filterableAttributes: [
+      'organization',
+      'isRemote',
+      'location',
+      'geoCountry',
+      'geoRegion',
+      'geoCity',
+      'createdAtDate',
+      'updatedAtDate',
+    ],
     sortableAttributes: ['freshnessScore', 'updatedAtTimestamp'],
     customRanking: ['desc(freshnessScore)', 'desc(updatedAtTimestamp)'],
     synonyms: {
@@ -209,11 +225,42 @@ function extractCurrencyCode(budget) {
   return null;
 }
 
+function normaliseGeoLocation(geoLocation, fallbackLocation = null) {
+  if (!geoLocation) {
+    return null;
+  }
+
+  const candidate = typeof geoLocation === 'string' ? { label: geoLocation } : geoLocation;
+  const lat = Number.parseFloat(candidate.lat ?? candidate.latitude);
+  const lng = Number.parseFloat(candidate.lng ?? candidate.longitude);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return null;
+  }
+
+  return {
+    lat,
+    lng,
+    city: candidate.city ?? candidate.town ?? candidate.locality ?? null,
+    region: candidate.region ?? candidate.state ?? candidate.stateCode ?? null,
+    country: candidate.country ?? candidate.countryCode ?? null,
+    label:
+      candidate.label ??
+      candidate.name ??
+      candidate.formatted ??
+      candidate.displayName ??
+      fallbackLocation ??
+      null,
+    isRemote: typeof candidate.isRemote === 'boolean' ? candidate.isRemote : null,
+  };
+}
+
 function mapRecordToDocument(category, record) {
   const plain = typeof record.get === 'function' ? record.get({ plain: true }) : record;
   const created = serialiseDate(plain.createdAt);
   const updated = serialiseDate(plain.updatedAt ?? plain.createdAt);
   const freshnessScore = computeFreshnessScore(updated.iso);
+  const geo = normaliseGeoLocation(plain.geoLocation, plain.location);
 
   const baseDocument = {
     id: plain.id,
@@ -227,7 +274,16 @@ function mapRecordToDocument(category, record) {
     createdAtDate: created.day,
     updatedAtDate: updated.day,
     freshnessScore,
+    location: plain.location ?? null,
+    geoCity: geo?.city ?? null,
+    geoRegion: geo?.region ?? null,
+    geoCountry: geo?.country ?? null,
+    geoLabel: geo?.label ?? plain.location ?? null,
   };
+
+  if (geo) {
+    baseDocument._geo = { lat: geo.lat, lng: geo.lng };
+  }
 
   switch (category) {
     case 'job':
@@ -236,7 +292,7 @@ function mapRecordToDocument(category, record) {
         location: plain.location ?? null,
         employmentType: plain.employmentType ?? null,
         employmentCategory: normaliseEmploymentCategory(plain.employmentType),
-        isRemote: isRemoteRole(plain.location, plain.description),
+        isRemote: geo?.isRemote ?? isRemoteRole(plain.location, plain.description),
       };
     case 'gig':
       return {
@@ -246,22 +302,25 @@ function mapRecordToDocument(category, record) {
         budgetCurrency: extractCurrencyCode(plain.budget),
         duration: plain.duration ?? null,
         durationCategory: determineDurationCategory(plain.duration),
+        isRemote: geo?.isRemote ?? isRemoteRole(plain.location, plain.description),
       };
     case 'project':
       return {
         ...baseDocument,
         status: plain.status ?? 'unknown',
+        isRemote: geo?.isRemote ?? isRemoteRole(plain.location, plain.description),
       };
     case 'launchpad':
       return {
         ...baseDocument,
         track: plain.track ?? null,
+        isRemote: geo?.isRemote ?? false,
       };
     case 'volunteering':
       return {
         ...baseDocument,
         organization: plain.organization ?? null,
-        isRemote: isRemoteRole(null, plain.description),
+        isRemote: geo?.isRemote ?? isRemoteRole(plain.location, plain.description),
       };
     default:
       throw new Error(`Unsupported opportunity category "${category}"`);
@@ -442,18 +501,6 @@ export async function syncOpportunityIndexes(options = {}) {
   return { configured: true, indexes: results };
 }
 
-function buildSortExpressions(definition, options) {
-  if (options?.sort?.length) {
-    return options.sort;
-  }
-
-  if (definition.sortExpressions?.length) {
-    return definition.sortExpressions;
-  }
-
-  return undefined;
-}
-
 export async function searchOpportunityIndex(category, params = {}, options = {}) {
   const definition = opportunityIndexDefinitions[category];
   if (!definition) {
@@ -470,15 +517,62 @@ export async function searchOpportunityIndex(category, params = {}, options = {}
   const pageSize = params.pageSize ?? 20;
   const offset = (page - 1) * pageSize;
   const query = params.query ?? '';
-  const sort = buildSortExpressions(definition, options);
+
+  let sort;
+  if (params.sort) {
+    sort = Array.isArray(params.sort) ? params.sort : [params.sort];
+  } else if (options?.sort?.length) {
+    sort = options.sort;
+  } else if (definition.sortExpressions?.length) {
+    sort = definition.sortExpressions;
+  }
+
+  const filterPayload = (() => {
+    if (!params.filters) {
+      return undefined;
+    }
+    if (Array.isArray(params.filters)) {
+      return params.filters;
+    }
+    return [params.filters];
+  })();
+
+  const facets = Array.isArray(params.facets) ? params.facets : undefined;
+  const attributesToHighlight = params.attributesToHighlight === false ? undefined : params.attributesToHighlight ?? [
+    'title',
+    'description',
+  ];
+  const attributesToRetrieve = params.attributesToRetrieve ?? undefined;
 
   try {
     const index = client.index(definition.indexName);
-    const searchResponse = await index.search(query, {
+    const searchOptions = {
       limit: pageSize,
       offset,
       sort,
-    });
+    };
+
+    if (filterPayload) {
+      searchOptions.filter = filterPayload;
+    }
+
+    if (facets?.length) {
+      searchOptions.facets = facets;
+    }
+
+    if (attributesToHighlight) {
+      searchOptions.attributesToHighlight = attributesToHighlight;
+    }
+
+    if (attributesToRetrieve) {
+      searchOptions.attributesToRetrieve = attributesToRetrieve;
+    }
+
+    if (params.vector) {
+      searchOptions.vector = params.vector;
+    }
+
+    const searchResponse = await index.search(query, searchOptions);
 
     const total = searchResponse.estimatedTotalHits ?? searchResponse.totalHits ?? 0;
 
@@ -487,6 +581,9 @@ export async function searchOpportunityIndex(category, params = {}, options = {}
       total,
       page,
       pageSize,
+      processingTimeMs: searchResponse.processingTimeMs ?? null,
+      facetDistribution: searchResponse.facetDistribution ?? null,
+      query: searchResponse.query ?? query,
     };
   } catch (error) {
     logger.warn?.('Falling back to database search after Meilisearch failure', {

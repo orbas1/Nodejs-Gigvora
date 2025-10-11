@@ -8,6 +8,7 @@ import {
   getDiscoverySnapshot,
   searchOpportunitiesAcrossCategories,
 } from '../services/discoveryService.js';
+import { ValidationError } from '../utils/errors.js';
 
 export async function globalSearch(req, res) {
   const query = req.query.q?.trim() ?? '';
@@ -46,6 +47,50 @@ export async function globalSearch(req, res) {
 export async function searchJobs(req, res) {
   const { q, page, pageSize } = req.query ?? {};
   const result = await listJobs({ query: q, page, pageSize });
+  res.json(result);
+}
+
+const categoryMap = {
+  job: 'job',
+  jobs: 'job',
+  gig: 'gig',
+  gigs: 'gig',
+  project: 'project',
+  projects: 'project',
+  launchpad: 'launchpad',
+  launchpads: 'launchpad',
+  volunteering: 'volunteering',
+  volunteer: 'volunteering',
+};
+
+const categoryHandlers = {
+  job: listJobs,
+  gig: listGigs,
+  project: listProjects,
+  launchpad: listLaunchpads,
+  volunteering: listVolunteering,
+};
+
+export async function searchOpportunities(req, res) {
+  const categoryParam = req.query.category?.toString().toLowerCase();
+  const category = categoryMap[categoryParam] ?? 'job';
+  const handler = categoryHandlers[category];
+
+  if (!handler) {
+    throw new ValidationError(`Unsupported opportunity category "${categoryParam ?? 'unknown'}".`);
+  }
+
+  const includeFacets = req.query.includeFacets !== 'false';
+  const result = await handler({
+    query: req.query.q,
+    page: req.query.page,
+    pageSize: req.query.pageSize,
+    filters: req.query.filters,
+    sort: req.query.sort,
+    includeFacets,
+    viewport: req.query.viewport,
+  });
+
   res.json(result);
 }
 
