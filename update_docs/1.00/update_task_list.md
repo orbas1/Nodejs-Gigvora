@@ -111,3 +111,11 @@
   - API: Ads CRUD/reporting, CDN signed URLs, marketing analytics, homepage content endpoints.
   - Logic: Budget pacing, targeting eligibility, A/B testing, SEO/performance automation.
   - Design: Blue brand assets, ad creative guidelines, responsive layout patterns.
+
+## Design Update – Supplementary Tasks (Reference)
+- **Discovery & Alignment**: Capture cross-platform research insights, map journeys, and establish measurement frameworks (`Design_update_task_list.md` Task 1).
+- **Design System & Tokenisation**: Replace legacy assets with a dual-theme token architecture and automated exports supporting seasonal emo themes (Task 2).
+- **Mobile Experience Redesign**: Finalise Flutter designs for navigation, booking, Launchpad, Volunteers, wallet, and messaging, including haptics and compliance annotations (Task 3).
+- **Web Experience Redesign**: Recompose homepage, checkout, dashboards, and CMS models using the new partial templates and theme switch behaviours (Task 4).
+- **Quality, Compliance & Accessibility**: Execute WCAG audits, compliance copy embeds, and non-functional design requirements (Task 5).
+- **Handoff & Implementation Support**: Deliver dev-ready specs, run component clinics, and monitor beta feedback for Version 1.01 planning (Task 6).
