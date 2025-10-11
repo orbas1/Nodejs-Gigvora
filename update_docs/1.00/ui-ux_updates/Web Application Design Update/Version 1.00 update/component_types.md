@@ -38,13 +38,28 @@
 2. **TestimonialSlider**
    - Card width 360px, `height: 260px`, uses `swiper.js` implementation with 24px gaps.
    - Quote mark icon 32px accent, avatar 56px, rating stars 20px.
-   - Pagination dots 10px radius, active tinted `#2563EB`.
 3. **TimelineSection**
-   - Vertical track 4px width `#DBEAFE`, nodes 16px; spacing 80px between milestones.
-   - Each item includes `h4` 20px, supporting copy 16px, optional CTA link.
-4. **DashboardMetricCard**
-   - Square base 280px, gradient overlay `linear-gradient(135deg, rgba(37,99,235,0.12), rgba(56,189,248,0.08))`.
-   - Contains metric value 48px, delta pill, mini sparkline (`height: 48px` using `recharts`).
+   - Vertical rail 8px width running full height with gradient accent tick marks every 120px.
+   - Cards 320×180px attach to rail via 24px connector lines; each card uses `border-radius: 24px`, `padding: 24px`, optional badge top-left.
+   - Scroll container `max-height: 520px` with `scroll-snap-type: y mandatory`.
+4. **ResourceList**
+   - List rows 96px height with 64px icon container, metadata column, CTA button. Alternating row background `rgba(15,23,42,0.02)`.
+   - Supports inline tags and `aria-describedby` for summary text.
+
+## Utility & Overlay Components
+1. **NavigationMenu**
+   - Desktop mega menu 720px width, `padding: 32px`, 2-column grid with column gap 32px, heading row 48px height.
+   - Mobile overlay full viewport height with `padding: 32px`, `gap: 20px`, `background: #0B1B3F`, `border-radius: 32px` on sheet edges.
+2. **FilterDrawer**
+   - Panel width 360px desktop, 100% viewport width on ≤768px; `padding: 32px`, `border-radius: 28px 0 0 28px` when sliding from right.
+   - Contains segmented header (chips) 48px height, body uses accordion groups with `gap: 24px`.
+   - Footer houses primary/secondary buttons separated by `16px` gap.
+3. **ModalShell**
+   - Default width 640px (desktop), 90vw (mobile), `padding: 40px` with header/ body/ footer slots.
+   - Top corners `border-radius: 32px`, drop shadow `0 32px 60px -24px rgba(15,23,42,0.35)`. Optional side illustration column 240px.
+4. **ToastBanner**
+   - Width 360px, `padding: 16px 20px`, `border-radius: 20px`. Icon container 32px, message area 2-line clamp.
+   - Success/info/warning/danger map to semantic palette backgrounds with accent border 2px.
 
 ## Informational Components
 1. **NavigationMenu**

@@ -38,6 +38,15 @@
   - Works with Next.js or React Router to maintain active classes. On mobile, transforms into accordion list with chevron icons.
 - **ResourceList**
   - Each item includes filetype icon, download CTA, and required badge (e.g., `PDF`, `Slide`). On click, opens resource in new tab and logs event.
+- **FilterDrawer**
+  - Opens via slide-in animation; maintains form state in context to persist selections across open/close cycles. Primary apply button triggers analytics event `filters_applied` with payload (filters, resultCount).
+  - Includes clear-all action resetting query params and local storage caches.
+- **ModalShell**
+  - Focus trap via `react-aria` hooks, closes on `Esc` and background click (unless flagged persistent). Footer buttons align end with `gap: 16px`; optional progress steps displayed in header.
+  - Supports stacking by offsetting each additional modal `transform: translateY(16px)` with z-index increments.
+- **ToastBanner**
+  - Auto dismiss after 6 seconds with ability to pin; uses `aria-live="polite"` and `role="status"`. Supports inline action button for undo/resend.
+  - Queue manager ensures maximum 3 toasts visible; additional entries wait until slot available.
 - **FAQAccordion**
   - Handles single or multiple open states. Contains `aria-expanded`, `aria-controls` for accessibility.
 - **ProfileSummaryPanel**
