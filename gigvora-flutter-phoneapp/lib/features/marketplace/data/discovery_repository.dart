@@ -1,6 +1,4 @@
-import '../../../core/cache/offline_cache.dart';
-import '../../../core/network/api_client.dart';
-import '../../../core/network/repository_result.dart';
+import 'package:gigvora_foundation/gigvora_foundation.dart';
 import 'models/opportunity.dart';
 import '../../explorer/data/discovery_models.dart';
 

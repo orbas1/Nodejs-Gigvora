@@ -1,10 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gigvora_foundation/gigvora_foundation.dart';
 
-import '../../../core/analytics/analytics_service.dart';
 import '../../../core/providers.dart';
-import '../../../core/state/resource_state.dart';
 import '../data/discovery_repository.dart';
 import '../data/models/opportunity.dart';
 

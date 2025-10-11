@@ -1,8 +1,5 @@
 import 'package:flutter/foundation.dart';
-
-import '../../../core/cache/offline_cache.dart';
-import '../../../core/network/api_client.dart';
-import '../../../core/network/repository_result.dart';
+import 'package:gigvora_foundation/gigvora_foundation.dart';
 import 'models/feed_post.dart';
 
 class FeedRepository {

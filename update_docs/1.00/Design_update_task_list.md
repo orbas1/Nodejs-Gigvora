@@ -7,11 +7,12 @@
 - **Subtask 1.4:** Produce measurement framework covering success metrics, analytics tags, and qualitative study cadence.
 - **Subtask 1.5:** Document risks, assumptions, and dependencies for sign-off in the design steering committee.
 
-## Task 2 – Design System & Tokenisation (22% Complete)
+## Task 2 – Design System & Tokenisation (32% Complete)
 - **Subtask 2.1:** Audit existing Figma libraries and React/Flutter implementations to identify inconsistencies and deprecate legacy assets.
 - **Subtask 2.2:** Define base, semantic, and component-level tokens for colour, typography, elevation, spacing, shadows, motion, and radii.
 - **Subtask 2.3:** Build variant-ready component set (buttons, forms, cards, tables, chips, banners, badges) with state documentation and accessibility notes.
 - **Subtask 2.4:** Configure automated token exports (JSON/TypeScript) and publish integration guides for engineering teams.
+  - **Status:** 100% – Flutter monorepo now consumes JSON exports via the new design-system package and documented loader.
 - **Subtask 2.5:** Prototype seasonal emo themes (Creator Pulse, Studio Noir) and validate them through contrast testing and brand review.
 - **Subtask 2.6:** Create imagery and iconography guidelines including compression budgets and theming overlays.
 

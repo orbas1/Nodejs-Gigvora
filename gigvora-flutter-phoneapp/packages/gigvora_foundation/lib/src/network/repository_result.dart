@@ -11,6 +11,8 @@ class RepositoryResult<T> {
   final DateTime? lastUpdated;
   final Object? error;
 
+  bool get hasError => error != null;
+
   RepositoryResult<T> copyWith({
     T? data,
     bool? fromCache,

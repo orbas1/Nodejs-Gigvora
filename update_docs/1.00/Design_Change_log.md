@@ -20,6 +20,7 @@ Version 1.00 introduces a coordinated redesign spanning the Gigvora mobile appli
 | 2024-05-23 | Booking & Checkout | Redesigned booking flow stepper, inline validation, and compliance copy with responsive modals across app and web. | Multi-page flow with inconsistent messaging and error handling. | Reduces drop-off, improves compliance accuracy, and prepares for split-testing pricing layouts. |
 | 2024-05-24 | Accessibility & Compliance | Added keyboard focus outlines, ARIA mappings, biometric consent copy, and localisation placeholders to master templates. | Accessibility tickets tracked separately with manual remediation. | Ensures WCAG AA alignment and audit readiness prior to QA hand-off. |
 | 2024-05-24 | Imagery & Media | Established shared asset library with ratio guardrails, compression profiles, and theming overlays for hero and testimonial imagery. | Ad-hoc imagery sourcing without consistent art direction or performance budgets. | Improves visual quality, page speed, and storytelling consistency across platforms. |
+| 2024-05-27 | Design System | Shipped Flutter-ready JSON token exports with runtime loader wiring Gigvora Blue theme into the mobile monorepo alongside DI-managed foundation package. | Tokens only referenced in design files with manual hand-off to engineering. | Accelerates implementation, guarantees parity with React tokens, and unlocks runtime theming without duplicate styling logic. |
 
 ## Open Change Requests
 - **Theme marketplace** support (user-selectable community themes) pending brand leadership approval.

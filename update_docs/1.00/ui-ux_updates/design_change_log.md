@@ -10,6 +10,7 @@
 - **Typography:** Inter remains platform-wide with weight ramps (500–700) for headers, ensuring legibility in hero headlines, dashboard metrics, and CTA labels.
 - **Components:** Card elevations standardised (24px radius / 30px blur), pill buttons, status banners, chips, and bordered pills reused across feed, search, launchpad, and volunteering modules.
 - **Illustrative gradients:** Radial backdrops and blurred accent orbs added to hero, feed, and search backgrounds to create depth while maintaining WCAG contrast for text overlays.
+- **Token runtime loader:** Flutter apps now consume the JSON token exports via a dedicated design-system package, ensuring colour, spacing, and typography stay in lockstep with the React implementation.
 
 ## Web Application Updates
 - **Main layout:** Sticky header with responsive nav, floating accent underline for active routes, gradient-backed body, and CTA cluster (`Login`, `Join Now`).
