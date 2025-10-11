@@ -61,3 +61,9 @@
     1. Prepare marketing assets, release notes, changelog, and support training materials.
     2. Coordinate phased rollout (dogfood → beta → GA) with rollback plans and feature flags.
     3. Establish hypercare war-room, KPI dashboards, and backlog triage for post-launch iterations.
+
+## Design Update – Additional Milestones (Reference)
+- **Foundation & Alignment (Weeks 1–2)**: Establish shared IA, token architecture drafts, and stakeholder alignment across app, web, and provider experiences.
+- **Systemisation & Theming (Weeks 3–5)**: Finalise component specifications, deliver dual-theme variants, and publish reusable partial templates.
+- **Experience Production (Weeks 6–9)**: Produce high-fidelity journeys for discovery, booking, Launchpad, Volunteers, and monetisation dashboards with responsive layouts.
+- **Validation & Launch Readiness (Weeks 10–12)**: Complete accessibility/compliance audits, execute design QA, and ship launch toolkits. Full detail lives in `Design_update_milestone_list.md` and augments the core milestone plan without altering its scope or percentages.

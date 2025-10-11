@@ -19,3 +19,8 @@ Progress metrics are updated twice weekly. Overall level is the average of Secur
 
 ## Next Update
 - Refresh metrics after Milestone 1 closure reviews and integrate beta readiness scores for Flutter modules and live feed backend.
+
+## Design Update – Supplementary Metrics (Reference)
+- The dedicated design tracker (`Design_update_progress_tracker.md`) currently averages **55% overall**, highlighting gaps in compliance (48%), security (50%), imagery (49%), and testing (38%).
+- Improvements in design quality (63%) and colour system maturity (65%) indicate the new theming architecture is viable, but illustration and accessibility workstreams require focus before GA.
+- Product and engineering leads should pair weekly with design counterparts to uplift QA execution (44%) and usability validation (54%) so that implementation sprints inherit production-ready specifications.

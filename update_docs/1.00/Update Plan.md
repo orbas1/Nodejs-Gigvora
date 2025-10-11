@@ -133,3 +133,9 @@ Version 1.00 unifies Gigvora’s mobile, web, and service layers into a producti
 - Milestones (see `update_milestone_list.md`) partition the roadmap into manageable increments with clear entry/exit gates.
 - Task breakdowns with dependencies are enumerated in `update_task_list.md` for execution within Jira/Epics mapping.
 - Compliance, legal, and QA leads must sign off at each milestone before elevating flags to production environments.
+
+## Design Update Extras
+- Refer to `Design_Plan.md` for the cross-platform vision, theming strategy, and governance model derived from the Application and Web design repositories.
+- `Design_Change_log.md` tracks the granular adjustments to navigation, booking, homepage partials, and compliance content across mobile, web, and provider tools.
+- Additional design-specific milestones and task hierarchies live in `Design_update_milestone_list.md` and `Design_update_task_list.md`; these operate alongside the programme milestones without replacing them.
+- The dedicated design progress tracker (`Design_update_progress_tracker.md`) provides unbiased scoring across quality, compliance, usability, imagery, and testing, informing prioritisation for upcoming sprints.

@@ -1,0 +1,59 @@
+# Version 1.00 Design Plan
+
+## Vision
+Deliver a cohesive, themeable Gigvora experience that makes talent discovery, booking, and programme management intuitive across mobile apps, responsive web, and provider dashboards. The plan merges insights from the Application Design Update Plan and Web Application Design Update libraries to ensure parity in navigation, component language, and compliance.
+
+## Strategic Pillars
+1. **Theme-ready system**: Provide seasonal “emo” themes (Creator Pulse, Studio Noir) alongside the Gigvora Blue baseline using a single token source of truth.
+2. **Composable experiences**: Deconstruct pages into reusable partials (hero, testimonial, catalogue, CTA stacks, data widgets) to accelerate future campaigns and page launches.
+3. **Guided journeys**: Surface contextual actions and progress cues that reduce user drop-off across discovery, booking, onboarding, and support workflows.
+4. **Trust by design**: Embed compliance, accessibility, privacy, and transparency requirements into each component and template.
+5. **Cross-platform parity**: Align navigation, IA, and micro-interactions between Flutter apps, React web, and provider tools to simplify learning and analytics.
+
+## Experience Blueprint
+### Mobile Applications (Flutter)
+- **Navigation Shell**: Persistent bottom navigation with Discovery, Bookings, Messages, Wallet, Profile, plus adaptive floating action targeting “Book talent”, “Share portfolio”, or “Publish request”.
+- **Discovery Feed**: Modular hero carousel, segmented feed (For You / Trending / Near You), and card-based community spotlights with theme overlays.
+- **Booking Workflow**: Four-step stepper (Package → Customise → Schedule → Confirm) with sticky pricing summary, inline validation, and compliance copy tied to product area.
+- **Experience Launchpad & Volunteers**: Dedicated dashboards surfaced through discovery filters with new cards highlighting readiness status, required actions, and CTA to book or join.
+- **Messages & Support**: Consolidated inbox with status pills, quick actions, and support escalation entry points; chat composer includes templates, attachments, and theme-aware stickers.
+
+### Responsive Web Experience (React)
+- **Homepage**: 12-column fluid grid with hero, trust carousel, dynamic catalogue, and “Start a Request” CTA bars built from partials so marketing can mix hero, themed imagery, and testimonials per campaign.
+- **Navigation**: Mega-menu featuring creator categories, Experience Launchpad, Volunteers, Agencies, and Monetisation; persistent search and account controls.
+- **Booking & Checkout**: Single-page configurator with step indicators, sticky summary, inline error states, and compliance tooltips.
+- **Knowledge & Support Pages**: New structured templates for FAQs, compliance disclosures, and help centre content using the same partial library.
+- **Provider Dashboards**: Table, card, and chart patterns aligned with mobile experiences, including theme-safe density and iconography.
+
+### Provider Tools (Web & Mobile)
+- **Agency Dashboards**: Pipeline overview, financial health, and volunteer staffing views using new data visualisation tokens.
+- **Company Dashboards**: ATS timeline, interview scheduler, and Launchpad readiness cards with contextual actions and theme-specific badges.
+- **Settings & Administration**: Unified preference pages for theme selection, security controls, and compliance documents.
+
+## Design System & Theming
+- **Token Architecture**: Root tokens for colour, type scale, radius, elevation, opacity, and motion. Theme-specific tokens cascade to components and are exported to Flutter (JSON) and React (TypeScript). Theme switch toggles available to marketing for homepage/landing pages and to agencies for white-labelling.
+- **Component Library**: Core components (buttons, cards, chips, tabs, tables, forms) refactored to reference design tokens and support state variants (default, hover, focus, pressed, disabled) plus theme overlays.
+- **Imagery Guidelines**: Asset ratios (16:9 hero, 4:3 cards, 1:1 avatars), compression budgets (<250KB hero, <100KB cards), and thematic overlays accessible via design tokens.
+- **Typography**: Inter family scale with Display, Title, Headline, Body, Label tokens; ensures WCAG AA at minimum.
+
+## Content & Copy Strategy
+- **Microcopy Playbooks**: Tone of voice guidelines (Professional, Energetic, Empathetic) with placeholders for dynamic data; includes compliance-provided disclaimers for escrow, biometric consent, and privacy.
+- **Localisation**: Strings mapped to translation keys with length guardrails; partial templates include dynamic slots for left-to-right and right-to-left languages.
+- **SEO & Schema**: Homepage and landing partials embed schema.org metadata, canonical tags, and open graph updates.
+
+## Accessibility & Compliance
+- WCAG AA 2.2 baseline across platforms, including keyboard focus states, ARIA mappings, accessible motion guidelines, and voiceover descriptions.
+- FCA, GDPR, and PCI messaging integrated into booking, wallet, and account screens; consent flows recorded with audit trails.
+- Security prompts (device registration, biometric unlock) designed with clear copy, fallback patterns, and theming support.
+
+## Delivery & Governance
+- **Design Review Cadence**: Twice-weekly triad reviews (Design, Product, Engineering) plus monthly compliance checkpoints.
+- **Design QA**: Dedicated checklist covering token integrity, theme switching, accessibility, error states, and content accuracy before handing to development.
+- **Documentation**: Design spec pages for each component, annotated Figma frames, and JSON exports for tokens and component metadata.
+- **Rollout Plan**: Internal pilot (Week 6), beta release with theme toggles (Week 8), staged launch aligned with Milestone 4 readiness (Week 12), final GA with marketing campaigns (Week 14+).
+
+## Dependencies & Risks
+- CMS upgrades required for hero partial injection and dynamic testimonials (owned by Web Platform squad).
+- Illustration backlog at 30% outstanding for Experience Launchpad and Volunteers; requires contract illustrators.
+- Theme-switch testing depends on engineering delivering runtime toggles within React and Flutter before QA cycles.
+- Accessibility audit slots secured for Week 9; delays will postpone compliance sign-off.
