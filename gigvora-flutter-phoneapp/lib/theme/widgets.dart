@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class GigvoraScaffold extends StatelessWidget {
+import '../core/providers.dart';
+
+class GigvoraScaffold extends ConsumerWidget {
   const GigvoraScaffold({
     required this.title,
     this.subtitle,
@@ -15,7 +18,11 @@ class GigvoraScaffold extends StatelessWidget {
   final List<Widget>? actions;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokens = ref.watch(designTokensProvider).maybeWhen(
+          data: (value) => value,
+          orElse: () => null,
+        );
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -36,7 +43,10 @@ class GigvoraScaffold extends StatelessWidget {
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: EdgeInsets.symmetric(
+            horizontal: tokens?.spacing['xl'] ?? 24,
+            vertical: tokens?.spacing['lg'] ?? 24,
+          ),
           child: body,
         ),
       ),
@@ -45,27 +55,35 @@ class GigvoraScaffold extends StatelessWidget {
   }
 }
 
-class GigvoraCard extends StatelessWidget {
+class GigvoraCard extends ConsumerWidget {
   const GigvoraCard({required this.child, super.key});
 
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokens = ref.watch(designTokensProvider).maybeWhen(
+          data: (value) => value,
+          orElse: () => null,
+        );
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: const [
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(tokens?.radius['lg'] ?? 24),
+        border: Border.all(
+          color: colorScheme.surfaceVariant
+              .withOpacity(tokens?.opacity['border'] ?? 0.12),
+        ),
+        boxShadow: [
           BoxShadow(
-            color: Color(0x141E293B),
-            offset: Offset(0, 10),
-            blurRadius: 30,
+            color: Colors.black.withOpacity(0.08),
+            offset: const Offset(0, 12),
+            blurRadius: 24,
           ),
         ],
       ),
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(tokens?.spacing['lg'] ?? 20),
       child: child,
     );
   }

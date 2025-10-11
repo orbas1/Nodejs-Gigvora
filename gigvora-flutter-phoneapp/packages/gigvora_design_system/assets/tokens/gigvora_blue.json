@@ -1,0 +1,73 @@
+{
+  "name": "Gigvora Blue",
+  "version": "1.0.0",
+  "description": "Primary brand theme for the Gigvora platform spanning mobile, web, and provider surfaces.",
+  "colors": {
+    "primary": "#2563EB",
+    "onPrimary": "#FFFFFF",
+    "primaryContainer": "#DBEAFE",
+    "secondary": "#1D4ED8",
+    "onSecondary": "#FFFFFF",
+    "secondaryContainer": "#E0E7FF",
+    "tertiary": "#0EA5E9",
+    "onTertiary": "#FFFFFF",
+    "background": "#F8FAFC",
+    "onBackground": "#0F172A",
+    "surface": "#FFFFFF",
+    "onSurface": "#0F172A",
+    "surfaceVariant": "#E2E8F0",
+    "onSurfaceVariant": "#334155",
+    "error": "#EF4444",
+    "onError": "#FFFFFF",
+    "warning": "#F59E0B",
+    "success": "#22C55E",
+    "info": "#3B82F6"
+  },
+  "elevation": {
+    "level0": "none",
+    "level1": "0 1px 2px rgba(15, 23, 42, 0.08)",
+    "level2": "0 4px 8px rgba(15, 23, 42, 0.12)",
+    "level3": "0 12px 24px rgba(15, 23, 42, 0.18)"
+  },
+  "typography": {
+    "fontFamily": "Inter",
+    "display": { "size": 48, "weight": 700, "lineHeight": 56 },
+    "headline": { "size": 32, "weight": 600, "lineHeight": 40 },
+    "title": { "size": 24, "weight": 600, "lineHeight": 32 },
+    "body": { "size": 16, "weight": 400, "lineHeight": 24 },
+    "label": { "size": 14, "weight": 600, "lineHeight": 20 }
+  },
+  "spacing": {
+    "2xs": 4,
+    "xs": 8,
+    "sm": 12,
+    "md": 16,
+    "lg": 24,
+    "xl": 32,
+    "2xl": 48
+  },
+  "radius": {
+    "sm": 8,
+    "md": 16,
+    "lg": 24,
+    "pill": 999
+  },
+  "motion": {
+    "duration": {
+      "short": 120,
+      "medium": 200,
+      "long": 320
+    },
+    "easing": {
+      "standard": "cubic-bezier(0.2, 0, 0.38, 0.9)",
+      "emphasized": "cubic-bezier(0.2, 0, 0, 1)",
+      "decelerate": "cubic-bezier(0.05, 0.7, 0.1, 1)",
+      "accelerate": "cubic-bezier(0.3, 0, 1, 1)"
+    }
+  },
+  "opacity": {
+    "disabled": 0.38,
+    "overlay": 0.64,
+    "border": 0.12
+  }
+}

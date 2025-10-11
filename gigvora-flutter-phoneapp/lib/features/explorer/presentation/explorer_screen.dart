@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../../core/utils/date_formatter.dart';
+import 'package:gigvora_foundation/gigvora_foundation.dart';
 import '../../../theme/widgets.dart';
 import '../../marketplace/data/models/opportunity.dart';
 import '../application/explorer_controller.dart';

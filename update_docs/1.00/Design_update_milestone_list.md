@@ -19,6 +19,7 @@
 - **Success Criteria**:
   - Tokens promoted to v3 release and imported into dev branches.
   - Theme switch demos approved by brand and marketing.
+  - Flutter runtime loader verified in monorepo consuming JSON exports without manual overrides.
 
 ## Milestone 3: Experience Production (Weeks 6–9)
 - **Objectives**: Apply the system to high-impact journeys across app and web, including new pages.

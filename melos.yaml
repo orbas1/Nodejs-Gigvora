@@ -1,0 +1,12 @@
+name: gigvora_workspace
+packages:
+  - gigvora-flutter-phoneapp
+  - gigvora-flutter-phoneapp/packages/**
+
+scripts:
+  bootstrap: |
+    melos exec -- flutter pub get
+  analyze: |
+    melos exec --scope="gigvora_mobile" flutter analyze
+  format: |
+    melos exec -- flutter format .

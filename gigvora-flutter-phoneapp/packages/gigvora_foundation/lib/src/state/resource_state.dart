@@ -15,6 +15,7 @@ class ResourceState<T> {
 
   bool get hasError => error != null;
   bool get hasData => data != null;
+  bool get isFresh => !fromCache && !loading;
 
   ResourceState<T> copyWith({
     T? data,
@@ -44,7 +45,12 @@ class ResourceState<T> {
     );
   }
 
-  factory ResourceState.error(Object error, {T? data, bool fromCache = false, DateTime? lastUpdated}) {
+  factory ResourceState.error(
+    Object error, {
+    T? data,
+    bool fromCache = false,
+    DateTime? lastUpdated,
+  }) {
     return ResourceState<T>(
       data: data,
       loading: false,

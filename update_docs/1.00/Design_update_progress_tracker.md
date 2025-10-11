@@ -3,10 +3,10 @@
 | Metric | Score (0-100%) | Commentary |
 |--------|----------------|------------|
 | Design Quality Grade | 63% | Core journeys upgraded to high fidelity with consistent component language, but Launchpad illustrations remain 30% incomplete. |
-| Design Organisation Grade | 60% | Page templates and partial inventories documented; taxonomy for provider dashboards still under review with operations. |
+| Design Organisation Grade | 63% | Page templates and partial inventories documented; cross-platform token governance now linked to engineering packages while provider dashboard taxonomy remains under review. |
 | Design Position Grade | 55% | Brand positioning narratives drafted, yet competitive differentiators for Volunteers hub need refinement and proof points. |
 | Design Text Grade | 58% | Copy decks cover booking, compliance, and support flows; tone adjustments for marketing campaigns pending localisation review. |
-| Design Colour Grade | 65% | Token library approved in both light/dark themes plus Creator Pulse variant; Studio Noir theme requires additional contrast validation. |
+| Design Colour Grade | 72% | Token library approved in both light/dark themes plus Creator Pulse variant; Flutter runtime loader now consumes JSON exports, leaving Studio Noir contrast validation outstanding. |
 | Design Render Grade | 52% | High-fidelity renders exist for 60% of states; motion and responsive breakpoints awaiting final polish. |
 | Compliance Grade | 48% | Accessibility audit booked and compliance copy embedded, but FCA and GDPR legal statements still pending final counsel sign-off. |
 | Security Grade | 50% | Security messaging for biometric login and device trust captured, while secure theming controls for agencies remain untested. |

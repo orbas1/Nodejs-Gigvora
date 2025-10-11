@@ -32,6 +32,7 @@ Deliver a cohesive, themeable Gigvora experience that makes talent discovery, bo
 
 ## Design System & Theming
 - **Token Architecture**: Root tokens for colour, type scale, radius, elevation, opacity, and motion. Theme-specific tokens cascade to components and are exported to Flutter (JSON) and React (TypeScript). Theme switch toggles available to marketing for homepage/landing pages and to agencies for white-labelling.
+- **Engineering Alignment**: Flutter monorepo now consumes the JSON exports through a dedicated design-system package and runtime loader, ensuring the Gigvora Blue baseline renders identically to the React implementation while enabling future seasonal themes.
 - **Component Library**: Core components (buttons, cards, chips, tabs, tables, forms) refactored to reference design tokens and support state variants (default, hover, focus, pressed, disabled) plus theme overlays.
 - **Imagery Guidelines**: Asset ratios (16:9 hero, 4:3 cards, 1:1 avatars), compression budgets (<250KB hero, <100KB cards), and thematic overlays accessible via design tokens.
 - **Typography**: Inter family scale with Display, Title, Headline, Body, Label tokens; ensures WCAG AA at minimum.

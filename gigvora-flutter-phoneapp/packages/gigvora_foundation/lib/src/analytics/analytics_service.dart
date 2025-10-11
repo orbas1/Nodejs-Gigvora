@@ -1,16 +1,30 @@
 import 'dart:async';
 
+import 'package:collection/collection.dart';
+import 'package:logging/logging.dart';
+
 import '../cache/offline_cache.dart';
+import '../config/app_config.dart';
 import '../network/api_client.dart';
 
 class AnalyticsService {
-  AnalyticsService(this._apiClient, this._cache);
+  AnalyticsService({
+    required ApiClient apiClient,
+    required OfflineCache cache,
+    required AppConfig config,
+  })  : _apiClient = apiClient,
+        _cache = cache,
+        _logger = Logger('AnalyticsService'),
+        _flushThreshold = config.analyticsFlushThreshold,
+        _queueKey = '${config.offlineCacheNamespace}:analytics:event_queue';
 
   final ApiClient _apiClient;
   final OfflineCache _cache;
+  final Logger _logger;
+  final int _flushThreshold;
+  final String _queueKey;
 
-  static const _queueKey = 'analytics:event_queue';
-  static const _maxQueueLength = 100;
+  static const _maxQueueLength = 500;
 
   Future<bool> track(
     String eventName, {
@@ -18,6 +32,7 @@ class AnalyticsService {
     Map<String, dynamic>? metadata,
   }) async {
     if (eventName.isEmpty) {
+      _logger.warning('Attempted to track event with empty name.');
       return false;
     }
 
@@ -34,17 +49,26 @@ class AnalyticsService {
 
     try {
       await _apiClient.post('/analytics/events', body: payload);
-      unawaited(flushQueue());
+      unawaited(_flushQueueInternal());
       return true;
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _logger.warning('Failed to send analytics event. Queuing for retry.', error, stackTrace);
       await _enqueue(payload);
       return false;
     }
   }
 
   Future<void> flushQueue() async {
+    await _flushQueueInternal(force: true);
+  }
+
+  Future<void> _flushQueueInternal({bool force = false}) async {
     final queue = await _readQueue();
     if (queue.isEmpty) {
+      return;
+    }
+
+    if (!force && queue.length < _flushThreshold) {
       return;
     }
 
@@ -52,7 +76,8 @@ class AnalyticsService {
     for (final event in queue) {
       try {
         await _apiClient.post('/analytics/events', body: event);
-      } catch (_) {
+      } catch (error, stackTrace) {
+        _logger.info('Retrying analytics event later', error, stackTrace);
         remaining.add(event);
       }
     }
@@ -67,6 +92,9 @@ class AnalyticsService {
       queue.removeRange(0, queue.length - _maxQueueLength);
     }
     await _persistQueue(queue);
+    if (queue.length >= _flushThreshold) {
+      unawaited(_flushQueueInternal());
+    }
   }
 
   Future<List<Map<String, dynamic>>> _readQueue() async {
@@ -74,9 +102,11 @@ class AnalyticsService {
       if (raw is List) {
         return raw
             .whereType<Map>()
-            .map((value) => value.map((key, dynamic v) => MapEntry('$key', v)))
-            .map((value) => Map<String, dynamic>.from(value))
-            .toList();
+            .map(
+              (value) => value.map((key, dynamic v) => MapEntry('$key', v)),
+            )
+            .map(Map<String, dynamic>.from)
+            .toList(growable: true);
       }
       return <Map<String, dynamic>>[];
     });
@@ -85,7 +115,9 @@ class AnalyticsService {
       return <Map<String, dynamic>>[];
     }
 
-    return entry.value;
+    return entry.value
+        .whereNot((event) => event['eventName'] == null || '${event['eventName']}'.isEmpty)
+        .toList(growable: true);
   }
 
   Future<void> _persistQueue(List<Map<String, dynamic>> queue) async {
