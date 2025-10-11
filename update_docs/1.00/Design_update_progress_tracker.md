@@ -4,7 +4,7 @@
 |--------|----------------|------------|
 | Design Quality Grade | 85% | Floating chat bubble, live feed engagement suites, Trust Center dashboard, and operations runbook assets now ship with production-ready annotations spanning offline, streaming, and compliance states; wallet refunds remain the final refresh. |
 | Design Organisation Grade | 80% | Component inventories incorporate Trust Center KPI tiles, release tables, and dispute cards with ownership metadata, and include cross-squad traceability to analytics taxonomy owners. |
-| Design Position Grade | 78% | Engagement, trust, and discovery narratives now pull from live Meilisearch scoring so explorer chips communicate launchpad/volunteer differentiators with production data cues; persona validation on volunteer imagery remains. |
+| Design Position Grade | 82% | Engagement, trust, and discovery narratives now pull from live Meilisearch scoring, geo map overlays, and saved-search modals so explorer chips and alerts communicate launchpad/volunteer differentiators with production data cues; persona validation on volunteer imagery remains. |
 | Design Text Grade | 74% | Inbox microcopy, escalation SLA labels, trust disclosures, and evidence retention copy aligned with legal review and stitched into localisation frames for both chat and Trust Center flows. |
 | Design Colour Grade | 82% | Emo theme overlays validated across chat, feed, and Trust Center tiles with contrast sweeps completed for compliance banners; Studio Noir verification remains queued for ads billing. |
 | Design Render Grade | 84% | High-fidelity renders span feed breakpoints, chat overlays, Trust Center desktop/tablet/mobile, and operations banners; wallet settlement renders remain outstanding. |
@@ -17,9 +17,9 @@
 | Test Grade | 74% | Automated golden/widget/integration suites now cover chat, feed, and Trust Center mockups; accessibility audit prep runbooks remain on track for September execution. |
 | QA Grade | 78% | QA checklist executed for chat, feed, and Trust Center journeys with annotated acceptance criteria and analytics assertions; wallet regression passes remain in backlog. |
 | Design Accuracy Grade | 80% | Engineering sign-off now includes discovery explorer specs mapped to live Meilisearch contracts alongside chat bubble, feed ranking, and Trust Center annotations; provider analytics breakpoints still awaiting validation. |
-| Overall Grade | 84% | Engagement, trust, and discovery suite designs are launch-ready with cross-platform parity, analytics coverage, and Meilisearch-aligned explorer flows while imagery and wallet specs complete. |
+| Overall Grade | 85% | Engagement, trust, and discovery suite designs are launch-ready with cross-platform parity, analytics coverage, geo map overlays, and Meilisearch-aligned explorer flows while imagery and wallet specs complete. |
 ## Immediate Priorities
 1. Close FCA/GDPR reviews for volunteer stipends and ads budgeting artefacts so compliance clears the 80% gate before GA.
 2. Commission final volunteer illustration states and wallet settlement renders to unlock imagery/render sign-off.
-3. Run moderated usability sessions on campaign storytelling flows and provider analytics dashboards to validate remaining copy and breakpoints.
+3. Run moderated usability sessions on explorer map/saved-search flows, campaign storytelling, and provider analytics dashboards to validate remaining copy and breakpoints.
 4. Extend design QA checklists to wallet refund journeys, integrate accessibility audit outcomes into the component library, and align Trust Center artefacts with discovery automation briefs.

@@ -78,7 +78,7 @@
 ### 4.1 Explorer & Search (Meilisearch)
 - **Engine Setup**: Meilisearch cluster, synonyms, typo tolerance, segmentation indices for profiles/projects/gigs/jobs/volunteers/ads.
 - **Filters & Targeting**: Industry, skills, languages, rates, availability, trust score, location radius, launchpad status, volunteer flags, company/agency types.
-- **Interfaces**: Saved searches, alert subscriptions, inline previews, map view, voice search (mobile), quick actions (follow, chat, share).
+- **Interfaces**: Saved searches with alert subscriptions, inline previews, geo-bounded map view, facet drawers, voice search (mobile), and quick actions (follow, chat, share).
 - **Phone App Coverage**: Dedicated screens, filter drawers, offline caching, analytics instrumentation.
 
 ### 4.2 Freelance Auto-Assign Engine

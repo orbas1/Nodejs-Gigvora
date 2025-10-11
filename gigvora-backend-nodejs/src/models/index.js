@@ -165,6 +165,7 @@ export const Job = sequelize.define(
     description: { type: DataTypes.TEXT, allowNull: false },
     location: { type: DataTypes.STRING(255), allowNull: true },
     employmentType: { type: DataTypes.STRING(120), allowNull: true },
+    geoLocation: { type: jsonType, allowNull: true },
   },
   { tableName: 'jobs' },
 );
@@ -188,6 +189,8 @@ export const Gig = sequelize.define(
     description: { type: DataTypes.TEXT, allowNull: false },
     budget: { type: DataTypes.STRING(120), allowNull: true },
     duration: { type: DataTypes.STRING(120), allowNull: true },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    geoLocation: { type: jsonType, allowNull: true },
   },
   { tableName: 'gigs' },
 );
@@ -210,6 +213,8 @@ export const Project = sequelize.define(
     title: { type: DataTypes.STRING(255), allowNull: false },
     description: { type: DataTypes.TEXT, allowNull: false },
     status: { type: DataTypes.STRING(120), allowNull: true },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    geoLocation: { type: jsonType, allowNull: true },
   },
   { tableName: 'projects' },
 );
@@ -232,6 +237,8 @@ export const ExperienceLaunchpad = sequelize.define(
     title: { type: DataTypes.STRING(255), allowNull: false },
     description: { type: DataTypes.TEXT, allowNull: false },
     track: { type: DataTypes.STRING(120), allowNull: false },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    geoLocation: { type: jsonType, allowNull: true },
   },
   { tableName: 'experience_launchpads' },
 );
@@ -254,6 +261,8 @@ export const Volunteering = sequelize.define(
     title: { type: DataTypes.STRING(255), allowNull: false },
     organization: { type: DataTypes.STRING(255), allowNull: false },
     description: { type: DataTypes.TEXT, allowNull: false },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    geoLocation: { type: jsonType, allowNull: true },
   },
   { tableName: 'volunteering_roles' },
 );
@@ -1081,6 +1090,60 @@ DisputeEvent.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+export const SearchSubscription = sequelize.define(
+  'SearchSubscription',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    category: {
+      type: DataTypes.ENUM('job', 'gig', 'project', 'launchpad', 'volunteering', 'people', 'mixed'),
+      allowNull: false,
+      defaultValue: 'job',
+    },
+    query: { type: DataTypes.STRING(500), allowNull: true },
+    filters: { type: jsonType, allowNull: true },
+    sort: { type: DataTypes.STRING(120), allowNull: true },
+    frequency: {
+      type: DataTypes.ENUM(...DIGEST_FREQUENCIES),
+      allowNull: false,
+      defaultValue: 'daily',
+    },
+    notifyByEmail: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    notifyInApp: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    lastTriggeredAt: { type: DataTypes.DATE, allowNull: true },
+    nextRunAt: { type: DataTypes.DATE, allowNull: true },
+    mapViewport: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'search_subscriptions',
+    indexes: [
+      { fields: ['userId', 'category'] },
+      { fields: ['frequency'] },
+    ],
+  },
+);
+
+SearchSubscription.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    name: plain.name,
+    category: plain.category,
+    query: plain.query,
+    filters: plain.filters,
+    sort: plain.sort,
+    frequency: plain.frequency,
+    notifyByEmail: plain.notifyByEmail,
+    notifyInApp: plain.notifyInApp,
+    lastTriggeredAt: plain.lastTriggeredAt,
+    nextRunAt: plain.nextRunAt,
+    mapViewport: plain.mapViewport,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 User.hasOne(Profile, { foreignKey: 'userId' });
 Profile.belongsTo(User, { foreignKey: 'userId' });
 
@@ -1138,6 +1201,9 @@ Notification.belongsTo(User, { foreignKey: 'userId', as: 'recipient' });
 NotificationPreference.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasOne(NotificationPreference, { foreignKey: 'userId', as: 'notificationPreference' });
 User.hasMany(Notification, { foreignKey: 'userId', as: 'notifications' });
+
+User.hasMany(SearchSubscription, { foreignKey: 'userId', as: 'searchSubscriptions' });
+SearchSubscription.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 AnalyticsEvent.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
@@ -1210,4 +1276,5 @@ export default {
   EscrowTransaction,
   DisputeCase,
   DisputeEvent,
+  SearchSubscription,
 };

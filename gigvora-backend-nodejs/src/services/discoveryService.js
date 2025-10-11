@@ -27,6 +27,332 @@ const opportunityModels = {
   volunteering: Volunteering,
 };
 
+const CATEGORY_FACETS = {
+  job: ['employmentType', 'employmentCategory', 'location', 'geoCountry', 'geoRegion', 'geoCity', 'isRemote', 'updatedAtDate'],
+  gig: ['durationCategory', 'budgetCurrency', 'location', 'geoCountry', 'geoRegion', 'geoCity', 'updatedAtDate'],
+  project: ['status', 'location', 'geoCountry', 'geoRegion', 'geoCity', 'updatedAtDate'],
+  launchpad: ['track', 'location', 'geoCountry', 'geoRegion', 'geoCity', 'updatedAtDate'],
+  volunteering: ['organization', 'isRemote', 'location', 'geoCountry', 'geoRegion', 'geoCity', 'updatedAtDate'],
+};
+
+const CATEGORY_SORTS = {
+  job: {
+    default: ['freshnessScore:desc', 'updatedAtTimestamp:desc'],
+    newest: ['updatedAtTimestamp:desc'],
+    alphabetical: ['title:asc'],
+  },
+  gig: {
+    default: ['freshnessScore:desc', 'budgetValue:desc', 'updatedAtTimestamp:desc'],
+    budget: ['budgetValue:desc', 'freshnessScore:desc'],
+    newest: ['updatedAtTimestamp:desc'],
+  },
+  project: {
+    default: ['freshnessScore:desc', 'updatedAtTimestamp:desc'],
+    status: ['status:asc', 'freshnessScore:desc'],
+    alphabetical: ['title:asc'],
+  },
+  launchpad: {
+    default: ['freshnessScore:desc', 'updatedAtTimestamp:desc'],
+    alphabetical: ['title:asc'],
+  },
+  volunteering: {
+    default: ['freshnessScore:desc', 'updatedAtTimestamp:desc'],
+    alphabetical: ['title:asc'],
+  },
+};
+
+function parseFiltersInput(filters) {
+  if (!filters) {
+    return {};
+  }
+
+  if (typeof filters === 'string') {
+    try {
+      const parsed = JSON.parse(filters);
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (error) {
+      throw new ValidationError('Filters must be valid JSON.', { cause: error });
+    }
+  }
+
+  if (typeof filters === 'object') {
+    return filters;
+  }
+
+  return {};
+}
+
+function escapeFilterValue(value) {
+  if (typeof value !== 'string') {
+    return value;
+  }
+  return value.replace(/"/g, '\\"');
+}
+
+function buildEqualityGroup(field, values) {
+  const sanitised = Array.from(new Set(values.map((value) => `${value}`.trim()).filter(Boolean))).map((value) =>
+    `${field} = "${escapeFilterValue(value)}"`,
+  );
+  if (!sanitised.length) {
+    return null;
+  }
+  if (sanitised.length === 1) {
+    return sanitised[0];
+  }
+  return sanitised;
+}
+
+function computeUpdatedWithinExpression(token) {
+  const now = new Date();
+  let threshold;
+
+  switch (token) {
+    case '24h':
+      threshold = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      break;
+    case '7d':
+      threshold = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      break;
+    case '30d':
+      threshold = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      break;
+    case '90d':
+      threshold = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+      break;
+    default:
+      return null;
+  }
+
+  const isoDay = threshold.toISOString().slice(0, 10);
+  return `updatedAtDate >= "${isoDay}"`;
+}
+
+function computeUpdatedWithinDate(token) {
+  const now = new Date();
+  switch (token) {
+    case '24h':
+      return new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    case '7d':
+      return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    case '30d':
+      return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    case '90d':
+      return new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+    default:
+      return null;
+  }
+}
+
+function normaliseViewport(viewport) {
+  if (!viewport) {
+    return null;
+  }
+
+  let raw = viewport;
+  if (typeof viewport === 'string') {
+    try {
+      raw = JSON.parse(viewport);
+    } catch (error) {
+      throw new ValidationError('Viewport must be valid JSON.', { cause: error });
+    }
+  }
+
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+
+  const box = raw.boundingBox ?? raw;
+  const { north, south, east, west } = box;
+  if (
+    [north, south, east, west].some(
+      (value) => typeof value !== 'number' || Number.isNaN(value) || !Number.isFinite(value),
+    )
+  ) {
+    throw new ValidationError('Viewport bounding box must include numeric north, south, east, and west values.');
+  }
+
+  return {
+    boundingBox: {
+      north,
+      south,
+      east,
+      west,
+    },
+  };
+}
+
+function buildGeoBoundingBoxExpression(viewport) {
+  if (!viewport?.boundingBox) {
+    return null;
+  }
+  const { north, south, east, west } = viewport.boundingBox;
+  return `_geoBoundingBox(${north}, ${east}, ${south}, ${west})`;
+}
+
+function resolveSortExpressions(category, sortKey) {
+  const map = CATEGORY_SORTS[category] ?? {};
+  if (sortKey) {
+    const candidate = map[sortKey];
+    if (candidate?.length) {
+      return candidate;
+    }
+  }
+  return map.default ?? undefined;
+}
+
+function toGeoDto(geoLocation, fallbackLocation = null) {
+  if (!geoLocation) {
+    return null;
+  }
+
+  const source = typeof geoLocation === 'string' ? { label: geoLocation } : geoLocation;
+  const lat = Number.parseFloat(source.lat ?? source.latitude);
+  const lng = Number.parseFloat(source.lng ?? source.longitude);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return null;
+  }
+
+  return {
+    lat,
+    lng,
+    city: source.city ?? source.town ?? source.locality ?? null,
+    region: source.region ?? source.state ?? source.stateCode ?? null,
+    country: source.country ?? source.countryCode ?? null,
+    label:
+      source.label ??
+      source.name ??
+      source.formatted ??
+      source.displayName ??
+      fallbackLocation ??
+      null,
+    isRemote: typeof source.isRemote === 'boolean' ? source.isRemote : null,
+  };
+}
+
+function buildFilterExpressions(category, filters = {}, viewport) {
+  const expressions = [];
+
+  if (filters.isRemote === true) {
+    expressions.push('isRemote = true');
+  } else if (filters.isRemote === false) {
+    expressions.push('isRemote = false');
+  }
+
+  if (filters.employmentTypes?.length && category === 'job') {
+    const group = buildEqualityGroup('employmentType', filters.employmentTypes);
+    if (group) expressions.push(group);
+  }
+
+  if (filters.employmentCategories?.length && category === 'job') {
+    const group = buildEqualityGroup('employmentCategory', filters.employmentCategories);
+    if (group) expressions.push(group);
+  }
+
+  if (filters.durationCategories?.length && category === 'gig') {
+    const group = buildEqualityGroup('durationCategory', filters.durationCategories);
+    if (group) expressions.push(group);
+  }
+
+  if (filters.budgetCurrencies?.length && category === 'gig') {
+    const group = buildEqualityGroup('budgetCurrency', filters.budgetCurrencies);
+    if (group) expressions.push(group);
+  }
+
+  if (filters.statuses?.length && category === 'project') {
+    const group = buildEqualityGroup('status', filters.statuses);
+    if (group) expressions.push(group);
+  }
+
+  if (filters.tracks?.length && category === 'launchpad') {
+    const group = buildEqualityGroup('track', filters.tracks);
+    if (group) expressions.push(group);
+  }
+
+  if (filters.organizations?.length && category === 'volunteering') {
+    const group = buildEqualityGroup('organization', filters.organizations);
+    if (group) expressions.push(group);
+  }
+
+  if (filters.locations?.length) {
+    const group = buildEqualityGroup('location', filters.locations);
+    if (group) expressions.push(group);
+  }
+
+  if (filters.countries?.length) {
+    const group = buildEqualityGroup('geoCountry', filters.countries);
+    if (group) expressions.push(group);
+  }
+
+  if (filters.regions?.length) {
+    const group = buildEqualityGroup('geoRegion', filters.regions);
+    if (group) expressions.push(group);
+  }
+
+  if (filters.cities?.length) {
+    const group = buildEqualityGroup('geoCity', filters.cities);
+    if (group) expressions.push(group);
+  }
+
+  if (filters.updatedWithin) {
+    const freshnessExpression = computeUpdatedWithinExpression(filters.updatedWithin);
+    if (freshnessExpression) expressions.push(freshnessExpression);
+  }
+
+  const geoExpression = buildGeoBoundingBoxExpression(viewport);
+  if (geoExpression) {
+    expressions.push(geoExpression);
+  }
+
+  return expressions.length ? expressions : undefined;
+}
+
+function applyStructuredFilters(where, category, filters = {}) {
+  const andConditions = [];
+
+  if (filters.locations?.length) {
+    andConditions.push({ location: { [Op.in]: filters.locations.map((value) => value.trim()).filter(Boolean) } });
+  }
+
+  if (filters.employmentTypes?.length && category === 'job') {
+    andConditions.push({ employmentType: { [Op.in]: filters.employmentTypes.map((value) => value.trim()).filter(Boolean) } });
+  }
+
+  if (filters.statuses?.length && category === 'project') {
+    andConditions.push({ status: { [Op.in]: filters.statuses.map((value) => value.trim()).filter(Boolean) } });
+  }
+
+  if (filters.tracks?.length && category === 'launchpad') {
+    andConditions.push({ track: { [Op.in]: filters.tracks.map((value) => value.trim()).filter(Boolean) } });
+  }
+
+  if (filters.organizations?.length && category === 'volunteering') {
+    andConditions.push({ organization: { [Op.in]: filters.organizations.map((value) => value.trim()).filter(Boolean) } });
+  }
+
+  if (filters.isRemote === true) {
+    const remoteLike = buildLikeExpression('remote');
+    andConditions.push({
+      [Op.or]: [
+        { location: remoteLike },
+        { description: remoteLike },
+      ],
+    });
+  }
+
+  const updatedThreshold = computeUpdatedWithinDate(filters.updatedWithin);
+  if (updatedThreshold) {
+    andConditions.push({ updatedAt: { [Op.gte]: updatedThreshold } });
+  }
+
+  if (andConditions.length) {
+    if (!where[Op.and]) {
+      where[Op.and] = [];
+    }
+    where[Op.and].push(...andConditions);
+  }
+}
+
 function normalisePage(page) {
   const parsed = Number.parseInt(page ?? '1', 10);
   if (Number.isNaN(parsed) || parsed < 1) {
@@ -57,41 +383,48 @@ export function toOpportunityDto(record, category) {
   }
 
   const plain = typeof record.get === 'function' ? record.get({ plain: true }) : record;
+  const geo = toGeoDto(plain.geoLocation, plain.location);
   const base = {
     id: plain.id,
     category,
     title: plain.title,
     description: plain.description,
     updatedAt: plain.updatedAt ?? plain.createdAt ?? new Date(),
+    location: plain.location ?? null,
+    geo,
   };
 
   switch (category) {
     case 'job':
       return {
         ...base,
-        location: plain.location ?? null,
         employmentType: plain.employmentType ?? null,
+        isRemote: geo?.isRemote ?? isRemoteRole(plain.location, plain.description),
       };
     case 'gig':
       return {
         ...base,
         budget: plain.budget ?? null,
         duration: plain.duration ?? null,
+        isRemote: geo?.isRemote ?? isRemoteRole(plain.location, plain.description),
       };
     case 'project':
       return {
         ...base,
         status: plain.status ?? null,
+        isRemote: geo?.isRemote ?? isRemoteRole(plain.location, plain.description),
       };
     case 'launchpad':
       return {
         ...base,
         track: plain.track ?? null,
+        isRemote: geo?.isRemote ?? false,
       };
     case 'volunteering':
       return {
         ...base,
         organization: plain.organization ?? null,
+        isRemote: geo?.isRemote ?? isRemoteRole(plain.location, plain.description),
       };
     default:
       throw new ValidationError(`Unsupported opportunity category "${category}".`);
@@ -123,7 +456,7 @@ function buildSearchWhereClause(category, query) {
   };
 }
 
-async function listOpportunities(category, { page, pageSize, query } = {}) {
+async function listOpportunities(category, { page, pageSize, query, filters, sort, includeFacets = false, viewport } = {}) {
   if (!opportunityModels[category]) {
     throw new ValidationError(`Unknown opportunity category "${category}".`);
   }
@@ -134,9 +467,22 @@ async function listOpportunities(category, { page, pageSize, query } = {}) {
 
   const searchQuery = query?.trim() ?? '';
 
+  const parsedFilters = parseFiltersInput(filters);
+  const normalisedViewport = normaliseViewport(viewport);
+  const filterExpressions = buildFilterExpressions(category, parsedFilters, normalisedViewport);
+  const sortExpressions = Array.isArray(sort) ? sort : resolveSortExpressions(category, sort);
+  const facetFields = includeFacets ? CATEGORY_FACETS[category] : undefined;
+
   const searchResult = await searchOpportunityIndex(
     category,
-    { query: searchQuery, page: safePage, pageSize: safeSize },
+    {
+      query: searchQuery,
+      page: safePage,
+      pageSize: safeSize,
+      filters: filterExpressions,
+      sort: sortExpressions,
+      facets: facetFields,
+    },
   );
 
   if (searchResult) {
@@ -147,10 +493,19 @@ async function listOpportunities(category, { page, pageSize, query } = {}) {
       page: safePage,
       pageSize: safeSize,
       totalPages,
+      facets: searchResult.facetDistribution ?? null,
+      metrics: {
+        source: 'meilisearch',
+        processingTimeMs: searchResult.processingTimeMs ?? null,
+        query: searchResult.query ?? searchQuery,
+      },
+      appliedFilters: parsedFilters,
+      viewport: normalisedViewport,
     };
   }
 
   const where = buildSearchWhereClause(category, query);
+  applyStructuredFilters(where, category, parsedFilters);
 
   let rows;
   let count;
@@ -179,6 +534,10 @@ async function listOpportunities(category, { page, pageSize, query } = {}) {
     page: safePage,
     pageSize: safeSize,
     totalPages: Math.ceil(count / safeSize) || 1,
+    facets: null,
+    metrics: { source: 'database' },
+    appliedFilters: parsedFilters,
+    viewport: normalisedViewport,
   };
 }
 

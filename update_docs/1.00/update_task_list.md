@@ -50,9 +50,9 @@
   - Logic: Escrow state machine, fraud heuristics, timer automation, ledger balancing jobs.
   - Design: FCA-aligned copy, accessibility for financial data, status indicators.
 
-## Task 4 – Discovery, Matching & Experience Automation (24% Complete)
+## Task 4 – Discovery, Matching & Experience Automation (38% Complete)
 - **Subtask 4.1:** Provision Meilisearch cluster, indexes, synonyms, ranking rules, and ingestion pipelines. **Status: 100% – Production Meilisearch bootstrap now provisions opportunity indexes with derived freshness scoring, remote role detection, synonym packs, and CLI-driven ingestion synced from Sequelize models.**
-- **Subtask 4.2:** Implement explorer/search UI with advanced filters, saved searches, alerts, and map view, elevating Experience Launchpad and Volunteer discovery as first-class filters.
+- **Subtask 4.2:** Implement explorer/search UI with advanced filters, saved searches, alerts, and map view, elevating Experience Launchpad and Volunteer discovery as first-class filters. **Status: 100% – React explorer now renders Meilisearch-backed results with geo-bounded map view, filter drawer facets, saved-search alerts, and analytics instrumentation aligned with the new search subscription APIs.**
 - **Subtask 4.3:** Build freelance auto-assign engine with ranking criteria, availability toggles, acceptance/retry flows, and launchpad eligibility scoring.
 - **Subtask 4.4:** Launch Experience Launchpad workflows for employers and talent, including onboarding, qualification checks, placements analytics, and job/project publishing hooks.
 - **Subtask 4.5:** Deliver Volunteers hub with listings, invitations, acceptance tracking, time/impact reporting, and analytics dashboards.
