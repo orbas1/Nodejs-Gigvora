@@ -1,0 +1,82 @@
+workflows:
+  gigvora_mobile_release:
+    name: Gigvora Mobile Release
+    max_build_duration: 120
+    instance_type: mac_mini_m1
+    environment:
+      flutter: stable
+      xcode: latest
+      android: latest
+      groups:
+        - gigvora-android-signing
+        - gigvora-ios-signing
+        - gigvora-distribution
+      vars:
+        ANDROID_PACKAGE_NAME: com.gigvora.mobile
+        IOS_BUNDLE_ID: com.gigvora.mobile
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+        - pattern: release/.+
+          include: true
+          source: true
+      cancel_previous_builds: true
+    cache:
+      cache_paths:
+        - ~/.pub-cache
+        - gigvora-flutter-phoneapp/.dart_tool
+        - gigvora-flutter-phoneapp/build
+    scripts:
+      - name: Install workspace tooling
+        script: |
+          dart pub global activate melos
+          melos bootstrap
+      - name: Static analysis
+        script: |
+          melos run analyze
+      - name: Automated test suites
+        script: |
+          melos run test:unit
+          melos run test:golden
+          melos run test:integration
+      - name: Build Android app bundle
+        script: |
+          cd gigvora-flutter-phoneapp
+          flutter pub get
+          flutter build appbundle \
+            --release \
+            --build-name=$APP_VERSION \
+            --build-number=$BUILD_NUMBER
+      - name: Build iOS release IPA
+        script: |
+          cd gigvora-flutter-phoneapp
+          flutter pub get
+          flutter build ipa \
+            --release \
+            --export-options-plist=$CM_EXPORT_OPTIONS \
+            --build-name=$APP_VERSION \
+            --build-number=$BUILD_NUMBER
+    artifacts:
+      - gigvora-flutter-phoneapp/build/app/outputs/**/*.aab
+      - gigvora-flutter-phoneapp/build/ios/ipa/*.ipa
+      - gigvora-flutter-phoneapp/coverage/**
+    publishing:
+      email:
+        recipients:
+          - mobile-alerts@gigvora.com
+        notify:
+          success: true
+          failure: true
+      app_store_connect:
+        api_key: $APP_STORE_CONNECT_KEY
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        key_id: $APP_STORE_CONNECT_KEY_ID
+        submit_to_testflight: true
+      google_play:
+        credentials: $GOOGLE_SERVICE_ACCOUNT
+        track: internal
+        package_name: $ANDROID_PACKAGE_NAME

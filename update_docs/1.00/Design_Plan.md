@@ -16,7 +16,7 @@ Deliver a cohesive, themeable Gigvora experience that makes talent discovery, bo
 - **Discovery Feed**: Modular hero carousel, segmented feed (For You / Trending / Near You), and card-based community spotlights with theme overlays.
 - **Booking Workflow**: Four-step stepper (Package → Customise → Schedule → Confirm) with sticky pricing summary, inline validation, and compliance copy tied to product area.
 - **Experience Launchpad & Volunteers**: Dedicated dashboards surfaced through discovery filters with new cards highlighting readiness status, required actions, and CTA to book or join.
-- **Messages & Support**: Consolidated inbox with status pills, quick actions, and support escalation entry points; chat composer includes templates, attachments, and theme-aware stickers, plus offline send queues, deterministic retries, and accessibility-compliant overlays for long sessions.
+- **Messages & Support**: Consolidated inbox with status pills, quick actions, and support escalation entry points; chat composer includes templates, attachments, and theme-aware stickers, plus offline send queues, deterministic retries, and accessibility-compliant overlays for long sessions. Support timelines now surface escalation metadata (priority badges, SLA timers, assigned agent chips) mapped directly to the backend controller payloads to keep UI and service contracts aligned.
 - **Ads & Monetisation**: Dedicated tab with campaign list, pacing meters, and multi-step composer covering targeting, creatives, budget, and scheduling; includes offline draft autosave and compliance banners for financial disclosures.
 - **Profile & Reputation**: Dynamic profile canvas combining headline, metrics, availability, programme affiliations, and experience timeline with design hooks for analytics, feature flags, and real-time status messaging shared with the live feed.
 
@@ -35,6 +35,7 @@ Deliver a cohesive, themeable Gigvora experience that makes talent discovery, bo
 ## Design System & Theming
 - **Token Architecture**: Root tokens for colour, type scale, radius, elevation, opacity, and motion. Theme-specific tokens cascade to components and are exported to Flutter (JSON) and React (TypeScript). Theme switch toggles available to marketing for homepage/landing pages and to agencies for white-labelling.
 - **Engineering Alignment**: Flutter monorepo now consumes the JSON exports through a dedicated design-system package and runtime loader, ensuring the Gigvora Blue baseline renders identically to the React implementation while enabling future seasonal themes.
+- **CI Enforcement**: Golden test harnesses and integration smoke tests now run in GitHub Actions and Codemagic, protecting typography, spacing, and component states from regressions before beta releases.
 - **Component Library**: Core components (buttons, cards, chips, tabs, tables, forms) refactored to reference design tokens and support state variants (default, hover, focus, pressed, disabled) plus theme overlays.
 - **Imagery Guidelines**: Asset ratios (16:9 hero, 4:3 cards, 1:1 avatars), compression budgets (<250KB hero, <100KB cards), and thematic overlays accessible via design tokens.
 - **Typography**: Inter family scale with Display, Title, Headline, Body, Label tokens; ensures WCAG AA at minimum.
@@ -54,6 +55,11 @@ Deliver a cohesive, themeable Gigvora experience that makes talent discovery, bo
 - **Design QA**: Dedicated checklist covering token integrity, theme switching, accessibility, error states, and content accuracy before handing to development.
 - **Documentation**: Design spec pages for each component, annotated Figma frames, and JSON exports for tokens and component metadata.
 - **Rollout Plan**: Internal pilot (Week 6), beta release with theme toggles (Week 8), staged launch aligned with Milestone 4 readiness (Week 12), final GA with marketing campaigns (Week 14+), and post-launch monitoring for chat/feed queue health and ads pacing accuracy.
+
+## Telemetry & Analytics Enablement
+- Secure token and telemetry services in the Flutter foundation now stream mobile network, GraphQL, and realtime metrics into the analytics platform without manual tagging.
+- Live operational dashboards can be designed against production data, allowing telemetry UI components to use real latency/failure distributions instead of placeholder copy.
+- Support and compliance monitoring concepts will inherit this feed, ensuring colour, threshold, and alert semantics are validated against actual mobile behaviour.
 
 ## Dependencies & Risks
 - CMS upgrades required for hero partial injection and dynamic testimonials (owned by Web Platform squad).

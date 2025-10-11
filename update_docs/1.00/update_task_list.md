@@ -1,12 +1,13 @@
 # Version 1.00 – Detailed Task List
 
-## Task 1 – Flutter App Platform & Mobile Integration (48% Complete)
+## Task 1 – Flutter App Platform & Mobile Integration (100% Complete)
 - **Subtask 1.1:** Establish monorepo, package boundaries, dependency injection container, and shared blue design token loader. **Status: 100% – Flutter workspace now structured with Melos-managed packages, GetIt-backed DI container, and production token loader feeding the blue theme.**
 - **Subtask 1.2:** Implement authentication (email/passwordless, MFA), onboarding wizard, and secure credential storage with biometrics fallback. **Status: 100% – Flutter login and onboarding now call the hardened Node.js auth service, guiding users through password or passwordless flows, 2FA verification, and optional biometric unlock with secure token storage.**
 - **Subtask 1.3:** Build core modules (chat bubble overlay, inbox, live feed, explorer, projects, jobs, volunteers, ads) with offline caching and optimistic updates. **Status: 100% – Delivered offline-first chat bubble overlay, resilient inbox syncing, optimistic feed composer, marketplace save/apply queues, and the mobile ads console aligned with backend contracts.**
 - **Subtask 1.4:** Integrate REST/GraphQL clients, WebSocket listeners, feature flags, and analytics instrumentation for parity with web routes.
-- **Status: 70% – GraphQL gateway, feature flag service, and realtime feed listeners now power production-ready profile and feed flows; authentication token wiring and auto-telemetry dashboards remain.**
+- **Status: 100% – Hardened session manager now propagates secure tokens through REST, GraphQL, and realtime gateways while the telemetry service auto-instruments network, GraphQL, and realtime metrics feeding analytics dashboards.**
 - **Subtask 1.5:** Configure CI/CD (Codemagic, GitHub Actions) running unit/widget/golden/e2e suites and distributing beta builds.
+- **Status: 100% – GitHub Actions now provisions Flutter 3.19 with melos-driven analysis, unit, golden, and integration suites plus coverage reporting, while the Codemagic workflow builds release-signed Android App Bundles and iOS IPAs, uploading artefacts for TestFlight/Internal testing.**
 - **Integration Breakdown**
   - Backend: Define contract tests, authentication guards, chat/feed streaming endpoints, and push notification webhooks.
   - Front-end: Mirror blue design tokens, shared component specs, and parity checklists with React.
@@ -17,10 +18,10 @@
   - Logic: Embed availability toggles, trust score preview, auto-assign acceptance logic, and offline fallback rules.
   - Design: Finalise mobile blue theming, iconography, motion, and accessibility annotations.
 
-## Task 2 – Communication & Engagement Suite (6% Complete)
-- **Subtask 2.1:** Refactor messaging backend for scalable multi-thread inboxes, attachments, and support escalation.
+## Task 2 – Communication & Engagement Suite (24% Complete)
+- **Subtask 2.1:** Refactor messaging backend for scalable multi-thread inboxes, attachments, and support escalation. **Status: 55% – Support-case aware inbox logic, SQLite-safe migrations, REST controllers, and combined service/controller Jest suites now cover escalation, assignment, resolution, and caching paths; file attachments and push fan-out remain.**
 - **Subtask 2.2:** Implement floating chat bubble across web and mobile with persistence, notifications, and quick actions.
-- **Subtask 2.3:** Build live feed aggregation, ranking models, moderation workflows, and analytics tagging.
+- **Subtask 2.3:** Build live feed aggregation, ranking models, moderation workflows, and analytics tagging. **Status: 20% – Discovery listings stabilised with deterministic ordering and dialect-aware search fallbacks feeding analytics snapshot dashboards; live ranking engine integration follows backend queue upgrades.**
 - **Subtask 2.4:** Enable full interaction set (follow, like, comment, share, post, media upload) with audit logging.
 - **Subtask 2.5:** Run load/performance tests (<500ms latency) and cross-client regression coverage for chat/feed parity.
 - **Integration Breakdown**

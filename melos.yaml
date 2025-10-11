@@ -10,3 +10,16 @@ scripts:
     melos exec --scope="gigvora_mobile" flutter analyze
   format: |
     melos exec -- flutter format .
+  test:unit: |
+    melos exec --dir-exists=test --fail-fast flutter test --coverage
+  test:golden: |
+    melos exec --dir-exists=test --fail-fast flutter test --tags=golden
+  test:integration: |
+    if [ -d "gigvora-flutter-phoneapp/integration_test" ]; then
+      (cd gigvora-flutter-phoneapp && flutter test integration_test)
+    fi
+  ci:verify: |
+    melos run analyze
+    melos run test:unit
+    melos run test:golden
+    melos run test:integration

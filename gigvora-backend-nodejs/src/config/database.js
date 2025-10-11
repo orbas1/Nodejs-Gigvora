@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -21,8 +23,28 @@ const baseConfig = {
 };
 
 if (dialect === 'sqlite') {
-  baseConfig.storage = process.env.DB_STORAGE ?? ':memory:';
+  const configuredStorage = process.env.DB_STORAGE;
+  const storagePath = configuredStorage
+    ? path.resolve(process.cwd(), configuredStorage)
+    : path.resolve(process.cwd(), 'tmp/test.sqlite');
+
+  const storageDirectory = path.dirname(storagePath);
+  if (!fs.existsSync(storageDirectory)) {
+    fs.mkdirSync(storageDirectory, { recursive: true });
+  }
+
+  baseConfig.storage = storagePath;
   baseConfig.logging = false;
+  baseConfig.pool = {
+    max: 1,
+    min: 0,
+    idle: Number.parseInt(process.env.DB_POOL_IDLE ?? '10000', 10),
+    acquire: Number.parseInt(process.env.DB_POOL_ACQUIRE ?? '30000', 10),
+  };
+  baseConfig.dialectOptions = {
+    ...(baseConfig.dialectOptions ?? {}),
+    multipleStatements: true,
+  };
 } else {
   baseConfig.username = process.env.DB_USER;
   baseConfig.password = process.env.DB_PASSWORD;

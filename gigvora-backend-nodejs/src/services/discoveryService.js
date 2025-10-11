@@ -1,15 +1,16 @@
 import { Op } from 'sequelize';
 import {
+  sequelize,
   Job,
   Gig,
   Project,
   ExperienceLaunchpad,
   Volunteering,
 } from '../models/index.js';
-import { ValidationError } from '../utils/errors.js';
+import { ApplicationError, ValidationError } from '../utils/errors.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
 
-const MATCH_OPERATOR = Op.iLike ?? Op.like;
+const DIALECT = sequelize.getDialect();
 const SNAPSHOT_CACHE_TTL_SECONDS = 60;
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
@@ -93,13 +94,21 @@ export function toOpportunityDto(record, category) {
   }
 }
 
+function buildLikeExpression(value) {
+  if (DIALECT === 'postgres' || DIALECT === 'postgresql') {
+    return { [Op.iLike]: `%${value}%` };
+  }
+
+  return { [Op.like]: `%${value}%` };
+}
+
 function buildSearchWhereClause(category, query) {
   const trimmed = query?.trim();
   if (!trimmed) {
     return {};
   }
 
-  const likeExpression = { [MATCH_OPERATOR]: `%${trimmed}%` };
+  const likeExpression = buildLikeExpression(trimmed);
   const baseClause = [{ title: likeExpression }];
   if (category === 'job' || category === 'gig' || category === 'project') {
     baseClause.push({ description: likeExpression });
@@ -121,12 +130,26 @@ async function listOpportunities(category, { page, pageSize, query } = {}) {
 
   const where = buildSearchWhereClause(category, query);
 
-  const { rows, count } = await opportunityModels[category].findAndCountAll({
-    where,
-    order: [['updatedAt', 'DESC']],
-    limit: safeSize,
-    offset,
-  });
+  let rows;
+  let count;
+  try {
+    ({ rows, count } = await opportunityModels[category].findAndCountAll({
+      where,
+      order: [
+        ['updatedAt', 'DESC'],
+        ['id', 'DESC'],
+      ],
+      limit: safeSize,
+      offset,
+      subQuery: false,
+    }));
+  } catch (error) {
+    throw new ApplicationError(`Unable to list discovery opportunities: ${error.message}`, 500, {
+      category,
+      query,
+      cause: error,
+    });
+  }
 
   return {
     items: rows.map((row) => toOpportunityDto(row, category)),

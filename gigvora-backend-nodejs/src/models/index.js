@@ -27,6 +27,8 @@ export const APPLICATION_REVIEW_DECISIONS = ['pending', 'advance', 'reject', 'ho
 export const MESSAGE_CHANNEL_TYPES = ['support', 'project', 'contract', 'group', 'direct'];
 export const MESSAGE_THREAD_STATES = ['active', 'archived', 'locked'];
 export const MESSAGE_TYPES = ['text', 'file', 'system', 'event'];
+export const SUPPORT_CASE_STATUSES = ['triage', 'in_progress', 'waiting_on_customer', 'resolved', 'closed'];
+export const SUPPORT_CASE_PRIORITIES = ['low', 'medium', 'high', 'urgent'];
 export const NOTIFICATION_CATEGORIES = ['system', 'message', 'project', 'financial', 'compliance', 'marketing'];
 export const NOTIFICATION_PRIORITIES = ['low', 'normal', 'high', 'critical'];
 export const NOTIFICATION_STATUSES = ['pending', 'delivered', 'read', 'dismissed'];
@@ -542,6 +544,42 @@ Message.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+export const SupportCase = sequelize.define(
+  'SupportCase',
+  {
+    threadId: { type: DataTypes.INTEGER, allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...SUPPORT_CASE_STATUSES),
+      allowNull: false,
+      defaultValue: 'triage',
+    },
+    priority: {
+      type: DataTypes.ENUM(...SUPPORT_CASE_PRIORITIES),
+      allowNull: false,
+      defaultValue: 'medium',
+    },
+    reason: { type: DataTypes.TEXT, allowNull: false },
+    metadata: { type: jsonType, allowNull: true },
+    escalatedBy: { type: DataTypes.INTEGER, allowNull: false },
+    escalatedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    assignedTo: { type: DataTypes.INTEGER, allowNull: true },
+    assignedBy: { type: DataTypes.INTEGER, allowNull: true },
+    assignedAt: { type: DataTypes.DATE, allowNull: true },
+    firstResponseAt: { type: DataTypes.DATE, allowNull: true },
+    resolvedAt: { type: DataTypes.DATE, allowNull: true },
+    resolvedBy: { type: DataTypes.INTEGER, allowNull: true },
+    resolutionSummary: { type: DataTypes.TEXT, allowNull: true },
+  },
+  {
+    tableName: 'support_cases',
+    indexes: [
+      { fields: ['status'] },
+      { fields: ['priority'] },
+      { fields: ['assignedTo'] },
+    ],
+  },
+);
+
 export const Notification = sequelize.define(
   'Notification',
   {
@@ -813,9 +851,11 @@ ApplicationReview.belongsTo(User, { foreignKey: 'reviewerId', as: 'reviewer' });
 
 MessageThread.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
 MessageThread.hasMany(MessageParticipant, { foreignKey: 'threadId', as: 'participants' });
+MessageThread.hasMany(MessageParticipant, { foreignKey: 'threadId', as: 'viewerParticipants' });
 MessageThread.hasMany(Message, { foreignKey: 'threadId', as: 'messages' });
+MessageThread.hasOne(SupportCase, { foreignKey: 'threadId', as: 'supportCase' });
 
-MessageParticipant.belongsTo(MessageThread, { foreignKey: 'threadId' });
+MessageParticipant.belongsTo(MessageThread, { foreignKey: 'threadId', as: 'thread' });
 MessageParticipant.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 Message.belongsTo(MessageThread, { foreignKey: 'threadId', as: 'thread' });
@@ -823,6 +863,12 @@ Message.belongsTo(User, { foreignKey: 'senderId', as: 'sender' });
 Message.hasMany(MessageAttachment, { foreignKey: 'messageId', as: 'attachments' });
 
 MessageAttachment.belongsTo(Message, { foreignKey: 'messageId', as: 'message' });
+
+SupportCase.belongsTo(MessageThread, { foreignKey: 'threadId', as: 'thread' });
+SupportCase.belongsTo(User, { foreignKey: 'escalatedBy', as: 'escalatedByUser' });
+SupportCase.belongsTo(User, { foreignKey: 'assignedTo', as: 'assignedAgent' });
+SupportCase.belongsTo(User, { foreignKey: 'assignedBy', as: 'assignedByUser' });
+SupportCase.belongsTo(User, { foreignKey: 'resolvedBy', as: 'resolvedByUser' });
 
 Notification.belongsTo(User, { foreignKey: 'userId', as: 'recipient' });
 NotificationPreference.belongsTo(User, { foreignKey: 'userId', as: 'user' });
@@ -870,6 +916,7 @@ export default {
   MessageParticipant,
   Message,
   MessageAttachment,
+  SupportCase,
   Notification,
   NotificationPreference,
   AnalyticsEvent,

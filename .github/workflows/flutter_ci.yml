@@ -1,0 +1,130 @@
+name: Flutter CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - release/**
+  pull_request:
+    branches:
+      - '**'
+
+env:
+  FLUTTER_VERSION: '3.19.6'
+
+jobs:
+  analyze_and_test:
+    name: Analyze & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+
+      - name: Cache Flutter dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            **/.dart_tool
+          key: ${{ runner.os }}-flutter-${{ env.FLUTTER_VERSION }}-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-flutter-${{ env.FLUTTER_VERSION }}-
+            ${{ runner.os }}-flutter-
+
+      - name: Activate melos
+        run: dart pub global activate melos
+
+      - name: Bootstrap workspace
+        run: melos bootstrap
+
+      - name: Flutter analyze
+        run: melos run analyze
+
+      - name: Run unit tests with coverage
+        run: melos run test:unit
+
+      - name: Run golden tests
+        run: melos run test:golden
+
+      - name: Run integration tests
+        run: melos run test:integration
+
+      - name: Upload coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-coverage
+          path: |
+            **/coverage/lcov.info
+          if-no-files-found: ignore
+
+  build_release_artifacts:
+    name: Build Release Artifacts
+    runs-on: macos-latest
+    needs: analyze_and_test
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+
+      - name: Cache Flutter dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            **/.dart_tool
+          key: ${{ runner.os }}-flutter-${{ env.FLUTTER_VERSION }}-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-flutter-${{ env.FLUTTER_VERSION }}-
+            ${{ runner.os }}-flutter-
+
+      - name: Activate melos
+        run: dart pub global activate melos
+
+      - name: Bootstrap workspace
+        run: melos bootstrap
+
+      - name: Run flutter pub get
+        working-directory: gigvora-flutter-phoneapp
+        run: flutter pub get
+
+      - name: Build Android app bundle
+        working-directory: gigvora-flutter-phoneapp
+        run: flutter build appbundle --release
+
+      - name: Build iOS IPA (unsigned)
+        working-directory: gigvora-flutter-phoneapp
+        run: flutter build ipa --no-codesign
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: gigvora-mobile-builds
+          path: |
+            gigvora-flutter-phoneapp/build/app/outputs/**/*.aab
+            gigvora-flutter-phoneapp/build/ios/ipa/*.ipa
+          if-no-files-found: warn

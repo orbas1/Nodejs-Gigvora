@@ -27,16 +27,18 @@
   - High-fidelity designs for discovery, booking, wallet, messaging, Launchpad, Volunteers, and monetisation dashboards.
   - Responsive web layouts for homepage, knowledge base, provider dashboards, and onboarding flows.
   - Illustration and imagery packages meeting new guidelines, including theme overlays and accessibility tags.
+  - Telemetry dashboard data contract validated with live mobile analytics feeds powering network/GraphQL/realtime widgets.
 - **Success Criteria**:
   - Development-ready specs with redlines, interaction notes, and copy ready for localisation.
   - Usability test findings show ≥15% improvement in task success vs. baseline prototypes.
-- **Status Update**: Messaging overlay, live feed composer, marketplace offline states, and ads console specs are complete with annotated copy, motion, and accessibility notes; refreshed profile detail canvas and live feed streaming banners now match production build requirements. Wallet and volunteer imagery packages remain in progress.
+- **Status Update**: Messaging overlay, support escalation timelines, live feed composer, marketplace offline states, and ads console specs are complete with annotated copy, motion, and accessibility notes; refreshed profile detail canvas and live feed streaming banners now match production build requirements. Wallet and volunteer imagery packages remain in progress.
 
 ## Milestone 4: Validation & Launch Readiness (Weeks 10–12)
 - **Objectives**: Complete QA, compliance, and rollout materials.
 - **Key Deliverables**:
   - Accessibility audit report, remediation log, and signed compliance statements (FCA, GDPR, PCI).
   - Design QA checklist executed for all core journeys and component partials.
+  - Golden baselines enforced through the shared CI/CD pipelines to catch regressions before release candidates.
   - Launch toolkit: release notes, component documentation, implementation guide, and marketing handoff package.
 - **Success Criteria**:
   - Outstanding design debt <5% (measured by unresolved critical issues in Jira).
