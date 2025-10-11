@@ -37,3 +37,10 @@
 ## Internationalisation Notes
 - Reserve 20% additional width for translated strings.
 - Provide translation keys in `arb` format (e.g., `feed.hero.headline`, `auth.login.subtitle`).
+- Document pluralisation rules (e.g., `notifications.unread_count` handles zero/one/other) and use ICU message syntax for dynamic inserts like deadlines (`opportunity.deadline_in {days}`).
+- Provide fallback copy for offline or limited connectivity states in languages without direct translation for "offline" (use "No internet" or localised equivalent confirmed by linguist).
+
+## Content Governance
+- UX writing team maintains termbase in Confluence; lock canonical terminology for features (Launchpad vs Accelerator) to avoid mismatched copy.
+- Sensitive copy (data export, delete account) must be reviewed by legal; mark `@legal-review` comments in Figma and track sign-off dates.
+- Microcopy changes require analytics annotation to measure impact on conversion; update `copy_change_log.csv` with string key, old value, new value, date, owner.

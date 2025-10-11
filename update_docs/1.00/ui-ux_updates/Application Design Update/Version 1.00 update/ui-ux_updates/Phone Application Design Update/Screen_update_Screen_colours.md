@@ -23,3 +23,15 @@
 - **Authentication:** Background `#0F172A` overlayed with blurred orbs (#2563EB, #60A5FA at 40% opacity), card `#FFFFFF`, text `#0F172A`.
 - **Admin Login:** Dark card `#0B1220`, accent button `#2563EB`, warning copy `#F97316`.
 - **Offline/Error Overlays:** Background gradient `linear-gradient(180deg, #0F172A, #1D4ED8)`, illustration accent `#60A5FA`, primary button `#2563EB`, secondary button outline `rgba(255, 255, 255, 0.6)`.
+- **Support Hub:** Accent hero stripe `#1D4ED8→#60A5FA`, article tiles `#FFFFFF`, icons `#2563EB`, support cards highlight `#38BDF8` with white text.
+
+## Dark Theme Parity
+- Maintain `primary` at `#60A5FA`, surfaces `#0B1220`, elevated surfaces `#111B2E`. Text colours lighten to `#E2E8F0` (primary) and `#A5B4FC` for accent labels.
+- Chips invert scheme: background `rgba(96,165,250,0.16)`, text `#E0F2FE` when selected; unselected `rgba(148,163,184,0.24)`.
+- Notification sheet uses `#111B2E` surface with card dividers `rgba(226,232,240,0.12)`; icon backgrounds rely on tone-specific opacities (success `rgba(22,163,74,0.32)` etc.).
+
+## Colour Interaction Rules
+- Ensure gradient overlays never exceed 70% opacity over photography; if text sits on gradient + image, apply additional scrim `rgba(15,23,42,0.35)` for readability.
+- Limit category accent usage to two components per screen to avoid saturation (e.g., Jobs accent on hero ribbon + icon only).
+- Buttons maintain minimum contrast ratio 4.5:1; disabled states use 48% opacity but keep label text `#F8FAFC` for readability.
+- Charts or progress indicators (launchpad, volunteering) use accent fill with desaturated base track `rgba(15,23,42,0.18)` to emphasise progress.

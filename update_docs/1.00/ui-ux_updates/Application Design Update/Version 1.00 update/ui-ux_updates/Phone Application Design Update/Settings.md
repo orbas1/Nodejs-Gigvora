@@ -41,3 +41,9 @@
 
 ## Navigation
 - Access via profile overflow menu and from offline/error overlays for quick support.
+- Provide deep links for notifications (e.g., "Update your notifications settings") that open at specific section via `ScrollController` jump.
+
+## Data Export & Privacy Controls
+- Data export status screen lists past jobs with ability to download if within 7-day expiry window; show warning banner when export contains sensitive data.
+- Include toggle for "Share anonymised analytics" defaulting to on with helper text describing benefits.
+- Add "Delete account" flow with multi-step confirmation (reason selection, info summary, final confirm). Provide inline link to support.

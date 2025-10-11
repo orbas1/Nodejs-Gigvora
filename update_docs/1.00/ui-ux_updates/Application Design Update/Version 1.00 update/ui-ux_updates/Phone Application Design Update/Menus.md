@@ -35,3 +35,10 @@
 ## Accessibility
 - Provide descriptive `tooltip` for each menu item (e.g., "Open Launchpad dashboard").
 - Ensure voice commands map to menu items (Android Voice Access, iOS Voice Control).
+- Maintain 48dp minimum height for action sheet items; add 12dp padding around icons for readability.
+
+## New Menus & Quick Actions
+- **Support Hub Menu:** Display actions `Start chat`, `Email support`, `Schedule call`. Use accent icons (chat bubble, envelope, calendar) with consistent 24dp size.
+- **Data Export Context Menu:** Options `Download`, `Copy link`, `Delete job`. `Delete job` styled in warning colour `#DC2626`.
+- **NPS Survey Overflow:** Provide `Remind me later`, `Never ask again` to respect user choice.
+- **Radial Quick Actions:** Map to long-press on Launchpad nav—`Log milestone`, `View mentors`, `Open resources`. Keep wedge angle 60° and ensure actions don't obstruct other UI elements.

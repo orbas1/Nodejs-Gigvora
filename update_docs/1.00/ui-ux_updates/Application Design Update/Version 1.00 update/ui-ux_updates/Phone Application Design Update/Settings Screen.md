@@ -25,3 +25,10 @@
 ## Implementation Notes
 - Use `ListView.separated` for consistent spacing; create data model for sections/rows to map into widgets.
 - Search uses `TextEditingController` with `ValueListenableBuilder` to filter list.
+- Sticky header support via `SliverAppBar` when scroll >120dp to keep section context visible.
+- Provide `ScrollController` method `scrollToSection(String id)` to support deep links from notifications/support.
+
+## Additional States
+- When data export job in progress, show inline progress tile with cancel button (outline variant). Completed job displays download button (primary) and expiry text 12/16 secondary.
+- Settings search with no results displays empty state card (illustration 120×120) and CTA to contact support.
+- Offline state surfaces banner at top with "Changes sync when online" message; toggles remain available but show queued indicator dot (6dp) until synced.

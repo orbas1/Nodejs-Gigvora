@@ -31,3 +31,15 @@
 ## Implementation
 - Define text theme in `ThemeData` using custom `TextTheme` aligning to tokens above (`displayLarge`, `headlineMedium`, etc.).
 - Utilise `GoogleFonts.inter()` helper or pre-bundle fonts for offline readiness.
+- Register custom `TextTheme` extension `GigvoraTextStyles` with semantic getters (e.g., `GigvoraTextStyles.heroHeadline(context)`). Document usage in engineering wiki to keep hierarchy consistent.
+- Ensure kerning adjustments for uppercase overlines (`Caption`) by enabling stylistic set `ss02` in Inter to tighten letter spacing for accessibility.
+
+## Typesetting Rules
+- Maximum line length for body copy: 65 characters to maintain readability. On tablets, enforce column width 520dp to avoid overly long lines.
+- Headlines should avoid widows; adjust copy or manual line breaks in Figma if necessary. Provide `softWrap: true` but restrict to two lines using `maxLines: 2` + `overflow: TextOverflow.ellipsis`.
+- Button labels remain sentence case; avoid all caps to preserve legibility in smaller sizes.
+
+## Localization Considerations
+- Reserve fallback fonts for languages requiring extended glyph sets (e.g., Noto Sans for CJK, Devanagari). Define per-locale mapping in Flutter using `localeResolutionCallback`.
+- Support right-to-left scripts by ensuring `TextAlign.start` is used in components; verify mirrored layout for Arabic/Hebrew screens.
+- Provide style guide for accent characters (é, ñ) ensuring they align with baseline (Inter supports via default metrics).

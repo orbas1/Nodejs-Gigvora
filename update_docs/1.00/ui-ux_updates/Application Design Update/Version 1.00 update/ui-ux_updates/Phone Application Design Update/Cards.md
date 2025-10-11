@@ -37,3 +37,21 @@
 ## Implementation Notes
 - Compose cards using `Card` widget with `Clip.antiAlias`. Use `InkWell` for ripple effect (ink colour `rgba(37,99,235,0.08)`).
 - Provide `CardTheme` in theme file to maintain consistent radius and elevation.
+- Define mixins for card content spacing (`CardContentPadding`) to avoid inconsistent padding across surfaces.
+- Ensure skeleton cards mimic actual padding and layout structure to prevent layout shift on load.
+
+## Additional Variants
+6. **NPS Survey Card:**
+   - Modal card width 320dp, padding 24dp, rating chips arranged in grid with 12dp spacing.
+   - Includes optional textarea (height 120dp) and CTA row at bottom.
+7. **Export Status Card:**
+   - Horizontal layout 344×92dp, includes file type icon 32dp, job name 16/24, timestamp 12/16.
+   - Progress bar 6dp height spanning width minus 40dp padding; status badge (Ready/Error) 12dp radius.
+8. **Hero Metric Card:**
+   - 328×156dp, gradient header background (height 56dp) with icon overlay 48dp.
+   - Value displayed 32/40 bold, supporting text 14/20; bottom row includes trend arrow and CTA link.
+
+## Accessibility & Testing
+- Provide `Semantics` descriptions summarising key information (title + main metric + CTA) for each card.
+- Conduct tap target verification ensuring entire card or CTA meets 44dp minimum; where CTA exists inside card, maintain 12dp margin around button.
+- Snapshot test cards across light/dark themes and 3 languages (EN, ES, FR) to verify text wrapping.

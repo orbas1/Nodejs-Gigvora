@@ -60,3 +60,24 @@
 ## `SupportCard`
 - **Props:** `title`, `description`, `ctaLabel`, `ctaIcon`, `contactMethod`.
 - **Behaviour:** On tap, triggers respective contact flow (email, chat, phone) with analytics event `support_contact`.
+- **States:** `default`, `busy` (shows inline spinner while chat loads), `disabled` (greyed out when channel offline).
+
+## `ExportStatusTile`
+- **Props:** `jobName`, `createdAt`, `status` (`queued`, `processing`, `ready`, `failed`), `downloadUrl`, `onTap`, `onRetry`.
+- **Behaviour:** Displays progress bar (height 6dp) for `processing`, check icon for `ready`. `failed` state shows inline error text and retry button following outline spec.
+- **Accessibility:** Announces status changes via `SemanticsService.announce` for screen readers.
+
+## `NpsSurvey`
+- **Props:** `onSubmit(score, comment)`, `onSkip`, `copy`, `defaultScore`.
+- **Behaviour:** Rating chips animate scale-in sequentially (80ms stagger). Submit disabled until rating selected; comment optional but auto-expands to max 5 lines.
+- **Validation:** If comment included, enforce ≥10 characters to gather meaningful feedback; show inline helper when not met.
+
+## `QuickActionRadial`
+- **Props:** `actions[]` (icon, label, onTap), `anchorOffset`, `radius` (default 88dp).
+- **Behaviour:** Long-press reveals radial menu with actions placed at equal angles. Menu closes on selection or tap outside. Provides haptic feedback on open and selection.
+- **Safety:** Do not expose destructive actions; emphasise primary action by placing at 12 o'clock position with accent gradient bubble.
+
+## `HeroMetric`
+- **Props:** `value`, `unit`, `label`, `trend` (`up`, `down`, `flat`), `contextIcon`.
+- **Behaviour:** Animates numeric change using `TweenAnimationBuilder`; trend arrow color-coded (up `#16A34A`, down `#DC2626`, flat `#94A3B8`).
+- **Layout:** Value set in Inter 32/40 bold, label 14/20 medium, unit baseline-aligned using `Baseline` widget.

@@ -26,3 +26,11 @@
 | Welcome Tour | Post-signup orientation. | Completed registration. | Carousel with 3 slides, illustration asset, CTA (Personalise now). |
 | Offline State | Provide offline guidance. | Triggered when network unavailable. | Full-screen sheet with illustration, retry button, cached data summary. |
 | Error State | Provide recovery steps for fatal errors. | Unhandled failure. | Centered card, icon, support CTA, log reference ID. |
+| Support Hub | Surface help content, escalate tickets. | Settings, offline banners, help CTA from error overlay. | Search hero, article grid, contact cards with gradient stripe and stacked CTAs. |
+| Data Export Status | Track progress of exports. | Settings → Advanced. | Timeline list of export jobs, status badges, download CTA row. |
+| NPS Survey Modal | Capture satisfaction rating. | Triggered after milestone completion or 3 days usage. | Modal card 320dp wide, rating chips (1–10), optional comment field with 120dp height. |
+
+### Supplemental Views & States
+- **Empty States:** Provide dedicated variants for feed, search, saved opportunities, notifications; each references relevant illustration asset and action copy defined in `Screens_update_images_and _vectors.md`.
+- **Loading States:** Shimmer skeletons for feed cards (3 per viewport), list loaders for dashboards, and inline button loaders for CTA interactions.
+- **Error States:** Inline banners and full-screen overlays described in `Screens_Update.md`; ensure consistent iconography and copy tone across screens.
