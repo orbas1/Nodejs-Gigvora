@@ -31,7 +31,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/projects', builder: (context, state) => const ProjectsScreen()),
       GoRoute(path: '/launchpad', builder: (context, state) => const LaunchpadScreen()),
       GoRoute(path: '/volunteering', builder: (context, state) => const VolunteeringScreen()),
-      GoRoute(path: '/profile', builder: (context, state) => const ProfileScreen()),
+      GoRoute(
+        path: '/profile',
+        builder: (context, state) => ProfileScreen(profileId: state.uri.queryParameters['id']),
+      ),
       GoRoute(path: '/admin', builder: (context, state) => const AdminLoginScreen()),
     ],
   );

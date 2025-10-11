@@ -1,10 +1,11 @@
 # Version 1.00 – Detailed Task List
 
-## Task 1 – Flutter App Platform & Mobile Integration (16% Complete)
+## Task 1 – Flutter App Platform & Mobile Integration (48% Complete)
 - **Subtask 1.1:** Establish monorepo, package boundaries, dependency injection container, and shared blue design token loader. **Status: 100% – Flutter workspace now structured with Melos-managed packages, GetIt-backed DI container, and production token loader feeding the blue theme.**
-- **Subtask 1.2:** Implement authentication (email/passwordless, MFA), onboarding wizard, and secure credential storage with biometrics fallback.
-- **Subtask 1.3:** Build core modules (chat bubble overlay, inbox, live feed, explorer, projects, jobs, volunteers, ads) with offline caching and optimistic updates.
+- **Subtask 1.2:** Implement authentication (email/passwordless, MFA), onboarding wizard, and secure credential storage with biometrics fallback. **Status: 100% – Flutter login and onboarding now call the hardened Node.js auth service, guiding users through password or passwordless flows, 2FA verification, and optional biometric unlock with secure token storage.**
+- **Subtask 1.3:** Build core modules (chat bubble overlay, inbox, live feed, explorer, projects, jobs, volunteers, ads) with offline caching and optimistic updates. **Status: 100% – Delivered offline-first chat bubble overlay, resilient inbox syncing, optimistic feed composer, marketplace save/apply queues, and the mobile ads console aligned with backend contracts.**
 - **Subtask 1.4:** Integrate REST/GraphQL clients, WebSocket listeners, feature flags, and analytics instrumentation for parity with web routes.
+- **Status: 70% – GraphQL gateway, feature flag service, and realtime feed listeners now power production-ready profile and feed flows; authentication token wiring and auto-telemetry dashboards remain.**
 - **Subtask 1.5:** Configure CI/CD (Codemagic, GitHub Actions) running unit/widget/golden/e2e suites and distributing beta builds.
 - **Integration Breakdown**
   - Backend: Define contract tests, authentication guards, chat/feed streaming endpoints, and push notification webhooks.

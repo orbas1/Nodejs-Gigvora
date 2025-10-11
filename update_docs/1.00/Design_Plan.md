@@ -16,7 +16,9 @@ Deliver a cohesive, themeable Gigvora experience that makes talent discovery, bo
 - **Discovery Feed**: Modular hero carousel, segmented feed (For You / Trending / Near You), and card-based community spotlights with theme overlays.
 - **Booking Workflow**: Four-step stepper (Package → Customise → Schedule → Confirm) with sticky pricing summary, inline validation, and compliance copy tied to product area.
 - **Experience Launchpad & Volunteers**: Dedicated dashboards surfaced through discovery filters with new cards highlighting readiness status, required actions, and CTA to book or join.
-- **Messages & Support**: Consolidated inbox with status pills, quick actions, and support escalation entry points; chat composer includes templates, attachments, and theme-aware stickers.
+- **Messages & Support**: Consolidated inbox with status pills, quick actions, and support escalation entry points; chat composer includes templates, attachments, and theme-aware stickers, plus offline send queues, deterministic retries, and accessibility-compliant overlays for long sessions.
+- **Ads & Monetisation**: Dedicated tab with campaign list, pacing meters, and multi-step composer covering targeting, creatives, budget, and scheduling; includes offline draft autosave and compliance banners for financial disclosures.
+- **Profile & Reputation**: Dynamic profile canvas combining headline, metrics, availability, programme affiliations, and experience timeline with design hooks for analytics, feature flags, and real-time status messaging shared with the live feed.
 
 ### Responsive Web Experience (React)
 - **Homepage**: 12-column fluid grid with hero, trust carousel, dynamic catalogue, and “Start a Request” CTA bars built from partials so marketing can mix hero, themed imagery, and testimonials per campaign.
@@ -38,7 +40,7 @@ Deliver a cohesive, themeable Gigvora experience that makes talent discovery, bo
 - **Typography**: Inter family scale with Display, Title, Headline, Body, Label tokens; ensures WCAG AA at minimum.
 
 ## Content & Copy Strategy
-- **Microcopy Playbooks**: Tone of voice guidelines (Professional, Energetic, Empathetic) with placeholders for dynamic data; includes compliance-provided disclaimers for escrow, biometric consent, and privacy.
+- **Microcopy Playbooks**: Tone of voice guidelines (Professional, Energetic, Empathetic) with placeholders for dynamic data; includes compliance-provided disclaimers for escrow, biometric consent, privacy, ads targeting disclosures, and offline risk messaging.
 - **Localisation**: Strings mapped to translation keys with length guardrails; partial templates include dynamic slots for left-to-right and right-to-left languages.
 - **SEO & Schema**: Homepage and landing partials embed schema.org metadata, canonical tags, and open graph updates.
 
@@ -51,10 +53,11 @@ Deliver a cohesive, themeable Gigvora experience that makes talent discovery, bo
 - **Design Review Cadence**: Twice-weekly triad reviews (Design, Product, Engineering) plus monthly compliance checkpoints.
 - **Design QA**: Dedicated checklist covering token integrity, theme switching, accessibility, error states, and content accuracy before handing to development.
 - **Documentation**: Design spec pages for each component, annotated Figma frames, and JSON exports for tokens and component metadata.
-- **Rollout Plan**: Internal pilot (Week 6), beta release with theme toggles (Week 8), staged launch aligned with Milestone 4 readiness (Week 12), final GA with marketing campaigns (Week 14+).
+- **Rollout Plan**: Internal pilot (Week 6), beta release with theme toggles (Week 8), staged launch aligned with Milestone 4 readiness (Week 12), final GA with marketing campaigns (Week 14+), and post-launch monitoring for chat/feed queue health and ads pacing accuracy.
 
 ## Dependencies & Risks
 - CMS upgrades required for hero partial injection and dynamic testimonials (owned by Web Platform squad).
 - Illustration backlog at 30% outstanding for Experience Launchpad and Volunteers; requires contract illustrators.
 - Theme-switch testing depends on engineering delivering runtime toggles within React and Flutter before QA cycles.
 - Accessibility audit slots secured for Week 9; delays will postpone compliance sign-off.
+- Ads budgeting compliance requires final FCA sign-off on copy and review of wallet/ads shared components before GA.

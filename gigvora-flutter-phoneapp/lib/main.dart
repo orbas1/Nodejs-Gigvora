@@ -47,10 +47,17 @@ class GigvoraApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = ref.watch(appThemeProvider);
     final router = ref.watch(appRouterProvider);
+    ref.watch(featureFlagsBootstrapProvider);
 
     ref.listen<AsyncValue<void>>(analyticsBootstrapProvider, (_, next) {
       next.whenOrNull(error: (error, stackTrace) {
         debugPrint('Analytics bootstrap failed: $error');
+      });
+    });
+
+    ref.listen<AsyncValue<void>>(featureFlagsBootstrapProvider, (_, next) {
+      next.whenOrNull(error: (error, stackTrace) {
+        debugPrint('Feature flag bootstrap failed: $error');
       });
     });
 

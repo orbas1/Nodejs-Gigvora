@@ -16,12 +16,12 @@
 - **Subtask 2.5:** Prototype seasonal emo themes (Creator Pulse, Studio Noir) and validate them through contrast testing and brand review.
 - **Subtask 2.6:** Create imagery and iconography guidelines including compression budgets and theming overlays.
 
-## Task 3 – Mobile Application Experience Redesign (28% Complete)
-- **Subtask 3.1:** Produce high-fidelity designs for navigation shell, discovery feed, booking flow, Launchpad, Volunteers, wallet, and messaging modules.
-- **Subtask 3.2:** Define interaction specs for motion, gestures, and haptics across the redesigned flows, including idle-state interventions.
-- **Subtask 3.3:** Annotate compliance, privacy, and biometric consent copy across relevant screens with localisation placeholders.
-- **Subtask 3.4:** Create asset kits (icons, illustrations, overlays) sized for Flutter and provider mobile builds.
-- **Subtask 3.5:** Run moderated usability testing with segmented participants (new talent, returning clients, agencies) and capture iteration backlog.
+## Task 3 – Mobile Application Experience Redesign (46% Complete)
+- **Subtask 3.1:** Produce high-fidelity designs for navigation shell, discovery feed, booking flow, Launchpad, Volunteers, wallet, and messaging modules. **Status: 88% – Messaging overlay, live feed composer, marketplace engagement, and ads console are now documented with multi-state boards; refreshed profile detail canvas and live feed streaming banners signed off, wallet refinements remain.**
+- **Subtask 3.2:** Define interaction specs for motion, gestures, and haptics across the redesigned flows, including idle-state interventions. **Status: 55% – Motion annotations added for chat bubble expansion, optimistic feed sends, and campaign composer success, with haptic ramps pending for wallet and booking.**
+- **Subtask 3.3:** Annotate compliance, privacy, and biometric consent copy across relevant screens with localisation placeholders. **Status: 65% – Chat, feed, and ads flows now include offline disclosures, biometric escalation copy, and localisation notes; volunteer waivers scheduled next sprint.**
+- **Subtask 3.4:** Create asset kits (icons, illustrations, overlays) sized for Flutter and provider mobile builds. **Status: 60% – Delivered vector icon updates for chat states, ads cards, and offline badges; volunteer illustrations and wallet glyphs still in progress.**
+- **Subtask 3.5:** Run moderated usability testing with segmented participants (new talent, returning clients, agencies) and capture iteration backlog. **Status: 35% – Remote tests covering chat overlay and live feed composer completed; follow-up sessions for ads budgeting and volunteer commitments booked.**
 
 ## Task 4 – Web Experience Redesign (24% Complete)
 - **Subtask 4.1:** Recompose homepage, marketing landing pages, and knowledge base using the new partial template system.
