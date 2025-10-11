@@ -5,6 +5,7 @@ import MomentumSection from '../components/MomentumSection.jsx';
 import OpportunitySections from '../components/OpportunitySections.jsx';
 import TestimonialsSection from '../components/TestimonialsSection.jsx';
 import CTASection from '../components/CTASection.jsx';
+import ProductShowcase from '../components/ProductShowcase.jsx';
 
 export default function HomePage() {
   return (
@@ -13,6 +14,7 @@ export default function HomePage() {
       <PartnerStrip />
       <FeatureGrid />
       <MomentumSection />
+      <ProductShowcase />
       <OpportunitySections />
       <TestimonialsSection />
       <CTASection />
