@@ -1,10 +1,10 @@
 # Version 1.00 Design Update – Task List
 
-## Task 1 – Discovery & Alignment (15% Complete)
+## Task 1 – Discovery & Alignment (20% Complete)
 - **Subtask 1.1:** Consolidate research from mobile, web, provider, Experience Launchpad, and Volunteers interviews into a unified insight report.
 - **Subtask 1.2:** Map end-to-end journeys and service blueprints highlighting breakpoints where theme or content variations are required.
 - **Subtask 1.3:** Facilitate triad alignment workshops (Design, Product, Engineering) to finalise IA, navigation, and scope for new pages.
-- **Subtask 1.4:** Produce measurement framework covering success metrics, analytics tags, and qualitative study cadence.
+- **Subtask 1.4:** Produce measurement framework covering success metrics, analytics tags, and qualitative study cadence. **Status: 80% – Secure session telemetry now streams mobile metrics into analytics, unlocking dashboard data for tagging guides; pending stakeholder workshop to finalise qualitative cadence.**
 - **Subtask 1.5:** Document risks, assumptions, and dependencies for sign-off in the design steering committee.
 
 ## Task 2 – Design System & Tokenisation (32% Complete)
@@ -30,8 +30,9 @@
 - **Subtask 4.4:** Implement theming and theme-switch behaviour across React components, including hero, testimonial, and CTA partials.
 - **Subtask 4.5:** Create CMS-ready content models for dynamic testimonials, hero modules, and campaign imagery with documentation for marketing teams.
 
-## Task 5 – Quality, Compliance & Accessibility (12% Complete)
+## Task 5 – Quality, Compliance & Accessibility (18% Complete)
 - **Subtask 5.1:** Build design QA checklist covering tokens, theme switching, accessibility, localisation, and data integrity.
+- **Status: 55% – CI golden and integration gates now mirror the checklist, with coverage feeding QA dashboards; remaining work formalises accessibility sign-off scripts.**
 - **Subtask 5.2:** Coordinate WCAG 2.2 AA audit, capture remediation tickets, and verify fixes within design files.
 - **Subtask 5.3:** Partner with compliance to embed FCA, GDPR, PCI, and security disclosures into relevant templates and copy decks.
 - **Subtask 5.4:** Define non-functional requirements for performance (asset budgets, skeleton states) and error handling across platforms.
