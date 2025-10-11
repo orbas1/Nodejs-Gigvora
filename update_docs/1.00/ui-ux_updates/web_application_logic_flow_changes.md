@@ -25,6 +25,7 @@
 2. **Category handling:** Results partitioned by category, each using tailored metadata renderers for cards.
 3. **Analytics instrumentation:** Search interactions track queries, filters, and result openings via analytics service.
 4. **Status feedback:** `DataStatus` component communicates loading, cache usage, last-updated timestamp, and refresh actions.
+5. **Meilisearch integration:** Result hydration now consumes Meilisearch freshness scoring, remote-role flags, and synonym-driven chip filters, falling back to Sequelize listings if the cluster is unreachable.
 
 ## Marketplace Pages (Jobs/Gigs/Projects/Launchpad/Volunteering)
 1. **Shared sections:** Each page reuses hero, filter controls, and list components to maintain familiarity.

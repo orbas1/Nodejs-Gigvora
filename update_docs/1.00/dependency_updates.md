@@ -10,3 +10,4 @@
 
 ## Backend
 - Added `supertest` to the Node.js backend devDependencies so HTTP controller flows can be validated end-to-end alongside service-level Jest suites.
+- Introduced the `meilisearch` Node client to provision, configure, and query the discovery cluster from the backend service and CLI ingestion job.

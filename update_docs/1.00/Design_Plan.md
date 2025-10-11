@@ -22,6 +22,7 @@ Deliver a cohesive, themeable Gigvora experience that makes talent discovery, bo
 
 ### Responsive Web Experience (React)
 - **Engagement Feed**: Dialect-aware ranking, viewer state (reaction/share), moderation controls, and analytics tagging powering the refreshed feed across platforms; includes optimistic comment and share flows with accessibility copy.
+- **Explorer & Search**: Interfaces now reference live Meilisearch indexes with freshness scoring, remote-role badges, and synonym-driven filter chips so saved searches, alerts, and launchpad/volunteer pivots mirror production relevance.
 - **Homepage**: 12-column fluid grid with hero, trust carousel, dynamic catalogue, and “Start a Request” CTA bars built from partials so marketing can mix hero, themed imagery, and testimonials per campaign.
 - **Navigation**: Mega-menu featuring creator categories, Experience Launchpad, Volunteers, Agencies, and Monetisation; persistent search and account controls.
 - **Booking & Checkout**: Single-page configurator with step indicators, sticky summary, inline error states, and compliance tooltips.

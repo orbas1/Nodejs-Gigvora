@@ -9,6 +9,10 @@ import {
 } from '../models/index.js';
 import { ApplicationError, ValidationError } from '../utils/errors.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
+import {
+  searchOpportunityIndex,
+  searchAcrossOpportunityIndexes,
+} from './searchIndexService.js';
 
 const DIALECT = sequelize.getDialect();
 const SNAPSHOT_CACHE_TTL_SECONDS = 60;
@@ -128,6 +132,24 @@ async function listOpportunities(category, { page, pageSize, query } = {}) {
   const safeSize = normalisePageSize(pageSize);
   const offset = (safePage - 1) * safeSize;
 
+  const searchQuery = query?.trim() ?? '';
+
+  const searchResult = await searchOpportunityIndex(
+    category,
+    { query: searchQuery, page: safePage, pageSize: safeSize },
+  );
+
+  if (searchResult) {
+    const totalPages = Math.max(1, Math.ceil(searchResult.total / safeSize));
+    return {
+      items: searchResult.hits.map((hit) => toOpportunityDto(hit, category)),
+      total: searchResult.total,
+      page: safePage,
+      pageSize: safeSize,
+      totalPages,
+    };
+  }
+
   const where = buildSearchWhereClause(category, query);
 
   let rows;
@@ -213,6 +235,20 @@ export async function searchOpportunitiesAcrossCategories(query, { limit } = {})
       projects: [],
       launchpads: [],
       volunteering: [],
+    };
+  }
+
+  const searchHits = await searchAcrossOpportunityIndexes(trimmed, { limit: safeLimit });
+
+  if (searchHits) {
+    return {
+      jobs: (searchHits.job ?? []).map((hit) => toOpportunityDto(hit, 'job')),
+      gigs: (searchHits.gig ?? []).map((hit) => toOpportunityDto(hit, 'gig')),
+      projects: (searchHits.project ?? []).map((hit) => toOpportunityDto(hit, 'project')),
+      launchpads: (searchHits.launchpad ?? []).map((hit) => toOpportunityDto(hit, 'launchpad')),
+      volunteering: (searchHits.volunteering ?? []).map((hit) =>
+        toOpportunityDto(hit, 'volunteering'),
+      ),
     };
   }
 
