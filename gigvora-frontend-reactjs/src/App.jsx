@@ -15,6 +15,7 @@ import VolunteeringPage from './pages/VolunteeringPage.jsx';
 import AdminLoginPage from './pages/AdminLoginPage.jsx';
 import GroupsPage from './pages/GroupsPage.jsx';
 import ConnectionsPage from './pages/ConnectionsPage.jsx';
+import TrustCenterPage from './pages/TrustCenter.jsx';
 
 export default function App() {
   return (
@@ -34,6 +35,7 @@ export default function App() {
         <Route path="volunteering" element={<VolunteeringPage />} />
         <Route path="groups" element={<GroupsPage />} />
         <Route path="connections" element={<ConnectionsPage />} />
+        <Route path="trust-center" element={<TrustCenterPage />} />
       </Route>
       <Route path="admin" element={<AdminLoginPage />} />
     </Routes>

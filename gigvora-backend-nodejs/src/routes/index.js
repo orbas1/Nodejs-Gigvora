@@ -6,6 +6,7 @@ import searchRoutes from './searchRoutes.js';
 import discoveryRoutes from './discoveryRoutes.js';
 import analyticsRoutes from './analyticsRoutes.js';
 import messagingRoutes from './messagingRoutes.js';
+import trustRoutes from './trustRoutes.js';
 
 const router = Router();
 
@@ -16,5 +17,6 @@ router.use('/search', searchRoutes);
 router.use('/discovery', discoveryRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/messaging', messagingRoutes);
+router.use('/trust', trustRoutes);
 
 export default router;

@@ -28,9 +28,10 @@
 - Support entry points (chat, FAQs) appear when user hesitates (detected via idle timers or repeated focus on price fields).
 
 ### Messaging Refresh
-- Redesigned conversation list with status pills (New, Awaiting Reply, Action Needed).
-- Rich message composer supporting templates, attachments, and quick-response suggestions.
-- Read receipts and presence indicators harmonised with brand animation language.
+- Redesigned conversation list with status pills (New, Awaiting Reply, Action Needed) tied to SLA timers and analytics counters.
+- Floating chat bubble surfaces messaging across screens, persisting unread counts, support shortcuts, and offline banners in both Flutter and web shells.
+- Rich message composer supporting templates, attachments, and quick-response suggestions with localisation-ready placeholder logic.
+- Read receipts and presence indicators harmonised with brand animation language and accessibility contrast checks.
 
 ## Visual & Interaction System
 - **Typography**: Migrating to Inter family with explicit scale tokens (T-Display, T-Title, T-Body, T-Label).

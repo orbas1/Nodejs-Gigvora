@@ -2,25 +2,24 @@
 
 | Metric | Score (0-100%) | Commentary |
 |--------|----------------|------------|
-| Design Quality Grade | 74% | Messaging, feed, profile, marketplace, and ads journeys now carry production-ready storyboards with offline, streaming, and support escalation states, leaving wallet and volunteer visuals as the remaining gap. |
-| Design Organisation Grade | 70% | Component inventories now reference CI/CD guardrails, backend controller contracts, and shared analytics taxonomy; provider analytics taxonomy still requires approval. |
-| Design Position Grade | 58% | Engagement narrative strengthened with ads monetisation storyline; volunteer differentiators continue to need clearer proof points. |
-| Design Text Grade | 62% | Offline/biometric disclosures and ads compliance copy delivered; marketing tone localisation still underway. |
-| Design Colour Grade | 73% | Emo theme overlays validated against new chat/feed states; Studio Noir contrast testing outstanding. |
-| Design Render Grade | 63% | High-fidelity renders cover profile, feed streaming, and 75% of critical states including offline and success variants; responsive breakpoints for wallet in progress. |
-| Compliance Grade | 58% | Privacy notices for chat overlays and ads targeting approved; escalation SLAs and assignment copy now align with backend workflows, with FCA finance copy for volunteer stipends pending. |
-| Security Grade | 72% | Biometric escalation, session handoff, and offline queue risk messaging now pair with secure token propagation plus CI-enforced telemetry dashboards; agency secure theming controls still untested. |
-| Design Functionality Grade | 75% | Interaction specs cover optimistic updates, realtime feed reconnection, retry logic, ads campaign publishing, and support-case timelines with controller-aware payload notes; wallet failure flows remain queued. |
-| Design Images Grade | 55% | New iconography for chat presence, offline badges, and ads pacing delivered; volunteer illustration backlog persists. |
-| Design Usability Grade | 66% | Remote usability sessions validated chat overlay, feed composer clarity, and profile metric comprehension; escalation timeline prototypes cleared additional walkthroughs, while ads budgeting clarity still needs follow-up. |
-| Bugs-Less Grade | 66% | Design bugs resolved for chat overlay stacking context and feed composer focus handling; CI golden baselines now flag regressions early, with remaining issues limited to volunteer flows. |
-| Test Grade | 62% | Automated golden, widget, and integration suites now run in CI alongside moderated usability; accessibility audits remain pending scheduling. |
-| QA Grade | 66% | QA checklist executed for chat/feed/ads journeys with annotated acceptance criteria, and CI gates now enforce the checklist across builds; support-case overlays now mirrored in QA scripts while wallet and volunteer passes remain outstanding. |
-| Design Accuracy Grade | 64% | Engineering sign-off received for chat/feed/ads specs with responsive annotations; provider analytics still lacks final breakpoints. |
-| Overall Grade | 68% | Engagement suite designs remain production-ready with CI/CD guarding visual fidelity, telemetry-backed dashboards, and REST-aligned support flows; compliance sign-off and imagery completion remain key blockers to GA. |
-
+| Design Quality Grade | 85% | Floating chat bubble, live feed engagement suites, Trust Center dashboard, and operations runbook assets now ship with production-ready annotations spanning offline, streaming, and compliance states; wallet refunds remain the final refresh. |
+| Design Organisation Grade | 80% | Component inventories incorporate Trust Center KPI tiles, release tables, and dispute cards with ownership metadata, and include cross-squad traceability to analytics taxonomy owners. |
+| Design Position Grade | 74% | Engagement and trust narratives now extend into finance/compliance storytelling, pairing release/refund messaging with transparency copy; volunteer differentiators still pending persona testing. |
+| Design Text Grade | 74% | Inbox microcopy, escalation SLA labels, trust disclosures, and evidence retention copy aligned with legal review and stitched into localisation frames for both chat and Trust Center flows. |
+| Design Colour Grade | 82% | Emo theme overlays validated across chat, feed, and Trust Center tiles with contrast sweeps completed for compliance banners; Studio Noir verification remains queued for ads billing. |
+| Design Render Grade | 84% | High-fidelity renders span feed breakpoints, chat overlays, Trust Center desktop/tablet/mobile, and operations banners; wallet settlement renders remain outstanding. |
+| Compliance Grade | 78% | Privacy banners, escrow disclosures, Cloudflare R2 evidence copy, and dispute SLAs ratified by compliance with retention notes logged alongside the runbook; FCA volunteer stipend review scheduled next sprint. |
+| Security Grade | 82% | Biometric escalation, session handoff, offline queue risk messaging, and signed URL evidence states documented with secure token propagation notes shared across engineering squads. |
+| Design Functionality Grade | 86% | Interaction specs cover optimistic updates, realtime reconnection, mediation timeline changes, audit trails, and analytics tagging with controller payload schemas for engineering reference. |
+| Design Images Grade | 68% | New iconography for chat presence, release success, and dispute stages delivered; volunteer illustration backlog reduced to three final states pending art direction. |
+| Design Usability Grade | 80% | Remote usability sessions validated chat overlay comprehension, Trust Center KPI legibility, and release workflows; campaign storytelling follow-up remains scheduled. |
+| Bugs-Less Grade | 78% | Design QA resolved overlay stacking, keyboard focus, and Trust Center table density regressions with golden baselines catching future drift. |
+| Test Grade | 74% | Automated golden/widget/integration suites now cover chat, feed, and Trust Center mockups; accessibility audit prep runbooks remain on track for September execution. |
+| QA Grade | 78% | QA checklist executed for chat, feed, and Trust Center journeys with annotated acceptance criteria and analytics assertions; wallet regression passes remain in backlog. |
+| Design Accuracy Grade | 78% | Engineering sign-off confirmed for chat bubble, feed ranking, Trust Center specs, and responsive annotations; provider analytics breakpoints still awaiting validation. |
+| Overall Grade | 82% | Engagement and trust suite designs are launch-ready with cross-platform parity, analytics coverage, and compliance alignment while imagery and wallet specs complete. |
 ## Immediate Priorities
-1. Finalise FCA/GDPR reviews for ads budgeting and volunteer stipends to lift compliance scores above 70% before development lock-in.
-2. Allocate illustration resources to finish Launchpad and Volunteer states, improving imagery and render grades.
-3. Extend moderated usability tests to wallet budgeting and volunteer commitments; integrate findings into backlog.
-4. Expand design QA execution to wallet and volunteer journeys to keep parity with engineering delivery.
+1. Close FCA/GDPR reviews for volunteer stipends and ads budgeting artefacts so compliance clears the 80% gate before GA.
+2. Commission final volunteer illustration states and wallet settlement renders to unlock imagery/render sign-off.
+3. Run moderated usability sessions on campaign storytelling flows and provider analytics dashboards to validate remaining copy and breakpoints.
+4. Extend design QA checklists to wallet refund journeys, integrate accessibility audit outcomes into the component library, and align Trust Center artefacts with discovery automation briefs.

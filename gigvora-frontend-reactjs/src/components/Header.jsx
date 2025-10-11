@@ -13,6 +13,7 @@ const navLinks = [
   { to: '/experience-launchpad', label: 'Launchpad' },
   { to: '/volunteering', label: 'Volunteering' },
   { to: '/groups', label: 'Groups' },
+  { to: '/trust-center', label: 'Trust Center' },
 ];
 
 export default function Header() {

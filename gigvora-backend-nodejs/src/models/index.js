@@ -39,6 +39,29 @@ export const PROVIDER_WORKSPACE_MEMBER_ROLES = ['owner', 'admin', 'manager', 'st
 export const PROVIDER_WORKSPACE_MEMBER_STATUSES = ['pending', 'active', 'suspended', 'revoked'];
 export const PROVIDER_WORKSPACE_INVITE_STATUSES = ['pending', 'accepted', 'expired', 'revoked'];
 export const PROVIDER_CONTACT_NOTE_VISIBILITIES = ['internal', 'shared', 'compliance'];
+export const ESCROW_ACCOUNT_STATUSES = ['pending', 'active', 'suspended', 'closed'];
+export const ESCROW_TRANSACTION_TYPES = ['project', 'gig', 'milestone', 'retainer'];
+export const ESCROW_TRANSACTION_STATUSES = [
+  'initiated',
+  'funded',
+  'in_escrow',
+  'released',
+  'refunded',
+  'cancelled',
+  'disputed',
+];
+export const DISPUTE_STAGES = ['intake', 'mediation', 'arbitration', 'resolved'];
+export const DISPUTE_STATUSES = ['open', 'awaiting_customer', 'under_review', 'settled', 'closed'];
+export const DISPUTE_PRIORITIES = ['low', 'medium', 'high', 'urgent'];
+export const DISPUTE_ACTION_TYPES = [
+  'comment',
+  'evidence_upload',
+  'deadline_adjusted',
+  'stage_advanced',
+  'status_change',
+  'system_notice',
+];
+export const DISPUTE_ACTOR_TYPES = ['customer', 'provider', 'mediator', 'admin', 'system'];
 
 export const User = sequelize.define(
   'User',
@@ -817,6 +840,247 @@ ProviderContactNote.prototype.toPublicObject = function toPublicObject() {
   return this.get({ plain: true });
 };
 
+export const EscrowAccount = sequelize.define(
+  'EscrowAccount',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    provider: { type: DataTypes.STRING(80), allowNull: false },
+    externalId: { type: DataTypes.STRING(120), allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...ESCROW_ACCOUNT_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+    },
+    currencyCode: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    currentBalance: { type: DataTypes.DECIMAL(18, 4), allowNull: false, defaultValue: 0 },
+    pendingReleaseTotal: { type: DataTypes.DECIMAL(18, 4), allowNull: false, defaultValue: 0 },
+    metadata: { type: jsonType, allowNull: true },
+    lastReconciledAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'escrow_accounts',
+    indexes: [
+      { fields: ['userId'] },
+      { fields: ['provider'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+EscrowAccount.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    provider: plain.provider,
+    externalId: plain.externalId,
+    status: plain.status,
+    currencyCode: plain.currencyCode,
+    currentBalance: Number.parseFloat(plain.currentBalance ?? 0),
+    pendingReleaseTotal: Number.parseFloat(plain.pendingReleaseTotal ?? 0),
+    lastReconciledAt: plain.lastReconciledAt,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const EscrowTransaction = sequelize.define(
+  'EscrowTransaction',
+  {
+    accountId: { type: DataTypes.INTEGER, allowNull: false },
+    reference: { type: DataTypes.STRING(120), allowNull: false },
+    externalId: { type: DataTypes.STRING(120), allowNull: true },
+    type: {
+      type: DataTypes.ENUM(...ESCROW_TRANSACTION_TYPES),
+      allowNull: false,
+      defaultValue: 'project',
+    },
+    status: {
+      type: DataTypes.ENUM(...ESCROW_TRANSACTION_STATUSES),
+      allowNull: false,
+      defaultValue: 'initiated',
+    },
+    amount: {
+      type: DataTypes.DECIMAL(18, 4),
+      allowNull: false,
+      validate: { min: 0 },
+    },
+    currencyCode: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    feeAmount: { type: DataTypes.DECIMAL(18, 4), allowNull: false, defaultValue: 0 },
+    netAmount: { type: DataTypes.DECIMAL(18, 4), allowNull: false, defaultValue: 0 },
+    initiatedById: { type: DataTypes.INTEGER, allowNull: false },
+    counterpartyId: { type: DataTypes.INTEGER, allowNull: true },
+    projectId: { type: DataTypes.INTEGER, allowNull: true },
+    gigId: { type: DataTypes.INTEGER, allowNull: true },
+    milestoneLabel: { type: DataTypes.STRING(180), allowNull: true },
+    scheduledReleaseAt: { type: DataTypes.DATE, allowNull: true },
+    releasedAt: { type: DataTypes.DATE, allowNull: true },
+    refundedAt: { type: DataTypes.DATE, allowNull: true },
+    cancelledAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    auditTrail: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'escrow_transactions',
+    indexes: [
+      { fields: ['accountId'] },
+      { fields: ['reference'], unique: true },
+      { fields: ['status'] },
+      { fields: ['projectId'] },
+      { fields: ['gigId'] },
+      { fields: ['scheduledReleaseAt'] },
+    ],
+  },
+);
+
+EscrowTransaction.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    accountId: plain.accountId,
+    reference: plain.reference,
+    externalId: plain.externalId,
+    type: plain.type,
+    status: plain.status,
+    amount: Number.parseFloat(plain.amount ?? 0),
+    currencyCode: plain.currencyCode,
+    feeAmount: Number.parseFloat(plain.feeAmount ?? 0),
+    netAmount: Number.parseFloat(plain.netAmount ?? 0),
+    initiatedById: plain.initiatedById,
+    counterpartyId: plain.counterpartyId,
+    projectId: plain.projectId,
+    gigId: plain.gigId,
+    milestoneLabel: plain.milestoneLabel,
+    scheduledReleaseAt: plain.scheduledReleaseAt,
+    releasedAt: plain.releasedAt,
+    refundedAt: plain.refundedAt,
+    cancelledAt: plain.cancelledAt,
+    metadata: plain.metadata,
+    auditTrail: plain.auditTrail,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const DisputeCase = sequelize.define(
+  'DisputeCase',
+  {
+    escrowTransactionId: { type: DataTypes.INTEGER, allowNull: false },
+    openedById: { type: DataTypes.INTEGER, allowNull: false },
+    assignedToId: { type: DataTypes.INTEGER, allowNull: true },
+    stage: {
+      type: DataTypes.ENUM(...DISPUTE_STAGES),
+      allowNull: false,
+      defaultValue: 'intake',
+    },
+    status: {
+      type: DataTypes.ENUM(...DISPUTE_STATUSES),
+      allowNull: false,
+      defaultValue: 'open',
+    },
+    priority: {
+      type: DataTypes.ENUM(...DISPUTE_PRIORITIES),
+      allowNull: false,
+      defaultValue: 'medium',
+    },
+    reasonCode: { type: DataTypes.STRING(80), allowNull: false },
+    summary: { type: DataTypes.TEXT, allowNull: false },
+    customerDeadlineAt: { type: DataTypes.DATE, allowNull: true },
+    providerDeadlineAt: { type: DataTypes.DATE, allowNull: true },
+    resolutionNotes: { type: DataTypes.TEXT, allowNull: true },
+    openedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    resolvedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'dispute_cases',
+    indexes: [
+      { fields: ['escrowTransactionId'] },
+      { fields: ['stage'] },
+      { fields: ['status'] },
+      { fields: ['priority'] },
+      { fields: ['openedById'] },
+    ],
+  },
+);
+
+DisputeCase.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    escrowTransactionId: plain.escrowTransactionId,
+    openedById: plain.openedById,
+    assignedToId: plain.assignedToId,
+    stage: plain.stage,
+    status: plain.status,
+    priority: plain.priority,
+    reasonCode: plain.reasonCode,
+    summary: plain.summary,
+    customerDeadlineAt: plain.customerDeadlineAt,
+    providerDeadlineAt: plain.providerDeadlineAt,
+    resolutionNotes: plain.resolutionNotes,
+    openedAt: plain.openedAt,
+    resolvedAt: plain.resolvedAt,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const DisputeEvent = sequelize.define(
+  'DisputeEvent',
+  {
+    disputeCaseId: { type: DataTypes.INTEGER, allowNull: false },
+    actorId: { type: DataTypes.INTEGER, allowNull: true },
+    actorType: {
+      type: DataTypes.ENUM(...DISPUTE_ACTOR_TYPES),
+      allowNull: false,
+      defaultValue: 'system',
+    },
+    actionType: {
+      type: DataTypes.ENUM(...DISPUTE_ACTION_TYPES),
+      allowNull: false,
+      defaultValue: 'comment',
+    },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    evidenceKey: { type: DataTypes.STRING(255), allowNull: true },
+    evidenceUrl: { type: DataTypes.TEXT, allowNull: true },
+    evidenceFileName: { type: DataTypes.STRING(180), allowNull: true },
+    evidenceContentType: { type: DataTypes.STRING(80), allowNull: true },
+    eventAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'dispute_events',
+    indexes: [
+      { fields: ['disputeCaseId'] },
+      { fields: ['actorType'] },
+      { fields: ['actionType'] },
+    ],
+  },
+);
+
+DisputeEvent.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    disputeCaseId: plain.disputeCaseId,
+    actorId: plain.actorId,
+    actorType: plain.actorType,
+    actionType: plain.actionType,
+    notes: plain.notes,
+    evidenceKey: plain.evidenceKey,
+    evidenceUrl: plain.evidenceUrl,
+    evidenceFileName: plain.evidenceFileName,
+    evidenceContentType: plain.evidenceContentType,
+    eventAt: plain.eventAt,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 User.hasOne(Profile, { foreignKey: 'userId' });
 Profile.belongsTo(User, { foreignKey: 'userId' });
 
@@ -893,6 +1157,23 @@ ProviderContactNote.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as
 ProviderContactNote.belongsTo(User, { foreignKey: 'authorId', as: 'author' });
 ProviderContactNote.belongsTo(User, { foreignKey: 'subjectUserId', as: 'subject' });
 
+User.hasMany(EscrowAccount, { foreignKey: 'userId', as: 'escrowAccounts' });
+EscrowAccount.belongsTo(User, { foreignKey: 'userId', as: 'owner' });
+EscrowAccount.hasMany(EscrowTransaction, { foreignKey: 'accountId', as: 'transactions' });
+
+EscrowTransaction.belongsTo(EscrowAccount, { foreignKey: 'accountId', as: 'account' });
+EscrowTransaction.belongsTo(User, { foreignKey: 'initiatedById', as: 'initiator' });
+EscrowTransaction.belongsTo(User, { foreignKey: 'counterpartyId', as: 'counterparty' });
+EscrowTransaction.hasMany(DisputeCase, { foreignKey: 'escrowTransactionId', as: 'disputes' });
+
+DisputeCase.belongsTo(EscrowTransaction, { foreignKey: 'escrowTransactionId', as: 'transaction' });
+DisputeCase.belongsTo(User, { foreignKey: 'openedById', as: 'openedBy' });
+DisputeCase.belongsTo(User, { foreignKey: 'assignedToId', as: 'assignedTo' });
+DisputeCase.hasMany(DisputeEvent, { foreignKey: 'disputeCaseId', as: 'events' });
+
+DisputeEvent.belongsTo(DisputeCase, { foreignKey: 'disputeCaseId', as: 'disputeCase' });
+DisputeEvent.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
+
 export default {
   sequelize,
   User,
@@ -925,4 +1206,8 @@ export default {
   ProviderWorkspaceMember,
   ProviderWorkspaceInvite,
   ProviderContactNote,
+  EscrowAccount,
+  EscrowTransaction,
+  DisputeCase,
+  DisputeEvent,
 };
