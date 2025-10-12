@@ -35,3 +35,7 @@
 - `POST /api/trust/disputes` opens dispute cases with stage, status, and deadline scaffolding to power mediation workflows.
 - `POST /api/trust/disputes/:disputeId/events` logs dispute actions, uploads evidence to Cloudflare R2, and optionally advances stages/statuses or applies escrow resolutions.
 - `GET /api/trust/overview` surfaces aggregated escrow totals, dispute workload, release ageing buckets, and queue snapshots for the React Trust Center dashboard.
+
+## Project & Auto-Assign APIs
+- `PATCH /api/projects/:projectId` now updates project metadata (title, description, status, budget, geo) while emitting transactional assignment events and optionally regenerating the auto-assign queue in the same commit.
+- `PATCH /api/projects/:projectId/auto-assign` continues to toggle the auto-assign programme but now emits `auto_assign_enabled` and `auto_assign_queue_regenerated` events when re-running the queue.

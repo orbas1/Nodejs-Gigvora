@@ -18,3 +18,7 @@
 - New controller encapsulates escrow lifecycle endpoints (`createEscrowAccount`, `initiateEscrow`, `releaseEscrow`, `refundEscrow`) returning service-layer projections for dashboards.
 - `createDispute` and `appendDisputeEvent` map to dispute workflows, forwarding evidence payloads to Cloudflare R2 via the service and returning updated dispute/transaction state.
 - `getTrustOverview` consolidates escrow totals, dispute queues, and release ageing buckets into a single payload used by the React Trust Center.
+
+## Project Controller (`src/controllers/projectController.js`)
+- Added `update` action to accept partial project updates, hydrate actor IDs, and delegate to the transactional project service so metadata edits, budget adjustments, and queue regeneration happen atomically.
+- `toggleAutoAssign` now bubbles up the richer payload emitted by the service (including regenerated queue entries) to keep the new project workspace in sync without an extra fetch.

@@ -11,6 +11,7 @@
 - **Inputs:** Rounded 16px corners, filled backgrounds, accent-focused border on focus, label text in `#475569` for softer guidance.
 - **Chips:** Rounded 20px, pale blue background `#EFF6FF`, accent text; used for filters, metadata, and statuses.
 - **Cards:** Shared `GigvoraCard` widget with 24px radius, light border, and drop shadow `rgba(30,41,59,0.08)` to mimic web cards.
+- **Auto-assign queue cards:** `GigvoraCard` variant introduces `borderLeft` accent stripes keyed off score tiers (emerald/amber/rose) with countdown chips rendered as `FilledButton.tonal` using the mono type ramp (`LabelSmall`) to keep timers legible. Accept/Decline buttons map to primary/destructive styles with progress indicators that overlay while awaiting backend acknowledgement.
 - **Detail sections:** Section headers `text-lg font-semibold`, content blocks separated by `Divider()` using `Color(0xFFE2E8F0)`.
 - **Bottom sheets:** `RoundedRectangleBorder` radius 28px, top drag handle, accent-coloured confirm button pinned to safe area.
 - **List tiles:** 20px leading icons, 16px vertical padding, trailing arrow tinted accent for navigation clarity.
@@ -19,6 +20,7 @@
 - **Offline/Cache banners:** Amber/danger/neutral palettes for offline, error, and cache states with iconography aligning to Material tokens.
 - **Skeletons:** Placeholder shimmer for lists while fetching; emphasises continuity of layout to avoid jarring shifts.
 - **Snackbars:** Dark slate background, white bold text, floating behaviour for unobtrusive alerts.
+- **Queue nudges:** Dedicated snackbar style with `Color(0xFF0F172A)` background and accent outline, reserved for “assignment expiring” alerts so they stand out from general notifications without clashing with destructive banners.
 - **Success states:** `SnackBar` variant with accent background and white text for confirmation actions; confetti animation reserved for major milestones (profile completion, launchpad graduation).
 - **Error dialogs:** Use accent outline around modal, emphasise destructive CTA with red fill and safe secondary action.
 

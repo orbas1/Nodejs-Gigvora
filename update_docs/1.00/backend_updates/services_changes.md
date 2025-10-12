@@ -18,3 +18,8 @@
 - Encapsulates escrow lifecycle logic: account creation, transaction initiation, release/refund operations, and audit trail enrichment.
 - Provides dispute management utilities covering case creation, event logging, Cloudflare R2 evidence uploads, stage/status transitions, and linked escrow resolutions.
 - Exposes `getTrustOverview` to aggregate escrow totals, dispute load, and release ageing metrics for consumption by operational dashboards.
+
+## projectService.js
+- Introduced transactional helpers to queue assignment events after commit, normalise fairness weights, and regenerate auto-assign queues without losing actor attribution.
+- `updateProjectDetails` now centralises metadata edits, budget governance, and queue refresh logic so project management surfaces remain in sync with a single service call.
+- Auto-assign enable/disable flows share the new helpers, emitting `auto_assign_enabled`, `auto_assign_queue_regenerated`, and change-tracking events for auditability.

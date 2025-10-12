@@ -23,17 +23,21 @@
 - **Trust Center (Aug 09):** Finalised KPI thresholds, operations copy, and evidence health messaging to mirror the signed-off runbook, ensuring design artefacts match the shipped React implementation.
 - **Auth & Admin:** Registration split between individual/company, each using stepped forms with helper text; admin login emphasises secure entry with accent callouts and audit reminders.
 - **Documentation suite:** Version 1.00 now includes detailed component, styling, page, and data specifications under `Web Application Design Update/Version 1.00 update/` for engineering hand-off.
+- **Auto-Assign (Aug 24):** Introduced queue page, scorecard drawer, and eligibility banners. Designs consume backend scoring payloads (skills, availability, launchpad) and surface countdown-aware actions with accessibility annotations, unlocking React implementation of the new auto-assign engine.
+- **Project management workspace (Aug 26):** Added dedicated project detail canvas combining metadata editing cards, fairness weight sliders, queue snapshot tiles, and activity log timelines so regenerative auto-assign flows and programme analytics share a unified blueprint across web and Flutter.
 
 ## User Mobile App Updates
 - **Navigation:** GoRouter initialises at feed; tab-style menu extends to explorer, marketplace verticals, launchpad, volunteering, profile, and admin entry.
 - **Feed & Explorer:** Pull-to-refresh lists, offline/cached banners, skeleton loaders, and analytics-tracked interactions help users stay informed even with intermittent connectivity.
 - **Marketplace:** Shared `OpportunityListScreen` orchestrates jobs/gigs/projects/launchpad/volunteering with search, chips, CTA buttons, and empty-state cards tailored per category.
 - **Profile & Auth:** Profile screen surfaces card-based metrics, while auth flows support freelancer + company registration, emphasising KYC readiness.
+- **Auto-Assign queue:** Added dedicated queue screen with countdown chips, score breakdown, and preference management overlays synchronised with the new backend service. Offline and push-notification states documented to support Riverpod controllers and analytics tagging.
 
 ## Provider App Updates
 - Provider dashboard wireframes introduce pipeline summaries (applications, invites, milestones), quick actions (post opportunity, create launchpad), and compliance banners (escrow status, dispute alerts).
 - Opportunity management emphasises multi-step forms with save states, preview modals, and scheduling pickers for interviews / project milestones.
 - Analytics overlays include ads performance, launchpad throughput, and volunteer impact cards with sparkline visualisations, all using shared accent palettes.
+- Auto-assign hub now mapped with queue table, override modal, KPI cards, and decline-feedback loop to power recruiter decisioning. Designs specify SLA breach states, manual promotion triggers, and audit logging copy that align with the newly merged Node.js endpoints.
 
 ## Accessibility & Quality
 - Web: focus outlines preserved on nav, buttons, chips; large-touch variants for cards; ARIA labelling on CTA groups.

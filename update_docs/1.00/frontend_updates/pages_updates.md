@@ -19,6 +19,15 @@
 - `useMessagingCenter` centralises state management (threads, selected thread, messages) and exports handlers consumed by the bubble UI.
 - `messagingClient.js` and `feedClient.js` encapsulate API calls, attach auth headers, and expose typed responses used by React components.
 
+## Projects Page (`src/pages/ProjectsPage.jsx`)
+- Added "Manage project" CTA linking to the new detail workspace while retaining quick access to the auto-assign queue view.
+- Highlighted auto-assign status and queue size badges to advertise the regenerative fairness engine across the listing cards.
+
+## Project Detail Page (`src/pages/ProjectDetailPage.jsx`)
+- New management surface combining project metadata editing, auto-assign configuration, live queue snapshot, and activity log in a single form.
+- Supports inline fairness tuning (weight sliders, newcomer toggle, max assignments) with one-click queue regeneration and analytics tracking for updates.
+- Renders queue entries with avatars, priority buckets, and score breakdowns while listing recent project assignment events for auditing.
+
 ## Trust Center (`src/pages/TrustCenter.jsx`)
 - New operations dashboard surfaces escrow totals, dispute workload, release queues, and R2 evidence health with blue-branded UI blocks aligned to the design system.
 - Inline release action buttons call the escrow release endpoint and refresh the overview while presenting success/error banners.
