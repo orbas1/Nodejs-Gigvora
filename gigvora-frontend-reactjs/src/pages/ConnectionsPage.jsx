@@ -1,4 +1,5 @@
 import PageHeader from '../components/PageHeader.jsx';
+import UserAvatar from '../components/UserAvatar.jsx';
 
 const connections = [
   {
@@ -6,18 +7,21 @@ const connections = [
     name: 'Sasha Strategist',
     type: 'Follower',
     description: 'Growth strategist exploring collaborations with creative agencies.',
+    seed: 'Sasha Strategist',
   },
   {
     id: 2,
     name: 'Noor Designer',
     type: 'Connection',
     description: 'Product designer from Launchpad Cohort 02 — co-led a fintech design sprint.',
+    seed: 'Noor Designer',
   },
   {
     id: 3,
     name: 'Atlas Agency',
     type: 'Connection',
     description: 'Boutique agency specializing in brand storytelling and motion design.',
+    seed: 'Atlas Agency',
   },
 ];
 
@@ -38,7 +42,10 @@ export default function ConnectionsPage() {
               className="rounded-3xl border border-slate-200 bg-white p-6 transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-soft"
             >
               <div className="flex items-center justify-between text-xs text-slate-500">
-                <span>{connection.type}</span>
+                <span className="inline-flex items-center gap-2">
+                  <UserAvatar name={connection.name} seed={connection.seed} size="xs" showGlow={false} />
+                  {connection.type}
+                </span>
                 <button className="rounded-full border border-slate-200 px-4 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:border-accent hover:text-accent">
                   Message
                 </button>

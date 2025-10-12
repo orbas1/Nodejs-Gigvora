@@ -20,6 +20,7 @@
 - **Accordions & tabs:** `border-b border-slate-200` separators, accent indicator for active tab, smooth height transitions.
 - **Modal overlays:** `bg-slate-900/70` scrim, panel `rounded-3xl` with `p-8` padding, drop shadow `shadow-2xl shadow-slate-900/20`.
 - **Tables:** `table-auto w-full`, header `bg-slate-50 text-slate-500 uppercase tracking-[0.35em]`, row hover `bg-slate-50`.
+- **Auto-assign queue:** Dedicated table variant with `border-l-4` accent stripe indicating score tiers (`border-emerald-500` for >=80, `border-amber-500` for 60–79, `border-rose-500` below 60). Countdown badges use `bg-slate-900 text-white` with `font-mono text-xs` for remaining minutes, and action buttons follow the primary/secondary CTA treatments with inline skeletons to reflect async decisions.
 
 ## Forms & Inputs
 - **Inputs:** `rounded-full` or `rounded-3xl` shapes, `border-slate-200`, `focus:border-accent focus:ring-0`; placeholder text `text-slate-400`.
@@ -37,12 +38,14 @@
 - **Scroll behaviour:** Sticky header ensures nav accessible; gradient overlays fade as user scrolls, maintaining focus on content.
 - **Accordion animation:** `transition-[max-height] duration-300 ease-in-out` for FAQ/accordion components to convey openness.
 - **Button feedback:** `focus-visible:ring-4 focus-visible:ring-accent/30` for strong keyboard cues; `active:translate-y-0.5` for pressed state.
+- **Queue timers:** Countdown badges pulse using `animate-pulse` when <10 minutes remain, and entries fade to 50% opacity before collapsing into the history accordion, mirroring backend expiry semantics.
 
 ## Accessibility
 - **Focus states:** Buttons/links maintain default outline plus accent border on focus for keyboard navigation.
 - **Contrast:** Blue accent on white ensures ratio compliance; dark text on light gradients avoids readability issues.
 - **Responsive nav:** Mobile drawer ensures touch targets sized `px-4 py-2` with adequate spacing.
 - **ARIA labelling:** Tab/accordion components include `aria-expanded` & `aria-controls`; modal containers enforce focus trap.
+- **Score explainers:** The scorecard drawer exposes aria-described-by references for each metric row (skills, availability, launchpad) so screen readers narrate the weighting the backend used, matching the tooltip content.
 - **Skip links:** `sr-only focus:not-sr-only` pattern ensures accessible skip-to-content anchor at top of page.
 
 ## Documentation Reference

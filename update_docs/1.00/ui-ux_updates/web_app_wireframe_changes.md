@@ -41,6 +41,14 @@
 - **Pagination:** Load more button or infinite scroll with progress indicator.
 - **Detail view:** Routed page with hero summary, structured content tabs (Overview, Requirements, Compensation, Company), sticky CTA column, and related opportunities grid.
 - **Alert banners:** Inline notifications for verification requirements or saved searches available for login state.
+- **Auto-assign cues:** Eligible listings display a pill labeled "Auto-assign" with countdown chip. Detail pages surface a slide-over summarising assignment settings (acceptance window, score breakdown) and offer "Decline"/"Accept" actions for matched freelancers.
+
+## Auto-Assign Queue Page
+- **Route:** `/auto-assign` accessible from the header notification icon when pending assignments exist; icon badges remaining count.
+- **Layout:** Two-column layout with queue table left and detail drawer right. Table columns: Opportunity, Type, Score, Time remaining, Status, Actions.
+- **Detail drawer:** Exposes score breakdown bars, required skills list, launchpad alignment, payout summary, and history of previous offers. Buttons for Accept, Decline, and Extend timer pinned to footer.
+- **History filter:** Secondary tab shows completed assignments with search and export controls feeding provider analytics.
+- **Empty state:** Illustration and CTA to update preferences when no active assignments remain.
 
 ## Groups & Connections Pages
 - **Groups:** Grid of group cards with cover image, member count, join button, and tags; detail view with posts & events.
