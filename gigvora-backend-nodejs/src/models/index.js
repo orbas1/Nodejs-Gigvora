@@ -10,6 +10,8 @@ export const sequelize = databaseUrl
 const dialect = sequelize.getDialect();
 const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB : DataTypes.JSON;
 
+export const PROFILE_AVAILABILITY_STATUSES = ['available', 'limited', 'unavailable', 'on_leave'];
+
 export const APPLICATION_TARGET_TYPES = ['job', 'gig', 'project', 'launchpad', 'volunteer'];
 export const APPLICATION_STATUSES = [
   'draft',
@@ -134,8 +136,54 @@ export const Profile = sequelize.define(
     skills: { type: DataTypes.TEXT, allowNull: true },
     experience: { type: DataTypes.TEXT, allowNull: true },
     education: { type: DataTypes.TEXT, allowNull: true },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    timezone: { type: DataTypes.STRING(120), allowNull: true },
+    missionStatement: { type: DataTypes.TEXT, allowNull: true },
+    areasOfFocus: { type: jsonType, allowNull: true },
+    availabilityStatus: {
+      type: DataTypes.ENUM(...PROFILE_AVAILABILITY_STATUSES),
+      allowNull: false,
+      defaultValue: 'limited',
+      validate: { isIn: [PROFILE_AVAILABILITY_STATUSES] },
+    },
+    availableHoursPerWeek: { type: DataTypes.INTEGER, allowNull: true },
+    openToRemote: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    availabilityNotes: { type: DataTypes.TEXT, allowNull: true },
+    availabilityUpdatedAt: { type: DataTypes.DATE, allowNull: true },
+    trustScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    likesCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    followersCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    qualifications: { type: jsonType, allowNull: true },
+    experienceEntries: { type: jsonType, allowNull: true },
+    statusFlags: { type: jsonType, allowNull: true },
+    launchpadEligibility: { type: jsonType, allowNull: true },
+    volunteerBadges: { type: jsonType, allowNull: true },
+    portfolioLinks: { type: jsonType, allowNull: true },
+    preferredEngagements: { type: jsonType, allowNull: true },
+    collaborationRoster: { type: jsonType, allowNull: true },
+    impactHighlights: { type: jsonType, allowNull: true },
+    pipelineInsights: { type: jsonType, allowNull: true },
+    profileCompletion: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    avatarSeed: { type: DataTypes.STRING(255), allowNull: true },
   },
   { tableName: 'profiles' },
+);
+
+export const ProfileReference = sequelize.define(
+  'ProfileReference',
+  {
+    profileId: { type: DataTypes.INTEGER, allowNull: false },
+    referenceName: { type: DataTypes.STRING(255), allowNull: false },
+    relationship: { type: DataTypes.STRING(255), allowNull: true },
+    company: { type: DataTypes.STRING(255), allowNull: true },
+    email: { type: DataTypes.STRING(255), allowNull: true },
+    phone: { type: DataTypes.STRING(60), allowNull: true },
+    endorsement: { type: DataTypes.TEXT, allowNull: true },
+    isVerified: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    weight: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    lastInteractedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  { tableName: 'profile_references' },
 );
 
 export const CompanyProfile = sequelize.define(
@@ -1541,6 +1589,8 @@ SearchSubscription.prototype.toPublicObject = function toPublicObject() {
 
 User.hasOne(Profile, { foreignKey: 'userId' });
 Profile.belongsTo(User, { foreignKey: 'userId' });
+Profile.hasMany(ProfileReference, { as: 'references', foreignKey: 'profileId', onDelete: 'CASCADE' });
+ProfileReference.belongsTo(Profile, { as: 'profile', foreignKey: 'profileId' });
 
 User.hasOne(CompanyProfile, { foreignKey: 'userId' });
 CompanyProfile.belongsTo(User, { foreignKey: 'userId' });
@@ -1693,6 +1743,7 @@ export default {
   sequelize,
   User,
   Profile,
+  ProfileReference,
   CompanyProfile,
   AgencyProfile,
   FreelancerProfile,

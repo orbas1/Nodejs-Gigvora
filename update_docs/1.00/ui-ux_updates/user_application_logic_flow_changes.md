@@ -45,9 +45,12 @@
 
 ## Launchpad & Volunteering Engagement
 1. **Program discovery:** Launchpad list emphasises track metadata; CTA leads to program detail flow (webview or native) with registration steps.
-2. **Volunteer missions:** Cards highlight organisation and location; CTA opens mission detail with ability to commit hours and sync to calendar.
-3. **Progress tracking:** Launchpad detail stream listens for module completion events and updates badges plus reminders schedule.
-4. **Calendar integration:** Volunteer commitments push to device calendar via permissioned API; cancellations update server and notify organisers.
+2. **Volunteer invitations:** `volunteerInvitesProvider` hydrates segmented invites (Pending, Accepted, Declined, Expired). Accept/decline actions call REST endpoints with optimistic UI and offline retry queue; accept success pushes mission detail sheet and schedules onboarding checklist reminders.
+3. **Commitment timeline:** `volunteerCommitmentsProvider` merges mission commitments into chronological timeline with milestone chips. Completing milestones toggles backend state and unlocks next checklist step; push notifications mirror due/overdue items.
+4. **Hour logging:** Inline bottom sheet collects date, hours, activity notes, and attachments; validations enforce daily caps and reason selection for adjustments. Entries enqueue to `/volunteers/hours` with offline persistence and sync status badges.
+5. **Impact analytics:** Dashboard widget subscribes to aggregated metrics (total hours, beneficiaries, satisfaction) via repository; updates animate KPI cards and trigger insights notifications when goals hit.
+6. **Compliance checklist:** Prior to first shift, safeguarding checklist ensures DBS, liability waiver, and orientation modules complete. Items update via `/volunteers/compliance` and block hour logging until satisfied; legal copy surfaced inline with localisation support.
+7. **Calendar integration:** Confirmed shifts push to device calendar via permissioned API; cancellations update server, remove event, and notify organisers and volunteers with follow-up tasks.
 
 ## Profile & Community
 1. **Profile screen:** Loads user data via GraphQL gateway with REST fallback, surfacing stats, availability, focus areas, groups, and activity timeline; allows editing and share actions.

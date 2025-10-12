@@ -12,6 +12,7 @@
 - **Chips:** Rounded 20px, pale blue background `#EFF6FF`, accent text; used for filters, metadata, and statuses.
 - **Cards:** Shared `GigvoraCard` widget with 24px radius, light border, and drop shadow `rgba(30,41,59,0.08)` to mimic web cards.
 - **Auto-assign queue cards:** `GigvoraCard` variant introduces `borderLeft` accent stripes keyed off score tiers (emerald/amber/rose) with countdown chips rendered as `FilledButton.tonal` using the mono type ramp (`LabelSmall`) to keep timers legible. Accept/Decline buttons map to primary/destructive styles with progress indicators that overlay while awaiting backend acknowledgement.
+- **Volunteers Hub panels:** Invitation cards adopt accent left stripes keyed to urgency, timeline tiles use `LinearProgressIndicator` with accent gradient, and impact KPIs reuse `GigvoraMetricTile` with cause-specific accent overlays. Safeguarding checklist chips rely on amber-toned backgrounds with icon circles sized 40px and emphasised uppercase labels.
 - **Detail sections:** Section headers `text-lg font-semibold`, content blocks separated by `Divider()` using `Color(0xFFE2E8F0)`.
 - **Bottom sheets:** `RoundedRectangleBorder` radius 28px, top drag handle, accent-coloured confirm button pinned to safe area.
 - **List tiles:** 20px leading icons, 16px vertical padding, trailing arrow tinted accent for navigation clarity.
@@ -22,6 +23,7 @@
 - **Snackbars:** Dark slate background, white bold text, floating behaviour for unobtrusive alerts.
 - **Queue nudges:** Dedicated snackbar style with `Color(0xFF0F172A)` background and accent outline, reserved for “assignment expiring” alerts so they stand out from general notifications without clashing with destructive banners.
 - **Success states:** `SnackBar` variant with accent background and white text for confirmation actions; confetti animation reserved for major milestones (profile completion, launchpad graduation).
+- **Volunteer confirmations:** Hour logging success triggers `SnackBar` variant with emerald background and subtle haptic `success` feedback; compliance blockers surface amber banners with inline CTA to resolve.
 - **Error dialogs:** Use accent outline around modal, emphasise destructive CTA with red fill and safe secondary action.
 
 ## Motion & Transitions

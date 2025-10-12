@@ -75,11 +75,13 @@
 - **Submission feedback:** Post-submit confirmation panel overlays the hero with success state, summarising next steps and linking to "Track your application" entry in dashboard metrics.
 
 ## Volunteering Hub
-- **Mission cards:** Display organisation, role, commitment, location, and apply CTA.
-- **Impact stats:** Visual summary of volunteer hours and partner NGOs.
-- **Filter stack:** Duration, cause area, remote toggle.
-- **Mission detail:** Tabbed layout for overview, requirements, logistics, organiser profile, and testimonials.
-- **Availability scheduler:** Inline calendar for selecting volunteer shifts with confirmation modal.
+- **Invitation manager:** Primary panel lists pending invites with mission thumbnail, role, commitment window, expected hours, and action buttons (Accept, Decline, Request Change) plus countdown chip for expiry.
+- **Active commitments timeline:** Horizontal timeline shows milestones (Onboarding, First Shift, Midpoint Review, Wrap-up) with progress dots and CTA to log hours or upload proof. Cards reveal compliance status, contact info, and next check-in.
+- **Impact dashboard:** KPI tiles summarise total hours, beneficiaries, causes supported, and satisfaction rating; sparkline chart visualises weekly hours with annotations for major events.
+- **Recommendations carousel:** Scrollable cards highlight suggested missions ranked by fit score with context tags (Skills match, Cause preference, Proximity) and quick "Preview" CTA to open mission detail modal.
+- **Safeguarding checklist drawer:** Slide-over surfaces outstanding compliance actions (DBS upload, Liability waiver, Orientation training) with completion toggles and links to resource docs.
+- **Mission detail modal:** Tabbed overlay (Overview, Requirements, Logistics, Organisation, Testimonials) includes sticky CTA for Accept/Contact, share actions, and related missions rail.
+- **Availability scheduler:** For accepted missions, inline calendar supports selecting shifts, confirming attendance, and syncing to personal calendars with ICS export.
 
 ## Profile Page
 - **Header:** Cover gradient, avatar, action buttons.

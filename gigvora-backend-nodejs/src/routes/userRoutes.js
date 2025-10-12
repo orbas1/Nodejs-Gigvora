@@ -6,6 +6,7 @@ const router = Router();
 
 router.get('/', asyncHandler(userController.listUsers));
 router.get('/:id', asyncHandler(userController.getUserProfile));
-router.put('/:id', asyncHandler(userController.updateProfile));
+router.put('/:id', asyncHandler(userController.updateUser));
+router.patch('/:id/profile', asyncHandler(userController.updateProfileSettings));
 
 export default router;
