@@ -76,6 +76,7 @@
 4. **Edit flow:** Multi-step edit wizard autosaves progress, warns on unsaved changes, and refreshes read-only view upon publish.
 5. **Share modal:** Copy link triggers toast; selecting PDF export calls backend service, shows progress indicator, and emails download link when ready.
 6. **Data contract alignment:** Editor submissions now serialize skill arrays to JSON strings before hitting the profile service, ensuring SQLite/Postgres validation passes while trust-score breakdowns, availability banners, and reference cards refresh in-place for Launchpad/Volunteer eligibility cues.
+7. **Trust insights weighting:** The profile insights module now renders backend-supplied 100-point weighting (foundation, social proof, Launchpad readiness, volunteer impact, jobs delivery, availability freshness, compliance) with chip tooltips, review cadence banners, and analytics events mirroring the recalibrated trust engine.
 
 ## Responsiveness & Accessibility
 1. **Responsive classes:** Tailwind utilities adapt layout for mobile/desktop, ensuring nav collapse and card stacking.

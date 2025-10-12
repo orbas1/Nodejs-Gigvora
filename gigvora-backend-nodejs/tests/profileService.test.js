@@ -46,21 +46,49 @@ async function bootstrapProfileFixtures() {
         highlights: ['Introduced Meilisearch relevance tuning', 'Cut regression hotfixes by 45%'],
       },
     ],
-    statusFlags: ['launchpad_alumni', 'mentor'],
-    launchpadEligibility: { status: 'eligible', score: 91.2, cohorts: ['Launchpad Cohort A'] },
-    volunteerBadges: ['community_mentor'],
+    statusFlags: [
+      'launchpad_alumni',
+      'mentor',
+      'volunteer_active',
+      'verified',
+      'kyc_verified',
+      'preferred_talent',
+      'jobs_board_featured',
+      'safeguarded_volunteer',
+    ],
+    launchpadEligibility: {
+      status: 'active',
+      score: 91.2,
+      cohorts: ['Launchpad Cohort A', 'Launchpad Cohort B'],
+      track: 'Marketplace Engineering',
+    },
+    volunteerBadges: ['community_mentor', 'impact_champion'],
     portfolioLinks: [{ label: 'Portfolio', url: 'https://portfolio.lina.example.com' }],
     preferredEngagements: ['Launch readiness', 'Mentorship'],
     collaborationRoster: [{ name: 'Nova Strategist', role: 'Product Strategy' }],
     impactHighlights: [
       { title: 'Auto-assign wins', value: '4 in a row', description: 'Maintained 95% CSAT across sprints.' },
+      { title: 'Volunteer hours', value: '120', description: 'Weekly mentorship clinic for launchpad cohorts.' },
+      { title: 'Placement rate', value: '92%', description: 'Filled 11 mission-critical roles in 2024.' },
     ],
     pipelineInsights: [
       {
         project: 'Trust Center analytics',
         payout: '$2,400',
         countdown: '06:00:00',
-        status: 'In flight',
+        status: 'Interview Scheduled',
+      },
+      {
+        project: 'Escrow observability',
+        payout: '$3,600',
+        countdown: '04:00:00',
+        status: 'Hired',
+      },
+      {
+        project: 'Volunteer intake playbook',
+        payout: '$1,200',
+        countdown: '02:00:00',
+        status: 'Shortlist Review',
       },
     ],
     profileCompletion: 88.2,
@@ -76,6 +104,19 @@ async function bootstrapProfileFixtures() {
     endorsement: 'Lina restored trust centre uptime and partnered on dispute automation.',
     isVerified: true,
     weight: 0.85,
+    lastInteractedAt: '2024-08-01T12:00:00Z',
+  });
+
+  await ProfileReference.create({
+    profileId: profile.id,
+    referenceName: 'Jon Hiring',
+    relationship: 'Hiring Manager',
+    company: 'Blue Orbit Labs',
+    email: 'jon.hiring@example.com',
+    endorsement: 'Guided jobs board automation rollout and closed four priority hires.',
+    isVerified: false,
+    weight: 0.6,
+    lastInteractedAt: '2024-05-15T08:00:00Z',
   });
 
   const group = await Group.create({
@@ -106,13 +147,35 @@ describe('profileService', () => {
 
     expect(profileOverview.name).toBe('Lina Builder');
     expect(profileOverview.skills).toEqual(expect.arrayContaining(['Node.js', 'React', 'TypeScript', 'Analytics']));
-    expect(profileOverview.references).toHaveLength(1);
-    expect(profileOverview.metrics.trustScore).toBeCloseTo(4.7);
+    expect(profileOverview.references).toHaveLength(2);
+    expect(profileOverview.metrics.trustScore).toBeCloseTo(80.15, 2);
     expect(profileOverview.metrics.connectionsCount).toBe(1);
     expect(profileOverview.groups[0]).toMatchObject({ name: 'Gigvora Product Council', role: 'member' });
     expect(profileOverview.availability.status).toBe('available');
-    expect(profileOverview.launchpadEligibility.status).toBe('eligible');
-    expect(profileOverview.autoAssignInsights).toHaveLength(1);
+    expect(profileOverview.launchpadEligibility.status).toBe('active');
+    expect(profileOverview.autoAssignInsights).toHaveLength(3);
+
+    const breakdownKeys = profileOverview.metrics.trustScoreBreakdown.map((item) => item.key);
+    expect(breakdownKeys).toEqual(
+      expect.arrayContaining([
+        'profile_foundation',
+        'social_proof',
+        'launchpad_readiness',
+        'volunteer_commitment',
+        'jobs_delivery',
+        'availability_signal',
+        'compliance',
+      ]),
+    );
+    expect(profileOverview.metrics.trustScoreBreakdown).toHaveLength(7);
+
+    const breakdownTotal = profileOverview.metrics.trustScoreBreakdown.reduce(
+      (total, item) => total + item.contribution,
+      0,
+    );
+    expect(breakdownTotal).toBeCloseTo(profileOverview.metrics.trustScore, 1);
+    expect(profileOverview.metrics.trustScoreLevel).toMatch(/platinum|gold/);
+    expect(profileOverview.metrics.trustScoreRecommendedReviewAt).toBeTruthy();
   });
 
   it('updates availability settings and recalculates completion metrics', async () => {

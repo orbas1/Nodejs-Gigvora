@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
+import ProfileEditor from '../components/ProfileEditor.jsx';
+import TrustScoreBreakdown from '../components/TrustScoreBreakdown.jsx';
 import UserAvatar from '../components/UserAvatar.jsx';
-import { fetchProfile, updateProfileAvailability } from '../services/profile.js';
+import { fetchProfile, updateProfile, updateProfileAvailability } from '../services/profile.js';
 
 const AVAILABILITY_OPTIONS = [
   {
@@ -52,6 +54,8 @@ export default function ProfilePage() {
   const [savingAvailability, setSavingAvailability] = useState(false);
   const [availabilityDraft, setAvailabilityDraft] = useState(buildAvailabilityDraft());
   const [reloadToken, setReloadToken] = useState(0);
+  const [isEditorOpen, setEditorOpen] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -173,6 +177,24 @@ export default function ProfilePage() {
     handleAvailabilityChange({ focusAreas: availabilityDraft.focusAreas });
   }, [availabilityDraft.focusAreas, handleAvailabilityChange]);
 
+  const handleProfileSave = useCallback(
+    async (changes) => {
+      setSavingProfile(true);
+      try {
+        const updated = await updateProfile(id, changes);
+        setProfile(updated);
+        setAvailabilityDraft(buildAvailabilityDraft(updated.availability));
+        setEditorOpen(false);
+        return updated;
+      } catch (error) {
+        throw error;
+      } finally {
+        setSavingProfile(false);
+      }
+    },
+    [id, setAvailabilityDraft, setEditorOpen, setProfile],
+  );
+
   if (loading) {
     return (
       <section className="flex min-h-[60vh] items-center justify-center">
@@ -213,13 +235,20 @@ export default function ProfilePage() {
   const statusFlags = Array.isArray(profile.statusFlags) ? profile.statusFlags : [];
   const volunteerBadges = Array.isArray(profile.volunteerBadges) ? profile.volunteerBadges : [];
   const skills = Array.isArray(profile.skills) ? profile.skills : [];
+  const qualifications = Array.isArray(profile.qualifications) ? profile.qualifications : [];
+  const portfolioLinks = Array.isArray(profile.portfolioLinks) ? profile.portfolioLinks : [];
+  const areasOfFocus = Array.isArray(profile.areasOfFocus) ? profile.areasOfFocus : [];
+  const trustBreakdown = Array.isArray(metrics.trustScoreBreakdown) ? metrics.trustScoreBreakdown : [];
+  const trustLevel = metrics.trustScoreLevel ?? null;
+  const trustReviewDue = metrics.trustScoreRecommendedReviewAt ?? null;
 
   return (
-    <section className="relative overflow-hidden py-20">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(191,219,254,0.35),_transparent_70%)]" aria-hidden="true" />
-      <div className="absolute -left-16 top-32 h-80 w-80 rounded-full bg-accent/15 blur-3xl" aria-hidden="true" />
-      <div className="absolute -right-24 bottom-32 h-72 w-72 rounded-full bg-emerald-200/40 blur-[120px]" aria-hidden="true" />
-      <div className="relative mx-auto max-w-6xl space-y-12 px-6">
+    <>
+      <section className="relative overflow-hidden py-20">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(191,219,254,0.35),_transparent_70%)]" aria-hidden="true" />
+        <div className="absolute -left-16 top-32 h-80 w-80 rounded-full bg-accent/15 blur-3xl" aria-hidden="true" />
+        <div className="absolute -right-24 bottom-32 h-72 w-72 rounded-full bg-emerald-200/40 blur-[120px]" aria-hidden="true" />
+        <div className="relative mx-auto max-w-6xl space-y-12 px-6">
         {error ? (
           <div className="rounded-3xl border border-red-100 bg-red-50/80 p-4 text-sm text-red-700 shadow-sm">
             {error}
@@ -245,6 +274,25 @@ export default function ProfilePage() {
                   {formatStatusLabel(badge)}
                 </span>
               ))}
+            </div>
+            {areasOfFocus.length > 0 ? (
+              <div className="flex flex-wrap justify-center gap-2 text-xs text-slate-500 lg:justify-start">
+                {areasOfFocus.map((area) => (
+                  <span key={area} className="rounded-full border border-accent/30 bg-accent/5 px-3 py-1 text-accent">
+                    {area}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+            <div className="flex justify-center lg:justify-start">
+              <button
+                type="button"
+                onClick={() => setEditorOpen(true)}
+                disabled={savingAvailability || savingProfile}
+                className="mt-2 inline-flex items-center justify-center rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:cursor-not-allowed disabled:bg-slate-300"
+              >
+                Edit profile
+              </button>
             </div>
           </div>
           <div className="grid gap-6 lg:grid-cols-2">
@@ -323,6 +371,48 @@ export default function ProfilePage() {
               </div>
             </section>
 
+            {qualifications.length > 0 ? (
+              <section className="rounded-3xl border border-slate-200 bg-white/90 p-8 shadow-sm">
+                <h2 className="text-lg font-semibold text-slate-900">Credentials &amp; qualifications</h2>
+                <p className="mt-2 text-sm text-slate-500">
+                  Compliance, accreditation, and craft credentials underpinning Experience Launchpad eligibility.
+                </p>
+                <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                  {qualifications.map((qualification, index) => (
+                    <article
+                      key={`${qualification.title ?? 'qualification'}-${qualification.credentialId ?? index}`}
+                      className="rounded-2xl border border-slate-200 bg-surfaceMuted/70 p-5"
+                    >
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                        {qualification.authority || 'Credential'}
+                      </p>
+                      <h3 className="mt-2 text-base font-semibold text-slate-900">
+                        {qualification.title || 'Untitled credential'}
+                      </h3>
+                      <div className="mt-2 text-xs text-slate-500">
+                        {qualification.year ? <span className="mr-3">Awarded {qualification.year}</span> : null}
+                        {qualification.credentialId ? <span>ID: {qualification.credentialId}</span> : null}
+                      </div>
+                      {qualification.description ? (
+                        <p className="mt-2 text-sm text-slate-600">{qualification.description}</p>
+                      ) : null}
+                      {qualification.credentialUrl ? (
+                        <a
+                          href={qualification.credentialUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-4 inline-flex items-center text-sm font-semibold text-accent hover:text-accent/80"
+                        >
+                          View credential
+                          <span aria-hidden="true" className="ml-1">→</span>
+                        </a>
+                      ) : null}
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
             {autoAssignInsights.length > 0 ? (
               <section className="rounded-3xl border border-slate-200 bg-gradient-to-br from-accent/10 via-white to-emerald-50 p-8 shadow-soft">
                 <h2 className="text-lg font-semibold text-slate-900">Pipeline snapshots</h2>
@@ -376,6 +466,12 @@ export default function ProfilePage() {
           </div>
 
           <aside className="space-y-8">
+            <TrustScoreBreakdown
+              score={metrics.trustScore}
+              level={trustLevel}
+              breakdown={trustBreakdown}
+              recommendedReviewAt={trustReviewDue}
+            />
             <section className="rounded-3xl border border-accent/40 bg-white/95 p-8 shadow-sm">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-slate-900">Availability</h2>
@@ -466,7 +562,51 @@ export default function ProfilePage() {
                   </span>
                 ))}
               </div>
+              {areasOfFocus.length > 0 ? (
+                <div className="mt-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Focus areas</p>
+                  <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-600">
+                    {areasOfFocus.map((area) => (
+                      <span key={area} className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent">
+                        {area}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </section>
+
+            {portfolioLinks.length > 0 ? (
+              <section className="rounded-3xl border border-slate-200 bg-white/90 p-8 shadow-sm">
+                <h2 className="text-lg font-semibold text-slate-900">Portfolio &amp; case studies</h2>
+                <ul className="mt-4 space-y-3 text-sm text-slate-600">
+                  {portfolioLinks.map((link, index) => {
+                    const label = link.label || link.url || `Link ${index + 1}`;
+                    const hasUrl = Boolean(link.url);
+                    return (
+                      <li key={`${label}-${index}`} className="rounded-2xl border border-slate-200 bg-surfaceMuted/70 px-4 py-3">
+                        {hasUrl ? (
+                          <a
+                            href={link.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center text-sm font-semibold text-accent hover:text-accent/80"
+                          >
+                            {label}
+                            <span aria-hidden="true" className="ml-1">
+                              ↗
+                            </span>
+                          </a>
+                        ) : (
+                          <span className="text-sm font-semibold text-slate-500">{label}</span>
+                        )}
+                        {link.description ? <p className="mt-1 text-xs text-slate-500">{link.description}</p> : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            ) : null}
 
             <section className="rounded-3xl border border-slate-200 bg-white/90 p-8 shadow-sm">
               <h2 className="text-lg font-semibold text-slate-900">Communities & groups</h2>
@@ -510,6 +650,14 @@ export default function ProfilePage() {
           </aside>
         </div>
       </div>
-    </section>
+      </section>
+      <ProfileEditor
+        open={isEditorOpen}
+        profile={profile}
+        saving={savingProfile}
+        onClose={() => setEditorOpen(false)}
+        onSave={handleProfileSave}
+      />
+    </>
   );
 }
