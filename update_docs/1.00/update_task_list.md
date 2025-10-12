@@ -73,9 +73,21 @@
 ## Task 5 – Profiles, User Types & Employment Systems (12% Complete)
 - **Subtask 5.1:** Refactor profile schema and UI for new sections, references, trust score display, and availability toggles. **Status: 40% – `profileService.updateProfile` now persists sanitised skill inventories as JSON strings so Sequelize TEXT columns remain compliant, allowing the React profile editor overlay to commit array-based edits without validation faults. Backend regression suite has been stabilised, recalculating trust-score breakdowns and profile completion after each write to mirror the Experience Launchpad/Volunteer eligibility dashboards.**
 - **Subtask 5.2:** Implement trust score calculations, likes/follows counters, and analytics instrumentation powering launchpad, volunteer, and jobs board targeting.
+  - **Subtask 5.2a:** Finalise trust score formula that balances launchpad, volunteer, and jobs board weightings. **Status: 5% – Draft heuristics captured but need product sign-off and backtesting against legacy cohorts.**
+  - **Subtask 5.2b:** Extend profile service with aggregate likes/follows counters and background recalculation jobs. **Status: 0% – Pending schema migration plan and queue worker sizing.**
+  - **Subtask 5.2c:** Instrument analytics events for trust score deltas, profile engagement, and targeting funnels. **Status: 0% – Requires co-ordination with analytics pipeline and dashboard owners.**
 - **Subtask 5.3:** Build agency dashboards (HR, payments distribution, projects/gigs pipeline, graduate-to-agency) for web/mobile with volunteer staffing and launchpad cohort views.
+  - **Subtask 5.3a:** Deliver agency HR overview with role assignments, staffing capacity, and alerting widgets. **Status: 0% – UI wireframes exist; component estimates and API contracts outstanding.**
+  - **Subtask 5.3b:** Implement payments distribution dashboard and finance exports. **Status: 0% – Awaiting escrow API utilisation review and ledger snapshot queries.**
+  - **Subtask 5.3c:** Ship projects/gigs pipeline with graduate-to-agency conversion insights. **Status: 0% – Needs journey mapping plus Flutter/React shared component planning.**
 - **Subtask 5.4:** Build company dashboards (headhunter, job listings, ATS stages, interview calendar) with permissions, exposing Experience Launchpad and volunteer funnels.
+  - **Subtask 5.4a:** Create headhunter overview with candidate funnel metrics and saved search parity. **Status: 0% – Data aggregation endpoints not yet defined.**
+  - **Subtask 5.4b:** Extend ATS stages view with interview calendar sync and reminder flows. **Status: 0% – Calendar provider spike required to firm integration approach.**
+  - **Subtask 5.4c:** Surface launchpad and volunteer funnels in company dashboards with permission-aware widgets. **Status: 0% – Depends on Subtasks 5.2b and 5.2c instrumentation.**
 - **Subtask 5.5:** Expand Employment/Jobs board with screener questions, CV builder/upload, admin panels, ATS automation, volunteer listings, and launchpad opportunity management.
+  - **Subtask 5.5a:** Implement screener question templates and scoring rubrics. **Status: 10% – Entity models drafted; validation logic outstanding.**
+  - **Subtask 5.5b:** Build CV builder/upload with document parsing and accessibility previews. **Status: 0% – Requires S3/R2 storage contract finalisation and parsing vendor spike.**
+  - **Subtask 5.5c:** Deliver admin panels and ATS automation hooks for launchpad and volunteer opportunities. **Status: 0% – Blocked on company dashboard permissions (Subtask 5.4c).**
 - **Integration Breakdown**
   - Backend: Profile service, trust scoring, ATS pipelines, agency/company permissions.
   - Front-end: Component-based profile UI, dashboards, CV builder, interview scheduler.
@@ -89,9 +101,21 @@
 ## Task 6 – Project, Gig & Operations Management (19% Complete)
 - **Subtask 6.1:** Enhance project creation flow with budgets, milestones, objectives, and in-project chat hooks. **Status: 45% – Added transactional project update API, regenerative auto-assign queue helpers, persistent assignment events, and a React project workspace with queue insights; milestone templates and in-thread chat remain pending.**
 - **Subtask 6.2:** Upgrade gig creation/management dashboards with analytics, compliance checks, and scheduling.
+  - **Subtask 6.2a:** Refresh gig creation wizard UX with budgeting, compliance, and scheduling guardrails. **Status: 0% – Awaiting UX assets from design tracker.**
+  - **Subtask 6.2b:** Add analytics snapshots and compliance checklist widgets to gig dashboards. **Status: 0% – Requires consolidated metrics API and compliance rule matrix.**
+  - **Subtask 6.2c:** Build scheduling and availability sync across provider/company calendars. **Status: 0% – Pending decision on shared calendar service.**
 - **Subtask 6.3:** Deliver project management module (tasks, dependencies, hourly tracking, progress analytics, group projects).
+  - **Subtask 6.3a:** Ship task and dependency modelling with optimistic UI updates. **Status: 0% – Needs migration design and React/Flutter component inventory.**
+  - **Subtask 6.3b:** Implement hourly tracking flows with approval queues and ledger hooks. **Status: 0% – Requires Escrow integration review and worker timesheet schema.**
+  - **Subtask 6.3c:** Produce progress analytics and group project coordination dashboards. **Status: 0% – Blocked on Subtask 6.3a data model sign-off.**
 - **Subtask 6.4:** Integrate auto-assign, escrow milestones, notifications, and hourly tracking into workflows.
+  - **Subtask 6.4a:** Wire auto-assign scoring outputs into project/gig selection flows. **Status: 0% – Awaiting API contracts from Task 4 auto-assign service.**
+  - **Subtask 6.4b:** Embed escrow milestone triggers and notifications for project lifecycle events. **Status: 0% – Depends on Task 3 milestone templates and messaging topics.**
+  - **Subtask 6.4c:** Connect hourly tracking approvals to notifications and ledger reconciliation. **Status: 0% – Coupled to Subtask 6.3b completion.**
 - **Subtask 6.5:** Build reporting dashboards for project health, gig performance, and agency participation.
+  - **Subtask 6.5a:** Define project health scorecards with real-time SLA metrics. **Status: 0% – Requires instrumentation blueprint and data warehouse queries.**
+  - **Subtask 6.5b:** Produce gig performance dashboards with filterable cohorts. **Status: 0% – Depends on gig analytics metrics (Subtask 6.2b).**
+  - **Subtask 6.5c:** Surface agency participation insights with exportable reports. **Status: 0% – Needs permission model updates and scheduled export automation.**
 - **Integration Breakdown**
   - Backend: Project services, gig APIs, time tracking, analytics pipelines, notification services.
   - Front-end: React dashboards, Kanban/Gantt visuals, chat embed, reporting widgets.
@@ -104,10 +128,25 @@
 
 ## Task 7 – Monetisation & Brand Refresh (3% Complete)
 - **Subtask 7.1:** Rebuild homepage with responsive blue theming, SEO schema, conversion funnels, and accessibility.
+  - **Subtask 7.1a:** Finalise responsive layout grid, navigation, and blue theming tokens. **Status: 15% – Initial components prototyped; accessibility review pending.**
+  - **Subtask 7.1b:** Implement SEO schema, structured data, and conversion tracking. **Status: 0% – Requires marketing analytics dependencies.**
+  - **Subtask 7.1c:** Conduct accessibility audits and remediate issues. **Status: 0% – Blocked until 7.1a components stabilise.**
 - **Subtask 7.2:** Refresh website/mobile design systems (tokens, typography, iconography, motion) and publish documentation.
+  - **Subtask 7.2a:** Publish updated token catalogue and typography scale across platforms. **Status: 10% – Token drafts exist; Flutter/React integration guides outstanding.**
+  - **Subtask 7.2b:** Produce iconography and motion guidelines with usage patterns. **Status: 0% – Awaiting contributions from design squad.**
+  - **Subtask 7.2c:** Stand up documentation site updates highlighting blue brand assets. **Status: 0% – Static site pipeline needs refresh post token approval.**
 - **Subtask 7.3:** Implement Gigvora Ads suite (campaign wizard, targeting, budgeting, creatives, reporting, billing integrations).
+  - **Subtask 7.3a:** Build campaign wizard MVP with targeting presets and preview flows. **Status: 0% – Stories groomed; component implementation not started.**
+  - **Subtask 7.3b:** Integrate billing provider for campaign spend capture and invoicing. **Status: 0% – Pending contract with payment gateway; sandbox access requested.**
+  - **Subtask 7.3c:** Deliver reporting dashboards with spend, performance, and optimisation tips. **Status: 0% – Data pipelines need instrumentation plan.**
 - **Subtask 7.4:** Configure Cloudflare R2 media delivery, CDN tuning, observability dashboards, and cost alerts.
+  - **Subtask 7.4a:** Migrate marketing assets to R2 with cache invalidation policies. **Status: 0% – Requires IaC updates and release checklist.**
+  - **Subtask 7.4b:** Tune CDN performance and set up observability dashboards. **Status: 0% – Datadog/Grafana dashboard templates in draft.**
+  - **Subtask 7.4c:** Configure cost alerts and monthly reporting automation. **Status: 0% – Finance analytics pipeline yet to ingest R2 billing exports.**
 - **Subtask 7.5:** Prepare marketing collateral, onboarding tours, and monetisation analytics dashboards.
+  - **Subtask 7.5a:** Draft onboarding tour scripts and localisation requirements. **Status: 0% – Collaboration session with marketing scheduled next sprint.**
+  - **Subtask 7.5b:** Produce marketing collateral templates and brand review checklist. **Status: 0% – Dependent on Subtask 7.2 token finalisation.**
+  - **Subtask 7.5c:** Build monetisation analytics dashboards with conversion funnels. **Status: 0% – Data sources blocked on 7.3c instrumentation.**
 - **Integration Breakdown**
   - Backend: Ads APIs, billing connectors, analytics streaming, homepage content management.
   - Front-end: Homepage redesign, ads management console, responsive components, performance tuning.

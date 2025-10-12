@@ -25,3 +25,4 @@ Progress across Security, Completion, Integration, Functionality, Error Free, Pr
 - Align squads on launchpad, volunteer, and jobs board schema changes before Milestone 2 completes.
 - Schedule dedicated QA scripts for launchpad auto-matching, volunteer invitations, and jobs board application flows as part of Milestone 3 readiness gates.
 - Keep change logs, end-of-update report, and release collateral updated with launchpad, volunteer, and jobs board enhancements for final approval.
+- Circulate the decomposed Task 5–7 mini-task breakdown to squad leads so ownership, sequencing, and dependency risks are explicitly tracked in sprint rituals.
