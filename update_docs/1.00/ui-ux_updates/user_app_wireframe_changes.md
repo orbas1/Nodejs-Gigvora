@@ -24,6 +24,15 @@
 - **Pull-to-refresh:** Native indicator resets list; CTA row persists.
 - **Detail drill-in:** Tapping card transitions to dedicated detail screen with hero, description, requirements, timeline, related opportunities carousel, and sticky bottom CTA.
 - **Saved items:** Bookmark icon toggles, saved view accessible via header action listing cards with sort controls.
+- **Auto-assign ribbon:** Eligible listings display a ribbon badge above the hero summarising response window and payout. Ribbon includes "Preview assignment" CTA that opens the queue screen with context.
+
+## Auto-Assign Queue Module
+- **Entry point:** Navigation rail gains bell-with-check icon showing active assignment count; tapping opens queue screen.
+- **Queue layout:** Two-tab scaffold (Active, History). Active tab presents stacked cards with hero row (opportunity title, target type chip, payout), countdown pill, and score bar visualising skills/availability/launchpad weighting.
+- **Action footer:** Buttons for Accept (accent filled), Decline (outlined destructive), and "Request more time" (ghost) pinned to bottom of each card; inline text clarifies what happens after each action.
+- **Score drawer:** Expanding card reveals accordion sections detailing skill overlap, availability match, launchpad alignment, and past collaborations, mirroring backend scoring payload.
+- **Empty state:** Illustration with copy “We’ll ping you when the next opportunity lands” plus CTA to adjust preferences.
+- **History tab:** Chronological list with status chips (Accepted, Declined, Expired, Reassigned) and quick link to associated opportunity detail.
 
 ## Profile Screen
 - **Hero section:** Cover gradient, avatar, display name, tagline, and CTA buttons (Edit profile, Share profile).

@@ -33,6 +33,14 @@
 3. **Support modules:** Side panels display stats, tips, or recommended actions to guide users.
 4. **Detail route:** Navigating to `/opportunity/:id` fetches extended data, updates breadcrumb navigation, and surfaces sticky CTA block; analytics log view + conversion events.
 5. **Saved search prompts:** If user logged in, prompt to save filters; logic stores preferences and triggers notification digest.
+6. **Auto-assign banner:** Opportunities that opt into auto-assign surface a secondary banner summarising the acceptance window, queue length, and launchpad prerequisites. Clicking "Preview eligibility" opens a modal that inspects the authenticated freelancer's scorecard from the auto-assign service and explains any blockers.
+
+## Auto-Assign Queue & Decisioning
+1. **Queue surface:** Authenticated freelancers gain a dedicated `/auto-assign` route injected into the primary navigation when they have at least one pending assignment. The page consumes the `/api/auto-assign/queue` endpoint and renders a paginated table showing opportunity name, target type, expiry countdown, and payout summary.
+2. **Scorecard drawer:** Selecting an entry opens a right-hand drawer detailing the computed score (availability, skill match, launchpad track alignment) with inline tooltips that mirror the backend scoring weights. The drawer also exposes "Accept", "Decline", and "Request more time" actions that call the new controller endpoints.
+3. **Decision handling:** Accepting triggers optimistic UI updates, disables conflicting actions, and redirects to the opportunity detail page with a success toast. Declines immediately promotes the next candidate in the queue and logs analytics events for retry analysis.
+4. **Preference management:** Account settings now include an Auto-Assign Preferences panel letting freelancers toggle participation, define preferred opportunity types, set max weekly hours, and pause matching for a defined cooldown. The UI persists changes via the `/api/auto-assign/preferences` endpoint and shows the effective status chips in the queue view.
+5. **Notifications:** Real-time updates (WebSocket) and fall-back polling mark queue entries as read, raise toast notifications, and badge the header icon with countdown timers. Expired or reassigned entries collapse into a history accordion for auditability.
 
 ## Projects & Collaboration
 1. **Projects page:** Highlights project management features, offers quick access to boards, chat, and file sharing.

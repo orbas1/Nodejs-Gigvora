@@ -24,6 +24,15 @@ export const APPLICATION_STATUSES = [
 ];
 export const APPLICATION_REVIEW_STAGES = ['screen', 'interview', 'assessment', 'final', 'offer'];
 export const APPLICATION_REVIEW_DECISIONS = ['pending', 'advance', 'reject', 'hold', 'withdrawn'];
+export const AUTO_ASSIGN_STATUSES = [
+  'pending',
+  'notified',
+  'accepted',
+  'declined',
+  'expired',
+  'reassigned',
+  'completed',
+];
 export const MESSAGE_CHANNEL_TYPES = ['support', 'project', 'contract', 'group', 'direct'];
 export const MESSAGE_THREAD_STATES = ['active', 'archived', 'locked'];
 export const MESSAGE_TYPES = ['text', 'file', 'system', 'event'];
@@ -1123,6 +1132,94 @@ export const SearchSubscription = sequelize.define(
   },
 );
 
+export const FreelancerAssignmentMetric = sequelize.define(
+  'FreelancerAssignmentMetric',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false, unique: true },
+    rating: { type: DataTypes.DECIMAL(3, 2), allowNull: true },
+    completionRate: { type: DataTypes.DECIMAL(5, 4), allowNull: true },
+    avgAssignedValue: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    lifetimeAssignedValue: { type: DataTypes.DECIMAL(14, 2), allowNull: false, defaultValue: 0 },
+    lifetimeCompletedValue: { type: DataTypes.DECIMAL(14, 2), allowNull: false, defaultValue: 0 },
+    lastAssignedAt: { type: DataTypes.DATE, allowNull: true },
+    lastCompletedAt: { type: DataTypes.DATE, allowNull: true },
+    totalAssigned: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    totalCompleted: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  },
+  { tableName: 'freelancer_assignment_metrics' },
+);
+
+FreelancerAssignmentMetric.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    freelancerId: plain.freelancerId,
+    rating: plain.rating == null ? null : Number(plain.rating),
+    completionRate: plain.completionRate == null ? null : Number(plain.completionRate),
+    avgAssignedValue: plain.avgAssignedValue == null ? null : Number(plain.avgAssignedValue),
+    lifetimeAssignedValue: Number(plain.lifetimeAssignedValue ?? 0),
+    lifetimeCompletedValue: Number(plain.lifetimeCompletedValue ?? 0),
+    lastAssignedAt: plain.lastAssignedAt,
+    lastCompletedAt: plain.lastCompletedAt,
+    totalAssigned: plain.totalAssigned,
+    totalCompleted: plain.totalCompleted,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const AutoAssignQueueEntry = sequelize.define(
+  'AutoAssignQueueEntry',
+  {
+    targetType: {
+      type: DataTypes.ENUM(...APPLICATION_TARGET_TYPES),
+      allowNull: false,
+      validate: { isIn: [APPLICATION_TARGET_TYPES] },
+    },
+    targetId: { type: DataTypes.INTEGER, allowNull: false },
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    score: { type: DataTypes.DECIMAL(10, 4), allowNull: false },
+    priorityBucket: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 2 },
+    status: {
+      type: DataTypes.ENUM(...AUTO_ASSIGN_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+      validate: { isIn: [AUTO_ASSIGN_STATUSES] },
+    },
+    expiresAt: { type: DataTypes.DATE, allowNull: true },
+    notifiedAt: { type: DataTypes.DATE, allowNull: true },
+    resolvedAt: { type: DataTypes.DATE, allowNull: true },
+    projectValue: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'auto_assign_queue_entries',
+    indexes: [
+      { fields: ['targetType', 'targetId'] },
+      { fields: ['freelancerId', 'status'] },
+    ],
+  },
+);
+
+AutoAssignQueueEntry.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    targetType: plain.targetType,
+    targetId: plain.targetId,
+    freelancerId: plain.freelancerId,
+    score: Number(plain.score),
+    priorityBucket: plain.priorityBucket,
+    status: plain.status,
+    expiresAt: plain.expiresAt,
+    notifiedAt: plain.notifiedAt,
+    resolvedAt: plain.resolvedAt,
+    projectValue: plain.projectValue == null ? null : Number(plain.projectValue),
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 SearchSubscription.prototype.toPublicObject = function toPublicObject() {
   const plain = this.get({ plain: true });
   return {
@@ -1155,6 +1252,12 @@ AgencyProfile.belongsTo(User, { foreignKey: 'userId' });
 
 User.hasOne(FreelancerProfile, { foreignKey: 'userId' });
 FreelancerProfile.belongsTo(User, { foreignKey: 'userId' });
+
+User.hasOne(FreelancerAssignmentMetric, { foreignKey: 'freelancerId', as: 'assignmentMetric' });
+FreelancerAssignmentMetric.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
+User.hasMany(AutoAssignQueueEntry, { foreignKey: 'freelancerId', as: 'autoAssignQueue' });
+AutoAssignQueueEntry.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
 
 User.hasMany(FeedPost, { foreignKey: 'userId' });
 FeedPost.belongsTo(User, { foreignKey: 'userId' });
@@ -1277,4 +1380,6 @@ export default {
   DisputeCase,
   DisputeEvent,
   SearchSubscription,
+  FreelancerAssignmentMetric,
+  AutoAssignQueueEntry,
 };

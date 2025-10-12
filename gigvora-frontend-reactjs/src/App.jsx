@@ -16,6 +16,7 @@ import AdminLoginPage from './pages/AdminLoginPage.jsx';
 import GroupsPage from './pages/GroupsPage.jsx';
 import ConnectionsPage from './pages/ConnectionsPage.jsx';
 import TrustCenterPage from './pages/TrustCenter.jsx';
+import AutoAssignQueuePage from './pages/AutoAssignQueuePage.jsx';
 
 export default function App() {
   return (
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="groups" element={<GroupsPage />} />
         <Route path="connections" element={<ConnectionsPage />} />
         <Route path="trust-center" element={<TrustCenterPage />} />
+        <Route path="auto-assign" element={<AutoAssignQueuePage />} />
       </Route>
       <Route path="admin" element={<AdminLoginPage />} />
     </Routes>
