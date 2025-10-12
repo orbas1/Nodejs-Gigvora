@@ -89,6 +89,7 @@
 - **Sidebar:** Contact info, badges, social links, share profile CTA.
 - **Edit profile overlay:** Multi-step wizard with autosave, preview mode, and validation summary.
 - **Data contract overlays:** Skills step now maps to JSON-backed pill list, trust-score column mirrors backend breakdown chips, and references panel includes verification tags to match the sanitised persistence model.
+- **Engagement metrics:** Header badges display live likes/followers counts with stale-state banners triggered by the background aggregation worker, and an info tooltip surfaces queue status plus last refresh timestamp for transparency.
 - **Share modal:** Offers copy link, share to LinkedIn/Twitter, and download PDF resume.
 
 ## Responsive Behaviour

@@ -77,6 +77,8 @@
 5. **Share modal:** Copy link triggers toast; selecting PDF export calls backend service, shows progress indicator, and emails download link when ready.
 6. **Data contract alignment:** Editor submissions now serialize skill arrays to JSON strings before hitting the profile service, ensuring SQLite/Postgres validation passes while trust-score breakdowns, availability banners, and reference cards refresh in-place for Launchpad/Volunteer eligibility cues.
 7. **Trust insights weighting:** The profile insights module now renders backend-supplied 100-point weighting (foundation, social proof, Launchpad readiness, volunteer impact, jobs delivery, availability freshness, compliance) with chip tooltips, review cadence banners, and analytics events mirroring the recalibrated trust engine.
+8. **Engagement counters:** Likes and followers metrics pull from the new engagement aggregation worker, surfacing live counts, stale-data banners, and queue-status tooltips without blocking page render; refreshes enqueue background jobs while cached metrics keep breakdown components responsive.
+9. **Analytics instrumentation:** Publishing profile changes now triggers `profile.trust_score.updated`, `profile.engagement.metrics_refreshed`, and `profile.targeting.funnel_updated` events so dashboards, Launchpad targeting widgets, and volunteer funnels receive fresh telemetry without additional polling.
 
 ## Responsiveness & Accessibility
 1. **Responsive classes:** Tailwind utilities adapt layout for mobile/desktop, ensuring nav collapse and card stacking.

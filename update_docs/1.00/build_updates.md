@@ -15,3 +15,4 @@
 - Added a backend-specific `.gitignore` to quarantine transient SQLite files, coverage output, and node modules so cross-team contributions do not accidentally commit artefacts created by the refreshed test harness.
 - Wired supertest-backed controller suites into the Node.js backend pipeline, proving REST endpoints, caching, and support escalation flows behave consistently when exercised end-to-end.
 - Introduced a `search:sync` CLI that authenticates to Meilisearch, provisions indexes, and batches Sequelize records into the search cluster so operations can schedule deterministic discovery ingestions in CI/CD.
+- Bootstrapped the profile engagement worker inside `server.js` (skipped in tests) so likes/followers aggregation runs automatically in production while the new Jest suite (`profileEngagementService.test.js`) guards queue maths and metric persistence.

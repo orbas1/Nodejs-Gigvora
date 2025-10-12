@@ -6,6 +6,7 @@ import {
   Group,
   GroupMembership,
   Connection,
+  AnalyticsEvent,
 } from '../src/models/index.js';
 import { createUser } from './helpers/factories.js';
 
@@ -204,5 +205,27 @@ describe('profileService', () => {
     await expect(
       profileService.updateProfileAvailability(user.id, { availabilityStatus: 'vacation_mode' }),
     ).rejects.toMatchObject({ status: 422 });
+  });
+
+  it('records analytics events when trust score and targeting segments change', async () => {
+    await profileService.updateProfile(user.id, {
+      statusFlags: ['verified'],
+      volunteerBadges: ['community_mentor'],
+    });
+
+    const events = await AnalyticsEvent.findAll({
+      where: { entityType: 'profile', entityId: user.id },
+      order: [['id', 'ASC']],
+    });
+
+    const trustEvent = events.find((event) => event.eventName === 'profile.trust_score.updated');
+    expect(trustEvent).toBeTruthy();
+    expect(trustEvent.context.previousScore).toBeGreaterThan(trustEvent.context.nextScore);
+    expect(trustEvent.context.stageChanged).toBeDefined();
+
+    const funnelEvent = events.find((event) => event.eventName === 'profile.targeting.funnel_updated');
+    expect(funnelEvent).toBeTruthy();
+    expect(funnelEvent.context.previousStage).toBeTruthy();
+    expect(funnelEvent.context.currentSegments).toBeDefined();
   });
 });

@@ -11,6 +11,10 @@ const dialect = sequelize.getDialect();
 const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB : DataTypes.JSON;
 
 export const PROFILE_AVAILABILITY_STATUSES = ['available', 'limited', 'unavailable', 'on_leave'];
+export const PROFILE_APPRECIATION_TYPES = ['like', 'celebrate', 'support', 'endorse', 'applause'];
+export const PROFILE_FOLLOWER_STATUSES = ['active', 'muted', 'blocked'];
+export const PROFILE_ENGAGEMENT_JOB_STATUSES = ['pending', 'completed', 'failed'];
+
 
 export const APPLICATION_TARGET_TYPES = ['job', 'gig', 'project', 'launchpad', 'volunteer'];
 export const APPLICATION_STATUSES = [
@@ -165,6 +169,7 @@ export const Profile = sequelize.define(
     pipelineInsights: { type: jsonType, allowNull: true },
     profileCompletion: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
     avatarSeed: { type: DataTypes.STRING(255), allowNull: true },
+    engagementRefreshedAt: { type: DataTypes.DATE, allowNull: true },
   },
   { tableName: 'profiles' },
 );
@@ -184,6 +189,84 @@ export const ProfileReference = sequelize.define(
     lastInteractedAt: { type: DataTypes.DATE, allowNull: true },
   },
   { tableName: 'profile_references' },
+);
+
+export const ProfileAppreciation = sequelize.define(
+  'ProfileAppreciation',
+  {
+    profileId: { type: DataTypes.INTEGER, allowNull: false },
+    actorId: { type: DataTypes.INTEGER, allowNull: false },
+    appreciationType: {
+      type: DataTypes.ENUM(...PROFILE_APPRECIATION_TYPES),
+      allowNull: false,
+      defaultValue: 'like',
+      validate: { isIn: [PROFILE_APPRECIATION_TYPES] },
+    },
+    source: { type: DataTypes.STRING(120), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'profile_appreciations',
+    indexes: [
+      { unique: true, fields: ['profileId', 'actorId', 'appreciationType'] },
+      { fields: ['profileId'] },
+      { fields: ['actorId'] },
+    ],
+  },
+);
+
+export const ProfileFollower = sequelize.define(
+  'ProfileFollower',
+  {
+    profileId: { type: DataTypes.INTEGER, allowNull: false },
+    followerId: { type: DataTypes.INTEGER, allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...PROFILE_FOLLOWER_STATUSES),
+      allowNull: false,
+      defaultValue: 'active',
+      validate: { isIn: [PROFILE_FOLLOWER_STATUSES] },
+    },
+    notificationsEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    metadata: { type: jsonType, allowNull: true },
+    followedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+  },
+  {
+    tableName: 'profile_followers',
+    indexes: [
+      { unique: true, fields: ['profileId', 'followerId'] },
+      { fields: ['profileId'] },
+      { fields: ['followerId'] },
+    ],
+  },
+);
+
+export const ProfileEngagementJob = sequelize.define(
+  'ProfileEngagementJob',
+  {
+    profileId: { type: DataTypes.INTEGER, allowNull: false },
+    scheduledAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    priority: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    attempts: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    status: {
+      type: DataTypes.ENUM(...PROFILE_ENGAGEMENT_JOB_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+      validate: { isIn: [PROFILE_ENGAGEMENT_JOB_STATUSES] },
+    },
+    lockedAt: { type: DataTypes.DATE, allowNull: true },
+    lockedBy: { type: DataTypes.STRING(120), allowNull: true },
+    lastError: { type: DataTypes.TEXT, allowNull: true },
+    reason: { type: DataTypes.STRING(255), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    completedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'profile_engagement_jobs',
+    indexes: [
+      { fields: ['status', 'scheduledAt'] },
+      { fields: ['profileId'] },
+    ],
+  },
 );
 
 export const CompanyProfile = sequelize.define(
@@ -1591,6 +1674,14 @@ User.hasOne(Profile, { foreignKey: 'userId' });
 Profile.belongsTo(User, { foreignKey: 'userId' });
 Profile.hasMany(ProfileReference, { as: 'references', foreignKey: 'profileId', onDelete: 'CASCADE' });
 ProfileReference.belongsTo(Profile, { as: 'profile', foreignKey: 'profileId' });
+Profile.hasMany(ProfileAppreciation, { as: 'appreciations', foreignKey: 'profileId', onDelete: 'CASCADE' });
+ProfileAppreciation.belongsTo(Profile, { as: 'profile', foreignKey: 'profileId' });
+ProfileAppreciation.belongsTo(User, { as: 'actor', foreignKey: 'actorId' });
+Profile.hasMany(ProfileFollower, { as: 'followers', foreignKey: 'profileId', onDelete: 'CASCADE' });
+ProfileFollower.belongsTo(Profile, { as: 'profile', foreignKey: 'profileId' });
+ProfileFollower.belongsTo(User, { as: 'follower', foreignKey: 'followerId' });
+Profile.hasMany(ProfileEngagementJob, { as: 'engagementJobs', foreignKey: 'profileId', onDelete: 'CASCADE' });
+ProfileEngagementJob.belongsTo(Profile, { as: 'profile', foreignKey: 'profileId' });
 
 User.hasOne(CompanyProfile, { foreignKey: 'userId' });
 CompanyProfile.belongsTo(User, { foreignKey: 'userId' });
@@ -1744,6 +1835,9 @@ export default {
   User,
   Profile,
   ProfileReference,
+  ProfileAppreciation,
+  ProfileFollower,
+  ProfileEngagementJob,
   CompanyProfile,
   AgencyProfile,
   FreelancerProfile,

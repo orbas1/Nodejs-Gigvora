@@ -29,6 +29,8 @@
 - **Project management workspace (Aug 26):** Added dedicated project detail canvas combining metadata editing cards, fairness weight sliders, queue snapshot tiles, and activity log timelines so regenerative auto-assign flows and programme analytics share a unified blueprint across web and Flutter.
 - **Profile experience (Aug 31):** Editor overlay now consumes the sanitised skill JSON payload, renders trust-score breakdown chips, availability banners, and reference cards with compliance copy that matches the hardened backend service—ensuring Experience Launchpad and Volunteer dashboards display consistent readiness signals.
 - **Profile trust insights (Sep 10):** Updated breakdown chips, tooltip copy, tier colours, and analytics tags to mirror the recalibrated 100-point weighting (foundation, social proof, Launchpad readiness, volunteer impact, jobs delivery, availability freshness, compliance) and surfaced review cadence banners aligned with backend guidance.
+- **Profile engagement metrics (Sep 15):** Introduced likes/followers chips with live counter states, stale-data alerts, and queue status affordances tied to the new engagement aggregation worker so Launchpad targeting cards and volunteer recommendations mirror production metrics.
+- **Profile analytics instrumentation (Sep 18):** Added blueprint for trust delta, engagement refresh, and funnel stage events with UI annotations so dashboards, targeting rails, and profile insights surface telemetry that matches the backend analytics schema.
 
 ## User Mobile App Updates
 - **Navigation:** GoRouter initialises at feed; tab-style menu extends to explorer, marketplace verticals, launchpad, volunteering, profile, and admin entry.

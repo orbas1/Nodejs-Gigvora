@@ -91,3 +91,9 @@
    - Trust-score recomputation now executes after every profile write, repopulating completion metrics and breakdown metadata that feed Experience Launchpad eligibility and Volunteer Hub readiness dashboards.
 2. **Quality Gates**
    - Backend regression suite (`npm test -- --runInBand`) runs green across 13 suites/37 tests following the profile pipeline fix, protecting the availability normaliser, reference synchronisation, and cache refresh logic from regressions.
+3. **Engagement Aggregation**
+   - Added appreciation/follower schemas (`profile_appreciations`, `profile_followers`) plus a queue-backed aggregation worker that recalculates likes/followers counters and stamps `engagementRefreshedAt` whenever new events arrive.
+   - `profileEngagementService` exposes helpers for recording appreciations/follows, batching recalculations, and signalling stale metrics; `profileService.getProfileOverview` now schedules refreshes automatically while metrics are cached for clients.
+4. **Analytics Instrumentation**
+   - Introduced `profileAnalyticsService` to emit structured analytics events for trust score deltas, engagement refreshes, and targeting funnel transitions, wiring those payloads into the analytics warehouse and downstream dashboards.
+   - Updated `profileService` and `profileEngagementService` to capture before/after snapshots, compute funnel diffs, and enqueue instrumentation after transactions; Jest suites assert event payloads and queue reasons to guard regression risk.

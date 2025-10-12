@@ -1,0 +1,1 @@
+- Created `profile_appreciations`, `profile_followers`, and `profile_engagement_jobs` tables plus `engagementRefreshedAt` column on `profiles` to store social proof interactions and queue scheduling metadata for automated metric refreshes.

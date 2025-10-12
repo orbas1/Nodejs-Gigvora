@@ -41,3 +41,14 @@
 ## profileService.js
 - Normalises skill payloads by serialising sanitised arrays into JSON strings prior to persistence so Sequelize TEXT columns accept writes from the React profile editor overlay.
 - Recomputes trust-score breakdowns, profile completion, and availability metadata after every update, refreshing cache entries and Experience Launchpad/Volunteer readiness dashboards without manual invalidation.
+- Schedules engagement recomputation whenever cached metrics go stale, delegating to the new profile engagement service so likes/followers counters are refreshed asynchronously.
+- Captures before/after profile snapshots so trust-score deltas, breakdown changes, and targeting segment transitions emit structured analytics events without blocking transactional writes.
+
+## profileEngagementService.js (New)
+- Aggregates likes and followers via `profile_appreciations` and `profile_followers` tables, updating `profiles` with fresh counts and `engagementRefreshedAt` timestamps.
+- Provides helper methods for recording appreciations/followers, queueing recalculations, and running a resilient worker loop that retries failed jobs with exponential back-off.
+- Emits analytics events for every recalculation, including job reasons, likes/followers deltas, and targeting funnel shifts powered by the new profile analytics helpers.
+
+## profileAnalyticsService.js (New)
+- Centralises trust score, engagement refresh, and targeting funnel instrumentation, producing normalised snapshots and diff metadata for analytics ingestion.
+- Exposes helpers used by profile and engagement services to record trust delta events, funnel transitions, and queue-driven refresh telemetry while shielding core flows from analytics failures.

@@ -17,6 +17,7 @@
 ## Analytics & Telemetry
 - Both clients emit structured analytics events (`web_feed_viewed`, `web_feed_reaction_click`, `web_messaging_thread_opened`, etc.) that include cache metadata and viewer states; these events map to the telemetry schema defined in analytics service docs.
 - Backend logs feed moderation activity via `FeedActivityLog` and surfaces actor + reason metadata, closing the loop for compliance dashboards and audit trails.
+- New profile analytics endpoints stream `profile.trust_score.updated`, `profile.engagement.metrics_refreshed`, and `profile.targeting.funnel_updated` payloads, enabling dashboards and downstream services to react to trust deltas, engagement staleness, and segment transitions without polling core profile APIs.
 
 ## Trust Center & Compliance Integrations
 - Added `trust.js` service in the React client to consume the `/api/trust` endpoints with cache-aware fetches, transaction lifecycle calls, and dispute event submissions.
