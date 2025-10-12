@@ -6,6 +6,7 @@
 - Expanded the feed domain with reactions, comments, shares, and activity logging to power ranking, analytics, and moderation workflows.
 - Hardened caching, pagination, and notification triggers around the messaging service to support floating inbox clients and support escalation SLAs.
 - Delivered the first production slice of the Trust, Payments & Infrastructure milestone with escrow accounts, transactions, dispute case management, and Cloudflare R2-backed evidence storage powering a new Trust Center API surface.
+- Built end-to-end Experience Launchpad workflows with readiness scoring, employer briefs, placements, and dashboard insights backed by dedicated models, services, routes, and seeded telemetry.
 
 ## Notable Enhancements
 1. **Authentication & Session Propagation**  
@@ -64,3 +65,22 @@
 3. **Event Telemetry & Tests**
    - New `auto_assign_queue_regenerated` event type powers analytics around fairness tuning, while `updated` events now capture field-level change history.
    - Added Jest coverage in `tests/projectService.test.js` validating metadata updates, queue regeneration, disable/enable flows, and event emission alongside the existing auto-assign suite.
+
+## Experience Launchpad Workflows
+1. **Launchpad Domain & Persistence**
+   - Expanded `experience_launchpads` with programme metadata (status, programme type, eligibility criteria, sponsorship, dates, capacity) and introduced dedicated tables for applications, employer requests, placements, and opportunity links.
+   - Authored migration `20240826094500-launchpad-workflows.cjs` plus seeder updates that populate exemplar cohorts, applicants, employer briefs, placements, and opportunity links so analytics dashboards surface realistic launch data.
+2. **Service & API Layer**
+   - Delivered `launchpadService` handling readiness scoring, duplicate protection, employer intake, placement orchestration, and insights aggregation exposed via the new `/api/launchpad` application, employer, placement, opportunity, and dashboard routes.
+   - Added `launchpadController` and `launchpadRoutes` ensuring parity with caching and analytics hooks so dashboards refresh when submissions, briefs, or placements change.
+3. **Quality & Telemetry**
+   - Added Jest coverage (`tests/launchpadService.test.js`) validating scoring logic, status transitions, employer brief capture, placement linkage, and dashboard rollups across SQLite.
+   - Seed data now exercises the full workflow, unlocking dashboard telemetry in development/staging environments and enabling deterministic CI coverage for the new domain.
+
+## Discovery & Search Hardening
+1. **Remote Detection Parity**
+   - Exported the search index `isRemoteRole` utility and reused it inside `discoveryService` DTO mapping to eliminate inconsistent remote flags between Meilisearch documents and REST payloads.
+2. **Filter Sanitisation**
+   - Updated `searchSubscriptionService` to deduplicate array-based filters during sanitisation so stored subscriptions and API responses no longer surface duplicate values (e.g. repeated employment types) when React chips rehydrate state.
+3. **Launchpad Scoring Coverage**
+   - Adjusted the launchpad service tests to assert auto-accept behaviour when candidates meet experience and skill thresholds, mirroring the production scoring thresholds defined in the eligibility criteria.

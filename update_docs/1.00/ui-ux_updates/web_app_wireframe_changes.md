@@ -69,6 +69,10 @@
 - **Success stories:** Carousel of alumni achievements.
 - **Curriculum outline:** Accordion listing modules with badges for live/async sessions, prerequisites, and downloadable resources.
 - **Mentor roster:** Card grid with mentor bios, expertise tags, and contact CTA for accepted participants.
+- **Placements & pipeline dashboard:** Right-column stack of stat cards showing Applications → Shortlisted → Interviews → Placements, each with delta chips and "View pipeline" link. Table below lists employer briefs with status badges (Received, In Review, Briefing, Candidates Shared) and SLA countdown chips.
+- **Talent application form:** Multi-section card (Profile snapshot, Experience focus, Availability, Compliance) with sticky progress tracker. Includes auto-filled profile summary panel, skill proficiency sliders, certification uploads, and consent toggle with regulatory copy.
+- **Employer brief form:** Two-column layout capturing organisation, project details, talent requirements, budget/timeline, and compliance acknowledgements. Sidebar summarises cohort readiness scores and recommended tracks for quick selection.
+- **Submission feedback:** Post-submit confirmation panel overlays the hero with success state, summarising next steps and linking to "Track your application" entry in dashboard metrics.
 
 ## Volunteering Hub
 - **Mission cards:** Display organisation, role, commitment, location, and apply CTA.

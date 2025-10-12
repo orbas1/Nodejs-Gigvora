@@ -27,12 +27,16 @@ The logic flow consolidates marketing, discovery, collaboration, and account sur
 2. Apply CTA opens sliding panel with 3-step form (Profile confirmation, Proposal, Submission). Each step validated before proceeding.
 3. Registration flows split by user type. Company registration includes compliance step requiring digital signature (DocuSign embed).
 4. Upon completion, success screen encourages next action (post opportunity, explore launchpad).
+5. Experience Launchpad page bootstraps via `GET /api/launchpad/dashboard` fetching pipeline metrics and pending briefs; `LaunchpadPlacementsInsights` maps payload into stat cards with WoW deltas while forms hydrate with user/company context.
+6. Talent application submission posts to `/api/launchpad/applications` after validating readiness (profile completeness ≥80%, compliance docs attached). Success triggers toast, disables form, and invalidates dashboard cache. Errors anchor to sections with `aria-live` messaging.
+7. Employer briefs submit to `/api/launchpad/employer-requests`, emitting CRM webhook events. UI adds new row to briefs table, sorts by SLA expiry, and triggers `launchpad.dashboard.refresh` analytics event.
 
 ## Stage 5: Retain (Dashboard & Profile)
 1. Authenticated users redirected to `/dashboard` after login.
 2. Dashboard fetches summary metrics, tasks queue, and notifications; modules collapsible with persisted state.
 3. Profile completeness indicator calculates from filled sections; prompts to add missing info.
 4. Settings entry ensures MFA toggles, notification preferences, and billing accessible within 2 clicks.
+5. Launchpad insights refresh after applications or briefs complete; placements stat cards animate delta changes and highlight "Next action" CTA (schedule mentor interview, review brief) derived from backend recommendations.
 
 ## Stage 6: Monitor (Trust Center)
 1. Finance/compliance operators navigate to `/trust-center` via global nav or deep link.

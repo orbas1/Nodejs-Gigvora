@@ -12,13 +12,17 @@
 2. **Tasks Queue**
    - Card width spans two columns on desktop, height 360px with scroll area 240px.
    - Task item row height 64px, includes checkbox, title, due date, CTA.
-3. **Launchpad Progress**
-   - Panel height 320px, includes progress bar (height 12px). Steps list with icons 24px.
-4. **Notifications**
+3. **Launchpad Placements Insights**
+   - Grid of four cards (Applications, Shortlisted, Interviews, Placements) each 260px height with stacked metrics: primary total, WoW delta chip, micro sparkline.
+   - Cards expose CTA `View pipeline` linking to filtered dashboard view; use `aria-live` to announce refreshed totals post submission.
+4. **Employer Briefs Table**
+   - Table height 360px with sticky header. Columns: Employer, Track, Status badge, SLA countdown, Brief owner.
+   - Row colours shift to amber when SLA <8 hours. Includes inline "Assign partner" button.
+5. **Notifications**
    - Card height 320px, lists 6 latest notifications. Each entry 56px, includes icon, timestamp.
-5. **Opportunities Snapshot**
+6. **Opportunities Snapshot**
    - Table-style card summarising pipeline stages; uses segmented controls for `Applied`, `Invited`, `In Review`.
-6. **Community Pulse**
+7. **Community Pulse**
    - Card showing trending groups, upcoming events; includes CTA to view calendar.
 
 ## Quick Actions Drawer

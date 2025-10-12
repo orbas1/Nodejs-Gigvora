@@ -18,3 +18,8 @@
 ## Project Routes (`src/routes/projectRoutes.js`)
 - Introduced `PATCH /api/projects/:projectId` so project metadata edits and queue regeneration can be triggered directly from the management workspace.
 - Re-ordered route declarations to keep the more specific `/auto-assign` handler ahead of the generic `/:projectId` bindings, avoiding accidental shadowing.
+
+## Launchpad Routes (`src/routes/launchpadRoutes.js`)
+- New router mounted at `/api/launchpad` exposing application, employer, placement, opportunity, and dashboard endpoints.
+- Routes cover `POST /applications`, `PATCH /applications/:applicationId/status`, `POST /employers`, `POST /placements`, `POST /opportunities`, and `GET /dashboard`, each wrapped with `asyncHandler` for consistent error handling.
+- Dashboard route accepts optional `launchpadId` and `lookbackDays` query parameters to drive the React insight panel without additional bespoke endpoints.

@@ -24,3 +24,8 @@
 - Registered `/projects/:projectId` route and `ProjectDetailPage.jsx`, bundling metadata editing, fairness weighting sliders, and queue regeneration controls with analytics tracking.
 - Refreshed `ProjectsPage.jsx` cards to surface auto-assign status badges, queue size, and the new "Manage project" CTA linking to the detailed workspace.
 - Extended `projectsService.js` with `updateProject` helper enabling PATCH requests that persist edits and trigger transactional queue refreshes.
+
+## Experience Launchpad
+- Rebuilt `LaunchpadPage.jsx` with cohort selection, live dashboard insights, and dedicated talent/employer forms wired to the new `/api/launchpad` endpoints.
+- Added `LaunchpadTalentApplicationForm`, `LaunchpadEmployerRequestForm`, and `LaunchpadPlacementsInsights` components delivering production-grade forms, telemetry, and insight cards aligned with design artefacts.
+- Introduced `launchpad.js` service binding the new API surface (applications, employer briefs, placements, dashboards) with shared analytics hooks and error handling.

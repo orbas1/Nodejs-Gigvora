@@ -22,3 +22,10 @@
 ## Project Controller (`src/controllers/projectController.js`)
 - Added `update` action to accept partial project updates, hydrate actor IDs, and delegate to the transactional project service so metadata edits, budget adjustments, and queue regeneration happen atomically.
 - `toggleAutoAssign` now bubbles up the richer payload emitted by the service (including regenerated queue entries) to keep the new project workspace in sync without an extra fetch.
+
+## Launchpad Controller (`src/controllers/launchpadController.js`)
+- New controller exposing talent applications, employer briefs, placements, opportunity links, and dashboard reporting through the `/api/launchpad` namespace.
+- `createApplication` pipes raw form submissions into the launchpad service to score eligibility, persist readiness snapshots, and enforce duplicate protection.
+- `updateApplication` guards status transitions, mentor assignments, and interview scheduling metadata for operations teams.
+- `createEmployerRequest`, `createPlacement`, and `createOpportunityLink` normalise numeric payloads, pass actor context, and refresh dashboards after mutations.
+- `dashboard` delegates to the aggregation service, allowing querystring-driven lookback periods for Launchpad insights panels.

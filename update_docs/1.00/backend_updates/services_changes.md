@@ -23,3 +23,17 @@
 - Introduced transactional helpers to queue assignment events after commit, normalise fairness weights, and regenerate auto-assign queues without losing actor attribution.
 - `updateProjectDetails` now centralises metadata edits, budget governance, and queue refresh logic so project management surfaces remain in sync with a single service call.
 - Auto-assign enable/disable flows share the new helpers, emitting `auto_assign_enabled`, `auto_assign_queue_regenerated`, and change-tracking events for auditability.
+
+## launchpadService.js (New)
+- Scores Experience Launchpad applicants using programme eligibility criteria, maintains readiness snapshots, and prevents duplicate active submissions per cohort.
+- Provides employer brief intake, placement orchestration, and opportunity linking helpers that invalidate caches and emit analytics-friendly payloads for dashboards.
+- Aggregates launchpad pipeline metrics, placement performance, employer brief backlog, upcoming interviews, and opportunity breakdowns consumed by the new React insights panel.
+
+## discoveryService.js
+- Reused the search index `isRemoteRole` helper to calculate remote badges for jobs, gigs, projects, and volunteering entries when geo data omits remote flags, fixing test coverage gaps introduced during launchpad ingestion.
+
+## searchIndexService.js
+- Exported `isRemoteRole` so discovery and search indexing use a single remote-detection implementation, keeping DTO and Meilisearch document logic aligned.
+
+## searchSubscriptionService.js
+- Sanitiser now deduplicates array-based filters (employment types, categories, regions, etc.) when storing subscriptions, preventing redundant values from surfacing in public objects and aligning with React filter chips.

@@ -12,6 +12,7 @@ import { appCache, buildCacheKey } from '../utils/cache.js';
 import {
   searchOpportunityIndex,
   searchAcrossOpportunityIndexes,
+  isRemoteRole,
 } from './searchIndexService.js';
 
 const DIALECT = sequelize.getDialect();

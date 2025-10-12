@@ -44,7 +44,8 @@ function sanitiseFilters(rawFilters) {
 
     const value = parsed[key];
     if (Array.isArray(value)) {
-      normalised[key] = value.map((item) => `${item}`.trim()).filter(Boolean);
+      const cleaned = value.map((item) => `${item}`.trim()).filter(Boolean);
+      normalised[key] = [...new Set(cleaned)];
     } else if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
       normalised[key] = value;
     }

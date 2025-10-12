@@ -16,6 +16,10 @@ const seededIds = {
   gigs: [1],
   projects: [1],
   experienceLaunchpads: [1],
+  experienceLaunchpadApplications: [1, 2],
+  experienceLaunchpadEmployerRequests: [1],
+  experienceLaunchpadPlacements: [1],
+  experienceLaunchpadOpportunityLinks: [1, 2],
   volunteeringRoles: [1],
   groups: [1],
   groupMemberships: [1, 2],
@@ -266,6 +270,28 @@ module.exports = {
             title: 'Emerging Leaders Fellowship',
             description: 'Mentorship-driven leadership journey for rising professionals with async curriculum.',
             track: 'Leadership',
+            location: 'Hybrid - London',
+            programType: 'cohort',
+            status: 'active',
+            applicationUrl: 'https://gigvora.com/launchpad/apply/emerging-leaders',
+            mentorLead: 'Ava Founder',
+            startDate: twoDaysAgo,
+            endDate: new Date(now.getTime() + 6 * 7 * 24 * 60 * 60 * 1000),
+            capacity: 24,
+            eligibilityCriteria: {
+              minimumExperience: 2,
+              requiredSkills: ['Product strategy', 'Analytics storytelling', 'Mentorship'],
+              requiresPortfolio: true,
+              autoAdvanceScore: 78,
+              autoAcceptScore: 88,
+            },
+            employerSponsorship: {
+              headlineSponsor: 'Gigvora Studios',
+              stipendCurrency: 'GBP',
+              stipendAmount: 1200,
+              partnerAgencies: ['Catalyst Talent Agency'],
+            },
+            publishedAt: threeDaysAgo,
             createdAt: twoDaysAgo,
             updatedAt: now,
           },
@@ -433,6 +459,151 @@ module.exports = {
           },
         ],
         { transaction }
+      );
+
+      await queryInterface.bulkInsert(
+        'experience_launchpad_applications',
+        [
+          {
+            id: seededIds.experienceLaunchpadApplications[0],
+            launchpadId: seededIds.experienceLaunchpads[0],
+            applicantId: seededIds.users[1],
+            applicationId: seededIds.applications[0],
+            status: 'interview',
+            qualificationScore: 88.5,
+            yearsExperience: 6.0,
+            skills: ['Node.js', 'React', 'Product strategy', 'Analytics storytelling'],
+            motivations: 'Excited to co-create launch playbooks and mentor new fellows joining the programme.',
+            portfolioUrl: 'https://portfolio.leo.example.com',
+            availabilityDate: twoDaysAgo,
+            eligibilitySnapshot: {
+              meetsExperience: true,
+              matchedSkills: ['Node.js', 'Product strategy', 'Analytics storytelling'],
+              missingSkills: [],
+              requiresPortfolio: true,
+              autoStatus: 'interview',
+            },
+            assignedMentor: 'Ava Founder',
+            interviewScheduledAt: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000),
+            decisionNotes: 'Line up panel to confirm placement readiness and leadership appetite.',
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.experienceLaunchpadApplications[1],
+            launchpadId: seededIds.experienceLaunchpads[0],
+            applicantId: seededIds.users[3],
+            applicationId: null,
+            status: 'waitlisted',
+            qualificationScore: 64.25,
+            yearsExperience: 1.5,
+            skills: ['Growth marketing', 'Community management'],
+            motivations: 'Looking to transition from agency delivery into product leadership via Launchpad rotations.',
+            portfolioUrl: null,
+            availabilityDate: new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000),
+            eligibilitySnapshot: {
+              meetsExperience: false,
+              experienceGap: 0.5,
+              missingSkills: ['Analytics storytelling'],
+              requiresPortfolio: true,
+              autoStatus: 'waitlisted',
+            },
+            assignedMentor: null,
+            interviewScheduledAt: null,
+            decisionNotes: 'Request analytics case study and portfolio link before advancing.',
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+        ],
+        { transaction },
+      );
+
+      await queryInterface.bulkInsert(
+        'experience_launchpad_employer_requests',
+        [
+          {
+            id: seededIds.experienceLaunchpadEmployerRequests[0],
+            launchpadId: seededIds.experienceLaunchpads[0],
+            organizationName: 'Northwind Labs',
+            contactName: 'Jules Carter',
+            contactEmail: 'talent@northwindlabs.io',
+            headcount: 3,
+            engagementTypes: ['contract-to-hire', 'fractional'],
+            targetStartDate: new Date(now.getTime() + 21 * 24 * 60 * 60 * 1000),
+            idealCandidateProfile:
+              'Generalist product leaders comfortable with analytics instrumentation and async squads.',
+            hiringNotes:
+              'Needs coverage across UK/EU timezones and preference for fellows with mentorship exposure.',
+            status: 'approved',
+            slaCommitmentDays: 7,
+            createdById: seededIds.users[2],
+            metadata: {
+              seedTag,
+              intakeChannel: 'launchpad_workflow',
+              budgetRange: '£65k-£80k',
+            },
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+        ],
+        { transaction },
+      );
+
+      await queryInterface.bulkInsert(
+        'experience_launchpad_placements',
+        [
+          {
+            id: seededIds.experienceLaunchpadPlacements[0],
+            launchpadId: seededIds.experienceLaunchpads[0],
+            candidateId: seededIds.experienceLaunchpadApplications[0],
+            employerRequestId: seededIds.experienceLaunchpadEmployerRequests[0],
+            targetType: 'project',
+            targetId: seededIds.projects[0],
+            status: 'in_progress',
+            placementDate: yesterday,
+            endDate: new Date(now.getTime() + 8 * 7 * 24 * 60 * 60 * 1000),
+            compensation: {
+              type: 'stipend',
+              amount: 1500,
+              currency: 'GBP',
+              cadence: 'monthly',
+            },
+            feedbackScore: 4.5,
+            createdAt: yesterday,
+            updatedAt: now,
+          },
+        ],
+        { transaction },
+      );
+
+      await queryInterface.bulkInsert(
+        'experience_launchpad_opportunity_links',
+        [
+          {
+            id: seededIds.experienceLaunchpadOpportunityLinks[0],
+            launchpadId: seededIds.experienceLaunchpads[0],
+            targetType: 'job',
+            targetId: seededIds.jobs[0],
+            source: 'manual',
+            createdById: seededIds.users[2],
+            notes:
+              'Launchpad fast-track for analytics lead role with expectation of mentorship rotations.',
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.experienceLaunchpadOpportunityLinks[1],
+            launchpadId: seededIds.experienceLaunchpads[0],
+            targetType: 'project',
+            targetId: seededIds.projects[0],
+            source: 'placement',
+            createdById: seededIds.users[2],
+            notes: 'Linked automatically after placement scheduling for reporting dashboards.',
+            createdAt: yesterday,
+            updatedAt: now,
+          },
+        ],
+        { transaction },
       );
 
       await queryInterface.bulkInsert(
@@ -908,6 +1079,26 @@ module.exports = {
       await queryInterface.bulkDelete(
         'applications',
         { id: { [Op.in]: seededIds.applications } },
+        { transaction }
+      );
+      await queryInterface.bulkDelete(
+        'experience_launchpad_opportunity_links',
+        { id: { [Op.in]: seededIds.experienceLaunchpadOpportunityLinks } },
+        { transaction }
+      );
+      await queryInterface.bulkDelete(
+        'experience_launchpad_placements',
+        { id: { [Op.in]: seededIds.experienceLaunchpadPlacements } },
+        { transaction }
+      );
+      await queryInterface.bulkDelete(
+        'experience_launchpad_employer_requests',
+        { id: { [Op.in]: seededIds.experienceLaunchpadEmployerRequests } },
+        { transaction }
+      );
+      await queryInterface.bulkDelete(
+        'experience_launchpad_applications',
+        { id: { [Op.in]: seededIds.experienceLaunchpadApplications } },
         { transaction }
       );
       await queryInterface.bulkDelete(

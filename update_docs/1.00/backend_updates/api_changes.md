@@ -39,3 +39,11 @@
 ## Project & Auto-Assign APIs
 - `PATCH /api/projects/:projectId` now updates project metadata (title, description, status, budget, geo) while emitting transactional assignment events and optionally regenerating the auto-assign queue in the same commit.
 - `PATCH /api/projects/:projectId/auto-assign` continues to toggle the auto-assign programme but now emits `auto_assign_enabled` and `auto_assign_queue_regenerated` events when re-running the queue.
+
+## Experience Launchpad APIs
+- `POST /api/launchpad/applications` scores talent submissions against programme eligibility, persists readiness snapshots, and prevents duplicate active applications.
+- `PATCH /api/launchpad/applications/:applicationId/status` advances candidates through screening/interview/acceptance workflows while capturing mentor assignments and interview slots.
+- `POST /api/launchpad/employers` records employer briefs (headcount, engagement types, timelines) and triggers dashboard refreshes for Launchpad operations.
+- `POST /api/launchpad/placements` links accepted fellows to employer briefs/opportunities, updates candidate status, and auto-creates opportunity links for reporting.
+- `POST /api/launchpad/opportunities` allows operations to link existing jobs/gigs/projects to a cohort for analytics and surfacing in discovery experiences.
+- `GET /api/launchpad/dashboard` aggregates pipeline, placement, interview, employer brief, and opportunity metrics for the React Launchpad insights panel.

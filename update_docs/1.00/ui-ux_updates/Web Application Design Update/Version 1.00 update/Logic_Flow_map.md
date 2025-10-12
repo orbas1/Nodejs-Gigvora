@@ -9,24 +9,34 @@ flowchart TD
   C1 --> C2{Find Opportunity?}
   C2 -->|Yes| E[Opportunity Detail]
   C2 -->|No| F[Launchpad Highlights]
+  F --> F1{Action?}
+  F1 -->|Apply as Talent| G[Launchpad Talent Form]
+  F1 -->|Submit Employer Brief| H[Launchpad Employer Form]
+  G --> G1{Profile Complete?}
+  G1 -->|Yes| I[Submit Talent Application]
+  G1 -->|No| J[Profile Completion Flow]
+  H --> H1{Budget Valid?}
+  H1 -->|Yes| K[Submit Employer Brief]
+  H1 -->|No| H2[Adjust Budget/Timeline]
+  H2 --> H
   E --> E1[Apply Drawer]
   E1 --> E2{Profile Complete?}
-  E2 -->|Yes| G[Submit Application]
-  E2 -->|No| H[Profile Completion Flow]
-  H --> D
-  G --> D
-  F --> C3[Join Community]
-  C3 --> D
-  D --> I[Dashboard Modules]
-  I --> I1[Metrics]
-  I --> I2[Tasks Queue]
-  I --> I3[Notifications]
-  I1 --> J[Deep Dive Explorer]
-  I2 --> K[Complete Launchpad Steps]
-  I3 --> L[Open Messages]
-  J --> C1
-  K --> G
+  E2 -->|Yes| I
+  E2 -->|No| J
+  I --> L[Placements Insights Refresh]
+  K --> L
+  J --> D
   L --> D
+  F --> F2[Launchpad Community Feed]
+  F2 --> D
+  D --> M[Dashboard Modules]
+  M --> M1[Metrics]
+  M --> M2[Tasks Queue]
+  M --> M3[Notifications]
+  M1 --> C1
+  M2 --> L
+  M3 --> N[Open Messages]
+  N --> D
 ```
 
 ## Interaction Notes
