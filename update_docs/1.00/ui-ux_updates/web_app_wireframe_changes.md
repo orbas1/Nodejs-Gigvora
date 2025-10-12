@@ -88,6 +88,7 @@
 - **Content sections:** About, Experience, Projects, Portfolio, Launchpad progress, Volunteering timeline, Recommendations.
 - **Sidebar:** Contact info, badges, social links, share profile CTA.
 - **Edit profile overlay:** Multi-step wizard with autosave, preview mode, and validation summary.
+- **Data contract overlays:** Skills step now maps to JSON-backed pill list, trust-score column mirrors backend breakdown chips, and references panel includes verification tags to match the sanitised persistence model.
 - **Share modal:** Offers copy link, share to LinkedIn/Twitter, and download PDF resume.
 
 ## Responsive Behaviour

@@ -27,6 +27,7 @@
 - **Documentation suite:** Version 1.00 now includes detailed component, styling, page, and data specifications under `Web Application Design Update/Version 1.00 update/` for engineering hand-off.
 - **Auto-Assign (Aug 24):** Introduced queue page, scorecard drawer, and eligibility banners. Designs consume backend scoring payloads (skills, availability, launchpad) and surface countdown-aware actions with accessibility annotations, unlocking React implementation of the new auto-assign engine.
 - **Project management workspace (Aug 26):** Added dedicated project detail canvas combining metadata editing cards, fairness weight sliders, queue snapshot tiles, and activity log timelines so regenerative auto-assign flows and programme analytics share a unified blueprint across web and Flutter.
+- **Profile experience (Aug 31):** Editor overlay now consumes the sanitised skill JSON payload, renders trust-score breakdown chips, availability banners, and reference cards with compliance copy that matches the hardened backend service—ensuring Experience Launchpad and Volunteer dashboards display consistent readiness signals.
 
 ## User Mobile App Updates
 - **Navigation:** GoRouter initialises at feed; tab-style menu extends to explorer, marketplace verticals, launchpad, volunteering, profile, and admin entry.

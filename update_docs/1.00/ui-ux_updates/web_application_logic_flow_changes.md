@@ -75,6 +75,7 @@
 3. **Contextual modules:** Sidebar surfaces contact details, badges, and quick share actions.
 4. **Edit flow:** Multi-step edit wizard autosaves progress, warns on unsaved changes, and refreshes read-only view upon publish.
 5. **Share modal:** Copy link triggers toast; selecting PDF export calls backend service, shows progress indicator, and emails download link when ready.
+6. **Data contract alignment:** Editor submissions now serialize skill arrays to JSON strings before hitting the profile service, ensuring SQLite/Postgres validation passes while trust-score breakdowns, availability banners, and reference cards refresh in-place for Launchpad/Volunteer eligibility cues.
 
 ## Responsiveness & Accessibility
 1. **Responsive classes:** Tailwind utilities adapt layout for mobile/desktop, ensuring nav collapse and card stacking.

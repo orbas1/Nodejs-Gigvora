@@ -37,3 +37,7 @@
 
 ## searchSubscriptionService.js
 - Sanitiser now deduplicates array-based filters (employment types, categories, regions, etc.) when storing subscriptions, preventing redundant values from surfacing in public objects and aligning with React filter chips.
+
+## profileService.js
+- Normalises skill payloads by serialising sanitised arrays into JSON strings prior to persistence so Sequelize TEXT columns accept writes from the React profile editor overlay.
+- Recomputes trust-score breakdowns, profile completion, and availability metadata after every update, refreshing cache entries and Experience Launchpad/Volunteer readiness dashboards without manual invalidation.

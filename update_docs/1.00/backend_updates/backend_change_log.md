@@ -84,3 +84,10 @@
    - Updated `searchSubscriptionService` to deduplicate array-based filters during sanitisation so stored subscriptions and API responses no longer surface duplicate values (e.g. repeated employment types) when React chips rehydrate state.
 3. **Launchpad Scoring Coverage**
    - Adjusted the launchpad service tests to assert auto-accept behaviour when candidates meet experience and skill thresholds, mirroring the production scoring thresholds defined in the eligibility criteria.
+
+## Profiles & Employment Systems
+1. **Holistic Profile Updates**
+   - Hardened `profileService.updateProfile` so sanitised skill inventories are serialised into JSON strings before persisting to Sequelize TEXT columns, eliminating SQLite validation failures and unlocking the React Profile Editor overlay.
+   - Trust-score recomputation now executes after every profile write, repopulating completion metrics and breakdown metadata that feed Experience Launchpad eligibility and Volunteer Hub readiness dashboards.
+2. **Quality Gates**
+   - Backend regression suite (`npm test -- --runInBand`) runs green across 13 suites/37 tests following the profile pipeline fix, protecting the availability normaliser, reference synchronisation, and cache refresh logic from regressions.

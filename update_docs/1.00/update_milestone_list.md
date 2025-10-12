@@ -40,7 +40,7 @@
     3. Release Experience Launchpad and Volunteers hub with employer/talent workflows across web, Flutter, and provider dashboards, including reporting on placements and participation.
 - **Status Update:** Escrow domain, dispute orchestration, Cloudflare R2 integration, and Trust Center UI are production-ready with operations hand-off complete; discovery automation now has Meilisearch live in staging/production with scripted ingestion. Experience Launchpad workflows shipped with seeded cohorts, readiness scoring APIs, employer/talent intake forms, placements telemetry, and refreshed documentation across backend, frontend, and design assets. The Volunteers Hub has now launched with Sequelize migrations, REST controllers, analytics emitters, React dashboard, and Flutter/provider parity specs covering invitations, commitments, hour logging, and impact reporting, raising milestone completion and unlocking staged beta rollout planning.
 
-## Milestone 4: Operational Excellence & User Archetypes (Weeks 12–14) – 24% Complete
+## Milestone 4: Operational Excellence & User Archetypes (Weeks 12–14) – 29% Complete
 - **Task 4.1 – Profiles, Agencies & Companies**
   - Subtasks:
     1. Deliver trust score calculations, likes/follows counters, and profile component APIs.
@@ -51,6 +51,8 @@
     1. Release project management module (tasks, milestones, time tracking, in-project chat) with volunteer staffing hooks.
     2. Upgrade gig creation/management and integrate with auto-assign, Experience Launchpad matching, and escrow milestones.
     3. Expand employment/jobs board (screener questions, CV builder/upload, admin panels) covering volunteer listings, launchpad opportunities, and analytics by candidate type.
+
+- **Status Update:** Profile update contract now mirrors the new UI architecture—skills are serialised into JSON-backed TEXT, availability metadata is normalised, and trust-score recalculation clears SQLite/Postgres parity issues. This stabilises the React profile editor, Experience Launchpad scoring widgets, and Volunteer Hub eligibility banners so Milestone 4 dashboards can wire against a consistent payload while agency/company views proceed to QA.
 
 ## Milestone 5: Stabilisation, Testing & Launch (Weeks 15–18) – 30% Complete
 - **Task 5.1 – Quality, Security & Compliance Sign-off**
