@@ -3,9 +3,16 @@
 ## Dashboard & Home Hub
 - **Hero band:** Slim banner showing organisation avatar, compliance status (KYC, escrow), and quick links to profile health.
 - **Pipeline overview:** Three-column metric cards for Active Opportunities, Pending Applications, and Projects In Delivery, each with sparkline trend and "View" CTA.
-- **Action grid:** Four-tile quick actions (Post Opportunity, Create Launchpad Cohort, Invite Talent, Review Disputes) using rounded 24px cards and iconography consistent with desktop header.
+- **Action grid:** Four-tile quick actions (Post Opportunity, Create Launchpad Cohort, Invite Talent, Review Disputes) using rounded 24px cards and iconography consistent with desktop header. When auto-assign is active, a fifth tile "Manage Auto-Assign" appears, badge-counting active queues.
 - **Activity feed:** Right-aligned timeline listing newest proposals, milestone submissions, and chat mentions, each using pill status chips (e.g., `New`, `Awaiting Approval`).
 - **Announcements module:** Banner slot for compliance alerts, marketing pushes, or ads credit reminders with dismiss controls.
+
+## Auto-Assign Queue Hub
+- **Overview cards:** Row of KPI cards (Active Assignments, Avg Response Time, Fill Rate, Expiring Soon) with sparkline trends.
+- **Queue table:** Split view with filter rail (Opportunity, Status, Time left) and table columns for Candidate, Score breakdown, Countdown, Actions. Table rows expand to reveal activity log and manual override buttons.
+- **Override modal:** Modal provides full candidate summary, ability to extend window (dropdown 15/30/45 minutes), cancel request, or trigger direct invite with audit note input.
+- **Feedback form:** Inline form within the modal capturing decline reason taxonomy that feeds back into scoring analytics.
+- **History view:** Secondary tab listing completed auto-assignments with status (Hired, Declined, Expired) and link to the final project or listing.
 
 ## Opportunity Composer
 - **Stepper layout:** Horizontal progress indicator (Basics → Requirements → Compensation → Preview → Publish) with persistent save-as-draft button.
@@ -30,6 +37,7 @@
 - **Applicant roster:** Responsive table/cards showing avatar, tags, match score, application date, and stage. Inline actions for shortlist, schedule, decline.
 - **Candidate deep dive:** Split layout with resume preview, interview notes, rubric scoring slider, and CTA cluster (Advance, Offer, Decline, Request info).
 - **Offer builder:** Modal sequence capturing compensation package, start date, and contract attachments with preview before sending.
+- **Auto-assign indicator:** Applicants sourced via auto-assign display a pill with countdown and "Promoted" status. Recruiters can jump directly to the queue hub for context.
 
 ## Communications & Support
 - **Inbox:** Two-pane messaging layout with conversation list, unread counters, and quick filters (All, Projects, Launchpad, Disputes).

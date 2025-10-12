@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import PageHeader from '../components/PageHeader.jsx';
 import DataStatus from '../components/DataStatus.jsx';
+import UserAvatar from '../components/UserAvatar.jsx';
 import useCachedResource from '../hooks/useCachedResource.js';
 import { apiClient } from '../services/apiClient.js';
 import analytics from '../services/analytics.js';
@@ -14,6 +15,7 @@ function resolveAuthor(post) {
   return {
     name: name || 'Gigvora member',
     headline,
+    avatarSeed: profile.avatarSeed ?? name,
   };
 }
 
@@ -89,10 +91,13 @@ export default function FeedPage() {
           return (
             <article
               key={post.id}
-              className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-soft"
+              className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-soft"
             >
               <div className="flex items-center justify-between text-xs text-slate-400">
-                <span>{author.headline ?? 'Marketplace community update'}</span>
+                <span className="inline-flex items-center gap-2">
+                  <UserAvatar name={author.name} seed={author.avatarSeed} size="xs" showGlow={false} />
+                  <span>{author.headline ?? 'Marketplace community update'}</span>
+                </span>
                 <span>{formatRelativeTime(post.createdAt)}</span>
               </div>
               <h2 className="mt-3 text-lg font-semibold text-slate-900">{author.name}</h2>
@@ -148,6 +153,8 @@ export default function FeedPage() {
   return (
     <section className="relative overflow-hidden py-20">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(191,219,254,0.35),_transparent_65%)]" aria-hidden="true" />
+      <div className="absolute -right-32 top-24 h-72 w-72 rounded-full bg-emerald-200/40 blur-[140px]" aria-hidden="true" />
+      <div className="absolute -left-16 bottom-10 h-80 w-80 rounded-full bg-accent/10 blur-[140px]" aria-hidden="true" />
       <div className="relative mx-auto max-w-5xl px-6">
         <PageHeader
           eyebrow="Live feed"

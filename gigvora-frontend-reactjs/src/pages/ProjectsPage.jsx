@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
 import DataStatus from '../components/DataStatus.jsx';
 import useOpportunityListing from '../hooks/useOpportunityListing.js';
 import analytics from '../services/analytics.js';
 import { formatRelativeTime } from '../utils/date.js';
+import UserAvatar from '../components/UserAvatar.jsx';
 
 export default function ProjectsPage() {
   const [query, setQuery] = useState('');
@@ -39,6 +41,42 @@ export default function ProjectsPage() {
             />
           }
         />
+        <div className="mb-8 grid gap-6 rounded-4xl border border-accent/20 bg-gradient-to-r from-accent/10 via-white to-emerald-50 p-6 shadow-soft lg:grid-cols-[1.25fr,1fr]">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Launch a new project</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Capture your scope, budget, and team rituals, then let Gigvora auto-assign curated freelancers with
+              fairness weights across the network.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-3 text-xs text-slate-500">
+              <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1">
+                <span className="mr-2 inline-flex -space-x-2">
+                  <UserAvatar name="Ops" seed="Operations" size="xs" />
+                  <UserAvatar name="Design" seed="Design" size="xs" />
+                  <UserAvatar name="Engineering" seed="Engineering" size="xs" />
+                </span>
+                <span>Auto-assign queue with fairness scoring</span>
+              </span>
+              <span className="rounded-full border border-slate-200 bg-white px-3 py-1">
+                Escrow milestones &amp; launchpad integrations
+              </span>
+            </div>
+          </div>
+          <div className="flex flex-col items-start justify-between rounded-3xl border border-slate-200 bg-white/80 p-5 shadow-inner">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Matching velocity</p>
+              <p className="mt-2 text-3xl font-bold text-slate-900">02:17:00</p>
+              <p className="mt-1 text-sm text-slate-500">Average time to confirm the top auto-assigned freelancer.</p>
+            </div>
+            <Link
+              to="/projects/new"
+              className="mt-6 inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
+            >
+              Create project brief
+              <span aria-hidden="true">→</span>
+            </Link>
+          </div>
+        </div>
         <div className="mb-6 max-w-xl">
           <label className="sr-only" htmlFor="project-search">
             Search projects
@@ -87,6 +125,43 @@ export default function ProjectsPage() {
               </div>
               <h2 className="mt-3 text-xl font-semibold text-slate-900">{project.title}</h2>
               <p className="mt-2 text-sm text-slate-600">{project.description}</p>
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-500">
+                <div className="flex items-center gap-2">
+                  <div className="flex -space-x-3">
+                    {Array.from({ length: 3 }).map((_, index) => (
+                      <UserAvatar
+                        key={index}
+                        name={`${project.title} collaborator ${index + 1}`}
+                        seed={`${project.title}-${index}`}
+                        size="xs"
+                        showGlow={false}
+                        className="border-white"
+                      />
+                    ))}
+                  </div>
+                  <span className="rounded-full border border-slate-200 bg-surfaceMuted/70 px-3 py-1 text-slate-600">
+                    {project.autoAssignStatus
+                      ? `Auto-assign: ${project.autoAssignStatus.replace('_', ' ')}`
+                      : 'Manual shortlisting'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Link
+                    to={`/projects/${project.id}`}
+                    className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-4 py-1 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+                  >
+                    Manage project
+                    <span aria-hidden="true">→</span>
+                  </Link>
+                  <Link
+                    to="/auto-assign"
+                    className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-4 py-1 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+                  >
+                    View queue
+                    <span aria-hidden="true">→</span>
+                  </Link>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => handleJoin(project)}

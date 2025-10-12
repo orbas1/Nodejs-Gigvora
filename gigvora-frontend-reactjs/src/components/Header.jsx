@@ -10,9 +10,11 @@ const navLinks = [
   { to: '/jobs', label: 'Jobs' },
   { to: '/gigs', label: 'Gigs' },
   { to: '/projects', label: 'Projects' },
+  { to: '/projects/new', label: 'Launch Project' },
   { to: '/experience-launchpad', label: 'Launchpad' },
   { to: '/volunteering', label: 'Volunteering' },
   { to: '/groups', label: 'Groups' },
+  { to: '/auto-assign', label: 'Auto-Assign' },
   { to: '/trust-center', label: 'Trust Center' },
 ];
 

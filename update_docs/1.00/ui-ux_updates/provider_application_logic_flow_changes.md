@@ -11,12 +11,19 @@
 2. **Review & preview:** Validation ensures required fields, estimated compensation, and compliance tags. Preview renders final listing for cross-platform QA.
 3. **Publishing:** On publish, listing enters moderation queue if risk flags present; otherwise, becomes discoverable and pushes to live feed.
 4. **Promotion:** Option to boost via Gigvora Ads; flow collects budget, duration, and targeting, then surfaces analytics tile on dashboard.
+5. **Auto-assign configuration:** Publishing wizard now includes an Auto-Assign tab where providers opt-in, define acceptance window, cap candidate count, specify mandatory skills/launchpad tracks, and preview scoring weights. Validation calls the backend service to ensure configuration is eligible before launch.
 
 ## 3. Applicant & Talent Management
 1. **Intake:** Applications aggregated per opportunity with filters for stage, rating, and source (manual, auto-assign, referrals).
 2. **Screening:** Provider reviews candidate card → opens detail modal showing resume, launchpad progress, and community endorsements → records decision (advance, hold, decline).
 3. **Collaboration:** Selected candidates trigger chat thread + optional interview scheduling (synced to calendar). Decisions update analytics and notify applicant.
 4. **Conversion:** When provider hires, opportunity transitions to project; automated tasks and escrow setup triggered.
+
+## 3a. Auto-Assign Operations
+1. **Queue monitor:** Dashboard adds "Auto-Assign" module summarising active requests, candidate progress, and SLA adherence. Clicking "Manage" opens a filtered applicant list showing auto-assign candidates with their computed scores and countdown timers.
+2. **Manual override:** Recruiters can fast-track or pause a request directly from the queue view. Actions call the `/api/auto-assign/requests/:id/cancel` endpoint or trigger manual promotion of a preferred candidate with audit logging.
+3. **Feedback loops:** Decision modal includes quick feedback tags (Rate too low, Skill gap, Scheduling) that propagate to the scoring service to refine weights; analytics capture these adjustments for product tuning.
+4. **Communication:** When a provider accepts an auto-assign recommendation, the system posts a note in the project chat and updates the analytics pipeline so fill rate dashboards remain accurate.
 
 ## 4. Project Delivery & Escrow
 1. **Kick-off:** Project template clones milestones; provider assigns responsibilities, due dates, and deliverables.
