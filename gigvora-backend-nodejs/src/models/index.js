@@ -71,6 +71,20 @@ export const DISPUTE_ACTION_TYPES = [
   'system_notice',
 ];
 export const DISPUTE_ACTOR_TYPES = ['customer', 'provider', 'mediator', 'admin', 'system'];
+export const LAUNCHPAD_STATUSES = ['draft', 'recruiting', 'active', 'archived'];
+export const LAUNCHPAD_APPLICATION_STATUSES = [
+  'screening',
+  'interview',
+  'accepted',
+  'waitlisted',
+  'rejected',
+  'withdrawn',
+  'completed',
+];
+export const LAUNCHPAD_EMPLOYER_REQUEST_STATUSES = ['new', 'needs_review', 'approved', 'declined', 'paused'];
+export const LAUNCHPAD_PLACEMENT_STATUSES = ['scheduled', 'in_progress', 'completed', 'cancelled'];
+export const LAUNCHPAD_TARGET_TYPES = ['job', 'gig', 'project'];
+export const LAUNCHPAD_OPPORTUNITY_SOURCES = ['employer_request', 'placement', 'manual'];
 
 export const User = sequelize.define(
   'User',
@@ -276,6 +290,21 @@ export const ExperienceLaunchpad = sequelize.define(
     track: { type: DataTypes.STRING(120), allowNull: false },
     location: { type: DataTypes.STRING(255), allowNull: true },
     geoLocation: { type: jsonType, allowNull: true },
+    programType: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'cohort' },
+    status: {
+      type: DataTypes.ENUM(...LAUNCHPAD_STATUSES),
+      allowNull: false,
+      defaultValue: 'recruiting',
+      validate: { isIn: [LAUNCHPAD_STATUSES] },
+    },
+    applicationUrl: { type: DataTypes.STRING(500), allowNull: true },
+    mentorLead: { type: DataTypes.STRING(255), allowNull: true },
+    startDate: { type: DataTypes.DATE, allowNull: true },
+    endDate: { type: DataTypes.DATE, allowNull: true },
+    capacity: { type: DataTypes.INTEGER, allowNull: true },
+    eligibilityCriteria: { type: jsonType, allowNull: true },
+    employerSponsorship: { type: jsonType, allowNull: true },
+    publishedAt: { type: DataTypes.DATE, allowNull: true },
   },
   { tableName: 'experience_launchpads' },
 );
@@ -290,6 +319,210 @@ ExperienceLaunchpad.searchByTerm = async function searchByTerm(term) {
     limit: 20,
     order: [['title', 'ASC']],
   });
+};
+
+ExperienceLaunchpad.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    title: plain.title,
+    description: plain.description,
+    track: plain.track,
+    location: plain.location,
+    geoLocation: plain.geoLocation,
+    programType: plain.programType,
+    status: plain.status,
+    applicationUrl: plain.applicationUrl,
+    mentorLead: plain.mentorLead,
+    startDate: plain.startDate,
+    endDate: plain.endDate,
+    capacity: plain.capacity,
+    eligibilityCriteria: plain.eligibilityCriteria,
+    employerSponsorship: plain.employerSponsorship,
+    publishedAt: plain.publishedAt,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ExperienceLaunchpadApplication = sequelize.define(
+  'ExperienceLaunchpadApplication',
+  {
+    launchpadId: { type: DataTypes.INTEGER, allowNull: false },
+    applicantId: { type: DataTypes.INTEGER, allowNull: false },
+    applicationId: { type: DataTypes.INTEGER, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...LAUNCHPAD_APPLICATION_STATUSES),
+      allowNull: false,
+      defaultValue: 'screening',
+      validate: { isIn: [LAUNCHPAD_APPLICATION_STATUSES] },
+    },
+    qualificationScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    yearsExperience: { type: DataTypes.DECIMAL(4, 1), allowNull: true },
+    skills: { type: jsonType, allowNull: true },
+    motivations: { type: DataTypes.TEXT, allowNull: true },
+    portfolioUrl: { type: DataTypes.STRING(500), allowNull: true },
+    availabilityDate: { type: DataTypes.DATE, allowNull: true },
+    eligibilitySnapshot: { type: jsonType, allowNull: true },
+    assignedMentor: { type: DataTypes.STRING(255), allowNull: true },
+    interviewScheduledAt: { type: DataTypes.DATE, allowNull: true },
+    decisionNotes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  { tableName: 'experience_launchpad_applications' },
+);
+
+ExperienceLaunchpadApplication.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    launchpadId: plain.launchpadId,
+    applicantId: plain.applicantId,
+    applicationId: plain.applicationId,
+    status: plain.status,
+    qualificationScore: plain.qualificationScore == null ? null : Number(plain.qualificationScore),
+    yearsExperience: plain.yearsExperience == null ? null : Number(plain.yearsExperience),
+    skills: Array.isArray(plain.skills) ? plain.skills : [],
+    motivations: plain.motivations,
+    portfolioUrl: plain.portfolioUrl,
+    availabilityDate: plain.availabilityDate,
+    eligibilitySnapshot: plain.eligibilitySnapshot,
+    assignedMentor: plain.assignedMentor,
+    interviewScheduledAt: plain.interviewScheduledAt,
+    decisionNotes: plain.decisionNotes,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ExperienceLaunchpadEmployerRequest = sequelize.define(
+  'ExperienceLaunchpadEmployerRequest',
+  {
+    launchpadId: { type: DataTypes.INTEGER, allowNull: false },
+    organizationName: { type: DataTypes.STRING(255), allowNull: false },
+    contactName: { type: DataTypes.STRING(255), allowNull: false },
+    contactEmail: { type: DataTypes.STRING(255), allowNull: false, validate: { isEmail: true } },
+    headcount: { type: DataTypes.INTEGER, allowNull: true },
+    engagementTypes: { type: jsonType, allowNull: true },
+    targetStartDate: { type: DataTypes.DATE, allowNull: true },
+    idealCandidateProfile: { type: DataTypes.TEXT, allowNull: true },
+    hiringNotes: { type: DataTypes.TEXT, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...LAUNCHPAD_EMPLOYER_REQUEST_STATUSES),
+      allowNull: false,
+      defaultValue: 'new',
+      validate: { isIn: [LAUNCHPAD_EMPLOYER_REQUEST_STATUSES] },
+    },
+    slaCommitmentDays: { type: DataTypes.INTEGER, allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'experience_launchpad_employer_requests' },
+);
+
+ExperienceLaunchpadEmployerRequest.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    launchpadId: plain.launchpadId,
+    organizationName: plain.organizationName,
+    contactName: plain.contactName,
+    contactEmail: plain.contactEmail,
+    headcount: plain.headcount == null ? null : Number(plain.headcount),
+    engagementTypes: Array.isArray(plain.engagementTypes)
+      ? plain.engagementTypes
+      : plain.engagementTypes ?? [],
+    targetStartDate: plain.targetStartDate,
+    idealCandidateProfile: plain.idealCandidateProfile,
+    hiringNotes: plain.hiringNotes,
+    status: plain.status,
+    slaCommitmentDays: plain.slaCommitmentDays,
+    createdById: plain.createdById,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ExperienceLaunchpadPlacement = sequelize.define(
+  'ExperienceLaunchpadPlacement',
+  {
+    launchpadId: { type: DataTypes.INTEGER, allowNull: false },
+    candidateId: { type: DataTypes.INTEGER, allowNull: false },
+    employerRequestId: { type: DataTypes.INTEGER, allowNull: true },
+    targetType: {
+      type: DataTypes.ENUM(...LAUNCHPAD_TARGET_TYPES),
+      allowNull: true,
+      validate: { isIn: [LAUNCHPAD_TARGET_TYPES] },
+    },
+    targetId: { type: DataTypes.INTEGER, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...LAUNCHPAD_PLACEMENT_STATUSES),
+      allowNull: false,
+      defaultValue: 'scheduled',
+      validate: { isIn: [LAUNCHPAD_PLACEMENT_STATUSES] },
+    },
+    placementDate: { type: DataTypes.DATE, allowNull: true },
+    endDate: { type: DataTypes.DATE, allowNull: true },
+    compensation: { type: jsonType, allowNull: true },
+    feedbackScore: { type: DataTypes.DECIMAL(4, 2), allowNull: true },
+  },
+  { tableName: 'experience_launchpad_placements' },
+);
+
+ExperienceLaunchpadPlacement.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    launchpadId: plain.launchpadId,
+    candidateId: plain.candidateId,
+    employerRequestId: plain.employerRequestId,
+    targetType: plain.targetType,
+    targetId: plain.targetId,
+    status: plain.status,
+    placementDate: plain.placementDate,
+    endDate: plain.endDate,
+    compensation: plain.compensation,
+    feedbackScore: plain.feedbackScore == null ? null : Number(plain.feedbackScore),
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ExperienceLaunchpadOpportunityLink = sequelize.define(
+  'ExperienceLaunchpadOpportunityLink',
+  {
+    launchpadId: { type: DataTypes.INTEGER, allowNull: false },
+    targetType: {
+      type: DataTypes.ENUM(...LAUNCHPAD_TARGET_TYPES),
+      allowNull: false,
+      validate: { isIn: [LAUNCHPAD_TARGET_TYPES] },
+    },
+    targetId: { type: DataTypes.INTEGER, allowNull: false },
+    source: {
+      type: DataTypes.ENUM(...LAUNCHPAD_OPPORTUNITY_SOURCES),
+      allowNull: false,
+      defaultValue: 'manual',
+      validate: { isIn: [LAUNCHPAD_OPPORTUNITY_SOURCES] },
+    },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  { tableName: 'experience_launchpad_opportunity_links' },
+);
+
+ExperienceLaunchpadOpportunityLink.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    launchpadId: plain.launchpadId,
+    targetType: plain.targetType,
+    targetId: plain.targetId,
+    source: plain.source,
+    createdById: plain.createdById,
+    notes: plain.notes,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
 };
 
 export const Volunteering = sequelize.define(
@@ -1356,6 +1589,42 @@ Application.hasMany(ApplicationReview, { foreignKey: 'applicationId', as: 'revie
 ApplicationReview.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });
 ApplicationReview.belongsTo(User, { foreignKey: 'reviewerId', as: 'reviewer' });
 
+ExperienceLaunchpad.hasMany(ExperienceLaunchpadApplication, { foreignKey: 'launchpadId', as: 'applications' });
+ExperienceLaunchpadApplication.belongsTo(ExperienceLaunchpad, { foreignKey: 'launchpadId', as: 'launchpad' });
+ExperienceLaunchpadApplication.belongsTo(User, { foreignKey: 'applicantId', as: 'applicant' });
+ExperienceLaunchpadApplication.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });
+
+ExperienceLaunchpad.hasMany(ExperienceLaunchpadEmployerRequest, {
+  foreignKey: 'launchpadId',
+  as: 'employerRequests',
+});
+ExperienceLaunchpadEmployerRequest.belongsTo(ExperienceLaunchpad, {
+  foreignKey: 'launchpadId',
+  as: 'launchpad',
+});
+ExperienceLaunchpadEmployerRequest.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+
+ExperienceLaunchpad.hasMany(ExperienceLaunchpadPlacement, { foreignKey: 'launchpadId', as: 'placements' });
+ExperienceLaunchpadPlacement.belongsTo(ExperienceLaunchpad, { foreignKey: 'launchpadId', as: 'launchpad' });
+ExperienceLaunchpadPlacement.belongsTo(ExperienceLaunchpadApplication, {
+  foreignKey: 'candidateId',
+  as: 'candidate',
+});
+ExperienceLaunchpadPlacement.belongsTo(ExperienceLaunchpadEmployerRequest, {
+  foreignKey: 'employerRequestId',
+  as: 'employerRequest',
+});
+
+ExperienceLaunchpad.hasMany(ExperienceLaunchpadOpportunityLink, {
+  foreignKey: 'launchpadId',
+  as: 'opportunityLinks',
+});
+ExperienceLaunchpadOpportunityLink.belongsTo(ExperienceLaunchpad, {
+  foreignKey: 'launchpadId',
+  as: 'launchpad',
+});
+ExperienceLaunchpadOpportunityLink.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+
 MessageThread.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
 MessageThread.hasMany(MessageParticipant, { foreignKey: 'threadId', as: 'participants' });
 MessageThread.hasMany(MessageParticipant, { foreignKey: 'threadId', as: 'viewerParticipants' });
@@ -1432,6 +1701,10 @@ export default {
   Gig,
   Project,
   ExperienceLaunchpad,
+  ExperienceLaunchpadApplication,
+  ExperienceLaunchpadEmployerRequest,
+  ExperienceLaunchpadPlacement,
+  ExperienceLaunchpadOpportunityLink,
   Volunteering,
   Group,
   GroupMembership,

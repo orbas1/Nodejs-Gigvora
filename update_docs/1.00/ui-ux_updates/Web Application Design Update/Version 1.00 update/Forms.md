@@ -46,3 +46,23 @@
 ## Implementation Notes
 - Use React Hook Form with Zod validation; map error states to design tokens above.
 - Multi-step forms persist data via `localStorage` using key `gigvora.web.v1.form.<formName>`.
+
+## Launchpad Talent Application Form
+- **Sections:**
+  1. Profile confirmation (read-only summary card pulling name, headline, portfolio link with "Edit profile" shortcut).
+  2. Track focus (multi-select of Launchpad tracks, preference ordering via drag handle, mandatory minimum 1 selection).
+  3. Experience depth (skill proficiency sliders 0–5 mapped to backend scoring weights, certification upload drop-zone with compliance banner when missing).
+  4. Availability & logistics (weekly availability slider, timezone select, remote/on-site toggle, relocation willingness radio group).
+  5. Compliance & consent (checkbox set for terms, GDPR storage consent, programme code of conduct, optional marketing opt-in).
+- **Validation Rules:** Experience years must be ≥1 for fast-track eligibility; availability slider cannot be <10 hours; at least one certification or portfolio URL required for specific tracks (engineering, design) flagged by backend configuration; consent checkboxes blocking submission until toggled.
+- **Submission Feedback:** Display inline summary card with assigned readiness score, next-step timeline ("Mentor interview within 5 days"), and CTA to view Launchpad dashboard. Refresh insights via React Query `invalidateQueries('launchpad-dashboard')`.
+
+## Launchpad Employer Request Form
+- **Sections:**
+  1. Company overview (organisation name, sector dropdown, website, compliance contact, GDPR/IR35 acknowledgement).
+  2. Opportunity brief (role title, track alignment chips, summary textarea with 600 character counter, success criteria bullet list input).
+  3. Requirements matrix (skills checklist, minimum experience, engagement type toggle, location/remote fields with multi-select, security clearance radio group).
+  4. Budget & timeline (currency select + min/max numeric inputs, contract length slider, start date picker, urgency tag radio group).
+  5. Additional context (file upload for job spec PDF, notes for internal stakeholders, checkbox to request talent marketing feature).
+- **Validation Rules:** Budget min must be < max; timeline slider cannot be empty; at least one skill selected; compliance acknowledgement mandatory; attachments limited to PDF/DOCX ≤5MB with client-side validation.
+- **Post-submit Behaviour:** Success toast summarises SLA ("Talent partnerships will respond within 1 business day"), dashboard table scrolls to new row with status `Received`, and insights cards animate deltas. Provide "Share more context" CTA linking to CRM form with prefilled request ID.

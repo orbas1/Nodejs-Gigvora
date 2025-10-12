@@ -18,3 +18,8 @@
   - `dispute_events` (disputeCaseId, actor metadata, action enum, evidence storage fields, event timestamp, metadata).
 - Down migration drops tables then enums to keep Postgres deployments clean; helper drops enum types conditionally to avoid MySQL/SQLite errors.
 - Validated via Jest + Sequelize sync using SQLite along with manual MySQL/Postgres dry runs to ensure cross-dialect compatibility and referential integrity.
+
+## `20240826094500-launchpad-workflows.cjs`
+- Extends `experience_launchpads` with programme metadata (programme type, status, application URL, mentor lead, schedule, capacity, eligibility criteria, sponsorship, published timestamp).
+- Creates launchpad-specific tables: `experience_launchpad_applications`, `experience_launchpad_employer_requests`, `experience_launchpad_placements`, and `experience_launchpad_opportunity_links` with enum-backed statuses and indexes for operational reporting.
+- Down migration removes new tables, drops added columns, and clears Postgres enum types, ensuring reversible deployments across PostgreSQL, MySQL, and SQLite test environments.

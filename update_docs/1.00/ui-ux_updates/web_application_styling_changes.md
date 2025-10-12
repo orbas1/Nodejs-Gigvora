@@ -22,6 +22,8 @@
 - **Tables:** `table-auto w-full`, header `bg-slate-50 text-slate-500 uppercase tracking-[0.35em]`, row hover `bg-slate-50`.
 - **Auto-assign queue:** Dedicated table variant with `border-l-4` accent stripe indicating score tiers (`border-emerald-500` for >=80, `border-amber-500` for 60–79, `border-rose-500` below 60). Countdown badges use `bg-slate-900 text-white` with `font-mono text-xs` for remaining minutes, and action buttons follow the primary/secondary CTA treatments with inline skeletons to reflect async decisions.
 - **Project workspace panels:** Two-column layout pairs a form card (`rounded-4xl border border-slate-200 bg-white/95`) with a queue snapshot stack using accent outlines, avatar clusters, and `text-xs text-slate-500` metadata rows; fairness preview card leverages `bg-gradient-to-br from-accent/10 via-white to-emerald-50` to reinforce equitable matching messaging.
+- **Launchpad insight cards:** Stat blocks adopt `rounded-4xl` shells with split-tone backgrounds (`from-accent/10 via-white to-emerald-50`) and icon medallions sized `48px` using accent gradients. Delta chips (`bg-emerald-100 text-emerald-700` or `bg-amber-100 text-amber-700`) float top-right to visualise week-over-week movement, while skeleton states pulse using `animate-pulse` across metric bars for parity with live dashboards.
+- **Launchpad forms:** Employer/talent forms render within `max-w-5xl` wrappers using `grid-cols-1 lg:grid-cols-2` and `gap-8`. Section headers leverage `uppercase tracking-[0.35em] text-slate-500` labels, while card bodies use `bg-white/95 border border-slate-200 rounded-4xl` with inset shadows `shadow-[0_30px_60px_-35px_rgba(37,99,235,0.35)]`. Submission footers stick to the viewport with `backdrop-blur-md bg-white/80` and inline status chips communicating review SLAs.
 
 ## Forms & Inputs
 - **Inputs:** `rounded-full` or `rounded-3xl` shapes, `border-slate-200`, `focus:border-accent focus:ring-0`; placeholder text `text-slate-400`.
@@ -29,6 +31,8 @@
 - **Multi-step forms:** Progress trackers using accent steps, `divide-y` separators, sticky summary column on desktop.
 - **Fairness sliders:** Range inputs adopt accent track + thumb, inline percentage badge `text-slate-400`, and `accent-accent` styling to visually link weight adjustments to queue outcomes; newcomer toggle utilises accent switch with supporting microcopy.
 - **File upload:** Dotted `border-2 border-dashed border-slate-300`, accent hover, inline preview thumbnails with `rounded-xl` mask.
+- **Launchpad employer brief specifics:** Budget range fields pair numeric inputs with select dropdowns styled using `bg-slate-50` chips and inline prefix tokens for currency, while timeline pickers use dual date inputs with accent connectors. Requirement checklists adopt `grid-cols-2` bullet blocks with accent check icons ensuring parity with backend validation rules.
+- **Talent application extras:** Skill proficiency matrix renders as stacked horizontal sliders (accent track, neutral background) and certification upload drop-zones that echo compliance callouts via `bg-amber-50 border-amber-200` when mandatory docs missing. Consent toggle row uses `border border-slate-200 rounded-3xl px-4 py-3` with inline iconography to reinforce regulatory language.
 
 ## Imagery & Iconography
 - **Logos:** `LOGO_URL` used in header and hero feed card; sized via `h-12 w-auto` and `h-8 w-auto` for brand consistency.
@@ -48,6 +52,7 @@
 - **Responsive nav:** Mobile drawer ensures touch targets sized `px-4 py-2` with adequate spacing.
 - **ARIA labelling:** Tab/accordion components include `aria-expanded` & `aria-controls`; modal containers enforce focus trap.
 - **Score explainers:** The scorecard drawer exposes aria-described-by references for each metric row (skills, availability, launchpad) so screen readers narrate the weighting the backend used, matching the tooltip content.
+- **Launchpad dashboards:** Insight cards expose `aria-live="polite"` regions to announce refreshed placement totals after submissions, while forms include `aria-describedby` on compliance tooltips and progress summaries. Sticky submit footers maintain focus trap containment to prevent keyboard users from losing context mid-review.
 - **Skip links:** `sr-only focus:not-sr-only` pattern ensures accessible skip-to-content anchor at top of page.
 
 ## Documentation Reference

@@ -193,7 +193,7 @@ function normaliseEmploymentCategory(type) {
   return normalised.replace(/\s+/g, '_');
 }
 
-function isRemoteRole(location, description) {
+export function isRemoteRole(location, description) {
   if (!location && !description) return false;
   const haystack = `${location ?? ''} ${description ?? ''}`.toLowerCase();
   return /(remote|anywhere|distributed|work from home|hybrid)/.test(haystack);
@@ -651,4 +651,5 @@ export default {
   searchOpportunityIndex,
   searchAcrossOpportunityIndexes,
   bootstrapOpportunitySearch,
+  isRemoteRole,
 };

@@ -32,3 +32,9 @@
 - New operations dashboard surfaces escrow totals, dispute workload, release queues, and R2 evidence health with blue-branded UI blocks aligned to the design system.
 - Inline release action buttons call the escrow release endpoint and refresh the overview while presenting success/error banners.
 - Integrates bucketed release metrics, dispute cards with SLA visibility, and compliance messaging for Cloudflare R2 evidence pipelines.
+
+## LaunchpadPage.jsx
+- Added cohort selection state, dashboard fetching, and analytics instrumentation, replacing the static list-only view.
+- Embedded `LaunchpadPlacementsInsights` to visualise pipeline, placement, interview, and employer brief metrics returned by the new backend dashboard endpoint.
+- Integrated `LaunchpadTalentApplicationForm` and `LaunchpadEmployerRequestForm` grids with smooth scroll focus, allowing talent and employers to complete workflows without leaving the page.
+- Wired dashboard refresh triggers after submissions and employer briefs to keep insights current without a full page reload.

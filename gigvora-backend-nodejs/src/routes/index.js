@@ -9,6 +9,7 @@ import messagingRoutes from './messagingRoutes.js';
 import trustRoutes from './trustRoutes.js';
 import autoAssignRoutes from './autoAssignRoutes.js';
 import projectRoutes from './projectRoutes.js';
+import launchpadRoutes from './launchpadRoutes.js';
 
 const router = Router();
 
@@ -22,5 +23,6 @@ router.use('/messaging', messagingRoutes);
 router.use('/trust', trustRoutes);
 router.use('/auto-assign', autoAssignRoutes);
 router.use('/projects', projectRoutes);
+router.use('/launchpad', launchpadRoutes);
 
 export default router;
