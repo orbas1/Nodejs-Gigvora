@@ -70,8 +70,8 @@
   - Logic: Relevance scoring, eligibility rules, retry algorithms, compliance gates for launchpad roles.
   - Design: Filter tokens, card layouts, accessibility for dense data, blue-themed UI consistency.
 
-## Task 5 – Profiles, User Types & Employment Systems (5% Complete)
-- **Subtask 5.1:** Refactor profile schema and UI for new sections, references, trust score display, and availability toggles.
+## Task 5 – Profiles, User Types & Employment Systems (12% Complete)
+- **Subtask 5.1:** Refactor profile schema and UI for new sections, references, trust score display, and availability toggles. **Status: 40% – `profileService.updateProfile` now persists sanitised skill inventories as JSON strings so Sequelize TEXT columns remain compliant, allowing the React profile editor overlay to commit array-based edits without validation faults. Backend regression suite has been stabilised, recalculating trust-score breakdowns and profile completion after each write to mirror the Experience Launchpad/Volunteer eligibility dashboards.**
 - **Subtask 5.2:** Implement trust score calculations, likes/follows counters, and analytics instrumentation powering launchpad, volunteer, and jobs board targeting.
 - **Subtask 5.3:** Build agency dashboards (HR, payments distribution, projects/gigs pipeline, graduate-to-agency) for web/mobile with volunteer staffing and launchpad cohort views.
 - **Subtask 5.4:** Build company dashboards (headhunter, job listings, ATS stages, interview calendar) with permissions, exposing Experience Launchpad and volunteer funnels.
