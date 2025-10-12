@@ -1,6 +1,6 @@
 # Version 1.00 – Detailed Task List
 
-## Task 1 – Flutter App Platform & Mobile Integration (100% Complete)
+## Task 1 – Flutter App Platform, Admin & Mobile Integration (100% Complete)
 - **Subtask 1.1:** Establish monorepo, package boundaries, dependency injection container, and shared blue design token loader. **Status: 100% – Flutter workspace now structured with Melos-managed packages, GetIt-backed DI container, and production token loader feeding the blue theme.**
 - **Subtask 1.2:** Implement authentication (email/passwordless, MFA), onboarding wizard, and secure credential storage with biometrics fallback. **Status: 100% – Flutter login and onboarding now call the hardened Node.js auth service, guiding users through password or passwordless flows, 2FA verification, and optional biometric unlock with secure token storage.**
 - **Subtask 1.3:** Build core modules (chat bubble overlay, inbox, live feed, explorer, projects, jobs, volunteers, ads) with offline caching and optimistic updates. **Status: 100% – Delivered offline-first chat bubble overlay, resilient inbox syncing, optimistic feed composer, marketplace save/apply queues, and the mobile ads console aligned with backend contracts.**
@@ -8,6 +8,9 @@
 - **Status: 100% – Hardened session manager now propagates secure tokens through REST, GraphQL, and realtime gateways while the telemetry service auto-instruments network, GraphQL, and realtime metrics feeding analytics dashboards.**
 - **Subtask 1.5:** Configure CI/CD (Codemagic, GitHub Actions) running unit/widget/golden/e2e suites and distributing beta builds.
 - **Status: 100% – GitHub Actions now provisions Flutter 3.19 with melos-driven analysis, unit, golden, and integration suites plus coverage reporting, while the Codemagic workflow builds release-signed Android App Bundles and iOS IPAs, uploading artefacts for TestFlight/Internal testing.**
+- **Subtask 1.6:** Re-organise Home Menu, tidy up and fix the UX of menus. Re-organsie Dashboards too. Reorganise Menu. Verify Logic flows are correct
+-  **Subtask 1.7:** Full Completion of the Admin Panel Menu and settings in full
+-   **Subtask 1.8:** Verify design against our desingn plans please. 
 - **Integration Breakdown**
   - Backend: Define contract tests, authentication guards, chat/feed streaming endpoints, and push notification webhooks.
   - Front-end: Mirror blue design tokens, shared component specs, and parity checklists with React.
