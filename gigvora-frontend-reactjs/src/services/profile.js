@@ -20,14 +20,19 @@ export async function fetchProfile(userId, { force = false, signal } = {}) {
   return profile;
 }
 
-export async function updateProfileAvailability(userId, payload) {
+export async function updateProfile(userId, payload) {
   const key = cacheKey(userId);
   const profile = await apiClient.patch(`/users/${userId}/profile`, payload);
   apiClient.writeCache(key, profile, PROFILE_CACHE_TTL);
   return profile;
 }
 
+export async function updateProfileAvailability(userId, payload) {
+  return updateProfile(userId, payload);
+}
+
 export default {
   fetchProfile,
+  updateProfile,
   updateProfileAvailability,
 };

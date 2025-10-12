@@ -127,6 +127,23 @@ function roundToTwo(value) {
   return Number(value.toFixed(2));
 }
 
+function clamp(value, min, max) {
+  if (!Number.isFinite(value)) {
+    return min;
+  }
+  if (value < min) {
+    return min;
+  }
+  if (value > max) {
+    return max;
+  }
+  return value;
+}
+
+function clamp01(value) {
+  return clamp(value, 0, 1);
+}
+
 function coerceStringArray(value) {
   if (value == null) {
     return [];
@@ -493,130 +510,321 @@ function calculateTrustScore({
   statusFlags,
   impactHighlights,
   pipelineInsights,
+  launchpadEligibility,
 }) {
-  const breakdown = [];
-  const normalizedCompletion = Math.min(Math.max(metrics.profileCompletion ?? 0, 0), 100);
-  const completionContribution = roundToTwo(normalizedCompletion * 0.4);
-  breakdown.push({
-    key: 'profile_completion',
-    label: 'Profile completeness',
-    weight: 0.4,
-    rawScore: normalizedCompletion,
-    contribution: completionContribution,
-    description: 'Completed sections across profile, skills, qualifications, and case studies.',
-  });
+  const weights = {
+    foundation: 0.25,
+    socialProof: 0.15,
+    launchpad: 0.2,
+    volunteer: 0.15,
+    delivery: 0.15,
+    availability: 0.05,
+    compliance: 0.05,
+  };
 
-  const verifiedReferences = references.filter((reference) => reference.verified).length;
-  const referencesContribution = roundToTwo(
-    Math.min(18, verifiedReferences * 6 + Math.max(references.length - verifiedReferences, 0) * 2),
-  );
+  const breakdown = [];
+  const normalizedCompletion = clamp(metrics.profileCompletion ?? 0, 0, 100);
+  const foundationScore = clamp01(normalizedCompletion / 100);
+  const foundationContribution = roundToTwo(foundationScore * weights.foundation * 100);
   breakdown.push({
-    key: 'references',
-    label: 'Verified references',
-    weight: 0.18,
-    rawScore: references.length,
-    contribution: referencesContribution,
-    description: 'Employer testimonials and endorsements with verification weighting.',
+    key: 'profile_foundation',
+    label: 'Profile completeness & narrative',
+    weight: weights.foundation,
+    rawScore: normalizedCompletion,
+    contribution: foundationContribution,
+    description: 'Completeness across profile copy, credentials, case studies, and availability context.',
   });
 
   const likesCount = Math.max(metrics.likesCount ?? 0, 0);
   const followersCount = Math.max(metrics.followersCount ?? 0, 0);
   const connectionsCount = Math.max(metrics.connectionsCount ?? 0, 0);
-  const engagementBase =
-    Math.log10(followersCount + 1) * 6 +
-    Math.log10(likesCount + 1) * 4 +
-    Math.log10(connectionsCount + 1) * 5;
-  const engagementContribution = roundToTwo(Math.min(14, engagementBase));
+
+  const logSignal = (value, saturationPoint) => {
+    if (!value || value <= 0) {
+      return 0;
+    }
+    const denominator = Math.log10(saturationPoint + 1);
+    if (!Number.isFinite(denominator) || denominator <= 0) {
+      return 0;
+    }
+    return clamp01(Math.log10(value + 1) / denominator);
+  };
+
+  const normalizedFlags = new Set(statusFlags.map((flag) => `${flag}`.toLowerCase()));
+
+  const weightedReferenceConfidence = references.reduce((total, reference) => {
+    const verificationMultiplier = reference.verified ? 1 : 0.6;
+    const weightConfidence = reference.weight != null ? clamp01(Number(reference.weight)) : 0.5;
+    let recencyBoost = 0;
+    if (reference.lastInteractedAt) {
+      const days = differenceInDays(reference.lastInteractedAt);
+      if (days != null) {
+        if (days <= 90) {
+          recencyBoost = 0.25;
+        } else if (days <= 180) {
+          recencyBoost = 0.15;
+        } else if (days <= 365) {
+          recencyBoost = 0.05;
+        }
+      }
+    }
+    return total + verificationMultiplier * (0.6 + weightConfidence * 0.4) + recencyBoost;
+  }, 0);
+  const referenceConfidence = clamp01(weightedReferenceConfidence / 5);
+
+  const followersSignal = logSignal(followersCount, 1500);
+  const likesSignal = logSignal(likesCount, 400);
+  const connectionsSignal = logSignal(connectionsCount, 120);
+  const networkSignal = clamp01(followersSignal * 0.5 + likesSignal * 0.25 + connectionsSignal * 0.25);
+
+  const socialProofScore = clamp01(referenceConfidence * 0.55 + networkSignal * 0.45);
+  const socialProofContribution = roundToTwo(socialProofScore * weights.socialProof * 100);
   breakdown.push({
-    key: 'engagement',
-    label: 'Network engagement',
-    weight: 0.14,
-    rawScore: { likesCount, followersCount, connectionsCount },
-    contribution: engagementContribution,
-    description: 'Signals from likes, followers, and accepted connections.',
+    key: 'social_proof',
+    label: 'References & network engagement',
+    weight: weights.socialProof,
+    rawScore: {
+      references: references.length,
+      verifiedReferences: references.filter((reference) => reference.verified).length,
+      likesCount,
+      followersCount,
+      connectionsCount,
+    },
+    contribution: socialProofContribution,
+    description: 'Employer endorsements, recency, and network reach driving social proof.',
   });
 
-  const volunteerScoreBase =
-    volunteerBadges.length * 3 +
-    (statusFlags.includes('mentor') ? 2 : 0) +
-    (statusFlags.includes('launchpad_alumni') ? 1 : 0) +
-    (statusFlags.includes('verified') ? 2 : 0);
-  const volunteerContribution = roundToTwo(Math.min(8, volunteerScoreBase));
+  const eligibility = launchpadEligibility ?? { status: 'unknown', score: null, cohorts: [] };
+  const statusScoreLookup = {
+    graduated: 1,
+    completed: 1,
+    active: 0.9,
+    invited: 0.78,
+    shortlisted: 0.72,
+    eligible: 0.62,
+    in_review: 0.54,
+    applied: 0.48,
+    paused: 0.35,
+    not_eligible: 0.2,
+    disqualified: 0.12,
+    rejected: 0.1,
+    unknown: 0.3,
+  };
+  const normalizedStatus = statusScoreLookup[`${eligibility.status ?? 'unknown'}`.toLowerCase()] ?? 0.3;
+  const normalizedEligibilityScore = clamp01((eligibility.score ?? 0) / 100);
+  const cohortBoost = clamp01((eligibility.cohorts?.length ?? 0) * 0.08);
+  const launchpadFlagBonus = Math.min(
+    0.25,
+    (normalizedFlags.has('launchpad_alumni') ? 0.15 : 0) +
+      (normalizedFlags.has('launchpad_fast_track') ? 0.05 : 0) +
+      (normalizedFlags.has('launchpad_coach') ? 0.05 : 0),
+  );
+  const trackBonus = eligibility.track ? 0.05 : 0;
+  const launchpadScore = clamp01(
+    normalizedStatus * 0.5 + normalizedEligibilityScore * 0.3 + cohortBoost + launchpadFlagBonus + trackBonus,
+  );
+  const launchpadContribution = roundToTwo(launchpadScore * weights.launchpad * 100);
   breakdown.push({
-    key: 'community',
-    label: 'Community leadership',
-    weight: 0.08,
-    rawScore: { volunteerBadges, statusFlags },
+    key: 'launchpad_readiness',
+    label: 'Experience Launchpad readiness',
+    weight: weights.launchpad,
+    rawScore: {
+      status: eligibility.status ?? 'unknown',
+      score: eligibility.score,
+      cohorts: eligibility.cohorts ?? [],
+      track: eligibility.track ?? null,
+    },
+    contribution: launchpadContribution,
+    description: 'Launchpad status, scoring, and cohort participation for employers sourcing high-readiness talent.',
+  });
+
+  const volunteerHighlights = impactHighlights.filter((highlight) => {
+    const haystack = `${highlight.title ?? ''} ${highlight.description ?? ''}`.toLowerCase();
+    return /volunteer|community|pro bono|nonprofit|mentorship/.test(haystack);
+  });
+  const professionalHighlights = impactHighlights.filter((highlight) => !volunteerHighlights.includes(highlight));
+
+  const volunteerBadgeScore = clamp01(volunteerBadges.length / 4);
+  const volunteerImpactSignal = clamp01(volunteerHighlights.length * 0.2);
+  const volunteerFlagSignal = Math.min(
+    0.35,
+    (normalizedFlags.has('volunteer_active') ? 0.2 : 0) +
+      (normalizedFlags.has('mentor') ? 0.1 : 0) +
+      (normalizedFlags.has('safeguarded_volunteer') ? 0.1 : 0) +
+      (normalizedFlags.has('community_leader') ? 0.1 : 0),
+  );
+  const volunteerScore = clamp01(volunteerBadgeScore * 0.45 + volunteerImpactSignal * 0.25 + volunteerFlagSignal);
+  const volunteerContribution = roundToTwo(volunteerScore * weights.volunteer * 100);
+  breakdown.push({
+    key: 'volunteer_commitment',
+    label: 'Volunteer & community impact',
+    weight: weights.volunteer,
+    rawScore: {
+      volunteerBadges,
+      volunteerHighlights: volunteerHighlights.length,
+      statusFlags,
+    },
     contribution: volunteerContribution,
-    description: 'Volunteer commitments, mentorship roles, and verified programme status.',
+    description: 'Volunteer badges, community highlights, and safeguarded participation signals.',
+  });
+
+  const pipelineItems = Array.isArray(pipelineInsights) ? pipelineInsights : [];
+  const pipelineWins = pipelineItems.filter((item) => {
+    const status = `${item.status ?? ''}`.toLowerCase();
+    return /(won|signed|hired|completed|filled|placed|awarded)/.test(status);
+  }).length;
+  const interviewStages = pipelineItems.filter((item) => {
+    const status = `${item.status ?? ''}`.toLowerCase();
+    return /(interview|screen|shortlist|review)/.test(status);
+  }).length;
+  const pipelineCoverageScore = clamp01(pipelineItems.length / 6);
+  const pipelineWinSignal = clamp01(pipelineWins / 3);
+  const pipelineInterviewSignal = clamp01(interviewStages / 4);
+  const quantifiableHighlights = professionalHighlights.filter((highlight) => {
+    if (!highlight || highlight.value == null) {
+      return false;
+    }
+    const numeric = Number.parseFloat(`${highlight.value}`.replace(/[^0-9.\-]/g, ''));
+    return Number.isFinite(numeric) && numeric > 0;
+  }).length;
+  const highlightSignal = clamp01(
+    professionalHighlights.length * 0.15 + quantifiableHighlights * 0.1,
+  );
+  const jobsFlagBonus = Math.min(
+    0.3,
+    (normalizedFlags.has('preferred_talent') ? 0.15 : 0) +
+      (normalizedFlags.has('jobs_board_featured') || normalizedFlags.has('featured_in_jobs_board') ? 0.1 : 0) +
+      (normalizedFlags.has('instant_book') ? 0.05 : 0),
+  );
+  const deliveryScore = clamp01(
+    pipelineWinSignal * 0.45 +
+      pipelineCoverageScore * 0.25 +
+      highlightSignal * 0.2 +
+      pipelineInterviewSignal * 0.1 +
+      jobsFlagBonus,
+  );
+  const deliveryContribution = roundToTwo(deliveryScore * weights.delivery * 100);
+  breakdown.push({
+    key: 'jobs_delivery',
+    label: 'Jobs & delivery performance',
+    weight: weights.delivery,
+    rawScore: {
+      pipelineCount: pipelineItems.length,
+      pipelineWins,
+      interviewStages,
+      professionalHighlights: professionalHighlights.length,
+    },
+    contribution: deliveryContribution,
+    description: 'Jobs board performance, placements, and quantifiable delivery metrics.',
   });
 
   const lastUpdatedSource =
     availability.lastUpdatedAt ?? profile.availabilityUpdatedAt ?? profile.updatedAt ?? null;
   const daysSinceAvailability = differenceInDays(lastUpdatedSource);
-  let recencyContribution = 4;
-  if (daysSinceAvailability != null) {
-    if (daysSinceAvailability <= 30) {
-      recencyContribution = 8;
-    } else if (daysSinceAvailability <= 60) {
-      recencyContribution = 6;
-    } else if (daysSinceAvailability <= 90) {
-      recencyContribution = 4;
-    } else if (daysSinceAvailability <= 180) {
-      recencyContribution = 2;
-    } else {
-      recencyContribution = 0;
+  let freshnessScore = 0.3;
+  if (daysSinceAvailability == null) {
+    freshnessScore = 0.4;
+  } else if (daysSinceAvailability <= 14) {
+    freshnessScore = 1;
+  } else if (daysSinceAvailability <= 30) {
+    freshnessScore = 0.85;
+  } else if (daysSinceAvailability <= 60) {
+    freshnessScore = 0.7;
+  } else if (daysSinceAvailability <= 90) {
+    freshnessScore = 0.55;
+  } else if (daysSinceAvailability <= 120) {
+    freshnessScore = 0.4;
+  } else if (daysSinceAvailability <= 180) {
+    freshnessScore = 0.25;
+  } else {
+    freshnessScore = 0.1;
+  }
+
+  const availabilityStatus = `${availability.status ?? ''}`.toLowerCase();
+  let availabilityStatusBoost = 0;
+  if (['available', 'actively_seeking', 'open'].includes(availabilityStatus)) {
+    availabilityStatusBoost = 0.15;
+  } else if (availabilityStatus === 'limited') {
+    availabilityStatusBoost = 0.05;
+  } else if (['on_leave', 'unavailable'].includes(availabilityStatus)) {
+    availabilityStatusBoost = -0.2;
+  }
+
+  const hours = Number.isFinite(availability.hoursPerWeek)
+    ? Number(availability.hoursPerWeek)
+    : null;
+  let availabilityHoursBoost = 0;
+  if (hours != null) {
+    if (hours === 0) {
+      availabilityHoursBoost = -0.1;
+    } else if (hours >= 30) {
+      availabilityHoursBoost = 0.1;
+    } else if (hours >= 15) {
+      availabilityHoursBoost = 0.05;
     }
   }
-  if (availability.status === 'unavailable' || availability.status === 'on_leave') {
-    recencyContribution = Math.max(0, recencyContribution - 2);
-  }
-  recencyContribution = roundToTwo(recencyContribution);
+
+  const availabilityScore = clamp01(freshnessScore + availabilityStatusBoost + availabilityHoursBoost);
+  const availabilityContribution = roundToTwo(availabilityScore * weights.availability * 100);
   breakdown.push({
-    key: 'availability',
-    label: 'Availability freshness',
-    weight: 0.08,
-    rawScore: { status: availability.status, daysSinceAvailability },
-    contribution: recencyContribution,
-    description: 'How recently availability was updated and current booking posture.',
+    key: 'availability_signal',
+    label: 'Availability freshness & capacity',
+    weight: weights.availability,
+    rawScore: { status: availability.status, daysSinceAvailability, hours },
+    contribution: availabilityContribution,
+    description: 'Recency of availability updates, booking posture, and remaining weekly capacity.',
   });
 
-  let deliveryContributionBase = 0;
-  if (impactHighlights.length > 0) {
-    deliveryContributionBase += 3 + Math.min(impactHighlights.length - 1, 2);
+  let complianceScore = 0.35;
+  if (normalizedFlags.has('verified')) {
+    complianceScore += 0.2;
   }
-  if (pipelineInsights.length > 0) {
-    deliveryContributionBase += 3;
+  if (normalizedFlags.has('kyc_verified')) {
+    complianceScore += 0.15;
   }
-  const deliveryContribution = roundToTwo(Math.min(6, deliveryContributionBase));
+  if (normalizedFlags.has('kyb_verified')) {
+    complianceScore += 0.1;
+  }
+  if (normalizedFlags.has('safeguarded') || normalizedFlags.has('safeguarded_volunteer')) {
+    complianceScore += 0.1;
+  }
+  if (normalizedFlags.has('insured') || normalizedFlags.has('compliance_passed')) {
+    complianceScore += 0.05;
+  }
+  if (references.some((reference) => reference.verified)) {
+    complianceScore += 0.05;
+  }
+  const complianceContribution = roundToTwo(clamp01(complianceScore) * weights.compliance * 100);
   breakdown.push({
-    key: 'delivery',
-    label: 'Delivery evidence',
-    weight: 0.06,
-    rawScore: { impactHighlights: impactHighlights.length, pipelineInsights: pipelineInsights.length },
-    contribution: deliveryContribution,
-    description: 'Impact metrics and active pipeline visibility demonstrating reliability.',
-  });
-
-  const baselineContribution = roundToTwo(6);
-  breakdown.push({
-    key: 'baseline',
-    label: 'Identity & compliance baseline',
-    weight: 0.06,
-    rawScore: 1,
-    contribution: baselineContribution,
-    description: 'Verified identity, compliance posture, and foundational safeguards.',
+    key: 'compliance',
+    label: 'Identity & compliance assurances',
+    weight: weights.compliance,
+    rawScore: { flags: statusFlags, verifiedReferences: references.filter((reference) => reference.verified).length },
+    contribution: complianceContribution,
+    description: 'Verification, safeguarding, and compliance markers supporting platform trust.',
   });
 
   const score = breakdown.reduce((total, item) => total + item.contribution, 0);
-  const clampedScore = Math.max(0, Math.min(100, score));
+  const clampedScore = clamp(score, 0, 100);
   const level = clampedScore >= 85 ? 'platinum' : clampedScore >= 70 ? 'gold' : clampedScore >= 55 ? 'silver' : 'emerging';
+
+  let reviewWindowDays = 45;
+  if (availabilityScore < 0.4) {
+    reviewWindowDays = 30;
+  } else if (launchpadContribution >= weights.launchpad * 100 * 0.75 && volunteerContribution >= weights.volunteer * 100 * 0.6) {
+    reviewWindowDays = 60;
+  } else if (deliveryContribution < weights.delivery * 100 * 0.4) {
+    reviewWindowDays = Math.min(reviewWindowDays, 40);
+  }
+  if (clampedScore >= 90) {
+    reviewWindowDays = Math.max(reviewWindowDays, 60);
+  }
 
   let recommendedReviewAt = null;
   if (lastUpdatedSource) {
     const baseDate = new Date(lastUpdatedSource);
     if (!Number.isNaN(baseDate.getTime())) {
-      const target = new Date(baseDate.getTime() + 45 * 24 * 60 * 60 * 1000);
+      const target = new Date(baseDate.getTime() + reviewWindowDays * 24 * 60 * 60 * 1000);
       recommendedReviewAt = target.toISOString();
     }
   }
@@ -728,6 +936,8 @@ function buildProfilePayload({ user, groups, connectionsCount }) {
     profileCompletion,
   };
 
+  const launchpadEligibility = coerceLaunchpadEligibility(profile.launchpadEligibility);
+
   const trustInsights = calculateTrustScore({
     profile,
     references,
@@ -737,6 +947,7 @@ function buildProfilePayload({ user, groups, connectionsCount }) {
     statusFlags,
     impactHighlights,
     pipelineInsights,
+    launchpadEligibility,
   });
 
   metrics.trustScore = trustInsights.score;
@@ -755,8 +966,6 @@ function buildProfilePayload({ user, groups, connectionsCount }) {
       role: membership.role ?? null,
     };
   });
-
-  const launchpadEligibility = coerceLaunchpadEligibility(profile.launchpadEligibility);
 
   const companyProfile = plainUser.CompanyProfile
     ? {
