@@ -19,6 +19,12 @@ import GroupsPage from './pages/GroupsPage.jsx';
 import ConnectionsPage from './pages/ConnectionsPage.jsx';
 import TrustCenterPage from './pages/TrustCenter.jsx';
 import AutoAssignQueuePage from './pages/AutoAssignQueuePage.jsx';
+import UserDashboardPage from './pages/dashboards/UserDashboardPage.jsx';
+import FreelancerDashboardPage from './pages/dashboards/FreelancerDashboardPage.jsx';
+import AdminDashboardPage from './pages/dashboards/AdminDashboardPage.jsx';
+import AgencyDashboardPage from './pages/dashboards/AgencyDashboardPage.jsx';
+import CompanyDashboardPage from './pages/dashboards/CompanyDashboardPage.jsx';
+import HeadhunterDashboardPage from './pages/dashboards/HeadhunterDashboardPage.jsx';
 
 export default function App() {
   return (
@@ -43,6 +49,12 @@ export default function App() {
         <Route path="trust-center" element={<TrustCenterPage />} />
         <Route path="auto-assign" element={<AutoAssignQueuePage />} />
       </Route>
+      <Route path="dashboard/user" element={<UserDashboardPage />} />
+      <Route path="dashboard/freelancer" element={<FreelancerDashboardPage />} />
+      <Route path="dashboard/admin" element={<AdminDashboardPage />} />
+      <Route path="dashboard/agency" element={<AgencyDashboardPage />} />
+      <Route path="dashboard/company" element={<CompanyDashboardPage />} />
+      <Route path="dashboard/headhunter" element={<HeadhunterDashboardPage />} />
       <Route path="admin" element={<AdminLoginPage />} />
     </Routes>
   );

@@ -1,7 +1,9 @@
 import { Link, NavLink } from 'react-router-dom';
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { LOGO_URL } from '../constants/branding.js';
+import UserAvatar from './UserAvatar.jsx';
+import { DASHBOARD_LINKS } from '../constants/dashboardLinks.js';
 
 const navLinks = [
   { to: '/', label: 'Home' },
@@ -18,8 +20,54 @@ const navLinks = [
   { to: '/trust-center', label: 'Trust Center' },
 ];
 
+const MOCK_SESSION = {
+  isAuthenticated: true,
+  name: 'Lena Fields',
+  title: 'Product Designer',
+  avatarSeed: 'Lena Fields',
+  memberships: ['user', 'freelancer', 'agency'],
+  primaryDashboard: 'user',
+};
+
 export default function Header() {
   const [open, setOpen] = useState(false);
+  const session = MOCK_SESSION;
+  const isAuthenticated = Boolean(session?.isAuthenticated);
+
+  const dashboardTarget = useMemo(() => {
+    if (!isAuthenticated) {
+      return null;
+    }
+
+    const primaryKey = session?.primaryDashboard ?? session?.memberships?.[0];
+    if (primaryKey && DASHBOARD_LINKS[primaryKey]) {
+      return DASHBOARD_LINKS[primaryKey];
+    }
+
+    return DASHBOARD_LINKS.user;
+  }, [isAuthenticated, session?.memberships, session?.primaryDashboard]);
+
+  const membershipLabels = useMemo(() => {
+    if (!isAuthenticated) {
+      return [];
+    }
+
+    return (session?.memberships ?? [])
+      .map((key) => DASHBOARD_LINKS[key]?.label)
+      .filter(Boolean);
+  }, [isAuthenticated, session?.memberships]);
+
+  const sessionSubtitle = useMemo(() => {
+    if (!isAuthenticated) {
+      return null;
+    }
+
+    if (membershipLabels.length > 1) {
+      return membershipLabels.join(' • ');
+    }
+
+    return membershipLabels[0] ?? session?.title ?? null;
+  }, [isAuthenticated, membershipLabels, session?.title]);
 
   const navClassName = ({ isActive }) =>
     `relative px-3 py-2 text-sm font-semibold transition-colors ${
@@ -48,19 +96,46 @@ export default function Header() {
             </NavLink>
           ))}
         </nav>
-        <div className="hidden items-center gap-3 md:flex">
-          <Link
-            to="/login"
-            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-accent/60 hover:text-accent"
-          >
-            Login
-          </Link>
-          <Link
-            to="/register"
-            className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
-          >
-            Join Now
-          </Link>
+        <div className="hidden items-center gap-4 md:flex">
+          {isAuthenticated && dashboardTarget ? (
+            <>
+              <div className="hidden text-right lg:block">
+                <p className="text-sm font-semibold text-slate-700">{session.name}</p>
+                {sessionSubtitle ? (
+                  <p className="text-xs text-slate-500">{sessionSubtitle}</p>
+                ) : null}
+              </div>
+              <Link
+                to={dashboardTarget.path}
+                className="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
+              >
+                Dashboard
+              </Link>
+              <Link to="/profile/me" className="block rounded-full border border-transparent transition hover:border-accent/40">
+                <UserAvatar
+                  name={session.name}
+                  seed={session.avatarSeed}
+                  size="sm"
+                  className="ring-2 ring-accent/30"
+                />
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link
+                to="/login"
+                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-accent/60 hover:text-accent"
+              >
+                Login
+              </Link>
+              <Link
+                to="/register"
+                className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
+              >
+                Join Now
+              </Link>
+            </>
+          )}
         </div>
         <button
           type="button"
@@ -89,22 +164,50 @@ export default function Header() {
               </NavLink>
             ))}
           </nav>
-          <div className="flex gap-3">
-            <Link
-              to="/login"
-              onClick={() => setOpen(false)}
-              className="flex-1 rounded-full border border-slate-200 px-4 py-2 text-center text-sm font-semibold text-slate-600"
-            >
-              Login
-            </Link>
-            <Link
-              to="/register"
-              onClick={() => setOpen(false)}
-              className="flex-1 rounded-full bg-accent px-4 py-2 text-center text-sm font-semibold text-white"
-            >
-              Join Now
-            </Link>
-          </div>
+          {isAuthenticated && dashboardTarget ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-3">
+                <UserAvatar name={session.name} seed={session.avatarSeed} size="xs" showGlow={false} />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-slate-800">{session.name}</p>
+                  {sessionSubtitle ? (
+                    <p className="text-xs text-slate-500">{sessionSubtitle}</p>
+                  ) : null}
+                </div>
+                <Link
+                  to={dashboardTarget.path}
+                  onClick={() => setOpen(false)}
+                  className="rounded-full bg-accent px-3 py-2 text-xs font-semibold uppercase tracking-wide text-white"
+                >
+                  Dashboard
+                </Link>
+              </div>
+              <Link
+                to="/profile/me"
+                onClick={() => setOpen(false)}
+                className="block rounded-2xl border border-slate-200/70 px-4 py-3 text-sm font-semibold text-slate-600 transition hover:border-accent/40 hover:text-accent"
+              >
+                View Profile
+              </Link>
+            </div>
+          ) : (
+            <div className="flex gap-3">
+              <Link
+                to="/login"
+                onClick={() => setOpen(false)}
+                className="flex-1 rounded-full border border-slate-200 px-4 py-2 text-center text-sm font-semibold text-slate-600"
+              >
+                Login
+              </Link>
+              <Link
+                to="/register"
+                onClick={() => setOpen(false)}
+                className="flex-1 rounded-full bg-accent px-4 py-2 text-center text-sm font-semibold text-white"
+              >
+                Join Now
+              </Link>
+            </div>
+          )}
         </div>
       )}
     </header>
