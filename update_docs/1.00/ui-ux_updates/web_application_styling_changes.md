@@ -24,6 +24,7 @@
 - **Project workspace panels:** Two-column layout pairs a form card (`rounded-4xl border border-slate-200 bg-white/95`) with a queue snapshot stack using accent outlines, avatar clusters, and `text-xs text-slate-500` metadata rows; fairness preview card leverages `bg-gradient-to-br from-accent/10 via-white to-emerald-50` to reinforce equitable matching messaging.
 - **Launchpad insight cards:** Stat blocks adopt `rounded-4xl` shells with split-tone backgrounds (`from-accent/10 via-white to-emerald-50`) and icon medallions sized `48px` using accent gradients. Delta chips (`bg-emerald-100 text-emerald-700` or `bg-amber-100 text-amber-700`) float top-right to visualise week-over-week movement, while skeleton states pulse using `animate-pulse` across metric bars for parity with live dashboards.
 - **Launchpad forms:** Employer/talent forms render within `max-w-5xl` wrappers using `grid-cols-1 lg:grid-cols-2` and `gap-8`. Section headers leverage `uppercase tracking-[0.35em] text-slate-500` labels, while card bodies use `bg-white/95 border border-slate-200 rounded-4xl` with inset shadows `shadow-[0_30px_60px_-35px_rgba(37,99,235,0.35)]`. Submission footers stick to the viewport with `backdrop-blur-md bg-white/80` and inline status chips communicating review SLAs.
+- **Volunteers Hub layout:** Dashboard uses a three-column responsive grid collapsing to stacked panels on mobile. Invitations table features `border-l-4` accent stripes reflecting urgency (emerald for active, amber for expiring, rose for lapsed) and `bg-slate-50` rows with hover transitions. Commitment timeline cards adopt `rounded-4xl` shells with progress bars (`bg-emerald-200` track, `bg-emerald-500` fill) and inline checklist items using accent check icons. Impact KPI tiles mirror Launchpad styling but introduce cause-specific accent gradients (education `from-amber-100 to-amber-50`, health `from-emerald-100 to-emerald-50`). Safeguarding checklist surfaces `border-dashed border-amber-300 bg-amber-50/70` cards with icon badges sized `h-10 w-10` and bold headings for compliance clarity.
 
 ## Forms & Inputs
 - **Inputs:** `rounded-full` or `rounded-3xl` shapes, `border-slate-200`, `focus:border-accent focus:ring-0`; placeholder text `text-slate-400`.
@@ -33,6 +34,7 @@
 - **File upload:** Dotted `border-2 border-dashed border-slate-300`, accent hover, inline preview thumbnails with `rounded-xl` mask.
 - **Launchpad employer brief specifics:** Budget range fields pair numeric inputs with select dropdowns styled using `bg-slate-50` chips and inline prefix tokens for currency, while timeline pickers use dual date inputs with accent connectors. Requirement checklists adopt `grid-cols-2` bullet blocks with accent check icons ensuring parity with backend validation rules.
 - **Talent application extras:** Skill proficiency matrix renders as stacked horizontal sliders (accent track, neutral background) and certification upload drop-zones that echo compliance callouts via `bg-amber-50 border-amber-200` when mandatory docs missing. Consent toggle row uses `border border-slate-200 rounded-3xl px-4 py-3` with inline iconography to reinforce regulatory language.
+- **Volunteer hour logging:** Inline hour inputs adopt `grid-cols-6` layout with `rounded-2xl border-slate-200` fields, `font-mono text-sm` for numeric clarity, and contextual helper chips (`bg-slate-100 text-slate-500`) showing remaining quota. Submission footer includes `bg-white/90 backdrop-blur-md` bar with primary CTA and secondary "Log later" ghost button.
 
 ## Imagery & Iconography
 - **Logos:** `LOGO_URL` used in header and hero feed card; sized via `h-12 w-auto` and `h-8 w-auto` for brand consistency.
@@ -45,6 +47,7 @@
 - **Accordion animation:** `transition-[max-height] duration-300 ease-in-out` for FAQ/accordion components to convey openness.
 - **Button feedback:** `focus-visible:ring-4 focus-visible:ring-accent/30` for strong keyboard cues; `active:translate-y-0.5` for pressed state.
 - **Queue timers:** Countdown badges pulse using `animate-pulse` when <10 minutes remain, and entries fade to 50% opacity before collapsing into the history accordion, mirroring backend expiry semantics.
+- **Volunteer interactions:** Invitation cards slide in with `transition-transform duration-300` and apply `ring-4 ring-emerald-100` on focus. Impact charts animate via `transition-[stroke-dashoffset] duration-700` to emphasise cumulative hours; safeguarding checklist uses `animate-bounce` micro-motion when critical items remain unchecked.
 
 ## Accessibility
 - **Focus states:** Buttons/links maintain default outline plus accent border on focus for keyboard navigation.

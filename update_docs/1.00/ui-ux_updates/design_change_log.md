@@ -20,6 +20,7 @@
 - **Discovery surfaces:** Search uses segmented category tabs, debounced query inputs, caching state banners, and card-based result grid with meta chips. Jobs/gigs/projects/volunteering pages inherit filtered list patterns and CTA scaffolds for deeper detail views, now wired to Meilisearch freshness scoring, remote badges, and synonym-driven chip groupings to mirror backend ranking.
 - **Community:** Launchpad, volunteering, groups, and connections adopt section headers with badges, timeline cards, and join buttons to reinforce network-first behaviour.
 - **Experience Launchpad (Aug 26):** Cohort page now features readiness scoring badges, operations insight cards (pipeline, placements, interviews, employer briefs), and production-ready talent/employer forms annotated with analytics tags and accessibility notes. Talent flows auto-populate profile context, enforce compliance uploads, and emit drop-off telemetry, while employer briefs drive SLA countdown chips, CRM webhooks, and recommended track pills surfaced by the backend scoring service.
+- **Volunteers Hub (Aug 27):** Introduced invitation manager table, commitment timeline, impact insights (hours logged, beneficiaries reached), safeguarding checklist, and recommendation carousel wired to the new volunteer service payloads. UI covers accept/decline/waive flows with compliance prompts (DBS, liability waivers), offline hour logging support, and analytics emitters for participation, all mirrored across React, Flutter, and provider artefacts.
 - **Trust Center:** Introduced operations dashboard layout featuring escrow KPI tiles, release queue table, dispute cards, and Cloudflare R2 evidence messaging aligned to the blue design system.
 - **Trust Center (Aug 09):** Finalised KPI thresholds, operations copy, and evidence health messaging to mirror the signed-off runbook, ensuring design artefacts match the shipped React implementation.
 - **Auth & Admin:** Registration split between individual/company, each using stepped forms with helper text; admin login emphasises secure entry with accent callouts and audit reminders.
@@ -33,12 +34,14 @@
 - **Marketplace:** Shared `OpportunityListScreen` orchestrates jobs/gigs/projects/launchpad/volunteering with search, chips, CTA buttons, and empty-state cards tailored per category.
 - **Profile & Auth:** Profile screen surfaces card-based metrics, while auth flows support freelancer + company registration, emphasising KYC readiness.
 - **Auto-Assign queue:** Added dedicated queue screen with countdown chips, score breakdown, and preference management overlays synchronised with the new backend service. Offline and push-notification states documented to support Riverpod controllers and analytics tagging.
+- **Volunteers Hub:** Mobile dashboard mirrors web invitation management, commitment logging, and impact widgets with offline caching for hour entries, volunteer waiver acknowledgement surfaces, and haptic cues when commitments are confirmed or expire.
 
 ## Provider App Updates
 - Provider dashboard wireframes introduce pipeline summaries (applications, invites, milestones), quick actions (post opportunity, create launchpad), and compliance banners (escrow status, dispute alerts).
 - Opportunity management emphasises multi-step forms with save states, preview modals, and scheduling pickers for interviews / project milestones.
 - Analytics overlays include ads performance, launchpad throughput, and volunteer impact cards with sparkline visualisations, all using shared accent palettes.
 - Auto-assign hub now mapped with queue table, override modal, KPI cards, and decline-feedback loop to power recruiter decisioning. Designs specify SLA breach states, manual promotion triggers, and audit logging copy that align with the newly merged Node.js endpoints.
+- Volunteers staffing console mirrors the web Volunteer Hub, exposing allocation matrix, safeguarding alerts, impact exports, and invite escalation workflows so agencies can triage non-responses and hour variance breaches using the same analytics definitions as operations dashboards.
 
 ## Accessibility & Quality
 - Web: focus outlines preserved on nav, buttons, chips; large-touch variants for cards; ARIA labelling on CTA groups.

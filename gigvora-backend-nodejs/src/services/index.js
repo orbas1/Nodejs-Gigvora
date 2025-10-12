@@ -12,3 +12,4 @@ export { default as searchSubscriptionService } from './searchSubscriptionServic
 export { default as autoAssignService } from './autoAssignService.js';
 export { default as projectService } from './projectService.js';
 export { default as launchpadService } from './launchpadService.js';
+export { default as profileService } from './profileService.js';

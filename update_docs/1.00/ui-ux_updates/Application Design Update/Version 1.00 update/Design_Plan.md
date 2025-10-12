@@ -33,6 +33,12 @@
 - Rich message composer supporting templates, attachments, and quick-response suggestions with localisation-ready placeholder logic.
 - Read receipts and presence indicators harmonised with brand animation language and accessibility contrast checks.
 
+### Volunteers Hub Evolution
+- Segmented dashboard (Invites, Commitments, Impact) aligns Flutter views with the new React experience, providing mission artwork, fit chips, and expiry countdowns.
+- Commitment timeline uses milestone chips with inline compliance prompts (DBS, waiver, orientation) and triggers hour logging flows with offline persistence.
+- Impact analytics module renders KPI tiles (hours, beneficiaries, satisfaction) plus cause badges, mirroring backend impact payloads and enabling data-driven recommendations.
+- Recommendation carousel ranks missions using availability, skill match, and cause preferences while offering quick accept/preview actions and telemetry hooks.
+
 ## Visual & Interaction System
 - **Typography**: Migrating to Inter family with explicit scale tokens (T-Display, T-Title, T-Body, T-Label).
 - **Colour**: Base palette expanded to 12 roles (Primary, Secondary, Accent, Success, Warning, Surface, Surface Variant, Border, Overlay, Outline, On-Primary, On-Surface).

@@ -1,78 +1,218 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
 import UserAvatar from '../components/UserAvatar.jsx';
+import { fetchProfile, updateProfileAvailability } from '../services/profile.js';
 
-const profile = {
-  name: 'Leo Freelancer',
-  headline: 'Full Stack Developer • Experience Launchpad Alum',
-  avatarSeed: 'Leo Freelancer',
-  location: 'Remote • Berlin, Germany',
-  bio: 'Building future-of-work platforms and communities. Previously launched three SaaS products and mentored 40+ builders.',
-  mission: 'Pairing high-trust product engineering with inclusive hiring programmes so every cohort ships with confidence.',
-  skills: ['Node.js', 'React', 'TypeScript', 'Tailwind CSS', 'MySQL', 'Product Strategy'],
-  experience: [
-    {
-      company: 'Nova Agency',
-      role: 'Lead Engineer (Contract)',
-      dates: '2023 - Present',
-      description: 'Scaling multi-tenant gig marketplace infrastructure, observability, and escrow integrations for venture clients.',
-    },
-    {
-      company: 'Atlas Labs',
-      role: 'Senior Full Stack Developer',
-      dates: '2020 - 2023',
-      description: 'Led growth experiments, refactored the React design system, and bootstrapped the remote mentorship guild.',
-    },
-  ],
-  followers: 1280,
-  connections: 560,
-  groups: [
-    'Future of Work Collective',
-    'Gigvora Launchpad Cohort 01',
-    'Design Systems Guild',
-  ],
-  liveMoments: [
-    {
-      title: 'Auto-assign streak',
-      value: '5 wins',
-      description: 'Accepted five priority matches in a row with 96% satisfaction scores.',
-    },
-    {
-      title: 'NPS from founders',
-      value: '9.4',
-      description: 'Average review from marketplace founders over the last 90 days.',
-    },
-    {
-      title: 'Availability',
-      value: '28 hrs/wk',
-      description: 'Optimised for multi-pod engagements across EU and Americas time zones.',
-    },
-  ],
-  collaborators: [
-    { name: 'Noor Designer', role: 'Product Design', seed: 'Noor Designer' },
-    { name: 'Atlas Agency', role: 'Brand Strategy', seed: 'Atlas Agency' },
-    { name: 'Mia Ops', role: 'Ops Partner', seed: 'Mia Ops' },
-  ],
-  autoAssignInsights: [
-    {
-      project: 'Marketplace instrumentation',
-      payout: '$1,500',
-      countdown: '02:45:00',
-      status: 'Awaiting confirmation',
-      seed: 'Marketplace instrumentation',
-    },
-    {
-      project: 'Compliance dashboard refactor',
-      payout: '$3,200',
-      countdown: '14:10:00',
-      status: 'Queued - next up',
-      seed: 'Compliance dashboard',
-    },
-  ],
-};
+const AVAILABILITY_OPTIONS = [
+  {
+    value: 'available',
+    label: 'Available',
+    description: 'Actively accepting new engagements',
+  },
+  {
+    value: 'limited',
+    label: 'Limited',
+    description: 'Selective booking with reduced capacity',
+  },
+  {
+    value: 'unavailable',
+    label: 'Unavailable',
+    description: 'Heads down on current programmes',
+  },
+  {
+    value: 'on_leave',
+    label: 'On leave',
+    description: 'Temporarily away from project work',
+  },
+];
+
+function formatStatusLabel(status) {
+  if (!status) return '';
+  return status
+    .split('_')
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(' ');
+}
+
+function buildAvailabilityDraft(availability = {}) {
+  return {
+    status: availability.status ?? 'limited',
+    hoursPerWeek: availability.hoursPerWeek ?? 0,
+    openToRemote: availability.openToRemote ?? true,
+    focusAreas: Array.isArray(availability.focusAreas) ? availability.focusAreas : [],
+  };
+}
 
 export default function ProfilePage() {
   const { id } = useParams();
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [savingAvailability, setSavingAvailability] = useState(false);
+  const [availabilityDraft, setAvailabilityDraft] = useState(buildAvailabilityDraft());
+  const [reloadToken, setReloadToken] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+
+    fetchProfile(id, { force: reloadToken > 0, signal: controller.signal })
+      .then((data) => {
+        setProfile(data);
+        setAvailabilityDraft(buildAvailabilityDraft(data.availability));
+      })
+      .catch((err) => {
+        if (err.name === 'AbortError') return;
+        setError(err?.body?.message ?? err.message ?? 'Unable to load profile overview.');
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [id, reloadToken]);
+
+  const metrics = profile?.metrics ?? {};
+  const availability = useMemo(() => profile?.availability ?? {}, [profile]);
+
+  const statCards = useMemo(
+    () => [
+      {
+        label: 'Trust score',
+        value:
+          metrics.trustScore == null
+            ? '—'
+            : Number(metrics.trustScore).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        helper: 'Reliability rating across engagements',
+      },
+      {
+        label: 'Followers',
+        value: (metrics.followersCount ?? 0).toLocaleString(),
+        helper: 'Community followers',
+      },
+      {
+        label: 'Connections',
+        value: (metrics.connectionsCount ?? 0).toLocaleString(),
+        helper: 'Trusted relationships',
+      },
+      {
+        label: 'Profile completion',
+        value:
+          metrics.profileCompletion == null
+            ? '—'
+            : `${Number(metrics.profileCompletion).toLocaleString(undefined, { maximumFractionDigits: 1 })}%`,
+        helper: 'Sections completed for launch readiness',
+      },
+    ],
+    [metrics.connectionsCount, metrics.followersCount, metrics.profileCompletion, metrics.trustScore],
+  );
+
+  const handleAvailabilityChange = useCallback(
+    async (changes) => {
+      if (!profile) return;
+      setSavingAvailability(true);
+      setError(null);
+      try {
+        const payload = { ...changes };
+        if (payload.focusAreas) {
+          payload.focusAreas = Array.isArray(payload.focusAreas) ? payload.focusAreas : [];
+        }
+        const updated = await updateProfileAvailability(id, payload);
+        setProfile(updated);
+        setAvailabilityDraft(buildAvailabilityDraft(updated.availability));
+      } catch (err) {
+        setError(err?.body?.message ?? err.message ?? 'Unable to update availability.');
+      } finally {
+        setSavingAvailability(false);
+      }
+    },
+    [id, profile],
+  );
+
+  const handleStatusSelect = useCallback(
+    (status) => {
+      if (status === availabilityDraft.status) return;
+      handleAvailabilityChange({ availabilityStatus: status });
+      setAvailabilityDraft((draft) => ({ ...draft, status }));
+    },
+    [availabilityDraft.status, handleAvailabilityChange],
+  );
+
+  const handleHoursChange = useCallback((event) => {
+    const next = Number(event.target.value);
+    setAvailabilityDraft((draft) => ({ ...draft, hoursPerWeek: Number.isFinite(next) ? next : 0 }));
+  }, []);
+
+  const handleHoursBlur = useCallback(() => {
+    const normalized = Math.min(Math.max(Number(availabilityDraft.hoursPerWeek) || 0, 0), 168);
+    setAvailabilityDraft((draft) => ({ ...draft, hoursPerWeek: normalized }));
+    handleAvailabilityChange({ availableHoursPerWeek: normalized });
+  }, [availabilityDraft.hoursPerWeek, handleAvailabilityChange]);
+
+  const handleRemoteToggle = useCallback(
+    (event) => {
+      const openToRemote = event.target.checked;
+      setAvailabilityDraft((draft) => ({ ...draft, openToRemote }));
+      handleAvailabilityChange({ openToRemote });
+    },
+    [handleAvailabilityChange],
+  );
+
+  const handleFocusAreasChange = useCallback((event) => {
+    const raw = event.target.value;
+    const parsed = raw
+      .split(',')
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+    setAvailabilityDraft((draft) => ({ ...draft, focusAreas: parsed }));
+  }, []);
+
+  const handleFocusAreasBlur = useCallback(() => {
+    handleAvailabilityChange({ focusAreas: availabilityDraft.focusAreas });
+  }, [availabilityDraft.focusAreas, handleAvailabilityChange]);
+
+  if (loading) {
+    return (
+      <section className="flex min-h-[60vh] items-center justify-center">
+        <p className="text-sm font-medium text-slate-500">Loading profile…</p>
+      </section>
+    );
+  }
+
+  if (error && !profile) {
+    return (
+      <section className="flex min-h-[60vh] items-center justify-center">
+        <div className="max-w-lg rounded-3xl border border-red-100 bg-red-50/80 p-8 text-center shadow-sm">
+          <h1 className="text-lg font-semibold text-red-800">We couldn&apos;t load this profile</h1>
+          <p className="mt-2 text-sm text-red-700">{error}</p>
+          <button
+            type="button"
+            onClick={() => setReloadToken((token) => token + 1)}
+            className="mt-4 inline-flex items-center justify-center rounded-full bg-red-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700"
+          >
+            Try again
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  if (!profile) {
+    return null;
+  }
+
+  const impactHighlights = Array.isArray(profile.impactHighlights) ? profile.impactHighlights : [];
+  const autoAssignInsights = Array.isArray(profile.autoAssignInsights) ? profile.autoAssignInsights : [];
+  const experience = Array.isArray(profile.experience) ? profile.experience : [];
+  const collaborators = Array.isArray(profile.collaborationRoster) ? profile.collaborationRoster : [];
+  const groups = Array.isArray(profile.groups) ? profile.groups : [];
+  const references = Array.isArray(profile.references) ? profile.references : [];
+  const preferredEngagements = Array.isArray(profile.preferredEngagements) ? profile.preferredEngagements : [];
+  const statusFlags = Array.isArray(profile.statusFlags) ? profile.statusFlags : [];
+  const volunteerBadges = Array.isArray(profile.volunteerBadges) ? profile.volunteerBadges : [];
+  const skills = Array.isArray(profile.skills) ? profile.skills : [];
 
   return (
     <section className="relative overflow-hidden py-20">
@@ -80,6 +220,11 @@ export default function ProfilePage() {
       <div className="absolute -left-16 top-32 h-80 w-80 rounded-full bg-accent/15 blur-3xl" aria-hidden="true" />
       <div className="absolute -right-24 bottom-32 h-72 w-72 rounded-full bg-emerald-200/40 blur-[120px]" aria-hidden="true" />
       <div className="relative mx-auto max-w-6xl space-y-12 px-6">
+        {error ? (
+          <div className="rounded-3xl border border-red-100 bg-red-50/80 p-4 text-sm text-red-700 shadow-sm">
+            {error}
+          </div>
+        ) : null}
         <div className="grid items-start gap-10 rounded-4xl border border-slate-200/70 bg-white/80 p-10 shadow-xl backdrop-blur lg:grid-cols-[auto,1fr]">
           <div className="space-y-4 text-center lg:text-left">
             <UserAvatar name={profile.name} seed={profile.avatarSeed} size="lg" className="mx-auto lg:mx-0" />
@@ -90,22 +235,32 @@ export default function ProfilePage() {
               <p className="mt-2 text-sm text-slate-500">{profile.location}</p>
             </div>
             <div className="flex flex-wrap justify-center gap-3 text-xs text-slate-500 lg:justify-start">
-              <span className="rounded-full border border-slate-200 px-3 py-1">Followers {profile.followers}</span>
-              <span className="rounded-full border border-slate-200 px-3 py-1">Connections {profile.connections}</span>
-              <span className="rounded-full border border-slate-200 px-3 py-1">Groups {profile.groups.length}</span>
+              {statusFlags.map((flag) => (
+                <span key={flag} className="rounded-full border border-slate-200 px-3 py-1 text-slate-600">
+                  {formatStatusLabel(flag)}
+                </span>
+              ))}
+              {volunteerBadges.map((badge) => (
+                <span key={badge} className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-emerald-700">
+                  {formatStatusLabel(badge)}
+                </span>
+              ))}
             </div>
           </div>
           <div className="grid gap-6 lg:grid-cols-2">
             <article className="rounded-3xl border border-slate-200/80 bg-surfaceMuted/70 p-6">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Mission</h2>
-              <p className="mt-3 text-sm text-slate-700">{profile.mission}</p>
+              <p className="mt-3 text-sm text-slate-700">{profile.missionStatement ?? profile.bio}</p>
             </article>
             <div className="grid gap-4">
-              {profile.liveMoments.map((moment) => (
-                <article key={moment.title} className="rounded-3xl border border-slate-200/70 bg-white/90 p-5 shadow-soft transition hover:-translate-y-0.5 hover:border-accent/60">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{moment.title}</p>
-                  <p className="mt-2 text-2xl font-bold text-slate-900">{moment.value}</p>
-                  <p className="mt-1 text-sm text-slate-600">{moment.description}</p>
+              {impactHighlights.map((highlight) => (
+                <article
+                  key={`${highlight.title}-${highlight.value}`}
+                  className="rounded-3xl border border-slate-200/70 bg-white/90 p-5 shadow-soft transition hover:-translate-y-0.5 hover:border-accent/60"
+                >
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{highlight.title}</p>
+                  <p className="mt-2 text-2xl font-bold text-slate-900">{highlight.value}</p>
+                  <p className="mt-1 text-sm text-slate-600">{highlight.description}</p>
                 </article>
               ))}
             </div>
@@ -120,68 +275,192 @@ export default function ProfilePage() {
                 title="Trusted marketplace operator"
                 description={profile.bio}
               />
-              <p className="mt-4 text-sm text-slate-600">
-                Leo helps venture teams launch reliable product squads, pairs engineering instrumentation with measurable
-                learning loops, and coaches new freelancers inside the Launchpad programme.
-              </p>
+              {preferredEngagements.length > 0 ? (
+                <p className="mt-4 text-sm text-slate-600">
+                  Prefers engagements focused on{' '}
+                  <span className="font-semibold text-slate-800">{preferredEngagements.join(', ')}</span> while maintaining
+                  inclusive launch criteria.
+                </p>
+              ) : null}
             </section>
 
             <section className="rounded-3xl border border-slate-200 bg-white/90 p-8 shadow-sm">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-slate-900">Recent experience</h2>
-                <div className="flex items-center gap-2 text-xs text-slate-500">
-                  {profile.collaborators.map((collaborator) => (
-                    <div key={collaborator.name} className="-ml-2 first:ml-0">
-                      <UserAvatar name={collaborator.name} seed={collaborator.seed} size="xs" showGlow={false} />
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900">Experience timeline</h2>
+                  <p className="text-sm text-slate-500">Highlighting the pods, programmes, and leadership rotations that shaped this profile.</p>
+                </div>
+                <div className="flex flex-wrap gap-3 text-xs text-slate-500">
+                  {statCards.map((stat) => (
+                    <div key={stat.label} className="rounded-2xl border border-slate-200 bg-surfaceMuted/60 px-3 py-2 text-left">
+                      <p className="font-semibold text-slate-700">{stat.value}</p>
+                      <p className="text-[11px] uppercase tracking-wide text-slate-400">{stat.label}</p>
                     </div>
                   ))}
                 </div>
               </div>
               <div className="mt-6 space-y-5">
-                {profile.experience.map((item) => (
-                  <article key={item.company} className="rounded-2xl border border-slate-200 bg-surfaceMuted/70 p-5">
-                    <div className="flex items-center justify-between text-xs text-slate-500">
-                      <span>{item.company}</span>
-                      <span>{item.dates}</span>
+                {experience.map((item, index) => (
+                  <article key={`${item.organization}-${index}`} className="rounded-2xl border border-slate-200 bg-surfaceMuted/70 p-5">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                      <span>{item.organization}</span>
+                      <span>
+                        {item.startDate ?? '—'}
+                        {item.endDate ? ` – ${item.endDate}` : ' – Present'}
+                      </span>
                     </div>
                     <h3 className="mt-2 text-base font-semibold text-slate-900">{item.role}</h3>
                     <p className="mt-2 text-sm text-slate-600">{item.description}</p>
+                    {Array.isArray(item.highlights) && item.highlights.length > 0 ? (
+                      <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-slate-500">
+                        {item.highlights.map((highlight) => (
+                          <li key={highlight}>{highlight}</li>
+                        ))}
+                      </ul>
+                    ) : null}
                   </article>
                 ))}
               </div>
             </section>
 
-            <section className="rounded-3xl border border-slate-200 bg-gradient-to-br from-accent/10 via-white to-emerald-50 p-8 shadow-soft">
-              <h2 className="text-lg font-semibold text-slate-900">Auto-assign activity</h2>
-              <p className="mt-2 text-sm text-slate-600">
-                Leo opts into fair-matching so emerging freelancers rotate through premium projects. Queue analytics show the
-                countdown for the next two matches.
-              </p>
-              <div className="mt-6 space-y-4">
-                {profile.autoAssignInsights.map((insight) => (
-                  <article key={insight.project} className="flex items-center justify-between rounded-2xl border border-accent/30 bg-white/90 p-4">
-                    <div className="flex items-center gap-4">
-                      <UserAvatar name={insight.project} seed={insight.seed} size="sm" showGlow={false} />
-                      <div>
-                        <h3 className="text-sm font-semibold text-slate-900">{insight.project}</h3>
-                        <p className="text-xs text-slate-500">{insight.status}</p>
+            {autoAssignInsights.length > 0 ? (
+              <section className="rounded-3xl border border-slate-200 bg-gradient-to-br from-accent/10 via-white to-emerald-50 p-8 shadow-soft">
+                <h2 className="text-lg font-semibold text-slate-900">Pipeline snapshots</h2>
+                <p className="mt-2 text-sm text-slate-600">
+                  Transparent queue metrics across auto-assign and curated pods keep stakeholders aligned on throughput and fairness.
+                </p>
+                <div className="mt-6 space-y-4">
+                  {autoAssignInsights.map((insight) => (
+                    <article
+                      key={`${insight.project}-${insight.status}`}
+                      className="flex items-center justify-between rounded-2xl border border-accent/30 bg-white/90 p-4"
+                    >
+                      <div className="flex items-center gap-4">
+                        <UserAvatar name={insight.project} seed={insight.seed ?? insight.project} size="sm" showGlow={false} />
+                        <div>
+                          <h3 className="text-sm font-semibold text-slate-900">{insight.project}</h3>
+                          <p className="text-xs text-slate-500">{insight.status}</p>
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-right text-xs text-slate-500">
-                      <p className="font-semibold text-slate-900">{insight.payout}</p>
-                      <p>ETA {insight.countdown}</p>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </section>
+                      <div className="text-right text-xs text-slate-500">
+                        <p className="font-semibold text-slate-900">{insight.payout}</p>
+                        <p>{insight.countdown ? `ETA ${insight.countdown}` : 'Queue refreshed'}</p>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {references.length > 0 ? (
+              <section className="rounded-3xl border border-slate-200 bg-white/90 p-8 shadow-sm">
+                <h2 className="text-lg font-semibold text-slate-900">References & endorsements</h2>
+                <ul className="mt-4 space-y-4">
+                  {references.map((reference) => (
+                    <li key={`${reference.name}-${reference.company}`} className="rounded-2xl border border-slate-200 bg-surfaceMuted/60 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                        <div>
+                          <p className="font-semibold text-slate-900">{reference.name}</p>
+                          <p className="text-xs text-slate-500">{reference.relationship ?? reference.company}</p>
+                        </div>
+                        {reference.verified ? (
+                          <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">Verified</span>
+                        ) : null}
+                      </div>
+                      <p className="mt-3 text-sm text-slate-600">{reference.endorsement}</p>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
           </div>
 
           <aside className="space-y-8">
+            <section className="rounded-3xl border border-accent/40 bg-white/95 p-8 shadow-sm">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-slate-900">Availability</h2>
+                <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                  {formatStatusLabel(availabilityDraft.status)}
+                </span>
+              </div>
+              <p className="mt-2 text-sm text-slate-500">
+                Optimise visibility by keeping availability, capacity, and focus areas up-to-date. Changes sync instantly with auto-assign and launchpad cohorts.
+              </p>
+              <div className="mt-4 grid gap-2">
+                {AVAILABILITY_OPTIONS.map((option) => {
+                  const isActive = option.value === availabilityDraft.status;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => handleStatusSelect(option.value)}
+                      disabled={savingAvailability}
+                      className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+                        isActive
+                          ? 'border-accent bg-accent/10 text-slate-900'
+                          : 'border-slate-200 bg-surfaceMuted/60 text-slate-600 hover:border-accent/40'
+                      }`}
+                    >
+                      <div>
+                        <p className="text-sm font-semibold">{option.label}</p>
+                        <p className="text-xs text-slate-500">{option.description}</p>
+                      </div>
+                      {isActive ? (
+                        <span className="text-xs font-semibold uppercase tracking-wide text-accent">Active</span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mt-6 space-y-4 text-sm text-slate-600">
+                <label className="block">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Hours per week</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="168"
+                    value={availabilityDraft.hoursPerWeek}
+                    onChange={handleHoursChange}
+                    onBlur={handleHoursBlur}
+                    disabled={savingAvailability}
+                    className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-inner focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
+                  />
+                </label>
+                <label className="flex items-center gap-3 text-sm text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={availabilityDraft.openToRemote}
+                    onChange={handleRemoteToggle}
+                    disabled={savingAvailability}
+                    className="h-4 w-4 rounded border-slate-300 text-accent focus:ring-accent"
+                  />
+                  Open to remote-friendly engagements
+                </label>
+                <label className="block">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Focus areas</span>
+                  <textarea
+                    rows={2}
+                    value={availabilityDraft.focusAreas.join(', ')}
+                    onChange={handleFocusAreasChange}
+                    onBlur={handleFocusAreasBlur}
+                    disabled={savingAvailability}
+                    placeholder="e.g. Discovery sprints, Launchpad mentorship"
+                    className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-inner focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
+                  />
+                </label>
+                <p className="text-xs text-slate-400">
+                  Last updated {availability.lastUpdatedAt ? new Date(availability.lastUpdatedAt).toLocaleString() : 'recently'}
+                </p>
+                {savingAvailability ? (
+                  <p className="text-xs font-medium text-accent">Saving availability…</p>
+                ) : null}
+              </div>
+            </section>
+
             <section className="rounded-3xl border border-slate-200 bg-white/90 p-8 shadow-sm">
               <h2 className="text-lg font-semibold text-slate-900">Skills</h2>
               <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-600">
-                {profile.skills.map((skill) => (
+                {skills.map((skill) => (
                   <span key={skill} className="rounded-full border border-slate-200 bg-surfaceMuted/70 px-3 py-1">
                     {skill}
                   </span>
@@ -190,34 +469,44 @@ export default function ProfilePage() {
             </section>
 
             <section className="rounded-3xl border border-slate-200 bg-white/90 p-8 shadow-sm">
-              <h2 className="text-lg font-semibold text-slate-900">Groups</h2>
+              <h2 className="text-lg font-semibold text-slate-900">Communities & groups</h2>
               <ul className="mt-4 space-y-3 text-sm text-slate-600">
-                {profile.groups.map((group) => (
-                  <li key={group} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-surfaceMuted/60 px-3 py-2">
-                    <span>{group}</span>
-                    <span className="text-xs text-slate-400">Active</span>
+                {groups.map((group) => (
+                  <li key={group.id ?? group.name} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-surfaceMuted/60 px-3 py-2">
+                    <span>{group.name}</span>
+                    <span className="text-xs text-slate-400">{group.role ? formatStatusLabel(group.role) : 'Member'}</span>
                   </li>
                 ))}
               </ul>
             </section>
 
-            <section className="rounded-3xl border border-emerald-200 bg-emerald-50/80 p-8 shadow-inner">
-              <h2 className="text-lg font-semibold text-emerald-900">Collaboration roster</h2>
-              <p className="mt-2 text-xs text-emerald-700">
-                Current pods draw talent from Gigvora agencies, independent strategists, and Launchpad alumni.
-              </p>
-              <div className="mt-4 space-y-3">
-                {profile.collaborators.map((collaborator) => (
-                  <div key={collaborator.name} className="flex items-center gap-3 rounded-2xl border border-emerald-200/60 bg-white/90 px-3 py-2">
-                    <UserAvatar name={collaborator.name} seed={collaborator.seed} size="xs" showGlow={false} />
-                    <div>
-                      <p className="text-sm font-semibold text-emerald-900">{collaborator.name}</p>
-                      <p className="text-xs text-emerald-600">{collaborator.role}</p>
+            {collaborators.length > 0 ? (
+              <section className="rounded-3xl border border-emerald-200 bg-emerald-50/80 p-8 shadow-inner">
+                <h2 className="text-lg font-semibold text-emerald-900">Collaboration roster</h2>
+                <p className="mt-2 text-xs text-emerald-700">
+                  Current pods draw talent from Gigvora agencies, independent strategists, and Launchpad alumni.
+                </p>
+                <div className="mt-4 space-y-3">
+                  {collaborators.map((collaborator) => (
+                    <div
+                      key={`${collaborator.name}-${collaborator.role}`}
+                      className="flex items-center gap-3 rounded-2xl border border-emerald-200/60 bg-white/90 px-3 py-2"
+                    >
+                      <UserAvatar
+                        name={collaborator.name}
+                        seed={collaborator.avatarSeed ?? collaborator.name}
+                        size="xs"
+                        showGlow={false}
+                      />
+                      <div>
+                        <p className="text-sm font-semibold text-emerald-900">{collaborator.name}</p>
+                        <p className="text-xs text-emerald-600">{collaborator.role}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </section>
+                  ))}
+                </div>
+              </section>
+            ) : null}
           </aside>
         </div>
       </div>

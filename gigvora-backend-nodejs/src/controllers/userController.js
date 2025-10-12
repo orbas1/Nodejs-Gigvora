@@ -1,27 +1,51 @@
-import { User, Profile, CompanyProfile, AgencyProfile, FreelancerProfile } from '../models/index.js';
+import { User } from '../models/index.js';
+import profileService from '../services/profileService.js';
 
 export async function listUsers(req, res) {
+  const limitParam = Number.parseInt(req.query.limit ?? '20', 10);
+  const offsetParam = Number.parseInt(req.query.offset ?? '0', 10);
+  const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 50) : 20;
+  const offset = Number.isFinite(offsetParam) && offsetParam >= 0 ? offsetParam : 0;
+  const bypassCache = req.query.fresh === 'true';
+
   const users = await User.findAll({
-    include: [Profile, CompanyProfile, AgencyProfile, FreelancerProfile],
+    attributes: ['id'],
+    order: [['createdAt', 'DESC']],
+    limit,
+    offset,
   });
-  res.json(users);
+
+  const profiles = await Promise.all(
+    users.map((user) => profileService.getProfileOverview(user.id, { bypassCache })),
+  );
+
+  res.json({
+    items: profiles,
+    pagination: {
+      limit,
+      offset,
+      count: profiles.length,
+    },
+  });
 }
 
 export async function getUserProfile(req, res) {
-  const user = await User.findByPk(req.params.id, {
-    include: [Profile, CompanyProfile, AgencyProfile, FreelancerProfile],
+  const profile = await profileService.getProfileOverview(req.params.id, {
+    bypassCache: req.query.fresh === 'true',
   });
-  if (!user) {
-    return res.status(404).json({ message: 'User not found' });
-  }
-  res.json(user);
+  res.json(profile);
 }
 
-export async function updateProfile(req, res) {
+export async function updateUser(req, res) {
   const user = await User.findByPk(req.params.id);
   if (!user) {
     return res.status(404).json({ message: 'User not found' });
   }
   await user.update(req.body);
   res.json(user);
+}
+
+export async function updateProfileSettings(req, res) {
+  const profile = await profileService.updateProfileAvailability(req.params.id, req.body);
+  res.json(profile);
 }

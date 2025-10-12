@@ -26,6 +26,14 @@
 - **Saved items:** Bookmark icon toggles, saved view accessible via header action listing cards with sort controls.
 - **Auto-assign ribbon:** Eligible listings display a ribbon badge above the hero summarising response window and payout. Ribbon includes "Preview assignment" CTA that opens the queue screen with context.
 
+## Volunteers Hub Dashboard
+- **Invitations stack:** Top section shows pending invites with mission artwork, skill tags, and Accept/Decline/Request Change buttons; countdown pill indicates expiry.
+- **Commitments timeline:** Horizontal timeline surfaces upcoming shifts with progress dots, compliance badges, and CTA to log hours; tapping opens detail modal.
+- **Impact KPIs:** Row of cards summarises total hours, beneficiaries, and satisfaction, each with delta chip; line chart visualises weekly contributions.
+- **Recommendations rail:** Carousel displays suggested missions with fit score badge, cause tags, and quick "Preview" CTA.
+- **Safeguarding checklist:** Collapsible panel listing outstanding onboarding steps (DBS, waiver, training) with status toggles and resource links.
+- **Hour logging sheet:** Floating action button opens bottom sheet to log hours, add notes, and attach photos; includes offline saved state indicator.
+
 ## Auto-Assign Queue Module
 - **Entry point:** Navigation rail gains bell-with-check icon showing active assignment count; tapping opens queue screen.
 - **Queue layout:** Two-tab scaffold (Active, History). Active tab presents stacked cards with hero row (opportunity title, target type chip, payout), countdown pill, and score bar visualising skills/availability/launchpad weighting.

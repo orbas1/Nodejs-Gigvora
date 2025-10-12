@@ -27,7 +27,7 @@
     2. Deploy floating chat bubble, live feed components, and volunteer/launchpad entry points.
     3. Refactor profile page into component-based layout with new sections and availability toggles.
 
-## Milestone 3: Trust & Automation Delivery (Weeks 8–11) – 52% Complete
+## Milestone 3: Trust & Automation Delivery (Weeks 8–11) – 61% Complete
 - **Task 3.1 – Payments, Disputes & Infrastructure**
   - Subtasks:
     1. Integrate FCA escrow endpoints, ledger, and reconciliation dashboards.
@@ -38,7 +38,7 @@
     1. Productionise Meilisearch cluster with indexers and analytics instrumentation, including Launchpad/Volunteer-specific ranking rules.
     2. Launch auto-assign engine with acceptance/retry logic, Experience Launchpad eligibility scoring, and availability toggles.
     3. Release Experience Launchpad and Volunteers hub with employer/talent workflows across web, Flutter, and provider dashboards, including reporting on placements and participation.
-- **Status Update:** Escrow domain, dispute orchestration, Cloudflare R2 integration, and Trust Center UI are production-ready with operations hand-off complete; discovery automation now has Meilisearch live in staging/production with scripted ingestion. Experience Launchpad workflows shipped with seeded cohorts, readiness scoring APIs, employer/talent intake forms, placements telemetry, and refreshed documentation across backend, frontend, and design assets, shifting focus to volunteer hub instrumentation next.
+- **Status Update:** Escrow domain, dispute orchestration, Cloudflare R2 integration, and Trust Center UI are production-ready with operations hand-off complete; discovery automation now has Meilisearch live in staging/production with scripted ingestion. Experience Launchpad workflows shipped with seeded cohorts, readiness scoring APIs, employer/talent intake forms, placements telemetry, and refreshed documentation across backend, frontend, and design assets. The Volunteers Hub has now launched with Sequelize migrations, REST controllers, analytics emitters, React dashboard, and Flutter/provider parity specs covering invitations, commitments, hour logging, and impact reporting, raising milestone completion and unlocking staged beta rollout planning.
 
 ## Milestone 4: Operational Excellence & User Archetypes (Weeks 12–14) – 24% Complete
 - **Task 4.1 – Profiles, Agencies & Companies**

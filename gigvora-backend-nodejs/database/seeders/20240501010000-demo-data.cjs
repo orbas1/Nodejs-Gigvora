@@ -8,6 +8,7 @@ const seedTag = 'version_1_50_seed';
 const seededIds = {
   users: [1, 2, 3, 4],
   profiles: [1, 2],
+  profileReferences: [1, 2, 3],
   companyProfiles: [1],
   agencyProfiles: [1],
   freelancerProfiles: [1],
@@ -116,6 +117,115 @@ module.exports = {
             skills: 'Node.js, React, PostgreSQL, AWS, Terraform',
             experience: '7 years delivering venture-backed SaaS platforms with cross-functional leadership.',
             education: 'BSc Computer Science, Remote Tech University',
+            location: 'Remote • Berlin, Germany',
+            timezone: 'Europe/Berlin',
+            missionStatement:
+              'Pairing high-trust product engineering with inclusive hiring programmes so every cohort ships with confidence.',
+            areasOfFocus: ['Marketplace reliability', 'Analytics instrumentation', 'Mentorship'],
+            availabilityStatus: 'available',
+            availableHoursPerWeek: 28,
+            openToRemote: true,
+            availabilityNotes: 'Accepting remote-first pods with a two-week onboarding window.',
+            availabilityUpdatedAt: yesterday,
+            trustScore: 4.82,
+            likesCount: 96,
+            followersCount: 1280,
+            qualifications: [
+              {
+                title: 'AWS Certified Solutions Architect – Associate',
+                authority: 'Amazon Web Services',
+                year: 2022,
+                credentialUrl: 'https://credentials.example.com/aws-saa-leo',
+              },
+              {
+                title: 'Certified Scrum Professional',
+                authority: 'Scrum Alliance',
+                year: 2021,
+              },
+            ],
+            experienceEntries: [
+              {
+                organization: 'Nova Agency',
+                role: 'Lead Engineer (Contract)',
+                startDate: '2023-01-15',
+                endDate: null,
+                description:
+                  'Scaling multi-tenant gig marketplace infrastructure, observability, and escrow integrations for venture clients.',
+                highlights: [
+                  'Raised p95 project workspace uptime to 99.97% across three regions.',
+                  'Launched fairness scoring and analytics instrumentation for auto-assign.',
+                ],
+              },
+              {
+                organization: 'Atlas Labs',
+                role: 'Senior Full Stack Developer',
+                startDate: '2020-03-01',
+                endDate: '2022-12-01',
+                description:
+                  'Led growth experiments, refactored the React design system, and bootstrapped the remote mentorship guild.',
+                highlights: [
+                  'Delivered five launchpad cohorts with end-to-end analytics funnels.',
+                  'Mentored 40+ engineers through marketplace readiness sprints.',
+                ],
+              },
+            ],
+            statusFlags: ['launchpad_alumni', 'mentor', 'auto_assign_opt_in'],
+            launchpadEligibility: {
+              status: 'eligible',
+              score: 92.5,
+              cohorts: ['Emerging Leaders Fellowship'],
+              track: 'Product Engineering',
+              lastEvaluatedAt: yesterday,
+            },
+            volunteerBadges: ['community_mentor', 'open_source_contributor'],
+            portfolioLinks: [
+              { label: 'Portfolio', url: 'https://portfolio.leo.example.com' },
+              {
+                label: 'Launchpad automation case study',
+                url: 'https://portfolio.leo.example.com/launchpad-automation',
+              },
+            ],
+            preferredEngagements: ['Launch readiness pods', 'Mentorship', 'Discovery sprints'],
+            collaborationRoster: [
+              { name: 'Noor Designer', role: 'Product Design', avatarSeed: 'Noor Designer' },
+              { name: 'Atlas Agency', role: 'Brand Strategy', avatarSeed: 'Atlas Agency' },
+              { name: 'Mia Ops', role: 'Operations Partner', avatarSeed: 'Mia Ops' },
+            ],
+            impactHighlights: [
+              {
+                title: 'Auto-assign streak',
+                value: '5 wins',
+                description: 'Accepted five priority matches with 96% satisfaction.',
+              },
+              {
+                title: 'NPS from founders',
+                value: '9.4',
+                description: 'Average review from marketplace founders over the last 90 days.',
+              },
+              {
+                title: 'Availability',
+                value: '28 hrs/wk',
+                description: 'Optimised for multi-pod engagements across EU & Americas time zones.',
+              },
+            ],
+            pipelineInsights: [
+              {
+                project: 'Marketplace instrumentation',
+                payout: '$1,500',
+                countdown: '02:45:00',
+                status: 'Awaiting confirmation',
+                seed: 'Marketplace instrumentation',
+              },
+              {
+                project: 'Compliance dashboard refactor',
+                payout: '$3,200',
+                countdown: '14:10:00',
+                status: 'Queued - next up',
+                seed: 'Compliance dashboard',
+              },
+            ],
+            profileCompletion: 92.5,
+            avatarSeed: 'Leo Freelancer',
             createdAt: threeDaysAgo,
             updatedAt: now,
           },
@@ -127,7 +237,141 @@ module.exports = {
             skills: 'Product Strategy, Compliance, Analytics Ops',
             experience: '10 years leading multi-sided marketplace rollouts and regulated launches.',
             education: 'MBA, Innovation School of Business',
+            location: 'London, United Kingdom',
+            timezone: 'Europe/London',
+            missionStatement:
+              'Delivering trustworthy launches that balance regulatory confidence with joyful product experiences.',
+            areasOfFocus: ['Compliance leadership', 'Growth strategy', 'Volunteer programmes'],
+            availabilityStatus: 'limited',
+            availableHoursPerWeek: 12,
+            openToRemote: true,
+            availabilityNotes: 'Focused on programme governance and launch approvals.',
+            availabilityUpdatedAt: twoDaysAgo,
+            trustScore: 4.65,
+            likesCount: 54,
+            followersCount: 640,
+            qualifications: [
+              {
+                title: 'MBA – Innovation School of Business',
+                authority: 'Innovation School of Business',
+                year: 2016,
+              },
+              {
+                title: 'FCA Regulatory Compliance Certification',
+                authority: 'UK Financial Conduct Authority',
+                year: 2020,
+              },
+            ],
+            experienceEntries: [
+              {
+                organization: 'Gigvora',
+                role: 'Chief Product Officer',
+                startDate: '2019-05-01',
+                endDate: null,
+                description:
+                  'Owns Gigvora experience strategy, compliance reviews, and launch governance across squads.',
+                highlights: [
+                  'Launched escrow and dispute programme with FCA alignment.',
+                  'Built volunteer hub and launchpad roadmap with 30% adoption uplift.',
+                ],
+              },
+              {
+                organization: 'FutureWork Collective',
+                role: 'Director of Product',
+                startDate: '2015-03-01',
+                endDate: '2019-04-01',
+                description: 'Scaled product operations across three marketplace launches and two acquisitions.',
+                highlights: ['Expanded compliance coverage to 12 geographies.', 'Shipped analytics KPIs used in IPO filings.'],
+              },
+            ],
+            statusFlags: ['executive', 'programme_owner'],
+            launchpadEligibility: {
+              status: 'reviewer',
+              score: null,
+              cohorts: ['Launch Council'],
+              track: 'Governance',
+              lastEvaluatedAt: twoDaysAgo,
+            },
+            volunteerBadges: ['community_advocate'],
+            portfolioLinks: [
+              { label: 'Executive briefing deck', url: 'https://gigvora.com/resources/executive-briefing.pdf' },
+            ],
+            preferredEngagements: ['Compliance reviews', 'Executive alignment'],
+            collaborationRoster: [
+              { name: 'Leo Freelancer', role: 'Product Engineering', avatarSeed: 'Leo Freelancer' },
+              { name: 'Mia Operations', role: 'Operations Lead', avatarSeed: 'Mia Operations' },
+            ],
+            impactHighlights: [
+              {
+                title: 'Launch readiness score',
+                value: '98%',
+                description: 'Milestone quality gates passed across the last three releases.',
+              },
+              {
+                title: 'Volunteer hub adoption',
+                value: '+34%',
+                description: 'Increase in invite acceptance since governance refresh.',
+              },
+            ],
+            pipelineInsights: [],
+            profileCompletion: 86.4,
+            avatarSeed: 'Ava Founder',
             createdAt: threeDaysAgo,
+            updatedAt: now,
+          },
+        ],
+        { transaction }
+      );
+
+      await queryInterface.bulkInsert(
+        'profile_references',
+        [
+          {
+            id: seededIds.profileReferences[0],
+            profileId: seededIds.profiles[0],
+            referenceName: 'Mia Operations',
+            relationship: 'Operations Lead',
+            company: 'Gigvora Studios',
+            email: 'mia@gigvora.com',
+            phone: null,
+            endorsement:
+              'Leo shipped instrumentation across four squads with impeccable documentation and on-call maturity.',
+            isVerified: true,
+            weight: 0.9,
+            lastInteractedAt: yesterday,
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.profileReferences[1],
+            profileId: seededIds.profiles[0],
+            referenceName: 'Noor Designer',
+            relationship: 'Design Partner',
+            company: 'Nova Agency',
+            email: 'noor@gigvora.com',
+            phone: null,
+            endorsement:
+              'Co-led three go-to-market launches with Leo, each shipping accessibility AA coverage and telemetry dashboards.',
+            isVerified: true,
+            weight: 0.78,
+            lastInteractedAt: threeDaysAgo,
+            createdAt: threeDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.profileReferences[2],
+            profileId: seededIds.profiles[1],
+            referenceName: 'Noah Agency',
+            relationship: 'Agency Partner',
+            company: 'Catalyst Talent Agency',
+            email: 'noah@gigvora.com',
+            phone: null,
+            endorsement:
+              'Ava guided compliance readiness for the provider workspace rollout, unlocking agency onboarding in record time.',
+            isVerified: true,
+            weight: 0.82,
+            lastInteractedAt: yesterday,
+            createdAt: twoDaysAgo,
             updatedAt: now,
           },
         ],
@@ -1139,6 +1383,11 @@ module.exports = {
       await queryInterface.bulkDelete(
         'company_profiles',
         { id: { [Op.in]: seededIds.companyProfiles } },
+        { transaction }
+      );
+      await queryInterface.bulkDelete(
+        'profile_references',
+        { id: { [Op.in]: seededIds.profileReferences } },
         { transaction }
       );
       await queryInterface.bulkDelete('profiles', { id: { [Op.in]: seededIds.profiles } }, { transaction });
