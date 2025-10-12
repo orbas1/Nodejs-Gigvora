@@ -11,6 +11,8 @@
 - Expanded backend coverage with messaging service suites that simulate support-case escalations, inbox pagination, and cache invalidation plus supertest-powered HTTP flows verifying controllers, routes, and validation around escalation, assignment, and resolution actions.
 - Hardened discovery service tests to assert deterministic ordering, dialect-aware search predicates, and pagination metadata so analytics surfaces consume stable datasets across SQLite and production engines.
 - Added Meilisearch search-index service tests using a stub client to validate synonym configuration, freshness scoring, and cross-category aggregation ahead of React/Flutter integration tests.
+- Introduced `profileEngagementService` Jest coverage validating appreciation/follower aggregation, queue retry behaviour, and persisted metrics so likes/followers counters stay accurate during automated refreshes.
+- Expanded `profileEngagementService` and `profileService` suites to assert analytics payloads for trust score deltas, funnel stage transitions, and job reasons, protecting the new instrumentation endpoints from regression.
 
 ## Execution Strategy
 - GitHub Actions publishes coverage artefacts (`**/coverage/lcov.info`) for ingestion by SonarQube and internal dashboards. Failures on any analysis or test step block merges.

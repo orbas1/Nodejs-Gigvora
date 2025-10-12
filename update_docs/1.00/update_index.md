@@ -9,6 +9,7 @@
 - `ui-ux_updates/web_application_logic_flow_changes.md`, `web_application_styling_changes.md`, `web_app_wireframe_changes.md`, and `ui-ux_updates/design_change_log.md` – Added launchpad workflow logic, styling treatments, wireframe modules, and change-log commentary for the new dashboards and forms.
 - `ui-ux_updates/web_application_logic_flow_changes.md`, `web_application_styling_changes.md`, `web_app_wireframe_changes.md`, and `ui-ux_updates/design_change_log.md` – Extended to cover Volunteer Hub invitation management, commitment timelines, analytics widgets, and accessibility treatments across web and mobile wireframes.
 - `Web Application Design Update/Version 1.00 update/Forms.md`, `Dashboard Designs.md`, `Logic_Flow_update.md`, `Logic_Flow_map.md` – Captured talent/employer form specifications, placements insight modules, and revised journey maps for the launchpad experience.
+- `database/migrations/20240915094500-profile-engagement-metrics.cjs`, `src/services/profileEngagementService.js`, `src/server.js`, and `tests/profileEngagementService.test.js` – Introduced profile appreciation/follower schemas, background workers, and Jest coverage powering automated likes/followers aggregation for trust and discovery surfaces.
 
 ## Reference
 - Auto-assign backend implementation documented under `backend_updates/` in the previous drop; this refresh focuses on design parity and programme tracking.

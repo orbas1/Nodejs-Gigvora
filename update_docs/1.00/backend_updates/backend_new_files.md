@@ -13,3 +13,6 @@
 | `database/migrations/20240801090000-trust-payments.cjs` | Migration introducing escrow account/transaction tables, dispute case/event tables, and enum types for trust flows. |
 | `tests/trustService.test.js` | Jest suite validating escrow initiation, release/refund paths, dispute resolution, and R2 evidence handling. |
 | `backend_updates/trust_runbook.md` | Operational runbook outlining daily checks, release/refund procedures, dispute escalation, and compliance retention requirements for the trust domain. |
+| `database/migrations/20240915094500-profile-engagement-metrics.cjs` | Adds appreciation, follower, and engagement job tables plus `engagementRefreshedAt` for profiles to power automated likes/follower aggregation. |
+| `src/services/profileEngagementService.js` | Aggregates profile engagement metrics, manages the job queue, and exposes helpers for recording appreciations/followers and processing background workers. |
+| `tests/profileEngagementService.test.js` | Verifies aggregation maths, queue processing, and persistence of refreshed metrics against SQLite using Jest. |

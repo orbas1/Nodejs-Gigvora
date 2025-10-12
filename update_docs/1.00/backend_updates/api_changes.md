@@ -27,6 +27,9 @@
 - `POST /api/feed/:postId/share` records shares (feed or external channel) and increments viewer state to avoid duplicates.
 - `POST /api/feed/:postId/moderation` logs moderation decisions (hide, restore, escalate) with reason codes and actor attribution.
 
+## Profile APIs
+- `GET /api/users/:id` profile overview payload now includes `metrics.engagementRefreshedAt` and `metrics.engagementStale` flags alongside refreshed `likesCount`/`followersCount`, reflecting the background aggregation job state so clients can display live counters without manual polling.
+
 ## Trust & Escrow APIs
 - `POST /api/trust/escrow/accounts` creates or retrieves escrow accounts per provider with currency alignment, returning balances and reconciliation metadata for the Trust Center.
 - `POST /api/trust/escrow/transactions` books new escrow transactions, applying fee/net calculations and scheduling release windows.

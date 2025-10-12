@@ -23,3 +23,8 @@
 - Extends `experience_launchpads` with programme metadata (programme type, status, application URL, mentor lead, schedule, capacity, eligibility criteria, sponsorship, published timestamp).
 - Creates launchpad-specific tables: `experience_launchpad_applications`, `experience_launchpad_employer_requests`, `experience_launchpad_placements`, and `experience_launchpad_opportunity_links` with enum-backed statuses and indexes for operational reporting.
 - Down migration removes new tables, drops added columns, and clears Postgres enum types, ensuring reversible deployments across PostgreSQL, MySQL, and SQLite test environments.
+
+## `20240915094500-profile-engagement-metrics.cjs`
+- Creates `profile_appreciations` and `profile_followers` tables with appreciation/follower enums, metadata JSON, and unique indexes to prevent duplicate engagements.
+- Introduces `profile_engagement_jobs` with scheduled timestamps, priority, lock metadata, and retry counters so background workers can safely coordinate recalculations across deployments.
+- Adds `engagementRefreshedAt` to `profiles` and removes the new enums during down migrations to maintain compatibility across SQLite (tests), MySQL, and Postgres.

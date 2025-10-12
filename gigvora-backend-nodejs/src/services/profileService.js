@@ -12,6 +12,15 @@ import {
 } from '../models/index.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
+import {
+  queueProfileEngagementRecalculation,
+  shouldRefreshEngagementMetrics,
+} from './profileEngagementService.js';
+import {
+  buildSnapshotFromOverview,
+  recordTrustScoreChange,
+  recordTargetingSnapshotChange,
+} from './profileAnalyticsService.js';
 
 const PROFILE_CACHE_NAMESPACE = 'profile:overview';
 const PROFILE_CACHE_TTL_SECONDS = 120;
@@ -929,11 +938,15 @@ function buildProfilePayload({ user, groups, connectionsCount }) {
 
   const profileCompletion = safeNumber(profileCompletionValue, 1);
 
+  const engagementStale = shouldRefreshEngagementMetrics(profile);
+
   const metrics = {
     likesCount,
     followersCount,
     connectionsCount,
     profileCompletion,
+    engagementRefreshedAt: profile.engagementRefreshedAt ?? null,
+    engagementStale,
   };
 
   const launchpadEligibility = coerceLaunchpadEligibility(profile.launchpadEligibility);
@@ -1086,6 +1099,14 @@ export async function getProfileOverview(userId, { bypassCache = false } = {}) {
   }
 
   const context = await loadProfileContext(numericId);
+  const profileId = context.user.Profile.id;
+  if (shouldRefreshEngagementMetrics(context.user.Profile)) {
+    try {
+      await queueProfileEngagementRecalculation(profileId, { reason: 'stale_metrics_refresh' });
+    } catch (error) {
+      console.error('Failed to queue engagement refresh', { profileId, error });
+    }
+  }
   const payload = buildProfilePayload(context);
   appCache.set(key, payload, PROFILE_CACHE_TTL_SECONDS);
   return payload;
@@ -1341,10 +1362,13 @@ export async function updateProfile(userId, payload = {}) {
 
   const key = cacheKeyForUser(numericId);
   let overview = null;
+  let previousOverview = null;
 
   await sequelize.transaction(async (transaction) => {
     const context = await loadProfileContext(numericId, { transaction, lock: true });
     const profile = context.user.Profile;
+
+    previousOverview = buildProfilePayload({ ...context });
 
     const updates = { ...profileUpdates, ...availabilityUpdates };
     if (Object.keys(updates).length > 0) {
@@ -1372,6 +1396,29 @@ export async function updateProfile(userId, payload = {}) {
 
   appCache.delete(key);
   appCache.set(key, overview, PROFILE_CACHE_TTL_SECONDS);
+
+  if (previousOverview) {
+    const previousSnapshot = buildSnapshotFromOverview(previousOverview);
+    const nextSnapshot = buildSnapshotFromOverview(overview);
+    await Promise.all([
+      recordTargetingSnapshotChange({
+        profileId: overview.id,
+        userId: overview.userId,
+        previousSnapshot,
+        nextSnapshot,
+        triggeredBy: 'profile_service:update_profile',
+      }),
+      recordTrustScoreChange({
+        profileId: overview.id,
+        userId: overview.userId,
+        previousSnapshot,
+        nextSnapshot,
+        triggeredBy: 'profile_service:update_profile',
+        breakdown: overview.metrics?.trustScoreBreakdown ?? null,
+      }),
+    ]);
+  }
+
   return overview;
 }
 
