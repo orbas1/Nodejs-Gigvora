@@ -11,6 +11,7 @@ export function resolveRequestUserId(req) {
     req.headers?.['x-user'],
     req.query?.userId,
     req.body?.userId,
+    req.body?.actorId,
   ];
 
   for (const candidate of candidates) {

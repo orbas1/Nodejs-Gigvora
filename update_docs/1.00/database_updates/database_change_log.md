@@ -16,3 +16,7 @@
 - Added `escrow_transactions` capturing gross/net amounts, fee data, counterparties, milestone metadata, and audit trails.
 - Created `dispute_cases` to manage mediation stages, SLA deadlines, resolution notes, and associations with transactions and agents.
 - Added `dispute_events` storing actor metadata, action types, evidence storage keys/URLs, and event timestamps for compliance audits.
+
+## 2024-09-01 – Project Ownership & Dashboard Support
+- Added `ownerId` to `projects` (nullable for legacy data) with foreign-key linkage to `users`, enabling per-account dashboards and queue telemetry.
+- Created `projects_owner_id_idx` to accelerate dashboard lookups and queue aggregation queries.

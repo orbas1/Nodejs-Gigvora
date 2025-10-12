@@ -2,6 +2,9 @@ const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:400
 const DEFAULT_CACHE_TTL = 1000 * 60 * 2; // two minutes
 const CACHE_NAMESPACE = 'gigvora:web:cache:';
 const AUTH_TOKEN_KEY = 'gigvora:web:auth:accessToken';
+const REFRESH_TOKEN_KEY = 'gigvora:web:auth:refreshToken';
+
+let inMemoryToken = null;
 
 class ApiError extends Error {
   constructor(message, status, body) {
@@ -26,6 +29,36 @@ function getStorage() {
 
 const storage = getStorage();
 
+function getAccessTokenFromStorage() {
+  if (inMemoryToken) {
+    return inMemoryToken;
+  }
+  if (!storage) {
+    return null;
+  }
+  return storage.getItem(AUTH_TOKEN_KEY);
+}
+
+function setAccessToken(token, { persist = true } = {}) {
+  inMemoryToken = token || null;
+  if (!storage) {
+    return;
+  }
+  try {
+    if (token && persist) {
+      storage.setItem(AUTH_TOKEN_KEY, token);
+    } else {
+      storage.removeItem(AUTH_TOKEN_KEY);
+    }
+  } catch (error) {
+    console.warn('Failed to persist access token', error);
+  }
+}
+
+function clearAccessToken() {
+  setAccessToken(null);
+}
+
 function buildUrl(path, params = {}) {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   const url = new URL(`${API_BASE_URL}${normalizedPath}`);
@@ -42,10 +75,7 @@ function buildUrl(path, params = {}) {
 }
 
 function getAuthHeaders() {
-  if (!storage) {
-    return {};
-  }
-  const token = storage.getItem(AUTH_TOKEN_KEY);
+  const token = getAccessTokenFromStorage();
   if (!token) {
     return {};
   }
@@ -151,6 +181,11 @@ export const apiClient = {
   removeCache,
   ApiError,
   API_BASE_URL,
+  setAccessToken,
+  clearAccessToken,
+  getAccessToken: () => getAccessTokenFromStorage(),
+  AUTH_TOKEN_KEY,
+  REFRESH_TOKEN_KEY,
 };
 
 export default apiClient;

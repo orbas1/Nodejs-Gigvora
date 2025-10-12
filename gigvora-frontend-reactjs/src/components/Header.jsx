@@ -1,23 +1,35 @@
 import { Link, NavLink } from 'react-router-dom';
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { LOGO_URL } from '../constants/branding.js';
+import useAuth from '../hooks/useAuth.js';
+import UserAvatar from './UserAvatar.jsx';
 
 const navLinks = [
   { to: '/', label: 'Home' },
+  { to: '/dashboard', label: 'Dashboard', requiresAuth: true },
   { to: '/feed', label: 'Live Feed' },
   { to: '/search', label: 'Explorer' },
   { to: '/jobs', label: 'Jobs' },
   { to: '/gigs', label: 'Gigs' },
   { to: '/projects', label: 'Projects' },
+  { to: '/projects/new', label: 'Launch Project', requiresAuth: true },
   { to: '/experience-launchpad', label: 'Launchpad' },
   { to: '/volunteering', label: 'Volunteering' },
   { to: '/groups', label: 'Groups' },
-  { to: '/trust-center', label: 'Trust Center' },
+  { to: '/auto-assign', label: 'Auto-Assign', requiresAuth: true },
+  { to: '/trust-center', label: 'Trust Center', requiresAuth: true },
 ];
 
 export default function Header() {
   const [open, setOpen] = useState(false);
+  const { status, user, logout } = useAuth();
+  const isAuthenticated = status === 'authenticated';
+
+  const linksToRender = useMemo(
+    () => navLinks.filter((item) => !item.requiresAuth || isAuthenticated),
+    [isAuthenticated],
+  );
 
   const navClassName = ({ isActive }) =>
     `relative px-3 py-2 text-sm font-semibold transition-colors ${
@@ -31,7 +43,7 @@ export default function Header() {
           <img src={LOGO_URL} alt="Gigvora" className="h-12 w-auto" />
         </Link>
         <nav className="hidden items-center gap-1 md:flex">
-          {navLinks.map((item) => (
+          {linksToRender.map((item) => (
             <NavLink key={item.to} to={item.to} className={navClassName}>
               {({ isActive }) => (
                 <span className="relative inline-flex items-center">
@@ -47,18 +59,37 @@ export default function Header() {
           ))}
         </nav>
         <div className="hidden items-center gap-3 md:flex">
-          <Link
-            to="/login"
-            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-accent/60 hover:text-accent"
-          >
-            Login
-          </Link>
-          <Link
-            to="/register"
-            className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
-          >
-            Join Now
-          </Link>
+          {isAuthenticated ? (
+            <>
+              <button
+                type="button"
+                onClick={logout}
+                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-rose-300 hover:text-rose-600"
+              >
+                Logout
+              </button>
+              <UserAvatar
+                name={`${user?.firstName ?? 'Member'} ${user?.lastName ?? ''}`.trim()}
+                seed={`header-${user?.id ?? 'anon'}`}
+                size="sm"
+              />
+            </>
+          ) : (
+            <>
+              <Link
+                to="/login"
+                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-accent/60 hover:text-accent"
+              >
+                Login
+              </Link>
+              <Link
+                to="/register"
+                className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
+              >
+                Join Now
+              </Link>
+            </>
+          )}
         </div>
         <button
           type="button"
@@ -72,7 +103,7 @@ export default function Header() {
       {open && (
         <div className="border-t border-slate-200 bg-white px-6 pb-6 md:hidden">
           <nav className="flex flex-col gap-1 py-4 text-sm font-semibold">
-            {navLinks.map((item) => (
+            {linksToRender.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -87,22 +118,35 @@ export default function Header() {
               </NavLink>
             ))}
           </nav>
-          <div className="flex gap-3">
-            <Link
-              to="/login"
-              onClick={() => setOpen(false)}
-              className="flex-1 rounded-full border border-slate-200 px-4 py-2 text-center text-sm font-semibold text-slate-600"
+          {isAuthenticated ? (
+            <button
+              type="button"
+              onClick={() => {
+                logout();
+                setOpen(false);
+              }}
+              className="mt-4 w-full rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-rose-300 hover:text-rose-600"
             >
-              Login
-            </Link>
-            <Link
-              to="/register"
-              onClick={() => setOpen(false)}
-              className="flex-1 rounded-full bg-accent px-4 py-2 text-center text-sm font-semibold text-white"
-            >
-              Join Now
-            </Link>
-          </div>
+              Logout
+            </button>
+          ) : (
+            <div className="flex gap-3">
+              <Link
+                to="/login"
+                onClick={() => setOpen(false)}
+                className="flex-1 rounded-full border border-slate-200 px-4 py-2 text-center text-sm font-semibold text-slate-600"
+              >
+                Login
+              </Link>
+              <Link
+                to="/register"
+                onClick={() => setOpen(false)}
+                className="flex-1 rounded-full bg-accent px-4 py-2 text-center text-sm font-semibold text-white"
+              >
+                Join Now
+              </Link>
+            </div>
+          )}
         </div>
       )}
     </header>

@@ -34,6 +34,14 @@
 4. **CTA instrumentation:** Primary buttons call controller method to record engagement (apply, pitch, etc.) and optionally deep link to detail views.
 5. **Detail screen:** When opening a listing, detail controller fetches extended metadata, tracks view analytics, and exposes actions (save, share, apply) with optimistic state updates.
 6. **Bookmark & apply sync:** Saved opportunities persist to secure storage and sync with backend when online; offline toggles queue updates and surface progress pills. Apply/withdraw actions capture questionnaire responses, store them encrypted, and replay once network recovers.
+7. **Auto-assign CTA:** Listings that participate in auto-assign surface a sticky card summarising the acceptance window, payout headline, and skills required. Tapping "Review assignment" deep links into the queue module with the relevant request pre-selected.
+
+## Auto-Assign Queue & Preferences
+1. **Queue screen:** New `AutoAssignQueueScreen` available from the navigation rail badge renders pending assignments using `PaginatedDataTable` with countdown chips and score highlights. The controller hydrates data from the `/api/auto-assign/queue` endpoint and reconciles optimistic updates when a decision is made offline.
+2. **Decision flow:** Accept/Decline buttons trigger Riverpod actions that post to the backend and disable the card while awaiting acknowledgement. Accepting navigates directly to the opportunity detail screen; declining collapses the card with a reason selector (Misaligned skills, Unavailable, Rate). Requests marked expired move to the history tab and fire analytics events.
+3. **Preference management:** Settings → Opportunities now contains toggles for opt-in/out, preferred opportunity types, launchpad track alignment, and weekly hour caps. Changes are debounced to avoid rapid network calls and persisted via the `/api/auto-assign/preferences` endpoint with offline queueing identical to other preference forms.
+4. **Availability sync:** When a user switches their availability to "Unavailable" the queue module automatically pauses incoming assignments, sends a cancellation to the backend, and surfaces an inline toast describing when matching will resume.
+5. **Notifications:** Push notifications link directly to queue entries; tapping the alert opens the queue screen with highlight animation. Background fetch jobs ensure countdown accuracy and trigger local reminders five minutes before expiry if the user has not responded.
 
 ## Launchpad & Volunteering Engagement
 1. **Program discovery:** Launchpad list emphasises track metadata; CTA leads to program detail flow (webview or native) with registration steps.

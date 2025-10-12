@@ -9,3 +9,6 @@ export { default as discoveryService } from './discoveryService.js';
 export { default as trustService } from './trustService.js';
 export { default as searchIndexService } from './searchIndexService.js';
 export { default as searchSubscriptionService } from './searchSubscriptionService.js';
+export { default as autoAssignService } from './autoAssignService.js';
+export { default as projectService } from './projectService.js';
+export { default as dashboardService } from './dashboardService.js';

@@ -51,3 +51,20 @@
 6. **Operational Enablement**
    - Authored Trust & Escrow operations runbook documenting daily checks, release/refund procedures, dispute escalation paths, and compliance retention policies for finance and support teams.
    - Trust Center dashboard now aligns with runbook guidance, enabling on-call staff to action releases and disputes directly from the new UI.
+
+## Project Management Enhancements
+1. **Transactional Project Updates**
+   - `projectService` gained queue-aware helpers (`enableAutoAssignForProject`, `disableAutoAssignForProject`, `extractAutoAssignSettingsPayload`) so project creation, toggles, and metadata edits all reuse the same fairness logic and after-commit event persistence.
+   - `updateProjectDetails` now handles title/description/status/budget/location updates, emits structured `updated` events, and regenerates auto-assign queues when budgets or fairness settings change.
+
+2. **API & Controller Layer**
+   - `projectController.update` and `PATCH /api/projects/:projectId` were added to expose the transactional update surface, allowing the React workspace to edit scopes and fairness settings without juggling multiple endpoints.
+   - Auto-assign toggles now surface enriched payloads (queue entries, regenerated settings) through the controller to avoid additional fetches from the client.
+
+3. **Event Telemetry & Tests**
+   - New `auto_assign_queue_regenerated` event type powers analytics around fairness tuning, while `updated` events now capture field-level change history.
+   - Added Jest coverage in `tests/projectService.test.js` validating metadata updates, queue regeneration, disable/enable flows, and event emission alongside the existing auto-assign suite.
+4. **Operations Dashboard & Ownership**
+   - Added `ownerId` to projects via migration `20240901120000-add-project-owner.cjs`, ensuring dashboards and queues attribute work to the correct account while preserving legacy `actorId` fallbacks.
+   - Implemented `dashboardService.getDashboardOverview`, `dashboardController.overview`, and `/api/dashboard/overview` so authenticated users receive queue telemetry, saved-search alerts, and project KPIs in a single payload.
+   - New Jest suite (`tests/dashboardService.test.js`) validates the aggregated metrics for both clients and freelancers, covering project ownership, queue states, and saved-search integration.

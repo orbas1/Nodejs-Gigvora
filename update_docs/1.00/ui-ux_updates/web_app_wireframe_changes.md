@@ -1,7 +1,7 @@
 # Web App Wireframe Changes – Version 1.00
 
 ## Global Layout & Navigation
-- **Header:** Sticky top bar with logo, nav links (Home, Live Feed, Explorer, Jobs, Gigs, Projects, Launchpad, Volunteering, Groups), and auth CTAs (Login, Join Now). Mobile menu collapses into slide-down drawer with same actions.
+- **Header:** Sticky top bar with logo, nav links (Home, Live Feed, Explorer, Jobs, Gigs, Projects, Launchpad, Volunteering, Groups) plus conditional items (Dashboard, Launch Project, Auto-Assign, Trust Center) when authenticated; avatar pill exposes logout on desktop and mobile drawers.
 - **Body background:** Gradient canvas with radial accent highlights; content constrained to 6–7 columns for readability.
 - **Footer:** Multi-column footer with product links, legal, community resources, and social icons; background tinted darker slate for contrast.
 
@@ -41,6 +41,14 @@
 - **Pagination:** Load more button or infinite scroll with progress indicator.
 - **Detail view:** Routed page with hero summary, structured content tabs (Overview, Requirements, Compensation, Company), sticky CTA column, and related opportunities grid.
 - **Alert banners:** Inline notifications for verification requirements or saved searches available for login state.
+- **Auto-assign cues:** Eligible listings display a pill labeled "Auto-assign" with countdown chip. Detail pages surface a slide-over summarising assignment settings (acceptance window, score breakdown) and offer "Decline"/"Accept" actions for matched freelancers.
+
+## Auto-Assign Queue Page
+- **Route:** `/auto-assign` accessible from the header notification icon when pending assignments exist; icon badges remaining count.
+- **Layout:** Two-column layout with queue table left and detail drawer right. Table columns: Opportunity, Type, Score, Time remaining, Status, Actions.
+- **Detail drawer:** Exposes score breakdown bars, required skills list, launchpad alignment, payout summary, and history of previous offers. Buttons for Accept, Decline, and Extend timer pinned to footer.
+- **History filter:** Secondary tab shows completed assignments with search and export controls feeding provider analytics.
+- **Empty state:** Illustration and CTA to update preferences when no active assignments remain.
 
 ## Groups & Connections Pages
 - **Groups:** Grid of group cards with cover image, member count, join button, and tags; detail view with posts & events.
@@ -49,11 +57,19 @@
 - **Event board:** Calendar/list toggle for group events with RSVP buttons and share links.
 
 ## Projects Page
-- **Overview banner:** Highlights project workspace features with CTA to create project.
-- **Tabs:** Active projects, Archived, Templates; each uses card list with progress bars and team avatars.
-- **Detail card:** Summary, upcoming milestones, and quick actions (Open board, Message team, Add files).
-- **Template library:** Modal with preview thumbnails, requirements, and "Use template" CTA.
-- **Project creation flow:** Slide-over form capturing project basics, timeline, team, resources; review step prior to launch.
+- **Overview banner:** Highlights fairness-first auto-assign, queue telemetry, and a primary CTA to create or manage projects.
+- **Listing cards:** Surface status, updated-at timestamp, rotating collaborator avatars, auto-assign status pill, and "Manage project" link that opens the detailed workspace.
+- **Detail workspace:** Two-column layout with metadata form (title, description, status, location, budget), fairness sliders, newcomer toggle, and queue regeneration controls alongside a queue snapshot list and activity log feed.
+- **Queue snapshot:** Card stack showing priority order, score, newcomer boost, and countdown chips with quick regenerate CTA and analytics callouts.
+- **Project creation flow:** Slide-over form capturing project basics, budget, location, and optional auto-assign configuration with fairness previews before launch.
+
+## Operations Dashboard
+- **Hero:** Eyebrow "Dashboard", h1 greeting, supporting copy, and `DataStatus` chip showing last sync with manual refresh.
+- **Stats grid:** Four cards summarising active projects, assignments in flight, saved searches, and portfolio value.
+- **Main grid:** Left column lists freelancer queue entries; right column stacks project queue summary, saved-search tray, and owned-project cards.
+- **Activity feed:** Timeline of project events with links to detail pages, JSON payload preview, and timestamps.
+- **Profile tile:** Avatar, headline, and assignment metrics (rating, completion rate, completed projects) in muted card.
+- **Auto-assign health:** Column summarising pending/notified/expired counts and next action timestamp.
 
 ## Launchpad Experience
 - **Hero band:** Program explanation, cohort stats, CTA to explore tracks.

@@ -23,6 +23,7 @@
 - **Inputs:** Rounded 18px corners, filled backgrounds, 14px padding, inline validation message in `#DC2626` with icon.
 - **Tables:** Zebra striping using `#F1F5F9`; sticky headers with subtle shadow for horizontal scroll contexts.
 - **Cards:** Compose header (title + status chip), body text, CTA row; optional footer for metadata like "Last updated".
+- **Auto-assign panels:** Queue cards add a left accent rail keyed to fulfilment risk (emerald for on-track, amber for nearing expiry, rose for stalled). Score bars use segmented progress tokens with tooltip dots that explain availability, skills, and launchpad weighting in sync with backend scoring payloads.
 - **Stepper:** Accent progress bar with numbered dots, tooltips for upcoming steps, and inline error summary.
 - **Data visualisations:** Charts use monochromatic accent gradients with white gridlines; tooltips adopt dark slate background with white text.
 - **Modals/drawers:** Elevated surfaces `rgba(15,23,42,0.16)` overlay, `rounded-3xl`, `shadow-2xl` for clarity.
@@ -35,6 +36,7 @@
 - **Offline:** Amber banner pinned top-of-screen with reconnect CTA; cached data flagged with italic note.
 - **Success:** Toasts with green border accent, checkmark icon, auto-dismiss after 4 seconds unless action present.
 - **Warning:** Goldenrod border with subtle striped background to emphasise compliance alerts.
+- **Auto-assign SLA breach:** Specialized warning style using accent outline + red countdown chip to alert recruiters when a candidate is about to expire, paired with inline CTA to extend the window.
 
 ## Responsive Behaviour
 - Breakpoints align with 320/480/768/1024/1280/1536.

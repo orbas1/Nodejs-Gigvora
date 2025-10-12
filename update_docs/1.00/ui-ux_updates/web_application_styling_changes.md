@@ -20,29 +20,39 @@
 - **Accordions & tabs:** `border-b border-slate-200` separators, accent indicator for active tab, smooth height transitions.
 - **Modal overlays:** `bg-slate-900/70` scrim, panel `rounded-3xl` with `p-8` padding, drop shadow `shadow-2xl shadow-slate-900/20`.
 - **Tables:** `table-auto w-full`, header `bg-slate-50 text-slate-500 uppercase tracking-[0.35em]`, row hover `bg-slate-50`.
+- **Auto-assign queue:** Dedicated table variant with `border-l-4` accent stripe indicating score tiers (`border-emerald-500` for >=80, `border-amber-500` for 60–79, `border-rose-500` below 60). Countdown badges use `bg-slate-900 text-white` with `font-mono text-xs` for remaining minutes, and action buttons follow the primary/secondary CTA treatments with inline skeletons to reflect async decisions.
+- **Project workspace panels:** Two-column layout pairs a form card (`rounded-4xl border border-slate-200 bg-white/95`) with a queue snapshot stack using accent outlines, avatar clusters, and `text-xs text-slate-500` metadata rows; fairness preview card leverages `bg-gradient-to-br from-accent/10 via-white to-emerald-50` to reinforce equitable matching messaging.
+- **Dashboard stat tiles:** Compact `rounded-3xl border border-slate-200 bg-white/90 p-5` cards with uppercase eyebrow labels, bold numerals, and optional helper copy. They animate with `transition-shadow` on hover and collapse to single-column stacks on small screens.
+- **Dashboard queue cards:** `rounded-3xl border border-slate-200 bg-white p-6 shadow-soft` containers host stacked queue entries. Each entry inherits accent uppercase status chips, `bg-surfaceMuted` placeholders when empty, and inline `rounded-full` badges showing score, priority bucket, and formatted budget.
+- **Saved search list:** Entries feature `text-xs text-slate-500` metadata rows and accent underlines on hover for quick navigation, reflecting the leadership request for richer search previews.
 
 ## Forms & Inputs
 - **Inputs:** `rounded-full` or `rounded-3xl` shapes, `border-slate-200`, `focus:border-accent focus:ring-0`; placeholder text `text-slate-400`.
 - **Form sections:** `space-y-6` stacking, helper text `text-xs text-slate-500`, inline validation `text-rose-500` (to be standardised across flows).
 - **Multi-step forms:** Progress trackers using accent steps, `divide-y` separators, sticky summary column on desktop.
+- **Fairness sliders:** Range inputs adopt accent track + thumb, inline percentage badge `text-slate-400`, and `accent-accent` styling to visually link weight adjustments to queue outcomes; newcomer toggle utilises accent switch with supporting microcopy.
 - **File upload:** Dotted `border-2 border-dashed border-slate-300`, accent hover, inline preview thumbnails with `rounded-xl` mask.
 
 ## Imagery & Iconography
 - **Logos:** `LOGO_URL` used in header and hero feed card; sized via `h-12 w-auto` and `h-8 w-auto` for brand consistency.
 - **Icons:** Heroicons outline for nav toggle, command icons; sized `h-6 w-6` inside `rounded-full` buttons.
 - **Illustrations:** Gradient overlays `from-accent/10 via-white to-white` ensuring copy legible; drop shadows align with card system.
+- **Avatars:** Reusable `UserAvatar` component renders deterministic DiceBear seeds with `rounded-full` masks, accent ring for active states, and size variants for header (sm), dashboard profile (lg), and activity feeds (xs clusters).
 
 ## Motion & Interaction
 - **Transitions:** `transition hover:-translate-y-0.5` on cards, `duration-300` for underline animations, `hover:shadow-soft` for interactive depth.
 - **Scroll behaviour:** Sticky header ensures nav accessible; gradient overlays fade as user scrolls, maintaining focus on content.
 - **Accordion animation:** `transition-[max-height] duration-300 ease-in-out` for FAQ/accordion components to convey openness.
 - **Button feedback:** `focus-visible:ring-4 focus-visible:ring-accent/30` for strong keyboard cues; `active:translate-y-0.5` for pressed state.
+- **Queue timers:** Countdown badges pulse using `animate-pulse` when <10 minutes remain, and entries fade to 50% opacity before collapsing into the history accordion, mirroring backend expiry semantics.
+- **Dashboard refresh:** Data status chip rotates a subtle `animate-spin` icon during refresh and fades the updated timestamp in with `transition-opacity`, communicating live data pulls without jarring layout shifts.
 
 ## Accessibility
 - **Focus states:** Buttons/links maintain default outline plus accent border on focus for keyboard navigation.
 - **Contrast:** Blue accent on white ensures ratio compliance; dark text on light gradients avoids readability issues.
 - **Responsive nav:** Mobile drawer ensures touch targets sized `px-4 py-2` with adequate spacing.
 - **ARIA labelling:** Tab/accordion components include `aria-expanded` & `aria-controls`; modal containers enforce focus trap.
+- **Score explainers:** The scorecard drawer exposes aria-described-by references for each metric row (skills, availability, launchpad) so screen readers narrate the weighting the backend used, matching the tooltip content.
 - **Skip links:** `sr-only focus:not-sr-only` pattern ensures accessible skip-to-content anchor at top of page.
 
 ## Documentation Reference

@@ -3,6 +3,7 @@ import {
   fetchTrustOverview,
   releaseEscrow,
 } from '../services/trust.js';
+import useAuth from '../hooks/useAuth.js';
 
 function formatCurrency(amount = 0, currency = 'USD') {
   try {
@@ -49,6 +50,7 @@ export default function TrustCenterPage() {
   const [error, setError] = useState(null);
   const [releaseProcessing, setReleaseProcessing] = useState({});
   const [successBanner, setSuccessBanner] = useState('');
+  const { status, user } = useAuth();
 
   const totals = useMemo(() => overview?.totalsByStatus ?? {}, [overview]);
   const disputesByStage = useMemo(() => overview?.disputesByStage ?? {}, [overview]);
@@ -56,6 +58,8 @@ export default function TrustCenterPage() {
   const disputeQueue = useMemo(() => overview?.disputeQueue ?? [], [overview]);
   const releaseAgingBuckets = useMemo(() => overview?.releaseAgingBuckets ?? {}, [overview]);
   const currency = overview?.activeAccounts?.[0]?.currencyCode ?? 'USD';
+
+  const canAction = status === 'authenticated' && Boolean(user?.id);
 
   useEffect(() => {
     let isMounted = true;
@@ -98,12 +102,16 @@ export default function TrustCenterPage() {
   }
 
   async function handleRelease(transaction) {
+    if (!canAction) {
+      setError('Sign in to release escrow transactions.');
+      return;
+    }
     setReleaseProcessing((prev) => ({ ...prev, [transaction.id]: true }));
     setError(null);
     setSuccessBanner('');
     try {
       await releaseEscrow(transaction.id, {
-        actorId: transaction.initiatedById,
+        actorId: user.id,
         notes: 'Released via Trust Center dashboard',
       });
       setSuccessBanner(`Escrow ${transaction.reference} released successfully.`);
@@ -155,6 +163,11 @@ export default function TrustCenterPage() {
             refresh in near real-time to keep finance, compliance, and support aligned.
           </p>
         </div>
+        {!canAction ? (
+          <div className="rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            Sign in to approve releases, trigger refunds, and annotate dispute workflows.
+          </div>
+        ) : null}
         <div className="flex flex-col items-start gap-3 md:items-end">
           {successBanner && (
             <div className="rounded-full bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 shadow-soft">

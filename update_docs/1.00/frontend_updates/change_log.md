@@ -19,3 +19,14 @@
 - Added `trust.js` service to call escrow/dispute APIs with cache-aware utilities reused by the Trust Center.
 - Introduced `TrustCenter.jsx`, a blue-branded operations dashboard visualising escrow totals, release queues, dispute workloads, and Cloudflare R2 evidence health.
 - Updated `Header.jsx` navigation and `App.jsx` routes to expose the Trust Center for finance/compliance teams with direct release actions invoking the new backend endpoints.
+
+## Project Management Workspace
+- Registered `/projects/:projectId` route and `ProjectDetailPage.jsx`, bundling metadata editing, fairness weighting sliders, and queue regeneration controls with analytics tracking.
+- Refreshed `ProjectsPage.jsx` cards to surface auto-assign status badges, queue size, and the new "Manage project" CTA linking to the detailed workspace.
+- Extended `projectsService.js` with `updateProject` helper enabling PATCH requests that persist edits and trigger transactional queue refreshes.
+
+## Operations Dashboard & Authentication
+- Introduced `AuthProvider`/`useAuth` to persist JWT sessions, resolve actors for search subscriptions, and expose login/logout helpers across the app.
+- Added `DashboardPage.jsx` rendering queue telemetry, saved-search alerts, project KPIs, and assignment metrics after authentication.
+- Refreshed `Header.jsx` with avatar rendering, logout controls, and conditional nav items (`Dashboard`, `Launch Project`, `Trust Center`) based on session state.
+- Upgraded `LoginPage.jsx`, `ProjectCreatePage.jsx`, `ProjectDetailPage.jsx`, and `TrustCenter.jsx` to require authenticated actors before mutating data, surfacing inline sign-in prompts when necessary.

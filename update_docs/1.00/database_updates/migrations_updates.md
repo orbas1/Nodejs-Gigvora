@@ -18,3 +18,8 @@
   - `dispute_events` (disputeCaseId, actor metadata, action enum, evidence storage fields, event timestamp, metadata).
 - Down migration drops tables then enums to keep Postgres deployments clean; helper drops enum types conditionally to avoid MySQL/SQLite errors.
 - Validated via Jest + Sequelize sync using SQLite along with manual MySQL/Postgres dry runs to ensure cross-dialect compatibility and referential integrity.
+
+## `20240901120000-add-project-owner.cjs`
+- Adds nullable `ownerId` to `projects` with FK to `users` and supporting index `projects_owner_id_idx`.
+- Ensures existing data remains valid while enabling dashboards and queue analytics to scope by authenticated owner.
+- Down migration removes the index and column in a single transaction across dialects.

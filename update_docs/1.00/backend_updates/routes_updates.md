@@ -14,3 +14,11 @@
 - New router mounted at `/api/trust` exposing escrow account management, transaction lifecycle actions, dispute orchestration, and the trust overview endpoint.
 - Release/refund routes accept `transactionId` path params and forward actor notes to the service layer for audit trails.
 - Dispute event route accepts evidence payloads that the service uploads to Cloudflare R2 before persisting dispute state changes.
+
+## Project Routes (`src/routes/projectRoutes.js`)
+- Introduced `PATCH /api/projects/:projectId` so project metadata edits and queue regeneration can be triggered directly from the management workspace.
+- Re-ordered route declarations to keep the more specific `/auto-assign` handler ahead of the generic `/:projectId` bindings, avoiding accidental shadowing.
+- Mutating routes now rely on the shared `resolveRequestUserId` helper so JWT-authenticated users and service jobs share a common actor resolution path.
+
+## Dashboard Routes (`src/routes/dashboardRoutes.js`)
+- New router mounted at `/api/dashboard` exposes `GET /overview`, guarded by the JWT authenticate middleware and delegating to `dashboardController.overview`.

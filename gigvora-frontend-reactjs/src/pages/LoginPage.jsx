@@ -1,20 +1,38 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
+import useAuth from '../hooks/useAuth.js';
 
 export default function LoginPage() {
+  const navigate = useNavigate();
+  const { status, challenge, loginWithPassword, verifyTwoFactor, error } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [twoFactor, setTwoFactor] = useState('');
-  const [step, setStep] = useState('credentials');
+  const [formError, setFormError] = useState(null);
 
-  const handleSubmit = (event) => {
+  const step = challenge ? 'twofactor' : 'credentials';
+  const isProcessing = status === 'authenticating';
+
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    setStep('twofactor');
+    setFormError(null);
+    try {
+      await loginWithPassword(email, password);
+    } catch (err) {
+      setFormError(err.message || 'Unable to request verification code.');
+    }
   };
 
-  const handleVerify = (event) => {
+  const handleVerify = async (event) => {
     event.preventDefault();
-    alert('2FA verified. Redirecting to dashboard.');
+    setFormError(null);
+    try {
+      await verifyTwoFactor(twoFactor);
+      navigate('/dashboard');
+    } catch (err) {
+      setFormError(err.message || 'Verification failed.');
+    }
   };
 
   return (
@@ -62,9 +80,10 @@ export default function LoginPage() {
                   </div>
                   <button
                     type="submit"
+                    disabled={isProcessing}
                     className="w-full rounded-full bg-accent px-6 py-3 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
                   >
-                    Request 2FA code
+                    {isProcessing ? 'Sending secure code…' : 'Request 2FA code'}
                   </button>
                   <p className="text-xs text-slate-500">We’ll email a one-time code and support authenticator apps soon.</p>
                 </form>
@@ -85,13 +104,19 @@ export default function LoginPage() {
                   </div>
                   <button
                     type="submit"
+                    disabled={isProcessing}
                     className="w-full rounded-full bg-accent px-6 py-3 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
                   >
-                    Verify &amp; sign in
+                    {isProcessing ? 'Verifying…' : 'Verify & sign in'}
                   </button>
                   <p className="text-xs text-slate-500 text-center">Google Authenticator support is on the roadmap.</p>
                 </form>
               )}
+              {(formError || error) ? (
+                <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-600">
+                  {formError || error}
+                </div>
+              ) : null}
             </div>
           </div>
           <div className="space-y-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
