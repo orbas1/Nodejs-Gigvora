@@ -312,6 +312,12 @@ export const COMPLIANCE_REMINDER_STATUSES = ['scheduled', 'sent', 'acknowledged'
 export const COMPLIANCE_OBLIGATION_STATUSES = ['open', 'in_progress', 'satisfied', 'waived', 'overdue'];
 export const COMPLIANCE_STORAGE_PROVIDERS = ['s3', 'r2', 'gcs', 'azure', 'filesystem', 'external'];
 
+export const REPUTATION_TESTIMONIAL_SOURCES = ['portal', 'manual', 'import', 'video', 'audio'];
+export const REPUTATION_TESTIMONIAL_STATUSES = ['pending', 'approved', 'rejected', 'archived'];
+export const REPUTATION_SUCCESS_STORY_STATUSES = ['draft', 'in_review', 'published', 'archived'];
+export const REPUTATION_METRIC_TREND_DIRECTIONS = ['up', 'down', 'flat'];
+export const REPUTATION_REVIEW_WIDGET_STATUSES = ['draft', 'active', 'paused'];
+
 export const User = sequelize.define(
   'User',
   {
@@ -522,6 +528,234 @@ export const FreelancerProfile = sequelize.define(
   { tableName: 'freelancer_profiles' },
 );
 
+export const ReputationTestimonial = sequelize.define(
+  'ReputationTestimonial',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    clientName: { type: DataTypes.STRING(255), allowNull: false },
+    clientRole: { type: DataTypes.STRING(255), allowNull: true },
+    company: { type: DataTypes.STRING(255), allowNull: true },
+    projectName: { type: DataTypes.STRING(255), allowNull: true },
+    rating: { type: DataTypes.DECIMAL(3, 2), allowNull: true },
+    comment: { type: DataTypes.TEXT, allowNull: false },
+    capturedAt: { type: DataTypes.DATE, allowNull: true },
+    deliveredAt: { type: DataTypes.DATE, allowNull: true },
+    source: {
+      type: DataTypes.ENUM(...REPUTATION_TESTIMONIAL_SOURCES),
+      allowNull: false,
+      defaultValue: 'portal',
+      validate: { isIn: [REPUTATION_TESTIMONIAL_SOURCES] },
+    },
+    status: {
+      type: DataTypes.ENUM(...REPUTATION_TESTIMONIAL_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+      validate: { isIn: [REPUTATION_TESTIMONIAL_STATUSES] },
+    },
+    isFeatured: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    shareUrl: { type: DataTypes.STRING(500), allowNull: true },
+    media: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'reputation_testimonials' },
+);
+
+export const ReputationSuccessStory = sequelize.define(
+  'ReputationSuccessStory',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    slug: { type: DataTypes.STRING(255), allowNull: false },
+    summary: { type: DataTypes.TEXT, allowNull: false },
+    content: { type: DataTypes.TEXT, allowNull: true },
+    heroImageUrl: { type: DataTypes.STRING(500), allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...REPUTATION_SUCCESS_STORY_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [REPUTATION_SUCCESS_STORY_STATUSES] },
+    },
+    publishedAt: { type: DataTypes.DATE, allowNull: true },
+    featured: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    impactMetrics: { type: jsonType, allowNull: true },
+    ctaUrl: { type: DataTypes.STRING(500), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'reputation_success_stories' },
+);
+
+export const ReputationMetric = sequelize.define(
+  'ReputationMetric',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    metricType: { type: DataTypes.STRING(120), allowNull: false },
+    label: { type: DataTypes.STRING(255), allowNull: false },
+    value: { type: DataTypes.DECIMAL(12, 4), allowNull: false },
+    unit: { type: DataTypes.STRING(60), allowNull: true },
+    period: { type: DataTypes.STRING(120), allowNull: false, defaultValue: 'rolling_12_months' },
+    source: { type: DataTypes.STRING(255), allowNull: true },
+    trendDirection: {
+      type: DataTypes.ENUM(...REPUTATION_METRIC_TREND_DIRECTIONS),
+      allowNull: false,
+      defaultValue: 'flat',
+      validate: { isIn: [REPUTATION_METRIC_TREND_DIRECTIONS] },
+    },
+    trendValue: { type: DataTypes.DECIMAL(10, 4), allowNull: true },
+    verifiedBy: { type: DataTypes.STRING(255), allowNull: true },
+    verifiedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'reputation_metrics' },
+);
+
+export const ReputationBadge = sequelize.define(
+  'ReputationBadge',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(255), allowNull: false },
+    slug: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    issuedBy: { type: DataTypes.STRING(255), allowNull: true },
+    issuedAt: { type: DataTypes.DATE, allowNull: true },
+    expiresAt: { type: DataTypes.DATE, allowNull: true },
+    badgeType: { type: DataTypes.STRING(120), allowNull: true },
+    level: { type: DataTypes.STRING(60), allowNull: true },
+    assetUrl: { type: DataTypes.STRING(500), allowNull: true },
+    isPromoted: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'reputation_badges' },
+);
+
+export const ReputationReviewWidget = sequelize.define(
+  'ReputationReviewWidget',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(255), allowNull: false },
+    slug: { type: DataTypes.STRING(255), allowNull: false },
+    widgetType: { type: DataTypes.STRING(120), allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...REPUTATION_REVIEW_WIDGET_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [REPUTATION_REVIEW_WIDGET_STATUSES] },
+    },
+    embedScript: { type: DataTypes.TEXT, allowNull: true },
+    config: { type: jsonType, allowNull: true },
+    impressions: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    ctaClicks: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    lastSyncedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'reputation_review_widgets' },
+);
+
+ReputationTestimonial.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    clientName: plain.clientName,
+    clientRole: plain.clientRole ?? null,
+    company: plain.company ?? null,
+    projectName: plain.projectName ?? null,
+    rating: plain.rating == null ? null : Number(plain.rating),
+    comment: plain.comment,
+    capturedAt: plain.capturedAt ?? null,
+    deliveredAt: plain.deliveredAt ?? null,
+    source: plain.source,
+    status: plain.status,
+    isFeatured: Boolean(plain.isFeatured),
+    shareUrl: plain.shareUrl ?? null,
+    media: plain.media ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+ReputationSuccessStory.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    title: plain.title,
+    slug: plain.slug,
+    summary: plain.summary,
+    content: plain.content ?? null,
+    heroImageUrl: plain.heroImageUrl ?? null,
+    status: plain.status,
+    publishedAt: plain.publishedAt ?? null,
+    featured: Boolean(plain.featured),
+    impactMetrics: plain.impactMetrics ?? null,
+    ctaUrl: plain.ctaUrl ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+ReputationMetric.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    metricType: plain.metricType,
+    label: plain.label,
+    value: Number(plain.value),
+    unit: plain.unit ?? null,
+    period: plain.period,
+    source: plain.source ?? null,
+    trendDirection: plain.trendDirection,
+    trendValue: plain.trendValue == null ? null : Number(plain.trendValue),
+    verifiedBy: plain.verifiedBy ?? null,
+    verifiedAt: plain.verifiedAt ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+ReputationBadge.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    name: plain.name,
+    slug: plain.slug,
+    description: plain.description ?? null,
+    issuedBy: plain.issuedBy ?? null,
+    issuedAt: plain.issuedAt ?? null,
+    expiresAt: plain.expiresAt ?? null,
+    badgeType: plain.badgeType ?? null,
+    level: plain.level ?? null,
+    assetUrl: plain.assetUrl ?? null,
+    isPromoted: Boolean(plain.isPromoted),
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+ReputationReviewWidget.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    name: plain.name,
+    slug: plain.slug,
+    widgetType: plain.widgetType,
+    status: plain.status,
+    embedScript: plain.embedScript ?? null,
+    config: plain.config ?? null,
+    impressions: Number(plain.impressions ?? 0),
+    ctaClicks: Number(plain.ctaClicks ?? 0),
+    lastSyncedAt: plain.lastSyncedAt ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
 export const FreelancerExpertiseArea = sequelize.define(
   'FreelancerExpertiseArea',
   {
@@ -7190,6 +7424,21 @@ AgencyProfile.belongsTo(User, { foreignKey: 'userId' });
 User.hasOne(FreelancerProfile, { foreignKey: 'userId' });
 FreelancerProfile.belongsTo(User, { foreignKey: 'userId' });
 
+User.hasMany(ReputationTestimonial, { foreignKey: 'freelancerId', as: 'reputationTestimonials' });
+ReputationTestimonial.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
+User.hasMany(ReputationSuccessStory, { foreignKey: 'freelancerId', as: 'reputationSuccessStories' });
+ReputationSuccessStory.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
+User.hasMany(ReputationMetric, { foreignKey: 'freelancerId', as: 'reputationMetrics' });
+ReputationMetric.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
+User.hasMany(ReputationBadge, { foreignKey: 'freelancerId', as: 'reputationBadges' });
+ReputationBadge.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
+User.hasMany(ReputationReviewWidget, { foreignKey: 'freelancerId', as: 'reputationReviewWidgets' });
+ReputationReviewWidget.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
 User.hasOne(FreelancerAssignmentMetric, { foreignKey: 'freelancerId', as: 'assignmentMetric' });
 FreelancerAssignmentMetric.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
 
@@ -8014,6 +8263,11 @@ export default {
   CompanyProfile,
   AgencyProfile,
   FreelancerProfile,
+  ReputationTestimonial,
+  ReputationSuccessStory,
+  ReputationMetric,
+  ReputationBadge,
+  ReputationReviewWidget,
   FreelancerExpertiseArea,
   FreelancerSuccessMetric,
   FreelancerTestimonial,
