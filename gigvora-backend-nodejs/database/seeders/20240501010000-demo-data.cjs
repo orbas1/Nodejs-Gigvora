@@ -39,6 +39,17 @@ const seededIds = {
   providerWorkspaceMembers: [1, 2],
   providerWorkspaceInvites: [1],
   providerContactNotes: [1],
+  freelancerFinanceMetrics: [1, 2, 3, 4],
+  freelancerRevenueMonthlies: [1, 2, 3, 4, 5],
+  freelancerRevenueStreams: [1, 2, 3, 4],
+  freelancerPayouts: [1, 2, 3, 4, 5],
+  freelancerTaxEstimates: [1],
+  freelancerTaxFilings: [1, 2, 3],
+  freelancerDeductionSummaries: [1],
+  freelancerProfitabilityMetrics: [1, 2, 3],
+  freelancerCostBreakdowns: [1, 2, 3, 4],
+  freelancerSavingsGoals: [1, 2],
+  freelancerFinanceControls: [1, 2, 3, 4],
 };
 
 module.exports = {
@@ -50,6 +61,11 @@ module.exports = {
       const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
       const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
       const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      const financeFreelancerId = seededIds.users[1];
+      const monthStartIso = (offset) => {
+        const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - offset, 1));
+        return date.toISOString().slice(0, 10);
+      };
 
       await queryInterface.bulkInsert(
         'users',
@@ -1248,6 +1264,506 @@ module.exports = {
         { transaction }
       );
 
+      await queryInterface.bulkInsert(
+        'freelancer_finance_metrics',
+        [
+          {
+            id: seededIds.freelancerFinanceMetrics[0],
+            freelancerId: financeFreelancerId,
+            metricKey: 'month_to_date_revenue',
+            label: 'Month-to-date revenue',
+            value: 18400,
+            valueUnit: 'currency',
+            currencyCode: 'USD',
+            changeValue: 12.4,
+            changeUnit: 'percentage',
+            trend: 'up',
+            caption: 'Projected to close $24.9k by month end across retainers and sprints.',
+            effectiveAt: now,
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.freelancerFinanceMetrics[1],
+            freelancerId: financeFreelancerId,
+            metricKey: 'cash_available_for_payout',
+            label: 'Cash available for payout',
+            value: 9700,
+            valueUnit: 'currency',
+            currencyCode: 'USD',
+            changeValue: 1200,
+            changeUnit: 'currency',
+            trend: 'neutral',
+            caption: 'Includes approved releases scheduled over the next 48 hours.',
+            effectiveAt: now,
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.freelancerFinanceMetrics[2],
+            freelancerId: financeFreelancerId,
+            metricKey: 'outstanding_invoices',
+            label: 'Outstanding invoices',
+            value: 3100,
+            valueUnit: 'currency',
+            currencyCode: 'USD',
+            changeValue: -6.1,
+            changeUnit: 'percentage',
+            trend: 'down',
+            caption: 'Two invoices awaiting client approvals; auto-reminders enabled.',
+            effectiveAt: now,
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.freelancerFinanceMetrics[3],
+            freelancerId: financeFreelancerId,
+            metricKey: 'net_margin',
+            label: 'Net margin',
+            value: 41,
+            valueUnit: 'percentage',
+            changeValue: 3.4,
+            changeUnit: 'percentage_points',
+            trend: 'up',
+            caption: 'After accounting for subcontractors, software, and taxes-to-date.',
+            effectiveAt: now,
+            createdAt: now,
+            updatedAt: now,
+          },
+        ],
+        { transaction }
+      );
+
+      await queryInterface.bulkInsert(
+        'freelancer_revenue_monthlies',
+        [
+          {
+            id: seededIds.freelancerRevenueMonthlies[0],
+            freelancerId: financeFreelancerId,
+            month: monthStartIso(4),
+            bookedAmount: 15800,
+            realizedAmount: 14200,
+            currencyCode: 'USD',
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.freelancerRevenueMonthlies[1],
+            freelancerId: financeFreelancerId,
+            month: monthStartIso(3),
+            bookedAmount: 17650,
+            realizedAmount: 16200,
+            currencyCode: 'USD',
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.freelancerRevenueMonthlies[2],
+            freelancerId: financeFreelancerId,
+            month: monthStartIso(2),
+            bookedAmount: 18900,
+            realizedAmount: 17400,
+            currencyCode: 'USD',
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.freelancerRevenueMonthlies[3],
+            freelancerId: financeFreelancerId,
+            month: monthStartIso(1),
+            bookedAmount: 17100,
+            realizedAmount: 16850,
+            currencyCode: 'USD',
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.freelancerRevenueMonthlies[4],
+            freelancerId: financeFreelancerId,
+            month: monthStartIso(0),
+            bookedAmount: 20150,
+            realizedAmount: 18420,
+            currencyCode: 'USD',
+            createdAt: now,
+            updatedAt: now,
+          },
+        ],
+        { transaction }
+      );
+
+      await queryInterface.bulkInsert(
+        'freelancer_revenue_streams',
+        [
+          {
+            id: seededIds.freelancerRevenueStreams[0],
+            freelancerId: financeFreelancerId,
+            name: 'Brand identity retainers',
+            sharePercent: 38,
+            monthlyRecurringRevenue: 7200,
+            currencyCode: 'USD',
+            yoyChangePercent: 18,
+            notes: '3 active retainers with quarterly renewals locked.',
+            metadata: { renewalCadence: 'quarterly' },
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.freelancerRevenueStreams[1],
+            freelancerId: financeFreelancerId,
+            name: 'Product design sprints',
+            sharePercent: 27,
+            monthlyRecurringRevenue: 5100,
+            currencyCode: 'USD',
+            yoyChangePercent: 9,
+            notes: 'Average delivery time 15 days · CSAT 4.95/5.',
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.freelancerRevenueStreams[2],
+            freelancerId: financeFreelancerId,
+            name: 'UX audits & playbooks',
+            sharePercent: 22,
+            monthlyRecurringRevenue: 3900,
+            currencyCode: 'USD',
+            yoyChangePercent: 14,
+            notes: 'Bundled with CRO workshops for upsell opportunities.',
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.freelancerRevenueStreams[3],
+            freelancerId: financeFreelancerId,
+            name: 'Community workshops',
+            sharePercent: 13,
+            monthlyRecurringRevenue: 2450,
+            currencyCode: 'USD',
+            yoyChangePercent: 4,
+            notes: 'Live cohorts plus digital asset sales.',
+            createdAt: now,
+            updatedAt: now,
+          },
+        ],
+        { transaction }
+      );
+
+      await queryInterface.bulkInsert(
+        'freelancer_payouts',
+        [
+          {
+            id: seededIds.freelancerPayouts[0],
+            freelancerId: financeFreelancerId,
+            payoutDate: '2024-03-14',
+            clientName: 'Aster Ventures',
+            gigTitle: 'Product design sprint',
+            amount: 2800,
+            currencyCode: 'USD',
+            status: 'released',
+            reference: 'PO-20240314-AV',
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.freelancerPayouts[1],
+            freelancerId: financeFreelancerId,
+            payoutDate: '2024-03-12',
+            clientName: 'Northwind Labs',
+            gigTitle: 'Brand identity retainer',
+            amount: 3600,
+            currencyCode: 'USD',
+            status: 'scheduled',
+            reference: 'INV-20240301-NL',
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.freelancerPayouts[2],
+            freelancerId: financeFreelancerId,
+            payoutDate: '2024-03-08',
+            clientName: 'Orbit Health',
+            gigTitle: 'UX audit & playbook',
+            amount: 1450,
+            currencyCode: 'USD',
+            status: 'released',
+            reference: 'PO-20240305-OH',
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.freelancerPayouts[3],
+            freelancerId: financeFreelancerId,
+            payoutDate: '2024-03-03',
+            clientName: 'Lumen Devices',
+            gigTitle: 'Product design sprint',
+            amount: 2250,
+            currencyCode: 'USD',
+            status: 'in_escrow',
+            reference: 'ESCROW-20240303-LD',
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.freelancerPayouts[4],
+            freelancerId: financeFreelancerId,
+            payoutDate: '2024-02-27',
+            clientName: 'Skyreach Media',
+            gigTitle: 'Community workshop bundle',
+            amount: 1120,
+            currencyCode: 'USD',
+            status: 'released',
+            reference: 'PO-20240227-SM',
+            createdAt: now,
+            updatedAt: now,
+          },
+        ],
+        { transaction }
+      );
+
+      await queryInterface.bulkInsert(
+        'freelancer_tax_estimates',
+        [
+          {
+            id: seededIds.freelancerTaxEstimates[0],
+            freelancerId: financeFreelancerId,
+            dueDate: '2024-04-15',
+            amount: 4860,
+            currencyCode: 'USD',
+            status: 'on_track',
+            notes: 'Quarterly estimate auto-calculated from year-to-date profitability.',
+            createdAt: now,
+            updatedAt: now,
+          },
+        ],
+        { transaction }
+      );
+
+      await queryInterface.bulkInsert(
+        'freelancer_tax_filings',
+        [
+          {
+            id: seededIds.freelancerTaxFilings[0],
+            freelancerId: financeFreelancerId,
+            name: '1099 contractor summary',
+            jurisdiction: 'US Federal',
+            dueDate: '2024-03-20',
+            status: 'submitted',
+            submittedAt: twoDaysAgo,
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.freelancerTaxFilings[1],
+            freelancerId: financeFreelancerId,
+            name: 'Sales tax (NY)',
+            jurisdiction: 'New York',
+            dueDate: '2024-03-30',
+            status: 'in_progress',
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.freelancerTaxFilings[2],
+            freelancerId: financeFreelancerId,
+            name: 'VAT reverse charge (EU)',
+            jurisdiction: 'EU',
+            dueDate: '2024-04-05',
+            status: 'not_started',
+            createdAt: now,
+            updatedAt: now,
+          },
+        ],
+        { transaction }
+      );
+
+      await queryInterface.bulkInsert(
+        'freelancer_deduction_summaries',
+        [
+          {
+            id: seededIds.freelancerDeductionSummaries[0],
+            freelancerId: financeFreelancerId,
+            taxYear: now.getUTCFullYear(),
+            amount: 12430,
+            currencyCode: 'USD',
+            changePercentage: -8.2,
+            notes: 'Software subscriptions reconciled weekly.',
+            createdAt: now,
+            updatedAt: now,
+          },
+        ],
+        { transaction }
+      );
+
+      await queryInterface.bulkInsert(
+        'freelancer_profitability_metrics',
+        [
+          {
+            id: seededIds.freelancerProfitabilityMetrics[0],
+            freelancerId: financeFreelancerId,
+            metricKey: 'gross_margin',
+            label: 'Gross margin',
+            value: 68,
+            valueUnit: 'percentage',
+            changeValue: 2.1,
+            changeUnit: 'percentage_points',
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.freelancerProfitabilityMetrics[1],
+            freelancerId: financeFreelancerId,
+            metricKey: 'average_order_value',
+            label: 'Average order value',
+            value: 1920,
+            valueUnit: 'currency',
+            currencyCode: 'USD',
+            changeValue: 11.3,
+            changeUnit: 'percentage',
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.freelancerProfitabilityMetrics[2],
+            freelancerId: financeFreelancerId,
+            metricKey: 'billable_utilization',
+            label: 'Billable utilization',
+            value: 82,
+            valueUnit: 'percentage',
+            changeValue: 5.4,
+            changeUnit: 'percentage_points',
+            createdAt: now,
+            updatedAt: now,
+          },
+        ],
+        { transaction }
+      );
+
+      await queryInterface.bulkInsert(
+        'freelancer_cost_breakdowns',
+        [
+          {
+            id: seededIds.freelancerCostBreakdowns[0],
+            freelancerId: financeFreelancerId,
+            label: 'Labor costs',
+            percentage: 38,
+            caption: 'Subcontractors & collaborators',
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.freelancerCostBreakdowns[1],
+            freelancerId: financeFreelancerId,
+            label: 'Software & tooling',
+            percentage: 14,
+            caption: 'Design, automation, hosting',
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.freelancerCostBreakdowns[2],
+            freelancerId: financeFreelancerId,
+            label: 'Operations',
+            percentage: 7,
+            caption: 'Compliance, accounting, legal',
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.freelancerCostBreakdowns[3],
+            freelancerId: financeFreelancerId,
+            label: 'Savings & benefits',
+            percentage: 6,
+            caption: 'Health, downtime reserve',
+            createdAt: now,
+            updatedAt: now,
+          },
+        ],
+        { transaction }
+      );
+
+      await queryInterface.bulkInsert(
+        'freelancer_savings_goals',
+        [
+          {
+            id: seededIds.freelancerSavingsGoals[0],
+            freelancerId: financeFreelancerId,
+            name: 'Benefits reserve',
+            targetAmount: 12000,
+            currencyCode: 'USD',
+            progress: 0.58,
+            cadence: 'Automatic transfers every Friday',
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.freelancerSavingsGoals[1],
+            freelancerId: financeFreelancerId,
+            name: 'Equipment refresh',
+            targetAmount: 4500,
+            currencyCode: 'USD',
+            progress: 0.32,
+            cadence: 'Funded by 5% skim on sprint payouts',
+            createdAt: now,
+            updatedAt: now,
+          },
+        ],
+        { transaction }
+      );
+
+      await queryInterface.bulkInsert(
+        'freelancer_finance_controls',
+        [
+          {
+            id: seededIds.freelancerFinanceControls[0],
+            freelancerId: financeFreelancerId,
+            name: 'Finance control tower',
+            description: 'Revenue breakdowns, tax-ready exports, expense tracking, and smart savings goals for benefits or downtime.',
+            bullets: [
+              'Split payouts between teammates or subcontractors instantly.',
+              'Predictive forecasts for retainers vs. one-off gigs.',
+            ],
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.freelancerFinanceControls[1],
+            freelancerId: financeFreelancerId,
+            name: 'Contract & compliance locker',
+            description: 'Store MSAs, NDAs, intellectual property agreements, and compliance attestations with e-sign audit logs.',
+            bullets: [
+              'Automated reminders for renewals and insurance certificates.',
+              'Localization for GDPR, SOC2, and freelancer classifications.',
+            ],
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.freelancerFinanceControls[2],
+            freelancerId: financeFreelancerId,
+            name: 'Reputation engine',
+            description: 'Capture testimonials, publish success stories, and display verified metrics such as on-time delivery and CSAT.',
+            bullets: [
+              'Custom badges and banners for featured freelancer programs.',
+              'Shareable review widgets for external websites.',
+            ],
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.freelancerFinanceControls[3],
+            freelancerId: financeFreelancerId,
+            name: 'Support & dispute desk',
+            description: 'Resolve client concerns, manage escalations, and collaborate with Gigvora support for smooth resolutions.',
+            bullets: [
+              'Conversation transcripts linked back to gig orders.',
+              'Resolution playbooks to keep satisfaction high.',
+            ],
+            createdAt: now,
+            updatedAt: now,
+          },
+        ],
+        { transaction }
+      );
+
       await transaction.commit();
     } catch (error) {
       await transaction.rollback();
@@ -1259,6 +1775,61 @@ module.exports = {
     const transaction = await queryInterface.sequelize.transaction();
 
     try {
+      await queryInterface.bulkDelete(
+        'freelancer_finance_controls',
+        { id: { [Op.in]: seededIds.freelancerFinanceControls } },
+        { transaction }
+      );
+      await queryInterface.bulkDelete(
+        'freelancer_savings_goals',
+        { id: { [Op.in]: seededIds.freelancerSavingsGoals } },
+        { transaction }
+      );
+      await queryInterface.bulkDelete(
+        'freelancer_cost_breakdowns',
+        { id: { [Op.in]: seededIds.freelancerCostBreakdowns } },
+        { transaction }
+      );
+      await queryInterface.bulkDelete(
+        'freelancer_profitability_metrics',
+        { id: { [Op.in]: seededIds.freelancerProfitabilityMetrics } },
+        { transaction }
+      );
+      await queryInterface.bulkDelete(
+        'freelancer_deduction_summaries',
+        { id: { [Op.in]: seededIds.freelancerDeductionSummaries } },
+        { transaction }
+      );
+      await queryInterface.bulkDelete(
+        'freelancer_tax_filings',
+        { id: { [Op.in]: seededIds.freelancerTaxFilings } },
+        { transaction }
+      );
+      await queryInterface.bulkDelete(
+        'freelancer_tax_estimates',
+        { id: { [Op.in]: seededIds.freelancerTaxEstimates } },
+        { transaction }
+      );
+      await queryInterface.bulkDelete(
+        'freelancer_payouts',
+        { id: { [Op.in]: seededIds.freelancerPayouts } },
+        { transaction }
+      );
+      await queryInterface.bulkDelete(
+        'freelancer_revenue_streams',
+        { id: { [Op.in]: seededIds.freelancerRevenueStreams } },
+        { transaction }
+      );
+      await queryInterface.bulkDelete(
+        'freelancer_revenue_monthlies',
+        { id: { [Op.in]: seededIds.freelancerRevenueMonthlies } },
+        { transaction }
+      );
+      await queryInterface.bulkDelete(
+        'freelancer_finance_metrics',
+        { id: { [Op.in]: seededIds.freelancerFinanceMetrics } },
+        { transaction }
+      );
       await queryInterface.bulkDelete('provider_contact_notes', { id: { [Op.in]: seededIds.providerContactNotes } }, { transaction });
       await queryInterface.bulkDelete(
         'provider_workspace_invites',
