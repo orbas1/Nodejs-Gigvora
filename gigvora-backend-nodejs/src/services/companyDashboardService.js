@@ -32,6 +32,11 @@ import {
   PartnerEngagement,
   RecruitingCalendarEvent,
   EmployerBrandAsset,
+  EmployerBrandStory,
+  EmployerBenefit,
+  EmployeeJourneyProgram,
+  WorkspaceIntegration,
+  WorkspaceCalendarConnection,
 } from '../models/index.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
@@ -84,6 +89,7 @@ function differenceInHours(start, end = new Date()) {
     return null;
   }
   return diffMs / (1000 * 60 * 60);
+  return Number((diffMs / (1000 * 60 * 60)).toFixed(1));
 }
 
 function average(numbers) {
@@ -121,6 +127,15 @@ function toDateKey(value) {
     return null;
   }
   return date.toISOString().slice(0, 10);
+function normalizeStageKey(value) {
+  if (value == null) {
+    return null;
+  }
+  return `${value}`
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
 }
 
 function resolveWorkspaceSelector({ workspaceId, workspaceSlug }) {
@@ -812,6 +827,74 @@ async function fetchBrandAssets({ workspaceId }) {
   });
 }
 
+async function fetchBrandStories({ workspaceId, since }) {
+  const where = { workspaceId };
+  if (since) {
+    where.updatedAt = { [Op.gte]: since };
+  }
+  return EmployerBrandStory.findAll({
+    where,
+    include: [
+      {
+        model: User,
+        as: 'author',
+        attributes: ['id'],
+        include: [
+          {
+            model: Profile,
+            as: 'profile',
+            attributes: ['firstName', 'lastName'],
+          },
+        ],
+      },
+    ],
+    order: [['updatedAt', 'DESC']],
+    limit: 40,
+  });
+}
+
+async function fetchEmployerBenefits({ workspaceId }) {
+  return EmployerBenefit.findAll({
+    where: { workspaceId },
+    order: [['isFeatured', 'DESC'], ['updatedAt', 'DESC']],
+    limit: 40,
+  });
+}
+
+async function fetchEmployeeJourneys({ workspaceId }) {
+  return EmployeeJourneyProgram.findAll({
+    where: { workspaceId },
+    include: [
+      {
+        model: User,
+        as: 'owner',
+        attributes: ['id'],
+        include: [
+          { model: Profile, as: 'profile', attributes: ['firstName', 'lastName'] },
+        ],
+      },
+    ],
+    order: [['updatedAt', 'DESC']],
+    limit: 50,
+  });
+}
+
+async function fetchWorkspaceIntegrations({ workspaceId }) {
+  return WorkspaceIntegration.findAll({
+    where: { workspaceId },
+    order: [['status', 'ASC'], ['displayName', 'ASC']],
+    limit: 50,
+  });
+}
+
+async function fetchCalendarConnections({ workspaceId }) {
+  return WorkspaceCalendarConnection.findAll({
+    where: { workspaceId },
+    order: [['status', 'ASC'], ['updatedAt', 'DESC']],
+    limit: 20,
+  });
+}
+
 function buildJobSummary({ jobs, gigs }) {
   const total = jobs.length + gigs.length;
   const byType = {
@@ -1007,35 +1090,47 @@ function buildAlertsSummary(alerts) {
   };
 }
 
-function buildJobLifecycleInsights({ jobStages, approvals, campaigns, pipelineSummary, jobSummary }) {
-  const sortedStages = [...jobStages].sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+function buildJobLifecycleInsights({
+  jobStages,
+  approvals,
+  campaigns,
+  pipelineSummary,
+  jobSummary,
+  applications,
+  reviews,
+  interviewSchedules,
+}) {
+  const now = new Date();
+  const stageRecords = [...jobStages]
+    .map((stage) => (stage?.get ? stage.get({ plain: true }) : stage))
+    .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+  const approvalRecords = approvals.map((item) => (item?.get ? item.get({ plain: true }) : item));
+  const campaignRecords = campaigns.map((item) => (item?.get ? item.get({ plain: true }) : item));
+  const reviewRecords = reviews.map((review) => (review?.get ? review.get({ plain: true }) : review));
+  const applicationRecords = applications.map((application) => (application?.get ? application.get({ plain: true }) : application));
+  const interviewRecords = interviewSchedules.map((schedule) =>
+    schedule?.get ? schedule.get({ plain: true }) : schedule,
+  );
+
   const averageStageDuration = average(
-    sortedStages
+    stageRecords
       .map((stage) => (stage.averageDurationHours == null ? null : Number(stage.averageDurationHours)))
       .filter((value) => Number.isFinite(value)),
   );
 
-  const pendingApprovals = approvals.filter((item) => item.status !== 'approved');
+  const pendingApprovals = approvalRecords.filter((item) => item.status !== 'approved');
   const overdueApprovals = pendingApprovals.filter((item) => {
     if (!item.dueAt) return false;
-    return new Date(item.dueAt) < new Date();
+    return new Date(item.dueAt) < now;
   });
 
-  const completionDurations = approvals
+  const completionDurations = approvalRecords
     .filter((item) => item.completedAt)
-    .map((item) => {
-      const end = new Date(item.completedAt);
-      const start = item.createdAt ? new Date(item.createdAt) : null;
-      if (!start || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-        return null;
-      }
-      const diffHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-      return Number.isFinite(diffHours) ? diffHours : null;
-    })
+    .map((item) => differenceInHours(item.createdAt, item.completedAt))
     .filter((value) => Number.isFinite(value));
 
   const campaignsByChannel = new Map();
-  campaigns.forEach((campaign) => {
+  campaignRecords.forEach((campaign) => {
     const channel = normalizeCategory(campaign.channel, 'Direct');
     const entry = campaignsByChannel.get(channel) ?? {
       impressions: 0,
@@ -1053,6 +1148,144 @@ function buildJobLifecycleInsights({ jobStages, approvals, campaigns, pipelineSu
   });
 
   const totalSpend = Array.from(campaignsByChannel.values()).reduce((sum, entry) => sum + entry.spend, 0);
+  const campaignMetrics = Array.from(campaignsByChannel.entries())
+    .sort((a, b) => b[1].applications - a[1].applications)
+    .map(([channel, metrics]) => ({
+      channel,
+      ...metrics,
+      conversionRate: metrics.applications ? Number(((metrics.hires / metrics.applications) * 100).toFixed(1)) : 0,
+    }));
+  const totalCampaignApplications = campaignMetrics.reduce((sum, entry) => sum + entry.applications, 0);
+  const averageCampaignCpa =
+    totalCampaignApplications > 0 ? Number((totalSpend / totalCampaignApplications).toFixed(2)) : null;
+
+  const applicationMap = new Map();
+  applicationRecords.forEach((application) => {
+    if (application?.id != null) {
+      applicationMap.set(application.id, application);
+    }
+  });
+
+  const stageBuckets = stageRecords.map((stage) => {
+    const normalizedKey = normalizeStageKey(stage?.metadata?.stageKey ?? stage?.metadata?.reviewStage ?? stage?.name);
+    return {
+      stage,
+      normalizedKey: normalizedKey ?? `stage_${stage.id}`,
+      reviews: [],
+    };
+  });
+  const stageIndex = new Map(stageBuckets.map((bucket) => [bucket.normalizedKey, bucket]));
+
+  reviewRecords.forEach((review) => {
+    const key = normalizeStageKey(review.stage) ?? `stage_${review.stage ?? 'unknown'}`;
+    const bucket = stageIndex.get(key);
+    if (bucket) {
+      bucket.reviews.push(review);
+    }
+  });
+
+  const stagePerformance = stageBuckets.map(({ stage, reviews: stageReviews }) => {
+    const decided = stageReviews.filter((review) => review.decision && review.decision !== 'pending');
+    const advances = decided.filter((review) => review.decision === 'advance').length;
+    const rejects = decided.filter((review) => review.decision === 'reject').length;
+    const holds = decided.filter((review) => review.decision === 'hold').length;
+    const averageScore = decided.length
+      ? average(
+          decided
+            .map((review) => (review.score == null ? null : Number(review.score)))
+            .filter((score) => Number.isFinite(score)),
+        )
+      : null;
+    const cycleTimes = decided
+      .map((review) => {
+        const application = applicationMap.get(review.applicationId);
+        const start = application?.submittedAt ?? application?.createdAt ?? review.createdAt;
+        const end = review.decidedAt ?? review.updatedAt ?? review.createdAt;
+        return differenceInHours(start, end);
+      })
+      .filter((value) => Number.isFinite(value));
+    const pending = stageReviews.filter((review) => review.decision === 'pending').length;
+    const throughput = stageReviews.length;
+    const slaDelta =
+      stage.averageDurationHours != null && stage.slaHours != null
+        ? Number(stage.averageDurationHours) - Number(stage.slaHours)
+        : null;
+
+    return {
+      id: stage.id,
+      name: stage.name,
+      orderIndex: stage.orderIndex ?? 0,
+      slaHours: stage.slaHours ?? null,
+      averageDurationHours: stage.averageDurationHours == null ? null : Number(stage.averageDurationHours),
+      throughput,
+      pendingReviews: pending,
+      advanceRate: percentage(advances, decided.length || 0),
+      rejectionRate: percentage(rejects, decided.length || 0),
+      holdRate: percentage(holds, decided.length || 0),
+      averageScore: averageScore == null ? null : Number(averageScore),
+      medianDecisionHours: cycleTimes.length ? median(cycleTimes) : null,
+      slaDeltaHours: slaDelta == null ? null : Number(slaDelta.toFixed(1)),
+      guideUrl: stage.guideUrl ?? null,
+    };
+  });
+
+  const sortedStagePerformance = stagePerformance.sort((a, b) => a.orderIndex - b.orderIndex);
+
+  const approvalQueueItems = pendingApprovals
+    .slice()
+    .sort((a, b) => {
+      const aDue = a.dueAt ? new Date(a.dueAt) : new Date(a.createdAt ?? 0);
+      const bDue = b.dueAt ? new Date(b.dueAt) : new Date(b.createdAt ?? 0);
+      return aDue - bDue;
+    })
+    .slice(0, 6)
+    .map((item) => ({
+      id: item.id,
+      approverRole: item.approverRole,
+      status: item.status,
+      dueAt: item.dueAt,
+      createdAt: item.createdAt,
+      completedAt: item.completedAt ?? null,
+      ageHours: differenceInHours(item.createdAt),
+      isOverdue: item.dueAt ? new Date(item.dueAt) < now : false,
+      metadata: item.metadata ?? null,
+    }));
+
+  const byStatus = pipelineSummary?.byStatus ?? {};
+  const totalApplications = pipelineSummary?.totals?.applications ?? 0;
+  const funnelOrder = [
+    { status: 'submitted', label: 'Submitted' },
+    { status: 'under_review', label: 'Under review' },
+    { status: 'shortlisted', label: 'Shortlisted' },
+    { status: 'interview', label: 'Interview' },
+    { status: 'offered', label: 'Offer' },
+    { status: 'hired', label: 'Hired' },
+  ];
+  let previousCount = totalApplications || 0;
+  const funnel = funnelOrder.map((stage, index) => {
+    const count = Number(byStatus[stage.status] ?? 0);
+    const conversionFromPrevious =
+      index === 0
+        ? 100
+        : percentage(count, previousCount || (index === 1 ? totalApplications : previousCount) || 1);
+    const cumulativeConversion = percentage(count, totalApplications || 1);
+    previousCount = count || previousCount;
+    return {
+      ...stage,
+      count,
+      conversionFromPrevious,
+      cumulativeConversion,
+    };
+  });
+
+  const upcomingInterviews = interviewRecords.filter((item) => {
+    if (item.completedAt) return false;
+    if (!item.scheduledAt) return false;
+    return new Date(item.scheduledAt) >= now;
+  }).length;
+  const rescheduleCount = interviewRecords.reduce((sum, item) => sum + Number(item.rescheduleCount ?? 0), 0);
+
+  const approvalsCompleted = approvalRecords.filter((item) => item.completedAt).length;
 
   return {
     totalStages: jobStages.length,
@@ -1060,27 +1293,39 @@ function buildJobLifecycleInsights({ jobStages, approvals, campaigns, pipelineSu
     pendingApprovals: pendingApprovals.length,
     overdueApprovals: overdueApprovals.length,
     averageApprovalTurnaroundHours: completionDurations.length ? Number(average(completionDurations)) : null,
-    stageGuides: sortedStages.slice(0, 8).map((stage) => ({
+    stageGuides: stageRecords.slice(0, 8).map((stage) => ({
       id: stage.id,
       name: stage.name,
       slaHours: stage.slaHours,
       averageDurationHours: stage.averageDurationHours == null ? null : Number(stage.averageDurationHours),
       guideUrl: stage.guideUrl,
     })),
+    stagePerformance: sortedStagePerformance,
+    approvalQueue: {
+      total: pendingApprovals.length,
+      overdue: overdueApprovals.length,
+      averageCompletionHours: completionDurations.length ? Number(average(completionDurations)) : null,
+      items: approvalQueueItems,
+    },
     campaigns: {
       totalSpend,
-      byChannel: Array.from(campaignsByChannel.entries())
-        .sort((a, b) => b[1].applications - a[1].applications)
-        .map(([channel, metrics]) => ({
-          channel,
-          ...metrics,
-          conversionRate: metrics.applications ? Number(((metrics.hires / metrics.applications) * 100).toFixed(1)) : 0,
-        })),
+      averageCostPerApplication: averageCampaignCpa,
+      byChannel: campaignMetrics,
+      topChannels: campaignMetrics.slice(0, 5),
     },
     atsHealth: {
       conversionRates: pipelineSummary?.conversionRates ?? {},
       velocity: pipelineSummary?.velocity ?? {},
       activeRequisitions: jobSummary?.total ?? 0,
+      upcomingInterviews,
+      rescheduleCount,
+      pendingApprovals: pendingApprovals.length,
+    },
+    funnel,
+    recentActivity: {
+      approvalsCompleted,
+      campaignsTracked: campaignRecords.length,
+      interviewsScheduled: interviewRecords.length,
     },
   };
 }
@@ -1915,6 +2160,329 @@ function buildGovernanceSummary({ approvals, alerts, workspace }) {
   };
 }
 
+function buildEmployerBrandStudioSummary({ profile, assets, stories, benefits }) {
+  const normalizeName = (record) => {
+    const profileRecord = record?.profile ?? record;
+    const parts = [profileRecord?.firstName, profileRecord?.lastName].filter(Boolean);
+    return parts.length ? parts.join(' ') : null;
+  };
+
+  const publishedAssets = assets.filter((asset) => asset.status === 'published');
+  const engagementScores = publishedAssets
+    .map((asset) => (asset.engagementScore == null ? null : Number(asset.engagementScore)))
+    .filter((value) => Number.isFinite(value));
+
+  const publishedStories = stories.filter((story) => story.status === 'published');
+  const scheduledStories = stories.filter((story) => story.status === 'scheduled');
+  const topStories = [...publishedStories]
+    .sort((a, b) => (Number(b.engagementScore) || 0) - (Number(a.engagementScore) || 0))
+    .slice(0, 3)
+    .map((story) => ({
+      id: story.id,
+      title: story.title,
+      storyType: story.storyType,
+      summary: story.summary,
+      engagementScore: story.engagementScore == null ? null : Number(story.engagementScore),
+      publishedAt: story.publishedAt,
+      authorName: normalizeName(story.author?.profile) ?? normalizeName(story.author),
+    }));
+
+  const featuredBenefits = benefits.filter((benefit) => Boolean(benefit.isFeatured));
+  const benefitCategories = new Map();
+  benefits.forEach((benefit) => {
+    benefitCategories.set(benefit.category, (benefitCategories.get(benefit.category) ?? 0) + 1);
+  });
+
+  const profileCompleteness = (() => {
+    if (!profile) return 0;
+    const fields = ['companyName', 'description', 'website', 'valuesStatement'];
+    const completed = fields.reduce((count, field) => (profile[field] ? count + 1 : count), 0);
+    return Number(((completed / fields.length) * 100).toFixed(0));
+  })();
+
+  const highlights = [];
+  if (profileCompleteness >= 80) {
+    highlights.push('Company profile is nearly complete and ready for campaigns.');
+  } else if (profileCompleteness >= 40) {
+    highlights.push('Expand your company story to boost talent conversion.');
+  }
+  if (publishedAssets.length >= 5) {
+    highlights.push('Robust library of published employer brand assets available.');
+  }
+  if (publishedStories.length && topStories.length) {
+    highlights.push(`Top story “${topStories[0].title}” is driving engagement.`);
+  }
+  if (!benefits.length) {
+    highlights.push('Document employee benefits to power offer and onboarding content.');
+  }
+
+  return {
+    profileCompleteness,
+    publishedAssets: publishedAssets.length,
+    averageAssetEngagement: engagementScores.length
+      ? Number((engagementScores.reduce((sum, value) => sum + value, 0) / engagementScores.length).toFixed(1))
+      : null,
+    stories: {
+      total: stories.length,
+      published: publishedStories.length,
+      scheduled: scheduledStories.length,
+      topStories,
+    },
+    assets: publishedAssets.slice(0, 5).map((asset) => ({
+      id: asset.id,
+      title: asset.title,
+      assetType: asset.assetType,
+      engagementScore: asset.engagementScore == null ? null : Number(asset.engagementScore),
+      publishedAt: asset.publishedAt,
+      url: asset.url,
+    })),
+    benefits: {
+      total: benefits.length,
+      featured: featuredBenefits.slice(0, 5).map((benefit) => ({
+        id: benefit.id,
+        title: benefit.title,
+        category: benefit.category,
+        effectiveDate: benefit.effectiveDate,
+      })),
+      categories: Array.from(benefitCategories.entries()).map(([category, count]) => ({ category, count })),
+    },
+    highlights,
+  };
+}
+
+function buildEmployeeJourneysSummary({ journeys, memberSummary }) {
+  if (!journeys?.length) {
+    return {
+      totalPrograms: 0,
+      activeEmployees: 0,
+      averageCompletionRate: null,
+      programsAtRisk: 0,
+      workforceCoverage: null,
+      byType: [],
+      spotlightPrograms: [],
+      highlights: ['Launch an onboarding journey to track day-one readiness.'],
+    };
+  }
+
+  const byType = new Map();
+  let activeEmployees = 0;
+  const completionRates = [];
+  const spotlight = [];
+
+  const healthWeights = new Map([
+    ['off_track', 0],
+    ['needs_attention', 1],
+    ['at_risk', 2],
+    ['on_track', 3],
+  ]);
+
+  journeys.forEach((program) => {
+    const completionRate = program.completionRate == null ? null : Number(program.completionRate);
+    if (Number.isFinite(completionRate)) {
+      completionRates.push(completionRate);
+    }
+
+    const active = Number(program.activeEmployees ?? 0);
+    activeEmployees += Number.isFinite(active) ? active : 0;
+
+    const entry = byType.get(program.programType) ?? {
+      type: program.programType,
+      programCount: 0,
+      activeEmployees: 0,
+      completionRateSum: 0,
+      completionSamples: 0,
+      atRiskPrograms: 0,
+      averageDurationSum: 0,
+      durationSamples: 0,
+    };
+    entry.programCount += 1;
+    entry.activeEmployees += active;
+    if (Number.isFinite(completionRate)) {
+      entry.completionRateSum += completionRate;
+      entry.completionSamples += 1;
+    }
+    if (program.averageDurationDays != null && Number.isFinite(Number(program.averageDurationDays))) {
+      entry.averageDurationSum += Number(program.averageDurationDays);
+      entry.durationSamples += 1;
+    }
+    if (['at_risk', 'off_track', 'needs_attention'].includes(program.healthStatus)) {
+      entry.atRiskPrograms += 1;
+    }
+    byType.set(program.programType, entry);
+
+    const ownerProfile = program.owner?.profile ?? program.owner;
+    const ownerName = ownerProfile
+      ? [ownerProfile.firstName, ownerProfile.lastName].filter(Boolean).join(' ').trim() || null
+      : null;
+
+    spotlight.push({
+      id: program.id,
+      title: program.title,
+      programType: program.programType,
+      healthStatus: program.healthStatus,
+      activeEmployees: active,
+      completionRate,
+      averageDurationDays:
+        program.averageDurationDays != null && Number.isFinite(Number(program.averageDurationDays))
+          ? Number(program.averageDurationDays)
+          : null,
+      ownerName,
+      priority: healthWeights.get(program.healthStatus) ?? 3,
+    });
+  });
+
+  const programsAtRisk = spotlight.filter((program) => program.priority <= 2).length;
+  const averageCompletionRate = completionRates.length
+    ? Number((completionRates.reduce((sum, value) => sum + value, 0) / completionRates.length).toFixed(1))
+    : null;
+  const workforceCoverage = memberSummary?.total
+    ? percentage(activeEmployees, memberSummary.total)
+    : null;
+
+  const byTypeSummaries = Array.from(byType.values()).map((entry) => ({
+    type: entry.type,
+    programCount: entry.programCount,
+    activeEmployees: entry.activeEmployees,
+    averageCompletionRate: entry.completionSamples
+      ? Number((entry.completionRateSum / entry.completionSamples).toFixed(1))
+      : null,
+    averageDurationDays: entry.durationSamples
+      ? Number((entry.averageDurationSum / entry.durationSamples).toFixed(1))
+      : null,
+    atRiskPrograms: entry.atRiskPrograms,
+  }));
+
+  const spotlightPrograms = spotlight
+    .sort((a, b) => {
+      if (a.priority !== b.priority) {
+        return a.priority - b.priority;
+      }
+      const aRate = Number.isFinite(a.completionRate) ? a.completionRate : 101;
+      const bRate = Number.isFinite(b.completionRate) ? b.completionRate : 101;
+      return aRate - bRate;
+    })
+    .slice(0, 5)
+    .map(({ priority, ...program }) => program);
+
+  const highlights = [];
+  if (programsAtRisk) {
+    highlights.push(`${programsAtRisk} journey${programsAtRisk === 1 ? '' : 's'} flagged for follow-up.`);
+  }
+  if (averageCompletionRate != null) {
+    highlights.push(`Average completion rate is ${averageCompletionRate}% across journeys.`);
+  }
+  if (workforceCoverage != null) {
+    highlights.push(`Journeys cover ${workforceCoverage}% of active workspace members.`);
+  }
+
+  return {
+    totalPrograms: journeys.length,
+    activeEmployees,
+    averageCompletionRate,
+    programsAtRisk,
+    workforceCoverage,
+    byType: byTypeSummaries,
+    spotlightPrograms,
+    highlights,
+  };
+}
+
+function buildSettingsGovernanceDetails({
+  governance,
+  integrations,
+  calendarConnections,
+  memberSummary,
+  inviteSummary,
+  alerts,
+}) {
+  const integrationCategories = new Map();
+  let connectedIntegrations = 0;
+  let failingIntegrations = 0;
+
+  integrations.forEach((integration) => {
+    integrationCategories.set(
+      integration.category,
+      (integrationCategories.get(integration.category) ?? 0) + 1,
+    );
+    if (integration.status === 'connected') {
+      connectedIntegrations += 1;
+    }
+    if (integration.status === 'error' || integration.status === 'disconnected') {
+      failingIntegrations += 1;
+    }
+  });
+
+  let lastCalendarSync = null;
+  let calendarIssues = 0;
+  let connectedCalendars = 0;
+  calendarConnections.forEach((connection) => {
+    if (!lastCalendarSync || new Date(connection.lastSyncedAt ?? 0) > new Date(lastCalendarSync)) {
+      lastCalendarSync = connection.lastSyncedAt;
+    }
+    if (connection.status === 'sync_error') {
+      calendarIssues += 1;
+    }
+    if (connection.status === 'connected') {
+      connectedCalendars += 1;
+    }
+  });
+
+  const highlights = [];
+  if (connectedCalendars) {
+    highlights.push(`Calendar sync live across ${connectedCalendars} connection${connectedCalendars === 1 ? '' : 's'}.`);
+  }
+  if (failingIntegrations) {
+    highlights.push(`Resolve ${failingIntegrations} integration${failingIntegrations === 1 ? '' : 's'} showing errors.`);
+  }
+  if ((inviteSummary?.pending ?? 0) > 0) {
+    highlights.push(`${inviteSummary.pending} workspace invite${inviteSummary.pending === 1 ? '' : 's'} awaiting approval.`);
+  }
+  if ((alerts?.criticalAlerts ?? 0) > 0) {
+    highlights.push('Critical compliance alerts require attention.');
+  }
+
+  return {
+    calendar: {
+      totalConnections: calendarConnections.length,
+      connected: connectedCalendars,
+      issues: calendarIssues,
+      lastSyncedAt: lastCalendarSync,
+      primaryCalendars: calendarConnections
+        .filter((connection) => Boolean(connection.primaryCalendar))
+        .slice(0, 3)
+        .map((connection) => ({
+          providerKey: connection.providerKey,
+          primaryCalendar: connection.primaryCalendar,
+          status: connection.status,
+        })),
+    },
+    integrations: {
+      total: integrations.length,
+      connected: connectedIntegrations,
+      failing: failingIntegrations,
+      categories: Array.from(integrationCategories.entries()).map(([category, count]) => ({
+        category,
+        count,
+      })),
+    },
+    permissions: {
+      activeMembers: memberSummary?.active ?? 0,
+      pendingInvites: inviteSummary?.pending ?? 0,
+      uniqueTimezones: memberSummary?.uniqueTimezones ?? 0,
+    },
+    compliance: {
+      criticalAlerts: alerts?.criticalAlerts ?? 0,
+      openAlerts: alerts?.open ?? 0,
+    },
+    approvals: {
+      pending: governance?.pendingApprovals ?? 0,
+      criticalAlerts: governance?.criticalAlerts ?? 0,
+      workspaceActive: governance?.workspaceActive ?? false,
+    },
+    highlights,
+  };
+}
+
 function buildCalendarDigest(events) {
   if (!events.length) {
     return { upcoming: [], eventCount: 0 };
@@ -2015,6 +2583,11 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       candidateCareTickets,
       interviewerAvailability,
       interviewReminders,
+      brandStories,
+      employerBenefits,
+      employeeJourneys,
+      workspaceIntegrations,
+      calendarConnections,
     ] = await Promise.all([
       fetchApplications({ workspaceId: workspace.id, since }),
       fetchJobs({ since }),
@@ -2039,6 +2612,11 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       fetchCandidateCareTickets({ workspaceId: workspace.id, since }),
       fetchInterviewerAvailability({ workspaceId: workspace.id, since }),
       fetchInterviewReminders({ workspaceId: workspace.id, since }),
+      fetchBrandStories({ workspaceId: workspace.id, since }),
+      fetchEmployerBenefits({ workspaceId: workspace.id }),
+      fetchEmployeeJourneys({ workspaceId: workspace.id }),
+      fetchWorkspaceIntegrations({ workspaceId: workspace.id }),
+      fetchCalendarConnections({ workspaceId: workspace.id }),
     ]);
 
     const applicationIds = applications.map((application) => application.id);
@@ -2093,6 +2671,9 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       campaigns: jobCampaigns,
       pipelineSummary,
       jobSummary,
+      applications,
+      reviews,
+      interviewSchedules,
     });
     const jobDesign = buildJobDesignStudioSummary({
       approvals: jobApprovals,
@@ -2132,9 +2713,42 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       engagements: partnerEngagements,
     });
     const plainBrandAssets = brandAssets.map((asset) => (asset?.get ? asset.get({ plain: true }) : asset));
+    const plainBrandStories = brandStories.map((story) => (story?.get ? story.get({ plain: true }) : story));
+    const plainBenefits = employerBenefits.map((benefit) => (benefit?.get ? benefit.get({ plain: true }) : benefit));
+    const plainEmployeeJourneys = employeeJourneys.map((journey) => (journey?.get ? journey.get({ plain: true }) : journey));
+    const plainIntegrations = workspaceIntegrations.map((integration) =>
+      integration?.get ? integration.get({ plain: true }) : integration,
+    );
+    const plainCalendarConnections = calendarConnections.map((connection) =>
+      connection?.get ? connection.get({ plain: true }) : connection,
+    );
+
     const brandIntelligence = buildBrandIntelligenceSummary({ profile, assets: plainBrandAssets, jobSummary });
     const governance = buildGovernanceSummary({ approvals: jobApprovals, alerts: alertsSummary, workspace: workspaceSummary });
     const calendarDigest = buildCalendarDigest(calendarEvents);
+    const employerBrandStudio = buildEmployerBrandStudioSummary({
+      profile,
+      assets: plainBrandAssets,
+      stories: plainBrandStories,
+      benefits: plainBenefits,
+    });
+    const employeeJourneysSummary = buildEmployeeJourneysSummary({
+      journeys: plainEmployeeJourneys,
+      memberSummary,
+    });
+    const settingsGovernance = buildSettingsGovernanceDetails({
+      governance,
+      integrations: plainIntegrations,
+      calendarConnections: plainCalendarConnections,
+      memberSummary,
+      inviteSummary,
+      alerts: alertsSummary,
+    });
+    const brandAndPeople = {
+      employerBrandStudio,
+      employeeJourneys: employeeJourneysSummary,
+      settingsGovernance,
+    };
     const offerOnboarding = buildOfferAndOnboardingSummary({
       offers,
       candidateExperience,
@@ -2197,6 +2811,7 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       brandIntelligence,
       governance,
       calendar: calendarDigest,
+      brandAndPeople,
       reviews: {
         total: reviews.length,
         averageScore: insights.averageReviewScore,
