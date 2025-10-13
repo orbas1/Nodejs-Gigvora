@@ -92,6 +92,13 @@ export const LAUNCHPAD_PLACEMENT_STATUSES = ['scheduled', 'in_progress', 'comple
 export const LAUNCHPAD_TARGET_TYPES = ['job', 'gig', 'project'];
 export const LAUNCHPAD_OPPORTUNITY_SOURCES = ['employer_request', 'placement', 'manual'];
 
+export const SPRINT_STATUSES = ['planning', 'active', 'completed', 'archived'];
+export const SPRINT_TASK_STATUSES = ['backlog', 'ready', 'in_progress', 'review', 'blocked', 'done'];
+export const SPRINT_TASK_PRIORITIES = ['low', 'medium', 'high', 'critical'];
+export const SPRINT_RISK_IMPACTS = ['low', 'medium', 'high', 'critical'];
+export const SPRINT_RISK_STATUSES = ['open', 'mitigating', 'resolved', 'closed'];
+export const CHANGE_REQUEST_STATUSES = ['draft', 'pending_approval', 'approved', 'rejected'];
+
 export const User = sequelize.define(
   'User',
   {
@@ -408,6 +415,254 @@ Project.prototype.toPublicObject = function toPublicObject() {
     autoAssignSettings: plain.autoAssignSettings ?? null,
     autoAssignLastRunAt: plain.autoAssignLastRunAt ?? null,
     autoAssignLastQueueSize: plain.autoAssignLastQueueSize ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const SprintCycle = sequelize.define(
+  'SprintCycle',
+  {
+    projectId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(180), allowNull: false },
+    goal: { type: DataTypes.TEXT, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...SPRINT_STATUSES),
+      allowNull: false,
+      defaultValue: 'planning',
+    },
+    startDate: { type: DataTypes.DATE, allowNull: true },
+    endDate: { type: DataTypes.DATE, allowNull: true },
+    velocityTarget: { type: DataTypes.DECIMAL(6, 2), allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  { tableName: 'sprint_cycles' },
+);
+
+SprintCycle.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    projectId: plain.projectId,
+    name: plain.name,
+    goal: plain.goal,
+    status: plain.status,
+    startDate: plain.startDate,
+    endDate: plain.endDate,
+    velocityTarget: plain.velocityTarget == null ? null : Number(plain.velocityTarget),
+    createdById: plain.createdById,
+    updatedById: plain.updatedById,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const SprintTask = sequelize.define(
+  'SprintTask',
+  {
+    projectId: { type: DataTypes.INTEGER, allowNull: false },
+    sprintId: { type: DataTypes.INTEGER, allowNull: true },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...SPRINT_TASK_STATUSES),
+      allowNull: false,
+      defaultValue: 'backlog',
+    },
+    type: { type: DataTypes.STRING(60), allowNull: true },
+    priority: {
+      type: DataTypes.ENUM(...SPRINT_TASK_PRIORITIES),
+      allowNull: false,
+      defaultValue: 'medium',
+    },
+    storyPoints: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    sequence: { type: DataTypes.INTEGER, allowNull: true },
+    assigneeId: { type: DataTypes.INTEGER, allowNull: true },
+    reporterId: { type: DataTypes.INTEGER, allowNull: true },
+    dueDate: { type: DataTypes.DATE, allowNull: true },
+    startedAt: { type: DataTypes.DATE, allowNull: true },
+    completedAt: { type: DataTypes.DATE, allowNull: true },
+    blockedReason: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'sprint_tasks' },
+);
+
+SprintTask.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    projectId: plain.projectId,
+    sprintId: plain.sprintId,
+    title: plain.title,
+    description: plain.description,
+    status: plain.status,
+    type: plain.type,
+    priority: plain.priority,
+    storyPoints: plain.storyPoints == null ? null : Number(plain.storyPoints),
+    sequence: plain.sequence,
+    assigneeId: plain.assigneeId,
+    reporterId: plain.reporterId,
+    dueDate: plain.dueDate,
+    startedAt: plain.startedAt,
+    completedAt: plain.completedAt,
+    blockedReason: plain.blockedReason,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const SprintTaskDependency = sequelize.define(
+  'SprintTaskDependency',
+  {
+    taskId: { type: DataTypes.INTEGER, allowNull: false },
+    dependsOnTaskId: { type: DataTypes.INTEGER, allowNull: false },
+    dependencyType: { type: DataTypes.STRING(60), allowNull: true },
+  },
+  { tableName: 'sprint_task_dependencies' },
+);
+
+SprintTaskDependency.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    taskId: plain.taskId,
+    dependsOnTaskId: plain.dependsOnTaskId,
+    dependencyType: plain.dependencyType,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const SprintTaskTimeEntry = sequelize.define(
+  'SprintTaskTimeEntry',
+  {
+    taskId: { type: DataTypes.INTEGER, allowNull: false },
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    startedAt: { type: DataTypes.DATE, allowNull: true },
+    endedAt: { type: DataTypes.DATE, allowNull: true },
+    minutesSpent: { type: DataTypes.INTEGER, allowNull: false },
+    billable: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    hourlyRate: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    approvedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  { tableName: 'sprint_task_time_entries' },
+);
+
+SprintTaskTimeEntry.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    taskId: plain.taskId,
+    userId: plain.userId,
+    startedAt: plain.startedAt,
+    endedAt: plain.endedAt,
+    minutesSpent: plain.minutesSpent,
+    billable: Boolean(plain.billable),
+    hourlyRate: plain.hourlyRate == null ? null : Number(plain.hourlyRate),
+    notes: plain.notes,
+    approvedAt: plain.approvedAt,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const SprintRisk = sequelize.define(
+  'SprintRisk',
+  {
+    projectId: { type: DataTypes.INTEGER, allowNull: false },
+    sprintId: { type: DataTypes.INTEGER, allowNull: true },
+    taskId: { type: DataTypes.INTEGER, allowNull: true },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    probability: { type: DataTypes.DECIMAL(4, 2), allowNull: true },
+    impact: {
+      type: DataTypes.ENUM(...SPRINT_RISK_IMPACTS),
+      allowNull: false,
+      defaultValue: 'medium',
+    },
+    severityScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    mitigationPlan: { type: DataTypes.TEXT, allowNull: true },
+    ownerId: { type: DataTypes.INTEGER, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...SPRINT_RISK_STATUSES),
+      allowNull: false,
+      defaultValue: 'open',
+    },
+    loggedAt: { type: DataTypes.DATE, allowNull: true },
+    reviewAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'sprint_risks' },
+);
+
+SprintRisk.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    projectId: plain.projectId,
+    sprintId: plain.sprintId,
+    taskId: plain.taskId,
+    title: plain.title,
+    description: plain.description,
+    probability: plain.probability == null ? null : Number(plain.probability),
+    impact: plain.impact,
+    severityScore: plain.severityScore == null ? null : Number(plain.severityScore),
+    mitigationPlan: plain.mitigationPlan,
+    ownerId: plain.ownerId,
+    status: plain.status,
+    loggedAt: plain.loggedAt,
+    reviewAt: plain.reviewAt,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ChangeRequest = sequelize.define(
+  'ChangeRequest',
+  {
+    projectId: { type: DataTypes.INTEGER, allowNull: false },
+    sprintId: { type: DataTypes.INTEGER, allowNull: true },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...CHANGE_REQUEST_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending_approval',
+    },
+    requestedById: { type: DataTypes.INTEGER, allowNull: true },
+    approvedById: { type: DataTypes.INTEGER, allowNull: true },
+    approvedAt: { type: DataTypes.DATE, allowNull: true },
+    approvalMetadata: { type: jsonType, allowNull: true },
+    eSignDocumentUrl: { type: DataTypes.STRING(500), allowNull: true },
+    eSignAuditTrail: { type: jsonType, allowNull: true },
+    changeImpact: { type: jsonType, allowNull: true },
+    decisionNotes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  { tableName: 'change_requests' },
+);
+
+ChangeRequest.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    projectId: plain.projectId,
+    sprintId: plain.sprintId,
+    title: plain.title,
+    description: plain.description,
+    status: plain.status,
+    requestedById: plain.requestedById,
+    approvedById: plain.approvedById,
+    approvedAt: plain.approvedAt,
+    approvalMetadata: plain.approvalMetadata,
+    eSignDocumentUrl: plain.eSignDocumentUrl,
+    eSignAuditTrail: plain.eSignAuditTrail,
+    changeImpact: plain.changeImpact,
+    decisionNotes: plain.decisionNotes,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };
@@ -1707,6 +1962,41 @@ ProjectAssignmentEvent.belongsTo(Project, {
 });
 ProjectAssignmentEvent.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
 
+Project.hasMany(SprintCycle, { foreignKey: 'projectId', as: 'sprints' });
+SprintCycle.belongsTo(Project, { foreignKey: 'projectId', as: 'project' });
+SprintCycle.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+SprintCycle.belongsTo(User, { foreignKey: 'updatedById', as: 'updatedBy' });
+SprintCycle.hasMany(SprintTask, { foreignKey: 'sprintId', as: 'tasks' });
+SprintCycle.hasMany(SprintRisk, { foreignKey: 'sprintId', as: 'risks' });
+SprintCycle.hasMany(ChangeRequest, { foreignKey: 'sprintId', as: 'changeRequests' });
+
+Project.hasMany(SprintTask, { foreignKey: 'projectId', as: 'sprintTasks' });
+SprintTask.belongsTo(Project, { foreignKey: 'projectId', as: 'project' });
+SprintTask.belongsTo(SprintCycle, { foreignKey: 'sprintId', as: 'sprint' });
+SprintTask.belongsTo(User, { foreignKey: 'assigneeId', as: 'assignee' });
+SprintTask.belongsTo(User, { foreignKey: 'reporterId', as: 'reporter' });
+SprintTask.hasMany(SprintTaskDependency, { foreignKey: 'taskId', as: 'dependencies' });
+SprintTask.hasMany(SprintTaskDependency, { foreignKey: 'dependsOnTaskId', as: 'dependents' });
+SprintTask.hasMany(SprintTaskTimeEntry, { foreignKey: 'taskId', as: 'timeEntries' });
+
+SprintTaskDependency.belongsTo(SprintTask, { foreignKey: 'taskId', as: 'task' });
+SprintTaskDependency.belongsTo(SprintTask, { foreignKey: 'dependsOnTaskId', as: 'dependsOn' });
+
+SprintTaskTimeEntry.belongsTo(SprintTask, { foreignKey: 'taskId', as: 'task' });
+SprintTaskTimeEntry.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+Project.hasMany(SprintRisk, { foreignKey: 'projectId', as: 'risks' });
+SprintRisk.belongsTo(Project, { foreignKey: 'projectId', as: 'project' });
+SprintRisk.belongsTo(SprintCycle, { foreignKey: 'sprintId', as: 'sprint' });
+SprintRisk.belongsTo(SprintTask, { foreignKey: 'taskId', as: 'task' });
+SprintRisk.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
+
+Project.hasMany(ChangeRequest, { foreignKey: 'projectId', as: 'changeRequests' });
+ChangeRequest.belongsTo(Project, { foreignKey: 'projectId', as: 'project' });
+ChangeRequest.belongsTo(SprintCycle, { foreignKey: 'sprintId', as: 'sprint' });
+ChangeRequest.belongsTo(User, { foreignKey: 'requestedById', as: 'requestedBy' });
+ChangeRequest.belongsTo(User, { foreignKey: 'approvedById', as: 'approvedBy' });
+
 User.hasMany(AutoAssignQueueEntry, { foreignKey: 'freelancerId', as: 'autoAssignQueue' });
 AutoAssignQueueEntry.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
 
@@ -1845,6 +2135,12 @@ export default {
   Job,
   Gig,
   Project,
+  SprintCycle,
+  SprintTask,
+  SprintTaskDependency,
+  SprintTaskTimeEntry,
+  SprintRisk,
+  ChangeRequest,
   ExperienceLaunchpad,
   ExperienceLaunchpadApplication,
   ExperienceLaunchpadEmployerRequest,

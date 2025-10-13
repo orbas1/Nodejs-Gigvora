@@ -12,6 +12,7 @@ import projectRoutes from './projectRoutes.js';
 import launchpadRoutes from './launchpadRoutes.js';
 import headhunterRoutes from './headhunterRoutes.js';
 import adminRoutes from './adminRoutes.js';
+import workManagementRoutes from './workManagementRoutes.js';
 
 const router = Router();
 
@@ -24,6 +25,7 @@ router.use('/analytics', analyticsRoutes);
 router.use('/messaging', messagingRoutes);
 router.use('/trust', trustRoutes);
 router.use('/auto-assign', autoAssignRoutes);
+router.use('/projects/:projectId/work-management', workManagementRoutes);
 router.use('/projects', projectRoutes);
 router.use('/launchpad', launchpadRoutes);
 router.use('/headhunter', headhunterRoutes);

@@ -1,4 +1,5 @@
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import TaskSprintManager from '../../components/dashboard/TaskSprintManager.jsx';
 
 const menuSections = [
   {
@@ -74,11 +75,16 @@ const capabilitySections = [
       {
         name: 'Task & sprint manager',
         description:
-          'Run sprints, Kanban boards, and timeline views with burn charts, dependencies, and backlog grooming.',
+          'Run sprints with precision—combine Kanban boards, swimlanes, and timeline views so every deliverable has a clear owner, dependency map, and burn chart to track health in real time.',
         bulletPoints: [
-          'Time tracking per task with billable vs. non-billable flags.',
-          'Risk registers and change request approvals with e-signatures.',
+          'Sprint planning workspace that calculates capacity, compares historical velocity, and suggests backlog priorities for grooming.',
+          'Multi-view boards with WIP limits, dependency tagging, and timeline alignment to keep design, dev, and QA in sync.',
+          'Live analytics center featuring burndown and burnup charts, story point rollups, and health alerts for blocked work.',
+          'Granular time tracking per task with billable vs. non-billable flags, hourly rates, and export-ready timesheets for invoicing.',
+          'Risk registers with probability/severity scoring plus change request workflows that route for e-signature approval and audit logging.',
         ],
+        callout: 'Syncs with GitHub, Jira, Slack, and Google Drive so updates, commits, and approvals feed straight into sprint reports.',
+        href: '#task-sprint-manager',
       },
       {
         name: 'Collaboration cockpit',
@@ -258,6 +264,60 @@ export default function FreelancerDashboardPage() {
       sections={capabilitySections}
       profile={profile}
       availableDashboards={availableDashboards}
-    />
+    >
+      <div className="space-y-10">
+        <TaskSprintManager />
+        {capabilitySections.map((section) => (
+          <section
+            key={section.title}
+            className="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_18px_40px_-24px_rgba(30,64,175,0.35)] sm:p-8"
+          >
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">{section.title}</h2>
+                {section.description ? (
+                  <p className="mt-2 max-w-3xl text-sm text-slate-600">{section.description}</p>
+                ) : null}
+              </div>
+              {section.meta ? (
+                <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-medium uppercase tracking-wide text-blue-700">
+                  {section.meta}
+                </div>
+              ) : null}
+            </div>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              {section.features.map((feature) => (
+                <div
+                  key={feature.name}
+                  className="group flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50 p-5 transition hover:border-blue-300 hover:bg-blue-50"
+                >
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900">{feature.name}</h3>
+                    {feature.description ? (
+                      <p className="mt-2 text-sm text-slate-600">{feature.description}</p>
+                    ) : null}
+                    {feature.bulletPoints?.length ? (
+                      <ul className="mt-3 space-y-2 text-sm text-slate-600">
+                        {feature.bulletPoints.map((point) => (
+                          <li key={point} className="flex gap-2">
+                            <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400" />
+                            <span>{point}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                  {feature.callout ? (
+                    <p className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium uppercase tracking-wide text-blue-700">
+                      {feature.callout}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    </DashboardLayout>
   );
 }
