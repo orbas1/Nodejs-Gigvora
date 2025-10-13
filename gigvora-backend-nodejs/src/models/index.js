@@ -207,6 +207,10 @@ export const DELIVERABLE_RETENTION_POLICIES = [
   'short_term',
 ];
 
+export const GIG_STATUSES = ['draft', 'preview', 'published', 'archived'];
+export const GIG_MEDIA_TYPES = ['image', 'video', 'document'];
+export const GIG_PREVIEW_DEVICE_TYPES = ['desktop', 'tablet', 'mobile'];
+
 export const User = sequelize.define(
   'User',
   {
@@ -576,12 +580,17 @@ Job.searchByTerm = async function searchByTerm(term) {
 export const Gig = sequelize.define(
   'Gig',
   {
+    ownerId: { type: DataTypes.INTEGER, allowNull: true },
+    slug: { type: DataTypes.STRING(180), allowNull: true, unique: true },
     title: { type: DataTypes.STRING(255), allowNull: false },
     description: { type: DataTypes.TEXT, allowNull: false },
     budget: { type: DataTypes.STRING(120), allowNull: true },
     duration: { type: DataTypes.STRING(120), allowNull: true },
     location: { type: DataTypes.STRING(255), allowNull: true },
     geoLocation: { type: jsonType, allowNull: true },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...GIG_STATUSES),
     freelancerId: { type: DataTypes.INTEGER, allowNull: true },
     status: {
       type: DataTypes.STRING(40),
@@ -589,6 +598,16 @@ export const Gig = sequelize.define(
       defaultValue: 'draft',
       validate: { isIn: [GIG_STATUSES] },
     },
+    heroTitle: { type: DataTypes.STRING(255), allowNull: true },
+    heroSubtitle: { type: DataTypes.STRING(500), allowNull: true },
+    heroMediaUrl: { type: DataTypes.STRING(500), allowNull: true },
+    heroTheme: { type: DataTypes.STRING(120), allowNull: true },
+    heroBadge: { type: DataTypes.STRING(120), allowNull: true },
+    sellingPoints: { type: jsonType, allowNull: true },
+    requirements: { type: jsonType, allowNull: true },
+    faqs: { type: jsonType, allowNull: true },
+    conversionCopy: { type: jsonType, allowNull: true },
+    analyticsSettings: { type: jsonType, allowNull: true },
     pipelineStage: {
       type: DataTypes.STRING(40),
       allowNull: false,
@@ -614,12 +633,280 @@ Gig.searchByTerm = async function searchByTerm(term) {
   if (!sanitizedTerm) return [];
 
   return Gig.findAll({
-    where: { title: { [Op.iLike ?? Op.like]: `%${sanitizedTerm}%` } },
+    where: {
+      [Op.or]: [
+        { title: { [Op.iLike ?? Op.like]: `%${sanitizedTerm}%` } },
+        { slug: { [Op.iLike ?? Op.like]: `%${sanitizedTerm}%` } },
+      ],
+    },
     limit: 20,
     order: [['title', 'ASC']],
   });
 };
 
+Gig.prototype.toBuilderObject = function toBuilderObject() {
+  const plain = this.get({ plain: true });
+  const normalizeList = (value) => {
+    if (Array.isArray(value)) {
+      return value;
+    }
+    if (value && typeof value === 'object') {
+      if (Array.isArray(value.items)) {
+        return value.items;
+      }
+      return Object.values(value);
+    }
+    if (value == null) {
+      return [];
+    }
+    return [value];
+  };
+
+  return {
+    id: plain.id,
+    ownerId: plain.ownerId ?? null,
+    slug: plain.slug ?? null,
+    title: plain.title,
+    description: plain.description,
+    summary: plain.summary,
+    status: plain.status,
+    budget: plain.budget,
+    duration: plain.duration,
+    location: plain.location,
+    geoLocation: plain.geoLocation ?? null,
+    sellingPoints: normalizeList(plain.sellingPoints),
+    requirements: normalizeList(plain.requirements),
+    faqs: normalizeList(plain.faqs),
+    conversionCopy: plain.conversionCopy ?? {},
+    analyticsSettings: plain.analyticsSettings ?? {},
+    hero: {
+      title: plain.heroTitle ?? plain.title,
+      subtitle: plain.heroSubtitle ?? null,
+      mediaUrl: plain.heroMediaUrl ?? null,
+      theme: plain.heroTheme ?? null,
+      badge: plain.heroBadge ?? null,
+    },
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const GigPackage = sequelize.define(
+  'GigPackage',
+  {
+    gigId: { type: DataTypes.INTEGER, allowNull: false },
+    tierName: { type: DataTypes.STRING(120), allowNull: false },
+    tagline: { type: DataTypes.STRING(255), allowNull: true },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    priceAmount: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
+    priceCurrency: { type: DataTypes.STRING(6), allowNull: false, defaultValue: 'USD' },
+    deliveryDays: { type: DataTypes.INTEGER, allowNull: true },
+    revisionCount: { type: DataTypes.INTEGER, allowNull: true },
+    features: { type: jsonType, allowNull: true },
+    isBestValue: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+  },
+  { tableName: 'gig_packages' },
+);
+
+GigPackage.prototype.toBuilderObject = function toBuilderObject() {
+  const plain = this.get({ plain: true });
+  const features = Array.isArray(plain.features)
+    ? plain.features
+    : plain.features && typeof plain.features === 'object'
+    ? Object.values(plain.features)
+    : [];
+  return {
+    id: plain.id,
+    gigId: plain.gigId,
+    name: plain.tierName,
+    tagline: plain.tagline,
+    description: plain.description,
+    priceAmount: plain.priceAmount == null ? null : Number(plain.priceAmount),
+    priceCurrency: plain.priceCurrency,
+    deliveryDays: plain.deliveryDays,
+    revisionCount: plain.revisionCount,
+    features,
+    isBestValue: Boolean(plain.isBestValue),
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const GigAddon = sequelize.define(
+  'GigAddon',
+  {
+    gigId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    priceAmount: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
+    priceCurrency: { type: DataTypes.STRING(6), allowNull: false, defaultValue: 'USD' },
+    deliveryDays: { type: DataTypes.INTEGER, allowNull: true },
+    isPopular: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+  },
+  { tableName: 'gig_addons' },
+);
+
+GigAddon.prototype.toBuilderObject = function toBuilderObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    gigId: plain.gigId,
+    name: plain.name,
+    description: plain.description,
+    priceAmount: plain.priceAmount == null ? null : Number(plain.priceAmount),
+    priceCurrency: plain.priceCurrency,
+    deliveryDays: plain.deliveryDays,
+    isPopular: Boolean(plain.isPopular),
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const GigMediaAsset = sequelize.define(
+  'GigMediaAsset',
+  {
+    gigId: { type: DataTypes.INTEGER, allowNull: false },
+    assetType: {
+      type: DataTypes.ENUM(...GIG_MEDIA_TYPES),
+      allowNull: false,
+      defaultValue: 'image',
+      validate: { isIn: [GIG_MEDIA_TYPES] },
+    },
+    url: { type: DataTypes.STRING(500), allowNull: false },
+    thumbnailUrl: { type: DataTypes.STRING(500), allowNull: true },
+    caption: { type: DataTypes.STRING(255), allowNull: true },
+    displayOrder: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    processingStatus: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'ready' },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'gig_media_assets' },
+);
+
+GigMediaAsset.prototype.toBuilderObject = function toBuilderObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    gigId: plain.gigId,
+    type: plain.assetType,
+    url: plain.url,
+    thumbnailUrl: plain.thumbnailUrl,
+    caption: plain.caption,
+    displayOrder: plain.displayOrder,
+    processingStatus: plain.processingStatus,
+    metadata: plain.metadata ?? {},
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const GigCallToAction = sequelize.define(
+  'GigCallToAction',
+  {
+    gigId: { type: DataTypes.INTEGER, allowNull: false },
+    headline: { type: DataTypes.STRING(255), allowNull: false },
+    subheadline: { type: DataTypes.STRING(500), allowNull: true },
+    buttonLabel: { type: DataTypes.STRING(120), allowNull: false },
+    buttonUrl: { type: DataTypes.STRING(500), allowNull: true },
+    stylePreset: { type: DataTypes.STRING(80), allowNull: true },
+    audienceSegment: { type: DataTypes.STRING(120), allowNull: true },
+    badge: { type: DataTypes.STRING(80), allowNull: true },
+    expectedLift: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'gig_call_to_actions' },
+);
+
+GigCallToAction.prototype.toBuilderObject = function toBuilderObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    gigId: plain.gigId,
+    headline: plain.headline,
+    subheadline: plain.subheadline,
+    buttonLabel: plain.buttonLabel,
+    buttonUrl: plain.buttonUrl,
+    stylePreset: plain.stylePreset,
+    audienceSegment: plain.audienceSegment,
+    badge: plain.badge,
+    expectedLift: plain.expectedLift == null ? null : Number(plain.expectedLift),
+    metadata: plain.metadata ?? {},
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const GigPreviewLayout = sequelize.define(
+  'GigPreviewLayout',
+  {
+    gigId: { type: DataTypes.INTEGER, allowNull: false },
+    deviceType: {
+      type: DataTypes.ENUM(...GIG_PREVIEW_DEVICE_TYPES),
+      allowNull: false,
+      validate: { isIn: [GIG_PREVIEW_DEVICE_TYPES] },
+    },
+    headline: { type: DataTypes.STRING(255), allowNull: true },
+    supportingCopy: { type: DataTypes.STRING(500), allowNull: true },
+    previewUrl: { type: DataTypes.STRING(500), allowNull: true },
+    layoutSettings: { type: jsonType, allowNull: true },
+    conversionRate: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+  },
+  { tableName: 'gig_preview_layouts' },
+);
+
+GigPreviewLayout.prototype.toBuilderObject = function toBuilderObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    gigId: plain.gigId,
+    deviceType: plain.deviceType,
+    headline: plain.headline,
+    supportingCopy: plain.supportingCopy,
+    previewUrl: plain.previewUrl,
+    layoutSettings: plain.layoutSettings ?? {},
+    conversionRate: plain.conversionRate == null ? null : Number(plain.conversionRate),
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const GigPerformanceSnapshot = sequelize.define(
+  'GigPerformanceSnapshot',
+  {
+    gigId: { type: DataTypes.INTEGER, allowNull: false },
+    snapshotDate: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    periodLabel: { type: DataTypes.STRING(120), allowNull: true },
+    conversionRate: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    averageOrderValue: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
+    completionRate: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    upsellTakeRate: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    reviewScore: { type: DataTypes.DECIMAL(3, 2), allowNull: true },
+    bookingsLast30Days: { type: DataTypes.INTEGER, allowNull: true },
+    experimentNotes: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'gig_performance_snapshots' },
+);
+
+GigPerformanceSnapshot.prototype.toBuilderObject = function toBuilderObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    gigId: plain.gigId,
+    snapshotDate: plain.snapshotDate,
+    periodLabel: plain.periodLabel,
+    conversionRate: plain.conversionRate == null ? null : Number(plain.conversionRate),
+    averageOrderValue: plain.averageOrderValue == null ? null : Number(plain.averageOrderValue),
+    completionRate: plain.completionRate == null ? null : Number(plain.completionRate),
+    upsellTakeRate: plain.upsellTakeRate == null ? null : Number(plain.upsellTakeRate),
+    reviewScore: plain.reviewScore == null ? null : Number(plain.reviewScore),
+    bookingsLast30Days: plain.bookingsLast30Days ?? null,
+    experimentNotes: plain.experimentNotes ?? {},
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const Project = sequelize.define(
+  'Project',
 export const GigOrder = sequelize.define(
   'GigOrder',
   {
@@ -5617,6 +5904,20 @@ ProjectBlueprintSprint.hasMany(ProjectBillingCheckpoint, {
 User.hasMany(AutoAssignQueueEntry, { foreignKey: 'freelancerId', as: 'autoAssignQueue' });
 AutoAssignQueueEntry.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
 
+User.hasMany(Gig, { foreignKey: 'ownerId', as: 'ownedGigs' });
+Gig.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
+Gig.hasMany(GigPackage, { foreignKey: 'gigId', as: 'packages', onDelete: 'CASCADE' });
+Gig.hasMany(GigAddon, { foreignKey: 'gigId', as: 'addons', onDelete: 'CASCADE' });
+Gig.hasMany(GigMediaAsset, { foreignKey: 'gigId', as: 'mediaAssets', onDelete: 'CASCADE' });
+Gig.hasMany(GigCallToAction, { foreignKey: 'gigId', as: 'callToActions', onDelete: 'CASCADE' });
+Gig.hasMany(GigPreviewLayout, { foreignKey: 'gigId', as: 'previewLayouts', onDelete: 'CASCADE' });
+Gig.hasMany(GigPerformanceSnapshot, { foreignKey: 'gigId', as: 'performanceSnapshots', onDelete: 'CASCADE' });
+GigPackage.belongsTo(Gig, { foreignKey: 'gigId', as: 'gig' });
+GigAddon.belongsTo(Gig, { foreignKey: 'gigId', as: 'gig' });
+GigMediaAsset.belongsTo(Gig, { foreignKey: 'gigId', as: 'gig' });
+GigCallToAction.belongsTo(Gig, { foreignKey: 'gigId', as: 'gig' });
+GigPreviewLayout.belongsTo(Gig, { foreignKey: 'gigId', as: 'gig' });
+GigPerformanceSnapshot.belongsTo(Gig, { foreignKey: 'gigId', as: 'gig' });
 User.hasMany(Gig, { foreignKey: 'freelancerId', as: 'gigs' });
 Gig.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
 
@@ -6064,6 +6365,11 @@ export default {
   Job,
   Gig,
   GigPackage,
+  GigAddon,
+  GigMediaAsset,
+  GigCallToAction,
+  GigPreviewLayout,
+  GigPerformanceSnapshot,
   GigAddOn,
   GigAvailabilitySlot,
   GigOrder,

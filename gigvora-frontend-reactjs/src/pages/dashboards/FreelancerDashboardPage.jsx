@@ -9,6 +9,9 @@ import {
   SparklesIcon,
 } from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import GigBuilderDeepDive from '../../components/GigBuilderDeepDive.jsx';
+
+const DEFAULT_FREELANCER_ID = 2;
 import {
   fetchVaultOverview,
   fetchVaultItem,
@@ -823,6 +826,7 @@ const BASE_MENU_SECTIONS = [
           'Surface overdue milestones, blocked owners, and waiting-on-client approvals automatically.',
           'Escalate to client portals or support with one-click triggers and templated playbooks.',
         ],
+        deepDive: <GigBuilderDeepDive freelancerId={DEFAULT_FREELANCER_ID} />,
         callout: 'SLA intelligence',
       },
       {

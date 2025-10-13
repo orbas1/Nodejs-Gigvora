@@ -42,6 +42,7 @@ export default function DashboardLayout({
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeFeatureKey, setActiveFeatureKey] = useState(null);
 
   const handleNavigate = (targetId) => {
     if (!targetId) {
@@ -487,6 +488,86 @@ export default function DashboardLayout({
                       </div>
                       <div className="mt-6 grid gap-4 sm:grid-cols-2">
                         {section.features.map((feature) => {
+                          const featureKey = `${section.title}:${feature.name}`;
+                          const hasDeepDive = Boolean(feature.deepDive);
+                          const isExpanded = activeFeatureKey === featureKey;
+                          return (
+                            <div
+                              key={feature.name}
+                              className={`group flex h-full flex-col justify-between rounded-2xl border p-5 transition ${
+                                isExpanded
+                                  ? 'border-blue-300 bg-blue-50 shadow-[0_18px_40px_-24px_rgba(30,64,175,0.35)]'
+                                  : 'border-slate-200 bg-slate-50 hover:border-blue-300 hover:bg-blue-50'
+                              }`}
+                            >
+                              <div className="space-y-3">
+                                <div
+                                  role={hasDeepDive ? 'button' : undefined}
+                                  tabIndex={hasDeepDive ? 0 : undefined}
+                                  onClick={
+                                    hasDeepDive
+                                      ? () =>
+                                          setActiveFeatureKey((current) =>
+                                            current === featureKey ? null : featureKey,
+                                          )
+                                      : undefined
+                                  }
+                                  onKeyDown={
+                                    hasDeepDive
+                                      ? (event) => {
+                                          if (event.key === 'Enter' || event.key === ' ') {
+                                            event.preventDefault();
+                                            setActiveFeatureKey((current) =>
+                                              current === featureKey ? null : featureKey,
+                                            );
+                                          }
+                                        }
+                                      : undefined
+                                  }
+                                  className={
+                                    hasDeepDive
+                                      ? 'cursor-pointer rounded-xl px-2 py-1 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2'
+                                      : undefined
+                                  }
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                      <h3 className="text-lg font-semibold text-slate-900">{feature.name}</h3>
+                                      {feature.description ? (
+                                        <p className="mt-2 text-sm text-slate-600">{feature.description}</p>
+                                      ) : null}
+                                    </div>
+                                    {hasDeepDive ? (
+                                      <span
+                                        className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs font-semibold uppercase tracking-wide transition ${
+                                          isExpanded
+                                            ? 'border-blue-500 bg-blue-100 text-blue-700'
+                                            : 'border-slate-200 bg-white text-slate-500'
+                                        }`}
+                                      >
+                                        {isExpanded ? 'Hide' : 'Explore'}
+                                        <ChevronRightIcon
+                                          className={`h-4 w-4 transition ${
+                                            isExpanded ? 'rotate-90 text-blue-600' : 'text-slate-400'
+                                          }`}
+                                        />
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                  {feature.bulletPoints?.length ? (
+                                    <ul className="mt-3 space-y-2 text-sm text-slate-600">
+                                      {feature.bulletPoints.map((point) => (
+                                        <li key={point} className="flex gap-2">
+                                          <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400" />
+                                          <span>{point}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  ) : null}
+                                </div>
+                                {hasDeepDive && isExpanded ? (
+                                  <div className="mt-3 text-sm text-slate-600">{feature.deepDive}</div>
+                                ) : null}
                           const featureId = feature.id ?? slugify(feature.name ?? '');
                           return (
                             <div
