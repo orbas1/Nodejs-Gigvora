@@ -240,13 +240,24 @@ export default function ProjectDetailPage() {
         />
 
         <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300"
-          >
-            ← Back
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300"
+            >
+              ← Back
+            </button>
+            {project ? (
+              <Link
+                to={`/projects/${project.id}/auto-match`}
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+              >
+                Auto-match workspace
+                <span aria-hidden="true">→</span>
+              </Link>
+            ) : null}
+          </div>
           {project ? (
             <div className="inline-flex flex-wrap items-center gap-3 rounded-full border border-accent/20 bg-white/80 px-4 py-2 text-xs font-semibold text-slate-600 shadow-soft">
               <span>Auto-assign {project.autoAssignEnabled ? 'enabled' : 'disabled'}</span>

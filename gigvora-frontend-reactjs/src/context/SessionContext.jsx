@@ -219,6 +219,9 @@ export function SessionProvider({ children }) {
       logout: () => {
         apiClient.clearAuthTokens();
         setSession(null);
+        if (typeof window !== 'undefined') {
+          window.localStorage.removeItem('gigvora:web:auth:accessToken');
+        }
         apiClient.clearAccessToken();
       },
       updateSession: (updates = {}) => {

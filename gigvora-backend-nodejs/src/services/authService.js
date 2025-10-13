@@ -200,6 +200,11 @@ async function verifyTwoFactor(email, code, tokenId) {
   }
 
   const user = await User.findOne({ where: { email } });
+  const payload = { id: user.id, type: user.userType };
+  const secret = process.env.JWT_SECRET || 'dev-secret';
+  const refreshSecret = process.env.JWT_REFRESH_SECRET || 'dev-secret-refresh';
+  const accessToken = jwt.sign(payload, secret, { expiresIn: TOKEN_EXPIRY });
+  const refreshToken = jwt.sign(payload, refreshSecret, { expiresIn: '7d' });
   if (!user) {
     throw buildError('Account not found.', 404);
   }

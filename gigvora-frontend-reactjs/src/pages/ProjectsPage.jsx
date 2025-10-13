@@ -169,10 +169,10 @@ export default function ProjectsPage() {
                     <span aria-hidden="true">→</span>
                   </Link>
                   <Link
-                    to="/auto-assign"
+                    to={`/projects/${project.id}/auto-match`}
                     className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-4 py-1 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
                   >
-                    View queue
+                    Auto-match queue
                     <span aria-hidden="true">→</span>
                   </Link>
                 </div>
