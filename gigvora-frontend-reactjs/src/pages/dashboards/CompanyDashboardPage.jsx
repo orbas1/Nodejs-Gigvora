@@ -23,13 +23,57 @@ const menuSections = [
         description: 'Pipeline health, hiring velocity, diversity metrics, and alerts.',
       },
       {
-        name: 'Jobs management',
-        description: 'Create, duplicate, archive, and collaborate on job requisitions.',
+        name: 'Job lifecycle & ATS intelligence',
+        description:
+          'Run a modern applicant tracking system with collaborative job creation, smart sourcing, and full-funnel insights.',
         tags: ['ATS'],
       },
       {
-        name: 'Interview operations',
-        description: 'Schedule panels, share prep kits, manage interviewer enablement, and feedback.',
+        name: 'Interview excellence & candidate experience',
+        description: 'Structured guides, scheduling automation, and feedback collaboration for every interview panel.',
+      },
+      {
+        name: 'Offer & onboarding bridge',
+        description: 'Generate offers, track approvals, manage background checks, and orchestrate onboarding tasks.',
+      },
+      {
+        name: 'Candidate care center',
+        description: 'Monitor response times, candidate NPS, and inclusion metrics to deliver a world-class experience.',
+      },
+    ],
+  },
+  {
+    label: 'Design & sourcing',
+    items: [
+      {
+        name: 'Job design studio',
+        description: 'Craft requisitions with intake surveys, leveling frameworks, compensation guidelines, and approvals.',
+      },
+      {
+        name: 'Multi-channel sourcing',
+        description:
+          'Publish to Gigvora, job boards, employee referrals, and talent pools with personalized landing pages and reporting.',
+      },
+      {
+        name: 'Applicant relationship manager',
+        description: 'Segment candidates, send nurture campaigns, and manage compliance across GDPR, CCPA, and internal policies.',
+      },
+    ],
+  },
+  {
+    label: 'Analytics & planning',
+    items: [
+      {
+        name: 'Analytics & forecasting',
+        description: 'Predict time-to-fill, offer acceptance, and pipeline conversion to forecast headcount.',
+      },
+      {
+        name: 'Workforce analytics',
+        description: 'Blend hiring and HRIS data to uncover attrition risks, mobility opportunities, and skill gaps.',
+      },
+      {
+        name: 'Scenario planning',
+        description: 'Model hiring freezes or acceleration plans with interactive dashboards by department, level, or location.',
       },
     ],
   },
@@ -48,6 +92,10 @@ const menuSections = [
         name: 'Agency collaboration',
         description: 'Coordinate with partner agencies on SLAs, billing, and compliance.',
       },
+      {
+        name: 'Partner performance manager',
+        description: 'Compare agencies, headhunters, and recruiters with leaderboards, SLAs, and ROI analytics.',
+      },
     ],
   },
   {
@@ -62,8 +110,25 @@ const menuSections = [
         description: 'Onboarding, internal mobility, and performance snapshots for HR teams.',
       },
       {
+        name: 'Internal mobility & referrals',
+        description: 'Promote jobs internally, reward referrals, and manage career pathing across departments.',
+      },
+    ],
+  },
+  {
+    label: 'Operations & governance',
+    items: [
+      {
+        name: 'Calendar & communications',
+        description: 'Sync recruiting calendars, digests, integrations, and cross-functional updates.',
+      },
+      {
         name: 'Settings & governance',
-        description: 'Calendar sync, permissions, integrations, compliance, and approvals.',
+        description: 'Permissions, integrations, compliance, and approval workflows.',
+      },
+      {
+        name: 'Governance & compliance',
+        description: 'Maintain GDPR/CCPA compliance, accessibility standards, and equitable hiring policies.',
       },
     ],
   },
@@ -78,6 +143,7 @@ const SUMMARY_ICONS = [
   EnvelopeOpenIcon,
   SparklesIcon,
   GlobeAltIcon,
+  ClipboardDocumentCheckIcon,
 ];
 
 function formatNumber(value, { fallback = '—', suffix = '' } = {}) {
@@ -101,121 +167,391 @@ function buildSections(data) {
     return [];
   }
 
-  const { pipelineSummary, memberSummary, projectSummary, partnerSummary, recommendations, insights, jobSummary } = data;
+  const {
+    pipelineSummary,
+    diversity,
+    alerts,
+    jobLifecycle,
+    jobDesign,
+    sourcing,
+    applicantRelationshipManager,
+    analyticsForecasting,
+    interviewOperations,
+    candidateExperience,
+    offerOnboarding,
+    candidateCare,
+    partnerCollaboration,
+    brandIntelligence,
+    governance,
+    calendar,
+    jobSummary,
+    projectSummary,
+    recommendations,
+  } = data;
 
   const statusEntries = Object.entries(pipelineSummary?.byStatus ?? {});
   const statusBulletPoints = statusEntries.length
-    ? statusEntries.sort(([, a], [, b]) => b - a).map(([status, count]) => `${status.replace(/_/g, ' ')} — ${count}`)
+    ? statusEntries
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 6)
+        .map(([status, count]) => `${status.replace(/_/g, ' ')} — ${formatNumber(count)}`)
     : ['No application activity recorded in this window.'];
 
-  const sourceEntries = Object.entries(insights?.candidateSources ?? {});
-  const sourceBulletPoints = sourceEntries.length
-    ? sourceEntries.sort(([, a], [, b]) => b - a).map(([source, count]) => `${source} — ${count}`)
-    : ['No candidate sources captured.'];
+  const diversityBreakdown = diversity?.breakdowns?.gender ?? [];
+  const diversityPoints = diversityBreakdown.length
+    ? [
+        `Representation index: ${diversity?.representationIndex != null ? diversity.representationIndex.toFixed(2) : '—'}`,
+        `Responses captured: ${formatNumber(diversity?.total)}`,
+        ...diversityBreakdown.slice(0, 3).map((item) => `${item.label}: ${formatPercent(item.percentage)}`),
+      ]
+    : ['Capture optional demographic surveys to unlock representation reporting.'];
 
-  const recommendationTitles = Array.isArray(recommendations) && recommendations.length
+  const alertPoints = alerts?.items?.length
+    ? [
+        `Open alerts: ${formatNumber(alerts.open ?? 0)}`,
+        `Critical issues: ${formatNumber(alerts.bySeverity?.critical ?? 0)}`,
+        alerts.latestDetection ? `Latest detected: ${formatRelativeTime(alerts.latestDetection)}` : 'No recent alerts detected.',
+      ]
+    : ['No active alerts in this lookback window.'];
+
+  const campaignChannelPoints = jobLifecycle?.campaigns?.byChannel?.length
+    ? jobLifecycle.campaigns.byChannel.slice(0, 3).map(
+        ({ channel, applications, conversionRate }) =>
+          `${channel}: ${formatNumber(applications)} apps • ${formatPercent(conversionRate)} hire rate`,
+      )
+    : ['Launch a campaign to see channel performance.'];
+
+  const jobStagePoints = jobLifecycle
+    ? [
+        `Total stages: ${formatNumber(jobLifecycle.totalStages)}`,
+        `Average stage duration: ${formatNumber(jobLifecycle.averageStageDurationHours, { suffix: ' hrs' })}`,
+        `Pending approvals: ${formatNumber(jobLifecycle.pendingApprovals)}`,
+        `Overdue approvals: ${formatNumber(jobLifecycle.overdueApprovals)}`,
+      ]
+    : ['Configure your hiring stages to see lifecycle analytics.'];
+
+  const jobDesignPoints = jobDesign
+    ? [
+        `Approvals in flight: ${formatNumber(jobDesign.approvalsInFlight)}`,
+        `Co-author sessions: ${formatNumber(jobDesign.coAuthorSessions)}`,
+        `Structured stages: ${formatNumber(jobDesign.structuredStages)}`,
+        `Compliance alerts: ${formatNumber(jobDesign.complianceAlerts)}`,
+      ]
+    : ['Track job approvals and compliance to surface design insights.'];
+
+  const sourcingSources = sourcing?.sources?.length
+    ? sourcing.sources.slice(0, 4).map((entry) => `${entry.source}: ${formatNumber(entry.count)} (${formatPercent(entry.percentage)})`)
+    : ['No candidate source data captured in this window.'];
+
+  const sourcingTotals = sourcing
+    ? [
+        `Campaign applications: ${formatNumber(sourcing.campaignTotals?.applications)}`,
+        `Campaign hires: ${formatNumber(sourcing.campaignTotals?.hires)}`,
+        `Average CPA: ${
+          sourcing.averageCostPerApplication != null
+            ? `$${Number(sourcing.averageCostPerApplication).toFixed(2)}`
+            : '—'
+        }`,
+        `Hire contribution rate: ${formatPercent(sourcing.hireContributionRate)}`,
+      ]
+    : ['Activate campaign tracking to monitor sourcing ROI.'];
+
+  const armPoints = applicantRelationshipManager
+    ? [
+        `Active candidates: ${formatNumber(applicantRelationshipManager.totalActiveCandidates)}`,
+        `Nurture campaigns logged: ${formatNumber(applicantRelationshipManager.nurtureCampaigns)}`,
+        `Follow-ups scheduled: ${formatNumber(applicantRelationshipManager.followUpsScheduled)}`,
+        `Compliance reviews: ${formatNumber(applicantRelationshipManager.complianceReviews)}`,
+      ]
+    : ['Log nurture campaigns to power the applicant relationship manager.'];
+
+  const forecastingPoints = analyticsForecasting
+    ? [
+        `Projected hires: ${formatNumber(analyticsForecasting.projectedHires)}`,
+        `Estimated backlog: ${formatNumber(analyticsForecasting.backlog)}`,
+        `Average time to fill: ${formatNumber(analyticsForecasting.timeToFillDays, { suffix: ' days' })}`,
+        `Projects at risk: ${formatNumber(analyticsForecasting.atRiskProjects)}`,
+      ]
+    : ['Forecast models will appear once enough activity is captured.'];
+
+  const interviewPoints = [
+    `Upcoming interviews: ${formatNumber(interviewOperations?.upcomingCount)}`,
+    `Average lead time: ${formatNumber(interviewOperations?.averageLeadTimeHours, { suffix: ' hrs' })}`,
+    `Average duration: ${formatNumber(interviewOperations?.averageDurationMinutes, { suffix: ' mins' })}`,
+    `Feedback logged: ${formatNumber(interviewOperations?.feedbackLogged)}`,
+  ];
+
+  const candidateExperiencePoints = [
+    `Survey responses: ${formatNumber(candidateExperience?.responseCount)}`,
+    `Avg satisfaction: ${formatNumber(candidateExperience?.averageScore)}`,
+    `Candidate NPS: ${
+      candidateExperience?.nps != null && Number.isFinite(Number(candidateExperience.nps))
+        ? `${Number(candidateExperience.nps).toFixed(1)}`
+        : '—'
+    }`,
+    `Follow-ups pending: ${formatNumber(candidateExperience?.followUpsPending)}`,
+  ];
+
+  const offerPoints = [
+    `Open offers: ${formatNumber(offerOnboarding?.openOffers)}`,
+    `Acceptance rate: ${formatPercent(offerOnboarding?.acceptanceRate)}`,
+    `Onboarding follow-ups: ${formatNumber(offerOnboarding?.onboardingFollowUps)}`,
+    `Average days to start: ${formatNumber(offerOnboarding?.averageDaysToStart)}`,
+  ];
+
+  const carePoints = [
+    `Satisfaction score: ${formatNumber(candidateCare?.satisfaction)}`,
+    `Candidate NPS: ${
+      candidateCare?.nps != null && Number.isFinite(Number(candidateCare.nps))
+        ? `${Number(candidateCare.nps).toFixed(1)}`
+        : '—'
+    }`,
+    `Follow-ups pending: ${formatNumber(candidateCare?.followUpsPending)}`,
+    `Escalations: ${formatNumber(candidateCare?.escalations)}`,
+  ];
+
+  const partnerPoints = [
+    `Engaged partners: ${formatNumber(partnerCollaboration?.activePartners)}`,
+    `Touchpoints logged: ${formatNumber(partnerCollaboration?.touchpoints)}`,
+    `Pending invites: ${formatNumber(partnerCollaboration?.pendingInvites)}`,
+    partnerCollaboration?.leaderboard?.[0]
+      ? `Top partner: ${partnerCollaboration.leaderboard[0].name} (${formatPercent(partnerCollaboration.leaderboard[0].conversionRate)})`
+      : 'No partner leaderboards yet.',
+  ];
+
+  const calendarPoints = calendar?.upcoming?.length
+    ? calendar.upcoming.slice(0, 3).map((event) => `${event.eventType} • ${formatAbsolute(event.startsAt)}`)
+    : ['Connect your recruiting calendar to see upcoming events.'];
+
+  const brandPoints = brandIntelligence
+    ? [
+        `Published assets: ${formatNumber(brandIntelligence.publishedAssets)}`,
+        `Average engagement: ${formatNumber(brandIntelligence.averageEngagementScore)}`,
+        `Profile completeness: ${formatPercent(brandIntelligence.profileCompleteness)}`,
+        `Active roles highlighted: ${formatNumber(brandIntelligence.activeRoles)}`,
+      ]
+    : ['Publish employer brand assets to monitor engagement.'];
+
+  const governancePoints = governance
+    ? [
+        `Pending approvals: ${formatNumber(governance.pendingApprovals)}`,
+        `Critical alerts: ${formatNumber(governance.criticalAlerts)}`,
+        `Workspace active: ${governance.workspaceActive ? 'Yes' : 'No'}`,
+        governance.timezone ? `Primary timezone: ${governance.timezone}` : 'Set a default timezone for scheduling.',
+      ]
+    : ['Governance metrics appear once approvals and alerts are captured.'];
+
+  const recommendationPoints = Array.isArray(recommendations) && recommendations.length
     ? recommendations.map((item) => item.title)
     : ['Keep capturing activity to surface recommended actions.'];
 
-  const pipelineFeatures = [
-    {
-      name: 'Stage distribution',
-      description: 'Visibility across every stage of the hiring funnel for the selected lookback window.',
-      bulletPoints: statusBulletPoints,
-    },
-    {
-      name: 'Candidate sources',
-      description: 'Understand where your applicants originate to prioritise future investments.',
-      bulletPoints: sourceBulletPoints,
-    },
-    {
-      name: 'Velocity & conversion',
-      description: 'Keep leadership informed on pace from submission to decision.',
-      bulletPoints: [
-        `Average days to decision: ${formatNumber(pipelineSummary?.velocity?.averageDaysToDecision)}`,
-        `Median days to interview: ${formatNumber(pipelineSummary?.velocity?.medianDaysToInterview)}`,
-        `Interview rate: ${formatPercent(pipelineSummary?.conversionRates?.interviewRate)}`,
-        `Offer-to-hire: ${formatPercent(pipelineSummary?.conversionRates?.hireRate)}`,
-      ],
-    },
-  ];
-
-  const operationsFeatures = [
-    {
-      name: 'Team capacity',
-      description: 'Monitor recruiter availability, bench coverage, and utilisation.',
-      bulletPoints: [
-        `Active members: ${formatNumber(memberSummary?.active)} of ${formatNumber(memberSummary?.total)}`,
-        `Bench availability: ${formatNumber(memberSummary?.bench)} teammates`,
-        `Average weekly capacity: ${formatNumber(memberSummary?.averageWeeklyCapacity, { suffix: ' hrs' })}`,
-        `Timezones covered: ${formatNumber(memberSummary?.uniqueTimezones)}`,
-      ],
-    },
-    {
-      name: 'Open requisitions',
-      description: 'Jobs and gigs currently being promoted to the market.',
-      bulletPoints: [
-        `Total roles this period: ${formatNumber(jobSummary?.total)}`,
-        `Jobs vs gigs: ${formatNumber(jobSummary?.byType?.jobs)} jobs • ${formatNumber(jobSummary?.byType?.gigs)} gigs`,
-        ...(jobSummary?.topLocations?.map?.(
-          ({ location, count }) => `${location} — ${formatNumber(count)} openings`,
-        ) ?? []),
-      ].slice(0, 5),
-    },
-    {
-      name: 'Project automation',
-      description: 'Auto-assign and workforce orchestration signals sourced from delivery projects.',
-      bulletPoints: [
-        `Active projects: ${formatNumber(projectSummary?.totals?.active)}`,
-        `Planning queue: ${formatNumber(projectSummary?.totals?.planning)}`,
-        `At-risk initiatives: ${formatNumber(projectSummary?.totals?.atRisk)}`,
-        `Automation-enabled: ${formatNumber(projectSummary?.automation?.automationEnabled)}`,
-      ],
-    },
-  ];
-
-  const partnerFeatures = [
-    {
-      name: 'Partner ecosystem',
-      description: 'Coordinate agencies, headhunters, and referrals collaborating with your team.',
-      bulletPoints: [
-        `Engaged contacts: ${formatNumber(partnerSummary?.engagedContacts)}`,
-        `Touchpoints logged: ${formatNumber(partnerSummary?.touchpoints)}`,
-        `Pending partner invites: ${formatNumber(partnerSummary?.pendingInvites)}`,
-      ],
-    },
-    {
-      name: 'Interview feedback health',
-      description: 'Ensure feedback is logged and actionable.',
-      bulletPoints: [
-        `Review sample size: ${formatNumber(insights?.reviewSampleSize)}`,
-        `Average score: ${formatNumber(insights?.averageReviewScore)}`,
-        `Offers accepted: ${formatNumber(data.offers?.accepted)}`,
-        `Offer win rate: ${formatPercent(data.offers?.winRate)}`,
-      ],
-    },
-    {
-      name: 'Recommended actions',
-      description: 'Automated operational suggestions generated from current metrics.',
-      bulletPoints: recommendationTitles,
-    },
-  ];
-
   return [
     {
-      title: 'Pipeline performance',
-      description: 'Monitor application flow, conversion, and velocity across all requisitions.',
-      features: pipelineFeatures,
+      title: 'Hiring overview',
+      description: 'Pipeline health, hiring velocity, diversity metrics, and alerts.',
+      features: [
+        { name: 'Pipeline health', description: 'Stage distribution across the hiring funnel.', bulletPoints: statusBulletPoints },
+        {
+          name: 'Velocity & conversion',
+          description: 'Measure time-to-hire and conversion rates across stages.',
+          bulletPoints: [
+            `Average days to decision: ${formatNumber(pipelineSummary?.velocity?.averageDaysToDecision)}`,
+            `Median days to interview: ${formatNumber(pipelineSummary?.velocity?.medianDaysToInterview)}`,
+            `Interview rate: ${formatPercent(pipelineSummary?.conversionRates?.interviewRate)}`,
+            `Offer-to-hire: ${formatPercent(pipelineSummary?.conversionRates?.hireRate)}`,
+          ],
+        },
+        {
+          name: 'Diversity & inclusion',
+          description: 'Monitor representation across self-reported demographics.',
+          bulletPoints: diversityPoints,
+        },
+        {
+          name: 'Alerts & risk',
+          description: 'Track SLA breaches, compliance flags, and emerging issues.',
+          bulletPoints: alertPoints,
+        },
+      ],
     },
     {
-      title: 'Recruiting operations',
-      description: 'Balance recruiter capacity, requisition health, and delivery readiness.',
-      features: operationsFeatures,
+      title: 'Job lifecycle & ATS intelligence',
+      description: 'Optimise stage configurations, approvals, and campaign performance.',
+      features: [
+        {
+          name: 'Stage configuration',
+          description: 'Understand the structure and pacing of your ATS stages.',
+          bulletPoints: jobStagePoints,
+        },
+        {
+          name: 'Campaign performance',
+          description: 'Compare sourcing channels powering your requisitions.',
+          bulletPoints: campaignChannelPoints,
+        },
+        {
+          name: 'Recommended actions',
+          description: 'AI-assisted guidance based on current lifecycle metrics.',
+          bulletPoints: recommendationPoints,
+        },
+      ],
     },
     {
-      title: 'Partnerships & insights',
-      description: 'Strengthen headhunter programs, gather feedback, and action recommendations.',
-      features: partnerFeatures,
+      title: 'Job design studio',
+      description: 'Craft requisitions with collaborative approvals and compliance controls.',
+      features: [
+        {
+          name: 'Design throughput',
+          description: 'Keep requisitions flowing with cross-functional co-authoring.',
+          bulletPoints: jobDesignPoints,
+        },
+        {
+          name: 'Jobs management',
+          description: 'Inventory of open jobs and gigs promoted to the market.',
+          bulletPoints: [
+            `Total roles: ${formatNumber(jobSummary?.total)}`,
+            `Jobs vs gigs: ${formatNumber(jobSummary?.byType?.jobs)} jobs • ${formatNumber(jobSummary?.byType?.gigs)} gigs`,
+            ...(jobSummary?.topLocations?.slice?.(0, 3).map((item) => `${item.location} — ${formatNumber(item.count)} openings`) ?? []),
+          ],
+        },
+      ],
+    },
+    {
+      title: 'Multi-channel sourcing',
+      description: 'Publish requisitions across campaigns, referrals, and targeted pools.',
+      features: [
+        {
+          name: 'Source mix',
+          description: 'Top channels contributing applicants this period.',
+          bulletPoints: sourcingSources,
+        },
+        {
+          name: 'Campaign ROI',
+          description: 'Spend, applications, and hires generated by tracked campaigns.',
+          bulletPoints: sourcingTotals,
+        },
+      ],
+    },
+    {
+      title: 'Applicant relationship manager',
+      description: 'Nurture candidates, manage follow-ups, and stay compliant.',
+      features: [
+        {
+          name: 'Pipeline engagement',
+          description: 'Track nurture sequences and compliance tasks.',
+          bulletPoints: armPoints,
+        },
+      ],
+    },
+    {
+      title: 'Analytics & forecasting',
+      description: 'Model hiring plans, forecast headcount, and spot delivery risks.',
+      features: [
+        {
+          name: 'Planning insights',
+          description: 'Forward-looking metrics for leadership reviews.',
+          bulletPoints: forecastingPoints,
+        },
+        {
+          name: 'Delivery readiness',
+          description: 'Link project signals to hiring capacity.',
+          bulletPoints: [
+            `Projects active: ${formatNumber(projectSummary?.totals?.active)}`,
+            `Planning pipeline: ${formatNumber(projectSummary?.totals?.planning)}`,
+            `At-risk delivery: ${formatNumber(projectSummary?.totals?.atRisk)}`,
+            `Automation-enabled: ${formatNumber(projectSummary?.automation?.automationEnabled)}`,
+          ],
+        },
+      ],
+    },
+    {
+      title: 'Interview excellence & candidate experience',
+      description: 'Enable consistent, inclusive interviews with rich feedback loops.',
+      features: [
+        {
+          name: 'Interview operations',
+          description: 'Scheduling health and interviewer readiness.',
+          bulletPoints: interviewPoints,
+        },
+        {
+          name: 'Experience insights',
+          description: 'Candidate feedback and sentiment trends.',
+          bulletPoints: candidateExperiencePoints,
+        },
+      ],
+    },
+    {
+      title: 'Offer & onboarding bridge',
+      description: 'Close candidates confidently and orchestrate day-one readiness.',
+      features: [
+        {
+          name: 'Offer pipeline',
+          description: 'Conversion, follow-ups, and start-date readiness.',
+          bulletPoints: offerPoints,
+        },
+      ],
+    },
+    {
+      title: 'Candidate care center',
+      description: 'Deliver responsive, inclusive experiences throughout the journey.',
+      features: [
+        {
+          name: 'Experience health',
+          description: 'Satisfaction, NPS, and escalations in one view.',
+          bulletPoints: carePoints,
+        },
+      ],
+    },
+    {
+      title: 'Headhunter & partner collaboration',
+      description: 'Empower agencies and headhunters with shared accountability.',
+      features: [
+        {
+          name: 'Partner ecosystem',
+          description: 'Engagement, invites, and leaderboard performance.',
+          bulletPoints: partnerPoints,
+        },
+      ],
+    },
+    {
+      title: 'Calendar & communications',
+      description: 'Coordinate interviews, events, and executive reviews.',
+      features: [
+        {
+          name: 'Upcoming events',
+          description: 'Recruiting calendar highlights and digests.',
+          bulletPoints: calendarPoints,
+        },
+      ],
+    },
+    {
+      title: 'Employer brand & workforce intelligence',
+      description: 'Promote culture, track engagement, and align with workforce plans.',
+      features: [
+        {
+          name: 'Brand engagement',
+          description: 'Published assets and campaign traction.',
+          bulletPoints: brandPoints,
+        },
+        {
+          name: 'Workforce insights',
+          description: 'Tie hiring plans to workforce analytics.',
+          bulletPoints: [
+            `Projected hires: ${formatNumber(analyticsForecasting?.projectedHires)}`,
+            `Attrition risks surfaced via projects at risk: ${formatNumber(analyticsForecasting?.atRiskProjects)}`,
+            `Internal mobility spotlight: ${formatNumber(jobDesign?.coAuthorSessions ?? 0)} collaborative design sessions`,
+          ],
+        },
+      ],
+    },
+    {
+      title: 'Governance & compliance',
+      description: 'Stay audit-ready with approvals, policies, and accessibility checks.',
+      features: [
+        {
+          name: 'Policy health',
+          description: 'Ensure approvals, alerts, and workspace controls are on track.',
+          bulletPoints: governancePoints,
+        },
+      ],
     },
   ];
 }
@@ -250,6 +586,36 @@ function buildProfile(data, summaryCards) {
     badges: workspace.health?.badges ?? [],
     metrics: summaryCards.slice(0, 4).map((card) => ({ label: card.label, value: `${card.value}` })),
   };
+}
+
+function MembershipList({ memberships }) {
+  if (!memberships?.length) {
+    return (
+      <p className="text-sm text-blue-700">Enable additional workspace memberships to collaborate across programs.</p>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap gap-4">
+      {memberships.map((membership) => (
+        <div
+          key={membership.name}
+          className="min-w-[200px] flex-1 rounded-2xl border border-blue-100 bg-blue-50/70 p-4 shadow-sm"
+        >
+          <p className="text-sm font-semibold text-blue-900">{membership.name}</p>
+          <p className="mt-2 text-xs text-blue-700">{membership.description}</p>
+          <div className="mt-3 flex items-center text-xs font-semibold">
+            <span
+              className={`mr-2 inline-block h-2.5 w-2.5 rounded-full ${membership.active ? 'bg-emerald-500' : 'bg-slate-300'}`}
+            />
+            <span className={membership.active ? 'text-emerald-600' : 'text-slate-500'}>
+              {membership.active ? 'Active membership' : 'Inactive'}
+            </span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function RecentNotes({ items }) {
@@ -311,6 +677,7 @@ export default function CompanyDashboardPage() {
   const sections = useMemo(() => buildSections(data), [data]);
   const profile = useMemo(() => buildProfile(data, summaryCards), [data, summaryCards]);
   const workspaceOptions = data?.meta?.availableWorkspaces ?? [];
+  const memberships = data?.memberships ?? data?.meta?.memberships ?? [];
 
   const handleWorkspaceChange = (event) => {
     const nextWorkspaceId = event.target.value;
@@ -393,13 +760,23 @@ export default function CompanyDashboardPage() {
           </p>
         ) : null}
 
+        <section className="rounded-3xl border border-blue-100 bg-blue-50/60 p-6 shadow-sm">
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-blue-800">Your memberships</h2>
+            <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">Workspace access</span>
+          </div>
+          <div className="mt-4">
+            <MembershipList memberships={memberships} />
+          </div>
+        </section>
+
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {summaryCards.map((card, index) => {
             const Icon = SUMMARY_ICONS[index % SUMMARY_ICONS.length] ?? ClipboardDocumentCheckIcon;
             return (
               <div
                 key={card.label}
-                className="flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-5 shadow-sm"
+                className="flex items-center justify-between rounded-3xl border border-blue-100 bg-white px-4 py-5 shadow-sm"
               >
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{card.label}</p>

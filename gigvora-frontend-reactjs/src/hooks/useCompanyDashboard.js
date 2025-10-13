@@ -33,11 +33,11 @@ export function useCompanyDashboard({ workspaceId, workspaceSlug, lookbackDays =
       return [];
     }
 
-    const { pipelineSummary, memberSummary, partnerSummary, offers } = state.data;
+    const { pipelineSummary, memberSummary, offers, interviewOperations, candidateExperience, alerts } = state.data;
 
     return [
       {
-        label: 'Open roles & gigs',
+        label: 'Open requisitions',
         value: formatNumber(state.data.jobSummary?.total ?? 0),
       },
       {
@@ -52,8 +52,11 @@ export function useCompanyDashboard({ workspaceId, workspaceSlug, lookbackDays =
             : '—',
       },
       {
-        label: 'Partner touchpoints',
-        value: formatNumber(partnerSummary?.touchpoints ?? 0),
+        label: 'Candidate NPS',
+        value:
+          candidateExperience?.nps != null && Number.isFinite(Number(candidateExperience.nps))
+            ? `${Number(candidateExperience.nps).toFixed(1)}`
+            : '—',
       },
       {
         label: 'Offer win rate',
@@ -61,6 +64,14 @@ export function useCompanyDashboard({ workspaceId, workspaceSlug, lookbackDays =
           offers?.winRate != null && Number.isFinite(Number(offers.winRate))
             ? `${Number(offers.winRate).toFixed(1)}%`
             : '—',
+      },
+      {
+        label: 'Upcoming interviews',
+        value: formatNumber(interviewOperations?.upcomingCount ?? 0),
+      },
+      {
+        label: 'Open alerts',
+        value: formatNumber(alerts?.open ?? 0),
       },
       {
         label: 'Active recruiters',
