@@ -1,5 +1,6 @@
 import { User } from '../models/index.js';
 import profileService from '../services/profileService.js';
+import userDashboardService from '../services/userDashboardService.js';
 
 export async function listUsers(req, res) {
   const limitParam = Number.parseInt(req.query.limit ?? '20', 10);
@@ -48,4 +49,11 @@ export async function updateUser(req, res) {
 export async function updateProfileSettings(req, res) {
   const profile = await profileService.updateProfileAvailability(req.params.id, req.body);
   res.json(profile);
+}
+
+export async function getUserDashboard(req, res) {
+  const dashboard = await userDashboardService.getUserDashboard(req.params.id, {
+    bypassCache: req.query.fresh === 'true',
+  });
+  res.json(dashboard);
 }

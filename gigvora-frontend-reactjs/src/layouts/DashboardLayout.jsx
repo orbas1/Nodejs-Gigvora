@@ -54,18 +54,18 @@ export default function DashboardLayout({
   };
 
   return (
-    <div className="relative min-h-screen bg-gradient-to-br from-white via-blue-50/40 to-blue-100/20 text-slate-900">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(191,219,254,0.6),_rgba(255,255,255,0)_70%)]" />
+    <div className="relative min-h-screen bg-gradient-to-br from-white via-blue-50/40 to-slate-100 text-slate-900">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(191,219,254,0.45),_transparent_70%)]" />
       <div className="relative z-10 flex min-h-screen">
         {/* Sidebar */}
         <aside
-          className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} fixed inset-y-0 left-0 z-20 w-80 shrink-0 transform border-r border-slate-200 bg-white/90 shadow-lg backdrop-blur transition-transform duration-300 ease-in-out lg:static`}
+          className={`$\{sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'\} fixed inset-y-0 left-0 z-20 w-80 shrink-0 transform border-r border-slate-200/80 bg-white/95 shadow-xl backdrop-blur transition-transform duration-300 ease-in-out lg:static`}
         >
           <div className="flex h-full flex-col gap-6 overflow-y-auto p-6">
             <div className="flex items-center justify-between">
               <Link
                 to="/"
-                className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700 transition hover:border-blue-300 hover:text-blue-800"
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/90 px-3 py-1 text-sm font-medium text-slate-600 transition hover:border-accent/60 hover:text-accent"
               >
                 <ArrowLeftOnRectangleIcon className="h-4 w-4" />
                 Return to site
@@ -73,26 +73,26 @@ export default function DashboardLayout({
               <button
                 type="button"
                 onClick={() => setSidebarOpen(false)}
-                className="rounded-full p-2 text-slate-500 hover:bg-blue-100 hover:text-blue-700 lg:hidden"
+                className="rounded-full p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 lg:hidden"
                 aria-label="Close menu"
               >
                 <XMarkIcon className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="rounded-3xl border border-blue-100 bg-gradient-to-br from-white via-blue-50 to-blue-100/40 p-6">
+            <div className="rounded-3xl border border-slate-200/80 bg-gradient-to-br from-white via-blue-50/40 to-slate-50/60 p-6 shadow-soft">
               <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600/10 text-lg font-semibold text-blue-600">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/10 text-lg font-semibold text-accent">
                   {activeProfile.initials}
                 </div>
                 <div>
-                  <p className="text-sm uppercase tracking-wide text-slate-500">Profile</p>
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Profile</p>
                   <p className="text-lg font-semibold text-slate-900">{activeProfile.name}</p>
-                  <p className="text-sm text-slate-500">{activeProfile.role}</p>
+                  <p className="text-sm text-slate-600">{activeProfile.role}</p>
                 </div>
               </div>
               {activeProfile.status ? (
-                <p className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium uppercase tracking-wide text-blue-700">
+                <p className="mt-4 rounded-2xl border border-accent/40 bg-accent/10 px-3 py-2 text-xs font-medium uppercase tracking-wide text-accent">
                   {activeProfile.status}
                 </p>
               ) : null}
@@ -101,9 +101,9 @@ export default function DashboardLayout({
                   {activeProfile.badges.map((badge) => (
                     <span
                       key={badge}
-                      className="inline-flex items-center gap-1 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs text-blue-700"
+                      className="inline-flex items-center gap-1 rounded-full border border-accent/20 bg-accentSoft px-3 py-1 text-xs text-accent"
                     >
-                      <CheckBadgeIcon className="h-4 w-4 text-blue-500" />
+                      <CheckBadgeIcon className="h-4 w-4 text-accent" />
                       {badge}
                     </span>
                   ))}
@@ -112,7 +112,7 @@ export default function DashboardLayout({
               {activeProfile.metrics?.length ? (
                 <dl className="mt-6 grid grid-cols-2 gap-3">
                   {activeProfile.metrics.map(({ label, value }) => (
-                    <div key={label} className="rounded-2xl border border-blue-100 bg-white/80 p-3">
+                    <div key={label} className="rounded-2xl border border-slate-200 bg-white/95 p-3">
                       <dt className="text-xs uppercase tracking-wide text-slate-500">{label}</dt>
                       <dd className="mt-1 text-lg font-semibold text-slate-900">{value}</dd>
                     </div>
@@ -128,10 +128,10 @@ export default function DashboardLayout({
                   <ul className="mt-3 space-y-2">
                     {section.items.map((item) => (
                       <li key={item.name}>
-                        <div className="group flex flex-col gap-1 rounded-2xl border border-blue-100 bg-white/80 p-3 transition hover:border-blue-200 hover:bg-blue-50">
+                        <div className="group flex flex-col gap-1 rounded-2xl border border-transparent bg-white/90 p-3 transition hover:border-accent/50 hover:bg-accentSoft/60">
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-slate-900">{item.name}</span>
-                            <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
+                            <span className="text-sm font-medium text-slate-800">{item.name}</span>
+                            <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-accent" />
                           </div>
                           {item.description ? (
                             <p className="text-xs text-slate-500">{item.description}</p>
@@ -141,7 +141,7 @@ export default function DashboardLayout({
                               {item.tags.map((tag) => (
                                 <span
                                   key={tag}
-                                  className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-700"
+                                  className="inline-flex items-center rounded-full bg-accentSoft px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent"
                                 >
                                   {tag}
                                 </span>
@@ -156,12 +156,12 @@ export default function DashboardLayout({
               ))}
             </div>
 
-            <div className="mt-auto rounded-3xl border border-blue-100 bg-blue-50 p-5 text-blue-700">
+            <div className="mt-auto rounded-3xl border border-accent/25 bg-white/90 p-5 text-accentDark">
               <div className="flex items-center gap-3">
-                <Squares2X2Icon className="h-6 w-6 text-blue-500" />
+                <Squares2X2Icon className="h-6 w-6 text-accent" />
                 <div>
-                  <p className="text-sm font-semibold">Workspace tips</p>
-                  <p className="text-xs text-blue-600">
+                  <p className="text-sm font-semibold text-slate-900">Workspace tips</p>
+                  <p className="text-xs text-slate-600">
                     Use the search bar to query profiles, gigs, jobs, and project records across Gigvora.
                   </p>
                 </div>
@@ -172,11 +172,11 @@ export default function DashboardLayout({
 
         {/* Main content */}
         <div className="flex min-h-screen flex-1 flex-col lg:ml-80">
-          <header className="sticky top-0 z-10 border-b border-blue-100 bg-white/80 backdrop-blur">
+          <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur">
             <div className="flex flex-wrap items-center gap-3 px-4 py-4 sm:px-8">
               <button
                 type="button"
-                className="inline-flex items-center justify-center rounded-xl border border-blue-100 bg-white p-2 text-slate-500 transition hover:border-blue-200 hover:text-blue-600 lg:hidden"
+                className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white p-2 text-slate-600 transition hover:border-accent/60 hover:text-accent lg:hidden"
                 onClick={() => setSidebarOpen(true)}
                 aria-label="Open menu"
               >
@@ -185,7 +185,7 @@ export default function DashboardLayout({
 
               <form
                 onSubmit={handleSearchSubmit}
-                className="relative min-w-[240px] flex-1 rounded-2xl border border-blue-100 bg-white"
+                className="relative flex-1 min-w-[240px] rounded-2xl border border-slate-200 bg-white/90 shadow-sm"
               >
                 <MagnifyingGlassIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                 <input
@@ -193,7 +193,7 @@ export default function DashboardLayout({
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder="Search the Gigvora database..."
-                  className="w-full rounded-2xl border-0 bg-transparent py-3 pl-12 pr-4 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  className="w-full rounded-2xl border-0 bg-transparent py-3 pl-12 pr-4 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-accent/50"
                 />
               </form>
 
@@ -208,7 +208,7 @@ export default function DashboardLayout({
                         navigate(DASHBOARD_LINKS[target].path);
                       }
                     }}
-                    className="appearance-none rounded-xl border border-blue-100 bg-white py-2 pl-3 pr-8 text-sm text-slate-900 focus:border-blue-300 focus:outline-none"
+                    className="appearance-none rounded-xl border border-slate-200 bg-white py-2 pl-3 pr-8 text-sm text-slate-700 focus:border-accent/60 focus:outline-none"
                   >
                     {memberships
                       .filter((key) => DASHBOARD_LINKS[key])
@@ -224,22 +224,22 @@ export default function DashboardLayout({
             </div>
           </header>
 
-          <main className="flex-1 bg-gradient-to-b from-white/60 via-white to-blue-50/40">
+          <main className="flex-1 bg-transparent">
             <div className="mx-auto w-full max-w-6xl space-y-10 px-4 py-10 sm:px-8">
               <div className="space-y-4">
-                <p className="text-sm uppercase tracking-wide text-blue-500">{heroSubtitle}</p>
+                <p className="text-sm uppercase tracking-wide text-accent">{heroSubtitle}</p>
                 <h1 className="text-3xl font-semibold text-slate-900 sm:text-4xl">{heroTitle}</h1>
                 <p className="max-w-3xl text-base text-slate-600">{heroDescription}</p>
 
                 {switchableDashboards.length ? (
-                  <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-blue-100 bg-white p-4 text-sm text-slate-600">
-                    <span className="font-medium text-slate-900">Your memberships:</span>
+                  <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white/90 p-4 text-sm text-slate-600 shadow-sm">
+                    <span className="font-medium text-slate-700">Your memberships:</span>
                     <div className="flex flex-wrap gap-2">
                       {memberships.map((key) =>
                         DASHBOARD_LINKS[key] ? (
                           <span
                             key={key}
-                            className={`${key === currentDashboard ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-slate-100 text-slate-500 border-slate-200'} inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium uppercase tracking-wide`}
+                            className={`$\{key === currentDashboard ? 'bg-accentSoft text-accent border-accent/50' : 'bg-white text-slate-600 border-slate-200'\} inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium uppercase tracking-wide`}
                           >
                             {DASHBOARD_LINKS[key].label}
                           </span>
@@ -250,12 +250,12 @@ export default function DashboardLayout({
                 ) : null}
               </div>
 
-              {children && typeof children !== 'boolean'
+              {children
                 ? children
                 : capabilitySections.map((section) => (
                     <section
                       key={section.title}
-                      className="rounded-3xl border border-blue-100 bg-white/90 p-6 shadow-[0_18px_40px_-30px_rgba(37,99,235,0.25)] sm:p-8"
+                      className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-[0_18px_45px_-25px_rgba(37,99,235,0.25)] sm:p-8"
                     >
                       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                         <div>
@@ -265,7 +265,7 @@ export default function DashboardLayout({
                           ) : null}
                         </div>
                         {section.meta ? (
-                          <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-medium uppercase tracking-wide text-blue-700">
+                          <div className="rounded-2xl border border-accent/40 bg-accentSoft px-4 py-2 text-xs font-medium uppercase tracking-wide text-accent">
                             {section.meta}
                           </div>
                         ) : null}
@@ -274,7 +274,7 @@ export default function DashboardLayout({
                         {section.features.map((feature) => (
                           <div
                             key={feature.name}
-                            className="group flex h-full flex-col justify-between rounded-2xl border border-blue-100 bg-slate-50/50 p-5 transition hover:border-blue-200 hover:bg-blue-50"
+                            className="group flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-accent/60 hover:bg-accentSoft/60"
                           >
                             <div>
                               <h3 className="text-lg font-semibold text-slate-900">{feature.name}</h3>
@@ -285,7 +285,7 @@ export default function DashboardLayout({
                                 <ul className="mt-3 space-y-2 text-sm text-slate-600">
                                   {feature.bulletPoints.map((point) => (
                                     <li key={point} className="flex gap-2">
-                                      <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400" />
+                                      <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
                                       <span>{point}</span>
                                     </li>
                                   ))}
@@ -293,7 +293,7 @@ export default function DashboardLayout({
                               ) : null}
                             </div>
                             {feature.callout ? (
-                              <p className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium uppercase tracking-wide text-blue-700">
+                              <p className="mt-4 rounded-2xl border border-accent/40 bg-accentSoft px-3 py-2 text-xs font-medium uppercase tracking-wide text-accent">
                                 {feature.callout}
                               </p>
                             ) : null}
