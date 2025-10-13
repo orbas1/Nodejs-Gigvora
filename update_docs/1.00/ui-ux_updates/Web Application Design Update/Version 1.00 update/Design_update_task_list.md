@@ -21,6 +21,7 @@
 - Build component usage examples for CMS authors and developers.
 - Document floating chat bubble layout spec across breakpoints and capture QA checklist items for overlay stacking (Complete).
 - Document Trust Center operations dashboard modules (KPI tiles, release queue table, dispute cards) with analytics tags and compliance copy (Complete).
+- Document agency finance distribution dashboard modules (payout hero cards, upcoming batch table, outstanding split tracker, export readiness checklist, teammate distribution visual) with compliance and accessibility annotations (Complete).
 
 
 ## Task 4 – Booking Flow Redesign & Testing

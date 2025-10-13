@@ -97,3 +97,6 @@
 4. **Analytics Instrumentation**
    - Introduced `profileAnalyticsService` to emit structured analytics events for trust score deltas, engagement refreshes, and targeting funnel transitions, wiring those payloads into the analytics warehouse and downstream dashboards.
    - Updated `profileService` and `profileEngagementService` to capture before/after snapshots, compute funnel diffs, and enqueue instrumentation after transactions; Jest suites assert event payloads and queue reasons to guard regression risk.
+5. **Payments Distribution Aggregator**
+   - Extended `agencyDashboardService` with payout batch, split, and export aggregation utilities that normalise currencies, calculate average processing time, surface upcoming batches, and generate teammate payout breakdowns for finance teams.
+   - Added cached Sequelize fetches for `FinancePayoutBatch`, `FinancePayoutSplit`, and `FinanceTaxExport` plus new helper functions, exposing the data via `/agency/dashboard` with regression coverage in `tests/agencyDashboardService.test.js`.
