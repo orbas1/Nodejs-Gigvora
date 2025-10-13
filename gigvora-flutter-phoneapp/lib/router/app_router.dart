@@ -17,11 +17,16 @@ import '../features/marketplace/presentation/launchpad_screen.dart';
 import '../features/marketplace/presentation/volunteering_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/admin/presentation/admin_login_screen.dart';
+import '../features/ads/presentation/ads_dashboard_screen.dart';
 import '../features/notifications/presentation/notifications_screen.dart';
 import '../features/messaging/presentation/inbox_screen.dart';
-import '../features/services/presentation/service_operations_screen.dart';
 import '../features/mentorship/presentation/mentorship_screen.dart';
 import '../features/project_gig_management/presentation/project_gig_management_screen.dart';
+import '../features/pipeline/presentation/freelancer_pipeline_screen.dart';
+import '../features/services/presentation/service_operations_screen.dart';
+import '../features/finance/presentation/finance_screen.dart';
+import '../features/pages/presentation/pages_screen.dart';
+import '../features/connections/presentation/connections_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -77,15 +82,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
         builder: (context, state) => const NotificationsScreen(),
       ),
+      GoRoute(path: '/pages', builder: (context, state) => const PagesScreen()),
+      GoRoute(path: '/notifications', builder: (context, state) => const NotificationsScreen()),
       GoRoute(path: '/inbox', builder: (context, state) => const InboxScreen()),
+      GoRoute(path: '/finance', builder: (context, state) => const FinanceScreen()),
+      GoRoute(path: '/connections', builder: (context, state) => const ConnectionsScreen()),
       GoRoute(path: '/operations', builder: (context, state) => const ServiceOperationsScreen()),
+      GoRoute(
+        path: '/dashboard/freelancer/pipeline',
+        builder: (context, state) => const FreelancerPipelineScreen(),
+      ),
       GoRoute(path: '/dashboard/mentor', builder: (context, state) => const MentorshipScreen()),
       GoRoute(
         path: '/profile',
         builder: (context, state) => ProfileScreen(profileId: state.uri.queryParameters['id']),
       ),
       GoRoute(
-        path: '/operations',
+        path: '/operations/manage',
         builder: (context, state) => ProjectGigManagementScreen(
           userId: state.uri.queryParameters['userId'] != null
               ? int.tryParse(state.uri.queryParameters['userId']!)
@@ -94,6 +107,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(path: '/admin', builder: (context, state) => const AdminLoginScreen()),
+      GoRoute(path: '/admin/ads', builder: (context, state) => const AdsDashboardScreen()),
     ],
   );
 });

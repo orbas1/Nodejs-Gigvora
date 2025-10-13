@@ -19,15 +19,20 @@ export default function LoginPage() {
   const handleVerify = (event) => {
     event.preventDefault();
     login({
+      id: 1,
+      userId: 1,
       name: 'Lena Fields',
       title: 'Product Designer',
       avatarSeed: 'Lena Fields',
+      userType: 'freelancer',
       memberships: ['user', 'freelancer', 'agency'],
+      activeMembership: 'freelancer',
       primaryDashboard: 'user',
       followers: 1280,
       connections: 324,
       companies: ['Gigvora Labs', 'Atlas Studios'],
       agencies: ['Northshore Creative'],
+      freelancerId: 88421,
       accountTypes: ['Freelancer', 'Agency', 'Talent Lead'],
       isAuthenticated: true,
     });
