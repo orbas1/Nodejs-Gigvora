@@ -10,6 +10,14 @@ import {
   Profile,
   MessageThread,
   Message,
+  ProspectIntelligenceProfile,
+  ProspectIntelligenceSignal,
+  ProspectSearchDefinition,
+  ProspectSearchAlert,
+  ProspectCampaign,
+  ProspectCampaignStep,
+  ProspectResearchNote,
+  ProspectResearchTask,
 } from '../models/index.js';
 import { NotFoundError } from '../utils/errors.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
@@ -527,6 +535,490 @@ function buildPassOnNetwork(applications, candidateProfiles) {
   };
 }
 
+function toPlainRecord(record) {
+  if (!record) {
+    return null;
+  }
+  if (typeof record.get === 'function') {
+    return record.get({ plain: true });
+  }
+  return record;
+}
+
+function ensureArray(value) {
+  if (Array.isArray(value)) {
+    return value;
+  }
+  if (value == null) {
+    return [];
+  }
+  if (typeof value === 'string') {
+    return value.length ? [value] : [];
+  }
+  if (typeof value === 'object') {
+    return Object.values(value)
+      .flatMap((entry) => ensureArray(entry))
+      .filter((item) => item != null && item !== '');
+  }
+  return [value];
+}
+
+function extractInsights(source) {
+  if (!source) {
+    return [];
+  }
+  if (Array.isArray(source)) {
+    return source.filter(Boolean);
+  }
+  if (typeof source === 'object') {
+    if (Array.isArray(source.insights)) {
+      return source.insights.filter(Boolean);
+    }
+    if (Array.isArray(source.highlights)) {
+      return source.highlights.filter(Boolean);
+    }
+    return Object.values(source)
+      .flatMap((entry) => (Array.isArray(entry) ? entry : entry != null ? [entry] : []))
+      .filter(Boolean)
+      .map((entry) => (typeof entry === 'string' ? entry : JSON.stringify(entry)));
+  }
+  if (typeof source === 'string') {
+    return source ? [source] : [];
+  }
+  return [];
+}
+
+function computeAverage(values, decimals = 1) {
+  const filtered = values.filter((value) => Number.isFinite(value));
+  if (!filtered.length) {
+    return null;
+  }
+  const average = sumNumbers(filtered) / filtered.length;
+  return Number(average.toFixed(decimals));
+}
+
+function computeCompTarget(profile) {
+  const min = Number(profile.compensationTargetMin);
+  const max = Number(profile.compensationTargetMax);
+  if (Number.isFinite(min) && Number.isFinite(max)) {
+    return (min + max) / 2;
+  }
+  if (Number.isFinite(min)) {
+    return min;
+  }
+  if (Number.isFinite(max)) {
+    return max;
+  }
+  const metadataTarget = Number(profile.metadata?.compensationTarget ?? profile.metadata?.compensation?.target);
+  return Number.isFinite(metadataTarget) ? metadataTarget : null;
+}
+
+function buildProspectIntelligenceOverview(profiles, signals) {
+  const relocationReadiness = profiles.reduce((acc, profile) => {
+    const key = profile.relocationReadiness ?? 'unspecified';
+    acc[key] = (acc[key] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const compTargets = profiles
+    .map((profile) => computeCompTarget(profile))
+    .filter((value) => Number.isFinite(value));
+  const averageCompTarget = compTargets.length ? Number(computeAverage(compTargets, 0)) : null;
+
+  const exclusivityConflicts = profiles.filter((profile) => profile.exclusivityConflict).length;
+  const highIntentSignals = signals.filter((signal) => signal.intentLevel === 'high').length;
+
+  const signalIntentBreakdown = signals.reduce((acc, signal) => {
+    const key = signal.intentLevel ?? 'unknown';
+    acc[key] = (acc[key] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const motivatorCounts = new Map();
+  profiles.forEach((profile) => {
+    ensureArray(profile.motivators).forEach((motivator) => {
+      const label = typeof motivator === 'string' ? motivator.trim() : motivator;
+      if (!label) {
+        return;
+      }
+      const key = String(label);
+      motivatorCounts.set(key, (motivatorCounts.get(key) ?? 0) + 1);
+    });
+  });
+
+  const topMotivators = Array.from(motivatorCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([label, count]) => ({ label, count }));
+
+  return {
+    profilesTracked: profiles.length,
+    highIntentSignals,
+    averageCompTarget,
+    exclusivityConflicts,
+    relocationReadiness,
+    signalIntentBreakdown,
+    topMotivators,
+  };
+}
+
+function buildProspectTalentProfiles(profiles) {
+  return [...profiles]
+    .sort((a, b) => new Date(b.aggregatedAt ?? b.updatedAt ?? 0) - new Date(a.aggregatedAt ?? a.updatedAt ?? 0))
+    .slice(0, 6)
+    .map((profile) => {
+      const candidate = profile.candidate ?? {};
+      const name = [candidate.firstName, candidate.lastName].filter(Boolean).join(' ') || profile.metadata?.candidateName;
+      const signals = ensureArray(profile.signals)
+        .map((signal) => ({
+          id: signal.id,
+          signalType: signal.signalType,
+          intentLevel: signal.intentLevel,
+          summary: signal.summary,
+          occurredAt: signal.occurredAt,
+          source: signal.source,
+        }))
+        .sort((a, b) => new Date(b.occurredAt ?? 0) - new Date(a.occurredAt ?? 0))
+        .slice(0, 4);
+
+      return {
+        id: profile.id,
+        candidateId: profile.candidateId,
+        name: name ?? 'Unknown candidate',
+        email: candidate.email ?? null,
+        headline: profile.headline ?? profile.primaryDiscipline ?? null,
+        seniority: profile.seniorityLevel ?? null,
+        availability: profile.availabilityStatus ?? null,
+        motivators: ensureArray(profile.motivators).slice(0, 4),
+        inflectionPoints: ensureArray(profile.inflectionPoints).slice(0, 4),
+        aiHighlights: extractInsights(profile.aiHighlights).slice(0, 5),
+        relocation: profile.relocationReadiness ?? 'unspecified',
+        exclusivityConflict: Boolean(profile.exclusivityConflict),
+        exclusivityNotes: profile.exclusivityNotes ?? null,
+        compensation: {
+          currency: profile.compensationCurrency ?? 'USD',
+          min: profile.compensationTargetMin != null ? Number(profile.compensationTargetMin) : null,
+          max: profile.compensationTargetMax != null ? Number(profile.compensationTargetMax) : null,
+        },
+        patents: ensureArray(profile.patents).length,
+        publications: ensureArray(profile.publications).length,
+        socialGraph: profile.socialGraph ?? {},
+        signals,
+      };
+    });
+}
+
+function buildProspectingCockpit(searches, signals, profiles) {
+  const savedSearches = searches.map((search) => {
+    const alerts = ensureArray(search.alerts).map((alert) => ({
+      id: alert.id,
+      channel: alert.channel,
+      status: alert.status,
+      target: alert.target,
+      lastTriggeredAt: alert.lastTriggeredAt,
+      nextRunAt: alert.nextRunAt,
+    }));
+
+    const createdBy = search.createdBy
+      ? {
+          id: search.createdBy.id,
+          name: `${search.createdBy.firstName ?? ''} ${search.createdBy.lastName ?? ''}`.trim() || null,
+        }
+      : null;
+
+    return {
+      id: search.id,
+      name: search.name,
+      description: search.description ?? null,
+      filters: search.filters ?? {},
+      skills: ensureArray(search.skills),
+      diversityFocus: ensureArray(search.diversityFocus),
+      cultureDrivers: ensureArray(search.cultureDrivers),
+      industryTargets: ensureArray(search.industryTargets),
+      isAlertEnabled: Boolean(search.isAlertEnabled),
+      alertCadence: search.alertCadence ?? null,
+      lastRunAt: search.lastRunAt ?? null,
+      resultsCount: search.resultsCount ?? 0,
+      alerts,
+      createdBy,
+    };
+  });
+
+  const activeAlerts = savedSearches
+    .flatMap((search) =>
+      search.alerts.map((alert) => ({
+        ...alert,
+        searchId: search.id,
+        searchName: search.name,
+      })),
+    )
+    .filter((alert) => alert.status === 'active')
+    .sort((a, b) => new Date(b.lastTriggeredAt ?? 0) - new Date(a.lastTriggeredAt ?? 0))
+    .slice(0, 10);
+
+  const industryCoverage = new Map();
+  savedSearches.forEach((search) => {
+    ensureArray(search.industryTargets).forEach((industry) => {
+      if (!industry) {
+        return;
+      }
+      const key = String(industry).trim();
+      if (!key) {
+        return;
+      }
+      const entry = industryCoverage.get(key) ?? { industry: key, savedSearches: 0, totalResults: 0 };
+      entry.savedSearches += 1;
+      entry.totalResults += search.resultsCount ?? 0;
+      industryCoverage.set(key, entry);
+    });
+  });
+
+  const industryMaps = Array.from(industryCoverage.values())
+    .map((entry) => ({
+      industry: entry.industry,
+      savedSearches: entry.savedSearches,
+      totalResults: entry.totalResults,
+      averageResults: entry.savedSearches ? Number((entry.totalResults / entry.savedSearches).toFixed(1)) : 0,
+    }))
+    .sort((a, b) => b.totalResults - a.totalResults)
+    .slice(0, 8);
+
+  const profileMap = new Map(profiles.map((profile) => [profile.id, profile]));
+
+  const signalStream = signals
+    .map((signal) => {
+      const profile = signal.profile ?? profileMap.get(signal.profileId) ?? {};
+      const candidate = profile.candidate ?? {};
+      return {
+        id: signal.id,
+        profileId: signal.profileId,
+        candidateName:
+          [candidate.firstName, candidate.lastName].filter(Boolean).join(' ') || profile.metadata?.candidateName || null,
+        signalType: signal.signalType,
+        intentLevel: signal.intentLevel,
+        summary: signal.summary,
+        occurredAt: signal.occurredAt,
+        source: signal.source,
+      };
+    })
+    .sort((a, b) => new Date(b.occurredAt ?? 0) - new Date(a.occurredAt ?? 0))
+    .slice(0, 20);
+
+  return {
+    savedSearches,
+    activeAlerts,
+    industryMaps,
+    signalStream,
+  };
+}
+
+function buildCampaignStudioData(campaigns) {
+  const formattedCampaigns = campaigns.map((campaign) => {
+    const steps = ensureArray(campaign.steps)
+      .map((step) => ({
+        id: step.id,
+        stepOrder: step.stepOrder,
+        channel: step.channel,
+        templateSubject: step.templateSubject ?? null,
+        sendOffsetHours: step.sendOffsetHours ?? null,
+        waitForReplyHours: step.waitForReplyHours ?? null,
+        aiVariant: step.aiVariant ?? null,
+        abTestGroup: step.abTestGroup ?? null,
+        performance: step.performance ?? {},
+      }))
+      .sort((a, b) => (a.stepOrder ?? 0) - (b.stepOrder ?? 0));
+
+    const rawResponseRate = campaign.responseRate != null ? Number(campaign.responseRate) : null;
+    const rawConversionRate = campaign.conversionRate != null ? Number(campaign.conversionRate) : null;
+    const responseRate =
+      rawResponseRate != null && rawResponseRate <= 1
+        ? Number((rawResponseRate * 100).toFixed(2))
+        : rawResponseRate != null
+        ? Number(rawResponseRate.toFixed(2))
+        : null;
+    const conversionRate =
+      rawConversionRate != null && rawConversionRate <= 1
+        ? Number((rawConversionRate * 100).toFixed(2))
+        : rawConversionRate != null
+        ? Number(rawConversionRate.toFixed(2))
+        : null;
+
+    return {
+      id: campaign.id,
+      name: campaign.name,
+      persona: campaign.persona ?? null,
+      goal: campaign.goal ?? null,
+      status: campaign.status,
+      aiBrief: campaign.aiBrief ?? null,
+      channelMix: campaign.channelMix ?? {},
+      launchDate: campaign.launchDate ?? null,
+      responseRate,
+      conversionRate,
+      meetingsBooked: campaign.meetingsBooked ?? 0,
+      steps,
+    };
+  });
+
+  const channelStatsMap = new Map();
+  formattedCampaigns.forEach((campaign) => {
+    const seenChannels = new Set();
+    campaign.steps.forEach((step) => {
+      const key = (step.channel ?? 'other').toLowerCase();
+      seenChannels.add(key);
+      const stats = channelStatsMap.get(key) ?? { channel: key, steps: 0, campaignIds: new Set(), totalWaitHours: 0 };
+      stats.steps += 1;
+      stats.totalWaitHours += step.sendOffsetHours ?? 0;
+      stats.campaignIds.add(campaign.id);
+      channelStatsMap.set(key, stats);
+    });
+
+    if (!campaign.steps.length && campaign.channelMix) {
+      Object.keys(campaign.channelMix).forEach((channel) => {
+        const key = channel.toLowerCase();
+        if (seenChannels.has(key)) {
+          return;
+        }
+        const stats = channelStatsMap.get(key) ?? { channel: key, steps: 0, campaignIds: new Set(), totalWaitHours: 0 };
+        stats.campaignIds.add(campaign.id);
+        channelStatsMap.set(key, stats);
+      });
+    }
+  });
+
+  const channelBreakdown = Array.from(channelStatsMap.values()).map((entry) => ({
+    channel: entry.channel,
+    steps: entry.steps,
+    campaigns: entry.campaignIds.size,
+    averageWaitHours: entry.steps ? Number((entry.totalWaitHours / entry.steps).toFixed(1)) : null,
+  }));
+
+  const abTests = formattedCampaigns
+    .flatMap((campaign) =>
+      campaign.steps
+        .filter((step) => step.abTestGroup)
+        .map((step) => ({
+          campaignId: campaign.id,
+          campaignName: campaign.name,
+          stepOrder: step.stepOrder,
+          variant: step.abTestGroup,
+          aiVariant: step.aiVariant,
+          performance: step.performance,
+        })),
+    )
+    .slice(0, 10);
+
+  const responseRates = formattedCampaigns.map((campaign) => campaign.responseRate).filter((value) => value != null);
+  const conversionRates = formattedCampaigns.map((campaign) => campaign.conversionRate).filter((value) => value != null);
+
+  const aggregateMetrics = {
+    totalCampaigns: formattedCampaigns.length,
+    activeCampaigns: formattedCampaigns.filter((campaign) => campaign.status === 'active').length,
+    averageResponseRate: responseRates.length ? Number((sumNumbers(responseRates) / responseRates.length).toFixed(2)) : null,
+    averageConversionRate: conversionRates.length
+      ? Number((sumNumbers(conversionRates) / conversionRates.length).toFixed(2))
+      : null,
+  };
+
+  return {
+    campaigns: formattedCampaigns,
+    channelBreakdown,
+    abTests,
+    aggregateMetrics,
+  };
+}
+
+function buildResearchCollaborationData(notes, tasks, profiles) {
+  const profileMap = new Map(profiles.map((profile) => [profile.id, profile]));
+
+  const noteEntries = notes.map((note) => {
+    const candidate = note.profile?.candidate ?? profileMap.get(note.profileId)?.candidate ?? {};
+    return {
+      id: note.id,
+      title: note.title,
+      body: note.body,
+      visibility: note.visibility,
+      isComplianceEvent: Boolean(note.isComplianceEvent),
+      tags: ensureArray(note.tags).slice(0, 6),
+      createdAt: note.createdAt,
+      author: note.author
+        ? {
+            id: note.author.id,
+            name: `${note.author.firstName ?? ''} ${note.author.lastName ?? ''}`.trim() || null,
+          }
+        : null,
+      candidate: candidate && (candidate.firstName || candidate.lastName)
+        ? {
+            id: candidate.id,
+            name: `${candidate.firstName ?? ''} ${candidate.lastName ?? ''}`.trim(),
+          }
+        : null,
+    };
+  });
+
+  const taskEntries = tasks.map((task) => {
+    const candidate = task.profile?.candidate ?? profileMap.get(task.profileId)?.candidate ?? {};
+    return {
+      id: task.id,
+      title: task.title,
+      description: task.description ?? null,
+      status: task.status,
+      priority: task.priority,
+      dueAt: task.dueAt ?? null,
+      metadata: task.metadata ?? {},
+      assignee: task.assignee
+        ? {
+            id: task.assignee.id,
+            name: `${task.assignee.firstName ?? ''} ${task.assignee.lastName ?? ''}`.trim() || null,
+          }
+        : null,
+      createdBy: task.createdBy
+        ? {
+            id: task.createdBy.id,
+            name: `${task.createdBy.firstName ?? ''} ${task.createdBy.lastName ?? ''}`.trim() || null,
+          }
+        : null,
+      candidate: candidate && (candidate.firstName || candidate.lastName)
+        ? {
+            id: candidate.id,
+            name: `${candidate.firstName ?? ''} ${candidate.lastName ?? ''}`.trim(),
+          }
+        : null,
+    };
+  });
+
+  const taskSummary = taskEntries.reduce((acc, task) => {
+    const key = task.status ?? 'unknown';
+    acc[key] = (acc[key] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const complianceLog = noteEntries
+    .filter((note) => note.isComplianceEvent)
+    .map((note) => ({
+      id: note.id,
+      title: note.title,
+      visibility: note.visibility,
+      candidateName: note.candidate?.name ?? null,
+      createdAt: note.createdAt,
+    }));
+
+  const guardrails = {
+    restrictedNotes: noteEntries.filter((note) => note.visibility === 'restricted').length,
+    complianceEvents: complianceLog.length,
+    retentionReviews: taskEntries.filter((task) => Boolean(task.metadata?.retentionReview)).length,
+  };
+
+  return {
+    notes: noteEntries.slice(0, 12),
+    tasks: taskEntries.slice(0, 12),
+    taskSummary,
+    compliance: {
+      guardrails,
+      log: complianceLog.slice(0, 12),
+    },
+  };
+}
+
 function buildClientPartnerships(contactNotes) {
   if (!contactNotes.length) {
     return {
@@ -678,6 +1170,166 @@ function buildActivityTimeline(recentActivity, outreachCampaigns) {
       label: event.label ?? event.description ?? event.status ?? event.stage,
       status: event.status ?? event.stage,
     }));
+}
+
+async function loadProspectIntelligence(workspaceId, lookbackDate) {
+  const [profileRecords, searchRecords, campaignRecords, noteRecords, taskRecords, signalRecords] = await Promise.all([
+    ProspectIntelligenceProfile.findAll({
+      where: { workspaceId },
+      include: [
+        {
+          model: User,
+          as: 'candidate',
+          attributes: ['id', 'firstName', 'lastName', 'email'],
+        },
+        {
+          model: ProspectIntelligenceSignal,
+          as: 'signals',
+          required: false,
+          where: lookbackDate ? { occurredAt: { [Op.gte]: lookbackDate } } : undefined,
+          separate: true,
+          order: [['occurredAt', 'DESC']],
+          limit: 10,
+        },
+      ],
+      order: [['aggregatedAt', 'DESC']],
+    }),
+    ProspectSearchDefinition.findAll({
+      where: { workspaceId },
+      include: [
+        {
+          model: ProspectSearchAlert,
+          as: 'alerts',
+          required: false,
+        },
+        {
+          model: User,
+          as: 'createdBy',
+          attributes: ['id', 'firstName', 'lastName'],
+        },
+      ],
+      order: [['updatedAt', 'DESC']],
+    }),
+    ProspectCampaign.findAll({
+      where: { workspaceId },
+      include: [
+        {
+          model: ProspectCampaignStep,
+          as: 'steps',
+          required: false,
+        },
+      ],
+      order: [
+        ['status', 'ASC'],
+        ['launchDate', 'DESC'],
+      ],
+    }),
+    ProspectResearchNote.findAll({
+      where: {
+        workspaceId,
+        ...(lookbackDate ? { createdAt: { [Op.gte]: lookbackDate } } : {}),
+      },
+      include: [
+        {
+          model: User,
+          as: 'author',
+          attributes: ['id', 'firstName', 'lastName'],
+        },
+        {
+          model: ProspectIntelligenceProfile,
+          as: 'profile',
+          include: [
+            {
+              model: User,
+              as: 'candidate',
+              attributes: ['id', 'firstName', 'lastName'],
+            },
+          ],
+        },
+      ],
+      order: [['createdAt', 'DESC']],
+      limit: 40,
+    }),
+    ProspectResearchTask.findAll({
+      where: { workspaceId },
+      include: [
+        {
+          model: User,
+          as: 'assignee',
+          attributes: ['id', 'firstName', 'lastName'],
+        },
+        {
+          model: User,
+          as: 'createdBy',
+          attributes: ['id', 'firstName', 'lastName'],
+        },
+        {
+          model: ProspectIntelligenceProfile,
+          as: 'profile',
+          include: [
+            {
+              model: User,
+              as: 'candidate',
+              attributes: ['id', 'firstName', 'lastName'],
+            },
+          ],
+        },
+      ],
+      order: [
+        ['status', 'ASC'],
+        ['dueAt', 'ASC'],
+      ],
+      limit: 40,
+    }),
+    ProspectIntelligenceSignal.findAll({
+      where: {
+        workspaceId,
+        ...(lookbackDate ? { occurredAt: { [Op.gte]: lookbackDate } } : {}),
+      },
+      include: [
+        {
+          model: ProspectIntelligenceProfile,
+          as: 'profile',
+          include: [
+            {
+              model: User,
+              as: 'candidate',
+              attributes: ['id', 'firstName', 'lastName'],
+            },
+          ],
+        },
+      ],
+      order: [['occurredAt', 'DESC']],
+      limit: 120,
+    }),
+  ]);
+
+  const profiles = profileRecords.map(toPlainRecord).map((profile) => ({
+    ...profile,
+    signals: ensureArray(profile.signals),
+  }));
+  const searches = searchRecords.map(toPlainRecord).map((search) => ({
+    ...search,
+    alerts: ensureArray(search.alerts),
+  }));
+  const campaigns = campaignRecords.map(toPlainRecord).map((campaign) => ({
+    ...campaign,
+    steps: ensureArray(campaign.steps),
+  }));
+  const notes = noteRecords.map(toPlainRecord).map((note) => ({
+    ...note,
+    tags: ensureArray(note.tags),
+  }));
+  const tasks = taskRecords.map(toPlainRecord);
+  const signals = signalRecords.map(toPlainRecord);
+
+  return {
+    overview: buildProspectIntelligenceOverview(profiles, signals),
+    talentProfiles: buildProspectTalentProfiles(profiles),
+    cockpit: buildProspectingCockpit(searches, signals, profiles),
+    campaignStudio: buildCampaignStudioData(campaigns),
+    researchCollaboration: buildResearchCollaborationData(notes, tasks, profiles),
+  };
 }
 
 async function loadCandidateProfiles(applications) {
@@ -846,6 +1498,8 @@ export async function getDashboardSnapshot({ workspaceId: rawWorkspaceId, lookba
 
     const passOnNetwork = buildPassOnNetwork(dataset, candidateProfiles);
 
+    const prospectIntelligence = await loadProspectIntelligence(workspace.id, lookbackDate);
+
     const contactNotes = await ProviderContactNote.findAll({
       where: { workspaceId: workspace.id },
       include: [
@@ -971,6 +1625,7 @@ export async function getDashboardSnapshot({ workspaceId: rawWorkspaceId, lookba
       clientPartnerships,
       activityTimeline,
       calendar,
+      prospectIntelligence,
       meta,
     };
   });

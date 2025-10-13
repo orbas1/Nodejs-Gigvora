@@ -81,6 +81,16 @@ export const NOTIFICATION_CATEGORIES = ['system', 'message', 'project', 'financi
 export const NOTIFICATION_PRIORITIES = ['low', 'normal', 'high', 'critical'];
 export const NOTIFICATION_STATUSES = ['pending', 'delivered', 'read', 'dismissed'];
 export const DIGEST_FREQUENCIES = ['immediate', 'daily', 'weekly'];
+export const PROSPECT_SIGNAL_INTENT_LEVELS = ['low', 'medium', 'high'];
+export const PROSPECT_SEARCH_ALERT_STATUSES = ['active', 'paused', 'snoozed'];
+export const PROSPECT_SEARCH_ALERT_CHANNELS = ['email', 'slack', 'sms', 'webhook'];
+export const PROSPECT_SEARCH_ALERT_CADENCES = ['real_time', 'daily', 'weekly'];
+export const PROSPECT_CAMPAIGN_STATUSES = ['draft', 'active', 'paused', 'completed'];
+export const PROSPECT_CAMPAIGN_AB_TEST_GROUPS = ['control', 'variant_a', 'variant_b'];
+export const PROSPECT_TASK_STATUSES = ['open', 'in_progress', 'blocked', 'completed'];
+export const PROSPECT_TASK_PRIORITIES = ['low', 'medium', 'high', 'urgent'];
+export const PROSPECT_NOTE_VISIBILITIES = ['workspace', 'client_shared', 'restricted'];
+export const PROSPECT_RELOCATION_STATUSES = ['remote', 'open_to_relocate', 'hybrid', 'not_open'];
 export const ANALYTICS_ACTOR_TYPES = ['user', 'system', 'anonymous'];
 export const PROVIDER_WORKSPACE_TYPES = ['agency', 'company', 'recruiter', 'partner'];
 export const PROVIDER_WORKSPACE_MEMBER_ROLES = ['owner', 'admin', 'manager', 'staff', 'viewer'];
@@ -5002,6 +5012,213 @@ export const EmployerBrandSection = sequelize.define(
   },
 );
 
+export const ProspectIntelligenceProfile = sequelize.define(
+  'ProspectIntelligenceProfile',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    candidateId: { type: DataTypes.INTEGER, allowNull: false },
+    aggregatedAt: { type: DataTypes.DATE, allowNull: true },
+    primaryDiscipline: { type: DataTypes.STRING(255), allowNull: true },
+    seniorityLevel: { type: DataTypes.STRING(120), allowNull: true },
+    headline: { type: DataTypes.STRING(255), allowNull: true },
+    motivators: { type: jsonType, allowNull: true },
+    inflectionPoints: { type: jsonType, allowNull: true },
+    aiHighlights: { type: jsonType, allowNull: true },
+    socialGraph: { type: jsonType, allowNull: true },
+    patents: { type: jsonType, allowNull: true },
+    publications: { type: jsonType, allowNull: true },
+    compensationTargetMin: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    compensationTargetMax: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    compensationCurrency: { type: DataTypes.STRING(3), allowNull: true, defaultValue: 'USD' },
+    relocationReadiness: { type: DataTypes.ENUM(...PROSPECT_RELOCATION_STATUSES), allowNull: true },
+    exclusivityConflict: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    exclusivityNotes: { type: DataTypes.TEXT, allowNull: true },
+    availabilityStatus: { type: DataTypes.STRING(120), allowNull: true },
+    signalsSummary: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'prospect_intelligence_profiles',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['candidateId'] },
+      { fields: ['seniorityLevel'] },
+      { fields: ['relocationReadiness'] },
+    ],
+  },
+);
+
+export const ProspectIntelligenceSignal = sequelize.define(
+  'ProspectIntelligenceSignal',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    profileId: { type: DataTypes.INTEGER, allowNull: false },
+    signalType: { type: DataTypes.STRING(255), allowNull: false },
+    intentLevel: { type: DataTypes.ENUM(...PROSPECT_SIGNAL_INTENT_LEVELS), allowNull: false, defaultValue: 'medium' },
+    summary: { type: DataTypes.STRING(500), allowNull: false },
+    source: { type: DataTypes.STRING(255), allowNull: true },
+    occurredAt: { type: DataTypes.DATE, allowNull: false },
+    payload: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'prospect_intelligence_signals',
+    indexes: [
+      { fields: ['workspaceId', 'occurredAt'] },
+      { fields: ['profileId'] },
+      { fields: ['intentLevel'] },
+    ],
+  },
+);
+
+export const ProspectSearchDefinition = sequelize.define(
+  'ProspectSearchDefinition',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    filters: { type: jsonType, allowNull: true },
+    skills: { type: jsonType, allowNull: true },
+    seniorityRange: { type: DataTypes.STRING(120), allowNull: true },
+    diversityFocus: { type: jsonType, allowNull: true },
+    cultureDrivers: { type: jsonType, allowNull: true },
+    industryTargets: { type: jsonType, allowNull: true },
+    isAlertEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    alertCadence: { type: DataTypes.ENUM(...PROSPECT_SEARCH_ALERT_CADENCES), allowNull: true },
+    lastRunAt: { type: DataTypes.DATE, allowNull: true },
+    resultsCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'prospect_search_definitions',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['workspaceId', 'isAlertEnabled'] },
+      { fields: ['createdById'] },
+    ],
+  },
+);
+
+export const ProspectSearchAlert = sequelize.define(
+  'ProspectSearchAlert',
+  {
+    searchId: { type: DataTypes.INTEGER, allowNull: false },
+    channel: { type: DataTypes.ENUM(...PROSPECT_SEARCH_ALERT_CHANNELS), allowNull: false, defaultValue: 'email' },
+    status: { type: DataTypes.ENUM(...PROSPECT_SEARCH_ALERT_STATUSES), allowNull: false, defaultValue: 'active' },
+    target: { type: DataTypes.STRING(255), allowNull: true },
+    lastTriggeredAt: { type: DataTypes.DATE, allowNull: true },
+    nextRunAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'prospect_search_alerts',
+    indexes: [
+      { fields: ['searchId'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+export const ProspectCampaign = sequelize.define(
+  'ProspectCampaign',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(255), allowNull: false },
+    persona: { type: DataTypes.STRING(255), allowNull: true },
+    goal: { type: DataTypes.STRING(255), allowNull: true },
+    aiBrief: { type: DataTypes.TEXT, allowNull: true },
+    channelMix: { type: jsonType, allowNull: true },
+    launchDate: { type: DataTypes.DATE, allowNull: true },
+    status: { type: DataTypes.ENUM(...PROSPECT_CAMPAIGN_STATUSES), allowNull: false, defaultValue: 'draft' },
+    responseRate: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    meetingsBooked: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    conversionRate: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'prospect_campaigns',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['workspaceId', 'status'] },
+      { fields: ['launchDate'] },
+    ],
+  },
+);
+
+export const ProspectCampaignStep = sequelize.define(
+  'ProspectCampaignStep',
+  {
+    campaignId: { type: DataTypes.INTEGER, allowNull: false },
+    stepOrder: { type: DataTypes.INTEGER, allowNull: false },
+    channel: { type: DataTypes.STRING(120), allowNull: false },
+    templateSubject: { type: DataTypes.STRING(255), allowNull: true },
+    templateBody: { type: DataTypes.TEXT, allowNull: true },
+    sendOffsetHours: { type: DataTypes.INTEGER, allowNull: true },
+    waitForReplyHours: { type: DataTypes.INTEGER, allowNull: true },
+    aiVariant: { type: DataTypes.STRING(120), allowNull: true },
+    abTestGroup: { type: DataTypes.ENUM(...PROSPECT_CAMPAIGN_AB_TEST_GROUPS), allowNull: true },
+    performance: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'prospect_campaign_steps',
+    indexes: [
+      { fields: ['campaignId'] },
+      { fields: ['campaignId', 'abTestGroup'] },
+    ],
+  },
+);
+
+export const ProspectResearchNote = sequelize.define(
+  'ProspectResearchNote',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    profileId: { type: DataTypes.INTEGER, allowNull: true },
+    authorId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    body: { type: DataTypes.TEXT, allowNull: false },
+    visibility: { type: DataTypes.ENUM(...PROSPECT_NOTE_VISIBILITIES), allowNull: false, defaultValue: 'workspace' },
+    isComplianceEvent: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    tags: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'prospect_research_notes',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['profileId'] },
+      { fields: ['authorId'] },
+      { fields: ['visibility'] },
+    ],
+  },
+);
+
+export const ProspectResearchTask = sequelize.define(
+  'ProspectResearchTask',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    profileId: { type: DataTypes.INTEGER, allowNull: true },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    status: { type: DataTypes.ENUM(...PROSPECT_TASK_STATUSES), allowNull: false, defaultValue: 'open' },
+    priority: { type: DataTypes.ENUM(...PROSPECT_TASK_PRIORITIES), allowNull: false, defaultValue: 'medium' },
+    dueAt: { type: DataTypes.DATE, allowNull: true },
+    assigneeId: { type: DataTypes.INTEGER, allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: false },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'prospect_research_tasks',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['workspaceId', 'status'] },
+      { fields: ['assigneeId'] },
+      { fields: ['priority'] },
+    ],
+  },
+);
+
+export const MessageThread = sequelize.define(
+  'MessageThread',
 export const EmployerBrandCampaign = sequelize.define(
   'EmployerBrandCampaign',
   {
@@ -13622,6 +13839,11 @@ ProviderWorkspace.hasMany(AgencySlaSnapshot, { foreignKey: 'workspaceId', as: 'a
 ProviderWorkspace.hasMany(AgencyBillingEvent, { foreignKey: 'workspaceId', as: 'agencyBillingEvents' });
 ProviderWorkspace.hasMany(RecruitingCalendarEvent, { foreignKey: 'workspaceId', as: 'recruitingEvents' });
 ProviderWorkspace.hasMany(EmployerBrandAsset, { foreignKey: 'workspaceId', as: 'employerBrandAssets' });
+ProviderWorkspace.hasMany(ProspectIntelligenceProfile, { foreignKey: 'workspaceId', as: 'prospectProfiles' });
+ProviderWorkspace.hasMany(ProspectSearchDefinition, { foreignKey: 'workspaceId', as: 'prospectSearches' });
+ProviderWorkspace.hasMany(ProspectCampaign, { foreignKey: 'workspaceId', as: 'prospectCampaigns' });
+ProviderWorkspace.hasMany(ProspectResearchNote, { foreignKey: 'workspaceId', as: 'prospectResearchNotes' });
+ProviderWorkspace.hasMany(ProspectResearchTask, { foreignKey: 'workspaceId', as: 'prospectResearchTasks' });
 ProviderWorkspace.hasMany(EmployerBrandSection, { foreignKey: 'workspaceId', as: 'employerBrandSections' });
 ProviderWorkspace.hasMany(EmployerBrandCampaign, { foreignKey: 'workspaceId', as: 'employerBrandCampaigns' });
 ProviderWorkspace.hasMany(WorkforceAnalyticsSnapshot, { foreignKey: 'workspaceId', as: 'workforceSnapshots' });
@@ -13851,6 +14073,28 @@ AgencyBillingEvent.belongsTo(AgencyCollaboration, {
 });
 RecruitingCalendarEvent.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 EmployerBrandAsset.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+ProspectIntelligenceProfile.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+ProspectIntelligenceProfile.belongsTo(User, { foreignKey: 'candidateId', as: 'candidate' });
+ProspectIntelligenceProfile.hasMany(ProspectIntelligenceSignal, { foreignKey: 'profileId', as: 'signals' });
+ProspectIntelligenceProfile.hasMany(ProspectResearchNote, { foreignKey: 'profileId', as: 'researchNotes' });
+ProspectIntelligenceProfile.hasMany(ProspectResearchTask, { foreignKey: 'profileId', as: 'researchTasks' });
+ProspectIntelligenceSignal.belongsTo(ProspectIntelligenceProfile, { foreignKey: 'profileId', as: 'profile' });
+ProspectIntelligenceSignal.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+ProspectSearchDefinition.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+ProspectSearchDefinition.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+ProspectSearchDefinition.hasMany(ProspectSearchAlert, { foreignKey: 'searchId', as: 'alerts' });
+ProspectSearchAlert.belongsTo(ProspectSearchDefinition, { foreignKey: 'searchId', as: 'search' });
+ProspectCampaign.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+ProspectCampaign.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+ProspectCampaign.hasMany(ProspectCampaignStep, { foreignKey: 'campaignId', as: 'steps' });
+ProspectCampaignStep.belongsTo(ProspectCampaign, { foreignKey: 'campaignId', as: 'campaign' });
+ProspectResearchNote.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+ProspectResearchNote.belongsTo(ProspectIntelligenceProfile, { foreignKey: 'profileId', as: 'profile' });
+ProspectResearchNote.belongsTo(User, { foreignKey: 'authorId', as: 'author' });
+ProspectResearchTask.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+ProspectResearchTask.belongsTo(ProspectIntelligenceProfile, { foreignKey: 'profileId', as: 'profile' });
+ProspectResearchTask.belongsTo(User, { foreignKey: 'assigneeId', as: 'assignee' });
+ProspectResearchTask.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
 EmployerBrandSection.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 EmployerBrandCampaign.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 WorkforceAnalyticsSnapshot.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
