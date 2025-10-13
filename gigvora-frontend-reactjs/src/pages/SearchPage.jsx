@@ -54,6 +54,42 @@ const CATEGORIES = [
     tagline: 'Purpose-led missions from nonprofits and community partners.',
     placeholder: 'Search missions or causes',
   },
+  {
+    id: 'talent',
+    label: 'Freelancers',
+    tagline: 'Curated independent talent ready to collaborate.',
+    placeholder: 'Search skills, disciplines, or locations',
+  },
+  {
+    id: 'companies',
+    label: 'Companies',
+    tagline: 'Hiring teams and organisations across the Gigvora ecosystem.',
+    placeholder: 'Search company names, sectors, or geographies',
+  },
+  {
+    id: 'people',
+    label: 'People',
+    tagline: 'Find people in your wider network to connect with.',
+    placeholder: 'Search names, specialties, or keywords',
+  },
+  {
+    id: 'groups',
+    label: 'Groups',
+    tagline: 'Communities and collectives hosting specialised discussions.',
+    placeholder: 'Search groups or focus areas',
+  },
+  {
+    id: 'headhunter',
+    label: 'Headhunters',
+    tagline: 'Specialist partners for executive and niche searches.',
+    placeholder: 'Search headhunter firms or expertise areas',
+  },
+  {
+    id: 'agency',
+    label: 'Agencies',
+    tagline: 'Agency partners and collectives to co-deliver programmes.',
+    placeholder: 'Search agency names, services, or regions',
+  },
 ];
 
 const SORT_OPTIONS = {
@@ -79,6 +115,35 @@ const SORT_OPTIONS = {
   volunteering: [
     { id: 'default', label: 'Relevance' },
     { id: 'alphabetical', label: 'A–Z' },
+  ],
+  talent: [
+    { id: 'default', label: 'Match score' },
+    { id: 'availability', label: 'Availability' },
+    { id: 'alphabetical', label: 'A–Z' },
+  ],
+  companies: [
+    { id: 'default', label: 'Relevance' },
+    { id: 'alphabetical', label: 'A–Z' },
+    { id: 'activity', label: 'Recent activity' },
+  ],
+  people: [
+    { id: 'default', label: 'Relevance' },
+    { id: 'alphabetical', label: 'A–Z' },
+    { id: 'recent', label: 'Recently active' },
+  ],
+  groups: [
+    { id: 'default', label: 'Relevance' },
+    { id: 'members', label: 'Member count' },
+    { id: 'recent', label: 'Recently active' },
+  ],
+  headhunter: [
+    { id: 'default', label: 'Relevance' },
+    { id: 'alphabetical', label: 'A–Z' },
+  ],
+  agency: [
+    { id: 'default', label: 'Relevance' },
+    { id: 'alphabetical', label: 'A–Z' },
+    { id: 'impact', label: 'Programme impact' },
   ],
 };
 

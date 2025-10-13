@@ -1,11 +1,15 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
+import useSession from '../hooks/useSession.js';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [twoFactor, setTwoFactor] = useState('');
   const [step, setStep] = useState('credentials');
+  const navigate = useNavigate();
+  const { login } = useSession();
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -14,7 +18,20 @@ export default function LoginPage() {
 
   const handleVerify = (event) => {
     event.preventDefault();
-    alert('2FA verified. Redirecting to dashboard.');
+    login({
+      name: 'Lena Fields',
+      title: 'Product Designer',
+      avatarSeed: 'Lena Fields',
+      memberships: ['user', 'freelancer', 'agency'],
+      primaryDashboard: 'user',
+      followers: 1280,
+      connections: 324,
+      companies: ['Gigvora Labs', 'Atlas Studios'],
+      agencies: ['Northshore Creative'],
+      accountTypes: ['Freelancer', 'Agency', 'Talent Lead'],
+      isAuthenticated: true,
+    });
+    navigate('/feed');
   };
 
   return (
