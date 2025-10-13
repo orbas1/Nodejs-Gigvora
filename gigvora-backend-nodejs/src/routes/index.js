@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import authRoutes from './authRoutes.js';
 import userRoutes from './userRoutes.js';
+import projectGigManagementRoutes from './projectGigManagementRoutes.js';
 import freelancerRoutes from './freelancerRoutes.js';
 import feedRoutes from './feedRoutes.js';
 import searchRoutes from './searchRoutes.js';
@@ -26,11 +27,13 @@ import learningHubRoutes from './learningHubRoutes.js';
 import workspaceTemplateRoutes from './workspaceTemplateRoutes.js';
 import companyRoutes from './companyRoutes.js';
 import interviewRoutes from './interviewRoutes.js';
+import networkingRoutes from './networkingRoutes.js';
 
 const router = Router();
 
 router.use('/auth', authRoutes);
 router.use('/freelancers', freelancerRoutes);
+router.use('/users/:userId/project-gig-management', projectGigManagementRoutes);
 router.use('/users', userRoutes);
 router.use('/feed', feedRoutes);
 router.use('/search', searchRoutes);
@@ -56,5 +59,6 @@ router.use('/workspace-templates', workspaceTemplateRoutes);
 router.use('/company', companyRoutes);
 router.use('/interviews', interviewRoutes);
 router.use('/ads', adRoutes);
+router.use('/networking', networkingRoutes);
 
 export default router;

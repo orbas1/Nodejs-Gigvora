@@ -46,8 +46,6 @@ import {
   CompliancePolicy,
   ComplianceAuditLog,
   AccessibilityAudit,
-  MessageThread,
-  Message,
   HeadhunterInvite,
   HeadhunterBrief,
   HeadhunterBriefAssignment,
@@ -67,17 +65,23 @@ import {
   EmployerBrandStory,
   EmployerBenefit,
   EmployeeJourneyProgram,
+  NetworkingSession,
+  NetworkingSessionSignup,
+  NetworkingBusinessCard,
   WorkspaceIntegration,
   WorkspaceCalendarConnection,
 } from '../models/index.js';
+import { MessageThread } from '../models/messagingModels.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
+import { buildLocationDetails } from '../utils/location.js';
 import { getAdDashboardSnapshot } from './adService.js';
 
 const CACHE_NAMESPACE = 'dashboard:company';
 const CACHE_TTL_SECONDS = 45;
 const MIN_LOOKBACK_DAYS = 7;
 const MAX_LOOKBACK_DAYS = 180;
+const NETWORKING_DEFAULT_PENALTY_RULES = { noShowThreshold: 2, cooldownDays: 14 };
 
 function clamp(value, { min, max, fallback }) {
   if (!Number.isFinite(Number(value))) {
@@ -108,21 +112,6 @@ function differenceInDays(start, end = new Date()) {
     return null;
   }
   return Math.round(diffMs / (1000 * 60 * 60 * 24));
-}
-
-function differenceInHours(start, end = new Date()) {
-  if (!start) return null;
-  const startDate = new Date(start);
-  const endDate = new Date(end);
-  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-    return null;
-  }
-  const diffMs = endDate.getTime() - startDate.getTime();
-  if (!Number.isFinite(diffMs)) {
-    return null;
-  }
-  return diffMs / (1000 * 60 * 60);
-  return Number((diffMs / (1000 * 60 * 60)).toFixed(1));
 }
 
 function average(numbers) {
@@ -161,6 +150,95 @@ function sumNumbers(values = []) {
     }
     return total + numeric;
   }, 0);
+}
+
+const EXPECTED_MATURITY_SIGNALS = 9;
+
+const READINESS_STATUS_ORDER = {
+  unknown: 0,
+  healthy: 1,
+  watch: 2,
+  at_risk: 3,
+};
+
+function determineMaturityTier(score) {
+  if (!Number.isFinite(score)) {
+    return 'insufficient_data';
+  }
+  if (score >= 85) {
+    return 'elite';
+  }
+  if (score >= 70) {
+    return 'operational';
+  }
+  if (score >= 55) {
+    return 'scaling';
+  }
+  return 'foundational';
+}
+
+function evaluateSignalHealth(value, { healthy = 80, caution = 55 } = {}) {
+  if (!Number.isFinite(value)) {
+    return 'unknown';
+  }
+  if (value >= healthy) {
+    return 'healthy';
+  }
+  if (value >= caution) {
+    return 'watch';
+  }
+  return 'at_risk';
+}
+
+function resolveOverallStatus(statuses = []) {
+  return statuses.reduce((worst, status) => {
+    if (!status || READINESS_STATUS_ORDER[status] == null) {
+      return worst;
+    }
+    if (!worst) {
+      return status;
+    }
+    return READINESS_STATUS_ORDER[status] > READINESS_STATUS_ORDER[worst] ? status : worst;
+  }, 'unknown');
+}
+
+function computeScoreConfidence(signalCount, expectedCount = EXPECTED_MATURITY_SIGNALS) {
+  if (!Number.isFinite(signalCount) || signalCount <= 0 || !Number.isFinite(expectedCount) || expectedCount <= 0) {
+    return null;
+  }
+  const ratio = Math.min(signalCount / expectedCount, 1);
+  return Number((ratio * 100).toFixed(1));
+}
+
+function extractDateCandidates(records, fields = ['updatedAt', 'createdAt']) {
+  if (!Array.isArray(records)) {
+    return [];
+  }
+  return records
+    .flatMap((record) => {
+      const plain = record?.get ? record.get({ plain: true }) : record;
+      if (!plain || typeof plain !== 'object') {
+        return [];
+      }
+      return fields.map((field) => plain?.[field]).filter(Boolean);
+    })
+    .map((value) => new Date(value))
+    .filter((date) => Number.isFinite(date.getTime()));
+}
+
+function findMostRecentDate(candidates = []) {
+  if (!Array.isArray(candidates) || candidates.length === 0) {
+    return null;
+  }
+  return candidates.reduce((latest, candidate) => {
+    if (!candidate || Number.isNaN(candidate.getTime())) {
+      return latest;
+    }
+    if (!latest) {
+      return candidate;
+    }
+    return candidate > latest ? candidate : latest;
+  }, null);
 }
 
 function normaliseMetadata(metadata) {
@@ -219,6 +297,8 @@ function extractPartnerInfo(metadata, { fallbackName = 'Agency partner', fallbac
     partnerName: partnerName ? `${partnerName}` : fallbackName,
     partnerType: `${partnerType || fallbackType}`.toLowerCase(),
   };
+}
+
 function differenceInHours(start, end = new Date()) {
   if (!start) return null;
   const startDate = new Date(start);
@@ -518,6 +598,9 @@ function sanitizeProfile(companyProfile) {
     companyName: plain.companyName,
     description: plain.description,
     website: plain.website,
+    location: plain.location ?? null,
+    geoLocation: plain.geoLocation ?? null,
+    locationDetails: buildLocationDetails(plain.location, plain.geoLocation),
   };
 }
 
@@ -1661,6 +1744,12 @@ function buildJobLifecycleInsights({
   applications,
   reviews,
   interviewSchedules,
+  interviewScheduler = {},
+  panelTemplates = {},
+  candidatePrep = {},
+  evaluationWorkspace = {},
+  offerBridge = {},
+  candidateCareCenter = {},
 }) {
   const now = new Date();
   const stageRecords = [...jobStages]
@@ -1673,6 +1762,17 @@ function buildJobLifecycleInsights({
   const interviewRecords = interviewSchedules.map((schedule) =>
     schedule?.get ? schedule.get({ plain: true }) : schedule,
   );
+
+  const lifecycleTimestamps = [
+    ...extractDateCandidates(stageRecords),
+    ...extractDateCandidates(approvalRecords),
+    ...extractDateCandidates(campaignRecords),
+    ...extractDateCandidates(reviewRecords, ['decidedAt', 'createdAt', 'updatedAt']),
+    ...extractDateCandidates(applicationRecords, ['decisionAt', 'updatedAt', 'submittedAt', 'createdAt']),
+    ...extractDateCandidates(interviewRecords, ['scheduledAt', 'updatedAt', 'createdAt']),
+  ];
+  const lastUpdatedDate = findMostRecentDate(lifecycleTimestamps);
+  const dataFreshnessHours = lastUpdatedDate ? differenceInHours(lastUpdatedDate) : null;
 
   const averageStageDuration = average(
     stageRecords
@@ -1849,6 +1949,349 @@ function buildJobLifecycleInsights({
 
   const approvalsCompleted = approvalRecords.filter((item) => item.completedAt).length;
 
+  const instrumentedStages = stageRecords.filter((stage) => {
+    const metadata = stage?.metadata ?? {};
+    if (Array.isArray(metadata.automations) && metadata.automations.length) return true;
+    if (Array.isArray(metadata.automationRules) && metadata.automationRules.length) return true;
+    if (Array.isArray(metadata.automationPlaybooks) && metadata.automationPlaybooks.length) return true;
+    if (Array.isArray(metadata.webhookTargets) && metadata.webhookTargets.length) return true;
+    if (Array.isArray(metadata.reminders) && metadata.reminders.length) return true;
+    if (Array.isArray(metadata.guardrails) && metadata.guardrails.length) return true;
+    if (metadata.autoAdvance || metadata.autoReject || metadata.autoMove) return true;
+    if (metadata.automation?.enabled || metadata.automation?.playbooks?.length) return true;
+    if (metadata.serviceLevelAutomation && Object.keys(metadata.serviceLevelAutomation).length) return true;
+    return false;
+  }).length;
+
+  const stageAutomationCoverage = stageRecords.length
+    ? Number(((instrumentedStages / stageRecords.length) * 100).toFixed(1))
+    : null;
+
+  const stageGuideCoverage = stageRecords.length
+    ? Number(
+        (
+          (stageRecords.filter((stage) => Boolean(stage.guideUrl)).length / stageRecords.length) *
+          100
+        ).toFixed(1),
+      )
+    : null;
+
+  const stageKeySet = new Set(
+    stageRecords
+      .map((stage) => normalizeStageKey(stage?.metadata?.stageKey ?? stage?.metadata?.reviewStage ?? stage?.name))
+      .filter(Boolean),
+  );
+  const templateCoverageSet = new Set(
+    (panelTemplates?.stageCoverage ?? [])
+      .map((entry) => normalizeStageKey(entry?.stage))
+      .filter(Boolean),
+  );
+  const templateCoverage = stageKeySet.size
+    ? Number(
+        (
+          (Array.from(stageKeySet).filter((key) => templateCoverageSet.has(key)).length / stageKeySet.size) *
+          100
+        ).toFixed(1),
+      )
+    : null;
+
+  const reminderCoverage = safeNumber(interviewScheduler?.reminderCoverage);
+  const availabilityCoverage = safeNumber(interviewScheduler?.availabilityCoverage);
+  const rescheduleRate = safeNumber(interviewScheduler?.rescheduleRate);
+
+  const ndaCompletionRate = safeNumber(candidatePrep?.ndaCompletionRate);
+  const formCompletionRate = safeNumber(candidatePrep?.formCompletionRate);
+  const resourceEngagementRate = safeNumber(candidatePrep?.resourceEngagementRate);
+
+  const anonymizedShare = safeNumber(evaluationWorkspace?.anonymizedShare);
+  const calibrationsScheduled = Array.isArray(evaluationWorkspace?.calibrationSessions)
+    ? evaluationWorkspace.calibrationSessions.length
+    : 0;
+
+  const backgroundChecksInProgress = safeNumber(offerBridge?.backgroundChecksInProgress) ?? 0;
+  const approvalsPendingCount = pendingApprovals.length;
+
+  const inclusionScore = safeNumber(candidateCareCenter?.inclusionScore);
+  const candidateNps = safeNumber(candidateCareCenter?.nps);
+  const averageResponseMinutes = safeNumber(candidateCareCenter?.averageResponseMinutes);
+  const openTickets = safeNumber(candidateCareCenter?.openTickets);
+  const escalations = safeNumber(candidateCareCenter?.escalations) ?? 0;
+
+  const maturitySignals = [
+    stageAutomationCoverage,
+    reminderCoverage,
+    availabilityCoverage,
+    templateCoverage,
+    ndaCompletionRate,
+    formCompletionRate,
+    resourceEngagementRate,
+    anonymizedShare,
+    inclusionScore,
+  ].filter((value) => Number.isFinite(value));
+
+  const maturityScore = maturitySignals.length
+    ? Number((maturitySignals.reduce((sum, value) => sum + value, 0) / maturitySignals.length).toFixed(1))
+    : null;
+
+  const signalCount = maturitySignals.length;
+  const scoreConfidence = computeScoreConfidence(signalCount);
+  const maturityTier = determineMaturityTier(maturityScore);
+  const candidateNpsNormalised = Number.isFinite(candidateNps)
+    ? Math.max(Math.min(((candidateNps + 100) / 2), 100), 0)
+    : null;
+
+  const readinessSignals = [
+    { id: 'automation', label: 'Automation coverage', value: stageAutomationCoverage, goal: 80 },
+    { id: 'reminders', label: 'Reminder coverage', value: reminderCoverage, goal: 90 },
+    { id: 'availability', label: 'Availability coverage', value: availabilityCoverage, goal: 85 },
+    { id: 'templates', label: 'Template coverage', value: templateCoverage, goal: 75 },
+    { id: 'guides', label: 'Stage guides', value: stageGuideCoverage, goal: 85 },
+    { id: 'nda', label: 'NDA completion', value: ndaCompletionRate, goal: 90 },
+    { id: 'forms', label: 'Form completion', value: formCompletionRate, goal: 85 },
+    { id: 'resources', label: 'Resource engagement', value: resourceEngagementRate, goal: 60 },
+    { id: 'anonymized', label: 'Bias-safe reviews', value: anonymizedShare, goal: 70 },
+    { id: 'inclusion', label: 'Inclusion score', value: inclusionScore, goal: 80 },
+  ];
+
+  const readinessScorecard = readinessSignals
+    .map((signal) => {
+      const numericValue = Number(signal.value);
+      const hasValue = Number.isFinite(numericValue);
+      const cautionThreshold = Math.max(Math.min(signal.goal - 10, Math.round(signal.goal * 0.75)), 0);
+      return {
+        id: signal.id,
+        label: signal.label,
+        value: hasValue ? Number(numericValue.toFixed(1)) : null,
+        goal: signal.goal,
+        status: evaluateSignalHealth(hasValue ? numericValue : null, {
+          healthy: signal.goal,
+          caution: cautionThreshold,
+        }),
+      };
+    })
+    .filter((signal) => signal.value != null);
+
+  const complianceSignals = [stageGuideCoverage, ndaCompletionRate, formCompletionRate].filter((value) =>
+    Number.isFinite(value),
+  );
+  const complianceScore = complianceSignals.length ? Number(average(complianceSignals)) : null;
+
+  const experienceSignals = [resourceEngagementRate, inclusionScore, candidateNpsNormalised].filter((value) =>
+    Number.isFinite(value),
+  );
+  const experienceScore = experienceSignals.length ? Number(average(experienceSignals)) : null;
+
+  const automationHealthStatus = evaluateSignalHealth(stageAutomationCoverage, { healthy: 80, caution: 55 });
+  const collaborationHealthStatus = evaluateSignalHealth(templateCoverage, { healthy: 75, caution: 50 });
+  const complianceHealthStatus = evaluateSignalHealth(complianceScore, { healthy: 85, caution: 65 });
+  const experienceHealthStatus = evaluateSignalHealth(experienceScore, { healthy: 75, caution: 55 });
+  const overallHealthStatus = resolveOverallStatus([
+    automationHealthStatus,
+    collaborationHealthStatus,
+    complianceHealthStatus,
+    experienceHealthStatus,
+  ]);
+
+  const readinessWatchouts = [];
+  if (automationHealthStatus === 'at_risk') {
+    readinessWatchouts.push(
+      'Less than 55% of lifecycle stages are automated. Configure orchestration or SLAs to reduce manual handoffs.',
+    );
+  }
+  if (automationHealthStatus === 'watch' && Number.isFinite(stageAutomationCoverage)) {
+    readinessWatchouts.push(
+      `Automation coverage at ${stageAutomationCoverage}% could improve to unlock faster candidate movement.`,
+    );
+  }
+  if (complianceHealthStatus !== 'healthy' && approvalsPendingCount > 0) {
+    readinessWatchouts.push(
+      `${approvalsPendingCount} compliance approvals are in-flight. Expedite sign-off to maintain guardrails.`,
+    );
+  }
+  if (experienceHealthStatus === 'at_risk') {
+    readinessWatchouts.push(
+      'Candidate experience signals show risk. Review prep resources and care tickets to restore satisfaction.',
+    );
+  }
+  if (Number.isFinite(rescheduleRate) && rescheduleRate > 15) {
+    readinessWatchouts.push(`Interview reschedule rate at ${rescheduleRate}% exceeds healthy thresholds.`);
+  }
+  if (openTickets > 3) {
+    readinessWatchouts.push(`${openTickets} candidate care tickets remain open. Rally support to close the queue.`);
+  }
+  if (scoreConfidence != null && scoreConfidence < 60) {
+    readinessWatchouts.push('Readiness score confidence is low. Connect additional lifecycle signals for better coverage.');
+  }
+  if (dataFreshnessHours != null && dataFreshnessHours > 48) {
+    readinessWatchouts.push('Lifecycle signals are older than 48 hours. Refresh integrations to improve data freshness.');
+  }
+
+  const enterpriseActions = [];
+  if (!Number.isFinite(stageAutomationCoverage) || stageAutomationCoverage < 80) {
+    enterpriseActions.push({
+      id: 'automation-expansion',
+      title: 'Instrument additional stage automations',
+      description: 'Add SLA reminders and guardrails to remaining stages to exceed 80% automation coverage.',
+      impact: 'High',
+      category: 'automation',
+    });
+  }
+  if (!Number.isFinite(templateCoverage) || templateCoverage < 75) {
+    enterpriseActions.push({
+      id: 'template-standardisation',
+      title: 'Roll out structured interview templates',
+      description: 'Publish templates for uncovered stages to ensure consistent feedback and calibration readiness.',
+      impact: 'Medium',
+      category: 'collaboration',
+    });
+  }
+  if (!Number.isFinite(ndaCompletionRate) || ndaCompletionRate < 90) {
+    enterpriseActions.push({
+      id: 'compliance-nda',
+      title: 'Boost NDA completion rates',
+      description: 'Automate NDA distribution from prep portals to drive completion above 90%.',
+      impact: 'Medium',
+      category: 'compliance',
+    });
+  }
+  if (scoreConfidence != null && scoreConfidence < 70) {
+    enterpriseActions.push({
+      id: 'signal-instrumentation',
+      title: 'Connect additional lifecycle signals',
+      description: 'Enable recruiter workspace integrations to lift readiness score confidence above 70%.',
+      impact: 'High',
+      category: 'observability',
+    });
+  }
+  if (!Number.isFinite(resourceEngagementRate) || resourceEngagementRate < 50) {
+    enterpriseActions.push({
+      id: 'candidate-prep',
+      title: 'Refresh candidate prep resources',
+      description: 'Publish updated prep guides and nudges to raise resource engagement beyond 50%.',
+      impact: 'Medium',
+      category: 'experience',
+    });
+  }
+  if (dataFreshnessHours != null && dataFreshnessHours > 36) {
+    enterpriseActions.push({
+      id: 'refresh-integrations',
+      title: 'Refresh ATS integrations',
+      description: 'Re-authorise calendar, ATS, and HRIS connections to bring data freshness under 24 hours.',
+      impact: 'Medium',
+      category: 'observability',
+    });
+  }
+
+  const readinessHighlights = [];
+  if (maturityTier === 'elite') {
+    readinessHighlights.push('Readiness tier recognised as Elite with comprehensive lifecycle instrumentation.');
+  } else if (maturityTier === 'operational') {
+    readinessHighlights.push('Operational readiness achieved across automation, collaboration, and compliance signals.');
+  }
+  if (Number.isFinite(stageAutomationCoverage) && stageAutomationCoverage > 0) {
+    readinessHighlights.push(
+      `${stageAutomationCoverage}% of lifecycle stages have automations, SLA reminders, or guardrails configured.`,
+    );
+  }
+  if (Number.isFinite(templateCoverage) && templateCoverage > 0) {
+    readinessHighlights.push(`${templateCoverage}% of hiring stages mapped to structured interview templates.`);
+  }
+  if (Number.isFinite(ndaCompletionRate) && ndaCompletionRate > 0) {
+    readinessHighlights.push(`NDA completion at ${ndaCompletionRate.toFixed(1)}% across candidate prep portals.`);
+  }
+  if (Number.isFinite(resourceEngagementRate) && resourceEngagementRate > 0) {
+    readinessHighlights.push(`Candidates consume ${resourceEngagementRate.toFixed(1)}% of shared resources before interviews.`);
+  }
+  if (calibrationsScheduled > 0) {
+    readinessHighlights.push(`${calibrationsScheduled} calibration session${calibrationsScheduled === 1 ? '' : 's'} scheduled.`);
+  }
+  if (Number.isFinite(inclusionScore) && inclusionScore > 0) {
+    readinessHighlights.push(`Candidate care centre inclusion score at ${inclusionScore.toFixed(1)}%.`);
+  }
+  if (Number.isFinite(candidateNps)) {
+    readinessHighlights.push(`Candidate NPS tracked at ${candidateNps.toFixed(1)}.`);
+  }
+  if (scoreConfidence != null && scoreConfidence >= 80) {
+    readinessHighlights.push(`Readiness score confidence high with ${signalCount} lifecycle signals feeding the model.`);
+  }
+
+  const lastUpdatedAt = lastUpdatedDate ? lastUpdatedDate.toISOString() : null;
+
+  const instrumentation = {
+    measuredSignals: signalCount,
+    expectedSignals: EXPECTED_MATURITY_SIGNALS,
+    scoreConfidence,
+    coverage: {
+      automation: stageAutomationCoverage,
+      reminders: reminderCoverage,
+      availability: availabilityCoverage,
+      templates: templateCoverage,
+      guides: stageGuideCoverage,
+      ndaCompletion: ndaCompletionRate,
+      formCompletion: formCompletionRate,
+      resourceEngagement: resourceEngagementRate,
+      anonymizedShare,
+      inclusionScore,
+    },
+  };
+
+  const enterpriseReadiness = {
+    maturityScore,
+    maturityTier,
+    scoreConfidence,
+    dataFreshnessHours,
+    lastUpdatedAt,
+    automation: {
+      stageAutomationCoverage,
+      instrumentedStages,
+      totalStages: stageRecords.length,
+      reminderCoverage,
+      availabilityCoverage,
+      rescheduleRate,
+    },
+    collaboration: {
+      templateCoverage,
+      calibrationsScheduled,
+      anonymizedEvaluationsShare: anonymizedShare,
+      rolesCovered: safeNumber(panelTemplates?.rolesCovered),
+      interviewerLoad: Array.isArray(interviewScheduler?.interviewerLoad)
+        ? interviewScheduler.interviewerLoad
+        : [],
+    },
+    compliance: {
+      guideCoverage: stageGuideCoverage,
+      approvalsPending: approvalsPendingCount,
+      ndaCompletionRate,
+      formCompletionRate,
+      backgroundChecksInProgress,
+    },
+    experience: {
+      resourceEngagementRate,
+      inclusionScore,
+      nps: candidateNps,
+      averageResponseMinutes,
+      openTickets,
+      escalations,
+    },
+    instrumentation,
+    health: {
+      overall: overallHealthStatus,
+      automation: automationHealthStatus,
+      collaboration: collaborationHealthStatus,
+      compliance: complianceHealthStatus,
+      experience: experienceHealthStatus,
+    },
+    highlights: readinessHighlights.slice(0, 6),
+    watchouts: readinessWatchouts.slice(0, 5),
+    actions: enterpriseActions.slice(0, 5),
+    scorecard: readinessScorecard.slice(0, 10),
+    risk: {
+      outstandingApprovals: approvalsPendingCount,
+      scheduleConflicts: safeNumber(interviewScheduler?.conflicts) ?? 0,
+      openTickets,
+    },
+  };
+
   return {
     totalStages: jobStages.length,
     averageStageDurationHours: averageStageDuration,
@@ -1875,6 +2318,7 @@ function buildJobLifecycleInsights({
       byChannel: campaignMetrics,
       topChannels: campaignMetrics.slice(0, 5),
     },
+    enterpriseReadiness,
     atsHealth: {
       conversionRates: pipelineSummary?.conversionRates ?? {},
       velocity: pipelineSummary?.velocity ?? {},
@@ -1882,6 +2326,17 @@ function buildJobLifecycleInsights({
       upcomingInterviews,
       rescheduleCount,
       pendingApprovals: pendingApprovals.length,
+      automationCoverage: stageAutomationCoverage,
+      templateCoverage,
+      maturityScore,
+      readinessTier: maturityTier,
+      scoreConfidence,
+      dataFreshnessHours,
+      lastUpdatedAt,
+      overallHealthStatus,
+      measuredSignals: signalCount,
+      ndaCompletionRate,
+      inclusionScore,
     },
     funnel,
     recentActivity: {
@@ -4706,6 +5161,300 @@ async function listAvailableWorkspaces() {
   return workspaces.map((workspace) => workspace.get({ plain: true }));
 }
 
+async function fetchNetworkingSessionsForWorkspace({ workspaceId, since }) {
+  if (!workspaceId) {
+    return [];
+  }
+  const where = { companyId: workspaceId };
+  if (since) {
+    where.createdAt = { [Op.gte]: since };
+  }
+  return NetworkingSession.findAll({
+    where,
+    include: [{ model: NetworkingSessionSignup, as: 'signups' }],
+    order: [
+      ['startTime', 'ASC'],
+      ['createdAt', 'DESC'],
+    ],
+    limit: 200,
+  });
+}
+
+async function fetchNetworkingBusinessCardsForWorkspace({ workspaceId }) {
+  if (!workspaceId) {
+    return [];
+  }
+  return NetworkingBusinessCard.findAll({
+    where: { companyId: workspaceId },
+    order: [['updatedAt', 'DESC']],
+    limit: 200,
+  });
+}
+
+function buildNetworkingDashboard({ sessions, cards }) {
+  const now = Date.now();
+  const sessionSummaries = sessions.map((session) => {
+    const plain = session.toPublicObject();
+    const signups = Array.isArray(session.signups) ? session.signups : [];
+    const registered = signups.filter((signup) => signup.status === 'registered').length;
+    const waitlisted = signups.filter((signup) => signup.status === 'waitlisted').length;
+    const checkedIn = signups.filter((signup) => signup.status === 'checked_in').length;
+    const completed = signups.filter((signup) => signup.status === 'completed').length;
+    const noShows = signups.filter((signup) => signup.status === 'no_show').length;
+    const cardShares = signups.filter((signup) => signup.businessCardId != null).length;
+    const penalties = signups.filter((signup) => (signup.penaltyCount ?? 0) > 0).length;
+    const satisfactionScores = signups
+      .map((signup) => (signup.satisfactionScore == null ? null : Number(signup.satisfactionScore)))
+      .filter((score) => Number.isFinite(score));
+    const avgSatisfaction = satisfactionScores.length
+      ? Number((satisfactionScores.reduce((sum, score) => sum + score, 0) / satisfactionScores.length).toFixed(2))
+      : null;
+    const profileSharedCount = sumNumbers(signups.map((signup) => signup.profileSharedCount ?? 0));
+    const connectionsSaved = sumNumbers(signups.map((signup) => signup.connectionsSaved ?? 0));
+    const messagesSent = sumNumbers(signups.map((signup) => signup.messagesSent ?? 0));
+    const followUpsScheduled = sumNumbers(signups.map((signup) => signup.followUpsScheduled ?? 0));
+    const penaltyRules = normaliseMetadata(plain.penaltyRules ?? session.penaltyRules ?? {});
+
+    return {
+      ...plain,
+      metrics: {
+        registered,
+        waitlisted,
+        checkedIn,
+        completed,
+        noShows,
+        cardShares,
+        penalties,
+        profileSharedCount,
+        connectionsSaved,
+        messagesSent,
+        followUpsScheduled,
+        averageSatisfaction: avgSatisfaction,
+        penaltyRules,
+      },
+      upcoming: plain.startTime ? new Date(plain.startTime).getTime() > now : false,
+    };
+  });
+
+  const totals = sessionSummaries.reduce(
+    (acc, session) => {
+      const status = session.status;
+      if (status === 'in_progress') acc.active += 1;
+      if (status === 'scheduled' && session.upcoming) acc.upcoming += 1;
+      if (status === 'completed') acc.completed += 1;
+      if (status === 'draft') acc.draft += 1;
+      if (status === 'cancelled') acc.cancelled += 1;
+      acc.total += 1;
+      if (Number.isFinite(Number(session.joinLimit))) {
+        acc.joinLimits.push(Number(session.joinLimit));
+      }
+      if (Number.isFinite(Number(session.rotationDurationSeconds))) {
+        acc.rotationDurations.push(Number(session.rotationDurationSeconds));
+      }
+      const metrics = session.metrics;
+      acc.registered += metrics.registered;
+      acc.waitlist += metrics.waitlisted;
+      acc.checkedIn += metrics.checkedIn;
+      acc.completedAttendees += metrics.completed;
+      acc.noShows += metrics.noShows;
+      acc.profileShares += metrics.profileSharedCount;
+      acc.connectionsSaved += metrics.connectionsSaved;
+      acc.messagesSent += metrics.messagesSent;
+      acc.followUps += metrics.followUpsScheduled;
+      if (session.accessType === 'paid') {
+        acc.paidSessions += 1;
+        if (Number.isFinite(Number(session.priceCents))) {
+          const attendeeCount = metrics.checkedIn + metrics.completed;
+          acc.revenueCents += Number(session.priceCents) * Math.max(0, attendeeCount);
+          acc.pricePoints.push(Number(session.priceCents));
+        }
+      } else {
+        acc.freeSessions += 1;
+      }
+      if (Number.isFinite(metrics.averageSatisfaction)) {
+        acc.satisfactionScores.push(metrics.averageSatisfaction);
+      }
+      const telemetry = normaliseMetadata(session.videoTelemetry ?? {});
+      if (telemetry.qualityScore != null && Number.isFinite(Number(telemetry.qualityScore))) {
+        acc.videoQuality.push(Number(telemetry.qualityScore));
+      }
+      if (telemetry.announcements != null && Number.isFinite(Number(telemetry.announcements))) {
+        acc.hostAnnouncements += Number(telemetry.announcements);
+      }
+      if (telemetry.failoverRate != null && Number.isFinite(Number(telemetry.failoverRate))) {
+        acc.videoFailover.push(Number(telemetry.failoverRate));
+      }
+      const config = normaliseMetadata(session.videoConfig ?? {});
+      if (config.clientLoadShare != null && Number.isFinite(Number(config.clientLoadShare))) {
+        acc.browserLoadShare.push(Number(config.clientLoadShare));
+      }
+      acc.remindersSent += Number(session.metadata?.remindersSent ?? 0);
+      acc.searchDemand += Number(session.metadata?.searchInterest ?? 0);
+      acc.sponsorSlots += Number(session.monetization?.sponsorSlots ?? 0);
+      return acc;
+    },
+    {
+      total: 0,
+      active: 0,
+      upcoming: 0,
+      completed: 0,
+      draft: 0,
+      cancelled: 0,
+      joinLimits: [],
+      rotationDurations: [],
+      registered: 0,
+      waitlist: 0,
+      checkedIn: 0,
+      completedAttendees: 0,
+      noShows: 0,
+      profileShares: 0,
+      connectionsSaved: 0,
+      messagesSent: 0,
+      followUps: 0,
+      paidSessions: 0,
+      freeSessions: 0,
+      revenueCents: 0,
+      pricePoints: [],
+      satisfactionScores: [],
+      videoQuality: [],
+      hostAnnouncements: 0,
+      videoFailover: [],
+      browserLoadShare: [],
+      remindersSent: 0,
+      searchDemand: 0,
+      sponsorSlots: 0,
+    },
+  );
+
+  const cardsPlain = cards.map((card) => card.toPublicObject());
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const cardsUpdatedThisWeek = cardsPlain.filter((card) => {
+    const updatedAt = card.updatedAt ? new Date(card.updatedAt).getTime() : null;
+    return updatedAt != null && updatedAt >= sevenDaysAgo;
+  }).length;
+  const uniqueTags = new Set(cardsPlain.flatMap((card) => (Array.isArray(card.tags) ? card.tags : [])));
+  const cardShares = sessionSummaries.reduce((total, session) => total + session.metrics.cardShares, 0);
+
+  const averageJoinLimit = totals.joinLimits.length
+    ? Math.round(totals.joinLimits.reduce((sum, value) => sum + value, 0) / totals.joinLimits.length)
+    : null;
+  const averageRotationSeconds = totals.rotationDurations.length
+    ? Math.round(totals.rotationDurations.reduce((sum, value) => sum + value, 0) / totals.rotationDurations.length)
+    : null;
+  const averagePriceCents = totals.pricePoints.length
+    ? Math.round(totals.pricePoints.reduce((sum, value) => sum + value, 0) / totals.pricePoints.length)
+    : null;
+  const averageSatisfaction = totals.satisfactionScores.length
+    ? Number(
+        (
+          totals.satisfactionScores.reduce((sum, value) => sum + value, 0) /
+          totals.satisfactionScores.length
+        ).toFixed(2),
+      )
+    : null;
+  const averageVideoQuality = totals.videoQuality.length
+    ? Number((totals.videoQuality.reduce((sum, value) => sum + value, 0) / totals.videoQuality.length).toFixed(2))
+    : null;
+  const averageBrowserLoadShare = totals.browserLoadShare.length
+    ? Number(
+        (
+          totals.browserLoadShare.reduce((sum, value) => sum + value, 0) /
+          totals.browserLoadShare.length
+        ).toFixed(2),
+      )
+    : null;
+  const averageFailoverRate = totals.videoFailover.length
+    ? Number((totals.videoFailover.reduce((sum, value) => sum + value, 0) / totals.videoFailover.length).toFixed(3))
+    : null;
+
+  const totalSignups =
+    totals.registered + totals.checkedIn + totals.completedAttendees + totals.waitlist + totals.noShows;
+  const noShowRate = totalSignups > 0 ? Number(((totals.noShows / totalSignups) * 100).toFixed(1)) : null;
+
+  const featuredSession = sessionSummaries
+    .filter((session) => session.upcoming)
+    .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())[0] ??
+    sessionSummaries[0] ??
+    null;
+
+  return {
+    sessions: {
+      total: totals.total,
+      active: totals.active,
+      upcoming: totals.upcoming,
+      completed: totals.completed,
+      draft: totals.draft,
+      cancelled: totals.cancelled,
+      averageJoinLimit,
+      rotationDurationSeconds: averageRotationSeconds,
+      registered: totals.registered,
+      waitlist: totals.waitlist,
+      checkedIn: totals.checkedIn,
+      completedAttendees: totals.completedAttendees,
+      paid: totals.paidSessions,
+      free: totals.freeSessions,
+      revenueCents: totals.revenueCents,
+      averagePriceCents,
+      satisfactionAverage: averageSatisfaction,
+      list: sessionSummaries,
+    },
+    scheduling: {
+      preRegistrations: totals.registered + totals.checkedIn + totals.completedAttendees,
+      waitlist: totals.waitlist,
+      remindersSent: totals.remindersSent,
+      searches: totals.searchDemand,
+      sponsorSlots: totals.sponsorSlots,
+    },
+    monetization: {
+      paid: totals.paidSessions,
+      free: totals.freeSessions,
+      revenueCents: totals.revenueCents,
+      averagePriceCents,
+    },
+    penalties: {
+      noShowRate,
+      activePenalties: totals.noShows,
+      restrictedParticipants: sessionSummaries.reduce((count, session) => {
+        const threshold = Number(session.metrics.penaltyRules?.noShowThreshold ?? NETWORKING_DEFAULT_PENALTY_RULES.noShowThreshold);
+        const restricted = (session.signups ?? []).filter(
+          (signup) => (signup.penaltyCount ?? 0) >= threshold,
+        );
+        return count + restricted.length;
+      }, 0),
+      cooldownDays: sessionSummaries.reduce(
+        (max, session) => Math.max(max, Number(session.metrics.penaltyRules?.cooldownDays ?? 0)),
+        NETWORKING_DEFAULT_PENALTY_RULES.cooldownDays,
+      ),
+    },
+    attendeeExperience: {
+      profilesShared: totals.profileShares,
+      connectionsSaved: totals.connectionsSaved,
+      averageMessagesPerSession:
+        sessionSummaries.length > 0
+          ? Number(((totals.messagesSent || 0) / sessionSummaries.length).toFixed(1))
+          : 0,
+      followUpsScheduled: totals.followUps,
+    },
+    digitalBusinessCards: {
+      created: cardsPlain.length,
+      updatedThisWeek: cardsUpdatedThisWeek,
+      sharedInSession: cardShares,
+      templates: Math.max(3, uniqueTags.size || 0),
+    },
+    video: {
+      averageQualityScore: averageVideoQuality,
+      browserLoadShare: averageBrowserLoadShare,
+      hostAnnouncements: totals.hostAnnouncements,
+      failoverRate: averageFailoverRate,
+    },
+    showcase: {
+      featured: featuredSession,
+      librarySize: sessionSummaries.length,
+      cardsAvailable: cardsPlain.length,
+    },
+  };
+}
+
 export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookbackDays } = {}) {
   const selector = resolveWorkspaceSelector({ workspaceId, workspaceSlug });
   const lookback = clamp(lookbackDays, {
@@ -4782,6 +5531,8 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       employeeJourneys,
       workspaceIntegrations,
       calendarConnections,
+      networkingSessions,
+      networkingBusinessCards,
     ] = await Promise.all([
       fetchApplications({ workspaceId: workspace.id, since }),
       fetchJobs({ since }),
@@ -4848,6 +5599,8 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       fetchEmployeeJourneys({ workspaceId: workspace.id }),
       fetchWorkspaceIntegrations({ workspaceId: workspace.id }),
       fetchCalendarConnections({ workspaceId: workspace.id }),
+      fetchNetworkingSessionsForWorkspace({ workspaceId: workspace.id, since }),
+      fetchNetworkingBusinessCardsForWorkspace({ workspaceId: workspace.id }),
     ]);
 
     const applicationIds = applications.map((application) => application.id);
@@ -4912,16 +5665,6 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
     const alertsSummary = buildAlertsSummary(hiringAlerts);
     const interviewOperations = buildInterviewOperationsSummary({ schedules: interviewSchedules, reviews });
     const candidateExperience = buildCandidateExperienceSummary({ surveys: candidateSurveys });
-    const jobLifecycle = buildJobLifecycleInsights({
-      jobStages,
-      approvals: jobApprovals,
-      campaigns: jobCampaigns,
-      pipelineSummary,
-      jobSummary,
-      applications,
-      reviews,
-      interviewSchedules,
-    });
     const jobDesign = buildJobDesignStudioSummary({
       approvals: jobApprovals,
       jobStages,
@@ -4954,6 +5697,22 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
     const candidateCareCenter = buildCandidateCareCenterSummary({
       tickets: candidateCareTickets,
       candidateExperience,
+    });
+    const jobLifecycle = buildJobLifecycleInsights({
+      jobStages,
+      approvals: jobApprovals,
+      campaigns: jobCampaigns,
+      pipelineSummary,
+      jobSummary,
+      applications,
+      reviews,
+      interviewSchedules,
+      interviewScheduler,
+      panelTemplates: panelTemplateSummary,
+      candidatePrep,
+      evaluationWorkspace: evaluationWorkspaceSummary,
+      offerBridge,
+      candidateCareCenter,
     });
     const partnerCollaborationDetails = buildPartnerCollaborationSummary({
       partnerSummary,
@@ -5030,6 +5789,10 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
     const employeeJourneysSummary = buildEmployeeJourneysSummary({
       journeys: plainEmployeeJourneys,
       memberSummary,
+    });
+    const networking = buildNetworkingDashboard({
+      sessions: networkingSessions ?? [],
+      cards: networkingBusinessCards ?? [],
     });
     const settingsGovernance = buildSettingsGovernanceDetails({
       governance,
@@ -5143,6 +5906,7 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       employerBrandWorkforce,
       governance,
       calendar: calendarDigest,
+      networking,
       brandAndPeople,
       reviews: {
         total: reviews.length,

@@ -9,17 +9,21 @@ import {
   MapIcon,
   PlusIcon,
 } from '@heroicons/react/24/outline';
+import { Link } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
 import DataStatus from '../components/DataStatus.jsx';
 import ExplorerMap from '../components/explorer/ExplorerMap.jsx';
 import ExplorerFilterDrawer from '../components/explorer/ExplorerFilterDrawer.jsx';
 import SavedSearchList from '../components/explorer/SavedSearchList.jsx';
+import UserAvatar from '../components/UserAvatar.jsx';
 import useCachedResource from '../hooks/useCachedResource.js';
 import useDebounce from '../hooks/useDebounce.js';
 import useSavedSearches from '../hooks/useSavedSearches.js';
 import { apiClient } from '../services/apiClient.js';
 import analytics from '../services/analytics.js';
 import { formatAbsolute, formatRelativeTime } from '../utils/date.js';
+import useSession from '../hooks/useSession.js';
+import useEngagementSignals from '../hooks/useEngagementSignals.js';
 
 const DEFAULT_CATEGORY = 'job';
 
@@ -47,6 +51,12 @@ const CATEGORIES = [
     label: 'Experience Launchpad',
     tagline: 'Cohort-driven launchpad placements and growth programmes.',
     placeholder: 'Search tracks or launchpad cohorts',
+  },
+  {
+    id: 'mentor',
+    label: 'Mentors',
+    tagline: 'Book mentorship sessions, clinics, and packages with industry leaders.',
+    placeholder: 'Search mentors, focus areas, or outcomes',
   },
   {
     id: 'volunteering',
@@ -111,6 +121,11 @@ const SORT_OPTIONS = {
   launchpad: [
     { id: 'default', label: 'Relevance' },
     { id: 'alphabetical', label: 'A–Z' },
+  ],
+  mentor: [
+    { id: 'default', label: 'Match score' },
+    { id: 'rating', label: 'Rating' },
+    { id: 'price_low_high', label: 'Price (low → high)' },
   ],
   volunteering: [
     { id: 'default', label: 'Relevance' },
@@ -252,6 +267,7 @@ function resolveSuggestedName({ category, query }) {
 }
 
 export default function SearchPage() {
+  const { session } = useSession();
   const [selectedCategory, setSelectedCategory] = useState(DEFAULT_CATEGORY);
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
@@ -269,6 +285,7 @@ export default function SearchPage() {
 
   const { items: savedSearches, loading: savedSearchesLoading, createSavedSearch, updateSavedSearch, deleteSavedSearch, canUseServer } =
     useSavedSearches({ enabled: true });
+  const engagementSignals = useEngagementSignals({ session, limit: 6 });
   const activeSavedSearch = useMemo(
     () => savedSearches.find((search) => search.id === activeSavedSearchId) ?? null,
     [savedSearches, activeSavedSearchId],
@@ -677,6 +694,54 @@ export default function SearchPage() {
                   activeSearchId={activeSavedSearchId}
                   canManageServerSearches={canUseServer}
                 />
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
+              <p className="text-sm font-semibold text-slate-900">Suggested connections</p>
+              <p className="mt-1 text-xs text-slate-500">
+                Based on your interest signals: {engagementSignals.interests.slice(0, 4).join(' • ') || 'community builders'}
+              </p>
+              <ul className="mt-4 space-y-3 text-sm">
+                {engagementSignals.connectionSuggestions.slice(0, 3).map((connection) => (
+                  <li key={connection.id} className="rounded-2xl border border-slate-200 px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <UserAvatar name={connection.name} seed={connection.name} size="xs" showGlow={false} />
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">{connection.name}</p>
+                        <p className="text-xs text-slate-500">{connection.headline}</p>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-xs text-slate-500">{connection.reason}</p>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-4 flex items-center justify-between text-xs text-slate-500">
+                <Link to="/connections" className="font-semibold text-accent hover:text-accentDark">
+                  Open network centre
+                </Link>
+                <span>{engagementSignals.connectionSuggestions.length} tailored matches</span>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
+              <p className="text-sm font-semibold text-slate-900">Groups to explore</p>
+              <p className="mt-1 text-xs text-slate-500">
+                Curated from your causes and teams you collaborate with.
+              </p>
+              <ul className="mt-4 space-y-3 text-sm">
+                {engagementSignals.groupSuggestions.slice(0, 3).map((group) => (
+                  <li key={group.id} className="rounded-2xl border border-slate-200 px-4 py-3">
+                    <p className="text-sm font-semibold text-slate-900">{group.name}</p>
+                    <p className="mt-1 text-xs text-slate-500">{group.description}</p>
+                    <p className="mt-2 text-xs text-slate-400">{group.members} members · {group.focus.slice(0, 2).join(' • ')}</p>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-4 text-right text-xs text-accent">
+                <Link to="/groups" className="font-semibold hover:text-accentDark">
+                  View all groups
+                </Link>
               </div>
             </div>
 

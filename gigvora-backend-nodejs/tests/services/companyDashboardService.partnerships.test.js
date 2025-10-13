@@ -138,7 +138,13 @@ function resetModelMocks() {
   CompanyProfile.findOne.mockResolvedValue({
     get: ({ plain }) =>
       plain
-        ? { companyName: 'Acme Co', description: 'Global hiring team', website: 'https://acme.example.com' }
+        ? {
+            companyName: 'Acme Co',
+            description: 'Global hiring team',
+            website: 'https://acme.example.com',
+            location: 'San Francisco, CA',
+            geoLocation: { label: 'San Francisco, CA', latitude: 37.7749, longitude: -122.4194 },
+          }
         : null,
   });
   Job.findAll.mockResolvedValue([]);
@@ -472,6 +478,23 @@ describe('getCompanyDashboard partnerships integration', () => {
     ]);
 
     const dashboard = await getCompanyDashboard({ workspaceId: 101, lookbackDays: 45 });
+
+    expect(dashboard.profile.locationDetails).toEqual({
+      location: 'San Francisco, CA',
+      geoLocation: {
+        label: 'San Francisco, CA',
+        latitude: 37.7749,
+        longitude: -122.4194,
+      },
+      displayName: 'San Francisco, CA',
+      shortName: 'San Francisco, CA',
+      timezone: null,
+      city: null,
+      region: null,
+      country: null,
+      postalCode: null,
+      coordinates: { latitude: 37.7749, longitude: -122.4194 },
+    });
 
     expect(dashboard.partnerships.headhunterProgram.invites).toMatchObject({
       total: 2,

@@ -4,6 +4,7 @@ import DataStatus from '../components/DataStatus.jsx';
 import LaunchpadTalentApplicationForm from '../components/LaunchpadTalentApplicationForm.jsx';
 import LaunchpadEmployerRequestForm from '../components/LaunchpadEmployerRequestForm.jsx';
 import LaunchpadPlacementsInsights from '../components/LaunchpadPlacementsInsights.jsx';
+import LaunchpadCandidatePipeline from '../components/LaunchpadCandidatePipeline.jsx';
 import useOpportunityListing from '../hooks/useOpportunityListing.js';
 import analytics from '../services/analytics.js';
 import { fetchLaunchpadDashboard } from '../services/launchpad.js';
@@ -99,7 +100,7 @@ export default function LaunchpadPage() {
         <PageHeader
           eyebrow="Experience Launchpad"
           title="Guided programmes to ship portfolio-ready work"
-          description="Co-create alongside mentors and companies with structured sprints, feedback rituals, and community support."
+          description="Join structured cohorts with partner companies, shared rituals, and measurable outcomes for your next leap."
           meta={
             <DataStatus
               loading={loading}
@@ -118,7 +119,7 @@ export default function LaunchpadPage() {
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search by track, mentor, or cohort focus"
+            placeholder="Search by track, cohort focus, or partner company"
             className="w-full rounded-full border border-slate-200 bg-white px-5 py-3 text-sm shadow-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
           />
         </div>
@@ -206,6 +207,7 @@ export default function LaunchpadPage() {
             onRefresh={handleDashboardRefresh}
             launchpad={selectedLaunchpad}
           />
+          {selectedLaunchpadId ? <LaunchpadCandidatePipeline launchpadId={selectedLaunchpadId} /> : null}
           <div id="launchpad-apply-form" className="grid gap-6 lg:grid-cols-2">
             <LaunchpadTalentApplicationForm launchpads={items} onSubmitted={handleApplicationSubmitted} />
             <LaunchpadEmployerRequestForm launchpads={items} onSubmitted={handleEmployerSubmitted} />

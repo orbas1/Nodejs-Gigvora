@@ -6,6 +6,7 @@ import supportDeskService from '../services/supportDeskService.js';
 import catalogInsightsService from '../services/catalogInsightsService.js';
 import gigBuilderService from '../services/gigBuilderService.js';
 import gigManagerService from '../services/gigManagerService.js';
+import { normalizeLocationPayload } from '../utils/location.js';
 
 export async function listUsers(req, res) {
   const limitParam = Number.parseInt(req.query.limit ?? '20', 10);
@@ -47,7 +48,27 @@ export async function updateUser(req, res) {
   if (!user) {
     return res.status(404).json({ message: 'User not found' });
   }
-  await user.update(req.body);
+  const updates = { ...req.body };
+  const hasLocation = Object.prototype.hasOwnProperty.call(req.body, 'location');
+  const hasGeoLocation = Object.prototype.hasOwnProperty.call(req.body, 'geoLocation');
+  if (hasLocation || hasGeoLocation) {
+    const normalized = normalizeLocationPayload({
+      location: hasLocation ? req.body.location : user.location,
+      geoLocation: hasGeoLocation ? req.body.geoLocation : undefined,
+    });
+    if (hasLocation) {
+      updates.location = normalized.location;
+      if (!hasGeoLocation && normalized.location == null) {
+        updates.geoLocation = null;
+      }
+    } else if (hasGeoLocation) {
+      updates.location = normalized.location;
+    }
+    if (hasGeoLocation) {
+      updates.geoLocation = normalized.geoLocation;
+    }
+  }
+  await user.update(updates);
   res.json(user);
 }
 

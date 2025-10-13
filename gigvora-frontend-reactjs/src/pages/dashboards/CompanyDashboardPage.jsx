@@ -64,6 +64,29 @@ const menuSections = [
     ],
   },
   {
+    label: 'Networking & community',
+    items: [
+      {
+        name: 'Networking sessions',
+        description: 'Launch and monitor speed networking programs with configurable rotations and join limits.',
+        sectionId: 'networking-sessions',
+        href: '/dashboard/company/networking',
+      },
+      {
+        name: 'Attendee experience',
+        description: 'Digital business cards, profile sharing, and chat tools keep every connection actionable.',
+        sectionId: 'networking-attendee-experience',
+        href: '/dashboard/company/networking',
+      },
+      {
+        name: 'Attendance controls',
+        description: 'Automate penalties for repeated no-shows and manage eligibility for future sessions.',
+        sectionId: 'networking-sessions',
+        href: '/dashboard/company/networking',
+      },
+    ],
+  },
+  {
     label: 'Analytics & planning',
     items: [
       {
@@ -406,17 +429,151 @@ function buildSections(data) {
         partnerCalendarComms.weeklyDigest?.highlights?.[0] ?? 'Weekly digest will populate after first sync.',
       ]
     : ['Connect recruiting calendars and integrations to orchestrate partner communications.'];
-    `Follow-ups pending: ${formatNumber(
-      candidateCareCenterMetrics.followUpsPending ?? candidateCare?.followUpsPending,
-    )}`,
-    `Escalations: ${formatNumber(
-      candidateCareCenterMetrics.escalations ?? candidateCare?.escalations,
-    )}`,
-  ];
 
   const calendarPoints = calendar?.upcoming?.length
     ? calendar.upcoming.slice(0, 3).map((event) => `${event.eventType} • ${formatAbsolute(event.startsAt)}`)
     : ['Connect your recruiting calendar to see upcoming events.'];
+
+  const networking = data?.networking ?? {};
+  const networkingSessions = networking.sessions ?? {};
+  const networkingScheduling = networking.scheduling ?? {};
+  const networkingMonetization = networking.monetization ?? {};
+  const networkingPenalties = networking.penalties ?? {};
+  const networkingAttendeeExperience = networking.attendeeExperience ?? {};
+  const networkingCards = networking.digitalBusinessCards ?? {};
+  const networkingVideo = networking.video ?? {};
+
+  const hasSessionMetrics = Object.values(networkingSessions).some((value) => value != null);
+  const rotationMinutes =
+    networkingSessions.rotationDurationMinutes ?? networkingSessions.averageSlotMinutes ?? null;
+  const networkingSessionPoints = hasSessionMetrics
+    ? [
+        `Active sessions: ${formatNumber(networkingSessions.active)}`,
+        `Upcoming sessions: ${formatNumber(networkingSessions.upcoming)}`,
+        `Default join limit: ${formatNumber(networkingSessions.defaultJoinLimit ?? networkingSessions.joinLimit)}`,
+        rotationMinutes != null
+          ? `Rotation cadence: ${formatNumber(rotationMinutes, { suffix: ' min slots' })}`
+          : 'Rotation cadence: Configure 2 or 5 minute slots for every pairing.',
+      ]
+    : [
+        'Create speed networking sessions with configurable join limits and pair rotations.',
+        'Pick 2 or 5 minute slot lengths so each attendee gets equal time to pitch.',
+        'Auto-shuffle matches until the host-defined session end time is reached.',
+      ];
+
+  const hasSchedulingData =
+    Object.values(networkingScheduling).some((value) => value != null) ||
+    Object.values(networkingMonetization).some((value) => value != null);
+  const networkingSchedulingPoints = hasSchedulingData
+    ? [
+        `Pre-registrations confirmed: ${formatNumber(
+          networkingScheduling.preRegistrations ?? networkingSessions.registered,
+        )}`,
+        `Waitlist size: ${formatNumber(networkingScheduling.waitlist ?? networkingSessions.waitlist)}`,
+        `Paid vs free: ${formatNumber(networkingMonetization.paid)} paid • ${formatNumber(networkingMonetization.free)} free`,
+        networkingScheduling.searches != null
+          ? `Session searches this week: ${formatNumber(networkingScheduling.searches)}`
+          : 'Search and filter upcoming sessions right after login.',
+      ]
+    : [
+        'Schedule networking programs in advance with attendee pre-signups and automatic reminders.',
+        'Choose whether a session is free or paid before seats open up.',
+        'Let companies search the session directory to invite the right audiences.',
+      ];
+
+  const hasPenaltyData = Object.values(networkingPenalties).some((value) => value != null);
+  const networkingPenaltyPoints = hasPenaltyData
+    ? [
+        `No-show rate: ${formatPercent(networkingPenalties.noShowRate)}`,
+        `Active penalties: ${formatNumber(networkingPenalties.activePenalties)}`,
+        `Restricted attendees: ${formatNumber(networkingPenalties.restrictedParticipants)}`,
+        networkingPenalties.cooldownDays != null
+          ? `Standard cooldown: ${formatNumber(networkingPenalties.cooldownDays, { suffix: ' days' })}`
+          : 'Cooldown windows configured per workspace.',
+      ]
+    : [
+        'Automatically flag no-shows and apply cooldown periods after repeated misses.',
+        'Track penalty history before approving new sign-ups.',
+        'Restrict networking access for attendees who exceed the no-show threshold.',
+      ];
+
+  const hasAttendeeCardData = Object.values(networkingCards).some((value) => value != null);
+  const networkingDigitalCardPoints = hasAttendeeCardData
+    ? [
+        `Digital cards created: ${formatNumber(networkingCards.created)}`,
+        `Updated this week: ${formatNumber(networkingCards.updatedThisWeek)}`,
+        `Shared in session: ${formatNumber(networkingCards.sharedInSession)}`,
+        networkingCards.templates != null
+          ? `Available templates: ${formatNumber(networkingCards.templates)}`
+          : 'Templates tailored for roles, industries, and partnership goals.',
+      ]
+    : [
+        'Attendees design digital business cards before the session starts.',
+        'Cards include contact details, elevator pitches, and optional attachments ready to share.',
+        'One-click sharing delivers cards to current matches and post-session downloads.',
+      ];
+
+  const hasAttendeeExperienceData = Object.values(networkingAttendeeExperience).some((value) => value != null);
+  const networkingConnectionPoints = hasAttendeeExperienceData
+    ? [
+        `Profiles shared: ${formatNumber(networkingAttendeeExperience.profilesShared)}`,
+        `Connections saved: ${formatNumber(networkingAttendeeExperience.connectionsSaved)}`,
+        `Chats sent per session: ${formatNumber(networkingAttendeeExperience.averageMessagesPerSession)}`,
+        networkingAttendeeExperience.followUpsScheduled != null
+          ? `Follow-ups scheduled: ${formatNumber(networkingAttendeeExperience.followUpsScheduled)}`
+          : 'Encourage quick follow-ups with automated reminders.',
+      ]
+    : [
+        'Share Gigvora profiles and digital cards directly within the networking room.',
+        'Real-time chat lets attendees swap links, notes, and contact details.',
+        'Save promising matches to revisit after the session wraps up.',
+      ];
+
+  const hasVideoData = Object.values(networkingVideo).some((value) => value != null);
+  const networkingVideoPoints = hasVideoData
+    ? [
+        `Average call quality: ${formatPercent(networkingVideo.averageQualityScore)}`,
+        `Browser load handled client-side: ${formatPercent(networkingVideo.browserLoadShare)}`,
+        `Announcements broadcast: ${formatNumber(networkingVideo.hostAnnouncements)}`,
+        networkingVideo.failoverRate != null
+          ? `Failover rate: ${formatPercent(networkingVideo.failoverRate)}`
+          : 'Failover protections keep rotations running smoothly.',
+      ]
+    : [
+        'Browser-based video keeps networking lightweight with no downloads required.',
+        'Hosts can broadcast announcements without interrupting rotations.',
+        'Client-side load balancing maintains smooth connections even at scale.',
+      ];
+
+  const networkingAttendeeDetails = [
+    {
+      subtitle: 'Pre-session prep',
+      title: 'Digital business cards',
+      items: [
+        'Collect preferred pronouns, focus areas, and goals for every attendee.',
+        'Allow imports from existing Gigvora profiles or manual entry in minutes.',
+        'Share cards instantly with matches or export to CRM tools after the event.',
+      ],
+    },
+    {
+      subtitle: 'Live collaboration',
+      title: 'Chat & profile sharing',
+      items: [
+        'Drop Gigvora profiles or pitch decks into the chat without leaving the session.',
+        'Balance speaking time automatically so each attendee gets half of the rotation.',
+        'Hosts can pin prompts or resources to keep conversations focused.',
+      ],
+    },
+    {
+      subtitle: 'Video experience',
+      title: 'Lightweight browser video',
+      items: [
+        'Our video service runs primarily in the browser to minimize infrastructure load.',
+        'Automatic shuffling moves attendees to the next pairing when timers expire.',
+        'Support for 2 or 5 minute slots keeps speed networking snappy and consistent.',
+      ],
+    },
+  ];
 
   const brandStudio = data?.brandAndPeople?.employerBrandStudio;
   const journeysSummary = data?.brandAndPeople?.employeeJourneys;
@@ -623,7 +780,6 @@ function buildSections(data) {
     : ['Keep capturing activity to surface recommended actions.'];
 
   const sections = [
-  return [
     {
       title: 'Hiring overview',
       description: 'Pipeline health, hiring velocity, diversity metrics, and alerts.',
@@ -767,6 +923,52 @@ function buildSections(data) {
       ],
     },
     {
+      id: 'networking-sessions',
+      title: 'Networking sessions',
+      description: 'Launch company-hosted speed networking with configurable rotations, monetization, and attendance controls.',
+      features: [
+        {
+          name: 'Session builder',
+          description: 'Design video-first networking programs with rotation timers and join limits tuned to your goals.',
+          bulletPoints: networkingSessionPoints,
+        },
+        {
+          name: 'Scheduling & monetization',
+          description: 'Publish discoverable sessions, manage pre-registrations, and choose between free or paid access.',
+          bulletPoints: networkingSchedulingPoints,
+        },
+        {
+          name: 'Attendance controls',
+          description: 'Capture check-ins, track penalties, and enforce cooldowns for repeat no-shows.',
+          bulletPoints: networkingPenaltyPoints,
+        },
+      ],
+    },
+    {
+      id: 'networking-attendee-experience',
+      title: 'Networking attendee experience',
+      description:
+        'Equip every participant with digital business cards, lightweight browser video, and chat-powered follow-ups.',
+      features: [
+        {
+          name: 'Digital business cards',
+          description: 'Let attendees prepare shareable cards and pitches ahead of the networking session.',
+          bulletPoints: networkingDigitalCardPoints,
+        },
+        {
+          name: 'Connections & chat',
+          description: 'Real-time chat, profile sharing, and saved connections keep momentum after each rotation.',
+          bulletPoints: networkingConnectionPoints,
+        },
+        {
+          name: 'Browser-based video',
+          description: 'Gigvora’s client-side video service powers fast rotations without heavy infrastructure load.',
+          bulletPoints: networkingVideoPoints,
+        },
+      ],
+      details: networkingAttendeeDetails,
+    },
+    {
       title: 'Employer brand & workforce intelligence',
       description:
         'Promote your culture, understand workforce trends, and connect hiring with employee experience data.',
@@ -872,7 +1074,6 @@ function buildSections(data) {
     ...section,
     id: section.id ?? slugify(section.title),
   }));
-  ].map((section) => ({ ...section, id: section.id ?? slugify(section.title) }));
 }
 
 function buildProfile(data, summaryCards) {

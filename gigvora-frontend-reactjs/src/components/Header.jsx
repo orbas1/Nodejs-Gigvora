@@ -1,17 +1,199 @@
 import { Fragment, useMemo, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { Bars3Icon, ChevronDownIcon, LifebuoyIcon, PowerIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import {
+  Bars3Icon,
+  BellIcon,
+  ChatBubbleLeftRightIcon,
+  ChevronDownIcon,
+  LifebuoyIcon,
+  PowerIcon,
+  XMarkIcon,
+} from '@heroicons/react/24/outline';
 import { Menu, Transition } from '@headlessui/react';
 import { LOGO_URL } from '../constants/branding.js';
 import UserAvatar from './UserAvatar.jsx';
 import { DASHBOARD_LINKS } from '../constants/dashboardLinks.js';
 import useSession from '../hooks/useSession.js';
+import useNotificationCenter from '../hooks/useNotificationCenter.js';
+import { formatRelativeTime } from '../utils/date.js';
 
 const AUTHENTICATED_NAV_LINKS = [
   { to: '/feed', label: 'Live Feed' },
   { to: '/search', label: 'Explorer' },
+  { to: '/mentors', label: 'Mentors' },
   { to: '/inbox', label: 'Inbox' },
 ];
+
+function NotificationMenu({
+  notifications = [],
+  unreadCount = 0,
+  onMarkAll,
+  onMarkSingle,
+}) {
+  const topNotifications = notifications.slice(0, 6);
+
+  return (
+    <Menu as="div" className="relative">
+      <Menu.Button
+        className="relative flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-accent/60 hover:text-accent"
+        aria-label="Open notifications"
+      >
+        <BellIcon className="h-5 w-5" />
+        {unreadCount ? (
+          <span className="absolute -top-1 -right-1 inline-flex min-h-[1.4rem] min-w-[1.4rem] items-center justify-center rounded-full bg-rose-500 px-1 text-[0.65rem] font-semibold text-white">
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        ) : null}
+      </Menu.Button>
+      <Transition
+        as={Fragment}
+        enter="transition ease-out duration-150"
+        enterFrom="transform opacity-0 scale-95"
+        enterTo="transform opacity-100 scale-100"
+        leave="transition ease-in duration-100"
+        leaveFrom="transform opacity-100 scale-100"
+        leaveTo="transform opacity-0 scale-95"
+      >
+        <Menu.Items className="absolute right-0 z-50 mt-3 w-80 origin-top-right rounded-3xl border border-slate-200/70 bg-white p-3 text-sm shadow-2xl focus:outline-none">
+          <div className="flex items-center justify-between px-2 py-1">
+            <p className="text-sm font-semibold text-slate-800">Notifications</p>
+            {unreadCount ? (
+              <button
+                type="button"
+                onClick={onMarkAll}
+                className="text-xs font-semibold text-accent hover:text-accentDark"
+              >
+                Mark all read
+              </button>
+            ) : null}
+          </div>
+          <ul className="mt-2 space-y-2">
+            {topNotifications.length ? (
+              topNotifications.map((notification) => (
+                <Menu.Item key={notification.id}>
+                  {({ active }) => (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onMarkSingle(notification.id);
+                        if (notification?.action?.href) {
+                          window.location.assign(notification.action.href);
+                        }
+                      }}
+                      className={`w-full rounded-2xl border px-3 py-2 text-left transition ${
+                        active ? 'border-accent/40 bg-accentSoft text-slate-800' : 'border-slate-200 text-slate-600'
+                      } ${notification.read ? '' : 'border-accent/40 bg-accentSoft text-slate-800'}`}
+                    >
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        {notification.type}
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900">{notification.title}</p>
+                      <p className="mt-1 text-xs text-slate-500">{formatRelativeTime(notification.timestamp)}</p>
+                    </button>
+                  )}
+                </Menu.Item>
+              ))
+            ) : (
+              <li className="rounded-2xl border border-dashed border-slate-200 p-4 text-xs text-slate-500">
+                You’re all caught up.
+              </li>
+            )}
+          </ul>
+          <div className="mt-3 flex justify-center">
+            <Link
+              to="/notifications"
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+            >
+              Open notification centre
+            </Link>
+          </div>
+        </Menu.Items>
+      </Transition>
+    </Menu>
+  );
+}
+
+function MessageMenu({ threads = [], unreadCount = 0, onMarkAll, onMarkSingle }) {
+  const topThreads = threads.slice(0, 5);
+
+  return (
+    <Menu as="div" className="relative">
+      <Menu.Button
+        className="relative flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-accent/60 hover:text-accent"
+        aria-label="Open messages"
+      >
+        <ChatBubbleLeftRightIcon className="h-5 w-5" />
+        {unreadCount ? (
+          <span className="absolute -top-1 -right-1 inline-flex min-h-[1.4rem] min-w-[1.4rem] items-center justify-center rounded-full bg-emerald-500 px-1 text-[0.65rem] font-semibold text-white">
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        ) : null}
+      </Menu.Button>
+      <Transition
+        as={Fragment}
+        enter="transition ease-out duration-150"
+        enterFrom="transform opacity-0 scale-95"
+        enterTo="transform opacity-100 scale-100"
+        leave="transition ease-in duration-100"
+        leaveFrom="transform opacity-100 scale-100"
+        leaveTo="transform opacity-0 scale-95"
+      >
+        <Menu.Items className="absolute right-0 z-50 mt-3 w-80 origin-top-right rounded-3xl border border-slate-200/70 bg-white p-3 text-sm shadow-2xl focus:outline-none">
+          <div className="flex items-center justify-between px-2 py-1">
+            <p className="text-sm font-semibold text-slate-800">Messages</p>
+            {unreadCount ? (
+              <button
+                type="button"
+                onClick={onMarkAll}
+                className="text-xs font-semibold text-accent hover:text-accentDark"
+              >
+                Mark all read
+              </button>
+            ) : null}
+          </div>
+          <ul className="mt-2 space-y-2">
+            {topThreads.length ? (
+              topThreads.map((thread) => (
+                <Menu.Item key={thread.id}>
+                  {({ active }) => (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onMarkSingle(thread.id);
+                        if (thread?.route) {
+                          window.location.assign(thread.route);
+                        }
+                      }}
+                      className={`w-full rounded-2xl border px-3 py-2 text-left transition ${
+                        active ? 'border-accent/40 bg-accentSoft text-slate-800' : 'border-slate-200 text-slate-600'
+                      } ${thread.unread ? 'border-emerald-400/60 bg-emerald-50 text-slate-800' : ''}`}
+                    >
+                      <p className="text-sm font-semibold text-slate-900">{thread.sender}</p>
+                      <p className="mt-1 text-xs text-slate-500">{thread.preview}</p>
+                      <p className="mt-1 text-xs text-slate-400">{formatRelativeTime(thread.timestamp)}</p>
+                    </button>
+                  )}
+                </Menu.Item>
+              ))
+            ) : (
+              <li className="rounded-2xl border border-dashed border-slate-200 p-4 text-xs text-slate-500">
+                Inbox is clear.
+              </li>
+            )}
+          </ul>
+          <div className="mt-3 flex justify-center">
+            <Link
+              to="/inbox"
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+            >
+              Open inbox
+            </Link>
+          </div>
+        </Menu.Items>
+      </Transition>
+    </Menu>
+  );
+}
 
 function classNames(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -21,6 +203,16 @@ export default function Header() {
   const [open, setOpen] = useState(false);
   const { session, isAuthenticated, logout } = useSession();
   const navigate = useNavigate();
+  const {
+    notifications,
+    unreadNotificationCount,
+    markNotificationAsRead,
+    markAllNotificationsAsRead,
+    messageThreads,
+    unreadMessageCount,
+    markThreadAsRead,
+    markAllThreadsAsRead,
+  } = useNotificationCenter(session);
 
   const dashboardTarget = useMemo(() => {
     if (!isAuthenticated) {
@@ -191,6 +383,22 @@ export default function Header() {
           </nav>
         ) : null}
         <div className="hidden items-center gap-4 md:flex">
+          {isAuthenticated ? (
+            <div className="flex items-center gap-2">
+              <NotificationMenu
+                notifications={notifications}
+                unreadCount={unreadNotificationCount}
+                onMarkAll={markAllNotificationsAsRead}
+                onMarkSingle={markNotificationAsRead}
+              />
+              <MessageMenu
+                threads={messageThreads}
+                unreadCount={unreadMessageCount}
+                onMarkAll={markAllThreadsAsRead}
+                onMarkSingle={markThreadAsRead}
+              />
+            </div>
+          ) : null}
           {isAuthenticated && dashboardTarget ? (
             <>
               <div className="hidden text-right lg:block">
@@ -237,6 +445,28 @@ export default function Header() {
         <div className="border-t border-slate-200 bg-white px-6 pb-6 md:hidden">
           {isAuthenticated ? (
             <>
+              <div className="flex items-center justify-between gap-3 py-4">
+                <Link
+                  to="/notifications"
+                  onClick={closeMobileNav}
+                  className="flex flex-1 items-center justify-between rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent"
+                >
+                  Notifications
+                  <span className="inline-flex min-h-[1.5rem] min-w-[1.5rem] items-center justify-center rounded-full bg-rose-500 px-2 text-xs font-semibold text-white">
+                    {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                  </span>
+                </Link>
+                <Link
+                  to="/inbox"
+                  onClick={closeMobileNav}
+                  className="flex flex-1 items-center justify-between rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent"
+                >
+                  Messages
+                  <span className="inline-flex min-h-[1.5rem] min-w-[1.5rem] items-center justify-center rounded-full bg-emerald-500 px-2 text-xs font-semibold text-white">
+                    {unreadMessageCount > 9 ? '9+' : unreadMessageCount}
+                  </span>
+                </Link>
+              </div>
               <nav className="flex flex-col gap-1 py-4 text-sm font-semibold">
                 {AUTHENTICATED_NAV_LINKS.map((item) => (
                   <NavLink
