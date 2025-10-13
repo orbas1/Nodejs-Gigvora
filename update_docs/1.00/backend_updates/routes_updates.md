@@ -23,3 +23,7 @@
 - New router mounted at `/api/launchpad` exposing application, employer, placement, opportunity, and dashboard endpoints.
 - Routes cover `POST /applications`, `PATCH /applications/:applicationId/status`, `POST /employers`, `POST /placements`, `POST /opportunities`, and `GET /dashboard`, each wrapped with `asyncHandler` for consistent error handling.
 - Dashboard route accepts optional `launchpadId` and `lookbackDays` query parameters to drive the React insight panel without additional bespoke endpoints.
+
+## Freelancer Routes (`src/routes/freelancerRoutes.js`)
+- Mounted at `/api/freelancer` to serve the new order pipeline endpoints powering the freelancer dashboard.
+- Provides `GET /order-pipeline` plus CRUD routes for orders, requirement forms, revisions, and escrow checkpoints, all delegating to the pipeline service for validation and transactional updates.【F:gigvora-backend-nodejs/src/routes/freelancerRoutes.js†L16-L28】【F:gigvora-backend-nodejs/src/services/freelancerOrderPipelineService.js†L318-L618】
