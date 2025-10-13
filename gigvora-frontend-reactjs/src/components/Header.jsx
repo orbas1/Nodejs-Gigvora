@@ -16,12 +16,13 @@ import { DASHBOARD_LINKS } from '../constants/dashboardLinks.js';
 import useSession from '../hooks/useSession.js';
 import useNotificationCenter from '../hooks/useNotificationCenter.js';
 import { formatRelativeTime } from '../utils/date.js';
+import { hasExplorerAccess } from '../utils/accessControl.js';
 
 const AUTHENTICATED_NAV_LINKS = [
-  { to: '/feed', label: 'Live Feed' },
-  { to: '/search', label: 'Explorer' },
-  { to: '/mentors', label: 'Mentors' },
-  { to: '/inbox', label: 'Inbox' },
+  { id: 'feed', to: '/feed', label: 'Live Feed' },
+  { id: 'explorer', to: '/search', label: 'Explorer' },
+  { id: 'mentors', to: '/mentors', label: 'Mentors' },
+  { id: 'inbox', to: '/inbox', label: 'Inbox' },
 ];
 
 function NotificationMenu({
@@ -358,6 +359,19 @@ export default function Header() {
     </Menu>
   );
 
+  const explorerAvailable = useMemo(() => hasExplorerAccess(session), [session]);
+  const primaryNavLinks = useMemo(() => {
+    if (!isAuthenticated) {
+      return [];
+    }
+    return AUTHENTICATED_NAV_LINKS.filter((item) => {
+      if (item.id === 'explorer') {
+        return explorerAvailable;
+      }
+      return true;
+    });
+  }, [isAuthenticated, explorerAvailable]);
+
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
@@ -366,7 +380,7 @@ export default function Header() {
         </Link>
         {isAuthenticated ? (
           <nav className="hidden items-center gap-1 md:flex">
-            {AUTHENTICATED_NAV_LINKS.map((item) => (
+            {primaryNavLinks.map((item) => (
               <NavLink key={item.to} to={item.to} className={navClassName}>
                 {({ isActive }) => (
                   <span className="relative inline-flex items-center">
@@ -468,7 +482,7 @@ export default function Header() {
                 </Link>
               </div>
               <nav className="flex flex-col gap-1 py-4 text-sm font-semibold">
-                {AUTHENTICATED_NAV_LINKS.map((item) => (
+                {primaryNavLinks.map((item) => (
                   <NavLink
                     key={item.to}
                     to={item.to}
