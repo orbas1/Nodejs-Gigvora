@@ -1,4 +1,6 @@
+import { useMemo } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import FinanceControlTowerFeature from '../../components/dashboard/FinanceControlTowerFeature.jsx';
 
 const menuSections = [
   {
@@ -56,7 +58,7 @@ const menuSections = [
   },
 ];
 
-const capabilitySections = [
+const baseCapabilitySections = [
   {
     title: 'Project workspace excellence',
     description:
@@ -156,6 +158,9 @@ const capabilitySections = [
           'Split payouts between teammates or subcontractors instantly.',
           'Predictive forecasts for retainers vs. one-off gigs.',
         ],
+        renderContent: (context) => (
+          <FinanceControlTowerFeature userId={context?.userId} currency={context?.currency} />
+        ),
       },
       {
         name: 'Contract & compliance locker',
@@ -236,6 +241,8 @@ const profile = {
   role: 'Lead Brand & Product Designer',
   initials: 'RM',
   status: 'Top-rated freelancer',
+  userId: 2,
+  preferredCurrency: 'USD',
   badges: ['Verified Pro', 'Gigvora Elite'],
   metrics: [
     { label: 'Active projects', value: '6' },
@@ -248,6 +255,33 @@ const profile = {
 const availableDashboards = ['freelancer', 'user', 'agency'];
 
 export default function FreelancerDashboardPage() {
+  const financeContext = useMemo(
+    () => ({
+      userId: profile.userId,
+      currency: profile.preferredCurrency || 'USD',
+    }),
+    [],
+  );
+
+  const capabilitySections = useMemo(
+    () =>
+      baseCapabilitySections.map((section) => ({
+        ...section,
+        features: section.features.map((feature) => {
+          const { renderContent, ...rest } = feature;
+          const resolvedContent =
+            typeof renderContent === 'function'
+              ? renderContent(financeContext)
+              : feature.content ?? null;
+          return {
+            ...rest,
+            content: resolvedContent,
+          };
+        }),
+      })),
+    [financeContext],
+  );
+
   return (
     <DashboardLayout
       currentDashboard="freelancer"

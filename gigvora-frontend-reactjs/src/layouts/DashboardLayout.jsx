@@ -294,6 +294,9 @@ export default function DashboardLayout({
                                   ))}
                                 </ul>
                               ) : null}
+                              {feature.content ? (
+                                <div className="mt-5">{feature.content}</div>
+                              ) : null}
                             </div>
                             {feature.callout ? (
                               <p className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium uppercase tracking-wide text-blue-700">
