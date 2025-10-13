@@ -17,6 +17,7 @@ import MentorsPage from './pages/MentorsPage.jsx';
 import VolunteeringPage from './pages/VolunteeringPage.jsx';
 import AdminLoginPage from './pages/AdminLoginPage.jsx';
 import GroupsPage from './pages/GroupsPage.jsx';
+import PagesPage from './pages/PagesPage.jsx';
 import ConnectionsPage from './pages/ConnectionsPage.jsx';
 import TrustCenterPage from './pages/TrustCenter.jsx';
 import AutoAssignQueuePage from './pages/AutoAssignQueuePage.jsx';
@@ -59,6 +60,7 @@ export default function App() {
         <Route path="mentors" element={<MentorsPage />} />
         <Route path="volunteering" element={<VolunteeringPage />} />
         <Route path="groups" element={<GroupsPage />} />
+        <Route path="pages" element={<PagesPage />} />
         <Route path="connections" element={<ConnectionsPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="trust-center" element={<TrustCenterPage />} />

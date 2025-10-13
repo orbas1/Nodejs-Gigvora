@@ -250,6 +250,10 @@ class UserSession {
           actions: [
             DashboardAction(label: 'Kick off partner retro', description: 'Review shared wins with Atlas Studios leadership.'),
             DashboardAction(label: 'Update availability matrix', description: 'Sync talent roster before Monday planning.'),
+            DashboardAction(
+              label: 'Launch brand page',
+              description: 'Publish a fresh company or program page to boost Explorer visibility.',
+            ),
           ],
         ),
       },
