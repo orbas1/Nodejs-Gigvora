@@ -34,6 +34,8 @@ export default function DashboardLayout({
   profile,
   availableDashboards,
   children,
+  activeMenuItemId,
+  onMenuItemClick,
   onMenuItemSelect,
   selectedMenuItemKey,
 }) {
@@ -175,6 +177,16 @@ export default function DashboardLayout({
                             </div>
                             {item.description ? <p className="text-xs text-slate-500">{item.description}</p> : null}
                     {section.items.map((item) => (
+                      <li key={item.id ?? item.name}>
+                        <button
+                          type="button"
+                          onClick={() => onMenuItemClick?.(item)}
+                          className={`group flex w-full flex-col gap-1 rounded-2xl border bg-slate-100/70 p-3 text-left transition hover:border-blue-300 hover:bg-blue-50 ${
+                            activeMenuItemId && activeMenuItemId === (item.id ?? item.name)
+                              ? 'border-blue-400 bg-blue-50 shadow-sm'
+                              : 'border-transparent'
+                          }`}
+                        >
                       <li key={item.name}>
                         {item.href ? (
                           <a
@@ -196,7 +208,13 @@ export default function DashboardLayout({
                         <>
                           <div className="flex items-center justify-between">
                             <span className="text-sm font-medium text-slate-700">{item.name}</span>
-                            <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
+                            <ChevronRightIcon
+                              className={`h-4 w-4 transition ${
+                                activeMenuItemId && activeMenuItemId === (item.id ?? item.name)
+                                  ? 'text-blue-500'
+                                  : 'text-slate-400 group-hover:text-blue-500'
+                              }`}
+                            />
                           </div>
                           {item.description ? (
                             <p className="text-xs text-slate-500">{item.description}</p>
@@ -213,6 +231,7 @@ export default function DashboardLayout({
                               ))}
                             </div>
                           ) : null}
+                        </button>
                         </>
                       );
 
