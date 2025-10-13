@@ -11,6 +11,7 @@ import {
 } from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import DataStatus from '../../components/DataStatus.jsx';
+import PartnershipsSourcingSection from '../../components/dashboard/PartnershipsSourcingSection.jsx';
 import JobLifecycleSection from '../../components/company/JobLifecycleSection.jsx';
 import { useCompanyDashboard } from '../../hooks/useCompanyDashboard.js';
 import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
@@ -85,14 +86,17 @@ const menuSections = [
       {
         name: 'Headhunter program',
         description: 'Invite headhunters, share briefs, score performance, and manage commissions.',
+        sectionId: 'partnerships-headhunter-program',
       },
       {
         name: 'Talent pools',
         description: 'Maintain silver medalists, alumni, referrals, and campus relationships.',
+        sectionId: 'partnerships-talent-pools',
       },
       {
         name: 'Agency collaboration',
         description: 'Coordinate with partner agencies on SLAs, billing, and compliance.',
+        sectionId: 'partnerships-agency-collaboration',
       },
       {
         name: 'Partner performance manager',
@@ -332,15 +336,6 @@ function buildSections(data) {
     )}`,
   ];
 
-  const partnerPoints = [
-    `Engaged partners: ${formatNumber(partnerCollaboration?.activePartners)}`,
-    `Touchpoints logged: ${formatNumber(partnerCollaboration?.touchpoints)}`,
-    `Pending invites: ${formatNumber(partnerCollaboration?.pendingInvites)}`,
-    partnerCollaboration?.leaderboard?.[0]
-      ? `Top partner: ${partnerCollaboration.leaderboard[0].name} (${formatPercent(partnerCollaboration.leaderboard[0].conversionRate)})`
-      : 'No partner leaderboards yet.',
-  ];
-
   const calendarPoints = calendar?.upcoming?.length
     ? calendar.upcoming.slice(0, 3).map((event) => `${event.eventType} • ${formatAbsolute(event.startsAt)}`)
     : ['Connect your recruiting calendar to see upcoming events.'];
@@ -542,17 +537,6 @@ function buildSections(data) {
           name: 'Experience health',
           description: 'Satisfaction, NPS, and escalations in one view.',
           bulletPoints: carePoints,
-        },
-      ],
-    },
-    {
-      title: 'Headhunter & partner collaboration',
-      description: 'Empower agencies and headhunters with shared accountability.',
-      features: [
-        {
-          name: 'Partner ecosystem',
-          description: 'Engagement, invites, and leaderboard performance.',
-          bulletPoints: partnerPoints,
         },
       ],
     },
@@ -1189,6 +1173,7 @@ export default function CompanyDashboardPage() {
           })}
         </div>
 
+        <PartnershipsSourcingSection data={data?.partnerships} />
         {sections.map((section) => {
           const SectionComponent = section.component?.Component ?? null;
           return (
