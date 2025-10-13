@@ -103,21 +103,71 @@ class ProjectGigManagementScreen extends ConsumerWidget {
               ),
             if (snapshot != null) ...[
               _SummaryCard(snapshot: snapshot, lastUpdated: state.lastUpdated),
+              if (!snapshot.access.canManage)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12, left: 16, right: 16),
+                  child: GigvoraCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.lock_outline, color: Theme.of(context).colorScheme.error),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Gig operations are read-only for your role.',
+                                style: Theme.of(context).textTheme.titleSmall,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          snapshot.access.reason ??
+                              'Only authorised operators can publish new projects or purchase gigs for this workspace.',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                        ),
+                        if (snapshot.access.allowedRoles.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              'Enabled for roles: ${snapshot.access.allowedRoles.map((role) => role.replaceAll('_', ' ')).join(', ')}',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(letterSpacing: 0.4, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
               const SizedBox(height: 16),
               _ProjectFormSection(
                 controller: controller,
                 initiallyExpanded:
                     initialSection == GigManagementSection.manage,
+                canManage: snapshot.access.canManage,
+                access: snapshot.access,
               ),
               const SizedBox(height: 16),
               _GigOrderFormSection(
                 controller: controller,
                 initiallyExpanded: initialSection == GigManagementSection.buy,
+                canManage: snapshot.access.canManage,
+                access: snapshot.access,
               ),
               const SizedBox(height: 16),
               _GigBlueprintFormSection(
                 controller: controller,
                 initiallyExpanded: initialSection == GigManagementSection.post,
+                canManage: snapshot.access.canManage,
+                access: snapshot.access,
               ),
               const SizedBox(height: 16),
               _OrdersCard(snapshot: snapshot),
@@ -286,10 +336,14 @@ class _ProjectFormSection extends StatefulWidget {
   const _ProjectFormSection({
     required this.controller,
     this.initiallyExpanded = false,
+    required this.canManage,
+    required this.access,
   });
 
   final ProjectGigManagementController controller;
   final bool initiallyExpanded;
+  final bool canManage;
+  final ProjectGigAccess access;
 
   @override
   State<_ProjectFormSection> createState() => _ProjectFormSectionState();
@@ -333,17 +387,44 @@ class _ProjectFormSectionState extends State<_ProjectFormSection> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (!widget.canManage)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      widget.access.reason ??
+                          'Only workspace operators can publish gig offers from mobile.',
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(color: Theme.of(context).colorScheme.error),
+                    ),
+                  ),
+                AbsorbPointer(
+                  absorbing: !widget.canManage,
+                  child: Opacity(
+                    opacity: widget.canManage ? 1 : 0.65,
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                   TextFormField(
                     controller: _titleController,
                     textInputAction: TextInputAction.next,
                     decoration: const InputDecoration(labelText: 'Project title'),
-                    validator: (value) =>
-                        value == null || value.trim().isEmpty ? 'Enter a project title' : null,
+                    enabled: widget.canManage && !_submitting,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Enter a project title';
+                      }
+                      if (value.trim().length < 3) {
+                        return 'Use at least three characters.';
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
@@ -351,9 +432,16 @@ class _ProjectFormSectionState extends State<_ProjectFormSection> {
                     decoration: const InputDecoration(labelText: 'Description'),
                     minLines: 3,
                     maxLines: 5,
-                    validator: (value) => value == null || value.trim().isEmpty
-                        ? 'Describe the project'
-                        : null,
+                    enabled: widget.canManage && !_submitting,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Describe the project';
+                      }
+                      if (value.trim().length < 24) {
+                        return 'Add more context so collaborators have a clear brief.';
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -365,6 +453,23 @@ class _ProjectFormSectionState extends State<_ProjectFormSection> {
                             labelText: 'Budget amount (optional)',
                           ),
                           keyboardType: TextInputType.number,
+                          enabled: widget.canManage && !_submitting,
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return null;
+                            }
+                            final parsed = double.tryParse(value.replaceAll(',', ''));
+                            if (parsed == null) {
+                              return 'Enter a valid amount';
+                            }
+                            if (parsed < 0) {
+                              return 'Amount cannot be negative';
+                            }
+                            if (parsed > 1000000000) {
+                              return 'Amount exceeds the governance threshold';
+                            }
+                            return null;
+                          },
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -377,13 +482,18 @@ class _ProjectFormSectionState extends State<_ProjectFormSection> {
                             DropdownMenuItem(value: 'GBP', child: Text('GBP')),
                             DropdownMenuItem(value: 'EUR', child: Text('EUR')),
                           ],
-                          onChanged: (value) {
-                            if (value != null) {
-                              setState(() {
-                                _currency = value;
-                              });
-                            }
-                          },
+                          onChanged: widget.canManage && !_submitting
+                              ? (value) {
+                                  if (value != null) {
+                                    setState(() {
+                                      _currency = value;
+                                    });
+                                  }
+                                }
+                              : null,
+                          disabledHint: Text(_currency),
+                          isDense: true,
+                          menuMaxHeight: 240,
                         ),
                       ),
                     ],
@@ -397,23 +507,43 @@ class _ProjectFormSectionState extends State<_ProjectFormSection> {
                       suffixIcon: IconButton(
                         icon: const Icon(Icons.calendar_today),
                         tooltip: 'Select date',
-                        onPressed: () => _pickDate(context),
+                        onPressed:
+                            widget.canManage && !_submitting ? () => _pickDate(context) : null,
                       ),
                     ),
-                    onTap: () => _pickDate(context),
+                    onTap: widget.canManage && !_submitting ? () => _pickDate(context) : null,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return null;
+                      }
+                      final dueDate = _parseDate(value);
+                      if (dueDate == null) {
+                        return 'Select a valid date';
+                      }
+                      final today = DateTime.now();
+                      final startOfToday = DateTime(today.year, today.month, today.day);
+                      if (dueDate.isBefore(startOfToday)) {
+                        return 'Choose a future date';
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 16),
                   Align(
                     alignment: Alignment.centerLeft,
                     child: FilledButton(
-                      onPressed: _submitting ? null : _handleSubmit,
+                      onPressed: _submitting || !widget.canManage ? null : _handleSubmit,
                       child: Text(
                         _submitting ? 'Creating workspace...' : 'Create project workspace',
                       ),
                     ),
                   ),
-                ],
-              ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -424,10 +554,11 @@ class _ProjectFormSectionState extends State<_ProjectFormSection> {
   Future<void> _pickDate(BuildContext context) async {
     final now = DateTime.now();
     final initialDate = _parseDate(_dueDateController.text) ?? now;
+    final firstDate = DateTime(now.year, now.month, now.day);
     final selected = await showDatePicker(
       context: context,
       initialDate: initialDate,
-      firstDate: now.subtract(const Duration(days: 365)),
+      firstDate: firstDate,
       lastDate: now.add(const Duration(days: 365 * 3)),
     );
     if (selected != null) {
@@ -436,6 +567,12 @@ class _ProjectFormSectionState extends State<_ProjectFormSection> {
   }
 
   Future<void> _handleSubmit() async {
+    if (!widget.canManage) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Project creation is restricted for your role.')),
+      );
+      return;
+    }
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -485,10 +622,14 @@ class _GigOrderFormSection extends StatefulWidget {
   const _GigOrderFormSection({
     required this.controller,
     this.initiallyExpanded = false,
+    required this.canManage,
+    required this.access,
   });
 
   final ProjectGigManagementController controller;
   final bool initiallyExpanded;
+  final bool canManage;
+  final ProjectGigAccess access;
 
   @override
   State<_GigOrderFormSection> createState() => _GigOrderFormSectionState();
@@ -537,20 +678,36 @@ class _GigOrderFormSectionState extends State<_GigOrderFormSection> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (!widget.canManage)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        widget.access.reason ??
+                            'Escrow-backed gig purchases are disabled for your current role.',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: Theme.of(context).colorScheme.error),
+                      ),
+                    ),
                   TextFormField(
                     controller: _vendorController,
                     textInputAction: TextInputAction.next,
                     decoration: const InputDecoration(labelText: 'Vendor name'),
-                    validator: (value) =>
-                        value == null || value.trim().isEmpty ? 'Enter the vendor name' : null,
+                    enabled: widget.canManage && !_submitting,
+                    validator: (value) => value == null || value.trim().isEmpty
+                        ? 'Enter the vendor name'
+                        : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _serviceController,
                     textInputAction: TextInputAction.next,
                     decoration: const InputDecoration(labelText: 'Service name'),
-                    validator: (value) =>
-                        value == null || value.trim().isEmpty ? 'Describe the service' : null,
+                    enabled: widget.canManage && !_submitting,
+                    validator: (value) => value == null || value.trim().isEmpty
+                        ? 'Describe the service'
+                        : null,
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -560,6 +717,7 @@ class _GigOrderFormSectionState extends State<_GigOrderFormSection> {
                           controller: _amountController,
                           decoration: const InputDecoration(labelText: 'Budget amount'),
                           keyboardType: TextInputType.number,
+                          enabled: widget.canManage && !_submitting,
                           validator: (value) {
                             if (value == null || value.trim().isEmpty) {
                               return 'Enter a budget amount';
@@ -580,13 +738,17 @@ class _GigOrderFormSectionState extends State<_GigOrderFormSection> {
                             DropdownMenuItem(value: 'GBP', child: Text('GBP')),
                             DropdownMenuItem(value: 'EUR', child: Text('EUR')),
                           ],
-                          onChanged: (value) {
-                            if (value != null) {
-                              setState(() {
-                                _currency = value;
-                              });
-                            }
-                          },
+                          onChanged: widget.canManage && !_submitting
+                              ? (value) {
+                                  if (value != null) {
+                                    setState(() {
+                                      _currency = value;
+                                    });
+                                  }
+                                }
+                              : null,
+                          disabledHint: Text(_currency),
+                          isDense: true,
                         ),
                       ),
                     ],
@@ -600,16 +762,32 @@ class _GigOrderFormSectionState extends State<_GigOrderFormSection> {
                       suffixIcon: IconButton(
                         icon: const Icon(Icons.calendar_today),
                         tooltip: 'Select date',
-                        onPressed: () => _pickDate(context),
+                        onPressed:
+                            widget.canManage && !_submitting ? () => _pickDate(context) : null,
                       ),
                     ),
-                    onTap: () => _pickDate(context),
+                    onTap: widget.canManage && !_submitting ? () => _pickDate(context) : null,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return null;
+                      }
+                      final dueDate = _parseDate(value);
+                      if (dueDate == null) {
+                        return 'Select a valid date';
+                      }
+                      final today = DateTime.now();
+                      final startOfToday = DateTime(today.year, today.month, today.day);
+                      if (dueDate.isBefore(startOfToday)) {
+                        return 'Choose a future date';
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 16),
                   Align(
                     alignment: Alignment.centerLeft,
                     child: FilledButton.tonal(
-                      onPressed: _submitting ? null : _handleSubmit,
+                      onPressed: _submitting || !widget.canManage ? null : _handleSubmit,
                       child: Text(
                         _submitting ? 'Saving gig...' : 'Add gig engagement',
                       ),
@@ -627,10 +805,11 @@ class _GigOrderFormSectionState extends State<_GigOrderFormSection> {
   Future<void> _pickDate(BuildContext context) async {
     final now = DateTime.now();
     final initialDate = _parseDate(_dueDateController.text) ?? now;
+    final firstDate = DateTime(now.year, now.month, now.day);
     final selected = await showDatePicker(
       context: context,
       initialDate: initialDate,
-      firstDate: now.subtract(const Duration(days: 365)),
+      firstDate: firstDate,
       lastDate: now.add(const Duration(days: 365 * 2)),
     );
     if (selected != null) {
@@ -639,6 +818,12 @@ class _GigOrderFormSectionState extends State<_GigOrderFormSection> {
   }
 
   Future<void> _handleSubmit() async {
+    if (!widget.canManage) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Gig purchasing is restricted for your role.')),
+      );
+      return;
+    }
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -648,6 +833,9 @@ class _GigOrderFormSectionState extends State<_GigOrderFormSection> {
     FocusScope.of(context).unfocus();
     try {
       final amount = double.parse(_amountController.text.trim().replaceAll(',', ''));
+      if (amount < 0) {
+        throw ArgumentError('Amount cannot be negative.');
+      }
       final dueDate = _parseDate(_dueDateController.text.trim());
       final draft = GigOrderDraft(
         vendorName: _vendorController.text.trim(),
@@ -688,10 +876,14 @@ class _GigBlueprintFormSection extends StatefulWidget {
   const _GigBlueprintFormSection({
     required this.controller,
     this.initiallyExpanded = false,
+    required this.canManage,
+    required this.access,
   });
 
   final ProjectGigManagementController controller;
   final bool initiallyExpanded;
+  final bool canManage;
+  final ProjectGigAccess access;
 
   @override
   State<_GigBlueprintFormSection> createState() => _GigBlueprintFormSectionState();
@@ -759,184 +951,230 @@ class _GigBlueprintFormSectionState extends State<_GigBlueprintFormSection> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextFormField(
-                    controller: _titleController,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(labelText: 'Gig title'),
-                    validator: (value) =>
-                        value == null || value.trim().isEmpty ? 'Enter a gig title' : null,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (!widget.canManage)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      widget.access.reason ??
+                          'Only workspace operators can publish gig offers from mobile.',
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(color: Theme.of(context).colorScheme.error),
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _taglineController,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(labelText: 'Tagline (optional)'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _categoryController,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(labelText: 'Category (optional)'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _descriptionController,
-                    decoration: const InputDecoration(labelText: 'Description'),
-                    minLines: 4,
-                    maxLines: 6,
-                    validator: (value) => value == null || value.trim().isEmpty
-                        ? 'Describe the gig'
-                        : null,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Pricing package',
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: _packageNameController,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(labelText: 'Package name'),
-                    validator: (value) => value == null || value.trim().isEmpty
-                        ? 'Name the package'
-                        : null,
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: _priceController,
-                          decoration: const InputDecoration(labelText: 'Price'),
-                          keyboardType: TextInputType.number,
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Enter a price';
-                            }
-                            return double.tryParse(value.replaceAll(',', '')) == null
-                                ? 'Invalid price'
-                                : null;
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          value: _currency,
-                          decoration: const InputDecoration(labelText: 'Currency'),
-                          items: const [
-                            DropdownMenuItem(value: 'USD', child: Text('USD')),
-                            DropdownMenuItem(value: 'GBP', child: Text('GBP')),
-                            DropdownMenuItem(value: 'EUR', child: Text('EUR')),
-                          ],
-                          onChanged: (value) {
-                            if (value != null) {
-                              setState(() {
-                                _currency = value;
-                              });
-                            }
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: _deliveryDaysController,
-                          decoration: const InputDecoration(labelText: 'Delivery days'),
-                          keyboardType: TextInputType.number,
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Required';
-                            }
-                            return int.tryParse(value) == null ? 'Invalid number' : null;
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _revisionLimitController,
-                          decoration: const InputDecoration(labelText: 'Revision limit'),
-                          keyboardType: TextInputType.number,
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Required';
-                            }
-                            return int.tryParse(value) == null ? 'Invalid number' : null;
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _packageDescriptionController,
-                    decoration: const InputDecoration(labelText: 'Package description (optional)'),
-                    minLines: 2,
-                    maxLines: 4,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _highlightsController,
-                    decoration: const InputDecoration(labelText: 'Highlights (one per line)'),
-                    minLines: 2,
-                    maxLines: 4,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Availability',
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: _leadTimeController,
-                          decoration: const InputDecoration(labelText: 'Lead time days'),
-                          keyboardType: TextInputType.number,
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Required';
-                            }
-                            return int.tryParse(value) == null ? 'Invalid number' : null;
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _timezoneController,
-                          decoration: const InputDecoration(labelText: 'Timezone'),
-                          textInputAction: TextInputAction.done,
-                          validator: (value) =>
-                              value == null || value.trim().isEmpty ? 'Enter a timezone' : null,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: FilledButton(
-                      onPressed: _submitting ? null : _handleSubmit,
-                      child: Text(
-                        _submitting ? 'Publishing gig...' : 'Create gig blueprint',
+                AbsorbPointer(
+                  absorbing: !widget.canManage,
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 200),
+                    opacity: widget.canManage ? 1 : 0.65,
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextFormField(
+                            controller: _titleController,
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(labelText: 'Gig title'),
+                            validator: (value) => value == null || value.trim().isEmpty
+                                ? 'Enter a gig title'
+                                : null,
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _taglineController,
+                            textInputAction: TextInputAction.next,
+                            decoration:
+                                const InputDecoration(labelText: 'Tagline (optional)'),
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _categoryController,
+                            textInputAction: TextInputAction.next,
+                            decoration:
+                                const InputDecoration(labelText: 'Category (optional)'),
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _descriptionController,
+                            decoration: const InputDecoration(labelText: 'Description'),
+                            minLines: 4,
+                            maxLines: 6,
+                            validator: (value) => value == null || value.trim().isEmpty
+                                ? 'Describe the gig'
+                                : null,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Pricing package',
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _packageNameController,
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(labelText: 'Package name'),
+                            validator: (value) => value == null || value.trim().isEmpty
+                                ? 'Name the package'
+                                : null,
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _priceController,
+                                  decoration: const InputDecoration(labelText: 'Price'),
+                                  keyboardType: TextInputType.number,
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'Enter a price';
+                                    }
+                                    return double.tryParse(value.replaceAll(',', '')) == null
+                                        ? 'Invalid price'
+                                        : null;
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: DropdownButtonFormField<String>(
+                                  value: _currency,
+                                  decoration:
+                                      const InputDecoration(labelText: 'Currency'),
+                                  items: const [
+                                    DropdownMenuItem(value: 'USD', child: Text('USD')),
+                                    DropdownMenuItem(value: 'GBP', child: Text('GBP')),
+                                    DropdownMenuItem(value: 'EUR', child: Text('EUR')),
+                                  ],
+                                  onChanged: widget.canManage
+                                      ? (value) {
+                                          if (value != null) {
+                                            setState(() {
+                                              _currency = value;
+                                            });
+                                          }
+                                        }
+                                      : null,
+                                  disabledHint: Text(_currency),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _deliveryDaysController,
+                                  decoration:
+                                      const InputDecoration(labelText: 'Delivery days'),
+                                  keyboardType: TextInputType.number,
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'Required';
+                                    }
+                                    return int.tryParse(value) == null
+                                        ? 'Invalid number'
+                                        : null;
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _revisionLimitController,
+                                  decoration:
+                                      const InputDecoration(labelText: 'Revision limit'),
+                                  keyboardType: TextInputType.number,
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'Required';
+                                    }
+                                    return int.tryParse(value) == null
+                                        ? 'Invalid number'
+                                        : null;
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _packageDescriptionController,
+                            decoration: const InputDecoration(
+                                labelText: 'Package description (optional)'),
+                            minLines: 2,
+                            maxLines: 4,
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _highlightsController,
+                            decoration: const InputDecoration(
+                                labelText: 'Highlights (one per line)'),
+                            minLines: 2,
+                            maxLines: 4,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Availability',
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _leadTimeController,
+                                  decoration:
+                                      const InputDecoration(labelText: 'Lead time days'),
+                                  keyboardType: TextInputType.number,
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'Required';
+                                    }
+                                    return int.tryParse(value) == null
+                                        ? 'Invalid number'
+                                        : null;
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _timezoneController,
+                                  decoration:
+                                      const InputDecoration(labelText: 'Timezone'),
+                                  textInputAction: TextInputAction.done,
+                                  validator: (value) =>
+                                      value == null || value.trim().isEmpty
+                                          ? 'Enter a timezone'
+                                          : null,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: FilledButton(
+                              onPressed:
+                                  _submitting || !widget.canManage ? null : _handleSubmit,
+                              child: Text(
+                                _submitting ? 'Publishing gig...' : 'Create gig blueprint',
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ],
@@ -945,6 +1183,12 @@ class _GigBlueprintFormSectionState extends State<_GigBlueprintFormSection> {
   }
 
   Future<void> _handleSubmit() async {
+    if (!widget.canManage) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Gig blueprint publishing is restricted for your role.')),
+      );
+      return;
+    }
     if (!_formKey.currentState!.validate()) {
       return;
     }
