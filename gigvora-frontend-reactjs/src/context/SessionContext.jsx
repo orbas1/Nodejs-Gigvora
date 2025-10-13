@@ -10,6 +10,60 @@ const defaultValue = {
   updateSession: () => {},
 };
 
+function normalizeStringList(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const unique = new Set();
+  value.forEach((item) => {
+    if (typeof item !== 'string') {
+      return;
+    }
+    const trimmed = item.trim();
+    if (!trimmed) {
+      return;
+    }
+    unique.add(trimmed);
+  });
+  return Array.from(unique);
+}
+
+function normalizeSessionValue(value) {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const normalizedRoles = normalizeStringList(value.roles ?? value.memberships);
+  const normalizedMemberships = normalizeStringList(value.memberships);
+  const normalizedPermissions = normalizeStringList(value.permissions);
+  const normalizedCapabilities = normalizeStringList(value.capabilities);
+
+  const session = {
+    ...value,
+    roles: normalizedRoles,
+    permissions: normalizedPermissions,
+    capabilities: normalizedCapabilities,
+    memberships: normalizedMemberships,
+  };
+
+  if (typeof session.primaryDashboard === 'string') {
+    const trimmed = session.primaryDashboard.trim();
+    if (trimmed && !session.memberships.includes(trimmed)) {
+      session.memberships = [trimmed, ...session.memberships];
+    }
+  }
+
+  if (!session.memberships.length) {
+    session.memberships = normalizedRoles.length ? normalizedRoles : ['user'];
+  } else {
+    session.memberships = normalizeStringList(session.memberships);
+  }
+
+  session.isAuthenticated = Boolean(session.isAuthenticated);
+
+  return session;
+}
+
 const SessionContext = createContext(defaultValue);
 
 function readStoredSession() {
@@ -23,7 +77,7 @@ function readStoredSession() {
     }
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === 'object') {
-      return parsed;
+      return normalizeSessionValue(parsed);
     }
     return null;
   } catch (error) {
@@ -63,10 +117,11 @@ export function SessionProvider({ children }) {
       session,
       isAuthenticated: Boolean(session?.isAuthenticated),
       login: (payload = {}) => {
-        const nextSession = {
-          isAuthenticated: true,
-          ...payload,
-        };
+        const nextSession =
+          normalizeSessionValue({
+            ...payload,
+            isAuthenticated: true,
+          }) ?? { isAuthenticated: true };
         setSession(nextSession);
         return nextSession;
       },
@@ -75,10 +130,8 @@ export function SessionProvider({ children }) {
       },
       updateSession: (updates = {}) => {
         setSession((previous) => {
-          if (!previous) {
-            return { isAuthenticated: true, ...updates };
-          }
-          return { ...previous, ...updates };
+          const base = previous ?? { isAuthenticated: true };
+          return normalizeSessionValue({ ...base, ...updates }) ?? base;
         });
       },
     }),
