@@ -10,6 +10,7 @@ import trustRoutes from './trustRoutes.js';
 import autoAssignRoutes from './autoAssignRoutes.js';
 import projectRoutes from './projectRoutes.js';
 import launchpadRoutes from './launchpadRoutes.js';
+import adminRoutes from './adminRoutes.js';
 
 const router = Router();
 
@@ -24,5 +25,6 @@ router.use('/trust', trustRoutes);
 router.use('/auto-assign', autoAssignRoutes);
 router.use('/projects', projectRoutes);
 router.use('/launchpad', launchpadRoutes);
+router.use('/admin', adminRoutes);
 
 export default router;
