@@ -210,6 +210,22 @@ export const WORKSPACE_TEMPLATE_RESOURCE_TYPES = [
   'integration',
 ];
 
+export const EXECUTIVE_METRIC_CATEGORIES = ['financial', 'delivery', 'talent', 'client', 'compliance', 'innovation'];
+export const EXECUTIVE_METRIC_UNITS = ['currency', 'percentage', 'count', 'ratio', 'score', 'duration'];
+export const EXECUTIVE_METRIC_TRENDS = ['up', 'down', 'steady'];
+export const EXECUTIVE_SCENARIO_TYPES = ['best', 'base', 'worst'];
+export const EXECUTIVE_SCENARIO_DIMENSION_TYPES = ['client', 'service_line', 'squad', 'individual'];
+export const GOVERNANCE_RISK_CATEGORIES = ['compliance', 'delivery', 'finance', 'talent', 'technology', 'client'];
+export const GOVERNANCE_RISK_STATUSES = ['open', 'monitoring', 'mitigated', 'closed'];
+export const LEADERSHIP_RITUAL_CADENCES = ['daily', 'weekly', 'biweekly', 'monthly', 'quarterly'];
+export const LEADERSHIP_DECISION_STATUSES = ['proposed', 'in_review', 'approved', 'implemented', 'deferred'];
+export const LEADERSHIP_OKR_STATUSES = ['on_track', 'at_risk', 'off_track', 'achieved'];
+export const LEADERSHIP_BRIEFING_STATUSES = ['draft', 'circulating', 'archived'];
+export const INNOVATION_INITIATIVE_STAGES = ['ideation', 'validation', 'pilot', 'scale', 'retired'];
+export const INNOVATION_INITIATIVE_PRIORITIES = ['low', 'medium', 'high', 'critical'];
+export const INNOVATION_INITIATIVE_CATEGORIES = ['service_line', 'r_and_d', 'product', 'process', 'automation'];
+export const INNOVATION_FUNDING_EVENT_TYPES = ['allocation', 'burn', 'return'];
+
 export const GIG_ORDER_STATUSES = [
   'awaiting_requirements',
   'in_progress',
@@ -6571,6 +6587,613 @@ CollaborationSpace.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+export const ExecutiveIntelligenceMetric = sequelize.define(
+  'ExecutiveIntelligenceMetric',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    category: {
+      type: DataTypes.ENUM(...EXECUTIVE_METRIC_CATEGORIES),
+      allowNull: false,
+      defaultValue: 'financial',
+      validate: { isIn: [EXECUTIVE_METRIC_CATEGORIES] },
+    },
+    name: { type: DataTypes.STRING(180), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    value: { type: DataTypes.DECIMAL(14, 2), allowNull: false, defaultValue: 0 },
+    unit: {
+      type: DataTypes.ENUM(...EXECUTIVE_METRIC_UNITS),
+      allowNull: false,
+      defaultValue: 'count',
+      validate: { isIn: [EXECUTIVE_METRIC_UNITS] },
+    },
+    changeValue: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    changeUnit: {
+      type: DataTypes.ENUM(...EXECUTIVE_METRIC_UNITS),
+      allowNull: true,
+      validate: { isIn: [EXECUTIVE_METRIC_UNITS] },
+    },
+    trend: {
+      type: DataTypes.ENUM(...EXECUTIVE_METRIC_TRENDS),
+      allowNull: false,
+      defaultValue: 'steady',
+      validate: { isIn: [EXECUTIVE_METRIC_TRENDS] },
+    },
+    comparisonPeriod: { type: DataTypes.STRING(120), allowNull: true },
+    reportedAt: { type: DataTypes.DATE, allowNull: false },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'executive_intelligence_metrics',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['category'] },
+      { fields: ['reportedAt'] },
+    ],
+  },
+);
+
+ExecutiveIntelligenceMetric.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    category: plain.category,
+    name: plain.name,
+    description: plain.description,
+    value: plain.value == null ? null : Number.parseFloat(plain.value),
+    unit: plain.unit,
+    changeValue: plain.changeValue == null ? null : Number.parseFloat(plain.changeValue),
+    changeUnit: plain.changeUnit,
+    trend: plain.trend,
+    comparisonPeriod: plain.comparisonPeriod,
+    reportedAt: plain.reportedAt,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ExecutiveScenarioPlan = sequelize.define(
+  'ExecutiveScenarioPlan',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    scenarioType: {
+      type: DataTypes.ENUM(...EXECUTIVE_SCENARIO_TYPES),
+      allowNull: false,
+      defaultValue: 'base',
+      validate: { isIn: [EXECUTIVE_SCENARIO_TYPES] },
+    },
+    label: { type: DataTypes.STRING(120), allowNull: false },
+    timeframeStart: { type: DataTypes.DATE, allowNull: false },
+    timeframeEnd: { type: DataTypes.DATE, allowNull: false },
+    revenue: { type: DataTypes.DECIMAL(14, 2), allowNull: false, defaultValue: 0 },
+    grossMargin: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
+    utilization: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
+    pipelineVelocity: { type: DataTypes.DECIMAL(6, 2), allowNull: false, defaultValue: 0 },
+    clientSatisfaction: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
+    netRetention: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    assumptions: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'executive_scenario_plans',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['scenarioType'] },
+      { fields: ['timeframeEnd'] },
+    ],
+  },
+);
+
+ExecutiveScenarioPlan.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    scenarioType: plain.scenarioType,
+    label: plain.label,
+    timeframeStart: plain.timeframeStart,
+    timeframeEnd: plain.timeframeEnd,
+    revenue: plain.revenue == null ? null : Number.parseFloat(plain.revenue),
+    grossMargin: plain.grossMargin == null ? null : Number.parseFloat(plain.grossMargin),
+    utilization: plain.utilization == null ? null : Number.parseFloat(plain.utilization),
+    pipelineVelocity: plain.pipelineVelocity == null ? null : Number.parseFloat(plain.pipelineVelocity),
+    clientSatisfaction: plain.clientSatisfaction == null ? null : Number.parseFloat(plain.clientSatisfaction),
+    netRetention: plain.netRetention == null ? null : Number.parseFloat(plain.netRetention),
+    notes: plain.notes,
+    assumptions: plain.assumptions ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ExecutiveScenarioBreakdown = sequelize.define(
+  'ExecutiveScenarioBreakdown',
+  {
+    scenarioId: { type: DataTypes.INTEGER, allowNull: false },
+    dimensionType: {
+      type: DataTypes.ENUM(...EXECUTIVE_SCENARIO_DIMENSION_TYPES),
+      allowNull: false,
+      validate: { isIn: [EXECUTIVE_SCENARIO_DIMENSION_TYPES] },
+    },
+    dimensionKey: { type: DataTypes.STRING(180), allowNull: false },
+    dimensionLabel: { type: DataTypes.STRING(255), allowNull: false },
+    revenue: { type: DataTypes.DECIMAL(14, 2), allowNull: false, defaultValue: 0 },
+    grossMargin: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
+    utilization: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
+    pipelineVelocity: { type: DataTypes.DECIMAL(6, 2), allowNull: false, defaultValue: 0 },
+    clientSatisfaction: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
+    owner: { type: DataTypes.STRING(180), allowNull: true },
+    highlight: { type: DataTypes.STRING(255), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'executive_scenario_breakdowns',
+    indexes: [
+      { fields: ['scenarioId'] },
+      { fields: ['dimensionType'] },
+    ],
+  },
+);
+
+ExecutiveScenarioBreakdown.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    scenarioId: plain.scenarioId,
+    dimensionType: plain.dimensionType,
+    dimensionKey: plain.dimensionKey,
+    dimensionLabel: plain.dimensionLabel,
+    revenue: plain.revenue == null ? null : Number.parseFloat(plain.revenue),
+    grossMargin: plain.grossMargin == null ? null : Number.parseFloat(plain.grossMargin),
+    utilization: plain.utilization == null ? null : Number.parseFloat(plain.utilization),
+    pipelineVelocity: plain.pipelineVelocity == null ? null : Number.parseFloat(plain.pipelineVelocity),
+    clientSatisfaction: plain.clientSatisfaction == null ? null : Number.parseFloat(plain.clientSatisfaction),
+    owner: plain.owner,
+    highlight: plain.highlight,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const GovernanceRiskRegister = sequelize.define(
+  'GovernanceRiskRegister',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    referenceCode: { type: DataTypes.STRING(60), allowNull: true },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    category: {
+      type: DataTypes.ENUM(...GOVERNANCE_RISK_CATEGORIES),
+      allowNull: false,
+      defaultValue: 'compliance',
+      validate: { isIn: [GOVERNANCE_RISK_CATEGORIES] },
+    },
+    status: {
+      type: DataTypes.ENUM(...GOVERNANCE_RISK_STATUSES),
+      allowNull: false,
+      defaultValue: 'open',
+      validate: { isIn: [GOVERNANCE_RISK_STATUSES] },
+    },
+    impactScore: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
+    likelihoodScore: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
+    mitigationPlan: { type: DataTypes.TEXT, allowNull: true },
+    mitigationOwner: { type: DataTypes.STRING(160), allowNull: true },
+    mitigationStatus: { type: DataTypes.STRING(120), allowNull: true },
+    targetResolutionDate: { type: DataTypes.DATE, allowNull: true },
+    nextReviewAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'governance_risk_registers',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['category'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+GovernanceRiskRegister.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    referenceCode: plain.referenceCode,
+    title: plain.title,
+    category: plain.category,
+    status: plain.status,
+    impactScore: plain.impactScore == null ? null : Number.parseFloat(plain.impactScore),
+    likelihoodScore: plain.likelihoodScore == null ? null : Number.parseFloat(plain.likelihoodScore),
+    mitigationPlan: plain.mitigationPlan,
+    mitigationOwner: plain.mitigationOwner,
+    mitigationStatus: plain.mitigationStatus,
+    targetResolutionDate: plain.targetResolutionDate,
+    nextReviewAt: plain.nextReviewAt,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const GovernanceAuditExport = sequelize.define(
+  'GovernanceAuditExport',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    exportType: { type: DataTypes.STRING(120), allowNull: false },
+    status: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'available' },
+    requestedBy: { type: DataTypes.STRING(160), allowNull: true },
+    generatedAt: { type: DataTypes.DATE, allowNull: false },
+    fileUrl: { type: DataTypes.STRING(1000), allowNull: true },
+    recipients: { type: jsonType, allowNull: true },
+    scope: { type: jsonType, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  {
+    tableName: 'governance_audit_exports',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['exportType'] },
+    ],
+  },
+);
+
+GovernanceAuditExport.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    exportType: plain.exportType,
+    status: plain.status,
+    requestedBy: plain.requestedBy,
+    generatedAt: plain.generatedAt,
+    fileUrl: plain.fileUrl,
+    recipients: Array.isArray(plain.recipients) ? plain.recipients : [],
+    scope: plain.scope ?? null,
+    notes: plain.notes,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const LeadershipRitual = sequelize.define(
+  'LeadershipRitual',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    cadence: {
+      type: DataTypes.ENUM(...LEADERSHIP_RITUAL_CADENCES),
+      allowNull: false,
+      defaultValue: 'weekly',
+      validate: { isIn: [LEADERSHIP_RITUAL_CADENCES] },
+    },
+    facilitator: { type: DataTypes.STRING(160), allowNull: true },
+    channel: { type: DataTypes.STRING(120), allowNull: true },
+    nextSessionAt: { type: DataTypes.DATE, allowNull: true },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    attendees: { type: jsonType, allowNull: true },
+    lastSummaryUrl: { type: DataTypes.STRING(1000), allowNull: true },
+  },
+  {
+    tableName: 'leadership_rituals',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['cadence'] },
+    ],
+  },
+);
+
+LeadershipRitual.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    name: plain.name,
+    cadence: plain.cadence,
+    facilitator: plain.facilitator,
+    channel: plain.channel,
+    nextSessionAt: plain.nextSessionAt,
+    summary: plain.summary,
+    attendees: Array.isArray(plain.attendees) ? plain.attendees : [],
+    lastSummaryUrl: plain.lastSummaryUrl,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const LeadershipOkr = sequelize.define(
+  'LeadershipOkr',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    objective: { type: DataTypes.STRING(255), allowNull: false },
+    owner: { type: DataTypes.STRING(160), allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...LEADERSHIP_OKR_STATUSES),
+      allowNull: false,
+      defaultValue: 'on_track',
+      validate: { isIn: [LEADERSHIP_OKR_STATUSES] },
+    },
+    progress: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
+    confidence: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    targetDate: { type: DataTypes.DATE, allowNull: true },
+    alignment: { type: DataTypes.STRING(160), allowNull: true },
+    keyResults: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'leadership_okrs',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+LeadershipOkr.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    objective: plain.objective,
+    owner: plain.owner,
+    status: plain.status,
+    progress: plain.progress == null ? null : Number.parseFloat(plain.progress),
+    confidence: plain.confidence == null ? null : Number.parseFloat(plain.confidence),
+    targetDate: plain.targetDate,
+    alignment: plain.alignment,
+    keyResults: Array.isArray(plain.keyResults) ? plain.keyResults : [],
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const LeadershipDecision = sequelize.define(
+  'LeadershipDecision',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...LEADERSHIP_DECISION_STATUSES),
+      allowNull: false,
+      defaultValue: 'proposed',
+      validate: { isIn: [LEADERSHIP_DECISION_STATUSES] },
+    },
+    decidedAt: { type: DataTypes.DATE, allowNull: true },
+    owner: { type: DataTypes.STRING(160), allowNull: true },
+    impactArea: { type: DataTypes.STRING(160), allowNull: true },
+    followUpAt: { type: DataTypes.DATE, allowNull: true },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    links: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'leadership_decisions',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['status'] },
+      { fields: ['decidedAt'] },
+    ],
+  },
+);
+
+LeadershipDecision.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    title: plain.title,
+    status: plain.status,
+    decidedAt: plain.decidedAt,
+    owner: plain.owner,
+    impactArea: plain.impactArea,
+    followUpAt: plain.followUpAt,
+    summary: plain.summary,
+    links: Array.isArray(plain.links) ? plain.links : [],
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const LeadershipBriefingPack = sequelize.define(
+  'LeadershipBriefingPack',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    focus: { type: DataTypes.STRING(160), allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...LEADERSHIP_BRIEFING_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [LEADERSHIP_BRIEFING_STATUSES] },
+    },
+    distributionDate: { type: DataTypes.DATE, allowNull: true },
+    preparedBy: { type: DataTypes.STRING(160), allowNull: true },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    resourceUrl: { type: DataTypes.STRING(1000), allowNull: true },
+    highlights: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'leadership_briefing_packs',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['status'] },
+      { fields: ['distributionDate'] },
+    ],
+  },
+);
+
+LeadershipBriefingPack.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    title: plain.title,
+    focus: plain.focus,
+    status: plain.status,
+    distributionDate: plain.distributionDate,
+    preparedBy: plain.preparedBy,
+    summary: plain.summary,
+    resourceUrl: plain.resourceUrl,
+    highlights: Array.isArray(plain.highlights) ? plain.highlights : [],
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const LeadershipStrategicBet = sequelize.define(
+  'LeadershipStrategicBet',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    projectId: { type: DataTypes.INTEGER, allowNull: true },
+    name: { type: DataTypes.STRING(255), allowNull: false },
+    thesis: { type: DataTypes.TEXT, allowNull: true },
+    owner: { type: DataTypes.STRING(160), allowNull: true },
+    status: { type: DataTypes.STRING(80), allowNull: true },
+    progress: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
+    impactScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    successMetric: { type: DataTypes.STRING(160), allowNull: true },
+    lastReviewedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'leadership_strategic_bets',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['projectId'] },
+    ],
+  },
+);
+
+LeadershipStrategicBet.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    projectId: plain.projectId,
+    name: plain.name,
+    thesis: plain.thesis,
+    owner: plain.owner,
+    status: plain.status,
+    progress: plain.progress == null ? null : Number.parseFloat(plain.progress),
+    impactScore: plain.impactScore == null ? null : Number.parseFloat(plain.impactScore),
+    successMetric: plain.successMetric,
+    lastReviewedAt: plain.lastReviewedAt,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const InnovationInitiative = sequelize.define(
+  'InnovationInitiative',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(255), allowNull: false },
+    category: {
+      type: DataTypes.ENUM(...INNOVATION_INITIATIVE_CATEGORIES),
+      allowNull: false,
+      defaultValue: 'service_line',
+      validate: { isIn: [INNOVATION_INITIATIVE_CATEGORIES] },
+    },
+    stage: {
+      type: DataTypes.ENUM(...INNOVATION_INITIATIVE_STAGES),
+      allowNull: false,
+      defaultValue: 'ideation',
+      validate: { isIn: [INNOVATION_INITIATIVE_STAGES] },
+    },
+    priority: {
+      type: DataTypes.ENUM(...INNOVATION_INITIATIVE_PRIORITIES),
+      allowNull: false,
+      defaultValue: 'medium',
+      validate: { isIn: [INNOVATION_INITIATIVE_PRIORITIES] },
+    },
+    priorityScore: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 50 },
+    sponsor: { type: DataTypes.STRING(160), allowNull: true },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    eta: { type: DataTypes.DATE, allowNull: true },
+    confidence: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    projectedRoi: { type: DataTypes.DECIMAL(6, 2), allowNull: true },
+    roiCurrency: { type: DataTypes.STRING(3), allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'innovation_initiatives',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['stage'] },
+      { fields: ['priority'] },
+    ],
+  },
+);
+
+InnovationInitiative.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    name: plain.name,
+    category: plain.category,
+    stage: plain.stage,
+    priority: plain.priority,
+    priorityScore: plain.priorityScore == null ? null : Number.parseFloat(plain.priorityScore),
+    sponsor: plain.sponsor,
+    summary: plain.summary,
+    eta: plain.eta,
+    confidence: plain.confidence == null ? null : Number.parseFloat(plain.confidence),
+    projectedRoi: plain.projectedRoi == null ? null : Number.parseFloat(plain.projectedRoi),
+    roiCurrency: plain.roiCurrency,
+    tags: Array.isArray(plain.tags) ? plain.tags : [],
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const InnovationFundingEvent = sequelize.define(
+  'InnovationFundingEvent',
+  {
+    initiativeId: { type: DataTypes.INTEGER, allowNull: false },
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    eventType: {
+      type: DataTypes.ENUM(...INNOVATION_FUNDING_EVENT_TYPES),
+      allowNull: false,
+      defaultValue: 'allocation',
+      validate: { isIn: [INNOVATION_FUNDING_EVENT_TYPES] },
+    },
+    amount: { type: DataTypes.DECIMAL(14, 2), allowNull: false, defaultValue: 0 },
+    currency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    recordedAt: { type: DataTypes.DATE, allowNull: false },
+    owner: { type: DataTypes.STRING(160), allowNull: true },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    roiSnapshot: { type: DataTypes.DECIMAL(6, 2), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'innovation_funding_events',
+    indexes: [
+      { fields: ['initiativeId'] },
+      { fields: ['workspaceId'] },
+      { fields: ['eventType'] },
+    ],
+  },
+);
+
+InnovationFundingEvent.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    initiativeId: plain.initiativeId,
+    workspaceId: plain.workspaceId,
+    eventType: plain.eventType,
+    amount: plain.amount == null ? null : Number.parseFloat(plain.amount),
+    currency: plain.currency,
+    recordedAt: plain.recordedAt,
+    owner: plain.owner,
+    description: plain.description,
+    roiSnapshot: plain.roiSnapshot == null ? null : Number.parseFloat(plain.roiSnapshot),
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 export const ComplianceDocument = sequelize.define(
   'ComplianceDocument',
   {
@@ -9248,6 +9871,17 @@ ProviderWorkspace.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
 ProviderWorkspace.hasMany(ProviderWorkspaceMember, { foreignKey: 'workspaceId', as: 'members' });
 ProviderWorkspace.hasMany(ProviderWorkspaceInvite, { foreignKey: 'workspaceId', as: 'invites' });
 ProviderWorkspace.hasMany(ProviderContactNote, { foreignKey: 'workspaceId', as: 'contactNotes' });
+ProviderWorkspace.hasMany(ExecutiveIntelligenceMetric, { foreignKey: 'workspaceId', as: 'executiveMetrics' });
+ProviderWorkspace.hasMany(ExecutiveScenarioPlan, { foreignKey: 'workspaceId', as: 'executiveScenarioPlans' });
+ProviderWorkspace.hasMany(GovernanceRiskRegister, { foreignKey: 'workspaceId', as: 'governanceRisks' });
+ProviderWorkspace.hasMany(GovernanceAuditExport, { foreignKey: 'workspaceId', as: 'governanceAuditExports' });
+ProviderWorkspace.hasMany(LeadershipRitual, { foreignKey: 'workspaceId', as: 'leadershipRituals' });
+ProviderWorkspace.hasMany(LeadershipOkr, { foreignKey: 'workspaceId', as: 'leadershipOkrs' });
+ProviderWorkspace.hasMany(LeadershipDecision, { foreignKey: 'workspaceId', as: 'leadershipDecisions' });
+ProviderWorkspace.hasMany(LeadershipBriefingPack, { foreignKey: 'workspaceId', as: 'leadershipBriefings' });
+ProviderWorkspace.hasMany(LeadershipStrategicBet, { foreignKey: 'workspaceId', as: 'leadershipStrategicBets' });
+ProviderWorkspace.hasMany(InnovationInitiative, { foreignKey: 'workspaceId', as: 'innovationInitiatives' });
+ProviderWorkspace.hasMany(InnovationFundingEvent, { foreignKey: 'workspaceId', as: 'innovationFundingEvents' });
 ProviderWorkspace.hasMany(HiringAlert, { foreignKey: 'workspaceId', as: 'hiringAlerts' });
 ProviderWorkspace.hasMany(CandidateDemographicSnapshot, {
   foreignKey: 'workspaceId',
@@ -9273,6 +9907,32 @@ ProviderWorkspaceInvite.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId'
 ProviderWorkspaceInvite.belongsTo(User, { foreignKey: 'invitedById', as: 'inviter' });
 
 ProviderContactNote.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+ExecutiveIntelligenceMetric.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+ExecutiveScenarioPlan.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+ExecutiveScenarioPlan.hasMany(ExecutiveScenarioBreakdown, {
+  foreignKey: 'scenarioId',
+  as: 'breakdowns',
+  onDelete: 'CASCADE',
+  hooks: true,
+});
+ExecutiveScenarioBreakdown.belongsTo(ExecutiveScenarioPlan, { foreignKey: 'scenarioId', as: 'scenario' });
+GovernanceRiskRegister.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+GovernanceAuditExport.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+LeadershipRitual.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+LeadershipOkr.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+LeadershipDecision.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+LeadershipBriefingPack.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+LeadershipStrategicBet.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+LeadershipStrategicBet.belongsTo(Project, { foreignKey: 'projectId', as: 'project' });
+InnovationInitiative.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+InnovationInitiative.hasMany(InnovationFundingEvent, {
+  foreignKey: 'initiativeId',
+  as: 'fundingEvents',
+  onDelete: 'CASCADE',
+  hooks: true,
+});
+InnovationFundingEvent.belongsTo(InnovationInitiative, { foreignKey: 'initiativeId', as: 'initiative' });
+InnovationFundingEvent.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 ProviderContactNote.belongsTo(User, { foreignKey: 'authorId', as: 'author' });
 ProviderContactNote.belongsTo(User, { foreignKey: 'subjectUserId', as: 'subject' });
 HiringAlert.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
@@ -9643,6 +10303,18 @@ export default {
   ComplianceObligation,
   ComplianceReminder,
   ComplianceLocalization,
+  ExecutiveIntelligenceMetric,
+  ExecutiveScenarioPlan,
+  ExecutiveScenarioBreakdown,
+  GovernanceRiskRegister,
+  GovernanceAuditExport,
+  LeadershipRitual,
+  LeadershipOkr,
+  LeadershipDecision,
+  LeadershipBriefingPack,
+  LeadershipStrategicBet,
+  InnovationInitiative,
+  InnovationFundingEvent,
   GigOrder,
   GigOrderRequirementForm,
   GigOrderRevision,
