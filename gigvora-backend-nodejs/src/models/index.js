@@ -141,6 +141,31 @@ export const LEARNING_ENROLLMENT_STATUSES = ['not_started', 'in_progress', 'comp
 export const PEER_MENTORING_STATUSES = ['requested', 'scheduled', 'completed', 'cancelled'];
 export const CERTIFICATION_STATUSES = ['active', 'expiring_soon', 'expired', 'revoked'];
 export const LAUNCHPAD_STATUSES = ['draft', 'recruiting', 'active', 'archived'];
+
+export const CLIENT_SUCCESS_PLAYBOOK_TRIGGERS = [
+  'gig_purchase',
+  'kickoff_complete',
+  'milestone_reached',
+  'delivery_submitted',
+  'delivery_accepted',
+  'renewal_window',
+  'manual',
+];
+export const CLIENT_SUCCESS_STEP_TYPES = [
+  'email',
+  'checklist',
+  'testimonial_request',
+  'referral_invite',
+  'review_nudge',
+  'reward',
+  'webhook',
+];
+export const CLIENT_SUCCESS_STEP_CHANNELS = ['email', 'in_app', 'sms', 'task', 'webhook'];
+export const CLIENT_SUCCESS_ENROLLMENT_STATUSES = ['pending', 'active', 'completed', 'paused', 'cancelled'];
+export const CLIENT_SUCCESS_EVENT_STATUSES = ['queued', 'processing', 'completed', 'skipped', 'failed'];
+export const CLIENT_SUCCESS_REFERRAL_STATUSES = ['invited', 'clicked', 'converted', 'rewarded', 'expired'];
+export const CLIENT_SUCCESS_REVIEW_NUDGE_STATUSES = ['scheduled', 'sent', 'responded', 'dismissed', 'cancelled'];
+export const CLIENT_SUCCESS_AFFILIATE_STATUSES = ['active', 'paused', 'archived'];
 export const LAUNCHPAD_APPLICATION_STATUSES = [
   'screening',
   'interview',
@@ -677,6 +702,53 @@ Gig.searchByTerm = async function searchByTerm(term) {
   if (!sanitizedTerm) return [];
 
   return Gig.findAll({
+    where: { title: { [Op.iLike ?? Op.like]: `%${sanitizedTerm}%` } },
+    limit: 20,
+    order: [['title', 'ASC']],
+  });
+};
+
+Gig.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    title: plain.title,
+    description: plain.description,
+    budget: plain.budget ?? null,
+    duration: plain.duration ?? null,
+    location: plain.location ?? null,
+    geoLocation: plain.geoLocation ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const Project = sequelize.define(
+  'Project',
+  {
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: false },
+    status: { type: DataTypes.STRING(120), allowNull: true },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    geoLocation: { type: jsonType, allowNull: true },
+    budgetAmount: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    budgetCurrency: { type: DataTypes.STRING(6), allowNull: true },
+    autoAssignEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    autoAssignStatus: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'inactive' },
+    autoAssignSettings: { type: jsonType, allowNull: true },
+    autoAssignLastRunAt: { type: DataTypes.DATE, allowNull: true },
+    autoAssignLastQueueSize: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  { tableName: 'projects' },
+);
+
+Project.searchByTerm = async function searchByTerm(term) {
+  if (!term) return [];
+  const sanitizedTerm = term.trim();
+  if (!sanitizedTerm) return [];
+
+  return Project.findAll({
+    where: { title: { [Op.iLike ?? Op.like]: `%${sanitizedTerm}%` } },
     where: {
       [Op.or]: [
         { title: { [Op.iLike ?? Op.like]: `%${sanitizedTerm}%` } },
@@ -735,6 +807,290 @@ Gig.prototype.toBuilderObject = function toBuilderObject() {
   };
 };
 
+export const ClientSuccessPlaybook = sequelize.define(
+  'ClientSuccessPlaybook',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    triggerType: {
+      type: DataTypes.ENUM(...CLIENT_SUCCESS_PLAYBOOK_TRIGGERS),
+      allowNull: false,
+      defaultValue: 'gig_purchase',
+    },
+    isActive: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    tags: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'client_success_playbooks' },
+);
+
+ClientSuccessPlaybook.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    name: plain.name,
+    description: plain.description ?? null,
+    triggerType: plain.triggerType,
+    isActive: Boolean(plain.isActive),
+    tags: Array.isArray(plain.tags) ? plain.tags : plain.tags ?? [],
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ClientSuccessStep = sequelize.define(
+  'ClientSuccessStep',
+  {
+    playbookId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    stepType: {
+      type: DataTypes.ENUM(...CLIENT_SUCCESS_STEP_TYPES),
+      allowNull: false,
+      defaultValue: 'email',
+    },
+    channel: {
+      type: DataTypes.ENUM(...CLIENT_SUCCESS_STEP_CHANNELS),
+      allowNull: false,
+      defaultValue: 'email',
+    },
+    orderIndex: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    offsetHours: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    waitForCompletion: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    templateSubject: { type: DataTypes.STRING(200), allowNull: true },
+    templateBody: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    isActive: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+  },
+  { tableName: 'client_success_steps' },
+);
+
+ClientSuccessStep.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    playbookId: plain.playbookId,
+    name: plain.name,
+    stepType: plain.stepType,
+    channel: plain.channel,
+    orderIndex: plain.orderIndex,
+    offsetHours: plain.offsetHours,
+    waitForCompletion: Boolean(plain.waitForCompletion),
+    templateSubject: plain.templateSubject ?? null,
+    templateBody: plain.templateBody ?? null,
+    metadata: plain.metadata ?? null,
+    isActive: Boolean(plain.isActive),
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ClientSuccessEnrollment = sequelize.define(
+  'ClientSuccessEnrollment',
+  {
+    playbookId: { type: DataTypes.INTEGER, allowNull: false },
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    clientId: { type: DataTypes.INTEGER, allowNull: true },
+    gigId: { type: DataTypes.INTEGER, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...CLIENT_SUCCESS_ENROLLMENT_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+    },
+    startedAt: { type: DataTypes.DATE, allowNull: true },
+    completedAt: { type: DataTypes.DATE, allowNull: true },
+    cancelledAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'client_success_enrollments' },
+);
+
+ClientSuccessEnrollment.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    playbookId: plain.playbookId,
+    freelancerId: plain.freelancerId,
+    clientId: plain.clientId,
+    gigId: plain.gigId,
+    status: plain.status,
+    startedAt: plain.startedAt,
+    completedAt: plain.completedAt,
+    cancelledAt: plain.cancelledAt,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ClientSuccessEvent = sequelize.define(
+  'ClientSuccessEvent',
+  {
+    enrollmentId: { type: DataTypes.INTEGER, allowNull: false },
+    stepId: { type: DataTypes.INTEGER, allowNull: false },
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...CLIENT_SUCCESS_EVENT_STATUSES),
+      allowNull: false,
+      defaultValue: 'queued',
+    },
+    channel: { type: DataTypes.STRING(40), allowNull: true },
+    scheduledAt: { type: DataTypes.DATE, allowNull: true },
+    executedAt: { type: DataTypes.DATE, allowNull: true },
+    resultSummary: { type: DataTypes.STRING(255), allowNull: true },
+    payload: { type: jsonType, allowNull: true },
+    errorDetails: { type: DataTypes.TEXT, allowNull: true },
+  },
+  { tableName: 'client_success_events' },
+);
+
+ClientSuccessEvent.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    enrollmentId: plain.enrollmentId,
+    stepId: plain.stepId,
+    freelancerId: plain.freelancerId,
+    status: plain.status,
+    channel: plain.channel ?? null,
+    scheduledAt: plain.scheduledAt,
+    executedAt: plain.executedAt,
+    resultSummary: plain.resultSummary ?? null,
+    payload: plain.payload ?? null,
+    errorDetails: plain.errorDetails ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ClientSuccessReferral = sequelize.define(
+  'ClientSuccessReferral',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    gigId: { type: DataTypes.INTEGER, allowNull: true },
+    referrerId: { type: DataTypes.INTEGER, allowNull: true },
+    referredEmail: { type: DataTypes.STRING(255), allowNull: true },
+    referralCode: { type: DataTypes.STRING(80), allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...CLIENT_SUCCESS_REFERRAL_STATUSES),
+      allowNull: false,
+      defaultValue: 'invited',
+    },
+    rewardValueCents: { type: DataTypes.INTEGER, allowNull: true },
+    rewardCurrency: { type: DataTypes.STRING(8), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    occurredAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  { tableName: 'client_success_referrals' },
+);
+
+ClientSuccessReferral.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    gigId: plain.gigId,
+    referrerId: plain.referrerId,
+    referredEmail: plain.referredEmail ?? null,
+    referralCode: plain.referralCode,
+    status: plain.status,
+    rewardValueCents: plain.rewardValueCents ?? null,
+    rewardCurrency: plain.rewardCurrency ?? null,
+    metadata: plain.metadata ?? null,
+    occurredAt: plain.occurredAt ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ClientSuccessReviewNudge = sequelize.define(
+  'ClientSuccessReviewNudge',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    gigId: { type: DataTypes.INTEGER, allowNull: true },
+    clientId: { type: DataTypes.INTEGER, allowNull: true },
+    orderId: { type: DataTypes.STRING(120), allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...CLIENT_SUCCESS_REVIEW_NUDGE_STATUSES),
+      allowNull: false,
+      defaultValue: 'scheduled',
+    },
+    channel: { type: DataTypes.STRING(40), allowNull: true },
+    scheduledAt: { type: DataTypes.DATE, allowNull: true },
+    sentAt: { type: DataTypes.DATE, allowNull: true },
+    responseAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'client_success_review_nudges' },
+);
+
+ClientSuccessReviewNudge.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    gigId: plain.gigId,
+    clientId: plain.clientId,
+    orderId: plain.orderId ?? null,
+    status: plain.status,
+    channel: plain.channel ?? null,
+    scheduledAt: plain.scheduledAt ?? null,
+    sentAt: plain.sentAt ?? null,
+    responseAt: plain.responseAt ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ClientSuccessAffiliateLink = sequelize.define(
+  'ClientSuccessAffiliateLink',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    gigId: { type: DataTypes.INTEGER, allowNull: true },
+    label: { type: DataTypes.STRING(160), allowNull: true },
+    code: { type: DataTypes.STRING(80), allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...CLIENT_SUCCESS_AFFILIATE_STATUSES),
+      allowNull: false,
+      defaultValue: 'active',
+    },
+    destinationUrl: { type: DataTypes.STRING(512), allowNull: true },
+    commissionRate: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    totalClicks: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    totalConversions: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    totalRevenueCents: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    revenueCurrency: { type: DataTypes.STRING(8), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'client_success_affiliate_links' },
+);
+
+ClientSuccessAffiliateLink.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    gigId: plain.gigId,
+    label: plain.label ?? null,
+    code: plain.code,
+    status: plain.status,
+    destinationUrl: plain.destinationUrl ?? null,
+    commissionRate: plain.commissionRate == null ? null : Number(plain.commissionRate),
+    totalClicks: plain.totalClicks ?? 0,
+    totalConversions: plain.totalConversions ?? 0,
+    totalRevenueCents: plain.totalRevenueCents ?? 0,
+    revenueCurrency: plain.revenueCurrency ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ExperienceLaunchpad = sequelize.define(
+  'ExperienceLaunchpad',
 export const GigPackage = sequelize.define(
   'GigPackage',
   {
@@ -6293,6 +6649,43 @@ ExperienceLaunchpadOpportunityLink.belongsTo(ExperienceLaunchpad, {
 });
 ExperienceLaunchpadOpportunityLink.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
 
+ClientSuccessPlaybook.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+ClientSuccessPlaybook.hasMany(ClientSuccessStep, { foreignKey: 'playbookId', as: 'steps' });
+ClientSuccessPlaybook.hasMany(ClientSuccessEnrollment, { foreignKey: 'playbookId', as: 'enrollments' });
+
+ClientSuccessStep.belongsTo(ClientSuccessPlaybook, { foreignKey: 'playbookId', as: 'playbook' });
+
+ClientSuccessEnrollment.belongsTo(ClientSuccessPlaybook, { foreignKey: 'playbookId', as: 'playbook' });
+ClientSuccessEnrollment.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+ClientSuccessEnrollment.belongsTo(User, { foreignKey: 'clientId', as: 'client' });
+ClientSuccessEnrollment.belongsTo(Gig, { foreignKey: 'gigId', as: 'gig' });
+
+ClientSuccessEvent.belongsTo(ClientSuccessEnrollment, { foreignKey: 'enrollmentId', as: 'enrollment' });
+ClientSuccessEvent.belongsTo(ClientSuccessStep, { foreignKey: 'stepId', as: 'step' });
+ClientSuccessEvent.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
+ClientSuccessReferral.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+ClientSuccessReferral.belongsTo(Gig, { foreignKey: 'gigId', as: 'gig' });
+ClientSuccessReferral.belongsTo(User, { foreignKey: 'referrerId', as: 'referrer' });
+
+ClientSuccessReviewNudge.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+ClientSuccessReviewNudge.belongsTo(Gig, { foreignKey: 'gigId', as: 'gig' });
+ClientSuccessReviewNudge.belongsTo(User, { foreignKey: 'clientId', as: 'client' });
+
+ClientSuccessAffiliateLink.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+ClientSuccessAffiliateLink.belongsTo(Gig, { foreignKey: 'gigId', as: 'gig' });
+
+Gig.hasMany(ClientSuccessEnrollment, { foreignKey: 'gigId', as: 'clientSuccessEnrollments' });
+Gig.hasMany(ClientSuccessReferral, { foreignKey: 'gigId', as: 'clientSuccessReferrals' });
+Gig.hasMany(ClientSuccessReviewNudge, { foreignKey: 'gigId', as: 'clientSuccessReviewNudges' });
+Gig.hasMany(ClientSuccessAffiliateLink, { foreignKey: 'gigId', as: 'clientSuccessAffiliateLinks' });
+
+User.hasMany(ClientSuccessPlaybook, { foreignKey: 'freelancerId', as: 'clientSuccessPlaybooks' });
+User.hasMany(ClientSuccessEnrollment, { foreignKey: 'freelancerId', as: 'clientSuccessEnrollments' });
+User.hasMany(ClientSuccessEvent, { foreignKey: 'freelancerId', as: 'clientSuccessEvents' });
+User.hasMany(ClientSuccessReferral, { foreignKey: 'freelancerId', as: 'clientSuccessReferrals' });
+User.hasMany(ClientSuccessReviewNudge, { foreignKey: 'freelancerId', as: 'clientSuccessReviewNudges' });
+User.hasMany(ClientSuccessAffiliateLink, { foreignKey: 'freelancerId', as: 'clientSuccessAffiliateLinks' });
 export const ServiceLine = sequelize.define(
   'ServiceLine',
   {
@@ -6683,6 +7076,13 @@ export default {
   GigUpsell,
   GigCatalogItem,
   Project,
+  ClientSuccessPlaybook,
+  ClientSuccessStep,
+  ClientSuccessEnrollment,
+  ClientSuccessEvent,
+  ClientSuccessReferral,
+  ClientSuccessReviewNudge,
+  ClientSuccessAffiliateLink,
   SprintCycle,
   SprintTask,
   SprintTaskDependency,

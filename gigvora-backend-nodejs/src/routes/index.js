@@ -41,6 +41,7 @@ router.use('/projects', projectRoutes);
 router.use('/launchpad', launchpadRoutes);
 router.use('/headhunter', headhunterRoutes);
 router.use('/admin', adminRoutes);
+router.use('/freelancers', freelancerRoutes);
 router.use('/freelancer', freelancerRoutes);
 router.use('/deliverable-vault', deliverableVaultRoutes);
 router.use('/collaboration', collaborationRoutes);

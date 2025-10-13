@@ -34,6 +34,8 @@ export default function DashboardLayout({
   profile,
   availableDashboards,
   children,
+  activeMenuItem,
+  onMenuItemSelect,
   onMenuItemSelect,
   activeMenuItemKey,
   activeMenuItemId,
@@ -60,6 +62,7 @@ export default function DashboardLayout({
   };
 
   const navigationSections = Array.isArray(menuSections) ? menuSections : [];
+  const interactiveMenu = typeof onMenuItemSelect === 'function';
   const capabilitySections = Array.isArray(sections) ? sections : [];
   const heroTitle = title ?? 'Dashboard';
   const heroSubtitle = subtitle ?? 'Workspace overview';
@@ -159,6 +162,41 @@ export default function DashboardLayout({
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{section.label}</p>
                   <ul className="mt-3 space-y-2">
                     {section.items.map((item) => {
+                      const itemKey = item.id ?? item.name;
+                      const isActive = interactiveMenu && itemKey === activeMenuItem;
+                      const Element = interactiveMenu ? 'button' : 'div';
+                      const handleClick = () => {
+                        if (interactiveMenu) {
+                          onMenuItemSelect(itemKey, item);
+                          setSidebarOpen(false);
+                        }
+                      };
+                      return (
+                        <li key={itemKey}>
+                          <Element
+                            type={interactiveMenu ? 'button' : undefined}
+                            onClick={interactiveMenu ? handleClick : undefined}
+                            className={`${
+                              isActive
+                                ? 'border-blue-400 bg-blue-50/80 text-blue-700'
+                                : 'border-transparent bg-slate-100/70 text-slate-700'
+                            } group flex w-full flex-col gap-1 rounded-2xl border p-3 text-left transition hover:border-blue-300 hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40`}
+                            aria-pressed={interactiveMenu ? isActive : undefined}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium">
+                                {item.name}
+                              </span>
+                              <ChevronRightIcon
+                                className={`${
+                                  isActive ? 'text-blue-500' : 'text-slate-400'
+                                } h-4 w-4 transition group-hover:text-blue-500`}
+                              />
+                            </div>
+                            {item.description ? (
+                              <p className="text-xs text-slate-500">
+                                {item.description}
+                              </p>
                       const itemKey = item.key ?? item.slug ?? item.id ?? item.name;
                       const isActive = activeMenuItemKey && itemKey === activeMenuItemKey;
                       const baseClasses =
@@ -369,6 +407,11 @@ export default function DashboardLayout({
                                 {item.tags.map((tag) => (
                                   <span
                                     key={tag}
+                                    className={`${
+                                      isActive
+                                        ? 'bg-blue-100 text-blue-700'
+                                        : 'bg-blue-50 text-blue-600'
+                                    } inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide`}
                                     className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
                                       isActive ? 'bg-blue-100 text-blue-700' : 'bg-blue-50 text-blue-600'
                                     }`}
@@ -379,6 +422,10 @@ export default function DashboardLayout({
                                 ))}
                               </div>
                             ) : null}
+                          </Element>
+                        </li>
+                      );
+                    })}
                           </button>
                         </li>
                       );
