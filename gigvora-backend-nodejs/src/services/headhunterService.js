@@ -10,7 +10,12 @@ import {
   Profile,
   MessageThread,
   Message,
+  SupportKnowledgeArticle,
 } from '../models/index.js';
+import {
+  ProviderAvailabilityWindow,
+  ProviderWellbeingLog,
+} from '../models/headhunterExtras.js';
 import { NotFoundError } from '../utils/errors.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
 
@@ -56,6 +61,32 @@ function normaliseMetadata(metadata) {
     return {};
   }
   return metadata;
+}
+
+function asArray(value) {
+  if (Array.isArray(value)) {
+    return value;
+  }
+  if (value == null) {
+    return [];
+  }
+  return [value];
+}
+
+function toNumber(value, fallback = 0) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
+function average(values = []) {
+  const numericValues = values
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value));
+  if (!numericValues.length) {
+    return null;
+  }
+  const total = numericValues.reduce((sum, value) => sum + value, 0);
+  return Number((total / numericValues.length).toFixed(1));
 }
 
 function sumNumbers(values) {
@@ -583,7 +614,8 @@ function buildClientPartnerships(contactNotes) {
   };
 }
 
-function buildCalendar(applications, recentActivity, lookbackDate) {
+function buildCalendar(applications, recentActivity, lookbackDate, options = {}) {
+  const { lookbackDays = 30 } = options;
   const rawEvents = [];
 
   applications.forEach((application) => {
@@ -643,9 +675,13 @@ function buildCalendar(applications, recentActivity, lookbackDate) {
     .sort((a, b) => new Date(a.date) - new Date(b.date))
     .slice(0, 12);
 
-  const interviewsThisWeek = rawEvents.filter((event) => /interview/i.test(event.label)).length;
-  const offersPending = rawEvents.filter((event) => /offer/i.test(event.label)).length;
-  const prepSessions = rawEvents.filter((event) => /prep|review/.test(event.type)).length;
+  const interviewsThisWeek = rawEvents.filter((event) => /interview/i.test(event.label ?? '')).length;
+  const offersPending = rawEvents.filter((event) => /offer/i.test(event.label ?? '')).length;
+  const prepSessions = rawEvents.filter((event) => /prep|review/i.test(event.type ?? '')).length;
+  const outreachBlocks = rawEvents.filter((event) => /outreach|sequence/i.test(event.label ?? '')).length;
+
+  const targetDowntimeBlocks = Math.max(2, Math.ceil(lookbackDays / 7));
+  const downtimeBlocks = Math.max(0, targetDowntimeBlocks - Math.min(targetDowntimeBlocks, prepSessions));
 
   return {
     upcoming,
@@ -653,8 +689,15 @@ function buildCalendar(applications, recentActivity, lookbackDate) {
       interviewsThisWeek,
       offersPending,
       prepSessions,
-      downtimeBlocks: 0,
+      outreachBlocks,
+      downtimeBlocks,
     },
+    density: {
+      eventsPerWeek: lookbackDays
+        ? Number(((rawEvents.length / lookbackDays) * 7).toFixed(1))
+        : Number(rawEvents.length.toFixed(1)),
+    },
+    rawEvents: rawEvents.slice(0, 50),
   };
 }
 
@@ -678,6 +721,522 @@ function buildActivityTimeline(recentActivity, outreachCampaigns) {
       label: event.label ?? event.description ?? event.status ?? event.stage,
       status: event.status ?? event.stage,
     }));
+}
+
+function normaliseDayLabel(day) {
+  if (!day) {
+    return null;
+  }
+  return day.charAt(0).toUpperCase() + day.slice(1);
+}
+
+function summariseText(text, limit = 240) {
+  if (!text) {
+    return null;
+  }
+  const sanitized = text.toString().replace(/\s+/g, ' ').trim();
+  if (!sanitized) {
+    return null;
+  }
+  if (sanitized.length <= limit) {
+    return sanitized;
+  }
+  return `${sanitized.slice(0, limit).trimEnd()}…`;
+}
+
+function extractVersionTag(tags = []) {
+  const versionTag = tags.find((tag) => /^v\d+/i.test(String(tag)));
+  if (!versionTag) {
+    return 1;
+  }
+  const parsed = Number.parseInt(String(versionTag).replace(/[^0-9]/g, ''), 10);
+  return Number.isFinite(parsed) ? parsed : 1;
+}
+
+function computeFocusRecommendation(event) {
+  if (!event || !event.date) {
+    return null;
+  }
+  const eventDate = new Date(event.date);
+  if (!Number.isFinite(eventDate.getTime())) {
+    return null;
+  }
+  const start = new Date(eventDate.getTime() - 90 * 60 * 1000);
+  const end = new Date(eventDate.getTime() - 30 * 60 * 1000);
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) {
+    return null;
+  }
+  return {
+    label: `Prep for ${event.label}`,
+    startTimeUtc: start.toISOString(),
+    endTimeUtc: end.toISOString(),
+    source: 'recommended',
+  };
+}
+
+function buildIntelligenceHub({
+  pipelineSummary,
+  mandatePortfolio,
+  outreachPerformance,
+  agingBuckets,
+  lookbackDays,
+  recentActivity,
+  workspaceSummary,
+}) {
+  const stageBreakdown = Array.isArray(pipelineSummary?.stageBreakdown) ? pipelineSummary.stageBreakdown : [];
+  const totals = pipelineSummary?.totals ?? {};
+  const currency = workspaceSummary?.defaultCurrency ?? 'USD';
+  const pipelineValue = toNumber(mandatePortfolio?.totals?.pipelineValue);
+  const placements = toNumber(stageBreakdown.find((stage) => stage.key === 'placement')?.count);
+  const offers = toNumber(stageBreakdown.find((stage) => stage.key === 'offering')?.count);
+  const interviewing = toNumber(stageBreakdown.find((stage) => stage.key === 'interviewing')?.count);
+  const activeMandates = toNumber(mandatePortfolio?.totals?.activeMandates);
+  const forecastedPlacements = placements + Math.round(offers * 0.65);
+  const placementTarget = Math.max(activeMandates || 1, Math.ceil(activeMandates * 0.75) || 1);
+  const pipelineTarget = Math.max(pipelineValue, activeMandates ? activeMandates * 150000 : 150000);
+  const projectedFees = Number((pipelineValue * 0.22).toFixed(2));
+  const activityTarget = Math.max(Math.round((lookbackDays / 7) * 50), 40);
+  const actualActivity = toNumber(outreachPerformance?.totalMessages);
+  const activityDelta = actualActivity - activityTarget;
+  const conversionRate = pipelineSummary?.conversionRates?.placements ?? 0;
+  const interviewToOffer = pipelineSummary?.conversionRates?.offers ?? 0;
+  const velocityDays = pipelineSummary?.velocityDays ?? null;
+  const candidateCoverage = activeMandates
+    ? Number(((totals.active ?? 0) / activeMandates).toFixed(1))
+    : null;
+
+  const gaps = [];
+  if (pipelineValue < pipelineTarget) {
+    gaps.push({
+      type: 'pipelineValue',
+      label: 'Pipeline value',
+      actual: pipelineValue,
+      target: pipelineTarget,
+      delta: Number((pipelineValue - pipelineTarget).toFixed(2)),
+      currency,
+    });
+  }
+  if (forecastedPlacements < placementTarget) {
+    gaps.push({
+      type: 'forecastedPlacements',
+      label: 'Forecasted placements',
+      actual: forecastedPlacements,
+      target: placementTarget,
+      delta: forecastedPlacements - placementTarget,
+    });
+  }
+  if (activityDelta < 0) {
+    gaps.push({
+      type: 'activity',
+      label: 'Activity goal',
+      actual: actualActivity,
+      target: activityTarget,
+      delta: activityDelta,
+    });
+  }
+
+  const recommendedActions = [];
+  if (pipelineValue < pipelineTarget) {
+    const shortfall = Math.max(0, pipelineTarget - pipelineValue);
+    const suggestedMandates = Math.max(1, Math.ceil(shortfall / 75000));
+    recommendedActions.push(
+      `Add ${suggestedMandates} new mandates or upsell retainers to close the ${currency} ${shortfall.toLocaleString('en-US', {
+        maximumFractionDigits: 0,
+      })} pipeline gap.`,
+    );
+  }
+  if (forecastedPlacements < placementTarget) {
+    recommendedActions.push(
+      `Advance offer negotiations on ${Math.max(1, placementTarget - forecastedPlacements)} priority candidates to hit placement targets.`,
+    );
+  }
+  if (activityDelta < 0) {
+    recommendedActions.push(
+      `Schedule ${Math.abs(activityDelta)} additional outreach touchpoints to stay on pace for ${activityTarget} over the lookback.`,
+    );
+  }
+  const stalledCount = toNumber(agingBuckets?.['30+']);
+  if (stalledCount > 0) {
+    recommendedActions.push(`Run a stall review on ${stalledCount} candidates aged 30+ days to unblock decisions.`);
+  }
+
+  const highlights = recentActivity.slice(0, 3).map((event) => ({
+    label: event.description ?? event.label ?? `Update: ${event.stage}`,
+    occurredAt: event.occurredAt,
+    stage: event.stage,
+  }));
+
+  const blockers = [];
+  if (stalledCount > 0) {
+    blockers.push({
+      label: 'Stalled pipeline',
+      detail: `${stalledCount} candidates have been in stage for 30+ days`,
+    });
+  }
+  if (activityDelta < 0) {
+    blockers.push({
+      label: 'Activity pace',
+      detail: `${Math.abs(activityDelta)} fewer touchpoints than target`,
+    });
+  }
+
+  const nextReviewAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const agenda = [
+    {
+      topic: 'Pipeline coverage',
+      detail: `Current coverage ${candidateCoverage ?? '—'} vs. target ${Math.max(4, activeMandates * 3)}`,
+    },
+    {
+      topic: 'Forecast & fees',
+      detail: `Forecasted placements ${forecastedPlacements} • Projected fees ${currency} ${projectedFees.toLocaleString('en-US', {
+        maximumFractionDigits: 0,
+      })}`,
+    },
+    {
+      topic: 'Outreach velocity',
+      detail: `Touchpoints ${actualActivity} of ${activityTarget} goal • Avg response ${outreachPerformance?.averageResponseHours ?? '—'}h`,
+    },
+  ];
+
+  return {
+    metrics: {
+      pipelineValue: { value: pipelineValue, target: pipelineTarget, currency },
+      forecastedPlacements: { value: forecastedPlacements, target: placementTarget },
+      projectedFees: { value: projectedFees, currency },
+      activityGoal: { actual: actualActivity, target: activityTarget, delta: activityDelta },
+    },
+    scorecard: {
+      conversionRate,
+      interviewToOffer,
+      velocityDays,
+      coverageRate: candidateCoverage,
+    },
+    gaps,
+    recommendedActions,
+    weeklyReview: {
+      nextReviewAt,
+      highlights,
+      blockers,
+      agenda,
+    },
+  };
+}
+
+function buildCalendarOrchestration({
+  calendar,
+  availabilityWindows,
+  workspaceSummary,
+  clientPartnerships,
+  lookbackDays,
+}) {
+  const timezone = workspaceSummary?.timezone ?? 'UTC';
+  const windows = Array.isArray(availabilityWindows) ? availabilityWindows : [];
+  const upcoming = Array.isArray(calendar?.upcoming) ? calendar.upcoming : [];
+  const workload = calendar?.workload ?? {};
+
+  const formattedWindows = windows.map((window) => {
+    const channels = asArray(window.broadcastChannels).map((channel) => String(channel));
+    return {
+      id: window.id ?? null,
+      dayOfWeek: window.dayOfWeek,
+      dayLabel: normaliseDayLabel(window.dayOfWeek),
+      startTimeUtc: window.startTimeUtc,
+      endTimeUtc: window.endTimeUtc,
+      availabilityType: window.availabilityType ?? 'interview',
+      broadcastChannels: channels,
+      metadata: window.metadata ?? {},
+      label:
+        window.startTimeUtc && window.endTimeUtc
+          ? `${normaliseDayLabel(window.dayOfWeek)} ${window.startTimeUtc.slice(0, 5)}–${window.endTimeUtc.slice(0, 5)} ${timezone}`
+          : normaliseDayLabel(window.dayOfWeek) ?? 'Availability',
+    };
+  });
+
+  const scheduledFocusBlocks = formattedWindows
+    .filter((window) => window.availabilityType === 'focus')
+    .map((window) => ({
+      label: `${window.dayLabel ?? 'Focus'} block`,
+      startTimeUtc: window.startTimeUtc,
+      endTimeUtc: window.endTimeUtc,
+      source: 'scheduled',
+    }));
+
+  const recommendedFocusBlocks = scheduledFocusBlocks.length
+    ? []
+    : upcoming
+        .filter((event) => event && /interview|presentation|briefing/i.test(event.label ?? ''))
+        .map((event) => computeFocusRecommendation(event))
+        .filter(Boolean)
+        .slice(0, 3);
+
+  const focusBlocks = [...scheduledFocusBlocks, ...recommendedFocusBlocks];
+
+  const broadcastChannels = new Set();
+  formattedWindows.forEach((window) => {
+    window.broadcastChannels.forEach((channel) => broadcastChannels.add(channel));
+  });
+  if (workspaceSummary?.intakeEmail) {
+    broadcastChannels.add('email');
+  }
+
+  const recipients = new Set();
+  (clientPartnerships?.topContacts ?? [])
+    .slice(0, 6)
+    .forEach((contact) => {
+      if (contact.email) {
+        recipients.add(contact.email);
+      } else if (contact.name) {
+        recipients.add(contact.name);
+      }
+    });
+  (workspaceSummary?.members ?? [])
+    .slice(0, 6)
+    .forEach((member) => {
+      if (member.user?.email) {
+        recipients.add(member.user.email);
+      }
+    });
+
+  const interviewBlocks = upcoming.filter((event) => /interview/i.test(event.label ?? '')).length;
+  const internalSyncs = upcoming.filter((event) => /sync|standup|retro/i.test(event.label ?? '')).length;
+
+  const automation = [
+    {
+      name: 'Protect focus time',
+      status: scheduledFocusBlocks.length ? 'active' : 'recommended',
+      lastRunAt: scheduledFocusBlocks.length ? new Date().toISOString() : null,
+    },
+    {
+      name: 'Broadcast availability',
+      status: broadcastChannels.size ? 'active' : 'needs_setup',
+      lastRunAt: windows.find((window) => window.metadata?.lastBroadcastAt)?.metadata?.lastBroadcastAt ?? null,
+    },
+  ];
+
+  return {
+    timezone,
+    availability: {
+      windows: formattedWindows,
+      defaultWindow:
+        formattedWindows.find((window) => window.availabilityType === 'interview')?.label ?? '09:00–18:00',
+      broadcastChannels: Array.from(broadcastChannels),
+      recipients: Array.from(recipients),
+      nextBroadcastAt:
+        windows.find((window) => window.metadata?.nextBroadcastAt)?.metadata?.nextBroadcastAt ??
+        new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    },
+    focusBlocks,
+    sharedCalendars: (clientPartnerships?.topContacts ?? []).slice(0, 5).map((contact) => ({
+      name: contact.name,
+      email: contact.email,
+      lastInteractionAt: contact.lastInteractionAt ?? null,
+    })),
+    utilization: {
+      totalEvents: upcoming.length,
+      interviewBlocks,
+      internalSyncs,
+      focusBlocks: focusBlocks.length,
+      downtimeBlocks: workload.downtimeBlocks ?? Math.max(0, Math.ceil(lookbackDays / 7) - focusBlocks.length),
+      eventsPerWeek: calendar?.density?.eventsPerWeek ?? null,
+    },
+    automation,
+    upcoming,
+  };
+}
+
+function buildKnowledgeBase(articles, workspaceSummary) {
+  const slug = workspaceSummary?.slug?.toLowerCase?.();
+  const filtered = (Array.isArray(articles) ? articles : [])
+    .map((article) => ({ ...article }))
+    .filter((article) => {
+      if (!slug) {
+        return true;
+      }
+      const tags = asArray(article.tags).map((tag) => String(tag).toLowerCase());
+      if (!tags.length) {
+        return true;
+      }
+      return tags.includes(slug) || tags.includes(`workspace:${slug}`) || tags.includes('headhunter');
+    });
+
+  const normalized = filtered.map((article) => {
+    const tags = asArray(article.tags).map((tag) => String(tag));
+    const collaborators = tags.filter((tag) => tag.startsWith('@')).map((tag) => tag.slice(1));
+    const version = extractVersionTag(tags);
+    const aiSummary = summariseText(article.summary ?? article.body, 260);
+    return {
+      id: article.id,
+      slug: article.slug,
+      title: article.title,
+      summary: article.summary,
+      aiSummary,
+      category: article.category,
+      audience: article.audience,
+      tags,
+      version,
+      collaborators,
+      lastReviewedAt: article.lastReviewedAt,
+      updatedAt: article.updatedAt,
+      resourceLinks: asArray(article.resourceLinks),
+    };
+  });
+
+  const categories = normalized.reduce((acc, article) => {
+    const key = article.category ?? 'uncategorised';
+    acc.set(key, (acc.get(key) ?? 0) + 1);
+    return acc;
+  }, new Map());
+
+  const uniqueTags = new Set();
+  normalized.forEach((article) => {
+    article.tags.forEach((tag) => uniqueTags.add(tag));
+  });
+
+  const recentArticles = normalized
+    .slice()
+    .sort((a, b) => new Date(b.updatedAt ?? 0) - new Date(a.updatedAt ?? 0))
+    .slice(0, 6);
+
+  const playbooks = normalized
+    .filter((article) => article.category === 'workflow' || article.tags.some((tag) => /playbook/i.test(tag)))
+    .slice(0, 5);
+
+  const contributors = Array.from(
+    new Set(
+      normalized
+        .flatMap((article) => article.collaborators)
+        .filter(Boolean),
+    ),
+  );
+
+  return {
+    totalArticles: normalized.length,
+    categories: Array.from(categories.entries()).map(([name, count]) => ({ name, count })),
+    recentArticles,
+    playbooks,
+    aiSummaries: recentArticles.map((article) => ({
+      slug: article.slug,
+      title: article.title,
+      summary: article.aiSummary,
+    })),
+    collaboration: {
+      contributors,
+      lastUpdatedAt: recentArticles[0]?.updatedAt ?? null,
+    },
+    searchTags: Array.from(uniqueTags).slice(0, 12),
+  };
+}
+
+function buildWellbeingTracker({
+  pipelineSummary,
+  agingBuckets,
+  calendar,
+  wellbeingLogs,
+  workspaceSummary,
+  lookbackDays,
+  passOnNetwork,
+}) {
+  const logs = Array.isArray(wellbeingLogs) ? wellbeingLogs : [];
+  const activeMembers = workspaceSummary?.memberCounts?.active ?? 0;
+  const activeApplications = pipelineSummary?.totals?.active ?? 0;
+  const workloadPerMember = activeMembers
+    ? Number((activeApplications / activeMembers).toFixed(1))
+    : activeApplications;
+
+  const interviewsThisWeek = calendar?.workload?.interviewsThisWeek ?? 0;
+  const offersPending = calendar?.workload?.offersPending ?? 0;
+  const downtimeBlocks = calendar?.workload?.downtimeBlocks ?? Math.max(0, Math.ceil(lookbackDays / 7) - 1);
+
+  const averageEnergy = average(logs.map((log) => log.energyScore));
+  const averageStress = average(logs.map((log) => log.stressScore));
+  const averageWorkload = average(logs.map((log) => log.workloadScore));
+  const averageTravel = average(logs.map((log) => log.travelDays));
+  const hydrationLevel = average(logs.map((log) => log.hydrationLevel));
+  const latestLog = logs[0] ?? null;
+
+  const derivedScore =
+    averageEnergy != null && averageStress != null
+      ? Math.max(0, Math.min(100, Math.round(averageEnergy * 10 - averageStress * 6 + 55)))
+      : null;
+  const wellbeingScore = latestLog?.wellbeingScore != null ? Number(latestLog.wellbeingScore) : derivedScore;
+
+  const burnoutRisk = (() => {
+    const stress = averageStress ?? latestLog?.stressScore ?? 0;
+    if (stress >= 7 || workloadPerMember > 15 || downtimeBlocks < 2) {
+      return 'high';
+    }
+    if (stress >= 5 || workloadPerMember > 12) {
+      return 'medium';
+    }
+    return 'low';
+  })();
+
+  const reminders = [];
+  if (downtimeBlocks < 2) {
+    reminders.push('Protect at least two downtime blocks to prevent burnout.');
+  }
+  if (averageTravel != null && averageTravel > 3) {
+    reminders.push('Schedule recovery days after travel-heavy weeks.');
+  }
+  if (hydrationLevel != null && hydrationLevel < 6) {
+    reminders.push('Send hydration reminder via wellness stipend integration.');
+  }
+  if ((latestLog?.energyScore ?? 0) <= 5) {
+    reminders.push('Check in with team member reporting low energy.');
+  }
+
+  const prompts = [
+    'What was your highest leverage activity last week?',
+    'Where can we automate or delegate to protect focus?',
+    'What recovery ritual will you commit to before next stand-up?',
+  ];
+
+  const participationRate = activeMembers
+    ? Number(((logs.length / activeMembers) * 100).toFixed(1))
+    : logs.length
+    ? 100
+    : 0;
+
+  const peakTravelDays = logs.reduce((max, log) => {
+    const travel = Number(log.travelDays);
+    if (!Number.isFinite(travel)) {
+      return max;
+    }
+    return Math.max(max, travel);
+  }, 0);
+
+  return {
+    metrics: {
+      workloadPerMember,
+      interviewsThisWeek,
+      offersPending,
+      downtimeBlocks,
+      wellbeingScore,
+      burnoutRisk,
+      averageEnergy,
+      averageStress,
+      averageWorkload,
+      averageTravel,
+      hydrationLevel,
+      participationRate,
+    },
+    reminders,
+    prompts,
+    latestCheckInAt: latestLog?.recordedAt ?? null,
+    travel: {
+      averageDays: averageTravel,
+      peakDays: peakTravelDays,
+    },
+    integrations: [
+      { name: 'Gympass', status: 'connected' },
+      { name: 'Calm for Business', status: wellbeingScore != null && wellbeingScore < 70 ? 'recommended' : 'connected' },
+      { name: 'Notion weekly reflections', status: 'connected' },
+    ],
+    supportSignals: {
+      referralsAwaitingFollowUp: passOnNetwork?.openReferrals ?? 0,
+      highRiskPipeline: toNumber(agingBuckets?.['30+']) + toNumber(agingBuckets?.['15-30']),
+    },
+  };
 }
 
 async function loadCandidateProfiles(applications) {
@@ -707,6 +1266,65 @@ async function loadApplicationsWithReviews() {
   });
 
   return records.map((record) => record.get({ plain: true }));
+}
+
+async function loadAvailabilityWindows(workspaceId) {
+  const records = await ProviderAvailabilityWindow.findAll({
+    where: { workspaceId },
+    order: [
+      ['dayOfWeek', 'ASC'],
+      ['startTimeUtc', 'ASC'],
+    ],
+  });
+
+  return records.map((record) => record.get({ plain: true }));
+}
+
+async function loadWellbeingLogs(workspaceId, lookbackDate) {
+  const records = await ProviderWellbeingLog.findAll({
+    where: {
+      workspaceId,
+      recordedAt: {
+        [Op.gte]: lookbackDate,
+      },
+    },
+    order: [['recordedAt', 'DESC']],
+    limit: 60,
+  });
+
+  return records.map((record) => record.get({ plain: true }));
+}
+
+async function loadKnowledgeArticles(workspace, lookbackDate) {
+  const articles = await SupportKnowledgeArticle.findAll({
+    where: {
+      [Op.or]: [
+        { lastReviewedAt: null },
+        {
+          lastReviewedAt: {
+            [Op.gte]: lookbackDate,
+          },
+        },
+      ],
+    },
+    order: [['updatedAt', 'DESC']],
+    limit: 50,
+  });
+
+  const plainArticles = articles.map((article) => article.get({ plain: true }));
+
+  const slug = workspace?.slug?.toLowerCase?.();
+  if (!slug) {
+    return plainArticles;
+  }
+
+  return plainArticles.filter((article) => {
+    const tags = asArray(article.tags).map((tag) => String(tag).toLowerCase());
+    if (!tags.length) {
+      return true;
+    }
+    return tags.includes(slug) || tags.includes(`workspace:${slug}`) || tags.includes('headhunter');
+  });
 }
 
 async function loadWorkspace(options = {}) {
@@ -815,57 +1433,67 @@ export async function getDashboardSnapshot({ workspaceId: rawWorkspaceId, lookba
       ),
     ).filter(Boolean);
 
-    const projects = projectIds.length ? await Project.findAll({ where: { id: { [Op.in]: projectIds } } }) : [];
-    const mandatePortfolio = buildMandatePortfolio(dataset, projects);
-
     const lookbackDate = new Date(Date.now() - lookback * 24 * 60 * 60 * 1000);
-
-    const threads = await MessageThread.findAll({
-      where: {
-        createdAt: {
-          [Op.gte]: lookbackDate,
-        },
-      },
-      include: [
-        {
-          model: Message,
-          as: 'messages',
-          required: false,
-          where: {
-            createdAt: {
-              [Op.gte]: lookbackDate,
-            },
+    const [
+      projects,
+      threads,
+      contactNotesRecords,
+      availabilityWindows,
+      wellbeingLogs,
+      knowledgeArticles,
+    ] = await Promise.all([
+      projectIds.length ? Project.findAll({ where: { id: { [Op.in]: projectIds } } }) : [],
+      MessageThread.findAll({
+        where: {
+          createdAt: {
+            [Op.gte]: lookbackDate,
           },
         },
-      ],
-      order: [['createdAt', 'DESC']],
-    });
+        include: [
+          {
+            model: Message,
+            as: 'messages',
+            required: false,
+            where: {
+              createdAt: {
+                [Op.gte]: lookbackDate,
+              },
+            },
+          },
+        ],
+        order: [['createdAt', 'DESC']],
+      }),
+      ProviderContactNote.findAll({
+        where: { workspaceId: workspace.id },
+        include: [
+          {
+            model: User,
+            as: 'author',
+            attributes: ['id', 'firstName', 'lastName'],
+          },
+          {
+            model: User,
+            as: 'subject',
+            attributes: ['id', 'firstName', 'lastName', 'email'],
+          },
+        ],
+        order: [['createdAt', 'DESC']],
+      }),
+      loadAvailabilityWindows(workspace.id),
+      loadWellbeingLogs(workspace.id, lookbackDate),
+      loadKnowledgeArticles(workspace.get({ plain: true }), lookbackDate),
+    ]);
+
+    const mandatePortfolio = buildMandatePortfolio(dataset, projects);
 
     const outreachPerformance = computeOutreachPerformance(threads, lookbackDate, workspace.get({ plain: true }));
     outreachPerformance.lookbackDays = lookback;
 
     const passOnNetwork = buildPassOnNetwork(dataset, candidateProfiles);
 
-    const contactNotes = await ProviderContactNote.findAll({
-      where: { workspaceId: workspace.id },
-      include: [
-        {
-          model: User,
-          as: 'author',
-          attributes: ['id', 'firstName', 'lastName'],
-        },
-        {
-          model: User,
-          as: 'subject',
-          attributes: ['id', 'firstName', 'lastName', 'email'],
-        },
-      ],
-      order: [['createdAt', 'DESC']],
-    });
+    const clientPartnerships = buildClientPartnerships(contactNotesRecords.map((note) => note.get({ plain: true })));
 
-    const clientPartnerships = buildClientPartnerships(contactNotes.map((note) => note.get({ plain: true })));
-
-    const calendar = buildCalendar(dataset, recentActivity, lookbackDate);
+    const calendar = buildCalendar(dataset, recentActivity, lookbackDate, { lookbackDays: lookback });
     const activityTimeline = buildActivityTimeline(recentActivity, outreachPerformance.latestCampaigns);
 
     const totalApplications = dataset.length;
@@ -946,6 +1574,36 @@ export async function getDashboardSnapshot({ workspaceId: rawWorkspaceId, lookba
       }),
     };
 
+    const insights = buildIntelligenceHub({
+      pipelineSummary,
+      mandatePortfolio,
+      outreachPerformance,
+      agingBuckets,
+      lookbackDays: lookback,
+      recentActivity,
+      workspaceSummary,
+    });
+
+    const calendarOrchestration = buildCalendarOrchestration({
+      calendar,
+      availabilityWindows,
+      workspaceSummary,
+      clientPartnerships,
+      lookbackDays: lookback,
+    });
+
+    const knowledgeBase = buildKnowledgeBase(knowledgeArticles, workspaceSummary);
+
+    const wellbeing = buildWellbeingTracker({
+      pipelineSummary,
+      agingBuckets,
+      calendar,
+      wellbeingLogs,
+      workspaceSummary,
+      lookbackDays: lookback,
+      passOnNetwork,
+    });
+
     const meta = {
       generatedAt: new Date().toISOString(),
       lookbackDays: lookback,
@@ -971,6 +1629,10 @@ export async function getDashboardSnapshot({ workspaceId: rawWorkspaceId, lookba
       clientPartnerships,
       activityTimeline,
       calendar,
+      insights,
+      calendarOrchestration,
+      knowledgeBase,
+      wellbeing,
       meta,
     };
   });

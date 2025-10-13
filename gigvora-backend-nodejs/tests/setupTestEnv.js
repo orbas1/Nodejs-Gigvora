@@ -1,5 +1,6 @@
 import { beforeAll, afterAll, beforeEach, jest } from '@jest/globals';
 import { sequelize } from '../src/models/index.js';
+import '../src/models/headhunterExtras.js';
 import { appCache } from '../src/utils/cache.js';
 
 jest.setTimeout(30000);

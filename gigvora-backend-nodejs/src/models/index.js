@@ -39,7 +39,7 @@ export const AUTO_ASSIGN_STATUSES = [
   'reassigned',
   'completed',
 ];
-export const GIG_STATUSES = ['draft', 'active', 'in_delivery', 'paused', 'completed', 'cancelled'];
+export const GIG_DELIVERY_STATUSES = ['draft', 'active', 'in_delivery', 'paused', 'completed', 'cancelled'];
 export const GIG_PIPELINE_STAGES = ['discovery', 'kickoff', 'production', 'review', 'ready_to_close', 'completed'];
 export const GIG_MILESTONE_STATUSES = ['planned', 'in_progress', 'waiting_on_client', 'at_risk', 'completed'];
 export const GIG_BUNDLE_STATUSES = ['draft', 'testing', 'live', 'retired'];
@@ -137,7 +137,7 @@ export const GIG_ORDER_REQUIREMENT_FORM_STATUSES = [
   'needs_revision',
   'archived',
 ];
-export const GIG_ORDER_REVISION_STATUSES = [
+export const GIG_ORDER_REVISION_LIFECYCLE_STATUSES = [
   'open',
   'in_progress',
   'submitted',
@@ -294,7 +294,7 @@ export const DELIVERABLE_RETENTION_POLICIES = [
   'short_term',
 ];
 
-export const GIG_STATUSES = ['draft', 'preview', 'published', 'archived'];
+export const GIG_PREVIEW_STATUSES = ['draft', 'preview', 'published', 'archived'];
 export const GIG_MEDIA_TYPES = ['image', 'video', 'document'];
 export const GIG_PREVIEW_DEVICE_TYPES = ['desktop', 'tablet', 'mobile'];
 
@@ -666,6 +666,8 @@ export const CommunitySpotlightNewsletterFeature = sequelize.define(
     callToActionUrl: { type: DataTypes.STRING(512), allowNull: true },
   },
   { tableName: 'community_spotlight_newsletter_features' },
+);
+
 export const ReputationTestimonial = sequelize.define(
   'ReputationTestimonial',
   {
@@ -1063,14 +1065,12 @@ export const Gig = sequelize.define(
     geoLocation: { type: jsonType, allowNull: true },
     summary: { type: DataTypes.TEXT, allowNull: true },
     status: {
-      type: DataTypes.ENUM(...GIG_STATUSES),
-    freelancerId: { type: DataTypes.INTEGER, allowNull: true },
-    status: {
-      type: DataTypes.STRING(40),
+      type: DataTypes.ENUM(...GIG_DELIVERY_STATUSES),
       allowNull: false,
       defaultValue: 'draft',
-      validate: { isIn: [GIG_STATUSES] },
+      validate: { isIn: [GIG_DELIVERY_STATUSES] },
     },
+    freelancerId: { type: DataTypes.INTEGER, allowNull: true },
     heroTitle: { type: DataTypes.STRING(255), allowNull: true },
     heroSubtitle: { type: DataTypes.STRING(500), allowNull: true },
     heroMediaUrl: { type: DataTypes.STRING(500), allowNull: true },
@@ -1502,8 +1502,6 @@ FreelancerMarginSnapshot.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
-export const ExperienceLaunchpad = sequelize.define(
-  'ExperienceLaunchpad',
 export const ClientSuccessPlaybook = sequelize.define(
   'ClientSuccessPlaybook',
   {
@@ -1786,8 +1784,6 @@ ClientSuccessAffiliateLink.prototype.toPublicObject = function toPublicObject() 
   };
 };
 
-export const ExperienceLaunchpad = sequelize.define(
-  'ExperienceLaunchpad',
 export const GigPackage = sequelize.define(
   'GigPackage',
   {
@@ -2336,8 +2332,6 @@ ChangeRequest.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
-export const ExperienceLaunchpad = sequelize.define(
-  'ExperienceLaunchpad',
 export const GigMilestone = sequelize.define(
   'GigMilestone',
   {
@@ -7162,10 +7156,10 @@ export const GigOrderRevision = sequelize.define(
     orderId: { type: DataTypes.INTEGER, allowNull: false },
     revisionNumber: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
     status: {
-      type: DataTypes.ENUM(...GIG_ORDER_REVISION_STATUSES),
+      type: DataTypes.ENUM(...GIG_ORDER_REVISION_LIFECYCLE_STATUSES),
       allowNull: false,
       defaultValue: 'open',
-      validate: { isIn: [GIG_ORDER_REVISION_STATUSES] },
+      validate: { isIn: [GIG_ORDER_REVISION_LIFECYCLE_STATUSES] },
     },
     summary: { type: DataTypes.STRING(255), allowNull: true },
     details: { type: jsonType, allowNull: true },
