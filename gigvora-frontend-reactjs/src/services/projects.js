@@ -30,6 +30,8 @@ export async function fetchProjectBlueprint(projectId) {
 
 export async function upsertProjectBlueprint(projectId, payload) {
   return apiClient.put(`/projects/${projectId}/blueprint`, payload);
+}
+
 export async function fetchProjectWorkspace(projectId) {
   return apiClient.get(`/projects/${projectId}/workspace`);
 }
