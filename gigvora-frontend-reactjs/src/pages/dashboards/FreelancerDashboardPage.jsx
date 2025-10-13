@@ -1,5 +1,8 @@
 import { useMemo, useState } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import CatalogInsightsPanel from '../../components/freelancer/CatalogInsightsPanel.jsx';
+
+const DEFAULT_FREELANCER_ID = 2;
 import DataStatus from '../../components/DataStatus.jsx';
 import useCachedResource from '../../hooks/useCachedResource.js';
 import {
@@ -721,6 +724,17 @@ const FALLBACK_MENU = [
         href: '#gig-publisher',
       },
       {
+        name: 'Catalog insights',
+        description: 'Monitor conversion, margin, and discovery signals for your gig bundles.',
+        tags: ['analytics'],
+        targetId: 'catalog-insights',
+      },
+    ],
+  },
+  {
+    label: 'Growth & profile',
+    items: [
+      {
         id: 'freelancer-profile',
         name: 'Freelancer profile',
         description: 'Update expertise tags, success metrics, testimonials, and hero banners.',
@@ -1164,6 +1178,8 @@ const BASE_MENU_SECTIONS = [
             tags: ['playbooks'],
           },
         ],
+        anchorId: 'catalog-insights',
+        customContent: <CatalogInsightsPanel freelancerId={DEFAULT_FREELANCER_ID} />,
       },
     ];
   }, [summary.activeEnrollments, summary.activePlaybooks]);

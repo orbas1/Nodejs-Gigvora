@@ -15,6 +15,12 @@ const seededIds = {
   feedPosts: [1, 2],
   jobs: [1, 2],
   gigs: [1],
+  catalogBundles: [1, 2, 3],
+  catalogBundleMetrics: [1, 2, 3, 4, 5, 6],
+  repeatClients: [1, 2, 3, 4, 5],
+  crossSellOpportunities: [1, 2, 3],
+  keywordImpressions: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+  marginSnapshots: [1, 2, 3, 4],
   gigPackages: [1, 2, 3],
   gigAddons: [1, 2, 3],
   gigMediaAssets: [1, 2, 3],
@@ -84,7 +90,23 @@ module.exports = {
     const transaction = await queryInterface.sequelize.transaction();
 
     try {
+      const dayMs = 24 * 60 * 60 * 1000;
       const now = new Date();
+      const threeDaysAgo = new Date(now.getTime() - 3 * dayMs);
+      const twoDaysAgo = new Date(now.getTime() - 2 * dayMs);
+      const yesterday = new Date(now.getTime() - 1 * dayMs);
+      const sevenDaysAgo = new Date(now.getTime() - 7 * dayMs);
+      const fourteenDaysAgo = new Date(now.getTime() - 14 * dayMs);
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * dayMs);
+      const fortyFiveDaysAgo = new Date(now.getTime() - 45 * dayMs);
+      const sixtyDaysAgo = new Date(now.getTime() - 60 * dayMs);
+      const ninetyDaysAgo = new Date(now.getTime() - 90 * dayMs);
+
+      const currentMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+      const previousMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+      const twoMonthsAgo = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 2, 1));
+      const threeMonthsAgo = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 3, 1));
+      const leoFreelancerId = seededIds.users[1];
       const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
       const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
       const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
@@ -759,6 +781,491 @@ module.exports = {
       );
 
       await queryInterface.bulkInsert(
+        'freelancer_catalog_bundles',
+        [
+          {
+            id: seededIds.catalogBundles[0],
+            freelancerId: leoFreelancerId,
+            name: 'Brand sprint + Web UX refresh',
+            description:
+              'Two-week strategy intensive paired with UX polish across high-converting funnels and product surfaces.',
+            basePrice: 4200,
+            currencyCode: 'USD',
+            isActive: true,
+            metadata: {
+              deliveryWindow: '3-4 weeks',
+              includedAssets: ['brand audit', 'design system tune-up', 'funnel UX review'],
+            },
+            createdAt: sixtyDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.catalogBundles[1],
+            freelancerId: leoFreelancerId,
+            name: 'Product launch assets (Design + Video)',
+            description:
+              'Launch campaign kit with motion explainers, landing pages, paid social variants, and conversion copy.',
+            basePrice: 6800,
+            currencyCode: 'USD',
+            isActive: true,
+            metadata: {
+              deliveryWindow: '5 weeks',
+              includedAssets: ['launch landing page', 'motion teaser', 'sales enablement deck'],
+            },
+            createdAt: sixtyDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.catalogBundles[2],
+            freelancerId: leoFreelancerId,
+            name: 'Fractional creative director retainer',
+            description:
+              'Ongoing creative leadership with campaign QA, asset reviews, and experimentation roadmaps.',
+            basePrice: 5200,
+            currencyCode: 'USD',
+            isActive: true,
+            metadata: {
+              cadence: 'Monthly',
+              meetingsPerMonth: 4,
+              focus: ['creative QA', 'performance insights', 'team coaching'],
+            },
+            createdAt: ninetyDaysAgo,
+            updatedAt: now,
+          },
+        ],
+        { transaction }
+      );
+
+      await queryInterface.bulkInsert(
+        'freelancer_catalog_bundle_metrics',
+        [
+          {
+            id: seededIds.catalogBundleMetrics[0],
+            bundleId: seededIds.catalogBundles[0],
+            periodStart: sixtyDaysAgo,
+            periodEnd: fortyFiveDaysAgo,
+            impressions: 920,
+            clicks: 228,
+            conversions: 46,
+            revenue: 11800,
+            repeatClients: 3,
+            attachRate: 34.2,
+            upsellRevenue: 3200,
+            createdAt: fortyFiveDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.catalogBundleMetrics[1],
+            bundleId: seededIds.catalogBundles[0],
+            periodStart: fourteenDaysAgo,
+            periodEnd: sevenDaysAgo,
+            impressions: 880,
+            clicks: 214,
+            conversions: 52,
+            revenue: 12400,
+            repeatClients: 4,
+            attachRate: 36.8,
+            upsellRevenue: 3800,
+            createdAt: sevenDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.catalogBundleMetrics[2],
+            bundleId: seededIds.catalogBundles[1],
+            periodStart: sixtyDaysAgo,
+            periodEnd: fortyFiveDaysAgo,
+            impressions: 760,
+            clicks: 182,
+            conversions: 39,
+            revenue: 9800,
+            repeatClients: 2,
+            attachRate: 41.5,
+            upsellRevenue: 4100,
+            createdAt: fortyFiveDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.catalogBundleMetrics[3],
+            bundleId: seededIds.catalogBundles[1],
+            periodStart: fourteenDaysAgo,
+            periodEnd: yesterday,
+            impressions: 810,
+            clicks: 196,
+            conversions: 44,
+            revenue: 10500,
+            repeatClients: 3,
+            attachRate: 43.1,
+            upsellRevenue: 4620,
+            createdAt: yesterday,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.catalogBundleMetrics[4],
+            bundleId: seededIds.catalogBundles[2],
+            periodStart: sixtyDaysAgo,
+            periodEnd: thirtyDaysAgo,
+            impressions: 540,
+            clicks: 146,
+            conversions: 28,
+            revenue: 15600,
+            repeatClients: 5,
+            attachRate: 27.9,
+            upsellRevenue: 5200,
+            createdAt: thirtyDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.catalogBundleMetrics[5],
+            bundleId: seededIds.catalogBundles[2],
+            periodStart: fourteenDaysAgo,
+            periodEnd: yesterday,
+            impressions: 580,
+            clicks: 152,
+            conversions: 31,
+            revenue: 16200,
+            repeatClients: 5,
+            attachRate: 29.4,
+            upsellRevenue: 5480,
+            createdAt: yesterday,
+            updatedAt: now,
+          },
+        ],
+        { transaction }
+      );
+
+      await queryInterface.bulkInsert(
+        'freelancer_repeat_clients',
+        [
+          {
+            id: seededIds.repeatClients[0],
+            freelancerId: leoFreelancerId,
+            clientName: 'Northwind Labs',
+            clientCompany: 'Northwind Labs',
+            lastOrderAt: sevenDaysAgo,
+            totalOrders: 5,
+            lifetimeValue: 15600,
+            isRetainer: true,
+            retainerStartDate: thirtyDaysAgo,
+            notes: 'Design system governance and conversion experiments.',
+            createdAt: ninetyDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.repeatClients[1],
+            freelancerId: leoFreelancerId,
+            clientName: 'SaaS Collective',
+            clientCompany: 'SaaS Collective',
+            lastOrderAt: twoDaysAgo,
+            totalOrders: 3,
+            lifetimeValue: 9800,
+            isRetainer: true,
+            retainerStartDate: fourteenDaysAgo,
+            notes: 'Weekly CRO experiments with launch bundles.',
+            createdAt: sixtyDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.repeatClients[2],
+            freelancerId: leoFreelancerId,
+            clientName: 'Atlas Ventures',
+            clientCompany: 'Atlas Ventures',
+            lastOrderAt: thirtyDaysAgo,
+            totalOrders: 2,
+            lifetimeValue: 7200,
+            isRetainer: false,
+            retainerStartDate: null,
+            notes: 'Launch storytelling assets on a project basis.',
+            createdAt: sixtyDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.repeatClients[3],
+            freelancerId: leoFreelancerId,
+            clientName: 'Nova Agency',
+            clientCompany: 'Nova Agency',
+            lastOrderAt: fortyFiveDaysAgo,
+            totalOrders: 4,
+            lifetimeValue: 11200,
+            isRetainer: true,
+            retainerStartDate: sixtyDaysAgo,
+            notes: 'Creative QA partner across retainer pods.',
+            createdAt: ninetyDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.repeatClients[4],
+            freelancerId: leoFreelancerId,
+            clientName: 'Blue Horizon Studios',
+            clientCompany: 'Blue Horizon Studios',
+            lastOrderAt: fourteenDaysAgo,
+            totalOrders: 1,
+            lifetimeValue: 3500,
+            isRetainer: false,
+            retainerStartDate: null,
+            notes: 'Motion teaser for pilot campaign with follow-up pending.',
+            createdAt: thirtyDaysAgo,
+            updatedAt: now,
+          },
+        ],
+        { transaction }
+      );
+
+      await queryInterface.bulkInsert(
+        'freelancer_cross_sell_opportunities',
+        [
+          {
+            id: seededIds.crossSellOpportunities[0],
+            freelancerId: leoFreelancerId,
+            fromBundleId: seededIds.catalogBundles[0],
+            toBundleId: seededIds.catalogBundles[1],
+            title: 'Launch nurture bundle for recent strategy wins',
+            signal: 'Checkout notes flag request for campaign collateral after UX refresh engagements.',
+            recommendedAction: 'Bundle launch assets to six active SaaS Collective accounts this month.',
+            expectedUpliftPercentage: 18.5,
+            expectedRevenue: 5400,
+            confidence: 82.5,
+            priority: 1,
+            createdAt: sevenDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.crossSellOpportunities[1],
+            freelancerId: leoFreelancerId,
+            fromBundleId: seededIds.catalogBundles[0],
+            toBundleId: seededIds.catalogBundles[2],
+            title: 'Retainer pitch for recurring brand partners',
+            signal: 'Repeat brand sprint clients requesting quarterly reviews.',
+            recommendedAction: 'Offer fractional creative director retainer to Northwind Labs and Nova Agency.',
+            expectedUpliftPercentage: 12.2,
+            expectedRevenue: 7200,
+            confidence: 76.4,
+            priority: 2,
+            createdAt: fourteenDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.crossSellOpportunities[2],
+            freelancerId: leoFreelancerId,
+            fromBundleId: seededIds.catalogBundles[1],
+            toBundleId: seededIds.catalogBundles[2],
+            title: 'Analytics optimisation upsell',
+            signal: 'Video launch campaigns show ongoing optimisation requests in support threads.',
+            recommendedAction: 'Attach 3-month optimisation retainer to upcoming launch asset renewals.',
+            expectedUpliftPercentage: 9.4,
+            expectedRevenue: 4600,
+            confidence: 71.3,
+            priority: 2,
+            createdAt: sevenDaysAgo,
+            updatedAt: now,
+          },
+        ],
+        { transaction }
+      );
+
+      await queryInterface.bulkInsert(
+        'freelancer_keyword_impressions',
+        [
+          {
+            id: seededIds.keywordImpressions[0],
+            freelancerId: leoFreelancerId,
+            keyword: 'brand strategy workshop',
+            region: 'US',
+            impressions: 820,
+            clicks: 210,
+            conversions: 24,
+            trendPercentage: 18.2,
+            capturedAt: sevenDaysAgo,
+            metadata: { channel: 'marketplace_search' },
+            createdAt: sevenDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.keywordImpressions[1],
+            freelancerId: leoFreelancerId,
+            keyword: 'brand strategy workshop',
+            region: 'UK',
+            impressions: 310,
+            clicks: 74,
+            conversions: 8,
+            trendPercentage: 11.4,
+            capturedAt: sevenDaysAgo,
+            metadata: { channel: 'marketplace_search' },
+            createdAt: sevenDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.keywordImpressions[2],
+            freelancerId: leoFreelancerId,
+            keyword: 'ux audit for saas',
+            region: 'US',
+            impressions: 640,
+            clicks: 188,
+            conversions: 21,
+            trendPercentage: 12.7,
+            capturedAt: fourteenDaysAgo,
+            metadata: { channel: 'marketplace_search' },
+            createdAt: fourteenDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.keywordImpressions[3],
+            freelancerId: leoFreelancerId,
+            keyword: 'ux audit for saas',
+            region: 'DE',
+            impressions: 220,
+            clicks: 62,
+            conversions: 7,
+            trendPercentage: 9.1,
+            capturedAt: fourteenDaysAgo,
+            metadata: { channel: 'marketplace_search' },
+            createdAt: fourteenDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.keywordImpressions[4],
+            freelancerId: leoFreelancerId,
+            keyword: 'product launch designer',
+            region: 'US',
+            impressions: 570,
+            clicks: 142,
+            conversions: 17,
+            trendPercentage: 9.8,
+            capturedAt: sevenDaysAgo,
+            metadata: { channel: 'recommendations' },
+            createdAt: sevenDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.keywordImpressions[5],
+            freelancerId: leoFreelancerId,
+            keyword: 'webflow redesign expert',
+            region: 'CA',
+            impressions: 310,
+            clicks: 88,
+            conversions: 10,
+            trendPercentage: 6.4,
+            capturedAt: sevenDaysAgo,
+            metadata: { channel: 'marketplace_search' },
+            createdAt: sevenDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.keywordImpressions[6],
+            freelancerId: leoFreelancerId,
+            keyword: 'webflow redesign expert',
+            region: 'US',
+            impressions: 480,
+            clicks: 130,
+            conversions: 12,
+            trendPercentage: 7.1,
+            capturedAt: sevenDaysAgo,
+            metadata: { channel: 'marketplace_search' },
+            createdAt: sevenDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.keywordImpressions[7],
+            freelancerId: leoFreelancerId,
+            keyword: 'fractional creative director',
+            region: 'US',
+            impressions: 360,
+            clicks: 104,
+            conversions: 11,
+            trendPercentage: 10.9,
+            capturedAt: sevenDaysAgo,
+            metadata: { channel: 'referrals' },
+            createdAt: sevenDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.keywordImpressions[8],
+            freelancerId: leoFreelancerId,
+            keyword: 'fractional creative director',
+            region: 'AU',
+            impressions: 180,
+            clicks: 48,
+            conversions: 5,
+            trendPercentage: 8.6,
+            capturedAt: sevenDaysAgo,
+            metadata: { channel: 'referrals' },
+            createdAt: sevenDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.keywordImpressions[9],
+            freelancerId: leoFreelancerId,
+            keyword: 'b2b landing page refresh',
+            region: 'US',
+            impressions: 440,
+            clicks: 120,
+            conversions: 14,
+            trendPercentage: 7.4,
+            capturedAt: sevenDaysAgo,
+            metadata: { channel: 'marketplace_search' },
+            createdAt: sevenDaysAgo,
+            updatedAt: now,
+          },
+        ],
+        { transaction }
+      );
+
+      await queryInterface.bulkInsert(
+        'freelancer_margin_snapshots',
+        [
+          {
+            id: seededIds.marginSnapshots[0],
+            freelancerId: leoFreelancerId,
+            month: threeMonthsAgo,
+            revenue: 18250,
+            softwareCosts: 1650,
+            subcontractorCosts: 4200,
+            fulfillmentCosts: 1100,
+            notes: 'Post-launch support tapering after spring campaign.',
+            createdAt: threeMonthsAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.marginSnapshots[1],
+            freelancerId: leoFreelancerId,
+            month: twoMonthsAgo,
+            revenue: 19480,
+            softwareCosts: 1720,
+            subcontractorCosts: 4380,
+            fulfillmentCosts: 1260,
+            notes: 'Added part-time video contractor for launch kit backlog.',
+            createdAt: twoMonthsAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.marginSnapshots[2],
+            freelancerId: leoFreelancerId,
+            month: previousMonth,
+            revenue: 20560,
+            softwareCosts: 1835,
+            subcontractorCosts: 4520,
+            fulfillmentCosts: 1380,
+            notes: 'Scaled analytics QA support and upgraded motion tooling.',
+            createdAt: previousMonth,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.marginSnapshots[3],
+            freelancerId: leoFreelancerId,
+            month: currentMonth,
+            revenue: 21420,
+            softwareCosts: 1860,
+            subcontractorCosts: 4680,
+            fulfillmentCosts: 1420,
+            notes: 'Healthy retainer mix with two new SaaS accounts onboarded.',
+            createdAt: currentMonth,
+            updatedAt: now,
+          },
+        ],
+        { transaction }
+      );
+
+      await queryInterface.bulkInsert(
+        'projects',
         'gig_packages',
         [
           {
@@ -3680,6 +4187,34 @@ module.exports = {
 
     try {
       await queryInterface.bulkDelete(
+        'freelancer_margin_snapshots',
+        { id: { [Op.in]: seededIds.marginSnapshots } },
+        { transaction },
+      );
+      await queryInterface.bulkDelete(
+        'freelancer_keyword_impressions',
+        { id: { [Op.in]: seededIds.keywordImpressions } },
+        { transaction },
+      );
+      await queryInterface.bulkDelete(
+        'freelancer_cross_sell_opportunities',
+        { id: { [Op.in]: seededIds.crossSellOpportunities } },
+        { transaction },
+      );
+      await queryInterface.bulkDelete(
+        'freelancer_repeat_clients',
+        { id: { [Op.in]: seededIds.repeatClients } },
+        { transaction },
+      );
+      await queryInterface.bulkDelete(
+        'freelancer_catalog_bundle_metrics',
+        { id: { [Op.in]: seededIds.catalogBundleMetrics } },
+        { transaction },
+      );
+      await queryInterface.bulkDelete(
+        'freelancer_catalog_bundles',
+        { id: { [Op.in]: seededIds.catalogBundles } },
+        { transaction },
         'freelancer_finance_controls',
         { id: { [Op.in]: seededIds.freelancerFinanceControls } },
         { transaction }

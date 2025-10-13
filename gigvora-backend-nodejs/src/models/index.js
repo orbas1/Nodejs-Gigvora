@@ -807,6 +807,210 @@ Gig.prototype.toBuilderObject = function toBuilderObject() {
   };
 };
 
+export const FreelancerCatalogBundle = sequelize.define(
+  'FreelancerCatalogBundle',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    basePrice: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    currencyCode: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    isActive: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'freelancer_catalog_bundles' },
+);
+
+FreelancerCatalogBundle.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    name: plain.name,
+    description: plain.description,
+    basePrice: plain.basePrice == null ? null : Number(plain.basePrice),
+    currencyCode: plain.currencyCode,
+    isActive: Boolean(plain.isActive),
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const FreelancerCatalogBundleMetric = sequelize.define(
+  'FreelancerCatalogBundleMetric',
+  {
+    bundleId: { type: DataTypes.INTEGER, allowNull: false },
+    periodStart: { type: DataTypes.DATEONLY, allowNull: false },
+    periodEnd: { type: DataTypes.DATEONLY, allowNull: false },
+    impressions: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    clicks: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    conversions: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    revenue: { type: DataTypes.DECIMAL(12, 2), allowNull: false, defaultValue: 0 },
+    repeatClients: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    attachRate: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    upsellRevenue: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+  },
+  { tableName: 'freelancer_catalog_bundle_metrics' },
+);
+
+FreelancerCatalogBundleMetric.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    bundleId: plain.bundleId,
+    periodStart: plain.periodStart,
+    periodEnd: plain.periodEnd,
+    impressions: plain.impressions ?? 0,
+    clicks: plain.clicks ?? 0,
+    conversions: plain.conversions ?? 0,
+    revenue: plain.revenue == null ? 0 : Number(plain.revenue),
+    repeatClients: plain.repeatClients ?? 0,
+    attachRate: plain.attachRate == null ? null : Number(plain.attachRate),
+    upsellRevenue: plain.upsellRevenue == null ? null : Number(plain.upsellRevenue),
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const FreelancerRepeatClient = sequelize.define(
+  'FreelancerRepeatClient',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    clientName: { type: DataTypes.STRING(255), allowNull: false },
+    clientCompany: { type: DataTypes.STRING(255), allowNull: true },
+    lastOrderAt: { type: DataTypes.DATE, allowNull: true },
+    totalOrders: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    lifetimeValue: { type: DataTypes.DECIMAL(12, 2), allowNull: false, defaultValue: 0 },
+    isRetainer: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    retainerStartDate: { type: DataTypes.DATE, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  { tableName: 'freelancer_repeat_clients' },
+);
+
+FreelancerRepeatClient.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    clientName: plain.clientName,
+    clientCompany: plain.clientCompany,
+    lastOrderAt: plain.lastOrderAt,
+    totalOrders: plain.totalOrders ?? 0,
+    lifetimeValue: plain.lifetimeValue == null ? 0 : Number(plain.lifetimeValue),
+    isRetainer: Boolean(plain.isRetainer),
+    retainerStartDate: plain.retainerStartDate,
+    notes: plain.notes,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const FreelancerCrossSellOpportunity = sequelize.define(
+  'FreelancerCrossSellOpportunity',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    fromBundleId: { type: DataTypes.INTEGER, allowNull: true },
+    toBundleId: { type: DataTypes.INTEGER, allowNull: true },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    signal: { type: DataTypes.TEXT, allowNull: false },
+    recommendedAction: { type: DataTypes.TEXT, allowNull: false },
+    expectedUpliftPercentage: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    expectedRevenue: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    confidence: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    priority: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 2 },
+  },
+  { tableName: 'freelancer_cross_sell_opportunities' },
+);
+
+FreelancerCrossSellOpportunity.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    fromBundleId: plain.fromBundleId,
+    toBundleId: plain.toBundleId,
+    title: plain.title,
+    signal: plain.signal,
+    recommendedAction: plain.recommendedAction,
+    expectedUpliftPercentage:
+      plain.expectedUpliftPercentage == null ? null : Number(plain.expectedUpliftPercentage),
+    expectedRevenue: plain.expectedRevenue == null ? null : Number(plain.expectedRevenue),
+    confidence: plain.confidence == null ? null : Number(plain.confidence),
+    priority: plain.priority ?? 2,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const FreelancerKeywordImpression = sequelize.define(
+  'FreelancerKeywordImpression',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    keyword: { type: DataTypes.STRING(255), allowNull: false },
+    region: { type: DataTypes.STRING(120), allowNull: true },
+    impressions: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    clicks: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    conversions: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    trendPercentage: { type: DataTypes.DECIMAL(6, 2), allowNull: true },
+    capturedAt: { type: DataTypes.DATE, allowNull: false },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'freelancer_keyword_impressions' },
+);
+
+FreelancerKeywordImpression.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    keyword: plain.keyword,
+    region: plain.region,
+    impressions: plain.impressions ?? 0,
+    clicks: plain.clicks ?? 0,
+    conversions: plain.conversions ?? 0,
+    trendPercentage: plain.trendPercentage == null ? null : Number(plain.trendPercentage),
+    capturedAt: plain.capturedAt,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const FreelancerMarginSnapshot = sequelize.define(
+  'FreelancerMarginSnapshot',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    month: { type: DataTypes.DATEONLY, allowNull: false },
+    revenue: { type: DataTypes.DECIMAL(12, 2), allowNull: false, defaultValue: 0 },
+    softwareCosts: { type: DataTypes.DECIMAL(12, 2), allowNull: false, defaultValue: 0 },
+    subcontractorCosts: { type: DataTypes.DECIMAL(12, 2), allowNull: false, defaultValue: 0 },
+    fulfillmentCosts: { type: DataTypes.DECIMAL(12, 2), allowNull: false, defaultValue: 0 },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  { tableName: 'freelancer_margin_snapshots' },
+);
+
+FreelancerMarginSnapshot.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    month: plain.month,
+    revenue: plain.revenue == null ? 0 : Number(plain.revenue),
+    softwareCosts: plain.softwareCosts == null ? 0 : Number(plain.softwareCosts),
+    subcontractorCosts:
+      plain.subcontractorCosts == null ? 0 : Number(plain.subcontractorCosts),
+    fulfillmentCosts: plain.fulfillmentCosts == null ? 0 : Number(plain.fulfillmentCosts),
+    notes: plain.notes,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ExperienceLaunchpad = sequelize.define(
+  'ExperienceLaunchpad',
 export const ClientSuccessPlaybook = sequelize.define(
   'ClientSuccessPlaybook',
   {
@@ -6595,6 +6799,31 @@ Application.hasMany(ApplicationReview, { foreignKey: 'applicationId', as: 'revie
 ApplicationReview.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });
 ApplicationReview.belongsTo(User, { foreignKey: 'reviewerId', as: 'reviewer' });
 
+User.hasMany(FreelancerCatalogBundle, { foreignKey: 'freelancerId', as: 'catalogBundles' });
+FreelancerCatalogBundle.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
+FreelancerCatalogBundle.hasMany(FreelancerCatalogBundleMetric, { foreignKey: 'bundleId', as: 'metrics' });
+FreelancerCatalogBundleMetric.belongsTo(FreelancerCatalogBundle, { foreignKey: 'bundleId', as: 'bundle' });
+
+User.hasMany(FreelancerRepeatClient, { foreignKey: 'freelancerId', as: 'repeatClients' });
+FreelancerRepeatClient.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
+User.hasMany(FreelancerCrossSellOpportunity, { foreignKey: 'freelancerId', as: 'crossSellOpportunities' });
+FreelancerCrossSellOpportunity.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+FreelancerCrossSellOpportunity.belongsTo(FreelancerCatalogBundle, {
+  foreignKey: 'fromBundleId',
+  as: 'sourceBundle',
+});
+FreelancerCrossSellOpportunity.belongsTo(FreelancerCatalogBundle, {
+  foreignKey: 'toBundleId',
+  as: 'targetBundle',
+});
+
+User.hasMany(FreelancerKeywordImpression, { foreignKey: 'freelancerId', as: 'keywordImpressions' });
+FreelancerKeywordImpression.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
+User.hasMany(FreelancerMarginSnapshot, { foreignKey: 'freelancerId', as: 'marginSnapshots' });
+FreelancerMarginSnapshot.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
 Application.hasMany(InterviewSchedule, { foreignKey: 'applicationId', as: 'interviews' });
 InterviewSchedule.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });
 
@@ -7076,6 +7305,12 @@ export default {
   GigUpsell,
   GigCatalogItem,
   Project,
+  FreelancerCatalogBundle,
+  FreelancerCatalogBundleMetric,
+  FreelancerRepeatClient,
+  FreelancerCrossSellOpportunity,
+  FreelancerKeywordImpression,
+  FreelancerMarginSnapshot,
   ClientSuccessPlaybook,
   ClientSuccessStep,
   ClientSuccessEnrollment,

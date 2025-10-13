@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeftOnRectangleIcon,
@@ -12,6 +12,12 @@ import {
 import { DASHBOARD_LINKS } from '../constants/dashboardLinks.js';
 
 function slugify(value) {
+  return (value || '')
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
   return value
     ?.toString()
     .trim()
@@ -88,6 +94,17 @@ export default function DashboardLayout({
     event.preventDefault();
   };
 
+  const handleNavigateTo = useCallback((targetId) => {
+    if (!targetId) {
+      return;
+    }
+    const element = typeof document !== 'undefined' ? document.getElementById(targetId) : null;
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    setSidebarOpen(false);
+  }, []);
+
   return (
     <div className="relative min-h-screen bg-slate-50 text-slate-900">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(191,219,254,0.35),_transparent_65%)]" />
@@ -162,6 +179,14 @@ export default function DashboardLayout({
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{section.label}</p>
                   <ul className="mt-3 space-y-2">
                     {section.items.map((item) => {
+                      const isLinkable = Boolean(item.targetId);
+                      const Component = isLinkable ? 'button' : 'div';
+                      return (
+                        <li key={item.name}>
+                          <Component
+                            type={isLinkable ? 'button' : undefined}
+                            onClick={isLinkable ? () => handleNavigateTo(item.targetId) : undefined}
+                            className="group flex w-full flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 text-left transition hover:border-blue-300 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
                       const itemKey = item.id ?? item.name;
                       const isActive = interactiveMenu && itemKey === activeMenuItem;
                       const Element = interactiveMenu ? 'button' : 'div';
@@ -263,6 +288,7 @@ export default function DashboardLayout({
                             <div className="flex items-center justify-between">
                               <span className="text-sm font-medium text-slate-700">{item.name}</span>
                               <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
+                            </div>
                             </div>
                             </div>
                             </div>
@@ -422,6 +448,10 @@ export default function DashboardLayout({
                                 ))}
                               </div>
                             ) : null}
+                          </Component>
+                        </li>
+                      );
+                    })}
                           </Element>
                         </li>
                       );
@@ -590,6 +620,7 @@ export default function DashboardLayout({
                       </div>
                       <div className="mt-6 grid gap-4 sm:grid-cols-2">
                         {section.features.map((feature) => {
+                          const featureId = feature.anchorId || feature.targetId || slugify(feature.name);
                           const featureKey = `${section.title}:${feature.name}`;
                           const hasDeepDive = Boolean(feature.deepDive);
                           const isExpanded = activeFeatureKey === featureKey;
@@ -707,6 +738,9 @@ export default function DashboardLayout({
                                       </li>
                                     ))}
                                   </ul>
+                                ) : null}
+                                {feature.customContent ? (
+                                  <div className="mt-4">{feature.customContent}</div>
                                 ) : null}
                               </div>
                               {feature.callout ? (
