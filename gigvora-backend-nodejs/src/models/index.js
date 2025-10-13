@@ -198,6 +198,15 @@ export const LAUNCHPAD_PLACEMENT_STATUSES = ['scheduled', 'in_progress', 'comple
 export const LAUNCHPAD_TARGET_TYPES = ['job', 'gig', 'project'];
 export const LAUNCHPAD_OPPORTUNITY_SOURCES = ['employer_request', 'placement', 'manual'];
 export const WORKSPACE_TEMPLATE_STATUSES = ['draft', 'active', 'deprecated'];
+export const EMPLOYER_BRAND_STORY_TYPES = ['culture', 'employee_spotlight', 'event', 'award', 'initiative'];
+export const EMPLOYER_BRAND_STORY_STATUSES = ['draft', 'scheduled', 'published', 'archived'];
+export const EMPLOYER_BENEFIT_CATEGORIES = ['health', 'wellness', 'compensation', 'flexibility', 'development', 'culture'];
+export const EMPLOYEE_JOURNEY_PROGRAM_TYPES = ['onboarding', 'mobility', 'performance'];
+export const EMPLOYEE_JOURNEY_HEALTH_STATUSES = ['on_track', 'at_risk', 'off_track', 'needs_attention'];
+export const WORKSPACE_INTEGRATION_CATEGORIES = ['calendar', 'hris', 'communication', 'ats', 'productivity', 'other'];
+export const WORKSPACE_INTEGRATION_STATUSES = ['connected', 'disconnected', 'error', 'pending'];
+export const WORKSPACE_INTEGRATION_SYNC_FREQUENCIES = ['manual', 'hourly', 'daily', 'weekly'];
+export const WORKSPACE_CALENDAR_CONNECTION_STATUSES = ['connected', 'sync_error', 'disconnected', 'pending'];
 export const WORKSPACE_TEMPLATE_VISIBILITIES = ['public', 'private'];
 export const WORKSPACE_TEMPLATE_STAGE_TYPES = ['intake', 'strategy', 'production', 'delivery', 'retainer', 'quality', 'retro'];
 export const WORKSPACE_TEMPLATE_RESOURCE_TYPES = [
@@ -4382,6 +4391,156 @@ export const EmployerBrandAsset = sequelize.define(
     indexes: [
       { fields: ['workspaceId'] },
       { fields: ['assetType'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+export const EmployerBrandStory = sequelize.define(
+  'EmployerBrandStory',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    authorId: { type: DataTypes.INTEGER, allowNull: true },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    storyType: {
+      type: DataTypes.ENUM(...EMPLOYER_BRAND_STORY_TYPES),
+      allowNull: false,
+      defaultValue: 'culture',
+    },
+    status: {
+      type: DataTypes.ENUM(...EMPLOYER_BRAND_STORY_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+    },
+    publishedAt: { type: DataTypes.DATE, allowNull: true },
+    heroImageUrl: { type: DataTypes.STRING(500), allowNull: true },
+    engagementScore: { type: DataTypes.DECIMAL(8, 2), allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'employer_brand_stories',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['status'] },
+      { fields: ['storyType'] },
+    ],
+  },
+);
+
+export const EmployerBenefit = sequelize.define(
+  'EmployerBenefit',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    category: {
+      type: DataTypes.ENUM(...EMPLOYER_BENEFIT_CATEGORIES),
+      allowNull: false,
+      defaultValue: 'culture',
+    },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    isFeatured: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    effectiveDate: { type: DataTypes.DATEONLY, allowNull: true },
+    lastReviewedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'employer_benefits',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['category'] },
+      { fields: ['isFeatured'] },
+    ],
+  },
+);
+
+export const EmployeeJourneyProgram = sequelize.define(
+  'EmployeeJourneyProgram',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    programType: {
+      type: DataTypes.ENUM(...EMPLOYEE_JOURNEY_PROGRAM_TYPES),
+      allowNull: false,
+      defaultValue: 'onboarding',
+    },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    ownerId: { type: DataTypes.INTEGER, allowNull: true },
+    stageCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    activeEmployees: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    completionRate: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    averageDurationDays: { type: DataTypes.INTEGER, allowNull: true },
+    healthStatus: {
+      type: DataTypes.ENUM(...EMPLOYEE_JOURNEY_HEALTH_STATUSES),
+      allowNull: false,
+      defaultValue: 'on_track',
+    },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'employee_journey_programs',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['programType'] },
+      { fields: ['healthStatus'] },
+    ],
+  },
+);
+
+export const WorkspaceIntegration = sequelize.define(
+  'WorkspaceIntegration',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    providerKey: { type: DataTypes.STRING(120), allowNull: false },
+    displayName: { type: DataTypes.STRING(255), allowNull: false },
+    category: {
+      type: DataTypes.ENUM(...WORKSPACE_INTEGRATION_CATEGORIES),
+      allowNull: false,
+      defaultValue: 'other',
+    },
+    status: {
+      type: DataTypes.ENUM(...WORKSPACE_INTEGRATION_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+    },
+    lastSyncedAt: { type: DataTypes.DATE, allowNull: true },
+    syncFrequency: {
+      type: DataTypes.ENUM(...WORKSPACE_INTEGRATION_SYNC_FREQUENCIES),
+      allowNull: false,
+      defaultValue: 'daily',
+    },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'workspace_integrations',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['providerKey'] },
+      { fields: ['category'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+export const WorkspaceCalendarConnection = sequelize.define(
+  'WorkspaceCalendarConnection',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    providerKey: { type: DataTypes.STRING(120), allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...WORKSPACE_CALENDAR_CONNECTION_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+    },
+    lastSyncedAt: { type: DataTypes.DATE, allowNull: true },
+    calendarCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    primaryCalendar: { type: DataTypes.STRING(255), allowNull: true },
+    settings: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'workspace_calendar_connections',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['providerKey'] },
       { fields: ['status'] },
     ],
   },
@@ -9220,6 +9379,8 @@ Notification.belongsTo(User, { foreignKey: 'userId', as: 'recipient' });
 NotificationPreference.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasOne(NotificationPreference, { foreignKey: 'userId', as: 'notificationPreference' });
 User.hasMany(Notification, { foreignKey: 'userId', as: 'notifications' });
+User.hasMany(EmployerBrandStory, { foreignKey: 'authorId', as: 'authoredBrandStories' });
+User.hasMany(EmployeeJourneyProgram, { foreignKey: 'ownerId', as: 'managedJourneyPrograms' });
 
 User.hasMany(DeliverableVault, { foreignKey: 'freelancerId', as: 'deliverableVaults' });
 DeliverableVault.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
@@ -9264,6 +9425,11 @@ ProviderWorkspace.hasMany(JobCampaignPerformance, { foreignKey: 'workspaceId', a
 ProviderWorkspace.hasMany(PartnerEngagement, { foreignKey: 'workspaceId', as: 'partnerEngagements' });
 ProviderWorkspace.hasMany(RecruitingCalendarEvent, { foreignKey: 'workspaceId', as: 'recruitingEvents' });
 ProviderWorkspace.hasMany(EmployerBrandAsset, { foreignKey: 'workspaceId', as: 'employerBrandAssets' });
+ProviderWorkspace.hasMany(EmployerBrandStory, { foreignKey: 'workspaceId', as: 'employerBrandStories' });
+ProviderWorkspace.hasMany(EmployerBenefit, { foreignKey: 'workspaceId', as: 'employerBenefits' });
+ProviderWorkspace.hasMany(EmployeeJourneyProgram, { foreignKey: 'workspaceId', as: 'employeeJourneyPrograms' });
+ProviderWorkspace.hasMany(WorkspaceIntegration, { foreignKey: 'workspaceId', as: 'workspaceIntegrations' });
+ProviderWorkspace.hasMany(WorkspaceCalendarConnection, { foreignKey: 'workspaceId', as: 'calendarConnections' });
 
 ProviderWorkspaceMember.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 ProviderWorkspaceMember.belongsTo(User, { foreignKey: 'userId', as: 'member' });
@@ -9285,6 +9451,13 @@ JobCampaignPerformance.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId',
 PartnerEngagement.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 RecruitingCalendarEvent.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 EmployerBrandAsset.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+EmployerBrandStory.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+EmployerBrandStory.belongsTo(User, { foreignKey: 'authorId', as: 'author' });
+EmployerBenefit.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+EmployeeJourneyProgram.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+EmployeeJourneyProgram.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
+WorkspaceIntegration.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+WorkspaceCalendarConnection.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 
 WorkspaceTemplateCategory.hasMany(WorkspaceTemplate, { foreignKey: 'categoryId', as: 'templates' });
 WorkspaceTemplate.belongsTo(WorkspaceTemplateCategory, { foreignKey: 'categoryId', as: 'category' });
@@ -9615,6 +9788,11 @@ export default {
   PartnerEngagement,
   RecruitingCalendarEvent,
   EmployerBrandAsset,
+  EmployerBrandStory,
+  EmployerBenefit,
+  EmployeeJourneyProgram,
+  WorkspaceIntegration,
+  WorkspaceCalendarConnection,
   EscrowAccount,
   EscrowTransaction,
   DisputeCase,
