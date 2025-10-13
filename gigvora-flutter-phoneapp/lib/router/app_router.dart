@@ -12,6 +12,7 @@ import '../features/marketplace/presentation/jobs_screen.dart';
 import '../features/marketplace/presentation/gigs_screen.dart';
 import '../features/marketplace/presentation/projects_screen.dart';
 import '../features/marketplace/presentation/project_post_screen.dart';
+import '../features/marketplace/presentation/project_auto_match_screen.dart';
 import '../features/marketplace/presentation/launchpad_screen.dart';
 import '../features/marketplace/presentation/volunteering_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
@@ -40,6 +41,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/gigs', builder: (context, state) => const GigsScreen()),
       GoRoute(path: '/projects', builder: (context, state) => const ProjectsScreen()),
       GoRoute(path: '/projects/new', builder: (context, state) => const ProjectPostScreen()),
+      GoRoute(
+        path: '/projects/:id/auto-match',
+        builder: (context, state) => ProjectAutoMatchScreen(
+          projectId: int.tryParse(state.pathParameters['id'] ?? ''),
+        ),
+      ),
       GoRoute(path: '/launchpad', builder: (context, state) => const LaunchpadScreen()),
       GoRoute(path: '/volunteering', builder: (context, state) => const VolunteeringScreen()),
       GoRoute(path: '/notifications', builder: (context, state) => const NotificationsScreen()),

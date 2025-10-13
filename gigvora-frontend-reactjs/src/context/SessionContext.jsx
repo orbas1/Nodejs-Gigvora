@@ -72,6 +72,9 @@ export function SessionProvider({ children }) {
       },
       logout: () => {
         setSession(null);
+        if (typeof window !== 'undefined') {
+          window.localStorage.removeItem('gigvora:web:auth:accessToken');
+        }
       },
       updateSession: (updates = {}) => {
         setSession((previous) => {

@@ -19,11 +19,13 @@ export default function LoginPage() {
   const handleVerify = (event) => {
     event.preventDefault();
     login({
+      id: 101,
       name: 'Lena Fields',
       title: 'Product Designer',
       avatarSeed: 'Lena Fields',
       memberships: ['user', 'freelancer', 'agency'],
       primaryDashboard: 'user',
+      userType: 'freelancer',
       followers: 1280,
       connections: 324,
       companies: ['Gigvora Labs', 'Atlas Studios'],
@@ -31,6 +33,12 @@ export default function LoginPage() {
       accountTypes: ['Freelancer', 'Agency', 'Talent Lead'],
       isAuthenticated: true,
     });
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(
+        'gigvora:web:auth:accessToken',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MjAxLCJ0eXBlIjoiYWRtaW4iLCJleHAiOjE3NjAzOTg2Mzl9.PoszIfAN5fZ0ah3qfsUJ60OomK7NcdQ5lMXsHT53CX4',
+      );
+    }
     navigate('/feed');
   };
 

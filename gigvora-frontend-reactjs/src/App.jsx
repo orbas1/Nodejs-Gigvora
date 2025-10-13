@@ -12,6 +12,7 @@ import GigsPage from './pages/GigsPage.jsx';
 import ProjectsPage from './pages/ProjectsPage.jsx';
 import ProjectCreatePage from './pages/ProjectCreatePage.jsx';
 import ProjectDetailPage from './pages/ProjectDetailPage.jsx';
+import ProjectAutoMatchPage from './pages/ProjectAutoMatchPage.jsx';
 import LaunchpadPage from './pages/LaunchpadPage.jsx';
 import MentorsPage from './pages/MentorsPage.jsx';
 import VolunteeringPage from './pages/VolunteeringPage.jsx';
@@ -54,6 +55,7 @@ export default function App() {
         <Route path="projects" element={<ProjectsPage />} />
         <Route path="projects/new" element={<ProjectCreatePage />} />
         <Route path="projects/:projectId" element={<ProjectDetailPage />} />
+        <Route path="projects/:projectId/auto-match" element={<ProjectAutoMatchPage />} />
         <Route path="experience-launchpad" element={<LaunchpadPage />} />
         <Route path="mentors" element={<MentorsPage />} />
         <Route path="volunteering" element={<VolunteeringPage />} />

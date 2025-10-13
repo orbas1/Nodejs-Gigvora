@@ -64,8 +64,10 @@ async function verifyTwoFactor(email, code) {
 
   const user = await User.findOne({ where: { email } });
   const payload = { id: user.id, type: user.userType };
-  const accessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
-  const refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
+  const secret = process.env.JWT_SECRET || 'dev-secret';
+  const refreshSecret = process.env.JWT_REFRESH_SECRET || 'dev-secret-refresh';
+  const accessToken = jwt.sign(payload, secret, { expiresIn: TOKEN_EXPIRY });
+  const refreshToken = jwt.sign(payload, refreshSecret, { expiresIn: '7d' });
 
   return { accessToken, refreshToken, user };
 }
