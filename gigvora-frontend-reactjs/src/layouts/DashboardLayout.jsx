@@ -9,6 +9,7 @@ import {
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 import gigvoraWordmark from '../../images/Gigvora Logo.png';
+import MessagingDock from '../components/messaging/MessagingDock.jsx';
 
 function slugify(value) {
   if (!value) {
@@ -344,6 +345,7 @@ export default function DashboardLayout({
 
         <main className="flex-1 bg-slate-50/60">{children}</main>
       </div>
+      <MessagingDock />
     </div>
   );
 }

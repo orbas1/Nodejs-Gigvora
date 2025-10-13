@@ -19,6 +19,11 @@ import GroupsPage from './pages/GroupsPage.jsx';
 import ConnectionsPage from './pages/ConnectionsPage.jsx';
 import TrustCenterPage from './pages/TrustCenter.jsx';
 import AutoAssignQueuePage from './pages/AutoAssignQueuePage.jsx';
+import InboxPage from './pages/InboxPage.jsx';
+import TermsPage from './pages/TermsPage.jsx';
+import PrivacyPage from './pages/PrivacyPage.jsx';
+import SettingsPage from './pages/SettingsPage.jsx';
+import FinanceHubPage from './pages/FinanceHubPage.jsx';
 import UserDashboardPage from './pages/dashboards/UserDashboardPage.jsx';
 import FreelancerDashboardPage from './pages/dashboards/FreelancerDashboardPage.jsx';
 import FreelancerPipelinePage from './pages/dashboards/FreelancerPipelinePage.jsx';
@@ -49,6 +54,11 @@ export default function App() {
         <Route path="connections" element={<ConnectionsPage />} />
         <Route path="trust-center" element={<TrustCenterPage />} />
         <Route path="auto-assign" element={<AutoAssignQueuePage />} />
+        <Route path="inbox" element={<InboxPage />} />
+        <Route path="terms" element={<TermsPage />} />
+        <Route path="privacy" element={<PrivacyPage />} />
+        <Route path="settings" element={<SettingsPage />} />
+        <Route path="finance" element={<FinanceHubPage />} />
       </Route>
       <Route path="dashboard/user" element={<UserDashboardPage />} />
       <Route path="dashboard/freelancer" element={<FreelancerDashboardPage />} />
