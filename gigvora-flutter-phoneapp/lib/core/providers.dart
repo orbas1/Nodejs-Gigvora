@@ -24,6 +24,15 @@ final analyticsBootstrapProvider = FutureProvider<void>((ref) async {
   await analytics.flushQueue();
 });
 
+final pushNotificationServiceProvider = Provider<PushNotificationService>((ref) {
+  return ServiceLocator.read<PushNotificationService>();
+});
+
+final pushNotificationBootstrapProvider = FutureProvider<void>((ref) async {
+  final service = ref.watch(pushNotificationServiceProvider);
+  await service.bootstrap();
+});
+
 final featureFlagServiceProvider = Provider<FeatureFlagService>((ref) {
   return ServiceLocator.read<FeatureFlagService>();
 });
