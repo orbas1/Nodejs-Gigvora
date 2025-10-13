@@ -19,6 +19,7 @@ class FeedController extends StateNotifier<ResourceState<List<FeedPost>>> {
             const {
               'realtimeEnabled': false,
               'realtimeConnected': false,
+              'localPostCount': 0,
             },
           ),
         ) {
@@ -31,6 +32,8 @@ class FeedController extends StateNotifier<ResourceState<List<FeedPost>>> {
   final FeatureFlagService _featureFlags;
   bool _viewRecorded = false;
   bool _realtimeEnabled = false;
+  List<FeedPost> _remotePosts = const <FeedPost>[];
+  final List<FeedPost> _localPosts = <FeedPost>[];
   StreamSubscription<RealtimeMessage>? _realtimeSubscription;
   StreamSubscription<RealtimeConnectionState>? _statusSubscription;
   StreamSubscription<Map<String, dynamic>>? _flagSubscription;
@@ -58,24 +61,26 @@ class FeedController extends StateNotifier<ResourceState<List<FeedPost>>> {
     state = state.copyWith(loading: true, error: null);
     try {
       final result = await _repository.fetchFeed(forceRefresh: forceRefresh);
+      _remotePosts = List<FeedPost>.from(result.data ?? const <FeedPost>[]);
       final metadata = {
         ...state.metadata,
         'realtimeEnabled': _realtimeEnabled,
+        'localPostCount': _localPosts.length,
       };
-      state = ResourceState<List<FeedPost>>(
-        data: result.data,
+      _emitState(
         loading: false,
-        error: result.error,
         fromCache: result.fromCache,
         lastUpdated: result.lastUpdated,
         metadata: metadata,
+        error: result.error,
+        updateError: true,
       );
 
-      if (!_viewRecorded && result.data.isNotEmpty) {
+      if (!_viewRecorded && _remotePosts.isNotEmpty) {
         await _analytics.track(
           'mobile_feed_viewed',
           context: {
-            'postCount': result.data.length,
+            'postCount': _remotePosts.length,
             'fromCache': result.fromCache,
             'lastUpdated': result.lastUpdated?.toIso8601String(),
           },
@@ -95,7 +100,7 @@ class FeedController extends StateNotifier<ResourceState<List<FeedPost>>> {
         );
       }
     } catch (error) {
-      state = state.copyWith(loading: false, error: error);
+      _emitState(loading: false, error: error, updateError: true);
       await _analytics.track(
         'mobile_feed_sync_failed',
         context: {
@@ -107,6 +112,56 @@ class FeedController extends StateNotifier<ResourceState<List<FeedPost>>> {
   }
 
   Future<void> refresh() => load(forceRefresh: true);
+
+  Future<void> createLocalPost({
+    required String content,
+    required FeedPostType type,
+    String? link,
+  }) async {
+    final trimmedContent = content.trim();
+    if (trimmedContent.isEmpty) {
+      return;
+    }
+
+    final post = FeedPost(
+      id: 'local-${DateTime.now().millisecondsSinceEpoch}',
+      content: trimmedContent,
+      createdAt: DateTime.now(),
+      author: const FeedAuthor(
+        name: 'You',
+        headline: 'Shared via Gigvora',
+      ),
+      type: type,
+      link: (link ?? '').trim().isEmpty ? null : link?.trim(),
+      reactionCount: 0,
+      commentCount: 0,
+      viewerHasReacted: false,
+      isLocal: true,
+    );
+
+    _localPosts.insert(0, post);
+    if (_localPosts.length > 5) {
+      _localPosts.removeRange(5, _localPosts.length);
+    }
+
+    _emitState(
+      lastUpdated: DateTime.now(),
+      metadata: {
+        ...state.metadata,
+        'localPostCount': _localPosts.length,
+        'lastComposerType': type.analyticsValue,
+      },
+    );
+
+    await _analytics.track(
+      'mobile_feed_post_created',
+      context: {
+        'type': type.analyticsValue,
+        'hasLink': post.link != null,
+      },
+      metadata: const {'source': 'mobile_app'},
+    );
+  }
 
   Future<void> recordReaction(FeedPost post, String action) {
     return _analytics.track(
@@ -196,16 +251,16 @@ class FeedController extends StateNotifier<ResourceState<List<FeedPost>>> {
         }
         final post = FeedPost.fromJson(Map<String, dynamic>.from(rawPost as Map));
 
-        final current = List<FeedPost>.from(state.data ?? const <FeedPost>[]);
+        final current = List<FeedPost>.from(_remotePosts);
         final existingIndex = current.indexWhere((item) => item.id == post.id);
         if (existingIndex >= 0) {
           current[existingIndex] = post;
         } else {
           current.insert(0, post);
         }
+        _remotePosts = current;
 
-        state = state.copyWith(
-          data: current,
+        _emitState(
           fromCache: false,
           lastUpdated: DateTime.now(),
           metadata: {
@@ -214,6 +269,7 @@ class FeedController extends StateNotifier<ResourceState<List<FeedPost>>> {
             'realtimeConnected': true,
             'realtimeEvent': message.event,
             'realtimeReceivedAt': message.receivedAt.toIso8601String(),
+            'localPostCount': _localPosts.length,
           },
         );
 
@@ -259,7 +315,8 @@ class FeedController extends StateNotifier<ResourceState<List<FeedPost>>> {
     if (realtimeConnected != null) {
       metadata['realtimeConnected'] = realtimeConnected;
     }
-    state = state.copyWith(metadata: metadata);
+    metadata['localPostCount'] = _localPosts.length;
+    _emitState(metadata: metadata);
   }
 
   @override
@@ -284,3 +341,29 @@ final feedControllerProvider =
   final featureFlags = ref.watch(featureFlagServiceProvider);
   return FeedController(repository, analytics, realtime, featureFlags);
 });
+
+extension on FeedController {
+  List<FeedPost> get _combinedPosts => <FeedPost>[...this._localPosts, ...this._remotePosts];
+
+  void _emitState({
+    bool? loading,
+    Object? error,
+    bool updateError = false,
+    bool? fromCache,
+    DateTime? lastUpdated,
+    Map<String, dynamic>? metadata,
+  }) {
+    final mergedMetadata = metadata ?? state.metadata;
+    var next = state.copyWith(
+      data: _combinedPosts,
+      loading: loading,
+      fromCache: fromCache,
+      lastUpdated: lastUpdated,
+      metadata: mergedMetadata,
+    );
+    if (updateError || error != null) {
+      next = next.copyWith(error: error);
+    }
+    state = next;
+  }
+}
