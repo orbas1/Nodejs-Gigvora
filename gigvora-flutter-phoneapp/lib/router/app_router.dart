@@ -16,6 +16,7 @@ import '../features/marketplace/presentation/launchpad_screen.dart';
 import '../features/marketplace/presentation/volunteering_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/admin/presentation/admin_login_screen.dart';
+import '../features/services/presentation/service_operations_screen.dart';
 import '../features/mentorship/presentation/mentorship_screen.dart';
 import '../features/project_gig_management/presentation/project_gig_management_screen.dart';
 
@@ -39,6 +40,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/projects/new', builder: (context, state) => const ProjectPostScreen()),
       GoRoute(path: '/launchpad', builder: (context, state) => const LaunchpadScreen()),
       GoRoute(path: '/volunteering', builder: (context, state) => const VolunteeringScreen()),
+      GoRoute(path: '/operations', builder: (context, state) => const ServiceOperationsScreen()),
       GoRoute(path: '/dashboard/mentor', builder: (context, state) => const MentorshipScreen()),
       GoRoute(
         path: '/profile',
