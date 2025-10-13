@@ -18,3 +18,13 @@ export { default as profileAnalyticsService } from './profileAnalyticsService.js
 export { default as headhunterService } from './headhunterService.js';
 export { default as userDashboardService } from './userDashboardService.js';
 export { default as complianceLockerService } from './complianceLockerService.js';
+export { default as catalogInsightsService } from './catalogInsightsService.js';
+export { default as clientSuccessService } from './clientSuccessService.js';
+export { default as freelancerOrderPipelineService } from './freelancerOrderPipelineService.js';
+export { default as deliverableVaultService } from './deliverableVaultService.js';
+export { default as financeInsightsService } from './financeInsightsService.js';
+export { default as freelancerAgencyService } from './freelancerAgencyService.js';
+export { default as freelancerProfileHubService } from './freelancerProfileHubService.js';
+export { default as gigManagerService } from './gigManagerService.js';
+export { default as workspaceTemplateService } from './workspaceTemplateService.js';
+export { default as companyDashboardService } from './companyDashboardService.js';
