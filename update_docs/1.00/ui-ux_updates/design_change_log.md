@@ -46,6 +46,7 @@
 - Analytics overlays include ads performance, launchpad throughput, and volunteer impact cards with sparkline visualisations, all using shared accent palettes.
 - Auto-assign hub now mapped with queue table, override modal, KPI cards, and decline-feedback loop to power recruiter decisioning. Designs specify SLA breach states, manual promotion triggers, and audit logging copy that align with the newly merged Node.js endpoints.
 - Volunteers staffing console mirrors the web Volunteer Hub, exposing allocation matrix, safeguarding alerts, impact exports, and invite escalation workflows so agencies can triage non-responses and hour variance breaches using the same analytics definitions as operations dashboards.
+- Finance control tower module pairs revenue stat tiles, payout distribution charts, runway reserve gauges, and tax/export badges with upcoming batch previews to give provider finance teams a command centre aligned with the new finance payload and React implementation.
 
 ## Accessibility & Quality
 - Web: focus outlines preserved on nav, buttons, chips; large-touch variants for cards; ARIA labelling on CTA groups.

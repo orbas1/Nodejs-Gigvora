@@ -18,6 +18,12 @@ import {
   ProjectAssignmentEvent,
   TalentCandidate,
   PeopleOpsPolicy,
+  FinanceRevenueEntry,
+  FinanceExpenseEntry,
+  FinanceSavingsGoal,
+  FinancePayoutBatch,
+  FinancePayoutSplit,
+  FinanceTaxExport,
 } from '../src/models/index.js';
 import { getAgencyDashboard } from '../src/services/agencyDashboardService.js';
 import { createUser } from './helpers/factories.js';
@@ -256,6 +262,144 @@ describe('agencyDashboardService', () => {
         },
       },
     ]);
+
+    const now = new Date();
+    const previousMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 15);
+    const previousQuarterStart = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+    const previousMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+
+    await FinanceRevenueEntry.bulkCreate([
+      {
+        userId: owner.id,
+        revenueType: 'retainer',
+        status: 'recognized',
+        amount: 75000,
+        currencyCode: 'USD',
+        taxWithholdingAmount: 7500,
+        recognizedAt: now,
+        clientName: 'Atlas Retail',
+      },
+      {
+        userId: owner.id,
+        revenueType: 'retainer',
+        status: 'recognized',
+        amount: 62000,
+        currencyCode: 'USD',
+        taxWithholdingAmount: 6200,
+        recognizedAt: previousMonthDate,
+        clientName: 'Lumen Bank',
+      },
+    ]);
+
+    await FinanceExpenseEntry.create({
+      userId: owner.id,
+      category: 'Software',
+      vendorName: 'SaaS Suite',
+      cadence: 'monthly',
+      amount: 2500,
+      currencyCode: 'USD',
+      occurredAt: now,
+      status: 'posted',
+      notes: 'Design tooling and analytics bundle',
+    });
+
+    await FinanceSavingsGoal.create({
+      userId: owner.id,
+      name: 'Runway reserve',
+      status: 'active',
+      targetAmount: 90000,
+      currentAmount: 45000,
+      currencyCode: 'USD',
+      isRunwayReserve: true,
+      lastContributionAt: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
+    });
+
+    const completedBatch = await FinancePayoutBatch.create({
+      userId: owner.id,
+      name: 'April Delivery Payroll',
+      status: 'completed',
+      totalAmount: 42000,
+      currencyCode: 'USD',
+      scheduledAt: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000),
+      executedAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000),
+    });
+
+    await FinancePayoutSplit.bulkCreate([
+      {
+        batchId: completedBatch.id,
+        teammateName: 'Mira Strategist',
+        teammateRole: 'Manager',
+        recipientEmail: 'strategist@nova.test',
+        sharePercentage: 60,
+        amount: 25200,
+        currencyCode: 'USD',
+        status: 'completed',
+      },
+      {
+        batchId: completedBatch.id,
+        teammateName: 'Kai Designer',
+        teammateRole: 'Designer',
+        recipientEmail: 'designer@nova.test',
+        sharePercentage: 40,
+        amount: 16800,
+        currencyCode: 'USD',
+        status: 'completed',
+      },
+    ]);
+
+    const scheduledBatch = await FinancePayoutBatch.create({
+      userId: owner.id,
+      name: 'Launchpad Bonus Cycle',
+      status: 'scheduled',
+      totalAmount: 15000,
+      currencyCode: 'USD',
+      scheduledAt: new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000),
+    });
+
+    await FinancePayoutSplit.bulkCreate([
+      {
+        batchId: scheduledBatch.id,
+        teammateName: 'Nova Lead',
+        teammateRole: 'Director',
+        recipientEmail: 'owner@nova.test',
+        sharePercentage: 50,
+        amount: 7500,
+        currencyCode: 'USD',
+        status: 'scheduled',
+      },
+      {
+        batchId: scheduledBatch.id,
+        teammateName: 'Jordan Rivers',
+        teammateRole: 'Analyst',
+        recipientEmail: 'analyst@nova.test',
+        sharePercentage: 30,
+        amount: 4500,
+        currencyCode: 'USD',
+        status: 'scheduled',
+      },
+      {
+        batchId: scheduledBatch.id,
+        teammateName: 'Avery Grey',
+        teammateRole: 'Manager',
+        recipientEmail: 'avery@nova.test',
+        sharePercentage: 20,
+        amount: 3000,
+        currencyCode: 'USD',
+        status: 'scheduled',
+      },
+    ]);
+
+    await FinanceTaxExport.create({
+      userId: owner.id,
+      exportType: 'quarterly_vat',
+      status: 'available',
+      periodStart: previousQuarterStart,
+      periodEnd: previousMonthEnd,
+      amount: 18000,
+      currencyCode: 'USD',
+      downloadUrl: 'https://example.com/exports/vat-q1.csv',
+      generatedAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000),
+    });
   });
 
   it('returns a workspace-scoped dashboard with member, project, and financial insights', async () => {
@@ -287,6 +431,17 @@ describe('agencyDashboardService', () => {
     expect(hr.policyAcknowledgements[0].outstanding).toBe(2);
     expect(hr.onboardingQueue.length).toBeGreaterThan(0);
     expect(hr.alerts.some((alert) => alert.type === 'compliance')).toBe(true);
+
+    const financeTower = dashboard.financeControlTower;
+    expect(financeTower.summary.totalReleased).toBeCloseTo(20000, 2);
+    expect(financeTower.summary.monthToDateRevenue?.amount).toBe(75000);
+    expect(financeTower.summary.trackedExpenses?.amount).toBe(2500);
+    expect(financeTower.summary.scheduledTotal).toBe(15000);
+    expect(financeTower.payouts.topRecipients[0].name).toBe('Mira Strategist');
+    expect(financeTower.payouts.topRecipients[0].amount).toBe(25200);
+    expect(financeTower.payouts.totals.shareOfReleased).toBeGreaterThan(0.9);
+    expect(financeTower.payouts.upcomingBatches.length).toBeGreaterThan(0);
+    expect(financeTower.exports.history[0].exportType).toBe('quarterly_vat');
   });
 
   it('falls back to global data when no workspace filter is provided', async () => {
