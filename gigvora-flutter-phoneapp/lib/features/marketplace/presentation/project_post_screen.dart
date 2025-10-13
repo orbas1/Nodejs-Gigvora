@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/authorization.dart';
+import '../../../core/providers.dart';
+import '../../../features/auth/application/session_controller.dart';
 import '../../../theme/widgets.dart';
 import '../application/project_creation_controller.dart';
 import '../data/models/project_creation_request.dart';
@@ -92,6 +95,12 @@ class _ProjectPostScreenState extends ConsumerState<ProjectPostScreen> {
 
     FocusScope.of(context).unfocus();
 
+    final config = ref.read(appConfigProvider);
+    final resolvedActorId = int.tryParse(
+          '${config.featureFlags['demoUserId'] ?? config.featureFlags['demoUser'] ?? '1'}',
+        ) ??
+        1;
+
     final request = ProjectCreationRequest(
       title: _titleController.text,
       description: _descriptionController.text,
@@ -104,6 +113,7 @@ class _ProjectPostScreenState extends ConsumerState<ProjectPostScreen> {
       expiresInMinutes: _parseInt(_expiresController.text),
       fairnessMaxAssignments: _parseInt(_fairnessController.text),
       weights: _weights,
+      actorId: resolvedActorId,
     );
 
     await ref.read(projectCreationControllerProvider.notifier).submit(request);
@@ -111,6 +121,17 @@ class _ProjectPostScreenState extends ConsumerState<ProjectPostScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final sessionState = ref.watch(sessionControllerProvider);
+    final access = evaluateProjectAccess(sessionState.session);
+    if (!access.allowed) {
+      return GigvoraScaffold(
+        title: 'Launch a collaborative project',
+        subtitle:
+            'Define your scope, capture investment signals, and activate auto-assign so emerging freelancers rotate through premium briefs.',
+        body: _ProjectCreationAccessDenied(reason: access.reason),
+      );
+    }
+
     ref.listen<ProjectCreationState>(projectCreationControllerProvider, (previous, next) {
       if (next.success && !_navigatedOnSuccess) {
         _navigatedOnSuccess = true;
@@ -164,11 +185,11 @@ class _ProjectPostScreenState extends ConsumerState<ProjectPostScreen> {
                       DropdownMenuItem(value: 'planning', child: Text('Planning')),
                       DropdownMenuItem(value: 'open', child: Text('Open')),
                       DropdownMenuItem(value: 'in_progress', child: Text('In progress')),
-                      DropdownMenuItem(value: 'completed', child: Text('Completed')),
-                    ],
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setState(() => _status = value);
+                  DropdownMenuItem(value: 'completed', child: Text('Completed')),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() => _status = value);
                     },
                   ),
                   const SizedBox(height: 16),
@@ -418,6 +439,49 @@ class _ProjectPostScreenState extends ConsumerState<ProjectPostScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ProjectCreationAccessDenied extends StatelessWidget {
+  const _ProjectCreationAccessDenied({this.reason});
+
+  final String? reason;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        GigvoraCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Workspace access required',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                reason ??
+                    'Project creation is restricted to agency, company, operations, and admin leads. Request access from your workspace administrator to continue.',
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: const [
+                  Icon(Icons.mail_outline, size: 18),
+                  SizedBox(width: 8),
+                  SelectableText('operations@gigvora.com'),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

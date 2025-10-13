@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
 
+import '../../../core/authorization.dart';
 import '../../../core/providers.dart';
+import '../../../features/auth/application/session_controller.dart';
 import '../../../theme/widgets.dart';
 import '../application/project_gig_management_controller.dart';
 import '../data/models/project_gig_management_snapshot.dart';
@@ -36,6 +38,17 @@ class ProjectGigManagementScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
+    final sessionState = ref.watch(sessionControllerProvider);
+    final access = evaluateProjectAccess(sessionState.session);
+
+    if (!access.allowed) {
+      return GigvoraScaffold(
+        title: 'Gig operations',
+        subtitle: 'Operate your purchases, projects, and offers from mobile',
+        body: _AccessDeniedCard(reason: access.reason),
+      );
+    }
+
     final resolvedUserId = userId ??
         int.tryParse('${config.featureFlags['demoUserId'] ?? config.featureFlags['demoUser'] ?? '1'}') ??
         1;
@@ -194,6 +207,51 @@ class _SummaryCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _AccessDeniedCard extends StatelessWidget {
+  const _AccessDeniedCard({
+    this.reason,
+  });
+
+  final String? reason;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        GigvoraCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Workspace access required',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                reason ??
+                    'Project operations are restricted to agency, company, operations, and admin leads. Request access from your workspace administrator to continue.',
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: const [
+                  Icon(Icons.mail_outline, size: 18),
+                  SizedBox(width: 8),
+                  SelectableText('operations@gigvora.com'),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

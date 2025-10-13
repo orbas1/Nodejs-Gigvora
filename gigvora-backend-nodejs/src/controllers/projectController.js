@@ -5,6 +5,7 @@ import {
   listProjectEvents,
   updateProjectDetails,
 } from '../services/projectService.js';
+import { resolveRequestUserId } from '../utils/requestContext.js';
 
 function parseNumber(value, fallback = undefined) {
   if (value == null) {
@@ -16,7 +17,7 @@ function parseNumber(value, fallback = undefined) {
 
 export async function store(req, res) {
   const payload = req.body ?? {};
-  const actorId = parseNumber(payload.actorId);
+  const actorId = parseNumber(payload.actorId ?? resolveRequestUserId(req));
   const result = await createProject(payload, { actorId });
   res.status(201).json(result);
 }
@@ -24,7 +25,7 @@ export async function store(req, res) {
 export async function toggleAutoAssign(req, res) {
   const { projectId } = req.params;
   const payload = req.body ?? {};
-  const actorId = parseNumber(payload.actorId);
+  const actorId = parseNumber(payload.actorId ?? resolveRequestUserId(req));
   const result = await updateProjectAutoAssign(parseNumber(projectId, projectId), payload, { actorId });
   res.json(result);
 }
@@ -32,7 +33,7 @@ export async function toggleAutoAssign(req, res) {
 export async function update(req, res) {
   const { projectId } = req.params;
   const payload = req.body ?? {};
-  const actorId = parseNumber(payload.actorId);
+  const actorId = parseNumber(payload.actorId ?? resolveRequestUserId(req));
   const result = await updateProjectDetails(parseNumber(projectId, projectId), payload, { actorId });
   res.json(result);
 }

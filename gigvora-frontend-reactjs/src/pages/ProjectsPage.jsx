@@ -6,6 +6,7 @@ import useOpportunityListing from '../hooks/useOpportunityListing.js';
 import analytics from '../services/analytics.js';
 import { formatRelativeTime } from '../utils/date.js';
 import UserAvatar from '../components/UserAvatar.jsx';
+import { useProjectManagementAccess } from '../hooks/useAuthorization.js';
 
 function formatQueueStatus(status) {
   if (!status) return 'Inactive';
@@ -20,6 +21,7 @@ export default function ProjectsPage() {
   const { data, error, loading, fromCache, lastUpdated, refresh, debouncedQuery } = useOpportunityListing('projects', query, {
     pageSize: 25,
   });
+  const { canManageProjects, denialReason } = useProjectManagementAccess();
 
   const listing = data ?? {};
   const items = useMemo(() => (Array.isArray(listing.items) ? listing.items : []), [listing.items]);
@@ -70,21 +72,40 @@ export default function ProjectsPage() {
               </span>
             </div>
           </div>
-          <div className="flex flex-col items-start justify-between rounded-3xl border border-slate-200 bg-white/80 p-5 shadow-inner">
+          <div className="flex flex-col items-start justify-between rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-inner">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Matching velocity</p>
               <p className="mt-2 text-3xl font-bold text-slate-900">02:17:00</p>
               <p className="mt-1 text-sm text-slate-500">Average time to confirm the top auto-assigned freelancer.</p>
             </div>
-            <Link
-              to="/projects/new"
-              className="mt-6 inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
-            >
-              Create project brief
-              <span aria-hidden="true">→</span>
-            </Link>
+            {canManageProjects ? (
+              <Link
+                to="/projects/new"
+                className="mt-6 inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
+              >
+                Create project brief
+                <span aria-hidden="true">→</span>
+              </Link>
+            ) : (
+              <a
+                href="mailto:operations@gigvora.com?subject=Project workspace access request"
+                className="mt-6 inline-flex items-center gap-2 rounded-full border border-slate-300 px-5 py-2 text-sm font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+              >
+                Request workspace access
+                <span aria-hidden="true">→</span>
+              </a>
+            )}
           </div>
         </div>
+        {!canManageProjects ? (
+          <div className="mb-8 rounded-4xl border border-amber-200 bg-amber-50/70 p-6 text-sm text-amber-800 shadow-sm">
+            <p className="font-semibold text-amber-900">Restricted workspace</p>
+            <p className="mt-2 leading-relaxed">
+              {denialReason} Once approved, you&apos;ll unlock project creation, queue controls, and workspace automation across the
+              Gigvora operations suite.
+            </p>
+          </div>
+        ) : null}
         <div className="mb-6 max-w-xl">
           <label className="sr-only" htmlFor="project-search">
             Search projects
@@ -161,13 +182,19 @@ export default function ProjectsPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Link
-                    to={`/projects/${project.id}`}
-                    className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-4 py-1 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
-                  >
-                    Manage project
-                    <span aria-hidden="true">→</span>
-                  </Link>
+                  {canManageProjects ? (
+                    <Link
+                      to={`/projects/${project.id}`}
+                      className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-4 py-1 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+                    >
+                      Manage project
+                      <span aria-hidden="true">→</span>
+                    </Link>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 px-4 py-1 text-xs font-semibold text-slate-400">
+                      Management locked
+                    </span>
+                  )}
                   <Link
                     to="/auto-assign"
                     className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-4 py-1 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
