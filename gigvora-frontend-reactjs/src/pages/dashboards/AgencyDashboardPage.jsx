@@ -19,7 +19,7 @@ import { fetchAgencyDashboard } from '../../services/agency.js';
 import { formatRelativeTime, formatAbsolute } from '../../utils/date.js';
 
 const DEFAULT_WORKSPACE_SLUG = 'nova-collective';
-const DEFAULT_MEMBERSHIPS = ['agency', 'freelancer', 'company'];
+const DEFAULT_MEMBERSHIPS = ['agency'];
 
 function formatNumber(value) {
   if (value == null || Number.isNaN(Number(value))) {
