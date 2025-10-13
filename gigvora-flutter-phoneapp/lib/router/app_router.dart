@@ -13,6 +13,7 @@ import '../features/marketplace/presentation/launchpad_screen.dart';
 import '../features/marketplace/presentation/volunteering_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/admin/presentation/admin_login_screen.dart';
+import '../features/mentorship/presentation/mentorship_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -31,6 +32,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/projects', builder: (context, state) => const ProjectsScreen()),
       GoRoute(path: '/launchpad', builder: (context, state) => const LaunchpadScreen()),
       GoRoute(path: '/volunteering', builder: (context, state) => const VolunteeringScreen()),
+      GoRoute(path: '/dashboard/mentor', builder: (context, state) => const MentorshipScreen()),
       GoRoute(
         path: '/profile',
         builder: (context, state) => ProfileScreen(profileId: state.uri.queryParameters['id']),
