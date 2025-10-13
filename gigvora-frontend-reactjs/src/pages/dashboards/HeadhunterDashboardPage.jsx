@@ -9,6 +9,12 @@ import {
   ClockIcon,
   EnvelopeOpenIcon,
   HandThumbUpIcon,
+  ClipboardDocumentCheckIcon,
+  DocumentTextIcon,
+  GlobeAmericasIcon,
+  ShareIcon,
+  ShieldCheckIcon,
+  SparklesIcon,
   UserGroupIcon,
 } from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
@@ -41,14 +47,17 @@ const menuSections = [
       {
         name: 'Prospect pipeline',
         description: 'Stage-based pipeline from discovery to offer with scoring, notes, and attachments.',
+        sectionId: 'prospect-pipeline',
       },
       {
         name: 'Interview coordination',
         description: 'Plan intro calls, client interviews, prep sessions, and debriefs in one hub.',
+        sectionId: 'interview-coordination',
       },
       {
         name: 'Pass-on center',
         description: 'Share candidates with partner companies or agencies with insights and fit notes.',
+        sectionId: 'pass-on-center',
       },
     ],
   },
@@ -209,8 +218,161 @@ export default function HeadhunterDashboardPage() {
   const activityTimeline = data?.activityTimeline ?? [];
   const calendar = data?.calendar ?? { upcoming: [], workload: {} };
   const clientPartnerships = data?.clientPartnerships ?? { topContacts: [] };
+  const pipelineExecution = data?.pipelineExecution ?? {};
+  const prospectPipeline = pipelineExecution.prospectPipeline ?? {
+    stageSummaries: [],
+    metrics: {},
+    automations: {},
+    overview: {},
+  };
+  const pipelineBoard = pipelineExecution.board ?? { columns: [], automations: {} };
+  const heatmap = pipelineExecution.heatmap ?? { stages: [], overallSentiment: null, overallRisk: 'low' };
+  const interviewHub = pipelineExecution.interviewCoordination ?? {
+    upcoming: [],
+    summary: {},
+    timezoneStats: [],
+  };
+  const experienceVault = pipelineExecution.candidateExperienceVault ?? {
+    entries: [],
+    readinessIndex: null,
+    wellbeingAlerts: [],
+    preferenceCoverage: 0,
+    prepPackCount: 0,
+    coachingNotesLogged: 0,
+  };
+  const passOnExchange = pipelineExecution.passOnExchange ?? { shares: [], summary: {} };
   const hasWorkspaceScopedData = data?.meta?.hasWorkspaceScopedData ?? false;
   const fallbackReason = data?.meta?.fallbackReason ?? null;
+
+  const integerFormatter = useMemo(() => new Intl.NumberFormat('en-US'), []);
+  const formatInteger = (value) => {
+    if (value == null) return '—';
+    return integerFormatter.format(value);
+  };
+
+  const formatSentimentScore = (value) => {
+    if (value == null || Number.isNaN(Number(value))) {
+      return '—';
+    }
+    const numeric = Number(value);
+    if (numeric >= 0.5) {
+      return `Positive (${numeric.toFixed(2)})`;
+    }
+    if (numeric >= 0) {
+      return `Steady (${numeric.toFixed(2)})`;
+    }
+    if (numeric <= -0.5) {
+      return `At risk (${numeric.toFixed(2)})`;
+    }
+    return `Caution (${numeric.toFixed(2)})`;
+  };
+
+  const formatRiskLabel = (value) => {
+    if (!value) return '—';
+    const label = `${value}`.replace(/_/g, ' ');
+    return label.charAt(0).toUpperCase() + label.slice(1);
+  };
+
+  const pipelineAutomations = pipelineBoard.automations ?? prospectPipeline.automations ?? {};
+  const boardColumns = pipelineBoard.columns ?? [];
+  const heatmapStages = heatmap.stages ?? [];
+  const experienceEntries = experienceVault.entries ?? [];
+  const wellbeingAlerts = experienceVault.wellbeingAlerts ?? [];
+  const interviewSummary = interviewHub.summary ?? {};
+  const interviewUpcoming = interviewHub.upcoming ?? [];
+  const timezoneStats = interviewHub.timezoneStats ?? [];
+  const passOnShares = passOnExchange.shares ?? [];
+  const passOnSummary = passOnExchange.summary ?? {};
+
+  const pipelineMetricCards = [
+    { label: 'Active prospects', value: formatInteger(prospectPipeline.metrics?.activeCandidates ?? 0) },
+    {
+      label: 'Avg fit score',
+      value:
+        prospectPipeline.metrics?.averageScore != null
+          ? Number(prospectPipeline.metrics.averageScore).toFixed(1)
+          : '—',
+    },
+    {
+      label: 'Avg days in stage',
+      value:
+        prospectPipeline.metrics?.averageStageDays != null
+          ? `${Number(prospectPipeline.metrics.averageStageDays).toFixed(1)}d`
+          : '—',
+    },
+    {
+      label: 'Prep packs sent',
+      value: formatInteger(prospectPipeline.metrics?.prepPacksSent ?? 0),
+    },
+  ];
+
+  const experienceHighlights = [
+    {
+      label: 'Readiness index',
+      value:
+        experienceVault.readinessIndex != null
+          ? Number(experienceVault.readinessIndex).toFixed(1)
+          : '—',
+    },
+    {
+      label: 'Preferences logged',
+      value: formatInteger(experienceVault.preferenceCoverage ?? 0),
+    },
+    {
+      label: 'Prep packs delivered',
+      value: formatInteger(experienceVault.prepPackCount ?? 0),
+    },
+    {
+      label: 'Coaching notes',
+      value: formatInteger(experienceVault.coachingNotesLogged ?? 0),
+    },
+  ];
+
+  const interviewMetricCards = [
+    { label: 'Scheduled', value: formatInteger(interviewSummary.totalScheduled ?? 0) },
+    { label: 'Completed (7d)', value: formatInteger(interviewSummary.completedThisWeek ?? 0) },
+    { label: 'Prep materials', value: formatInteger(interviewSummary.withPrepMaterials ?? 0) },
+    { label: 'Scorecards linked', value: formatInteger(interviewSummary.scorecardsLinked ?? 0) },
+  ];
+
+  const passOnMetricCards = [
+    { label: 'Shares logged', value: formatInteger(passOnSummary.totalShares ?? 0) },
+    { label: 'Consent pending', value: formatInteger(passOnSummary.pendingConsent ?? 0) },
+    { label: 'Accepted matches', value: formatInteger(passOnSummary.accepted ?? 0) },
+    { label: 'Projected revenue', value: formatCurrency(passOnSummary.projectedRevenue ?? 0, currency) },
+  ];
+
+  const interviewTypeLabels = {
+    intro: 'Intro call',
+    client_interview: 'Client interview',
+    prep: 'Prep session',
+    debrief: 'Debrief',
+  };
+
+  const interviewStatusClass = (status) => {
+    const normalised = `${status ?? ''}`.toLowerCase();
+    if (normalised === 'completed') return 'bg-emerald-100 text-emerald-700';
+    if (normalised === 'scheduled') return 'bg-blue-100 text-blue-700';
+    if (normalised === 'cancelled') return 'bg-rose-100 text-rose-600';
+    return 'bg-slate-100 text-slate-600';
+  };
+
+  const normalizedInterviews = interviewUpcoming.map((interview) => {
+    const prepCount = Array.isArray(interview.prepMaterials)
+      ? interview.prepMaterials.length
+      : interview.prepMaterials
+      ? 1
+      : 0;
+    const hasScorecard =
+      interview.scorecard && typeof interview.scorecard === 'object'
+        ? Object.keys(interview.scorecard).length > 0
+        : Boolean(interview.scorecard);
+    return {
+      ...interview,
+      prepCount,
+      hasScorecard,
+    };
+  });
 
   return (
     <DashboardLayout
@@ -369,6 +531,285 @@ export default function HeadhunterDashboardPage() {
           </div>
         </section>
 
+        <section
+          id="prospect-pipeline"
+          className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Prospect pipeline</h2>
+              <p className="text-sm text-slate-600">
+                Drag-and-drop progression with automated next steps and boutique candidate care.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs font-medium text-slate-500">
+              <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-blue-700">
+                <SparklesIcon className="h-4 w-4" />
+                {formatInteger(pipelineAutomations.remindersScheduled ?? 0)} smart reminders
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-emerald-700">
+                <ClipboardDocumentCheckIcon className="h-4 w-4" />
+                {formatInteger(pipelineAutomations.interviewsQueued ?? 0)} interviews queued
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-indigo-700">
+                <ShareIcon className="h-4 w-4" />
+                {formatInteger(pipelineAutomations.passOnReady ?? 0)} pass-on ready
+              </span>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {pipelineMetricCards.map((metric) => (
+              <div key={metric.label} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs uppercase tracking-wide text-slate-500">{metric.label}</p>
+                <p className="mt-2 text-lg font-semibold text-slate-900">{metric.value}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="overflow-x-auto">
+            <div className="flex min-w-full gap-4 pb-2">
+              {boardColumns.length ? (
+                boardColumns.map((column) => (
+                  <div
+                    key={column.id}
+                    className="flex w-80 flex-col rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-800">{column.name}</p>
+                        <p className="text-xs text-slate-500">
+                          {formatInteger(column.stats?.totalCandidates ?? 0)} candidates •{' '}
+                          {column.stats?.winProbability != null
+                            ? `${Number(column.stats.winProbability).toFixed(0)}% win`
+                            : '—'}
+                        </p>
+                      </div>
+                      <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600">
+                        {column.stats?.averageScore != null
+                          ? Number(column.stats.averageScore).toFixed(1)
+                          : '—'}
+                      </span>
+                    </div>
+                    <div className="mt-3 space-y-3">
+                      {column.items.length ? (
+                        column.items.map((item) => (
+                          <div
+                            key={item.id}
+                            className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-600"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="font-semibold text-slate-900">{item.candidateName}</p>
+                                <p className="text-xs text-slate-500">
+                                  {item.targetRole ?? 'Role TBD'} • {item.targetCompany ?? 'Confidential'}
+                                </p>
+                              </div>
+                              <span className="text-xs font-semibold text-blue-600">
+                                {item.score != null ? Number(item.score).toFixed(0) : '—'}
+                              </span>
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-slate-500">
+                              <span>
+                                Last touch {item.lastTouchedAt ? formatRelativeTime(item.lastTouchedAt) : '—'}
+                              </span>
+                              <span>Stage age {item.stageAgeDays != null ? `${item.stageAgeDays}d` : '—'}</span>
+                              <span>Next: {item.nextStep ?? '—'}</span>
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-2 text-[10px] uppercase tracking-wide">
+                              <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-slate-600">
+                                Risk {formatRiskLabel(item.risk)}
+                              </span>
+                              <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-slate-600">
+                                Sentiment {item.sentiment ?? '—'}
+                              </span>
+                              {item.readiness != null ? (
+                                <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-slate-600">
+                                  Ready{' '}
+                                  {typeof item.readiness === 'number'
+                                    ? Number(item.readiness).toFixed(1)
+                                    : item.readiness}
+                                </span>
+                              ) : null}
+                              {item.blockers?.length ? (
+                                <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-rose-600">
+                                  {item.blockers.length} blockers
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="rounded-xl border border-dashed border-slate-300 bg-white px-3 py-6 text-center text-xs text-slate-500">
+                          No candidates in this stage yet.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="w-full rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-12 text-center text-sm text-slate-500">
+                  No prospect board data has been configured for this workspace.
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-800">Pipeline heatmap</h3>
+                <p className="text-xs text-slate-500">
+                  Overall sentiment {heatmap.overallSentiment != null ? formatSentimentScore(heatmap.overallSentiment) : '—'} • Risk {formatRiskLabel(heatmap.overallRisk)}
+                </p>
+              </div>
+              <ShieldCheckIcon className="h-5 w-5 text-blue-500" />
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-200 text-sm">
+                <thead className="bg-white text-xs uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Stage</th>
+                    <th className="px-3 py-2 text-left">Candidates</th>
+                    <th className="px-3 py-2 text-left">Avg score</th>
+                    <th className="px-3 py-2 text-left">Sentiment</th>
+                    <th className="px-3 py-2 text-left">Risk</th>
+                    <th className="px-3 py-2 text-left">Blockers</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {heatmapStages.length ? (
+                    heatmapStages.map((stage) => (
+                      <tr key={stage.stageId}>
+                        <td className="px-3 py-2">
+                          <div className="font-semibold text-slate-900">{stage.stageName}</div>
+                          <div className="text-xs text-slate-500">{stage.stageType}</div>
+                        </td>
+                        <td className="px-3 py-2 text-slate-600">{formatInteger(stage.candidateCount ?? 0)}</td>
+                        <td className="px-3 py-2 text-slate-600">
+                          {stage.averageScore != null ? Number(stage.averageScore).toFixed(1) : '—'}
+                        </td>
+                        <td className="px-3 py-2 text-slate-600">{formatSentimentScore(stage.averageSentiment)}</td>
+                        <td className="px-3 py-2">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                              stage.dominantRisk === 'high'
+                                ? 'bg-rose-100 text-rose-600'
+                                : stage.dominantRisk === 'medium'
+                                ? 'bg-amber-100 text-amber-600'
+                                : 'bg-emerald-100 text-emerald-600'
+                            }`}
+                          >
+                            {formatRiskLabel(stage.dominantRisk)}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-slate-600">{formatInteger(stage.blockerCount ?? 0)}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="6" className="px-3 py-6 text-center text-sm text-slate-500">
+                        No stage analytics available yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-800">
+                  Pipeline mastery &amp; candidate care
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Personalised preferences, relocation signals, and wellbeing tracking for every prospect.
+                </p>
+              </div>
+              <DocumentTextIcon className="h-5 w-5 text-blue-500" />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {experienceHighlights.map((highlight) => (
+                <div key={highlight.label} className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">{highlight.label}</p>
+                  <p className="mt-1 text-lg font-semibold text-slate-900">{highlight.value}</p>
+                </div>
+              ))}
+            </div>
+            {wellbeingAlerts.length ? (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                {wellbeingAlerts.slice(0, 3).map((alert, index) => (
+                  <div
+                    key={`${alert.candidateName}-${index}`}
+                    className="flex items-center justify-between gap-4 border-b border-amber-200/60 py-1 last:border-b-0"
+                  >
+                    <div>
+                      <p className="font-semibold">{alert.candidateName}</p>
+                      <p className="text-xs text-amber-700">
+                        {alert.stageName ?? 'Unknown stage'} • wellbeing {alert.wellbeing}
+                      </p>
+                    </div>
+                    <p className="text-xs text-amber-600">
+                      {alert.lastTouchedAt ? formatRelativeTime(alert.lastTouchedAt) : '—'}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            <div className="space-y-2">
+              {experienceEntries.length ? (
+                experienceEntries.slice(0, 5).map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600"
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="font-semibold text-slate-900">{entry.candidateName}</p>
+                        <p className="text-xs text-slate-500">{entry.stageName ?? 'Stage TBD'}</p>
+                      </div>
+                      <span className="text-xs text-slate-500">
+                        Last touch {entry.lastTouchedAt ? formatRelativeTime(entry.lastTouchedAt) : '—'}
+                      </span>
+                    </div>
+                    <div className="mt-2 grid gap-2 text-xs text-slate-600 sm:grid-cols-3">
+                      <span>Comp: {entry.compensation ?? '—'}</span>
+                      <span>Relocation: {entry.relocation ?? '—'}</span>
+                      <span>Next step: {entry.nextStep ?? '—'}</span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2 text-[10px] uppercase tracking-wide text-slate-500">
+                      {Object.entries(entry.preferences ?? {}).map(([key, value]) => (
+                        <span
+                          key={key}
+                          className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5"
+                        >
+                          {key}: {value}
+                        </span>
+                      ))}
+                      {entry.prepPacks?.length ? (
+                        <span className="rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-blue-700">
+                          Prep packs: {entry.prepPacks.length}
+                        </span>
+                      ) : null}
+                      {entry.coachingNotes?.length ? (
+                        <span className="rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-violet-700">
+                          Coaching notes: {entry.coachingNotes.length}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-10 text-center text-sm text-slate-500">
+                  No candidate experience records captured yet.
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+
         <section className="grid gap-6 lg:grid-cols-2">
           <div className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between">
@@ -499,6 +940,211 @@ export default function HeadhunterDashboardPage() {
                   <tr>
                     <td colSpan="5" className="px-3 py-6 text-center text-sm text-slate-500">
                       No mandates are linked to this workspace during the selected lookback.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section
+          id="interview-coordination"
+          className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Interview coordination</h2>
+              <p className="text-sm text-slate-600">
+                Concierge scheduling with prep resources, timezone intelligence, and scorecard tracking.
+              </p>
+            </div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-500">
+              <GlobeAmericasIcon className="h-4 w-4 text-blue-500" />
+              {formatInteger(timezoneStats.length)} timezones active
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {interviewMetricCards.map((metric) => (
+              <div key={metric.label} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs uppercase tracking-wide text-slate-500">{metric.label}</p>
+                <p className="mt-2 text-lg font-semibold text-slate-900">{metric.value}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+            {timezoneStats.length ? (
+              timezoneStats.slice(0, 8).map((entry) => (
+                <span
+                  key={entry.timezone}
+                  className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-blue-700"
+                >
+                  <GlobeAmericasIcon className="h-3.5 w-3.5" />
+                  {entry.timezone} • {formatInteger(entry.count)}
+                </span>
+              ))
+            ) : (
+              <span className="rounded-full border border-dashed border-slate-200 bg-slate-50 px-3 py-1">
+                No timezone data captured yet.
+              </span>
+            )}
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-3 py-2 text-left">Candidate</th>
+                  <th className="px-3 py-2 text-left">Stage</th>
+                  <th className="px-3 py-2 text-left">Type</th>
+                  <th className="px-3 py-2 text-left">When</th>
+                  <th className="px-3 py-2 text-left">Status</th>
+                  <th className="px-3 py-2 text-left">Prep &amp; scorecard</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {normalizedInterviews.length ? (
+                  normalizedInterviews.slice(0, 10).map((interview) => (
+                    <tr key={interview.id}>
+                      <td className="px-3 py-2">
+                        <div className="font-semibold text-slate-900">{interview.candidateName}</div>
+                        <div className="text-xs text-slate-500">{interview.timezone ?? 'UTC'}</div>
+                      </td>
+                      <td className="px-3 py-2 text-slate-600">{interview.stageName ?? '—'}</td>
+                      <td className="px-3 py-2 text-slate-600">
+                        {interviewTypeLabels[interview.interviewType] ?? interview.interviewType ?? '—'}
+                      </td>
+                      <td className="px-3 py-2 text-slate-600">
+                        {interview.scheduledAt ? formatDate(interview.scheduledAt) : '—'}
+                      </td>
+                      <td className="px-3 py-2">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${interviewStatusClass(
+                            interview.status,
+                          )}`}
+                        >
+                          {formatRiskLabel(interview.status)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-slate-600">
+                        <div className="flex flex-wrap gap-2">
+                          {interview.prepCount ? (
+                            <span className="rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs text-blue-700">
+                              Prep pack
+                            </span>
+                          ) : null}
+                          {interview.hasScorecard ? (
+                            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">
+                              Scorecard ready
+                            </span>
+                          ) : (
+                            <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-500">
+                              Awaiting scorecard
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="6" className="px-3 py-6 text-center text-sm text-slate-500">
+                      No interviews scheduled in this window.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section
+          id="pass-on-center"
+          className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Pass-on center</h2>
+              <p className="text-sm text-slate-600">
+                Route talent to partner searches with consent tracking and revenue share forecasting.
+              </p>
+            </div>
+            <div className="text-xs text-slate-500">
+              Avg share rate:{' '}
+              {passOnSummary.averageRevenueShareRate != null
+                ? `${Number(passOnSummary.averageRevenueShareRate).toFixed(1)}%`
+                : '—'}{' '}
+              • Consent granted {formatInteger(passOnSummary.consentGranted ?? 0)}
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {passOnMetricCards.map((metric) => (
+              <div key={metric.label} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs uppercase tracking-wide text-slate-500">{metric.label}</p>
+                <p className="mt-2 text-lg font-semibold text-slate-900">{metric.value}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-3 py-2 text-left">Candidate</th>
+                  <th className="px-3 py-2 text-left">Stage</th>
+                  <th className="px-3 py-2 text-left">Destination</th>
+                  <th className="px-3 py-2 text-left">Consent</th>
+                  <th className="px-3 py-2 text-left">Revenue share</th>
+                  <th className="px-3 py-2 text-left">Shared</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {passOnShares.length ? (
+                  passOnShares.slice(0, 12).map((share) => (
+                    <tr key={share.id}>
+                      <td className="px-3 py-2">
+                        <div className="font-semibold text-slate-900">{share.candidateName}</div>
+                        <div className="text-xs text-slate-500">
+                          Share {formatRiskLabel(share.shareStatus)}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-slate-600">{share.stageName ?? '—'}</td>
+                      <td className="px-3 py-2 text-slate-600">
+                        {share.targetWorkspace?.name ?? share.targetName}
+                        <span className="block text-xs text-slate-500">
+                          {share.targetWorkspace?.type ?? 'External'}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-slate-600">
+                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs">
+                          {formatRiskLabel(share.consentStatus)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-slate-600">
+                        <div className="flex flex-col gap-1">
+                          {share.revenueShareRate != null ? (
+                            <span>{Number(share.revenueShareRate).toFixed(1)}%</span>
+                          ) : null}
+                          {share.revenueShareFlat != null ? (
+                            <span>{formatCurrency(share.revenueShareFlat, currency)}</span>
+                          ) : null}
+                          <span className="text-xs text-slate-500">
+                            Forecast {formatCurrency(share.projectedValue ?? 0, currency)}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-slate-600">
+                        {share.sharedAt ? formatRelativeTime(share.sharedAt) : '—'}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="6" className="px-3 py-6 text-center text-sm text-slate-500">
+                      No pass-on exchanges recorded yet.
                     </td>
                   </tr>
                 )}

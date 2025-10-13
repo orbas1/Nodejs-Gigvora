@@ -1,5 +1,6 @@
 import { Op } from 'sequelize';
 import {
+  sequelize,
   ProviderWorkspace,
   ProviderWorkspaceMember,
   ProviderContactNote,
@@ -10,6 +11,12 @@ import {
   Profile,
   MessageThread,
   Message,
+  HeadhunterPipelineStage,
+  HeadhunterPipelineItem,
+  HeadhunterPipelineNote,
+  HeadhunterPipelineAttachment,
+  HeadhunterPipelineInterview,
+  HeadhunterPassOnShare,
 } from '../models/index.js';
 import { NotFoundError } from '../utils/errors.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
@@ -17,6 +24,45 @@ import { appCache, buildCacheKey } from '../utils/cache.js';
 const DASHBOARD_CACHE_TTL_SECONDS = 45;
 const MAX_LOOKBACK_DAYS = 120;
 const MIN_LOOKBACK_DAYS = 7;
+
+const DEFAULT_HEADHUNTER_PIPELINE_STAGES = [
+  {
+    name: 'Prospect discovery',
+    stageType: 'discovery',
+    winProbability: 10,
+    metadata: { summary: 'Sourcing leads, referrals, and inbound prospects.' },
+  },
+  {
+    name: 'Qualification',
+    stageType: 'qualification',
+    winProbability: 25,
+    metadata: { summary: 'Initial screening, motivation, and mandate fit.' },
+  },
+  {
+    name: 'Interview loop',
+    stageType: 'interview',
+    winProbability: 55,
+    metadata: { summary: 'Client interviews, prep, and feedback orchestration.' },
+  },
+  {
+    name: 'Offer & negotiation',
+    stageType: 'offer',
+    winProbability: 75,
+    metadata: { summary: 'Final references, compensation alignment, and approvals.' },
+  },
+  {
+    name: 'Placement & onboarding',
+    stageType: 'placement',
+    winProbability: 95,
+    metadata: { summary: 'Placement coordination, onboarding success plan.' },
+  },
+  {
+    name: 'Pass-on & nurture',
+    stageType: 'archive',
+    winProbability: 0,
+    metadata: { summary: 'Nurture talent for future mandates or partner referrals.' },
+  },
+];
 
 const STAGE_BUCKETS = {
   prospecting: {
@@ -82,6 +128,72 @@ function toDaysBetween(start, end) {
   return Number((diffMs / (1000 * 60 * 60 * 24)).toFixed(1));
 }
 
+function toNumberOrNull(value) {
+  if (value == null) return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function ensureArray(value) {
+  if (Array.isArray(value)) {
+    return value.filter((entry) => entry != null);
+  }
+  if (value == null) {
+    return [];
+  }
+  return [value];
+}
+
+function mapSentimentToScore(sentiment) {
+  const normalised = `${sentiment ?? 'neutral'}`.toLowerCase();
+  switch (normalised) {
+    case 'delighted':
+    case 'positive':
+    case 'excited':
+      return 1;
+    case 'optimistic':
+    case 'warm':
+      return 0.6;
+    case 'neutral':
+    case 'steady':
+      return 0;
+    case 'caution':
+    case 'mixed':
+    case 'guarded':
+      return -0.3;
+    case 'risk':
+    case 'concern':
+    case 'negative':
+    case 'fatigue':
+      return -0.8;
+    default:
+      return 0;
+  }
+}
+
+function determineDominantRiskFromCounts({ low = 0, medium = 0, high = 0 } = {}) {
+  if (high > 0) {
+    return 'high';
+  }
+  if (medium > 0) {
+    return 'medium';
+  }
+  return 'low';
+}
+
+function isWithinLastDays(date, days) {
+  if (!date || !days) {
+    return false;
+  }
+  const parsed = new Date(date);
+  if (!Number.isFinite(parsed.getTime())) {
+    return false;
+  }
+  const diffMs = Date.now() - parsed.getTime();
+  const threshold = Number(days) * 24 * 60 * 60 * 1000;
+  return diffMs >= 0 && diffMs <= threshold;
+}
+
 function sanitizeWorkspace(workspace) {
   if (!workspace) return null;
   const plain = workspace.get({ plain: true });
@@ -121,6 +233,34 @@ function sanitizeWorkspace(workspace) {
         : null,
     })),
   };
+}
+
+async function ensureWorkspacePipelineStages(workspaceId) {
+  if (!workspaceId) {
+    return;
+  }
+
+  const existing = await HeadhunterPipelineStage.count({ where: { workspaceId } });
+  if (existing > 0) {
+    return;
+  }
+
+  await sequelize.transaction(async (transaction) => {
+    const recheck = await HeadhunterPipelineStage.count({ where: { workspaceId }, transaction });
+    if (recheck > 0) {
+      return;
+    }
+
+    await HeadhunterPipelineStage.bulkCreate(
+      DEFAULT_HEADHUNTER_PIPELINE_STAGES.map((stage, index) => ({
+        ...stage,
+        workspaceId,
+        position: index,
+        isDefault: true,
+      })),
+      { transaction },
+    );
+  });
 }
 
 function deriveWorkspaceBadges({ conversionRates, memberCounts, mandateTotals }) {
@@ -527,6 +667,629 @@ function buildPassOnNetwork(applications, candidateProfiles) {
   };
 }
 
+function sanitizeHeadhunterPipelineItem(itemInstance) {
+  if (!itemInstance) return null;
+  const base = itemInstance.toPublicObject();
+  const stage = itemInstance.get?.('stage') ?? itemInstance.stage ?? null;
+  const candidate = itemInstance.get?.('candidate') ?? itemInstance.candidate ?? null;
+  const notes = itemInstance.get?.('notes') ?? itemInstance.notes ?? [];
+  const attachments = itemInstance.get?.('attachments') ?? itemInstance.attachments ?? [];
+  const interviews = itemInstance.get?.('interviews') ?? itemInstance.interviews ?? [];
+  const passOnShares = itemInstance.get?.('passOnShares') ?? itemInstance.passOnShares ?? [];
+  const metadata = base.metadata ?? {};
+
+  const normalizedNotes = Array.isArray(notes)
+    ? notes.map((note) => {
+        const plain = note.toPublicObject();
+        const author = note.get?.('author') ?? note.author ?? null;
+        return {
+          ...plain,
+          author: author
+            ? {
+                id: author.id,
+                name:
+                  [author.firstName, author.lastName].filter(Boolean).join(' ').trim() || author.email || null,
+              }
+            : null,
+        };
+      })
+    : [];
+
+  const normalizedAttachments = Array.isArray(attachments)
+    ? attachments.map((attachment) => {
+        const plain = attachment.toPublicObject();
+        const uploader = attachment.get?.('uploader') ?? attachment.uploader ?? null;
+        return {
+          ...plain,
+          uploader: uploader
+            ? {
+                id: uploader.id,
+                name:
+                  [uploader.firstName, uploader.lastName].filter(Boolean).join(' ').trim() || uploader.email || null,
+              }
+            : null,
+        };
+      })
+    : [];
+
+  const normalizedInterviews = Array.isArray(interviews)
+    ? interviews.map((interview) => interview.toPublicObject())
+    : [];
+
+  const normalizedShares = Array.isArray(passOnShares)
+    ? passOnShares.map((share) => {
+        const plain = share.toPublicObject();
+        const targetWorkspace = share.get?.('targetWorkspace') ?? share.targetWorkspace ?? null;
+        return {
+          ...plain,
+          targetWorkspace: targetWorkspace
+            ? {
+                id: targetWorkspace.id,
+                name: targetWorkspace.name,
+                type: targetWorkspace.type,
+              }
+            : null,
+        };
+      })
+    : [];
+
+  const candidateProfile = candidate?.Profile ?? candidate?.profile ?? null;
+  const candidateSummary = candidate
+    ? {
+        id: candidate.id,
+        name: [candidate.firstName, candidate.lastName].filter(Boolean).join(' ').trim() || candidate.email,
+        email: candidate.email,
+        headline: candidateProfile?.headline ?? null,
+        location: candidateProfile?.location ?? null,
+        availability: candidateProfile?.availabilityStatus ?? null,
+      }
+    : null;
+
+  const blockers = ensureArray(metadata.blockers);
+  const readinessNumeric = toNumberOrNull(metadata.readiness);
+  const readiness =
+    readinessNumeric != null
+      ? Number(readinessNumeric.toFixed(1))
+      : metadata.readiness ?? null;
+
+  const experience = {
+    preferences: metadata.preferences ?? {},
+    compensation: metadata.compensation ?? null,
+    relocation: metadata.relocation ?? null,
+    coachingNotes: ensureArray(metadata.coachingNotes),
+    prepPacks: ensureArray(metadata.prepPacks),
+  };
+
+  return {
+    ...base,
+    stage: stage?.toPublicObject?.() ?? stage ?? null,
+    candidate: candidateSummary,
+    notes: normalizedNotes,
+    attachments: normalizedAttachments,
+    interviews: normalizedInterviews,
+    passOnShares: normalizedShares,
+    insights: {
+      sentiment: metadata.sentiment ?? 'neutral',
+      risk: metadata.risk ?? 'medium',
+      readiness,
+      wellbeing: metadata.wellbeing ?? null,
+      blockers,
+    },
+    experience,
+  };
+}
+
+function buildInterviewCoordinationFromItems(items) {
+  const interviews = items.flatMap((item) =>
+    (item.interviews ?? []).map((interview) => ({
+      ...interview,
+      pipelineItemId: item.id,
+      candidate: item.candidate,
+      stage: item.stage,
+    })),
+  );
+
+  if (!interviews.length) {
+    return {
+      upcoming: [],
+      summary: {
+        totalScheduled: 0,
+        completedThisWeek: 0,
+        withPrepMaterials: 0,
+        scorecardsLinked: 0,
+      },
+      timezoneStats: [],
+    };
+  }
+
+  const sortedInterviews = [...interviews].sort((a, b) => {
+    const aTime = new Date(a.scheduledAt ?? 0).getTime();
+    const bTime = new Date(b.scheduledAt ?? 0).getTime();
+    return aTime - bTime;
+  });
+
+  const upcoming = sortedInterviews
+    .filter((interview) => interview.status !== 'cancelled')
+    .slice(0, 12)
+    .map((interview) => ({
+      id: interview.id,
+      pipelineItemId: interview.pipelineItemId,
+      candidateName: interview.candidate?.name ?? 'Candidate',
+      stageName: interview.stage?.name ?? null,
+      interviewType: interview.interviewType,
+      status: interview.status,
+      scheduledAt: interview.scheduledAt,
+      timezone: interview.timezone ?? 'UTC',
+      host: interview.host,
+      location: interview.location,
+      dialIn: interview.dialIn,
+      prepMaterials: interview.prepMaterials,
+      scorecard: interview.scorecard,
+    }));
+
+  const summary = {
+    totalScheduled: interviews.filter((interview) => interview.status === 'scheduled').length,
+    completedThisWeek: interviews.filter(
+      (interview) => interview.status === 'completed' && isWithinLastDays(interview.completedAt ?? interview.scheduledAt, 7),
+    ).length,
+    withPrepMaterials: interviews.filter((interview) => ensureArray(interview.prepMaterials).length > 0).length,
+    scorecardsLinked: interviews.filter(
+      (interview) => interview.scorecard && Object.keys(interview.scorecard).length > 0,
+    ).length,
+  };
+
+  const timezoneCounts = interviews.reduce((accumulator, interview) => {
+    const timezone = interview.timezone ?? 'UTC';
+    accumulator[timezone] = (accumulator[timezone] ?? 0) + 1;
+    return accumulator;
+  }, {});
+
+  const timezoneStats = Object.entries(timezoneCounts)
+    .map(([timezone, count]) => ({ timezone, count }))
+    .sort((a, b) => b.count - a.count);
+
+  return { upcoming, summary, timezoneStats };
+}
+
+function buildCandidateExperienceVaultFromItems(items) {
+  if (!items.length) {
+    return {
+      entries: [],
+      readinessIndex: null,
+      wellbeingAlerts: [],
+      preferenceCoverage: 0,
+      prepPackCount: 0,
+      coachingNotesLogged: 0,
+    };
+  }
+
+  const entries = items
+    .map((item) => ({
+      id: item.id,
+      candidateName: item.candidate?.name ?? 'Candidate',
+      stageName: item.stage?.name ?? null,
+      stageType: item.stage?.stageType ?? null,
+      readiness: item.insights?.readiness ?? null,
+      wellbeing: item.insights?.wellbeing ?? null,
+      lastTouchedAt: item.lastTouchedAt,
+      nextStep: item.nextStep,
+      preferences: item.experience?.preferences ?? {},
+      compensation: item.experience?.compensation ?? null,
+      relocation: item.experience?.relocation ?? null,
+      prepPacks: ensureArray(item.experience?.prepPacks),
+      coachingNotes: ensureArray(item.experience?.coachingNotes),
+    }))
+    .sort((a, b) => {
+      const aTime = new Date(a.lastTouchedAt ?? 0).getTime();
+      const bTime = new Date(b.lastTouchedAt ?? 0).getTime();
+      return bTime - aTime;
+    });
+
+  const readinessScores = entries
+    .map((entry) => toNumberOrNull(entry.readiness))
+    .filter((value) => value != null);
+
+  const readinessIndex = readinessScores.length
+    ? Number((sumNumbers(readinessScores) / readinessScores.length).toFixed(1))
+    : null;
+
+  const wellbeingAlerts = entries
+    .filter((entry) => {
+      if (!entry.wellbeing) return false;
+      const value = `${entry.wellbeing}`.toLowerCase();
+      return ['fatigue', 'concern', 'at_risk', 'risk', 'low'].includes(value);
+    })
+    .map((entry) => ({
+      candidateName: entry.candidateName,
+      stageName: entry.stageName,
+      wellbeing: entry.wellbeing,
+      lastTouchedAt: entry.lastTouchedAt,
+      nextStep: entry.nextStep,
+    }));
+
+  const preferenceCoverage = sumNumbers(entries.map((entry) => Object.keys(entry.preferences ?? {}).length));
+  const prepPackCount = entries.filter((entry) => entry.prepPacks.length > 0).length;
+  const coachingNotesLogged = sumNumbers(entries.map((entry) => entry.coachingNotes.length));
+
+  return {
+    entries: entries.slice(0, 12),
+    readinessIndex,
+    wellbeingAlerts,
+    preferenceCoverage,
+    prepPackCount,
+    coachingNotesLogged,
+  };
+}
+
+function buildPassOnExchangeFromItems(items) {
+  const shares = items.flatMap((item) => {
+    const estimatedValue = toNumberOrNull(item.estimatedValue) ?? 0;
+    return (item.passOnShares ?? []).map((share) => {
+      const rate = toNumberOrNull(share.revenueShareRate);
+      const flat = toNumberOrNull(share.revenueShareFlat);
+      const projectedValue = rate != null ? Number((estimatedValue * (rate / 100)).toFixed(2)) : flat ?? 0;
+      return {
+        id: share.id,
+        pipelineItemId: item.id,
+        candidateName: item.candidate?.name ?? 'Candidate',
+        stageName: item.stage?.name ?? null,
+        targetName: share.targetName,
+        targetType: share.targetType,
+        shareStatus: share.shareStatus,
+        consentStatus: share.consentStatus,
+        revenueShareRate: rate,
+        revenueShareFlat: flat,
+        projectedValue,
+        sharedAt: share.sharedAt,
+        targetWorkspace: share.targetWorkspace,
+        notes: share.notes,
+      };
+    });
+  });
+
+  if (!shares.length) {
+    return {
+      shares: [],
+      summary: {
+        totalShares: 0,
+        pendingConsent: 0,
+        consentGranted: 0,
+        activeShares: 0,
+        accepted: 0,
+        declined: 0,
+        projectedRevenue: 0,
+        averageRevenueShareRate: null,
+      },
+    };
+  }
+
+  const sortedShares = shares
+    .slice()
+    .sort((a, b) => new Date(b.sharedAt ?? 0).getTime() - new Date(a.sharedAt ?? 0).getTime());
+
+  const pendingConsent = sortedShares.filter((share) => share.consentStatus === 'pending').length;
+  const consentGranted = sortedShares.filter((share) => share.consentStatus === 'granted').length;
+  const activeShares = sortedShares.filter((share) => share.shareStatus === 'shared').length;
+  const accepted = sortedShares.filter((share) => share.shareStatus === 'accepted').length;
+  const declined = sortedShares.filter((share) => share.shareStatus === 'declined').length;
+  const projectedRevenue = Number(sumNumbers(sortedShares.map((share) => share.projectedValue ?? 0)).toFixed(2));
+  const rates = sortedShares
+    .map((share) => share.revenueShareRate)
+    .filter((rate) => rate != null);
+  const averageRate = rates.length ? Number((sumNumbers(rates) / rates.length).toFixed(2)) : null;
+
+  return {
+    shares: sortedShares.slice(0, 15),
+    summary: {
+      totalShares: sortedShares.length,
+      pendingConsent,
+      consentGranted,
+      activeShares,
+      accepted,
+      declined,
+      projectedRevenue,
+      averageRevenueShareRate: averageRate,
+    },
+  };
+}
+
+async function buildPipelineExecution({ workspaceId }) {
+  await ensureWorkspacePipelineStages(workspaceId);
+
+  const stages = await HeadhunterPipelineStage.findAll({
+    where: { workspaceId },
+    order: [['position', 'ASC']],
+  });
+
+  const baseResponse = {
+    prospectPipeline: {
+      stageSummaries: [],
+      metrics: {
+        activeCandidates: 0,
+        averageScore: null,
+        averageStageDays: null,
+        attachmentsTracked: 0,
+        notesCaptured: 0,
+        remindersScheduled: 0,
+        prepPacksSent: 0,
+      },
+      automations: {
+        remindersScheduled: 0,
+        interviewsQueued: 0,
+        passOnReady: 0,
+      },
+      overview: {
+        stageCount: stages.length,
+        candidateCount: 0,
+      },
+    },
+    board: {
+      columns: [],
+      updatedAt: new Date().toISOString(),
+      automations: {
+        remindersScheduled: 0,
+        interviewsQueued: 0,
+        passOnReady: 0,
+      },
+    },
+    heatmap: {
+      stages: [],
+      overallSentiment: null,
+      overallRisk: 'low',
+    },
+    interviewCoordination: {
+      upcoming: [],
+      summary: {
+        totalScheduled: 0,
+        completedThisWeek: 0,
+        withPrepMaterials: 0,
+        scorecardsLinked: 0,
+      },
+      timezoneStats: [],
+    },
+    candidateExperienceVault: {
+      entries: [],
+      readinessIndex: null,
+      wellbeingAlerts: [],
+      preferenceCoverage: 0,
+      prepPackCount: 0,
+      coachingNotesLogged: 0,
+    },
+    passOnExchange: {
+      shares: [],
+      summary: {
+        totalShares: 0,
+        pendingConsent: 0,
+        consentGranted: 0,
+        activeShares: 0,
+        accepted: 0,
+        declined: 0,
+        projectedRevenue: 0,
+        averageRevenueShareRate: null,
+      },
+    },
+  };
+
+  if (!stages.length) {
+    return baseResponse;
+  }
+
+  const items = await HeadhunterPipelineItem.findAll({
+    where: { workspaceId },
+    include: [
+      { model: HeadhunterPipelineStage, as: 'stage' },
+      {
+        model: User,
+        as: 'candidate',
+        attributes: ['id', 'firstName', 'lastName', 'email'],
+        include: [
+          {
+            model: Profile,
+            as: 'Profile',
+            attributes: ['headline', 'location', 'availabilityStatus'],
+            required: false,
+          },
+        ],
+      },
+      {
+        model: HeadhunterPipelineNote,
+        as: 'notes',
+        required: false,
+        include: [{ model: User, as: 'author', attributes: ['id', 'firstName', 'lastName'] }],
+      },
+      {
+        model: HeadhunterPipelineAttachment,
+        as: 'attachments',
+        required: false,
+        include: [{ model: User, as: 'uploader', attributes: ['id', 'firstName', 'lastName'] }],
+      },
+      { model: HeadhunterPipelineInterview, as: 'interviews', required: false },
+      {
+        model: HeadhunterPassOnShare,
+        as: 'passOnShares',
+        required: false,
+        include: [{ model: ProviderWorkspace, as: 'targetWorkspace', attributes: ['id', 'name', 'type'] }],
+      },
+    ],
+    order: [
+      ['stageEnteredAt', 'ASC'],
+      ['updatedAt', 'DESC'],
+    ],
+  });
+
+  const sanitizedItems = items.map(sanitizeHeadhunterPipelineItem).filter(Boolean);
+  const sanitizedStages = stages.map((stage) => stage.toPublicObject());
+
+  const now = new Date();
+
+  const stageSummaries = sanitizedStages.map((stage) => {
+    const stageItems = sanitizedItems.filter((item) => item.stageId === stage.id);
+    const scores = stageItems.map((item) => toNumberOrNull(item.score)).filter((value) => value != null);
+    const averageScore = scores.length ? Number((sumNumbers(scores) / scores.length).toFixed(1)) : null;
+    const daysInStage = stageItems
+      .map((item) => toDaysBetween(item.stageEnteredAt, now))
+      .filter((value) => value != null);
+    const averageDays = daysInStage.length ? Number((sumNumbers(daysInStage) / daysInStage.length).toFixed(1)) : null;
+    const notesCount = sumNumbers(stageItems.map((item) => item.notes.length));
+    const attachmentsCount = sumNumbers(stageItems.map((item) => item.attachments.length));
+    const riskSummary = { low: 0, medium: 0, high: 0 };
+    let sentimentTotal = 0;
+    stageItems.forEach((item) => {
+      const riskValue = `${item.insights?.risk ?? 'medium'}`.toLowerCase();
+      if (riskValue === 'low') {
+        riskSummary.low += 1;
+      } else if (riskValue === 'high' || riskValue === 'critical') {
+        riskSummary.high += 1;
+      } else {
+        riskSummary.medium += 1;
+      }
+      sentimentTotal += mapSentimentToScore(item.insights?.sentiment);
+    });
+    const averageSentiment = stageItems.length
+      ? Number((sentimentTotal / stageItems.length).toFixed(2))
+      : null;
+    const dominantRisk = determineDominantRiskFromCounts(riskSummary);
+    const blockerCount = sumNumbers(stageItems.map((item) => item.insights.blockers.length));
+
+    return {
+      stageId: stage.id,
+      stageName: stage.name,
+      stageType: stage.stageType,
+      winProbability: stage.winProbability == null ? null : Number(stage.winProbability),
+      totalCandidates: stageItems.length,
+      averageScore,
+      averageDaysInStage: averageDays,
+      notesCaptured: notesCount,
+      attachmentsTracked: attachmentsCount,
+      dominantRisk,
+      riskSummary,
+      averageSentiment,
+      blockerCount,
+    };
+  });
+
+  const stageSummaryMap = new Map(stageSummaries.map((summary) => [summary.stageId, summary]));
+
+  const boardColumns = sanitizedStages.map((stage) => {
+    const stageItems = sanitizedItems.filter((item) => item.stageId === stage.id);
+    const sortedItems = stageItems
+      .slice()
+      .sort((a, b) => (toNumberOrNull(b.score) ?? 0) - (toNumberOrNull(a.score) ?? 0));
+
+    const cards = sortedItems.slice(0, 8).map((item) => ({
+      id: item.id,
+      candidateName: item.candidate?.name ?? 'Candidate',
+      targetRole: item.targetRole ?? null,
+      targetCompany: item.targetCompany ?? null,
+      score: item.score,
+      status: item.status,
+      nextStep: item.nextStep,
+      lastTouchedAt: item.lastTouchedAt,
+      stageAgeDays: toDaysBetween(item.stageEnteredAt, now),
+      estimatedValue: item.estimatedValue,
+      expectedCloseDate: item.expectedCloseDate,
+      attachments: item.attachments.length,
+      notes: item.notes.length,
+      interviews: item.interviews.length,
+      passOnShares: item.passOnShares.length,
+      sentiment: item.insights.sentiment,
+      risk: item.insights.risk,
+      readiness: item.insights.readiness,
+      wellbeing: item.insights.wellbeing,
+      blockers: item.insights.blockers,
+    }));
+
+    return {
+      id: stage.id,
+      name: stage.name,
+      stageType: stage.stageType,
+      winProbability: stage.winProbability,
+      stats: stageSummaryMap.get(stage.id),
+      items: cards,
+    };
+  });
+
+  const metricsScores = sanitizedItems
+    .map((item) => toNumberOrNull(item.score))
+    .filter((value) => value != null);
+  const metricsStageDurations = sanitizedItems
+    .map((item) => toDaysBetween(item.stageEnteredAt, now))
+    .filter((value) => value != null);
+
+  const metrics = {
+    activeCandidates: sanitizedItems.filter((item) => item.status === 'active').length,
+    averageScore: metricsScores.length
+      ? Number((sumNumbers(metricsScores) / metricsScores.length).toFixed(1))
+      : null,
+    averageStageDays: metricsStageDurations.length
+      ? Number((sumNumbers(metricsStageDurations) / metricsStageDurations.length).toFixed(1))
+      : null,
+    attachmentsTracked: sumNumbers(sanitizedItems.map((item) => item.attachments.length)),
+    notesCaptured: sumNumbers(sanitizedItems.map((item) => item.notes.length)),
+    remindersScheduled: sanitizedItems.filter((item) => Boolean(item.nextStep)).length,
+    prepPacksSent: sanitizedItems.filter((item) => ensureArray(item.experience?.prepPacks).length > 0).length,
+  };
+
+  const heatmapStages = stageSummaries.map((summary) => ({
+    stageId: summary.stageId,
+    stageName: summary.stageName,
+    stageType: summary.stageType,
+    candidateCount: summary.totalCandidates,
+    averageScore: summary.averageScore,
+    averageSentiment: summary.averageSentiment,
+    dominantRisk: summary.dominantRisk,
+    blockerCount: summary.blockerCount,
+    riskSummary: summary.riskSummary,
+  }));
+
+  const sentimentValues = stageSummaries
+    .map((summary) => summary.averageSentiment)
+    .filter((value) => value != null);
+  const overallSentiment = sentimentValues.length
+    ? Number((sumNumbers(sentimentValues) / sentimentValues.length).toFixed(2))
+    : null;
+  const overallRisk = stageSummaries.some((summary) => summary.dominantRisk === 'high')
+    ? 'high'
+    : stageSummaries.some((summary) => summary.dominantRisk === 'medium')
+    ? 'medium'
+    : 'low';
+
+  const interviewCoordination = buildInterviewCoordinationFromItems(sanitizedItems);
+  const candidateExperienceVault = buildCandidateExperienceVaultFromItems(sanitizedItems);
+  const passOnExchange = buildPassOnExchangeFromItems(sanitizedItems);
+
+  const automations = {
+    remindersScheduled: metrics.remindersScheduled,
+    interviewsQueued: interviewCoordination.summary.totalScheduled ?? 0,
+    passOnReady: passOnExchange.summary.totalShares ?? 0,
+  };
+
+  return {
+    prospectPipeline: {
+      stageSummaries,
+      metrics,
+      automations,
+      overview: {
+        stageCount: sanitizedStages.length,
+        candidateCount: sanitizedItems.length,
+      },
+    },
+    board: {
+      columns: boardColumns,
+      updatedAt: new Date().toISOString(),
+      automations,
+    },
+    heatmap: {
+      stages: heatmapStages,
+      overallSentiment,
+      overallRisk,
+    },
+    interviewCoordination,
+    candidateExperienceVault,
+    passOnExchange,
+  };
+}
+
 function buildClientPartnerships(contactNotes) {
   if (!contactNotes.length) {
     return {
@@ -868,6 +1631,8 @@ export async function getDashboardSnapshot({ workspaceId: rawWorkspaceId, lookba
     const calendar = buildCalendar(dataset, recentActivity, lookbackDate);
     const activityTimeline = buildActivityTimeline(recentActivity, outreachPerformance.latestCampaigns);
 
+    const pipelineExecution = await buildPipelineExecution({ workspaceId: workspace.id });
+
     const totalApplications = dataset.length;
     const activeApplications = dataset.filter((application) => !['hired', 'rejected', 'withdrawn'].includes(application.status));
     const closedApplications = totalApplications - activeApplications.length;
@@ -944,6 +1709,12 @@ export async function getDashboardSnapshot({ workspaceId: rawWorkspaceId, lookba
         memberCounts: workspaceSummary.memberCounts,
         mandateTotals: mandatePortfolio.totals,
       }),
+      automationSignals: pipelineExecution.prospectPipeline.automations,
+      riskSnapshot: pipelineExecution.heatmap,
+      experienceHighlights: {
+        readinessIndex: pipelineExecution.candidateExperienceVault.readinessIndex,
+        wellbeingAlerts: pipelineExecution.candidateExperienceVault.wellbeingAlerts.length,
+      },
     };
 
     const meta = {
@@ -964,6 +1735,7 @@ export async function getDashboardSnapshot({ workspaceId: rawWorkspaceId, lookba
         health: workspaceHealth,
       },
       pipelineSummary,
+      pipelineExecution,
       candidateSpotlight,
       mandatePortfolio,
       outreachPerformance,

@@ -343,6 +343,22 @@ export const PIPELINE_FOLLOW_UP_STATUSES = ['scheduled', 'completed', 'cancelled
 export const PIPELINE_CAMPAIGN_STATUSES = ['draft', 'active', 'paused', 'completed'];
 export const PIPELINE_PROPOSAL_STATUSES = ['draft', 'sent', 'accepted', 'declined'];
 
+export const HEADHUNTER_PIPELINE_STAGE_TYPES = [
+  'discovery',
+  'qualification',
+  'interview',
+  'offer',
+  'placement',
+  'archive',
+];
+export const HEADHUNTER_PIPELINE_ITEM_STATUSES = ['active', 'paused', 'won', 'lost', 'pass_on'];
+export const HEADHUNTER_PIPELINE_NOTE_VISIBILITIES = ['internal', 'client_ready', 'shared'];
+export const HEADHUNTER_INTERVIEW_TYPES = ['intro', 'client_interview', 'prep', 'debrief'];
+export const HEADHUNTER_INTERVIEW_STATUSES = ['scheduled', 'completed', 'cancelled'];
+export const HEADHUNTER_PASS_ON_TARGET_TYPES = ['agency', 'company', 'workspace', 'search'];
+export const HEADHUNTER_PASS_ON_STATUSES = ['draft', 'shared', 'accepted', 'declined', 'withdrawn'];
+export const HEADHUNTER_CONSENT_STATUSES = ['pending', 'granted', 'revoked'];
+
 const PIPELINE_OWNER_TYPES = ['freelancer', 'agency', 'company'];
 
 export const User = sequelize.define(
@@ -8310,6 +8326,176 @@ export const PipelineFollowUp = sequelize.define(
   },
 );
 
+export const HeadhunterPipelineStage = sequelize.define(
+  'HeadhunterPipelineStage',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    stageType: {
+      type: DataTypes.ENUM(...HEADHUNTER_PIPELINE_STAGE_TYPES),
+      allowNull: false,
+      defaultValue: 'discovery',
+      validate: { isIn: [HEADHUNTER_PIPELINE_STAGE_TYPES] },
+    },
+    position: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    winProbability: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    isDefault: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'headhunter_pipeline_stages',
+    indexes: [{ fields: ['workspaceId', 'position'] }],
+  },
+);
+
+export const HeadhunterPipelineItem = sequelize.define(
+  'HeadhunterPipelineItem',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    stageId: { type: DataTypes.INTEGER, allowNull: false },
+    candidateId: { type: DataTypes.INTEGER, allowNull: false },
+    applicationId: { type: DataTypes.INTEGER, allowNull: true },
+    targetRole: { type: DataTypes.STRING(180), allowNull: true },
+    targetCompany: { type: DataTypes.STRING(180), allowNull: true },
+    estimatedValue: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    expectedCloseDate: { type: DataTypes.DATE, allowNull: true },
+    score: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...HEADHUNTER_PIPELINE_ITEM_STATUSES),
+      allowNull: false,
+      defaultValue: 'active',
+      validate: { isIn: [HEADHUNTER_PIPELINE_ITEM_STATUSES] },
+    },
+    statusReason: { type: DataTypes.STRING(240), allowNull: true },
+    nextStep: { type: DataTypes.STRING(240), allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    lastTouchedAt: { type: DataTypes.DATE, allowNull: true },
+    stageEnteredAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'headhunter_pipeline_items',
+    indexes: [
+      { fields: ['workspaceId', 'stageId'] },
+      { fields: ['candidateId'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+export const HeadhunterPipelineNote = sequelize.define(
+  'HeadhunterPipelineNote',
+  {
+    pipelineItemId: { type: DataTypes.INTEGER, allowNull: false },
+    authorId: { type: DataTypes.INTEGER, allowNull: false },
+    note: { type: DataTypes.TEXT, allowNull: false },
+    visibility: {
+      type: DataTypes.ENUM(...HEADHUNTER_PIPELINE_NOTE_VISIBILITIES),
+      allowNull: false,
+      defaultValue: 'internal',
+      validate: { isIn: [HEADHUNTER_PIPELINE_NOTE_VISIBILITIES] },
+    },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'headhunter_pipeline_notes',
+    indexes: [
+      { fields: ['pipelineItemId'] },
+      { fields: ['authorId'] },
+    ],
+  },
+);
+
+export const HeadhunterPipelineAttachment = sequelize.define(
+  'HeadhunterPipelineAttachment',
+  {
+    pipelineItemId: { type: DataTypes.INTEGER, allowNull: false },
+    uploadedById: { type: DataTypes.INTEGER, allowNull: false },
+    fileName: { type: DataTypes.STRING(255), allowNull: false },
+    fileUrl: { type: DataTypes.STRING(500), allowNull: false },
+    fileType: { type: DataTypes.STRING(120), allowNull: true },
+    fileSize: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'headhunter_pipeline_attachments',
+    indexes: [{ fields: ['pipelineItemId'] }],
+  },
+);
+
+export const HeadhunterPipelineInterview = sequelize.define(
+  'HeadhunterPipelineInterview',
+  {
+    pipelineItemId: { type: DataTypes.INTEGER, allowNull: false },
+    interviewType: {
+      type: DataTypes.ENUM(...HEADHUNTER_INTERVIEW_TYPES),
+      allowNull: false,
+      defaultValue: 'intro',
+      validate: { isIn: [HEADHUNTER_INTERVIEW_TYPES] },
+    },
+    status: {
+      type: DataTypes.ENUM(...HEADHUNTER_INTERVIEW_STATUSES),
+      allowNull: false,
+      defaultValue: 'scheduled',
+      validate: { isIn: [HEADHUNTER_INTERVIEW_STATUSES] },
+    },
+    scheduledAt: { type: DataTypes.DATE, allowNull: false },
+    completedAt: { type: DataTypes.DATE, allowNull: true },
+    timezone: { type: DataTypes.STRING(80), allowNull: true },
+    host: { type: DataTypes.STRING(160), allowNull: true },
+    location: { type: DataTypes.STRING(160), allowNull: true },
+    dialIn: { type: DataTypes.STRING(200), allowNull: true },
+    prepMaterials: { type: jsonType, allowNull: true },
+    scorecard: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'headhunter_pipeline_interviews',
+    indexes: [
+      { fields: ['pipelineItemId', 'scheduledAt'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+export const HeadhunterPassOnShare = sequelize.define(
+  'HeadhunterPassOnShare',
+  {
+    pipelineItemId: { type: DataTypes.INTEGER, allowNull: false },
+    targetWorkspaceId: { type: DataTypes.INTEGER, allowNull: true },
+    targetName: { type: DataTypes.STRING(180), allowNull: false },
+    targetType: {
+      type: DataTypes.ENUM(...HEADHUNTER_PASS_ON_TARGET_TYPES),
+      allowNull: false,
+      defaultValue: 'agency',
+      validate: { isIn: [HEADHUNTER_PASS_ON_TARGET_TYPES] },
+    },
+    shareStatus: {
+      type: DataTypes.ENUM(...HEADHUNTER_PASS_ON_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [HEADHUNTER_PASS_ON_STATUSES] },
+    },
+    consentStatus: {
+      type: DataTypes.ENUM(...HEADHUNTER_CONSENT_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+      validate: { isIn: [HEADHUNTER_CONSENT_STATUSES] },
+    },
+    revenueShareRate: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    revenueShareFlat: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    sharedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  {
+    tableName: 'headhunter_pass_on_shares',
+    indexes: [
+      { fields: ['pipelineItemId'] },
+      { fields: ['shareStatus'] },
+    ],
+  },
+);
+
 AutoAssignQueueEntry.prototype.toPublicObject = function toPublicObject() {
 FinanceForecastScenario.prototype.toPublicObject = function toPublicObject() {
   const plain = this.get({ plain: true });
@@ -8454,6 +8640,117 @@ PipelineFollowUp.prototype.toPublicObject = function toPublicObject() {
     channel: plain.channel,
     note: plain.note,
     status: plain.status,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+HeadhunterPipelineStage.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    name: plain.name,
+    stageType: plain.stageType,
+    position: plain.position,
+    winProbability: plain.winProbability == null ? null : Number(plain.winProbability),
+    isDefault: plain.isDefault,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+HeadhunterPipelineItem.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    stageId: plain.stageId,
+    candidateId: plain.candidateId,
+    applicationId: plain.applicationId,
+    targetRole: plain.targetRole,
+    targetCompany: plain.targetCompany,
+    estimatedValue: plain.estimatedValue == null ? null : Number(plain.estimatedValue),
+    expectedCloseDate: plain.expectedCloseDate,
+    score: plain.score == null ? null : Number(plain.score),
+    status: plain.status,
+    statusReason: plain.statusReason,
+    nextStep: plain.nextStep,
+    tags: plain.tags,
+    lastTouchedAt: plain.lastTouchedAt,
+    stageEnteredAt: plain.stageEnteredAt,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+HeadhunterPipelineNote.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    pipelineItemId: plain.pipelineItemId,
+    authorId: plain.authorId,
+    note: plain.note,
+    visibility: plain.visibility,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+HeadhunterPipelineAttachment.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    pipelineItemId: plain.pipelineItemId,
+    uploadedById: plain.uploadedById,
+    fileName: plain.fileName,
+    fileUrl: plain.fileUrl,
+    fileType: plain.fileType,
+    fileSize: plain.fileSize == null ? null : Number(plain.fileSize),
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+HeadhunterPipelineInterview.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    pipelineItemId: plain.pipelineItemId,
+    interviewType: plain.interviewType,
+    status: plain.status,
+    scheduledAt: plain.scheduledAt,
+    completedAt: plain.completedAt,
+    timezone: plain.timezone,
+    host: plain.host,
+    location: plain.location,
+    dialIn: plain.dialIn,
+    prepMaterials: plain.prepMaterials,
+    scorecard: plain.scorecard,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+HeadhunterPassOnShare.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    pipelineItemId: plain.pipelineItemId,
+    targetWorkspaceId: plain.targetWorkspaceId,
+    targetName: plain.targetName,
+    targetType: plain.targetType,
+    shareStatus: plain.shareStatus,
+    consentStatus: plain.consentStatus,
+    revenueShareRate: plain.revenueShareRate == null ? null : Number(plain.revenueShareRate),
+    revenueShareFlat: plain.revenueShareFlat == null ? null : Number(plain.revenueShareFlat),
+    sharedAt: plain.sharedAt,
+    metadata: plain.metadata,
+    notes: plain.notes,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };
@@ -9389,6 +9686,49 @@ PipelineProposalTemplate.hasMany(PipelineProposal, { foreignKey: 'templateId', a
 PipelineDeal.hasMany(PipelineFollowUp, { foreignKey: 'dealId', as: 'followUps', onDelete: 'CASCADE' });
 PipelineFollowUp.belongsTo(PipelineDeal, { foreignKey: 'dealId', as: 'deal' });
 
+HeadhunterPipelineStage.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+HeadhunterPipelineStage.hasMany(HeadhunterPipelineItem, {
+  foreignKey: 'stageId',
+  as: 'items',
+  onDelete: 'CASCADE',
+});
+
+HeadhunterPipelineItem.belongsTo(HeadhunterPipelineStage, { foreignKey: 'stageId', as: 'stage' });
+HeadhunterPipelineItem.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+HeadhunterPipelineItem.belongsTo(User, { foreignKey: 'candidateId', as: 'candidate' });
+HeadhunterPipelineItem.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });
+HeadhunterPipelineItem.hasMany(HeadhunterPipelineNote, {
+  foreignKey: 'pipelineItemId',
+  as: 'notes',
+  onDelete: 'CASCADE',
+});
+HeadhunterPipelineItem.hasMany(HeadhunterPipelineAttachment, {
+  foreignKey: 'pipelineItemId',
+  as: 'attachments',
+  onDelete: 'CASCADE',
+});
+HeadhunterPipelineItem.hasMany(HeadhunterPipelineInterview, {
+  foreignKey: 'pipelineItemId',
+  as: 'interviews',
+  onDelete: 'CASCADE',
+});
+HeadhunterPipelineItem.hasMany(HeadhunterPassOnShare, {
+  foreignKey: 'pipelineItemId',
+  as: 'passOnShares',
+  onDelete: 'CASCADE',
+});
+
+HeadhunterPipelineNote.belongsTo(HeadhunterPipelineItem, { foreignKey: 'pipelineItemId', as: 'pipelineItem' });
+HeadhunterPipelineNote.belongsTo(User, { foreignKey: 'authorId', as: 'author' });
+
+HeadhunterPipelineAttachment.belongsTo(HeadhunterPipelineItem, { foreignKey: 'pipelineItemId', as: 'pipelineItem' });
+HeadhunterPipelineAttachment.belongsTo(User, { foreignKey: 'uploadedById', as: 'uploader' });
+
+HeadhunterPipelineInterview.belongsTo(HeadhunterPipelineItem, { foreignKey: 'pipelineItemId', as: 'pipelineItem' });
+
+HeadhunterPassOnShare.belongsTo(HeadhunterPipelineItem, { foreignKey: 'pipelineItemId', as: 'pipelineItem' });
+HeadhunterPassOnShare.belongsTo(ProviderWorkspace, { foreignKey: 'targetWorkspaceId', as: 'targetWorkspace' });
+
 AgencyAlliance.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 AgencyAlliance.hasMany(AgencyAllianceMember, { foreignKey: 'allianceId', as: 'members' });
 AgencyAlliance.hasMany(AgencyAlliancePod, { foreignKey: 'allianceId', as: 'pods' });
@@ -9587,6 +9927,12 @@ export default {
   PipelineProposal,
   PipelineProposalTemplate,
   PipelineFollowUp,
+  HeadhunterPipelineStage,
+  HeadhunterPipelineItem,
+  HeadhunterPipelineNote,
+  HeadhunterPipelineAttachment,
+  HeadhunterPipelineInterview,
+  HeadhunterPassOnShare,
   PipelineCampaign,
   FinanceRevenueEntry,
   FinanceExpenseEntry,
