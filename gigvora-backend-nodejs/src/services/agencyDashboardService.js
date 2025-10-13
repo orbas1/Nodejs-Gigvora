@@ -11,6 +11,31 @@ import {
   AgencyProfile,
   Profile,
   Gig,
+  GigPackage,
+  GigAddon,
+  GigMediaAsset,
+  GigPerformanceSnapshot,
+  GigOrder,
+  GigBundle,
+  GigBundleItem,
+  GigUpsell,
+  AgencyAlliance,
+  AgencyAllianceMember,
+  AgencyAllianceRateCard,
+  AgencyAllianceRevenueSplit,
+  PartnerEngagement,
+  PipelineCampaign,
+  PipelineDeal,
+  PipelineFollowUp,
+  PipelineProposal,
+  RecruitingCalendarEvent,
+  EmployerBrandAsset,
+  ClientSuccessPlaybook,
+  ClientSuccessEnrollment,
+  ClientSuccessEvent,
+  ClientSuccessReferral,
+  ClientSuccessReviewNudge,
+  ClientSuccessAffiliateLink,
   Job,
   User,
 } from '../models/index.js';
@@ -281,6 +306,391 @@ function filterProjectsForWorkspace(projects, workspace) {
   return { projects, scope: 'global_fallback' };
 }
 
+function toPlainValue(record) {
+  if (!record) {
+    return null;
+  }
+  if (typeof record.toPublicObject === 'function') {
+    return record.toPublicObject();
+  }
+  if (typeof record.toBuilderObject === 'function') {
+    return record.toBuilderObject();
+  }
+  if (typeof record.get === 'function') {
+    return record.get({ plain: true });
+  }
+  return { ...record };
+}
+
+function parseDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function daysBetween(start, end) {
+  const from = parseDate(start);
+  const to = parseDate(end);
+  if (!from || !to) return null;
+  const diff = to.getTime() - from.getTime();
+  return Math.round(diff / (1000 * 60 * 60 * 24));
+}
+
+function groupByKey(items, key) {
+  const map = new Map();
+  items.forEach((item) => {
+    if (!item || item[key] == null) {
+      return;
+    }
+    const groupKey = item[key];
+    if (!map.has(groupKey)) {
+      map.set(groupKey, []);
+    }
+    map.get(groupKey).push(item);
+  });
+  return map;
+}
+
+function centsToAmount(value) {
+  if (value == null) {
+    return 0;
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return 0;
+  }
+  return Math.round((numeric / 100) * 100) / 100;
+}
+
+function safePercentage(numerator, denominator) {
+  if (!denominator) return 0;
+  const rate = (numerator / denominator) * 100;
+  return Math.round((rate + Number.EPSILON) * 10) / 10;
+}
+
+function collectAllianceMembersByAlliance(members) {
+  const grouped = new Map();
+  members.forEach((member) => {
+    if (!member || member.allianceId == null) return;
+    if (!grouped.has(member.allianceId)) {
+      grouped.set(member.allianceId, []);
+    }
+    grouped.get(member.allianceId).push(member);
+  });
+  return grouped;
+}
+
+function buildGigStudioInsights({
+  gigs,
+  packages,
+  addons,
+  mediaAssets,
+  performanceSnapshots,
+  orders,
+  bundles,
+  bundleItems,
+  upsells,
+  alliances,
+  allianceMembers,
+}) {
+  const packagesByGig = groupByKey(packages, 'gigId');
+  const addonsByGig = groupByKey(addons, 'gigId');
+  const ordersByGig = groupByKey(orders, 'gigId');
+  const bundleItemsByBundle = groupByKey(bundleItems, 'bundleId');
+
+  const heroAssetByGig = new Map();
+  mediaAssets.forEach((asset) => {
+    if (asset.gigId == null || heroAssetByGig.has(asset.gigId)) {
+      return;
+    }
+    heroAssetByGig.set(asset.gigId, asset);
+  });
+
+  const performanceByGig = new Map();
+  performanceSnapshots.forEach((snapshot) => {
+    if (snapshot.gigId == null) return;
+    if (!performanceByGig.has(snapshot.gigId)) {
+      performanceByGig.set(snapshot.gigId, snapshot);
+    }
+  });
+
+  const formattedGigs = gigs.map((gig) => {
+    const gigOrders = ordersByGig.get(gig.id) ?? [];
+    const openOrders = gigOrders.filter((order) => !['completed', 'cancelled'].includes(order.status));
+    return {
+      ...gig,
+      packages: packagesByGig.get(gig.id) ?? [],
+      addons: addonsByGig.get(gig.id) ?? [],
+      heroAsset: heroAssetByGig.get(gig.id) ?? null,
+      latestPerformance: performanceByGig.get(gig.id) ?? null,
+      orders: {
+        total: gigOrders.length,
+        open: openOrders.length,
+      },
+    };
+  });
+
+  const bundleSummaries = bundles.map((bundle) => ({
+    ...bundle,
+    priceAmount: centsToAmount(bundle.priceCents),
+    items: (bundleItemsByBundle.get(bundle.id) ?? []).sort((a, b) => a.orderIndex - b.orderIndex),
+  }));
+
+  const upsellSummaries = upsells.map((upsell) => ({
+    ...upsell,
+    estimatedValueAmount: centsToAmount(upsell.estimatedValueCents),
+  }));
+
+  const totalOrders = orders.length;
+  const completedWithDue = orders.filter((order) => order.completedAt && order.dueAt);
+  const onTime = completedWithDue.filter((order) => {
+    const completed = parseDate(order.completedAt);
+    const due = parseDate(order.dueAt);
+    return completed && due && completed.getTime() <= due.getTime();
+  });
+  const deliveryDurations = completedWithDue
+    .map((order) => daysBetween(order.submittedAt ?? order.createdAt, order.completedAt))
+    .filter((value) => Number.isFinite(value) && value != null);
+
+  const backlog = orders.filter((order) => !['completed', 'cancelled'].includes(order.status));
+  const breaches = orders.filter((order) => {
+    const due = parseDate(order.dueAt);
+    if (!due) return false;
+    if (['completed', 'cancelled'].includes(order.status)) {
+      const completed = parseDate(order.completedAt);
+      return completed && completed.getTime() > due.getTime();
+    }
+    const now = new Date();
+    return now.getTime() > due.getTime();
+  });
+
+  const alliancesById = new Map(alliances.map((alliance) => [alliance.id, alliance]));
+  const membersByAlliance = collectAllianceMembersByAlliance(allianceMembers);
+  const rosterAlliances = alliances.filter((alliance) =>
+    ['delivery_pod', 'managed_service'].includes(alliance.allianceType ?? ''),
+  );
+
+  const rosters = rosterAlliances.map((alliance) => {
+    const members = (membersByAlliance.get(alliance.id) ?? []).map((member) => ({
+      id: member.id,
+      role: member.role,
+      status: member.status,
+      commitmentHours: member.commitmentHours,
+      revenueSharePercent: member.revenueSharePercent,
+      user: member.user
+        ? {
+            id: member.user.id,
+            firstName: member.user.firstName,
+            lastName: member.user.lastName,
+          }
+        : null,
+    }));
+    return {
+      id: alliance.id,
+      name: alliance.name,
+      status: alliance.status,
+      allianceType: alliance.allianceType,
+      focusAreas: alliance.focusAreas ?? [],
+      members,
+    };
+  });
+
+  const summary = {
+    managedGigs: formattedGigs.filter((gig) => gig.status === 'active' || gig.status === 'in_delivery').length,
+    totalGigs: formattedGigs.length,
+    packages: packages.length,
+    addons: addons.length,
+    hybridBundles: bundleSummaries.filter((bundle) => bundle.status === 'live').length,
+    upsellPrograms: upsellSummaries.filter((upsell) => upsell.status === 'running' || upsell.status === 'pilot').length,
+    activeOrders: backlog.length,
+    onTimeRate: safePercentage(onTime.length, completedWithDue.length || totalOrders || 0),
+    averageDeliveryDays: deliveryDurations.length ? Math.round((average(deliveryDurations) + Number.EPSILON) * 10) / 10 : 0,
+    breaches: breaches.length,
+  };
+
+  const deliverables = {
+    totalDeliverables: bundleItems.length,
+    backlog: backlog.length,
+    breaches: breaches.length,
+    activeContracts: completedWithDue.length + backlog.length,
+    upcomingDue: orders.filter((order) => {
+      const due = parseDate(order.dueAt);
+      if (!due) return false;
+      if (['completed', 'cancelled'].includes(order.status)) return false;
+      const now = new Date();
+      const diffDays = Math.round((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      return diffDays >= 0 && diffDays <= 7;
+    }).length,
+  };
+
+  return {
+    summary,
+    gigs: formattedGigs,
+    bundles: bundleSummaries,
+    upsells: upsellSummaries,
+    deliverables,
+    rosters,
+    alliances: Array.from(alliancesById.values()),
+  };
+}
+
+function buildPartnerProgramInsights({ alliances, allianceMembers, rateCards, revenueSplits, partnerEngagements }) {
+  const membersByAlliance = collectAllianceMembersByAlliance(allianceMembers);
+  const allianceSummaries = alliances.map((alliance) => {
+    const members = membersByAlliance.get(alliance.id) ?? [];
+    return {
+      ...alliance,
+      memberCount: members.length,
+      leadCount: members.filter((member) => member.role === 'lead').length,
+    };
+  });
+
+  const engagementsByType = {};
+  partnerEngagements.forEach((engagement) => {
+    const key = engagement.partnerType ?? 'unspecified';
+    if (!engagementsByType[key]) {
+      engagementsByType[key] = { count: 0, touchpoints: 0, conversionRateSamples: [] };
+    }
+    engagementsByType[key].count += 1;
+    engagementsByType[key].touchpoints += normaliseNumber(engagement.touchpoints, 0);
+    if (engagement.conversionRate != null) {
+      engagementsByType[key].conversionRateSamples.push(Number(engagement.conversionRate));
+    }
+  });
+
+  const engagements = Object.entries(engagementsByType).map(([partnerType, details]) => ({
+    partnerType,
+    count: details.count,
+    touchpoints: details.touchpoints,
+    averageConversionRate: details.conversionRateSamples.length
+      ? Math.round((average(details.conversionRateSamples) + Number.EPSILON) * 10) / 10
+      : 0,
+  }));
+
+  const summary = {
+    alliances: alliances.length,
+    activeAlliances: allianceSummaries.filter((alliance) => alliance.status === 'active').length,
+    partnerEngagements: partnerEngagements.length,
+    averageConversionRate:
+      partnerEngagements.length
+        ? Math.round(
+            (average(
+              partnerEngagements
+                .map((item) => (item.conversionRate != null ? Number(item.conversionRate) : null))
+                .filter((value) => value != null),
+            ) || 0 + Number.EPSILON) * 10,
+          ) / 10
+        : 0,
+    pendingRateCards: rateCards.filter((card) => card.status === 'draft' || card.status === 'in_review').length,
+    activeRateCards: rateCards.filter((card) => card.status === 'active').length,
+    activeRevenueSplits: revenueSplits.filter((split) => split.status === 'active').length,
+  };
+
+  return {
+    summary,
+    alliances: allianceSummaries,
+    engagements,
+    rateCards,
+    revenueSplits,
+  };
+}
+
+function buildMarketingAutomationInsights({ campaigns, deals, followUps, proposals, events, landingPages }) {
+  const openDeals = deals.filter((deal) => deal.status === 'open');
+  const wonDeals = deals.filter((deal) => deal.status === 'won');
+  const totalPipelineValue = deals.reduce((total, deal) => total + normaliseNumber(deal.pipelineValue, 0), 0);
+  const winProbabilitySamples = deals
+    .map((deal) => (deal.winProbability != null ? Number(deal.winProbability) : null))
+    .filter((value) => value != null);
+  const followUpsDueSoon = followUps.filter((followUp) => {
+    if (followUp.status === 'completed' || followUp.status === 'cancelled') return false;
+    const due = parseDate(followUp.dueAt);
+    if (!due) return false;
+    const now = new Date();
+    const diffDays = Math.round((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    return diffDays >= 0 && diffDays <= 14;
+  });
+
+  const webinarEvents = events.filter((event) =>
+    (event.eventType ?? '').toLowerCase().includes('webinar') || (event.metadata?.format ?? '') === 'webinar',
+  );
+
+  const summary = {
+    activeCampaigns: campaigns.filter((campaign) => campaign.status === 'active').length,
+    totalCampaigns: campaigns.length,
+    openDeals: openDeals.length,
+    wonDeals: wonDeals.length,
+    totalPipelineValue,
+    averageWinProbability: winProbabilitySamples.length
+      ? Math.round((average(winProbabilitySamples) + Number.EPSILON) * 10) / 10
+      : 0,
+    followUpsDueSoon: followUpsDueSoon.length,
+    liveLandingPages: landingPages.filter((asset) => asset.status === 'published').length,
+  };
+
+  return {
+    summary,
+    campaigns,
+    deals,
+    followUps,
+    proposals,
+    events,
+    landingPages,
+    webinars: webinarEvents,
+  };
+}
+
+function buildClientAdvocacyInsights({
+  playbooks,
+  enrollments,
+  events,
+  referrals,
+  reviewNudges,
+  affiliateLinks,
+  gigs,
+}) {
+  const activePlaybooks = playbooks.filter((playbook) => playbook.isActive !== false);
+  const activeEnrollments = enrollments.filter((enrollment) => enrollment.status === 'in_progress' || enrollment.status === 'pending');
+  const completedEnrollments = enrollments.filter((enrollment) => enrollment.status === 'completed');
+
+  const nudgesResponded = reviewNudges.filter((nudge) => nudge.responseAt);
+  const rewardValue = referrals.reduce((total, referral) => total + normaliseNumber(referral.rewardValueAmount, 0), 0);
+  const affiliateConversions = affiliateLinks.reduce((total, link) => total + normaliseNumber(link.totalConversions, 0), 0);
+
+  const summary = {
+    activePlaybooks: activePlaybooks.length,
+    totalPlaybooks: playbooks.length,
+    enrollmentsInFlight: activeEnrollments.length,
+    enrollmentsCompleted: completedEnrollments.length,
+    reviewResponseRate: safePercentage(nudgesResponded.length, reviewNudges.length),
+    referralCount: referrals.length,
+    referralRewardValue: rewardValue,
+    affiliatePrograms: affiliateLinks.length,
+    affiliateConversions,
+  };
+
+  const storytellingKits = gigs
+    .filter((gig) => gig.csatScore != null)
+    .map((gig) => ({
+      id: gig.id,
+      title: gig.title,
+      csatScore: gig.csatScore,
+      csatResponseCount: gig.csatResponseCount,
+      clientName: gig.clientName,
+    }));
+
+  return {
+    summary,
+    playbooks,
+    enrollments,
+    events,
+    referrals,
+    reviewNudges,
+    affiliateLinks,
+    storytellingKits,
+  };
+}
+
 export async function getAgencyDashboard({ workspaceId, workspaceSlug, lookbackDays = 90 } = {}) {
   const parsedLookback = Number.isFinite(Number(lookbackDays)) && Number(lookbackDays) > 0 ? Number(lookbackDays) : 90;
 
@@ -446,6 +856,251 @@ export async function getAgencyDashboard({ workspaceId, workspaceSlug, lookbackD
     const gigSummaries = gigRows.map((gig) => toPlain(gig));
     const jobSummaries = jobRows.map((job) => toPlain(job));
 
+    const gigIds = gigSummaries.map((gig) => gig.id).filter((id) => Number.isInteger(id));
+    const workspaceOwnerId = workspace?.ownerId ?? null;
+
+    let gigPackageRows = [];
+    let gigAddonRows = [];
+    let gigMediaRows = [];
+    let gigPerformanceRows = [];
+    let gigOrderRows = [];
+
+    if (gigIds.length) {
+      [gigPackageRows, gigAddonRows, gigMediaRows, gigPerformanceRows, gigOrderRows] = await Promise.all([
+        GigPackage.findAll({
+          where: { gigId: { [Op.in]: gigIds } },
+          order: [
+            ['gigId', 'ASC'],
+            ['priceAmount', 'ASC'],
+          ],
+        }),
+        GigAddon.findAll({
+          where: { gigId: { [Op.in]: gigIds } },
+          order: [
+            ['gigId', 'ASC'],
+            ['priceAmount', 'ASC'],
+          ],
+        }),
+        GigMediaAsset.findAll({
+          where: { gigId: { [Op.in]: gigIds } },
+          order: [['displayOrder', 'ASC']],
+        }),
+        GigPerformanceSnapshot.findAll({
+          where: { gigId: { [Op.in]: gigIds } },
+          order: [['snapshotDate', 'DESC']],
+        }),
+        GigOrder.findAll({
+          where: {
+            gigId: { [Op.in]: gigIds },
+            createdAt: { [Op.gte]: lookbackDate },
+          },
+          order: [['createdAt', 'DESC']],
+        }),
+      ]);
+    }
+
+    const gigBundleRows = workspaceOwnerId
+      ? await GigBundle.findAll({ where: { freelancerId: workspaceOwnerId }, order: [['createdAt', 'DESC']] })
+      : [];
+    const bundleIds = gigBundleRows.map((bundle) => bundle.id).filter((id) => Number.isInteger(id));
+    const gigBundleItemRows = bundleIds.length
+      ? await GigBundleItem.findAll({
+          where: { bundleId: { [Op.in]: bundleIds } },
+          order: [['orderIndex', 'ASC']],
+        })
+      : [];
+    const gigUpsellRows = workspaceOwnerId
+      ? await GigUpsell.findAll({ where: { freelancerId: workspaceOwnerId }, order: [['createdAt', 'DESC']] })
+      : [];
+
+    const alliances = workspaceIdFilter
+      ? await AgencyAlliance.findAll({
+          where: { workspaceId: workspaceIdFilter },
+          order: [['createdAt', 'DESC']],
+        })
+      : [];
+    const allianceIds = alliances.map((alliance) => alliance.id).filter((id) => Number.isInteger(id));
+    const allianceMemberRows = allianceIds.length
+      ? await AgencyAllianceMember.findAll({
+          where: { allianceId: { [Op.in]: allianceIds } },
+          include: [{ model: User, as: 'user', attributes: ['id', 'firstName', 'lastName'] }],
+        })
+      : [];
+    const allianceRateCardRows = allianceIds.length
+      ? await AgencyAllianceRateCard.findAll({
+          where: { allianceId: { [Op.in]: allianceIds } },
+          order: [['version', 'DESC']],
+        })
+      : [];
+    const allianceRevenueSplitRows = allianceIds.length
+      ? await AgencyAllianceRevenueSplit.findAll({
+          where: { allianceId: { [Op.in]: allianceIds } },
+          order: [['createdAt', 'DESC']],
+        })
+      : [];
+    const partnerEngagementRows = workspaceIdFilter
+      ? await PartnerEngagement.findAll({
+          where: { workspaceId: workspaceIdFilter },
+          order: [['lastInteractionAt', 'DESC']],
+        })
+      : [];
+
+    const pipelineOwnerId = workspace ? workspace.id : null;
+    let campaignRows = [];
+    let dealRows = [];
+    let followUpRows = [];
+    if (pipelineOwnerId) {
+      [campaignRows, dealRows, followUpRows] = await Promise.all([
+        PipelineCampaign.findAll({
+          where: { ownerId: pipelineOwnerId, ownerType: 'agency' },
+          order: [['createdAt', 'DESC']],
+          limit: 50,
+        }),
+        PipelineDeal.findAll({
+          where: { ownerId: pipelineOwnerId, ownerType: 'agency' },
+          order: [['createdAt', 'DESC']],
+          limit: 100,
+        }),
+        PipelineFollowUp.findAll({
+          where: { ownerId: pipelineOwnerId, ownerType: 'agency' },
+          order: [['dueAt', 'ASC']],
+          limit: 100,
+        }),
+      ]);
+    }
+    const dealIds = dealRows.map((deal) => deal.id).filter((id) => Number.isInteger(id));
+    const proposalRows = dealIds.length
+      ? await PipelineProposal.findAll({ where: { dealId: { [Op.in]: dealIds } }, order: [['createdAt', 'DESC']] })
+      : [];
+
+    const eventRowsMarketing = workspaceIdFilter
+      ? await RecruitingCalendarEvent.findAll({
+          where: { workspaceId: workspaceIdFilter },
+          order: [['startsAt', 'ASC']],
+          limit: 50,
+        })
+      : [];
+    const landingPageRows = workspaceIdFilter
+      ? await EmployerBrandAsset.findAll({
+          where: { workspaceId: workspaceIdFilter },
+          order: [['createdAt', 'DESC']],
+          limit: 50,
+        })
+      : [];
+
+    let playbookRows = [];
+    let enrollmentRows = [];
+    let clientEventRows = [];
+    let referralRows = [];
+    let reviewNudgeRows = [];
+    let affiliateLinkRows = [];
+    if (workspaceOwnerId) {
+      [playbookRows, enrollmentRows, clientEventRows, referralRows, reviewNudgeRows, affiliateLinkRows] = await Promise.all([
+        ClientSuccessPlaybook.findAll({ where: { freelancerId: workspaceOwnerId }, order: [['createdAt', 'DESC']] }),
+        ClientSuccessEnrollment.findAll({ where: { freelancerId: workspaceOwnerId }, order: [['createdAt', 'DESC']] }),
+        ClientSuccessEvent.findAll({ where: { freelancerId: workspaceOwnerId }, order: [['createdAt', 'DESC']], limit: 100 }),
+        ClientSuccessReferral.findAll({ where: { freelancerId: workspaceOwnerId }, order: [['createdAt', 'DESC']], limit: 100 }),
+        ClientSuccessReviewNudge.findAll({ where: { freelancerId: workspaceOwnerId }, order: [['createdAt', 'DESC']], limit: 100 }),
+        ClientSuccessAffiliateLink.findAll({ where: { freelancerId: workspaceOwnerId }, order: [['createdAt', 'DESC']], limit: 100 }),
+      ]);
+    }
+
+    const gigPackages = gigPackageRows.map((row) => row.toBuilderObject());
+    const gigAddons = gigAddonRows.map((row) => row.toBuilderObject());
+    const gigMediaAssets = gigMediaRows.map((row) => row.toBuilderObject());
+    const gigPerformanceSnapshots = gigPerformanceRows.map((row) => row.toBuilderObject());
+    const gigOrders = gigOrderRows.map((row) => row.toPublicObject());
+    const gigBundles = gigBundleRows.map((row) => row.toPublicObject());
+    const gigBundleItems = gigBundleItemRows.map((row) => row.toPublicObject());
+    const gigUpsells = gigUpsellRows.map((row) => row.toPublicObject());
+
+    const allianceRecords = alliances.map((alliance) => alliance.toPublicObject());
+    const allianceMemberRecords = allianceMemberRows.map((member) => {
+      const plain = member.get({ plain: true });
+      return {
+        ...plain,
+        commitmentHours: plain.commitmentHours != null ? Number.parseFloat(plain.commitmentHours) : null,
+        revenueSharePercent: plain.revenueSharePercent != null ? Number.parseFloat(plain.revenueSharePercent) : null,
+      };
+    });
+    const allianceRateCards = allianceRateCardRows.map((row) => row.toPublicObject());
+    const allianceRevenueSplits = allianceRevenueSplitRows.map((row) => row.toPublicObject());
+    const partnerEngagements = partnerEngagementRows.map((row) => {
+      const plain = toPlainValue(row);
+      return {
+        ...plain,
+        conversionRate: plain?.conversionRate != null ? Number(plain.conversionRate) : null,
+        touchpoints: normaliseNumber(plain?.touchpoints, 0),
+      };
+    });
+
+    const campaigns = campaignRows.map((row) => row.toPublicObject());
+    const deals = dealRows.map((row) => row.toPublicObject());
+    const followUps = followUpRows.map((row) => row.toPublicObject());
+    const proposals = proposalRows.map((row) => row.toPublicObject());
+    const marketingEvents = eventRowsMarketing.map((row) => toPlainValue(row));
+    const landingPages = landingPageRows.map((row) => {
+      const plain = toPlainValue(row);
+      return {
+        ...plain,
+        engagementScore: plain?.engagementScore != null ? Number(plain.engagementScore) : null,
+      };
+    });
+
+    const playbooks = playbookRows.map((row) => row.toPublicObject());
+    const enrollments = enrollmentRows.map((row) => row.toPublicObject());
+    const clientEvents = clientEventRows.map((row) => row.toPublicObject());
+    const referrals = referralRows.map((row) => {
+      const plain = row.toPublicObject();
+      return {
+        ...plain,
+        rewardValueAmount: plain.rewardValueCents != null ? centsToAmount(plain.rewardValueCents) : 0,
+      };
+    });
+    const reviewNudges = reviewNudgeRows.map((row) => row.toPublicObject());
+    const affiliateLinks = affiliateLinkRows.map((row) => row.toPublicObject());
+
+    const studioInsights = buildGigStudioInsights({
+      gigs: gigSummaries,
+      packages: gigPackages,
+      addons: gigAddons,
+      mediaAssets: gigMediaAssets,
+      performanceSnapshots: gigPerformanceSnapshots,
+      orders: gigOrders,
+      bundles: gigBundles,
+      bundleItems: gigBundleItems,
+      upsells: gigUpsells,
+      alliances: allianceRecords,
+      allianceMembers: allianceMemberRecords,
+    });
+
+    const partnerProgramInsights = buildPartnerProgramInsights({
+      alliances: allianceRecords,
+      allianceMembers: allianceMemberRecords,
+      rateCards: allianceRateCards,
+      revenueSplits: allianceRevenueSplits,
+      partnerEngagements,
+    });
+
+    const marketingAutomationInsights = buildMarketingAutomationInsights({
+      campaigns,
+      deals,
+      followUps,
+      proposals,
+      events: marketingEvents,
+      landingPages,
+    });
+
+    const clientAdvocacyInsights = buildClientAdvocacyInsights({
+      playbooks,
+      enrollments,
+      events: clientEvents,
+      referrals,
+      reviewNudges,
+      affiliateLinks,
+      gigs: gigSummaries,
+    });
+
     const totalClients = new Set(formattedNotes.map((note) => note.subjectUserId)).size;
 
     return {
@@ -481,6 +1136,12 @@ export async function getAgencyDashboard({ workspaceId, workspaceSlug, lookbackD
       jobs: jobSummaries,
       financials: escrowRows.map((row) => row.toPublicObject()),
       gigFinancials: gigTransactions.map((row) => row.toPublicObject()),
+      marketplaceLeadership: {
+        studio: studioInsights,
+        partnerPrograms: partnerProgramInsights,
+        marketingAutomation: marketingAutomationInsights,
+        clientAdvocacy: clientAdvocacyInsights,
+      },
       refreshedAt: new Date().toISOString(),
     };
   });
