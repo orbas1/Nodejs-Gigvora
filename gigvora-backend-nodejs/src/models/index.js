@@ -148,6 +148,13 @@ export const PROJECT_RISK_STATUSES = ['open', 'monitoring', 'mitigated', 'closed
 export const PROJECT_BILLING_TYPES = ['milestone', 'retainer', 'expense'];
 export const PROJECT_BILLING_STATUSES = ['upcoming', 'invoiced', 'paid', 'overdue'];
 
+export const CLIENT_PORTAL_STATUSES = ['draft', 'active', 'paused', 'archived'];
+export const CLIENT_PORTAL_TIMELINE_STATUSES = ['planned', 'in_progress', 'at_risk', 'completed', 'blocked'];
+export const CLIENT_PORTAL_SCOPE_STATUSES = ['committed', 'in_delivery', 'delivered', 'proposed', 'out_of_scope'];
+export const CLIENT_PORTAL_DECISION_VISIBILITIES = ['internal', 'client', 'public'];
+export const CLIENT_PORTAL_INSIGHT_TYPES = ['health', 'finance', 'engagement', 'risk', 'custom'];
+export const CLIENT_PORTAL_INSIGHT_VISIBILITIES = ['internal', 'shared'];
+
 export const User = sequelize.define(
   'User',
   {
@@ -1384,6 +1391,274 @@ ProjectWorkspaceApproval.prototype.toPublicObject = function toPublicObject() {
     decisionNotes: plain.decisionNotes,
     attachments: Array.isArray(plain.attachments) ? plain.attachments : [],
     metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ClientPortal = sequelize.define(
+  'ClientPortal',
+  {
+    projectId: { type: DataTypes.INTEGER, allowNull: false },
+    ownerId: { type: DataTypes.INTEGER, allowNull: true },
+    slug: { type: DataTypes.STRING(160), allowNull: false, unique: true },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...CLIENT_PORTAL_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [CLIENT_PORTAL_STATUSES] },
+    },
+    brandColor: { type: DataTypes.STRING(12), allowNull: true },
+    accentColor: { type: DataTypes.STRING(12), allowNull: true },
+    preferences: { type: jsonType, allowNull: true },
+    stakeholders: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'client_portals' },
+);
+
+ClientPortal.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  const ownerInstance = this.owner ?? this.get?.('owner');
+  const projectInstance = this.project ?? this.get?.('project');
+  const owner = ownerInstance
+    ? {
+        id: ownerInstance.id,
+        firstName: ownerInstance.firstName,
+        lastName: ownerInstance.lastName,
+        name: [ownerInstance.firstName, ownerInstance.lastName].filter(Boolean).join(' ').trim(),
+        email: ownerInstance.email,
+      }
+    : null;
+  const project = projectInstance
+    ? {
+        id: projectInstance.id,
+        title: projectInstance.title,
+        status: projectInstance.status ?? null,
+      }
+    : null;
+
+  const rawStakeholders = plain.stakeholders;
+  const stakeholders = Array.isArray(rawStakeholders)
+    ? rawStakeholders
+    : rawStakeholders && typeof rawStakeholders === 'object'
+    ? Object.values(rawStakeholders)
+    : [];
+
+  const preferences = plain.preferences && typeof plain.preferences === 'object' ? plain.preferences : {};
+
+  return {
+    id: plain.id,
+    projectId: plain.projectId,
+    ownerId: plain.ownerId,
+    slug: plain.slug,
+    title: plain.title,
+    summary: plain.summary,
+    status: plain.status,
+    brandColor: plain.brandColor ?? null,
+    accentColor: plain.accentColor ?? null,
+    preferences,
+    stakeholders,
+    owner,
+    project,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ClientPortalTimelineEvent = sequelize.define(
+  'ClientPortalTimelineEvent',
+  {
+    portalId: { type: DataTypes.INTEGER, allowNull: false },
+    ownerId: { type: DataTypes.INTEGER, allowNull: true },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    eventType: { type: DataTypes.STRING(80), allowNull: false, defaultValue: 'milestone' },
+    status: {
+      type: DataTypes.ENUM(...CLIENT_PORTAL_TIMELINE_STATUSES),
+      allowNull: false,
+      defaultValue: 'planned',
+      validate: { isIn: [CLIENT_PORTAL_TIMELINE_STATUSES] },
+    },
+    startDate: { type: DataTypes.DATE, allowNull: true },
+    dueDate: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'client_portal_timeline_events' },
+);
+
+ClientPortalTimelineEvent.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  const ownerInstance = this.owner ?? this.get?.('owner');
+  const owner = ownerInstance
+    ? {
+        id: ownerInstance.id,
+        firstName: ownerInstance.firstName,
+        lastName: ownerInstance.lastName,
+        name: [ownerInstance.firstName, ownerInstance.lastName].filter(Boolean).join(' ').trim(),
+        email: ownerInstance.email,
+      }
+    : null;
+
+  const metadata = plain.metadata && typeof plain.metadata === 'object' ? plain.metadata : {};
+
+  return {
+    id: plain.id,
+    portalId: plain.portalId,
+    ownerId: plain.ownerId,
+    title: plain.title,
+    description: plain.description,
+    eventType: plain.eventType,
+    status: plain.status,
+    startDate: plain.startDate,
+    dueDate: plain.dueDate,
+    metadata,
+    owner,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ClientPortalScopeItem = sequelize.define(
+  'ClientPortalScopeItem',
+  {
+    portalId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    category: { type: DataTypes.STRING(120), allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...CLIENT_PORTAL_SCOPE_STATUSES),
+      allowNull: false,
+      defaultValue: 'committed',
+      validate: { isIn: [CLIENT_PORTAL_SCOPE_STATUSES] },
+    },
+    effortHours: { type: DataTypes.DECIMAL(6, 2), allowNull: true },
+    valueCurrency: { type: DataTypes.STRING(6), allowNull: true },
+    valueAmount: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    lastDecisionAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'client_portal_scope_items' },
+);
+
+ClientPortalScopeItem.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  const metadata = plain.metadata && typeof plain.metadata === 'object' ? plain.metadata : {};
+
+  return {
+    id: plain.id,
+    portalId: plain.portalId,
+    title: plain.title,
+    description: plain.description,
+    category: plain.category,
+    status: plain.status,
+    effortHours: plain.effortHours == null ? null : Number(plain.effortHours),
+    valueCurrency: plain.valueCurrency ?? null,
+    valueAmount: plain.valueAmount == null ? null : Number(plain.valueAmount),
+    lastDecisionAt: plain.lastDecisionAt,
+    metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ClientPortalDecisionLog = sequelize.define(
+  'ClientPortalDecisionLog',
+  {
+    portalId: { type: DataTypes.INTEGER, allowNull: false },
+    decidedById: { type: DataTypes.INTEGER, allowNull: true },
+    summary: { type: DataTypes.STRING(255), allowNull: false },
+    decision: { type: DataTypes.TEXT, allowNull: false },
+    decidedAt: { type: DataTypes.DATE, allowNull: false },
+    category: { type: DataTypes.STRING(120), allowNull: true },
+    impactSummary: { type: DataTypes.TEXT, allowNull: true },
+    followUpDate: { type: DataTypes.DATE, allowNull: true },
+    visibility: {
+      type: DataTypes.ENUM(...CLIENT_PORTAL_DECISION_VISIBILITIES),
+      allowNull: false,
+      defaultValue: 'client',
+      validate: { isIn: [CLIENT_PORTAL_DECISION_VISIBILITIES] },
+    },
+    attachments: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'client_portal_decision_logs' },
+);
+
+ClientPortalDecisionLog.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  const decidedByInstance = this.decidedBy ?? this.get?.('decidedBy');
+  const decidedBy = decidedByInstance
+    ? {
+        id: decidedByInstance.id,
+        firstName: decidedByInstance.firstName,
+        lastName: decidedByInstance.lastName,
+        name: [decidedByInstance.firstName, decidedByInstance.lastName].filter(Boolean).join(' ').trim(),
+        email: decidedByInstance.email,
+      }
+    : null;
+
+  const attachments = Array.isArray(plain.attachments)
+    ? plain.attachments
+    : plain.attachments && typeof plain.attachments === 'object'
+    ? Object.values(plain.attachments)
+    : [];
+
+  return {
+    id: plain.id,
+    portalId: plain.portalId,
+    decidedById: plain.decidedById,
+    summary: plain.summary,
+    decision: plain.decision,
+    decidedAt: plain.decidedAt,
+    category: plain.category,
+    impactSummary: plain.impactSummary,
+    followUpDate: plain.followUpDate,
+    visibility: plain.visibility,
+    attachments,
+    decidedBy,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ClientPortalInsightWidget = sequelize.define(
+  'ClientPortalInsightWidget',
+  {
+    portalId: { type: DataTypes.INTEGER, allowNull: false },
+    widgetType: {
+      type: DataTypes.ENUM(...CLIENT_PORTAL_INSIGHT_TYPES),
+      allowNull: false,
+      defaultValue: 'custom',
+      validate: { isIn: [CLIENT_PORTAL_INSIGHT_TYPES] },
+    },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    data: { type: jsonType, allowNull: true },
+    visibility: {
+      type: DataTypes.ENUM(...CLIENT_PORTAL_INSIGHT_VISIBILITIES),
+      allowNull: false,
+      defaultValue: 'shared',
+      validate: { isIn: [CLIENT_PORTAL_INSIGHT_VISIBILITIES] },
+    },
+    orderIndex: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  },
+  { tableName: 'client_portal_insight_widgets' },
+);
+
+ClientPortalInsightWidget.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  const data = plain.data && typeof plain.data === 'object' ? plain.data : {};
+
+  return {
+    id: plain.id,
+    portalId: plain.portalId,
+    widgetType: plain.widgetType,
+    title: plain.title,
+    description: plain.description,
+    data,
+    visibility: plain.visibility,
+    orderIndex: plain.orderIndex,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };
@@ -3176,6 +3451,37 @@ ProjectAssignmentEvent.belongsTo(Project, {
 });
 ProjectAssignmentEvent.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
 
+ClientPortal.belongsTo(Project, { foreignKey: 'projectId', as: 'project' });
+ClientPortal.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
+ClientPortal.hasMany(ClientPortalTimelineEvent, {
+  foreignKey: 'portalId',
+  as: 'timelineEvents',
+  onDelete: 'CASCADE',
+});
+ClientPortalTimelineEvent.belongsTo(ClientPortal, { foreignKey: 'portalId', as: 'portal' });
+ClientPortalTimelineEvent.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
+
+ClientPortal.hasMany(ClientPortalScopeItem, {
+  foreignKey: 'portalId',
+  as: 'scopeItems',
+  onDelete: 'CASCADE',
+});
+ClientPortalScopeItem.belongsTo(ClientPortal, { foreignKey: 'portalId', as: 'portal' });
+
+ClientPortal.hasMany(ClientPortalDecisionLog, {
+  foreignKey: 'portalId',
+  as: 'decisions',
+  onDelete: 'CASCADE',
+});
+ClientPortalDecisionLog.belongsTo(ClientPortal, { foreignKey: 'portalId', as: 'portal' });
+ClientPortalDecisionLog.belongsTo(User, { foreignKey: 'decidedById', as: 'decidedBy' });
+
+ClientPortal.hasMany(ClientPortalInsightWidget, {
+  foreignKey: 'portalId',
+  as: 'insightWidgets',
+  onDelete: 'CASCADE',
+});
+ClientPortalInsightWidget.belongsTo(ClientPortal, { foreignKey: 'portalId', as: 'portal' });
 Project.hasOne(ProjectBlueprint, {
   foreignKey: { name: 'projectId', allowNull: false },
   as: 'blueprint',
