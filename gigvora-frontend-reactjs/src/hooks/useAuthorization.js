@@ -1,0 +1,125 @@
+import { useCallback, useMemo } from 'react';
+import useSession from './useSession.js';
+
+const NOTIFICATION_ROLES = [
+  'user',
+  'freelancer',
+  'agency',
+  'company',
+  'headhunter',
+  'mentor',
+  'admin',
+];
+
+const RESOURCE_POLICIES = {
+  'notifications:center': {
+    roles: NOTIFICATION_ROLES,
+    permissionsAny: ['notifications:read', 'notifications:manage'],
+    requireAuthentication: true,
+  },
+  'notifications:push': {
+    roles: NOTIFICATION_ROLES,
+    permissionsAny: ['notifications:manage', 'notifications:push:register'],
+    requireAuthentication: true,
+  },
+};
+
+function createStringSet(values = []) {
+  const set = new Set();
+  values.forEach((value) => {
+    if (typeof value !== 'string') {
+      return;
+    }
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return;
+    }
+    set.add(trimmed);
+  });
+  return set;
+}
+
+export default function useAuthorization() {
+  const { session, isAuthenticated } = useSession();
+
+  const roleSet = useMemo(() => {
+    if (!session) {
+      return new Set();
+    }
+    const roles = [];
+    if (Array.isArray(session.memberships)) {
+      roles.push(...session.memberships);
+    }
+    if (Array.isArray(session.roles)) {
+      roles.push(...session.roles);
+    }
+    if (typeof session.activeMembership === 'string') {
+      roles.push(session.activeMembership);
+    }
+    if (typeof session.primaryDashboard === 'string') {
+      roles.push(session.primaryDashboard);
+    }
+    return createStringSet(roles);
+  }, [session]);
+
+  const permissionSet = useMemo(() => {
+    if (!session) {
+      return new Set();
+    }
+    const permissions = [];
+    if (Array.isArray(session.permissions)) {
+      permissions.push(...session.permissions);
+    }
+    if (Array.isArray(session.capabilities)) {
+      permissions.push(...session.capabilities);
+    }
+    if (Array.isArray(session.grants)) {
+      permissions.push(...session.grants);
+    }
+    return createStringSet(permissions);
+  }, [session]);
+
+  const hasRole = useCallback((role) => roleSet.has(role), [roleSet]);
+
+  const hasPermission = useCallback((permission) => permissionSet.has(permission), [permissionSet]);
+
+  const canAccess = useCallback(
+    (resource, { requireAuthentication = true } = {}) => {
+      const policy = RESOURCE_POLICIES[resource];
+      if (!policy) {
+        return requireAuthentication ? Boolean(isAuthenticated) : true;
+      }
+      if (policy.requireAuthentication !== false && !isAuthenticated) {
+        return false;
+      }
+      if (Array.isArray(policy.roles) && policy.roles.length && !policy.roles.some(hasRole)) {
+        return false;
+      }
+      if (Array.isArray(policy.permissionsAll) && policy.permissionsAll.length) {
+        const hasAll = policy.permissionsAll.every(hasPermission);
+        if (!hasAll) {
+          return false;
+        }
+      }
+      if (Array.isArray(policy.permissionsAny) && policy.permissionsAny.length) {
+        const hasAny = policy.permissionsAny.some(hasPermission);
+        if (!hasAny) {
+          return false;
+        }
+      }
+      if (typeof policy.condition === 'function') {
+        return policy.condition({ session, isAuthenticated, hasPermission, hasRole });
+      }
+      return true;
+    },
+    [hasPermission, hasRole, isAuthenticated, session],
+  );
+
+  return {
+    canAccess,
+    hasRole,
+    hasPermission,
+    roles: roleSet,
+    permissions: permissionSet,
+  };
+}

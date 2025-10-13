@@ -1052,9 +1052,24 @@ export const FreelancerHeroBanner = sequelize.define(
 export const FeedPost = sequelize.define(
   'FeedPost',
   {
-    userId: { type: DataTypes.INTEGER, allowNull: false },
+    userId: { type: DataTypes.INTEGER, allowNull: true },
     content: { type: DataTypes.TEXT, allowNull: false },
     visibility: { type: DataTypes.ENUM('public', 'connections'), defaultValue: 'public', allowNull: false },
+    type: {
+      type: DataTypes.ENUM('update', 'media', 'job', 'gig', 'project', 'volunteering', 'launchpad', 'news'),
+      allowNull: false,
+      defaultValue: 'update',
+    },
+    link: { type: DataTypes.STRING(2048), allowNull: true },
+    title: { type: DataTypes.STRING(280), allowNull: true },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    imageUrl: { type: DataTypes.STRING(2048), allowNull: true },
+    source: { type: DataTypes.STRING(255), allowNull: true },
+    publishedAt: { type: DataTypes.DATE, allowNull: true },
+    externalId: { type: DataTypes.STRING(255), allowNull: true, unique: true },
+    authorName: { type: DataTypes.STRING(180), allowNull: true },
+    authorHeadline: { type: DataTypes.STRING(255), allowNull: true },
+    authorAvatarSeed: { type: DataTypes.STRING(255), allowNull: true },
   },
   { tableName: 'feed_posts' },
 );

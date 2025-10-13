@@ -4,6 +4,7 @@ const CACHE_NAMESPACE = 'gigvora:web:cache:';
 const AUTH_TOKEN_KEY = 'gigvora:web:auth:accessToken';
 const REFRESH_TOKEN_KEY = 'gigvora:web:auth:refreshToken';
 const ACCESS_TOKEN_EXPIRY_KEY = 'gigvora:web:auth:accessTokenExpiresAt';
+const SESSION_STORAGE_KEY = 'gigvora:web:session';
 
 class ApiError extends Error {
   constructor(message, status, body) {
@@ -28,6 +29,24 @@ function getStorage() {
 
 const storage = getStorage();
 
+function persistAuthToken(token) {
+  if (!storage) {
+    return;
+  }
+  if (!token) {
+    storage.removeItem(AUTH_TOKEN_KEY);
+    return;
+  }
+  storage.setItem(AUTH_TOKEN_KEY, token);
+}
+
+function readAuthToken() {
+  if (!storage) {
+    return null;
+  }
+  return storage.getItem(AUTH_TOKEN_KEY);
+}
+
 function buildUrl(path, params = {}) {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   const url = new URL(`${API_BASE_URL}${normalizedPath}`);
@@ -43,15 +62,83 @@ function buildUrl(path, params = {}) {
   return url.toString();
 }
 
+function readStoredSession() {
+  if (!storage) {
+    return null;
+  }
+  try {
+    const raw = storage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') {
+      return parsed;
+    }
+  } catch (error) {
+    console.warn('Unable to parse stored session payload.', error);
+  }
+  return null;
+}
+
+function normaliseRole(value) {
+  if (!value) return null;
+  return `${value}`.trim().toLowerCase().replace(/\s+/g, '-');
+}
+
 function getAuthHeaders() {
   if (!storage) {
     return {};
   }
-  const token = storage.getItem(AUTH_TOKEN_KEY);
+  const token = readAuthToken();
   if (!token) {
     return {};
+  const headers = {};
+  const token = storage.getItem(AUTH_TOKEN_KEY);
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
   }
-  return { Authorization: `Bearer ${token}` };
+
+  const session = readStoredSession();
+  if (session?.id) {
+    headers['x-user-id'] = `${session.id}`;
+  }
+  if (session?.memberships) {
+    const roles = [];
+    if (Array.isArray(session.memberships)) {
+      roles.push(...session.memberships);
+    }
+    if (Array.isArray(session.accountTypes)) {
+      roles.push(...session.accountTypes);
+    }
+    if (session.primaryDashboard) {
+      roles.push(session.primaryDashboard);
+    }
+    const normalised = Array.from(new Set(roles.map(normaliseRole).filter(Boolean)));
+    if (normalised.length > 0) {
+      headers['x-roles'] = normalised.join(',');
+    }
+  }
+  if (session?.userType) {
+    headers['x-user-type'] = normaliseRole(session.userType);
+  }
+
+  return headers;
+}
+
+function storeAccessToken(token) {
+  if (!storage) {
+    return;
+  }
+  try {
+    if (!token) {
+      storage.removeItem(AUTH_TOKEN_KEY);
+    } else {
+      storage.setItem(AUTH_TOKEN_KEY, token);
+    }
+  } catch (error) {
+    console.warn('Unable to persist auth token', error);
+  }
 }
 
 async function request(method, path, { body, params, signal, headers } = {}) {
@@ -193,6 +280,11 @@ export const apiClient = {
   readCache,
   writeCache,
   removeCache,
+  setAuthToken: persistAuthToken,
+  getAuthToken: readAuthToken,
+  clearAuthToken: () => persistAuthToken(null),
+  storeAccessToken,
+  clearAccessToken: () => storeAccessToken(null),
   ApiError,
   API_BASE_URL,
   setAuthTokens,
