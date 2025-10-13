@@ -13996,6 +13996,10 @@ ExperienceLaunchpadPlacement.belongsTo(ExperienceLaunchpadApplication, {
   foreignKey: 'candidateId',
   as: 'candidate',
 });
+ExperienceLaunchpadApplication.hasMany(ExperienceLaunchpadPlacement, {
+  foreignKey: 'candidateId',
+  as: 'placements',
+});
 ExperienceLaunchpadPlacement.belongsTo(ExperienceLaunchpadEmployerRequest, {
   foreignKey: 'employerRequestId',
   as: 'employerRequest',

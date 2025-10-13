@@ -14,6 +14,7 @@ export default function LaunchpadTalentApplicationForm({ launchpads, onSubmitted
     applicantEmail: '',
     yearsExperience: '',
     skills: '',
+    targetSkills: '',
     portfolioUrl: '',
     availabilityDate: '',
     motivations: '',
@@ -40,6 +41,7 @@ export default function LaunchpadTalentApplicationForm({ launchpads, onSubmitted
         applicantEmail: formState.applicantEmail.trim() || undefined,
         yearsExperience: formState.yearsExperience ? Number(formState.yearsExperience) : undefined,
         skills: formState.skills,
+        targetSkills: formState.targetSkills,
         portfolioUrl: formState.portfolioUrl.trim() || undefined,
         availabilityDate: formState.availabilityDate || undefined,
         motivations: formState.motivations.trim() || undefined,
@@ -63,6 +65,10 @@ export default function LaunchpadTalentApplicationForm({ launchpads, onSubmitted
       setSubmitting(false);
     }
   };
+
+  const recommendedStatus = result?.eligibilitySnapshot?.recommendation?.recommendedStatus ?? result?.status;
+  const readinessScore =
+    result?.eligibilitySnapshot?.recommendation?.qualificationScore ?? result?.qualificationScore ?? 'N/A';
 
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
@@ -164,6 +170,16 @@ export default function LaunchpadTalentApplicationForm({ launchpads, onSubmitted
           />
         </label>
         <label className="flex flex-col text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Skills you want to develop
+          <input
+            name="targetSkills"
+            value={formState.targetSkills}
+            onChange={handleChange}
+            placeholder="Service design, Product analytics"
+            className="mt-2 rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/40"
+          />
+        </label>
+        <label className="flex flex-col text-xs font-semibold uppercase tracking-wide text-slate-500">
           Portfolio URL
           <input
             name="portfolioUrl"
@@ -193,8 +209,9 @@ export default function LaunchpadTalentApplicationForm({ launchpads, onSubmitted
         {result ? (
           <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
             Application received. Our team marked you as
-            <span className="font-semibold"> {result.status}</span> with a readiness score of{' '}
-            <span className="font-semibold">{result.qualificationScore ?? 'N/A'}</span>.
+            <span className="font-semibold"> {recommendedStatus}</span> with a readiness score of{' '}
+            <span className="font-semibold">{readinessScore}</span>. We'll now queue you for Launchpad matches that reflect
+            both your existing skills and the areas you want to grow into.
           </div>
         ) : null}
         <button

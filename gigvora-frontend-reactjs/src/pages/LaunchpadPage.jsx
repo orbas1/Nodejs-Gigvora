@@ -4,6 +4,7 @@ import DataStatus from '../components/DataStatus.jsx';
 import LaunchpadTalentApplicationForm from '../components/LaunchpadTalentApplicationForm.jsx';
 import LaunchpadEmployerRequestForm from '../components/LaunchpadEmployerRequestForm.jsx';
 import LaunchpadPlacementsInsights from '../components/LaunchpadPlacementsInsights.jsx';
+import LaunchpadCandidatePipeline from '../components/LaunchpadCandidatePipeline.jsx';
 import useOpportunityListing from '../hooks/useOpportunityListing.js';
 import analytics from '../services/analytics.js';
 import { fetchLaunchpadDashboard } from '../services/launchpad.js';
@@ -206,6 +207,7 @@ export default function LaunchpadPage() {
             onRefresh={handleDashboardRefresh}
             launchpad={selectedLaunchpad}
           />
+          {selectedLaunchpadId ? <LaunchpadCandidatePipeline launchpadId={selectedLaunchpadId} /> : null}
           <div id="launchpad-apply-form" className="grid gap-6 lg:grid-cols-2">
             <LaunchpadTalentApplicationForm launchpads={items} onSubmitted={handleApplicationSubmitted} />
             <LaunchpadEmployerRequestForm launchpads={items} onSubmitted={handleEmployerSubmitted} />
