@@ -182,6 +182,15 @@ function formatPercent(value) {
   return `${Number(value).toFixed(1)}%`;
 }
 
+function formatCurrency(amount, currency = 'USD') {
+  if (amount == null || Number.isNaN(Number(amount))) {
+    return '—';
+  }
+  const numeric = Number(amount);
+  return `${currency} ${numeric.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 function slugify(value) {
   if (!value) {
     return '';
@@ -328,6 +337,58 @@ function buildSections(data) {
         ? `${Number(candidateCare.nps).toFixed(1)}`
         : '—'
     }`,
+    `Follow-ups pending: ${formatNumber(candidateCare?.followUpsPending)}`,
+    `Escalations: ${formatNumber(candidateCare?.escalations)}`,
+  ];
+
+  const headhunterDashboard = partnerCollaboration?.headhunterDashboard ?? null;
+  const partnerPerformance = partnerCollaboration?.partnerPerformanceManager ?? null;
+  const collaborationSuite = partnerCollaboration?.collaborationSuite ?? null;
+  const partnerCalendarComms = partnerCollaboration?.calendarCommunications ?? null;
+
+  const headhunterPoints = headhunterDashboard
+    ? [
+        `Open briefs shared: ${formatNumber(headhunterDashboard.stats?.openBriefs)}`,
+        `Active submissions: ${formatNumber(headhunterDashboard.stats?.activeSubmissions)}`,
+        `Interviews scheduled: ${formatNumber(headhunterDashboard.stats?.interviewsScheduled)}`,
+        `Commission pipeline: ${formatCurrency(headhunterDashboard.stats?.totalCommissionValue)}`,
+      ]
+    : ['Share job briefs with headhunters to surface external recruiting analytics.'];
+
+  const partnerPerformancePoints = partnerPerformance
+    ? [
+        partnerPerformance.leaderboard?.[0]
+          ? `Top partner: ${partnerPerformance.leaderboard[0].name} (${formatPercent(partnerPerformance.leaderboard[0].conversionRate)})`
+          : 'Activate performance tracking to populate leaderboards.',
+        partnerPerformance.sla?.averages?.submissionToInterviewHours != null
+          ? `Submission→interview SLA: ${formatNumber(partnerPerformance.sla.averages.submissionToInterviewHours, { suffix: ' hrs' })}`
+          : 'Capture SLA snapshots to benchmark responsiveness.',
+        `Commission liability: ${formatCurrency(partnerPerformance.roi?.totalCommission)}`,
+        `Renewals this quarter: ${formatNumber(partnerPerformance.agreements?.renewals?.length ?? 0)}`,
+      ]
+    : ['Monitor partner SLAs and ROI once collaboration begins.'];
+
+  const collaborationSuitePoints = collaborationSuite
+    ? [
+        `Active partner threads: ${formatNumber(collaborationSuite.activeThreads)}`,
+        `Files shared: ${formatNumber(collaborationSuite.filesShared)}`,
+        `Open escalations: ${formatNumber(collaborationSuite.escalationsOpen)}`,
+        collaborationSuite.latestActivity?.[0]
+          ? `Latest activity: ${collaborationSuite.latestActivity[0].eventType} • ${formatRelativeTime(collaborationSuite.latestActivity[0].occurredAt)}`
+          : 'No recent partner activity logged.',
+      ]
+    : ['Enable partner messaging and audit trails to see collaboration insights.'];
+
+  const partnerCalendarPoints = partnerCalendarComms
+    ? [
+        `Events this week: ${formatNumber(partnerCalendarComms.eventsThisWeek)}`,
+        partnerCalendarComms.interviewLoad?.length
+          ? `Next peak load: ${partnerCalendarComms.interviewLoad[0].date} (${formatNumber(partnerCalendarComms.interviewLoad[0].interviews)} interviews)`
+          : 'No partner interviews scheduled in the next 7 days.',
+        `Pending escalations: ${formatNumber(partnerCalendarComms.pendingEscalations)}`,
+        partnerCalendarComms.weeklyDigest?.highlights?.[0] ?? 'Weekly digest will populate after first sync.',
+      ]
+    : ['Connect recruiting calendars and integrations to orchestrate partner communications.'];
     `Follow-ups pending: ${formatNumber(
       candidateCareCenterMetrics.followUpsPending ?? candidateCare?.followUpsPending,
     )}`,
@@ -537,6 +598,32 @@ function buildSections(data) {
           name: 'Experience health',
           description: 'Satisfaction, NPS, and escalations in one view.',
           bulletPoints: carePoints,
+        },
+      ],
+    },
+    {
+      title: 'Headhunter & partner collaboration',
+      description: 'Empower agencies and headhunters with shared accountability.',
+      features: [
+        {
+          name: 'Headhunter dashboard',
+          description: 'Job briefs, submissions, interviews, and commission visibility for external recruiters.',
+          bulletPoints: headhunterPoints,
+        },
+        {
+          name: 'Partner performance manager',
+          description: 'Leaderboards, SLAs, ROI analytics, and renewal tracking across agencies and headhunters.',
+          bulletPoints: partnerPerformancePoints,
+        },
+        {
+          name: 'Collaboration suite',
+          description: 'Secure messaging, file sharing, and decision threads with approvals and audit trails.',
+          bulletPoints: collaborationSuitePoints,
+        },
+        {
+          name: 'Calendar & communications',
+          description: 'Shared recruiting calendar, integrations, and executive digests for partner programs.',
+          bulletPoints: partnerCalendarPoints,
         },
       ],
     },

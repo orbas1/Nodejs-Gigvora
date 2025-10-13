@@ -30,6 +30,14 @@ import {
   JobApprovalWorkflow,
   JobCampaignPerformance,
   PartnerEngagement,
+  PartnerAgreement,
+  PartnerCommission,
+  PartnerSlaSnapshot,
+  PartnerCollaborationEvent,
+  RecruitingCalendarEvent,
+  EmployerBrandAsset,
+  MessageThread,
+  Message,
   HeadhunterInvite,
   HeadhunterBrief,
   HeadhunterBriefAssignment,
@@ -134,6 +142,72 @@ function percentage(part, total) {
   return Number(((part / total) * 100).toFixed(1));
 }
 
+function sumNumbers(values = []) {
+  return values.reduce((total, value) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+      return total;
+    }
+    return total + numeric;
+  }, 0);
+}
+
+function normaliseMetadata(metadata) {
+  if (!metadata || typeof metadata !== 'object') {
+    return {};
+  }
+  return metadata;
+}
+
+function toDate(value) {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return date;
+}
+
+function toCents(value) {
+  if (value == null) {
+    return 0;
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return 0;
+  }
+  return Math.round(numeric * 100);
+}
+
+function centsToAmount(value) {
+  if (value == null) {
+    return 0;
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return 0;
+  }
+  return Number((numeric / 100).toFixed(2));
+}
+
+function extractPartnerInfo(metadata, { fallbackName = 'Agency partner', fallbackType = 'agency' } = {}) {
+  const normalised = normaliseMetadata(metadata);
+  const partnerName = [
+    normalised.partnerName,
+    normalised.agencyName,
+    normalised.headhunterName,
+    normalised.vendor,
+  ].find((value) => value && `${value}`.trim().length);
+
+  const partnerType =
+    normalised.partnerType || normalised.agencyType || normalised.relationshipType || fallbackType;
+
+  return {
+    partnerName: partnerName ? `${partnerName}` : fallbackName,
+    partnerType: `${partnerType || fallbackType}`.toLowerCase(),
+  };
 function differenceInHours(start, end = new Date()) {
   if (!start) return null;
   const startDate = new Date(start);
@@ -857,6 +931,121 @@ async function fetchPartnerEngagements({ workspaceId, since }) {
   });
 }
 
+async function fetchPartnerCommissions({ workspaceId, since }) {
+  const where = { workspaceId };
+  if (since) {
+    where.updatedAt = { [Op.gte]: since };
+  }
+  return PartnerCommission.findAll({
+    where,
+    order: [['dueDate', 'ASC']],
+    limit: 120,
+  });
+}
+
+async function fetchPartnerAgreements({ workspaceId }) {
+  return PartnerAgreement.findAll({
+    where: { workspaceId },
+    order: [['renewalDate', 'ASC']],
+    limit: 60,
+  });
+}
+
+async function fetchPartnerSlaSnapshots({ workspaceId, since }) {
+  const where = { workspaceId };
+  if (since) {
+    where.reportingPeriodStart = { [Op.gte]: since };
+  }
+  return PartnerSlaSnapshot.findAll({
+    where,
+    order: [['reportingPeriodEnd', 'DESC']],
+    limit: 120,
+  });
+}
+
+async function fetchPartnerCollaborationEvents({ workspaceId, since }) {
+  const where = { workspaceId };
+  if (since) {
+    where.occurredAt = { [Op.gte]: since };
+  }
+  return PartnerCollaborationEvent.findAll({
+    where,
+    order: [['occurredAt', 'DESC']],
+    limit: 120,
+  });
+}
+
+async function fetchPartnerThreads({ workspaceId, since }) {
+  const threads = await MessageThread.findAll({
+    where: { state: 'active' },
+    order: [['lastMessageAt', 'DESC']],
+    limit: 25,
+    include: [
+      {
+        model: Message,
+        as: 'messages',
+        required: false,
+        where: since
+          ? {
+              createdAt: {
+                [Op.gte]: since,
+              },
+            }
+          : undefined,
+        separate: true,
+        limit: 40,
+        order: [['createdAt', 'DESC']],
+      },
+    ],
+  });
+
+  if (!threads.length) {
+    return [];
+  }
+
+  return threads.filter((thread) => {
+    const metadata = normaliseMetadata(thread.metadata);
+    const workspaceIds = [
+      metadata.companyWorkspaceId,
+      metadata.workspaceId,
+      metadata.providerWorkspaceId,
+      metadata.partnerWorkspaceId,
+    ]
+      .map((value) => {
+        const numeric = Number(value);
+        return Number.isFinite(numeric) ? numeric : null;
+      })
+      .filter(Boolean);
+
+    if (!workspaceIds.length) {
+      return true;
+    }
+    return workspaceIds.includes(workspaceId);
+  });
+}
+
+async function loadApplicants(applications) {
+  const ids = Array.from(new Set(applications.map((application) => application.applicantId))).filter(Boolean);
+  if (!ids.length) {
+    return new Map();
+  }
+
+  const applicants = await User.findAll({
+    where: { id: { [Op.in]: ids } },
+    attributes: ['id', 'firstName', 'lastName', 'email'],
+    include: [
+      {
+        model: Profile,
+        attributes: ['headline', 'location', 'availabilityStatus'],
+        required: false,
+      },
+    ],
+  });
+
+  return new Map(applicants.map((applicant) => [applicant.id, applicant.get({ plain: true })]));
+}
+
+async function fetchCalendarEvents({ workspaceId, since }) {
 async function fetchHeadhunterInvites({ workspaceId, since }) {
   const where = { workspaceId };
   if (since) {
@@ -2310,27 +2499,657 @@ function buildCandidateCareSummary({ candidateExperience, alerts, candidateCareC
   };
 }
 
-function buildPartnerCollaborationSummary({ partnerSummary, engagements }) {
-  const leaderboard = engagements
-    .map((engagement) => {
-      const plain = engagement?.get ? engagement.get({ plain: true }) : engagement;
+function buildHeadhunterDashboardSummary({
+  jobs,
+  partnerApplications,
+  interviewSchedules,
+  commissions,
+  applicantDirectory,
+}) {
+  const jobRecords = jobs.map((job) => (job?.get ? job.get({ plain: true }) : job));
+  const interviewRecords = interviewSchedules.map((schedule) => (schedule?.get ? schedule.get({ plain: true }) : schedule));
+
+  const applicationMap = new Map();
+  const applicationByTarget = new Map();
+
+  partnerApplications.forEach((application) => {
+    applicationMap.set(application.id, application);
+    const key = `${application.targetType}:${application.targetId}`;
+    const entry = applicationByTarget.get(key) ?? {
+      submissions: 0,
+      hires: 0,
+      partners: new Set(),
+      latestSubmission: null,
+    };
+    entry.submissions += 1;
+    if (application.status === 'hired') {
+      entry.hires += 1;
+    }
+    const { partnerName } = extractPartnerInfo(application.metadata, {
+      fallbackName: 'Agency partner',
+      fallbackType: application.sourceChannel,
+    });
+    entry.partners.add(partnerName);
+    const submittedAt = toDate(application.submittedAt ?? application.createdAt);
+    if (submittedAt && (!entry.latestSubmission || submittedAt > entry.latestSubmission)) {
+      entry.latestSubmission = submittedAt;
+    }
+    applicationByTarget.set(key, entry);
+  });
+
+  const jobBriefs = jobRecords
+    .map((job) => {
+      const summary = applicationByTarget.get(`job:${job.id}`) ?? {
+        submissions: 0,
+        hires: 0,
+        partners: new Set(),
+        latestSubmission: null,
+      };
       return {
-        name: plain.partnerName,
-        type: plain.partnerType,
-        touchpoints: plain.touchpoints,
-        activeBriefs: plain.activeBriefs,
-        conversionRate: plain.conversionRate == null ? null : Number(plain.conversionRate),
-        lastInteractionAt: plain.lastInteractionAt,
+        id: job.id,
+        title: job.title,
+        location: job.location ?? 'Remote',
+        submissions: summary.submissions,
+        hires: summary.hires,
+        partners: Array.from(summary.partners),
+        lastSubmissionAt: summary.latestSubmission ? summary.latestSubmission.toISOString() : null,
+        createdAt: job.createdAt,
       };
     })
-    .sort((a, b) => (b.conversionRate ?? 0) - (a.conversionRate ?? 0));
+    .filter((brief) => brief.submissions > 0 || differenceInDays(brief.createdAt) <= 45)
+    .sort((a, b) => (b.submissions ?? 0) - (a.submissions ?? 0))
+    .slice(0, 8);
+
+  const candidateSubmissions = partnerApplications
+    .map((application) => {
+      const metadata = normaliseMetadata(application.metadata);
+      const { partnerName, partnerType } = extractPartnerInfo(metadata, {
+        fallbackName: 'Agency partner',
+        fallbackType: application.sourceChannel,
+      });
+      const applicant = applicantDirectory.get(application.applicantId) ?? {};
+      const candidateName =
+        [applicant.firstName, applicant.lastName].filter(Boolean).join(' ') ||
+        applicant.email ||
+        `Candidate ${application.applicantId}`;
+      return {
+        applicationId: application.id,
+        candidateId: application.applicantId,
+        candidateName,
+        partnerName,
+        partnerType,
+        status: application.status,
+        stage: metadata.stage ?? application.status,
+        submittedAt: application.submittedAt ?? application.createdAt,
+        rateExpectation: application.rateExpectation == null ? null : Number(application.rateExpectation),
+      };
+    })
+    .sort((a, b) => new Date(b.submittedAt ?? 0) - new Date(a.submittedAt ?? 0))
+    .slice(0, 12);
+
+  const interviews = interviewRecords
+    .filter((schedule) => applicationMap.has(schedule.applicationId))
+    .map((schedule) => {
+      const application = applicationMap.get(schedule.applicationId);
+      const metadata = normaliseMetadata(schedule.metadata);
+      const applicant = applicantDirectory.get(application.applicantId) ?? {};
+      const candidateName =
+        [applicant.firstName, applicant.lastName].filter(Boolean).join(' ') ||
+        applicant.email ||
+        `Candidate ${application.applicantId}`;
+      return {
+        interviewId: schedule.id,
+        applicationId: schedule.applicationId,
+        stage: schedule.interviewStage,
+        scheduledAt: schedule.scheduledAt,
+        durationMinutes: schedule.durationMinutes,
+        interviewerRoster: Array.isArray(schedule.interviewerRoster) ? schedule.interviewerRoster : [],
+        candidateName,
+        partnerName: extractPartnerInfo(application.metadata, {
+          fallbackName: 'Agency partner',
+          fallbackType: application.sourceChannel,
+        }).partnerName,
+        status: schedule.completedAt ? 'completed' : 'scheduled',
+        rescheduleCount: schedule.rescheduleCount ?? 0,
+        location: metadata.location ?? metadata.videoUrl ?? null,
+      };
+    })
+    .sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt));
+
+  const commissionEntries = commissions.map((commission) => {
+    const plain = commission?.get ? commission.get({ plain: true }) : commission;
+    const { partnerName, partnerType } = extractPartnerInfo(plain.metadata, {
+      fallbackName: plain.partnerName,
+      fallbackType: plain.partnerType,
+    });
+    return {
+      id: plain.id,
+      partnerName,
+      partnerType,
+      status: plain.status,
+      dueDate: plain.dueDate,
+      paidAt: plain.paidAt,
+      invoiceNumber: plain.invoiceNumber ?? null,
+      amountCents: plain.commissionAmountCents ?? 0,
+      amount: centsToAmount(plain.commissionAmountCents ?? 0),
+      currencyCode: plain.currencyCode ?? 'USD',
+    };
+  });
+
+  const scorecards = candidateSubmissions
+    .map((submission) => {
+      const application = applicationMap.get(submission.applicationId);
+      const metadata = normaliseMetadata(application?.metadata);
+      if (!metadata.scorecardUrl && !metadata.scorecardId) {
+        return null;
+      }
+      return {
+        applicationId: submission.applicationId,
+        candidateName: submission.candidateName,
+        partnerName: submission.partnerName,
+        scorecardId: metadata.scorecardId ?? null,
+        scorecardUrl: metadata.scorecardUrl ?? null,
+        updatedAt: application.updatedAt ?? application.createdAt,
+        summary: metadata.scorecardSummary ?? null,
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 8);
+
+  const openBriefs = jobBriefs.length;
+  const activeSubmissions = partnerApplications.filter(
+    (application) => !['hired', 'rejected', 'withdrawn'].includes(application.status),
+  ).length;
+  const upcomingInterviews = interviews.filter((interview) => {
+    const scheduled = toDate(interview.scheduledAt);
+    return scheduled && scheduled > new Date();
+  }).length;
+  const commissionsDue = commissionEntries.filter((entry) => entry.status !== 'paid').length;
+  const totalCommissionValue = centsToAmount(sumNumbers(commissionEntries.map((entry) => entry.amountCents)));
+  const offersCount = partnerApplications.filter((application) =>
+    ['offered', 'hired'].includes(application.status),
+  ).length;
+  const hiresCount = partnerApplications.filter((application) => application.status === 'hired').length;
+  const fillRate = percentage(hiresCount, offersCount || partnerApplications.length || 1);
 
   return {
-    engagedContacts: partnerSummary?.engagedContacts ?? 0,
-    touchpoints: partnerSummary?.touchpoints ?? 0,
-    pendingInvites: partnerSummary?.pendingInvites ?? 0,
-    activePartners: engagements.length,
-    leaderboard: leaderboard.slice(0, 6),
+    stats: {
+      openBriefs,
+      activeSubmissions,
+      interviewsScheduled: upcomingInterviews,
+      commissionsDue,
+      totalCommissionValue,
+      fillRate,
+    },
+    jobBriefs,
+    submissions: candidateSubmissions,
+    interviews: interviews.slice(0, 12),
+    commissions: commissionEntries.slice(0, 12),
+    scorecards,
+  };
+}
+
+function buildPartnerPerformanceManagerSummary({
+  engagements,
+  commissions,
+  slaSnapshots,
+  agreements,
+  partnerApplications,
+}) {
+  const engagementRecords = engagements.map((engagement) => (engagement?.get ? engagement.get({ plain: true }) : engagement));
+  const commissionRecords = commissions.map((commission) => (commission?.get ? commission.get({ plain: true }) : commission));
+  const slaRecords = slaSnapshots.map((snapshot) => (snapshot?.get ? snapshot.get({ plain: true }) : snapshot));
+  const agreementRecords = agreements.map((agreement) => (agreement?.get ? agreement.get({ plain: true }) : agreement));
+
+  const keyFor = (partnerType, partnerName) => `${partnerType}:${partnerName}`;
+  const volumeByPartner = new Map();
+
+  partnerApplications.forEach((application) => {
+    const metadata = normaliseMetadata(application.metadata);
+    const { partnerName, partnerType } = extractPartnerInfo(metadata, {
+      fallbackName: 'Agency partner',
+      fallbackType: application.sourceChannel,
+    });
+    const key = keyFor(partnerType, partnerName);
+    const entry = volumeByPartner.get(key) ?? {
+      partnerName,
+      partnerType,
+      submissions: 0,
+      hires: 0,
+      offers: 0,
+      revenueCents: 0,
+    };
+    entry.submissions += 1;
+    if (application.status === 'hired') {
+      entry.hires += 1;
+    }
+    if (application.status === 'offered' || application.status === 'hired') {
+      entry.offers += 1;
+    }
+    entry.revenueCents += toCents(application.rateExpectation);
+    volumeByPartner.set(key, entry);
+  });
+
+  const commissionByPartner = new Map();
+  commissionRecords.forEach((record) => {
+    const key = keyFor(record.partnerType, record.partnerName);
+    commissionByPartner.set(key, (commissionByPartner.get(key) ?? 0) + (record.commissionAmountCents ?? 0));
+  });
+
+  const slaByPartner = new Map();
+  slaRecords.forEach((record) => {
+    const key = keyFor(record.partnerType, record.partnerName);
+    const existing = slaByPartner.get(key) ?? [];
+    existing.push(record);
+    slaByPartner.set(key, existing);
+  });
+
+  const leaderboardKeys = new Set([
+    ...engagementRecords.map((record) => keyFor(record.partnerType, record.partnerName)),
+    ...volumeByPartner.keys(),
+  ]);
+
+  const leaderboard = Array.from(leaderboardKeys)
+    .map((key) => {
+      const [partnerType, partnerName] = key.split(':');
+      const engagement = engagementRecords.find(
+        (record) => keyFor(record.partnerType, record.partnerName) === key,
+      ) ?? { touchpoints: 0, activeBriefs: 0, conversionRate: null };
+      const volume = volumeByPartner.get(key) ?? {
+        submissions: 0,
+        hires: 0,
+        offers: 0,
+        revenueCents: 0,
+      };
+      const slaList = slaByPartner.get(key) ?? [];
+      const latestSla = slaList[0] ?? null;
+      const commissionLiabilityCents = commissionByPartner.get(key) ?? 0;
+
+      const conversionRate = volume.submissions
+        ? Number(((volume.hires / volume.submissions) * 100).toFixed(1))
+        : engagement.conversionRate == null
+        ? null
+        : Number(engagement.conversionRate);
+
+      const fillRate = volume.offers
+        ? Number(((volume.hires / volume.offers) * 100).toFixed(1))
+        : latestSla?.fillRate == null
+        ? null
+        : Number(latestSla.fillRate);
+
+      return {
+        name: partnerName,
+        type: partnerType,
+        touchpoints: engagement.touchpoints ?? volume.submissions ?? 0,
+        activeBriefs: engagement.activeBriefs ?? 0,
+        conversionRate,
+        fillRate,
+        submissionToInterviewHours:
+          latestSla?.submissionToInterviewHours == null
+            ? null
+            : Number(Number(latestSla.submissionToInterviewHours).toFixed(1)),
+        interviewToOfferHours:
+          latestSla?.interviewToOfferHours == null
+            ? null
+            : Number(Number(latestSla.interviewToOfferHours).toFixed(1)),
+        revenueContribution: centsToAmount(volume.revenueCents),
+        commissionLiability: centsToAmount(commissionLiabilityCents),
+      };
+    })
+    .sort((a, b) => b.revenueContribution - a.revenueContribution);
+
+  const submissionToInterview = slaRecords
+    .map((record) => Number(record.submissionToInterviewHours))
+    .filter((value) => Number.isFinite(value));
+  const interviewToOffer = slaRecords
+    .map((record) => Number(record.interviewToOfferHours))
+    .filter((value) => Number.isFinite(value));
+  const fillRates = slaRecords
+    .map((record) => Number(record.fillRate))
+    .filter((value) => Number.isFinite(value));
+  const complianceScores = slaRecords
+    .map((record) => Number(record.complianceScore))
+    .filter((value) => Number.isFinite(value));
+
+  const totalCommissionCents = sumNumbers(commissionRecords.map((record) => record.commissionAmountCents));
+  const totalRevenueCents = sumNumbers(Array.from(volumeByPartner.values()).map((entry) => entry.revenueCents));
+  const roiPercentage =
+    totalCommissionCents > 0
+      ? Number((((totalRevenueCents - totalCommissionCents) / totalCommissionCents) * 100).toFixed(1))
+      : null;
+
+  const invoiceStatusCounts = commissionRecords.reduce((acc, record) => {
+    const status = record.status ?? 'draft';
+    acc[status] = (acc[status] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const renewalThreshold = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  const renewals = agreementRecords
+    .filter((record) => {
+      const renewalDate = toDate(record.renewalDate);
+      return (
+        record.status === 'pending_renewal' ||
+        (renewalDate && renewalDate >= new Date() && renewalDate <= renewalThreshold)
+      );
+    })
+    .slice(0, 10)
+    .map((record) => ({
+      id: record.id,
+      partnerName: record.partnerName,
+      partnerType: record.partnerType,
+      renewalDate: record.renewalDate,
+      complianceStatus: record.complianceStatus,
+    }));
+
+  const terminated = agreementRecords
+    .filter((record) => record.status === 'terminated' || record.status === 'suspended')
+    .slice(0, 5)
+    .map((record) => ({
+      id: record.id,
+      partnerName: record.partnerName,
+      partnerType: record.partnerType,
+      status: record.status,
+      terminatedAt: record.endDate ?? record.updatedAt ?? null,
+    }));
+
+  return {
+    leaderboard: leaderboard.slice(0, 10),
+    sla: {
+      averages: {
+        submissionToInterviewHours: submissionToInterview.length ? Number(average(submissionToInterview)) : null,
+        interviewToOfferHours: interviewToOffer.length ? Number(average(interviewToOffer)) : null,
+        fillRate: fillRates.length ? Number(average(fillRates)) : null,
+        complianceScore: complianceScores.length ? Number(average(complianceScores)) : null,
+      },
+      snapshots: slaRecords.slice(0, 8).map((record) => ({
+        partnerName: record.partnerName,
+        partnerType: record.partnerType,
+        reportingPeriodStart: record.reportingPeriodStart,
+        reportingPeriodEnd: record.reportingPeriodEnd,
+        submissionToInterviewHours:
+          record.submissionToInterviewHours == null ? null : Number(record.submissionToInterviewHours),
+        interviewToOfferHours:
+          record.interviewToOfferHours == null ? null : Number(record.interviewToOfferHours),
+        fillRate: record.fillRate == null ? null : Number(record.fillRate),
+        complianceScore: record.complianceScore == null ? null : Number(record.complianceScore),
+        escalations: record.escalations ?? 0,
+      })),
+    },
+    roi: {
+      totalCommission: centsToAmount(totalCommissionCents),
+      totalRevenue: centsToAmount(totalRevenueCents),
+      roiPercentage,
+      invoiceStatusCounts,
+    },
+    agreements: {
+      total: agreementRecords.length,
+      active: agreementRecords.filter((record) => record.status === 'active').length,
+      renewals,
+      terminated,
+    },
+  };
+}
+
+function buildCollaborationSuiteSummary({ partnerThreads, collaborationEvents, notes }) {
+  const threadRecords = partnerThreads.map((thread) => (thread?.get ? thread.get({ plain: true }) : thread));
+  const eventRecords = collaborationEvents.map((event) => (event?.get ? event.get({ plain: true }) : event));
+  const noteRecords = notes.map((note) => (note?.get ? note.get({ plain: true }) : note));
+
+  const threads = threadRecords.map((thread) => {
+    const messages = [...(thread.messages ?? [])]
+      .map((message) => (message?.get ? message.get({ plain: true }) : message))
+      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    const lastMessage = messages.at(-1) ?? null;
+    const inboundReplies = messages.filter(
+      (message) => normaliseMetadata(message.metadata).direction === 'inbound',
+    ).length;
+    const awaitingResponse =
+      lastMessage && normaliseMetadata(lastMessage.metadata).direction === 'outbound' && !lastMessage.deliveredAt;
+    return {
+      threadId: thread.id,
+      subject: thread.subject ?? 'Partner collaboration',
+      channel: thread.channelType ?? 'direct',
+      lastMessageAt: thread.lastMessageAt ?? lastMessage?.createdAt ?? null,
+      totalMessages: messages.length,
+      inboundReplies,
+      awaitingResponse: Boolean(awaitingResponse),
+    };
+  });
+
+  const messageCount = sumNumbers(threads.map((thread) => thread.totalMessages));
+  const awaitingResponses = threads.filter((thread) => thread.awaitingResponse).length;
+  const filesShared = eventRecords.filter((event) => event.eventType === 'file').length;
+  const decisionThreads = eventRecords.filter((event) => event.eventType === 'decision').length;
+  const escalationsOpen = eventRecords.filter((event) => {
+    if (event.eventType !== 'escalation') {
+      return false;
+    }
+    const metadata = normaliseMetadata(event.metadata);
+    return !metadata.resolvedAt;
+  }).length;
+
+  const latestActivity = eventRecords
+    .slice()
+    .sort((a, b) => new Date(b.occurredAt) - new Date(a.occurredAt))
+    .slice(0, 10)
+    .map((event) => ({
+      id: event.id,
+      partnerName: event.partnerName,
+      partnerType: event.partnerType,
+      eventType: event.eventType,
+      occurredAt: event.occurredAt,
+      actorName: event.actorName ?? null,
+      summary: normaliseMetadata(event.metadata).summary ?? null,
+    }));
+
+  const scorecards = eventRecords
+    .filter((event) => event.eventType === 'scorecard')
+    .slice(0, 8)
+    .map((event) => {
+      const metadata = normaliseMetadata(event.metadata);
+      return {
+        id: event.id,
+        partnerName: event.partnerName,
+        candidateName: metadata.candidateName ?? metadata.candidateEmail ?? null,
+        scorecardUrl: metadata.url ?? metadata.link ?? null,
+        status: metadata.status ?? 'shared',
+        sharedAt: event.occurredAt,
+      };
+    });
+
+  const noteHighlights = noteRecords.slice(0, 6).map((note) => {
+    const authorName = [note.author?.firstName, note.author?.lastName].filter(Boolean).join(' ');
+    const subjectName = [note.subject?.firstName, note.subject?.lastName].filter(Boolean).join(' ');
+    return {
+      id: note.id,
+      note: note.note,
+      authorName: authorName || 'Unknown author',
+      subjectName: subjectName || 'Partner contact',
+      createdAt: note.createdAt,
+      visibility: note.visibility,
+    };
+  });
+
+  return {
+    activeThreads: threadRecords.length,
+    messageCount,
+    awaitingResponses,
+    filesShared,
+    decisionThreads,
+    escalationsOpen,
+    latestActivity,
+    threads: threads.slice(0, 10),
+    scorecards,
+    notes: noteHighlights,
+  };
+}
+
+function buildPartnerCalendarCommunicationsSummary({
+  calendarEvents,
+  interviewSchedules,
+  collaborationEvents,
+  partnerApplications,
+  commissions,
+}) {
+  const calendarRecords = calendarEvents.map((event) => (event?.get ? event.get({ plain: true }) : event));
+  const interviewRecords = interviewSchedules.map((schedule) => (schedule?.get ? schedule.get({ plain: true }) : schedule));
+  const eventRecords = collaborationEvents.map((event) => (event?.get ? event.get({ plain: true }) : event));
+  const partnerApplicationIds = new Set(partnerApplications.map((application) => application.id));
+
+  const now = new Date();
+  const weekAhead = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+  const upcoming = calendarRecords
+    .filter((event) => {
+      const start = toDate(event.startsAt);
+      return start && start >= now;
+    })
+    .sort((a, b) => new Date(a.startsAt) - new Date(b.startsAt))
+    .slice(0, 8);
+
+  const eventsThisWeek = calendarRecords.filter((event) => {
+    const start = toDate(event.startsAt);
+    return start && start >= now && start <= weekAhead;
+  });
+
+  const loadByDay = new Map();
+  interviewRecords
+    .filter((schedule) => partnerApplicationIds.has(schedule.applicationId))
+    .forEach((schedule) => {
+      const start = toDate(schedule.scheduledAt);
+      if (!start) {
+        return;
+      }
+      const key = start.toISOString().slice(0, 10);
+      const entry = loadByDay.get(key) ?? { date: key, interviews: 0, escalations: 0 };
+      entry.interviews += 1;
+      loadByDay.set(key, entry);
+    });
+
+  const escalationEvents = eventRecords.filter((event) => event.eventType === 'escalation');
+  escalationEvents.forEach((event) => {
+    const occurred = toDate(event.occurredAt);
+    if (!occurred) {
+      return;
+    }
+    const key = occurred.toISOString().slice(0, 10);
+    const entry = loadByDay.get(key) ?? { date: key, interviews: 0, escalations: 0 };
+    entry.escalations += 1;
+    loadByDay.set(key, entry);
+  });
+
+  const interviewLoad = Array.from(loadByDay.values())
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(0, 7);
+
+  const integrationSources = new Set(
+    eventRecords
+      .map((event) => normaliseMetadata(event.metadata).integration)
+      .filter((value) => value && `${value}`.trim().length)
+      .map((value) => `${value}`.toLowerCase()),
+  );
+
+  const integrationStatus = {
+    hris: integrationSources.has('hris'),
+    slack: integrationSources.has('slack'),
+    email: integrationSources.has('email') || integrationSources.has('outlook') || integrationSources.has('gmail'),
+    gigvoraMessaging: true,
+  };
+
+  const commissionsDueSoon = commissions
+    .map((commission) => (commission?.get ? commission.get({ plain: true }) : commission))
+    .filter((record) => {
+      if (record.status === 'paid') {
+        return false;
+      }
+      const dueDate = toDate(record.dueDate);
+      if (!dueDate) {
+        return false;
+      }
+      const days = differenceInDays(dueDate, now);
+      return days != null && days >= 0 && days <= 7;
+    }).length;
+
+  const pendingEscalations = escalationEvents.filter((event) => !normaliseMetadata(event.metadata).resolvedAt).length;
+
+  const weeklyDigest = {
+    nextSendAt: new Date(now.getTime() + 6 * 24 * 60 * 60 * 1000).toISOString(),
+    highlights: [
+      `Partner interviews scheduled this week: ${interviewRecords.filter((schedule) => partnerApplicationIds.has(schedule.applicationId)).length}`,
+      `Upcoming recruiting events this week: ${eventsThisWeek.length}`,
+      `Open partner escalations: ${pendingEscalations}`,
+      `Commissions due within 7 days: ${commissionsDueSoon}`,
+    ],
+  };
+
+  return {
+    eventsThisWeek: eventsThisWeek.length,
+    upcoming,
+    interviewLoad,
+    integrations: integrationStatus,
+    pendingEscalations,
+    weeklyDigest,
+  };
+}
+
+function buildPartnerCollaborationSummary({
+  partnerSummary,
+  engagements,
+  partnerApplications,
+  jobs,
+  interviewSchedules,
+  commissions,
+  slaSnapshots,
+  agreements,
+  collaborationEvents,
+  partnerThreads,
+  notes,
+  applicantDirectory,
+  calendarEvents,
+}) {
+  const headhunterDashboard = buildHeadhunterDashboardSummary({
+    jobs,
+    partnerApplications,
+    interviewSchedules,
+    commissions,
+    applicantDirectory,
+  });
+
+  const partnerPerformanceManager = buildPartnerPerformanceManagerSummary({
+    engagements,
+    commissions,
+    slaSnapshots,
+    agreements,
+    partnerApplications,
+  });
+
+  const collaborationSuite = buildCollaborationSuiteSummary({
+    partnerThreads,
+    collaborationEvents,
+    notes,
+  });
+
+  const calendarCommunications = buildPartnerCalendarCommunicationsSummary({
+    calendarEvents,
+    interviewSchedules,
+    collaborationEvents,
+    partnerApplications,
+    commissions,
+  });
+
+  return {
+    overview: {
+      engagedContacts: partnerSummary?.engagedContacts ?? 0,
+      touchpoints: partnerSummary?.touchpoints ?? 0,
+      pendingInvites: partnerSummary?.pendingInvites ?? 0,
+      activePartners: partnerPerformanceManager.leaderboard.length,
+      totalCommissionLiability: partnerPerformanceManager.roi.totalCommission ?? 0,
+    },
+    headhunterDashboard,
+    partnerPerformanceManager,
+    collaborationSuite,
+    calendarCommunications,
   };
 }
 
@@ -3359,6 +4178,11 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       partnerEngagements,
       calendarEvents,
       brandAssets,
+      partnerCommissions,
+      partnerSlaSnapshots,
+      partnerAgreements,
+      partnerCollaborationEvents,
+      partnerThreads,
       headhunterInvites,
       headhunterBriefs,
       headhunterAssignments,
@@ -3398,6 +4222,11 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       fetchPartnerEngagements({ workspaceId: workspace.id, since }),
       fetchCalendarEvents({ workspaceId: workspace.id, since }),
       fetchBrandAssets({ workspaceId: workspace.id }),
+      fetchPartnerCommissions({ workspaceId: workspace.id, since }),
+      fetchPartnerSlaSnapshots({ workspaceId: workspace.id, since }),
+      fetchPartnerAgreements({ workspaceId: workspace.id }),
+      fetchPartnerCollaborationEvents({ workspaceId: workspace.id, since }),
+      fetchPartnerThreads({ workspaceId: workspace.id, since }),
       fetchHeadhunterInvites({ workspaceId: workspace.id, since }),
       fetchHeadhunterBriefs({ workspaceId: workspace.id }),
       fetchHeadhunterAssignments({ workspaceId: workspace.id }),
@@ -3442,6 +4271,22 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       fetchApplicationReviews({ applicationIds, since }),
       fetchCandidateSnapshots({ workspaceId: workspace.id, applicationIds, since }),
     ]);
+
+    const partnerApplications = applications.filter((application) => {
+      const metadata = normaliseMetadata(application.metadata);
+      return (
+        application.sourceChannel === 'agency' ||
+        Boolean(
+          metadata.partnerName ||
+            metadata.agencyName ||
+            metadata.headhunterName ||
+            metadata.partnerWorkspaceId ||
+            metadata.agencyWorkspaceId,
+        )
+      );
+    });
+
+    const applicantDirectory = await loadApplicants(partnerApplications);
 
     const memberSummary = buildMemberSummary(members);
     const inviteSummary = buildInviteSummary(invites);
@@ -3529,6 +4374,17 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
     const partnerCollaborationDetails = buildPartnerCollaborationSummary({
       partnerSummary,
       engagements: partnerEngagements,
+      partnerApplications,
+      jobs,
+      interviewSchedules,
+      commissions: partnerCommissions,
+      slaSnapshots: partnerSlaSnapshots,
+      agreements: partnerAgreements,
+      collaborationEvents: partnerCollaborationEvents,
+      partnerThreads,
+      notes,
+      applicantDirectory,
+      calendarEvents,
     });
     const headhunterProgram = buildHeadhunterProgramSummary({
       invites: headhunterInvites,

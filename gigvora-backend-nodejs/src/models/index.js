@@ -68,6 +68,18 @@ export const PROVIDER_WORKSPACE_MEMBER_ROLES = ['owner', 'admin', 'manager', 'st
 export const PROVIDER_WORKSPACE_MEMBER_STATUSES = ['pending', 'active', 'suspended', 'revoked'];
 export const PROVIDER_WORKSPACE_INVITE_STATUSES = ['pending', 'accepted', 'expired', 'revoked'];
 export const PROVIDER_CONTACT_NOTE_VISIBILITIES = ['internal', 'shared', 'compliance'];
+export const PARTNER_COMMISSION_STATUSES = ['draft', 'pending', 'approved', 'invoiced', 'paid', 'overdue'];
+export const PARTNER_AGREEMENT_STATUSES = ['draft', 'active', 'pending_renewal', 'suspended', 'terminated'];
+export const PARTNER_COMPLIANCE_STATUSES = ['green', 'amber', 'red'];
+export const PARTNER_COLLABORATION_EVENT_TYPES = [
+  'message',
+  'file',
+  'note',
+  'decision',
+  'escalation',
+  'calendar',
+  'scorecard',
+];
 export const AGENCY_ALLIANCE_STATUSES = ['planned', 'active', 'paused', 'closed'];
 export const AGENCY_ALLIANCE_TYPES = ['delivery_pod', 'channel_partner', 'co_sell', 'managed_service'];
 export const AGENCY_ALLIANCE_MEMBER_ROLES = ['lead', 'contributor', 'specialist', 'contractor'];
@@ -4819,6 +4831,127 @@ export const CareerInterviewTask = sequelize.define(
   },
 );
 
+export const PartnerAgreement = sequelize.define(
+  'PartnerAgreement',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    partnerName: { type: DataTypes.STRING(255), allowNull: false },
+    partnerType: { type: DataTypes.STRING(120), allowNull: false },
+    agreementType: { type: DataTypes.STRING(160), allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...PARTNER_AGREEMENT_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+    },
+    complianceStatus: {
+      type: DataTypes.ENUM(...PARTNER_COMPLIANCE_STATUSES),
+      allowNull: false,
+      defaultValue: 'green',
+    },
+    startDate: { type: DataTypes.DATEONLY, allowNull: true },
+    endDate: { type: DataTypes.DATEONLY, allowNull: true },
+    renewalDate: { type: DataTypes.DATEONLY, allowNull: true },
+    terminationNoticeDue: { type: DataTypes.DATEONLY, allowNull: true },
+    lastAuditAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'partner_agreements',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['partnerType'] },
+      { fields: ['status'] },
+      { fields: ['renewalDate'] },
+    ],
+  },
+);
+
+export const PartnerCommission = sequelize.define(
+  'PartnerCommission',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    agreementId: { type: DataTypes.INTEGER, allowNull: true },
+    applicationId: { type: DataTypes.INTEGER, allowNull: true },
+    partnerName: { type: DataTypes.STRING(255), allowNull: false },
+    partnerType: { type: DataTypes.STRING(120), allowNull: false },
+    commissionAmountCents: { type: DataTypes.BIGINT, allowNull: false, defaultValue: 0 },
+    currencyCode: { type: DataTypes.STRING(6), allowNull: false, defaultValue: 'USD' },
+    status: {
+      type: DataTypes.ENUM(...PARTNER_COMMISSION_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+    },
+    dueDate: { type: DataTypes.DATEONLY, allowNull: true },
+    paidAt: { type: DataTypes.DATE, allowNull: true },
+    invoiceNumber: { type: DataTypes.STRING(80), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'partner_commissions',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['partnerType'] },
+      { fields: ['status'] },
+      { fields: ['dueDate'] },
+    ],
+  },
+);
+
+export const PartnerSlaSnapshot = sequelize.define(
+  'PartnerSlaSnapshot',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    partnerName: { type: DataTypes.STRING(255), allowNull: false },
+    partnerType: { type: DataTypes.STRING(120), allowNull: false },
+    reportingPeriodStart: { type: DataTypes.DATEONLY, allowNull: false },
+    reportingPeriodEnd: { type: DataTypes.DATEONLY, allowNull: false },
+    submissionToInterviewHours: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
+    interviewToOfferHours: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
+    fillRate: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    complianceScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    escalations: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'partner_sla_snapshots',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['partnerType'] },
+      { fields: ['reportingPeriodStart'] },
+    ],
+  },
+);
+
+export const PartnerCollaborationEvent = sequelize.define(
+  'PartnerCollaborationEvent',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    partnerName: { type: DataTypes.STRING(255), allowNull: false },
+    partnerType: { type: DataTypes.STRING(120), allowNull: false },
+    eventType: {
+      type: DataTypes.ENUM(...PARTNER_COLLABORATION_EVENT_TYPES),
+      allowNull: false,
+      defaultValue: 'message',
+    },
+    threadId: { type: DataTypes.INTEGER, allowNull: true },
+    referenceId: { type: DataTypes.STRING(160), allowNull: true },
+    occurredAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    actorName: { type: DataTypes.STRING(255), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'partner_collaboration_events',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['partnerType'] },
+      { fields: ['eventType'] },
+      { fields: ['occurredAt'] },
+    ],
+  },
+);
+
+export const RecruitingCalendarEvent = sequelize.define(
+  'RecruitingCalendarEvent',
 export const CareerInterviewScorecard = sequelize.define(
   'CareerInterviewScorecard',
   {
@@ -13165,6 +13298,13 @@ ProviderWorkspace.hasMany(JobStage, { foreignKey: 'workspaceId', as: 'jobStages'
 ProviderWorkspace.hasMany(JobApprovalWorkflow, { foreignKey: 'workspaceId', as: 'jobApprovals' });
 ProviderWorkspace.hasMany(JobCampaignPerformance, { foreignKey: 'workspaceId', as: 'jobCampaignPerformance' });
 ProviderWorkspace.hasMany(PartnerEngagement, { foreignKey: 'workspaceId', as: 'partnerEngagements' });
+ProviderWorkspace.hasMany(PartnerAgreement, { foreignKey: 'workspaceId', as: 'partnerAgreements' });
+ProviderWorkspace.hasMany(PartnerCommission, { foreignKey: 'workspaceId', as: 'partnerCommissions' });
+ProviderWorkspace.hasMany(PartnerSlaSnapshot, { foreignKey: 'workspaceId', as: 'partnerSlaSnapshots' });
+ProviderWorkspace.hasMany(PartnerCollaborationEvent, {
+  foreignKey: 'workspaceId',
+  as: 'partnerCollaborationEvents',
+});
 ProviderWorkspace.hasMany(HeadhunterInvite, { foreignKey: 'workspaceId', as: 'headhunterInvites' });
 ProviderWorkspace.hasMany(HeadhunterBrief, { foreignKey: 'workspaceId', as: 'headhunterBriefs' });
 ProviderWorkspace.hasMany(HeadhunterBriefAssignment, {
@@ -13347,6 +13487,14 @@ JobStage.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspac
 JobApprovalWorkflow.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 JobCampaignPerformance.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 PartnerEngagement.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+PartnerAgreement.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+PartnerAgreement.hasMany(PartnerCommission, { foreignKey: 'agreementId', as: 'commissions' });
+PartnerCommission.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+PartnerCommission.belongsTo(PartnerAgreement, { foreignKey: 'agreementId', as: 'agreement' });
+PartnerCommission.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });
+PartnerSlaSnapshot.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+PartnerCollaborationEvent.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+PartnerCollaborationEvent.belongsTo(MessageThread, { foreignKey: 'threadId', as: 'thread' });
 HeadhunterInvite.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 HeadhunterInvite.belongsTo(ProviderWorkspace, {
   foreignKey: 'headhunterWorkspaceId',
@@ -13769,6 +13917,10 @@ export default {
   JobApprovalWorkflow,
   JobCampaignPerformance,
   PartnerEngagement,
+  PartnerAgreement,
+  PartnerCommission,
+  PartnerSlaSnapshot,
+  PartnerCollaborationEvent,
   HeadhunterInvite,
   HeadhunterBrief,
   HeadhunterBriefAssignment,
