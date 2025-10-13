@@ -228,7 +228,11 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
   List<String> _buildMeta(OpportunitySummary item) {
     switch (widget.category) {
       case OpportunityCategory.job:
-        return [item.location, item.employmentType].whereType<String>().where((value) => value.isNotEmpty).toList();
+        return [
+          item.location,
+          item.employmentType,
+          if (item.isRemote == true) 'Remote',
+        ].whereType<String>().where((value) => value.isNotEmpty).toList();
       case OpportunityCategory.gig:
         return [item.budget, item.duration].whereType<String>().where((value) => value.isNotEmpty).toList();
       case OpportunityCategory.project:

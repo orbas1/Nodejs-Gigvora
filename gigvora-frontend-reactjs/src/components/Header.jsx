@@ -19,6 +19,7 @@ import { formatRelativeTime } from '../utils/date.js';
 
 const AUTHENTICATED_NAV_LINKS = [
   { to: '/feed', label: 'Live Feed' },
+  { to: '/jobs', label: 'Jobs' },
   { to: '/search', label: 'Explorer' },
   { to: '/mentors', label: 'Mentors' },
   { to: '/inbox', label: 'Inbox' },

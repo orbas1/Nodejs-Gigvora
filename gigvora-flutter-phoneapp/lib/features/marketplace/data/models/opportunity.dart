@@ -56,6 +56,7 @@ class OpportunitySummary {
     this.status,
     this.track,
     this.organization,
+    this.isRemote,
   });
 
   final String id;
@@ -70,6 +71,7 @@ class OpportunitySummary {
   final String? status;
   final String? track;
   final String? organization;
+  final bool? isRemote;
 
   factory OpportunitySummary.fromJson(OpportunityCategory category, Map<String, dynamic> json) {
     return OpportunitySummary(
@@ -85,6 +87,7 @@ class OpportunitySummary {
       status: json['status'] as String?,
       track: json['track'] as String?,
       organization: json['organization'] as String?,
+      isRemote: json['isRemote'] as bool?,
     );
   }
 }
@@ -98,6 +101,7 @@ class OpportunityPage {
     required this.total,
     required this.totalPages,
     this.query,
+    this.facets,
   });
 
   final OpportunityCategory category;
@@ -107,6 +111,7 @@ class OpportunityPage {
   final int total;
   final int totalPages;
   final String? query;
+  final Map<String, dynamic>? facets;
 
   OpportunityPage copyWith({
     List<OpportunitySummary>? items,
@@ -115,6 +120,7 @@ class OpportunityPage {
     int? total,
     int? totalPages,
     String? query,
+    Map<String, dynamic>? facets,
   }) {
     return OpportunityPage(
       category: category,
@@ -124,6 +130,7 @@ class OpportunityPage {
       total: total ?? this.total,
       totalPages: totalPages ?? this.totalPages,
       query: query ?? this.query,
+      facets: facets ?? this.facets,
     );
   }
 }
