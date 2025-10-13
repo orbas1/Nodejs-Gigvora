@@ -4,7 +4,9 @@ import {
   submitEmployerRequest,
   recordLaunchpadPlacement,
   linkLaunchpadOpportunity,
+  listLaunchpadApplications,
   getLaunchpadDashboard,
+  getLaunchpadWorkflow,
 } from '../services/launchpadService.js';
 
 function parseNumber(value, fallback = undefined) {
@@ -49,10 +51,50 @@ export async function createOpportunityLink(req, res) {
   res.status(201).json(result);
 }
 
+export async function listApplications(req, res) {
+  const {
+    launchpadId,
+    status,
+    statuses,
+    search,
+    page,
+    pageSize,
+    minScore,
+    maxScore,
+    sort,
+    includeMatches,
+  } = req.query ?? {};
+
+  const normalizedLaunchpadId = parseNumber(launchpadId, launchpadId);
+  const normalizedStatuses = statuses ?? status ?? undefined;
+  const result = await listLaunchpadApplications({
+    launchpadId: normalizedLaunchpadId,
+    statuses: normalizedStatuses,
+    search,
+    page: parseNumber(page, page),
+    pageSize: parseNumber(pageSize, pageSize),
+    minScore: parseNumber(minScore, minScore),
+    maxScore: parseNumber(maxScore, maxScore),
+    sort,
+    includeMatches:
+      includeMatches == null ? true : includeMatches === true || `${includeMatches}`.toLowerCase() === 'true',
+  });
+
+  res.json(result);
+}
+
 export async function dashboard(req, res) {
   const { launchpadId, lookbackDays } = req.query ?? {};
   const result = await getLaunchpadDashboard(parseNumber(launchpadId), {
     lookbackDays: parseNumber(lookbackDays, 60),
+  });
+  res.json(result);
+}
+
+export async function workflow(req, res) {
+  const { launchpadId, lookbackDays } = req.query ?? {};
+  const result = await getLaunchpadWorkflow(parseNumber(launchpadId), {
+    lookbackDays: parseNumber(lookbackDays, 45),
   });
   res.json(result);
 }
@@ -63,5 +105,7 @@ export default {
   createEmployerRequest,
   createPlacement,
   createOpportunityLink,
+  listApplications,
   dashboard,
+  workflow,
 };
