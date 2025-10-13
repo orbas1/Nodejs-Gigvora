@@ -21,6 +21,11 @@ import {
   recordTrustScoreChange,
   recordTargetingSnapshotChange,
 } from './profileAnalyticsService.js';
+import { normalizeLocationString, normalizeLocationPayload, buildLocationDetails } from '../utils/location.js';
+import {
+  ensureProfileWallets,
+  getProfileComplianceSnapshot,
+} from './complianceService.js';
 
 const PROFILE_CACHE_NAMESPACE = 'profile:overview';
 const PROFILE_CACHE_TTL_SECONDS = 120;
@@ -846,7 +851,7 @@ function calculateTrustScore({
   };
 }
 
-function buildProfilePayload({ user, groups, connectionsCount }) {
+function buildProfilePayload({ user, groups, connectionsCount, complianceSnapshot }) {
   const plainUser = user.get({ plain: true });
   const profile = plainUser.Profile;
   if (!profile) {
@@ -980,11 +985,20 @@ function buildProfilePayload({ user, groups, connectionsCount }) {
     };
   });
 
+  const profileLocationDetails = buildLocationDetails(profile.location, profile.geoLocation);
+  const userLocationDetails = buildLocationDetails(plainUser.location, plainUser.geoLocation);
+
   const companyProfile = plainUser.CompanyProfile
     ? {
         companyName: plainUser.CompanyProfile.companyName,
         description: plainUser.CompanyProfile.description,
         website: plainUser.CompanyProfile.website,
+        location: plainUser.CompanyProfile.location ?? null,
+        geoLocation: plainUser.CompanyProfile.geoLocation ?? null,
+        locationDetails: buildLocationDetails(
+          plainUser.CompanyProfile.location,
+          plainUser.CompanyProfile.geoLocation,
+        ),
       }
     : null;
   const agencyProfile = plainUser.AgencyProfile
@@ -992,6 +1006,12 @@ function buildProfilePayload({ user, groups, connectionsCount }) {
         agencyName: plainUser.AgencyProfile.agencyName,
         focusArea: plainUser.AgencyProfile.focusArea,
         website: plainUser.AgencyProfile.website,
+        location: plainUser.AgencyProfile.location ?? null,
+        geoLocation: plainUser.AgencyProfile.geoLocation ?? null,
+        locationDetails: buildLocationDetails(
+          plainUser.AgencyProfile.location,
+          plainUser.AgencyProfile.geoLocation,
+        ),
       }
     : null;
   const freelancerProfile = plainUser.FreelancerProfile
@@ -1002,8 +1022,46 @@ function buildProfilePayload({ user, groups, connectionsCount }) {
             ? null
             : Number(plainUser.FreelancerProfile.hourlyRate),
         availability: plainUser.FreelancerProfile.availability ?? null,
+        location: plainUser.FreelancerProfile.location ?? null,
+        geoLocation: plainUser.FreelancerProfile.geoLocation ?? null,
+        locationDetails: buildLocationDetails(
+          plainUser.FreelancerProfile.location,
+          plainUser.FreelancerProfile.geoLocation,
+        ),
       }
     : null;
+
+  const compliance = complianceSnapshot ?? {
+    identity: {
+      status: 'pending',
+      submitted: false,
+      note: 'Identity verification not yet available.',
+      complianceFlags: ['missing_identity_verification'],
+    },
+    corporate: {
+      company: {
+        status: 'pending',
+        submitted: false,
+        note: 'Company registration evidence pending compliance review.',
+        complianceFlags: ['corporate_verification_missing'],
+      },
+      agency: {
+        status: 'pending',
+        submitted: false,
+        note: 'Agency authorization not yet submitted.',
+        complianceFlags: ['corporate_verification_missing'],
+      },
+    },
+    qualifications: {
+      items: [],
+      totals: { verified: 0, pending: 0, unverified: 0, rejected: 0 },
+      summaryNote: 'No qualifications submitted.',
+    },
+    wallet: {
+      accounts: [],
+      ledgerIntegrity: 'unknown',
+    },
+  };
 
   return {
     id: plainUser.id,
@@ -1013,11 +1071,16 @@ function buildProfilePayload({ user, groups, connectionsCount }) {
     name: `${plainUser.firstName} ${plainUser.lastName}`.trim(),
     email: plainUser.email,
     userType: plainUser.userType,
+    userLocation: plainUser.location ?? null,
+    userGeoLocation: plainUser.geoLocation ?? null,
+    userLocationDetails,
     headline: profile.headline ?? null,
     bio: profile.bio ?? null,
     missionStatement: profile.missionStatement ?? null,
     education: profile.education ?? null,
     location: profile.location ?? null,
+    geoLocation: profile.geoLocation ?? null,
+    locationDetails: profileLocationDetails,
     timezone: profile.timezone ?? null,
     avatarSeed: profile.avatarSeed ?? plainUser.email ?? `${plainUser.firstName}-${plainUser.lastName}`,
     skills,
@@ -1044,7 +1107,18 @@ function buildProfilePayload({ user, groups, connectionsCount }) {
     companyProfile,
     agencyProfile,
     freelancerProfile,
+    compliance,
+    identityVerification: compliance.identity,
+    corporateVerification: compliance.corporate,
+    qualificationVerification: compliance.qualifications,
+    walletCompliance: compliance.wallet,
   };
+}
+
+async function composeProfileOverview(context, { transaction } = {}) {
+  await ensureProfileWallets(context.user, { transaction });
+  const complianceSnapshot = await getProfileComplianceSnapshot(context.user, { transaction });
+  return buildProfilePayload({ ...context, complianceSnapshot });
 }
 
 async function loadProfileContext(userId, { transaction, lock } = {}) {
@@ -1107,7 +1181,7 @@ export async function getProfileOverview(userId, { bypassCache = false } = {}) {
       console.error('Failed to queue engagement refresh', { profileId, error });
     }
   }
-  const payload = buildProfilePayload(context);
+  const payload = await composeProfileOverview(context);
   appCache.set(key, payload, PROFILE_CACHE_TTL_SECONDS);
   return payload;
 }
@@ -1156,8 +1230,21 @@ function normalizeProfileUpdatePayload(input = {}) {
     profileUpdates.education = sanitizeString(input.education, { maxLength: 2000 });
   }
 
-  if (Object.prototype.hasOwnProperty.call(input, 'location')) {
-    profileUpdates.location = sanitizeString(input.location, { maxLength: 255 });
+  const hasLocation = Object.prototype.hasOwnProperty.call(input, 'location');
+  const hasGeoLocation = Object.prototype.hasOwnProperty.call(input, 'geoLocation');
+  if (hasLocation || hasGeoLocation) {
+    const normalized = normalizeLocationPayload({
+      location: hasLocation ? input.location : undefined,
+      geoLocation: hasGeoLocation ? input.geoLocation : undefined,
+    });
+    if (hasLocation) {
+      profileUpdates.location = normalized.location;
+    } else if (hasGeoLocation) {
+      profileUpdates.location = normalized.location;
+    }
+    if (hasGeoLocation) {
+      profileUpdates.geoLocation = normalized.geoLocation;
+    }
   }
 
   if (Object.prototype.hasOwnProperty.call(input, 'timezone')) {
@@ -1291,9 +1378,24 @@ function normalizeAvailabilityPayload(input) {
     updates.preferredEngagements = engagements.length > 0 ? engagements : [];
   }
 
-  if (Object.prototype.hasOwnProperty.call(input, 'location')) {
-    const location = input.location == null ? null : `${input.location}`.trim();
-    updates.location = location && location.length > 0 ? location : null;
+  const hasLocation = Object.prototype.hasOwnProperty.call(input, 'location');
+  const hasGeoLocation = Object.prototype.hasOwnProperty.call(input, 'geoLocation');
+  if (hasLocation || hasGeoLocation) {
+    const normalized = normalizeLocationPayload({
+      location: hasLocation ? input.location : undefined,
+      geoLocation: hasGeoLocation ? input.geoLocation : undefined,
+    });
+    if (hasLocation) {
+      updates.location = normalized.location;
+      if (!hasGeoLocation && normalized.location == null) {
+        updates.geoLocation = null;
+      }
+    } else if (hasGeoLocation) {
+      updates.location = normalized.location;
+    }
+    if (hasGeoLocation) {
+      updates.geoLocation = normalized.geoLocation;
+    }
   }
 
   if (Object.prototype.hasOwnProperty.call(input, 'missionStatement')) {
@@ -1368,7 +1470,7 @@ export async function updateProfile(userId, payload = {}) {
     const context = await loadProfileContext(numericId, { transaction, lock: true });
     const profile = context.user.Profile;
 
-    previousOverview = buildProfilePayload({ ...context });
+    previousOverview = await composeProfileOverview(context, { transaction });
 
     const updates = { ...profileUpdates, ...availabilityUpdates };
     if (Object.keys(updates).length > 0) {
@@ -1380,8 +1482,9 @@ export async function updateProfile(userId, payload = {}) {
     }
 
     await profile.reload({ include: [{ model: ProfileReference, as: 'references' }], transaction });
+    context.user.Profile = profile;
 
-    overview = buildProfilePayload({ ...context, user: context.user });
+    overview = await composeProfileOverview(context, { transaction });
     await profile.update(
       {
         profileCompletion: overview.metrics.profileCompletion,

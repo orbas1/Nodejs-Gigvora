@@ -74,6 +74,7 @@ import {
 import { MessageThread } from '../models/messagingModels.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
+import { buildLocationDetails } from '../utils/location.js';
 import { getAdDashboardSnapshot } from './adService.js';
 
 const CACHE_NAMESPACE = 'dashboard:company';
@@ -521,6 +522,9 @@ function sanitizeProfile(companyProfile) {
     companyName: plain.companyName,
     description: plain.description,
     website: plain.website,
+    location: plain.location ?? null,
+    geoLocation: plain.geoLocation ?? null,
+    locationDetails: buildLocationDetails(plain.location, plain.geoLocation),
   };
 }
 

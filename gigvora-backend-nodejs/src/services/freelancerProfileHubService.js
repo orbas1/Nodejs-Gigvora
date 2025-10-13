@@ -15,6 +15,7 @@ import {
 } from '../models/index.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
+import { buildLocationDetails } from '../utils/location.js';
 
 const CACHE_NAMESPACE = 'freelancer:profile-hub';
 const CACHE_TTL_SECONDS = 120;
@@ -576,6 +577,11 @@ function buildSidebarProfile(user, profile, successMetrics, heroBanners, testimo
     },
   ];
 
+  const locationDetails = buildLocationDetails(
+    profile.location ?? user.location,
+    profile.geoLocation ?? user.geoLocation,
+  );
+
   return {
     name: fullName,
     role: headline,
@@ -588,6 +594,7 @@ function buildSidebarProfile(user, profile, successMetrics, heroBanners, testimo
       testimonialsPublished: testimonials.filter((testimonial) => testimonial.status === 'published').length,
       expertiseLive: expertiseAreas.filter((area) => area.status === 'live').length,
     },
+    location: locationDetails,
   };
 }
 
@@ -723,6 +730,8 @@ function buildResponseFromContext(user) {
       headline: profile.headline,
       missionStatement: profile.missionStatement,
       location: profile.location,
+      geoLocation: profile.geoLocation ?? null,
+      locationDetails: buildLocationDetails(profile.location, profile.geoLocation),
       timezone: profile.timezone,
     },
     availableDashboards: ['freelancer', 'user', 'agency'],

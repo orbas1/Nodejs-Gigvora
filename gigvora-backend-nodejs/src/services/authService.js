@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { User, sequelize } from '../models/index.js';
+import { normalizeLocationPayload } from '../utils/location.js';
 import twoFactorService from './twoFactorService.js';
 
 const TOKEN_EXPIRY = process.env.JWT_EXPIRES_IN || '1h';
@@ -8,6 +9,10 @@ const TOKEN_EXPIRY = process.env.JWT_EXPIRES_IN || '1h';
 async function register(data) {
   const hashedPassword = await bcrypt.hash(data.password, 10);
   const user = await sequelize.transaction(async (trx) => {
+    const locationPayload = normalizeLocationPayload({
+      location: data.location ?? data.address,
+      geoLocation: data.geoLocation,
+    });
     const createdUser = await User.create(
       {
         email: data.email,
@@ -15,6 +20,8 @@ async function register(data) {
         firstName: data.firstName,
         lastName: data.lastName,
         address: data.address,
+        location: locationPayload.location,
+        geoLocation: locationPayload.geoLocation,
         age: data.age,
         userType: data.userType,
       },
