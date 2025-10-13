@@ -24,6 +24,7 @@ import {
 import profileService from './profileService.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
 import { ValidationError } from '../utils/errors.js';
+import careerPipelineAutomationService from './careerPipelineAutomationService.js';
 
 const CACHE_NAMESPACE = 'dashboard:user';
 const CACHE_TTL_SECONDS = 60;
@@ -891,6 +892,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     storyBlocks,
     brandAssets,
     purchasedGigOrders,
+    careerPipelineAutomation,
   ] = await Promise.all([
     applicationQuery,
     pipelineQuery,
@@ -901,6 +903,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     storyBlocksQuery,
     brandAssetsQuery,
     purchasedGigOrdersQuery,
+    careerPipelineAutomationService.getCareerPipelineAutomation(userId, { bypassCache }),
   ]);
 
   const targetMap = await hydrateTargets(applications);
@@ -1038,6 +1041,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
       followUps,
       automations,
     },
+    careerPipelineAutomation,
   };
 }
 

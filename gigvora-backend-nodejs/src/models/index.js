@@ -209,6 +209,28 @@ export const CAREER_STORY_BLOCK_STATUSES = ['draft', 'approved', 'archived'];
 export const CAREER_BRAND_ASSET_TYPES = ['testimonial', 'case_study', 'banner', 'video', 'portfolio', 'press'];
 export const CAREER_BRAND_ASSET_STATUSES = ['draft', 'published', 'archived'];
 export const CAREER_BRAND_ASSET_APPROVAL_STATUSES = ['draft', 'in_review', 'approved', 'rejected'];
+
+export const CAREER_PIPELINE_STAGE_TYPES = ['sourcing', 'applied', 'interview', 'offer', 'decision'];
+export const CAREER_PIPELINE_STAGE_OUTCOMES = ['open', 'won', 'lost', 'on_hold'];
+export const CAREER_OPPORTUNITY_FOLLOW_UP_STATUSES = ['on_track', 'attention', 'overdue'];
+export const CAREER_COMPLIANCE_STATUSES = ['not_required', 'pending', 'complete', 'flagged'];
+export const CAREER_CANDIDATE_BRIEF_STATUSES = ['draft', 'shareable', 'archived'];
+export const CAREER_INTERVIEW_WORKSPACE_STATUSES = [
+  'planning',
+  'scheduled',
+  'in_progress',
+  'completed',
+  'archived',
+];
+export const CAREER_INTERVIEW_TASK_STATUSES = ['pending', 'in_progress', 'completed', 'blocked'];
+export const CAREER_INTERVIEW_TASK_PRIORITIES = ['low', 'medium', 'high', 'critical'];
+export const CAREER_INTERVIEW_RECOMMENDATIONS = ['advance', 'hold', 'reject', 'hire'];
+export const CAREER_NUDGE_SEVERITIES = ['info', 'warning', 'critical'];
+export const CAREER_NUDGE_CHANNELS = ['email', 'sms', 'slack', 'in_app'];
+export const CAREER_OFFER_STATUSES = ['draft', 'review', 'negotiating', 'accepted', 'declined', 'expired'];
+export const CAREER_OFFER_DECISIONS = ['pending', 'accepted', 'declined', 'counter'];
+export const CAREER_AUTO_APPLY_RULE_STATUSES = ['draft', 'sandbox', 'active', 'paused', 'retired'];
+export const CAREER_AUTO_APPLY_TEST_STATUSES = ['pending', 'running', 'passed', 'failed'];
 export const WORKSPACE_TEMPLATE_VISIBILITIES = ['public', 'private'];
 export const WORKSPACE_TEMPLATE_STAGE_TYPES = ['intake', 'strategy', 'production', 'delivery', 'retainer', 'quality', 'retro'];
 export const WORKSPACE_TEMPLATE_RESOURCE_TYPES = [
@@ -4154,6 +4176,431 @@ export const ApplicationReview = sequelize.define(
 ApplicationReview.prototype.toPublicObject = function toPublicObject() {
   return this.get({ plain: true });
 };
+
+export const CareerPipelineBoard = sequelize.define(
+  'CareerPipelineBoard',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    isPrimary: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    timezone: { type: DataTypes.STRING(120), allowNull: true },
+    settings: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'career_pipeline_boards',
+    indexes: [
+      { fields: ['userId'], name: 'career_pipeline_boards_user_idx' },
+      { fields: ['userId', 'isPrimary'], name: 'career_pipeline_boards_primary_idx' },
+    ],
+  },
+);
+
+export const CareerPipelineStage = sequelize.define(
+  'CareerPipelineStage',
+  {
+    boardId: { type: DataTypes.INTEGER, allowNull: false },
+    key: { type: DataTypes.STRING(80), allowNull: false },
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    position: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    stageType: {
+      type: DataTypes.ENUM(...CAREER_PIPELINE_STAGE_TYPES),
+      allowNull: false,
+      defaultValue: 'applied',
+      validate: { isIn: [CAREER_PIPELINE_STAGE_TYPES] },
+    },
+    outcomeCategory: {
+      type: DataTypes.ENUM(...CAREER_PIPELINE_STAGE_OUTCOMES),
+      allowNull: false,
+      defaultValue: 'open',
+      validate: { isIn: [CAREER_PIPELINE_STAGE_OUTCOMES] },
+    },
+    slaHours: { type: DataTypes.INTEGER, allowNull: true },
+    exitCriteria: { type: jsonType, allowNull: true },
+    checklistTemplate: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'career_pipeline_stages',
+    indexes: [
+      { fields: ['boardId', 'position'], name: 'career_pipeline_stages_position_idx' },
+      { fields: ['boardId', 'key'], unique: true, name: 'career_pipeline_stages_key_idx' },
+    ],
+  },
+);
+
+export const CareerOpportunity = sequelize.define(
+  'CareerOpportunity',
+  {
+    boardId: { type: DataTypes.INTEGER, allowNull: false },
+    stageId: { type: DataTypes.INTEGER, allowNull: false },
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    applicationId: { type: DataTypes.INTEGER, allowNull: true },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    companyName: { type: DataTypes.STRING(180), allowNull: false },
+    location: { type: DataTypes.STRING(180), allowNull: true },
+    salaryMin: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    salaryMax: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    salaryCurrency: { type: DataTypes.STRING(3), allowNull: true },
+    stageEnteredAt: { type: DataTypes.DATE, allowNull: true },
+    lastActivityAt: { type: DataTypes.DATE, allowNull: true },
+    nextActionDueAt: { type: DataTypes.DATE, allowNull: true },
+    followUpStatus: {
+      type: DataTypes.ENUM(...CAREER_OPPORTUNITY_FOLLOW_UP_STATUSES),
+      allowNull: false,
+      defaultValue: 'on_track',
+      validate: { isIn: [CAREER_OPPORTUNITY_FOLLOW_UP_STATUSES] },
+    },
+    researchSummary: { type: DataTypes.TEXT, allowNull: true },
+    researchLinks: { type: jsonType, allowNull: true },
+    attachments: { type: jsonType, allowNull: true },
+    collaboratorNotes: { type: DataTypes.TEXT, allowNull: true },
+    complianceStatus: {
+      type: DataTypes.ENUM(...CAREER_COMPLIANCE_STATUSES),
+      allowNull: false,
+      defaultValue: 'not_required',
+      validate: { isIn: [CAREER_COMPLIANCE_STATUSES] },
+    },
+    equalOpportunityReport: { type: jsonType, allowNull: true },
+    automationMetadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'career_opportunities',
+    indexes: [
+      { fields: ['userId'], name: 'career_opportunities_user_idx' },
+      { fields: ['boardId', 'stageId'], name: 'career_opportunities_stage_idx' },
+      { fields: ['followUpStatus'], name: 'career_opportunities_follow_up_idx' },
+      { fields: ['lastActivityAt'], name: 'career_opportunities_activity_idx' },
+    ],
+  },
+);
+
+export const CareerOpportunityCollaborator = sequelize.define(
+  'CareerOpportunityCollaborator',
+  {
+    opportunityId: { type: DataTypes.INTEGER, allowNull: false },
+    collaboratorId: { type: DataTypes.INTEGER, allowNull: false },
+    collaboratorEmail: { type: DataTypes.STRING(180), allowNull: true },
+    role: { type: DataTypes.STRING(120), allowNull: true },
+    permissions: { type: jsonType, allowNull: true },
+    invitedAt: { type: DataTypes.DATE, allowNull: true },
+    joinedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'career_opportunity_collaborators',
+    indexes: [
+      { fields: ['opportunityId'], name: 'career_opportunity_collaborators_opportunity_idx' },
+      { fields: ['collaboratorId'], name: 'career_opportunity_collaborators_collaborator_idx' },
+    ],
+  },
+);
+
+export const CareerOpportunityNudge = sequelize.define(
+  'CareerOpportunityNudge',
+  {
+    opportunityId: { type: DataTypes.INTEGER, allowNull: false },
+    stageId: { type: DataTypes.INTEGER, allowNull: false },
+    severity: {
+      type: DataTypes.ENUM(...CAREER_NUDGE_SEVERITIES),
+      allowNull: false,
+      defaultValue: 'info',
+      validate: { isIn: [CAREER_NUDGE_SEVERITIES] },
+    },
+    channel: {
+      type: DataTypes.ENUM(...CAREER_NUDGE_CHANNELS),
+      allowNull: false,
+      defaultValue: 'in_app',
+      validate: { isIn: [CAREER_NUDGE_CHANNELS] },
+    },
+    message: { type: DataTypes.TEXT, allowNull: false },
+    triggeredAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    dueAt: { type: DataTypes.DATE, allowNull: true },
+    resolvedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'career_opportunity_nudges',
+    indexes: [
+      { fields: ['opportunityId'], name: 'career_opportunity_nudges_opportunity_idx' },
+      { fields: ['stageId'], name: 'career_opportunity_nudges_stage_idx' },
+      { fields: ['severity'], name: 'career_opportunity_nudges_severity_idx' },
+    ],
+  },
+);
+
+export const CareerCandidateBrief = sequelize.define(
+  'CareerCandidateBrief',
+  {
+    opportunityId: { type: DataTypes.INTEGER, allowNull: false },
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    shareCode: { type: DataTypes.STRING(64), allowNull: false, unique: true },
+    status: {
+      type: DataTypes.ENUM(...CAREER_CANDIDATE_BRIEF_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [CAREER_CANDIDATE_BRIEF_STATUSES] },
+    },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    strengths: { type: jsonType, allowNull: true },
+    collaborationNotes: { type: DataTypes.TEXT, allowNull: true },
+    recipients: { type: jsonType, allowNull: true },
+    attachments: { type: jsonType, allowNull: true },
+    lastSharedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'career_candidate_briefs',
+    indexes: [
+      { fields: ['userId'], name: 'career_candidate_briefs_user_idx' },
+      { fields: ['opportunityId'], name: 'career_candidate_briefs_opportunity_idx' },
+      { fields: ['status'], name: 'career_candidate_briefs_status_idx' },
+    ],
+  },
+);
+
+export const CareerInterviewWorkspace = sequelize.define(
+  'CareerInterviewWorkspace',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    opportunityId: { type: DataTypes.INTEGER, allowNull: false },
+    interviewScheduleId: { type: DataTypes.INTEGER, allowNull: true },
+    calendarEventId: { type: DataTypes.STRING(120), allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...CAREER_INTERVIEW_WORKSPACE_STATUSES),
+      allowNull: false,
+      defaultValue: 'planning',
+      validate: { isIn: [CAREER_INTERVIEW_WORKSPACE_STATUSES] },
+    },
+    roomUrl: { type: DataTypes.STRING(255), allowNull: true },
+    prepChecklist: { type: jsonType, allowNull: true },
+    aiPrompts: { type: jsonType, allowNull: true },
+    resources: { type: jsonType, allowNull: true },
+    lastSyncedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'career_interview_workspaces',
+    indexes: [
+      { fields: ['userId'], name: 'career_interview_workspaces_user_idx' },
+      { fields: ['opportunityId'], name: 'career_interview_workspaces_opportunity_idx' },
+      { fields: ['status'], name: 'career_interview_workspaces_status_idx' },
+    ],
+  },
+);
+
+export const CareerInterviewTask = sequelize.define(
+  'CareerInterviewTask',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    ownerId: { type: DataTypes.INTEGER, allowNull: true },
+    title: { type: DataTypes.STRING(160), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...CAREER_INTERVIEW_TASK_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+      validate: { isIn: [CAREER_INTERVIEW_TASK_STATUSES] },
+    },
+    priority: {
+      type: DataTypes.ENUM(...CAREER_INTERVIEW_TASK_PRIORITIES),
+      allowNull: false,
+      defaultValue: 'medium',
+      validate: { isIn: [CAREER_INTERVIEW_TASK_PRIORITIES] },
+    },
+    dueAt: { type: DataTypes.DATE, allowNull: true },
+    completedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'career_interview_tasks',
+    indexes: [
+      { fields: ['workspaceId'], name: 'career_interview_tasks_workspace_idx' },
+      { fields: ['status'], name: 'career_interview_tasks_status_idx' },
+      { fields: ['dueAt'], name: 'career_interview_tasks_due_idx' },
+    ],
+  },
+);
+
+export const CareerInterviewScorecard = sequelize.define(
+  'CareerInterviewScorecard',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    interviewerId: { type: DataTypes.INTEGER, allowNull: true },
+    submittedAt: { type: DataTypes.DATE, allowNull: true },
+    overallScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    competencies: { type: jsonType, allowNull: true },
+    strengths: { type: jsonType, allowNull: true },
+    concerns: { type: jsonType, allowNull: true },
+    recommendation: {
+      type: DataTypes.ENUM(...CAREER_INTERVIEW_RECOMMENDATIONS),
+      allowNull: false,
+      defaultValue: 'hold',
+      validate: { isIn: [CAREER_INTERVIEW_RECOMMENDATIONS] },
+    },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  {
+    tableName: 'career_interview_scorecards',
+    indexes: [
+      { fields: ['workspaceId'], name: 'career_interview_scorecards_workspace_idx' },
+      { fields: ['interviewerId'], name: 'career_interview_scorecards_interviewer_idx' },
+    ],
+  },
+);
+
+export const CareerOfferPackage = sequelize.define(
+  'CareerOfferPackage',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    opportunityId: { type: DataTypes.INTEGER, allowNull: true },
+    applicationId: { type: DataTypes.INTEGER, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...CAREER_OFFER_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [CAREER_OFFER_STATUSES] },
+    },
+    decisionStatus: {
+      type: DataTypes.ENUM(...CAREER_OFFER_DECISIONS),
+      allowNull: false,
+      defaultValue: 'pending',
+      validate: { isIn: [CAREER_OFFER_DECISIONS] },
+    },
+    totalCompValue: { type: DataTypes.DECIMAL(14, 2), allowNull: true },
+    baseSalary: { type: DataTypes.DECIMAL(14, 2), allowNull: true },
+    bonusTarget: { type: DataTypes.DECIMAL(14, 2), allowNull: true },
+    equityValue: { type: DataTypes.DECIMAL(14, 2), allowNull: true },
+    benefitsValue: { type: DataTypes.DECIMAL(14, 2), allowNull: true },
+    currencyCode: { type: DataTypes.STRING(3), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    scenarioModel: { type: jsonType, allowNull: true },
+    legalArchiveUrl: { type: DataTypes.STRING(255), allowNull: true },
+    documentsSummary: { type: jsonType, allowNull: true },
+    decisionDeadline: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'career_offer_packages',
+    indexes: [
+      { fields: ['userId'], name: 'career_offer_packages_user_idx' },
+      { fields: ['status'], name: 'career_offer_packages_status_idx' },
+      { fields: ['decisionStatus'], name: 'career_offer_packages_decision_idx' },
+    ],
+  },
+);
+
+export const CareerOfferScenario = sequelize.define(
+  'CareerOfferScenario',
+  {
+    packageId: { type: DataTypes.INTEGER, allowNull: false },
+    label: { type: DataTypes.STRING(160), allowNull: false },
+    baseSalary: { type: DataTypes.DECIMAL(14, 2), allowNull: true },
+    equityValue: { type: DataTypes.DECIMAL(14, 2), allowNull: true },
+    bonusValue: { type: DataTypes.DECIMAL(14, 2), allowNull: true },
+    benefitsValue: { type: DataTypes.DECIMAL(14, 2), allowNull: true },
+    totalValue: { type: DataTypes.DECIMAL(14, 2), allowNull: true },
+    assumptions: { type: jsonType, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  {
+    tableName: 'career_offer_scenarios',
+    indexes: [{ fields: ['packageId'], name: 'career_offer_scenarios_package_idx' }],
+  },
+);
+
+export const CareerOfferDocument = sequelize.define(
+  'CareerOfferDocument',
+  {
+    packageId: { type: DataTypes.INTEGER, allowNull: false },
+    fileName: { type: DataTypes.STRING(200), allowNull: false },
+    fileUrl: { type: DataTypes.STRING(500), allowNull: false },
+    version: { type: DataTypes.STRING(40), allowNull: true },
+    isSigned: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    signedAt: { type: DataTypes.DATE, allowNull: true },
+    storedAt: { type: DataTypes.STRING(120), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'career_offer_documents',
+    indexes: [{ fields: ['packageId'], name: 'career_offer_documents_package_idx' }],
+  },
+);
+
+export const CareerAutoApplyRule = sequelize.define(
+  'CareerAutoApplyRule',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...CAREER_AUTO_APPLY_RULE_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [CAREER_AUTO_APPLY_RULE_STATUSES] },
+    },
+    criteria: { type: jsonType, allowNull: true },
+    guardrailConfig: { type: jsonType, allowNull: true },
+    requiresManualReview: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    autoSendEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    sandboxMode: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    premiumRoleGuardrail: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    lastExecutedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'career_auto_apply_rules',
+    indexes: [
+      { fields: ['userId'], name: 'career_auto_apply_rules_user_idx' },
+      { fields: ['status'], name: 'career_auto_apply_rules_status_idx' },
+      { fields: ['sandboxMode'], name: 'career_auto_apply_rules_sandbox_idx' },
+    ],
+  },
+);
+
+export const CareerAutoApplyTestRun = sequelize.define(
+  'CareerAutoApplyTestRun',
+  {
+    ruleId: { type: DataTypes.INTEGER, allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...CAREER_AUTO_APPLY_TEST_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+      validate: { isIn: [CAREER_AUTO_APPLY_TEST_STATUSES] },
+    },
+    executedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    evaluatedCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    matchesCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    autoSentCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    rejectionReasons: { type: jsonType, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    sampleSubmission: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'career_auto_apply_test_runs',
+    indexes: [{ fields: ['ruleId'], name: 'career_auto_apply_test_runs_rule_idx' }],
+  },
+);
+
+export const CareerAutoApplyAnalytics = sequelize.define(
+  'CareerAutoApplyAnalytics',
+  {
+    ruleId: { type: DataTypes.INTEGER, allowNull: false },
+    windowStart: { type: DataTypes.DATE, allowNull: false },
+    windowEnd: { type: DataTypes.DATE, allowNull: false },
+    submissions: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    conversions: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    rejections: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    manualReviews: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    rejectionReasons: { type: jsonType, allowNull: true },
+    conversionSignals: { type: jsonType, allowNull: true },
+    lastUpdatedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+  },
+  {
+    tableName: 'career_auto_apply_analytics',
+    indexes: [
+      { fields: ['ruleId'], name: 'career_auto_apply_analytics_rule_idx' },
+      { fields: ['windowStart', 'windowEnd'], name: 'career_auto_apply_analytics_window_idx' },
+    ],
+  },
+);
 
 export const HiringAlert = sequelize.define(
   'HiringAlert',
@@ -8841,6 +9288,299 @@ PipelineFollowUp.prototype.toPublicObject = function toPublicObject() {
     channel: plain.channel,
     note: plain.note,
     status: plain.status,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+CareerPipelineBoard.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    name: plain.name,
+    description: plain.description,
+    isPrimary: plain.isPrimary,
+    timezone: plain.timezone,
+    settings: plain.settings,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+CareerPipelineStage.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    boardId: plain.boardId,
+    key: plain.key,
+    name: plain.name,
+    position: plain.position,
+    stageType: plain.stageType,
+    outcomeCategory: plain.outcomeCategory,
+    slaHours: plain.slaHours == null ? null : Number(plain.slaHours),
+    exitCriteria: plain.exitCriteria,
+    checklistTemplate: plain.checklistTemplate,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+CareerOpportunity.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    boardId: plain.boardId,
+    stageId: plain.stageId,
+    userId: plain.userId,
+    applicationId: plain.applicationId,
+    title: plain.title,
+    companyName: plain.companyName,
+    location: plain.location,
+    salary: {
+      min: plain.salaryMin == null ? null : Number(plain.salaryMin),
+      max: plain.salaryMax == null ? null : Number(plain.salaryMax),
+      currency: plain.salaryCurrency,
+    },
+    stageEnteredAt: plain.stageEnteredAt,
+    lastActivityAt: plain.lastActivityAt,
+    nextActionDueAt: plain.nextActionDueAt,
+    followUpStatus: plain.followUpStatus,
+    researchSummary: plain.researchSummary,
+    researchLinks: Array.isArray(plain.researchLinks) ? plain.researchLinks : [],
+    attachments: Array.isArray(plain.attachments) ? plain.attachments : [],
+    collaboratorNotes: plain.collaboratorNotes,
+    complianceStatus: plain.complianceStatus,
+    equalOpportunityReport: plain.equalOpportunityReport,
+    automationMetadata: plain.automationMetadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+CareerOpportunityCollaborator.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    opportunityId: plain.opportunityId,
+    collaboratorId: plain.collaboratorId,
+    collaboratorEmail: plain.collaboratorEmail,
+    role: plain.role,
+    permissions: plain.permissions,
+    invitedAt: plain.invitedAt,
+    joinedAt: plain.joinedAt,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+CareerOpportunityNudge.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    opportunityId: plain.opportunityId,
+    stageId: plain.stageId,
+    severity: plain.severity,
+    channel: plain.channel,
+    message: plain.message,
+    triggeredAt: plain.triggeredAt,
+    dueAt: plain.dueAt,
+    resolvedAt: plain.resolvedAt,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+CareerCandidateBrief.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    opportunityId: plain.opportunityId,
+    userId: plain.userId,
+    shareCode: plain.shareCode,
+    status: plain.status,
+    summary: plain.summary,
+    strengths: Array.isArray(plain.strengths) ? plain.strengths : [],
+    collaborationNotes: plain.collaborationNotes,
+    recipients: Array.isArray(plain.recipients) ? plain.recipients : [],
+    attachments: Array.isArray(plain.attachments) ? plain.attachments : [],
+    lastSharedAt: plain.lastSharedAt,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+CareerInterviewWorkspace.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    opportunityId: plain.opportunityId,
+    interviewScheduleId: plain.interviewScheduleId,
+    calendarEventId: plain.calendarEventId,
+    status: plain.status,
+    roomUrl: plain.roomUrl,
+    prepChecklist: Array.isArray(plain.prepChecklist) ? plain.prepChecklist : plain.prepChecklist,
+    aiPrompts: Array.isArray(plain.aiPrompts) ? plain.aiPrompts : plain.aiPrompts,
+    resources: Array.isArray(plain.resources) ? plain.resources : plain.resources,
+    lastSyncedAt: plain.lastSyncedAt,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+CareerInterviewTask.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    ownerId: plain.ownerId,
+    title: plain.title,
+    description: plain.description,
+    status: plain.status,
+    priority: plain.priority,
+    dueAt: plain.dueAt,
+    completedAt: plain.completedAt,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+CareerInterviewScorecard.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    interviewerId: plain.interviewerId,
+    submittedAt: plain.submittedAt,
+    overallScore: plain.overallScore == null ? null : Number(plain.overallScore),
+    competencies: Array.isArray(plain.competencies) ? plain.competencies : plain.competencies,
+    strengths: Array.isArray(plain.strengths) ? plain.strengths : plain.strengths,
+    concerns: Array.isArray(plain.concerns) ? plain.concerns : plain.concerns,
+    recommendation: plain.recommendation,
+    notes: plain.notes,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+CareerOfferPackage.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    opportunityId: plain.opportunityId,
+    applicationId: plain.applicationId,
+    status: plain.status,
+    decisionStatus: plain.decisionStatus,
+    totalCompValue: plain.totalCompValue == null ? null : Number(plain.totalCompValue),
+    baseSalary: plain.baseSalary == null ? null : Number(plain.baseSalary),
+    bonusTarget: plain.bonusTarget == null ? null : Number(plain.bonusTarget),
+    equityValue: plain.equityValue == null ? null : Number(plain.equityValue),
+    benefitsValue: plain.benefitsValue == null ? null : Number(plain.benefitsValue),
+    currencyCode: plain.currencyCode,
+    notes: plain.notes,
+    scenarioModel: plain.scenarioModel,
+    legalArchiveUrl: plain.legalArchiveUrl,
+    documentsSummary: plain.documentsSummary,
+    decisionDeadline: plain.decisionDeadline,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+CareerOfferScenario.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    packageId: plain.packageId,
+    label: plain.label,
+    baseSalary: plain.baseSalary == null ? null : Number(plain.baseSalary),
+    equityValue: plain.equityValue == null ? null : Number(plain.equityValue),
+    bonusValue: plain.bonusValue == null ? null : Number(plain.bonusValue),
+    benefitsValue: plain.benefitsValue == null ? null : Number(plain.benefitsValue),
+    totalValue: plain.totalValue == null ? null : Number(plain.totalValue),
+    assumptions: plain.assumptions,
+    notes: plain.notes,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+CareerOfferDocument.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    packageId: plain.packageId,
+    fileName: plain.fileName,
+    fileUrl: plain.fileUrl,
+    version: plain.version,
+    isSigned: plain.isSigned,
+    signedAt: plain.signedAt,
+    storedAt: plain.storedAt,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+CareerAutoApplyRule.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    name: plain.name,
+    description: plain.description,
+    status: plain.status,
+    criteria: plain.criteria,
+    guardrailConfig: plain.guardrailConfig,
+    requiresManualReview: plain.requiresManualReview,
+    autoSendEnabled: plain.autoSendEnabled,
+    sandboxMode: plain.sandboxMode,
+    premiumRoleGuardrail: plain.premiumRoleGuardrail,
+    lastExecutedAt: plain.lastExecutedAt,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+CareerAutoApplyTestRun.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    ruleId: plain.ruleId,
+    status: plain.status,
+    executedAt: plain.executedAt,
+    evaluatedCount: plain.evaluatedCount,
+    matchesCount: plain.matchesCount,
+    autoSentCount: plain.autoSentCount,
+    rejectionReasons: plain.rejectionReasons,
+    notes: plain.notes,
+    sampleSubmission: plain.sampleSubmission,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+CareerAutoApplyAnalytics.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    ruleId: plain.ruleId,
+    windowStart: plain.windowStart,
+    windowEnd: plain.windowEnd,
+    submissions: plain.submissions,
+    conversions: plain.conversions,
+    rejections: plain.rejections,
+    manualReviews: plain.manualReviews,
+    rejectionReasons: plain.rejectionReasons,
+    conversionSignals: plain.conversionSignals,
+    lastUpdatedAt: plain.lastUpdatedAt,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };
