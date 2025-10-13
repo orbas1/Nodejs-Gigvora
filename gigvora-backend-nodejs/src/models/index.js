@@ -58,6 +58,7 @@ export const AUTO_ASSIGN_STATUSES = [
   'reassigned',
   'completed',
 ];
+export const GIG_DELIVERY_STATUSES = ['draft', 'active', 'in_delivery', 'paused', 'completed', 'cancelled'];
 export const GIG_STATUSES = [
   'draft',
   'preview',
@@ -200,6 +201,7 @@ export const GIG_ORDER_REQUIREMENT_FORM_STATUSES = [
   'needs_revision',
   'archived',
 ];
+export const GIG_ORDER_REVISION_LIFECYCLE_STATUSES = [
 export const GIG_ORDER_REVISION_STATUSES = [
   'requested',
   'open',
@@ -466,6 +468,7 @@ export const DELIVERABLE_RETENTION_POLICIES = [
   'short_term',
 ];
 
+export const GIG_PREVIEW_STATUSES = ['draft', 'preview', 'published', 'archived'];
 export const GIG_BUILDER_STATUSES = ['draft', 'preview', 'published', 'archived'];
 export const GIG_MEDIA_TYPES = ['image', 'video', 'document'];
 export const GIG_PREVIEW_DEVICE_TYPES = ['desktop', 'tablet', 'mobile'];
@@ -1264,6 +1267,10 @@ export const Gig = sequelize.define(
     geoLocation: { type: jsonType, allowNull: true },
     summary: { type: DataTypes.TEXT, allowNull: true },
     status: {
+      type: DataTypes.ENUM(...GIG_DELIVERY_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [GIG_DELIVERY_STATUSES] },
       type: DataTypes.STRING(40),
       type: DataTypes.ENUM(...GIG_BUILDER_STATUSES),
       allowNull: false,
@@ -2002,8 +2009,6 @@ ClientSuccessAffiliateLink.prototype.toPublicObject = function toPublicObject() 
   };
 };
 
-export const ExperienceLaunchpad = sequelize.define(
-  'ExperienceLaunchpad',
 export const GigPackage = sequelize.define(
   'GigPackage',
   {
@@ -2552,8 +2557,6 @@ ChangeRequest.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
-export const ExperienceLaunchpad = sequelize.define(
-  'ExperienceLaunchpad',
 export const GigMilestone = sequelize.define(
   'GigMilestone',
   {
@@ -11151,10 +11154,10 @@ export const GigOrderRevision = sequelize.define(
     orderId: { type: DataTypes.INTEGER, allowNull: false },
     revisionNumber: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
     status: {
-      type: DataTypes.ENUM(...GIG_ORDER_REVISION_STATUSES),
+      type: DataTypes.ENUM(...GIG_ORDER_REVISION_LIFECYCLE_STATUSES),
       allowNull: false,
       defaultValue: 'open',
-      validate: { isIn: [GIG_ORDER_REVISION_STATUSES] },
+      validate: { isIn: [GIG_ORDER_REVISION_LIFECYCLE_STATUSES] },
     },
     summary: { type: DataTypes.STRING(255), allowNull: true },
     details: { type: jsonType, allowNull: true },

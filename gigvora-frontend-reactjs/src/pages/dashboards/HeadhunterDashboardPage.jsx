@@ -9,6 +9,10 @@ import {
   ClockIcon,
   EnvelopeOpenIcon,
   HandThumbUpIcon,
+  LightBulbIcon,
+  BookOpenIcon,
+  HeartIcon,
+  BoltIcon,
   ClipboardDocumentCheckIcon,
   DocumentTextIcon,
   GlobeAmericasIcon,
@@ -115,6 +119,32 @@ const menuSections = [
       },
     ],
   },
+  {
+    label: 'Insights, calendar, & wellbeing',
+    items: [
+      {
+        name: 'Intelligence hub',
+        description:
+          'Daily dashboards for pipeline value, forecasted placements, fee projections, and activity goals.',
+        sectionId: 'intelligence-hub',
+      },
+      {
+        name: 'Calendar orchestration',
+        description: 'Unified calendar for outreach, interviews, internal syncs, and protected focus blocks.',
+        sectionId: 'calendar-orchestration',
+      },
+      {
+        name: 'Knowledge base & playbooks',
+        description: 'Store scripts, negotiation strategies, industry insights, and AI generated highlights.',
+        sectionId: 'knowledge-base',
+      },
+      {
+        name: 'Wellbeing tracker',
+        description: 'Track workload, travel, wellbeing metrics, and reminders for sustainable performance.',
+        sectionId: 'wellbeing-tracker',
+      },
+    ],
+  },
 ];
 
 const availableDashboards = ['headhunter', 'company', 'agency'];
@@ -166,6 +196,32 @@ function formatStageValue(stage, currency) {
   return formatCurrency(stage.valueTotal ?? 0, currency);
 }
 
+function formatNumber(value, options = {}) {
+  if (value == null || Number.isNaN(Number(value))) {
+    return '—';
+  }
+  const { maximumFractionDigits = 1 } = options;
+  return new Intl.NumberFormat('en-US', { maximumFractionDigits }).format(Number(value));
+}
+
+function formatTimeRangeLabel(start, end, timezone) {
+  const hasIsoStart = typeof start === 'string' && start.includes('T');
+  const hasIsoEnd = typeof end === 'string' && end.includes('T');
+  if (hasIsoStart || hasIsoEnd) {
+    const startLabel = start ? formatAbsolute(start, { dateStyle: 'medium', timeStyle: 'short' }) : null;
+    const endLabel = end ? formatAbsolute(end, { dateStyle: 'medium', timeStyle: 'short' }) : null;
+    if (startLabel && endLabel) {
+      return `${startLabel} → ${endLabel}`;
+    }
+    return startLabel ?? endLabel ?? '—';
+  }
+
+  const cleanStart = start ? start.toString().slice(0, 5) : null;
+  const cleanEnd = end ? end.toString().slice(0, 5) : null;
+  if (cleanStart && cleanEnd) {
+    return `${cleanStart} – ${cleanEnd} ${timezone ?? 'UTC'}`;
+  }
+  return cleanStart ?? cleanEnd ?? '—';
 function formatCompRange(comp, fallbackCurrency = 'USD') {
   if (!comp) return '—';
   const currency = comp.currency ?? fallbackCurrency;
@@ -271,6 +327,72 @@ export default function HeadhunterDashboardPage() {
   const calendar = data?.calendar ?? { upcoming: [], workload: {} };
   const clientPartnerships = data?.clientPartnerships ?? {};
   const clientPartnerships = data?.clientPartnerships ?? { topContacts: [] };
+  const insights = data?.insights ?? { metrics: {}, gaps: [], recommendedActions: [], weeklyReview: {} };
+  const calendarOrchestration =
+    data?.calendarOrchestration ?? {
+      timezone: null,
+      availability: { windows: [], broadcastChannels: [], recipients: [], defaultWindow: null, nextBroadcastAt: null },
+      focusBlocks: [],
+      sharedCalendars: [],
+      utilization: {},
+      automation: [],
+      upcoming: [],
+    };
+  const knowledgeBase =
+    data?.knowledgeBase ?? {
+      totalArticles: 0,
+      categories: [],
+      recentArticles: [],
+      playbooks: [],
+      aiSummaries: [],
+      collaboration: { contributors: [], lastUpdatedAt: null },
+      searchTags: [],
+    };
+  const wellbeing =
+    data?.wellbeing ?? {
+      metrics: {},
+      reminders: [],
+      prompts: [],
+      integrations: [],
+      travel: {},
+      supportSignals: {},
+      latestCheckInAt: null,
+    };
+  const hasWorkspaceScopedData = data?.meta?.hasWorkspaceScopedData ?? false;
+  const fallbackReason = data?.meta?.fallbackReason ?? null;
+
+  const insightsMetrics = insights.metrics ?? {};
+  const pipelineMetric = insightsMetrics.pipelineValue ?? {};
+  const forecastMetric = insightsMetrics.forecastedPlacements ?? {};
+  const feeMetric = insightsMetrics.projectedFees ?? {};
+  const activityMetric = insightsMetrics.activityGoal ?? {};
+  const insightScorecard = insights.scorecard ?? {};
+
+  const orchestrationAvailability = calendarOrchestration.availability ?? {
+    windows: [],
+    broadcastChannels: [],
+    recipients: [],
+    defaultWindow: null,
+    nextBroadcastAt: null,
+  };
+  const orchestrationFocusBlocks = calendarOrchestration.focusBlocks ?? [];
+  const orchestrationAutomation = calendarOrchestration.automation ?? [];
+  const orchestrationSharedCalendars = calendarOrchestration.sharedCalendars ?? [];
+  const orchestrationUtilization = calendarOrchestration.utilization ?? {};
+  const orchestrationTimezone = calendarOrchestration.timezone ?? data?.workspaceSummary?.timezone ?? 'UTC';
+
+  const knowledgeCategories = knowledgeBase.categories ?? [];
+  const knowledgeArticles = knowledgeBase.recentArticles ?? [];
+  const knowledgePlaybooks = knowledgeBase.playbooks ?? [];
+  const knowledgeSummaries = knowledgeBase.aiSummaries ?? [];
+  const knowledgeContributors = knowledgeBase.collaboration?.contributors ?? [];
+
+  const wellbeingMetrics = wellbeing.metrics ?? {};
+  const wellbeingReminders = wellbeing.reminders ?? [];
+  const wellbeingPrompts = wellbeing.prompts ?? [];
+  const wellbeingIntegrations = wellbeing.integrations ?? [];
+  const wellbeingTravel = wellbeing.travel ?? {};
+  const wellbeingSignals = wellbeing.supportSignals ?? {};
   const pipelineExecution = data?.pipelineExecution ?? {};
   const prospectPipeline = pipelineExecution.prospectPipeline ?? {
     stageSummaries: [],
@@ -1937,6 +2059,667 @@ export default function HeadhunterDashboardPage() {
                 No timeline events recorded yet.
               </div>
             )}
+          </div>
+        </section>
+
+        <section
+          id="intelligence-hub"
+          className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
+                <LightBulbIcon className="h-5 w-5 text-blue-500" />
+                Intelligence hub
+              </h2>
+              <p className="text-sm text-slate-600">
+                Balance deal-making with sustainable workflows, personal productivity, and business insights.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+              {insightScorecard.velocityDays != null ? (
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
+                  Avg decision: <strong className="text-slate-800">{formatNumber(insightScorecard.velocityDays)}</strong> days
+                </span>
+              ) : null}
+              {insightScorecard.conversionRate != null ? (
+                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-emerald-700">
+                  Placement conversion {formatPercent((insightScorecard.conversionRate ?? 0))}
+                </span>
+              ) : null}
+              {insightScorecard.coverageRate != null ? (
+                <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-blue-700">
+                  Coverage {formatNumber(insightScorecard.coverageRate, { maximumFractionDigits: 1 })}x
+                </span>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Pipeline value</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-900">
+                {pipelineMetric.value != null
+                  ? formatCurrency(pipelineMetric.value, pipelineMetric.currency ?? currency)
+                  : '—'}
+              </p>
+              {pipelineMetric.target != null ? (
+                <p className="text-xs text-slate-500">
+                  Target {formatCurrency(pipelineMetric.target, pipelineMetric.currency ?? currency)}
+                </p>
+              ) : null}
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Forecasted placements</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-900">{forecastMetric.value ?? '—'}</p>
+              {forecastMetric.target != null ? (
+                <p className="text-xs text-slate-500">Target {forecastMetric.target}</p>
+              ) : null}
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Projected fees</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-900">
+                {feeMetric.value != null
+                  ? formatCurrency(feeMetric.value, feeMetric.currency ?? currency)
+                  : '—'}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Activity goal</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-900">
+                {activityMetric.actual ?? '—'} / {activityMetric.target ?? '—'}
+              </p>
+              {activityMetric.delta != null ? (
+                <p className={`text-xs font-medium ${activityMetric.delta >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                  {activityMetric.delta >= 0 ? 'Ahead by ' : 'Behind by '}
+                  {Math.abs(activityMetric.delta)} touchpoints
+                </p>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-slate-700">Gap analysis</h3>
+              {insights.gaps?.length ? (
+                <div className="space-y-2">
+                  {insights.gaps.map((gap) => (
+                    <div key={gap.type ?? gap.label} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-sm font-semibold text-slate-800">{gap.label}</p>
+                      <p className="mt-2 text-xs text-slate-600">
+                        Actual{' '}
+                        <span className="font-semibold text-slate-900">
+                          {gap.currency
+                            ? formatCurrency(gap.actual, gap.currency)
+                            : formatNumber(gap.actual, { maximumFractionDigits: 0 })}
+                        </span>{' '}
+                        • Target{' '}
+                        <span className="font-semibold text-slate-900">
+                          {gap.currency
+                            ? formatCurrency(gap.target, gap.currency)
+                            : formatNumber(gap.target, { maximumFractionDigits: 0 })}
+                        </span>
+                      </p>
+                      {gap.delta != null ? (
+                        <p className={`text-xs font-medium ${gap.delta >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          {gap.delta >= 0 ? 'Ahead by ' : 'Behind by '}
+                          {gap.currency
+                            ? formatCurrency(Math.abs(gap.delta), gap.currency)
+                            : formatNumber(Math.abs(gap.delta), { maximumFractionDigits: 0 })}
+                        </p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                  No gaps detected against current targets.
+                </div>
+              )}
+            </div>
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-slate-700">Recommended actions</h3>
+              {insights.recommendedActions?.length ? (
+                <ul className="list-disc space-y-2 pl-5 text-sm text-slate-600">
+                  {insights.recommendedActions.map((action, index) => (
+                    <li key={`${action}-${index}`}>{action}</li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                  You're on track. No immediate actions recommended.
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <ChartBarIcon className="h-4 w-4 text-blue-500" />
+                <p className="text-sm font-semibold text-slate-800">Weekly business review</p>
+              </div>
+              {insights.weeklyReview?.nextReviewAt ? (
+                <span className="text-xs text-slate-500">
+                  Next review{' '}
+                  {formatAbsolute(insights.weeklyReview.nextReviewAt, { dateStyle: 'medium', timeStyle: 'short' })}
+                </span>
+              ) : null}
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Highlights</p>
+                {insights.weeklyReview?.highlights?.length ? (
+                  <ul className="space-y-2 text-sm text-slate-600">
+                    {insights.weeklyReview.highlights.map((item, index) => (
+                      <li key={`${item.label}-${index}`} className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                        <p className="font-semibold text-slate-800">{item.label}</p>
+                        {item.occurredAt ? (
+                          <p className="text-xs text-slate-500">{formatRelativeTime(item.occurredAt)}</p>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-2 text-sm text-slate-500">
+                    No recent highlights logged.
+                  </p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Blockers & agenda</p>
+                {insights.weeklyReview?.blockers?.length || insights.weeklyReview?.agenda?.length ? (
+                  <div className="space-y-2 text-sm text-slate-600">
+                    {insights.weeklyReview?.blockers?.map((blocker, index) => (
+                      <div
+                        key={`${blocker.label}-${index}`}
+                        className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800"
+                      >
+                        <p className="font-semibold">{blocker.label}</p>
+                        {blocker.detail ? <p className="text-xs">{blocker.detail}</p> : null}
+                      </div>
+                    ))}
+                    {insights.weeklyReview?.agenda?.length ? (
+                      <ul className="space-y-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
+                        {insights.weeklyReview.agenda.map((item, index) => (
+                          <li key={`${item.topic}-${index}`}>
+                            <span className="font-semibold text-slate-800">{item.topic}:</span> {item.detail}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-2 text-sm text-slate-500">
+                    Agenda will populate after next review cycle.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section
+          id="calendar-orchestration"
+          className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
+                <CalendarDaysIcon className="h-5 w-5 text-blue-500" />
+                Calendar orchestration
+              </h2>
+              <p className="text-sm text-slate-600">
+                Unified calendar for outreach, interviews, internal syncs, and downtime to prevent burnout.
+              </p>
+            </div>
+            {orchestrationAvailability.nextBroadcastAt ? (
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-500">
+                Next availability broadcast{' '}
+                {formatAbsolute(orchestrationAvailability.nextBroadcastAt, {
+                  dateStyle: 'medium',
+                  timeStyle: 'short',
+                })}
+              </span>
+            ) : null}
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs uppercase tracking-wide text-slate-500">Availability windows</p>
+                <p className="mt-1 text-lg font-semibold text-slate-900">
+                  {orchestrationAvailability.defaultWindow ?? 'Define default availability'}
+                </p>
+                <p className="text-xs text-slate-500">Timezone: {orchestrationTimezone}</p>
+                {orchestrationAvailability.windows?.length ? (
+                  <div className="mt-4 space-y-2 text-sm text-slate-600">
+                    {orchestrationAvailability.windows.map((window) => (
+                      <div key={`${window.dayOfWeek}-${window.startTimeUtc}-${window.endTimeUtc}`} className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                        <p className="font-semibold text-slate-800">{window.label ?? window.dayLabel ?? 'Window'}</p>
+                        <p className="text-xs text-slate-500">
+                          {window.availabilityType} • {formatTimeRangeLabel(window.startTimeUtc, window.endTimeUtc, orchestrationTimezone)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-white px-3 py-2 text-sm text-slate-500">
+                    No availability windows configured yet.
+                  </div>
+                )}
+                {orchestrationAvailability.broadcastChannels?.length ? (
+                  <div className="mt-4 flex flex-wrap gap-2 text-xs text-blue-700">
+                    {orchestrationAvailability.broadcastChannels.map((channel) => (
+                      <span key={channel} className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1">
+                        {channel}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+                {orchestrationAvailability.recipients?.length ? (
+                  <p className="mt-3 text-xs text-slate-500">
+                    Broadcasting to {orchestrationAvailability.recipients.slice(0, 3).join(', ')}
+                    {orchestrationAvailability.recipients.length > 3
+                      ? ` +${orchestrationAvailability.recipients.length - 3}`
+                      : ''}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs uppercase tracking-wide text-slate-500">Utilization</p>
+                <dl className="mt-3 grid grid-cols-2 gap-3 text-sm text-slate-600">
+                  <div>
+                    <dt className="text-xs uppercase tracking-wide text-slate-500">Events</dt>
+                    <dd className="text-lg font-semibold text-slate-900">
+                      {orchestrationUtilization.totalEvents ?? 0}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs uppercase tracking-wide text-slate-500">Interviews</dt>
+                    <dd className="text-lg font-semibold text-slate-900">
+                      {orchestrationUtilization.interviewBlocks ?? 0}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs uppercase tracking-wide text-slate-500">Focus blocks</dt>
+                    <dd className="text-lg font-semibold text-slate-900">
+                      {orchestrationUtilization.focusBlocks ?? 0}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs uppercase tracking-wide text-slate-500">Downtime</dt>
+                    <dd className="text-lg font-semibold text-slate-900">
+                      {orchestrationUtilization.downtimeBlocks ?? 0}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs uppercase tracking-wide text-slate-500">Events / week</dt>
+                    <dd className="text-lg font-semibold text-slate-900">
+                      {formatNumber(orchestrationUtilization.eventsPerWeek ?? 0)}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-slate-800">Focus blocks</p>
+                  <BoltIcon className="h-4 w-4 text-blue-500" />
+                </div>
+                <div className="mt-3 space-y-2 text-sm text-slate-600">
+                  {orchestrationFocusBlocks.length ? (
+                    orchestrationFocusBlocks.map((block, index) => (
+                      <div
+                        key={`${block.label ?? 'focus'}-${index}`}
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-2"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-semibold text-slate-800">{block.label ?? 'Focus block'}</p>
+                          <span className={`rounded-full px-2 py-0.5 text-[11px] ${block.source === 'scheduled' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-blue-50 text-blue-600 border border-blue-200'}`}>
+                            {block.source ?? 'recommended'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500">
+                          {formatTimeRangeLabel(block.startTimeUtc, block.endTimeUtc, orchestrationTimezone)}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-2 text-sm text-slate-500">
+                      No focus blocks scheduled yet. Protect time before major interviews.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+                <p className="text-sm font-semibold text-slate-800">Automation & shared calendars</p>
+                <div className="space-y-2 text-sm text-slate-600">
+                  {orchestrationAutomation.length ? (
+                    orchestrationAutomation.map((automation) => (
+                      <div
+                        key={automation.name}
+                        className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2"
+                      >
+                        <span>{automation.name}</span>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[11px] uppercase tracking-wide ${
+                            automation.status === 'active'
+                              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                              : automation.status === 'recommended'
+                                ? 'border-blue-200 bg-blue-50 text-blue-700'
+                                : 'border-amber-200 bg-amber-50 text-amber-700'
+                          }`}
+                        >
+                          {automation.status}
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-2 text-sm text-slate-500">
+                      Automations are ready to configure.
+                    </div>
+                  )}
+                </div>
+                {orchestrationSharedCalendars.length ? (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Shared calendars</p>
+                    {orchestrationSharedCalendars.map((contact) => (
+                      <div key={contact.email ?? contact.name} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
+                        <p className="font-semibold text-slate-800">{contact.name ?? contact.email}</p>
+                        {contact.lastInteractionAt ? (
+                          <p>Last sync {formatRelativeTime(contact.lastInteractionAt)}</p>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
+              {calendarOrchestration.upcoming?.length ? (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-sm font-semibold text-slate-800">Upcoming key events</p>
+                  <div className="mt-3 space-y-2 text-xs text-slate-600">
+                    {calendarOrchestration.upcoming.slice(0, 4).map((event, index) => (
+                      <div key={`${event.label}-${index}`} className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                        <p className="font-semibold text-slate-800">{event.label}</p>
+                        <p>{formatDate(event.date)}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </section>
+
+        <section
+          id="knowledge-base"
+          className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
+                <BookOpenIcon className="h-5 w-5 text-blue-500" />
+                Knowledge base & playbooks
+              </h2>
+              <p className="text-sm text-slate-600">
+                Store scripts, negotiation strategies, industry insights, and objection handling resources.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
+                {knowledgeBase.totalArticles} articles
+              </span>
+              {knowledgeCategories.map((category) => (
+                <span key={category.name} className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-blue-700">
+                  {category.name}: {category.count}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {knowledgeContributors.length ? (
+            <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
+                Contributors
+              </span>
+              {knowledgeContributors.map((contributor) => (
+                <span key={contributor} className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-emerald-700">
+                  @{contributor}
+                </span>
+              ))}
+              {knowledgeBase.collaboration?.lastUpdatedAt ? (
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
+                  Updated {formatRelativeTime(knowledgeBase.collaboration.lastUpdatedAt)}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <h3 className="text-sm font-semibold text-slate-800">Recent updates</h3>
+              <div className="mt-3 overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200 text-sm">
+                  <thead className="bg-white text-xs uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="px-3 py-2 text-left">Title</th>
+                      <th className="px-3 py-2 text-left">Category</th>
+                      <th className="px-3 py-2 text-left">Version</th>
+                      <th className="px-3 py-2 text-left">Last reviewed</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {knowledgeArticles.length ? (
+                      knowledgeArticles.map((article) => (
+                        <tr key={article.slug} className="hover:bg-white/60">
+                          <td className="px-3 py-2">
+                            <p className="font-semibold text-slate-800">{article.title}</p>
+                            <p className="text-xs text-slate-500">{article.summary}</p>
+                          </td>
+                          <td className="px-3 py-2 text-slate-600">{article.category}</td>
+                          <td className="px-3 py-2 text-slate-600">v{article.version ?? 1}</td>
+                          <td className="px-3 py-2 text-slate-600">
+                            {article.lastReviewedAt ? formatRelativeTime(article.lastReviewedAt) : '—'}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="4" className="px-3 py-4 text-center text-sm text-slate-500">
+                          No knowledge articles found in this workspace.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm font-semibold text-slate-800">Featured playbooks</p>
+                <div className="mt-3 space-y-2 text-sm text-slate-600">
+                  {knowledgePlaybooks.length ? (
+                    knowledgePlaybooks.map((playbook) => (
+                      <div key={playbook.slug} className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                        <p className="font-semibold text-slate-800">{playbook.title}</p>
+                        <p className="text-xs text-slate-500">{playbook.summary}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-2 text-sm text-slate-500">
+                      Add playbooks to guide negotiations and objection handling.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm font-semibold text-slate-800">AI highlights</p>
+                <div className="mt-3 space-y-2 text-sm text-slate-600">
+                  {knowledgeSummaries.length ? (
+                    knowledgeSummaries.map((summary) => (
+                      <div key={summary.slug} className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                        <p className="font-semibold text-slate-800">{summary.title}</p>
+                        <p className="text-xs text-slate-500">{summary.summary ?? 'Summary unavailable.'}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-2 text-sm text-slate-500">
+                      Upload long-form research to generate AI highlights.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {knowledgeBase.searchTags?.length ? (
+            <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+              {knowledgeBase.searchTags.slice(0, 12).map((tag) => (
+                <span key={tag} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </section>
+
+        <section
+          id="wellbeing-tracker"
+          className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
+                <HeartIcon className="h-5 w-5 text-blue-500" />
+                Wellbeing tracker
+              </h2>
+              <p className="text-sm text-slate-600">
+                Track workload, travel, wellbeing metrics, and reminders for recovery so teams sustain high performance.
+              </p>
+            </div>
+            {wellbeing.latestCheckInAt ? (
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-500">
+                Last check-in {formatRelativeTime(wellbeing.latestCheckInAt)}
+              </span>
+            ) : null}
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Workload per member</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-900">
+                {formatNumber(wellbeingMetrics.workloadPerMember, { maximumFractionDigits: 1 })}
+              </p>
+              <p className="text-xs text-slate-500">
+                Interviews this week: {wellbeingMetrics.interviewsThisWeek ?? 0}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Wellbeing score</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-900">
+                {wellbeingMetrics.wellbeingScore != null ? wellbeingMetrics.wellbeingScore : '—'}
+              </p>
+              <p className="text-xs text-slate-500">Burnout risk: {wellbeingMetrics.burnoutRisk ?? 'unknown'}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Recovery cadence</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-900">
+                {wellbeingMetrics.downtimeBlocks ?? 0} blocks
+              </p>
+              <p className="text-xs text-slate-500">
+                Participation {formatPercent((wellbeingMetrics.participationRate ?? 0))}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Average travel days</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-900">
+                {formatNumber(wellbeingTravel.averageDays ?? 0, { maximumFractionDigits: 1 })}
+              </p>
+              <p className="text-xs text-slate-500">Peak week: {wellbeingTravel.peakDays ?? 0} days</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Average energy</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-900">
+                {formatNumber(wellbeingMetrics.averageEnergy ?? 0, { maximumFractionDigits: 1 })}
+              </p>
+              <p className="text-xs text-slate-500">Stress {formatNumber(wellbeingMetrics.averageStress ?? 0, { maximumFractionDigits: 1 })}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Hydration</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-900">
+                {formatNumber(wellbeingMetrics.hydrationLevel ?? 0, { maximumFractionDigits: 1 })}
+              </p>
+              <p className="text-xs text-slate-500">Offers pending: {wellbeingMetrics.offersPending ?? 0}</p>
+            </div>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm font-semibold text-slate-800">Reminders</p>
+                {wellbeingReminders.length ? (
+                  <ul className="mt-2 list-disc space-y-2 pl-5 text-sm text-slate-600">
+                    {wellbeingReminders.map((reminder, index) => (
+                      <li key={`${reminder}-${index}`}>{reminder}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-2 text-sm text-slate-500">No reminders queued for this week.</p>
+                )}
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm font-semibold text-slate-800">Weekly reflection prompts</p>
+                {wellbeingPrompts.length ? (
+                  <ul className="mt-2 list-disc space-y-2 pl-5 text-sm text-slate-600">
+                    {wellbeingPrompts.map((prompt, index) => (
+                      <li key={`${prompt}-${index}`}>{prompt}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-2 text-sm text-slate-500">Prompts will appear after the next check-in.</p>
+                )}
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm font-semibold text-slate-800">Wellness integrations</p>
+                {wellbeingIntegrations.length ? (
+                  <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-600">
+                    {wellbeingIntegrations.map((integration) => (
+                      <span
+                        key={integration.name}
+                        className={`rounded-full border px-3 py-1 ${
+                          integration.status === 'connected'
+                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                            : 'border-blue-200 bg-blue-50 text-blue-700'
+                        }`}
+                      >
+                        {integration.name} • {integration.status}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-sm text-slate-500">Connect wellness stipends or recovery tools.</p>
+                )}
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-2">
+                <p className="text-sm font-semibold text-slate-800">Support signals</p>
+                <p className="text-sm text-slate-600">
+                  Referrals awaiting follow-up: {wellbeingSignals.referralsAwaitingFollowUp ?? 0}
+                </p>
+                <p className="text-sm text-slate-600">
+                  High risk pipeline: {wellbeingSignals.highRiskPipeline ?? 0} candidates
+                </p>
+              </div>
+            </div>
           </div>
         </section>
       </div>

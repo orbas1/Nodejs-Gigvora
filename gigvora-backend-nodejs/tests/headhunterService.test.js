@@ -4,6 +4,7 @@ import {
   ProviderWorkspace,
   ProviderWorkspaceMember,
   ProviderContactNote,
+  SupportKnowledgeArticle,
   Project,
   Application,
   ApplicationReview,
@@ -11,6 +12,10 @@ import {
   Message,
   Profile,
 } from '../src/models/index.js';
+import {
+  ProviderAvailabilityWindow,
+  ProviderWellbeingLog,
+} from '../src/models/headhunterExtras.js';
 import { createUser } from './helpers/factories.js';
 
 function daysAgo(days) {
@@ -156,6 +161,42 @@ describe('headhunterService', () => {
       createdAt: daysAgo(7),
     });
 
+    await ProviderAvailabilityWindow.create({
+      workspaceId: workspace.id,
+      memberId: owner.id,
+      dayOfWeek: 'monday',
+      startTimeUtc: '13:00',
+      endTimeUtc: '16:00',
+      availabilityType: 'focus',
+      broadcastChannels: ['email', 'calendar'],
+      metadata: { lastBroadcastAt: daysAgo(1) },
+    });
+
+    await ProviderWellbeingLog.create({
+      workspaceId: workspace.id,
+      memberId: owner.id,
+      energyScore: 7,
+      stressScore: 4,
+      workloadScore: 65,
+      wellbeingScore: 78,
+      travelDays: 2,
+      hydrationLevel: 6,
+      recordedAt: daysAgo(2),
+      metadata: { note: 'Post onsite' },
+    });
+
+    await SupportKnowledgeArticle.create({
+      slug: 'negotiation-playbook',
+      title: 'Executive Negotiation Playbook',
+      summary: 'Sequence and scripts for enterprise offers.',
+      body: 'Long form content about negotiating executive offers and protecting retained fees.',
+      category: 'workflow',
+      audience: 'support_team',
+      tags: ['headhunter', `workspace:${workspace.slug}`, 'v2', '@avery.kim'],
+      resourceLinks: [{ label: 'Fee calculator', url: 'https://example.com/tools' }],
+      lastReviewedAt: daysAgo(4),
+    });
+
     const snapshot = await getDashboardSnapshot({ workspaceId: workspace.id, lookbackDays: 60 });
 
     expect(snapshot.workspaceSummary).toMatchObject({
@@ -172,6 +213,10 @@ describe('headhunterService', () => {
     expect(snapshot.outreachPerformance).toMatchObject({ campaignCount: 1, totalMessages: 2 });
     expect(snapshot.clientPartnerships.totalClients).toBe(1);
     expect(snapshot.meta.hasWorkspaceScopedData).toBe(true);
+    expect(snapshot.insights.metrics.pipelineValue.value).toBeGreaterThan(0);
+    expect(snapshot.calendarOrchestration.availability.windows.length).toBeGreaterThan(0);
+    expect(snapshot.knowledgeBase.totalArticles).toBeGreaterThanOrEqual(1);
+    expect(snapshot.wellbeing.metrics.workloadPerMember).toBeGreaterThan(0);
   });
 
   it('falls back to global data when workspace-specific records are missing', async () => {
@@ -204,5 +249,7 @@ describe('headhunterService', () => {
     expect(snapshot.meta.hasWorkspaceScopedData).toBe(false);
     expect(snapshot.pipelineSummary.totals.applications).toBeGreaterThanOrEqual(1);
     expect(snapshot.meta.fallbackReason).toMatch(/network-wide/i);
+    expect(snapshot.knowledgeBase.totalArticles).toBeGreaterThanOrEqual(0);
+    expect(snapshot.wellbeing.metrics.burnoutRisk).toBeDefined();
   });
 });
