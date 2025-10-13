@@ -62,6 +62,20 @@ function differenceInDays(start, end = new Date()) {
   return Math.round(diffMs / (1000 * 60 * 60 * 24));
 }
 
+function differenceInHours(start, end = new Date()) {
+  if (!start) return null;
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    return null;
+  }
+  const diffMs = endDate.getTime() - startDate.getTime();
+  if (!Number.isFinite(diffMs)) {
+    return null;
+  }
+  return Number((diffMs / (1000 * 60 * 60)).toFixed(1));
+}
+
 function average(numbers) {
   const valid = numbers.filter((value) => Number.isFinite(value));
   if (!valid.length) {
@@ -88,6 +102,17 @@ function percentage(part, total) {
     return 0;
   }
   return Number(((part / total) * 100).toFixed(1));
+}
+
+function normalizeStageKey(value) {
+  if (value == null) {
+    return null;
+  }
+  return `${value}`
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
 }
 
 function resolveWorkspaceSelector({ workspaceId, workspaceSlug }) {
@@ -858,35 +883,47 @@ function buildAlertsSummary(alerts) {
   };
 }
 
-function buildJobLifecycleInsights({ jobStages, approvals, campaigns, pipelineSummary, jobSummary }) {
-  const sortedStages = [...jobStages].sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+function buildJobLifecycleInsights({
+  jobStages,
+  approvals,
+  campaigns,
+  pipelineSummary,
+  jobSummary,
+  applications,
+  reviews,
+  interviewSchedules,
+}) {
+  const now = new Date();
+  const stageRecords = [...jobStages]
+    .map((stage) => (stage?.get ? stage.get({ plain: true }) : stage))
+    .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+  const approvalRecords = approvals.map((item) => (item?.get ? item.get({ plain: true }) : item));
+  const campaignRecords = campaigns.map((item) => (item?.get ? item.get({ plain: true }) : item));
+  const reviewRecords = reviews.map((review) => (review?.get ? review.get({ plain: true }) : review));
+  const applicationRecords = applications.map((application) => (application?.get ? application.get({ plain: true }) : application));
+  const interviewRecords = interviewSchedules.map((schedule) =>
+    schedule?.get ? schedule.get({ plain: true }) : schedule,
+  );
+
   const averageStageDuration = average(
-    sortedStages
+    stageRecords
       .map((stage) => (stage.averageDurationHours == null ? null : Number(stage.averageDurationHours)))
       .filter((value) => Number.isFinite(value)),
   );
 
-  const pendingApprovals = approvals.filter((item) => item.status !== 'approved');
+  const pendingApprovals = approvalRecords.filter((item) => item.status !== 'approved');
   const overdueApprovals = pendingApprovals.filter((item) => {
     if (!item.dueAt) return false;
-    return new Date(item.dueAt) < new Date();
+    return new Date(item.dueAt) < now;
   });
 
-  const completionDurations = approvals
+  const completionDurations = approvalRecords
     .filter((item) => item.completedAt)
-    .map((item) => {
-      const end = new Date(item.completedAt);
-      const start = item.createdAt ? new Date(item.createdAt) : null;
-      if (!start || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-        return null;
-      }
-      const diffHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-      return Number.isFinite(diffHours) ? diffHours : null;
-    })
+    .map((item) => differenceInHours(item.createdAt, item.completedAt))
     .filter((value) => Number.isFinite(value));
 
   const campaignsByChannel = new Map();
-  campaigns.forEach((campaign) => {
+  campaignRecords.forEach((campaign) => {
     const channel = normalizeCategory(campaign.channel, 'Direct');
     const entry = campaignsByChannel.get(channel) ?? {
       impressions: 0,
@@ -904,6 +941,144 @@ function buildJobLifecycleInsights({ jobStages, approvals, campaigns, pipelineSu
   });
 
   const totalSpend = Array.from(campaignsByChannel.values()).reduce((sum, entry) => sum + entry.spend, 0);
+  const campaignMetrics = Array.from(campaignsByChannel.entries())
+    .sort((a, b) => b[1].applications - a[1].applications)
+    .map(([channel, metrics]) => ({
+      channel,
+      ...metrics,
+      conversionRate: metrics.applications ? Number(((metrics.hires / metrics.applications) * 100).toFixed(1)) : 0,
+    }));
+  const totalCampaignApplications = campaignMetrics.reduce((sum, entry) => sum + entry.applications, 0);
+  const averageCampaignCpa =
+    totalCampaignApplications > 0 ? Number((totalSpend / totalCampaignApplications).toFixed(2)) : null;
+
+  const applicationMap = new Map();
+  applicationRecords.forEach((application) => {
+    if (application?.id != null) {
+      applicationMap.set(application.id, application);
+    }
+  });
+
+  const stageBuckets = stageRecords.map((stage) => {
+    const normalizedKey = normalizeStageKey(stage?.metadata?.stageKey ?? stage?.metadata?.reviewStage ?? stage?.name);
+    return {
+      stage,
+      normalizedKey: normalizedKey ?? `stage_${stage.id}`,
+      reviews: [],
+    };
+  });
+  const stageIndex = new Map(stageBuckets.map((bucket) => [bucket.normalizedKey, bucket]));
+
+  reviewRecords.forEach((review) => {
+    const key = normalizeStageKey(review.stage) ?? `stage_${review.stage ?? 'unknown'}`;
+    const bucket = stageIndex.get(key);
+    if (bucket) {
+      bucket.reviews.push(review);
+    }
+  });
+
+  const stagePerformance = stageBuckets.map(({ stage, reviews: stageReviews }) => {
+    const decided = stageReviews.filter((review) => review.decision && review.decision !== 'pending');
+    const advances = decided.filter((review) => review.decision === 'advance').length;
+    const rejects = decided.filter((review) => review.decision === 'reject').length;
+    const holds = decided.filter((review) => review.decision === 'hold').length;
+    const averageScore = decided.length
+      ? average(
+          decided
+            .map((review) => (review.score == null ? null : Number(review.score)))
+            .filter((score) => Number.isFinite(score)),
+        )
+      : null;
+    const cycleTimes = decided
+      .map((review) => {
+        const application = applicationMap.get(review.applicationId);
+        const start = application?.submittedAt ?? application?.createdAt ?? review.createdAt;
+        const end = review.decidedAt ?? review.updatedAt ?? review.createdAt;
+        return differenceInHours(start, end);
+      })
+      .filter((value) => Number.isFinite(value));
+    const pending = stageReviews.filter((review) => review.decision === 'pending').length;
+    const throughput = stageReviews.length;
+    const slaDelta =
+      stage.averageDurationHours != null && stage.slaHours != null
+        ? Number(stage.averageDurationHours) - Number(stage.slaHours)
+        : null;
+
+    return {
+      id: stage.id,
+      name: stage.name,
+      orderIndex: stage.orderIndex ?? 0,
+      slaHours: stage.slaHours ?? null,
+      averageDurationHours: stage.averageDurationHours == null ? null : Number(stage.averageDurationHours),
+      throughput,
+      pendingReviews: pending,
+      advanceRate: percentage(advances, decided.length || 0),
+      rejectionRate: percentage(rejects, decided.length || 0),
+      holdRate: percentage(holds, decided.length || 0),
+      averageScore: averageScore == null ? null : Number(averageScore),
+      medianDecisionHours: cycleTimes.length ? median(cycleTimes) : null,
+      slaDeltaHours: slaDelta == null ? null : Number(slaDelta.toFixed(1)),
+      guideUrl: stage.guideUrl ?? null,
+    };
+  });
+
+  const sortedStagePerformance = stagePerformance.sort((a, b) => a.orderIndex - b.orderIndex);
+
+  const approvalQueueItems = pendingApprovals
+    .slice()
+    .sort((a, b) => {
+      const aDue = a.dueAt ? new Date(a.dueAt) : new Date(a.createdAt ?? 0);
+      const bDue = b.dueAt ? new Date(b.dueAt) : new Date(b.createdAt ?? 0);
+      return aDue - bDue;
+    })
+    .slice(0, 6)
+    .map((item) => ({
+      id: item.id,
+      approverRole: item.approverRole,
+      status: item.status,
+      dueAt: item.dueAt,
+      createdAt: item.createdAt,
+      completedAt: item.completedAt ?? null,
+      ageHours: differenceInHours(item.createdAt),
+      isOverdue: item.dueAt ? new Date(item.dueAt) < now : false,
+      metadata: item.metadata ?? null,
+    }));
+
+  const byStatus = pipelineSummary?.byStatus ?? {};
+  const totalApplications = pipelineSummary?.totals?.applications ?? 0;
+  const funnelOrder = [
+    { status: 'submitted', label: 'Submitted' },
+    { status: 'under_review', label: 'Under review' },
+    { status: 'shortlisted', label: 'Shortlisted' },
+    { status: 'interview', label: 'Interview' },
+    { status: 'offered', label: 'Offer' },
+    { status: 'hired', label: 'Hired' },
+  ];
+  let previousCount = totalApplications || 0;
+  const funnel = funnelOrder.map((stage, index) => {
+    const count = Number(byStatus[stage.status] ?? 0);
+    const conversionFromPrevious =
+      index === 0
+        ? 100
+        : percentage(count, previousCount || (index === 1 ? totalApplications : previousCount) || 1);
+    const cumulativeConversion = percentage(count, totalApplications || 1);
+    previousCount = count || previousCount;
+    return {
+      ...stage,
+      count,
+      conversionFromPrevious,
+      cumulativeConversion,
+    };
+  });
+
+  const upcomingInterviews = interviewRecords.filter((item) => {
+    if (item.completedAt) return false;
+    if (!item.scheduledAt) return false;
+    return new Date(item.scheduledAt) >= now;
+  }).length;
+  const rescheduleCount = interviewRecords.reduce((sum, item) => sum + Number(item.rescheduleCount ?? 0), 0);
+
+  const approvalsCompleted = approvalRecords.filter((item) => item.completedAt).length;
 
   return {
     totalStages: jobStages.length,
@@ -911,27 +1086,39 @@ function buildJobLifecycleInsights({ jobStages, approvals, campaigns, pipelineSu
     pendingApprovals: pendingApprovals.length,
     overdueApprovals: overdueApprovals.length,
     averageApprovalTurnaroundHours: completionDurations.length ? Number(average(completionDurations)) : null,
-    stageGuides: sortedStages.slice(0, 8).map((stage) => ({
+    stageGuides: stageRecords.slice(0, 8).map((stage) => ({
       id: stage.id,
       name: stage.name,
       slaHours: stage.slaHours,
       averageDurationHours: stage.averageDurationHours == null ? null : Number(stage.averageDurationHours),
       guideUrl: stage.guideUrl,
     })),
+    stagePerformance: sortedStagePerformance,
+    approvalQueue: {
+      total: pendingApprovals.length,
+      overdue: overdueApprovals.length,
+      averageCompletionHours: completionDurations.length ? Number(average(completionDurations)) : null,
+      items: approvalQueueItems,
+    },
     campaigns: {
       totalSpend,
-      byChannel: Array.from(campaignsByChannel.entries())
-        .sort((a, b) => b[1].applications - a[1].applications)
-        .map(([channel, metrics]) => ({
-          channel,
-          ...metrics,
-          conversionRate: metrics.applications ? Number(((metrics.hires / metrics.applications) * 100).toFixed(1)) : 0,
-        })),
+      averageCostPerApplication: averageCampaignCpa,
+      byChannel: campaignMetrics,
+      topChannels: campaignMetrics.slice(0, 5),
     },
     atsHealth: {
       conversionRates: pipelineSummary?.conversionRates ?? {},
       velocity: pipelineSummary?.velocity ?? {},
       activeRequisitions: jobSummary?.total ?? 0,
+      upcomingInterviews,
+      rescheduleCount,
+      pendingApprovals: pendingApprovals.length,
+    },
+    funnel,
+    recentActivity: {
+      approvalsCompleted,
+      campaignsTracked: campaignRecords.length,
+      interviewsScheduled: interviewRecords.length,
     },
   };
 }
@@ -1380,6 +1567,9 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       campaigns: jobCampaigns,
       pipelineSummary,
       jobSummary,
+      applications,
+      reviews,
+      interviewSchedules,
     });
     const jobDesign = buildJobDesignStudioSummary({
       approvals: jobApprovals,
