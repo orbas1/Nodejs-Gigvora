@@ -42,6 +42,7 @@ import HeadhunterDashboardPage from './pages/dashboards/HeadhunterDashboardPage.
 import CompanyNetworkingHubPage from './pages/networking/CompanyNetworkingHubPage.jsx';
 import MentorDashboardPage from './pages/dashboards/MentorDashboardPage.jsx';
 import LaunchpadOperationsPage from './pages/dashboards/LaunchpadOperationsPage.jsx';
+import MembershipGate from './components/auth/MembershipGate.jsx';
 import ProtectedRoute from './components/routing/ProtectedRoute.jsx';
 
 const COMMUNITY_ACCESS_MEMBERSHIPS = ['user', 'freelancer', 'agency', 'company', 'mentor', 'headhunter'];
@@ -87,6 +88,11 @@ export default function App() {
       </Route>
       <Route
         path="dashboard/user"
+        element={(
+          <MembershipGate allowedMemberships={["user"]}>
+            <UserDashboardPage />
+          </MembershipGate>
+        )}
         element={
           <RequireDashboardAccess requiredRoles={["user"]}>
             <UserDashboardPage />

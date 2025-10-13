@@ -317,6 +317,8 @@ function buildMenuSections(data) {
 
 export default function UserDashboardPage() {
   const { session } = useSession();
+  const sessionUserId = session?.id ?? session?.userId ?? null;
+  const userId = sessionUserId ?? DEFAULT_USER_ID;
   const userId = resolveUserId(session);
   const shouldLoadDashboard = Boolean(session && userId);
 
@@ -327,6 +329,11 @@ export default function UserDashboardPage() {
     fromCache,
     lastUpdated,
     refresh,
+  } = useCachedResource(`dashboard:user:${userId}`, ({ signal }) => fetchUserDashboard(userId, { signal }), {
+    ttl: 1000 * 60,
+    dependencies: [userId],
+    enabled: Boolean(userId),
+  });
   } = useCachedResource(
     `dashboard:user:${userId}`,
     ({ signal }) => fetchUserDashboard(userId, { signal }),

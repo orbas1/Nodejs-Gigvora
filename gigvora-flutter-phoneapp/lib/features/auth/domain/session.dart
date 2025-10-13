@@ -88,6 +88,7 @@ class UserSession {
   }
 
   UserSession copyWith({
+    int? id,
     String? activeMembership,
     List<String>? memberships,
     Map<String, RoleDashboard>? dashboards,
@@ -155,6 +156,7 @@ class UserSession {
           role: 'user',
           heroTitle: 'User & Job Seeker Command Center',
           heroSubtitle:
+              'Track SLAs, interview readiness, and document workflows from a single command centre.',
               'Monitor applications, interviews, documents, and collaborations with enterprise-grade orchestration.',
           metrics: [
             DashboardMetric(label: 'Total applications', value: '48', trend: '▲ 6 this quarter'),
@@ -164,6 +166,12 @@ class UserSession {
           ],
           sections: [
             DashboardSection(
+              title: 'Pipeline automation',
+              subtitle: 'SLA-aware kanban stages keep hiring teams and reminders in sync.',
+              highlights: [
+                'Career pipeline automation shows 82% completion across 5 stages with no SLA breaches.',
+                'Bulk update queue prioritises two nudges before interviews later this week.',
+                'Compliance guardrail: Equal opportunity report auto-generated for November.',
               title: 'Career pipeline automation',
               subtitle: 'Kanban governance, SLA nudges, and offer workflows stay in sync.',
               highlights: [
@@ -176,6 +184,11 @@ class UserSession {
             ),
             DashboardSection(
               title: 'Document studio spotlight',
+              subtitle: 'Watermarked resumes, transcripts, and vendor deliverables ready for sharing.',
+              highlights: [
+                'Portfolio hub features 6 hero projects and 12 testimonials with smart tags applied.',
+                'AI resume audit suggests sharpening the leadership summary ahead of Friday review.',
+                'Purchased gig deliverables synced from escrow vault ready for recruiter export.',
               subtitle: 'Templates, transcripts, and brand hubs export-ready in seconds.',
               highlights: [
                 'Portfolio hub features 6 hero projects and 12 testimonials.',
@@ -186,6 +199,12 @@ class UserSession {
               accentColor: Color(0xFF0EA5E9),
             ),
             DashboardSection(
+              title: 'Network momentum',
+              subtitle: 'Advisor collaborations and warm intros keep referrals active.',
+              highlights: [
+                'Atlas Studios warmed up after last week’s product jam—follow-up scheduled for Thursday.',
+                '3 pending mentor requests with accountability notes logged for each.',
+                'Offer negotiation vault tracks 2 packages and compares compensation benchmarks.',
               title: 'Insights & network',
               subtitle: 'Relationship heat-maps and accountability rituals keep momentum.',
               highlights: [
@@ -198,6 +217,14 @@ class UserSession {
             ),
           ],
           actions: [
+            DashboardAction(
+              label: 'Review interview prep kit',
+              description: 'Talking points, scorecards, and recordings are queued for tomorrow’s panel.',
+            ),
+            DashboardAction(
+              label: 'Approve auto-apply guardrails',
+              description: 'Validate premium role filters before the automation run this evening.',
+            ),
             DashboardAction(label: 'Run follow-up queue', description: 'Trigger nudges for recruiters awaiting updates.'),
             DashboardAction(label: 'Generate CV refresh', description: 'Roll latest portfolio wins into the enterprise CV suite.'),
           ],
