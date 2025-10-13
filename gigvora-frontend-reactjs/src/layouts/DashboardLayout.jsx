@@ -46,8 +46,7 @@ export default function DashboardLayout({
     ? availableDashboards
     : Object.keys(DASHBOARD_LINKS);
 
-  const switchableDashboards = memberships
-    .filter((key) => key !== currentDashboard && DASHBOARD_LINKS[key]);
+  const switchableDashboards = memberships.filter((key) => key !== currentDashboard && DASHBOARD_LINKS[key]);
 
   const handleSearchSubmit = (event) => {
     event.preventDefault();
