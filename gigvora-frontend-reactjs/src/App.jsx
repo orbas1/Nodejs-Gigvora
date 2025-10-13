@@ -37,6 +37,7 @@ import HeadhunterDashboardPage from './pages/dashboards/HeadhunterDashboardPage.
 import CompanyNetworkingHubPage from './pages/networking/CompanyNetworkingHubPage.jsx';
 import MentorDashboardPage from './pages/dashboards/MentorDashboardPage.jsx';
 import LaunchpadOperationsPage from './pages/dashboards/LaunchpadOperationsPage.jsx';
+import ProtectedRoute from './components/auth/ProtectedRoute.jsx';
 
 export default function App() {
   return (
@@ -74,8 +75,22 @@ export default function App() {
       <Route path="dashboard/freelancer/pipeline" element={<FreelancerPipelinePage />} />
       <Route path="dashboard/admin" element={<AdminDashboardPage />} />
       <Route path="dashboard/agency" element={<AgencyDashboardPage />} />
-      <Route path="dashboard/company" element={<CompanyDashboardPage />} />
-      <Route path="dashboard/company/networking" element={<CompanyNetworkingHubPage />} />
+      <Route
+        path="dashboard/company"
+        element={(
+          <ProtectedRoute allowedMemberships={["company"]}>
+            <CompanyDashboardPage />
+          </ProtectedRoute>
+        )}
+      />
+      <Route
+        path="dashboard/company/networking"
+        element={(
+          <ProtectedRoute allowedMemberships={["company"]}>
+            <CompanyNetworkingHubPage />
+          </ProtectedRoute>
+        )}
+      />
       <Route path="dashboard/headhunter" element={<HeadhunterDashboardPage />} />
       <Route path="dashboard/mentor" element={<MentorDashboardPage />} />
       <Route path="dashboard/launchpad" element={<LaunchpadOperationsPage />} />

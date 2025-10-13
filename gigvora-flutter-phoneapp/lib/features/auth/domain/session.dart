@@ -86,13 +86,70 @@ class UserSession {
       email: 'lena.fields@gigvora.com',
       location: 'Berlin, Germany',
       avatarSeed: 'Lena Fields',
-      memberships: const ['user', 'freelancer', 'agency'],
-      activeMembership: 'user',
+      memberships: const ['company', 'user', 'freelancer', 'agency'],
+      activeMembership: 'company',
       followers: 1280,
       connections: 324,
       companies: const ['Gigvora Labs', 'Atlas Studios'],
       agencies: const ['Northshore Creative'],
       dashboards: const {
+        'company': RoleDashboard(
+          role: 'company',
+          heroTitle: 'Talent acquisition nerve centre',
+          heroSubtitle:
+              'Monitor ATS health, collaborate across teams, and keep every requisition moving toward signed offers.',
+          metrics: [
+            DashboardMetric(label: 'Open requisitions', value: '24', trend: '▲ 6 this week'),
+            DashboardMetric(label: 'Avg days to decision', value: '18', trend: '↘ Beats target by 2'),
+            DashboardMetric(label: 'Candidate NPS', value: '4.7/5', trend: '▲ +0.3 over 30d'),
+            DashboardMetric(label: 'Automation coverage', value: '82%', trend: 'Playbooks activated'),
+          ],
+          sections: [
+            DashboardSection(
+              title: 'ATS lifecycle intelligence',
+              subtitle: 'Real-time insight across stages, from intake to onboarding readiness.',
+              highlights: [
+                'Hiring velocity steady at 18 days with interview SLAs green.',
+                'Score confidence 76% with 14 of 18 lifecycle signals connected.',
+                'Pipeline conversion +9% after automation nudges were deployed.',
+              ],
+              icon: Icons.analytics_outlined,
+              accentColor: Color(0xFF4F46E5),
+            ),
+            DashboardSection(
+              title: 'Collaboration & approvals',
+              subtitle: 'Structured guides, interviewer calibration, and guardrails keep teams aligned.',
+              highlights: [
+                '98% of stages now have documented guides and scorecards.',
+                'Approvals queue clear—auto-escalations caught two overdue offers.',
+                'Calibration cadence weekly with two new interviewers certified.',
+              ],
+              icon: Icons.groups_outlined,
+              accentColor: Color(0xFF2563EB),
+            ),
+            DashboardSection(
+              title: 'Experience & compliance',
+              subtitle: 'Candidate care centre tracks NPS, forms, and SLA response times.',
+              highlights: [
+                'Service desk response time 11 minutes with zero open escalations.',
+                'Background check automation reduced manual follow-ups by 35%.',
+                'Inclusion score 8.9/10 after refreshed prep resources went live.',
+              ],
+              icon: Icons.verified_user_outlined,
+              accentColor: Color(0xFF0EA5E9),
+            ),
+          ],
+          actions: [
+            DashboardAction(
+              label: 'Review stage analytics',
+              description: 'Spot bottlenecks and rebalance interviewer load before next week.',
+            ),
+            DashboardAction(
+              label: 'Sync hiring partners',
+              description: 'Share ATS scorecard and upcoming requisitions with agencies and headhunters.',
+            ),
+          ],
+        ),
         'user': RoleDashboard(
           role: 'user',
           heroTitle: 'Career growth command centre',
