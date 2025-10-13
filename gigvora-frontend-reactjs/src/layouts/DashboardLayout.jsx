@@ -125,9 +125,9 @@ export default function DashboardLayout({
                 <div key={section.label}>
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{section.label}</p>
                   <ul className="mt-3 space-y-2">
-                    {section.items.map((item) => (
-                      <li key={item.name}>
-                        <div className="group flex flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50">
+                    {section.items.map((item) => {
+                      const content = (
+                        <>
                           <div className="flex items-center justify-between">
                             <span className="text-sm font-medium text-slate-700">{item.name}</span>
                             <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
@@ -147,9 +147,27 @@ export default function DashboardLayout({
                               ))}
                             </div>
                           ) : null}
-                        </div>
-                      </li>
-                    ))}
+                        </>
+                      );
+
+                      return (
+                        <li key={item.name}>
+                          {item.href ? (
+                            <a
+                              href={item.href}
+                              onClick={() => setSidebarOpen(false)}
+                              className="group flex flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50"
+                            >
+                              {content}
+                            </a>
+                          ) : (
+                            <div className="group flex flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50">
+                              {content}
+                            </div>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               ))}
