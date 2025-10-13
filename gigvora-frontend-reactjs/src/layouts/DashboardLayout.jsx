@@ -161,7 +161,7 @@ export default function DashboardLayout({
 
             <div className="mt-auto rounded-3xl border border-blue-100 bg-blue-50 p-5 text-blue-800 shadow-sm">
               <div className="flex items-center gap-3">
-                <Squares2X2Icon className="h-6 w-6" />
+                <Squares2X2Icon className="h-6 w-6 text-accent" />
                 <div>
                   <p className="text-sm font-semibold">Workspace tips</p>
                   <p className="text-xs text-blue-700/80">

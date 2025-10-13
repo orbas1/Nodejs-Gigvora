@@ -5,6 +5,7 @@ import asyncHandler from '../utils/asyncHandler.js';
 const router = Router();
 
 router.get('/', asyncHandler(userController.listUsers));
+router.get('/:id/dashboard', asyncHandler(userController.getUserDashboard));
 router.get('/:id', asyncHandler(userController.getUserProfile));
 router.put('/:id', asyncHandler(userController.updateUser));
 router.patch('/:id/profile', asyncHandler(userController.updateProfileSettings));
