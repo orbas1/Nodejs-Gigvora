@@ -26,17 +26,6 @@ function formatPercent(value, fractionDigits = 1) {
   return formatter.format(Number(value) / 100);
 }
 
-function formatCurrency(value, currency = 'USD') {
-  if (value == null || Number.isNaN(Number(value))) return '—';
-  const formatter = new Intl.NumberFormat('en-GB', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  });
-  return formatter.format(Number(value));
-}
-
 function formatChangeBadge(change, { suffix = '' } = {}) {
   if (!change) {
     return { label: 'Stable', tone: 'neutral' };

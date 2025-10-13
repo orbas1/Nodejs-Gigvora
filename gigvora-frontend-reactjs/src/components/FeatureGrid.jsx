@@ -1,7 +1,11 @@
 const features = [
   {
+    title: 'Mentor marketplace',
+    description: 'Book 1:1 sessions, clinics, and growth packages with operators across leadership, product, and revenue.',
+  },
+  {
     title: 'Experience Launchpad',
-    description: 'Curated sprints that help emerging talent ship portfolio-ready work alongside mentors and teams.',
+    description: 'Structured cohort programmes focused on shipping portfolio-ready work with partner companies.',
   },
   {
     title: 'Jobs & Projects',

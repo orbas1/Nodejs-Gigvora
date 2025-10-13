@@ -13,6 +13,7 @@ import ProjectsPage from './pages/ProjectsPage.jsx';
 import ProjectCreatePage from './pages/ProjectCreatePage.jsx';
 import ProjectDetailPage from './pages/ProjectDetailPage.jsx';
 import LaunchpadPage from './pages/LaunchpadPage.jsx';
+import MentorsPage from './pages/MentorsPage.jsx';
 import VolunteeringPage from './pages/VolunteeringPage.jsx';
 import AdminLoginPage from './pages/AdminLoginPage.jsx';
 import GroupsPage from './pages/GroupsPage.jsx';
@@ -32,6 +33,7 @@ import AdminDashboardPage from './pages/dashboards/AdminDashboardPage.jsx';
 import AgencyDashboardPage from './pages/dashboards/AgencyDashboardPage.jsx';
 import CompanyDashboardPage from './pages/dashboards/CompanyDashboardPage.jsx';
 import HeadhunterDashboardPage from './pages/dashboards/HeadhunterDashboardPage.jsx';
+import MentorDashboardPage from './pages/dashboards/MentorDashboardPage.jsx';
 import LaunchpadOperationsPage from './pages/dashboards/LaunchpadOperationsPage.jsx';
 
 export default function App() {
@@ -51,6 +53,7 @@ export default function App() {
         <Route path="projects/new" element={<ProjectCreatePage />} />
         <Route path="projects/:projectId" element={<ProjectDetailPage />} />
         <Route path="experience-launchpad" element={<LaunchpadPage />} />
+        <Route path="mentors" element={<MentorsPage />} />
         <Route path="volunteering" element={<VolunteeringPage />} />
         <Route path="groups" element={<GroupsPage />} />
         <Route path="connections" element={<ConnectionsPage />} />
@@ -70,6 +73,7 @@ export default function App() {
       <Route path="dashboard/agency" element={<AgencyDashboardPage />} />
       <Route path="dashboard/company" element={<CompanyDashboardPage />} />
       <Route path="dashboard/headhunter" element={<HeadhunterDashboardPage />} />
+      <Route path="dashboard/mentor" element={<MentorDashboardPage />} />
       <Route path="dashboard/launchpad" element={<LaunchpadOperationsPage />} />
       <Route path="admin" element={<AdminLoginPage />} />
     </Routes>

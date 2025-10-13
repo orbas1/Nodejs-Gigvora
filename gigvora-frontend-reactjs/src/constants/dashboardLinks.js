@@ -23,4 +23,8 @@ export const DASHBOARD_LINKS = {
     label: 'Headhunter',
     path: '/dashboard/headhunter',
   },
+  mentor: {
+    label: 'Mentor',
+    path: '/dashboard/mentor',
+  },
 };
