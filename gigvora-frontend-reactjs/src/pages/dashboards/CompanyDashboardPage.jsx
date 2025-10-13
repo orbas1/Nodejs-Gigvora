@@ -14,6 +14,7 @@ import DataStatus from '../../components/DataStatus.jsx';
 import JobLifecycleSection from '../../components/company/JobLifecycleSection.jsx';
 import { useCompanyDashboard } from '../../hooks/useCompanyDashboard.js';
 import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
+import InterviewExperienceSection from '../../components/dashboard/InterviewExperienceSection.jsx';
 
 const menuSections = [
   {
@@ -177,6 +178,19 @@ function formatPercent(value) {
   return `${Number(value).toFixed(1)}%`;
 }
 
+function slugify(value) {
+  if (!value) {
+    return '';
+  }
+  return value
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+}
+
 function buildSections(data) {
   if (!data) {
     return [];
@@ -191,6 +205,7 @@ function buildSections(data) {
     applicantRelationshipManager,
     analyticsForecasting,
     interviewOperations,
+    interviewExperience,
     candidateExperience,
     offerOnboarding,
     candidateCare,
@@ -271,10 +286,16 @@ function buildSections(data) {
       ]
     : ['Forecast models will appear once enough activity is captured.'];
 
+  const schedulerMetrics = interviewExperience?.scheduler ?? {};
+  const offerBridgeMetrics = interviewExperience?.offerBridge ?? {};
+  const candidateCareCenterMetrics = interviewExperience?.candidateCareCenter ?? {};
+
   const interviewPoints = [
-    `Upcoming interviews: ${formatNumber(interviewOperations?.upcomingCount)}`,
-    `Average lead time: ${formatNumber(interviewOperations?.averageLeadTimeHours, { suffix: ' hrs' })}`,
-    `Average duration: ${formatNumber(interviewOperations?.averageDurationMinutes, { suffix: ' mins' })}`,
+    `Upcoming interviews: ${formatNumber(
+      schedulerMetrics.upcomingCount ?? interviewOperations?.upcomingCount,
+    )}`,
+    `Reminder coverage: ${formatPercent(schedulerMetrics.reminderCoverage)}`,
+    `Availability coverage: ${formatPercent(schedulerMetrics.availabilityCoverage)}`,
     `Feedback logged: ${formatNumber(interviewOperations?.feedbackLogged)}`,
   ];
 
@@ -292,7 +313,7 @@ function buildSections(data) {
   const offerPoints = [
     `Open offers: ${formatNumber(offerOnboarding?.openOffers)}`,
     `Acceptance rate: ${formatPercent(offerOnboarding?.acceptanceRate)}`,
-    `Onboarding follow-ups: ${formatNumber(offerOnboarding?.onboardingFollowUps)}`,
+    `Approvals pending: ${formatNumber(offerBridgeMetrics.approvalsPending)}`,
     `Average days to start: ${formatNumber(offerOnboarding?.averageDaysToStart)}`,
   ];
 
@@ -303,8 +324,12 @@ function buildSections(data) {
         ? `${Number(candidateCare.nps).toFixed(1)}`
         : '—'
     }`,
-    `Follow-ups pending: ${formatNumber(candidateCare?.followUpsPending)}`,
-    `Escalations: ${formatNumber(candidateCare?.escalations)}`,
+    `Follow-ups pending: ${formatNumber(
+      candidateCareCenterMetrics.followUpsPending ?? candidateCare?.followUpsPending,
+    )}`,
+    `Escalations: ${formatNumber(
+      candidateCareCenterMetrics.escalations ?? candidateCare?.escalations,
+    )}`,
   ];
 
   const partnerPoints = [
@@ -372,6 +397,11 @@ function buildSections(data) {
       ]
     : ['Governance metrics appear once approvals and alerts are captured.'];
 
+  const recommendationPoints = Array.isArray(recommendations) && recommendations.length
+    ? recommendations.map((item) => item.title)
+    : ['Keep capturing activity to surface recommended actions.'];
+
+  const sections = [
   return [
     {
       title: 'Hiring overview',
@@ -471,6 +501,15 @@ function buildSections(data) {
     {
       title: 'Interview excellence & candidate experience',
       description: 'Enable consistent, inclusive interviews with rich feedback loops.',
+      component: {
+        Component: InterviewExperienceSection,
+        props: {
+          data: interviewExperience,
+          interviewOperations,
+          candidateExperience,
+          offerOnboarding,
+        },
+      },
       features: [
         {
           name: 'Interview operations',
@@ -561,6 +600,12 @@ function buildSections(data) {
         },
       ],
     },
+  ];
+
+  return sections.map((section) => ({
+    ...section,
+    id: section.id ?? slugify(section.title),
+  }));
   ].map((section) => ({ ...section, id: section.id ?? slugify(section.title) }));
 }
 
@@ -1144,6 +1189,21 @@ export default function CompanyDashboardPage() {
           })}
         </div>
 
+        {sections.map((section) => {
+          const SectionComponent = section.component?.Component ?? null;
+          return (
+            <section
+              key={section.title}
+              id={section.id}
+              className="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_18px_40px_-24px_rgba(30,64,175,0.35)] sm:p-8"
+            >
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">{section.title}</h2>
+                  {section.description ? (
+                    <p className="mt-2 max-w-3xl text-sm text-slate-600">{section.description}</p>
+                  ) : null}
+                </div>
         <BrandAndPeopleSection data={brandAndPeople} />
         {data ? (
           <JobLifecycleSection
@@ -1164,32 +1224,43 @@ export default function CompanyDashboardPage() {
                 <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">{section.title}</h2>
                 {section.description ? <p className="mt-2 max-w-3xl text-sm text-slate-600">{section.description}</p> : null}
               </div>
-            </div>
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              {section.features.map((feature) => (
-                <div
-                  key={feature.name}
-                  className="group flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50 p-5 transition hover:border-blue-300 hover:bg-blue-50"
-                >
-                  <div>
-                    <h3 className="text-lg font-semibold text-slate-900">{feature.name}</h3>
-                    {feature.description ? <p className="mt-2 text-sm text-slate-600">{feature.description}</p> : null}
-                    {feature.bulletPoints?.length ? (
-                      <ul className="mt-3 space-y-2 text-sm text-slate-600">
-                        {feature.bulletPoints.map((point) => (
-                          <li key={point} className="flex gap-2">
-                            <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400" />
-                            <span>{point}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : null}
-                  </div>
+
+              {SectionComponent ? (
+                <div className="mt-6">
+                  <SectionComponent {...section.component.props} />
                 </div>
-              ))}
-            </div>
-          </section>
-        ))}
+              ) : null}
+
+              {section.features?.length ? (
+                <div className={`mt-6 grid gap-4 ${section.features.length > 1 ? 'sm:grid-cols-2' : 'sm:grid-cols-1'}`}>
+                  {section.features.map((feature) => (
+                    <div
+                      key={feature.name}
+                      className="group flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50 p-5 transition hover:border-blue-300 hover:bg-blue-50"
+                    >
+                      <div>
+                        <h3 className="text-lg font-semibold text-slate-900">{feature.name}</h3>
+                        {feature.description ? (
+                          <p className="mt-2 text-sm text-slate-600">{feature.description}</p>
+                        ) : null}
+                        {feature.bulletPoints?.length ? (
+                          <ul className="mt-3 space-y-2 text-sm text-slate-600">
+                            {feature.bulletPoints.map((point) => (
+                              <li key={point} className="flex gap-2">
+                                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400" />
+                                <span>{point}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </section>
+          );
+        })}
 
         <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
           <div className="mb-4 flex items-center justify-between">

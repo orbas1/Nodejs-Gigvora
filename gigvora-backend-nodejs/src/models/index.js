@@ -301,6 +301,13 @@ export const GIG_ORDER_STATUSES = [
 
 export const GIG_ORDER_REQUIREMENT_STATUSES = ['pending', 'received', 'waived'];
 export const GIG_ORDER_REQUIREMENT_PRIORITIES = ['low', 'medium', 'high'];
+export const GIG_ORDER_REVISION_WORKFLOW_STATUSES = [
+  'requested',
+  'in_progress',
+  'submitted',
+  'approved',
+  'rejected',
+];
 export const GIG_ORDER_REVISION_SEVERITIES = ['low', 'medium', 'high'];
 export const GIG_ORDER_PAYOUT_STATUSES = ['pending', 'scheduled', 'released', 'at_risk', 'on_hold'];
 export const GIG_ORDER_ACTIVITY_TYPES = [
@@ -2552,10 +2559,10 @@ export const GigOrderRevision = sequelize.define(
     orderId: { type: DataTypes.INTEGER, allowNull: false },
     roundNumber: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
     status: {
-      type: DataTypes.ENUM(...GIG_ORDER_REVISION_STATUSES),
+      type: DataTypes.ENUM(...GIG_ORDER_REVISION_WORKFLOW_STATUSES),
       allowNull: false,
       defaultValue: 'requested',
-      validate: { isIn: [GIG_ORDER_REVISION_STATUSES] },
+      validate: { isIn: [GIG_ORDER_REVISION_WORKFLOW_STATUSES] },
     },
     severity: {
       type: DataTypes.ENUM(...GIG_ORDER_REVISION_SEVERITIES),
@@ -5063,6 +5070,30 @@ export const CandidateSatisfactionSurvey = sequelize.define(
   },
 );
 
+export const InterviewPanelTemplate = sequelize.define(
+  'InterviewPanelTemplate',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    roleName: { type: DataTypes.STRING(180), allowNull: false },
+    stage: { type: DataTypes.STRING(120), allowNull: false },
+    durationMinutes: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 45 },
+    competencies: { type: jsonType, allowNull: false, defaultValue: [] },
+    rubric: { type: jsonType, allowNull: false, defaultValue: [] },
+    instructions: { type: DataTypes.TEXT, allowNull: true },
+    version: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
+    lastUpdatedBy: { type: DataTypes.INTEGER, allowNull: true },
+    lastUsedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'interview_panel_templates',
+    indexes: [
+      { fields: ['workspaceId', 'roleName'] },
+      { fields: ['workspaceId', 'stage'] },
+    ],
+  },
+);
+
 export const InterviewSchedule = sequelize.define(
   'InterviewSchedule',
   {
@@ -5082,6 +5113,213 @@ export const InterviewSchedule = sequelize.define(
       { fields: ['workspaceId'] },
       { fields: ['applicationId'] },
       { fields: ['scheduledAt'] },
+    ],
+  },
+);
+
+export const InterviewerAvailability = sequelize.define(
+  'InterviewerAvailability',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    interviewerId: { type: DataTypes.INTEGER, allowNull: true },
+    interviewerName: { type: DataTypes.STRING(255), allowNull: true },
+    timezone: { type: DataTypes.STRING(120), allowNull: true },
+    availableFrom: { type: DataTypes.DATE, allowNull: false },
+    availableTo: { type: DataTypes.DATE, allowNull: false },
+    status: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'available' },
+    capacityHours: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  {
+    tableName: 'interviewer_availabilities',
+    indexes: [{ fields: ['workspaceId', 'availableFrom'] }],
+  },
+);
+
+export const InterviewReminder = sequelize.define(
+  'InterviewReminder',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    interviewScheduleId: { type: DataTypes.INTEGER, allowNull: false },
+    reminderType: { type: DataTypes.STRING(60), allowNull: false },
+    sentAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    deliveryStatus: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'sent' },
+    channel: { type: DataTypes.STRING(60), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'interview_reminders',
+    indexes: [{ fields: ['workspaceId', 'sentAt'] }],
+  },
+);
+
+export const CandidatePrepPortal = sequelize.define(
+  'CandidatePrepPortal',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    applicationId: { type: DataTypes.INTEGER, allowNull: true },
+    candidateName: { type: DataTypes.STRING(255), allowNull: false },
+    candidateEmail: { type: DataTypes.STRING(255), allowNull: true },
+    stage: { type: DataTypes.STRING(120), allowNull: true },
+    status: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'active' },
+    accessCode: { type: DataTypes.STRING(120), allowNull: true },
+    resources: { type: jsonType, allowNull: true },
+    forms: { type: jsonType, allowNull: true },
+    visitCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    resourceViews: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    resourceTotal: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    formsCompleted: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    formsRequired: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    ndaRequired: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    ndaStatus: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'not_sent' },
+    ndaSignedAt: { type: DataTypes.DATE, allowNull: true },
+    lastAccessedAt: { type: DataTypes.DATE, allowNull: true },
+    expiresAt: { type: DataTypes.DATE, allowNull: true },
+    nextActionAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'candidate_prep_portals',
+    indexes: [{ fields: ['workspaceId', 'status'] }],
+  },
+);
+
+export const InterviewEvaluation = sequelize.define(
+  'InterviewEvaluation',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    applicationId: { type: DataTypes.INTEGER, allowNull: false },
+    interviewScheduleId: { type: DataTypes.INTEGER, allowNull: true },
+    templateId: { type: DataTypes.INTEGER, allowNull: true },
+    interviewerId: { type: DataTypes.INTEGER, allowNull: true },
+    interviewerName: { type: DataTypes.STRING(255), allowNull: true },
+    stage: { type: DataTypes.STRING(120), allowNull: false },
+    overallRecommendation: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'pending' },
+    overallScore: { type: DataTypes.DECIMAL(4, 2), allowNull: true },
+    rubricScores: { type: jsonType, allowNull: true },
+    strengths: { type: DataTypes.TEXT, allowNull: true },
+    risks: { type: DataTypes.TEXT, allowNull: true },
+    anonymized: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    biasFlags: { type: jsonType, allowNull: true },
+    submittedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'interview_evaluations',
+    indexes: [
+      { fields: ['workspaceId', 'stage'] },
+      { fields: ['workspaceId', 'submittedAt'] },
+    ],
+  },
+);
+
+export const EvaluationCalibrationSession = sequelize.define(
+  'EvaluationCalibrationSession',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    roleName: { type: DataTypes.STRING(180), allowNull: false },
+    scheduledAt: { type: DataTypes.DATE, allowNull: false },
+    completedAt: { type: DataTypes.DATE, allowNull: true },
+    alignmentScore: { type: DataTypes.DECIMAL(4, 2), allowNull: true },
+    participants: { type: jsonType, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'evaluation_calibration_sessions',
+    indexes: [{ fields: ['workspaceId', 'scheduledAt'] }],
+  },
+);
+
+export const DecisionTracker = sequelize.define(
+  'DecisionTracker',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    applicationId: { type: DataTypes.INTEGER, allowNull: false },
+    candidateName: { type: DataTypes.STRING(255), allowNull: true },
+    status: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'in_review' },
+    decision: { type: DataTypes.STRING(40), allowNull: true },
+    rationale: { type: DataTypes.TEXT, allowNull: true },
+    packageDetails: { type: jsonType, allowNull: true },
+    approvals: { type: jsonType, allowNull: true },
+    openedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    decidedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'decision_trackers',
+    indexes: [{ fields: ['workspaceId', 'status'] }],
+  },
+);
+
+export const OfferPackage = sequelize.define(
+  'OfferPackage',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    applicationId: { type: DataTypes.INTEGER, allowNull: true },
+    candidateName: { type: DataTypes.STRING(255), allowNull: true },
+    roleName: { type: DataTypes.STRING(180), allowNull: true },
+    status: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'draft' },
+    approvalStatus: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'pending' },
+    digitalSignatureStatus: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'not_sent' },
+    backgroundCheckStatus: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'not_started' },
+    packageValue: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    currency: { type: DataTypes.STRING(12), allowNull: false, defaultValue: 'USD' },
+    startDate: { type: DataTypes.DATE, allowNull: true },
+    expiresAt: { type: DataTypes.DATE, allowNull: true },
+    version: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'offer_packages',
+    indexes: [{ fields: ['workspaceId', 'status'] }],
+  },
+);
+
+export const OnboardingTask = sequelize.define(
+  'OnboardingTask',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    applicationId: { type: DataTypes.INTEGER, allowNull: true },
+    category: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'general' },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    ownerId: { type: DataTypes.INTEGER, allowNull: true },
+    ownerName: { type: DataTypes.STRING(255), allowNull: true },
+    status: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'not_started' },
+    dueAt: { type: DataTypes.DATE, allowNull: true },
+    completedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'onboarding_tasks',
+    indexes: [{ fields: ['workspaceId', 'status'] }],
+  },
+);
+
+export const CandidateCareTicket = sequelize.define(
+  'CandidateCareTicket',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    applicationId: { type: DataTypes.INTEGER, allowNull: true },
+    candidateName: { type: DataTypes.STRING(255), allowNull: true },
+    type: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'support' },
+    status: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'open' },
+    priority: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'medium' },
+    inclusionCategory: { type: DataTypes.STRING(120), allowNull: true },
+    openedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    firstRespondedAt: { type: DataTypes.DATE, allowNull: true },
+    resolvedAt: { type: DataTypes.DATE, allowNull: true },
+    escalatedAt: { type: DataTypes.DATE, allowNull: true },
+    npsImpact: { type: DataTypes.INTEGER, allowNull: true },
+    followUpDueAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'candidate_care_tickets',
+    indexes: [
+      { fields: ['workspaceId', 'status'] },
+      { fields: ['workspaceId', 'openedAt'] },
     ],
   },
 );
@@ -11995,12 +12233,43 @@ DeliverableVaultItem.belongsTo(DeliverableDeliveryPackage, { foreignKey: 'latest
 DeliverableVaultItem.hasMany(DeliverableVersion, { foreignKey: 'itemId', as: 'versions' });
 DeliverableVaultItem.hasMany(DeliverableDeliveryPackage, { foreignKey: 'itemId', as: 'deliveryPackages' });
 
+InterviewSchedule.hasMany(InterviewReminder, { foreignKey: 'interviewScheduleId', as: 'reminders' });
+InterviewReminder.belongsTo(InterviewSchedule, { foreignKey: 'interviewScheduleId', as: 'schedule' });
+
+InterviewSchedule.hasMany(InterviewEvaluation, { foreignKey: 'interviewScheduleId', as: 'evaluations' });
+InterviewEvaluation.belongsTo(InterviewSchedule, { foreignKey: 'interviewScheduleId', as: 'schedule' });
+
+InterviewPanelTemplate.hasMany(InterviewEvaluation, { foreignKey: 'templateId', as: 'evaluations' });
+InterviewEvaluation.belongsTo(InterviewPanelTemplate, { foreignKey: 'templateId', as: 'template' });
+
+Application.hasMany(CandidateDemographicSnapshot, { foreignKey: 'applicationId', as: 'demographics' });
+CandidateDemographicSnapshot.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });
 DeliverableVersion.belongsTo(DeliverableVaultItem, { foreignKey: 'itemId', as: 'item' });
 DeliverableVersion.belongsTo(User, { foreignKey: 'uploadedById', as: 'uploadedBy' });
 
 DeliverableDeliveryPackage.belongsTo(DeliverableVaultItem, { foreignKey: 'itemId', as: 'item' });
 DeliverableDeliveryPackage.belongsTo(User, { foreignKey: 'generatedById', as: 'generatedBy' });
 
+Application.hasMany(InterviewEvaluation, { foreignKey: 'applicationId', as: 'interviewEvaluations' });
+InterviewEvaluation.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });
+
+Application.hasMany(CandidatePrepPortal, { foreignKey: 'applicationId', as: 'prepPortals' });
+CandidatePrepPortal.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });
+
+Application.hasMany(DecisionTracker, { foreignKey: 'applicationId', as: 'decisionTrackers' });
+DecisionTracker.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });
+
+Application.hasMany(OfferPackage, { foreignKey: 'applicationId', as: 'offerPackages' });
+OfferPackage.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });
+
+Application.hasMany(OnboardingTask, { foreignKey: 'applicationId', as: 'onboardingTasks' });
+OnboardingTask.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });
+
+Application.hasMany(CandidateCareTicket, { foreignKey: 'applicationId', as: 'careTickets' });
+CandidateCareTicket.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });
+
+Job.hasMany(JobStage, { foreignKey: 'jobId', as: 'stages' });
+JobStage.belongsTo(Job, { foreignKey: 'jobId', as: 'job' });
 User.hasMany(SearchSubscription, { foreignKey: 'userId', as: 'searchSubscriptions' });
 SearchSubscription.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
@@ -12519,7 +12788,26 @@ ProviderWorkspace.hasMany(CandidateSatisfactionSurvey, {
   foreignKey: 'workspaceId',
   as: 'candidateSurveys',
 });
+ProviderWorkspace.hasMany(InterviewPanelTemplate, {
+  foreignKey: 'workspaceId',
+  as: 'interviewPanelTemplates',
+});
 ProviderWorkspace.hasMany(InterviewSchedule, { foreignKey: 'workspaceId', as: 'interviewSchedules' });
+ProviderWorkspace.hasMany(InterviewerAvailability, {
+  foreignKey: 'workspaceId',
+  as: 'interviewerAvailability',
+});
+ProviderWorkspace.hasMany(InterviewReminder, { foreignKey: 'workspaceId', as: 'interviewReminders' });
+ProviderWorkspace.hasMany(CandidatePrepPortal, { foreignKey: 'workspaceId', as: 'candidatePrepPortals' });
+ProviderWorkspace.hasMany(InterviewEvaluation, { foreignKey: 'workspaceId', as: 'interviewEvaluations' });
+ProviderWorkspace.hasMany(EvaluationCalibrationSession, {
+  foreignKey: 'workspaceId',
+  as: 'evaluationCalibrationSessions',
+});
+ProviderWorkspace.hasMany(DecisionTracker, { foreignKey: 'workspaceId', as: 'decisionTrackers' });
+ProviderWorkspace.hasMany(OfferPackage, { foreignKey: 'workspaceId', as: 'offerPackages' });
+ProviderWorkspace.hasMany(OnboardingTask, { foreignKey: 'workspaceId', as: 'onboardingTasks' });
+ProviderWorkspace.hasMany(CandidateCareTicket, { foreignKey: 'workspaceId', as: 'candidateCareTickets' });
 ProviderWorkspace.hasMany(JobStage, { foreignKey: 'workspaceId', as: 'jobStages' });
 ProviderWorkspace.hasMany(JobApprovalWorkflow, { foreignKey: 'workspaceId', as: 'jobApprovals' });
 ProviderWorkspace.hasMany(JobCampaignPerformance, { foreignKey: 'workspaceId', as: 'jobCampaignPerformance' });
@@ -12675,7 +12963,17 @@ ProviderContactNote.belongsTo(User, { foreignKey: 'subjectUserId', as: 'subject'
 HiringAlert.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 CandidateDemographicSnapshot.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 CandidateSatisfactionSurvey.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+InterviewPanelTemplate.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 InterviewSchedule.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+InterviewerAvailability.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+InterviewReminder.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+CandidatePrepPortal.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+InterviewEvaluation.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+EvaluationCalibrationSession.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+DecisionTracker.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+OfferPackage.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+OnboardingTask.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+CandidateCareTicket.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 JobStage.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 JobApprovalWorkflow.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 JobCampaignPerformance.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
@@ -13034,7 +13332,17 @@ export default {
   HiringAlert,
   CandidateDemographicSnapshot,
   CandidateSatisfactionSurvey,
+  InterviewPanelTemplate,
   InterviewSchedule,
+  InterviewerAvailability,
+  InterviewReminder,
+  CandidatePrepPortal,
+  InterviewEvaluation,
+  EvaluationCalibrationSession,
+  DecisionTracker,
+  OfferPackage,
+  OnboardingTask,
+  CandidateCareTicket,
   JobStage,
   JobApprovalWorkflow,
   JobCampaignPerformance,
