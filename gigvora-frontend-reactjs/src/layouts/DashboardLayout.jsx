@@ -152,6 +152,10 @@ export default function DashboardLayout({
                             {item.description ? <p className="text-xs text-slate-500">{item.description}</p> : null}
                     {section.items.map((item) => (
                       <li key={item.name}>
+                        {item.href ? (
+                          <a
+                            href={item.href}
+                            className="group block rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
                         {(item.href ? 'a' : 'div') === 'a' ? (
                           <a
                             href={item.href}
@@ -160,6 +164,7 @@ export default function DashboardLayout({
                             <div className="flex items-center justify-between">
                               <span className="text-sm font-medium text-slate-700">{item.name}</span>
                               <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
+                            </div>
                             </div>
                     {section.items.map((item) => {
                       const content = (

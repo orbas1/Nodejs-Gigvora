@@ -12,6 +12,7 @@ import {
   ShieldCheckIcon,
 } from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import TaskSprintManager from '../../components/dashboard/TaskSprintManager.jsx';
 import useCachedResource from '../../hooks/useCachedResource.js';
 import { fetchFreelancerFinanceInsights } from '../../services/finance.js';
 
@@ -1138,11 +1139,16 @@ const BASE_CAPABILITY_SECTIONS = [
       {
         name: 'Task & sprint manager',
         description:
-          'Run sprints, Kanban boards, and timeline views with burn charts, dependencies, and backlog grooming.',
+          'Run sprints with precision—combine Kanban boards, swimlanes, and timeline views so every deliverable has a clear owner, dependency map, and burn chart to track health in real time.',
         bulletPoints: [
-          'Time tracking per task with billable vs. non-billable flags.',
-          'Risk registers and change request approvals with e-signatures.',
+          'Sprint planning workspace that calculates capacity, compares historical velocity, and suggests backlog priorities for grooming.',
+          'Multi-view boards with WIP limits, dependency tagging, and timeline alignment to keep design, dev, and QA in sync.',
+          'Live analytics center featuring burndown and burnup charts, story point rollups, and health alerts for blocked work.',
+          'Granular time tracking per task with billable vs. non-billable flags, hourly rates, and export-ready timesheets for invoicing.',
+          'Risk registers with probability/severity scoring plus change request workflows that route for e-signature approval and audit logging.',
         ],
+        callout: 'Syncs with GitHub, Jira, Slack, and Google Drive so updates, commits, and approvals feed straight into sprint reports.',
+        href: '#task-sprint-manager',
       },
       {
         name: 'Collaboration cockpit',
@@ -6046,6 +6052,12 @@ export default function FreelancerDashboardPage() {
       profile={profile}
       availableDashboards={availableDashboards}
     >
+      <div className="space-y-10">
+        <TaskSprintManager />
+        {capabilitySections.map((section) => (
+          <section
+            key={section.title}
+            className="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_18px_40px_-24px_rgba(30,64,175,0.35)] sm:p-8"
       <>
         <AgencyCollaborationsPanel
           data={collaborationsState.data}
