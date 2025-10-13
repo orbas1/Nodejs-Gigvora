@@ -55,11 +55,66 @@ function formatScore(value, decimals = 1) {
     return (0).toFixed(decimals);
   }
   return Number(value).toFixed(decimals);
+}
+
 function formatDecimal(value, fractionDigits = 1) {
   if (value == null || Number.isNaN(Number(value))) {
     return Number(0).toFixed(fractionDigits);
   }
   return Number(value).toFixed(fractionDigits);
+}
+
+function formatScorecardValue(card, defaultCurrency = 'USD') {
+  if (!card) {
+    return '—';
+  }
+  const unit = card.unit ?? 'count';
+  switch (unit) {
+    case 'currency':
+      return formatCurrency(card.value ?? 0, card.currency ?? defaultCurrency);
+    case 'percentage':
+      return formatPercent(card.value ?? 0);
+    case 'score':
+    case 'decimal':
+      return formatDecimal(card.value ?? 0, card.decimals ?? 1);
+    case 'duration_days':
+      return `${formatNumber(card.value ?? 0)} days`;
+    default:
+      return formatNumber(card.value ?? 0);
+  }
+}
+
+function formatScorecardChange(card, defaultCurrency = 'USD') {
+  if (!card || card.changeValue == null) {
+    return null;
+  }
+  const unit = card.changeUnit ?? card.unit ?? 'count';
+  const absolute = Math.abs(Number(card.changeValue));
+  const sign = Number(card.changeValue) >= 0 ? '+' : '-';
+  let valueText;
+  switch (unit) {
+    case 'currency':
+      valueText = `${sign}${formatCurrency(absolute, card.currency ?? defaultCurrency)}`;
+      break;
+    case 'percentage':
+      valueText = `${sign}${absolute.toFixed(1)}pp`;
+      break;
+    case 'score':
+    case 'decimal':
+      valueText = `${sign}${absolute.toFixed(card.decimals ?? 1)}`;
+      break;
+    case 'duration_days':
+      valueText = `${sign}${formatNumber(absolute)} days`;
+      break;
+    default:
+      valueText = `${sign}${formatNumber(absolute)}`;
+      break;
+  }
+  const comparison = card.changePeriod ? ` ${card.changePeriod}` : '';
+  const trend = card.trend ?? (card.changeValue >= 0 ? 'up' : 'down');
+  const className =
+    trend === 'down' ? 'text-red-600' : trend === 'up' ? 'text-emerald-600' : 'text-slate-500';
+  return { text: `${valueText}${comparison}`.trim(), className };
 }
 
 function getInitials(name) {
@@ -325,6 +380,178 @@ export default function AgencyDashboardPage() {
   const qualitySummary = qualityInsights.summary ?? {};
   const financialOversightSummary = financialOversightInsights.summary ?? {};
 
+  const operations = state.data?.operations ?? {};
+  const operationsOverview = operations.overview ?? {};
+  const operationsProjects = operations.projectsWorkspace ?? {};
+  const operationsGigPrograms = operations.gigPrograms ?? {};
+
+  const fallbackOperationsScorecards = useMemo(
+    () => [
+      {
+        key: 'utilization',
+        label: 'Utilization rate',
+        value: summary?.members?.utilizationRate ?? resourceSummary.averageUtilization ?? 0,
+        unit: 'percentage',
+        description: `${formatNumber(summary?.members?.bench ?? 0)} on bench`,
+      },
+      {
+        key: 'projects',
+        label: 'On-track engagements',
+        value: portfolioSummary.onTrack ?? 0,
+        unit: 'count',
+        description: `${formatNumber((portfolioSummary.atRisk ?? 0) + (portfolioSummary.critical ?? 0))} flagged`,
+      },
+      {
+        key: 'financial',
+        label: 'Revenue released',
+        value: financialSummary.released ?? 0,
+        unit: 'currency',
+        currency: financialSummary.currency ?? 'USD',
+        description: `${formatCurrency(financialSummary.inEscrow ?? 0, financialSummary.currency ?? 'USD')} in escrow`,
+      },
+      {
+        key: 'client_satisfaction',
+        label: 'Client satisfaction',
+        value: qualitySummary.averageClientSatisfaction ?? 0,
+        unit: 'score',
+        decimals: 1,
+        description: `${formatNumber(summary?.clients?.active ?? 0)} active clients`,
+      },
+    ],
+    [summary, resourceSummary, portfolioSummary, financialSummary, qualitySummary],
+  );
+
+  const fallbackOperationsAlerts = useMemo(() => {
+    const alerts = [];
+    (portfolioInsights.projects ?? []).forEach((project) => {
+      const scopeHealth = String(project.scopeHealth ?? '').toLowerCase();
+      const riskLevel = String(project.riskLevel ?? '').toLowerCase();
+      const severity =
+        scopeHealth === 'critical' || riskLevel === 'critical' || riskLevel === 'high' ? 'critical' : 'warning';
+      if (['at_risk', 'critical'].includes(scopeHealth) || ['high', 'critical'].includes(riskLevel)) {
+        alerts.push({
+          type: 'project',
+          severity,
+          title: project.title ?? `Project ${project.id}`,
+          message:
+            scopeHealth === 'critical'
+              ? 'Project flagged as critical. Immediate intervention required.'
+              : 'Project marked at risk. Review mitigation plan.',
+          referenceId: project.id,
+        });
+      }
+      if (Number(project.issuesOpen ?? 0) > 0) {
+        alerts.push({
+          type: 'quality',
+          severity: 'warning',
+          title: project.title ?? `Project ${project.id}`,
+          message: `${formatNumber(project.issuesOpen)} open issues to triage`,
+          referenceId: project.id,
+        });
+      }
+    });
+
+    (financialOversightInsights.alerts ?? []).forEach((alert) => {
+      alerts.push({
+        type: alert.type ?? 'financial',
+        severity: alert.severity ?? 'warning',
+        title: 'Financial alert',
+        message: alert.message,
+        referenceId: alert.engagementId ?? null,
+      });
+    });
+
+    (resourceSummary.atRiskSkills ?? []).forEach((skill) => {
+      alerts.push({
+        type: 'capacity',
+        severity: 'warning',
+        title: 'Capacity pressure',
+        message: `Burnout risk detected in ${skill} squad`,
+        referenceId: skill,
+      });
+    });
+
+    if (
+      qualitySummary.averageClientSatisfaction != null &&
+      Number(qualitySummary.averageClientSatisfaction) < 4
+    ) {
+      alerts.push({
+        type: 'client_experience',
+        severity: 'warning',
+        title: 'Client satisfaction dip',
+        message: `Average CSAT ${formatDecimal(qualitySummary.averageClientSatisfaction, 1)} below 4.0 benchmark`,
+      });
+    }
+
+    return alerts.slice(0, 12);
+  }, [portfolioInsights.projects, financialOversightInsights.alerts, resourceSummary.atRiskSkills, qualitySummary.averageClientSatisfaction]);
+
+  const operationsScorecards = (operationsOverview.scorecards ?? []).length
+    ? operationsOverview.scorecards
+    : fallbackOperationsScorecards;
+
+  const operationsAlerts = (operationsOverview.alerts ?? []).length
+    ? operationsOverview.alerts
+    : fallbackOperationsAlerts;
+
+  const operationsUtilization = {
+    rate:
+      operationsOverview.utilization?.rate ??
+      operationsOverview.utilization?.utilizationRate ??
+      summary?.members?.utilizationRate ??
+      resourceSummary.averageUtilization ??
+      0,
+    benchCount:
+      operationsOverview.utilization?.benchCount ??
+      operationsOverview.utilization?.bench ??
+      summary?.members?.bench ??
+      0,
+    benchHours: operationsOverview.utilization?.benchHours ?? resourceSummary.benchHours ?? 0,
+    averageWeeklyCapacity:
+      operationsOverview.utilization?.averageWeeklyCapacity ?? summary?.members?.averageWeeklyCapacity ?? null,
+    atRiskSkills: operationsOverview.utilization?.atRiskSkills ?? resourceSummary.atRiskSkills ?? [],
+    assignments: operationsOverview.utilization?.assignments ?? resourceIntelligenceInsights.assignmentMatches ?? [],
+  };
+
+  const operationsClientHealth = {
+    activeClients: operationsOverview.clientHealth?.activeClients ?? summary?.clients?.active ?? 0,
+    csatScore:
+      operationsOverview.clientHealth?.csatScore ?? qualitySummary.averageClientSatisfaction ?? null,
+    qaScore: operationsOverview.clientHealth?.qaScore ?? qualitySummary.averageQaScore ?? null,
+    atRiskEngagements:
+      operationsOverview.clientHealth?.atRiskEngagements ??
+      (portfolioSummary.atRisk ?? 0) + (portfolioSummary.critical ?? 0),
+    recentNotes: operationsOverview.clientHealth?.recentNotes ?? contactNotes.slice(0, 4),
+  };
+
+  const clientHealthNotes = operationsClientHealth.recentNotes ?? contactNotes.slice(0, 4);
+  const operationsAssignments = Array.isArray(operationsUtilization.assignments)
+    ? operationsUtilization.assignments
+    : [];
+  const operationsAlertTone = {
+    critical: 'border-red-200 bg-red-50 text-red-700',
+    warning: 'border-amber-200 bg-amber-50 text-amber-700',
+    info: 'border-blue-200 bg-blue-50 text-blue-700',
+    success: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  };
+  const projectsWorkspaceSummary = operationsProjects.summary ?? portfolioSummary;
+  const projectsQueueSummary = operationsProjects.queue ?? summary?.pipeline ?? pipeline;
+  const profitabilityWorkspaceSummary =
+    operationsProjects.financialOversight?.summary ?? financialOversightSummary;
+  const gigProgramsStudio = operationsGigPrograms.studio ?? studio;
+  const gigProgramsSummary = gigProgramsStudio.summary ?? studioSummary;
+  const gigProgramsDeliverables = gigProgramsStudio.deliverables ?? deliverablesSummary;
+  const gigProgramsPartnerSummary =
+    operationsGigPrograms.partnerPrograms?.summary ?? partnerSummary;
+  const gigProgramsMarketingSummary =
+    operationsGigPrograms.marketing?.summary ?? marketingSummary;
+  const gigProgramsAdvocacySummary =
+    operationsGigPrograms.advocacy?.summary ?? clientAdvocacySummary;
+  const gigMarketplacePipeline = operationsGigPrograms.marketplacePipeline ?? {
+    gigs,
+    jobs,
+  };
+
   const menuSections = useMemo(() => {
     const activeProjects = summary?.projects?.buckets?.active ?? summary?.projects?.total ?? 0;
     const utilization = summary?.members?.utilizationRate ?? 0;
@@ -380,16 +607,18 @@ export default function AgencyDashboardPage() {
         items: [
           {
             name: 'Agency overview',
-            description: `Utilization running at ${formatPercent(utilizationRate)} with ${formatNumber(activeProjectsCount)} active projects.`,
+            sectionId: 'agency-overview',
+            description: `${formatPercent(operationsUtilization.rate)} utilization · ${formatNumber(operationsAlerts.length)} alerts open`,
           },
           {
             name: 'Projects workspace',
-            description: `${formatNumber(totalProjectsCount)} projects monitored · ${formatNumber(autoAssignQueueSize)} candidates in queues.`,
-            tags: ['projects'],
+            sectionId: 'projects-workspace',
+            description: `${formatNumber(projectsWorkspaceSummary.totalProjects ?? totalProjectsCount)} engagements · Margin ${formatPercent(projectsWorkspaceSummary.avgMargin ?? 0)}`,
           },
           {
             name: 'Gig programs',
-            description: `${formatNumber(totalGigsCount)} managed gigs and ${formatNumber(acceptedAssignmentsCount)} accepted assignments this quarter.`,
+            sectionId: 'gig-programs',
+            description: `${formatNumber(gigProgramsSummary.managedGigs ?? gigProgramsSummary.totalGigs ?? totalGigsCount)} managed gigs · ${formatPercent(gigProgramsSummary.onTimeRate ?? 0)} on-time`,
           },
         ],
       },
@@ -736,48 +965,6 @@ export default function AgencyDashboardPage() {
 
   const capabilitySections = [];
 
-  const summaryCards = useMemo(() => {
-    const cards = [
-      {
-        name: 'Utilization',
-        value: formatPercent(summary?.members?.utilizationRate ?? 0),
-        description: `${formatNumber(summary?.members?.bench ?? 0)} on bench`,
-        icon: ArrowTrendingUpIcon,
-      },
-      {
-        name: 'Active projects',
-        value: formatNumber(summary?.projects?.buckets?.active ?? summary?.projects?.total ?? 0),
-        description: `${formatNumber(summary?.projects?.total ?? 0)} total engagements`,
-        icon: QueueListIcon,
-      },
-      {
-        name: 'Revenue in escrow',
-        value: formatCurrency(financialSummary.inEscrow ?? 0, financialSummary.currency),
-        description: `${formatCurrency(financialSummary.released ?? 0, financialSummary.currency)} released YTD`,
-        icon: CurrencyDollarIcon,
-      },
-      {
-        name: 'Client relationships',
-        value: formatNumber(summary?.clients?.active ?? contactNotes.length ?? 0),
-        description: `${formatNumber(summary?.clients?.notes ?? 0)} notes logged`,
-        icon: BuildingOffice2Icon,
-      },
-      {
-        name: 'Talent pipeline',
-        value: formatNumber(talentCrm?.totals?.candidates ?? 0),
-        description: `${formatPercent(talentCrm?.conversionRate ?? talentLifecycleSummary?.conversionRate ?? 0)} conversion • ${formatNumber(talentCrm?.totals?.offersSigned ?? 0)} signed offers`,
-        icon: BriefcaseIcon,
-      },
-      {
-        name: 'Wellbeing index',
-        value: formatScore(peopleOps?.wellbeing?.averageScore ?? 0),
-        description: `${formatNumber(peopleOps?.wellbeing?.atRisk ?? 0)} retention risk alerts`,
-        icon: HeartIcon,
-      },
-    ];
-    return cards;
-  }, [summary, financialSummary, contactNotes.length, talentCrm, peopleOps, talentLifecycleSummary]);
-
   const renderLoading = (
     <section className="rounded-3xl border border-blue-100 bg-white/80 p-10 shadow-inner">
       <div className="space-y-4">
@@ -814,6 +1001,225 @@ export default function AgencyDashboardPage() {
   const executivePolicies = (intelligenceOverview.compliancePolicies ?? []).slice(0, 4);
   const executiveObligations = (intelligenceOverview.upcomingObligations ?? []).slice(0, 4);
   const executiveRooms = (intelligenceOverview.collaborationRooms ?? []).slice(0, 3);
+
+  const renderAgencyOverview = (
+    <section id="agency-overview" className="rounded-3xl border border-blue-100 bg-white p-8 shadow-sm">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Agency operations</p>
+          <h2 className="mt-1 text-2xl font-semibold text-slate-900">
+            Performance scorecards, client health, and guardrails at a glance
+          </h2>
+          <p className="mt-2 text-sm text-slate-500">
+            Monitor utilization, client sentiment, and operational alerts to orchestrate delivery, staffing, and revenue in real
+            time.
+          </p>
+        </div>
+        <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-right">
+          <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Utilization</p>
+          <p className="mt-1 text-xl font-semibold text-slate-900">{formatPercent(operationsUtilization.rate)}</p>
+          <p className="text-xs text-slate-500">{formatNumber(operationsUtilization.benchCount)} on bench</p>
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {operationsScorecards.length ? (
+          operationsScorecards.map((card) => {
+            const key = card.key ?? card.label;
+            const change = formatScorecardChange(card, card.currency ?? defaultCurrency);
+            return (
+              <div key={key} className="rounded-2xl border border-blue-100 bg-blue-50/70 p-5">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">{card.label}</p>
+                <p className="mt-2 text-2xl font-semibold text-slate-900">
+                  {formatScorecardValue(card, card.currency ?? defaultCurrency)}
+                </p>
+                {change ? (
+                  <p className={`mt-1 text-xs font-medium ${change.className}`}>{change.text}</p>
+                ) : null}
+                {card.description ? (
+                  <p className="mt-2 text-xs text-slate-500">{card.description}</p>
+                ) : null}
+              </div>
+            );
+          })
+        ) : (
+          <div className="rounded-2xl border border-dashed border-blue-200 bg-white/70 p-6 text-sm text-slate-500">
+            Scorecards will populate once utilization, projects, and financial metrics are recorded.
+          </div>
+        )}
+      </div>
+
+      <div className="mt-8 grid gap-6 lg:grid-cols-3">
+        <div className="rounded-3xl border border-slate-200 bg-slate-50/80 p-6">
+          <h3 className="text-base font-semibold text-slate-900">Utilization &amp; capacity</h3>
+          <p className="mt-1 text-sm text-slate-500">
+            Balance delivery loads, highlight squads under pressure, and keep the bench ready for deployment.
+          </p>
+          <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Utilization</dt>
+              <dd className="text-lg font-semibold text-slate-900">{formatPercent(operationsUtilization.rate)}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Bench ready</dt>
+              <dd className="text-lg font-semibold text-slate-900">{formatNumber(operationsUtilization.benchCount)}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Bench hours</dt>
+              <dd className="text-lg font-semibold text-slate-900">
+                {formatNumber(Math.round(Number(operationsUtilization.benchHours ?? 0)))}h
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Avg weekly capacity</dt>
+              <dd className="text-lg font-semibold text-slate-900">
+                {operationsUtilization.averageWeeklyCapacity != null
+                  ? `${formatNumber(Math.round(Number(operationsUtilization.averageWeeklyCapacity)))}h`
+                  : 'n/a'}
+              </dd>
+            </div>
+          </dl>
+          <div className="mt-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">At-risk skills</p>
+            {operationsUtilization.atRiskSkills.length ? (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {operationsUtilization.atRiskSkills.slice(0, 6).map((skill) => (
+                  <span
+                    key={skill}
+                    className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-amber-700"
+                  >
+                    {titleCase(skill)}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-2 text-xs text-slate-500">No burnout risks detected this week.</p>
+            )}
+          </div>
+          <div className="mt-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Staffing signals</p>
+            <ul className="mt-2 space-y-2">
+              {operationsAssignments.slice(0, 3).map((assignment, index) => (
+                <li
+                  key={assignment.skillGroup ?? index}
+                  className="rounded-2xl border border-slate-200/70 bg-white px-3 py-2 text-xs text-slate-600"
+                >
+                  <p className="font-semibold text-slate-900">{assignment.skillGroup ?? 'Skill group'}</p>
+                  <p className="mt-1">
+                    {assignment.utilizationRate != null
+                      ? `Utilization ${formatPercent(assignment.utilizationRate)}`
+                      : 'Utilization pending'}
+                    {' · '}
+                    {assignment.recommendation ?? 'Maintain cadence'}
+                  </p>
+                </li>
+              ))}
+              {!operationsAssignments.length ? (
+                <li className="rounded-2xl border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-500">
+                  Staffing recommendations will populate once resource intelligence snapshots are available.
+                </li>
+              ) : null}
+            </ul>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-slate-200 bg-slate-50/80 p-6">
+          <h3 className="text-base font-semibold text-slate-900">Client health</h3>
+          <p className="mt-1 text-sm text-slate-500">
+            Pulse on relationships, CSAT, and risk signals to keep delivery partners in the know.
+          </p>
+          <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Active clients</dt>
+              <dd className="text-lg font-semibold text-slate-900">{formatNumber(operationsClientHealth.activeClients)}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">At-risk engagements</dt>
+              <dd className="text-lg font-semibold text-slate-900">{formatNumber(operationsClientHealth.atRiskEngagements)}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">CSAT</dt>
+              <dd className="text-lg font-semibold text-slate-900">
+                {operationsClientHealth.csatScore != null
+                  ? formatDecimal(operationsClientHealth.csatScore, 1)
+                  : 'n/a'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">QA score</dt>
+              <dd className="text-lg font-semibold text-slate-900">
+                {operationsClientHealth.qaScore != null
+                  ? formatPercent(operationsClientHealth.qaScore)
+                  : 'n/a'}
+              </dd>
+            </div>
+          </dl>
+          <div className="mt-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Latest touchpoints</p>
+            <ul className="mt-2 space-y-2">
+              {clientHealthNotes.length ? (
+                clientHealthNotes.slice(0, 4).map((note) => (
+                  <li key={note.id ?? note.createdAt ?? note.note} className="rounded-2xl border border-slate-200/70 bg-white px-3 py-2">
+                    <p className="text-sm text-slate-700">{note.note ?? 'Client update logged.'}</p>
+                    <p className="mt-1 text-[11px] uppercase tracking-wide text-slate-500">
+                      {note.subject
+                        ? `${note.subject.firstName} ${note.subject.lastName}`
+                        : note.subjectUserId
+                          ? `Contact ${note.subjectUserId}`
+                          : 'Client contact'}
+                      {' · '}
+                      {formatRelativeTime(note.createdAt)}
+                    </p>
+                  </li>
+                ))
+              ) : (
+                <li className="rounded-2xl border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-500">
+                  Log client notes and feedback to populate the health stream.
+                </li>
+              )}
+            </ul>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-slate-200 bg-slate-50/80 p-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-semibold text-slate-900">Operational alerts</h3>
+            <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-medium uppercase tracking-wide text-blue-700">
+              {formatNumber(operationsAlerts.length)} open
+            </span>
+          </div>
+          <p className="mt-1 text-sm text-slate-500">
+            Blend of delivery, financial, and compliance alerts needing triage.
+          </p>
+          <ul className="mt-4 space-y-3">
+            {operationsAlerts.length ? (
+              operationsAlerts.slice(0, 6).map((alert, index) => {
+                const toneClass = operationsAlertTone[alert.severity ?? 'warning'] ?? operationsAlertTone.warning;
+                return (
+                  <li
+                    key={alert.referenceId ?? alert.message ?? index}
+                    className={`rounded-2xl border px-3 py-3 text-sm ${toneClass}`}
+                  >
+                    <p className="font-semibold">{alert.title ?? titleCase(alert.type ?? 'alert')}</p>
+                    <p className="mt-1 text-xs">{alert.message ?? 'Action required'}</p>
+                    {alert.timestamp ? (
+                      <p className="mt-1 text-[11px] uppercase tracking-wide text-slate-500">
+                        {formatRelativeTime(alert.timestamp)}
+                      </p>
+                    ) : null}
+                  </li>
+                );
+              })
+            ) : (
+              <li className="rounded-2xl border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-500">
+                No active alerts. Keep monitoring delivery, compliance, and finance signals.
+              </li>
+            )}
+          </ul>
+        </div>
+      </div>
+    </section>
+  );
 
   const renderExecutiveIntelligenceSection = (
     <section id="executive-intelligence" className="rounded-3xl border border-blue-100 bg-white p-8 shadow-sm">
@@ -3361,33 +3767,181 @@ export default function AgencyDashboardPage() {
     </section>
   );
 
+  const renderProjectsWorkspace = (
+    <section id="projects-workspace" className="rounded-3xl border border-blue-100 bg-white p-8 shadow-sm">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Projects workspace</p>
+          <h2 className="mt-1 text-2xl font-semibold text-slate-900">Portfolio, staffing, and profitability cockpit</h2>
+          <p className="mt-2 text-sm text-slate-500">
+            Bring delivery milestones, resource plans, and financial guardrails into a single workspace for account teams.
+          </p>
+        </div>
+        <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-right">
+          <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Automation coverage</p>
+          <p className="mt-1 text-xl font-semibold text-slate-900">
+            {formatPercent(projectsWorkspaceSummary.avgAutomationCoverage ?? 0)}
+          </p>
+          <p className="text-xs text-slate-500">QA {formatPercent(projectsWorkspaceSummary.avgQualityScore ?? 0)}</p>
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {[{
+          label: 'Active engagements',
+          value: formatNumber(projectsWorkspaceSummary.totalProjects ?? summary?.projects?.total ?? projects.length ?? 0),
+          description: `${formatNumber(projectsWorkspaceSummary.onTrack ?? 0)} on track`,
+        },
+        {
+          label: 'At-risk engagements',
+          value: formatNumber((projectsWorkspaceSummary.atRisk ?? 0) + (projectsWorkspaceSummary.critical ?? 0)),
+          description: `${formatNumber(projectsWorkspaceSummary.critical ?? 0)} critical`,
+        },
+        {
+          label: 'Average margin',
+          value: formatPercent(projectsWorkspaceSummary.avgMargin ?? 0),
+          description: `Financial alerts ${formatNumber(profitabilityWorkspaceSummary.alerts ?? 0)}`,
+        },
+        {
+          label: 'Auto-assign queue',
+          value: formatNumber(projectsQueueSummary.statuses?.pending ?? 0),
+          description: `${formatNumber(projectsQueueSummary.statuses?.accepted ?? 0)} accepted`,
+        }].map((card) => (
+          <div key={card.label} className="rounded-2xl border border-blue-100 bg-blue-50/70 p-5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">{card.label}</p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900">{card.value}</p>
+            <p className="mt-1 text-xs text-slate-500">{card.description}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-8 grid gap-6 xl:grid-cols-3">
+        <div className="space-y-6 xl:col-span-2">
+          {renderProjects}
+          {renderTimeline}
+          {renderProjectPortfolio}
+          {renderWorkspaceOrchestrator}
+        </div>
+        <div className="space-y-6">
+          {renderPipeline}
+          {renderResourceIntelligence}
+          {renderQualityAssurance}
+          {renderFinancialOversight}
+          {renderFinancials}
+        </div>
+      </div>
+    </section>
+  );
+
+  const renderGigPrograms = (
+    <section id="gig-programs" className="rounded-3xl border border-purple-100 bg-white p-8 shadow-sm">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-purple-600">Gig programs</p>
+          <h2 className="mt-1 text-2xl font-semibold text-slate-900">Publish managed services, bundles, and alliances</h2>
+          <p className="mt-2 text-sm text-slate-500">
+            Launch branded gigs, manage alliances, automate marketing nurtures, and convert clients into advocates.
+          </p>
+        </div>
+        <div className="rounded-2xl border border-purple-100 bg-purple-50 px-4 py-3 text-right">
+          <p className="text-xs font-semibold uppercase tracking-wide text-purple-600">On-time delivery</p>
+          <p className="mt-1 text-xl font-semibold text-slate-900">{formatPercent(gigProgramsSummary.onTimeRate ?? 0)}</p>
+          <p className="text-xs text-slate-500">{formatNumber(gigProgramsDeliverables.backlog ?? 0)} deliverables in backlog</p>
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {[{
+          label: 'Managed gigs',
+          value: formatNumber(gigProgramsSummary.managedGigs ?? gigProgramsSummary.totalGigs ?? gigs.length ?? 0),
+          description: `${formatNumber(gigProgramsSummary.packages ?? studio.packages ?? 0)} packages`,
+        },
+        {
+          label: 'Bundles & upsells',
+          value: formatNumber(gigProgramsSummary.hybridBundles ?? gigProgramsSummary.bundles ?? 0),
+          description: `${formatNumber(gigProgramsSummary.upsellPrograms ?? 0)} upsell programs`,
+        },
+        {
+          label: 'Active alliances',
+          value: formatNumber(gigProgramsPartnerSummary.activeAlliances ?? 0),
+          description: `${formatNumber(gigProgramsPartnerSummary.partnerEngagements ?? 0)} partner engagements`,
+        },
+        {
+          label: 'Marketing pipeline',
+          value: formatCurrency(gigProgramsMarketingSummary.totalPipelineValue ?? 0, defaultCurrency),
+          description: `${formatNumber(gigProgramsMarketingSummary.activeCampaigns ?? 0)} live campaigns`,
+        }].map((card) => (
+          <div key={card.label} className="rounded-2xl border border-purple-100 bg-purple-50/70 p-5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">{card.label}</p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900">{card.value}</p>
+            <p className="mt-1 text-xs text-slate-500">{card.description}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-8 grid gap-6 xl:grid-cols-2">
+        <div className="space-y-6">
+          {renderGigStudio}
+          {renderPartnerPrograms}
+        </div>
+        <div className="space-y-6">
+          {renderMarketingAutomation}
+          {renderClientAdvocacy}
+        </div>
+      </div>
+
+      <div className="mt-8">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Marketplace pipeline</h3>
+        <div className="mt-3 grid gap-6 lg:grid-cols-2">
+          <div className="rounded-3xl border border-purple-100 bg-white p-6">
+            <h4 className="text-base font-semibold text-slate-900">Agency gigs</h4>
+            <p className="mt-1 text-xs text-slate-500">
+              {formatNumber((gigMarketplacePipeline.gigs ?? []).length)} published listings ready for promotion.
+            </p>
+            <ul className="mt-3 space-y-2">
+              {(gigMarketplacePipeline.gigs ?? gigs).slice(0, 4).map((gig) => (
+                <li key={gig.id ?? gig.title} className="rounded-2xl border border-slate-200/70 bg-slate-50/60 px-3 py-2">
+                  <p className="text-sm font-semibold text-slate-900">{gig.title ?? 'Agency gig'}</p>
+                  <p className="text-xs text-slate-500">
+                    {gig.duration ?? 'Duration TBD'}
+                    {gig.budget ? ` · ${gig.budget}` : ''}
+                  </p>
+                </li>
+              ))}
+              {!(gigMarketplacePipeline.gigs ?? gigs).length ? (
+                <li className="text-xs text-slate-500">No gigs published yet.</li>
+              ) : null}
+            </ul>
+          </div>
+          <div className="rounded-3xl border border-purple-100 bg-white p-6">
+            <h4 className="text-base font-semibold text-slate-900">Roles &amp; talent briefs</h4>
+            <p className="mt-1 text-xs text-slate-500">
+              {formatNumber((gigMarketplacePipeline.jobs ?? jobs).length)} open roles across programs.
+            </p>
+            <ul className="mt-3 space-y-2">
+              {(gigMarketplacePipeline.jobs ?? jobs).slice(0, 4).map((role) => (
+                <li key={role.id ?? role.title} className="rounded-2xl border border-slate-200/70 bg-slate-50/60 px-3 py-2">
+                  <p className="text-sm font-semibold text-slate-900">{role.title ?? 'Open role'}</p>
+                  <p className="text-xs text-slate-500">{role.employmentType ?? 'Type TBD'}</p>
+                </li>
+              ))}
+              {!(gigMarketplacePipeline.jobs ?? jobs).length ? (
+                <li className="text-xs text-slate-500">No open roles have been drafted.</li>
+              ) : null}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+
   const renderContent = state.loading
     ? renderLoading
     : state.error
       ? renderError
       : (
           <div className="space-y-10">
-            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              {summaryCards.map((card) => (
-                <div key={card.name} className="rounded-3xl border border-blue-100 bg-white p-6 shadow-sm">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{card.name}</p>
-                      <p className="mt-2 text-2xl font-semibold text-slate-900">{card.value}</p>
-                      {card.description ? (
-                        <p className="mt-1 text-xs text-slate-500">{card.description}</p>
-                      ) : null}
-                    </div>
-                    {card.icon ? (
-                      <span className="rounded-2xl bg-blue-50 p-3 text-blue-600">
-                        <card.icon className="h-6 w-6" />
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-              ))}
-            </section>
-
+            {renderAgencyOverview}
             {renderExecutiveIntelligenceSection}
             {renderAnalyticsWarRoomSection}
             {renderScenarioExplorerSection}
@@ -3406,31 +3960,9 @@ export default function AgencyDashboardPage() {
               {renderBrandingStudio}
             </section>
 
-            <section className="grid gap-6 lg:grid-cols-3">
-              <div className="lg:col-span-2">{renderProjects}</div>
-              {renderPipeline}
-            </section>
+            {renderProjectsWorkspace}
 
-            <section className="grid gap-6 lg:grid-cols-3">
-              {renderFinancials}
-              {renderBench}
-              {renderNotes}
-            </section>
-
-            <section className="grid gap-6 lg:grid-cols-2">
-              {renderTimeline}
-              {renderOpportunities}
-            </section>
-
-            {renderProjectPortfolio}
-            {renderWorkspaceOrchestrator}
-            {renderResourceIntelligence}
-            {renderQualityAssurance}
-            {renderFinancialOversight}
-            {renderGigStudio}
-            {renderPartnerPrograms}
-            {renderMarketingAutomation}
-            {renderClientAdvocacy}
+            {renderGigPrograms}
           </div>
         );
 

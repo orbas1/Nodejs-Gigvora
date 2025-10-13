@@ -2733,6 +2733,148 @@ export async function getAgencyDashboard({ workspaceId, workspaceSlug, lookbackD
       brandingReach: branding.metrics.totals.reach,
     };
 
+    const operationsAlerts = [];
+
+    (projectPortfolioInsights.projects ?? []).forEach((project) => {
+      const scopeHealth = String(project.scopeHealth ?? '').toLowerCase();
+      const riskLevel = String(project.riskLevel ?? '').toLowerCase();
+      if (['at_risk', 'critical'].includes(scopeHealth) || ['high', 'critical'].includes(riskLevel)) {
+        operationsAlerts.push({
+          type: 'project',
+          severity: scopeHealth === 'critical' || riskLevel === 'critical' ? 'critical' : 'warning',
+          title: project.title ?? `Project ${project.id}`,
+          message:
+            scopeHealth === 'critical'
+              ? 'Project flagged as critical. Immediate intervention required.'
+              : 'Project marked at risk. Review mitigation plan.',
+          referenceId: project.id,
+        });
+      }
+      if (project.issuesOpen != null && Number(project.issuesOpen) > 0) {
+        operationsAlerts.push({
+          type: 'quality',
+          severity: 'warning',
+          title: project.title ?? `Project ${project.id}`,
+          message: `${project.issuesOpen} open delivery issues`,
+          referenceId: project.id,
+        });
+      }
+    });
+
+    (financialOversightInsights.alerts ?? []).forEach((alert) => {
+      operationsAlerts.push({
+        type: alert.type ?? 'financial',
+        severity: alert.severity ?? 'warning',
+        title: 'Financial alert',
+        message: alert.message,
+        referenceId: alert.engagementId ?? null,
+      });
+    });
+
+    (resourceIntelligenceInsights.summary?.atRiskSkills ?? []).forEach((skill) => {
+      operationsAlerts.push({
+        type: 'capacity',
+        severity: 'warning',
+        title: 'Capacity pressure',
+        message: `Burnout risk detected in ${skill}`,
+        referenceId: skill,
+      });
+    });
+
+    if (
+      qualityWorkflowInsights.summary?.averageClientSatisfaction != null &&
+      Number(qualityWorkflowInsights.summary.averageClientSatisfaction) < 4
+    ) {
+      operationsAlerts.push({
+        type: 'client_experience',
+        severity: 'warning',
+        title: 'Client satisfaction dip',
+        message: `Average CSAT ${Number(
+          qualityWorkflowInsights.summary.averageClientSatisfaction,
+        ).toFixed(1)} below 4.0 benchmark`,
+      });
+    }
+
+    const operationsScorecards = [
+      {
+        key: 'utilization',
+        label: 'Utilization rate',
+        value: membersSummary.utilizationRate ?? resourceIntelligenceInsights.summary?.averageUtilization ?? 0,
+        unit: 'percentage',
+        description: `${membersSummary.bench ?? 0} on bench`,
+      },
+      {
+        key: 'projects',
+        label: 'On-track engagements',
+        value: projectPortfolioInsights.summary?.onTrack ?? projectSummary.buckets?.active ?? 0,
+        unit: 'count',
+        description: `${(projectPortfolioInsights.summary?.atRisk ?? 0) + (projectPortfolioInsights.summary?.critical ?? 0)} flagged`,
+      },
+      {
+        key: 'financial',
+        label: 'Revenue released',
+        value: financialSummary.released ?? 0,
+        unit: 'currency',
+        currency: financialSummary.currency ?? 'USD',
+        description: `${financialSummary.inEscrow ?? 0} ${financialSummary.currency ?? 'USD'} in escrow`,
+      },
+      {
+        key: 'client_satisfaction',
+        label: 'Client satisfaction',
+        value: qualityWorkflowInsights.summary?.averageClientSatisfaction ?? 0,
+        unit: 'score',
+        decimals: 1,
+        description: `${summary?.clients?.active ?? totalClients} active clients`,
+      },
+    ];
+
+    const operationsOverview = {
+      scorecards: operationsScorecards,
+      utilization: {
+        rate: membersSummary.utilizationRate ?? resourceIntelligenceInsights.summary?.averageUtilization ?? 0,
+        benchCount: membersSummary.bench ?? 0,
+        benchHours: resourceIntelligenceInsights.summary?.benchHours ?? 0,
+        averageWeeklyCapacity: membersSummary.averageWeeklyCapacity ?? null,
+        atRiskSkills: resourceIntelligenceInsights.summary?.atRiskSkills ?? [],
+        assignments: resourceIntelligenceInsights.assignmentMatches ?? [],
+      },
+      clientHealth: {
+        activeClients: summary?.clients?.active ?? totalClients,
+        csatScore: qualityWorkflowInsights.summary?.averageClientSatisfaction ?? null,
+        qaScore: qualityWorkflowInsights.summary?.averageQaScore ?? null,
+        atRiskEngagements:
+          (projectPortfolioInsights.summary?.atRisk ?? 0) + (projectPortfolioInsights.summary?.critical ?? 0),
+        recentNotes: formattedNotes.slice(0, 6),
+      },
+      alerts: operationsAlerts.slice(0, 25),
+    };
+
+    const operations = {
+      overview: operationsOverview,
+      projectsWorkspace: {
+        summary: projectPortfolioInsights.summary,
+        projects: projectPortfolioInsights.projects,
+        dependencies: projectPortfolioInsights.dependencies,
+        calendar: projectPortfolioInsights.calendar,
+        queue: queueSummary,
+        workspaceOrchestrator: workspaceOrchestratorInsights,
+        resourceIntelligence: resourceIntelligenceInsights,
+        quality: qualityWorkflowInsights,
+        financialOversight: financialOversightInsights,
+        financials: financialSummary,
+      },
+      gigPrograms: {
+        studio: studioInsights,
+        partnerPrograms: partnerProgramInsights,
+        marketing: marketingAutomationInsights,
+        advocacy: clientAdvocacyInsights,
+        marketplacePipeline: {
+          gigs: gigSummaries,
+          jobs: jobSummaries,
+        },
+      },
+    };
+
     return {
       workspace: workspace ? sanitizeWorkspaceRecord(workspace) : null,
       agencyProfile: agencyProfilePlain,
@@ -2778,6 +2920,7 @@ export async function getAgencyDashboard({ workspaceId, workspaceSlug, lookbackD
         resourceIntelligence: resourceIntelligenceInsights,
         qualityAssurance: qualityWorkflowInsights,
         financialOversight: financialOversightInsights,
+      },
       talentLifecycle: {
         summary: talentLifecycleSummary,
         crm: talentCrm,
@@ -2787,6 +2930,8 @@ export async function getAgencyDashboard({ workspaceId, workspaceSlug, lookbackD
         hrManagement,
         capacityPlanning,
         internalMarketplace,
+      },
+      operations,
       marketplaceLeadership: {
         studio: studioInsights,
         partnerPrograms: partnerProgramInsights,
