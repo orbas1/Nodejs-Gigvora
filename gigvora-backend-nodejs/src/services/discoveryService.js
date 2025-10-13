@@ -6,6 +6,8 @@ import {
   Project,
   ExperienceLaunchpad,
   Volunteering,
+  OpportunityTaxonomyAssignment,
+  OpportunityTaxonomy,
 } from '../models/index.js';
 import { ApplicationError, ValidationError } from '../utils/errors.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
@@ -28,12 +30,54 @@ const opportunityModels = {
   volunteering: Volunteering,
 };
 
+const TAXONOMY_ENABLED_CATEGORIES = new Set(['job', 'gig', 'launchpad', 'volunteering']);
+
 const CATEGORY_FACETS = {
-  job: ['employmentType', 'employmentCategory', 'location', 'geoCountry', 'geoRegion', 'geoCity', 'isRemote', 'updatedAtDate'],
-  gig: ['durationCategory', 'budgetCurrency', 'location', 'geoCountry', 'geoRegion', 'geoCity', 'updatedAtDate'],
+  job: [
+    'employmentType',
+    'employmentCategory',
+    'location',
+    'geoCountry',
+    'geoRegion',
+    'geoCity',
+    'isRemote',
+    'updatedAtDate',
+    'taxonomySlugs',
+    'taxonomyTypes',
+  ],
+  gig: [
+    'durationCategory',
+    'budgetCurrency',
+    'location',
+    'geoCountry',
+    'geoRegion',
+    'geoCity',
+    'updatedAtDate',
+    'taxonomySlugs',
+    'taxonomyTypes',
+  ],
   project: ['status', 'location', 'geoCountry', 'geoRegion', 'geoCity', 'updatedAtDate'],
-  launchpad: ['track', 'location', 'geoCountry', 'geoRegion', 'geoCity', 'updatedAtDate'],
-  volunteering: ['organization', 'isRemote', 'location', 'geoCountry', 'geoRegion', 'geoCity', 'updatedAtDate'],
+  launchpad: [
+    'track',
+    'location',
+    'geoCountry',
+    'geoRegion',
+    'geoCity',
+    'updatedAtDate',
+    'taxonomySlugs',
+    'taxonomyTypes',
+  ],
+  volunteering: [
+    'organization',
+    'isRemote',
+    'location',
+    'geoCountry',
+    'geoRegion',
+    'geoCity',
+    'updatedAtDate',
+    'taxonomySlugs',
+    'taxonomyTypes',
+  ],
 };
 
 const CATEGORY_SORTS = {
@@ -231,6 +275,140 @@ function toGeoDto(geoLocation, fallbackLocation = null) {
   };
 }
 
+function normaliseTaxonomyFilterTokens(values = []) {
+  if (!Array.isArray(values)) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      values
+        .flatMap((value) => `${value}`.split(',').map((part) => part.trim().toLowerCase()))
+        .filter(Boolean),
+    ),
+  );
+}
+
+function buildTaxonomyInclude(category, filters = {}) {
+  if (!TAXONOMY_ENABLED_CATEGORIES.has(category)) {
+    return null;
+  }
+
+  const slugTokens = normaliseTaxonomyFilterTokens(filters.taxonomySlugs ?? []);
+  const typeTokens = normaliseTaxonomyFilterTokens(filters.taxonomyTypes ?? []);
+
+  const include = {
+    model: OpportunityTaxonomyAssignment,
+    as: 'taxonomyAssignments',
+    required: false,
+    attributes: ['id', 'taxonomyId', 'targetType', 'targetId', 'weight', 'source'],
+    include: [
+      {
+        model: OpportunityTaxonomy,
+        as: 'taxonomy',
+        attributes: ['id', 'slug', 'label', 'type'],
+        required: false,
+      },
+    ],
+  };
+
+  if (slugTokens.length || typeTokens.length) {
+    include.required = true;
+    include.include[0].required = true;
+    const taxonomyWhere = {};
+    if (slugTokens.length) {
+      taxonomyWhere.slug = { [Op.in]: slugTokens };
+    }
+    if (typeTokens.length) {
+      taxonomyWhere.type = { [Op.in]: typeTokens };
+    }
+    include.include[0].where = taxonomyWhere;
+  }
+
+  return include;
+}
+
+function extractTaxonomies(record) {
+  if (!record) {
+    return [];
+  }
+
+  if (Array.isArray(record.taxonomies) && record.taxonomies.length) {
+    const seen = new Set();
+    return record.taxonomies
+      .map((entry) => ({
+        id: entry.id ?? null,
+        slug: entry.slug ?? entry.Slug ?? null,
+        label: entry.label ?? entry.Label ?? null,
+        type: entry.type ?? entry.Type ?? null,
+      }))
+      .filter((entry) => {
+        const key = entry.slug ? `${entry.slug}`.toLowerCase() : null;
+        if (!key || seen.has(key)) {
+          return false;
+        }
+        seen.add(key);
+        return true;
+      });
+  }
+
+  const slugs = Array.isArray(record.taxonomySlugs) ? record.taxonomySlugs : [];
+  const labels = Array.isArray(record.taxonomyLabels) ? record.taxonomyLabels : [];
+  const types = Array.isArray(record.taxonomyTypes) ? record.taxonomyTypes : [];
+
+  const fromLists = slugs
+    .map((slug, index) => ({
+      id: null,
+      slug,
+      label: labels[index] ?? null,
+      type: types[index] ?? null,
+    }))
+    .filter((entry) => entry.slug);
+
+  const assignments = Array.isArray(record.taxonomyAssignments) ? record.taxonomyAssignments : [];
+  const fromAssignments = assignments
+    .map((assignment) => {
+      const taxonomy = assignment.taxonomy
+        ? typeof assignment.taxonomy.get === 'function'
+          ? assignment.taxonomy.get({ plain: true })
+          : assignment.taxonomy
+        : null;
+      if (!taxonomy && assignment.slug) {
+        return {
+          id: assignment.taxonomyId ?? null,
+          slug: assignment.slug,
+          label: assignment.label ?? null,
+          type: assignment.type ?? assignment.targetType ?? null,
+        };
+      }
+      if (!taxonomy) {
+        return null;
+      }
+      return {
+        id: taxonomy.id ?? assignment.taxonomyId ?? null,
+        slug: taxonomy.slug,
+        label: taxonomy.label ?? null,
+        type: taxonomy.type ?? null,
+      };
+    })
+    .filter(Boolean);
+
+  const combined = [...fromAssignments, ...fromLists];
+  const deduped = [];
+  const seen = new Set();
+
+  combined.forEach((entry) => {
+    const key = entry.slug ? `${entry.slug}`.toLowerCase() : null;
+    if (!key || seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    deduped.push(entry);
+  });
+
+  return deduped;
+}
+
 function buildFilterExpressions(category, filters = {}, viewport) {
   const expressions = [];
 
@@ -272,6 +450,16 @@ function buildFilterExpressions(category, filters = {}, viewport) {
 
   if (filters.organizations?.length && category === 'volunteering') {
     const group = buildEqualityGroup('organization', filters.organizations);
+    if (group) expressions.push(group);
+  }
+
+  if (filters.taxonomySlugs?.length && TAXONOMY_ENABLED_CATEGORIES.has(category)) {
+    const group = buildEqualityGroup('taxonomySlugs', filters.taxonomySlugs);
+    if (group) expressions.push(group);
+  }
+
+  if (filters.taxonomyTypes?.length && TAXONOMY_ENABLED_CATEGORIES.has(category)) {
+    const group = buildEqualityGroup('taxonomyTypes', filters.taxonomyTypes);
     if (group) expressions.push(group);
   }
 
@@ -385,6 +573,10 @@ export function toOpportunityDto(record, category) {
 
   const plain = typeof record.get === 'function' ? record.get({ plain: true }) : record;
   const geo = toGeoDto(plain.geoLocation, plain.location);
+  const taxonomies = extractTaxonomies(plain);
+  const taxonomySlugs = Array.from(new Set(taxonomies.map((entry) => entry.slug).filter(Boolean)));
+  const taxonomyTypes = Array.from(new Set(taxonomies.map((entry) => entry.type).filter(Boolean)));
+  const taxonomyLabels = Array.from(new Set(taxonomies.map((entry) => entry.label).filter(Boolean)));
   const base = {
     id: plain.id,
     category,
@@ -393,6 +585,10 @@ export function toOpportunityDto(record, category) {
     updatedAt: plain.updatedAt ?? plain.createdAt ?? new Date(),
     location: plain.location ?? null,
     geo,
+    taxonomies,
+    taxonomySlugs,
+    taxonomyTypes,
+    taxonomyLabels,
   };
 
   switch (category) {
@@ -473,6 +669,11 @@ async function listOpportunities(category, { page, pageSize, query, filters, sor
   const filterExpressions = buildFilterExpressions(category, parsedFilters, normalisedViewport);
   const sortExpressions = Array.isArray(sort) ? sort : resolveSortExpressions(category, sort);
   const facetFields = includeFacets ? CATEGORY_FACETS[category] : undefined;
+  const taxonomyInclude = buildTaxonomyInclude(category, parsedFilters);
+  const includes = [];
+  if (taxonomyInclude) {
+    includes.push(taxonomyInclude);
+  }
 
   const searchResult = await searchOpportunityIndex(
     category,
@@ -520,6 +721,8 @@ async function listOpportunities(category, { page, pageSize, query, filters, sor
       limit: safeSize,
       offset,
       subQuery: false,
+      distinct: includes.length > 0,
+      include: includes,
     }));
   } catch (error) {
     throw new ApplicationError(`Unable to list discovery opportunities: ${error.message}`, 500, {

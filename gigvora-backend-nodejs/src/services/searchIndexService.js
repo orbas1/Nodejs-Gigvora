@@ -5,6 +5,8 @@ import {
   Project,
   ExperienceLaunchpad,
   Volunteering,
+  OpportunityTaxonomyAssignment,
+  OpportunityTaxonomy,
 } from '../models/index.js';
 
 const DEFAULT_BATCH_SIZE = 500;
@@ -12,12 +14,14 @@ const DEFAULT_TASK_TIMEOUT_MS = 20000;
 
 const silentLogger = { info: () => {}, warn: () => {}, error: () => {} };
 
+const TAXONOMY_ENABLED_CATEGORIES = new Set(['job', 'gig', 'launchpad', 'volunteering']);
+
 const opportunityIndexDefinitions = {
   job: {
     indexName: 'opportunities_jobs',
     primaryKey: 'id',
     model: Job,
-    searchableAttributes: ['title', 'description', 'location', 'employmentType'],
+    searchableAttributes: ['title', 'description', 'location', 'employmentType', 'taxonomyLabels'],
     filterableAttributes: [
       'employmentType',
       'employmentCategory',
@@ -28,6 +32,8 @@ const opportunityIndexDefinitions = {
       'geoCity',
       'createdAtDate',
       'updatedAtDate',
+      'taxonomySlugs',
+      'taxonomyTypes',
     ],
     sortableAttributes: ['freshnessScore', 'updatedAtTimestamp', 'createdAtTimestamp'],
     customRanking: ['desc(freshnessScore)', 'desc(updatedAtTimestamp)'],
@@ -44,7 +50,7 @@ const opportunityIndexDefinitions = {
     indexName: 'opportunities_gigs',
     primaryKey: 'id',
     model: Gig,
-    searchableAttributes: ['title', 'description', 'duration', 'location'],
+    searchableAttributes: ['title', 'description', 'duration', 'location', 'taxonomyLabels'],
     filterableAttributes: [
       'durationCategory',
       'budgetCurrency',
@@ -54,6 +60,8 @@ const opportunityIndexDefinitions = {
       'geoCity',
       'createdAtDate',
       'updatedAtDate',
+      'taxonomySlugs',
+      'taxonomyTypes',
     ],
     sortableAttributes: ['freshnessScore', 'budgetValue', 'updatedAtTimestamp'],
     customRanking: ['desc(freshnessScore)', 'desc(budgetValue)', 'desc(updatedAtTimestamp)'],
@@ -83,8 +91,18 @@ const opportunityIndexDefinitions = {
     indexName: 'opportunities_launchpads',
     primaryKey: 'id',
     model: ExperienceLaunchpad,
-    searchableAttributes: ['title', 'description', 'track', 'location'],
-    filterableAttributes: ['track', 'location', 'geoCountry', 'geoRegion', 'geoCity', 'createdAtDate', 'updatedAtDate'],
+    searchableAttributes: ['title', 'description', 'track', 'location', 'taxonomyLabels'],
+    filterableAttributes: [
+      'track',
+      'location',
+      'geoCountry',
+      'geoRegion',
+      'geoCity',
+      'createdAtDate',
+      'updatedAtDate',
+      'taxonomySlugs',
+      'taxonomyTypes',
+    ],
     sortableAttributes: ['freshnessScore', 'updatedAtTimestamp'],
     customRanking: ['desc(freshnessScore)', 'desc(updatedAtTimestamp)'],
     synonyms: {
@@ -98,7 +116,7 @@ const opportunityIndexDefinitions = {
     indexName: 'opportunities_volunteering',
     primaryKey: 'id',
     model: Volunteering,
-    searchableAttributes: ['title', 'description', 'organization', 'location'],
+    searchableAttributes: ['title', 'description', 'organization', 'location', 'taxonomyLabels'],
     filterableAttributes: [
       'organization',
       'isRemote',
@@ -108,6 +126,8 @@ const opportunityIndexDefinitions = {
       'geoCity',
       'createdAtDate',
       'updatedAtDate',
+      'taxonomySlugs',
+      'taxonomyTypes',
     ],
     sortableAttributes: ['freshnessScore', 'updatedAtTimestamp'],
     customRanking: ['desc(freshnessScore)', 'desc(updatedAtTimestamp)'],
@@ -255,12 +275,93 @@ function normaliseGeoLocation(geoLocation, fallbackLocation = null) {
   };
 }
 
+function buildTaxonomyInclude(category) {
+  if (!TAXONOMY_ENABLED_CATEGORIES.has(category)) {
+    return null;
+  }
+
+  return {
+    model: OpportunityTaxonomyAssignment,
+    as: 'taxonomyAssignments',
+    required: false,
+    attributes: ['id', 'taxonomyId', 'targetType', 'targetId', 'weight', 'source'],
+    include: [
+      {
+        model: OpportunityTaxonomy,
+        as: 'taxonomy',
+        attributes: ['id', 'slug', 'label', 'type'],
+        required: false,
+      },
+    ],
+  };
+}
+
+function collectTaxonomies(record) {
+  const combined = [];
+
+  const assignments = Array.isArray(record.taxonomyAssignments) ? record.taxonomyAssignments : [];
+  assignments.forEach((assignment) => {
+    const plainAssignment =
+      assignment && typeof assignment.get === 'function' ? assignment.get({ plain: true }) : assignment;
+    if (!plainAssignment) {
+      return;
+    }
+    const taxonomy = plainAssignment.taxonomy
+      ? typeof plainAssignment.taxonomy.get === 'function'
+        ? plainAssignment.taxonomy.get({ plain: true })
+        : plainAssignment.taxonomy
+      : null;
+    if (!taxonomy) {
+      return;
+    }
+    combined.push({
+      id: taxonomy.id ?? plainAssignment.taxonomyId ?? null,
+      slug: taxonomy.slug,
+      label: taxonomy.label ?? null,
+      type: taxonomy.type ?? null,
+    });
+  });
+
+  const explicit = Array.isArray(record.taxonomies) ? record.taxonomies : [];
+  explicit.forEach((entry) => {
+    const slug = entry.slug ?? entry.Slug ?? null;
+    if (!slug) {
+      return;
+    }
+    combined.push({
+      id: entry.id ?? null,
+      slug,
+      label: entry.label ?? entry.Label ?? null,
+      type: entry.type ?? entry.Type ?? null,
+    });
+  });
+
+  const deduped = [];
+  const seen = new Set();
+  combined.forEach((entry) => {
+    const key = entry.slug ? `${entry.slug}`.toLowerCase() : null;
+    if (!key || seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    deduped.push(entry);
+  });
+
+  return {
+    list: deduped,
+    slugs: Array.from(new Set(deduped.map((entry) => entry.slug).filter(Boolean))),
+    labels: Array.from(new Set(deduped.map((entry) => entry.label).filter(Boolean))),
+    types: Array.from(new Set(deduped.map((entry) => entry.type).filter(Boolean))),
+  };
+}
+
 function mapRecordToDocument(category, record) {
   const plain = typeof record.get === 'function' ? record.get({ plain: true }) : record;
   const created = serialiseDate(plain.createdAt);
   const updated = serialiseDate(plain.updatedAt ?? plain.createdAt);
   const freshnessScore = computeFreshnessScore(updated.iso);
   const geo = normaliseGeoLocation(plain.geoLocation, plain.location);
+  const taxonomyInfo = collectTaxonomies(plain);
 
   const baseDocument = {
     id: plain.id,
@@ -279,6 +380,10 @@ function mapRecordToDocument(category, record) {
     geoRegion: geo?.region ?? null,
     geoCountry: geo?.country ?? null,
     geoLabel: geo?.label ?? plain.location ?? null,
+    taxonomies: taxonomyInfo.list,
+    taxonomySlugs: taxonomyInfo.slugs,
+    taxonomyLabels: taxonomyInfo.labels,
+    taxonomyTypes: taxonomyInfo.types,
   };
 
   if (geo) {
@@ -391,6 +496,7 @@ async function ingestModel(definition, options) {
   const batchSize = options.batchSize ?? DEFAULT_BATCH_SIZE;
   const logger = options.logger;
   const index = options.index;
+  const taxonomyInclude = buildTaxonomyInclude(category);
   let offset = 0;
   let processed = 0;
 
@@ -403,6 +509,7 @@ async function ingestModel(definition, options) {
         ['updatedAt', 'DESC'],
         ['id', 'DESC'],
       ],
+      include: taxonomyInclude ? [taxonomyInclude] : undefined,
     });
 
     if (!records.length) {

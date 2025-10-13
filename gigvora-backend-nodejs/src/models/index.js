@@ -174,6 +174,25 @@ export const DISPUTE_ACTION_TYPES = [
   'system_notice',
 ];
 export const DISPUTE_ACTOR_TYPES = ['customer', 'provider', 'mediator', 'admin', 'system'];
+
+export const OPPORTUNITY_TAXONOMY_TYPES = ['job', 'gig', 'freelance', 'volunteering', 'launchpad'];
+export const AD_TYPES = ['video', 'display', 'text'];
+export const AD_STATUSES = ['draft', 'scheduled', 'active', 'paused', 'expired'];
+export const AD_PACING_MODES = ['even', 'accelerated', 'asap'];
+export const AD_OBJECTIVES = ['brand', 'acquisition', 'retention', 'cross_sell'];
+export const AD_SURFACE_TYPES = [
+  'global_dashboard',
+  'company_dashboard',
+  'agency_dashboard',
+  'freelancer_dashboard',
+  'user_dashboard',
+  'headhunter_dashboard',
+  'admin_dashboard',
+  'pipeline_dashboard',
+];
+export const AD_POSITION_TYPES = ['hero', 'sidebar', 'inline', 'footer'];
+export const AD_KEYWORD_INTENTS = ['awareness', 'consideration', 'conversion', 'retention'];
+export const AD_OPPORTUNITY_TYPES = ['awareness', 'acquisition', 'retention', 'upsell'];
 export const GIG_ORDER_PIPELINE_STATUSES = [
   'inquiry',
   'qualification',
@@ -4512,6 +4531,337 @@ Volunteering.searchByTerm = async function searchByTerm(term) {
     limit: 20,
     order: [['title', 'ASC']],
   });
+};
+
+export const OpportunityTaxonomy = sequelize.define(
+  'OpportunityTaxonomy',
+  {
+    type: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      validate: { isIn: [OPPORTUNITY_TAXONOMY_TYPES] },
+    },
+    slug: { type: DataTypes.STRING(160), allowNull: false },
+    label: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    parentId: { type: DataTypes.INTEGER, allowNull: true },
+    isActive: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'opportunity_taxonomies' },
+);
+
+OpportunityTaxonomy.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    type: plain.type,
+    slug: plain.slug,
+    label: plain.label,
+    description: plain.description ?? null,
+    parentId: plain.parentId ?? null,
+    isActive: plain.isActive,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const OpportunityTaxonomyAssignment = sequelize.define(
+  'OpportunityTaxonomyAssignment',
+  {
+    taxonomyId: { type: DataTypes.INTEGER, allowNull: false },
+    targetType: { type: DataTypes.STRING(40), allowNull: false },
+    targetId: { type: DataTypes.INTEGER, allowNull: false },
+    weight: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
+    source: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'manual' },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'opportunity_taxonomy_assignments' },
+);
+
+OpportunityTaxonomyAssignment.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  const taxonomyPlain = plain.taxonomy
+    ? typeof plain.taxonomy.get === 'function'
+      ? plain.taxonomy.get({ plain: true })
+      : plain.taxonomy
+    : null;
+
+  return {
+    id: plain.id,
+    taxonomyId: plain.taxonomyId,
+    targetType: plain.targetType,
+    targetId: plain.targetId,
+    weight: plain.weight,
+    source: plain.source,
+    metadata: plain.metadata ?? null,
+    taxonomy: taxonomyPlain
+      ? {
+          id: taxonomyPlain.id,
+          slug: taxonomyPlain.slug,
+          label: taxonomyPlain.label,
+          type: taxonomyPlain.type,
+        }
+      : null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const AdCampaign = sequelize.define(
+  'AdCampaign',
+  {
+    name: { type: DataTypes.STRING(255), allowNull: false },
+    objective: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'brand',
+      validate: { isIn: [AD_OBJECTIVES] },
+    },
+    status: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [AD_STATUSES] },
+    },
+    budgetCents: { type: DataTypes.BIGINT, allowNull: true },
+    currencyCode: { type: DataTypes.STRING(8), allowNull: true },
+    startDate: { type: DataTypes.DATE, allowNull: true },
+    endDate: { type: DataTypes.DATE, allowNull: true },
+    ownerId: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'ad_campaigns' },
+);
+
+AdCampaign.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    name: plain.name,
+    objective: plain.objective,
+    status: plain.status,
+    budgetCents: plain.budgetCents == null ? null : Number(plain.budgetCents),
+    currencyCode: plain.currencyCode ?? null,
+    startDate: plain.startDate ?? null,
+    endDate: plain.endDate ?? null,
+    ownerId: plain.ownerId ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const AdCreative = sequelize.define(
+  'AdCreative',
+  {
+    campaignId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(255), allowNull: false },
+    type: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      validate: { isIn: [AD_TYPES] },
+    },
+    format: { type: DataTypes.STRING(40), allowNull: true },
+    status: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'active',
+      validate: { isIn: [AD_STATUSES] },
+    },
+    headline: { type: DataTypes.STRING(255), allowNull: true },
+    subheadline: { type: DataTypes.STRING(255), allowNull: true },
+    body: { type: DataTypes.TEXT, allowNull: true },
+    callToAction: { type: DataTypes.STRING(120), allowNull: true },
+    ctaUrl: { type: DataTypes.STRING(500), allowNull: true },
+    mediaUrl: { type: DataTypes.STRING(500), allowNull: true },
+    durationSeconds: { type: DataTypes.INTEGER, allowNull: true },
+    primaryColor: { type: DataTypes.STRING(12), allowNull: true },
+    accentColor: { type: DataTypes.STRING(12), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'ad_creatives' },
+);
+
+AdCreative.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    campaignId: plain.campaignId,
+    name: plain.name,
+    type: plain.type,
+    format: plain.format ?? null,
+    status: plain.status,
+    headline: plain.headline ?? null,
+    subheadline: plain.subheadline ?? null,
+    body: plain.body ?? null,
+    callToAction: plain.callToAction ?? null,
+    ctaUrl: plain.ctaUrl ?? null,
+    mediaUrl: plain.mediaUrl ?? null,
+    durationSeconds: plain.durationSeconds == null ? null : Number(plain.durationSeconds),
+    primaryColor: plain.primaryColor ?? null,
+    accentColor: plain.accentColor ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const AdKeyword = sequelize.define(
+  'AdKeyword',
+  {
+    keyword: { type: DataTypes.STRING(160), allowNull: false },
+    category: { type: DataTypes.STRING(80), allowNull: true },
+    intent: {
+      type: DataTypes.STRING(40),
+      allowNull: true,
+      validate: { isIn: [AD_KEYWORD_INTENTS] },
+    },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'ad_keywords' },
+);
+
+AdKeyword.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    keyword: plain.keyword,
+    category: plain.category ?? null,
+    intent: plain.intent ?? null,
+    description: plain.description ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const AdKeywordAssignment = sequelize.define(
+  'AdKeywordAssignment',
+  {
+    keywordId: { type: DataTypes.INTEGER, allowNull: false },
+    creativeId: { type: DataTypes.INTEGER, allowNull: false },
+    taxonomyId: { type: DataTypes.INTEGER, allowNull: true },
+    weight: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
+    context: { type: DataTypes.STRING(120), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'ad_keyword_assignments' },
+);
+
+AdKeywordAssignment.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  const keywordPlain = plain.keyword
+    ? typeof plain.keyword.get === 'function'
+      ? plain.keyword.get({ plain: true })
+      : plain.keyword
+    : null;
+  const taxonomyPlain = plain.taxonomy
+    ? typeof plain.taxonomy.get === 'function'
+      ? plain.taxonomy.get({ plain: true })
+      : plain.taxonomy
+    : null;
+
+  return {
+    id: plain.id,
+    keywordId: plain.keywordId,
+    creativeId: plain.creativeId,
+    taxonomyId: plain.taxonomyId ?? null,
+    weight: plain.weight,
+    context: plain.context ?? null,
+    metadata: plain.metadata ?? null,
+    keyword: keywordPlain
+      ? {
+          id: keywordPlain.id,
+          keyword: keywordPlain.keyword,
+          category: keywordPlain.category,
+          intent: keywordPlain.intent,
+        }
+      : null,
+    taxonomy: taxonomyPlain
+      ? {
+          id: taxonomyPlain.id,
+          slug: taxonomyPlain.slug,
+          label: taxonomyPlain.label,
+          type: taxonomyPlain.type,
+        }
+      : null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const AdPlacement = sequelize.define(
+  'AdPlacement',
+  {
+    creativeId: { type: DataTypes.INTEGER, allowNull: false },
+    surface: {
+      type: DataTypes.STRING(80),
+      allowNull: false,
+      defaultValue: 'global_dashboard',
+      validate: { isIn: [AD_SURFACE_TYPES] },
+    },
+    position: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'inline',
+      validate: { isIn: [AD_POSITION_TYPES] },
+    },
+    status: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'scheduled',
+      validate: { isIn: [AD_STATUSES] },
+    },
+    weight: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
+    pacingMode: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'even',
+      validate: { isIn: [AD_PACING_MODES] },
+    },
+    maxImpressionsPerHour: { type: DataTypes.INTEGER, allowNull: true },
+    startAt: { type: DataTypes.DATE, allowNull: true },
+    endAt: { type: DataTypes.DATE, allowNull: true },
+    opportunityType: {
+      type: DataTypes.STRING(60),
+      allowNull: true,
+      validate: { isIn: [AD_OPPORTUNITY_TYPES] },
+    },
+    priority: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'ad_placements' },
+);
+
+AdPlacement.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  const creativePlain = plain.creative
+    ? typeof plain.creative.get === 'function'
+      ? plain.creative.get({ plain: true })
+      : plain.creative
+    : null;
+
+  return {
+    id: plain.id,
+    creativeId: plain.creativeId,
+    surface: plain.surface,
+    position: plain.position,
+    status: plain.status,
+    weight: plain.weight,
+    pacingMode: plain.pacingMode,
+    maxImpressionsPerHour: plain.maxImpressionsPerHour == null ? null : Number(plain.maxImpressionsPerHour),
+    startAt: plain.startAt ?? null,
+    endAt: plain.endAt ?? null,
+    opportunityType: plain.opportunityType ?? null,
+    priority: plain.priority,
+    metadata: plain.metadata ?? null,
+    creative: creativePlain ? { ...creativePlain } : null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
 };
 
 export const Group = sequelize.define(
@@ -11721,6 +12071,93 @@ GigAddOn.belongsTo(Gig, { foreignKey: 'gigId', as: 'gig' });
 Gig.hasMany(GigAvailabilitySlot, { foreignKey: 'gigId', as: 'availabilitySlots', onDelete: 'CASCADE', hooks: true });
 GigAvailabilitySlot.belongsTo(Gig, { foreignKey: 'gigId', as: 'gig' });
 
+OpportunityTaxonomy.hasMany(OpportunityTaxonomy, { foreignKey: 'parentId', as: 'children' });
+OpportunityTaxonomy.belongsTo(OpportunityTaxonomy, { foreignKey: 'parentId', as: 'parent' });
+OpportunityTaxonomy.hasMany(OpportunityTaxonomyAssignment, { foreignKey: 'taxonomyId', as: 'assignments' });
+OpportunityTaxonomyAssignment.belongsTo(OpportunityTaxonomy, { foreignKey: 'taxonomyId', as: 'taxonomy' });
+
+Job.hasMany(OpportunityTaxonomyAssignment, {
+  foreignKey: 'targetId',
+  as: 'taxonomyAssignments',
+  constraints: false,
+  scope: { targetType: 'job' },
+});
+OpportunityTaxonomyAssignment.belongsTo(Job, {
+  foreignKey: 'targetId',
+  as: 'job',
+  constraints: false,
+});
+
+Gig.hasMany(OpportunityTaxonomyAssignment, {
+  foreignKey: 'targetId',
+  as: 'taxonomyAssignments',
+  constraints: false,
+  scope: { targetType: 'gig' },
+});
+OpportunityTaxonomyAssignment.belongsTo(Gig, {
+  foreignKey: 'targetId',
+  as: 'gig',
+  constraints: false,
+});
+
+FreelancerProfile.hasMany(OpportunityTaxonomyAssignment, {
+  foreignKey: 'targetId',
+  as: 'taxonomyAssignments',
+  constraints: false,
+  scope: { targetType: 'freelance' },
+});
+OpportunityTaxonomyAssignment.belongsTo(FreelancerProfile, {
+  foreignKey: 'targetId',
+  as: 'freelancerProfile',
+  constraints: false,
+});
+
+ExperienceLaunchpad.hasMany(OpportunityTaxonomyAssignment, {
+  foreignKey: 'targetId',
+  as: 'taxonomyAssignments',
+  constraints: false,
+  scope: { targetType: 'launchpad' },
+});
+OpportunityTaxonomyAssignment.belongsTo(ExperienceLaunchpad, {
+  foreignKey: 'targetId',
+  as: 'launchpad',
+  constraints: false,
+});
+
+Volunteering.hasMany(OpportunityTaxonomyAssignment, {
+  foreignKey: 'targetId',
+  as: 'taxonomyAssignments',
+  constraints: false,
+  scope: { targetType: 'volunteering' },
+});
+OpportunityTaxonomyAssignment.belongsTo(Volunteering, {
+  foreignKey: 'targetId',
+  as: 'volunteeringRole',
+  constraints: false,
+});
+
+AdCampaign.hasMany(AdCreative, { foreignKey: 'campaignId', as: 'creatives', onDelete: 'CASCADE' });
+AdCreative.belongsTo(AdCampaign, { foreignKey: 'campaignId', as: 'campaign' });
+AdCreative.hasMany(AdKeywordAssignment, { foreignKey: 'creativeId', as: 'keywordAssignments', onDelete: 'CASCADE' });
+AdKeywordAssignment.belongsTo(AdCreative, { foreignKey: 'creativeId', as: 'creative' });
+AdKeyword.hasMany(AdKeywordAssignment, { foreignKey: 'keywordId', as: 'assignments', onDelete: 'CASCADE' });
+AdKeywordAssignment.belongsTo(AdKeyword, { foreignKey: 'keywordId', as: 'keyword' });
+AdKeywordAssignment.belongsTo(OpportunityTaxonomy, { foreignKey: 'taxonomyId', as: 'taxonomy' });
+AdCreative.belongsToMany(AdKeyword, {
+  through: AdKeywordAssignment,
+  foreignKey: 'creativeId',
+  otherKey: 'keywordId',
+  as: 'keywords',
+});
+AdKeyword.belongsToMany(AdCreative, {
+  through: AdKeywordAssignment,
+  foreignKey: 'keywordId',
+  otherKey: 'creativeId',
+  as: 'creatives',
+});
+AdCreative.hasMany(AdPlacement, { foreignKey: 'creativeId', as: 'placements', onDelete: 'CASCADE' });
+AdPlacement.belongsTo(AdCreative, { foreignKey: 'creativeId', as: 'creative' });
+
 export const FinanceRevenueEntry = sequelize.define(
   'FinanceRevenueEntry',
   {
@@ -15154,6 +15591,13 @@ export default {
   FreelancerCertification,
   AiServiceRecommendation,
   Volunteering,
+  OpportunityTaxonomy,
+  OpportunityTaxonomyAssignment,
+  AdCampaign,
+  AdCreative,
+  AdPlacement,
+  AdKeyword,
+  AdKeywordAssignment,
   Group,
   GroupMembership,
   Connection,

@@ -38,6 +38,7 @@ import profileService from './profileService.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
 import { ValidationError } from '../utils/errors.js';
 import careerPipelineAutomationService from './careerPipelineAutomationService.js';
+import { getAdDashboardSnapshot } from './adService.js';
 
 const CACHE_NAMESPACE = 'dashboard:user';
 const CACHE_TTL_SECONDS = 60;
@@ -1538,6 +1539,36 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
       : [],
   };
 
+  const adKeywordHints = [
+    profile?.headline ?? null,
+    profile?.role ?? null,
+    ...sanitizedApplications.map((application) => application.target?.title).filter(Boolean),
+  ].filter(Boolean);
+
+  const adJobIds = [];
+  const adGigIds = [];
+  targetMap.forEach((target, key) => {
+    if (!target) {
+      return;
+    }
+    if (key.startsWith('job:') && Number.isInteger(Number(target.id))) {
+      adJobIds.push(Number(target.id));
+    } else if (key.startsWith('gig:') && Number.isInteger(Number(target.id))) {
+      adGigIds.push(Number(target.id));
+    }
+  });
+
+  const ads = await getAdDashboardSnapshot({
+    surfaces: ['user_dashboard', 'global_dashboard'],
+    context: {
+      keywordHints: adKeywordHints,
+      opportunityTargets: [
+        ...(adJobIds.length ? [{ targetType: 'job', ids: adJobIds }] : []),
+        ...(adGigIds.length ? [{ targetType: 'gig', ids: adGigIds }] : []),
+      ],
+    },
+  });
+
   return {
     generatedAt: new Date().toISOString(),
     profile,
@@ -1574,6 +1605,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
       supportDesk,
     },
     careerPipelineAutomation,
+    ads,
   };
 }
 

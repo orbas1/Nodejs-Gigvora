@@ -8,8 +8,10 @@ import {
   PipelineProposalTemplate,
   PipelineFollowUp,
   PipelineCampaign,
+  FreelancerProfile,
 } from '../models/index.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
+import { getAdDashboardSnapshot } from './adService.js';
 
 const DEFAULT_PIPELINE_STAGES = [
   { name: 'Lead In', winProbability: 10, statusCategory: 'open' },
@@ -403,11 +405,47 @@ export async function getFreelancerPipelineDashboard(ownerId, { view = 'stage' }
     throw new NotFoundError('Pipeline board could not be initialised.');
   }
 
+  const freelancerProfile = await FreelancerProfile.findOne({
+    where: { userId: normalizedOwnerId },
+    attributes: ['id', 'title', 'availability'],
+  });
+
   const summary = calculateSummaryMetrics(context.deals);
   const viewOptions = ['stage', 'industry', 'retainer_size', 'probability'];
   const activeView = viewOptions.includes(view) ? view : 'stage';
 
   const grouping = activeView === 'stage' ? buildKanbanView(context.stages, context.deals) : groupDealsBy(context.deals, activeView);
+
+  const keywordHints = new Set(
+    [
+      ...context.stages.map((stage) => stage.name),
+      ...context.deals.flatMap((deal) => {
+        const tags = Array.isArray(deal.tags) ? deal.tags : [];
+        return [deal.industry, deal.status, ...tags];
+      }),
+      ...context.campaigns.map((campaign) => campaign.targetService),
+      ...context.templates.map((template) => template.name),
+      freelancerProfile?.title,
+      freelancerProfile?.availability,
+    ]
+      .flat()
+      .filter(Boolean)
+      .map((value) => `${value}`.trim())
+      .filter(Boolean),
+  );
+
+  const opportunityTargets = [];
+  if (freelancerProfile?.id) {
+    opportunityTargets.push({ targetType: 'freelance', ids: [freelancerProfile.id] });
+  }
+
+  const ads = await getAdDashboardSnapshot({
+    surfaces: ['pipeline_dashboard', 'freelancer_dashboard'],
+    context: {
+      keywordHints: Array.from(keywordHints),
+      opportunityTargets,
+    },
+  });
 
   return {
     board: context.board,
@@ -423,6 +461,7 @@ export async function getFreelancerPipelineDashboard(ownerId, { view = 'stage' }
     followUps: context.followUps,
     templates: context.templates,
     viewOptions,
+    ads,
   };
 }
 

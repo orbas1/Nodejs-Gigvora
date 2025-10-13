@@ -72,6 +72,7 @@ import {
 } from '../models/index.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
+import { getAdDashboardSnapshot } from './adService.js';
 
 const CACHE_NAMESPACE = 'dashboard:company';
 const CACHE_TTL_SECONDS = 45;
@@ -5066,6 +5067,37 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       candidateNps: candidateExperience.nps,
     };
 
+    const adKeywordHints = [
+      ...(jobs.map((job) => job?.title).filter(Boolean) ?? []),
+      ...(gigs.map((gig) => gig?.title).filter(Boolean) ?? []),
+      workspaceSummary?.industryFocus ?? null,
+    ].filter(Boolean);
+
+    const jobIds = jobs
+      .map((job) => {
+        const value = job?.id ?? (typeof job?.get === 'function' ? job.get('id') : null);
+        return Number.isInteger(Number(value)) ? Number(value) : null;
+      })
+      .filter((value) => value != null);
+
+    const gigIds = gigs
+      .map((gig) => {
+        const value = gig?.id ?? (typeof gig?.get === 'function' ? gig.get('id') : null);
+        return Number.isInteger(Number(value)) ? Number(value) : null;
+      })
+      .filter((value) => value != null);
+
+    const ads = await getAdDashboardSnapshot({
+      surfaces: ['company_dashboard', 'global_dashboard'],
+      context: {
+        keywordHints: adKeywordHints,
+        opportunityTargets: [
+          ...(jobIds.length ? [{ targetType: 'job', ids: jobIds }] : []),
+          ...(gigIds.length ? [{ targetType: 'gig', ids: gigIds }] : []),
+        ],
+      },
+    });
+
     return {
       meta: {
         lookbackDays: lookback,
@@ -5120,6 +5152,7 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       recommendations,
       memberships,
       recentNotes,
+      ads,
       generatedAt: new Date().toISOString(),
     };
   });
