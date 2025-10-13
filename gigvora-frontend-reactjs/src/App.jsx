@@ -17,6 +17,7 @@ import MentorsPage from './pages/MentorsPage.jsx';
 import VolunteeringPage from './pages/VolunteeringPage.jsx';
 import AdminLoginPage from './pages/AdminLoginPage.jsx';
 import GroupsPage from './pages/GroupsPage.jsx';
+import PagesPage from './pages/PagesPage.jsx';
 import ConnectionsPage from './pages/ConnectionsPage.jsx';
 import TrustCenterPage from './pages/TrustCenter.jsx';
 import AutoAssignQueuePage from './pages/AutoAssignQueuePage.jsx';
@@ -37,6 +38,7 @@ import HeadhunterDashboardPage from './pages/dashboards/HeadhunterDashboardPage.
 import CompanyNetworkingHubPage from './pages/networking/CompanyNetworkingHubPage.jsx';
 import MentorDashboardPage from './pages/dashboards/MentorDashboardPage.jsx';
 import LaunchpadOperationsPage from './pages/dashboards/LaunchpadOperationsPage.jsx';
+import RoleProtectedRoute from './components/auth/RoleProtectedRoute.jsx';
 
 export default function App() {
   return (
@@ -58,6 +60,7 @@ export default function App() {
         <Route path="mentors" element={<MentorsPage />} />
         <Route path="volunteering" element={<VolunteeringPage />} />
         <Route path="groups" element={<GroupsPage />} />
+        <Route path="pages" element={<PagesPage />} />
         <Route path="connections" element={<ConnectionsPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="trust-center" element={<TrustCenterPage />} />
@@ -69,16 +72,86 @@ export default function App() {
         <Route path="settings" element={<SettingsPage />} />
         <Route path="finance" element={<FinanceHubPage />} />
       </Route>
-      <Route path="dashboard/user" element={<UserDashboardPage />} />
-      <Route path="dashboard/freelancer" element={<FreelancerDashboardPage />} />
-      <Route path="dashboard/freelancer/pipeline" element={<FreelancerPipelinePage />} />
-      <Route path="dashboard/admin" element={<AdminDashboardPage />} />
-      <Route path="dashboard/agency" element={<AgencyDashboardPage />} />
-      <Route path="dashboard/company" element={<CompanyDashboardPage />} />
-      <Route path="dashboard/company/networking" element={<CompanyNetworkingHubPage />} />
-      <Route path="dashboard/headhunter" element={<HeadhunterDashboardPage />} />
-      <Route path="dashboard/mentor" element={<MentorDashboardPage />} />
-      <Route path="dashboard/launchpad" element={<LaunchpadOperationsPage />} />
+      <Route
+        path="dashboard/user"
+        element={
+          <RoleProtectedRoute allowedRoles={['user']}>
+            <UserDashboardPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="dashboard/freelancer"
+        element={
+          <RoleProtectedRoute allowedRoles={['freelancer']}>
+            <FreelancerDashboardPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="dashboard/freelancer/pipeline"
+        element={
+          <RoleProtectedRoute allowedRoles={['freelancer']}>
+            <FreelancerPipelinePage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="dashboard/admin"
+        element={
+          <RoleProtectedRoute allowedRoles={['admin']}>
+            <AdminDashboardPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="dashboard/agency"
+        element={
+          <RoleProtectedRoute allowedRoles={['agency']}>
+            <AgencyDashboardPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="dashboard/company"
+        element={
+          <RoleProtectedRoute allowedRoles={['company']}>
+            <CompanyDashboardPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="dashboard/company/networking"
+        element={
+          <RoleProtectedRoute allowedRoles={['company']}>
+            <CompanyNetworkingHubPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="dashboard/headhunter"
+        element={
+          <RoleProtectedRoute allowedRoles={['headhunter']}>
+            <HeadhunterDashboardPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="dashboard/mentor"
+        element={
+          <RoleProtectedRoute allowedRoles={['mentor']}>
+            <MentorDashboardPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="dashboard/launchpad"
+        element={
+          <RoleProtectedRoute allowedRoles={['admin', 'mentor']}>
+            <LaunchpadOperationsPage />
+          </RoleProtectedRoute>
+        }
+      />
       <Route path="admin" element={<AdminLoginPage />} />
     </Routes>
   );

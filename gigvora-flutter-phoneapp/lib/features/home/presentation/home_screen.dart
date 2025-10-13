@@ -100,6 +100,8 @@ class HomeScreen extends ConsumerWidget {
               const SizedBox(height: 8),
               _DashboardActions(actions: activeDashboard.actions),
             ],
+            const SizedBox(height: 16),
+            const _NetworkCtaCard(),
             const SizedBox(height: 12),
           ],
         ),
@@ -273,6 +275,37 @@ class _MetricsWrap extends StatelessWidget {
               .toList(),
         );
       },
+    );
+  }
+}
+
+class _NetworkCtaCard extends StatelessWidget {
+  const _NetworkCtaCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return GigvoraCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Connection intelligence', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 8),
+          Text(
+            'Review first, second, and third-degree relationships to plan introductions with confidence.',
+            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: ElevatedButton.icon(
+              onPressed: () => GoRouter.of(context).go('/connections'),
+              icon: const Icon(Icons.group_outlined),
+              label: const Text('Open network graph'),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
