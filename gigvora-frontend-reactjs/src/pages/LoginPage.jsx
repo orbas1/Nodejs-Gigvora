@@ -19,6 +19,8 @@ export default function LoginPage() {
   const handleVerify = (event) => {
     event.preventDefault();
     login({
+      userId: 101,
+      profileId: 101,
       name: 'Lena Fields',
       title: 'Product Designer',
       avatarSeed: 'Lena Fields',

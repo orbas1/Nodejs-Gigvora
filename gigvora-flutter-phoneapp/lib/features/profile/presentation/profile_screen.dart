@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/providers.dart';
 import '../../../theme/widgets.dart';
+import '../../auth/application/session_controller.dart';
 import '../application/profile_controller.dart';
 import '../data/models/profile.dart';
 
@@ -13,11 +15,111 @@ class ProfileScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final sessionState = ref.watch(sessionControllerProvider);
+    final session = sessionState.session;
     final config = ref.watch(appConfigProvider);
-    final resolvedId = profileId ?? (config.featureFlags['demoProfileId'] as String? ?? 'usr_demo');
-    final state = ref.watch(profileControllerProvider(resolvedId));
-    final controller = ref.read(profileControllerProvider(resolvedId).notifier);
+    final fallbackId = config.featureFlags['demoProfileId'] as String?;
+    final resolvedId = profileId ?? session?.profileId ?? fallbackId;
+    final hasProfileId = resolvedId?.isNotEmpty ?? false;
+    final accessAllowed = sessionState.isAuthenticated &&
+        session != null &&
+        (session.memberships.contains('freelancer') ||
+            session.memberships.contains('agency') ||
+            session.memberships.contains('admin'));
+
+    if (!sessionState.isAuthenticated) {
+      return GigvoraScaffold(
+        title: 'Profile',
+        subtitle: 'Secure workspace',
+        body: Center(
+          child: GigvoraCard(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Sign in to access your profile',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Authenticate with your Gigvora account to review availability, metrics, and collaboration history.',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: () => context.go('/login'),
+                  child: const Text('Go to secure login'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (!accessAllowed) {
+      return GigvoraScaffold(
+        title: 'Profile',
+        subtitle: session?.roleLabel(session.activeMembership) ?? 'Workspace access required',
+        body: Center(
+          child: GigvoraCard(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Profile workspace required',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Switch to a freelancer, agency, or admin role to view the profile cockpit. Contact your organisation admin if you need access.',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 16),
+                FilledButton.tonal(
+                  onPressed: () => context.go('/home'),
+                  child: const Text('Return to home'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (!hasProfileId) {
+      return GigvoraScaffold(
+        title: 'Profile',
+        subtitle: 'No profile linked',
+        body: Center(
+          child: GigvoraCard(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'No profile is linked to this account yet',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Ask your workspace admin to provision a profile or reach out to support@gigvora.com for assistance.',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final state = ref.watch(profileControllerProvider(resolvedId!));
+    final controller = ref.read(profileControllerProvider(resolvedId!).notifier);
     final profile = state.data;
+
+    Future<void> refresh() => controller.refresh();
 
     return GigvoraScaffold(
       title: profile?.fullName ?? 'Profile',
@@ -25,12 +127,14 @@ class ProfileScreen extends ConsumerWidget {
       actions: [
         IconButton(
           tooltip: 'Refresh profile',
-          onPressed: () => controller.refresh(),
+          onPressed: () {
+            controller.refresh();
+          },
           icon: const Icon(Icons.refresh),
         ),
       ],
       body: RefreshIndicator(
-        onRefresh: () => controller.refresh(),
+        onRefresh: refresh,
         child: ListView(
           padding: const EdgeInsets.only(bottom: 32),
           children: [
