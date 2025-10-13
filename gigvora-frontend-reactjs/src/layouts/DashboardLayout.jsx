@@ -21,12 +21,15 @@ export default function DashboardLayout({
   profile,
   availableDashboards,
   children,
+  activeMenuItem,
+  onMenuItemSelect,
 }) {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   const navigationSections = Array.isArray(menuSections) ? menuSections : [];
+  const interactiveMenu = typeof onMenuItemSelect === 'function';
   const capabilitySections = Array.isArray(sections) ? sections : [];
   const heroTitle = title ?? 'Dashboard';
   const heroSubtitle = subtitle ?? 'Workspace overview';
@@ -125,31 +128,63 @@ export default function DashboardLayout({
                 <div key={section.label}>
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{section.label}</p>
                   <ul className="mt-3 space-y-2">
-                    {section.items.map((item) => (
-                      <li key={item.name}>
-                        <div className="group flex flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-slate-700">{item.name}</span>
-                            <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
-                          </div>
-                          {item.description ? (
-                            <p className="text-xs text-slate-500">{item.description}</p>
-                          ) : null}
-                          {item.tags?.length ? (
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {item.tags.map((tag) => (
-                                <span
-                                  key={tag}
-                                  className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-600"
-                                >
-                                  {tag}
-                                </span>
-                              ))}
+                    {section.items.map((item) => {
+                      const itemKey = item.id ?? item.name;
+                      const isActive = interactiveMenu && itemKey === activeMenuItem;
+                      const Element = interactiveMenu ? 'button' : 'div';
+                      const handleClick = () => {
+                        if (interactiveMenu) {
+                          onMenuItemSelect(itemKey, item);
+                          setSidebarOpen(false);
+                        }
+                      };
+                      return (
+                        <li key={itemKey}>
+                          <Element
+                            type={interactiveMenu ? 'button' : undefined}
+                            onClick={interactiveMenu ? handleClick : undefined}
+                            className={`${
+                              isActive
+                                ? 'border-blue-400 bg-blue-50/80 text-blue-700'
+                                : 'border-transparent bg-slate-100/70 text-slate-700'
+                            } group flex w-full flex-col gap-1 rounded-2xl border p-3 text-left transition hover:border-blue-300 hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40`}
+                            aria-pressed={interactiveMenu ? isActive : undefined}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium">
+                                {item.name}
+                              </span>
+                              <ChevronRightIcon
+                                className={`${
+                                  isActive ? 'text-blue-500' : 'text-slate-400'
+                                } h-4 w-4 transition group-hover:text-blue-500`}
+                              />
                             </div>
-                          ) : null}
-                        </div>
-                      </li>
-                    ))}
+                            {item.description ? (
+                              <p className="text-xs text-slate-500">
+                                {item.description}
+                              </p>
+                            ) : null}
+                            {item.tags?.length ? (
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {item.tags.map((tag) => (
+                                  <span
+                                    key={tag}
+                                    className={`${
+                                      isActive
+                                        ? 'bg-blue-100 text-blue-700'
+                                        : 'bg-blue-50 text-blue-600'
+                                    } inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide`}
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : null}
+                          </Element>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               ))}
