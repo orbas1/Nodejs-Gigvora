@@ -99,7 +99,7 @@ export default function LaunchpadPage() {
         <PageHeader
           eyebrow="Experience Launchpad"
           title="Guided programmes to ship portfolio-ready work"
-          description="Co-create alongside mentors and companies with structured sprints, feedback rituals, and community support."
+          description="Join structured cohorts with partner companies, shared rituals, and measurable outcomes for your next leap."
           meta={
             <DataStatus
               loading={loading}
@@ -118,7 +118,7 @@ export default function LaunchpadPage() {
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search by track, mentor, or cohort focus"
+            placeholder="Search by track, cohort focus, or partner company"
             className="w-full rounded-full border border-slate-200 bg-white px-5 py-3 text-sm shadow-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
           />
         </div>

@@ -8,6 +8,7 @@ const endpointByCategory = {
   projects: '/discovery/projects',
   launchpads: '/discovery/launchpads',
   volunteering: '/discovery/volunteering',
+  mentors: '/discovery/mentors',
 };
 
 export default function useOpportunityListing(category, query, { pageSize = 20 } = {}) {

@@ -49,6 +49,12 @@ const CATEGORIES = [
     placeholder: 'Search tracks or launchpad cohorts',
   },
   {
+    id: 'mentor',
+    label: 'Mentors',
+    tagline: 'Book mentorship sessions, clinics, and packages with industry leaders.',
+    placeholder: 'Search mentors, focus areas, or outcomes',
+  },
+  {
     id: 'volunteering',
     label: 'Volunteering',
     tagline: 'Purpose-led missions from nonprofits and community partners.',
@@ -111,6 +117,11 @@ const SORT_OPTIONS = {
   launchpad: [
     { id: 'default', label: 'Relevance' },
     { id: 'alphabetical', label: 'A–Z' },
+  ],
+  mentor: [
+    { id: 'default', label: 'Match score' },
+    { id: 'rating', label: 'Rating' },
+    { id: 'price_low_high', label: 'Price (low → high)' },
   ],
   volunteering: [
     { id: 'default', label: 'Relevance' },

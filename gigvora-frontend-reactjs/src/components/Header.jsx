@@ -10,6 +10,7 @@ import useSession from '../hooks/useSession.js';
 const AUTHENTICATED_NAV_LINKS = [
   { to: '/feed', label: 'Live Feed' },
   { to: '/search', label: 'Explorer' },
+  { to: '/mentors', label: 'Mentors' },
   { to: '/inbox', label: 'Inbox' },
 ];
 
