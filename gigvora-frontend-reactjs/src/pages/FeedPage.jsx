@@ -22,6 +22,7 @@ import { apiClient } from '../services/apiClient.js';
 import analytics from '../services/analytics.js';
 import { formatRelativeTime } from '../utils/date.js';
 import useSession from '../hooks/useSession.js';
+import useEngagementSignals from '../hooks/useEngagementSignals.js';
 
 const COMPOSER_OPTIONS = [
   {
@@ -425,7 +426,73 @@ function FeedPostCard({ post, onShare }) {
   );
 }
 
-function FeedSidebar({ session }) {
+function LiveMomentsTicker({ moments = [] }) {
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => {
+    if (!moments.length || typeof window === 'undefined') {
+      return undefined;
+    }
+    const interval = window.setInterval(() => {
+      setActiveIndex((previous) => (previous + 1) % moments.length);
+    }, 6000);
+    return () => window.clearInterval(interval);
+  }, [moments]);
+
+  if (!moments.length) {
+    return null;
+  }
+
+  const activeMoment = moments[activeIndex];
+
+  return (
+    <div className="rounded-3xl border border-emerald-200 bg-white/95 p-6 shadow-soft">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold text-emerald-700">Live moments</p>
+        <span className="text-xs font-semibold uppercase tracking-wide text-emerald-600">{moments.length} pulsing</span>
+      </div>
+      <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl" aria-hidden="true">
+            {activeMoment.icon}
+          </span>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">{activeMoment.tag}</p>
+            <p className="mt-1 text-sm font-semibold text-emerald-900">{activeMoment.title}</p>
+            <p className="mt-2 text-xs text-emerald-600">
+              Updated {formatRelativeTime(activeMoment.timestamp)}
+            </p>
+          </div>
+        </div>
+      </div>
+      <div className="mt-4 grid gap-2">
+        {moments.map((moment, index) => (
+          <button
+            key={moment.id}
+            type="button"
+            onClick={() => setActiveIndex(index)}
+            className={`flex items-center justify-between rounded-2xl border px-4 py-2 text-left text-xs transition ${
+              index === activeIndex
+                ? 'border-emerald-400 bg-emerald-50 text-emerald-700 shadow-soft'
+                : 'border-slate-200 text-slate-500 hover:border-emerald-300 hover:text-emerald-600'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <span aria-hidden="true">{moment.icon}</span>
+              {moment.title.slice(0, 60)}{moment.title.length > 60 ? '…' : ''}
+            </span>
+            <span className="text-[0.65rem] uppercase tracking-wide text-slate-400">
+              {formatRelativeTime(moment.timestamp)}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FeedSidebar({ session, insights }) {
+  const { interests = [], connectionSuggestions = [], groupSuggestions = [], liveMoments = [] } = insights ?? {};
   return (
     <aside className="space-y-6">
       <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-soft">
@@ -501,7 +568,91 @@ function FeedSidebar({ session }) {
             <ArrowPathIcon className="h-4 w-4" />
           </Link>
         </div>
+        {interests.length ? (
+          <div className="mt-6">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Interest signals</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {interests.slice(0, 8).map((interest) => (
+                <span
+                  key={interest}
+                  className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600"
+                >
+                  {interest}
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
+      <LiveMomentsTicker moments={liveMoments} />
+      {connectionSuggestions.length ? (
+        <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-soft">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-slate-900">Suggested connections</p>
+            <Link
+              to="/connections"
+              className="text-xs font-semibold text-accent transition hover:text-accentDark"
+            >
+              View all
+            </Link>
+          </div>
+          <ul className="mt-4 space-y-3 text-sm">
+            {connectionSuggestions.slice(0, 4).map((connection) => (
+              <li key={connection.id} className="rounded-2xl border border-slate-200 px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <UserAvatar name={connection.name} seed={connection.name} size="xs" showGlow={false} />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-slate-900">{connection.name}</p>
+                    <p className="text-xs text-slate-500">{connection.headline}</p>
+                  </div>
+                </div>
+                <p className="mt-3 text-xs text-slate-500">{connection.reason}</p>
+                <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
+                  <span>{connection.location}</span>
+                  <span>{connection.mutualConnections} mutual</span>
+                </div>
+                <button
+                  type="button"
+                  className="mt-3 inline-flex items-center gap-2 rounded-full border border-accent/30 px-4 py-2 text-xs font-semibold text-accent transition hover:border-accent hover:bg-accentSoft"
+                >
+                  Connect
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {groupSuggestions.length ? (
+        <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-soft">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-slate-900">Groups to join</p>
+            <Link
+              to="/groups"
+              className="text-xs font-semibold text-accent transition hover:text-accentDark"
+            >
+              Explore groups
+            </Link>
+          </div>
+          <ul className="mt-4 space-y-3 text-sm">
+            {groupSuggestions.slice(0, 4).map((group) => (
+              <li key={group.id} className="rounded-2xl border border-slate-200 px-4 py-3">
+                <p className="text-sm font-semibold text-slate-900">{group.name}</p>
+                <p className="mt-1 text-xs text-slate-500">{group.description}</p>
+                <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
+                  <span>{group.members} members</span>
+                  <span>{group.focus.slice(0, 2).join(' • ')}</span>
+                </div>
+                <button
+                  type="button"
+                  className="mt-3 inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+                >
+                  Request invite
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       <div className="rounded-3xl border border-accent/30 bg-accentSoft p-6 text-sm text-slate-700">
         <p className="text-sm font-semibold text-accentDark">Explorer consolidation</p>
         <p className="mt-2 text-sm text-slate-700">
@@ -541,6 +692,8 @@ export default function FeedPage() {
     const fetched = Array.isArray(data) ? data : [];
     return [...localPosts, ...fetched];
   }, [data, localPosts]);
+
+  const engagementSignals = useEngagementSignals({ session, feedPosts: posts });
 
   useEffect(() => {
     if (!analyticsTrackedRef.current && !loading && posts.length) {
@@ -644,7 +797,7 @@ export default function FeedPage() {
           }
         />
         <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(260px,0.75fr),minmax(0,2fr)] lg:items-start">
-          <FeedSidebar session={session} />
+          <FeedSidebar session={session} insights={engagementSignals} />
           <div className="space-y-8">
             <FeedComposer onCreate={handleComposerCreate} session={session} />
             {error && !loading ? (
