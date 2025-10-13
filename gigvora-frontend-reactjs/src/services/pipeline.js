@@ -1,10 +1,17 @@
 import { apiClient } from './apiClient.js';
 
-export async function fetchFreelancerPipelineDashboard(ownerId, { view, signal } = {}) {
+export async function fetchFreelancerPipelineDashboard(ownerId, { view, signal, lookbackDays } = {}) {
   if (!ownerId) {
     throw new Error('ownerId is required to load the pipeline dashboard.');
   }
-  return apiClient.get('/pipeline/dashboard', { params: { ownerId, view }, signal });
+  return apiClient.get('/pipeline/dashboard', {
+    params: {
+      ownerId,
+      view,
+      lookbackDays,
+    },
+    signal,
+  });
 }
 
 export async function createPipelineDeal(ownerId, payload, { signal } = {}) {
