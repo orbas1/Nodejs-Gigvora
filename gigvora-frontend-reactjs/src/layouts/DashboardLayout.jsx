@@ -18,6 +18,10 @@ function slugify(value) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '');
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') ?? '';
 }
 
 export default function DashboardLayout({
@@ -30,6 +34,8 @@ export default function DashboardLayout({
   profile,
   availableDashboards,
   children,
+  onMenuItemSelect,
+  selectedMenuItemKey,
 }) {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -155,7 +161,164 @@ export default function DashboardLayout({
                             type="button"
                             onClick={() => handleNavigate(targetId)}
                             className="group flex w-full flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 text-left transition hover:border-blue-300 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                      const ItemComponent = item.href ? 'a' : 'div';
+                      const itemProps = item.href
+                        ? { href: item.href, className: 'group flex flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50' }
+                        : { className: 'group flex flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50' };
+
+                      return (
+                        <li key={item.name}>
+                          <ItemComponent {...itemProps}>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium text-slate-700">{item.name}</span>
+                              <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
+                            </div>
+                            {item.description ? <p className="text-xs text-slate-500">{item.description}</p> : null}
+                    {section.items.map((item) => (
+                      <li key={item.name}>
+                        {item.href ? (
+                          <a
+                            href={item.href}
+                            className="group block rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+                        {(item.href ? 'a' : 'div') === 'a' ? (
+                          <a
+                            href={item.href}
+                            className="group flex flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50"
                           >
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium text-slate-700">{item.name}</span>
+                              <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
+                            </div>
+                            </div>
+                            </div>
+                    {section.items.map((item) => {
+                      const content = (
+                        <>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-slate-700">{item.name}</span>
+                            <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
+                          </div>
+                          {item.description ? (
+                            <p className="text-xs text-slate-500">{item.description}</p>
+                          ) : null}
+                          {item.tags?.length ? (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {item.tags.map((tag) => (
+                                <span
+                                  key={tag}
+                                  className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-600"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
+                        </>
+                      );
+
+                      return (
+                        <li key={item.name}>
+                          {item.href ? (
+                            <a
+                              href={item.href}
+                              onClick={() => setSidebarOpen(false)}
+                              className="group flex flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50"
+                            >
+                              {content}
+                            </a>
+                          ) : (
+                            <div className="group flex flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50">
+                              {content}
+                            </div>
+                          )}
+                        </li>
+                      );
+                    })}
+                      const itemKey = item.key ?? item.slug ?? slugify(item.name);
+                      const isActive = selectedMenuItemKey && itemKey === selectedMenuItemKey;
+                      const isInteractive = typeof onMenuItemSelect === 'function';
+
+                      const baseClasses =
+                        'group flex w-full flex-col gap-1 rounded-2xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300';
+                      const palette = isActive
+                        ? 'border-blue-400 bg-blue-50 shadow-sm'
+                        : 'border-transparent bg-slate-100/70 hover:border-blue-300 hover:bg-blue-50';
+                      const textColor = isActive ? 'text-blue-700' : 'text-slate-700';
+
+                      const handleClick = () => {
+                        if (onMenuItemSelect) {
+                          onMenuItemSelect({ key: itemKey, item, section });
+                        }
+                        if (item.sectionId) {
+                          const target = document.getElementById(item.sectionId);
+                          target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
+                      };
+
+                      const Container = isInteractive ? 'button' : 'div';
+
+                      return (
+                        <li key={itemKey}>
+                          <Container
+                            type={isInteractive ? 'button' : undefined}
+                            onClick={isInteractive ? handleClick : undefined}
+                            className={`${baseClasses} ${palette}`}
+                            aria-pressed={isInteractive ? (isActive ? 'true' : 'false') : undefined}
+                          >
+                            <div className={`flex items-center justify-between ${textColor}`}>
+                              <span className={`text-sm font-medium ${textColor}`}>{item.name}</span>
+                              <ChevronRightIcon
+                                className={`h-4 w-4 transition ${
+                                  isActive ? 'text-blue-500' : 'text-slate-400 group-hover:text-blue-500'
+                                }`}
+                              />
+                            </div>
+                            {item.description ? (
+                              <p className={`text-xs ${isActive ? 'text-blue-600/80' : 'text-slate-500'}`}>{item.description}</p>
+                    {section.items.map((item) => (
+                      <li key={item.name}>
+                        {item.href ? (
+                          <a
+                            href={item.href}
+                            className="group flex flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium text-slate-700">{item.name}</span>
+                              <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
+                            </div>
+                            {item.description ? (
+                              <p className="text-xs text-slate-500">{item.description}</p>
+                            ) : null}
+                            {item.tags?.length ? (
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {item.tags.map((tag) => (
+                                  <span
+                                    key={tag}
+                                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+                                      isActive ? 'bg-blue-100 text-blue-700' : 'bg-blue-50 text-blue-600'
+                                    }`}
+                                    className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-600"
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : null}
+                          </button>
+                        </li>
+                      );
+                    })}
+                          </ItemComponent>
+                        </li>
+                      );
+                    })}
+                          </Container>
+                        </li>
+                      );
+                    })}
+                          </a>
+                        ) : (
+                          <div className="group flex flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50">
                             <div className="flex items-center justify-between">
                               <span className="text-sm font-medium text-slate-700">{item.name}</span>
                               <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
@@ -175,10 +338,10 @@ export default function DashboardLayout({
                                 ))}
                               </div>
                             ) : null}
-                          </button>
-                        </li>
-                      );
-                    })}
+                          </div>
+                        )}
+                      </li>
+                    ))}
                   </ul>
                 </div>
               ))}
@@ -287,6 +450,7 @@ export default function DashboardLayout({
                 : capabilitySections.map((section) => (
                     <section
                       key={section.title}
+                      id={section.id}
                       className="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_18px_40px_-24px_rgba(30,64,175,0.35)] sm:p-8"
                     >
                       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -309,6 +473,13 @@ export default function DashboardLayout({
                             <div
                               key={feature.name}
                               id={featureId || undefined}
+                      {typeof section.render === 'function' ? (
+                        <div className="mt-6">{section.render(section)}</div>
+                      ) : (
+                        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                          {(section.features ?? []).map((feature) => (
+                            <div
+                              key={feature.name}
                               className="group flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50 p-5 transition hover:border-blue-300 hover:bg-blue-50"
                             >
                               <div>
@@ -325,6 +496,21 @@ export default function DashboardLayout({
                                     </li>
                                   ))}
                                 </ul>
+                                {feature.bulletPoints?.length ? (
+                                  <ul className="mt-3 space-y-2 text-sm text-slate-600">
+                                    {feature.bulletPoints.map((point) => (
+                                      <li key={point} className="flex gap-2">
+                                        <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400" />
+                                        <span>{point}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                ) : null}
+                              </div>
+                              {feature.callout ? (
+                                <p className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium uppercase tracking-wide text-blue-700">
+                                  {feature.callout}
+                                </p>
                               ) : null}
                               {feature.pillars?.length ? (
                                 <div className="mt-4 space-y-3">
@@ -395,6 +581,9 @@ export default function DashboardLayout({
                           );
                         })}
                       </div>
+                          ))}
+                        </div>
+                      )}
                     </section>
                   ))}
             </div>
