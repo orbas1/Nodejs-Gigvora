@@ -1,38 +1,62 @@
-import { useState, useMemo, useCallback } from 'react';
-import { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useCallback, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   ArrowLeftOnRectangleIcon,
   Bars3Icon,
-  CheckBadgeIcon,
+  ChevronDownIcon,
   ChevronRightIcon,
-  MagnifyingGlassIcon,
   Squares2X2Icon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
-import { DASHBOARD_LINKS } from '../constants/dashboardLinks.js';
+import gigvoraWordmark from '../../images/Gigvora Logo.png';
 
 function slugify(value) {
-  return (value || '')
-    .toString()
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+  if (!value) {
+    return '';
+  }
   return value
-    ?.toString()
+    .toString()
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 80);
-    .replace(/(^-|-$)/g, '');
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '') ?? '';
+}
+
+function normalizeMenuSections(sections) {
+  return (Array.isArray(sections) ? sections : []).map((section, sectionIndex) => {
+    const sectionId = section.id ?? slugify(section.label ?? `section-${sectionIndex + 1}`) ?? `section-${sectionIndex + 1}`;
+    const items = (Array.isArray(section.items) ? section.items : []).map((item, itemIndex) => {
+      const itemId =
+        item.id ??
+        item.key ??
+        slugify(item.name ?? `item-${sectionIndex + 1}-${itemIndex + 1}`) ??
+        `item-${sectionIndex + 1}-${itemIndex + 1}`;
+
+      return {
+        ...item,
+        id: itemId,
+        name: item.name ?? `Menu item ${itemIndex + 1}`,
+        description: item.description ?? '',
+        sectionId: item.sectionId ?? item.targetId ?? slugify(item.sectionId ?? item.name),
+      };
+    });
+
+    return {
+      ...section,
+      id: sectionId,
+      label: section.label ?? `Section ${sectionIndex + 1}`,
+      items,
+    };
+  });
+}
+
+function DefaultAvatar({ initials }) {
+  return (
+    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-100 text-base font-semibold text-blue-700">
+      {initials ?? 'GV'}
+    </div>
+  );
 }
 
 export default function DashboardLayout({
@@ -47,1402 +71,278 @@ export default function DashboardLayout({
   children,
   activeMenuItem,
   onMenuItemSelect,
-  onMenuItemSelect,
-  activeMenuItemId,
-  activeMenuItem,
-  onMenuItemSelect,
-  onMenuItemSelect,
-  activeMenuItemKey,
-  activeMenuItemId,
-  onMenuItemClick,
-  onMenuItemSelect,
-  selectedMenuItemKey,
 }) {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const currentMenuItem = activeMenuItem ?? null;
-  const handleMenuItemSelect = typeof onMenuItemSelect === 'function' ? onMenuItemSelect : undefined;
-  const [activeFeatureKey, setActiveFeatureKey] = useState(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [openDrawers, setOpenDrawers] = useState(() => new Set());
 
-  const handleNavigate = (targetId) => {
-    if (!targetId) {
+  const normalizedMenuSections = useMemo(() => normalizeMenuSections(menuSections), [menuSections]);
+
+  useEffect(() => {
+    if (!openDrawers.size && normalizedMenuSections.length) {
+      setOpenDrawers(new Set(normalizedMenuSections.map((section) => section.id)));
+    }
+  }, [normalizedMenuSections, openDrawers]);
+
+  const resolvedProfile = {
+    name: profile?.name ?? 'Member',
+    role: profile?.role ?? 'Gigvora workspace',
+    initials: profile?.initials ?? 'GV',
+    avatarUrl: profile?.avatarUrl ?? null,
+    status: profile?.status,
+    badges: profile?.badges ?? [],
+    metrics: profile?.metrics ?? [],
+  };
+
+  const handleDrawerToggle = (sectionId) => {
+    setOpenDrawers((previous) => {
+      const next = new Set(previous);
+      if (next.has(sectionId)) {
+        next.delete(sectionId);
+      } else {
+        next.add(sectionId);
+      }
+      return next;
+    });
+  };
+
+  const handleMenuClick = (item) => {
+    if (!item) return;
+    if (typeof onMenuItemSelect === 'function') {
+      onMenuItemSelect(item.id, item);
+      setMobileOpen(false);
       return;
     }
-    if (typeof document !== 'undefined') {
+
+    if (item.href) {
+      if (item.href.startsWith('http')) {
+        window.open(item.href, item.target ?? '_blank', 'noreferrer');
+      }
+      return;
+    }
+
+    const targetId = item.sectionId ?? item.targetId ?? slugify(item.name);
+    if (targetId && typeof document !== 'undefined') {
       const targetElement = document.getElementById(targetId);
       if (targetElement) {
         targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     }
-    setSidebarOpen(false);
+    setMobileOpen(false);
   };
 
-  const navigationSections = Array.isArray(menuSections) ? menuSections : [];
-  const interactiveMenu = typeof onMenuItemSelect === 'function';
-  const capabilitySections = Array.isArray(sections) ? sections : [];
-  const resolvedSections = useMemo(
-    () =>
-      capabilitySections.map((section, index) => {
-        const candidateId = section?.id ?? slugify(section?.title ?? `section-${index + 1}`);
-        return {
-          ...section,
-          id: candidateId || `section-${index + 1}`,
-        };
-      }),
-    [capabilitySections],
-  );
-  const availableSectionIds = useMemo(
-    () => new Set(resolvedSections.map((section) => section.id).filter(Boolean)),
-    [resolvedSections],
-  );
-  const heroTitle = title ?? 'Dashboard';
-  const heroSubtitle = subtitle ?? 'Workspace overview';
-  const heroDescription = description ?? '';
+  const activeItemId = activeMenuItem ?? null;
+  const dashboards = Array.isArray(availableDashboards) && availableDashboards.length > 0 ? availableDashboards : [];
 
-  const activeProfile = {
-    name: 'Member',
-    role: 'Gigvora User',
-    initials: 'GV',
-    status: 'Active subscription',
-    badges: [],
-    metrics: [],
-    ...profile,
-  };
+  const sidebarContent = (
+    <div className="flex h-full flex-col gap-6 overflow-y-auto px-6 py-6">
+      <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between'} gap-4`}>
+        <Link to="/" className="inline-flex items-center">
+          <img src={gigvoraWordmark} alt="Gigvora" className="h-9 w-auto" />
+        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setSidebarCollapsed((previous) => !previous)}
+            className="hidden rounded-full border border-slate-200 bg-white p-2 text-slate-500 transition hover:border-blue-200 hover:text-blue-600 lg:inline-flex"
+            aria-label={sidebarCollapsed ? 'Expand menu' : 'Collapse menu'}
+          >
+            <Squares2X2Icon className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileOpen(false)}
+            className="rounded-full border border-slate-200 bg-white p-2 text-slate-500 transition hover:border-blue-200 hover:text-blue-600 lg:hidden"
+            aria-label="Close menu"
+          >
+            <XMarkIcon className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
 
-  const memberships = Array.isArray(availableDashboards) && availableDashboards.length > 0
-    ? availableDashboards
-    : Object.keys(DASHBOARD_LINKS);
-
-  const switchableDashboards = memberships.filter((key) => key !== currentDashboard && DASHBOARD_LINKS[key]);
-
-  const baseActionButtonClasses =
-    'inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-blue-200';
-  const actionButtonVariants = {
-    primary: 'bg-blue-600 text-white shadow-sm hover:bg-blue-700 focus:ring-offset-2',
-    secondary: 'border border-blue-300 text-blue-700 hover:border-blue-400 hover:text-blue-800 focus:ring-offset-2',
-    ghost: 'text-slate-600 hover:text-blue-600 focus:ring-offset-2',
-  };
-
-  const handleNavigateToSection = useCallback(
-    (sectionId) => {
-      if (!sectionId || typeof document === 'undefined') {
-        return;
-      }
-      const target = document.getElementById(sectionId);
-      if (!target) {
-        return;
-      }
-      const headerOffset = 96;
-      const rect = target.getBoundingClientRect();
-      const offset = window.scrollY + rect.top - headerOffset;
-      window.scrollTo({ top: offset > 0 ? offset : 0, behavior: 'smooth' });
-      setSidebarOpen(false);
-    },
-    [],
-  );
-
-  const handleSearchSubmit = (event) => {
-    event.preventDefault();
-  };
-
-  const handleMenuItemClick = (item) => {
-    if (typeof onMenuItemSelect === 'function') {
-      onMenuItemSelect(item);
-    }
-  };
-
-  const resolvedActiveMenuItemId = activeMenuItemId ?? null;
-  const handleAnchorNavigation = useCallback((anchor) => {
-    if (!anchor || typeof window === 'undefined') {
-      return;
-    }
-    const target = document.getElementById(anchor);
-    if (target) {
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  const handleNavigateTo = useCallback((targetId) => {
-    if (!targetId) {
-      return;
-    }
-    const element = typeof document !== 'undefined' ? document.getElementById(targetId) : null;
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-    setSidebarOpen(false);
-  }, []);
-
-  return (
-    <div className="relative min-h-screen bg-slate-50 text-slate-900">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(191,219,254,0.35),_transparent_65%)]" />
-      <div className="relative z-10 flex min-h-screen">
-        {/* Sidebar */}
-        <aside
-          className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} fixed inset-y-0 left-0 z-20 w-80 shrink-0 transform border-r border-slate-200 bg-white/95 backdrop-blur transition-transform duration-300 ease-in-out lg:static`}
-        >
-          <div className="flex h-full flex-col gap-6 overflow-y-auto p-6">
-            <div className="flex items-center justify-between">
-              <Link
-                to="/"
-                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-sm font-medium text-slate-600 shadow-sm transition hover:border-blue-300 hover:text-blue-600"
-              >
-                <ArrowLeftOnRectangleIcon className="h-4 w-4" />
-                Return to site
-              </Link>
-              <button
-                type="button"
-                onClick={() => setSidebarOpen(false)}
-                className="rounded-full p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 lg:hidden"
-                aria-label="Close menu"
-              >
-                <XMarkIcon className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-100 text-lg font-semibold text-blue-700">
-                  {activeProfile.initials}
-                </div>
-                <div>
-                  <p className="text-sm uppercase tracking-wide text-slate-500">Profile</p>
-                  <p className="text-lg font-semibold text-slate-900">{activeProfile.name}</p>
-                  <p className="text-sm text-slate-500">{activeProfile.role}</p>
-                </div>
-              </div>
-              {activeProfile.status ? (
-                <p className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium uppercase tracking-wide text-blue-700">
-                  {activeProfile.status}
+      <div className={`rounded-3xl border border-slate-200 bg-white p-5 shadow-sm ${sidebarCollapsed ? 'text-center' : ''}`}>
+        <div className={`${sidebarCollapsed ? 'justify-center' : ''} flex items-center gap-3`}>
+          {resolvedProfile.avatarUrl ? (
+            <img
+              src={resolvedProfile.avatarUrl}
+              alt={resolvedProfile.name}
+              className="h-12 w-12 rounded-2xl object-cover"
+            />
+          ) : (
+            <DefaultAvatar initials={resolvedProfile.initials} />
+          )}
+          {!sidebarCollapsed ? (
+            <div>
+              <p className="text-sm font-semibold text-slate-900">{resolvedProfile.name}</p>
+              <p className="text-xs text-slate-500">{resolvedProfile.role}</p>
+              {resolvedProfile.status ? (
+                <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-blue-600">
+                  {resolvedProfile.status}
                 </p>
               ) : null}
-              {activeProfile.badges?.length ? (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {activeProfile.badges.map((badge) => (
-                    <span
-                      key={badge}
-                      className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs text-slate-600"
-                    >
-                      <CheckBadgeIcon className="h-4 w-4 text-blue-500" />
-                      {badge}
-                    </span>
-                  ))}
-                </div>
-              ) : null}
-              {activeProfile.metrics?.length ? (
-                <dl className="mt-6 grid grid-cols-2 gap-3">
-                  {activeProfile.metrics.map(({ label, value }) => (
-                    <div key={label} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                      <dt className="text-xs uppercase tracking-wide text-slate-500">{label}</dt>
-                      <dd className="mt-1 text-lg font-semibold text-slate-900">{value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              ) : null}
             </div>
+          ) : null}
+        </div>
+        {!sidebarCollapsed && resolvedProfile.badges.length ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {resolvedProfile.badges.map((badge) => (
+              <span
+                key={badge}
+                className="inline-flex items-center rounded-full border border-blue-100 bg-blue-50 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-600"
+              >
+                {badge}
+              </span>
+            ))}
+          </div>
+        ) : null}
+        {!sidebarCollapsed && resolvedProfile.metrics.length ? (
+          <dl className="mt-4 grid grid-cols-2 gap-3">
+            {resolvedProfile.metrics.map((metric) => (
+              <div key={metric.label} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+                <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-500">{metric.label}</dt>
+                <dd className="mt-1 text-sm font-semibold text-slate-900">{metric.value}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : null}
+      </div>
 
-            <div className="space-y-6">
-              {navigationSections.map((section) => (
-                <div key={section.label}>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{section.label}</p>
-                  <ul className="mt-3 space-y-2">
+      {sidebarCollapsed ? (
+        <nav className="space-y-5">
+          {normalizedMenuSections.map((section) => (
+            <div key={section.id}>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{section.label}</p>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {section.items.map((item) => {
+                  const isActive = activeItemId === item.id;
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      title={item.name}
+                      onClick={() => handleMenuClick(item)}
+                      className={`flex aspect-square items-center justify-center rounded-2xl border text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-blue-300 ${
+                        isActive
+                          ? 'border-blue-500 bg-blue-600 text-white shadow-lg'
+                          : 'border-slate-200 bg-white/90 text-slate-500 hover:border-blue-300 hover:text-blue-600'
+                      }`}
+                    >
+                      {Icon ? <Icon className="h-5 w-5" /> : item.name.charAt(0)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </nav>
+      ) : (
+        <nav className="space-y-4">
+          {normalizedMenuSections.map((section) => {
+            const isOpen = openDrawers.has(section.id);
+            return (
+              <div key={section.id} className="rounded-3xl border border-slate-200 bg-white/80">
+                <button
+                  type="button"
+                  onClick={() => handleDrawerToggle(section.id)}
+                  className="flex w-full items-center justify-between gap-3 rounded-3xl px-4 py-3 text-left text-sm font-semibold text-slate-700 transition hover:text-blue-600"
+                >
+                  <span>{section.label}</span>
+                  <ChevronDownIcon
+                    className={`h-5 w-5 transition ${isOpen ? 'rotate-180 text-blue-500' : 'text-slate-400'}`}
+                  />
+                </button>
+                {isOpen ? (
+                  <ul className="space-y-2 border-t border-slate-100 px-4 py-3">
                     {section.items.map((item) => {
-                      const key = item.name;
-                      const isSectionLink = Boolean(item.sectionId && availableSectionIds.has(item.sectionId));
-                      const isExternalLink = Boolean(item.href);
-                      const menuItemClass =
-                        'group flex w-full flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 text-left transition hover:border-blue-300 hover:bg-blue-50';
-                      const target = item.target ?? (item.href?.startsWith('http') ? '_blank' : undefined);
-                      const rel = target === '_blank' ? 'noreferrer' : undefined;
-                      const showChevron = isSectionLink || isExternalLink;
-                      const itemId = item.id ?? item.slug ?? item.name;
-                      const isActive = currentMenuItem === itemId;
-                      const itemId = item.id ?? item.name;
-                      const isActive = resolvedActiveMenuItemId && item.id
-                        ? item.id === resolvedActiveMenuItemId
-                        : false;
+                      const isActive = activeItemId === item.id;
+                      const Icon = item.icon;
                       return (
-                        <li key={itemId}>
+                        <li key={item.id}>
                           <button
                             type="button"
-                            onClick={() => handleMenuItemSelect?.(itemId, item)}
-                            className={`group w-full text-left transition ${
+                            onClick={() => handleMenuClick(item)}
+                            className={`group flex w-full items-start gap-3 rounded-2xl border px-3 py-3 text-left transition focus:outline-none focus:ring-2 focus:ring-blue-200 ${
                               isActive
-                                ? 'border-blue-400 bg-blue-50 shadow-sm'
-                                : 'border-transparent bg-slate-100/70'
-                            } flex flex-col gap-1 rounded-2xl border p-3 hover:border-blue-300 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-400/60`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className={`text-sm font-medium ${isActive ? 'text-blue-700' : 'text-slate-700'}`}>
-                                {item.name}
-                              </span>
-                              <ChevronRightIcon
-                                className={`h-4 w-4 transition ${isActive ? 'text-blue-500' : 'text-slate-400 group-hover:text-blue-500'}`}
-                              />
-                            </div>
-                            {item.description ? (
-                              <p className={`text-xs ${isActive ? 'text-blue-600/80' : 'text-slate-500'}`}>{item.description}</p>
-                            onClick={() => handleMenuItemClick(item)}
-                            className={`group flex w-full flex-col gap-1 rounded-2xl border p-3 text-left transition focus:outline-none focus:ring-2 focus:ring-blue-200 ${
-                              isActive
-                                ? 'border-blue-400 bg-blue-50 shadow-inner'
-                                : 'border-transparent bg-slate-100/70 hover:border-blue-300 hover:bg-blue-50'
+                                ? 'border-blue-400 bg-blue-50 text-blue-700 shadow-sm'
+                                : 'border-transparent bg-slate-100/60 text-slate-700 hover:border-blue-300 hover:bg-blue-50'
                             }`}
-                            aria-pressed={isActive}
                           >
-                            <div className="flex items-center justify-between">
-                              <span
-                                className={`${
-                                  isActive ? 'text-blue-700' : 'text-slate-700'
-                                } text-sm font-medium`}
-                              >
-                      const isInteractive = Boolean(item.href || item.onClick);
-                      const Element = item.href ? 'a' : 'div';
-                      const itemProps = {
-                        className:
-                          'group flex flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500' +
-                          (isInteractive ? ' cursor-pointer' : ''),
-                      };
-
-                      if (item.href) {
-                        itemProps.href = item.href;
-                        if (item.target) {
-                          itemProps.target = item.target;
-                          itemProps.rel = item.rel ?? 'noopener noreferrer';
-                        } else if (item.rel) {
-                          itemProps.rel = item.rel;
-                        }
-                      }
-
-                      if (item.onClick) {
-                        itemProps.onClick = (event) => {
-                          if (!item.href) {
-                            event.preventDefault();
-                          }
-                          item.onClick(event);
-                        };
-                      }
-
-                      if (!item.href && item.onClick) {
-                        itemProps.role = 'button';
-                        itemProps.tabIndex = 0;
-                        itemProps.onKeyDown = (event) => {
-                          if (event.key === 'Enter' || event.key === ' ') {
-                            event.preventDefault();
-                            item.onClick(event);
-                          }
-                        };
-                      }
-
-                      return (
-                        <li key={item.name}>
-                          <Element {...itemProps}>
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium text-slate-700">{item.name}</span>
-                              <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
-                            </div>
-                      const isAnchor = Boolean(item.anchor);
-                      const ItemComponent = isAnchor ? 'button' : 'div';
-                      return (
-                        <li key={item.name}>
-                          <ItemComponent
-                            type={isAnchor ? 'button' : undefined}
-                            onClick={isAnchor ? () => handleAnchorNavigation(item.anchor) : undefined}
-                            className="group flex w-full flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 text-left transition hover:border-blue-300 hover:bg-blue-50"
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium text-slate-700">{item.name}</span>
-                              <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
-                            </div>
-                      const isLinkable = Boolean(item.targetId);
-                      const Component = isLinkable ? 'button' : 'div';
-                      return (
-                        <li key={item.name}>
-                          <Component
-                            type={isLinkable ? 'button' : undefined}
-                            onClick={isLinkable ? () => handleNavigateTo(item.targetId) : undefined}
-                            className="group flex w-full flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 text-left transition hover:border-blue-300 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                      const itemKey = item.id ?? item.name;
-                      const isActive = interactiveMenu && itemKey === activeMenuItem;
-                      const Element = interactiveMenu ? 'button' : 'div';
-                      const handleClick = () => {
-                        if (interactiveMenu) {
-                          onMenuItemSelect(itemKey, item);
-                          setSidebarOpen(false);
-                        }
-                      };
-                      return (
-                        <li key={itemKey}>
-                          <Element
-                            type={interactiveMenu ? 'button' : undefined}
-                            onClick={interactiveMenu ? handleClick : undefined}
-                            className={`${
-                              isActive
-                                ? 'border-blue-400 bg-blue-50/80 text-blue-700'
-                                : 'border-transparent bg-slate-100/70 text-slate-700'
-                            } group flex w-full flex-col gap-1 rounded-2xl border p-3 text-left transition hover:border-blue-300 hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40`}
-                            aria-pressed={interactiveMenu ? isActive : undefined}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium">
-                                {item.name}
-                              </span>
-                              <ChevronRightIcon
-                                className={`${
-                                  isActive
-                                    ? 'h-4 w-4 text-blue-500'
-                                    : 'h-4 w-4 text-slate-400 transition group-hover:text-blue-500'
-                                }`}
-                              />
-                            </div>
-                            {item.description ? (
-                              <p className={`${isActive ? 'text-blue-600' : 'text-slate-500'} text-xs`}>
-                                {item.description}
-                              </p>
-                                  isActive ? 'text-blue-500' : 'text-slate-400'
-                                } h-4 w-4 transition group-hover:text-blue-500`}
-                              />
-                            </div>
-                            {item.description ? (
-                              <p className="text-xs text-slate-500">
-                                {item.description}
-                              </p>
-                      const itemKey = item.key ?? item.slug ?? item.id ?? item.name;
-                      const isActive = activeMenuItemKey && itemKey === activeMenuItemKey;
-                      const baseClasses =
-                        'group flex flex-col gap-1 rounded-2xl border p-3 transition text-left';
-                      const inactiveClasses =
-                        'border-transparent bg-slate-100/70 hover:border-blue-300 hover:bg-blue-50';
-                      const activeClasses = 'border-blue-400 bg-blue-50 shadow-sm';
-                      const className = `${baseClasses} ${isActive ? activeClasses : inactiveClasses}`;
-
-                      const handleClick = () => {
-                        item.onClick?.(item);
-                        onMenuItemSelect?.(itemKey, item);
-                      };
-
-                      const content = (
-                        <>
-                          <div className="flex items-center justify-between">
-                            <span className={`text-sm font-medium ${isActive ? 'text-blue-700' : 'text-slate-700'}`}>
-                              {item.name}
+                            <span className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-xl bg-white/80 text-blue-500">
+                              {Icon ? <Icon className="h-5 w-5" /> : <ChevronRightIcon className="h-4 w-4" />}
                             </span>
-                            <ChevronRightIcon
-                              className={`h-4 w-4 transition ${isActive ? 'text-blue-500' : 'text-slate-400 group-hover:text-blue-500'}`}
-                      const targetId = item.targetId || slugify(item.name ?? '');
-                      return (
-                        <li key={item.name}>
-                          <button
-                            type="button"
-                            onClick={() => handleNavigate(targetId)}
-                            className="group flex w-full flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 text-left transition hover:border-blue-300 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                      const ItemComponent = item.href ? 'a' : 'div';
-                      const itemProps = item.href
-                        ? { href: item.href, className: 'group flex flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50' }
-                        : { className: 'group flex flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50' };
-
-                      return (
-                        <li key={item.name}>
-                          <ItemComponent {...itemProps}>
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium text-slate-700">{item.name}</span>
-                              <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
-                            </div>
-                            {item.description ? <p className="text-xs text-slate-500">{item.description}</p> : null}
-                    {section.items.map((item) => (
-                      <li key={item.id ?? item.name}>
-                        <button
-                          type="button"
-                          onClick={() => onMenuItemClick?.(item)}
-                          className={`group flex w-full flex-col gap-1 rounded-2xl border bg-slate-100/70 p-3 text-left transition hover:border-blue-300 hover:bg-blue-50 ${
-                            activeMenuItemId && activeMenuItemId === (item.id ?? item.name)
-                              ? 'border-blue-400 bg-blue-50 shadow-sm'
-                              : 'border-transparent'
-                          }`}
-                        >
-                      <li key={item.name}>
-                        {(() => {
-                          const isActive = item.to && location.pathname === item.to;
-                          const baseClass =
-                            'group flex flex-col gap-1 rounded-2xl border bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50';
-                          const activeClass = isActive ? ' border-blue-400 bg-blue-50 shadow-sm' : ' border-transparent';
-                          const className = `${baseClass}${activeClass}`;
-                          if (item.to) {
-                            return (
-                              <Link
-                                to={item.to}
-                                onClick={() => setSidebarOpen(false)}
-                                className={className}
-                              >
-                                <div className="flex items-center justify-between">
-                                  <span className="text-sm font-medium text-slate-700">{item.name}</span>
-                                  <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
-                                </div>
-                                {item.description ? (
-                                  <p className="text-xs text-slate-500">{item.description}</p>
-                                ) : null}
-                                {item.tags?.length ? (
-                                  <div className="mt-2 flex flex-wrap gap-2">
-                                    {item.tags.map((tag) => (
-                                      <span
-                                        key={tag}
-                                        className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-600"
-                                      >
-                                        {tag}
-                                      </span>
-                                    ))}
-                                  </div>
-                                ) : null}
-                              </Link>
-                            );
-                          }
-                          return (
-                            <div className={className}>
-                              <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium text-slate-700">{item.name}</span>
-                                <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
-                              </div>
+                            <span className="flex-1">
+                              <span className="text-sm font-medium">{item.name}</span>
                               {item.description ? (
-                                <p className="text-xs text-slate-500">{item.description}</p>
+                                <p className="mt-1 text-xs text-slate-500">{item.description}</p>
                               ) : null}
-                              {item.tags?.length ? (
-                                <div className="mt-2 flex flex-wrap gap-2">
-                                  {item.tags.map((tag) => (
-                                    <span
-                                      key={tag}
-                                      className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-600"
-                                    >
-                                      {tag}
-                                    </span>
-                                  ))}
-                                </div>
-                              ) : null}
-                            </div>
-                          );
-                        })()}
-                        {item.href ? (
-                          <a
-                            href={item.href}
-                            className="group block rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
-                        {(item.href ? 'a' : 'div') === 'a' ? (
-                          <a
-                            href={item.href}
-                            className="group flex flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50"
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium text-slate-700">{item.name}</span>
-                              <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
-                            </div>
-                            </div>
-                            </div>
-                            </div>
-                    {section.items.map((item) => {
-                      const content = (
-                        <>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-slate-700">{item.name}</span>
-                            {showChevron ? (
-                              <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
-                            ) : null}
-                            <ChevronRightIcon
-                              className={`h-4 w-4 transition ${
-                                activeMenuItemId && activeMenuItemId === (item.id ?? item.name)
-                                  ? 'text-blue-500'
-                                  : 'text-slate-400 group-hover:text-blue-500'
-                              }`}
-                            />
-                          </div>
-                          {item.description ? (
-                            <p className={`text-xs ${isActive ? 'text-blue-600/90' : 'text-slate-500'}`}>
-                              {item.description}
-                            </p>
-                          ) : null}
-                          {item.tags?.length ? (
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {item.tags.map((tag) => (
-                                <span
-                                  key={tag}
-                                  className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-600"
-                                >
-                                  {tag}
-                                </span>
-                              ))}
-                            </div>
-                          ) : null}
-                        </>
-                      );
-
-                      return (
-                        <li key={key}>
-                          {isExternalLink ? (
-                            <a href={item.href} target={target} rel={rel} className={menuItemClass}>
-                              {content}
-                            </a>
-                          ) : isSectionLink ? (
-                            <button
-                              type="button"
-                              onClick={() => handleNavigateToSection(item.sectionId)}
-                              className={menuItemClass}
-                            >
-                              {content}
-                            </button>
-                          ) : (
-                            <div className={menuItemClass}>{content}</div>
-                      if (item.href) {
-                        return (
-                          <li key={itemKey}>
-                            <Link to={item.href} className={className}>
-                              {content}
-                            </Link>
-                          </li>
-                        );
-                      }
-
-                      if (onMenuItemSelect || item.onClick) {
-                        return (
-                          <li key={itemKey}>
-                            <button type="button" onClick={handleClick} className={className}>
-                              {content}
-                            </button>
-                          </li>
-                        );
-                      }
-
-                      return (
-                        <li key={itemKey}>
-                          <div className={className}>{content}</div>
-                        </li>
-                      );
-                    })}
-                        </button>
-                        </>
-                      );
-
-                      return (
-                        <li key={item.name}>
-                          {item.href ? (
-                            <a
-                              href={item.href}
-                              onClick={() => setSidebarOpen(false)}
-                              className="group flex flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50"
-                            >
-                              {content}
-                            </a>
-                          ) : (
-                            <div className="group flex flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50">
-                              {content}
-                            </div>
-                          )}
-                        </li>
-                      );
-                    })}
-                      const itemKey = item.key ?? item.slug ?? slugify(item.name);
-                      const isActive = selectedMenuItemKey && itemKey === selectedMenuItemKey;
-                      const isInteractive = typeof onMenuItemSelect === 'function';
-
-                      const baseClasses =
-                        'group flex w-full flex-col gap-1 rounded-2xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300';
-                      const palette = isActive
-                        ? 'border-blue-400 bg-blue-50 shadow-sm'
-                        : 'border-transparent bg-slate-100/70 hover:border-blue-300 hover:bg-blue-50';
-                      const textColor = isActive ? 'text-blue-700' : 'text-slate-700';
-
-                      const handleClick = () => {
-                        if (onMenuItemSelect) {
-                          onMenuItemSelect({ key: itemKey, item, section });
-                        }
-                        if (item.sectionId) {
-                          const target = document.getElementById(item.sectionId);
-                          target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        }
-                      };
-
-                      const Container = isInteractive ? 'button' : 'div';
-
-                      return (
-                        <li key={itemKey}>
-                          <Container
-                            type={isInteractive ? 'button' : undefined}
-                            onClick={isInteractive ? handleClick : undefined}
-                            className={`${baseClasses} ${palette}`}
-                            aria-pressed={isInteractive ? (isActive ? 'true' : 'false') : undefined}
-                          >
-                            <div className={`flex items-center justify-between ${textColor}`}>
-                              <span className={`text-sm font-medium ${textColor}`}>{item.name}</span>
-                              <ChevronRightIcon
-                                className={`h-4 w-4 transition ${
-                                  isActive ? 'text-blue-500' : 'text-slate-400 group-hover:text-blue-500'
-                                }`}
-                              />
-                            </div>
-                            {item.description ? (
-                              <p className={`text-xs ${isActive ? 'text-blue-600/80' : 'text-slate-500'}`}>{item.description}</p>
-                    {section.items.map((item) => (
-                      <li key={item.name}>
-                        {item.href ? (
-                          <a
-                            href={item.href}
-                            className="group flex flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50"
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium text-slate-700">{item.name}</span>
-                              <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
-                            </div>
-                            {item.description ? (
-                              <p className="text-xs text-slate-500">{item.description}</p>
-                            ) : null}
-                            {item.tags?.length ? (
-                              <div className="mt-2 flex flex-wrap gap-2">
-                                {item.tags.map((tag) => (
-                                  <span
-                                    key={tag}
-                                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
-                                      isActive ? 'bg-blue-500 text-white' : 'bg-blue-50 text-blue-600'
-                                    }`}
-                                      isActive ? 'bg-blue-100 text-blue-700' : 'bg-blue-50 text-blue-600'
-                                    }`}
-                                    className={`${
-                                      isActive
-                                        ? 'bg-blue-100 text-blue-700'
-                                        : 'bg-blue-50 text-blue-600'
-                                    } inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide`}
-                                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
-                                      isActive ? 'bg-blue-100 text-blue-700' : 'bg-blue-50 text-blue-600'
-                                    }`}
-                                    className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-600"
-                                  >
-                                    {tag}
-                                  </span>
-                                ))}
-                              </div>
-                            ) : null}
-                          </Component>
-                        </li>
-                      );
-                    })}
-                          </Element>
-                        </li>
-                      );
-                    })}
+                            </span>
                           </button>
                         </li>
                       );
                     })}
-                          </ItemComponent>
-                        </li>
-                      );
-                    })}
-                          </Container>
-                        </li>
-                      );
-                    })}
-                          </a>
-                        ) : (
-                          <div className="group flex flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50">
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium text-slate-700">{item.name}</span>
-                              <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
-                            </div>
-                            {item.description ? (
-                              <p className="text-xs text-slate-500">{item.description}</p>
-                            ) : null}
-                            {item.tags?.length ? (
-                              <div className="mt-2 flex flex-wrap gap-2">
-                                {item.tags.map((tag) => (
-                                  <span
-                                    key={tag}
-                                    className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-600"
-                                  >
-                                    {tag}
-                                  </span>
-                                ))}
-                              </div>
-                            ) : null}
-                          </div>
-                        )}
-                      </li>
-                    ))}
                   </ul>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-auto rounded-3xl border border-blue-100 bg-blue-50 p-5 text-blue-700">
-              <div className="flex items-center gap-3">
-                <Squares2X2Icon className="h-6 w-6 text-blue-500" />
-                <div>
-                  <p className="text-sm font-semibold">Workspace tips</p>
-                  <p className="text-xs text-blue-600/80">
-                    Use the search bar to query profiles, gigs, jobs, and project records across Gigvora.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </aside>
-
-        {/* Main content */}
-        <div className="flex min-h-screen flex-1 flex-col lg:ml-80">
-          <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur">
-            <div className="flex flex-wrap items-center gap-3 px-4 py-4 sm:px-8">
-              <button
-                type="button"
-                className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white p-2 text-slate-600 transition hover:border-blue-300 hover:text-blue-600 lg:hidden"
-                onClick={() => setSidebarOpen(true)}
-                aria-label="Open menu"
-              >
-                <Bars3Icon className="h-5 w-5" />
-              </button>
-
-              <form
-                onSubmit={handleSearchSubmit}
-                className="relative flex-1 min-w-[240px] rounded-2xl border border-slate-200 bg-white shadow-sm"
-              >
-                <MagnifyingGlassIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="search"
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search the Gigvora database..."
-                  className="w-full rounded-2xl border-0 bg-transparent py-3 pl-12 pr-4 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                />
-              </form>
-
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Switch</span>
-                <div className="relative">
-                  <select
-                    value={currentDashboard}
-                    onChange={(event) => {
-                      const target = event.target.value;
-                      if (target !== currentDashboard && DASHBOARD_LINKS[target]) {
-                        navigate(DASHBOARD_LINKS[target].path);
-                      }
-                    }}
-                    className="appearance-none rounded-xl border border-slate-200 bg-white py-2 pl-3 pr-8 text-sm text-slate-700 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
-                  >
-                    {memberships
-                      .filter((key) => DASHBOARD_LINKS[key])
-                      .map((key) => (
-                        <option key={key} value={key}>
-                          {DASHBOARD_LINKS[key].label}
-                        </option>
-                      ))}
-                  </select>
-                  <ChevronRightIcon className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                </div>
-              </div>
-            </div>
-          </header>
-
-          <main className="flex-1 bg-transparent">
-            <div className="mx-auto w-full max-w-6xl space-y-10 px-4 py-10 sm:px-8">
-              <div className="space-y-4">
-                <p className="text-sm uppercase tracking-wide text-blue-600/90">{heroSubtitle}</p>
-                <h1 className="text-3xl font-semibold text-slate-900 sm:text-4xl">{heroTitle}</h1>
-                <p className="max-w-3xl text-base text-slate-600">{heroDescription}</p>
-
-                {switchableDashboards.length ? (
-                  <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600 shadow-sm">
-                    <span className="font-medium text-slate-700">Your memberships:</span>
-                    <div className="flex flex-wrap gap-2">
-                      {memberships.map((key) =>
-                        DASHBOARD_LINKS[key] ? (
-                          <span
-                            key={key}
-                            className={`${
-                              key === currentDashboard
-                                ? 'bg-blue-50 text-blue-700 border-blue-300'
-                                : 'bg-slate-100 text-slate-600 border-slate-200'
-                            } inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium uppercase tracking-wide`}
-                          >
-                            {DASHBOARD_LINKS[key].label}
-                          </span>
-                        ) : null,
-                      )}
-                    </div>
-                  </div>
                 ) : null}
               </div>
+            );
+          })}
+        </nav>
+      )}
 
-              {children
-                ? children
-                : resolvedSections.map((section) => (
-                    <section
-                      key={section.id || section.title}
-                      key={section.title}
-                      id={section.id}
-                      className="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_18px_40px_-24px_rgba(30,64,175,0.35)] sm:p-8"
-                    >
-                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">{section.title}</h2>
-                          {section.description ? (
-                            <p className="mt-2 max-w-3xl text-sm text-slate-600">{section.description}</p>
-                          ) : null}
-                        </div>
-                        {section.meta ? (
-                          <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-medium uppercase tracking-wide text-blue-700">
-                            {section.meta}
-                          </div>
-                        ) : null}
-                      </div>
-                      <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                        {(section.features ?? []).map((feature) => (
-                          <div
-                            key={feature.name}
-                            className="group flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50 p-5 transition hover:border-blue-300 hover:bg-blue-50"
-                          >
-                          <div>
-                            <h3 className="text-lg font-semibold text-slate-900">{feature.name}</h3>
-                            {feature.description ? (
-                              <p className="mt-2 text-sm text-slate-600">{feature.description}</p>
-                            ) : null}
-                            {feature.bulletPoints?.length ? (
-                              <ul className="mt-3 space-y-2 text-sm text-slate-600">
-                                {feature.bulletPoints.map((point) => (
-                                  <li key={point} className="flex gap-2">
-                                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400" />
-                                    <span>{point}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            ) : null}
-                            {feature.stats?.length ? (
-                              <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                                {feature.stats.map(({ label, value, trend }) => (
-                                  <div
-                                    key={`${feature.name}-${label}`}
-                                    className="rounded-2xl border border-slate-200 bg-white/60 p-3"
-                                  >
-                                    <dt className="text-xs uppercase tracking-wide text-slate-500">{label}</dt>
-                                    <dd className="mt-1 text-base font-semibold text-slate-900">{value}</dd>
-                                    {trend ? (
-                                      <p className="text-xs font-medium text-blue-600/80">{trend}</p>
-                                    ) : null}
-                                  </div>
-                                ))}
-                              </dl>
-                            ) : null}
-                            {feature.highlights?.length ? (
-                              <div className="mt-4 space-y-3">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                                  Spotlight highlights
-                                </p>
-                                <div className="space-y-3">
-                                  {feature.highlights.map((highlight) => (
-                                    <div
-                                      key={`${feature.name}-${highlight.title}`}
-                                      className="rounded-2xl border border-slate-200 bg-white/70 p-3"
-                                    >
-                                      <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-blue-700">
-                                        <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] uppercase tracking-wide text-blue-600">
-                                          {highlight.type}
-                                        </span>
-                                        {highlight.date ? (
-                                          <span className="text-slate-500">{highlight.date}</span>
-                                        ) : null}
-                                      </div>
-                                      <p className="mt-2 text-sm font-semibold text-slate-900">{highlight.title}</p>
-                                      {highlight.impact ? (
-                                        <p className="mt-1 text-sm text-slate-600">{highlight.impact}</p>
-                                      ) : null}
-                                    </div>
-                        {section.features.map((feature) => {
-                          const featureId = feature.anchorId || feature.targetId || slugify(feature.name);
-                          const featureKey = `${section.title}:${feature.name}`;
-                          const hasDeepDive = Boolean(feature.deepDive);
-                          const isExpanded = activeFeatureKey === featureKey;
-                          return (
-                            <div
-                              key={feature.name}
-                              className={`group flex h-full flex-col justify-between rounded-2xl border p-5 transition ${
-                                isExpanded
-                                  ? 'border-blue-300 bg-blue-50 shadow-[0_18px_40px_-24px_rgba(30,64,175,0.35)]'
-                                  : 'border-slate-200 bg-slate-50 hover:border-blue-300 hover:bg-blue-50'
-                              }`}
-                            >
-                              <div className="space-y-3">
-                                <div
-                                  role={hasDeepDive ? 'button' : undefined}
-                                  tabIndex={hasDeepDive ? 0 : undefined}
-                                  onClick={
-                                    hasDeepDive
-                                      ? () =>
-                                          setActiveFeatureKey((current) =>
-                                            current === featureKey ? null : featureKey,
-                                          )
-                                      : undefined
-                                  }
-                                  onKeyDown={
-                                    hasDeepDive
-                                      ? (event) => {
-                                          if (event.key === 'Enter' || event.key === ' ') {
-                                            event.preventDefault();
-                                            setActiveFeatureKey((current) =>
-                                              current === featureKey ? null : featureKey,
-                                            );
-                                          }
-                                        }
-                                      : undefined
-                                  }
-                                  className={
-                                    hasDeepDive
-                                      ? 'cursor-pointer rounded-xl px-2 py-1 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2'
-                                      : undefined
-                                  }
-                                >
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                      <h3 className="text-lg font-semibold text-slate-900">{feature.name}</h3>
-                                      {feature.description ? (
-                                        <p className="mt-2 text-sm text-slate-600">{feature.description}</p>
-                                      ) : null}
-                                    </div>
-                                    {hasDeepDive ? (
-                                      <span
-                                        className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs font-semibold uppercase tracking-wide transition ${
-                                          isExpanded
-                                            ? 'border-blue-500 bg-blue-100 text-blue-700'
-                                            : 'border-slate-200 bg-white text-slate-500'
-                                        }`}
-                                      >
-                                        {isExpanded ? 'Hide' : 'Explore'}
-                                        <ChevronRightIcon
-                                          className={`h-4 w-4 transition ${
-                                            isExpanded ? 'rotate-90 text-blue-600' : 'text-slate-400'
-                                          }`}
-                                        />
-                                      </span>
-                                    ) : null}
-                                  </div>
-                                  {feature.bulletPoints?.length ? (
-                                    <ul className="mt-3 space-y-2 text-sm text-slate-600">
-                                      {feature.bulletPoints.map((point) => (
-                                        <li key={point} className="flex gap-2">
-                                          <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400" />
-                                          <span>{point}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  ) : null}
-                                </div>
-                                {hasDeepDive && isExpanded ? (
-                                  <div className="mt-3 text-sm text-slate-600">{feature.deepDive}</div>
-                                ) : null}
-                          const featureId = feature.id ?? slugify(feature.name ?? '');
-                          return (
-                            <div
-                              key={feature.name}
-                              id={featureId || undefined}
-                      {typeof section.render === 'function' ? (
-                        <div className="mt-6">{section.render(section)}</div>
-                      ) : (
-                        <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                          {(section.features ?? []).map((feature) => (
-                            <div
-                              key={feature.name}
-                              className="group flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50 p-5 transition hover:border-blue-300 hover:bg-blue-50"
-                            >
-                              <div>
-                                <h3 className="text-lg font-semibold text-slate-900">{feature.name}</h3>
-                                {feature.description ? (
-                                  <p className="mt-2 text-sm text-slate-600">{feature.description}</p>
-                                ) : null}
-                              {feature.bulletPoints?.length ? (
-                                <ul className="mt-3 space-y-2 text-sm text-slate-600">
-                                  {feature.bulletPoints.map((point) => (
-                                    <li key={point} className="flex gap-2">
-                                      <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400" />
-                                      <span>{point}</span>
-                                    </li>
-                                  ))}
-                                </div>
-                              </div>
-                            ) : null}
-                            {feature.resources?.length ? (
-                              <div className="mt-4 rounded-2xl border border-dashed border-blue-200 bg-blue-50/40 p-4">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-blue-600/90">
-                                  Share-ready assets
-                                </p>
-                                <ul className="mt-3 space-y-3">
-                                  {(feature.resources ?? []).map((resource) => {
-                                    if (!resource?.name) {
-                                      return null;
-                                    }
-                                    const resourceTarget =
-                                      resource.target ?? (resource.href?.startsWith('http') ? '_blank' : undefined);
-                                    const resourceRel = resourceTarget === '_blank' ? 'noreferrer' : undefined;
-                                    return (
-                                      <li
-                                        key={`${feature.name}-${resource.name}`}
-                                        className="flex flex-wrap items-start justify-between gap-3"
-                                      >
-                                        <div>
-                                          {resource.href ? (
-                                            <a
-                                              href={resource.href}
-                                              target={resourceTarget}
-                                              rel={resourceRel}
-                                              className="text-sm font-medium text-blue-700 hover:underline"
-                                            >
-                                              {resource.name}
-                                            </a>
-                                          ) : (
-                                            <p className="text-sm font-medium text-slate-800">{resource.name}</p>
-                                          )}
-                                          {resource.description ? (
-                                            <p className="text-xs text-slate-600">{resource.description}</p>
-                                          ) : null}
-                                        </div>
-                                        {resource.format ? (
-                                          <span className="rounded-full border border-blue-200 bg-white px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-blue-600">
-                                            {resource.format}
-                                          </span>
-                                        ) : null}
-                                      </li>
-                                    );
-                                  })}
-                                </ul>
-                              </div>
-                            ) : null}
-                          </div>
-                          {feature.callout ? (
-                            <p className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium uppercase tracking-wide text-blue-700">
-                              {feature.callout}
-                            </p>
-                          ) : null}
-                          {feature.actions?.length ? (
-                            <div className="mt-4 flex flex-wrap gap-3">
-                              {(feature.actions ?? [])
-                                .filter((action) => action && action.label)
-                                .map((action) => {
-                                  const variant =
-                                    action.variant && actionButtonVariants[action.variant]
-                                      ? action.variant
-                                      : 'secondary';
-                                  const buttonClass = `${baseActionButtonClasses} ${actionButtonVariants[variant]}`;
-                                  if (action.href) {
-                                    const target = action.target ?? (action.href.startsWith('http') ? '_blank' : undefined);
-                                    const rel = target === '_blank' ? 'noreferrer' : undefined;
-                                    return (
-                                      <a
-                                        key={`${feature.name}-${action.label}`}
-                                        href={action.href}
-                                        target={target}
-                                        rel={rel}
-                                        className={buttonClass}
-                                      >
-                                        {action.label}
-                                      </a>
-                                    );
-                                  }
-                                  return (
-                                    <button
-                                      key={`${feature.name}-${action.label}`}
-                                      type="button"
-                                      onClick={action.onClick ?? undefined}
-                                      disabled={Boolean(action.disabled)}
-                                      className={`${buttonClass} ${action.disabled ? 'cursor-not-allowed opacity-60' : ''}`}
-                                    >
-                                      {action.label}
-                                    </button>
-                                  );
-                                })}
-                            </div>
-                          ) : null}
-                        </div>
-                        ))}
-                                {feature.bulletPoints?.length ? (
-                                  <ul className="mt-3 space-y-2 text-sm text-slate-600">
-                                    {feature.bulletPoints.map((point) => (
-                                      <li key={point} className="flex gap-2">
-                                        <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400" />
-                                        <span>{point}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                ) : null}
-                                {feature.customContent ? (
-                                  <div className="mt-4">{feature.customContent}</div>
-                                ) : null}
-                              </div>
-                              {feature.callout ? (
-                                <p className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium uppercase tracking-wide text-blue-700">
-                                  {feature.callout}
-                                </p>
-                              ) : null}
-                              {feature.pillars?.length ? (
-                                <div className="mt-4 space-y-3">
-                                  {feature.pillars.map((pillar) => (
-                                    <div
-                                      key={pillar.title ?? pillar.description}
-                                      className="rounded-2xl border border-slate-200 bg-white/70 p-4 shadow-[0_10px_25px_-18px_rgba(30,64,175,0.55)]"
-                                    >
-                                      <div className="flex flex-col gap-2">
-                                        {pillar.title ? (
-                                          <p className="text-xs font-semibold uppercase tracking-wide text-blue-600/80">
-                                            {pillar.title}
-                                          </p>
-                                        ) : null}
-                                        {pillar.description ? (
-                                          <p className="text-sm text-slate-600">{pillar.description}</p>
-                                        ) : null}
-                                      </div>
-                                      {pillar.items?.length ? (
-                                        <ul className="mt-3 space-y-2 text-sm text-slate-600">
-                                          {pillar.items.map((item) => (
-                                            <li key={item} className="flex gap-2">
-                                              <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-300" />
-                                              <span>{item}</span>
-                                            </li>
-                                          ))}
-                                        </ul>
-                                      ) : null}
-                                      {pillar.metrics?.length ? (
-                                        <dl className="mt-3 grid gap-2 sm:grid-cols-2">
-                                          {pillar.metrics.map(({ label, value }) => (
-                                            <div
-                                              key={`${pillar.title ?? 'pillar'}-${label}`}
-                                              className="rounded-xl border border-blue-100 bg-blue-50/80 p-3"
-                                            >
-                                              <dt className="text-[10px] font-semibold uppercase tracking-wide text-blue-500">
-                                                {label}
-                                              </dt>
-                                              <dd className="mt-1 text-sm font-semibold text-blue-900">{value}</dd>
-                                            </div>
-                                          ))}
-                                        </dl>
-                                      ) : null}
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : null}
-                              {feature.metrics?.length ? (
-                                <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-                                  {feature.metrics.map(({ label, value }) => (
-                                    <div key={label} className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
-                                      <dt className="text-xs font-semibold uppercase tracking-wide text-blue-500/90">{label}</dt>
-                                      <dd className="mt-1 text-lg font-semibold text-blue-900">{value}</dd>
-                                    </div>
-                                  ))}
-                                </dl>
-                              ) : null}
-                              </div>
-                              {feature.callout ? (
-                                <p className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium uppercase tracking-wide text-blue-700">
-                                  {feature.callout}
-                                </p>
-                              ) : null}
-                              {feature.component ? (
-                                <div className="mt-5">{feature.component}</div>
-                              ) : null}
-                              {feature.content ? (
-                                <div className="mt-5">{feature.content}</div>
-                              ) : null}
-                              {feature.workflows?.length ? (
-                                <div className="mt-4 space-y-3">
-                                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                                    {feature.workflowsLabel ?? 'Signature workflows'}
-                                  </p>
-                                  <div className="space-y-3">
-                                    {feature.workflows.map((workflow) => (
-                                      <div
-                                        key={workflow.title}
-                                        className="rounded-2xl border border-slate-200 bg-white/70 p-3 shadow-sm"
-                                      >
-                                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                                          <div>
-                                            <p className="text-sm font-semibold text-slate-800">{workflow.title}</p>
-                                            {workflow.description ? (
-                                              <p className="mt-1 text-sm text-slate-600">{workflow.description}</p>
-                                            ) : null}
-                                          </div>
-                                          {workflow.badge ? (
-                                            <span className="inline-flex items-center whitespace-nowrap rounded-full border border-blue-200 bg-blue-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-blue-600">
-                                              {workflow.badge}
-                                            </span>
-                                          ) : null}
-                                        </div>
-                                        {workflow.items?.length ? (
-                                          <ul className="mt-3 space-y-2 text-sm text-slate-600">
-                                            {workflow.items.map((item) => (
-                                              <li key={item} className="flex gap-2">
-                                                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-300" />
-                                                <span>{item}</span>
-                                              </li>
-                                            ))}
-                                          </ul>
-                                        ) : null}
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              ) : null}
-                              {feature.metrics?.length ? (
-                                <div className="mt-5">
-                                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                                    {feature.metricsLabel ?? 'Key metrics'}
-                                  </p>
-                                  <dl className="mt-3 grid gap-3 sm:grid-cols-2">
-                                    {feature.metrics.map((metric) => (
-                                      <div
-                                        key={metric.label}
-                                        className="rounded-2xl border border-slate-200 bg-white/70 p-3 shadow-sm"
-                                      >
-                                        <dt className="text-xs uppercase tracking-wide text-slate-500">{metric.label}</dt>
-                                        <dd className="mt-1 text-lg font-semibold text-slate-900">{metric.value}</dd>
-                                        {metric.trend ? (
-                                          <p
-                                            className={`mt-1 text-xs font-medium ${
-                                              metric.trend.direction === 'down'
-                                                ? 'text-rose-600'
-                                                : 'text-emerald-600'
-                                            }`}
-                                          >
-                                            {metric.trend.label ?? metric.trend.value}
-                                          </p>
-                                        ) : null}
-                                        {metric.context ? (
-                                          <p className="mt-1 text-xs text-slate-500">{metric.context}</p>
-                                        ) : null}
-                                      </div>
-                                    ))}
-                                  </dl>
-                                </div>
-                              ) : null}
-                              {feature.automations?.length ? (
-                                <div className="mt-5">
-                                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                                    {feature.automationsLabel ?? 'Automations'}
-                                  </p>
-                                  <ul className="mt-2 space-y-2 text-sm text-slate-600">
-                                    {feature.automations.map((automation) => (
-                                      <li key={automation} className="flex gap-2">
-                                        <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-300" />
-                                        <span>{automation}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              ) : null}
-                              {feature.integrations?.length ? (
-                                <div className="mt-5">
-                                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                                    {feature.integrationsLabel ?? 'Integrations'}
-                                  </p>
-                                  <div className="mt-2 flex flex-wrap gap-2">
-                                    {feature.integrations.map((integration) => (
-                                      <span
-                                        key={integration}
-                                        className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-[11px] font-medium text-slate-600"
-                                      >
-                                        {integration}
-                                      </span>
-                                    ))}
-                                  </div>
-                                </div>
-                              ) : null}
-                              {feature.metrics?.length ? (
-                                <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-                                  {feature.metrics.map(({ label, value, description: metricDescription }) => (
-                                    <div
-                                      key={`${feature.name}-${label}-${value}`}
-                                      className="rounded-2xl border border-slate-200 bg-white/70 p-3"
-                                    >
-                                      <dt className="text-xs uppercase tracking-wide text-slate-400">{label}</dt>
-                                      <dd className="mt-1 text-base font-semibold text-slate-900">{value}</dd>
-                                      {metricDescription ? (
-                                        <p className="mt-1 text-xs text-slate-500">{metricDescription}</p>
-                                      ) : null}
-                                    </div>
-                                  ))}
-                                </dl>
-                              ) : null}
-                              {feature.detailSections?.length ? (
-                                <div className="mt-4 space-y-4">
-                                  {feature.detailSections.map((detail) => (
-                                    <div
-                                      key={`${feature.name}-${detail.title}`}
-                                      className="rounded-2xl border border-slate-200 bg-white/80 p-4"
-                                    >
-                                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                                        <div>
-                                          <h4 className="text-sm font-semibold text-slate-800">{detail.title}</h4>
-                                          {detail.description ? (
-                                            <p className="mt-1 text-sm text-slate-600">{detail.description}</p>
-                                          ) : null}
-                                        </div>
-                                        {detail.meta ? (
-                                          <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-[10px] font-medium uppercase tracking-wide text-blue-700">
-                                            {detail.meta}
-                                          </span>
-                                        ) : null}
-                                      </div>
-                                      {detail.items?.length ? (
-                                        <ul className="mt-3 space-y-1.5 text-sm text-slate-600">
-                                          {detail.items.map((item) => (
-                                            <li key={item} className="flex gap-2">
-                                              <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-blue-300" />
-                                              <span>{item}</span>
-                                            </li>
-                                          ))}
-                                        </ul>
-                                      ) : null}
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : null}
-                              {feature.workflow?.stages?.length ? (
-                                <div className="mt-5">
-                                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                                    {feature.workflow.title ?? 'Workflow stages'}
-                                  </p>
-                                  <ol className="mt-3 space-y-3">
-                                    {feature.workflow.stages.map((stage) => (
-                                      <li
-                                        key={`${feature.name}-${stage.name}`}
-                                        className="rounded-2xl border border-slate-200 bg-white/80 p-4"
-                                      >
-                                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                                          <div>
-                                            <p className="text-sm font-semibold text-slate-800">{stage.name}</p>
-                                            {stage.description ? (
-                                              <p className="mt-1 text-sm text-slate-600">{stage.description}</p>
-                                            ) : null}
-                                          </div>
-                                          {stage.owner ? (
-                                            <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-[10px] font-medium uppercase tracking-wide text-slate-500">
-                                              {stage.owner}
-                                            </span>
-                                          ) : null}
-                                        </div>
-                                        {stage.outputs?.length ? (
-                                          <ul className="mt-2 space-y-1.5 text-xs text-slate-500">
-                                            {stage.outputs.map((output) => (
-                                              <li key={output} className="flex gap-2">
-                                                <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-blue-300" />
-                                                <span>{output}</span>
-                                              </li>
-                                            ))}
-                                          </ul>
-                                        ) : null}
-                                      </li>
-                                    ))}
-                                  </ol>
-                                </div>
-                              ) : null}
-                            </div>
-                          );
-                        })}
-                      </div>
-                          ))}
-                        </div>
-                      )}
-                    </section>
-                  ))}
-            </div>
-          </main>
+      {dashboards.length ? (
+        <div className="mt-auto space-y-3 rounded-3xl border border-slate-200 bg-white/80 p-4 text-sm text-slate-600">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Switch dashboard</p>
+          <div className="flex flex-wrap gap-2">
+            {dashboards.map((dashboard) => (
+              <Link
+                key={dashboard}
+                to={`/dashboards/${dashboard}`}
+                className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                  dashboard === currentDashboard
+                    ? 'border-blue-400 bg-blue-50 text-blue-700'
+                    : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-600'
+                }`}
+              >
+                <ArrowLeftOnRectangleIcon className="h-4 w-4" />
+                {dashboard.charAt(0).toUpperCase() + dashboard.slice(1)}
+              </Link>
+            ))}
+          </div>
         </div>
+      ) : null}
+    </div>
+  );
+
+  return (
+    <div className="relative flex min-h-screen bg-slate-50 text-slate-900">
+      <aside
+        className={`fixed inset-y-0 left-0 z-30 transform border-r border-slate-200 bg-white/95 shadow-lg transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        } ${sidebarCollapsed ? 'w-24 lg:w-28' : 'w-72 lg:w-80'}`}
+      >
+        {sidebarContent}
+      </aside>
+
+      <div className="flex min-h-screen flex-1 flex-col lg:pl-0">
+        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-200 bg-white/90 px-6 py-4 backdrop-blur">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setMobileOpen(true)}
+              className="inline-flex rounded-full border border-slate-200 bg-white p-2 text-slate-500 transition hover:border-blue-200 hover:text-blue-600 lg:hidden"
+              aria-label="Open menu"
+            >
+              <Bars3Icon className="h-5 w-5" />
+            </button>
+            <div>
+              <h1 className="text-xl font-semibold text-slate-900">{title ?? 'Dashboard'}</h1>
+              {subtitle ? <p className="text-sm text-slate-500">{subtitle}</p> : null}
+            </div>
+          </div>
+          {description ? <p className="hidden max-w-lg text-right text-sm text-slate-500 lg:block">{description}</p> : null}
+        </header>
+
+        <main className="flex-1 bg-slate-50/60">{children}</main>
       </div>
     </div>
   );
