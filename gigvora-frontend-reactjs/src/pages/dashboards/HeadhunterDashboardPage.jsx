@@ -20,13 +20,10 @@ import {
   ShieldCheckIcon,
   SparklesIcon,
   UserGroupIcon,
-  SparklesIcon,
   MagnifyingGlassCircleIcon,
   MapIcon,
-  ShieldCheckIcon,
   ChartPieIcon,
   BeakerIcon,
-  BoltIcon,
   MegaphoneIcon,
 } from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
@@ -222,6 +219,8 @@ function formatTimeRangeLabel(start, end, timezone) {
     return `${cleanStart} – ${cleanEnd} ${timezone ?? 'UTC'}`;
   }
   return cleanStart ?? cleanEnd ?? '—';
+}
+
 function formatCompRange(comp, fallbackCurrency = 'USD') {
   if (!comp) return '—';
   const currency = comp.currency ?? fallbackCurrency;

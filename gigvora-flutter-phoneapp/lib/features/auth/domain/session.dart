@@ -86,7 +86,7 @@ class UserSession {
       email: 'lena.fields@gigvora.com',
       location: 'Berlin, Germany',
       avatarSeed: 'Lena Fields',
-      memberships: const ['user', 'freelancer', 'agency'],
+      memberships: const ['user', 'freelancer', 'agency', 'company'],
       activeMembership: 'user',
       followers: 1280,
       connections: 324,
@@ -242,6 +242,65 @@ class UserSession {
           actions: [
             DashboardAction(label: 'Kick off partner retro', description: 'Review shared wins with Atlas Studios leadership.'),
             DashboardAction(label: 'Update availability matrix', description: 'Sync talent roster before Monday planning.'),
+          ],
+        ),
+        'company': RoleDashboard(
+          role: 'company',
+          heroTitle: 'Company talent acquisition hub',
+          heroSubtitle:
+              'Monitor requisitions, interviews, offers, and partner performance with enterprise guardrails.',
+          metrics: [
+            DashboardMetric(label: 'Open requisitions', value: '48', trend: '▲ 6 net new'),
+            DashboardMetric(label: 'Active candidates', value: '1,260', trend: 'Pipeline steady'),
+            DashboardMetric(label: 'Upcoming interviews', value: '32', trend: 'Next: Wed 14:00'),
+            DashboardMetric(label: 'Offer win rate', value: '78%', trend: '▲ 5 pts'),
+            DashboardMetric(label: 'Candidate NPS', value: '4.6/5', trend: 'Satisfaction green'),
+            DashboardMetric(label: 'Open alerts', value: '2', trend: '▼ Cleared 3 today'),
+          ],
+          sections: [
+            DashboardSection(
+              title: 'Hiring overview',
+              subtitle: 'Velocity, diversity, and governance signals for every requisition.',
+              highlights: [
+                'Average time to decision sits at 18 days with SLA green.',
+                'Diversity representation index tracking at 1.04 across funnel.',
+                'Two medium-severity compliance alerts require review this week.',
+              ],
+              icon: Icons.bar_chart_rounded,
+              accentColor: const Color(0xFF2563EB),
+            ),
+            DashboardSection(
+              title: 'Sourcing intelligence',
+              subtitle: 'Campaign ROI, nurture cadences, and partner pipelines.',
+              highlights: [
+                'Referral campaigns delivering 32% of qualified interviews.',
+                'Headhunter briefs on track with 11 submissions awaiting review.',
+                'Applicant nurture flows triggered 540 follow-ups this month.',
+              ],
+              icon: Icons.public,
+              accentColor: const Color(0xFF0EA5E9),
+            ),
+            DashboardSection(
+              title: 'Experience & governance',
+              subtitle: 'Interview automation, offer bridge, and care centre coverage.',
+              highlights: [
+                'Scheduler coverage at 92% with auto-reminders live for panels.',
+                'Offer bridge shows 5 approvals pending; average start in 21 days.',
+                'Candidate care centre resolved 18 tickets with 2 escalations open.',
+              ],
+              icon: Icons.verified_user,
+              accentColor: const Color(0xFF22C55E),
+            ),
+          ],
+          actions: [
+            DashboardAction(
+              label: 'Review networking insights',
+              description: 'Validate attendance controls before Friday sessions.',
+            ),
+            DashboardAction(
+              label: 'Publish new employer story',
+              description: 'Showcase culture wins to boost campaign conversion.',
+            ),
           ],
         ),
       },
