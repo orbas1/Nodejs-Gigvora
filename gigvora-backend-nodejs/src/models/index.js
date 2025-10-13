@@ -289,6 +289,29 @@ export const FINANCE_PAYOUT_STATUSES = ['draft', 'scheduled', 'processing', 'com
 export const FINANCE_FORECAST_SCENARIO_TYPES = ['retainer_pipeline', 'one_off_pipeline', 'baseline', 'stretch', 'custom'];
 export const FINANCE_TAX_EXPORT_STATUSES = ['generating', 'available', 'archived', 'failed'];
 
+export const COMPLIANCE_DOCUMENT_TYPES = [
+  'msa',
+  'nda',
+  'ip_assignment',
+  'contract',
+  'tax',
+  'insurance',
+  'policy_acknowledgment',
+  'security_addendum',
+  'custom',
+];
+export const COMPLIANCE_DOCUMENT_STATUSES = [
+  'draft',
+  'awaiting_signature',
+  'active',
+  'expired',
+  'archived',
+  'superseded',
+];
+export const COMPLIANCE_REMINDER_STATUSES = ['scheduled', 'sent', 'acknowledged', 'dismissed', 'cancelled'];
+export const COMPLIANCE_OBLIGATION_STATUSES = ['open', 'in_progress', 'satisfied', 'waived', 'overdue'];
+export const COMPLIANCE_STORAGE_PROVIDERS = ['s3', 'r2', 'gcs', 'azure', 'filesystem', 'external'];
+
 export const User = sequelize.define(
   'User',
   {
@@ -5901,6 +5924,302 @@ CollaborationSpace.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+export const ComplianceDocument = sequelize.define(
+  'ComplianceDocument',
+  {
+    ownerId: { type: DataTypes.INTEGER, allowNull: false },
+    workspaceId: { type: DataTypes.INTEGER, allowNull: true },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    documentType: {
+      type: DataTypes.ENUM(...COMPLIANCE_DOCUMENT_TYPES),
+      allowNull: false,
+      defaultValue: 'contract',
+      validate: { isIn: [COMPLIANCE_DOCUMENT_TYPES] },
+    },
+    status: {
+      type: DataTypes.ENUM(...COMPLIANCE_DOCUMENT_STATUSES),
+      allowNull: false,
+      defaultValue: 'awaiting_signature',
+      validate: { isIn: [COMPLIANCE_DOCUMENT_STATUSES] },
+    },
+    storageProvider: {
+      type: DataTypes.ENUM(...COMPLIANCE_STORAGE_PROVIDERS),
+      allowNull: false,
+      defaultValue: 'r2',
+      validate: { isIn: [COMPLIANCE_STORAGE_PROVIDERS] },
+    },
+    storagePath: { type: DataTypes.STRING(500), allowNull: false },
+    storageRegion: { type: DataTypes.STRING(120), allowNull: true },
+    latestVersionId: { type: DataTypes.INTEGER, allowNull: true },
+    counterpartyName: { type: DataTypes.STRING(255), allowNull: true },
+    counterpartyEmail: { type: DataTypes.STRING(255), allowNull: true, validate: { isEmail: true } },
+    counterpartyCompany: { type: DataTypes.STRING(255), allowNull: true },
+    jurisdiction: { type: DataTypes.STRING(120), allowNull: true },
+    governingLaw: { type: DataTypes.STRING(120), allowNull: true },
+    effectiveDate: { type: DataTypes.DATE, allowNull: true },
+    expiryDate: { type: DataTypes.DATE, allowNull: true },
+    renewalTerms: { type: DataTypes.STRING(255), allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    obligationSummary: { type: DataTypes.TEXT, allowNull: true },
+  },
+  {
+    tableName: 'compliance_documents',
+    indexes: [
+      { fields: ['ownerId'] },
+      { fields: ['workspaceId'] },
+      { fields: ['documentType'] },
+      { fields: ['status'] },
+      { fields: ['expiryDate'] },
+    ],
+  },
+);
+
+ComplianceDocument.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    ownerId: plain.ownerId,
+    workspaceId: plain.workspaceId,
+    title: plain.title,
+    documentType: plain.documentType,
+    status: plain.status,
+    storageProvider: plain.storageProvider,
+    storagePath: plain.storagePath,
+    storageRegion: plain.storageRegion,
+    latestVersionId: plain.latestVersionId,
+    counterpartyName: plain.counterpartyName,
+    counterpartyEmail: plain.counterpartyEmail,
+    counterpartyCompany: plain.counterpartyCompany,
+    jurisdiction: plain.jurisdiction,
+    governingLaw: plain.governingLaw,
+    effectiveDate: plain.effectiveDate,
+    expiryDate: plain.expiryDate,
+    renewalTerms: plain.renewalTerms,
+    tags: Array.isArray(plain.tags) ? plain.tags : plain.tags ? Object.values(plain.tags) : [],
+    metadata: plain.metadata ?? null,
+    obligationSummary: plain.obligationSummary,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ComplianceDocumentVersion = sequelize.define(
+  'ComplianceDocumentVersion',
+  {
+    documentId: { type: DataTypes.INTEGER, allowNull: false },
+    versionNumber: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
+    fileKey: { type: DataTypes.STRING(500), allowNull: false },
+    fileName: { type: DataTypes.STRING(255), allowNull: false },
+    mimeType: { type: DataTypes.STRING(120), allowNull: true },
+    fileSize: { type: DataTypes.BIGINT, allowNull: true, validate: { min: 0 } },
+    sha256: { type: DataTypes.STRING(128), allowNull: true },
+    uploadedById: { type: DataTypes.INTEGER, allowNull: true },
+    signedAt: { type: DataTypes.DATE, allowNull: true },
+    signedByName: { type: DataTypes.STRING(255), allowNull: true },
+    signedByEmail: { type: DataTypes.STRING(255), allowNull: true, validate: { isEmail: true } },
+    signedByIp: { type: DataTypes.STRING(64), allowNull: true },
+    auditTrail: { type: jsonType, allowNull: true },
+    changeSummary: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'compliance_document_versions',
+    indexes: [
+      { fields: ['documentId'] },
+      { fields: ['versionNumber'] },
+    ],
+  },
+);
+
+ComplianceDocumentVersion.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    documentId: plain.documentId,
+    versionNumber: plain.versionNumber,
+    fileKey: plain.fileKey,
+    fileName: plain.fileName,
+    mimeType: plain.mimeType,
+    fileSize: plain.fileSize == null ? null : Number(plain.fileSize),
+    sha256: plain.sha256,
+    uploadedById: plain.uploadedById,
+    signedAt: plain.signedAt,
+    signedByName: plain.signedByName,
+    signedByEmail: plain.signedByEmail,
+    signedByIp: plain.signedByIp,
+    auditTrail: plain.auditTrail ?? null,
+    changeSummary: plain.changeSummary,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ComplianceObligation = sequelize.define(
+  'ComplianceObligation',
+  {
+    documentId: { type: DataTypes.INTEGER, allowNull: false },
+    clauseReference: { type: DataTypes.STRING(120), allowNull: true },
+    description: { type: DataTypes.TEXT, allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...COMPLIANCE_OBLIGATION_STATUSES),
+      allowNull: false,
+      defaultValue: 'open',
+      validate: { isIn: [COMPLIANCE_OBLIGATION_STATUSES] },
+    },
+    dueAt: { type: DataTypes.DATE, allowNull: true },
+    completedAt: { type: DataTypes.DATE, allowNull: true },
+    assigneeId: { type: DataTypes.INTEGER, allowNull: true },
+    priority: { type: DataTypes.STRING(60), allowNull: true },
+    escalations: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    lastNotifiedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'compliance_obligations',
+    indexes: [
+      { fields: ['documentId'] },
+      { fields: ['status'] },
+      { fields: ['dueAt'] },
+    ],
+  },
+);
+
+ComplianceObligation.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    documentId: plain.documentId,
+    clauseReference: plain.clauseReference,
+    description: plain.description,
+    status: plain.status,
+    dueAt: plain.dueAt,
+    completedAt: plain.completedAt,
+    assigneeId: plain.assigneeId,
+    priority: plain.priority,
+    escalations: plain.escalations ?? null,
+    metadata: plain.metadata ?? null,
+    lastNotifiedAt: plain.lastNotifiedAt,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ComplianceReminder = sequelize.define(
+  'ComplianceReminder',
+  {
+    documentId: { type: DataTypes.INTEGER, allowNull: false },
+    obligationId: { type: DataTypes.INTEGER, allowNull: true },
+    reminderType: { type: DataTypes.STRING(120), allowNull: false },
+    dueAt: { type: DataTypes.DATE, allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...COMPLIANCE_REMINDER_STATUSES),
+      allowNull: false,
+      defaultValue: 'scheduled',
+      validate: { isIn: [COMPLIANCE_REMINDER_STATUSES] },
+    },
+    channel: { type: DataTypes.STRING(60), allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    sentAt: { type: DataTypes.DATE, allowNull: true },
+    acknowledgedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'compliance_reminders',
+    indexes: [
+      { fields: ['documentId'] },
+      { fields: ['status'] },
+      { fields: ['dueAt'] },
+    ],
+  },
+);
+
+ComplianceReminder.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    documentId: plain.documentId,
+    obligationId: plain.obligationId,
+    reminderType: plain.reminderType,
+    dueAt: plain.dueAt,
+    status: plain.status,
+    channel: plain.channel,
+    createdById: plain.createdById,
+    sentAt: plain.sentAt,
+    acknowledgedAt: plain.acknowledgedAt,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ComplianceLocalization = sequelize.define(
+  'ComplianceLocalization',
+  {
+    framework: { type: DataTypes.STRING(120), allowNull: false },
+    region: { type: DataTypes.STRING(60), allowNull: false },
+    requirement: { type: DataTypes.TEXT, allowNull: false },
+    guidance: { type: DataTypes.TEXT, allowNull: true },
+    recommendedDocumentTypes: { type: jsonType, allowNull: true },
+    questionnaireUrl: { type: DataTypes.STRING(500), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'compliance_localizations',
+    indexes: [
+      { fields: ['framework', 'region'] },
+      { fields: ['region'] },
+    ],
+  },
+);
+
+ComplianceLocalization.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    framework: plain.framework,
+    region: plain.region,
+    requirement: plain.requirement,
+    guidance: plain.guidance,
+    recommendedDocumentTypes: Array.isArray(plain.recommendedDocumentTypes)
+      ? plain.recommendedDocumentTypes
+      : plain.recommendedDocumentTypes ?? [],
+    questionnaireUrl: plain.questionnaireUrl,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const MessageThread = sequelize.define(
+  'MessageThread',
+  {
+    subject: { type: DataTypes.STRING(255), allowNull: true },
+    channelType: {
+      type: DataTypes.ENUM(...MESSAGE_CHANNEL_TYPES),
+      allowNull: false,
+      defaultValue: 'direct',
+    },
+    state: {
+      type: DataTypes.ENUM(...MESSAGE_THREAD_STATES),
+      allowNull: false,
+      defaultValue: 'active',
+    },
+    createdBy: { type: DataTypes.INTEGER, allowNull: false },
+    lastMessageAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'message_threads',
+    scopes: {
+      active: { where: { state: 'active' } },
+    },
+  },
+);
+
+export const MessageParticipant = sequelize.define(
+  'MessageParticipant',
 export const CollaborationParticipant = sequelize.define(
   'CollaborationParticipant',
   {
@@ -7477,6 +7796,28 @@ SupportCase.belongsTo(User, { foreignKey: 'assignedTo', as: 'assignedAgent' });
 SupportCase.belongsTo(User, { foreignKey: 'assignedBy', as: 'assignedByUser' });
 SupportCase.belongsTo(User, { foreignKey: 'resolvedBy', as: 'resolvedByUser' });
 
+ComplianceDocument.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
+ComplianceDocument.belongsTo(ComplianceDocumentVersion, {
+  foreignKey: 'latestVersionId',
+  as: 'latestVersion',
+});
+ComplianceDocument.hasMany(ComplianceDocumentVersion, { foreignKey: 'documentId', as: 'versions' });
+ComplianceDocument.hasMany(ComplianceObligation, { foreignKey: 'documentId', as: 'obligations' });
+ComplianceDocument.hasMany(ComplianceReminder, { foreignKey: 'documentId', as: 'reminders' });
+
+ComplianceDocumentVersion.belongsTo(ComplianceDocument, { foreignKey: 'documentId', as: 'document' });
+ComplianceDocumentVersion.belongsTo(User, { foreignKey: 'uploadedById', as: 'uploadedBy' });
+
+ComplianceObligation.belongsTo(ComplianceDocument, { foreignKey: 'documentId', as: 'document' });
+ComplianceObligation.belongsTo(User, { foreignKey: 'assigneeId', as: 'assignee' });
+ComplianceObligation.hasMany(ComplianceReminder, { foreignKey: 'obligationId', as: 'reminders' });
+
+ComplianceReminder.belongsTo(ComplianceDocument, { foreignKey: 'documentId', as: 'document' });
+ComplianceReminder.belongsTo(ComplianceObligation, { foreignKey: 'obligationId', as: 'obligation' });
+ComplianceReminder.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+
+User.hasMany(ComplianceDocument, { foreignKey: 'ownerId', as: 'complianceDocuments' });
+
 Notification.belongsTo(User, { foreignKey: 'userId', as: 'recipient' });
 NotificationPreference.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasOne(NotificationPreference, { foreignKey: 'userId', as: 'notificationPreference' });
@@ -7812,6 +8153,11 @@ export default {
   FreelancerFinanceControl,
   ProjectAssignmentEvent,
   AutoAssignQueueEntry,
+  ComplianceDocument,
+  ComplianceDocumentVersion,
+  ComplianceObligation,
+  ComplianceReminder,
+  ComplianceLocalization,
   GigOrder,
   GigOrderRequirementForm,
   GigOrderRevision,

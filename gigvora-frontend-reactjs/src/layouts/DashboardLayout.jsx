@@ -94,6 +94,13 @@ export default function DashboardLayout({
     event.preventDefault();
   };
 
+  const handleAnchorNavigation = useCallback((anchor) => {
+    if (!anchor || typeof window === 'undefined') {
+      return;
+    }
+    const target = document.getElementById(anchor);
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
   const handleNavigateTo = useCallback((targetId) => {
     if (!targetId) {
       return;
@@ -179,6 +186,19 @@ export default function DashboardLayout({
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{section.label}</p>
                   <ul className="mt-3 space-y-2">
                     {section.items.map((item) => {
+                      const isAnchor = Boolean(item.anchor);
+                      const ItemComponent = isAnchor ? 'button' : 'div';
+                      return (
+                        <li key={item.name}>
+                          <ItemComponent
+                            type={isAnchor ? 'button' : undefined}
+                            onClick={isAnchor ? () => handleAnchorNavigation(item.anchor) : undefined}
+                            className="group flex w-full flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 text-left transition hover:border-blue-300 hover:bg-blue-50"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium text-slate-700">{item.name}</span>
+                              <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
+                            </div>
                       const isLinkable = Boolean(item.targetId);
                       const Component = isLinkable ? 'button' : 'div';
                       return (
