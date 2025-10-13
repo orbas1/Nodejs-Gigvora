@@ -40,6 +40,8 @@ export default function DashboardLayout({
   profile,
   availableDashboards,
   children,
+  onMenuItemSelect,
+  activeMenuItemId,
   activeMenuItem,
   onMenuItemSelect,
   onMenuItemSelect,
@@ -94,6 +96,13 @@ export default function DashboardLayout({
     event.preventDefault();
   };
 
+  const handleMenuItemClick = (item) => {
+    if (typeof onMenuItemSelect === 'function') {
+      onMenuItemSelect(item);
+    }
+  };
+
+  const resolvedActiveMenuItemId = activeMenuItemId ?? null;
   const handleAnchorNavigation = useCallback((anchor) => {
     if (!anchor || typeof window === 'undefined') {
       return;
@@ -186,6 +195,28 @@ export default function DashboardLayout({
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{section.label}</p>
                   <ul className="mt-3 space-y-2">
                     {section.items.map((item) => {
+                      const itemId = item.id ?? item.name;
+                      const isActive = resolvedActiveMenuItemId && item.id
+                        ? item.id === resolvedActiveMenuItemId
+                        : false;
+                      return (
+                        <li key={itemId}>
+                          <button
+                            type="button"
+                            onClick={() => handleMenuItemClick(item)}
+                            className={`group flex w-full flex-col gap-1 rounded-2xl border p-3 text-left transition focus:outline-none focus:ring-2 focus:ring-blue-200 ${
+                              isActive
+                                ? 'border-blue-400 bg-blue-50 shadow-inner'
+                                : 'border-transparent bg-slate-100/70 hover:border-blue-300 hover:bg-blue-50'
+                            }`}
+                            aria-pressed={isActive}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span
+                                className={`${
+                                  isActive ? 'text-blue-700' : 'text-slate-700'
+                                } text-sm font-medium`}
+                              >
                       const isInteractive = Boolean(item.href || item.onClick);
                       const Element = item.href ? 'a' : 'div';
                       const itemProps = {
@@ -279,6 +310,16 @@ export default function DashboardLayout({
                               </span>
                               <ChevronRightIcon
                                 className={`${
+                                  isActive
+                                    ? 'h-4 w-4 text-blue-500'
+                                    : 'h-4 w-4 text-slate-400 transition group-hover:text-blue-500'
+                                }`}
+                              />
+                            </div>
+                            {item.description ? (
+                              <p className={`${isActive ? 'text-blue-600' : 'text-slate-500'} text-xs`}>
+                                {item.description}
+                              </p>
                                   isActive ? 'text-blue-500' : 'text-slate-400'
                                 } h-4 w-4 transition group-hover:text-blue-500`}
                               />
@@ -498,6 +539,9 @@ export default function DashboardLayout({
                                 {item.tags.map((tag) => (
                                   <span
                                     key={tag}
+                                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+                                      isActive ? 'bg-blue-100 text-blue-700' : 'bg-blue-50 text-blue-600'
+                                    }`}
                                     className={`${
                                       isActive
                                         ? 'bg-blue-100 text-blue-700'

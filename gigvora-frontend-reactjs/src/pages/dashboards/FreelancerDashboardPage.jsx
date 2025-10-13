@@ -1,3 +1,6 @@
+import { useState } from 'react';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import SupportDeskPanel from '../../components/support/SupportDeskPanel.jsx';
 import { useMemo } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import useCachedResource from '../../hooks/useCachedResource.js';
@@ -852,6 +855,7 @@ const FALLBACK_MENU = [
         tags: ['gig catalog'],
       },
       {
+        id: 'post-a-gig',
         name: 'Order pipeline',
         key: 'order-pipeline',
         description: 'Automate intake forms, kickoff prep, delivery, revisions, and escrow releases.',
@@ -1407,6 +1411,19 @@ const BASE_MENU_SECTIONS = [
         description: 'Unique clients with recorded lifecycle experiences.',
       },
       {
+        id: 'support-desk',
+        name: 'Support & dispute desk',
+        description:
+          'Resolve client concerns, manage escalations, and collaborate with Gigvora support for smooth resolutions across every gig touchpoint.',
+        bulletPoints: [
+          'Conversation transcripts linked back to gig orders with attachments, timestamps, and decision audit trails.',
+          'Guided resolution playbooks with recommended next steps, response templates, and approval checkpoints.',
+          'Escalation matrix that auto-assigns owners, notifies stakeholders, and tracks SLA countdown timers.',
+          'Refund, adjustment, and goodwill credit workflows that sync to invoices and payout ledgers.',
+          'Post-resolution CSAT pulse surveys with trend dashboards and sentiment alerts.',
+          'Knowledge base of FAQs, compliance guidelines, and Gigvora support escalation criteria in one pane.',
+        ],
+        callout: 'Keep satisfaction high with proactive insights and compliance-ready records.',
         label: 'Live enrollments',
         value: formatNumber(summary.activeEnrollments),
         description: 'Journeys currently running or awaiting actions.',
@@ -2250,6 +2267,21 @@ const BASE_CAPABILITY_SECTIONS = [
   },
 ];
 
+const profile = {
+  id: 101,
+  userId: 101,
+  name: 'Riley Morgan',
+  role: 'Lead Brand & Product Designer',
+  initials: 'RM',
+  status: 'Top-rated freelancer',
+  badges: ['Verified Pro', 'Gigvora Elite'],
+  metrics: [
+    { label: 'Active projects', value: '6' },
+    { label: 'Gigs fulfilled', value: '148' },
+    { label: 'Avg. CSAT', value: '4.9/5' },
+    { label: 'Monthly revenue', value: '$18.4k' },
+  ],
+};
 const DEFAULT_FREELANCER_ID = 101;
 const DEFAULT_LOOKBACK_DAYS = 120;
 
@@ -2412,6 +2444,42 @@ function OrderCard({
 
   const csatScore = order.csatScore != null ? Number(order.csatScore).toFixed(2) : null;
 
+export default function FreelancerDashboardPage() {
+  const [activeMenuItemId, setActiveMenuItemId] = useState(null);
+
+  const supportDeskActive = activeMenuItemId === 'support-desk';
+
+  const handleMenuSelect = (item) => {
+    if (item?.id === 'support-desk') {
+      setActiveMenuItemId('support-desk');
+    } else {
+      setActiveMenuItemId(null);
+    }
+  };
+
+  const handleCloseSupportDesk = () => {
+    setActiveMenuItemId(null);
+  };
+
+  const supportDeskContent = supportDeskActive ? (
+    <SupportDeskPanel freelancerId={profile.id ?? profile.userId} onClose={handleCloseSupportDesk} />
+  ) : null;
+
+  return (
+    <DashboardLayout
+      currentDashboard="freelancer"
+      title="Freelancer Operations HQ"
+      subtitle="Service business cockpit"
+      description="An operating system for independent talent to manage gigs, complex projects, finances, and growth partnerships in one streamlined workspace."
+      menuSections={menuSections}
+      sections={capabilitySections}
+      profile={profile}
+      availableDashboards={availableDashboards}
+      onMenuItemSelect={handleMenuSelect}
+      activeMenuItemId={supportDeskActive ? 'support-desk' : null}
+    >
+      {supportDeskContent}
+    </DashboardLayout>
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">

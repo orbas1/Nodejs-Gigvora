@@ -1,6 +1,7 @@
 import { User } from '../models/index.js';
 import profileService from '../services/profileService.js';
 import userDashboardService from '../services/userDashboardService.js';
+import supportDeskService from '../services/supportDeskService.js';
 import catalogInsightsService from '../services/catalogInsightsService.js';
 import gigBuilderService from '../services/gigBuilderService.js';
 import gigManagerService from '../services/gigManagerService.js';
@@ -61,6 +62,8 @@ export async function getUserDashboard(req, res) {
   res.json(dashboard);
 }
 
+export async function getSupportDesk(req, res) {
+  const snapshot = await supportDeskService.getFreelancerSupportDesk(req.params.id, {
 export async function getFreelancerCatalogInsights(req, res) {
   const insights = await catalogInsightsService.getFreelancerCatalogInsights(req.params.id, {
     bypassCache: req.query.fresh === 'true',
