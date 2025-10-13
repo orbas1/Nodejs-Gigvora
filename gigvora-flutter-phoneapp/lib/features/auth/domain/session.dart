@@ -14,6 +14,7 @@ class SessionState {
 
 class UserSession {
   const UserSession({
+    required this.id,
     required this.name,
     required this.title,
     required this.email,
@@ -28,6 +29,7 @@ class UserSession {
     this.agencies = const <String>[],
   }) : assert(memberships.isNotEmpty, 'memberships cannot be empty');
 
+  final int id;
   final String name;
   final String title;
   final String email;
@@ -56,6 +58,7 @@ class UserSession {
   String roleLabel(String role) => roleLabels[role] ?? role;
 
   UserSession copyWith({
+    int? id,
     String? activeMembership,
     List<String>? memberships,
     Map<String, RoleDashboard>? dashboards,
@@ -64,6 +67,7 @@ class UserSession {
     final nextActive = activeMembership ?? this.activeMembership;
     final activeExists = nextMemberships.contains(nextActive);
     return UserSession(
+      id: id ?? this.id,
       name: name,
       title: title,
       email: email,
@@ -81,6 +85,7 @@ class UserSession {
 
   static UserSession demo() {
     return UserSession(
+      id: 1,
       name: 'Lena Fields',
       title: 'Product Designer',
       email: 'lena.fields@gigvora.com',
@@ -97,7 +102,7 @@ class UserSession {
           role: 'user',
           heroTitle: 'Career growth command centre',
           heroSubtitle:
-              'Track your applications, documents, and upcoming interviews all in one place.',
+              'Track SLAs, interview readiness, and document workflows from a single command centre.',
           metrics: [
             DashboardMetric(label: 'Active applications', value: '14', trend: '▲ 3 this week'),
             DashboardMetric(label: 'Interviews scheduled', value: '5', trend: 'Next: Tue 09:00'),
@@ -107,41 +112,47 @@ class UserSession {
           sections: [
             DashboardSection(
               title: 'Pipeline automation',
-              subtitle: 'Your kanban is humming with talent brand touchpoints.',
+              subtitle: 'SLA-aware kanban stages keep hiring teams and reminders in sync.',
               highlights: [
-                'Career pipeline automation reports 82% completion across 5 stages.',
-                'Next task: Polish "UX Lead" case study before Thursday review.',
-                'Two reminders scheduled to follow up on interviews.',
+                'Career pipeline automation shows 82% completion across 5 stages with no SLA breaches.',
+                'Bulk update queue prioritises two nudges before interviews later this week.',
+                'Compliance guardrail: Equal opportunity report auto-generated for November.',
               ],
               icon: Icons.track_changes,
               accentColor: Color(0xFF2563EB),
             ),
             DashboardSection(
               title: 'Document studio spotlight',
-              subtitle: 'Templates and transcripts ready for recruiter sharing.',
+              subtitle: 'Watermarked resumes, transcripts, and vendor deliverables ready for sharing.',
               highlights: [
-                'Portfolio hub features 6 hero projects and 12 testimonials.',
-                'AI resume audit suggests a punchier leadership summary.',
-                'Quick export: PDF resume & Notion profile available.',
+                'Portfolio hub features 6 hero projects and 12 testimonials with smart tags applied.',
+                'AI resume audit suggests sharpening the leadership summary ahead of Friday review.',
+                'Purchased gig deliverables synced from escrow vault ready for recruiter export.',
               ],
               icon: Icons.description_outlined,
               accentColor: Color(0xFF0891B2),
             ),
             DashboardSection(
               title: 'Network momentum',
-              subtitle: 'Relationship heat-maps help prioritise outreach.',
+              subtitle: 'Advisor collaborations and warm intros keep referrals active.',
               highlights: [
-                'Atlas Studios warmed up after last week’s product jam.',
-                '3 pending connection requests from community mentors.',
-                'Referral loops surfaced 2 product strategist intros.',
+                'Atlas Studios warmed up after last week’s product jam—follow-up scheduled for Thursday.',
+                '3 pending mentor requests with accountability notes logged for each.',
+                'Offer negotiation vault tracks 2 packages and compares compensation benchmarks.',
               ],
               icon: Icons.groups_3,
               accentColor: Color(0xFF7C3AED),
             ),
           ],
           actions: [
-            DashboardAction(label: 'Update career story', description: 'Refresh case studies before the next recruiter sync.'),
-            DashboardAction(label: 'Review interview prep kit', description: 'Talking points and transcripts queued for tomorrow.'),
+            DashboardAction(
+              label: 'Review interview prep kit',
+              description: 'Talking points, scorecards, and recordings are queued for tomorrow’s panel.',
+            ),
+            DashboardAction(
+              label: 'Approve auto-apply guardrails',
+              description: 'Validate premium role filters before the automation run this evening.',
+            ),
           ],
         ),
         'freelancer': RoleDashboard(

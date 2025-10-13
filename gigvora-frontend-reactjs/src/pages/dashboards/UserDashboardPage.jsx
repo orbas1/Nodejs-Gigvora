@@ -6,6 +6,7 @@ import { fetchUserDashboard } from '../../services/userDashboard.js';
 import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
 import DocumentStudioSection from '../../components/documentStudio/DocumentStudioSection.jsx';
 import ProjectGigManagementContainer from '../../components/projectGigManagement/ProjectGigManagementContainer.jsx';
+import useSession from '../../hooks/useSession.js';
 
 const DEFAULT_USER_ID = 1;
 const availableDashboards = ['user', 'freelancer', 'agency', 'company', 'headhunter'];
@@ -297,7 +298,10 @@ function buildMenuSections(data) {
 }
 
 export default function UserDashboardPage() {
-  const userId = DEFAULT_USER_ID;
+  const { session } = useSession();
+  const sessionUserId = session?.id ?? session?.userId ?? null;
+  const userId = sessionUserId ?? DEFAULT_USER_ID;
+
   const {
     data,
     error,
@@ -307,6 +311,8 @@ export default function UserDashboardPage() {
     refresh,
   } = useCachedResource(`dashboard:user:${userId}`, ({ signal }) => fetchUserDashboard(userId, { signal }), {
     ttl: 1000 * 60,
+    dependencies: [userId],
+    enabled: Boolean(userId),
   });
 
   const summary = data?.summary ?? {

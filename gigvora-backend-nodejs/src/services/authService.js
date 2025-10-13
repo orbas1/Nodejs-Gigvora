@@ -5,6 +5,8 @@ import { normalizeLocationPayload } from '../utils/location.js';
 import twoFactorService from './twoFactorService.js';
 
 const TOKEN_EXPIRY = process.env.JWT_EXPIRES_IN || '1h';
+const JWT_SECRET = process.env.JWT_SECRET || 'development-secret';
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'development-refresh-secret';
 
 async function register(data) {
   const hashedPassword = await bcrypt.hash(data.password, 10);
@@ -64,8 +66,8 @@ async function verifyTwoFactor(email, code) {
 
   const user = await User.findOne({ where: { email } });
   const payload = { id: user.id, type: user.userType };
-  const accessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
-  const refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
+  const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
+  const refreshToken = jwt.sign(payload, JWT_REFRESH_SECRET, { expiresIn: '7d' });
 
   return { accessToken, refreshToken, user };
 }

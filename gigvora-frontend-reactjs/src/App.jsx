@@ -37,6 +37,7 @@ import HeadhunterDashboardPage from './pages/dashboards/HeadhunterDashboardPage.
 import CompanyNetworkingHubPage from './pages/networking/CompanyNetworkingHubPage.jsx';
 import MentorDashboardPage from './pages/dashboards/MentorDashboardPage.jsx';
 import LaunchpadOperationsPage from './pages/dashboards/LaunchpadOperationsPage.jsx';
+import MembershipGate from './components/auth/MembershipGate.jsx';
 
 export default function App() {
   return (
@@ -69,7 +70,14 @@ export default function App() {
         <Route path="settings" element={<SettingsPage />} />
         <Route path="finance" element={<FinanceHubPage />} />
       </Route>
-      <Route path="dashboard/user" element={<UserDashboardPage />} />
+      <Route
+        path="dashboard/user"
+        element={(
+          <MembershipGate allowedMemberships={["user"]}>
+            <UserDashboardPage />
+          </MembershipGate>
+        )}
+      />
       <Route path="dashboard/freelancer" element={<FreelancerDashboardPage />} />
       <Route path="dashboard/freelancer/pipeline" element={<FreelancerPipelinePage />} />
       <Route path="dashboard/admin" element={<AdminDashboardPage />} />
