@@ -8,7 +8,16 @@ import 'router/app_router.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await ServiceLocator.configure();
+  const demoToken =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MjAxLCJ0eXBlIjoiYWRtaW4iLCJleHAiOjE3NjAzOTg2Mzl9.PoszIfAN5fZ0ah3qfsUJ60OomK7NcdQ5lMXsHT53CX4';
+  await ServiceLocator.configure(
+    requestInterceptors: [
+      (context) async {
+        context.headers.putIfAbsent('Authorization', () => 'Bearer $demoToken');
+      },
+    ],
+    authTokenResolver: () async => demoToken,
+  );
 
   try {
     final loader = GigvoraThemeLoader();
