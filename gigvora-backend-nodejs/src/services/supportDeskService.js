@@ -1,6 +1,5 @@
 import { Op } from 'sequelize';
 import {
-  SupportCase,
   SupportCasePlaybook,
   SupportCaseLink,
   SupportCaseSatisfaction,
@@ -11,12 +10,15 @@ import {
   DisputeEvent,
   EscrowTransaction,
   EscrowAccount,
+} from '../models/index.js';
+import {
+  SupportCase,
   Message,
   MessageAttachment,
   MessageThread,
   MessageParticipant,
   User,
-} from '../models/index.js';
+} from '../models/messagingModels.js';
 import { ValidationError } from '../utils/errors.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
 
