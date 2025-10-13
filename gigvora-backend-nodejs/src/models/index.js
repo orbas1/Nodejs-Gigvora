@@ -92,6 +92,15 @@ export const LAUNCHPAD_PLACEMENT_STATUSES = ['scheduled', 'in_progress', 'comple
 export const LAUNCHPAD_TARGET_TYPES = ['job', 'gig', 'project'];
 export const LAUNCHPAD_OPPORTUNITY_SOURCES = ['employer_request', 'placement', 'manual'];
 
+export const PROJECT_BLUEPRINT_HEALTH_STATUSES = ['on_track', 'at_risk', 'critical'];
+export const PROJECT_SPRINT_STATUSES = ['planned', 'in_progress', 'blocked', 'completed'];
+export const PROJECT_DEPENDENCY_TYPES = ['client', 'internal', 'external', 'third_party'];
+export const PROJECT_DEPENDENCY_STATUSES = ['pending', 'in_progress', 'blocked', 'done'];
+export const PROJECT_DEPENDENCY_RISK_LEVELS = ['low', 'medium', 'high', 'critical'];
+export const PROJECT_RISK_STATUSES = ['open', 'monitoring', 'mitigated', 'closed'];
+export const PROJECT_BILLING_TYPES = ['milestone', 'retainer', 'expense'];
+export const PROJECT_BILLING_STATUSES = ['upcoming', 'invoiced', 'paid', 'overdue'];
+
 export const User = sequelize.define(
   'User',
   {
@@ -408,6 +417,248 @@ Project.prototype.toPublicObject = function toPublicObject() {
     autoAssignSettings: plain.autoAssignSettings ?? null,
     autoAssignLastRunAt: plain.autoAssignLastRunAt ?? null,
     autoAssignLastQueueSize: plain.autoAssignLastQueueSize ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ProjectBlueprint = sequelize.define(
+  'ProjectBlueprint',
+  {
+    projectId: { type: DataTypes.INTEGER, allowNull: false, unique: true },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    methodology: { type: DataTypes.STRING(120), allowNull: true },
+    governanceModel: { type: DataTypes.STRING(120), allowNull: true },
+    sprintCadence: { type: DataTypes.STRING(80), allowNull: true },
+    programManager: { type: DataTypes.STRING(120), allowNull: true },
+    healthStatus: {
+      type: DataTypes.ENUM(...PROJECT_BLUEPRINT_HEALTH_STATUSES),
+      allowNull: false,
+      defaultValue: 'on_track',
+      validate: { isIn: [PROJECT_BLUEPRINT_HEALTH_STATUSES] },
+    },
+    startDate: { type: DataTypes.DATE, allowNull: true },
+    endDate: { type: DataTypes.DATE, allowNull: true },
+    lastReviewedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'project_blueprints' },
+);
+
+ProjectBlueprint.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  const serializeCollection = (items) =>
+    Array.isArray(items) ? items.map((item) => item.toPublicObject?.() ?? item) : [];
+  return {
+    id: plain.id,
+    projectId: plain.projectId,
+    summary: plain.summary,
+    methodology: plain.methodology,
+    governanceModel: plain.governanceModel,
+    sprintCadence: plain.sprintCadence,
+    programManager: plain.programManager,
+    healthStatus: plain.healthStatus,
+    startDate: plain.startDate,
+    endDate: plain.endDate,
+    lastReviewedAt: plain.lastReviewedAt,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+    sprints: serializeCollection(this.sprints),
+    dependencies: serializeCollection(this.dependencies),
+    risks: serializeCollection(this.risks),
+    billingCheckpoints: serializeCollection(this.billingCheckpoints),
+  };
+};
+
+export const ProjectBlueprintSprint = sequelize.define(
+  'ProjectBlueprintSprint',
+  {
+    blueprintId: { type: DataTypes.INTEGER, allowNull: false },
+    sequence: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
+    name: { type: DataTypes.STRING(120), allowNull: false },
+    objective: { type: DataTypes.TEXT, allowNull: true },
+    startDate: { type: DataTypes.DATE, allowNull: true },
+    endDate: { type: DataTypes.DATE, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...PROJECT_SPRINT_STATUSES),
+      allowNull: false,
+      defaultValue: 'planned',
+      validate: { isIn: [PROJECT_SPRINT_STATUSES] },
+    },
+    owner: { type: DataTypes.STRING(120), allowNull: true },
+    velocityCommitment: { type: DataTypes.INTEGER, allowNull: true },
+    progress: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
+    deliverables: { type: jsonType, allowNull: true },
+    acceptanceCriteria: { type: DataTypes.TEXT, allowNull: true },
+  },
+  { tableName: 'project_blueprint_sprints' },
+);
+
+ProjectBlueprintSprint.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    blueprintId: plain.blueprintId,
+    sequence: plain.sequence,
+    name: plain.name,
+    objective: plain.objective,
+    startDate: plain.startDate,
+    endDate: plain.endDate,
+    status: plain.status,
+    owner: plain.owner,
+    velocityCommitment: plain.velocityCommitment == null ? null : Number(plain.velocityCommitment),
+    progress: plain.progress == null ? null : Number(plain.progress),
+    deliverables: Array.isArray(plain.deliverables) ? plain.deliverables : [],
+    acceptanceCriteria: plain.acceptanceCriteria,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ProjectBlueprintDependency = sequelize.define(
+  'ProjectBlueprintDependency',
+  {
+    blueprintId: { type: DataTypes.INTEGER, allowNull: false },
+    impactedSprintId: { type: DataTypes.INTEGER, allowNull: true },
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    dependencyType: {
+      type: DataTypes.ENUM(...PROJECT_DEPENDENCY_TYPES),
+      allowNull: false,
+      defaultValue: 'internal',
+      validate: { isIn: [PROJECT_DEPENDENCY_TYPES] },
+    },
+    owner: { type: DataTypes.STRING(120), allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...PROJECT_DEPENDENCY_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+      validate: { isIn: [PROJECT_DEPENDENCY_STATUSES] },
+    },
+    dueDate: { type: DataTypes.DATE, allowNull: true },
+    riskLevel: {
+      type: DataTypes.ENUM(...PROJECT_DEPENDENCY_RISK_LEVELS),
+      allowNull: false,
+      defaultValue: 'medium',
+      validate: { isIn: [PROJECT_DEPENDENCY_RISK_LEVELS] },
+    },
+    impact: { type: DataTypes.STRING(255), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  { tableName: 'project_blueprint_dependencies' },
+);
+
+ProjectBlueprintDependency.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    blueprintId: plain.blueprintId,
+    impactedSprintId: plain.impactedSprintId,
+    name: plain.name,
+    description: plain.description,
+    dependencyType: plain.dependencyType,
+    owner: plain.owner,
+    status: plain.status,
+    dueDate: plain.dueDate,
+    riskLevel: plain.riskLevel,
+    impact: plain.impact,
+    notes: plain.notes,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ProjectBlueprintRisk = sequelize.define(
+  'ProjectBlueprintRisk',
+  {
+    blueprintId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(160), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    probability: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 30 },
+    impact: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 30 },
+    severityScore: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 9 },
+    status: {
+      type: DataTypes.ENUM(...PROJECT_RISK_STATUSES),
+      allowNull: false,
+      defaultValue: 'open',
+      validate: { isIn: [PROJECT_RISK_STATUSES] },
+    },
+    owner: { type: DataTypes.STRING(120), allowNull: true },
+    mitigationPlan: { type: DataTypes.TEXT, allowNull: true },
+    contingencyPlan: { type: DataTypes.TEXT, allowNull: true },
+    nextReviewAt: { type: DataTypes.DATE, allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'project_blueprint_risks' },
+);
+
+ProjectBlueprintRisk.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    blueprintId: plain.blueprintId,
+    title: plain.title,
+    description: plain.description,
+    probability: plain.probability,
+    impact: plain.impact,
+    severityScore: plain.severityScore == null ? null : Number(plain.severityScore),
+    status: plain.status,
+    owner: plain.owner,
+    mitigationPlan: plain.mitigationPlan,
+    contingencyPlan: plain.contingencyPlan,
+    nextReviewAt: plain.nextReviewAt,
+    tags: Array.isArray(plain.tags) ? plain.tags : [],
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ProjectBillingCheckpoint = sequelize.define(
+  'ProjectBillingCheckpoint',
+  {
+    blueprintId: { type: DataTypes.INTEGER, allowNull: false },
+    relatedSprintId: { type: DataTypes.INTEGER, allowNull: true },
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    billingType: {
+      type: DataTypes.ENUM(...PROJECT_BILLING_TYPES),
+      allowNull: false,
+      defaultValue: 'milestone',
+      validate: { isIn: [PROJECT_BILLING_TYPES] },
+    },
+    amount: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    currency: { type: DataTypes.STRING(6), allowNull: true },
+    dueDate: { type: DataTypes.DATE, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...PROJECT_BILLING_STATUSES),
+      allowNull: false,
+      defaultValue: 'upcoming',
+      validate: { isIn: [PROJECT_BILLING_STATUSES] },
+    },
+    approvalRequired: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    invoiceUrl: { type: DataTypes.STRING(255), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  { tableName: 'project_billing_checkpoints' },
+);
+
+ProjectBillingCheckpoint.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    blueprintId: plain.blueprintId,
+    relatedSprintId: plain.relatedSprintId,
+    name: plain.name,
+    description: plain.description,
+    billingType: plain.billingType,
+    amount: plain.amount == null ? null : Number(plain.amount),
+    currency: plain.currency,
+    dueDate: plain.dueDate,
+    status: plain.status,
+    approvalRequired: Boolean(plain.approvalRequired),
+    invoiceUrl: plain.invoiceUrl,
+    notes: plain.notes,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };
@@ -1707,6 +1958,57 @@ ProjectAssignmentEvent.belongsTo(Project, {
 });
 ProjectAssignmentEvent.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
 
+Project.hasOne(ProjectBlueprint, {
+  foreignKey: { name: 'projectId', allowNull: false },
+  as: 'blueprint',
+  onDelete: 'CASCADE',
+});
+ProjectBlueprint.belongsTo(Project, { foreignKey: 'projectId', as: 'project' });
+
+ProjectBlueprint.hasMany(ProjectBlueprintSprint, {
+  foreignKey: { name: 'blueprintId', allowNull: false },
+  as: 'sprints',
+  onDelete: 'CASCADE',
+});
+ProjectBlueprintSprint.belongsTo(ProjectBlueprint, { foreignKey: 'blueprintId', as: 'blueprint' });
+
+ProjectBlueprint.hasMany(ProjectBlueprintDependency, {
+  foreignKey: { name: 'blueprintId', allowNull: false },
+  as: 'dependencies',
+  onDelete: 'CASCADE',
+});
+ProjectBlueprintDependency.belongsTo(ProjectBlueprint, { foreignKey: 'blueprintId', as: 'blueprint' });
+ProjectBlueprintDependency.belongsTo(ProjectBlueprintSprint, {
+  foreignKey: 'impactedSprintId',
+  as: 'impactedSprint',
+});
+ProjectBlueprintSprint.hasMany(ProjectBlueprintDependency, {
+  foreignKey: 'impactedSprintId',
+  as: 'linkedDependencies',
+});
+
+ProjectBlueprint.hasMany(ProjectBlueprintRisk, {
+  foreignKey: { name: 'blueprintId', allowNull: false },
+  as: 'risks',
+  onDelete: 'CASCADE',
+});
+ProjectBlueprintRisk.belongsTo(ProjectBlueprint, { foreignKey: 'blueprintId', as: 'blueprint' });
+
+ProjectBlueprint.hasMany(ProjectBillingCheckpoint, {
+  foreignKey: { name: 'blueprintId', allowNull: false },
+  as: 'billingCheckpoints',
+  onDelete: 'CASCADE',
+});
+ProjectBillingCheckpoint.belongsTo(ProjectBlueprint, { foreignKey: 'blueprintId', as: 'blueprint' });
+ProjectBillingCheckpoint.belongsTo(ProjectBlueprintSprint, {
+  foreignKey: 'relatedSprintId',
+  as: 'relatedSprint',
+});
+ProjectBlueprintSprint.hasMany(ProjectBillingCheckpoint, {
+  foreignKey: 'relatedSprintId',
+  as: 'billingCheckpoints',
+});
+
 User.hasMany(AutoAssignQueueEntry, { foreignKey: 'freelancerId', as: 'autoAssignQueue' });
 AutoAssignQueueEntry.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
 
@@ -1845,6 +2147,11 @@ export default {
   Job,
   Gig,
   Project,
+  ProjectBlueprint,
+  ProjectBlueprintSprint,
+  ProjectBlueprintDependency,
+  ProjectBlueprintRisk,
+  ProjectBillingCheckpoint,
   ExperienceLaunchpad,
   ExperienceLaunchpadApplication,
   ExperienceLaunchpadEmployerRequest,
