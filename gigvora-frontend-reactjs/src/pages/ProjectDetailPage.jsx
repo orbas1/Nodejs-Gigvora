@@ -6,6 +6,7 @@ import UserAvatar from '../components/UserAvatar.jsx';
 import projectsService from '../services/projects.js';
 import analytics from '../services/analytics.js';
 import { formatRelativeTime } from '../utils/date.js';
+import ProjectOperationsSection from '../components/projects/ProjectOperationsSection.jsx';
 
 const DEFAULT_WEIGHTS = {
   recency: 0.25,
@@ -532,6 +533,8 @@ export default function ProjectDetailPage() {
                 </p>
               )}
             </div>
+
+            {projectId ? <ProjectOperationsSection projectId={projectId} /> : null}
 
             <div className="space-y-3 rounded-3xl border border-slate-200 bg-white/90 p-6">
               <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Activity log</h2>
