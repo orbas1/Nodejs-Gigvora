@@ -361,6 +361,12 @@ Gig.searchByTerm = async function searchByTerm(term) {
   });
 };
 
+export const WORKSPACE_STATUSES = ['briefing', 'active', 'blocked', 'completed'];
+export const WORKSPACE_RISK_LEVELS = ['low', 'moderate', 'high', 'critical'];
+export const WORKSPACE_WHITEBOARD_STATUSES = ['active', 'pending_review', 'archived'];
+export const WORKSPACE_CONVERSATION_PRIORITIES = ['low', 'normal', 'high', 'urgent'];
+export const WORKSPACE_APPROVAL_STATUSES = ['pending', 'in_review', 'approved', 'changes_requested', 'rejected'];
+
 export const Project = sequelize.define(
   'Project',
   {
@@ -408,6 +414,259 @@ Project.prototype.toPublicObject = function toPublicObject() {
     autoAssignSettings: plain.autoAssignSettings ?? null,
     autoAssignLastRunAt: plain.autoAssignLastRunAt ?? null,
     autoAssignLastQueueSize: plain.autoAssignLastQueueSize ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ProjectWorkspace = sequelize.define(
+  'ProjectWorkspace',
+  {
+    projectId: { type: DataTypes.INTEGER, allowNull: false, unique: true },
+    status: {
+      type: DataTypes.ENUM(...WORKSPACE_STATUSES),
+      allowNull: false,
+      defaultValue: 'briefing',
+      validate: { isIn: [WORKSPACE_STATUSES] },
+    },
+    healthScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    velocityScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    riskLevel: {
+      type: DataTypes.ENUM(...WORKSPACE_RISK_LEVELS),
+      allowNull: false,
+      defaultValue: 'low',
+      validate: { isIn: [WORKSPACE_RISK_LEVELS] },
+    },
+    progressPercent: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
+    clientSatisfaction: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    automationCoverage: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    billingStatus: { type: DataTypes.STRING(80), allowNull: true },
+    nextMilestone: { type: DataTypes.STRING(255), allowNull: true },
+    nextMilestoneDueAt: { type: DataTypes.DATE, allowNull: true },
+    metricsSnapshot: { type: jsonType, allowNull: true },
+    lastActivityAt: { type: DataTypes.DATE, allowNull: true },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  { tableName: 'project_workspaces' },
+);
+
+ProjectWorkspace.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    projectId: plain.projectId,
+    status: plain.status,
+    healthScore: plain.healthScore == null ? null : Number(plain.healthScore),
+    velocityScore: plain.velocityScore == null ? null : Number(plain.velocityScore),
+    riskLevel: plain.riskLevel,
+    progressPercent: plain.progressPercent == null ? null : Number(plain.progressPercent),
+    clientSatisfaction: plain.clientSatisfaction == null ? null : Number(plain.clientSatisfaction),
+    automationCoverage: plain.automationCoverage == null ? null : Number(plain.automationCoverage),
+    billingStatus: plain.billingStatus,
+    nextMilestone: plain.nextMilestone,
+    nextMilestoneDueAt: plain.nextMilestoneDueAt,
+    metricsSnapshot: plain.metricsSnapshot ?? null,
+    lastActivityAt: plain.lastActivityAt,
+    updatedById: plain.updatedById,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ProjectWorkspaceBrief = sequelize.define(
+  'ProjectWorkspaceBrief',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false, unique: true },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    objectives: { type: jsonType, allowNull: true },
+    deliverables: { type: jsonType, allowNull: true },
+    successMetrics: { type: jsonType, allowNull: true },
+    clientStakeholders: { type: jsonType, allowNull: true },
+    lastUpdatedById: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  { tableName: 'project_workspace_briefs' },
+);
+
+ProjectWorkspaceBrief.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    title: plain.title,
+    summary: plain.summary,
+    objectives: Array.isArray(plain.objectives) ? plain.objectives : [],
+    deliverables: Array.isArray(plain.deliverables) ? plain.deliverables : [],
+    successMetrics: Array.isArray(plain.successMetrics) ? plain.successMetrics : [],
+    clientStakeholders: Array.isArray(plain.clientStakeholders) ? plain.clientStakeholders : [],
+    lastUpdatedById: plain.lastUpdatedById,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ProjectWorkspaceWhiteboard = sequelize.define(
+  'ProjectWorkspaceWhiteboard',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...WORKSPACE_WHITEBOARD_STATUSES),
+      allowNull: false,
+      defaultValue: 'active',
+      validate: { isIn: [WORKSPACE_WHITEBOARD_STATUSES] },
+    },
+    ownerName: { type: DataTypes.STRING(255), allowNull: true },
+    thumbnailUrl: { type: DataTypes.STRING(500), allowNull: true },
+    lastEditedAt: { type: DataTypes.DATE, allowNull: true },
+    lastEditedById: { type: DataTypes.INTEGER, allowNull: true },
+    activeCollaborators: { type: jsonType, allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'project_workspace_whiteboards' },
+);
+
+ProjectWorkspaceWhiteboard.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    title: plain.title,
+    status: plain.status,
+    ownerName: plain.ownerName,
+    thumbnailUrl: plain.thumbnailUrl,
+    lastEditedAt: plain.lastEditedAt,
+    lastEditedById: plain.lastEditedById,
+    activeCollaborators: Array.isArray(plain.activeCollaborators) ? plain.activeCollaborators : [],
+    tags: Array.isArray(plain.tags) ? plain.tags : [],
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ProjectWorkspaceFile = sequelize.define(
+  'ProjectWorkspaceFile',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(255), allowNull: false },
+    category: { type: DataTypes.STRING(80), allowNull: true },
+    fileType: { type: DataTypes.STRING(60), allowNull: true },
+    storageProvider: { type: DataTypes.STRING(80), allowNull: true },
+    storagePath: { type: DataTypes.STRING(500), allowNull: true },
+    version: { type: DataTypes.STRING(40), allowNull: true },
+    sizeBytes: { type: DataTypes.BIGINT, allowNull: true },
+    checksum: { type: DataTypes.STRING(120), allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    uploadedById: { type: DataTypes.INTEGER, allowNull: true },
+    uploadedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  { tableName: 'project_workspace_files' },
+);
+
+ProjectWorkspaceFile.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    name: plain.name,
+    category: plain.category,
+    fileType: plain.fileType,
+    storageProvider: plain.storageProvider,
+    storagePath: plain.storagePath,
+    version: plain.version,
+    sizeBytes: plain.sizeBytes == null ? null : Number(plain.sizeBytes),
+    checksum: plain.checksum,
+    tags: Array.isArray(plain.tags) ? plain.tags : [],
+    metadata: plain.metadata ?? null,
+    uploadedById: plain.uploadedById,
+    uploadedAt: plain.uploadedAt,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ProjectWorkspaceConversation = sequelize.define(
+  'ProjectWorkspaceConversation',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    channelType: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'project' },
+    topic: { type: DataTypes.STRING(255), allowNull: false },
+    priority: {
+      type: DataTypes.ENUM(...WORKSPACE_CONVERSATION_PRIORITIES),
+      allowNull: false,
+      defaultValue: 'normal',
+      validate: { isIn: [WORKSPACE_CONVERSATION_PRIORITIES] },
+    },
+    unreadCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    lastMessagePreview: { type: DataTypes.STRING(500), allowNull: true },
+    lastMessageAt: { type: DataTypes.DATE, allowNull: true },
+    lastReadAt: { type: DataTypes.DATE, allowNull: true },
+    externalLink: { type: DataTypes.STRING(500), allowNull: true },
+    participants: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'project_workspace_conversations' },
+);
+
+ProjectWorkspaceConversation.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    channelType: plain.channelType,
+    topic: plain.topic,
+    priority: plain.priority,
+    unreadCount: plain.unreadCount,
+    lastMessagePreview: plain.lastMessagePreview,
+    lastMessageAt: plain.lastMessageAt,
+    lastReadAt: plain.lastReadAt,
+    externalLink: plain.externalLink,
+    participants: Array.isArray(plain.participants) ? plain.participants : [],
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ProjectWorkspaceApproval = sequelize.define(
+  'ProjectWorkspaceApproval',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    stage: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'discovery' },
+    status: {
+      type: DataTypes.ENUM(...WORKSPACE_APPROVAL_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+      validate: { isIn: [WORKSPACE_APPROVAL_STATUSES] },
+    },
+    ownerName: { type: DataTypes.STRING(255), allowNull: true },
+    approverEmail: { type: DataTypes.STRING(255), allowNull: true },
+    dueAt: { type: DataTypes.DATE, allowNull: true },
+    submittedAt: { type: DataTypes.DATE, allowNull: true },
+    decidedAt: { type: DataTypes.DATE, allowNull: true },
+    decisionNotes: { type: DataTypes.TEXT, allowNull: true },
+    attachments: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'project_workspace_approvals' },
+);
+
+ProjectWorkspaceApproval.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    title: plain.title,
+    stage: plain.stage,
+    status: plain.status,
+    ownerName: plain.ownerName,
+    approverEmail: plain.approverEmail,
+    dueAt: plain.dueAt,
+    submittedAt: plain.submittedAt,
+    decidedAt: plain.decidedAt,
+    decisionNotes: plain.decisionNotes,
+    attachments: Array.isArray(plain.attachments) ? plain.attachments : [],
+    metadata: plain.metadata ?? null,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };
@@ -1695,6 +1954,70 @@ FreelancerProfile.belongsTo(User, { foreignKey: 'userId' });
 User.hasOne(FreelancerAssignmentMetric, { foreignKey: 'freelancerId', as: 'assignmentMetric' });
 FreelancerAssignmentMetric.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
 
+Project.hasOne(ProjectWorkspace, {
+  foreignKey: { name: 'projectId', allowNull: false },
+  as: 'workspace',
+  onDelete: 'CASCADE',
+});
+ProjectWorkspace.belongsTo(Project, {
+  foreignKey: { name: 'projectId', allowNull: false },
+  as: 'project',
+});
+ProjectWorkspace.belongsTo(User, { foreignKey: 'updatedById', as: 'updatedBy' });
+
+ProjectWorkspace.hasOne(ProjectWorkspaceBrief, {
+  foreignKey: { name: 'workspaceId', allowNull: false },
+  as: 'brief',
+  onDelete: 'CASCADE',
+});
+ProjectWorkspaceBrief.belongsTo(ProjectWorkspace, {
+  foreignKey: { name: 'workspaceId', allowNull: false },
+  as: 'workspace',
+});
+ProjectWorkspaceBrief.belongsTo(User, { foreignKey: 'lastUpdatedById', as: 'lastUpdatedBy' });
+
+ProjectWorkspace.hasMany(ProjectWorkspaceWhiteboard, {
+  foreignKey: { name: 'workspaceId', allowNull: false },
+  as: 'whiteboards',
+  onDelete: 'CASCADE',
+});
+ProjectWorkspaceWhiteboard.belongsTo(ProjectWorkspace, {
+  foreignKey: { name: 'workspaceId', allowNull: false },
+  as: 'workspace',
+});
+ProjectWorkspaceWhiteboard.belongsTo(User, { foreignKey: 'lastEditedById', as: 'lastEditedBy' });
+
+ProjectWorkspace.hasMany(ProjectWorkspaceFile, {
+  foreignKey: { name: 'workspaceId', allowNull: false },
+  as: 'files',
+  onDelete: 'CASCADE',
+});
+ProjectWorkspaceFile.belongsTo(ProjectWorkspace, {
+  foreignKey: { name: 'workspaceId', allowNull: false },
+  as: 'workspace',
+});
+ProjectWorkspaceFile.belongsTo(User, { foreignKey: 'uploadedById', as: 'uploadedBy' });
+
+ProjectWorkspace.hasMany(ProjectWorkspaceConversation, {
+  foreignKey: { name: 'workspaceId', allowNull: false },
+  as: 'conversations',
+  onDelete: 'CASCADE',
+});
+ProjectWorkspaceConversation.belongsTo(ProjectWorkspace, {
+  foreignKey: { name: 'workspaceId', allowNull: false },
+  as: 'workspace',
+});
+
+ProjectWorkspace.hasMany(ProjectWorkspaceApproval, {
+  foreignKey: { name: 'workspaceId', allowNull: false },
+  as: 'approvals',
+  onDelete: 'CASCADE',
+});
+ProjectWorkspaceApproval.belongsTo(ProjectWorkspace, {
+  foreignKey: { name: 'workspaceId', allowNull: false },
+  as: 'workspace',
+});
+
 Project.hasMany(ProjectAssignmentEvent, {
   foreignKey: { name: 'projectId', allowNull: false },
   as: 'assignmentEvents',
@@ -1845,6 +2168,12 @@ export default {
   Job,
   Gig,
   Project,
+  ProjectWorkspace,
+  ProjectWorkspaceBrief,
+  ProjectWorkspaceWhiteboard,
+  ProjectWorkspaceFile,
+  ProjectWorkspaceConversation,
+  ProjectWorkspaceApproval,
   ExperienceLaunchpad,
   ExperienceLaunchpadApplication,
   ExperienceLaunchpadEmployerRequest,
