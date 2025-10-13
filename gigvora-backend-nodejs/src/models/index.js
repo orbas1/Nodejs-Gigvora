@@ -1,6 +1,12 @@
 import { DataTypes, Op } from 'sequelize';
 import { buildLocationDetails } from '../utils/location.js';
 import sequelize from './sequelizeClient.js';
+import {
+  GROUP_VISIBILITIES,
+  GROUP_MEMBER_POLICIES,
+  GROUP_MEMBERSHIP_STATUSES,
+  GROUP_MEMBERSHIP_ROLES,
+} from './constants/index.js';
 
 export { sequelize } from './sequelizeClient.js';
 
@@ -5219,24 +5225,101 @@ AdPlacement.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+function slugifyGroup(value, fallback = 'group') {
+  if (!value) {
+    return fallback;
+  }
+  return value
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80) || fallback;
+}
+
+function normalizeGroupColour(value) {
+  if (!value) {
+    return '#2563eb';
+  }
+  const colour = value.toString().trim().toLowerCase();
+  return /^#([0-9a-f]{6})$/.test(colour) ? colour : '#2563eb';
+}
+
 export const Group = sequelize.define(
   'Group',
   {
     name: { type: DataTypes.STRING(255), allowNull: false },
     description: { type: DataTypes.TEXT, allowNull: true },
+    slug: { type: DataTypes.STRING(120), allowNull: false, unique: true },
+    avatarColor: { type: DataTypes.STRING(7), allowNull: false, defaultValue: '#2563eb' },
+    bannerImageUrl: { type: DataTypes.STRING(255), allowNull: true },
+    visibility: {
+      type: DataTypes.ENUM(...GROUP_VISIBILITIES),
+      allowNull: false,
+      defaultValue: 'public',
+      validate: { isIn: [GROUP_VISIBILITIES] },
+    },
+    memberPolicy: {
+      type: DataTypes.ENUM(...GROUP_MEMBER_POLICIES),
+      allowNull: false,
+      defaultValue: 'request',
+      validate: { isIn: [GROUP_MEMBER_POLICIES] },
+    },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+    settings: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
   },
   { tableName: 'groups' },
 );
+
+Group.addHook('beforeValidate', (group) => {
+  if (!group) return;
+  if (group.name && !group.slug) {
+    group.slug = slugifyGroup(group.name);
+  }
+  if (group.slug) {
+    group.slug = slugifyGroup(group.slug);
+  }
+  group.avatarColor = normalizeGroupColour(group.avatarColor);
+});
+
+Group.addHook('beforeSave', (group) => {
+  if (!group) return;
+  group.avatarColor = normalizeGroupColour(group.avatarColor);
+});
 
 export const GroupMembership = sequelize.define(
   'GroupMembership',
   {
     userId: { type: DataTypes.INTEGER, allowNull: false },
     groupId: { type: DataTypes.INTEGER, allowNull: false },
-    role: { type: DataTypes.STRING(120), allowNull: false, defaultValue: 'member' },
+    role: {
+      type: DataTypes.STRING(120),
+      allowNull: false,
+      defaultValue: 'member',
+      validate: { isIn: [GROUP_MEMBERSHIP_ROLES] },
+    },
+    status: {
+      type: DataTypes.ENUM(...GROUP_MEMBERSHIP_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+      validate: { isIn: [GROUP_MEMBERSHIP_STATUSES] },
+    },
+    joinedAt: { type: DataTypes.DATE, allowNull: true },
+    invitedById: { type: DataTypes.INTEGER, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
   },
   { tableName: 'group_memberships' },
 );
+
+GroupMembership.addHook('beforeSave', (membership) => {
+  if (!membership) return;
+  if (membership.status === 'active' && !membership.joinedAt) {
+    membership.joinedAt = new Date();
+  }
+});
 
 export const Connection = sequelize.define(
   'Connection',
@@ -14456,6 +14539,13 @@ FeedPost.belongsTo(User, { foreignKey: 'userId' });
 
 User.belongsToMany(Group, { through: GroupMembership, foreignKey: 'userId' });
 Group.belongsToMany(User, { through: GroupMembership, foreignKey: 'groupId' });
+Group.hasMany(GroupMembership, { foreignKey: 'groupId', as: 'memberships' });
+GroupMembership.belongsTo(Group, { foreignKey: 'groupId', as: 'group' });
+GroupMembership.belongsTo(User, { foreignKey: 'userId', as: 'member' });
+GroupMembership.belongsTo(User, { foreignKey: 'invitedById', as: 'invitedBy' });
+Group.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+Group.belongsTo(User, { foreignKey: 'updatedById', as: 'updatedBy' });
+User.hasMany(GroupMembership, { foreignKey: 'userId', as: 'groupMemberships' });
 
 User.belongsToMany(User, {
   through: Connection,

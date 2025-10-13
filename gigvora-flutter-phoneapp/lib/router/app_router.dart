@@ -22,6 +22,8 @@ import '../features/notifications/presentation/notifications_screen.dart';
 import '../features/messaging/presentation/inbox_screen.dart';
 import '../features/mentorship/presentation/mentorship_screen.dart';
 import '../features/project_gig_management/presentation/project_gig_management_screen.dart';
+import '../features/groups/presentation/group_management_screen.dart';
+import '../features/auth/application/session_controller.dart';
 import '../features/pipeline/presentation/freelancer_pipeline_screen.dart';
 import '../features/services/presentation/service_operations_screen.dart';
 import '../features/finance/presentation/finance_screen.dart';
@@ -107,6 +109,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(path: '/admin', builder: (context, state) => const AdminLoginScreen()),
+      GoRoute(
+        path: '/groups/manage',
+        redirect: (context, state) {
+          final session = sessionState.session;
+          if (session == null) {
+            final target = Uri.encodeComponent(state.uri.toString());
+            return '/login?redirect=$target';
+          }
+          if (!session.memberships.contains('admin')) {
+            return '/home';
+          }
+          return null;
+        },
+        builder: (context, state) => const GroupManagementScreen(),
+      ),
       GoRoute(path: '/admin/ads', builder: (context, state) => const AdsDashboardScreen()),
     ],
   );

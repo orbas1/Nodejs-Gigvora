@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowPathIcon, CurrencyDollarIcon, LifebuoyIcon, ShieldCheckIcon, UsersIcon } from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import { fetchAdminDashboard } from '../../services/admin.js';
+import AdminGroupManagementPanel from './admin/AdminGroupManagementPanel.jsx';
 import { fetchPlatformSettings, updatePlatformSettings } from '../../services/platformSettings.js';
 import useSession from '../../hooks/useSession.js';
 import GigvoraAdsConsole from '../../components/ads/GigvoraAdsConsole.jsx';
@@ -1369,6 +1370,8 @@ export default function AdminDashboardPage() {
 
   const renderDashboardSections = data ? (
     <div className="space-y-10">
+      <AdminGroupManagementPanel />
+
       {/* Summary cards */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {summaryCards.map((card) => (
