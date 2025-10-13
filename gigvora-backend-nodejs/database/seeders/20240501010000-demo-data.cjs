@@ -15,6 +15,12 @@ const seededIds = {
   feedPosts: [1, 2],
   jobs: [1, 2],
   gigs: [1],
+  gigPackages: [1, 2, 3],
+  gigAddons: [1, 2, 3],
+  gigMediaAssets: [1, 2, 3],
+  gigCallToActions: [1, 2, 3],
+  gigPreviewLayouts: [1, 2, 3],
+  gigPerformanceSnapshots: [1],
   projects: [1],
   experienceLaunchpads: [1],
   experienceLaunchpadApplications: [1, 2],
@@ -480,15 +486,342 @@ module.exports = {
         [
           {
             id: seededIds.gigs[0],
+            ownerId: seededIds.users[1],
+            slug: 'conversion-focused-brand-sprint',
             title: 'Landing Page Revamp',
             description: 'Refresh marketing site with conversion experiments and WCAG 2.1 AA compliance.',
             budget: '$4500',
             duration: '5 weeks',
+            location: 'Remote • Global',
+            geoLocation: { lat: 52.52, lng: 13.405 },
+            summary:
+              'Brand sprint and launch collateral kit tailored for SaaS teams shipping high-impact campaigns with analytics baked in.',
+            status: 'published',
+            heroTitle: 'Ship conversion-ready launch campaigns in 10 days',
+            heroSubtitle:
+              'Tiered brand systems, social launch assets, and analytics dashboards packaged for scale-ups and venture studios.',
+            heroMediaUrl: 'https://cdn.gigvora.com/media/gigs/brand-sprint/hero-video.mp4',
+            heroTheme: 'midnight-gradient',
+            heroBadge: 'Featured',
+            sellingPoints: [
+              'Conversion copy engineered with 50+ experiments worth of learnings.',
+              'Async approvals with live preview mode for desktop, tablet, and mobile.',
+              'Data-backed add-ons and nurture sequences that plug into existing CRMs.',
+            ],
+            requirements: [
+              {
+                label: 'Kickoff questionnaire',
+                description: '10-minute intake covering positioning, ICP, and product launch timelines.',
+              },
+              {
+                label: 'Brand files',
+                description: 'Existing logo marks, brand guardrails, or inspiration boards if available.',
+              },
+              {
+                label: 'Success metrics',
+                description: 'Access to baseline conversion data or high-level growth targets.',
+              },
+            ],
+            faqs: [
+              {
+                question: 'How quickly can we launch?',
+                answer:
+                  'Most teams ship the core landing page, CTA banners, and nurture sequence within 10 business days following kickoff.',
+              },
+              {
+                question: 'Do you support white-label delivery?',
+                answer:
+                  'Yes — agencies and venture studios can co-brand deliverables and integrate internal PM tools for seamless collaboration.',
+              },
+            ],
+            conversionCopy: {
+              hook: 'Launch days without the scramble — every asset aligned to revenue goals.',
+              valuePillars: [
+                'Conversion design system with analytics instrumentation and QA baked in.',
+                'Tiered pricing mapped to experiment velocity and stakeholder complexity.',
+                'Automations for testimonial capture, referral nudges, and nurture follow-ups.',
+              ],
+              proof: '148 completed gigs, 37% average uplift in landing page conversions.',
+              guarantee:
+                'Strategy not resonating after kickoff? Receive a reworked direction within 24 hours or the next milestone is free.',
+            },
+            analyticsSettings: {
+              baseline: {
+                conversionRate: 9.3,
+                averageOrderValue: 860,
+                upsellTakeRate: 21.4,
+              },
+            },
             createdAt: twoDaysAgo,
             updatedAt: now,
           },
         ],
         { transaction }
+      );
+
+      await queryInterface.bulkInsert(
+        'gig_packages',
+        [
+          {
+            id: seededIds.gigPackages[0],
+            gigId: seededIds.gigs[0],
+            tierName: 'Brand Spark',
+            tagline: 'Founders validating a new product',
+            description: 'Moodboard, copy calibration, and two hero concepts with async approvals.',
+            priceAmount: 395,
+            priceCurrency: 'USD',
+            deliveryDays: 4,
+            revisionCount: 1,
+            features: ['Moodboard + font pairings', 'Two logo lockups', '1x round of revisions'],
+            isBestValue: false,
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.gigPackages[1],
+            gigId: seededIds.gigs[0],
+            tierName: 'Growth Accelerator',
+            tagline: 'Teams scaling paid campaigns',
+            description: 'Full visual system, social launch kit, and CTA banner experiments.',
+            priceAmount: 1150,
+            priceCurrency: 'USD',
+            deliveryDays: 7,
+            revisionCount: 2,
+            features: ['Full visual system', 'Social launch kit', 'Two CTA banner concepts'],
+            isBestValue: true,
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.gigPackages[2],
+            gigId: seededIds.gigs[0],
+            tierName: 'Experience Suite',
+            tagline: 'Flagship launch for funded teams',
+            description: 'Brand playbook, interactive walkthrough video, and optimization sprint.',
+            priceAmount: 2450,
+            priceCurrency: 'USD',
+            deliveryDays: 12,
+            revisionCount: 3,
+            features: [
+              'Brand playbook (20+ pages)',
+              'Interactive gig walkthrough video',
+              'Post-launch optimization sprint',
+            ],
+            isBestValue: false,
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+        ],
+        { transaction },
+      );
+
+      await queryInterface.bulkInsert(
+        'gig_addons',
+        [
+          {
+            id: seededIds.gigAddons[0],
+            gigId: seededIds.gigs[0],
+            name: 'Rush delivery',
+            description: '48-hour turnaround with weekend availability and priority revisions.',
+            priceAmount: 180,
+            priceCurrency: 'USD',
+            deliveryDays: 2,
+            isPopular: true,
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.gigAddons[1],
+            gigId: seededIds.gigs[0],
+            name: 'Additional CTA banners',
+            description: 'Three extra headline + CTA variations wired into analytics events.',
+            priceAmount: 95,
+            priceCurrency: 'USD',
+            deliveryDays: 1,
+            isPopular: false,
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.gigAddons[2],
+            gigId: seededIds.gigs[0],
+            name: 'Sales enablement deck',
+            description: 'Ten-slide pitch deck aligned to gig narrative and core benefits.',
+            priceAmount: 220,
+            priceCurrency: 'USD',
+            deliveryDays: 3,
+            isPopular: true,
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+        ],
+        { transaction },
+      );
+
+      await queryInterface.bulkInsert(
+        'gig_media_assets',
+        [
+          {
+            id: seededIds.gigMediaAssets[0],
+            gigId: seededIds.gigs[0],
+            assetType: 'video',
+            url: 'https://cdn.gigvora.com/media/gigs/brand-sprint/showreel.mp4',
+            thumbnailUrl: 'https://cdn.gigvora.com/media/gigs/brand-sprint/showreel-thumb.jpg',
+            caption: 'Interactive walkthrough of the launch-ready workspace.',
+            displayOrder: 0,
+            processingStatus: 'ready',
+            metadata: { durationSeconds: 92, format: 'mp4' },
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.gigMediaAssets[1],
+            gigId: seededIds.gigs[0],
+            assetType: 'image',
+            url: 'https://cdn.gigvora.com/media/gigs/brand-sprint/carousel-1.png',
+            thumbnailUrl: 'https://cdn.gigvora.com/media/gigs/brand-sprint/carousel-1-thumb.png',
+            caption: 'Carousel preview of responsive tier cards.',
+            displayOrder: 1,
+            processingStatus: 'ready',
+            metadata: { dimensions: '1600x900' },
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.gigMediaAssets[2],
+            gigId: seededIds.gigs[0],
+            assetType: 'document',
+            url: 'https://cdn.gigvora.com/media/gigs/brand-sprint/testimonial-pack.pdf',
+            thumbnailUrl: 'https://cdn.gigvora.com/media/gigs/brand-sprint/testimonial-pack-thumb.png',
+            caption: 'Testimonial excerpts ready for landing pages and sales decks.',
+            displayOrder: 2,
+            processingStatus: 'processing',
+            metadata: { pages: 6 },
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+        ],
+        { transaction },
+      );
+
+      await queryInterface.bulkInsert(
+        'gig_call_to_actions',
+        [
+          {
+            id: seededIds.gigCallToActions[0],
+            gigId: seededIds.gigs[0],
+            headline: 'Launch with confidence',
+            subheadline: 'First-time founders get a launch-ready brand system in 10 days.',
+            buttonLabel: 'Book concept sprint',
+            buttonUrl: 'https://gigvora.com/checkout/brand-sprint',
+            stylePreset: 'bold-gradient',
+            audienceSegment: 'first_time_founders',
+            badge: 'Most booked',
+            expectedLift: 22.4,
+            metadata: { variant: 'A', tone: 'Aspirational' },
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.gigCallToActions[1],
+            gigId: seededIds.gigs[0],
+            headline: 'Show stakeholders the plan',
+            subheadline: 'CMO buyers unlock a full launch roadmap and ROI calculator.',
+            buttonLabel: 'Download launch roadmap',
+            buttonUrl: 'https://gigvora.com/gigs/brand-sprint/roadmap',
+            stylePreset: 'data-led',
+            audienceSegment: 'cmo_buyers',
+            badge: 'Enterprise',
+            expectedLift: 15.1,
+            metadata: { variant: 'B', tone: 'Data-led' },
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.gigCallToActions[2],
+            gigId: seededIds.gigs[0],
+            headline: 'Co-deliver with Riley',
+            subheadline: 'Agency partners access white-label scope and shared delivery playbooks.',
+            buttonLabel: 'Review white-label scope',
+            buttonUrl: 'https://gigvora.com/partners/brand-sprint',
+            stylePreset: 'collaborative',
+            audienceSegment: 'agencies',
+            badge: 'Partner favorite',
+            expectedLift: 18.0,
+            metadata: { variant: 'C', tone: 'Collaborative' },
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+        ],
+        { transaction },
+      );
+
+      await queryInterface.bulkInsert(
+        'gig_preview_layouts',
+        [
+          {
+            id: seededIds.gigPreviewLayouts[0],
+            gigId: seededIds.gigs[0],
+            deviceType: 'desktop',
+            headline: 'Hero headline, testimonial slider, and sticky pricing panel above the fold.',
+            supportingCopy: 'Optimized for 1440px canvases with persistent checkout CTA.',
+            previewUrl: 'https://cdn.gigvora.com/previews/brand-sprint/desktop.png',
+            layoutSettings: { stickyPricing: true, testimonialCount: 3 },
+            conversionRate: 12.4,
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.gigPreviewLayouts[1],
+            gigId: seededIds.gigs[0],
+            deviceType: 'tablet',
+            headline: 'Tier cards collapse into swipeable deck with persistent CTA banner.',
+            supportingCopy: 'Optimized for 1024px portrait experiences.',
+            previewUrl: 'https://cdn.gigvora.com/previews/brand-sprint/tablet.png',
+            layoutSettings: { swipeableDeck: true, bannerVariant: 'B' },
+            conversionRate: 9.8,
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.gigPreviewLayouts[2],
+            gigId: seededIds.gigs[0],
+            deviceType: 'mobile',
+            headline: 'Smart accordions reveal deliverables and add-ons.',
+            supportingCopy: 'Optimized for 375px viewports with sticky booking button.',
+            previewUrl: 'https://cdn.gigvora.com/previews/brand-sprint/mobile.png',
+            layoutSettings: { accordions: true, stickyCta: true },
+            conversionRate: 7.6,
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+        ],
+        { transaction },
+      );
+
+      await queryInterface.bulkInsert(
+        'gig_performance_snapshots',
+        [
+          {
+            id: seededIds.gigPerformanceSnapshots[0],
+            gigId: seededIds.gigs[0],
+            snapshotDate: yesterday,
+            periodLabel: 'Last 30 days',
+            conversionRate: 12.4,
+            averageOrderValue: 1082,
+            completionRate: 97.2,
+            upsellTakeRate: 27.3,
+            reviewScore: 4.9,
+            bookingsLast30Days: 18,
+            experimentNotes: {
+              promoBannerLift: 9.0,
+              highlightedVariant: 'bold-gradient',
+            },
+            createdAt: yesterday,
+            updatedAt: now,
+          },
+        ],
+        { transaction },
       );
 
       await queryInterface.bulkInsert(
@@ -1365,6 +1698,36 @@ module.exports = {
         'experience_launchpads',
         { id: { [Op.in]: seededIds.experienceLaunchpads } },
         { transaction }
+      );
+      await queryInterface.bulkDelete(
+        'gig_performance_snapshots',
+        { gigId: { [Op.in]: seededIds.gigs } },
+        { transaction },
+      );
+      await queryInterface.bulkDelete(
+        'gig_preview_layouts',
+        { gigId: { [Op.in]: seededIds.gigs } },
+        { transaction },
+      );
+      await queryInterface.bulkDelete(
+        'gig_call_to_actions',
+        { gigId: { [Op.in]: seededIds.gigs } },
+        { transaction },
+      );
+      await queryInterface.bulkDelete(
+        'gig_media_assets',
+        { gigId: { [Op.in]: seededIds.gigs } },
+        { transaction },
+      );
+      await queryInterface.bulkDelete(
+        'gig_addons',
+        { gigId: { [Op.in]: seededIds.gigs } },
+        { transaction },
+      );
+      await queryInterface.bulkDelete(
+        'gig_packages',
+        { gigId: { [Op.in]: seededIds.gigs } },
+        { transaction },
       );
       await queryInterface.bulkDelete('projects', { id: { [Op.in]: seededIds.projects } }, { transaction });
       await queryInterface.bulkDelete('gigs', { id: { [Op.in]: seededIds.gigs } }, { transaction });

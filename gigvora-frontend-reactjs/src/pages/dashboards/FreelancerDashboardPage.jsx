@@ -1,4 +1,7 @@
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import GigBuilderDeepDive from '../../components/GigBuilderDeepDive.jsx';
+
+const DEFAULT_FREELANCER_ID = 2;
 
 const menuSections = [
   {
@@ -113,6 +116,7 @@ const capabilitySections = [
           'Freelancer banner creator with dynamic call-to-actions.',
           'Preview modes for desktop, tablet, and mobile experiences.',
         ],
+        deepDive: <GigBuilderDeepDive freelancerId={DEFAULT_FREELANCER_ID} />,
       },
       {
         name: 'Order pipeline',
