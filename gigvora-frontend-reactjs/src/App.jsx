@@ -34,6 +34,7 @@ import AgencyDashboardPage from './pages/dashboards/AgencyDashboardPage.jsx';
 import CompanyDashboardPage from './pages/dashboards/CompanyDashboardPage.jsx';
 import HeadhunterDashboardPage from './pages/dashboards/HeadhunterDashboardPage.jsx';
 import MentorDashboardPage from './pages/dashboards/MentorDashboardPage.jsx';
+import LaunchpadOperationsPage from './pages/dashboards/LaunchpadOperationsPage.jsx';
 
 export default function App() {
   return (
@@ -73,6 +74,7 @@ export default function App() {
       <Route path="dashboard/company" element={<CompanyDashboardPage />} />
       <Route path="dashboard/headhunter" element={<HeadhunterDashboardPage />} />
       <Route path="dashboard/mentor" element={<MentorDashboardPage />} />
+      <Route path="dashboard/launchpad" element={<LaunchpadOperationsPage />} />
       <Route path="admin" element={<AdminLoginPage />} />
     </Routes>
   );

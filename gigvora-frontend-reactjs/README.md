@@ -19,6 +19,10 @@ npm run dev
 
 The development server runs at `http://localhost:5173` and proxies API calls to the Node backend when configured.
 
+### Realtime calls & messaging
+
+Set `VITE_API_BASE_URL` to your backend host and ensure the API is configured with Agora credentials. The web client consumes the `/api/messaging/threads/:id/calls` endpoint and uses `agora-rtc-sdk-ng` to join video and voice sessions directly from the inbox and dock UI.
+
 ## Project Structure
 
 - `src/layouts/MainLayout.jsx` – Shared shell with header and footer.

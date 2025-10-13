@@ -5,6 +5,7 @@ import DataStatus from '../../components/DataStatus.jsx';
 import { fetchUserDashboard } from '../../services/userDashboard.js';
 import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
 import DocumentStudioSection from '../../components/documentStudio/DocumentStudioSection.jsx';
+import ProjectGigManagementContainer from '../../components/projectGigManagement/ProjectGigManagementContainer.jsx';
 
 const DEFAULT_USER_ID = 1;
 const availableDashboards = ['user', 'freelancer', 'agency', 'company', 'headhunter'];
@@ -136,6 +137,15 @@ function buildMenuSections(data) {
   const documents = data?.documents ?? {};
   const documentStudio = data?.documentStudio;
   const documentSummary = documentStudio?.summary ?? {};
+  const projectGigManagement = data?.projectGigManagement ?? {};
+  const projectSummary = projectGigManagement.summary ?? {};
+  const assetSummary = projectGigManagement.assets?.summary ?? {};
+  const purchasedGigStats = projectGigManagement.purchasedGigs?.stats ?? {};
+  const vendorAverages = purchasedGigStats.averages ?? {};
+  const storytelling = projectGigManagement.storytelling ?? {};
+  const averageBoardProgress = projectGigManagement.managementBoard?.metrics?.averageProgress;
+  const vendorScoreLabel =
+    vendorAverages.overall != null ? `${Number(vendorAverages.overall).toFixed(1)}/5` : 'unrated';
   const portfolioProjects = Array.isArray(documentStudio?.brandHub?.portfolioProjects)
     ? documentStudio.brandHub.portfolioProjects.length
     : documents.portfolioLinks?.length ?? 0;
@@ -144,6 +154,55 @@ function buildMenuSections(data) {
   const automationMetrics = pipelineAutomation.kanban?.metrics ?? {};
   const automationBoardName = pipelineAutomation.board?.name ?? 'Career pipeline';
   return [
+    {
+      label: 'Project & gig management',
+      items: [
+        {
+          name: 'Project creation workspace',
+          description: `Launch ${formatNumber(projectSummary.totalProjects ?? 0)} initiatives with ${formatNumber(
+            projectSummary.templatesAvailable ?? projectGigManagement.projectCreation?.templates?.length ?? 0,
+          )} templates ready for mentors or freelancers.`,
+          tags: ['briefs', 'collaboration'],
+          sectionId: 'project-gig-creation',
+        },
+        {
+          name: 'Template gallery',
+          description: `Hackathons, bootcamps, and consulting kits curated for ${formatNumber(
+            projectGigManagement.projectCreation?.templates?.filter?.((template) => template?.isFeatured)?.length ?? 0,
+          )} featured playbooks.`,
+          tags: ['templates', 'playbooks'],
+          sectionId: 'project-gig-templates',
+        },
+        {
+          name: 'Asset repository',
+          description: `${formatNumber(assetSummary.total ?? 0)} secured files with ${formatNumber(
+            assetSummary.watermarked ?? 0,
+          )} watermark protections & granular permissions.`,
+          tags: ['assets', 'compliance'],
+          sectionId: 'project-gig-assets',
+        },
+        {
+          name: 'Delivery board',
+          description: `Visualise ${formatNumber(projectSummary.activeProjects ?? 0)} active projects with average progress ${
+            averageBoardProgress != null ? `${averageBoardProgress}%` : 'tracking'
+          }.`,
+          tags: ['kanban', 'progress'],
+          sectionId: 'project-gig-board',
+        },
+        {
+          name: 'Purchased gig operations',
+          description: `Manage ${formatNumber(purchasedGigStats.totalOrders ?? 0)} vendor orders with CSAT ${vendorScoreLabel} and escrow safeguards.`,
+          tags: ['vendors', 'escrow'],
+          sectionId: 'project-gig-purchased',
+        },
+        {
+          name: 'CV-ready storytelling',
+          description: `Convert ${formatNumber(storytelling.achievements?.length ?? 0)} outcomes into resume bullets & LinkedIn stories.`,
+          tags: ['storytelling', 'ai'],
+          sectionId: 'project-gig-storytelling',
+        },
+      ],
+    },
     {
       label: 'Career pipeline automation',
       items: [
@@ -298,6 +357,7 @@ export default function UserDashboardPage() {
   const interviews = Array.isArray(data?.interviews) ? data.interviews : [];
   const documents = data?.documents ?? { attachments: [], portfolioLinks: [] };
   const documentStudio = data?.documentStudio ?? null;
+  const projectGigManagement = data?.projectGigManagement ?? null;
   const notifications = Array.isArray(data?.notifications?.recent) ? data.notifications.recent : [];
   const projectActivity = Array.isArray(data?.projectActivity?.recent) ? data.projectActivity.recent : [];
   const launchpadApplications = Array.isArray(data?.launchpad?.applications) ? data.launchpad.applications : [];
@@ -1351,6 +1411,7 @@ export default function UserDashboardPage() {
           </div>
         </section>
 
+        <ProjectGigManagementContainer userId={userId} />
         {documentStudio ? <DocumentStudioSection data={documentStudio} /> : null}
 
         <section className="grid gap-6 lg:grid-cols-2">

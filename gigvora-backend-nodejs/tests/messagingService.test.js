@@ -10,6 +10,7 @@ import {
   escalateThreadToSupport,
   assignSupportAgent,
   updateSupportCaseStatus,
+  startOrJoinCall,
 } from '../src/services/messagingService.js';
 import { createUser } from './helpers/factories.js';
 import { AuthorizationError } from '../src/utils/errors.js';
@@ -149,5 +150,65 @@ describe('messagingService', () => {
 
     const unreadOnly = await listThreadsForUser(requester.id, { unreadOnly: true }, { pageSize: 5 });
     expect(unreadOnly.data).toHaveLength(0);
+  });
+
+  it('creates realtime call sessions with Agora tokens', async () => {
+    const originalAppId = process.env.AGORA_APP_ID;
+    const originalCertificate = process.env.AGORA_APP_CERTIFICATE;
+    const originalTtl = process.env.AGORA_TOKEN_TTL;
+
+    process.env.AGORA_APP_ID = '12345678901234567890123456789012';
+    process.env.AGORA_APP_CERTIFICATE = 'abcdef1234567890abcdef1234567890';
+    process.env.AGORA_TOKEN_TTL = '600';
+
+    try {
+      const initiator = await createUser({ email: 'initiator@gigvora.test', userType: 'user' });
+      const collaborator = await createUser({ email: 'collab@gigvora.test', userType: 'user' });
+
+      const thread = await createThread({
+        subject: 'Call pilot',
+        createdBy: initiator.id,
+        participantIds: [collaborator.id],
+      });
+
+      const session = await startOrJoinCall(thread.id, initiator.id, { callType: 'video' });
+
+      expect(session).toMatchObject({
+        threadId: thread.id,
+        callType: 'video',
+        isNew: true,
+        rtcToken: expect.any(String),
+        rtmToken: expect.any(String),
+        channelName: expect.stringContaining(`thread:${thread.id}`),
+        message: expect.objectContaining({
+          messageType: 'event',
+          metadata: expect.objectContaining({
+            call: expect.objectContaining({ id: session.callId, type: 'video' }),
+          }),
+        }),
+      });
+
+      const joinSession = await startOrJoinCall(thread.id, collaborator.id, {
+        callType: 'video',
+        callId: session.callId,
+      });
+
+      expect(joinSession.isNew).toBe(false);
+      expect(joinSession.callId).toBe(session.callId);
+      expect(joinSession.message.metadata.call.participants).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ userId: initiator.id }),
+          expect.objectContaining({ userId: collaborator.id }),
+        ]),
+      );
+    } finally {
+      process.env.AGORA_APP_ID = originalAppId;
+      process.env.AGORA_APP_CERTIFICATE = originalCertificate;
+      if (originalTtl === undefined) {
+        delete process.env.AGORA_TOKEN_TTL;
+      } else {
+        process.env.AGORA_TOKEN_TTL = originalTtl;
+      }
+    }
   });
 });

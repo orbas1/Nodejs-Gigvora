@@ -190,6 +190,18 @@ async function ensureWorkspaceArtifacts(workspace, { project, actorId, transacti
           version: '1.2',
           sizeBytes: 5242880,
           tags: ['client', 'brief'],
+          permissions: {
+            visibility: 'client_internal',
+            allowedRoles: ['owner', 'mentor', 'client_sponsor'],
+            allowDownload: false,
+            shareableLink: false,
+          },
+          watermarkSettings: {
+            enabled: true,
+            pattern: 'diagonal',
+            label: 'Gigvora Confidential',
+            appliedAt: new Date(now.getTime() - 1000 * 60 * 60 * 18),
+          },
           uploadedAt: new Date(now.getTime() - 1000 * 60 * 90),
         },
         {
@@ -202,6 +214,18 @@ async function ensureWorkspaceArtifacts(workspace, { project, actorId, transacti
           version: '2.0',
           sizeBytes: 7340032,
           tags: ['design', 'whiteboard'],
+          permissions: {
+            visibility: 'project_team',
+            allowedRoles: ['design', 'product', 'owner'],
+            allowDownload: true,
+            shareableLink: true,
+          },
+          watermarkSettings: {
+            enabled: false,
+            pattern: null,
+            label: null,
+            appliedAt: null,
+          },
           uploadedAt: new Date(now.getTime() - 1000 * 60 * 60 * 6),
         },
         {
@@ -214,6 +238,18 @@ async function ensureWorkspaceArtifacts(workspace, { project, actorId, transacti
           version: '1.0',
           sizeBytes: 1048576,
           tags: ['qa', 'operations'],
+          permissions: {
+            visibility: 'internal_only',
+            allowedRoles: ['owner', 'operations', 'qa'],
+            allowDownload: true,
+            shareableLink: false,
+          },
+          watermarkSettings: {
+            enabled: true,
+            pattern: 'horizontal',
+            label: 'For QA Eyes Only',
+            appliedAt: new Date(now.getTime() - 1000 * 60 * 60 * 3),
+          },
           uploadedAt: new Date(now.getTime() - 1000 * 60 * 30),
         },
       ],

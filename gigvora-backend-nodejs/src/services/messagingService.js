@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { Op } from 'sequelize';
 import {
   sequelize,
@@ -12,10 +13,22 @@ import {
   MESSAGE_TYPES,
   SUPPORT_CASE_STATUSES,
   SUPPORT_CASE_PRIORITIES,
-} from '../models/index.js';
+} from '../models/messagingModels.js';
 import { ApplicationError, ValidationError, NotFoundError, AuthorizationError } from '../utils/errors.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
-import notificationService from './notificationService.js';
+let notificationServicePromise = null;
+
+async function loadNotificationService() {
+  if (!notificationServicePromise) {
+    notificationServicePromise = import('./notificationService.js').catch(() => null);
+  }
+  const module = await notificationServicePromise;
+  if (!module) {
+    return null;
+  }
+  return module.default ?? module;
+}
+import { createCallTokens, getDefaultAgoraExpiry } from './agoraService.js';
 
 const THREAD_CACHE_TTL = 60;
 const MESSAGE_CACHE_TTL = 15;
@@ -100,6 +113,7 @@ function sanitizeThread(thread) {
     state: plain.state,
     createdBy: plain.createdBy,
     lastMessageAt: plain.lastMessageAt,
+    lastMessagePreview: plain.lastMessagePreview,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
     metadata: plain.metadata && typeof plain.metadata === 'object'
@@ -191,6 +205,128 @@ function sanitizeSupportCase(supportCase) {
   };
 }
 
+const CALL_TYPE_NORMALIZED = new Map([
+  ['video', 'video'],
+  ['voice', 'voice'],
+  ['audio', 'voice'],
+  ['phone', 'voice'],
+  ['telephony', 'voice'],
+  ['call', 'voice'],
+]);
+
+function normalizeCallType(callType) {
+  const fallback = 'video';
+  if (!callType) {
+    return fallback;
+  }
+  const normalized = String(callType).trim().toLowerCase();
+  if (!normalized) {
+    return fallback;
+  }
+  const mapped = CALL_TYPE_NORMALIZED.get(normalized) || CALL_TYPE_NORMALIZED.get(normalized.replace(/[-_\s]/g, ''));
+  if (mapped) {
+    return mapped;
+  }
+  if (normalized === 'video-call' || normalized === 'videocall') {
+    return 'video';
+  }
+  throw new ValidationError(`Unsupported call type "${callType}". Use "video" or "voice".`);
+}
+
+function buildCallChannelName(threadId, callId) {
+  return `gigvora:thread:${threadId}:call:${callId}`;
+}
+
+function isCallExpired(callMetadata) {
+  if (!callMetadata?.expiresAt) {
+    return false;
+  }
+  const expiresAt = new Date(callMetadata.expiresAt);
+  if (Number.isNaN(expiresAt.getTime())) {
+    return false;
+  }
+  return expiresAt.getTime() < Date.now();
+}
+
+async function findCallMessageRecord(threadId, callId) {
+  if (!callId) {
+    return null;
+  }
+
+  const records = await Message.findAll({
+    where: { threadId, messageType: 'event' },
+    order: [['createdAt', 'DESC']],
+    limit: 50,
+  });
+
+  for (const record of records) {
+    const metadata = record.metadata;
+    if (metadata && typeof metadata === 'object') {
+      const callMetadata = metadata.call;
+      if (callMetadata && String(callMetadata.id) === String(callId)) {
+        return record;
+      }
+    }
+  }
+
+  return null;
+}
+
+async function loadMessageById(messageId) {
+  if (!messageId) {
+    return null;
+  }
+  const record = await Message.findByPk(messageId, {
+    include: [
+      { model: MessageAttachment, as: 'attachments' },
+      { model: User, as: 'sender', attributes: ['id', 'firstName', 'lastName', 'email'] },
+    ],
+  });
+  return record ? sanitizeMessage(record) : null;
+}
+
+async function recordCallParticipantJoin(messageId, threadId, userId) {
+  if (!messageId || !userId) {
+    return;
+  }
+
+  let updated = false;
+  await sequelize.transaction(async (trx) => {
+    const message = await Message.findByPk(messageId, { transaction: trx, lock: trx.LOCK.UPDATE });
+    if (!message) {
+      return;
+    }
+
+    const metadata = message.metadata && typeof message.metadata === 'object' ? { ...message.metadata } : {};
+    const callMetadata = metadata.call && typeof metadata.call === 'object' ? { ...metadata.call } : {};
+    const participants = Array.isArray(callMetadata.participants) ? [...callMetadata.participants] : [];
+    const hasParticipant = participants.some((participant) => Number(participant?.userId) === Number(userId));
+
+    if (!hasParticipant) {
+      const entry = { userId, joinedAt: new Date().toISOString() };
+      participants.push(entry);
+      callMetadata.participants = participants.slice(-25);
+      callMetadata.lastJoinedAt = entry.joinedAt;
+      updated = true;
+    }
+
+    if (!callMetadata.channelName) {
+      const effectiveId = callMetadata.id ?? message.id;
+      callMetadata.channelName = buildCallChannelName(threadId, effectiveId);
+      updated = true;
+    }
+
+    if (updated) {
+      metadata.call = callMetadata;
+      await message.update({ metadata }, { transaction: trx });
+    }
+  });
+
+  if (updated) {
+    flushThreadCache(threadId);
+  }
+}
+
 async function createSystemMessage(threadId, body, metadata = {}, trx) {
   const normalized = normalizeMetadata(
     {
@@ -229,7 +365,28 @@ async function queueSupportNotification(payload, options) {
   }
 
   try {
-    await queueSupportNotification(payload, options);
+    const notificationService = await loadNotificationService();
+    if (!notificationService) {
+      return;
+    }
+
+    const target =
+      typeof notificationService.queueSupportNotification === 'function'
+        ? notificationService.queueSupportNotification.bind(notificationService)
+        : typeof notificationService.queueNotification === 'function'
+        ? notificationService.queueNotification.bind(notificationService)
+        : null;
+
+    if (target) {
+      await target(
+        {
+          category: 'support',
+          priority: 'high',
+          ...payload,
+        },
+        options,
+      );
+    }
   } catch (error) {
     if (process.env.NODE_ENV !== 'test') {
       console.warn('Failed to queue support notification', error);
@@ -404,6 +561,91 @@ export async function appendMessage(threadId, senderId, { messageType = 'text', 
   );
 
   return sanitizeMessage(hydrated ?? message);
+}
+
+export async function startOrJoinCall(
+  threadId,
+  userId,
+  { callType = 'video', callId, role = 'publisher' } = {},
+) {
+  if (!Number.isFinite(threadId) || threadId <= 0) {
+    throw new ValidationError('threadId must be a positive integer.');
+  }
+  if (!Number.isFinite(userId) || userId <= 0) {
+    throw new ValidationError('userId must be a positive integer.');
+  }
+
+  await ensureParticipant(threadId, userId);
+
+  const normalizedCallType = normalizeCallType(callType);
+  const identity = String(userId);
+  const ttlSeconds = getDefaultAgoraExpiry();
+
+  let resolvedCallId = callId ? String(callId) : null;
+  let callMessageRecord = null;
+  let sanitizedCallMessage = null;
+  let isNew = false;
+
+  if (resolvedCallId) {
+    callMessageRecord = await findCallMessageRecord(threadId, resolvedCallId);
+    if (!callMessageRecord) {
+      throw new NotFoundError('Call session not found for this thread.');
+    }
+    sanitizedCallMessage = sanitizeMessage(callMessageRecord);
+  } else {
+    resolvedCallId = randomUUID();
+    const channelName = buildCallChannelName(threadId, resolvedCallId);
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + ttlSeconds * 1000).toISOString();
+    const metadata = {
+      eventType: 'call',
+      call: {
+        id: resolvedCallId,
+        type: normalizedCallType,
+        channelName,
+        initiatedBy: userId,
+        initiatedAt: now.toISOString(),
+        expiresAt,
+        participants: [{ userId, joinedAt: now.toISOString() }],
+      },
+    };
+    const body = normalizedCallType === 'video' ? 'Video call started' : 'Voice call started';
+    sanitizedCallMessage = await appendMessage(threadId, userId, {
+      messageType: 'event',
+      body,
+      metadata,
+    });
+    callMessageRecord = await Message.findByPk(sanitizedCallMessage.id);
+    isNew = true;
+  }
+
+  const callMetadata =
+    callMessageRecord?.metadata?.call ?? sanitizedCallMessage?.metadata?.call ?? { type: normalizedCallType };
+
+  if (isCallExpired(callMetadata)) {
+    throw new ValidationError('Call session has expired. Start a new call.');
+  }
+
+  const channelName = callMetadata.channelName ?? buildCallChannelName(threadId, resolvedCallId);
+  const tokens = createCallTokens({ channelName, identity, role, expireSeconds: ttlSeconds });
+
+  await recordCallParticipantJoin(callMessageRecord?.id ?? sanitizedCallMessage?.id ?? null, threadId, userId);
+  const hydratedMessage = await loadMessageById(callMessageRecord?.id ?? sanitizedCallMessage?.id ?? null);
+
+  return {
+    threadId,
+    callId: resolvedCallId,
+    callType: callMetadata.type ?? normalizedCallType,
+    channelName,
+    agoraAppId: tokens.appId,
+    rtcToken: tokens.rtcToken,
+    rtmToken: tokens.rtmToken,
+    expiresAt: tokens.expiresAt,
+    expiresIn: tokens.expiresIn,
+    identity: tokens.identity,
+    isNew,
+    message: hydratedMessage ?? sanitizedCallMessage ?? null,
+  };
 }
 
 export async function listMessages(threadId, pagination = {}, { includeSystem = false } = {}) {

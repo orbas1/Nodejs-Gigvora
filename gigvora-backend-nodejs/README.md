@@ -25,6 +25,16 @@ This Express + Sequelize service powers the Gigvora marketplace experience acros
 
 The API will be available at `http://localhost:5000`.
 
+## Realtime messaging & call configuration
+
+Gigvora uses Agora for realtime voice and video inside message threads. Set the following environment variables before starting the API:
+
+- `AGORA_APP_ID` – Agora project App ID.
+- `AGORA_APP_CERTIFICATE` – Primary certificate for the project.
+- `AGORA_TOKEN_TTL` – Optional token lifetime override in seconds (defaults to 3600).
+
+Without these credentials call sessions will be disabled and the API will return a 500 error when attempting to request a call token.
+
 ## Key Directories
 
 - `src/controllers` – Request handlers for authentication, feed, user and search flows.
