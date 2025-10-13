@@ -1,6 +1,12 @@
 import { DataTypes, Op } from 'sequelize';
 import { buildLocationDetails } from '../utils/location.js';
 import sequelize from './sequelizeClient.js';
+import {
+  GROUP_VISIBILITIES,
+  GROUP_MEMBER_POLICIES,
+  GROUP_MEMBERSHIP_STATUSES,
+  GROUP_MEMBERSHIP_ROLES,
+} from './constants/index.js';
 
 export { sequelize } from './sequelizeClient.js';
 
@@ -10,6 +16,7 @@ const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB 
 export * from './constants/index.js';
 
 const PIPELINE_OWNER_TYPES = ['freelancer', 'agency', 'company'];
+const TWO_FACTOR_METHODS = ['email', 'app', 'sms'];
 
 export const User = sequelize.define(
   'User',
@@ -27,6 +34,14 @@ export const User = sequelize.define(
       allowNull: false,
       defaultValue: 'user',
     },
+    twoFactorEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    twoFactorMethod: {
+      type: DataTypes.ENUM(...TWO_FACTOR_METHODS),
+      allowNull: false,
+      defaultValue: 'email',
+    },
+    lastLoginAt: { type: DataTypes.DATE, allowNull: true },
+    googleId: { type: DataTypes.STRING(255), allowNull: true },
   },
   {
     tableName: 'users',
@@ -1043,9 +1058,24 @@ export const FreelancerHeroBanner = sequelize.define(
 export const FeedPost = sequelize.define(
   'FeedPost',
   {
-    userId: { type: DataTypes.INTEGER, allowNull: false },
+    userId: { type: DataTypes.INTEGER, allowNull: true },
     content: { type: DataTypes.TEXT, allowNull: false },
     visibility: { type: DataTypes.ENUM('public', 'connections'), defaultValue: 'public', allowNull: false },
+    type: {
+      type: DataTypes.ENUM('update', 'media', 'job', 'gig', 'project', 'volunteering', 'launchpad', 'news'),
+      allowNull: false,
+      defaultValue: 'update',
+    },
+    link: { type: DataTypes.STRING(2048), allowNull: true },
+    title: { type: DataTypes.STRING(280), allowNull: true },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    imageUrl: { type: DataTypes.STRING(2048), allowNull: true },
+    source: { type: DataTypes.STRING(255), allowNull: true },
+    publishedAt: { type: DataTypes.DATE, allowNull: true },
+    externalId: { type: DataTypes.STRING(255), allowNull: true, unique: true },
+    authorName: { type: DataTypes.STRING(180), allowNull: true },
+    authorHeadline: { type: DataTypes.STRING(255), allowNull: true },
+    authorAvatarSeed: { type: DataTypes.STRING(255), allowNull: true },
   },
   { tableName: 'feed_posts' },
 );
@@ -5195,14 +5225,70 @@ AdPlacement.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+function slugifyGroup(value, fallback = 'group') {
+  if (!value) {
+    return fallback;
+  }
+  return value
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80) || fallback;
+}
+
+function normalizeGroupColour(value) {
+  if (!value) {
+    return '#2563eb';
+  }
+  const colour = value.toString().trim().toLowerCase();
+  return /^#([0-9a-f]{6})$/.test(colour) ? colour : '#2563eb';
+}
+
 export const Group = sequelize.define(
   'Group',
   {
     name: { type: DataTypes.STRING(255), allowNull: false },
     description: { type: DataTypes.TEXT, allowNull: true },
+    slug: { type: DataTypes.STRING(120), allowNull: false, unique: true },
+    avatarColor: { type: DataTypes.STRING(7), allowNull: false, defaultValue: '#2563eb' },
+    bannerImageUrl: { type: DataTypes.STRING(255), allowNull: true },
+    visibility: {
+      type: DataTypes.ENUM(...GROUP_VISIBILITIES),
+      allowNull: false,
+      defaultValue: 'public',
+      validate: { isIn: [GROUP_VISIBILITIES] },
+    },
+    memberPolicy: {
+      type: DataTypes.ENUM(...GROUP_MEMBER_POLICIES),
+      allowNull: false,
+      defaultValue: 'request',
+      validate: { isIn: [GROUP_MEMBER_POLICIES] },
+    },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+    settings: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
   },
   { tableName: 'groups' },
 );
+
+Group.addHook('beforeValidate', (group) => {
+  if (!group) return;
+  if (group.name && !group.slug) {
+    group.slug = slugifyGroup(group.name);
+  }
+  if (group.slug) {
+    group.slug = slugifyGroup(group.slug);
+  }
+  group.avatarColor = normalizeGroupColour(group.avatarColor);
+});
+
+Group.addHook('beforeSave', (group) => {
+  if (!group) return;
+  group.avatarColor = normalizeGroupColour(group.avatarColor);
+});
 
 export const GroupMembership = sequelize.define(
   'GroupMembership',
@@ -5211,9 +5297,31 @@ export const GroupMembership = sequelize.define(
     groupId: { type: DataTypes.INTEGER, allowNull: false },
     role: { type: DataTypes.STRING(120), allowNull: false, defaultValue: 'member' },
     metadata: { type: jsonType, allowNull: true },
+    role: {
+      type: DataTypes.STRING(120),
+      allowNull: false,
+      defaultValue: 'member',
+      validate: { isIn: [GROUP_MEMBERSHIP_ROLES] },
+    },
+    status: {
+      type: DataTypes.ENUM(...GROUP_MEMBERSHIP_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+      validate: { isIn: [GROUP_MEMBERSHIP_STATUSES] },
+    },
+    joinedAt: { type: DataTypes.DATE, allowNull: true },
+    invitedById: { type: DataTypes.INTEGER, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
   },
   { tableName: 'group_memberships' },
 );
+
+GroupMembership.addHook('beforeSave', (membership) => {
+  if (!membership) return;
+  if (membership.status === 'active' && !membership.joinedAt) {
+    membership.joinedAt = new Date();
+  }
+});
 
 export const Connection = sequelize.define(
   'Connection',
@@ -5232,11 +5340,28 @@ export const Connection = sequelize.define(
 export const TwoFactorToken = sequelize.define(
   'TwoFactorToken',
   {
-    email: { type: DataTypes.STRING(255), primaryKey: true },
-    code: { type: DataTypes.STRING(6), allowNull: false },
+    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    email: { type: DataTypes.STRING(255), allowNull: false },
+    codeHash: { type: DataTypes.STRING(128), allowNull: false },
+    deliveryMethod: {
+      type: DataTypes.ENUM(...TWO_FACTOR_METHODS),
+      allowNull: false,
+      defaultValue: 'email',
+    },
     expiresAt: { type: DataTypes.DATE, allowNull: false },
+    attempts: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    consumedAt: { type: DataTypes.DATE, allowNull: true },
   },
-  { tableName: 'two_factor_tokens', timestamps: false },
+  {
+    tableName: 'two_factor_tokens',
+    timestamps: true,
+    createdAt: 'createdAt',
+    updatedAt: false,
+    indexes: [
+      { fields: ['email'] },
+      { fields: ['expiresAt'] },
+    ],
+  },
 );
 
 export const Application = sequelize.define(
@@ -14416,6 +14541,13 @@ FeedPost.belongsTo(User, { foreignKey: 'userId' });
 
 User.belongsToMany(Group, { through: GroupMembership, foreignKey: 'userId' });
 Group.belongsToMany(User, { through: GroupMembership, foreignKey: 'groupId' });
+Group.hasMany(GroupMembership, { foreignKey: 'groupId', as: 'memberships' });
+GroupMembership.belongsTo(Group, { foreignKey: 'groupId', as: 'group' });
+GroupMembership.belongsTo(User, { foreignKey: 'userId', as: 'member' });
+GroupMembership.belongsTo(User, { foreignKey: 'invitedById', as: 'invitedBy' });
+Group.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+Group.belongsTo(User, { foreignKey: 'updatedById', as: 'updatedBy' });
+User.hasMany(GroupMembership, { foreignKey: 'userId', as: 'groupMemberships' });
 
 User.belongsToMany(User, {
   through: Connection,

@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../theme/widgets.dart';
+import '../data/auth_repository.dart';
 
-class RegisterScreen extends StatefulWidget {
+class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
 
   @override
-  State<RegisterScreen> createState() => _RegisterScreenState();
+  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
+class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
@@ -18,6 +20,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _ageController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  String _userType = 'user';
+  bool _twoFactorEnabled = true;
+  bool _loading = false;
+  String? _error;
+  String? _info;
 
   final List<String> _highlights = const [
     'Showcase your craft with a multimedia profile and featured wins.',
@@ -41,17 +48,56 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!(_formKey.currentState?.validate() ?? false)) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Registration submitted. Complete verification to activate your profile.')),
-    );
-    _formKey.currentState?.reset();
-    _firstNameController.clear();
-    _lastNameController.clear();
-    _emailController.clear();
-    _addressController.clear();
-    _ageController.clear();
-    _passwordController.clear();
-    _confirmPasswordController.clear();
+    if (_passwordController.text != _confirmPasswordController.text) {
+      setState(() {
+        _error = 'Passwords do not match.';
+      });
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _error = null;
+      _info = null;
+    });
+
+    ref
+        .read(authRepositoryProvider)
+        .registerUser(
+          firstName: _firstNameController.text.trim(),
+          lastName: _lastNameController.text.trim(),
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+          address: _addressController.text.trim(),
+          age: int.tryParse(_ageController.text.trim()),
+          twoFactorEnabled: _twoFactorEnabled,
+          userType: _userType,
+        )
+        .then((_) {
+      setState(() {
+        _info = 'Account created. Check your inbox for a verification code.';
+      });
+      _formKey.currentState?.reset();
+      _firstNameController.clear();
+      _lastNameController.clear();
+      _emailController.clear();
+      _addressController.clear();
+      _ageController.clear();
+      _passwordController.clear();
+      _confirmPasswordController.clear();
+      _userType = 'user';
+      _twoFactorEnabled = true;
+    }).catchError((error) {
+      setState(() {
+        _error = error.toString();
+      });
+    }).whenComplete(() {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
+    });
   }
 
   @override
@@ -109,6 +155,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       textCapitalization: TextCapitalization.words,
                     ),
                     const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      value: _userType,
+                      items: const [
+                        DropdownMenuItem(value: 'user', child: Text('Career explorer')),
+                        DropdownMenuItem(value: 'freelancer', child: Text('Freelancer')),
+                        DropdownMenuItem(value: 'agency', child: Text('Agency')),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() {
+                            _userType = value;
+                          });
+                        }
+                      },
+                      decoration: const InputDecoration(labelText: 'Account focus'),
+                    ),
+                    const SizedBox(height: 16),
                     TextFormField(
                       controller: _ageController,
                       decoration: const InputDecoration(labelText: 'Age'),
@@ -140,10 +203,43 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ? null
                           : 'Passwords must match',
                     ),
+                    const SizedBox(height: 16),
+                    SwitchListTile(
+                      title: const Text('Enable two-factor authentication'),
+                      subtitle: const Text('We recommend keeping 2FA on for all Gigvora accounts.'),
+                      value: _twoFactorEnabled,
+                      onChanged: (value) {
+                        setState(() {
+                          _twoFactorEnabled = value;
+                        });
+                      },
+                    ),
                     const SizedBox(height: 24),
+                    if (_error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Text(
+                          _error!,
+                          style: const TextStyle(color: Color(0xFFB91C1C)),
+                        ),
+                      ),
+                    if (_info != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Text(
+                          _info!,
+                          style: const TextStyle(color: Color(0xFF047857)),
+                        ),
+                      ),
                     FilledButton(
-                      onPressed: _submit,
-                      child: const Text('Create profile'),
+                      onPressed: _loading ? null : _submit,
+                      child: _loading
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Create profile'),
                     ),
                   ],
                 ),
