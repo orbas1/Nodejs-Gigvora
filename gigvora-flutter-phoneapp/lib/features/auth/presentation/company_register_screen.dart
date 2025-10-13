@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../theme/widgets.dart';
+import '../application/session_controller.dart';
+import '../domain/session.dart';
 
-class CompanyRegisterScreen extends StatefulWidget {
+class CompanyRegisterScreen extends ConsumerStatefulWidget {
   const CompanyRegisterScreen({super.key});
 
   @override
-  State<CompanyRegisterScreen> createState() => _CompanyRegisterScreenState();
+  ConsumerState<CompanyRegisterScreen> createState() => _CompanyRegisterScreenState();
 }
 
-class _CompanyRegisterScreenState extends State<CompanyRegisterScreen> {
+class _CompanyRegisterScreenState extends ConsumerState<CompanyRegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _companyController = TextEditingController();
   final _websiteController = TextEditingController();
@@ -39,13 +42,156 @@ class _CompanyRegisterScreenState extends State<CompanyRegisterScreen> {
     super.dispose();
   }
 
+  RoleDashboard _buildCompanyDashboard(String workspaceName) {
+    final organisation = workspaceName.isEmpty ? 'your company' : workspaceName;
+    return RoleDashboard(
+      role: 'company',
+      heroTitle: 'Company talent acquisition hub',
+      heroSubtitle: 'Design roles, orchestrate interviews, and scale partnerships for $organisation.',
+      metrics: const [
+        DashboardMetric(label: 'Active roles', value: '12', trend: '▲ 3 new this week'),
+        DashboardMetric(label: 'Interview SLAs', value: '96%', trend: '↑ On target'),
+        DashboardMetric(label: 'Talent pool health', value: '18', trend: 'Priority intros queued'),
+        DashboardMetric(label: 'Partner NPS', value: '4.9/5', trend: 'Clients delighted'),
+      ],
+      sections: [
+        DashboardSection(
+          title: 'Hiring pipeline intelligence',
+          subtitle: 'Signal-based analytics keep offers, interviews, and approvals in sync.',
+          highlights: const [
+            'ATS and hiring manager sync automates candidate scorecards.',
+            'Diversity and velocity guardrails flagged 2 roles for review.',
+            'Offer desk automation prepped compensation scenarios.',
+          ],
+          icon: Icons.analytics_outlined,
+          accentColor: const Color(0xFF2563EB),
+        ),
+        DashboardSection(
+          title: 'Employer brand studio',
+          subtitle: 'Showcase culture stories, benefits, and launch campaigns in minutes.',
+          highlights: const [
+            'Storytelling modules ready for onboarding and candidate nurture.',
+            'Live career site blocks prepared for social amplification.',
+            'Video spotlights curated with comms and people partners.',
+          ],
+          icon: Icons.campaign_outlined,
+          accentColor: const Color(0xFF7C3AED),
+        ),
+        DashboardSection(
+          title: 'Partnership command centre',
+          subtitle: 'Collaborate with agencies, headhunters, and community leads securely.',
+          highlights: const [
+            'Shared briefs with SLA monitoring and compliance signals.',
+            'Partner scorecards refreshed with 24h performance data.',
+            'Networking hub requests synced to security approvals.',
+          ],
+          icon: Icons.groups_2_outlined,
+          accentColor: const Color(0xFF059669),
+        ),
+      ],
+      actions: const [
+        DashboardAction(
+          label: 'Review hiring pipeline health',
+          description: 'Align recruiters and interview panels around upcoming decision gates.',
+        ),
+        DashboardAction(
+          label: 'Launch brand storytelling sprint',
+          description: 'Publish refreshed benefits and EVP assets across company touchpoints.',
+        ),
+      ],
+    );
+  }
+
   void _submit() {
     if (!(_formKey.currentState?.validate() ?? false)) {
       return;
     }
-    final label = _type == 'company' ? 'Company' : 'Agency';
+
+    final isCompany = _type == 'company';
+    final membershipLabel = isCompany ? 'Company' : 'Agency';
+    final workspaceName = _companyController.text.trim().isEmpty
+        ? '$membershipLabel workspace'
+        : _companyController.text.trim();
+    final contactName = _contactNameController.text.trim().isEmpty
+        ? 'Gigvora partner lead'
+        : _contactNameController.text.trim();
+    final email = _emailController.text.trim();
+    final location = _locationController.text.trim();
+
+    final controller = ref.read(sessionControllerProvider.notifier);
+    final sessionState = ref.read(sessionControllerProvider);
+    final currentSession = sessionState.session;
+
+    final membershipSet = <String>{...(currentSession?.memberships ?? const <String>[])};
+    membershipSet.add(isCompany ? 'company' : 'agency');
+
+    if (currentSession != null) {
+      final updatedDashboards = Map<String, RoleDashboard>.from(currentSession.dashboards);
+      if (isCompany) {
+        updatedDashboards['company'] = _buildCompanyDashboard(workspaceName);
+      } else if (!updatedDashboards.containsKey('agency')) {
+        final agencyDashboard = currentSession.dashboardFor('agency') ?? UserSession.demo().dashboardFor('agency');
+        if (agencyDashboard != null) {
+          updatedDashboards['agency'] = agencyDashboard;
+        }
+      }
+
+      final updatedCompanies = <String>{
+        ...currentSession.companies,
+        if (isCompany) workspaceName,
+      }.toList();
+
+      final updatedAgencies = <String>{
+        ...currentSession.agencies,
+        if (!isCompany) workspaceName,
+      }.toList();
+
+      controller.login(
+        currentSession.copyWith(
+          memberships: membershipSet.toList(),
+          activeMembership: isCompany ? 'company' : currentSession.activeMembership,
+          dashboards: updatedDashboards,
+          companies: updatedCompanies,
+          agencies: updatedAgencies,
+          title: currentSession.title.isEmpty ? 'Talent Acquisition Lead' : currentSession.title,
+          location: location.isEmpty ? currentSession.location : location,
+          email: email.isEmpty ? currentSession.email : email,
+          avatarSeed: contactName,
+        ),
+      );
+    } else {
+      final dashboards = <String, RoleDashboard>{};
+      if (isCompany) {
+        dashboards['company'] = _buildCompanyDashboard(workspaceName);
+      } else {
+        final agencyDashboard = UserSession.demo().dashboardFor('agency');
+        if (agencyDashboard != null) {
+          dashboards['agency'] = agencyDashboard;
+        }
+      }
+
+      controller.login(
+        UserSession(
+          name: contactName,
+          title: 'Talent Acquisition Lead',
+          email: email.isEmpty ? 'partnerships@gigvora.com' : email,
+          location: location.isEmpty ? 'Global' : location,
+          avatarSeed: contactName,
+          memberships: membershipSet.toList(),
+          activeMembership: isCompany ? 'company' : 'agency',
+          dashboards: dashboards,
+          connections: 0,
+          followers: 0,
+          companies: isCompany ? [workspaceName] : const <String>[],
+          agencies: isCompany ? const <String>[] : [workspaceName],
+        ),
+      );
+    }
+
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$label registration submitted. Our partnerships team will be in touch.')),
+      SnackBar(
+        content: Text('$membershipLabel registration submitted. Our partnerships team will be in touch shortly.'),
+      ),
     );
     _formKey.currentState?.reset();
     _companyController.clear();

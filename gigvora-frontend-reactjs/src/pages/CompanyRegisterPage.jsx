@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
+import useSession from '../hooks/useSession.js';
 
 const initialState = {
   companyName: '',
@@ -20,15 +22,73 @@ const partnershipPillars = [
 export default function CompanyRegisterPage() {
   const [form, setForm] = useState(initialState);
   const [type, setType] = useState('company');
+  const [confirmation, setConfirmation] = useState(null);
+  const { isAuthenticated, session, login, updateSession } = useSession();
 
   const handleChange = (event) => {
     const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  const membershipLabel = useMemo(() => (type === 'company' ? 'Company' : 'Agency'), [type]);
+
   const handleSubmit = (event) => {
     event.preventDefault();
-    alert(`${type} registration submitted.`);
+
+    const trimmedName = form.companyName.trim();
+    const trimmedContact = form.contactName.trim();
+    const resolvedName = trimmedName || `${membershipLabel} workspace`;
+    const resolvedContact = trimmedContact || 'Gigvora partner lead';
+    const registrationPayload = {
+      type,
+      companyName: resolvedName,
+      website: form.website.trim() || null,
+      focusArea: form.focusArea.trim() || null,
+      contactName: resolvedContact,
+      email: form.email.trim() || null,
+      teamSize: form.teamSize.trim() || null,
+      location: form.location.trim() || null,
+      submittedAt: new Date().toISOString(),
+    };
+
+    const normalizedMemberships = new Set([type === 'company' ? 'company' : 'agency']);
+
+    if (isAuthenticated && session) {
+      (session.memberships ?? []).forEach((membership) => normalizedMemberships.add(membership));
+
+      const nextPayload = {
+        memberships: Array.from(normalizedMemberships),
+        primaryDashboard: type === 'company' ? 'company' : session.primaryDashboard ?? 'user',
+        companies:
+          type === 'company'
+            ? Array.from(new Set([resolvedName, ...(session.companies ?? [])]))
+            : session.companies ?? [],
+        agencies:
+          type === 'agency'
+            ? Array.from(new Set([resolvedName, ...(session.agencies ?? [])]))
+            : session.agencies ?? [],
+        accountTypes: Array.from(new Set([...(session.accountTypes ?? []), membershipLabel])),
+        latestCompanyRegistration: registrationPayload,
+      };
+
+      updateSession(nextPayload);
+    } else {
+      const baseAccountTypes = type === 'company' ? ['Company'] : ['Agency'];
+      login({
+        name: resolvedContact,
+        title: 'Talent Acquisition Lead',
+        avatarSeed: resolvedContact,
+        memberships: Array.from(normalizedMemberships),
+        primaryDashboard: type === 'company' ? 'company' : 'agency',
+        companies: type === 'company' ? [resolvedName] : [],
+        agencies: type === 'agency' ? [resolvedName] : [],
+        accountTypes: baseAccountTypes,
+        registrationContext: registrationPayload,
+        isAuthenticated: true,
+      });
+    }
+
+    setConfirmation({ name: resolvedName, type });
     setForm(initialState);
   };
 
@@ -45,14 +105,20 @@ export default function CompanyRegisterPage() {
             <div className="flex rounded-full border border-slate-200 bg-surfaceMuted p-1 text-xs font-semibold">
               <button
                 type="button"
-                onClick={() => setType('company')}
+                onClick={() => {
+                  setType('company');
+                  setConfirmation(null);
+                }}
                 className={`flex-1 rounded-full px-4 py-2 transition ${type === 'company' ? 'bg-accent text-white' : 'text-slate-600 hover:text-accent'}`}
               >
                 Company
               </button>
               <button
                 type="button"
-                onClick={() => setType('agency')}
+                onClick={() => {
+                  setType('agency');
+                  setConfirmation(null);
+                }}
                 className={`flex-1 rounded-full px-4 py-2 transition ${type === 'agency' ? 'bg-accent text-white' : 'text-slate-600 hover:text-accent'}`}
               >
                 Agency
@@ -60,6 +126,33 @@ export default function CompanyRegisterPage() {
             </div>
           )}
         />
+        {confirmation ? (
+          <div className="mt-10 overflow-hidden rounded-3xl border border-emerald-200 bg-emerald-50/70 p-6 shadow-soft backdrop-blur">
+            <div className="flex flex-col gap-4 text-sm text-emerald-900 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-base font-semibold">Workspace request received</p>
+                <p className="mt-1 text-sm text-emerald-800">
+                  Our partnerships team will review {confirmation.name} and reach out within one business day with onboarding
+                  credentials and security provisioning.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <Link
+                  to={confirmation.type === 'company' ? '/dashboard/company' : '/dashboard/agency'}
+                  className="inline-flex items-center justify-center rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-emerald-700"
+                >
+                  {confirmation.type === 'company' ? 'Preview company hub' : 'Open agency hub'}
+                </Link>
+                <a
+                  href="mailto:partnerships@gigvora.com"
+                  className="inline-flex items-center justify-center rounded-full border border-emerald-200 px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:border-emerald-300 hover:text-emerald-900"
+                >
+                  Contact partnerships
+                </a>
+              </div>
+            </div>
+          </div>
+        ) : null}
         <div className="grid gap-10 lg:grid-cols-[1.2fr,0.8fr] lg:items-start">
           <form onSubmit={handleSubmit} className="space-y-6 rounded-3xl border border-slate-200 bg-white p-10 shadow-soft">
             <div className="grid gap-6 md:grid-cols-2">

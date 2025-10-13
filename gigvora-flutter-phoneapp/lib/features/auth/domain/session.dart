@@ -59,23 +59,31 @@ class UserSession {
     String? activeMembership,
     List<String>? memberships,
     Map<String, RoleDashboard>? dashboards,
+    List<String>? companies,
+    List<String>? agencies,
+    String? title,
+    String? email,
+    String? location,
+    String? avatarSeed,
+    int? connections,
+    int? followers,
   }) {
     final nextMemberships = memberships ?? this.memberships;
     final nextActive = activeMembership ?? this.activeMembership;
     final activeExists = nextMemberships.contains(nextActive);
     return UserSession(
       name: name,
-      title: title,
-      email: email,
-      location: location,
-      avatarSeed: avatarSeed,
+      title: title ?? this.title,
+      email: email ?? this.email,
+      location: location ?? this.location,
+      avatarSeed: avatarSeed ?? this.avatarSeed,
       memberships: nextMemberships,
       activeMembership: activeExists ? nextActive : nextMemberships.first,
       dashboards: dashboards ?? this.dashboards,
-      connections: connections,
-      followers: followers,
-      companies: companies,
-      agencies: agencies,
+      connections: connections ?? this.connections,
+      followers: followers ?? this.followers,
+      companies: companies ?? this.companies,
+      agencies: agencies ?? this.agencies,
     );
   }
 
