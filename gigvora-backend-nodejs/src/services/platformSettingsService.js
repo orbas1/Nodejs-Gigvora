@@ -1,0 +1,413 @@
+import { PlatformSetting } from '../models/platformSetting.js';
+import { ESCROW_INTEGRATION_PROVIDERS } from '../models/constants/index.js';
+import { ValidationError } from '../utils/errors.js';
+
+const PLATFORM_SETTINGS_KEY = 'platform';
+const PAYMENT_PROVIDERS = new Set(ESCROW_INTEGRATION_PROVIDERS);
+const SUBSCRIPTION_INTERVALS = ['weekly', 'monthly', 'quarterly', 'yearly', 'lifetime'];
+
+function coerceBoolean(value, fallback) {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const lowered = value.trim().toLowerCase();
+    if (lowered === 'true' || lowered === '1') return true;
+    if (lowered === 'false' || lowered === '0') return false;
+  }
+  if (typeof value === 'number') {
+    if (Number.isFinite(value)) {
+      return value !== 0;
+    }
+  }
+  return fallback;
+}
+
+function coerceNumber(value, fallback, { min, max, precision } = {}) {
+  if (value == null || value === '') {
+    return fallback;
+  }
+  const numeric = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(numeric)) {
+    return fallback;
+  }
+  let sanitized = numeric;
+  if (typeof min === 'number' && sanitized < min) {
+    sanitized = min;
+  }
+  if (typeof max === 'number' && sanitized > max) {
+    sanitized = max;
+  }
+  if (typeof precision === 'number') {
+    const multiplier = 10 ** precision;
+    sanitized = Math.round(sanitized * multiplier) / multiplier;
+  }
+  return sanitized;
+}
+
+function coerceInteger(value, fallback, options = {}) {
+  const numeric = coerceNumber(value, fallback, options);
+  return Number.isFinite(numeric) ? Math.trunc(numeric) : fallback;
+}
+
+function coerceString(value, fallback) {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : fallback;
+  }
+  return fallback;
+}
+
+function coerceOptionalString(value, fallback = '') {
+  if (value == null) return fallback;
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'number') return String(value);
+  return fallback;
+}
+
+function uniqueStringList(values = []) {
+  if (!Array.isArray(values)) {
+    return [];
+  }
+  const normalized = values
+    .map((value) => (typeof value === 'string' ? value.trim() : ''))
+    .filter((value) => value.length > 0);
+  return Array.from(new Set(normalized));
+}
+
+function buildDefaultPlatformSettings() {
+  return {
+    commissions: {
+      enabled: coerceBoolean(process.env.PLATFORM_COMMISSIONS_ENABLED, true),
+      rate: coerceNumber(process.env.PLATFORM_COMMISSION_RATE, 10, { min: 0, max: 100, precision: 2 }),
+      currency: coerceString(process.env.PLATFORM_COMMISSION_CURRENCY, 'USD'),
+      minimumFee: coerceNumber(process.env.PLATFORM_COMMISSION_MINIMUM_FEE, 0, { min: 0, precision: 2 }),
+    },
+    subscriptions: {
+      enabled: coerceBoolean(process.env.PLATFORM_SUBSCRIPTIONS_ENABLED, true),
+      restrictedFeatures: uniqueStringList(
+        (process.env.PLATFORM_SUBSCRIPTION_RESTRICTED_FEATURES ?? '')
+          .split(',')
+          .map((value) => value.trim())
+          .filter((value) => value.length > 0),
+      ),
+      plans: [],
+    },
+    payments: {
+      provider: coerceString(process.env.PAYMENT_PROVIDER, 'stripe'),
+      stripe: {
+        publishableKey: coerceOptionalString(process.env.STRIPE_PUBLISHABLE_KEY),
+        secretKey: coerceOptionalString(process.env.STRIPE_SECRET_KEY),
+        webhookSecret: coerceOptionalString(process.env.STRIPE_WEBHOOK_SECRET),
+        accountId: coerceOptionalString(process.env.STRIPE_ACCOUNT_ID),
+      },
+      escrow_com: {
+        apiKey: coerceOptionalString(process.env.ESCROW_COM_API_KEY),
+        apiSecret: coerceOptionalString(process.env.ESCROW_COM_API_SECRET),
+        sandbox: coerceBoolean(process.env.ESCROW_COM_SANDBOX, true),
+      },
+    },
+    smtp: {
+      host: coerceOptionalString(process.env.SMTP_HOST),
+      port: coerceInteger(process.env.SMTP_PORT, 587, { min: 1 }),
+      secure: coerceBoolean(process.env.SMTP_SECURE, false),
+      username: coerceOptionalString(process.env.SMTP_USERNAME),
+      password: coerceOptionalString(process.env.SMTP_PASSWORD),
+      fromAddress: coerceOptionalString(process.env.SMTP_FROM_ADDRESS),
+      fromName: coerceOptionalString(process.env.SMTP_FROM_NAME, process.env.APP_NAME ?? 'GigVora'),
+    },
+    storage: {
+      provider: 'cloudflare_r2',
+      cloudflare_r2: {
+        accountId: coerceOptionalString(process.env.CLOUDFLARE_R2_ACCOUNT_ID),
+        accessKeyId: coerceOptionalString(process.env.CLOUDFLARE_R2_ACCESS_KEY_ID),
+        secretAccessKey: coerceOptionalString(process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY),
+        bucket: coerceOptionalString(process.env.CLOUDFLARE_R2_BUCKET),
+        endpoint: coerceOptionalString(process.env.CLOUDFLARE_R2_ENDPOINT),
+        publicBaseUrl: coerceOptionalString(process.env.CLOUDFLARE_R2_PUBLIC_BASE_URL),
+      },
+    },
+    app: {
+      name: coerceOptionalString(process.env.APP_NAME, 'GigVora'),
+      environment: coerceOptionalString(process.env.NODE_ENV, 'development'),
+      clientUrl: coerceOptionalString(process.env.CLIENT_URL),
+      apiUrl: coerceOptionalString(process.env.API_URL),
+    },
+    database: {
+      url: coerceOptionalString(process.env.DB_URL),
+      host: coerceOptionalString(process.env.DB_HOST),
+      port: coerceInteger(process.env.DB_PORT, process.env.DB_URL ? null : 3306, { min: 1 }),
+      name: coerceOptionalString(process.env.DB_NAME),
+      username: coerceOptionalString(process.env.DB_USER ?? process.env.DB_USERNAME),
+      password: coerceOptionalString(process.env.DB_PASSWORD),
+    },
+    featureToggles: {
+      escrow: coerceBoolean(process.env.FEATURE_ESCROW_ENABLED, true),
+      subscriptions: coerceBoolean(process.env.FEATURE_SUBSCRIPTIONS_ENABLED, true),
+      commissions: coerceBoolean(process.env.FEATURE_COMMISSIONS_ENABLED, true),
+    },
+  };
+}
+
+function normalizeCommissionSettings(input = {}, fallback = {}) {
+  if (input.rate != null && input.rate !== '') {
+    const candidate = Number(input.rate);
+    if (!Number.isFinite(candidate)) {
+      throw new ValidationError('commission rate must be numeric.');
+    }
+    if (candidate < 0 || candidate > 100) {
+      throw new ValidationError('commission rate must be between 0 and 100 percent.');
+    }
+  }
+
+  if (input.minimumFee != null && input.minimumFee !== '') {
+    const candidate = Number(input.minimumFee);
+    if (!Number.isFinite(candidate)) {
+      throw new ValidationError('minimum commission fee must be numeric.');
+    }
+    if (candidate < 0) {
+      throw new ValidationError('minimum commission fee cannot be negative.');
+    }
+  }
+
+  const normalized = {
+    enabled: coerceBoolean(input.enabled, fallback.enabled ?? true),
+    rate: coerceNumber(input.rate, fallback.rate ?? 0, { min: 0, max: 100, precision: 2 }),
+    currency: coerceString(input.currency, fallback.currency ?? 'USD'),
+    minimumFee: coerceNumber(input.minimumFee, fallback.minimumFee ?? 0, { min: 0, precision: 2 }),
+  };
+
+  return normalized;
+}
+
+function normalizeSubscriptionPlan(plan) {
+  if (!plan || typeof plan !== 'object') {
+    throw new ValidationError('subscription plans must be objects.');
+  }
+
+  const name = coerceString(plan.name, null);
+  if (!name) {
+    throw new ValidationError('subscription plans require a name.');
+  }
+
+  const id = coerceString(plan.id, name.toLowerCase().replace(/\s+/g, '-'));
+  const interval = coerceString(plan.interval, plan.billingInterval);
+  const normalizedInterval = SUBSCRIPTION_INTERVALS.includes(interval)
+    ? interval
+    : 'monthly';
+  const price = coerceNumber(plan.price, 0, { min: 0, precision: 2 });
+  const currency = coerceString(plan.currency, 'USD');
+  const description = coerceOptionalString(plan.description);
+  const restrictedFeatures = uniqueStringList(plan.restrictedFeatures);
+  const trialDays = coerceInteger(plan.trialDays, null, { min: 0 });
+
+  return {
+    id,
+    name,
+    price,
+    currency,
+    interval: normalizedInterval,
+    description,
+    restrictedFeatures,
+    trialDays,
+  };
+}
+
+function normalizeSubscriptionSettings(input = {}, fallback = {}) {
+  const normalized = {
+    enabled: coerceBoolean(input.enabled, fallback.enabled ?? true),
+    restrictedFeatures: uniqueStringList(
+      input.restrictedFeatures ?? fallback.restrictedFeatures ?? [],
+    ),
+    plans: Array.isArray(fallback.plans) ? [...fallback.plans] : [],
+  };
+
+  if (Array.isArray(input.plans)) {
+    normalized.plans = input.plans.map((plan) => normalizeSubscriptionPlan(plan));
+  }
+
+  return normalized;
+}
+
+function normalizePaymentSettings(input = {}, fallback = {}) {
+  const providerCandidate = coerceString(input.provider, fallback.provider ?? 'stripe');
+  const provider = PAYMENT_PROVIDERS.has(providerCandidate) ? providerCandidate : 'stripe';
+
+  const stripeSettings = {
+    publishableKey: coerceOptionalString(input.stripe?.publishableKey, fallback.stripe?.publishableKey ?? ''),
+    secretKey: coerceOptionalString(input.stripe?.secretKey, fallback.stripe?.secretKey ?? ''),
+    webhookSecret: coerceOptionalString(
+      input.stripe?.webhookSecret,
+      fallback.stripe?.webhookSecret ?? '',
+    ),
+    accountId: coerceOptionalString(input.stripe?.accountId, fallback.stripe?.accountId ?? ''),
+  };
+
+  const escrowSettings = {
+    apiKey: coerceOptionalString(input.escrow_com?.apiKey, fallback.escrow_com?.apiKey ?? ''),
+    apiSecret: coerceOptionalString(
+      input.escrow_com?.apiSecret,
+      fallback.escrow_com?.apiSecret ?? '',
+    ),
+    sandbox: coerceBoolean(input.escrow_com?.sandbox, fallback.escrow_com?.sandbox ?? true),
+  };
+
+  return {
+    provider,
+    stripe: stripeSettings,
+    escrow_com: escrowSettings,
+  };
+}
+
+function normalizeSmtpSettings(input = {}, fallback = {}) {
+  return {
+    host: coerceOptionalString(input.host, fallback.host ?? ''),
+    port: coerceInteger(input.port, fallback.port ?? 587, { min: 1 }),
+    secure: coerceBoolean(input.secure, fallback.secure ?? false),
+    username: coerceOptionalString(input.username, fallback.username ?? ''),
+    password: coerceOptionalString(input.password, fallback.password ?? ''),
+    fromAddress: coerceOptionalString(input.fromAddress, fallback.fromAddress ?? ''),
+    fromName: coerceOptionalString(input.fromName, fallback.fromName ?? ''),
+  };
+}
+
+function normalizeStorageSettings(input = {}, fallback = {}) {
+  const provider = coerceString(input.provider, fallback.provider ?? 'cloudflare_r2');
+  const cloudflareDefaults = fallback.cloudflare_r2 ?? {};
+  const cloudflareInput = input.cloudflare_r2 ?? {};
+
+  return {
+    provider,
+    cloudflare_r2: {
+      accountId: coerceOptionalString(cloudflareInput.accountId, cloudflareDefaults.accountId ?? ''),
+      accessKeyId: coerceOptionalString(
+        cloudflareInput.accessKeyId,
+        cloudflareDefaults.accessKeyId ?? '',
+      ),
+      secretAccessKey: coerceOptionalString(
+        cloudflareInput.secretAccessKey,
+        cloudflareDefaults.secretAccessKey ?? '',
+      ),
+      bucket: coerceOptionalString(cloudflareInput.bucket, cloudflareDefaults.bucket ?? ''),
+      endpoint: coerceOptionalString(
+        cloudflareInput.endpoint,
+        cloudflareDefaults.endpoint ?? '',
+      ),
+      publicBaseUrl: coerceOptionalString(
+        cloudflareInput.publicBaseUrl,
+        cloudflareDefaults.publicBaseUrl ?? '',
+      ),
+    },
+  };
+}
+
+function normalizeAppSettings(input = {}, fallback = {}) {
+  return {
+    name: coerceOptionalString(input.name, fallback.name ?? 'GigVora'),
+    environment: coerceOptionalString(input.environment, fallback.environment ?? 'development'),
+    clientUrl: coerceOptionalString(input.clientUrl, fallback.clientUrl ?? ''),
+    apiUrl: coerceOptionalString(input.apiUrl, fallback.apiUrl ?? ''),
+  };
+}
+
+function normalizeDatabaseSettings(input = {}, fallback = {}) {
+  return {
+    url: coerceOptionalString(input.url, fallback.url ?? ''),
+    host: coerceOptionalString(input.host, fallback.host ?? ''),
+    port: coerceInteger(input.port, fallback.port ?? null, { min: 1 }),
+    name: coerceOptionalString(input.name, fallback.name ?? ''),
+    username: coerceOptionalString(input.username, fallback.username ?? ''),
+    password: coerceOptionalString(input.password, fallback.password ?? ''),
+  };
+}
+
+function normalizeFeatureToggles(input = {}, fallback = {}) {
+  return {
+    escrow: coerceBoolean(input.escrow, fallback.escrow ?? true),
+    subscriptions: coerceBoolean(input.subscriptions, fallback.subscriptions ?? true),
+    commissions: coerceBoolean(input.commissions, fallback.commissions ?? true),
+  };
+}
+
+function normalizeSettings(payload = {}, baseline = {}) {
+  return {
+    commissions: normalizeCommissionSettings(payload.commissions, baseline.commissions),
+    subscriptions: normalizeSubscriptionSettings(payload.subscriptions, baseline.subscriptions),
+    payments: normalizePaymentSettings(payload.payments, baseline.payments),
+    smtp: normalizeSmtpSettings(payload.smtp, baseline.smtp),
+    storage: normalizeStorageSettings(payload.storage, baseline.storage),
+    app: normalizeAppSettings(payload.app, baseline.app),
+    database: normalizeDatabaseSettings(payload.database, baseline.database),
+    featureToggles: normalizeFeatureToggles(payload.featureToggles, baseline.featureToggles),
+  };
+}
+
+function mergeDefaults(defaults, stored) {
+  if (!stored || typeof stored !== 'object') {
+    return defaults;
+  }
+  return {
+    commissions: { ...defaults.commissions, ...(stored.commissions ?? {}) },
+    subscriptions: {
+      ...defaults.subscriptions,
+      ...(stored.subscriptions ?? {}),
+      restrictedFeatures: uniqueStringList(
+        [...(defaults.subscriptions.restrictedFeatures ?? []), ...(stored.subscriptions?.restrictedFeatures ?? [])],
+      ),
+      plans: Array.isArray(stored.subscriptions?.plans)
+        ? stored.subscriptions.plans.map((plan) => normalizeSubscriptionPlan(plan))
+        : defaults.subscriptions.plans,
+    },
+    payments: {
+      ...defaults.payments,
+      ...(stored.payments ?? {}),
+      provider: stored.payments?.provider ?? defaults.payments.provider,
+      stripe: {
+        ...defaults.payments.stripe,
+        ...(stored.payments?.stripe ?? {}),
+      },
+      escrow_com: {
+        ...defaults.payments.escrow_com,
+        ...(stored.payments?.escrow_com ?? {}),
+      },
+    },
+    smtp: { ...defaults.smtp, ...(stored.smtp ?? {}) },
+    storage: {
+      ...defaults.storage,
+      ...(stored.storage ?? {}),
+      cloudflare_r2: {
+        ...defaults.storage.cloudflare_r2,
+        ...(stored.storage?.cloudflare_r2 ?? {}),
+      },
+    },
+    app: { ...defaults.app, ...(stored.app ?? {}) },
+    database: { ...defaults.database, ...(stored.database ?? {}) },
+    featureToggles: { ...defaults.featureToggles, ...(stored.featureToggles ?? {}) },
+  };
+}
+
+export async function getPlatformSettings() {
+  const defaults = buildDefaultPlatformSettings();
+  const record = await PlatformSetting.findOne({ where: { key: PLATFORM_SETTINGS_KEY } });
+  return mergeDefaults(defaults, record?.value ?? {});
+}
+
+export async function updatePlatformSettings(payload = {}) {
+  const defaults = buildDefaultPlatformSettings();
+  const existing = await PlatformSetting.findOne({ where: { key: PLATFORM_SETTINGS_KEY } });
+  const baseline = mergeDefaults(defaults, existing?.value ?? {});
+  const normalized = normalizeSettings(payload, baseline);
+
+  if (existing) {
+    await existing.update({ value: normalized });
+  } else {
+    await PlatformSetting.create({ key: PLATFORM_SETTINGS_KEY, value: normalized });
+  }
+
+  return mergeDefaults(defaults, normalized);
+}
+
+export default {
+  getPlatformSettings,
+  updatePlatformSettings,
+};
