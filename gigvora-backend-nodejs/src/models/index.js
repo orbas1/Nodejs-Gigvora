@@ -198,6 +198,17 @@ export const LAUNCHPAD_PLACEMENT_STATUSES = ['scheduled', 'in_progress', 'comple
 export const LAUNCHPAD_TARGET_TYPES = ['job', 'gig', 'project'];
 export const LAUNCHPAD_OPPORTUNITY_SOURCES = ['employer_request', 'placement', 'manual'];
 export const WORKSPACE_TEMPLATE_STATUSES = ['draft', 'active', 'deprecated'];
+export const CAREER_DOCUMENT_TYPES = ['cv', 'cover_letter', 'portfolio', 'brand_asset', 'story_block'];
+export const CAREER_DOCUMENT_STATUSES = ['draft', 'in_review', 'approved', 'archived'];
+export const CAREER_DOCUMENT_VERSION_APPROVAL_STATUSES = ['draft', 'pending_review', 'approved', 'rejected'];
+export const CAREER_DOCUMENT_COLLABORATOR_ROLES = ['owner', 'mentor', 'reviewer', 'viewer'];
+export const CAREER_DOCUMENT_EXPORT_FORMATS = ['pdf', 'docx', 'web', 'html'];
+export const CAREER_DOCUMENT_ANALYTICS_VIEWER_TYPES = ['recruiter', 'mentor', 'system', 'external'];
+export const CAREER_STORY_BLOCK_TONES = ['formal', 'friendly', 'bold', 'warm', 'executive'];
+export const CAREER_STORY_BLOCK_STATUSES = ['draft', 'approved', 'archived'];
+export const CAREER_BRAND_ASSET_TYPES = ['testimonial', 'case_study', 'banner', 'video', 'portfolio', 'press'];
+export const CAREER_BRAND_ASSET_STATUSES = ['draft', 'published', 'archived'];
+export const CAREER_BRAND_ASSET_APPROVAL_STATUSES = ['draft', 'in_review', 'approved', 'rejected'];
 
 export const CAREER_PIPELINE_STAGE_TYPES = ['sourcing', 'applied', 'interview', 'offer', 'decision'];
 export const CAREER_PIPELINE_STAGE_OUTCOMES = ['open', 'won', 'lost', 'on_hold'];
@@ -7018,6 +7029,382 @@ CollaborationSpace.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+export const CareerDocument = sequelize.define(
+  'CareerDocument',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    documentType: {
+      type: DataTypes.ENUM(...CAREER_DOCUMENT_TYPES),
+      allowNull: false,
+      defaultValue: 'cv',
+      validate: { isIn: [CAREER_DOCUMENT_TYPES] },
+    },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    slug: { type: DataTypes.STRING(200), allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...CAREER_DOCUMENT_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [CAREER_DOCUMENT_STATUSES] },
+    },
+    roleTag: { type: DataTypes.STRING(120), allowNull: true },
+    geographyTag: { type: DataTypes.STRING(120), allowNull: true },
+    aiAssisted: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    baselineVersionId: { type: DataTypes.INTEGER, allowNull: true },
+    latestVersionId: { type: DataTypes.INTEGER, allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    shareUrl: { type: DataTypes.STRING(500), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'career_documents',
+    indexes: [
+      { fields: ['userId'] },
+      { fields: ['documentType'] },
+      { fields: ['status'] },
+      { fields: ['roleTag'] },
+      { fields: ['geographyTag'] },
+    ],
+  },
+);
+
+CareerDocument.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    documentType: plain.documentType,
+    title: plain.title,
+    slug: plain.slug,
+    status: plain.status,
+    roleTag: plain.roleTag,
+    geographyTag: plain.geographyTag,
+    aiAssisted: Boolean(plain.aiAssisted),
+    baselineVersionId: plain.baselineVersionId,
+    latestVersionId: plain.latestVersionId,
+    tags: Array.isArray(plain.tags)
+      ? plain.tags
+      : plain.tags && typeof plain.tags === 'object'
+        ? plain.tags
+        : [],
+    shareUrl: plain.shareUrl,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const CareerDocumentVersion = sequelize.define(
+  'CareerDocumentVersion',
+  {
+    documentId: { type: DataTypes.INTEGER, allowNull: false },
+    versionNumber: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
+    title: { type: DataTypes.STRING(180), allowNull: true },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    content: { type: DataTypes.TEXT('long'), allowNull: true },
+    contentPath: { type: DataTypes.STRING(500), allowNull: true },
+    aiSummary: { type: DataTypes.TEXT, allowNull: true },
+    changeSummary: { type: DataTypes.TEXT, allowNull: true },
+    diffHighlights: { type: jsonType, allowNull: true },
+    metrics: { type: jsonType, allowNull: true },
+    aiSuggestionUsed: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    approvalStatus: {
+      type: DataTypes.ENUM(...CAREER_DOCUMENT_VERSION_APPROVAL_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [CAREER_DOCUMENT_VERSION_APPROVAL_STATUSES] },
+    },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    approvedById: { type: DataTypes.INTEGER, allowNull: true },
+    approvedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'career_document_versions',
+    indexes: [
+      { fields: ['documentId'] },
+      { fields: ['approvalStatus'] },
+      { unique: true, fields: ['documentId', 'versionNumber'] },
+    ],
+  },
+);
+
+CareerDocumentVersion.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    documentId: plain.documentId,
+    versionNumber: plain.versionNumber,
+    title: plain.title,
+    summary: plain.summary,
+    content: plain.content,
+    contentPath: plain.contentPath,
+    aiSummary: plain.aiSummary,
+    changeSummary: plain.changeSummary,
+    diffHighlights: plain.diffHighlights ?? null,
+    metrics: plain.metrics ?? null,
+    aiSuggestionUsed: Boolean(plain.aiSuggestionUsed),
+    approvalStatus: plain.approvalStatus,
+    createdById: plain.createdById,
+    approvedById: plain.approvedById,
+    approvedAt: plain.approvedAt,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const CareerDocumentCollaborator = sequelize.define(
+  'CareerDocumentCollaborator',
+  {
+    documentId: { type: DataTypes.INTEGER, allowNull: false },
+    collaboratorId: { type: DataTypes.INTEGER, allowNull: false },
+    role: {
+      type: DataTypes.ENUM(...CAREER_DOCUMENT_COLLABORATOR_ROLES),
+      allowNull: false,
+      defaultValue: 'viewer',
+      validate: { isIn: [CAREER_DOCUMENT_COLLABORATOR_ROLES] },
+    },
+    permissions: { type: jsonType, allowNull: true },
+    lastActiveAt: { type: DataTypes.DATE, allowNull: true },
+    addedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+  },
+  {
+    tableName: 'career_document_collaborators',
+    indexes: [
+      { fields: ['documentId'] },
+      { fields: ['collaboratorId'] },
+      { unique: true, fields: ['documentId', 'collaboratorId'] },
+    ],
+  },
+);
+
+CareerDocumentCollaborator.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    documentId: plain.documentId,
+    collaboratorId: plain.collaboratorId,
+    role: plain.role,
+    permissions: plain.permissions ?? null,
+    lastActiveAt: plain.lastActiveAt,
+    addedAt: plain.addedAt,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const CareerDocumentExport = sequelize.define(
+  'CareerDocumentExport',
+  {
+    documentId: { type: DataTypes.INTEGER, allowNull: false },
+    versionId: { type: DataTypes.INTEGER, allowNull: true },
+    format: {
+      type: DataTypes.ENUM(...CAREER_DOCUMENT_EXPORT_FORMATS),
+      allowNull: false,
+      defaultValue: 'pdf',
+      validate: { isIn: [CAREER_DOCUMENT_EXPORT_FORMATS] },
+    },
+    exportedById: { type: DataTypes.INTEGER, allowNull: true },
+    exportedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    deliveryUrl: { type: DataTypes.STRING(500), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'career_document_exports',
+    indexes: [
+      { fields: ['documentId'] },
+      { fields: ['format'] },
+    ],
+  },
+);
+
+CareerDocumentExport.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    documentId: plain.documentId,
+    versionId: plain.versionId,
+    format: plain.format,
+    exportedById: plain.exportedById,
+    exportedAt: plain.exportedAt,
+    deliveryUrl: plain.deliveryUrl,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const CareerDocumentAnalytics = sequelize.define(
+  'CareerDocumentAnalytics',
+  {
+    documentId: { type: DataTypes.INTEGER, allowNull: false },
+    versionId: { type: DataTypes.INTEGER, allowNull: true },
+    viewerId: { type: DataTypes.INTEGER, allowNull: true },
+    viewerType: {
+      type: DataTypes.ENUM(...CAREER_DOCUMENT_ANALYTICS_VIEWER_TYPES),
+      allowNull: false,
+      defaultValue: 'recruiter',
+      validate: { isIn: [CAREER_DOCUMENT_ANALYTICS_VIEWER_TYPES] },
+    },
+    opens: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    downloads: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    shares: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    lastOpenedAt: { type: DataTypes.DATE, allowNull: true },
+    lastDownloadedAt: { type: DataTypes.DATE, allowNull: true },
+    geographyTag: { type: DataTypes.STRING(120), allowNull: true },
+    seniorityTag: { type: DataTypes.STRING(120), allowNull: true },
+    outcomes: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'career_document_analytics',
+    indexes: [
+      { fields: ['documentId'] },
+      { fields: ['viewerType'] },
+      { fields: ['geographyTag'] },
+      { fields: ['seniorityTag'] },
+    ],
+  },
+);
+
+CareerDocumentAnalytics.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    documentId: plain.documentId,
+    versionId: plain.versionId,
+    viewerId: plain.viewerId,
+    viewerType: plain.viewerType,
+    opens: plain.opens ?? 0,
+    downloads: plain.downloads ?? 0,
+    shares: plain.shares ?? 0,
+    lastOpenedAt: plain.lastOpenedAt,
+    lastDownloadedAt: plain.lastDownloadedAt,
+    geographyTag: plain.geographyTag,
+    seniorityTag: plain.seniorityTag,
+    outcomes: plain.outcomes ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const CareerStoryBlock = sequelize.define(
+  'CareerStoryBlock',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    tone: {
+      type: DataTypes.ENUM(...CAREER_STORY_BLOCK_TONES),
+      allowNull: false,
+      defaultValue: 'formal',
+      validate: { isIn: [CAREER_STORY_BLOCK_TONES] },
+    },
+    content: { type: DataTypes.TEXT('long'), allowNull: false },
+    metrics: { type: jsonType, allowNull: true },
+    approvalStatus: {
+      type: DataTypes.ENUM(...CAREER_STORY_BLOCK_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [CAREER_STORY_BLOCK_STATUSES] },
+    },
+    useCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    lastUsedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'career_story_blocks',
+    indexes: [
+      { fields: ['userId'] },
+      { fields: ['tone'] },
+      { fields: ['approvalStatus'] },
+    ],
+  },
+);
+
+CareerStoryBlock.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    title: plain.title,
+    tone: plain.tone,
+    content: plain.content,
+    metrics: plain.metrics ?? null,
+    approvalStatus: plain.approvalStatus,
+    useCount: plain.useCount ?? 0,
+    lastUsedAt: plain.lastUsedAt,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const CareerBrandAsset = sequelize.define(
+  'CareerBrandAsset',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    assetType: {
+      type: DataTypes.ENUM(...CAREER_BRAND_ASSET_TYPES),
+      allowNull: false,
+      defaultValue: 'testimonial',
+      validate: { isIn: [CAREER_BRAND_ASSET_TYPES] },
+    },
+    title: { type: DataTypes.STRING(200), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    mediaUrl: { type: DataTypes.STRING(500), allowNull: true },
+    thumbnailUrl: { type: DataTypes.STRING(500), allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...CAREER_BRAND_ASSET_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [CAREER_BRAND_ASSET_STATUSES] },
+    },
+    featured: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    approvalsStatus: {
+      type: DataTypes.ENUM(...CAREER_BRAND_ASSET_APPROVAL_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [CAREER_BRAND_ASSET_APPROVAL_STATUSES] },
+    },
+    approvedById: { type: DataTypes.INTEGER, allowNull: true },
+    approvedAt: { type: DataTypes.DATE, allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    metrics: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'career_brand_assets',
+    indexes: [
+      { fields: ['userId'] },
+      { fields: ['assetType'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+CareerBrandAsset.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    assetType: plain.assetType,
+    title: plain.title,
+    description: plain.description,
+    mediaUrl: plain.mediaUrl,
+    thumbnailUrl: plain.thumbnailUrl,
+    status: plain.status,
+    featured: Boolean(plain.featured),
+    approvalsStatus: plain.approvalsStatus,
+    approvedById: plain.approvedById,
+    approvedAt: plain.approvedAt,
+    tags: Array.isArray(plain.tags)
+      ? plain.tags
+      : plain.tags && typeof plain.tags === 'object'
+        ? plain.tags
+        : [],
+    metrics: plain.metrics ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 export const ComplianceDocument = sequelize.define(
   'ComplianceDocument',
   {
@@ -9934,6 +10321,34 @@ SupportCaseSatisfaction.belongsTo(User, { foreignKey: 'submittedBy', as: 'submit
 SupportCase.hasMany(SupportCaseLink, { foreignKey: 'supportCaseId', as: 'links' });
 SupportCaseLink.belongsTo(SupportCase, { foreignKey: 'supportCaseId', as: 'supportCase' });
 
+CareerDocument.belongsTo(User, { foreignKey: 'userId', as: 'owner' });
+CareerDocument.belongsTo(CareerDocumentVersion, {
+  foreignKey: 'baselineVersionId',
+  as: 'baselineVersion',
+});
+CareerDocument.belongsTo(CareerDocumentVersion, {
+  foreignKey: 'latestVersionId',
+  as: 'latestVersion',
+});
+CareerDocument.hasMany(CareerDocumentVersion, { foreignKey: 'documentId', as: 'versions' });
+CareerDocument.hasMany(CareerDocumentCollaborator, { foreignKey: 'documentId', as: 'collaborators' });
+CareerDocument.hasMany(CareerDocumentAnalytics, { foreignKey: 'documentId', as: 'analytics' });
+CareerDocument.hasMany(CareerDocumentExport, { foreignKey: 'documentId', as: 'exports' });
+CareerDocumentVersion.belongsTo(CareerDocument, { foreignKey: 'documentId', as: 'document' });
+CareerDocumentVersion.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+CareerDocumentVersion.belongsTo(User, { foreignKey: 'approvedById', as: 'approvedBy' });
+CareerDocumentCollaborator.belongsTo(CareerDocument, { foreignKey: 'documentId', as: 'document' });
+CareerDocumentCollaborator.belongsTo(User, { foreignKey: 'collaboratorId', as: 'collaborator' });
+CareerDocumentExport.belongsTo(CareerDocument, { foreignKey: 'documentId', as: 'document' });
+CareerDocumentExport.belongsTo(CareerDocumentVersion, { foreignKey: 'versionId', as: 'version' });
+CareerDocumentExport.belongsTo(User, { foreignKey: 'exportedById', as: 'exportedBy' });
+CareerDocumentAnalytics.belongsTo(CareerDocument, { foreignKey: 'documentId', as: 'document' });
+CareerDocumentAnalytics.belongsTo(CareerDocumentVersion, { foreignKey: 'versionId', as: 'version' });
+CareerDocumentAnalytics.belongsTo(User, { foreignKey: 'viewerId', as: 'viewer' });
+CareerStoryBlock.belongsTo(User, { foreignKey: 'userId', as: 'owner' });
+CareerBrandAsset.belongsTo(User, { foreignKey: 'userId', as: 'owner' });
+CareerBrandAsset.belongsTo(User, { foreignKey: 'approvedById', as: 'approvedBy' });
+
 ComplianceDocument.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
 ComplianceDocument.belongsTo(ComplianceDocumentVersion, {
   foreignKey: 'latestVersionId',
@@ -10378,6 +10793,13 @@ export default {
   CommunitySpotlightHighlight,
   CommunitySpotlightAsset,
   CommunitySpotlightNewsletterFeature,
+  CareerDocument,
+  CareerDocumentVersion,
+  CareerDocumentCollaborator,
+  CareerDocumentExport,
+  CareerDocumentAnalytics,
+  CareerStoryBlock,
+  CareerBrandAsset,
   ComplianceDocument,
   ComplianceDocumentVersion,
   ComplianceObligation,
