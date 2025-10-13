@@ -32,7 +32,7 @@ Deliver a cohesive, themeable Gigvora experience that makes talent discovery, bo
 - **Navigation**: Mega-menu featuring creator categories, Experience Launchpad, Volunteers, Agencies, and Monetisation; persistent search and account controls.
 - **Booking & Checkout**: Single-page configurator with step indicators, sticky summary, inline error states, and compliance tooltips.
 - **Knowledge & Support Pages**: New structured templates for FAQs, compliance disclosures, and help centre content using the same partial library.
-- **Provider Dashboards**: Table, card, and chart patterns aligned with mobile experiences, including theme-safe density and iconography. Volunteer staffing board introduces allocation matrix (talent, mission, hours), safeguarding compliance alerts, and export controls that mirror the new backend reporting endpoints.
+- **Provider Dashboards**: Table, card, and chart patterns aligned with mobile experiences, including theme-safe density and iconography. Volunteer staffing board introduces allocation matrix (talent, mission, hours), safeguarding compliance alerts, and export controls that mirror the new backend reporting endpoints. The agency HR command centre adds staffing capacity tiles, role coverage bars, compliance alert banners, and onboarding queue chips wired to the refreshed dashboard service so providers receive actionable workforce telemetry.
 - **Trust Center**: Operations-grade dashboard presenting escrow KPIs, release queues, dispute workload, and evidence health messaging with accessibility-first typography and audit copy.
 
 ### Provider Tools (Web & Mobile)
