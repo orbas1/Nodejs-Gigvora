@@ -22,6 +22,16 @@ import {
   PartnerEngagement,
   RecruitingCalendarEvent,
   EmployerBrandAsset,
+  EmployerBrandSection,
+  EmployerBrandCampaign,
+  WorkforceAnalyticsSnapshot,
+  WorkforceCohortMetric,
+  InternalJobPosting,
+  EmployeeReferral,
+  CareerPathingPlan,
+  CompliancePolicy,
+  ComplianceAuditLog,
+  AccessibilityAudit,
 } from '../models/index.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
@@ -426,6 +436,119 @@ async function fetchNotes(workspaceId) {
   });
 }
 
+async function fetchEmployerBrandSections({ workspaceId }) {
+  return EmployerBrandSection.findAll({
+    where: {
+      workspaceId,
+      status: 'published',
+    },
+    order: [
+      ['isFeatured', 'DESC'],
+      ['sortOrder', 'ASC'],
+      ['createdAt', 'DESC'],
+    ],
+  });
+}
+
+async function fetchEmployerBrandCampaigns({ workspaceId, since }) {
+  const where = { workspaceId };
+  if (since) {
+    where.startsAt = { [Op.gte]: since };
+  }
+  return EmployerBrandCampaign.findAll({
+    where,
+    order: [
+      ['status', 'DESC'],
+      ['startsAt', 'DESC'],
+    ],
+  });
+}
+
+async function fetchWorkforceSnapshots({ workspaceId, since }) {
+  const where = { workspaceId };
+  if (since) {
+    where.capturedAt = { [Op.gte]: since };
+  }
+  return WorkforceAnalyticsSnapshot.findAll({
+    where,
+    order: [['capturedAt', 'DESC']],
+  });
+}
+
+async function fetchWorkforceCohorts({ workspaceId }) {
+  return WorkforceCohortMetric.findAll({
+    where: { workspaceId },
+    order: [
+      ['periodStart', 'DESC'],
+      ['headcount', 'DESC'],
+    ],
+  });
+}
+
+async function fetchInternalJobPostings({ workspaceId, since }) {
+  const where = { workspaceId };
+  if (since) {
+    where.postedAt = { [Op.gte]: since };
+  }
+  return InternalJobPosting.findAll({
+    where,
+    order: [
+      ['status', 'ASC'],
+      ['postedAt', 'DESC'],
+    ],
+  });
+}
+
+async function fetchEmployeeReferrals({ workspaceId, since }) {
+  const where = { workspaceId };
+  if (since) {
+    where.createdAt = { [Op.gte]: since };
+  }
+  return EmployeeReferral.findAll({
+    where,
+    include: [{ model: User, as: 'referrer', attributes: ['id', 'firstName', 'lastName'] }],
+    order: [['createdAt', 'DESC']],
+  });
+}
+
+async function fetchCareerPlans({ workspaceId }) {
+  return CareerPathingPlan.findAll({
+    where: { workspaceId },
+    include: [{ model: User, as: 'employee', attributes: ['id', 'firstName', 'lastName'] }],
+    order: [['updatedAt', 'DESC']],
+  });
+}
+
+async function fetchCompliancePolicies({ workspaceId }) {
+  return CompliancePolicy.findAll({
+    where: { workspaceId },
+    include: [{ model: User, as: 'owner', attributes: ['id', 'firstName', 'lastName'] }],
+    order: [['policyArea', 'ASC']],
+  });
+}
+
+async function fetchComplianceAudits({ workspaceId, since }) {
+  const where = { workspaceId };
+  if (since) {
+    where.openedAt = { [Op.gte]: since };
+  }
+  return ComplianceAuditLog.findAll({
+    where,
+    order: [['openedAt', 'DESC']],
+  });
+}
+
+async function fetchAccessibilityAudits({ workspaceId, since }) {
+  const where = { workspaceId };
+  if (since) {
+    where.lastRunAt = { [Op.gte]: since };
+  }
+  return AccessibilityAudit.findAll({
+    where,
+    order: [['lastRunAt', 'DESC']],
+  });
+}
+
 async function fetchApplications({ workspaceId, since }) {
   const where = {
     targetType: { [Op.in]: ['job', 'project', 'gig'] },
@@ -733,6 +856,42 @@ function normalizeCategory(value, fallback = 'Unspecified') {
   }
   const label = `${value}`.trim();
   return label.length ? label : fallback;
+}
+
+const EMPLOYER_BRAND_SECTION_LABELS = {
+  culture_video: 'Culture video',
+  benefit: 'Benefits highlight',
+  dei_commitment: 'DEI commitment',
+  team_spotlight: 'Team spotlight',
+  office: 'Office spotlight',
+  leadership_story: 'Leadership story',
+  custom: 'Story',
+};
+
+function toPlain(record) {
+  return record?.get ? record.get({ plain: true }) : record;
+}
+
+function safeNumber(value, precision = null) {
+  if (value == null) {
+    return 0;
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return 0;
+  }
+  if (precision == null) {
+    return numeric;
+  }
+  return Number(numeric.toFixed(precision));
+}
+
+function sumBy(items, selector) {
+  return items.reduce((total, item) => {
+    const value = selector(item);
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? total + numeric : total;
+  }, 0);
 }
 
 function buildBreakdown(records, key) {
@@ -1210,6 +1369,412 @@ function buildBrandIntelligenceSummary({ profile, assets, jobSummary }) {
   };
 }
 
+function buildEmployerBrandProfileStudio({ profile, sections, assets, campaigns }) {
+  const sectionList = sections.map((section) => toPlain(section));
+  const campaignList = campaigns.map((campaign) => toPlain(campaign));
+  const counts = {
+    totalSections: sectionList.length,
+    cultureVideos: sectionList.filter((section) => section.sectionType === 'culture_video').length,
+    benefits: sectionList.filter((section) => section.sectionType === 'benefit').length,
+    deiCommitments: sectionList.filter((section) => section.sectionType === 'dei_commitment').length,
+    teamSpotlights: sectionList.filter((section) => section.sectionType === 'team_spotlight').length,
+    offices: sectionList.filter((section) => section.sectionType === 'office').length,
+    leadershipStories: sectionList.filter((section) => section.sectionType === 'leadership_story').length,
+  };
+
+  const featuredSections = sectionList
+    .filter((section) => section.isFeatured)
+    .slice(0, 6)
+    .map((section) => ({
+      id: section.id,
+      title: section.title,
+      summary: section.summary,
+      type: section.sectionType,
+      typeLabel: EMPLOYER_BRAND_SECTION_LABELS[section.sectionType] ?? EMPLOYER_BRAND_SECTION_LABELS.custom,
+      mediaUrl: section.mediaUrl,
+      publishedAt: section.publishedAt,
+    }));
+
+  const dynamicHighlights = {
+    teams: sectionList
+      .filter((section) => section.sectionType === 'team_spotlight')
+      .slice(0, 4)
+      .map((section) => ({
+        id: section.id,
+        title: section.title,
+        summary: section.summary,
+      })),
+    offices: sectionList
+      .filter((section) => section.sectionType === 'office')
+      .slice(0, 4)
+      .map((section) => ({
+        id: section.id,
+        title: section.title,
+        summary: section.summary,
+      })),
+    leadership: sectionList
+      .filter((section) => section.sectionType === 'leadership_story')
+      .slice(0, 4)
+      .map((section) => ({
+        id: section.id,
+        title: section.title,
+        summary: section.summary,
+      })),
+  };
+
+  const campaignsByChannel = new Map();
+  let activeCampaigns = 0;
+  let totalApplications = 0;
+  let totalHires = 0;
+  let totalSpend = 0;
+
+  campaignList.forEach((campaign) => {
+    const status = normalizeCategory(campaign.status ?? 'draft').toLowerCase();
+    if (['active', 'scheduled'].includes(status)) {
+      activeCampaigns += 1;
+    }
+    const channel = normalizeCategory(campaign.channel, 'Direct');
+    const entry = campaignsByChannel.get(channel) ?? {
+      campaigns: 0,
+      spend: 0,
+      applications: 0,
+      hires: 0,
+    };
+    entry.campaigns += 1;
+    entry.spend += safeNumber(campaign.spendAmount);
+    entry.applications += safeNumber(campaign.applications);
+    entry.hires += safeNumber(campaign.hires);
+    campaignsByChannel.set(channel, entry);
+
+    totalSpend += safeNumber(campaign.spendAmount);
+    totalApplications += safeNumber(campaign.applications);
+    totalHires += safeNumber(campaign.hires);
+  });
+
+  const recentCampaigns = campaignList
+    .slice()
+    .sort((a, b) => new Date(b.startsAt ?? b.createdAt ?? 0) - new Date(a.startsAt ?? a.createdAt ?? 0))
+    .slice(0, 5)
+    .map((campaign) => ({
+      id: campaign.id,
+      name: campaign.name,
+      channel: campaign.channel,
+      status: campaign.status,
+      startsAt: campaign.startsAt,
+      endsAt: campaign.endsAt,
+      spendAmount: safeNumber(campaign.spendAmount, 2),
+      applications: safeNumber(campaign.applications),
+      hires: safeNumber(campaign.hires),
+    }));
+
+  return {
+    profile,
+    counts,
+    sections: sectionList.map((section) => ({
+      id: section.id,
+      title: section.title,
+      summary: section.summary,
+      type: section.sectionType,
+      typeLabel: EMPLOYER_BRAND_SECTION_LABELS[section.sectionType] ?? EMPLOYER_BRAND_SECTION_LABELS.custom,
+      mediaUrl: section.mediaUrl,
+      publishedAt: section.publishedAt,
+    })),
+    featuredSections,
+    dynamicHighlights,
+    campaignSummary: {
+      total: campaignList.length,
+      active: activeCampaigns,
+      totalSpend: Number(totalSpend.toFixed(2)),
+      totalApplications,
+      totalHires,
+      byChannel: Array.from(campaignsByChannel.entries()).map(([channel, metrics]) => ({
+        channel,
+        campaigns: metrics.campaigns,
+        spend: Number(metrics.spend.toFixed(2)),
+        applications: metrics.applications,
+        hires: metrics.hires,
+      })),
+      recent: recentCampaigns,
+    },
+    assets,
+  };
+}
+
+function buildWorkforceAnalyticsIntelligence({ snapshots, cohorts }) {
+  const snapshotList = snapshots.map((snapshot) => toPlain(snapshot));
+  const cohortList = cohorts.map((cohort) => toPlain(cohort));
+
+  const latest = snapshotList
+    .slice()
+    .sort((a, b) => new Date(b.capturedAt ?? 0) - new Date(a.capturedAt ?? 0))[0] ?? null;
+
+  const trend = snapshotList
+    .slice()
+    .sort((a, b) => new Date(a.capturedAt ?? 0) - new Date(b.capturedAt ?? 0))
+    .slice(-6)
+    .map((snapshot) => ({
+      capturedAt: snapshot.capturedAt,
+      attritionRiskScore: snapshot.attritionRiskScore == null ? null : Number(snapshot.attritionRiskScore),
+      mobilityOpportunities: safeNumber(snapshot.mobilityOpportunities),
+      skillGapAlerts: safeNumber(snapshot.skillGapAlerts),
+    }));
+
+  const cohortComparisons = cohortList
+    .slice()
+    .sort((a, b) => (b.headcount ?? 0) - (a.headcount ?? 0))
+    .slice(0, 8)
+    .map((cohort) => ({
+      id: cohort.id,
+      label: `${normalizeCategory(cohort.cohortType)}: ${normalizeCategory(cohort.cohortValue)}`,
+      retentionRate: cohort.retentionRate == null ? null : Number(cohort.retentionRate),
+      promotionRate: cohort.promotionRate == null ? null : Number(cohort.promotionRate),
+      performanceIndex: cohort.performanceIndex == null ? null : Number(cohort.performanceIndex),
+      headcount: safeNumber(cohort.headcount),
+      periodStart: cohort.periodStart,
+      periodEnd: cohort.periodEnd,
+    }));
+
+  const planAlignment = latest
+    ? {
+        hiringPlanHeadcount: latest.headcountPlan == null ? null : Number(latest.headcountPlan),
+        workforceHeadcount: latest.headcountActual == null ? null : Number(latest.headcountActual),
+        variance:
+          latest.headcountPlan != null && latest.headcountActual != null
+            ? Number((Number(latest.headcountActual) - Number(latest.headcountPlan)).toFixed(1))
+            : null,
+        budgetPlanned: latest.budgetPlanned == null ? null : Number(latest.budgetPlanned),
+        budgetActual: latest.budgetActual == null ? null : Number(latest.budgetActual),
+        budgetVariance:
+          latest.budgetPlanned != null && latest.budgetActual != null
+            ? Number((Number(latest.budgetActual) - Number(latest.budgetPlanned)).toFixed(2))
+            : null,
+      }
+    : null;
+
+  return {
+    latestSnapshot: latest
+      ? {
+          capturedAt: latest.capturedAt,
+          attritionRiskScore: latest.attritionRiskScore == null ? null : Number(latest.attritionRiskScore),
+          mobilityOpportunities: safeNumber(latest.mobilityOpportunities),
+          skillGapAlerts: safeNumber(latest.skillGapAlerts),
+        }
+      : null,
+    mobilityOpportunities: latest ? safeNumber(latest.mobilityOpportunities) : 0,
+    skillGapAlerts: latest ? safeNumber(latest.skillGapAlerts) : 0,
+    attritionRiskScore: latest?.attritionRiskScore == null ? null : Number(latest.attritionRiskScore),
+    planAlignment,
+    cohortComparisons,
+    trend,
+  };
+}
+
+function buildInternalMobilityProgram({ postings, referrals, careerPlans }) {
+  const postingList = postings.map((posting) => toPlain(posting));
+  const referralList = referrals.map((referral) => toPlain(referral));
+  const planList = careerPlans.map((plan) => toPlain(plan));
+
+  const openStatuses = new Set(['open', 'interview', 'offer']);
+  const filledStatuses = new Set(['filled', 'closed']);
+
+  const openRoles = postingList.filter((posting) => openStatuses.has((posting.status ?? '').toLowerCase())).length;
+  const filledThisPeriod = postingList.filter((posting) => filledStatuses.has((posting.status ?? '').toLowerCase())).length;
+  const internalApplications = sumBy(postingList, (posting) => posting.internalApplications ?? 0);
+
+  const referralConversions = referralList.filter((referral) =>
+    ['hired', 'rewarded'].includes((referral.status ?? '').toLowerCase()),
+  ).length;
+  const referralVolume = referralList.length;
+  const referralConversionRate = referralVolume ? Number(((referralConversions / referralVolume) * 100).toFixed(1)) : 0;
+  const rewardBudgetUsed = sumBy(referralList, (referral) => referral.rewardAmount ?? 0);
+
+  const topReferrers = referralList
+    .reduce((acc, referral) => {
+      const referrerId = referral.referrerId ?? 'unknown';
+      const entry = acc.get(referrerId) ?? {
+        id: referrerId,
+        name: referral.referrer
+          ? `${referral.referrer.firstName ?? ''} ${referral.referrer.lastName ?? ''}`.trim()
+          : 'Unknown',
+        referrals: 0,
+        rewardPoints: 0,
+        rewardAmount: 0,
+      };
+      entry.referrals += 1;
+      entry.rewardPoints += safeNumber(referral.rewardPoints);
+      entry.rewardAmount += safeNumber(referral.rewardAmount, 2);
+      acc.set(referrerId, entry);
+      return acc;
+    }, new Map())
+    .values();
+
+  const leaderboard = Array.from(topReferrers)
+    .sort((a, b) => b.rewardPoints - a.rewardPoints || b.referrals - a.referrals)
+    .slice(0, 5);
+
+  const careerProgress = planList
+    .map((plan) => ({
+      id: plan.id,
+      employeeName: plan.employee
+        ? `${plan.employee.firstName ?? ''} ${plan.employee.lastName ?? ''}`.trim()
+        : 'Unknown teammate',
+      currentRole: plan.currentRole,
+      targetRole: plan.targetRole,
+      progressPercent: plan.progressPercent == null ? null : Number(plan.progressPercent),
+      recommendedLearningPaths: Array.isArray(plan.recommendedLearningPaths)
+        ? plan.recommendedLearningPaths
+        : [],
+      status: plan.status,
+      updatedAt: plan.updatedAt,
+    }))
+    .slice(0, 6);
+
+  const learningRecommendations = careerProgress
+    .flatMap((plan) => plan.recommendedLearningPaths ?? [])
+    .filter((value, index, array) => array.indexOf(value) === index)
+    .slice(0, 6);
+
+  const recentPostings = postingList
+    .slice()
+    .sort((a, b) => new Date(b.postedAt ?? 0) - new Date(a.postedAt ?? 0))
+    .slice(0, 6)
+    .map((posting) => ({
+      id: posting.id,
+      title: posting.title,
+      department: posting.department,
+      status: posting.status,
+      internalApplications: posting.internalApplications,
+      postedAt: posting.postedAt,
+    }));
+
+  return {
+    openRoles,
+    filledThisPeriod,
+    internalApplications,
+    referralVolume,
+    referralConversionRate,
+    rewardBudgetUsed: Number(rewardBudgetUsed.toFixed(2)),
+    leaderboard,
+    careerProgress,
+    learningRecommendations,
+    recentPostings,
+  };
+}
+
+function buildGovernanceComplianceSummary({ policies, audits, accessibilityAudits }) {
+  const policyList = policies.map((policy) => toPlain(policy));
+  const auditList = audits.map((audit) => toPlain(audit));
+  const accessibilityList = accessibilityAudits.map((audit) => toPlain(audit));
+
+  const activePolicies = policyList.filter((policy) => (policy.status ?? '').toLowerCase() === 'active').length;
+  const policiesByRegion = policyList.reduce((acc, policy) => {
+    const region = normalizeCategory(policy.region ?? 'Global');
+    acc.set(region, (acc.get(region) ?? 0) + 1);
+    return acc;
+  }, new Map());
+
+  const auditsOpen = auditList.filter((audit) =>
+    ['open', 'in_progress'].includes((audit.status ?? '').toLowerCase()),
+  ).length;
+  const auditsClosedLast30 = auditList.filter((audit) => {
+    if (!audit.closedAt) return false;
+    const closedAt = new Date(audit.closedAt);
+    if (Number.isNaN(closedAt.getTime())) {
+      return false;
+    }
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    return closedAt >= thirtyDaysAgo;
+  }).length;
+
+  const escalationsOpen = auditList.filter((audit) => {
+    const status = (audit.status ?? '').toLowerCase();
+    if (['closed', 'completed'].includes(status)) {
+      return false;
+    }
+    return Boolean(audit.escalationLevel);
+  }).length;
+
+  const accessibilityScoreAverage = accessibilityList.length
+    ? Number((
+        accessibilityList.reduce((sum, item) => sum + safeNumber(item.score), 0) / accessibilityList.length
+      ).toFixed(1))
+    : null;
+
+  const remediationOpen = sumBy(accessibilityList, (audit) => audit.issuesOpen ?? 0);
+
+  const recentAudits = auditList
+    .slice()
+    .sort((a, b) => new Date(b.openedAt ?? 0) - new Date(a.openedAt ?? 0))
+    .slice(0, 6)
+    .map((audit) => ({
+      id: audit.id,
+      auditType: audit.auditType,
+      region: audit.region,
+      status: audit.status,
+      findingsCount: audit.findingsCount,
+      severityScore: audit.severityScore == null ? null : Number(audit.severityScore),
+      openedAt: audit.openedAt,
+      closedAt: audit.closedAt,
+    }));
+
+  const accessibilityRecommendations = accessibilityList
+    .flatMap((audit) => {
+      if (Array.isArray(audit.recommendations)) {
+        return audit.recommendations;
+      }
+      return [];
+    })
+    .filter((value, index, array) => array.indexOf(value) === index)
+    .slice(0, 6);
+
+  return {
+    activePolicies,
+    policiesTotal: policyList.length,
+    policiesByRegion: Object.fromEntries(policiesByRegion.entries()),
+    auditsOpen,
+    auditsClosedLast30,
+    escalationsOpen,
+    recentAudits,
+    accessibility: {
+      averageScore: accessibilityScoreAverage,
+      totalAudits: accessibilityList.length,
+      remediationOpen,
+      recommendations: accessibilityRecommendations,
+    },
+  };
+}
+
+function buildEmployerBrandWorkforceIntelligence({
+  profile,
+  sections,
+  assets,
+  campaigns,
+  workforceSnapshots,
+  workforceCohorts,
+  internalPostings,
+  referrals,
+  careerPlans,
+  policies,
+  complianceAudits,
+  accessibilityAudits,
+}) {
+  const studio = buildEmployerBrandProfileStudio({ profile, sections, assets, campaigns });
+  const workforce = buildWorkforceAnalyticsIntelligence({ snapshots: workforceSnapshots, cohorts: workforceCohorts });
+  const mobility = buildInternalMobilityProgram({ postings: internalPostings, referrals, careerPlans });
+  const governance = buildGovernanceComplianceSummary({
+    policies,
+    audits: complianceAudits,
+    accessibilityAudits,
+  });
+
+  return {
+    profileStudio: studio,
+    workforceAnalytics: workforce,
+    internalMobility: mobility,
+    governanceCompliance: governance,
+  };
+}
+
 function buildGovernanceSummary({ approvals, alerts, workspace }) {
   const pendingApprovals = approvals.filter((item) => ['pending', 'in_review'].includes(item.status));
   const criticalAlerts = alerts.items.filter((item) => item.severity === 'critical');
@@ -1312,6 +1877,16 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       partnerEngagements,
       calendarEvents,
       brandAssets,
+      brandSections,
+      brandCampaigns,
+      workforceSnapshots,
+      workforceCohorts,
+      internalPostings,
+      employeeReferrals,
+      careerPlans,
+      compliancePolicies,
+      complianceAudits,
+      accessibilityAudits,
     ] = await Promise.all([
       fetchApplications({ workspaceId: workspace.id, since }),
       fetchJobs({ since }),
@@ -1326,6 +1901,16 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       fetchPartnerEngagements({ workspaceId: workspace.id, since }),
       fetchCalendarEvents({ workspaceId: workspace.id, since }),
       fetchBrandAssets({ workspaceId: workspace.id }),
+      fetchEmployerBrandSections({ workspaceId: workspace.id }),
+      fetchEmployerBrandCampaigns({ workspaceId: workspace.id, since }),
+      fetchWorkforceSnapshots({ workspaceId: workspace.id, since }),
+      fetchWorkforceCohorts({ workspaceId: workspace.id }),
+      fetchInternalJobPostings({ workspaceId: workspace.id, since }),
+      fetchEmployeeReferrals({ workspaceId: workspace.id, since }),
+      fetchCareerPlans({ workspaceId: workspace.id }),
+      fetchCompliancePolicies({ workspaceId: workspace.id }),
+      fetchComplianceAudits({ workspaceId: workspace.id, since }),
+      fetchAccessibilityAudits({ workspaceId: workspace.id, since }),
     ]);
 
     const applicationIds = applications.map((application) => application.id);
@@ -1399,7 +1984,23 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       engagements: partnerEngagements,
     });
     const plainBrandAssets = brandAssets.map((asset) => (asset?.get ? asset.get({ plain: true }) : asset));
+    const plainBrandSections = brandSections.map((section) => (section?.get ? section.get({ plain: true }) : section));
+    const plainBrandCampaigns = brandCampaigns.map((campaign) => (campaign?.get ? campaign.get({ plain: true }) : campaign));
     const brandIntelligence = buildBrandIntelligenceSummary({ profile, assets: plainBrandAssets, jobSummary });
+    const employerBrandWorkforce = buildEmployerBrandWorkforceIntelligence({
+      profile,
+      sections: plainBrandSections,
+      assets: plainBrandAssets,
+      campaigns: plainBrandCampaigns,
+      workforceSnapshots,
+      workforceCohorts,
+      internalPostings,
+      referrals: employeeReferrals,
+      careerPlans,
+      policies: compliancePolicies,
+      complianceAudits,
+      accessibilityAudits,
+    });
     const governance = buildGovernanceSummary({ approvals: jobApprovals, alerts: alertsSummary, workspace: workspaceSummary });
     const calendarDigest = buildCalendarDigest(calendarEvents);
     const offerOnboarding = buildOfferAndOnboardingSummary({
@@ -1449,6 +2050,7 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       candidateCare,
       partnerCollaboration: partnerCollaborationDetails,
       brandIntelligence,
+      employerBrandWorkforce,
       governance,
       calendar: calendarDigest,
       reviews: {
