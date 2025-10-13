@@ -92,6 +92,31 @@ export const LAUNCHPAD_PLACEMENT_STATUSES = ['scheduled', 'in_progress', 'comple
 export const LAUNCHPAD_TARGET_TYPES = ['job', 'gig', 'project'];
 export const LAUNCHPAD_OPPORTUNITY_SOURCES = ['employer_request', 'placement', 'manual'];
 
+export const GIG_ORDER_STATUSES = [
+  'awaiting_requirements',
+  'in_progress',
+  'revision_requested',
+  'ready_for_payout',
+  'completed',
+  'paused',
+  'cancelled',
+];
+
+export const GIG_ORDER_REQUIREMENT_STATUSES = ['pending', 'received', 'waived'];
+export const GIG_ORDER_REQUIREMENT_PRIORITIES = ['low', 'medium', 'high'];
+export const GIG_ORDER_REVISION_STATUSES = ['requested', 'in_progress', 'submitted', 'approved', 'rejected'];
+export const GIG_ORDER_REVISION_SEVERITIES = ['low', 'medium', 'high'];
+export const GIG_ORDER_PAYOUT_STATUSES = ['pending', 'scheduled', 'released', 'at_risk', 'on_hold'];
+export const GIG_ORDER_ACTIVITY_TYPES = [
+  'order',
+  'requirement',
+  'revision',
+  'payout',
+  'communication',
+  'note',
+  'system',
+];
+
 export const User = sequelize.define(
   'User',
   {
@@ -359,6 +384,236 @@ Gig.searchByTerm = async function searchByTerm(term) {
     limit: 20,
     order: [['title', 'ASC']],
   });
+};
+
+export const GigOrder = sequelize.define(
+  'GigOrder',
+  {
+    orderNumber: { type: DataTypes.STRING(24), allowNull: false, unique: true },
+    gigId: { type: DataTypes.INTEGER, allowNull: false },
+    clientId: { type: DataTypes.INTEGER, allowNull: false },
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    clientCompanyName: { type: DataTypes.STRING(180), allowNull: false },
+    clientContactName: { type: DataTypes.STRING(180), allowNull: true },
+    clientContactEmail: { type: DataTypes.STRING(180), allowNull: true, validate: { isEmail: true } },
+    clientContactPhone: { type: DataTypes.STRING(60), allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...GIG_ORDER_STATUSES),
+      allowNull: false,
+      defaultValue: 'awaiting_requirements',
+      validate: { isIn: [GIG_ORDER_STATUSES] },
+    },
+    currencyCode: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    amount: { type: DataTypes.DECIMAL(12, 2), allowNull: false, defaultValue: 0 },
+    progressPercent: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      validate: { min: 0, max: 100 },
+    },
+    submittedAt: { type: DataTypes.DATE, allowNull: false },
+    kickoffDueAt: { type: DataTypes.DATE, allowNull: true },
+    dueAt: { type: DataTypes.DATE, allowNull: true },
+    completedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'gig_orders' },
+);
+
+GigOrder.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    orderNumber: plain.orderNumber,
+    gigId: plain.gigId,
+    clientId: plain.clientId,
+    freelancerId: plain.freelancerId,
+    clientCompanyName: plain.clientCompanyName,
+    clientContactName: plain.clientContactName ?? null,
+    clientContactEmail: plain.clientContactEmail ?? null,
+    clientContactPhone: plain.clientContactPhone ?? null,
+    status: plain.status,
+    currencyCode: plain.currencyCode ?? 'USD',
+    amount: plain.amount == null ? 0 : Number(plain.amount),
+    progressPercent: plain.progressPercent ?? 0,
+    submittedAt: plain.submittedAt ?? null,
+    kickoffDueAt: plain.kickoffDueAt ?? null,
+    dueAt: plain.dueAt ?? null,
+    completedAt: plain.completedAt ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const GigOrderRequirement = sequelize.define(
+  'GigOrderRequirement',
+  {
+    orderId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...GIG_ORDER_REQUIREMENT_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+      validate: { isIn: [GIG_ORDER_REQUIREMENT_STATUSES] },
+    },
+    priority: {
+      type: DataTypes.ENUM(...GIG_ORDER_REQUIREMENT_PRIORITIES),
+      allowNull: false,
+      defaultValue: 'medium',
+      validate: { isIn: [GIG_ORDER_REQUIREMENT_PRIORITIES] },
+    },
+    requestedAt: { type: DataTypes.DATE, allowNull: true },
+    dueAt: { type: DataTypes.DATE, allowNull: true },
+    receivedAt: { type: DataTypes.DATE, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    items: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'gig_order_requirements' },
+);
+
+GigOrderRequirement.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    orderId: plain.orderId,
+    title: plain.title,
+    status: plain.status,
+    priority: plain.priority,
+    requestedAt: plain.requestedAt ?? null,
+    dueAt: plain.dueAt ?? null,
+    receivedAt: plain.receivedAt ?? null,
+    notes: plain.notes ?? null,
+    items: Array.isArray(plain.items) ? plain.items : plain.items ?? [],
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const GigOrderRevision = sequelize.define(
+  'GigOrderRevision',
+  {
+    orderId: { type: DataTypes.INTEGER, allowNull: false },
+    roundNumber: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
+    status: {
+      type: DataTypes.ENUM(...GIG_ORDER_REVISION_STATUSES),
+      allowNull: false,
+      defaultValue: 'requested',
+      validate: { isIn: [GIG_ORDER_REVISION_STATUSES] },
+    },
+    severity: {
+      type: DataTypes.ENUM(...GIG_ORDER_REVISION_SEVERITIES),
+      allowNull: false,
+      defaultValue: 'medium',
+      validate: { isIn: [GIG_ORDER_REVISION_SEVERITIES] },
+    },
+    focusAreas: { type: jsonType, allowNull: true },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    requestedAt: { type: DataTypes.DATE, allowNull: false },
+    dueAt: { type: DataTypes.DATE, allowNull: true },
+    submittedAt: { type: DataTypes.DATE, allowNull: true },
+    approvedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'gig_order_revisions' },
+);
+
+GigOrderRevision.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    orderId: plain.orderId,
+    roundNumber: plain.roundNumber ?? 1,
+    status: plain.status,
+    severity: plain.severity,
+    focusAreas: Array.isArray(plain.focusAreas) ? plain.focusAreas : plain.focusAreas ?? [],
+    summary: plain.summary ?? null,
+    requestedAt: plain.requestedAt ?? null,
+    dueAt: plain.dueAt ?? null,
+    submittedAt: plain.submittedAt ?? null,
+    approvedAt: plain.approvedAt ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const GigOrderPayout = sequelize.define(
+  'GigOrderPayout',
+  {
+    orderId: { type: DataTypes.INTEGER, allowNull: false },
+    milestoneLabel: { type: DataTypes.STRING(255), allowNull: false },
+    amount: { type: DataTypes.DECIMAL(12, 2), allowNull: false, defaultValue: 0 },
+    currencyCode: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    status: {
+      type: DataTypes.ENUM(...GIG_ORDER_PAYOUT_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+      validate: { isIn: [GIG_ORDER_PAYOUT_STATUSES] },
+    },
+    expectedAt: { type: DataTypes.DATE, allowNull: true },
+    releasedAt: { type: DataTypes.DATE, allowNull: true },
+    riskNote: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'gig_order_payouts' },
+);
+
+GigOrderPayout.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    orderId: plain.orderId,
+    milestoneLabel: plain.milestoneLabel,
+    amount: plain.amount == null ? 0 : Number(plain.amount),
+    currencyCode: plain.currencyCode ?? 'USD',
+    status: plain.status,
+    expectedAt: plain.expectedAt ?? null,
+    releasedAt: plain.releasedAt ?? null,
+    riskNote: plain.riskNote ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const GigOrderActivity = sequelize.define(
+  'GigOrderActivity',
+  {
+    orderId: { type: DataTypes.INTEGER, allowNull: false },
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    actorId: { type: DataTypes.INTEGER, allowNull: true },
+    activityType: {
+      type: DataTypes.ENUM(...GIG_ORDER_ACTIVITY_TYPES),
+      allowNull: false,
+      defaultValue: 'system',
+      validate: { isIn: [GIG_ORDER_ACTIVITY_TYPES] },
+    },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    occurredAt: { type: DataTypes.DATE, allowNull: false },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'gig_order_activities' },
+);
+
+GigOrderActivity.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    orderId: plain.orderId,
+    freelancerId: plain.freelancerId,
+    actorId: plain.actorId ?? null,
+    activityType: plain.activityType,
+    title: plain.title,
+    description: plain.description ?? null,
+    occurredAt: plain.occurredAt ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
 };
 
 export const Project = sequelize.define(
@@ -1695,6 +1950,28 @@ FreelancerProfile.belongsTo(User, { foreignKey: 'userId' });
 User.hasOne(FreelancerAssignmentMetric, { foreignKey: 'freelancerId', as: 'assignmentMetric' });
 FreelancerAssignmentMetric.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
 
+Gig.hasMany(GigOrder, { foreignKey: 'gigId', as: 'orders' });
+GigOrder.belongsTo(Gig, { foreignKey: 'gigId', as: 'gig' });
+
+User.hasMany(GigOrder, { foreignKey: 'clientId', as: 'purchasedGigOrders' });
+User.hasMany(GigOrder, { foreignKey: 'freelancerId', as: 'fulfilledGigOrders' });
+GigOrder.belongsTo(User, { foreignKey: 'clientId', as: 'client' });
+GigOrder.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
+GigOrder.hasMany(GigOrderRequirement, { foreignKey: 'orderId', as: 'requirements' });
+GigOrderRequirement.belongsTo(GigOrder, { foreignKey: 'orderId', as: 'order' });
+
+GigOrder.hasMany(GigOrderRevision, { foreignKey: 'orderId', as: 'revisions' });
+GigOrderRevision.belongsTo(GigOrder, { foreignKey: 'orderId', as: 'order' });
+
+GigOrder.hasMany(GigOrderPayout, { foreignKey: 'orderId', as: 'payouts' });
+GigOrderPayout.belongsTo(GigOrder, { foreignKey: 'orderId', as: 'order' });
+
+GigOrder.hasMany(GigOrderActivity, { foreignKey: 'orderId', as: 'activities' });
+GigOrderActivity.belongsTo(GigOrder, { foreignKey: 'orderId', as: 'order' });
+GigOrderActivity.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
+User.hasMany(GigOrderActivity, { foreignKey: 'freelancerId', as: 'gigOrderActivities' });
+
 Project.hasMany(ProjectAssignmentEvent, {
   foreignKey: { name: 'projectId', allowNull: false },
   as: 'assignmentEvents',
@@ -1844,6 +2121,11 @@ export default {
   FeedPost,
   Job,
   Gig,
+  GigOrder,
+  GigOrderRequirement,
+  GigOrderRevision,
+  GigOrderPayout,
+  GigOrderActivity,
   Project,
   ExperienceLaunchpad,
   ExperienceLaunchpadApplication,

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import authRoutes from './authRoutes.js';
 import userRoutes from './userRoutes.js';
+import freelancerRoutes from './freelancerRoutes.js';
 import feedRoutes from './feedRoutes.js';
 import searchRoutes from './searchRoutes.js';
 import discoveryRoutes from './discoveryRoutes.js';
@@ -16,6 +17,7 @@ import adminRoutes from './adminRoutes.js';
 const router = Router();
 
 router.use('/auth', authRoutes);
+router.use('/freelancers', freelancerRoutes);
 router.use('/users', userRoutes);
 router.use('/feed', feedRoutes);
 router.use('/search', searchRoutes);
