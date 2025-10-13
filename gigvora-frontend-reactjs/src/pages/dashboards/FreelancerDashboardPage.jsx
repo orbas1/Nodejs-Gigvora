@@ -1,3 +1,6 @@
+import { useMemo } from 'react';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import FinanceControlTowerFeature from '../../components/dashboard/FinanceControlTowerFeature.jsx';
 import { useMemo, useState } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import CatalogInsightsPanel from '../../components/freelancer/CatalogInsightsPanel.jsx';
@@ -766,6 +769,7 @@ const FALLBACK_MENU = [
   },
 ];
 
+const baseCapabilitySections = [
 const CAPABILITY_SECTIONS = [
 const FALLBACK_BLUEPRINT = {
   title: 'Brand Identity Accelerator',
@@ -1187,6 +1191,16 @@ const BASE_MENU_SECTIONS = [
   const summaryCards = useMemo(
     () => [
       {
+        name: 'Finance control tower',
+        description:
+          'Revenue breakdowns, tax-ready exports, expense tracking, and smart savings goals for benefits or downtime.',
+        bulletPoints: [
+          'Split payouts between teammates or subcontractors instantly.',
+          'Predictive forecasts for retainers vs. one-off gigs.',
+        ],
+        renderContent: (context) => (
+          <FinanceControlTowerFeature userId={context?.userId} currency={context?.currency} />
+        ),
         label: 'Active playbooks',
         value: formatNumber(summary.activePlaybooks),
         description: 'Automation sequences currently available to enroll clients.',
@@ -6801,6 +6815,8 @@ const profile = {
   role: 'Lead Brand & Product Designer',
   initials: 'RM',
   status: 'Top-rated freelancer',
+  userId: 2,
+  preferredCurrency: 'USD',
   userId: 201,
   id: 2,
   badges: ['Verified Pro', 'Gigvora Elite'],
@@ -9417,6 +9433,33 @@ export default function FreelancerDashboardPage() {
   const menuSections = useMemo(() => buildDashboardMenuSections(financeData, financeLoading), [financeData, financeLoading]);
   const profile = useMemo(() => buildProfile(financeData), [financeData]);
 export default function FreelancerDashboardPage() {
+  const financeContext = useMemo(
+    () => ({
+      userId: profile.userId,
+      currency: profile.preferredCurrency || 'USD',
+    }),
+    [],
+  );
+
+  const capabilitySections = useMemo(
+    () =>
+      baseCapabilitySections.map((section) => ({
+        ...section,
+        features: section.features.map((feature) => {
+          const { renderContent, ...rest } = feature;
+          const resolvedContent =
+            typeof renderContent === 'function'
+              ? renderContent(financeContext)
+              : feature.content ?? null;
+          return {
+            ...rest,
+            content: resolvedContent,
+          };
+        }),
+      })),
+    [financeContext],
+  );
+
   const [form, setForm] = useState(() => convertGigToForm(null, FALLBACK_BLUEPRINT));
   const [formDirty, setFormDirty] = useState(false);
   const [saveState, setSaveState] = useState('idle');

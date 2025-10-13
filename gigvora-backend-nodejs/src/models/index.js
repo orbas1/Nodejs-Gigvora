@@ -280,6 +280,15 @@ export const GIG_STATUSES = ['draft', 'preview', 'published', 'archived'];
 export const GIG_MEDIA_TYPES = ['image', 'video', 'document'];
 export const GIG_PREVIEW_DEVICE_TYPES = ['desktop', 'tablet', 'mobile'];
 
+export const FINANCE_REVENUE_TYPES = ['retainer', 'one_off', 'passive', 'royalty', 'product', 'other'];
+export const FINANCE_REVENUE_STATUSES = ['draft', 'issued', 'pending_payment', 'paid', 'recognized', 'voided'];
+export const FINANCE_EXPENSE_STATUSES = ['pending', 'posted', 'reimbursed', 'excluded'];
+export const FINANCE_SAVINGS_STATUSES = ['active', 'paused', 'achieved', 'closed'];
+export const FINANCE_AUTOMATION_TYPES = ['fixed_transfer', 'percentage_income', 'round_up', 'manual'];
+export const FINANCE_PAYOUT_STATUSES = ['draft', 'scheduled', 'processing', 'completed', 'failed'];
+export const FINANCE_FORECAST_SCENARIO_TYPES = ['retainer_pipeline', 'one_off_pipeline', 'baseline', 'stretch', 'custom'];
+export const FINANCE_TAX_EXPORT_STATUSES = ['generating', 'available', 'archived', 'failed'];
+
 export const User = sequelize.define(
   'User',
   {
@@ -6463,6 +6472,371 @@ GigAddOn.belongsTo(Gig, { foreignKey: 'gigId', as: 'gig' });
 Gig.hasMany(GigAvailabilitySlot, { foreignKey: 'gigId', as: 'availabilitySlots', onDelete: 'CASCADE', hooks: true });
 GigAvailabilitySlot.belongsTo(Gig, { foreignKey: 'gigId', as: 'gig' });
 
+export const FinanceRevenueEntry = sequelize.define(
+  'FinanceRevenueEntry',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    revenueType: {
+      type: DataTypes.STRING(32),
+      allowNull: false,
+      validate: { isIn: [FINANCE_REVENUE_TYPES] },
+    },
+    status: {
+      type: DataTypes.STRING(32),
+      allowNull: false,
+      defaultValue: 'recognized',
+      validate: { isIn: [FINANCE_REVENUE_STATUSES] },
+    },
+    source: { type: DataTypes.STRING(64), allowNull: true },
+    clientName: { type: DataTypes.STRING(255), allowNull: true },
+    invoiceNumber: { type: DataTypes.STRING(64), allowNull: true },
+    amount: { type: DataTypes.DECIMAL(14, 2), allowNull: false },
+    currencyCode: {
+      type: DataTypes.STRING(3),
+      allowNull: false,
+      defaultValue: 'USD',
+      validate: { len: [3, 3] },
+    },
+    taxWithholdingAmount: { type: DataTypes.DECIMAL(14, 2), allowNull: false, defaultValue: 0 },
+    taxCategory: { type: DataTypes.STRING(64), allowNull: true },
+    recognizedAt: { type: DataTypes.DATE, allowNull: false },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'finance_revenue_entries',
+    indexes: [
+      { fields: ['userId', 'recognizedAt'] },
+      { fields: ['userId', 'revenueType'] },
+    ],
+  },
+);
+
+FinanceRevenueEntry.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    revenueType: plain.revenueType,
+    status: plain.status,
+    source: plain.source,
+    clientName: plain.clientName,
+    invoiceNumber: plain.invoiceNumber,
+    amount: Number(plain.amount ?? 0),
+    currencyCode: plain.currencyCode,
+    taxWithholdingAmount: Number(plain.taxWithholdingAmount ?? 0),
+    taxCategory: plain.taxCategory,
+    recognizedAt: plain.recognizedAt,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const FinanceExpenseEntry = sequelize.define(
+  'FinanceExpenseEntry',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    category: { type: DataTypes.STRING(64), allowNull: false },
+    vendorName: { type: DataTypes.STRING(255), allowNull: true },
+    cadence: { type: DataTypes.STRING(32), allowNull: true },
+    status: {
+      type: DataTypes.STRING(32),
+      allowNull: false,
+      defaultValue: 'posted',
+      validate: { isIn: [FINANCE_EXPENSE_STATUSES] },
+    },
+    amount: { type: DataTypes.DECIMAL(14, 2), allowNull: false },
+    currencyCode: {
+      type: DataTypes.STRING(3),
+      allowNull: false,
+      defaultValue: 'USD',
+      validate: { len: [3, 3] },
+    },
+    occurredAt: { type: DataTypes.DATE, allowNull: false },
+    isTaxDeductible: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    receiptUrl: { type: DataTypes.STRING(1000), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'finance_expense_entries',
+    indexes: [
+      { fields: ['userId', 'occurredAt'] },
+      { fields: ['userId', 'category'] },
+    ],
+  },
+);
+
+FinanceExpenseEntry.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    category: plain.category,
+    vendorName: plain.vendorName,
+    cadence: plain.cadence,
+    status: plain.status,
+    amount: Number(plain.amount ?? 0),
+    currencyCode: plain.currencyCode,
+    occurredAt: plain.occurredAt,
+    isTaxDeductible: plain.isTaxDeductible,
+    notes: plain.notes,
+    receiptUrl: plain.receiptUrl,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const FinanceSavingsGoal = sequelize.define(
+  'FinanceSavingsGoal',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(255), allowNull: false },
+    status: {
+      type: DataTypes.STRING(32),
+      allowNull: false,
+      defaultValue: 'active',
+      validate: { isIn: [FINANCE_SAVINGS_STATUSES] },
+    },
+    targetAmount: { type: DataTypes.DECIMAL(14, 2), allowNull: false },
+    currentAmount: { type: DataTypes.DECIMAL(14, 2), allowNull: false, defaultValue: 0 },
+    currencyCode: {
+      type: DataTypes.STRING(3),
+      allowNull: false,
+      defaultValue: 'USD',
+      validate: { len: [3, 3] },
+    },
+    automationType: {
+      type: DataTypes.STRING(32),
+      allowNull: true,
+      validate: { isIn: [FINANCE_AUTOMATION_TYPES] },
+    },
+    automationAmount: { type: DataTypes.DECIMAL(14, 2), allowNull: true },
+    automationCadence: { type: DataTypes.STRING(32), allowNull: true },
+    isRunwayReserve: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    lastContributionAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'finance_savings_goals',
+    indexes: [{ fields: ['userId', 'status'] }],
+  },
+);
+
+FinanceSavingsGoal.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    name: plain.name,
+    status: plain.status,
+    targetAmount: Number(plain.targetAmount ?? 0),
+    currentAmount: Number(plain.currentAmount ?? 0),
+    currencyCode: plain.currencyCode,
+    automationType: plain.automationType,
+    automationAmount: plain.automationAmount == null ? null : Number(plain.automationAmount),
+    automationCadence: plain.automationCadence,
+    isRunwayReserve: plain.isRunwayReserve,
+    lastContributionAt: plain.lastContributionAt,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const FinancePayoutBatch = sequelize.define(
+  'FinancePayoutBatch',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(255), allowNull: false },
+    status: {
+      type: DataTypes.STRING(32),
+      allowNull: false,
+      defaultValue: 'completed',
+      validate: { isIn: [FINANCE_PAYOUT_STATUSES] },
+    },
+    totalAmount: { type: DataTypes.DECIMAL(14, 2), allowNull: false },
+    currencyCode: {
+      type: DataTypes.STRING(3),
+      allowNull: false,
+      defaultValue: 'USD',
+      validate: { len: [3, 3] },
+    },
+    scheduledAt: { type: DataTypes.DATE, allowNull: true },
+    executedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'finance_payout_batches',
+    indexes: [{ fields: ['userId', 'executedAt'] }],
+  },
+);
+
+FinancePayoutBatch.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    name: plain.name,
+    status: plain.status,
+    totalAmount: Number(plain.totalAmount ?? 0),
+    currencyCode: plain.currencyCode,
+    scheduledAt: plain.scheduledAt,
+    executedAt: plain.executedAt,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const FinancePayoutSplit = sequelize.define(
+  'FinancePayoutSplit',
+  {
+    batchId: { type: DataTypes.INTEGER, allowNull: false },
+    teammateName: { type: DataTypes.STRING(255), allowNull: false },
+    teammateRole: { type: DataTypes.STRING(120), allowNull: true },
+    recipientEmail: { type: DataTypes.STRING(255), allowNull: true, validate: { isEmail: true } },
+    status: {
+      type: DataTypes.STRING(32),
+      allowNull: false,
+      defaultValue: 'completed',
+      validate: { isIn: [FINANCE_PAYOUT_STATUSES] },
+    },
+    sharePercentage: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    amount: { type: DataTypes.DECIMAL(14, 2), allowNull: false },
+    currencyCode: {
+      type: DataTypes.STRING(3),
+      allowNull: false,
+      defaultValue: 'USD',
+      validate: { len: [3, 3] },
+    },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'finance_payout_splits',
+    indexes: [{ fields: ['batchId'] }],
+  },
+);
+
+FinancePayoutSplit.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    batchId: plain.batchId,
+    teammateName: plain.teammateName,
+    teammateRole: plain.teammateRole,
+    recipientEmail: plain.recipientEmail,
+    status: plain.status,
+    sharePercentage: plain.sharePercentage == null ? null : Number(plain.sharePercentage),
+    amount: Number(plain.amount ?? 0),
+    currencyCode: plain.currencyCode,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const FinanceForecastScenario = sequelize.define(
+  'FinanceForecastScenario',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    label: { type: DataTypes.STRING(255), allowNull: false },
+    scenarioType: {
+      type: DataTypes.STRING(32),
+      allowNull: false,
+      validate: { isIn: [FINANCE_FORECAST_SCENARIO_TYPES] },
+    },
+    timeframe: { type: DataTypes.STRING(64), allowNull: true },
+    confidence: { type: DataTypes.DECIMAL(5, 4), allowNull: true },
+    projectedAmount: { type: DataTypes.DECIMAL(14, 2), allowNull: false },
+    currencyCode: {
+      type: DataTypes.STRING(3),
+      allowNull: false,
+      defaultValue: 'USD',
+      validate: { len: [3, 3] },
+    },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    generatedAt: { type: DataTypes.DATE, allowNull: false },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'finance_forecast_scenarios',
+    indexes: [
+      { fields: ['userId', 'generatedAt'] },
+      { fields: ['userId', 'scenarioType'] },
+    ],
+  },
+);
+
+FinanceForecastScenario.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    label: plain.label,
+    scenarioType: plain.scenarioType,
+    timeframe: plain.timeframe,
+    confidence: plain.confidence == null ? null : Number(plain.confidence),
+    projectedAmount: Number(plain.projectedAmount ?? 0),
+    currencyCode: plain.currencyCode,
+    notes: plain.notes,
+    generatedAt: plain.generatedAt,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const FinanceTaxExport = sequelize.define(
+  'FinanceTaxExport',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    exportType: { type: DataTypes.STRING(32), allowNull: false },
+    status: {
+      type: DataTypes.STRING(32),
+      allowNull: false,
+      defaultValue: 'available',
+      validate: { isIn: [FINANCE_TAX_EXPORT_STATUSES] },
+    },
+    periodStart: { type: DataTypes.DATE, allowNull: false },
+    periodEnd: { type: DataTypes.DATE, allowNull: false },
+    amount: { type: DataTypes.DECIMAL(14, 2), allowNull: false },
+    currencyCode: {
+      type: DataTypes.STRING(3),
+      allowNull: false,
+      defaultValue: 'USD',
+      validate: { len: [3, 3] },
+    },
+    downloadUrl: { type: DataTypes.STRING(1000), allowNull: true },
+    generatedAt: { type: DataTypes.DATE, allowNull: false },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'finance_tax_exports',
+    indexes: [{ fields: ['userId', 'periodEnd'] }],
+  },
+);
+
+FinanceTaxExport.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    exportType: plain.exportType,
+    status: plain.status,
+    periodStart: plain.periodStart,
+    periodEnd: plain.periodEnd,
+    amount: Number(plain.amount ?? 0),
+    currencyCode: plain.currencyCode,
+    downloadUrl: plain.downloadUrl,
+    generatedAt: plain.generatedAt,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 User.hasOne(Profile, { foreignKey: 'userId' });
 Profile.belongsTo(User, { foreignKey: 'userId' });
 Profile.hasMany(ProfileReference, { as: 'references', foreignKey: 'profileId', onDelete: 'CASCADE' });
@@ -7235,6 +7609,26 @@ AgencyRetainerEvent.belongsTo(AgencyRetainerNegotiation, {
 });
 AgencyRetainerEvent.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
 
+User.hasMany(FinanceRevenueEntry, { foreignKey: 'userId', as: 'financeRevenueEntries' });
+FinanceRevenueEntry.belongsTo(User, { foreignKey: 'userId', as: 'owner' });
+
+User.hasMany(FinanceExpenseEntry, { foreignKey: 'userId', as: 'financeExpenseEntries' });
+FinanceExpenseEntry.belongsTo(User, { foreignKey: 'userId', as: 'owner' });
+
+User.hasMany(FinanceSavingsGoal, { foreignKey: 'userId', as: 'financeSavingsGoals' });
+FinanceSavingsGoal.belongsTo(User, { foreignKey: 'userId', as: 'owner' });
+
+User.hasMany(FinancePayoutBatch, { foreignKey: 'userId', as: 'financePayoutBatches' });
+FinancePayoutBatch.belongsTo(User, { foreignKey: 'userId', as: 'owner' });
+FinancePayoutBatch.hasMany(FinancePayoutSplit, { foreignKey: 'batchId', as: 'splits' });
+FinancePayoutSplit.belongsTo(FinancePayoutBatch, { foreignKey: 'batchId', as: 'batch' });
+
+User.hasMany(FinanceForecastScenario, { foreignKey: 'userId', as: 'financeForecastScenarios' });
+FinanceForecastScenario.belongsTo(User, { foreignKey: 'userId', as: 'owner' });
+
+User.hasMany(FinanceTaxExport, { foreignKey: 'userId', as: 'financeTaxExports' });
+FinanceTaxExport.belongsTo(User, { foreignKey: 'userId', as: 'owner' });
+
 User.hasMany(EscrowAccount, { foreignKey: 'userId', as: 'escrowAccounts' });
 EscrowAccount.belongsTo(User, { foreignKey: 'userId', as: 'owner' });
 EscrowAccount.hasMany(EscrowTransaction, { foreignKey: 'accountId', as: 'transactions' });
@@ -7372,6 +7766,13 @@ export default {
   ProviderWorkspaceMember,
   ProviderWorkspaceInvite,
   ProviderContactNote,
+  FinanceRevenueEntry,
+  FinanceExpenseEntry,
+  FinanceSavingsGoal,
+  FinancePayoutBatch,
+  FinancePayoutSplit,
+  FinanceForecastScenario,
+  FinanceTaxExport,
   AgencyCollaboration,
   AgencyCollaborationInvitation,
   AgencyRateCard,

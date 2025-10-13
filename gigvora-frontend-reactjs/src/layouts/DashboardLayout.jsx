@@ -813,6 +813,9 @@ export default function DashboardLayout({
                               {feature.component ? (
                                 <div className="mt-5">{feature.component}</div>
                               ) : null}
+                              {feature.content ? (
+                                <div className="mt-5">{feature.content}</div>
+                              ) : null}
                             </div>
                           );
                         })}
