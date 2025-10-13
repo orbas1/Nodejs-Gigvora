@@ -14,6 +14,7 @@ class SessionState {
 
 class UserSession {
   const UserSession({
+    required this.id,
     required this.name,
     required this.title,
     required this.email,
@@ -21,6 +22,7 @@ class UserSession {
     required this.memberships,
     required this.activeMembership,
     required this.dashboards,
+    required this.userType,
     this.avatarSeed,
     this.connections = 0,
     this.followers = 0,
@@ -28,11 +30,13 @@ class UserSession {
     this.agencies = const <String>[],
   }) : assert(memberships.isNotEmpty, 'memberships cannot be empty');
 
+  final int id;
   final String name;
   final String title;
   final String email;
   final String location;
   final String? avatarSeed;
+  final String userType;
   final List<String> memberships;
   final String activeMembership;
   final Map<String, RoleDashboard> dashboards;
@@ -64,10 +68,12 @@ class UserSession {
     final nextActive = activeMembership ?? this.activeMembership;
     final activeExists = nextMemberships.contains(nextActive);
     return UserSession(
+      id: id,
       name: name,
       title: title,
       email: email,
       location: location,
+      userType: userType,
       avatarSeed: avatarSeed,
       memberships: nextMemberships,
       activeMembership: activeExists ? nextActive : nextMemberships.first,
@@ -81,6 +87,7 @@ class UserSession {
 
   static UserSession demo() {
     return UserSession(
+      id: 1,
       name: 'Lena Fields',
       title: 'Product Designer',
       email: 'lena.fields@gigvora.com',
@@ -88,6 +95,7 @@ class UserSession {
       avatarSeed: 'Lena Fields',
       memberships: const ['user', 'freelancer', 'agency'],
       activeMembership: 'user',
+      userType: 'freelancer',
       followers: 1280,
       connections: 324,
       companies: const ['Gigvora Labs', 'Atlas Studios'],
