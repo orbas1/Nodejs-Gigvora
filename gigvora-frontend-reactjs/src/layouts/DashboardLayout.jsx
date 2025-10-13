@@ -137,6 +137,48 @@ export default function DashboardLayout({
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{section.label}</p>
                   <ul className="mt-3 space-y-2">
                     {section.items.map((item) => {
+                      const content = (
+                        <>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-slate-700">{item.name}</span>
+                            <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
+                          </div>
+                          {item.description ? (
+                            <p className="text-xs text-slate-500">{item.description}</p>
+                          ) : null}
+                          {item.tags?.length ? (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {item.tags.map((tag) => (
+                                <span
+                                  key={tag}
+                                  className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-600"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
+                        </>
+                      );
+
+                      return (
+                        <li key={item.name}>
+                          {item.href ? (
+                            <a
+                              href={item.href}
+                              onClick={() => setSidebarOpen(false)}
+                              className="group flex flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50"
+                            >
+                              {content}
+                            </a>
+                          ) : (
+                            <div className="group flex flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50">
+                              {content}
+                            </div>
+                          )}
+                        </li>
+                      );
+                    })}
                       const itemKey = item.key ?? item.slug ?? slugify(item.name);
                       const isActive = selectedMenuItemKey && itemKey === selectedMenuItemKey;
                       const isInteractive = typeof onMenuItemSelect === 'function';

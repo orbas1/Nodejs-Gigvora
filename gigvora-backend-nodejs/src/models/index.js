@@ -1563,6 +1563,44 @@ ClientPortalScopeItem.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+export const GIG_STATUSES = ['draft', 'published', 'archived'];
+export const GIG_VISIBILITY_OPTIONS = ['private', 'public', 'unlisted'];
+
+export const Gig = sequelize.define(
+  'Gig',
+  {
+    ownerId: { type: DataTypes.INTEGER, allowNull: true },
+    slug: { type: DataTypes.STRING(200), allowNull: true, unique: true },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    tagline: { type: DataTypes.STRING(255), allowNull: true },
+    description: { type: DataTypes.TEXT, allowNull: false },
+    category: { type: DataTypes.STRING(120), allowNull: true },
+    niche: { type: DataTypes.STRING(180), allowNull: true },
+    deliveryModel: { type: DataTypes.STRING(160), allowNull: true },
+    outcomePromise: { type: DataTypes.TEXT, allowNull: true },
+    budget: { type: DataTypes.STRING(120), allowNull: true },
+    duration: { type: DataTypes.STRING(120), allowNull: true },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    geoLocation: { type: jsonType, allowNull: true },
+    heroAccent: { type: DataTypes.STRING(20), allowNull: true },
+    targetMetric: { type: DataTypes.INTEGER, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...GIG_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [GIG_STATUSES] },
+    },
+    visibility: {
+      type: DataTypes.ENUM(...GIG_VISIBILITY_OPTIONS),
+      allowNull: false,
+      defaultValue: 'private',
+      validate: { isIn: [GIG_VISIBILITY_OPTIONS] },
+    },
+    bannerSettings: { type: jsonType, allowNull: true },
+    availabilityTimezone: { type: DataTypes.STRING(120), allowNull: true },
+    availabilityLeadTimeDays: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 2 },
+    publishedAt: { type: DataTypes.DATE, allowNull: true },
+    archivedAt: { type: DataTypes.DATE, allowNull: true },
 export const ClientPortalDecisionLog = sequelize.define(
   'ClientPortalDecisionLog',
   {
@@ -1622,6 +1660,193 @@ ClientPortalDecisionLog.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+Gig.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  const packages = Array.isArray(this.packages)
+    ? this.packages.map((pkg) => pkg.toPublicObject?.() ?? pkg)
+    : [];
+  const addOns = Array.isArray(this.addOns)
+    ? this.addOns.map((addon) => addon.toPublicObject?.() ?? addon)
+    : [];
+  const availabilitySlots = Array.isArray(this.availabilitySlots)
+    ? this.availabilitySlots.map((slot) => slot.toPublicObject?.() ?? slot)
+    : [];
+  const owner = this.owner?.get?.({ plain: true }) ?? this.owner ?? null;
+
+  return {
+    id: plain.id,
+    ownerId: plain.ownerId,
+    owner: owner
+      ? {
+          id: owner.id,
+          firstName: owner.firstName,
+          lastName: owner.lastName,
+          email: owner.email,
+        }
+      : null,
+    slug: plain.slug,
+    title: plain.title,
+    tagline: plain.tagline,
+    description: plain.description,
+    category: plain.category,
+    niche: plain.niche,
+    deliveryModel: plain.deliveryModel,
+    outcomePromise: plain.outcomePromise,
+    budget: plain.budget,
+    duration: plain.duration,
+    location: plain.location,
+    geoLocation: plain.geoLocation,
+    heroAccent: plain.heroAccent,
+    targetMetric: plain.targetMetric == null ? null : Number(plain.targetMetric),
+    status: plain.status,
+    visibility: plain.visibility,
+    bannerSettings: plain.bannerSettings ?? null,
+    availabilityTimezone: plain.availabilityTimezone,
+    availabilityLeadTimeDays:
+      plain.availabilityLeadTimeDays == null ? null : Number(plain.availabilityLeadTimeDays),
+    publishedAt: plain.publishedAt,
+    archivedAt: plain.archivedAt,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+    packages,
+    addOns,
+    availabilitySlots,
+  };
+};
+
+export const GigPackage = sequelize.define(
+  'GigPackage',
+  {
+    gigId: { type: DataTypes.INTEGER, allowNull: false },
+    packageKey: { type: DataTypes.STRING(80), allowNull: false },
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    priceAmount: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
+    priceCurrency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    deliveryDays: { type: DataTypes.INTEGER, allowNull: true },
+    revisionLimit: { type: DataTypes.INTEGER, allowNull: true },
+    highlights: { type: jsonType, allowNull: true },
+    recommendedFor: { type: DataTypes.STRING(255), allowNull: true },
+    isPopular: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    position: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  },
+  {
+    tableName: 'gig_packages',
+    indexes: [
+      {
+        unique: true,
+        fields: ['gigId', 'packageKey'],
+      },
+    ],
+  },
+);
+
+GigPackage.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  const highlights = Array.isArray(plain.highlights)
+    ? plain.highlights.filter((item) => typeof item === 'string' && item.trim().length > 0)
+    : [];
+  return {
+    id: plain.id,
+    gigId: plain.gigId,
+    key: plain.packageKey,
+    name: plain.name,
+    description: plain.description,
+    priceAmount: Number(plain.priceAmount ?? 0),
+    priceCurrency: plain.priceCurrency ?? 'USD',
+    deliveryDays: plain.deliveryDays == null ? null : Number(plain.deliveryDays),
+    revisionLimit: plain.revisionLimit == null ? null : Number(plain.revisionLimit),
+    highlights,
+    recommendedFor: plain.recommendedFor,
+    isPopular: Boolean(plain.isPopular),
+    position: plain.position ?? 0,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const GigAddOn = sequelize.define(
+  'GigAddOn',
+  {
+    gigId: { type: DataTypes.INTEGER, allowNull: false },
+    addOnKey: { type: DataTypes.STRING(80), allowNull: false },
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    priceAmount: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
+    priceCurrency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    isActive: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    position: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  },
+  {
+    tableName: 'gig_add_ons',
+    indexes: [
+      {
+        unique: true,
+        fields: ['gigId', 'addOnKey'],
+      },
+    ],
+  },
+);
+
+GigAddOn.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    gigId: plain.gigId,
+    key: plain.addOnKey,
+    name: plain.name,
+    description: plain.description,
+    priceAmount: Number(plain.priceAmount ?? 0),
+    priceCurrency: plain.priceCurrency ?? 'USD',
+    isActive: Boolean(plain.isActive),
+    position: plain.position ?? 0,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const GigAvailabilitySlot = sequelize.define(
+  'GigAvailabilitySlot',
+  {
+    gigId: { type: DataTypes.INTEGER, allowNull: false },
+    slotDate: { type: DataTypes.DATEONLY, allowNull: false },
+    startTime: { type: DataTypes.TIME, allowNull: false },
+    endTime: { type: DataTypes.TIME, allowNull: false },
+    capacity: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
+    reservedCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    isBookable: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    notes: { type: DataTypes.STRING(255), allowNull: true },
+  },
+  {
+    tableName: 'gig_availability_slots',
+    indexes: [
+      {
+        unique: true,
+        fields: ['gigId', 'slotDate', 'startTime'],
+      },
+    ],
+  },
+);
+
+GigAvailabilitySlot.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    gigId: plain.gigId,
+    date: plain.slotDate,
+    startTime: plain.startTime,
+    endTime: plain.endTime,
+    capacity: plain.capacity == null ? 1 : Number(plain.capacity),
+    reservedCount: plain.reservedCount == null ? 0 : Number(plain.reservedCount),
+    isBookable: Boolean(plain.isBookable),
+    notes: plain.notes ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const Project = sequelize.define(
+  'Project',
 export const ClientPortalInsightWidget = sequelize.define(
   'ClientPortalInsightWidget',
   {
@@ -3329,6 +3554,18 @@ SearchSubscription.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+User.hasMany(Gig, { foreignKey: 'ownerId', as: 'gigs' });
+Gig.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
+
+Gig.hasMany(GigPackage, { foreignKey: 'gigId', as: 'packages', onDelete: 'CASCADE', hooks: true });
+GigPackage.belongsTo(Gig, { foreignKey: 'gigId', as: 'gig' });
+
+Gig.hasMany(GigAddOn, { foreignKey: 'gigId', as: 'addOns', onDelete: 'CASCADE', hooks: true });
+GigAddOn.belongsTo(Gig, { foreignKey: 'gigId', as: 'gig' });
+
+Gig.hasMany(GigAvailabilitySlot, { foreignKey: 'gigId', as: 'availabilitySlots', onDelete: 'CASCADE', hooks: true });
+GigAvailabilitySlot.belongsTo(Gig, { foreignKey: 'gigId', as: 'gig' });
+
 User.hasOne(Profile, { foreignKey: 'userId' });
 Profile.belongsTo(User, { foreignKey: 'userId' });
 Profile.hasMany(ProfileReference, { as: 'references', foreignKey: 'profileId', onDelete: 'CASCADE' });
@@ -3905,6 +4142,9 @@ export default {
   FeedPost,
   Job,
   Gig,
+  GigPackage,
+  GigAddOn,
+  GigAvailabilitySlot,
   GigOrder,
   GigOrderRequirement,
   GigOrderRevision,
