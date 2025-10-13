@@ -3,6 +3,7 @@ import asyncHandler from '../utils/asyncHandler.js';
 import projectController from '../controllers/projectController.js';
 import projectBlueprintController from '../controllers/projectBlueprintController.js';
 import projectWorkspaceController from '../controllers/projectWorkspaceController.js';
+import projectOperationsController from '../controllers/projectOperationsController.js';
 
 const router = Router();
 
@@ -14,6 +15,17 @@ router.patch('/:projectId/auto-assign', asyncHandler(projectController.toggleAut
 router.patch('/:projectId', asyncHandler(projectController.update));
 router.get('/:projectId', asyncHandler(projectController.show));
 router.get('/:projectId/events', asyncHandler(projectController.events));
+router.get('/:projectId/operations', asyncHandler(projectOperationsController.show));
+router.put('/:projectId/operations', asyncHandler(projectOperationsController.upsert));
+router.post('/:projectId/operations/tasks', asyncHandler(projectOperationsController.addTask));
+router.patch(
+  '/:projectId/operations/tasks/:taskId',
+  asyncHandler(projectOperationsController.updateTask),
+);
+router.delete(
+  '/:projectId/operations/tasks/:taskId',
+  asyncHandler(projectOperationsController.removeTask),
+);
 router.get('/:projectId/workspace', asyncHandler(projectWorkspaceController.show));
 router.put('/:projectId/workspace/brief', asyncHandler(projectWorkspaceController.updateBrief));
 router.patch(

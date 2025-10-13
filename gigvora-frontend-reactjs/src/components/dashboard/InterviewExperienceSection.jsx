@@ -1,3 +1,4 @@
+import { useCallback, useMemo } from 'react';
 import {
   CalendarDaysIcon,
   CheckCircleIcon,
@@ -7,6 +8,10 @@ import {
   SparklesIcon,
 } from '@heroicons/react/24/outline';
 import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
+import InterviewVideoRoom from '../interviews/InterviewVideoRoom.jsx';
+import { useInterviewRoom } from '../../hooks/useInterviewRoom.js';
+import { useInterviewWorkflow } from '../../hooks/useInterviewWorkflow.js';
+import { updateInterviewChecklistItem } from '../../services/interviews.js';
 
 function formatNumber(value, { fallback = '—', maximumFractionDigits = 1 } = {}) {
   if (value == null) return fallback;
@@ -42,12 +47,55 @@ export default function InterviewExperienceSection({
   candidateExperience,
   offerOnboarding,
 }) {
-  const scheduler = data?.scheduler ?? {};
   const panelTemplates = data?.panelTemplates ?? {};
   const candidatePrep = data?.candidatePrep ?? {};
   const evaluationWorkspace = data?.evaluationWorkspace ?? {};
   const offerBridge = data?.offerBridge ?? {};
   const candidateCareCenter = data?.candidateCareCenter ?? {};
+
+  const scheduler = data?.scheduler ?? {};
+  const workspaceId = data?.workspaceId ?? scheduler.workspaceId ?? 'workspace_enterprise_recruiting';
+  const upcomingInterviews = Array.isArray(scheduler.upcoming) ? scheduler.upcoming : [];
+
+  const activeRoomId = useMemo(() => {
+    const explicit = scheduler.highlightRoomId || scheduler.activeRoomId || scheduler.nextRoomId;
+    if (explicit) {
+      return explicit;
+    }
+    const fromUpcoming = upcomingInterviews.find((interview) => interview?.videoRoomId)?.videoRoomId;
+    if (fromUpcoming) {
+      return fromUpcoming;
+    }
+    return 'room_enterprise_final_loop';
+  }, [scheduler.highlightRoomId, scheduler.activeRoomId, scheduler.nextRoomId, upcomingInterviews]);
+
+  const {
+    data: roomData,
+    error: roomError,
+    loading: roomLoading,
+    refresh: refreshRoom,
+  } = useInterviewRoom({ roomId: activeRoomId, enabled: Boolean(activeRoomId) });
+
+  const {
+    data: workflowData,
+    error: workflowError,
+    loading: workflowLoading,
+  } = useInterviewWorkflow({ workspaceId, enabled: Boolean(workspaceId) });
+
+  const handleChecklistToggle = useCallback(
+    async (item, nextStatus) => {
+      if (!item?.id || !activeRoomId) {
+        return;
+      }
+      try {
+        await updateInterviewChecklistItem(activeRoomId, item.id, { status: nextStatus });
+        await refreshRoom({ force: true });
+      } catch (updateError) {
+        console.error('Failed to update checklist item', updateError);
+      }
+    },
+    [activeRoomId, refreshRoom],
+  );
 
   const summaryMetrics = [
     {
@@ -92,7 +140,6 @@ export default function InterviewExperienceSection({
     ? offerBridge.tasks.breakdown.slice(0, 4)
     : [];
 
-  const upcomingInterviews = Array.isArray(scheduler.upcoming) ? scheduler.upcoming : [];
   const topTemplates = Array.isArray(panelTemplates.topTemplates) ? panelTemplates.topTemplates : [];
   const topPortals = Array.isArray(candidatePrep.topPortals) ? candidatePrep.topPortals : [];
   const decisionTrackers = Array.isArray(evaluationWorkspace.decisionTrackers)
@@ -126,6 +173,15 @@ export default function InterviewExperienceSection({
           );
         })}
       </div>
+
+      <InterviewVideoRoom
+        room={roomData}
+        workflow={workflowData}
+        loading={roomLoading || workflowLoading}
+        error={roomError || workflowError}
+        onRefresh={() => refreshRoom({ force: true })}
+        onChecklistToggle={handleChecklistToggle}
+      />
 
       <div className="grid gap-4 xl:grid-cols-2">
         <div className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
