@@ -9,6 +9,19 @@ import {
   Project,
   ProjectAssignmentEvent,
   Notification,
+  SupportCase,
+  SupportKnowledgeArticle,
+  CareerAnalyticsSnapshot,
+  CareerPeerBenchmark,
+  WeeklyDigestSubscription,
+  CalendarIntegration,
+  CandidateCalendarEvent,
+  FocusSession,
+  AdvisorCollaboration,
+  AdvisorCollaborationMember,
+  AdvisorCollaborationAuditLog,
+  AdvisorDocumentRoom,
+  SupportAutomationLog,
   User,
 } from '../models/index.js';
 import profileService from './profileService.js';
@@ -210,6 +223,397 @@ function buildFollowUps(applications, targetMap) {
     .slice(0, 8);
 }
 
+function toPlain(instance, options = {}) {
+  if (!instance) return null;
+  if (typeof instance.toPublicObject === 'function') {
+    return instance.toPublicObject(options);
+  }
+  if (typeof instance.get === 'function') {
+    return instance.get({ plain: true, ...options });
+  }
+  return { ...instance };
+}
+
+function computeChange(current, previous) {
+  if (current == null || previous == null) {
+    return null;
+  }
+  const delta = Number(current) - Number(previous);
+  const percent = Number(previous) === 0 ? null : (delta / Number(previous)) * 100;
+  return {
+    absolute: Math.round(delta * 100) / 100,
+    percent: percent == null ? null : Math.round(percent * 10) / 10,
+    direction: delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat',
+  };
+}
+
+function sanitizeCareerSnapshot(snapshot) {
+  const plain = toPlain(snapshot);
+  if (!plain) return null;
+  return {
+    id: plain.id,
+    timeframeStart: plain.timeframeStart,
+    timeframeEnd: plain.timeframeEnd,
+    outreachConversionRate: plain.outreachConversionRate == null ? null : Number(plain.outreachConversionRate),
+    interviewMomentum: plain.interviewMomentum == null ? null : Number(plain.interviewMomentum),
+    offerWinRate: plain.offerWinRate == null ? null : Number(plain.offerWinRate),
+    salaryMedian: plain.salaryMedian == null ? null : Number(plain.salaryMedian),
+    salaryCurrency: plain.salaryCurrency ?? 'USD',
+    salaryTrend: plain.salaryTrend ?? 'flat',
+    diversityRepresentation: plain.diversityRepresentation ?? null,
+    funnelBreakdown: plain.funnelBreakdown ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+}
+
+function sanitizeBenchmark(benchmark) {
+  const plain = toPlain(benchmark);
+  if (!plain) return null;
+  return {
+    id: plain.id,
+    cohortKey: plain.cohortKey,
+    metric: plain.metric,
+    value: plain.value == null ? null : Number(plain.value),
+    percentile: plain.percentile == null ? null : Number(plain.percentile),
+    sampleSize: plain.sampleSize == null ? null : Number(plain.sampleSize),
+    capturedAt: plain.capturedAt,
+    metadata: plain.metadata ?? null,
+  };
+}
+
+function sanitizeCalendarIntegrationRecord(integration) {
+  const plain = toPlain(integration);
+  if (!plain) return null;
+  return {
+    id: plain.id,
+    provider: plain.provider,
+    externalAccount: plain.externalAccount,
+    status: plain.status,
+    lastSyncedAt: plain.lastSyncedAt,
+    syncError: plain.syncError,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+}
+
+function sanitizeCalendarEventRecord(event) {
+  const plain = toPlain(event);
+  if (!plain) return null;
+  return {
+    id: plain.id,
+    title: plain.title,
+    eventType: plain.eventType,
+    source: plain.source,
+    startsAt: plain.startsAt,
+    endsAt: plain.endsAt,
+    location: plain.location,
+    isFocusBlock: Boolean(plain.isFocusBlock),
+    focusMode: plain.focusMode,
+    metadata: plain.metadata ?? null,
+  };
+}
+
+function sanitizeFocusSessionRecord(session) {
+  const plain = toPlain(session);
+  if (!plain) return null;
+  return {
+    id: plain.id,
+    focusType: plain.focusType,
+    startedAt: plain.startedAt,
+    endedAt: plain.endedAt,
+    durationMinutes: plain.durationMinutes == null ? null : Number(plain.durationMinutes),
+    completed: Boolean(plain.completed),
+    notes: plain.notes,
+    metadata: plain.metadata ?? null,
+  };
+}
+
+function sanitizeAuditLogRecord(log) {
+  const plain = toPlain(log);
+  if (!plain) return null;
+  const actorInstance = log?.get?.('actor') ?? log.actor ?? plain.actor;
+  const actor = actorInstance
+    ? {
+        id: actorInstance.id,
+        firstName: actorInstance.firstName,
+        lastName: actorInstance.lastName,
+        email: actorInstance.email,
+      }
+    : null;
+  return {
+    id: plain.id,
+    collaborationId: plain.collaborationId,
+    actor,
+    action: plain.action,
+    scope: plain.scope,
+    details: plain.details ?? null,
+    createdAt: plain.createdAt,
+  };
+}
+
+function sanitizeCollaborationRecord(collaboration, auditLogMap = new Map()) {
+  const base = toPlain(collaboration);
+  if (!base) return null;
+  const members = Array.isArray(collaboration?.members)
+    ? collaboration.members.map((member) => {
+        const memberPlain = toPlain(member) ?? {};
+        const userInstance = member?.get?.('member') ?? member.member ?? null;
+        const user = userInstance
+          ? {
+              id: userInstance.id,
+              firstName: userInstance.firstName,
+              lastName: userInstance.lastName,
+              email: userInstance.email,
+            }
+          : null;
+        return {
+          ...memberPlain,
+          user,
+        };
+      })
+    : [];
+
+  const documentRooms = Array.isArray(collaboration?.documentRooms)
+    ? collaboration.documentRooms.map((room) => toPlain(room)).filter(Boolean)
+    : [];
+
+  const auditTrail = auditLogMap.get(base.id) ?? [];
+
+  return {
+    ...base,
+    members,
+    documentRooms,
+    auditTrail,
+  };
+}
+
+function sanitizeSupportCaseRecord(supportCase) {
+  if (!supportCase) return null;
+  const plain = supportCase.get({ plain: true });
+  const assignedAgentInstance = supportCase.get?.('assignedAgent') ?? plain.assignedAgent ?? null;
+  const assignedAgent = assignedAgentInstance
+    ? {
+        id: assignedAgentInstance.id,
+        firstName: assignedAgentInstance.firstName,
+        lastName: assignedAgentInstance.lastName,
+        email: assignedAgentInstance.email,
+      }
+    : null;
+
+  const openedAt = plain.escalatedAt ?? plain.createdAt ?? null;
+  const now = new Date();
+  const ageHours = openedAt ? Math.round((now.getTime() - new Date(openedAt).getTime()) / (1000 * 60 * 60)) : null;
+  const resolved = Boolean(plain.resolvedAt);
+  const responseTargetHours = plain.priority === 'urgent' ? 4 : plain.priority === 'high' ? 8 : 24;
+  const responseMinutes = plain.firstResponseAt && openedAt
+    ? Math.round((new Date(plain.firstResponseAt).getTime() - new Date(openedAt).getTime()) / (1000 * 60))
+    : null;
+  const resolutionMinutes = plain.resolvedAt && openedAt
+    ? Math.round((new Date(plain.resolvedAt).getTime() - new Date(openedAt).getTime()) / (1000 * 60))
+    : null;
+
+  return {
+    id: plain.id,
+    status: plain.status,
+    priority: plain.priority,
+    reason: plain.reason,
+    escalatedAt: plain.escalatedAt,
+    firstResponseAt: plain.firstResponseAt,
+    resolvedAt: plain.resolvedAt,
+    assignedAgent,
+    metadata: plain.metadata ?? null,
+    ageHours,
+    responseMinutes,
+    resolutionMinutes,
+    slaBreached: !resolved && ageHours != null && ageHours > responseTargetHours,
+  };
+}
+
+function sanitizeAutomationLogRecord(log) {
+  const plain = toPlain(log);
+  if (!plain) return null;
+  return {
+    id: plain.id,
+    source: plain.source,
+    action: plain.action,
+    status: plain.status,
+    triggeredAt: plain.triggeredAt,
+    completedAt: plain.completedAt,
+    metadata: plain.metadata ?? null,
+  };
+}
+
+function sanitizeKnowledgeArticleRecord(article) {
+  const plain = toPlain(article);
+  if (!plain) return null;
+  return {
+    id: plain.id,
+    slug: plain.slug,
+    title: plain.title,
+    summary: plain.summary,
+    category: plain.category,
+    audience: plain.audience,
+    resourceLinks: plain.resourceLinks ?? null,
+    lastReviewedAt: plain.lastReviewedAt,
+  };
+}
+
+function buildCareerAnalyticsInsights(snapshotRecords, benchmarkRecords) {
+  const snapshots = snapshotRecords.map((record) => sanitizeCareerSnapshot(record)).filter(Boolean);
+  const benchmarks = benchmarkRecords.map((record) => sanitizeBenchmark(record)).filter(Boolean);
+  const latest = snapshots[0] ?? null;
+  const previous = snapshots[1] ?? null;
+
+  const summary = {
+    conversionRate: latest?.outreachConversionRate ?? null,
+    interviewMomentum: latest?.interviewMomentum ?? null,
+    offerWinRate: latest?.offerWinRate ?? null,
+    salary: {
+      value: latest?.salaryMedian ?? null,
+      currency: latest?.salaryCurrency ?? 'USD',
+      trend: latest?.salaryTrend ?? 'flat',
+      change: computeChange(latest?.salaryMedian, previous?.salaryMedian),
+    },
+    conversionChange: computeChange(latest?.outreachConversionRate, previous?.outreachConversionRate),
+    interviewChange: computeChange(latest?.interviewMomentum, previous?.interviewMomentum),
+    offerChange: computeChange(latest?.offerWinRate, previous?.offerWinRate),
+  };
+
+  const diversity = latest?.diversityRepresentation ?? null;
+  const funnel = latest?.funnelBreakdown ?? null;
+
+  return {
+    summary,
+    snapshots,
+    benchmarks,
+    diversity,
+    funnel,
+  };
+}
+
+function buildCalendarInsights(eventsRecords, focusSessionRecords, integrationRecords) {
+  const events = eventsRecords.map((record) => sanitizeCalendarEventRecord(record)).filter(Boolean);
+  const focusSessions = focusSessionRecords.map((record) => sanitizeFocusSessionRecord(record)).filter(Boolean);
+  const integrations = integrationRecords.map((record) => sanitizeCalendarIntegrationRecord(record)).filter(Boolean);
+
+  const now = new Date();
+  const upcomingEvents = events.filter((event) => !event.startsAt || new Date(event.startsAt) >= now);
+  const nextFocusBlock = upcomingEvents.find((event) => event.isFocusBlock) ?? null;
+  const upcomingInterviews = upcomingEvents
+    .filter((event) => event.eventType === 'interview')
+    .slice(0, 3);
+
+  const focusTotalMinutes = focusSessions.reduce((total, session) => {
+    if (session.durationMinutes != null) {
+      return total + Number(session.durationMinutes);
+    }
+    if (session.startedAt && session.endedAt) {
+      const start = new Date(session.startedAt).getTime();
+      const end = new Date(session.endedAt).getTime();
+      if (!Number.isNaN(start) && !Number.isNaN(end) && end > start) {
+        return total + Math.round((end - start) / (1000 * 60));
+      }
+    }
+    return total;
+  }, 0);
+
+  const focusByType = focusSessions.reduce((accumulator, session) => {
+    if (!session || !session.focusType) return accumulator;
+    const key = session.focusType;
+    accumulator[key] = (accumulator[key] ?? 0) + (session.durationMinutes ?? 0);
+    return accumulator;
+  }, {});
+
+  return {
+    integrations,
+    events,
+    upcomingInterviews,
+    nextFocusBlock,
+    focus: {
+      sessions: focusSessions,
+      totalMinutes: focusTotalMinutes,
+      byType: focusByType,
+    },
+  };
+}
+
+function buildAdvisorInsights(collaborationRecords, auditLogRecords) {
+  const auditLogMap = auditLogRecords.reduce((map, log) => {
+    const sanitized = sanitizeAuditLogRecord(log);
+    if (!sanitized) return map;
+    if (!map.has(sanitized.collaborationId)) {
+      map.set(sanitized.collaborationId, []);
+    }
+    map.get(sanitized.collaborationId).push(sanitized);
+    return map;
+  }, new Map());
+
+  const collaborations = collaborationRecords
+    .map((collaboration) => sanitizeCollaborationRecord(collaboration, auditLogMap))
+    .filter(Boolean);
+
+  const totalMembers = collaborations.reduce((total, collaboration) => total + (collaboration.members?.length ?? 0), 0);
+  const activeRooms = collaborations.flatMap((collaboration) => collaboration.documentRooms ?? []).filter(
+    (room) => room && room.status === 'active',
+  );
+
+  return {
+    collaborations,
+    summary: {
+      totalCollaborations: collaborations.length,
+      totalMembers,
+      activeDocumentRooms: activeRooms.length,
+    },
+  };
+}
+
+function buildSupportDeskInsights(caseRecords, automationRecords, knowledgeRecords) {
+  const cases = caseRecords.map((record) => sanitizeSupportCaseRecord(record)).filter(Boolean);
+  const automation = automationRecords.map((record) => sanitizeAutomationLogRecord(record)).filter(Boolean);
+  const articles = knowledgeRecords.map((record) => sanitizeKnowledgeArticleRecord(record)).filter(Boolean);
+
+  const summary = cases.reduce(
+    (accumulator, supportCase) => {
+      const isOpen = !['resolved', 'closed'].includes(supportCase.status ?? '');
+      if (isOpen) {
+        accumulator.open += 1;
+      }
+      if (supportCase.slaBreached) {
+        accumulator.slaBreached += 1;
+      }
+      if (supportCase.responseMinutes != null) {
+        accumulator.responseMinutes.push(supportCase.responseMinutes);
+      }
+      if (supportCase.resolutionMinutes != null) {
+        accumulator.resolutionMinutes.push(supportCase.resolutionMinutes);
+      }
+      return accumulator;
+    },
+    { open: 0, slaBreached: 0, responseMinutes: [], resolutionMinutes: [] },
+  );
+
+  const average = (values) => {
+    if (!values.length) return null;
+    const total = values.reduce((sum, value) => sum + value, 0);
+    return Math.round((total / values.length) * 10) / 10;
+  };
+
+  return {
+    cases,
+    automation,
+    knowledgeArticles: articles,
+    summary: {
+      openCases: summary.open,
+      slaBreached: summary.slaBreached,
+      averageFirstResponseMinutes: average(summary.responseMinutes),
+      averageResolutionMinutes: average(summary.resolutionMinutes),
+    },
+  };
+}
+
 async function hydrateTargets(applications) {
   const jobIds = new Set();
   const gigIds = new Set();
@@ -305,13 +709,121 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     limit: 12,
   });
 
-  const [applications, pipelineRows, notifications, launchpadApplications, projectEvents] = await Promise.all([
+  const careerSnapshotsQuery = CareerAnalyticsSnapshot.findAll({
+    where: { userId },
+    order: [['timeframeEnd', 'DESC']],
+    limit: 6,
+  });
+
+  const peerBenchmarksQuery = CareerPeerBenchmark.findAll({
+    where: { userId },
+    order: [['capturedAt', 'DESC']],
+    limit: 12,
+  });
+
+  const digestSubscriptionQuery = WeeklyDigestSubscription.findOne({ where: { userId } });
+
+  const calendarWindowStart = new Date();
+  calendarWindowStart.setDate(calendarWindowStart.getDate() - 14);
+  const calendarWindowEnd = new Date();
+  calendarWindowEnd.setDate(calendarWindowEnd.getDate() + 30);
+
+  const calendarIntegrationsQuery = CalendarIntegration.findAll({
+    where: { userId },
+    order: [['provider', 'ASC']],
+  });
+
+  const calendarEventsQuery = CandidateCalendarEvent.findAll({
+    where: {
+      userId,
+      startsAt: { [Op.between]: [calendarWindowStart, calendarWindowEnd] },
+    },
+    order: [['startsAt', 'ASC']],
+    limit: 40,
+  });
+
+  const focusSessionsQuery = FocusSession.findAll({
+    where: { userId },
+    order: [['startedAt', 'DESC']],
+    limit: 12,
+  });
+
+  const collaborationsQuery = AdvisorCollaboration.findAll({
+    where: { ownerId: userId },
+    include: [
+      {
+        model: AdvisorCollaborationMember,
+        as: 'members',
+        include: [{ model: User, as: 'member', attributes: ['id', 'firstName', 'lastName', 'email'] }],
+      },
+      { model: AdvisorDocumentRoom, as: 'documentRooms' },
+    ],
+    order: [['updatedAt', 'DESC']],
+    limit: 5,
+  });
+
+  const supportCasesQuery = SupportCase.findAll({
+    where: { escalatedBy: userId },
+    include: [{ model: User, as: 'assignedAgent', attributes: ['id', 'firstName', 'lastName', 'email'] }],
+    order: [['updatedAt', 'DESC']],
+    limit: 10,
+  });
+
+  const automationLogsQuery = SupportAutomationLog.findAll({
+    where: { userId },
+    order: [['triggeredAt', 'DESC']],
+    limit: 12,
+  });
+
+  const knowledgeArticlesQuery = SupportKnowledgeArticle.findAll({
+    where: { audience: { [Op.in]: ['freelancer', 'support_team'] } },
+    order: [['lastReviewedAt', 'DESC']],
+    limit: 8,
+  });
+
+  const [
+    applications,
+    pipelineRows,
+    notifications,
+    launchpadApplications,
+    projectEvents,
+    careerSnapshots,
+    peerBenchmarks,
+    digestSubscription,
+    calendarIntegrations,
+    calendarEvents,
+    focusSessions,
+    collaborations,
+    supportCases,
+    automationLogs,
+    knowledgeArticles,
+  ] = await Promise.all([
     applicationQuery,
     pipelineQuery,
     notificationsQuery,
     launchpadApplicationsQuery,
     projectEventsQuery,
+    careerSnapshotsQuery,
+    peerBenchmarksQuery,
+    digestSubscriptionQuery,
+    calendarIntegrationsQuery,
+    calendarEventsQuery,
+    focusSessionsQuery,
+    collaborationsQuery,
+    supportCasesQuery,
+    automationLogsQuery,
+    knowledgeArticlesQuery,
   ]);
+
+  const collaborationIds = collaborations.map((collaboration) => collaboration.id);
+  const auditLogs = collaborationIds.length
+    ? await AdvisorCollaborationAuditLog.findAll({
+        where: { collaborationId: { [Op.in]: collaborationIds } },
+        include: [{ model: User, as: 'actor', attributes: ['id', 'firstName', 'lastName', 'email'] }],
+        order: [['createdAt', 'DESC']],
+        limit: 40,
+      })
+    : [];
 
   const targetMap = await hydrateTargets(applications);
   const sanitizedApplications = applications.map((application) => sanitizeApplication(application, targetMap));
@@ -416,6 +928,28 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     connections: profile.connectionsCount ?? profile.metrics?.connectionsCount ?? 0,
   };
 
+  const careerAnalytics = buildCareerAnalyticsInsights(careerSnapshots, peerBenchmarks);
+  const calendarInsights = buildCalendarInsights(calendarEvents, focusSessions, calendarIntegrations);
+  const advisorInsights = buildAdvisorInsights(collaborations, auditLogs);
+  const supportDesk = buildSupportDeskInsights(supportCases, automationLogs, knowledgeArticles);
+
+  const digestPlain = digestSubscription?.toPublicObject?.() ?? digestSubscription?.get?.({ plain: true }) ?? null;
+  const weeklyDigest = {
+    subscription: digestPlain
+      ? {
+          frequency: digestPlain.frequency,
+          channels: Array.isArray(digestPlain.channels) ? digestPlain.channels : [],
+          isActive: Boolean(digestPlain.isActive),
+          lastSentAt: digestPlain.lastSentAt ?? null,
+          nextScheduledAt: digestPlain.nextScheduledAt ?? null,
+          metadata: digestPlain.metadata ?? null,
+        }
+      : null,
+    integrations: Array.isArray(calendarInsights.integrations)
+      ? calendarInsights.integrations.map((integration) => ({ ...integration }))
+      : [],
+  };
+
   return {
     generatedAt: new Date().toISOString(),
     profile,
@@ -442,6 +976,13 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     tasks: {
       followUps,
       automations,
+    },
+    insights: {
+      careerAnalytics,
+      weeklyDigest,
+      calendar: calendarInsights,
+      advisorCollaboration: advisorInsights,
+      supportDesk,
     },
   };
 }

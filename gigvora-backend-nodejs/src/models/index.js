@@ -222,7 +222,6 @@ export const GIG_ORDER_STATUSES = [
 
 export const GIG_ORDER_REQUIREMENT_STATUSES = ['pending', 'received', 'waived'];
 export const GIG_ORDER_REQUIREMENT_PRIORITIES = ['low', 'medium', 'high'];
-export const GIG_ORDER_REVISION_STATUSES = ['requested', 'in_progress', 'submitted', 'approved', 'rejected'];
 export const GIG_ORDER_REVISION_SEVERITIES = ['low', 'medium', 'high'];
 export const GIG_ORDER_PAYOUT_STATUSES = ['pending', 'scheduled', 'released', 'at_risk', 'on_hold'];
 export const GIG_ORDER_ACTIVITY_TYPES = [
@@ -294,7 +293,7 @@ export const DELIVERABLE_RETENTION_POLICIES = [
   'short_term',
 ];
 
-export const GIG_STATUSES = ['draft', 'preview', 'published', 'archived'];
+export const GIG_BUILDER_STATUSES = ['draft', 'preview', 'published', 'archived'];
 export const GIG_MEDIA_TYPES = ['image', 'video', 'document'];
 export const GIG_PREVIEW_DEVICE_TYPES = ['desktop', 'tablet', 'mobile'];
 
@@ -306,6 +305,17 @@ export const FINANCE_AUTOMATION_TYPES = ['fixed_transfer', 'percentage_income', 
 export const FINANCE_PAYOUT_STATUSES = ['draft', 'scheduled', 'processing', 'completed', 'failed'];
 export const FINANCE_FORECAST_SCENARIO_TYPES = ['retainer_pipeline', 'one_off_pipeline', 'baseline', 'stretch', 'custom'];
 export const FINANCE_TAX_EXPORT_STATUSES = ['generating', 'available', 'archived', 'failed'];
+
+export const CAREER_ANALYTICS_TREND_DIRECTIONS = ['up', 'down', 'flat'];
+export const CALENDAR_INTEGRATION_STATUSES = ['connected', 'syncing', 'error', 'disconnected'];
+export const CALENDAR_EVENT_TYPES = ['interview', 'networking', 'project', 'wellbeing', 'deadline', 'ritual'];
+export const CALENDAR_EVENT_SOURCES = ['manual', 'google', 'outlook', 'gigvora'];
+export const FOCUS_SESSION_TYPES = ['interview_prep', 'networking', 'application', 'deep_work', 'wellbeing'];
+export const ADVISOR_COLLABORATION_STATUSES = ['draft', 'active', 'paused', 'archived'];
+export const ADVISOR_COLLABORATION_MEMBER_ROLES = ['mentor', 'agency', 'coach', 'observer', 'teammate'];
+export const ADVISOR_COLLABORATION_MEMBER_STATUSES = ['invited', 'active', 'revoked'];
+export const DOCUMENT_ROOM_STATUSES = ['active', 'expired', 'archived'];
+export const SUPPORT_AUTOMATION_STATUSES = ['queued', 'running', 'success', 'failed'];
 
 export const COMPLIANCE_DOCUMENT_TYPES = [
   'msa',
@@ -666,6 +676,8 @@ export const CommunitySpotlightNewsletterFeature = sequelize.define(
     callToActionUrl: { type: DataTypes.STRING(512), allowNull: true },
   },
   { tableName: 'community_spotlight_newsletter_features' },
+);
+
 export const ReputationTestimonial = sequelize.define(
   'ReputationTestimonial',
   {
@@ -1063,14 +1075,12 @@ export const Gig = sequelize.define(
     geoLocation: { type: jsonType, allowNull: true },
     summary: { type: DataTypes.TEXT, allowNull: true },
     status: {
-      type: DataTypes.ENUM(...GIG_STATUSES),
-    freelancerId: { type: DataTypes.INTEGER, allowNull: true },
-    status: {
-      type: DataTypes.STRING(40),
+      type: DataTypes.ENUM(...GIG_BUILDER_STATUSES),
       allowNull: false,
       defaultValue: 'draft',
-      validate: { isIn: [GIG_STATUSES] },
+      validate: { isIn: [GIG_BUILDER_STATUSES] },
     },
+    freelancerId: { type: DataTypes.INTEGER, allowNull: true },
     heroTitle: { type: DataTypes.STRING(255), allowNull: true },
     heroSubtitle: { type: DataTypes.STRING(500), allowNull: true },
     heroMediaUrl: { type: DataTypes.STRING(500), allowNull: true },
@@ -3371,7 +3381,7 @@ ClientPortalScopeItem.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
-export const GIG_STATUSES = ['draft', 'published', 'archived'];
+export const GIG_MARKETPLACE_STATUSES = ['draft', 'published', 'archived'];
 export const GIG_VISIBILITY_OPTIONS = ['private', 'public', 'unlisted'];
 
 export const Gig = sequelize.define(
@@ -3393,10 +3403,10 @@ export const Gig = sequelize.define(
     heroAccent: { type: DataTypes.STRING(20), allowNull: true },
     targetMetric: { type: DataTypes.INTEGER, allowNull: true },
     status: {
-      type: DataTypes.ENUM(...GIG_STATUSES),
+      type: DataTypes.ENUM(...GIG_MARKETPLACE_STATUSES),
       allowNull: false,
       defaultValue: 'draft',
-      validate: { isIn: [GIG_STATUSES] },
+      validate: { isIn: [GIG_MARKETPLACE_STATUSES] },
     },
     visibility: {
       type: DataTypes.ENUM(...GIG_VISIBILITY_OPTIONS),
@@ -4724,6 +4734,396 @@ export const SupportKnowledgeArticle = sequelize.define(
 
 SupportKnowledgeArticle.prototype.toPublicObject = function toPublicObject() {
   return this.get({ plain: true });
+};
+
+export const CareerAnalyticsSnapshot = sequelize.define(
+  'CareerAnalyticsSnapshot',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    timeframeStart: { type: DataTypes.DATEONLY, allowNull: false },
+    timeframeEnd: { type: DataTypes.DATEONLY, allowNull: false },
+    outreachConversionRate: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    interviewMomentum: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    offerWinRate: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    salaryMedian: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    salaryCurrency: { type: DataTypes.STRING(3), allowNull: true },
+    salaryTrend: {
+      type: DataTypes.ENUM(...CAREER_ANALYTICS_TREND_DIRECTIONS),
+      allowNull: false,
+      defaultValue: 'flat',
+    },
+    diversityRepresentation: { type: jsonType, allowNull: true },
+    funnelBreakdown: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'career_analytics_snapshots',
+    indexes: [
+      { fields: ['userId'] },
+      { fields: ['timeframeEnd'] },
+    ],
+  },
+);
+
+CareerAnalyticsSnapshot.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  const parseDecimal = (value) =>
+    value == null ? null : Number.parseFloat(typeof value === 'number' ? value : String(value));
+
+  return {
+    ...plain,
+    outreachConversionRate: parseDecimal(plain.outreachConversionRate),
+    interviewMomentum: parseDecimal(plain.interviewMomentum),
+    offerWinRate: parseDecimal(plain.offerWinRate),
+    salaryMedian: parseDecimal(plain.salaryMedian),
+    metadata: plain.metadata ?? null,
+    diversityRepresentation: plain.diversityRepresentation ?? null,
+    funnelBreakdown: plain.funnelBreakdown ?? null,
+  };
+};
+
+export const CareerPeerBenchmark = sequelize.define(
+  'CareerPeerBenchmark',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    cohortKey: { type: DataTypes.STRING(120), allowNull: false },
+    metric: { type: DataTypes.STRING(120), allowNull: false },
+    value: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
+    percentile: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    sampleSize: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    capturedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+  },
+  {
+    tableName: 'career_peer_benchmarks',
+    indexes: [
+      { fields: ['userId'] },
+      { fields: ['cohortKey'] },
+      { fields: ['metric'] },
+    ],
+  },
+);
+
+CareerPeerBenchmark.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  const parseDecimal = (value) =>
+    value == null ? null : Number.parseFloat(typeof value === 'number' ? value : String(value));
+
+  return {
+    ...plain,
+    value: parseDecimal(plain.value),
+    percentile: parseDecimal(plain.percentile),
+    metadata: plain.metadata ?? null,
+  };
+};
+
+export const WeeklyDigestSubscription = sequelize.define(
+  'WeeklyDigestSubscription',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false, unique: true },
+    frequency: {
+      type: DataTypes.ENUM(...DIGEST_FREQUENCIES),
+      allowNull: false,
+      defaultValue: 'weekly',
+    },
+    channels: { type: jsonType, allowNull: true },
+    isActive: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    lastSentAt: { type: DataTypes.DATE, allowNull: true },
+    nextScheduledAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'weekly_digest_subscriptions',
+  },
+);
+
+WeeklyDigestSubscription.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    ...plain,
+    channels: Array.isArray(plain.channels) ? plain.channels : [],
+    metadata: plain.metadata ?? null,
+  };
+};
+
+export const CalendarIntegration = sequelize.define(
+  'CalendarIntegration',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    provider: {
+      type: DataTypes.STRING(80),
+      allowNull: false,
+    },
+    externalAccount: { type: DataTypes.STRING(255), allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...CALENDAR_INTEGRATION_STATUSES),
+      allowNull: false,
+      defaultValue: 'connected',
+    },
+    lastSyncedAt: { type: DataTypes.DATE, allowNull: true },
+    syncError: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'calendar_integrations',
+    indexes: [
+      { fields: ['userId'] },
+      { fields: ['provider'] },
+    ],
+  },
+);
+
+CalendarIntegration.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    ...plain,
+    metadata: plain.metadata ?? null,
+  };
+};
+
+export const CandidateCalendarEvent = sequelize.define(
+  'CandidateCalendarEvent',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    eventType: {
+      type: DataTypes.ENUM(...CALENDAR_EVENT_TYPES),
+      allowNull: false,
+      defaultValue: 'interview',
+    },
+    source: {
+      type: DataTypes.ENUM(...CALENDAR_EVENT_SOURCES),
+      allowNull: false,
+      defaultValue: 'manual',
+    },
+    startsAt: { type: DataTypes.DATE, allowNull: false },
+    endsAt: { type: DataTypes.DATE, allowNull: true },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    isFocusBlock: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    focusMode: { type: DataTypes.STRING(120), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'candidate_calendar_events',
+    indexes: [
+      { fields: ['userId'] },
+      { fields: ['startsAt'] },
+      { fields: ['eventType'] },
+    ],
+  },
+);
+
+CandidateCalendarEvent.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    ...plain,
+    metadata: plain.metadata ?? null,
+  };
+};
+
+export const FocusSession = sequelize.define(
+  'FocusSession',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    focusType: {
+      type: DataTypes.ENUM(...FOCUS_SESSION_TYPES),
+      allowNull: false,
+      defaultValue: 'deep_work',
+    },
+    startedAt: { type: DataTypes.DATE, allowNull: false },
+    endedAt: { type: DataTypes.DATE, allowNull: true },
+    durationMinutes: { type: DataTypes.INTEGER, allowNull: true },
+    completed: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'focus_sessions',
+    indexes: [
+      { fields: ['userId'] },
+      { fields: ['focusType'] },
+    ],
+  },
+);
+
+FocusSession.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    ...plain,
+    durationMinutes:
+      plain.durationMinutes == null
+        ? null
+        : Number.parseInt(typeof plain.durationMinutes === 'number' ? plain.durationMinutes : String(plain.durationMinutes), 10),
+    metadata: plain.metadata ?? null,
+  };
+};
+
+export const AdvisorCollaboration = sequelize.define(
+  'AdvisorCollaboration',
+  {
+    ownerId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...ADVISOR_COLLABORATION_STATUSES),
+      allowNull: false,
+      defaultValue: 'active',
+    },
+    defaultPermissions: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'advisor_collaborations',
+    indexes: [
+      { fields: ['ownerId'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+AdvisorCollaboration.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    ...plain,
+    defaultPermissions: plain.defaultPermissions ?? null,
+  };
+};
+
+export const AdvisorCollaborationMember = sequelize.define(
+  'AdvisorCollaborationMember',
+  {
+    collaborationId: { type: DataTypes.INTEGER, allowNull: false },
+    userId: { type: DataTypes.INTEGER, allowNull: true },
+    email: { type: DataTypes.STRING(255), allowNull: true },
+    role: {
+      type: DataTypes.ENUM(...ADVISOR_COLLABORATION_MEMBER_ROLES),
+      allowNull: false,
+      defaultValue: 'mentor',
+    },
+    permissions: { type: jsonType, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...ADVISOR_COLLABORATION_MEMBER_STATUSES),
+      allowNull: false,
+      defaultValue: 'invited',
+    },
+    invitedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    joinedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'advisor_collaboration_members',
+    indexes: [
+      { fields: ['collaborationId'] },
+      { fields: ['userId'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+AdvisorCollaborationMember.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    ...plain,
+    permissions: plain.permissions ?? null,
+  };
+};
+
+export const AdvisorCollaborationAuditLog = sequelize.define(
+  'AdvisorCollaborationAuditLog',
+  {
+    collaborationId: { type: DataTypes.INTEGER, allowNull: false },
+    actorId: { type: DataTypes.INTEGER, allowNull: true },
+    action: { type: DataTypes.STRING(255), allowNull: false },
+    scope: { type: DataTypes.STRING(120), allowNull: true },
+    details: { type: jsonType, allowNull: true },
+    createdAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+  },
+  {
+    tableName: 'advisor_collaboration_audit_logs',
+    updatedAt: false,
+    indexes: [
+      { fields: ['collaborationId'] },
+      { fields: ['createdAt'] },
+    ],
+  },
+);
+
+AdvisorCollaborationAuditLog.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    ...plain,
+    details: plain.details ?? null,
+  };
+};
+
+export const AdvisorDocumentRoom = sequelize.define(
+  'AdvisorDocumentRoom',
+  {
+    ownerId: { type: DataTypes.INTEGER, allowNull: false },
+    collaborationId: { type: DataTypes.INTEGER, allowNull: true },
+    name: { type: DataTypes.STRING(255), allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...DOCUMENT_ROOM_STATUSES),
+      allowNull: false,
+      defaultValue: 'active',
+    },
+    expiresAt: { type: DataTypes.DATE, allowNull: true },
+    sharedWith: { type: jsonType, allowNull: true },
+    storageUsedMb: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
+    lastAccessedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'advisor_document_rooms',
+    indexes: [
+      { fields: ['ownerId'] },
+      { fields: ['collaborationId'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+AdvisorDocumentRoom.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  const parseDecimal = (value) =>
+    value == null ? null : Number.parseFloat(typeof value === 'number' ? value : String(value));
+  return {
+    ...plain,
+    sharedWith: Array.isArray(plain.sharedWith) ? plain.sharedWith : [],
+    storageUsedMb: parseDecimal(plain.storageUsedMb),
+    metadata: plain.metadata ?? null,
+  };
+};
+
+export const SupportAutomationLog = sequelize.define(
+  'SupportAutomationLog',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    source: { type: DataTypes.STRING(120), allowNull: false },
+    action: { type: DataTypes.STRING(255), allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...SUPPORT_AUTOMATION_STATUSES),
+      allowNull: false,
+      defaultValue: 'queued',
+    },
+    triggeredAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    completedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'support_automation_logs',
+    indexes: [
+      { fields: ['userId'] },
+      { fields: ['source'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+SupportAutomationLog.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    ...plain,
+    metadata: plain.metadata ?? null,
+  };
 };
 
 export const Notification = sequelize.define(
@@ -8613,6 +9013,45 @@ FreelancerSavingsGoal.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelan
 
 User.hasMany(FreelancerFinanceControl, { foreignKey: 'freelancerId', as: 'financeControls' });
 FreelancerFinanceControl.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
+User.hasMany(CareerAnalyticsSnapshot, { foreignKey: 'userId', as: 'careerAnalyticsSnapshots' });
+CareerAnalyticsSnapshot.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+User.hasMany(CareerPeerBenchmark, { foreignKey: 'userId', as: 'careerPeerBenchmarks' });
+CareerPeerBenchmark.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+User.hasOne(WeeklyDigestSubscription, { foreignKey: 'userId', as: 'weeklyDigestSubscription' });
+WeeklyDigestSubscription.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+User.hasMany(CalendarIntegration, { foreignKey: 'userId', as: 'calendarIntegrations' });
+CalendarIntegration.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+User.hasMany(CandidateCalendarEvent, { foreignKey: 'userId', as: 'calendarEvents' });
+CandidateCalendarEvent.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+User.hasMany(FocusSession, { foreignKey: 'userId', as: 'focusSessions' });
+FocusSession.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+User.hasMany(AdvisorCollaboration, { foreignKey: 'ownerId', as: 'advisorCollaborations' });
+AdvisorCollaboration.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
+
+AdvisorCollaboration.hasMany(AdvisorCollaborationMember, { foreignKey: 'collaborationId', as: 'members' });
+AdvisorCollaborationMember.belongsTo(AdvisorCollaboration, { foreignKey: 'collaborationId', as: 'collaboration' });
+AdvisorCollaborationMember.belongsTo(User, { foreignKey: 'userId', as: 'member' });
+
+AdvisorCollaboration.hasMany(AdvisorCollaborationAuditLog, { foreignKey: 'collaborationId', as: 'auditLogs' });
+AdvisorCollaborationAuditLog.belongsTo(AdvisorCollaboration, { foreignKey: 'collaborationId', as: 'collaboration' });
+AdvisorCollaborationAuditLog.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
+
+AdvisorCollaboration.hasMany(AdvisorDocumentRoom, { foreignKey: 'collaborationId', as: 'documentRooms' });
+AdvisorDocumentRoom.belongsTo(AdvisorCollaboration, { foreignKey: 'collaborationId', as: 'collaboration' });
+AdvisorDocumentRoom.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
+
+User.hasMany(AdvisorDocumentRoom, { foreignKey: 'ownerId', as: 'advisorDocumentRooms' });
+
+User.hasMany(SupportAutomationLog, { foreignKey: 'userId', as: 'supportAutomationLogs' });
+SupportAutomationLog.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
 Gig.hasMany(GigOrder, { foreignKey: 'gigId', as: 'orders' });
 GigOrder.belongsTo(Gig, { foreignKey: 'gigId', as: 'gig' });
 
@@ -9561,6 +10000,17 @@ export default {
   SupportCaseLink,
   SupportCaseSatisfaction,
   SupportKnowledgeArticle,
+  CareerAnalyticsSnapshot,
+  CareerPeerBenchmark,
+  WeeklyDigestSubscription,
+  CalendarIntegration,
+  CandidateCalendarEvent,
+  FocusSession,
+  AdvisorCollaboration,
+  AdvisorCollaborationMember,
+  AdvisorCollaborationAuditLog,
+  AdvisorDocumentRoom,
+  SupportAutomationLog,
   Notification,
   NotificationPreference,
   AnalyticsEvent,
