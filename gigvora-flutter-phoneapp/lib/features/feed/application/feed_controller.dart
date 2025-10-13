@@ -194,6 +194,13 @@ class FeedController extends StateNotifier<ResourceState<List<FeedPost>>> {
     );
   }
 
+  Future<void> recordExplorerShortcut() {
+    return _analytics.track(
+      'mobile_feed_explorer_opened',
+      metadata: const {'source': 'mobile_app'},
+    );
+  }
+
   Future<void> _setupRealtime() async {
     await _teardownRealtime();
     final enabled = _featureFlags.isEnabled('mobile_feed_realtime', defaultValue: true);
