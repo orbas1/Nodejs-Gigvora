@@ -77,6 +77,50 @@ export const DISPUTE_ACTION_TYPES = [
   'system_notice',
 ];
 export const DISPUTE_ACTOR_TYPES = ['customer', 'provider', 'mediator', 'admin', 'system'];
+export const GIG_ORDER_PIPELINE_STATUSES = [
+  'inquiry',
+  'qualification',
+  'kickoff_scheduled',
+  'production',
+  'delivery',
+  'completed',
+  'cancelled',
+  'on_hold',
+];
+export const GIG_ORDER_STATUS_TYPES = ['open', 'completed', 'cancelled'];
+export const GIG_ORDER_INTAKE_STATUSES = ['not_started', 'in_progress', 'completed'];
+export const GIG_ORDER_KICKOFF_STATUSES = [
+  'not_scheduled',
+  'scheduled',
+  'completed',
+  'needs_reschedule',
+];
+export const GIG_ORDER_REQUIREMENT_FORM_STATUSES = [
+  'draft',
+  'pending_client',
+  'in_progress',
+  'submitted',
+  'approved',
+  'needs_revision',
+  'archived',
+];
+export const GIG_ORDER_REVISION_STATUSES = [
+  'open',
+  'in_progress',
+  'submitted',
+  'approved',
+  'declined',
+  'cancelled',
+];
+export const GIG_ORDER_ESCROW_STATUSES = [
+  'funded',
+  'pending_release',
+  'released',
+  'held',
+  'refunded',
+  'disputed',
+  'cancelled',
+];
 export const LAUNCHPAD_STATUSES = ['draft', 'recruiting', 'active', 'archived'];
 export const LAUNCHPAD_APPLICATION_STATUSES = [
   'screening',
@@ -1491,6 +1535,244 @@ DisputeEvent.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+export const GigOrder = sequelize.define(
+  'GigOrder',
+  {
+    orderNumber: { type: DataTypes.UUID, allowNull: false, defaultValue: DataTypes.UUIDV4, unique: true },
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    clientId: { type: DataTypes.INTEGER, allowNull: true },
+    clientName: { type: DataTypes.STRING(180), allowNull: false },
+    clientEmail: { type: DataTypes.STRING(180), allowNull: true },
+    clientOrganization: { type: DataTypes.STRING(180), allowNull: true },
+    gigTitle: { type: DataTypes.STRING(180), allowNull: false },
+    pipelineStage: {
+      type: DataTypes.ENUM(...GIG_ORDER_PIPELINE_STATUSES),
+      allowNull: false,
+      defaultValue: 'inquiry',
+      validate: { isIn: [GIG_ORDER_PIPELINE_STATUSES] },
+    },
+    status: {
+      type: DataTypes.ENUM(...GIG_ORDER_STATUS_TYPES),
+      allowNull: false,
+      defaultValue: 'open',
+      validate: { isIn: [GIG_ORDER_STATUS_TYPES] },
+    },
+    intakeStatus: {
+      type: DataTypes.ENUM(...GIG_ORDER_INTAKE_STATUSES),
+      allowNull: false,
+      defaultValue: 'not_started',
+      validate: { isIn: [GIG_ORDER_INTAKE_STATUSES] },
+    },
+    kickoffScheduledAt: { type: DataTypes.DATE, allowNull: true },
+    kickoffStatus: {
+      type: DataTypes.ENUM(...GIG_ORDER_KICKOFF_STATUSES),
+      allowNull: false,
+      defaultValue: 'not_scheduled',
+      validate: { isIn: [GIG_ORDER_KICKOFF_STATUSES] },
+    },
+    productionStartedAt: { type: DataTypes.DATE, allowNull: true },
+    deliveryDueAt: { type: DataTypes.DATE, allowNull: true },
+    deliveredAt: { type: DataTypes.DATE, allowNull: true },
+    csatScore: { type: DataTypes.DECIMAL(3, 2), allowNull: true },
+    valueAmount: { type: DataTypes.DECIMAL(12, 2), allowNull: false, defaultValue: 0 },
+    valueCurrency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    escrowTotalAmount: { type: DataTypes.DECIMAL(12, 2), allowNull: false, defaultValue: 0 },
+    escrowCurrency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    lastClientContactAt: { type: DataTypes.DATE, allowNull: true },
+    nextClientTouchpointAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'gig_orders',
+    indexes: [
+      { fields: ['freelancerId', 'pipelineStage'] },
+      { fields: ['orderNumber'], unique: true },
+    ],
+  },
+);
+
+GigOrder.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  const serializeCollection = (collection = []) =>
+    collection.map((item) => (item?.toPublicObject ? item.toPublicObject() : item));
+
+  return {
+    id: plain.id,
+    orderNumber: plain.orderNumber,
+    freelancerId: plain.freelancerId,
+    clientId: plain.clientId,
+    clientName: plain.clientName,
+    clientEmail: plain.clientEmail,
+    clientOrganization: plain.clientOrganization,
+    gigTitle: plain.gigTitle,
+    pipelineStage: plain.pipelineStage,
+    status: plain.status,
+    intakeStatus: plain.intakeStatus,
+    kickoffScheduledAt: plain.kickoffScheduledAt,
+    kickoffStatus: plain.kickoffStatus,
+    productionStartedAt: plain.productionStartedAt,
+    deliveryDueAt: plain.deliveryDueAt,
+    deliveredAt: plain.deliveredAt,
+    csatScore: plain.csatScore == null ? null : Number(plain.csatScore),
+    valueAmount: Number.parseFloat(plain.valueAmount ?? 0),
+    valueCurrency: plain.valueCurrency,
+    escrowTotalAmount: Number.parseFloat(plain.escrowTotalAmount ?? 0),
+    escrowCurrency: plain.escrowCurrency,
+    notes: plain.notes,
+    tags: plain.tags,
+    lastClientContactAt: plain.lastClientContactAt,
+    nextClientTouchpointAt: plain.nextClientTouchpointAt,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+    requirementForms: serializeCollection(plain.requirementForms ?? plain.GigOrderRequirementForms ?? []),
+    revisions: serializeCollection(plain.revisions ?? plain.GigOrderRevisions ?? []),
+    escrowCheckpoints: serializeCollection(
+      plain.escrowCheckpoints ?? plain.GigOrderEscrowCheckpoints ?? [],
+    ),
+    freelancer: plain.freelancer ?? null,
+    client: plain.client ?? null,
+  };
+};
+
+export const GigOrderRequirementForm = sequelize.define(
+  'GigOrderRequirementForm',
+  {
+    orderId: { type: DataTypes.INTEGER, allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...GIG_ORDER_REQUIREMENT_FORM_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending_client',
+      validate: { isIn: [GIG_ORDER_REQUIREMENT_FORM_STATUSES] },
+    },
+    schemaVersion: { type: DataTypes.STRING(36), allowNull: true },
+    questions: { type: jsonType, allowNull: true },
+    responses: { type: jsonType, allowNull: true },
+    requestedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    submittedAt: { type: DataTypes.DATE, allowNull: true },
+    approvedAt: { type: DataTypes.DATE, allowNull: true },
+    reviewerId: { type: DataTypes.INTEGER, allowNull: true },
+    lastReminderAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'gig_order_requirement_forms',
+    indexes: [
+      { fields: ['orderId', 'status'] },
+    ],
+  },
+);
+
+GigOrderRequirementForm.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    orderId: plain.orderId,
+    status: plain.status,
+    schemaVersion: plain.schemaVersion,
+    questions: plain.questions,
+    responses: plain.responses,
+    requestedAt: plain.requestedAt,
+    submittedAt: plain.submittedAt,
+    approvedAt: plain.approvedAt,
+    reviewerId: plain.reviewerId,
+    lastReminderAt: plain.lastReminderAt,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const GigOrderRevision = sequelize.define(
+  'GigOrderRevision',
+  {
+    orderId: { type: DataTypes.INTEGER, allowNull: false },
+    revisionNumber: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
+    status: {
+      type: DataTypes.ENUM(...GIG_ORDER_REVISION_STATUSES),
+      allowNull: false,
+      defaultValue: 'open',
+      validate: { isIn: [GIG_ORDER_REVISION_STATUSES] },
+    },
+    summary: { type: DataTypes.STRING(255), allowNull: true },
+    details: { type: jsonType, allowNull: true },
+    requestedById: { type: DataTypes.INTEGER, allowNull: true },
+    requestedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    dueAt: { type: DataTypes.DATE, allowNull: true },
+    completedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'gig_order_revisions',
+    indexes: [
+      { fields: ['orderId', 'status'] },
+    ],
+  },
+);
+
+GigOrderRevision.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    orderId: plain.orderId,
+    revisionNumber: plain.revisionNumber,
+    status: plain.status,
+    summary: plain.summary,
+    details: plain.details,
+    requestedById: plain.requestedById,
+    requestedAt: plain.requestedAt,
+    dueAt: plain.dueAt,
+    completedAt: plain.completedAt,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const GigOrderEscrowCheckpoint = sequelize.define(
+  'GigOrderEscrowCheckpoint',
+  {
+    orderId: { type: DataTypes.INTEGER, allowNull: false },
+    label: { type: DataTypes.STRING(120), allowNull: false },
+    amount: { type: DataTypes.DECIMAL(12, 2), allowNull: false },
+    currency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    status: {
+      type: DataTypes.ENUM(...GIG_ORDER_ESCROW_STATUSES),
+      allowNull: false,
+      defaultValue: 'funded',
+      validate: { isIn: [GIG_ORDER_ESCROW_STATUSES] },
+    },
+    approvalRequirement: { type: DataTypes.STRING(120), allowNull: true },
+    csatThreshold: { type: DataTypes.DECIMAL(3, 2), allowNull: true },
+    releasedAt: { type: DataTypes.DATE, allowNull: true },
+    releasedById: { type: DataTypes.INTEGER, allowNull: true },
+    payoutReference: { type: DataTypes.STRING(120), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  {
+    tableName: 'gig_order_escrow_checkpoints',
+    indexes: [
+      { fields: ['orderId', 'status'] },
+    ],
+  },
+);
+
+GigOrderEscrowCheckpoint.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    orderId: plain.orderId,
+    label: plain.label,
+    amount: Number.parseFloat(plain.amount ?? 0),
+    currency: plain.currency,
+    status: plain.status,
+    approvalRequirement: plain.approvalRequirement,
+    csatThreshold: plain.csatThreshold == null ? null : Number(plain.csatThreshold),
+    releasedAt: plain.releasedAt,
+    releasedById: plain.releasedById,
+    payoutReference: plain.payoutReference,
+    notes: plain.notes,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 export const SearchSubscription = sequelize.define(
   'SearchSubscription',
   {
@@ -1830,6 +2112,22 @@ DisputeCase.hasMany(DisputeEvent, { foreignKey: 'disputeCaseId', as: 'events' })
 DisputeEvent.belongsTo(DisputeCase, { foreignKey: 'disputeCaseId', as: 'disputeCase' });
 DisputeEvent.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
 
+User.hasMany(GigOrder, { foreignKey: 'freelancerId', as: 'gigOrders' });
+GigOrder.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+GigOrder.belongsTo(User, { foreignKey: 'clientId', as: 'client' });
+
+GigOrder.hasMany(GigOrderRequirementForm, { foreignKey: 'orderId', as: 'requirementForms' });
+GigOrderRequirementForm.belongsTo(GigOrder, { foreignKey: 'orderId', as: 'order' });
+GigOrderRequirementForm.belongsTo(User, { foreignKey: 'reviewerId', as: 'reviewer' });
+
+GigOrder.hasMany(GigOrderRevision, { foreignKey: 'orderId', as: 'revisions' });
+GigOrderRevision.belongsTo(GigOrder, { foreignKey: 'orderId', as: 'order' });
+GigOrderRevision.belongsTo(User, { foreignKey: 'requestedById', as: 'requestedBy' });
+
+GigOrder.hasMany(GigOrderEscrowCheckpoint, { foreignKey: 'orderId', as: 'escrowCheckpoints' });
+GigOrderEscrowCheckpoint.belongsTo(GigOrder, { foreignKey: 'orderId', as: 'order' });
+GigOrderEscrowCheckpoint.belongsTo(User, { foreignKey: 'releasedById', as: 'releasedBy' });
+
 export default {
   sequelize,
   User,
@@ -1878,4 +2176,8 @@ export default {
   FreelancerAssignmentMetric,
   ProjectAssignmentEvent,
   AutoAssignQueueEntry,
+  GigOrder,
+  GigOrderRequirementForm,
+  GigOrderRevision,
+  GigOrderEscrowCheckpoint,
 };

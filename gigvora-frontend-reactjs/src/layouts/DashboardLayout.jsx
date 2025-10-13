@@ -21,6 +21,8 @@ export default function DashboardLayout({
   profile,
   availableDashboards,
   children,
+  onMenuItemSelect,
+  activeMenuItemKey,
 }) {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -125,15 +127,35 @@ export default function DashboardLayout({
                 <div key={section.label}>
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{section.label}</p>
                   <ul className="mt-3 space-y-2">
-                    {section.items.map((item) => (
-                      <li key={item.name}>
-                        <div className="group flex flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50">
+                    {section.items.map((item) => {
+                      const itemKey = item.key ?? item.slug ?? item.id ?? item.name;
+                      const isActive = activeMenuItemKey && itemKey === activeMenuItemKey;
+                      const baseClasses =
+                        'group flex flex-col gap-1 rounded-2xl border p-3 transition text-left';
+                      const inactiveClasses =
+                        'border-transparent bg-slate-100/70 hover:border-blue-300 hover:bg-blue-50';
+                      const activeClasses = 'border-blue-400 bg-blue-50 shadow-sm';
+                      const className = `${baseClasses} ${isActive ? activeClasses : inactiveClasses}`;
+
+                      const handleClick = () => {
+                        item.onClick?.(item);
+                        onMenuItemSelect?.(itemKey, item);
+                      };
+
+                      const content = (
+                        <>
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-slate-700">{item.name}</span>
-                            <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
+                            <span className={`text-sm font-medium ${isActive ? 'text-blue-700' : 'text-slate-700'}`}>
+                              {item.name}
+                            </span>
+                            <ChevronRightIcon
+                              className={`h-4 w-4 transition ${isActive ? 'text-blue-500' : 'text-slate-400 group-hover:text-blue-500'}`}
+                            />
                           </div>
                           {item.description ? (
-                            <p className="text-xs text-slate-500">{item.description}</p>
+                            <p className={`text-xs ${isActive ? 'text-blue-600/90' : 'text-slate-500'}`}>
+                              {item.description}
+                            </p>
                           ) : null}
                           {item.tags?.length ? (
                             <div className="mt-2 flex flex-wrap gap-2">
@@ -147,9 +169,35 @@ export default function DashboardLayout({
                               ))}
                             </div>
                           ) : null}
-                        </div>
-                      </li>
-                    ))}
+                        </>
+                      );
+
+                      if (item.href) {
+                        return (
+                          <li key={itemKey}>
+                            <Link to={item.href} className={className}>
+                              {content}
+                            </Link>
+                          </li>
+                        );
+                      }
+
+                      if (onMenuItemSelect || item.onClick) {
+                        return (
+                          <li key={itemKey}>
+                            <button type="button" onClick={handleClick} className={className}>
+                              {content}
+                            </button>
+                          </li>
+                        );
+                      }
+
+                      return (
+                        <li key={itemKey}>
+                          <div className={className}>{content}</div>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               ))}
