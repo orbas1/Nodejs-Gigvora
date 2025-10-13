@@ -10,6 +10,16 @@ import {
   Profile,
   MessageThread,
   Message,
+  ClientEngagement,
+  ClientEngagementMandate,
+  ClientEngagementMilestone,
+  ClientEngagementPortal,
+  ClientEngagementPortalAuditLog,
+  EngagementInvoice,
+  EngagementCommissionSplit,
+  EngagementScheduleEvent,
+  IssueResolutionCase,
+  IssueResolutionEvent,
 } from '../models/index.js';
 import { NotFoundError } from '../utils/errors.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
@@ -80,6 +90,36 @@ function toDaysBetween(start, end) {
     return null;
   }
   return Number((diffMs / (1000 * 60 * 60 * 24)).toFixed(1));
+}
+
+function formatDecimal(value, digits = 2) {
+  const numeric = normaliseNumber(value);
+  if (numeric == null) {
+    return null;
+  }
+  return Number(numeric.toFixed(digits));
+}
+
+function computeAverage(values = [], digits = 2) {
+  const filtered = values.filter((value) => Number.isFinite(value));
+  if (!filtered.length) {
+    return null;
+  }
+  const total = sumNumbers(filtered);
+  return Number((total / filtered.length).toFixed(digits));
+}
+
+function computeHoursBetween(start, end) {
+  if (!start || !end) {
+    return null;
+  }
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  const diffMs = endDate.getTime() - startDate.getTime();
+  if (!Number.isFinite(diffMs) || diffMs <= 0) {
+    return null;
+  }
+  return Number((diffMs / (1000 * 60 * 60)).toFixed(2));
 }
 
 function sanitizeWorkspace(workspace) {
@@ -583,6 +623,766 @@ function buildClientPartnerships(contactNotes) {
   };
 }
 
+function buildClientManagementInsights(engagements = []) {
+  const contractStatusCounts = {};
+  let retainerTotal = 0;
+
+  const retainers = [];
+  const successFees = [];
+  const mandates = [];
+
+  engagements.forEach((engagement) => {
+    const status = engagement.contractStatus ?? 'draft';
+    contractStatusCounts[status] = (contractStatusCounts[status] ?? 0) + 1;
+
+    const retainerAmount = normaliseNumber(engagement.retainerAmount);
+    if (retainerAmount != null) {
+      retainerTotal += retainerAmount;
+    }
+
+    const retainersForEngagement = {
+      engagementId: engagement.id,
+      clientName: engagement.clientName,
+      retainerAmount: formatDecimal(retainerAmount),
+      currency: engagement.retainerCurrency ?? 'USD',
+      status,
+      renewalDate: engagement.renewalDate ?? engagement.endDate ?? null,
+      successFeePercentage: formatDecimal(engagement.successFeePercentage),
+      accountManager: engagement.metadata?.accountManager ?? null,
+    };
+    retainers.push(retainersForEngagement);
+
+    const engagementMandates = Array.isArray(engagement.mandates) ? engagement.mandates : [];
+    engagementMandates.forEach((mandate) => {
+      mandates.push({
+        id: mandate.id,
+        engagementId: engagement.id,
+        clientName: engagement.clientName,
+        title: mandate.title,
+        status: mandate.status,
+        openRoles: mandate.openRoles ?? 0,
+        filledRoles: mandate.filledRoles ?? 0,
+        pipelineValue: formatDecimal(mandate.pipelineValue),
+        nextMilestoneAt: mandate.nextMilestoneAt ?? null,
+      });
+    });
+
+    if (engagement.successFeePercentage != null) {
+      const pct = normaliseNumber(engagement.successFeePercentage);
+      const pipelineForecast = sumNumbers(
+        engagementMandates.map((mandate) => normaliseNumber(mandate.forecastRevenue) ?? 0),
+      );
+      const projectedPayout = pct != null ? Number(((pct / 100) * pipelineForecast).toFixed(2)) : null;
+      const lastPlacementAt = engagementMandates
+        .map((mandate) => {
+          const metadata = normaliseMetadata(mandate.metadata);
+          return metadata.lastPlacementAt ?? mandate.updatedAt ?? mandate.nextMilestoneAt ?? null;
+        })
+        .filter(Boolean)
+        .sort((a, b) => new Date(b) - new Date(a))[0];
+
+      successFees.push({
+        engagementId: engagement.id,
+        clientName: engagement.clientName,
+        percentage: pct != null ? Number(pct.toFixed(2)) : null,
+        trigger: engagement.successFeeTrigger ?? 'On placement',
+        projectedPayout,
+        lastPlacementAt: lastPlacementAt ?? null,
+      });
+    }
+  });
+
+  const upcomingRenewals = retainers
+    .filter((entry) => entry.renewalDate)
+    .sort((a, b) => new Date(a.renewalDate) - new Date(b.renewalDate))
+    .slice(0, 6);
+
+  const successFeeAverage = successFees.length
+    ? Number((sumNumbers(successFees.map((entry) => entry.percentage ?? 0)) / successFees.length).toFixed(2))
+    : null;
+
+  return {
+    totals: {
+      retainerValue: Number(retainerTotal.toFixed(2)),
+      activeContracts: (contractStatusCounts.active ?? 0) + (contractStatusCounts.renewal_due ?? 0),
+      successFeeAverage,
+      mandatesInFlight: mandates.length,
+    },
+    contractStatus: Object.entries(contractStatusCounts).map(([status, count]) => ({ status, count })),
+    retainers: upcomingRenewals,
+    successFees,
+    mandates: mandates.slice(0, 20),
+  };
+}
+
+function buildPerformanceAnalyticsInsights(engagements = []) {
+  const mandates = engagements.flatMap((engagement) => {
+    const engagementMandates = Array.isArray(engagement.mandates) ? engagement.mandates : [];
+    return engagementMandates.map((mandate) => ({ ...mandate, clientName: engagement.clientName }));
+  });
+
+  const submissionCount = sumNumbers(
+    mandates.map((mandate) => {
+      const metadata = normaliseMetadata(mandate.metadata);
+      const fromMetadata = normaliseNumber(metadata.submissions);
+      if (fromMetadata != null) {
+        return fromMetadata;
+      }
+      return (mandate.openRoles ?? 0) + (mandate.filledRoles ?? 0);
+    }),
+  );
+  const interviewCount = sumNumbers(
+    mandates.map((mandate) => {
+      const metadata = normaliseMetadata(mandate.metadata);
+      const fromMetadata = normaliseNumber(metadata.interviews);
+      if (fromMetadata != null) {
+        return fromMetadata;
+      }
+      return Math.max(mandate.filledRoles ?? 0, 0);
+    }),
+  );
+  const offersCount = sumNumbers(
+    mandates.map((mandate) => {
+      const metadata = normaliseMetadata(mandate.metadata);
+      const fromMetadata = normaliseNumber(metadata.offers);
+      if (fromMetadata != null) {
+        return fromMetadata;
+      }
+      return Math.max(mandate.filledRoles ?? 0, 0);
+    }),
+  );
+  const placementsCount = sumNumbers(mandates.map((mandate) => mandate.filledRoles ?? 0));
+  const totalRoles = sumNumbers(
+    mandates.map((mandate) => (mandate.openRoles ?? 0) + (mandate.filledRoles ?? 0)),
+  );
+
+  const placementRate = totalRoles
+    ? Number(((placementsCount / totalRoles) * 100).toFixed(1))
+    : 0;
+
+  const avgTimeToSubmit = computeAverage(
+    mandates
+      .map((mandate) => normaliseNumber(mandate.avgTimeToSubmitDays))
+      .filter((value) => value != null),
+    1,
+  );
+  const interviewToOffer = computeAverage(
+    mandates
+      .map((mandate) => normaliseNumber(mandate.interviewToOfferDays))
+      .filter((value) => value != null),
+    1,
+  );
+
+  const retainerTotal = sumNumbers(engagements.map((engagement) => normaliseNumber(engagement.retainerAmount) ?? 0));
+  const successFeePotential = sumNumbers(
+    engagements.map((engagement) => {
+      const pct = normaliseNumber(engagement.successFeePercentage);
+      if (pct == null) {
+        return 0;
+      }
+      const forecast = sumNumbers(
+        (engagement.mandates ?? []).map((mandate) => normaliseNumber(mandate.forecastRevenue) ?? 0),
+      );
+      return (pct / 100) * forecast;
+    }),
+  );
+  const revenueRecognized = sumNumbers(
+    mandates.map((mandate) => normaliseNumber(mandate.revenueRecognized) ?? 0),
+  );
+  const totalRevenue = Number((retainerTotal + successFeePotential + revenueRecognized).toFixed(2));
+  const pipelineValue = Number(
+    sumNumbers(mandates.map((mandate) => normaliseNumber(mandate.pipelineValue) ?? 0)).toFixed(2),
+  );
+
+  const submissionToInterview = submissionCount
+    ? Number(((interviewCount / submissionCount) * 100).toFixed(1))
+    : null;
+  const interviewToOfferRatio = interviewCount
+    ? Number(((offersCount / interviewCount) * 100).toFixed(1))
+    : null;
+  const offerToPlacement = offersCount
+    ? Number(((placementsCount / offersCount) * 100).toFixed(1))
+    : null;
+
+  const trendlineMap = new Map();
+  mandates.forEach((mandate) => {
+    const metadata = normaliseMetadata(mandate.metadata);
+    const trendEntries = Array.isArray(metadata.performanceTrend) ? metadata.performanceTrend : [];
+    trendEntries.forEach((entry) => {
+      const period = entry.period ?? entry.month ?? 'current';
+      const existing = trendlineMap.get(period) ?? { period, placements: 0, revenue: 0 };
+      existing.placements += normaliseNumber(entry.placements) ?? 0;
+      existing.revenue += normaliseNumber(entry.revenue) ?? 0;
+      trendlineMap.set(period, existing);
+    });
+  });
+
+  if (!trendlineMap.size && mandates.length) {
+    trendlineMap.set('current', {
+      period: 'current',
+      placements: placementsCount,
+      revenue: retainerTotal + revenueRecognized,
+    });
+    trendlineMap.set('next', {
+      period: 'next',
+      placements: Math.round(placementsCount * 0.6),
+      revenue: pipelineValue * 0.4,
+    });
+  }
+
+  const trendline = Array.from(trendlineMap.values())
+    .map((entry) => ({
+      period: entry.period,
+      placements: Number((normaliseNumber(entry.placements) ?? 0).toFixed(0)),
+      revenue: Number((normaliseNumber(entry.revenue) ?? 0).toFixed(2)),
+    }))
+    .sort((a, b) => (a.period > b.period ? 1 : -1));
+
+  const sectorMap = new Map();
+  engagements.forEach((engagement) => {
+    const key = engagement.industry ?? 'General';
+    const value = sectorMap.get(key) ?? { sector: key, activeMandates: 0, revenue: 0 };
+    const engagementMandates = Array.isArray(engagement.mandates) ? engagement.mandates : [];
+    value.activeMandates += engagementMandates.filter((mandate) => mandate.status !== 'closed').length;
+    value.revenue += sumNumbers(
+      engagementMandates.map((mandate) => normaliseNumber(mandate.forecastRevenue) ?? 0),
+    );
+    value.revenue += normaliseNumber(engagement.retainerAmount) ?? 0;
+    sectorMap.set(key, value);
+  });
+
+  const sectorBreakdown = Array.from(sectorMap.values()).map((entry) => ({
+    sector: entry.sector,
+    activeMandates: entry.activeMandates,
+    revenue: Number(entry.revenue.toFixed(2)),
+  }));
+
+  return {
+    totals: {
+      placementRate,
+      timeToSubmit: avgTimeToSubmit,
+      interviewToOffer,
+      revenue: totalRevenue,
+      pipelineValue,
+    },
+    ratios: {
+      submissionToInterview,
+      interviewToOffer: interviewToOfferRatio,
+      offerToPlacement,
+    },
+    revenueBreakdown: [
+      { label: 'Retainers', value: Number(retainerTotal.toFixed(2)) },
+      { label: 'Success fees', value: Number(successFeePotential.toFixed(2)) },
+      { label: 'Recognized mandate revenue', value: Number(revenueRecognized.toFixed(2)) },
+    ],
+    sectorBreakdown,
+    trendline,
+  };
+}
+
+function buildCalendarAvailabilityInsights(engagements = [], lookbackDate) {
+  const events = engagements.flatMap((engagement) =>
+    (engagement.scheduleEvents ?? []).map((event) => ({ ...event, clientName: engagement.clientName })),
+  );
+
+  const cutoff = lookbackDate ? new Date(lookbackDate) : null;
+
+  const upcomingPersonal = events
+    .filter((event) => event.scope === 'personal')
+    .filter((event) => {
+      if (!event.startAt) return false;
+      if (!cutoff) return true;
+      return new Date(event.startAt) >= cutoff;
+    })
+    .sort((a, b) => new Date(a.startAt) - new Date(b.startAt))
+    .slice(0, 10)
+    .map((event) => ({
+      title: event.title,
+      startAt: event.startAt,
+      endAt: event.endAt,
+      eventType: event.eventType,
+      hostName: event.hostName ?? null,
+      location: event.location ?? null,
+    }));
+
+  const sharedMap = new Map();
+  events
+    .filter((event) => event.scope === 'shared')
+    .forEach((event) => {
+      const key = event.clientName ?? 'Shared';
+      const list = sharedMap.get(key) ?? [];
+      list.push({
+        title: event.title,
+        startAt: event.startAt,
+        eventType: event.eventType,
+        hostName: event.hostName ?? null,
+        location: event.location ?? null,
+      });
+      sharedMap.set(key, list);
+    });
+
+  const shared = Array.from(sharedMap.entries()).map(([clientName, entries]) => ({
+    clientName,
+    events: entries.sort((a, b) => new Date(a.startAt) - new Date(b.startAt)).slice(0, 5),
+  }));
+
+  const availabilitySlots = events
+    .filter((event) => event.scope === 'availability')
+    .sort((a, b) => new Date(a.startAt) - new Date(b.startAt))
+    .slice(0, 12)
+    .map((event) => ({
+      title: event.title,
+      startAt: event.startAt,
+      endAt: event.endAt,
+      hostName: event.hostName ?? null,
+      clientName: event.clientName ?? null,
+      channel: event.eventType,
+    }));
+
+  const availabilityHours = sumNumbers(
+    availabilitySlots
+      .map((slot) => computeHoursBetween(slot.startAt, slot.endAt))
+      .filter((value) => value != null),
+  );
+
+  return {
+    personal: { upcoming: upcomingPersonal },
+    shared,
+    availability: {
+      slots: availabilitySlots,
+      totalHours: Number((availabilityHours || 0).toFixed(1)),
+    },
+  };
+}
+
+function buildClientExcellenceInsights(engagements = [], contactSummary = {}) {
+  const dashboards = engagements.map((engagement) => {
+    const milestones = Array.isArray(engagement.milestones) ? engagement.milestones : [];
+    const atRisk = milestones.some((milestone) => milestone.status === 'at_risk');
+    const completedCount = milestones.filter((milestone) => milestone.status === 'completed').length;
+    const health = atRisk ? 'at_risk' : completedCount === milestones.length && milestones.length ? 'completed' : 'on_track';
+    const lastUpdate = milestones
+      .map(
+        (milestone) =>
+          milestone.completedAt ?? milestone.dueDate ?? milestone.updatedAt ?? milestone.createdAt ?? null,
+      )
+      .filter(Boolean)
+      .sort((a, b) => new Date(b) - new Date(a))[0];
+
+    return {
+      engagementId: engagement.id,
+      clientName: engagement.clientName,
+      health,
+      summary: engagement.notes ?? engagement.metadata?.summary ?? null,
+      updatedAt: lastUpdate ?? null,
+      activeMandates: (engagement.mandates ?? []).length,
+      retainerAmount: formatDecimal(engagement.retainerAmount),
+    };
+  });
+
+  const milestoneUpdates = engagements
+    .flatMap((engagement) =>
+      (engagement.milestones ?? []).map((milestone) => ({
+        engagementId: engagement.id,
+        clientName: engagement.clientName,
+        name: milestone.name,
+        status: milestone.status,
+        kind: milestone.kind,
+        dueDate: milestone.dueDate,
+        completedAt: milestone.completedAt,
+        impactScore: formatDecimal(milestone.impactScore),
+        summary: milestone.summary ?? milestone.details ?? null,
+      })),
+    )
+    .sort((a, b) => {
+      const left = a.completedAt ?? a.dueDate ?? 0;
+      const right = b.completedAt ?? b.dueDate ?? 0;
+      return new Date(right) - new Date(left);
+    })
+    .slice(0, 20);
+
+  const roiNarratives = milestoneUpdates
+    .filter((entry) => ['roi', 'story', 'health'].includes(entry.kind))
+    .map((entry) => ({
+      ...entry,
+      narrative: entry.summary,
+    }))
+    .slice(0, 10);
+
+  return {
+    dashboards: dashboards.slice(0, 12),
+    milestones: milestoneUpdates,
+    roiNarratives,
+    contactHighlights: (contactSummary.topContacts ?? []).slice(0, 5),
+  };
+}
+
+function buildClientPortalsInsights(engagements = []) {
+  const portals = engagements.flatMap((engagement) =>
+    (engagement.portals ?? []).map((portal) => ({
+      id: portal.id,
+      engagementId: engagement.id,
+      clientName: engagement.clientName,
+      status: portal.status,
+      inviteCount: portal.inviteCount ?? 0,
+      activeUsers: portal.activeUsers ?? 0,
+      lastLoginAt: portal.lastLoginAt ?? null,
+      brandingTheme: portal.brandingTheme ?? 'standard',
+      primaryColor: portal.primaryColor ?? '#1d4ed8',
+      secondaryColor: portal.secondaryColor ?? '#1e293b',
+      customDomain: portal.customDomain ?? null,
+      autoReportFrequency: portal.autoReportFrequency ?? null,
+    })),
+  );
+
+  const totals = {
+    active: portals.filter((portal) => portal.status === 'active').length,
+    invitesPending: sumNumbers(
+      portals.map((portal) => Math.max((portal.inviteCount ?? 0) - (portal.activeUsers ?? 0), 0)),
+    ),
+    adoptionRate: portals.length
+      ? Number(
+          (
+            sumNumbers(portals.map((portal) => portal.activeUsers ?? 0)) /
+            Math.max(sumNumbers(portals.map((portal) => portal.inviteCount ?? 0)), 1)
+          ).toFixed(2),
+        )
+      : null,
+  };
+
+  const brandingLibrary = portals.map((portal) => ({
+    clientName: portal.clientName,
+    theme: portal.brandingTheme,
+    primaryColor: portal.primaryColor,
+    secondaryColor: portal.secondaryColor,
+    customDomain: portal.customDomain,
+  }));
+
+  const auditLog = engagements
+    .flatMap((engagement) =>
+      (engagement.portals ?? []).flatMap((portal) =>
+        (portal.auditLogs ?? []).map((log) => ({
+          id: log.id,
+          portalId: portal.id,
+          clientName: engagement.clientName,
+          eventType: log.eventType,
+          actorName: log.actorName ?? null,
+          occurredAt: log.occurredAt,
+          description: log.description ?? null,
+        })),
+      ),
+    )
+    .sort((a, b) => new Date(b.occurredAt) - new Date(a.occurredAt))
+    .slice(0, 20);
+
+  return {
+    totals,
+    portals,
+    brandingLibrary,
+    auditLog,
+  };
+}
+
+function buildMandatePerformanceInsights(engagements = []) {
+  const mandates = engagements.flatMap((engagement) =>
+    (engagement.mandates ?? []).map((mandate) => ({ ...mandate, clientName: engagement.clientName })),
+  );
+
+  const submissions = sumNumbers(
+    mandates.map((mandate) => {
+      const metadata = normaliseMetadata(mandate.metadata);
+      const fromMetadata = normaliseNumber(metadata.submissions);
+      if (fromMetadata != null) {
+        return fromMetadata;
+      }
+      return (mandate.openRoles ?? 0) + (mandate.filledRoles ?? 0);
+    }),
+  );
+  const interviews = sumNumbers(
+    mandates.map((mandate) => {
+      const metadata = normaliseMetadata(mandate.metadata);
+      const fromMetadata = normaliseNumber(metadata.interviews);
+      if (fromMetadata != null) {
+        return fromMetadata;
+      }
+      return Math.max(mandate.filledRoles ?? 0, 0);
+    }),
+  );
+  const offers = sumNumbers(
+    mandates.map((mandate) => {
+      const metadata = normaliseMetadata(mandate.metadata);
+      const fromMetadata = normaliseNumber(metadata.offers);
+      if (fromMetadata != null) {
+        return fromMetadata;
+      }
+      return Math.max(mandate.filledRoles ?? 0, 0);
+    }),
+  );
+  const placements = sumNumbers(mandates.map((mandate) => mandate.filledRoles ?? 0));
+
+  const diversityValues = mandates
+    .map((mandate) => normaliseNumber(mandate.diversitySlatePct))
+    .filter((value) => value != null);
+  const qualityValues = mandates
+    .map((mandate) => normaliseNumber(mandate.qualityScore))
+    .filter((value) => value != null);
+
+  const mandateEntries = mandates.map((mandate) => ({
+    id: mandate.id,
+    engagementId: mandate.engagementId,
+    clientName: mandate.clientName,
+    title: mandate.title,
+    status: mandate.status,
+    pipelineValue: formatDecimal(mandate.pipelineValue),
+    forecastRevenue: formatDecimal(mandate.forecastRevenue),
+    diversitySlatePct: formatDecimal(mandate.diversitySlatePct),
+    qualityScore: formatDecimal(mandate.qualityScore),
+    nextMilestoneAt: mandate.nextMilestoneAt ?? null,
+  }));
+
+  const reports = mandates
+    .flatMap((mandate) => {
+      const metadata = normaliseMetadata(mandate.metadata);
+      const templates = Array.isArray(metadata.reportTemplates) ? metadata.reportTemplates : [];
+      return templates.map((template) => ({
+        mandateId: mandate.id,
+        clientName: mandate.clientName,
+        name: template.name ?? 'Pipeline summary',
+        format: template.format ?? 'pdf',
+        generatedAt: template.generatedAt ?? null,
+      }));
+    })
+    .slice(0, 12);
+
+  const forecasts = mandateEntries
+    .filter((entry) => entry.forecastRevenue != null)
+    .map((entry) => ({
+      mandateId: entry.id,
+      clientName: entry.clientName,
+      expectedCloseDate: entry.nextMilestoneAt ?? null,
+      revenue: entry.forecastRevenue,
+    }));
+
+  return {
+    totals: { submissions, interviews, offers, placements },
+    diversity: {
+      averageSlatePct: diversityValues.length
+        ? Number((sumNumbers(diversityValues) / diversityValues.length).toFixed(1))
+        : null,
+    },
+    quality: {
+      averageScore: qualityValues.length
+        ? Number((sumNumbers(qualityValues) / qualityValues.length).toFixed(1))
+        : null,
+    },
+    mandates: mandateEntries,
+    reports,
+    forecasts,
+  };
+}
+
+function buildCommercialOperationsInsights(engagements = []) {
+  const invoices = engagements.flatMap((engagement) =>
+    (engagement.invoices ?? []).map((invoice) => ({
+      ...invoice,
+      clientName: engagement.clientName,
+    })),
+  );
+
+  const outstanding = sumNumbers(
+    invoices
+      .filter((invoice) => ['draft', 'pending', 'sent', 'pending_payment'].includes((invoice.status ?? '').toLowerCase()))
+      .map((invoice) => normaliseNumber(invoice.amount) ?? 0),
+  );
+  const overdue = sumNumbers(
+    invoices
+      .filter((invoice) => {
+        if (!invoice.dueDate) return false;
+        const status = (invoice.status ?? '').toLowerCase();
+        if (!['sent', 'pending_payment', 'overdue'].includes(status)) {
+          return false;
+        }
+        return new Date(invoice.dueDate) < new Date();
+      })
+      .map((invoice) => normaliseNumber(invoice.amount) ?? 0),
+  );
+  const paidThisQuarter = sumNumbers(
+    invoices
+      .filter((invoice) => {
+        const status = (invoice.status ?? '').toLowerCase();
+        if (!['paid', 'recognized'].includes(status)) {
+          return false;
+        }
+        if (!invoice.paidDate) {
+          return false;
+        }
+        const diffDays = (Date.now() - new Date(invoice.paidDate).getTime()) / (1000 * 60 * 60 * 24);
+        return Number.isFinite(diffDays) && diffDays <= 90;
+      })
+      .map((invoice) => normaliseNumber(invoice.amount) ?? 0),
+  );
+
+  const upcomingInvoices = invoices
+    .filter((invoice) => invoice.dueDate && new Date(invoice.dueDate) >= new Date())
+    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+    .slice(0, 10)
+    .map((invoice) => ({
+      invoiceNumber: invoice.invoiceNumber,
+      clientName: invoice.clientName,
+      amount: formatDecimal(invoice.amount),
+      currency: invoice.currency ?? 'USD',
+      dueDate: invoice.dueDate,
+      status: invoice.status,
+    }));
+
+  const commissions = engagements.flatMap((engagement) =>
+    (engagement.commissions ?? []).map((commission) => ({
+      engagementId: engagement.id,
+      clientName: engagement.clientName,
+      partnerName: commission.partnerName,
+      percentage: formatDecimal(commission.percentage),
+      amount: formatDecimal(commission.amount),
+      status: commission.status,
+    })),
+  );
+
+  const retainerSchedule = engagements
+    .map((engagement) => ({
+      engagementId: engagement.id,
+      clientName: engagement.clientName,
+      retainerAmount: formatDecimal(engagement.retainerAmount),
+      currency: engagement.retainerCurrency ?? 'USD',
+      renewalDate: engagement.renewalDate ?? engagement.endDate ?? null,
+      billingCadence: engagement.retainerBillingCadence ?? 'monthly',
+    }))
+    .sort((a, b) => {
+      if (!a.renewalDate && !b.renewalDate) return 0;
+      if (!a.renewalDate) return 1;
+      if (!b.renewalDate) return -1;
+      return new Date(a.renewalDate) - new Date(b.renewalDate);
+    })
+    .slice(0, 12);
+
+  const integrations = Array.from(
+    new Set(engagements.map((engagement) => engagement.accountingIntegration).filter(Boolean)),
+  ).map((provider) => ({
+    provider,
+    status: 'connected',
+  }));
+
+  return {
+    retainers: retainerSchedule,
+    invoices: {
+      totals: {
+        outstanding: Number((outstanding || 0).toFixed(2)),
+        overdue: Number((overdue || 0).toFixed(2)),
+        paidThisQuarter: Number((paidThisQuarter || 0).toFixed(2)),
+      },
+      upcoming: upcomingInvoices,
+    },
+    commissions,
+    integrations,
+  };
+}
+
+function buildIssueResolutionDeskInsights(issueCases = []) {
+  const resolutionDurations = issueCases
+    .map((item) => computeHoursBetween(item.openedAt, item.resolvedAt))
+    .filter((value) => value != null);
+
+  const playbooksMap = new Map();
+  issueCases.forEach((item) => {
+    const key = item.playbookUsed ?? 'unassigned';
+    const current = playbooksMap.get(key) ?? { name: key, usageCount: 0, lastUsedAt: null };
+    current.usageCount += 1;
+    const lastEvent = (item.events ?? [])
+      .map((event) => event.occurredAt)
+      .filter(Boolean)
+      .sort((a, b) => new Date(b) - new Date(a))[0];
+    const candidateDate = item.resolvedAt ?? lastEvent ?? item.updatedAt ?? item.openedAt;
+    if (candidateDate && (!current.lastUsedAt || new Date(candidateDate) > new Date(current.lastUsedAt))) {
+      current.lastUsedAt = candidateDate;
+    }
+    playbooksMap.set(key, current);
+  });
+
+  const playbooks = Array.from(playbooksMap.values()).map((entry) => ({
+    name: entry.name,
+    usageCount: entry.usageCount,
+    lastUsedAt: entry.lastUsedAt,
+  }));
+
+  const cases = issueCases.map((item) => ({
+    id: item.id,
+    engagementId: item.engagementId,
+    clientName: item.engagement?.clientName ?? null,
+    caseType: item.caseType,
+    status: item.status,
+    severity: item.severity,
+    priority: item.priority,
+    openedAt: item.openedAt,
+    resolvedAt: item.resolvedAt,
+    playbookUsed: item.playbookUsed ?? null,
+    escalatedTo: item.escalatedTo ?? null,
+    outcome: item.outcome ?? null,
+  }));
+
+  const escalations = issueCases
+    .filter((item) => item.escalatedTo)
+    .map((item) => ({
+      id: item.id,
+      caseType: item.caseType,
+      escalatedTo: item.escalatedTo,
+      occurredAt: item.metadata?.escalatedAt ?? item.updatedAt ?? item.openedAt,
+      status: item.status,
+    }));
+
+  const resolvedThisQuarter = issueCases.filter((item) => {
+    if (!item.resolvedAt) {
+      return false;
+    }
+    const diffDays = (Date.now() - new Date(item.resolvedAt).getTime()) / (1000 * 60 * 60 * 24);
+    return Number.isFinite(diffDays) && diffDays <= 90;
+  }).length;
+
+  return {
+    totals: {
+      openCases: issueCases.filter((item) => ['open', 'in_progress', 'awaiting_client', 'escalated'].includes(item.status))
+        .length,
+      awaitingClient: issueCases.filter((item) => item.status === 'awaiting_client').length,
+      resolvedThisQuarter,
+      avgResolutionHours: computeAverage(resolutionDurations, 1),
+    },
+    cases: cases.slice(0, 25),
+    escalations: escalations.slice(0, 15),
+    playbooks,
+  };
+}
+
+function buildPartnershipsInsights({ engagements = [], contactSummary = {}, issueCases = [], lookbackDate }) {
+  const management = buildClientManagementInsights(engagements);
+  const analytics = buildPerformanceAnalyticsInsights(engagements);
+  const calendars = buildCalendarAvailabilityInsights(engagements, lookbackDate);
+  const excellence = buildClientExcellenceInsights(engagements, contactSummary);
+  const portals = buildClientPortalsInsights(engagements);
+  const mandatePerformance = buildMandatePerformanceInsights(engagements);
+  const commercialOperations = buildCommercialOperationsInsights(engagements);
+  const issueResolution = buildIssueResolutionDeskInsights(issueCases);
+
+  return {
+    summary: contactSummary,
+    topContacts: contactSummary.topContacts ?? [],
+    management,
+    analytics,
+    calendars,
+    excellence,
+    portals,
+    mandatePerformance,
+    commercialOperations,
+    issueResolution,
+  };
+}
+
 function buildCalendar(applications, recentActivity, lookbackDate) {
   const rawEvents = [];
 
@@ -707,6 +1507,89 @@ async function loadApplicationsWithReviews() {
   });
 
   return records.map((record) => record.get({ plain: true }));
+}
+
+async function loadClientEngagements(workspaceId) {
+  if (!workspaceId) {
+    return [];
+  }
+
+  const records = await ClientEngagement.findAll({
+    where: { workspaceId },
+    include: [
+      { model: ClientEngagementMandate, as: 'mandates' },
+      { model: ClientEngagementMilestone, as: 'milestones' },
+      {
+        model: ClientEngagementPortal,
+        as: 'portals',
+        include: [
+          {
+            model: ClientEngagementPortalAuditLog,
+            as: 'auditLogs',
+            separate: true,
+            order: [['occurredAt', 'DESC']],
+            limit: 25,
+          },
+        ],
+      },
+      { model: EngagementInvoice, as: 'invoices' },
+      { model: EngagementCommissionSplit, as: 'commissions' },
+      { model: EngagementScheduleEvent, as: 'scheduleEvents' },
+    ],
+    order: [['clientName', 'ASC']],
+  });
+
+  return records.map((record) => {
+    const plain = record.get({ plain: true });
+    plain.mandates = Array.isArray(plain.mandates) ? plain.mandates : [];
+    plain.milestones = Array.isArray(plain.milestones) ? plain.milestones : [];
+    plain.portals = Array.isArray(plain.portals)
+      ? plain.portals.map((portal) => ({
+          ...portal,
+          auditLogs: Array.isArray(portal.auditLogs) ? portal.auditLogs : [],
+        }))
+      : [];
+    plain.invoices = Array.isArray(plain.invoices) ? plain.invoices : [];
+    plain.commissions = Array.isArray(plain.commissions) ? plain.commissions : [];
+    plain.scheduleEvents = Array.isArray(plain.scheduleEvents) ? plain.scheduleEvents : [];
+    return plain;
+  });
+}
+
+async function loadIssueResolutionCases(workspaceId, lookbackDate) {
+  if (!workspaceId) {
+    return [];
+  }
+
+  const where = { workspaceId };
+  if (lookbackDate) {
+    where.openedAt = { [Op.gte]: lookbackDate };
+  }
+
+  const cases = await IssueResolutionCase.findAll({
+    where,
+    include: [
+      {
+        model: IssueResolutionEvent,
+        as: 'events',
+        separate: true,
+        order: [['occurredAt', 'DESC']],
+        limit: 25,
+      },
+      {
+        model: ClientEngagement,
+        as: 'engagement',
+        attributes: ['id', 'clientName'],
+      },
+    ],
+    order: [['openedAt', 'DESC']],
+  });
+
+  return cases.map((record) => {
+    const plain = record.get({ plain: true });
+    plain.events = Array.isArray(plain.events) ? plain.events : [];
+    return plain;
+  });
 }
 
 async function loadWorkspace(options = {}) {
@@ -846,24 +1729,34 @@ export async function getDashboardSnapshot({ workspaceId: rawWorkspaceId, lookba
 
     const passOnNetwork = buildPassOnNetwork(dataset, candidateProfiles);
 
-    const contactNotes = await ProviderContactNote.findAll({
-      where: { workspaceId: workspace.id },
-      include: [
-        {
-          model: User,
-          as: 'author',
-          attributes: ['id', 'firstName', 'lastName'],
-        },
-        {
-          model: User,
-          as: 'subject',
-          attributes: ['id', 'firstName', 'lastName', 'email'],
-        },
-      ],
-      order: [['createdAt', 'DESC']],
-    });
+    const [contactNoteRecords, engagements, issueCases] = await Promise.all([
+      ProviderContactNote.findAll({
+        where: { workspaceId: workspace.id },
+        include: [
+          {
+            model: User,
+            as: 'author',
+            attributes: ['id', 'firstName', 'lastName'],
+          },
+          {
+            model: User,
+            as: 'subject',
+            attributes: ['id', 'firstName', 'lastName', 'email'],
+          },
+        ],
+        order: [['createdAt', 'DESC']],
+      }),
+      loadClientEngagements(workspace.id),
+      loadIssueResolutionCases(workspace.id, lookbackDate),
+    ]);
 
-    const clientPartnerships = buildClientPartnerships(contactNotes.map((note) => note.get({ plain: true })));
+    const contactSummary = buildClientPartnerships(contactNoteRecords.map((note) => note.get({ plain: true })));
+    const clientPartnerships = buildPartnershipsInsights({
+      engagements,
+      contactSummary,
+      issueCases,
+      lookbackDate,
+    });
 
     const calendar = buildCalendar(dataset, recentActivity, lookbackDate);
     const activityTimeline = buildActivityTimeline(recentActivity, outreachPerformance.latestCampaigns);

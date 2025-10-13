@@ -39,12 +39,24 @@ export const AUTO_ASSIGN_STATUSES = [
   'reassigned',
   'completed',
 ];
-export const GIG_STATUSES = ['draft', 'active', 'in_delivery', 'paused', 'completed', 'cancelled'];
+export const GIG_STATUSES = [
+  'draft',
+  'preview',
+  'published',
+  'archived',
+  'active',
+  'in_delivery',
+  'paused',
+  'completed',
+  'cancelled',
+];
 export const GIG_PIPELINE_STAGES = ['discovery', 'kickoff', 'production', 'review', 'ready_to_close', 'completed'];
 export const GIG_MILESTONE_STATUSES = ['planned', 'in_progress', 'waiting_on_client', 'at_risk', 'completed'];
 export const GIG_BUNDLE_STATUSES = ['draft', 'testing', 'live', 'retired'];
 export const GIG_UPSELL_STATUSES = ['draft', 'pilot', 'running', 'paused', 'retired'];
 export const GIG_CATALOG_STATUSES = ['draft', 'published', 'archived'];
+export const GIG_MEDIA_TYPES = ['image', 'video', 'document'];
+export const GIG_PREVIEW_DEVICE_TYPES = ['desktop', 'tablet', 'mobile'];
 export const MESSAGE_CHANNEL_TYPES = ['support', 'project', 'contract', 'group', 'direct'];
 export const MESSAGE_THREAD_STATES = ['active', 'archived', 'locked'];
 export const MESSAGE_TYPES = ['text', 'file', 'system', 'event'];
@@ -136,14 +148,6 @@ export const GIG_ORDER_REQUIREMENT_FORM_STATUSES = [
   'approved',
   'needs_revision',
   'archived',
-];
-export const GIG_ORDER_REVISION_STATUSES = [
-  'open',
-  'in_progress',
-  'submitted',
-  'approved',
-  'declined',
-  'cancelled',
 ];
 export const GIG_ORDER_ESCROW_STATUSES = [
   'funded',
@@ -251,6 +255,30 @@ export const CLIENT_PORTAL_DECISION_VISIBILITIES = ['internal', 'client', 'publi
 export const CLIENT_PORTAL_INSIGHT_TYPES = ['health', 'finance', 'engagement', 'risk', 'custom'];
 export const CLIENT_PORTAL_INSIGHT_VISIBILITIES = ['internal', 'shared'];
 
+export const CLIENT_ENGAGEMENT_CONTRACT_STATUSES = [
+  'draft',
+  'awaiting_signature',
+  'active',
+  'renewal_due',
+  'closed',
+];
+export const CLIENT_ENGAGEMENT_MILESTONE_KINDS = ['milestone', 'roi', 'story', 'health', 'update'];
+export const CLIENT_ENGAGEMENT_MILESTONE_STATUSES = ['planned', 'in_progress', 'completed', 'at_risk'];
+export const CLIENT_ENGAGEMENT_PORTAL_STATUSES = ['draft', 'active', 'paused', 'archived'];
+export const ENGAGEMENT_SCHEDULE_SCOPES = ['personal', 'shared', 'availability'];
+export const ENGAGEMENT_SCHEDULE_VISIBILITIES = ['private', 'internal', 'client'];
+export const ISSUE_RESOLUTION_CASE_STATUSES = [
+  'open',
+  'in_progress',
+  'awaiting_client',
+  'escalated',
+  'resolved',
+  'closed',
+];
+export const ISSUE_RESOLUTION_SEVERITIES = ['low', 'medium', 'high', 'critical'];
+export const ISSUE_RESOLUTION_PRIORITIES = ['low', 'medium', 'high', 'urgent'];
+export const ISSUE_RESOLUTION_EVENT_TYPES = ['note', 'escalation', 'update', 'resolution', 'handoff'];
+
 export const FREELANCER_EXPERTISE_STATUSES = ['live', 'in_progress', 'needs_decision', 'archived'];
 export const FREELANCER_SUCCESS_TRENDS = ['up', 'down', 'steady'];
 export const FREELANCER_TESTIMONIAL_STATUSES = ['draft', 'scheduled', 'published', 'archived'];
@@ -293,10 +321,6 @@ export const DELIVERABLE_RETENTION_POLICIES = [
   'indefinite',
   'short_term',
 ];
-
-export const GIG_STATUSES = ['draft', 'preview', 'published', 'archived'];
-export const GIG_MEDIA_TYPES = ['image', 'video', 'document'];
-export const GIG_PREVIEW_DEVICE_TYPES = ['desktop', 'tablet', 'mobile'];
 
 export const FINANCE_REVENUE_TYPES = ['retainer', 'one_off', 'passive', 'royalty', 'product', 'other'];
 export const FINANCE_REVENUE_STATUSES = ['draft', 'issued', 'pending_payment', 'paid', 'recognized', 'voided'];
@@ -666,6 +690,8 @@ export const CommunitySpotlightNewsletterFeature = sequelize.define(
     callToActionUrl: { type: DataTypes.STRING(512), allowNull: true },
   },
   { tableName: 'community_spotlight_newsletter_features' },
+);
+
 export const ReputationTestimonial = sequelize.define(
   'ReputationTestimonial',
   {
@@ -1063,14 +1089,12 @@ export const Gig = sequelize.define(
     geoLocation: { type: jsonType, allowNull: true },
     summary: { type: DataTypes.TEXT, allowNull: true },
     status: {
-      type: DataTypes.ENUM(...GIG_STATUSES),
-    freelancerId: { type: DataTypes.INTEGER, allowNull: true },
-    status: {
       type: DataTypes.STRING(40),
       allowNull: false,
       defaultValue: 'draft',
       validate: { isIn: [GIG_STATUSES] },
     },
+    freelancerId: { type: DataTypes.INTEGER, allowNull: true },
     heroTitle: { type: DataTypes.STRING(255), allowNull: true },
     heroSubtitle: { type: DataTypes.STRING(500), allowNull: true },
     heroMediaUrl: { type: DataTypes.STRING(500), allowNull: true },
@@ -1504,6 +1528,22 @@ FreelancerMarginSnapshot.prototype.toPublicObject = function toPublicObject() {
 
 export const ExperienceLaunchpad = sequelize.define(
   'ExperienceLaunchpad',
+  {
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: false },
+    track: { type: DataTypes.STRING(120), allowNull: true },
+    difficulty: { type: DataTypes.STRING(60), allowNull: true },
+    durationWeeks: { type: DataTypes.INTEGER, allowNull: true },
+    cohortSize: { type: DataTypes.INTEGER, allowNull: true },
+    outcomes: { type: jsonType, allowNull: true },
+    resources: { type: jsonType, allowNull: true },
+    schedule: { type: jsonType, allowNull: true },
+    status: { type: DataTypes.STRING(60), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'experience_launchpads' },
+);
+
 export const ClientSuccessPlaybook = sequelize.define(
   'ClientSuccessPlaybook',
   {
@@ -3371,7 +3411,6 @@ ClientPortalScopeItem.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
-export const GIG_STATUSES = ['draft', 'published', 'archived'];
 export const GIG_VISIBILITY_OPTIONS = ['private', 'public', 'unlisted'];
 
 export const Gig = sequelize.define(
@@ -3409,6 +3448,10 @@ export const Gig = sequelize.define(
     availabilityLeadTimeDays: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 2 },
     publishedAt: { type: DataTypes.DATE, allowNull: true },
     archivedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  { tableName: 'gigs' },
+);
+
 export const ClientPortalDecisionLog = sequelize.define(
   'ClientPortalDecisionLog',
   {
@@ -5101,6 +5144,10 @@ export const AgencyRateCardItem = sequelize.define(
     currency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
     leadTimeDays: { type: DataTypes.INTEGER, allowNull: true },
     minCommitment: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  { tableName: 'agency_rate_card_items' },
+);
+
 export const WorkspaceTemplateCategory = sequelize.define(
   'WorkspaceTemplateCategory',
   {
@@ -7386,6 +7433,297 @@ CollaborationAiSession.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+export const ClientEngagement = sequelize.define(
+  'ClientEngagement',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    clientName: { type: DataTypes.STRING(160), allowNull: false },
+    clientCode: { type: DataTypes.STRING(60), allowNull: true },
+    industry: { type: DataTypes.STRING(120), allowNull: true },
+    retainerAmount: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    retainerCurrency: { type: DataTypes.STRING(12), allowNull: false, defaultValue: 'USD' },
+    retainerBillingCadence: { type: DataTypes.STRING(60), allowNull: true },
+    successFeePercentage: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    successFeeTrigger: { type: DataTypes.STRING(160), allowNull: true },
+    contractStatus: {
+      type: DataTypes.ENUM(...CLIENT_ENGAGEMENT_CONTRACT_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [CLIENT_ENGAGEMENT_CONTRACT_STATUSES] },
+    },
+    contractSignedAt: { type: DataTypes.DATE, allowNull: true },
+    startDate: { type: DataTypes.DATE, allowNull: true },
+    endDate: { type: DataTypes.DATE, allowNull: true },
+    renewalDate: { type: DataTypes.DATE, allowNull: true },
+    hiringMandates: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    activeMandates: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    accountingIntegration: { type: DataTypes.STRING(120), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'client_engagements',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['workspaceId', 'contractStatus'] },
+    ],
+  },
+);
+
+export const ClientEngagementMandate = sequelize.define(
+  'ClientEngagementMandate',
+  {
+    engagementId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(200), allowNull: false },
+    roleLevel: { type: DataTypes.STRING(120), allowNull: true },
+    location: { type: DataTypes.STRING(160), allowNull: true },
+    status: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'active' },
+    openRoles: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    filledRoles: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    pipelineValue: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    forecastRevenue: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    diversitySlatePct: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    qualityScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    avgTimeToSubmitDays: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    interviewToOfferDays: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    revenueRecognized: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    nextMilestoneAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'client_engagement_mandates',
+    indexes: [{ fields: ['engagementId'] }],
+  },
+);
+
+export const ClientEngagementMilestone = sequelize.define(
+  'ClientEngagementMilestone',
+  {
+    engagementId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(200), allowNull: false },
+    kind: {
+      type: DataTypes.ENUM(...CLIENT_ENGAGEMENT_MILESTONE_KINDS),
+      allowNull: false,
+      defaultValue: 'milestone',
+      validate: { isIn: [CLIENT_ENGAGEMENT_MILESTONE_KINDS] },
+    },
+    status: {
+      type: DataTypes.ENUM(...CLIENT_ENGAGEMENT_MILESTONE_STATUSES),
+      allowNull: false,
+      defaultValue: 'planned',
+      validate: { isIn: [CLIENT_ENGAGEMENT_MILESTONE_STATUSES] },
+    },
+    dueDate: { type: DataTypes.DATE, allowNull: true },
+    completedAt: { type: DataTypes.DATE, allowNull: true },
+    impactScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    details: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'client_engagement_milestones',
+    indexes: [
+      { fields: ['engagementId'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+export const ClientEngagementPortal = sequelize.define(
+  'ClientEngagementPortal',
+  {
+    engagementId: { type: DataTypes.INTEGER, allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...CLIENT_ENGAGEMENT_PORTAL_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [CLIENT_ENGAGEMENT_PORTAL_STATUSES] },
+    },
+    inviteCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    activeUsers: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    lastLoginAt: { type: DataTypes.DATE, allowNull: true },
+    brandingTheme: { type: DataTypes.STRING(120), allowNull: true },
+    primaryColor: { type: DataTypes.STRING(20), allowNull: true },
+    secondaryColor: { type: DataTypes.STRING(20), allowNull: true },
+    logoUrl: { type: DataTypes.STRING(500), allowNull: true },
+    customDomain: { type: DataTypes.STRING(255), allowNull: true },
+    autoReportFrequency: { type: DataTypes.STRING(60), allowNull: true },
+    features: { type: jsonType, allowNull: true },
+    settings: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'client_engagement_portals',
+    indexes: [
+      { fields: ['engagementId'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+export const ClientEngagementPortalAuditLog = sequelize.define(
+  'ClientEngagementPortalAuditLog',
+  {
+    portalId: { type: DataTypes.INTEGER, allowNull: false },
+    eventType: { type: DataTypes.STRING(120), allowNull: false },
+    actorType: { type: DataTypes.STRING(60), allowNull: true },
+    actorName: { type: DataTypes.STRING(160), allowNull: true },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    occurredAt: { type: DataTypes.DATE, allowNull: false },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'client_engagement_portal_audit_logs',
+    indexes: [
+      { fields: ['portalId'] },
+      { fields: ['occurredAt'] },
+    ],
+  },
+);
+
+export const EngagementInvoice = sequelize.define(
+  'EngagementInvoice',
+  {
+    engagementId: { type: DataTypes.INTEGER, allowNull: false },
+    invoiceNumber: { type: DataTypes.STRING(120), allowNull: false },
+    amount: { type: DataTypes.DECIMAL(12, 2), allowNull: false },
+    currency: { type: DataTypes.STRING(12), allowNull: false, defaultValue: 'USD' },
+    status: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'draft' },
+    dueDate: { type: DataTypes.DATE, allowNull: true },
+    issuedDate: { type: DataTypes.DATE, allowNull: true },
+    paidDate: { type: DataTypes.DATE, allowNull: true },
+    integrationProvider: { type: DataTypes.STRING(120), allowNull: true },
+    integrationReference: { type: DataTypes.STRING(160), allowNull: true },
+    lineItems: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'engagement_invoices',
+    indexes: [
+      { fields: ['engagementId'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+export const EngagementCommissionSplit = sequelize.define(
+  'EngagementCommissionSplit',
+  {
+    engagementId: { type: DataTypes.INTEGER, allowNull: false },
+    partnerName: { type: DataTypes.STRING(160), allowNull: false },
+    percentage: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    amount: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    status: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'pending' },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  {
+    tableName: 'engagement_commission_splits',
+    indexes: [
+      { fields: ['engagementId'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+export const EngagementScheduleEvent = sequelize.define(
+  'EngagementScheduleEvent',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    engagementId: { type: DataTypes.INTEGER, allowNull: true },
+    scope: {
+      type: DataTypes.ENUM(...ENGAGEMENT_SCHEDULE_SCOPES),
+      allowNull: false,
+      defaultValue: 'personal',
+      validate: { isIn: [ENGAGEMENT_SCHEDULE_SCOPES] },
+    },
+    eventType: { type: DataTypes.STRING(120), allowNull: false },
+    title: { type: DataTypes.STRING(200), allowNull: false },
+    startAt: { type: DataTypes.DATE, allowNull: false },
+    endAt: { type: DataTypes.DATE, allowNull: true },
+    location: { type: DataTypes.STRING(160), allowNull: true },
+    visibility: {
+      type: DataTypes.ENUM(...ENGAGEMENT_SCHEDULE_VISIBILITIES),
+      allowNull: true,
+      validate: { isIn: [ENGAGEMENT_SCHEDULE_VISIBILITIES] },
+    },
+    hostName: { type: DataTypes.STRING(160), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    attendees: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'engagement_schedule_events',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['scope'] },
+      { fields: ['startAt'] },
+    ],
+  },
+);
+
+export const IssueResolutionCase = sequelize.define(
+  'IssueResolutionCase',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    engagementId: { type: DataTypes.INTEGER, allowNull: true },
+    caseType: { type: DataTypes.STRING(160), allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...ISSUE_RESOLUTION_CASE_STATUSES),
+      allowNull: false,
+      defaultValue: 'open',
+      validate: { isIn: [ISSUE_RESOLUTION_CASE_STATUSES] },
+    },
+    severity: {
+      type: DataTypes.ENUM(...ISSUE_RESOLUTION_SEVERITIES),
+      allowNull: true,
+      validate: { isIn: [ISSUE_RESOLUTION_SEVERITIES] },
+    },
+    priority: {
+      type: DataTypes.ENUM(...ISSUE_RESOLUTION_PRIORITIES),
+      allowNull: true,
+      validate: { isIn: [ISSUE_RESOLUTION_PRIORITIES] },
+    },
+    openedAt: { type: DataTypes.DATE, allowNull: false },
+    resolvedAt: { type: DataTypes.DATE, allowNull: true },
+    ownerName: { type: DataTypes.STRING(160), allowNull: true },
+    playbookUsed: { type: DataTypes.STRING(160), allowNull: true },
+    escalatedTo: { type: DataTypes.STRING(160), allowNull: true },
+    outcome: { type: DataTypes.STRING(160), allowNull: true },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'issue_resolution_cases',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['status'] },
+      { fields: ['openedAt'] },
+    ],
+  },
+);
+
+export const IssueResolutionEvent = sequelize.define(
+  'IssueResolutionEvent',
+  {
+    caseId: { type: DataTypes.INTEGER, allowNull: false },
+    eventType: {
+      type: DataTypes.ENUM(...ISSUE_RESOLUTION_EVENT_TYPES),
+      allowNull: false,
+      defaultValue: 'note',
+      validate: { isIn: [ISSUE_RESOLUTION_EVENT_TYPES] },
+    },
+    actorName: { type: DataTypes.STRING(160), allowNull: true },
+    note: { type: DataTypes.TEXT, allowNull: true },
+    outcome: { type: DataTypes.STRING(160), allowNull: true },
+    occurredAt: { type: DataTypes.DATE, allowNull: false },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'issue_resolution_events',
+    indexes: [
+      { fields: ['caseId'] },
+      { fields: ['occurredAt'] },
+    ],
+  },
+);
+
 CollaborationSpace.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
 CollaborationSpace.belongsTo(Profile, { foreignKey: 'profileId', as: 'profile' });
 CollaborationSpace.hasMany(CollaborationParticipant, {
@@ -9265,6 +9603,43 @@ ProviderWorkspace.hasMany(PartnerEngagement, { foreignKey: 'workspaceId', as: 'p
 ProviderWorkspace.hasMany(RecruitingCalendarEvent, { foreignKey: 'workspaceId', as: 'recruitingEvents' });
 ProviderWorkspace.hasMany(EmployerBrandAsset, { foreignKey: 'workspaceId', as: 'employerBrandAssets' });
 
+ProviderWorkspace.hasMany(ClientEngagement, { foreignKey: 'workspaceId', as: 'clientEngagements' });
+ClientEngagement.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+
+ClientEngagement.hasMany(ClientEngagementMandate, { foreignKey: 'engagementId', as: 'mandates' });
+ClientEngagementMandate.belongsTo(ClientEngagement, { foreignKey: 'engagementId', as: 'engagement' });
+
+ClientEngagement.hasMany(ClientEngagementMilestone, { foreignKey: 'engagementId', as: 'milestones' });
+ClientEngagementMilestone.belongsTo(ClientEngagement, { foreignKey: 'engagementId', as: 'engagement' });
+
+ClientEngagement.hasMany(ClientEngagementPortal, { foreignKey: 'engagementId', as: 'portals' });
+ClientEngagementPortal.belongsTo(ClientEngagement, { foreignKey: 'engagementId', as: 'engagement' });
+
+ClientEngagementPortal.hasMany(ClientEngagementPortalAuditLog, { foreignKey: 'portalId', as: 'auditLogs' });
+ClientEngagementPortalAuditLog.belongsTo(ClientEngagementPortal, { foreignKey: 'portalId', as: 'portal' });
+
+ClientEngagement.hasMany(EngagementInvoice, { foreignKey: 'engagementId', as: 'invoices' });
+EngagementInvoice.belongsTo(ClientEngagement, { foreignKey: 'engagementId', as: 'engagement' });
+
+ClientEngagement.hasMany(EngagementCommissionSplit, { foreignKey: 'engagementId', as: 'commissions' });
+EngagementCommissionSplit.belongsTo(ClientEngagement, { foreignKey: 'engagementId', as: 'engagement' });
+
+ProviderWorkspace.hasMany(EngagementScheduleEvent, {
+  foreignKey: 'workspaceId',
+  as: 'engagementScheduleEvents',
+});
+EngagementScheduleEvent.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+ClientEngagement.hasMany(EngagementScheduleEvent, { foreignKey: 'engagementId', as: 'scheduleEvents' });
+EngagementScheduleEvent.belongsTo(ClientEngagement, { foreignKey: 'engagementId', as: 'engagement' });
+
+ProviderWorkspace.hasMany(IssueResolutionCase, { foreignKey: 'workspaceId', as: 'issueResolutionCases' });
+IssueResolutionCase.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+ClientEngagement.hasMany(IssueResolutionCase, { foreignKey: 'engagementId', as: 'issueCases' });
+IssueResolutionCase.belongsTo(ClientEngagement, { foreignKey: 'engagementId', as: 'engagement' });
+
+IssueResolutionCase.hasMany(IssueResolutionEvent, { foreignKey: 'caseId', as: 'events' });
+IssueResolutionEvent.belongsTo(IssueResolutionCase, { foreignKey: 'caseId', as: 'case' });
+
 ProviderWorkspaceMember.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 ProviderWorkspaceMember.belongsTo(User, { foreignKey: 'userId', as: 'member' });
 ProviderWorkspaceMember.belongsTo(User, { foreignKey: 'invitedById', as: 'inviter' });
@@ -9573,6 +9948,16 @@ export default {
   ProviderWorkspaceMember,
   ProviderWorkspaceInvite,
   ProviderContactNote,
+  ClientEngagement,
+  ClientEngagementMandate,
+  ClientEngagementMilestone,
+  ClientEngagementPortal,
+  ClientEngagementPortalAuditLog,
+  EngagementInvoice,
+  EngagementCommissionSplit,
+  EngagementScheduleEvent,
+  IssueResolutionCase,
+  IssueResolutionEvent,
   AgencyAlliance,
   AgencyAllianceMember,
   AgencyAlliancePod,

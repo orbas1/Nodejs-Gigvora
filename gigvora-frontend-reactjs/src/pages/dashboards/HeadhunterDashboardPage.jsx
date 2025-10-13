@@ -15,6 +15,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import DataStatus from '../../components/DataStatus.jsx';
 import { useHeadhunterDashboard } from '../../hooks/useHeadhunterDashboard.js';
 import { formatRelativeTime, formatAbsolute } from '../../utils/date.js';
+import PartnershipsInsightsSection from './headhunter/sections/PartnershipsInsightsSection.jsx';
 
 const menuSections = [
   {
@@ -66,6 +67,26 @@ const menuSections = [
       {
         name: 'Calendar & availability',
         description: 'Personal calendar, shared calendars with clients, and availability broadcasting.',
+      },
+      {
+        name: 'Client partnership excellence',
+        description: 'Deliver transparency to clients with shared dashboards, milestone updates, and ROI storytelling.',
+      },
+      {
+        name: 'Client portals',
+        description: 'Invite clients to review shortlists, feedback, and offer strategy with customizable branding and audit logs.',
+      },
+      {
+        name: 'Mandate performance dashboards',
+        description: 'Measure submissions, interviews, offers, placements, diversity, and quality metrics.',
+      },
+      {
+        name: 'Commercial operations',
+        description: 'Manage retainers, milestones, invoices, and commissions with finance-ready documentation.',
+      },
+      {
+        name: 'Issue resolution desk',
+        description: 'Address candidate withdrawals, renegotiations, or conflicts with structured playbooks and escalations.',
       },
     ],
   },
@@ -208,7 +229,7 @@ export default function HeadhunterDashboardPage() {
   const passOnNetwork = data?.passOnNetwork ?? { candidates: [] };
   const activityTimeline = data?.activityTimeline ?? [];
   const calendar = data?.calendar ?? { upcoming: [], workload: {} };
-  const clientPartnerships = data?.clientPartnerships ?? { topContacts: [] };
+  const clientPartnerships = data?.clientPartnerships ?? {};
   const hasWorkspaceScopedData = data?.meta?.hasWorkspaceScopedData ?? false;
   const fallbackReason = data?.meta?.fallbackReason ?? null;
 
@@ -587,66 +608,7 @@ export default function HeadhunterDashboardPage() {
           </div>
         </section>
 
-        <section className="grid gap-6 lg:grid-cols-2">
-          <div className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-slate-900">Client partnerships</h3>
-              <BuildingOfficeIcon className="h-5 w-5 text-blue-500" />
-            </div>
-            <div className="space-y-3">
-              {clientPartnerships.topContacts?.length ? (
-                clientPartnerships.topContacts.map((contact) => (
-                  <div
-                    key={contact.userId}
-                    className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600"
-                  >
-                    <p className="font-semibold text-slate-800">{contact.name}</p>
-                    <p className="text-xs text-slate-500">{contact.company ?? contact.email}</p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      Last interaction: {contact.lastInteractionAt ? formatRelativeTime(contact.lastInteractionAt) : '—'}
-                    </p>
-                  </div>
-                ))
-              ) : (
-                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
-                  No recent client interactions logged.
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-slate-900">Upcoming schedule</h3>
-              <CalendarDaysIcon className="h-5 w-5 text-blue-500" />
-            </div>
-            <div className="space-y-2">
-              {calendar.upcoming?.length ? (
-                calendar.upcoming.map((event, index) => (
-                  <div
-                    key={`${event.applicationId}-${index}`}
-                    className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600"
-                  >
-                    <p className="font-semibold text-slate-800">{event.label}</p>
-                    <p className="text-xs text-slate-500">{formatDate(event.date)}</p>
-                  </div>
-                ))
-              ) : (
-                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
-                  No upcoming events scheduled in this timeframe.
-                </div>
-              )}
-            </div>
-            <div className="grid gap-3 text-xs text-slate-600 sm:grid-cols-2">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
-                Interviews this week: <strong className="text-slate-800">{calendar.workload?.interviewsThisWeek ?? 0}</strong>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
-                Offers pending: <strong className="text-slate-800">{calendar.workload?.offersPending ?? 0}</strong>
-              </div>
-            </div>
-          </div>
-        </section>
+        <PartnershipsInsightsSection partnerships={clientPartnerships} calendar={calendar} />
 
         <section className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between">
