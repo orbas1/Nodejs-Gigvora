@@ -11,6 +11,7 @@ import {
 } from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import DataStatus from '../../components/DataStatus.jsx';
+import JobLifecycleSection from '../../components/company/JobLifecycleSection.jsx';
 import { useCompanyDashboard } from '../../hooks/useCompanyDashboard.js';
 import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
 
@@ -104,14 +105,17 @@ const menuSections = [
       {
         name: 'Employer brand studio',
         description: 'Company profile, culture stories, benefits, and employer marketing assets.',
+        sectionId: 'employer-brand-studio',
       },
       {
         name: 'Employee journeys',
         description: 'Onboarding, internal mobility, and performance snapshots for HR teams.',
+        sectionId: 'employee-journeys',
       },
       {
-        name: 'Internal mobility & referrals',
-        description: 'Promote jobs internally, reward referrals, and manage career pathing across departments.',
+        name: 'Settings & governance',
+        description: 'Calendar sync, permissions, integrations, compliance, and approvals.',
+        sectionId: 'settings-governance',
       },
     ],
   },
@@ -146,6 +150,17 @@ const SUMMARY_ICONS = [
   ClipboardDocumentCheckIcon,
 ];
 
+function slugify(value) {
+  if (!value) return '';
+  return value
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+}
+
 function formatNumber(value, { fallback = '—', suffix = '' } = {}) {
   if (value == null) return fallback;
   const numeric = Number(value);
@@ -171,7 +186,6 @@ function buildSections(data) {
     pipelineSummary,
     diversity,
     alerts,
-    jobLifecycle,
     jobDesign,
     sourcing,
     applicantRelationshipManager,
@@ -186,7 +200,6 @@ function buildSections(data) {
     calendar,
     jobSummary,
     projectSummary,
-    recommendations,
   } = data;
 
   const statusEntries = Object.entries(pipelineSummary?.byStatus ?? {});
@@ -213,22 +226,6 @@ function buildSections(data) {
         alerts.latestDetection ? `Latest detected: ${formatRelativeTime(alerts.latestDetection)}` : 'No recent alerts detected.',
       ]
     : ['No active alerts in this lookback window.'];
-
-  const campaignChannelPoints = jobLifecycle?.campaigns?.byChannel?.length
-    ? jobLifecycle.campaigns.byChannel.slice(0, 3).map(
-        ({ channel, applications, conversionRate }) =>
-          `${channel}: ${formatNumber(applications)} apps • ${formatPercent(conversionRate)} hire rate`,
-      )
-    : ['Launch a campaign to see channel performance.'];
-
-  const jobStagePoints = jobLifecycle
-    ? [
-        `Total stages: ${formatNumber(jobLifecycle.totalStages)}`,
-        `Average stage duration: ${formatNumber(jobLifecycle.averageStageDurationHours, { suffix: ' hrs' })}`,
-        `Pending approvals: ${formatNumber(jobLifecycle.pendingApprovals)}`,
-        `Overdue approvals: ${formatNumber(jobLifecycle.overdueApprovals)}`,
-      ]
-    : ['Configure your hiring stages to see lifecycle analytics.'];
 
   const jobDesignPoints = jobDesign
     ? [
@@ -323,14 +320,48 @@ function buildSections(data) {
     ? calendar.upcoming.slice(0, 3).map((event) => `${event.eventType} • ${formatAbsolute(event.startsAt)}`)
     : ['Connect your recruiting calendar to see upcoming events.'];
 
-  const brandPoints = brandIntelligence
+  const brandStudio = data?.brandAndPeople?.employerBrandStudio;
+  const journeysSummary = data?.brandAndPeople?.employeeJourneys;
+  const settingsGovernance = data?.brandAndPeople?.settingsGovernance;
+
+  const brandStudioPoints = brandStudio
     ? [
-        `Published assets: ${formatNumber(brandIntelligence.publishedAssets)}`,
-        `Average engagement: ${formatNumber(brandIntelligence.averageEngagementScore)}`,
-        `Profile completeness: ${formatPercent(brandIntelligence.profileCompleteness)}`,
-        `Active roles highlighted: ${formatNumber(brandIntelligence.activeRoles)}`,
+        `Profile completeness: ${formatPercent(brandStudio.profileCompleteness)}`,
+        `Published assets live: ${formatNumber(brandStudio.publishedAssets)}`,
+        brandStudio?.stories?.topStories?.[0]
+          ? `Top story: ${brandStudio.stories.topStories[0].title}`
+          : 'Publish a culture story to spotlight your team.',
+        brandStudio?.benefits?.categories?.length
+          ? `${formatNumber(brandStudio.benefits.categories.length)} benefit categories documented`
+          : 'Document benefits to enrich offer packs.',
       ]
-    : ['Publish employer brand assets to monitor engagement.'];
+    : ['Publish culture stories and benefits to unlock brand analytics.'];
+
+  const journeyPoints = journeysSummary
+    ? [
+        `Active programs: ${formatNumber(journeysSummary.totalPrograms)}`,
+        `Employees in flight: ${formatNumber(journeysSummary.activeEmployees)}`,
+        `Avg completion: ${formatPercent(journeysSummary.averageCompletionRate)}`,
+        journeysSummary.programsAtRisk
+          ? `${formatNumber(journeysSummary.programsAtRisk)} program(s) flagged for follow-up`
+          : 'All journeys currently on track.',
+      ]
+    : ['Launch onboarding and mobility journeys to monitor employee progress.'];
+
+  const settingsGovernancePoints = settingsGovernance
+    ? [
+        `Calendar sync: ${formatNumber(settingsGovernance.calendar?.connected ?? 0)} active / ${formatNumber(
+          settingsGovernance.calendar?.totalConnections ?? 0,
+        )} connected`,
+        `Integrations live: ${formatNumber(settingsGovernance.integrations?.connected ?? 0)} of ${formatNumber(
+          settingsGovernance.integrations?.total ?? 0,
+        )}`,
+        `Pending invites: ${formatNumber(settingsGovernance.permissions?.pendingInvites ?? 0)}`,
+        settingsGovernance.compliance?.criticalAlerts
+          ? `${formatNumber(settingsGovernance.compliance.criticalAlerts)} critical compliance alert(s)`
+          : 'No critical compliance alerts.',
+      ]
+    : ['Connect integrations and calendar syncs to populate governance metrics.'];
 
   const governancePoints = governance
     ? [
@@ -340,10 +371,6 @@ function buildSections(data) {
         governance.timezone ? `Primary timezone: ${governance.timezone}` : 'Set a default timezone for scheduling.',
       ]
     : ['Governance metrics appear once approvals and alerts are captured.'];
-
-  const recommendationPoints = Array.isArray(recommendations) && recommendations.length
-    ? recommendations.map((item) => item.title)
-    : ['Keep capturing activity to surface recommended actions.'];
 
   return [
     {
@@ -370,27 +397,6 @@ function buildSections(data) {
           name: 'Alerts & risk',
           description: 'Track SLA breaches, compliance flags, and emerging issues.',
           bulletPoints: alertPoints,
-        },
-      ],
-    },
-    {
-      title: 'Job lifecycle & ATS intelligence',
-      description: 'Optimise stage configurations, approvals, and campaign performance.',
-      features: [
-        {
-          name: 'Stage configuration',
-          description: 'Understand the structure and pacing of your ATS stages.',
-          bulletPoints: jobStagePoints,
-        },
-        {
-          name: 'Campaign performance',
-          description: 'Compare sourcing channels powering your requisitions.',
-          bulletPoints: campaignChannelPoints,
-        },
-        {
-          name: 'Recommended actions',
-          description: 'AI-assisted guidance based on current lifecycle metrics.',
-          bulletPoints: recommendationPoints,
         },
       ],
     },
@@ -523,22 +529,24 @@ function buildSections(data) {
       ],
     },
     {
-      title: 'Employer brand & workforce intelligence',
-      description: 'Promote culture, track engagement, and align with workforce plans.',
+      id: 'brand-and-people-overview',
+      title: 'Brand & people programs',
+      description: 'Promote culture narratives, guide employee journeys, and keep governance healthy.',
       features: [
         {
-          name: 'Brand engagement',
-          description: 'Published assets and campaign traction.',
-          bulletPoints: brandPoints,
+          name: 'Employer brand studio',
+          description: 'Manage culture stories, benefits, and employer assets in one workspace.',
+          bulletPoints: brandStudioPoints,
         },
         {
-          name: 'Workforce insights',
-          description: 'Tie hiring plans to workforce analytics.',
-          bulletPoints: [
-            `Projected hires: ${formatNumber(analyticsForecasting?.projectedHires)}`,
-            `Attrition risks surfaced via projects at risk: ${formatNumber(analyticsForecasting?.atRiskProjects)}`,
-            `Internal mobility spotlight: ${formatNumber(jobDesign?.coAuthorSessions ?? 0)} collaborative design sessions`,
-          ],
+          name: 'Employee journeys',
+          description: 'Track onboarding, mobility, and performance snapshots for your workforce.',
+          bulletPoints: journeyPoints,
+        },
+        {
+          name: 'Settings & governance',
+          description: 'Monitor calendar syncs, permissions, and integrations across the workspace.',
+          bulletPoints: settingsGovernancePoints,
         },
       ],
     },
@@ -553,7 +561,7 @@ function buildSections(data) {
         },
       ],
     },
-  ];
+  ].map((section) => ({ ...section, id: section.id ?? slugify(section.title) }));
 }
 
 function buildProfile(data, summaryCards) {
@@ -651,6 +659,351 @@ function RecentNotes({ items }) {
   );
 }
 
+function BrandAndPeopleSection({ data }) {
+  if (!data) {
+    return null;
+  }
+
+  const employerBrandStudio = data.employerBrandStudio ?? null;
+  const employeeJourneys = data.employeeJourneys ?? null;
+  const settingsGovernance = data.settingsGovernance ?? null;
+
+  if (!employerBrandStudio && !employeeJourneys && !settingsGovernance) {
+    return null;
+  }
+
+  const brandMetrics = [
+    {
+      label: 'Profile completeness',
+      value: formatPercent(employerBrandStudio?.profileCompleteness),
+    },
+    {
+      label: 'Published assets',
+      value: formatNumber(employerBrandStudio?.publishedAssets),
+    },
+    {
+      label: 'Avg asset engagement',
+      value: formatNumber(employerBrandStudio?.averageAssetEngagement),
+    },
+    {
+      label: 'Stories live',
+      value: formatNumber(employerBrandStudio?.stories?.published),
+    },
+  ];
+
+  const journeyMetrics = [
+    {
+      label: 'Active programs',
+      value: formatNumber(employeeJourneys?.totalPrograms),
+    },
+    {
+      label: 'Employees enrolled',
+      value: formatNumber(employeeJourneys?.activeEmployees),
+    },
+    {
+      label: 'Avg completion',
+      value: formatPercent(employeeJourneys?.averageCompletionRate),
+    },
+    {
+      label: 'Programs at risk',
+      value: formatNumber(employeeJourneys?.programsAtRisk),
+    },
+  ];
+
+  const governanceMetrics = [
+    {
+      label: 'Calendar connections',
+      value: `${formatNumber(settingsGovernance?.calendar?.connected)} / ${formatNumber(
+        settingsGovernance?.calendar?.totalConnections,
+      )}`,
+      helper: 'Active / total connections',
+    },
+    {
+      label: 'Integrations live',
+      value: `${formatNumber(settingsGovernance?.integrations?.connected)} / ${formatNumber(
+        settingsGovernance?.integrations?.total,
+      )}`,
+      helper: 'Connected integrations',
+    },
+    {
+      label: 'Pending invites',
+      value: formatNumber(settingsGovernance?.permissions?.pendingInvites),
+    },
+    {
+      label: 'Critical alerts',
+      value: formatNumber(settingsGovernance?.compliance?.criticalAlerts),
+    },
+  ];
+
+  const healthBadgeStyles = {
+    on_track: 'bg-emerald-50 text-emerald-600 border border-emerald-200',
+    at_risk: 'bg-amber-50 text-amber-600 border border-amber-200',
+    needs_attention: 'bg-orange-50 text-orange-600 border border-orange-200',
+    off_track: 'bg-rose-50 text-rose-600 border border-rose-200',
+  };
+
+  return (
+    <section
+      id="brand-and-people"
+      className="space-y-10 rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_18px_40px_-24px_rgba(30,64,175,0.35)] sm:p-8"
+    >
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-2xl font-semibold text-slate-900">Brand &amp; people</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Showcase your employer brand, orchestrate employee journeys, and keep governance signals in one place.
+          </p>
+        </div>
+        <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-600">
+          Workspace programs
+        </span>
+      </div>
+
+      <div id="employer-brand-studio" className="space-y-4 rounded-3xl border border-blue-100 bg-blue-50/40 p-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-xl font-semibold text-blue-900">Employer brand studio</h3>
+            <p className="text-sm text-blue-700">
+              Publish culture stories, benefits, and assets to elevate your employer reputation.
+            </p>
+          </div>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {brandMetrics.map((metric) => (
+            <div key={metric.label} className="rounded-2xl bg-white/70 p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-blue-500">{metric.label}</p>
+              <p className="mt-2 text-xl font-semibold text-blue-900">{metric.value}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="rounded-2xl border border-blue-100 bg-white/80 p-4">
+            <h4 className="text-sm font-semibold uppercase tracking-wide text-blue-700">Top culture stories</h4>
+            {employerBrandStudio?.stories?.topStories?.length ? (
+              <ul className="mt-3 space-y-3">
+                {employerBrandStudio.stories.topStories.map((story) => (
+                  <li key={story.id} className="rounded-xl border border-blue-100 bg-blue-50/60 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-semibold text-blue-900">{story.title}</p>
+                      {story.engagementScore != null ? (
+                        <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-700">
+                          {formatNumber(story.engagementScore)}
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-1 text-xs text-blue-700">
+                      {story.authorName ? `By ${story.authorName}` : 'Team submission'} •{' '}
+                      {story.publishedAt ? formatRelativeTime(story.publishedAt) : 'Unscheduled'}
+                    </p>
+                    {story.summary ? <p className="mt-2 text-sm text-blue-800">{story.summary}</p> : null}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 text-sm text-blue-700">
+                Share your first culture story to engage candidates and employees.
+              </p>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-blue-100 bg-white/80 p-4">
+            <h4 className="text-sm font-semibold uppercase tracking-wide text-blue-700">Benefits spotlight</h4>
+            {employerBrandStudio?.benefits?.categories?.length ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {employerBrandStudio.benefits.categories.map((category) => (
+                  <span
+                    key={category.category}
+                    className="inline-flex items-center gap-1 rounded-full bg-blue-100/80 px-3 py-1 text-xs font-semibold text-blue-800"
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                    {category.category} · {formatNumber(category.count)}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-blue-700">Document benefits to share with candidates and employees.</p>
+            )}
+
+            {employerBrandStudio?.benefits?.featured?.length ? (
+              <div className="mt-4 space-y-2">
+                {employerBrandStudio.benefits.featured.map((benefit) => (
+                  <div key={benefit.id} className="rounded-xl border border-blue-100 bg-blue-50/60 p-3">
+                    <p className="text-sm font-semibold text-blue-900">{benefit.title}</p>
+                    <p className="text-xs text-blue-700">{benefit.category}</p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            {employerBrandStudio?.highlights?.length ? (
+              <ul className="mt-4 space-y-1 text-sm text-blue-800">
+                {employerBrandStudio.highlights.map((highlight) => (
+                  <li key={highlight} className="flex gap-2">
+                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
+                    <span>{highlight}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      <div id="employee-journeys" className="space-y-4 rounded-3xl border border-emerald-100 bg-emerald-50/40 p-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-xl font-semibold text-emerald-900">Employee journeys</h3>
+            <p className="text-sm text-emerald-700">
+              Monitor onboarding, mobility, and performance programs for your workforce.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {journeyMetrics.map((metric) => (
+            <div key={metric.label} className="rounded-2xl bg-white/80 p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-500">{metric.label}</p>
+              <p className="mt-2 text-xl font-semibold text-emerald-900">{metric.value}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="rounded-2xl border border-emerald-100 bg-white/80 p-4">
+          <h4 className="text-sm font-semibold uppercase tracking-wide text-emerald-700">Programs spotlight</h4>
+          {employeeJourneys?.spotlightPrograms?.length ? (
+            <div className="mt-3 overflow-x-auto">
+              <table className="min-w-full text-left text-sm text-emerald-900">
+                <thead>
+                  <tr className="text-xs uppercase tracking-wide text-emerald-600">
+                    <th className="px-3 py-2">Program</th>
+                    <th className="px-3 py-2">Type</th>
+                    <th className="px-3 py-2">Health</th>
+                    <th className="px-3 py-2">Active</th>
+                    <th className="px-3 py-2">Completion</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {employeeJourneys.spotlightPrograms.map((program) => (
+                    <tr key={program.id} className="border-t border-emerald-100">
+                      <td className="px-3 py-2">
+                        <p className="font-semibold">{program.title}</p>
+                        <p className="text-xs text-emerald-600">{program.ownerName ?? 'No owner assigned'}</p>
+                      </td>
+                      <td className="px-3 py-2 capitalize">{program.programType?.replace(/_/g, ' ')}</td>
+                      <td className="px-3 py-2">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                            healthBadgeStyles[program.healthStatus] ?? 'bg-slate-100 text-slate-600'
+                          }`}
+                        >
+                          {program.healthStatus?.replace(/_/g, ' ') ?? 'unknown'}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2">{formatNumber(program.activeEmployees)}</td>
+                      <td className="px-3 py-2">{formatPercent(program.completionRate)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="mt-2 text-sm text-emerald-700">
+              Activate onboarding or mobility journeys to track progress and surface insights.
+            </p>
+          )}
+
+          {employeeJourneys?.highlights?.length ? (
+            <ul className="mt-4 space-y-1 text-sm text-emerald-800">
+              {employeeJourneys.highlights.map((highlight) => (
+                <li key={highlight} className="flex gap-2">
+                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+                  <span>{highlight}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      </div>
+
+      <div id="settings-governance" className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50 p-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-xl font-semibold text-slate-900">Settings &amp; governance</h3>
+            <p className="text-sm text-slate-600">
+              Keep integrations healthy, calendar syncs current, and permissions aligned with policy.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {governanceMetrics.map((metric) => (
+            <div key={metric.label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{metric.label}</p>
+              <p className="mt-2 text-xl font-semibold text-slate-900">{metric.value}</p>
+              {metric.helper ? <p className="mt-1 text-xs text-slate-500">{metric.helper}</p> : null}
+            </div>
+          ))}
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <h4 className="text-sm font-semibold uppercase tracking-wide text-slate-600">Calendar sync</h4>
+            <p className="mt-1 text-sm text-slate-600">
+              Last synced {settingsGovernance?.calendar?.lastSyncedAt ? formatRelativeTime(settingsGovernance.calendar.lastSyncedAt) : '—'}
+            </p>
+            {settingsGovernance?.calendar?.primaryCalendars?.length ? (
+              <ul className="mt-3 space-y-2 text-sm text-slate-700">
+                {settingsGovernance.calendar.primaryCalendars.map((calendar) => (
+                  <li key={`${calendar.providerKey}-${calendar.primaryCalendar}`} className="flex flex-col rounded-xl bg-slate-50 p-3">
+                    <span className="font-semibold">{calendar.primaryCalendar}</span>
+                    <span className="text-xs uppercase tracking-wide text-slate-500">{calendar.providerKey}</span>
+                    <span className="mt-1 text-xs text-slate-500">Status: {calendar.status}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 text-sm text-slate-600">Connect a recruiting calendar to surface interview visibility.</p>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <h4 className="text-sm font-semibold uppercase tracking-wide text-slate-600">Integrations</h4>
+            {settingsGovernance?.integrations?.categories?.length ? (
+              <ul className="mt-3 space-y-2 text-sm text-slate-700">
+                {settingsGovernance.integrations.categories.map((category) => (
+                  <li key={category.category} className="flex items-center justify-between rounded-xl bg-slate-50 p-3">
+                    <span className="capitalize">{category.category.replace(/_/g, ' ')}</span>
+                    <span className="text-sm font-semibold text-slate-900">{formatNumber(category.count)}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 text-sm text-slate-600">Connect HRIS, communication, and ATS integrations to streamline automation.</p>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <h4 className="text-sm font-semibold uppercase tracking-wide text-slate-600">Highlights</h4>
+            {settingsGovernance?.highlights?.length ? (
+              <ul className="mt-3 space-y-2 text-sm text-slate-700">
+                {settingsGovernance.highlights.map((highlight) => (
+                  <li key={highlight} className="flex gap-2">
+                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400" />
+                    <span>{highlight}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 text-sm text-slate-600">Add integrations and finalize approvals to surface governance insights.</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function CompanyDashboardPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const workspaceIdParam = searchParams.get('workspaceId');
@@ -678,6 +1031,7 @@ export default function CompanyDashboardPage() {
   const profile = useMemo(() => buildProfile(data, summaryCards), [data, summaryCards]);
   const workspaceOptions = data?.meta?.availableWorkspaces ?? [];
   const memberships = data?.memberships ?? data?.meta?.memberships ?? [];
+  const brandAndPeople = data?.brandAndPeople ?? null;
 
   const handleWorkspaceChange = (event) => {
     const nextWorkspaceId = event.target.value;
@@ -790,9 +1144,19 @@ export default function CompanyDashboardPage() {
           })}
         </div>
 
+        <BrandAndPeopleSection data={brandAndPeople} />
+        {data ? (
+          <JobLifecycleSection
+            jobLifecycle={data.jobLifecycle}
+            recommendations={data.recommendations}
+            lookbackDays={data?.meta?.lookbackDays ?? lookbackDays}
+          />
+        ) : null}
+
         {sections.map((section) => (
           <section
             key={section.title}
+            id={section.id ?? slugify(section.title)}
             className="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_18px_40px_-24px_rgba(30,64,175,0.35)] sm:p-8"
           >
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
