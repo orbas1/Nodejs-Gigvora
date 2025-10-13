@@ -65,6 +65,13 @@ export default function ProjectDetailPage() {
     );
   }, [formState, weightsTotal]);
 
+  const lastQueueRefresh = useMemo(() => {
+    if (!project?.autoAssignLastRunAt) {
+      return null;
+    }
+    return formatRelativeTime(project.autoAssignLastRunAt);
+  }, [project?.autoAssignLastRunAt]);
+
   const loadData = useCallback(async () => {
     if (!projectId) return;
     setLoading(true);
@@ -248,6 +255,9 @@ export default function ProjectDetailPage() {
               <span className="rounded-full bg-surfaceMuted/80 px-3 py-1 text-slate-500">
                 Queue size {project.autoAssignLastQueueSize ?? 0}
               </span>
+              <span className="rounded-full bg-surfaceMuted/80 px-3 py-1 text-slate-500">
+                {lastQueueRefresh ? `Last refresh ${lastQueueRefresh}` : 'Queue not generated yet'}
+              </span>
             </div>
           ) : null}
         </div>
@@ -346,11 +356,23 @@ export default function ProjectDetailPage() {
                   <span>{formState?.expiresInMinutes ?? 0} minutes</span>
                 </div>
                 <div className="flex items-center justify-between">
+                  <span>Auto-assign</span>
+                  <span>
+                    {formState?.autoAssignEnabled
+                      ? formatQueueStatus(project?.autoAssignStatus)
+                      : 'Disabled'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
                   <span>Fairness priority</span>
                   <span>
                     ≤ {formState?.fairnessMaxAssignments ?? 0} active assignments &bull;{' '}
                     {formState?.ensureNewcomer ? 'Newcomers prioritised' : 'Rotation only'}
                   </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Last queue refresh</span>
+                  <span>{lastQueueRefresh ?? 'Not yet generated'}</span>
                 </div>
               </div>
             </div>

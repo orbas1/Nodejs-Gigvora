@@ -46,8 +46,6 @@ import {
   CompliancePolicy,
   ComplianceAuditLog,
   AccessibilityAudit,
-  MessageThread,
-  Message,
   HeadhunterInvite,
   HeadhunterBrief,
   HeadhunterBriefAssignment,
@@ -73,6 +71,7 @@ import {
   WorkspaceIntegration,
   WorkspaceCalendarConnection,
 } from '../models/index.js';
+import { MessageThread } from '../models/messagingModels.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
 import { getAdDashboardSnapshot } from './adService.js';

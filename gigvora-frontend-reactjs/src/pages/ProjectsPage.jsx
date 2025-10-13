@@ -7,6 +7,14 @@ import analytics from '../services/analytics.js';
 import { formatRelativeTime } from '../utils/date.js';
 import UserAvatar from '../components/UserAvatar.jsx';
 
+function formatQueueStatus(status) {
+  if (!status) return 'Inactive';
+  return status
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
 export default function ProjectsPage() {
   const [query, setQuery] = useState('');
   const { data, error, loading, fromCache, lastUpdated, refresh, debouncedQuery } = useOpportunityListing('projects', query, {
@@ -126,7 +134,7 @@ export default function ProjectsPage() {
               <h2 className="mt-3 text-xl font-semibold text-slate-900">{project.title}</h2>
               <p className="mt-2 text-sm text-slate-600">{project.description}</p>
               <div className="mt-5 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-500">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-1 flex-wrap items-center gap-2">
                   <div className="flex -space-x-3">
                     {Array.from({ length: 3 }).map((_, index) => (
                       <UserAvatar
@@ -139,11 +147,18 @@ export default function ProjectsPage() {
                       />
                     ))}
                   </div>
-                  <span className="rounded-full border border-slate-200 bg-surfaceMuted/70 px-3 py-1 text-slate-600">
-                    {project.autoAssignStatus
-                      ? `Auto-assign: ${project.autoAssignStatus.replace('_', ' ')}`
-                      : 'Manual shortlisting'}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full border border-slate-200 bg-surfaceMuted/70 px-3 py-1 text-slate-600">
+                      {project.autoAssignEnabled
+                        ? `Auto-assign · ${formatQueueStatus(project.autoAssignStatus)}`
+                        : 'Auto-assign disabled'}
+                    </span>
+                    {project.autoAssignEnabled ? (
+                      <span className="rounded-full border border-slate-200 bg-surfaceMuted/70 px-3 py-1 text-slate-600">
+                        Queue size {project.autoAssignLastQueueSize ?? 0}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Link
@@ -169,6 +184,32 @@ export default function ProjectsPage() {
               >
                 Join project <span aria-hidden="true">→</span>
               </button>
+              <div className="mt-5 grid gap-3 text-xs text-slate-500 sm:grid-cols-2">
+                {project.autoAssignEnabled ? (
+                  <div className="rounded-3xl border border-slate-200 bg-surfaceMuted/70 px-4 py-3">
+                    <p className="font-semibold text-slate-600">Queue cadence</p>
+                    <p className="mt-1 text-slate-500">
+                      {project.autoAssignLastRunAt
+                        ? `Last refreshed ${formatRelativeTime(project.autoAssignLastRunAt)}`
+                        : 'Queue not generated yet'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-3xl border border-dashed border-amber-200 bg-amber-50/60 px-4 py-3 text-amber-700">
+                    Auto-assign is off. Enable it from the project workspace to invite a rotating freelancer cohort automatically.
+                  </div>
+                )}
+                {project.autoAssignEnabled ? (
+                  <div className="rounded-3xl border border-slate-200 bg-surfaceMuted/70 px-4 py-3">
+                    <p className="font-semibold text-slate-600">Fairness weights</p>
+                    <p className="mt-1 text-slate-500">
+                      {project.autoAssignSettings?.fairness?.ensureNewcomer
+                        ? 'Newcomers always secure the first slot.'
+                        : 'Rotation only with weighted scoring.'}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
             </article>
           ))}
         </div>

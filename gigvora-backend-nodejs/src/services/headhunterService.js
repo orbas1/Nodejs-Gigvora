@@ -9,8 +9,6 @@ import {
   Project,
   User,
   Profile,
-  MessageThread,
-  Message,
   SupportKnowledgeArticle,
   ClientEngagement,
   ClientEngagementMandate,
@@ -37,6 +35,7 @@ import {
   ProspectResearchNote,
   ProspectResearchTask,
 } from '../models/index.js';
+import { MessageThread } from '../models/messagingModels.js';
 import {
   ProviderAvailabilityWindow,
   ProviderWellbeingLog,

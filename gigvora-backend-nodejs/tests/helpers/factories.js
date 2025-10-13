@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import bcrypt from 'bcrypt';
-import { User, ProviderWorkspace, FreelancerProfile } from '../../src/models/index.js';
+import { User } from '../../src/models/messagingModels.js';
 
 export async function createUser(overrides = {}) {
   const rawPassword = overrides.password ?? 'Password123!';
@@ -18,6 +18,7 @@ export async function createUser(overrides = {}) {
 }
 
 export async function createProviderWorkspace(overrides = {}) {
+  const { ProviderWorkspace } = await import('../../src/models/index.js');
   const owner =
     overrides.owner ?? (overrides.ownerId ? null : await createUser({ userType: 'agency' }));
   const ownerId = overrides.ownerId ?? owner?.id;
@@ -39,6 +40,7 @@ export async function createProviderWorkspace(overrides = {}) {
 }
 
 export async function createFreelancerProfile(overrides = {}) {
+  const { FreelancerProfile } = await import('../../src/models/index.js');
   const freelancer =
     overrides.user ?? (overrides.userId ? null : await createUser({ userType: 'freelancer' }));
   const userId = overrides.userId ?? freelancer?.id;
