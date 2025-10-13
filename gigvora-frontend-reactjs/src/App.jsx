@@ -30,6 +30,7 @@ import NotificationsPage from './pages/NotificationsPage.jsx';
 import UserDashboardPage from './pages/dashboards/UserDashboardPage.jsx';
 import FreelancerDashboardPage from './pages/dashboards/FreelancerDashboardPage.jsx';
 import FreelancerPipelinePage from './pages/dashboards/FreelancerPipelinePage.jsx';
+import RequireRole from './components/routing/RequireRole.jsx';
 import AdminDashboardPage from './pages/dashboards/AdminDashboardPage.jsx';
 import AgencyDashboardPage from './pages/dashboards/AgencyDashboardPage.jsx';
 import CompanyDashboardPage from './pages/dashboards/CompanyDashboardPage.jsx';
@@ -71,7 +72,14 @@ export default function App() {
       </Route>
       <Route path="dashboard/user" element={<UserDashboardPage />} />
       <Route path="dashboard/freelancer" element={<FreelancerDashboardPage />} />
-      <Route path="dashboard/freelancer/pipeline" element={<FreelancerPipelinePage />} />
+      <Route
+        path="dashboard/freelancer/pipeline"
+        element={
+          <RequireRole allowedRoles={['freelancer']} fallback="/login">
+            <FreelancerPipelinePage />
+          </RequireRole>
+        }
+      />
       <Route path="dashboard/admin" element={<AdminDashboardPage />} />
       <Route path="dashboard/agency" element={<AgencyDashboardPage />} />
       <Route path="dashboard/company" element={<CompanyDashboardPage />} />

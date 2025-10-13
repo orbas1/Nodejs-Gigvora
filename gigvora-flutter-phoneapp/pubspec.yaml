@@ -10,6 +10,7 @@ dependencies:
   flutter_riverpod: ^2.5.1
   go_router: ^13.2.0
   collection: ^1.18.0
+  intl: ^0.18.1
   gigvora_foundation:
     path: packages/gigvora_foundation
   gigvora_design_system:

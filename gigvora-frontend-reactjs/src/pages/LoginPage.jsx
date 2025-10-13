@@ -19,9 +19,11 @@ export default function LoginPage() {
   const handleVerify = (event) => {
     event.preventDefault();
     login({
+      id: 1,
       name: 'Lena Fields',
       title: 'Product Designer',
       avatarSeed: 'Lena Fields',
+      userType: 'freelancer',
       memberships: ['user', 'freelancer', 'agency'],
       primaryDashboard: 'user',
       followers: 1280,
