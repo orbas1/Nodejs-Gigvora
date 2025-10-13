@@ -45,6 +45,12 @@ The API will be available at `http://localhost:5000`.
 - `POST /api/feed` – Create a new feed post.
 - `GET /api/users/:id` – Retrieve a unified profile page for any member.
 - `GET /api/search` – Explorer search endpoint returning jobs, gigs, projects, launchpads, volunteering, and people.
+- `GET /api/reputation/freelancers/:id` – Aggregate testimonials, success stories, metrics, badges, and widgets for a freelancer.
+- `POST /api/reputation/freelancers/:id/testimonials` – Capture verified client testimonials including rating, source, and publish status.
+- `POST /api/reputation/freelancers/:id/success-stories` – Publish long-form success stories with impact metrics and media links.
+- `POST /api/reputation/freelancers/:id/metrics` – Upsert key performance metrics such as on-time delivery and CSAT.
+- `POST /api/reputation/freelancers/:id/badges` – Issue custom credential badges for featured freelancer programs.
+- `POST /api/reputation/freelancers/:id/widgets` – Generate shareable review widgets for embedding on external sites.
 
 This base delivers the foundational scaffolding for the Gigvora platform so the team can iterate quickly on product features.
 

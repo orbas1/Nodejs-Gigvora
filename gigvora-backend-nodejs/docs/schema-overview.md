@@ -40,6 +40,16 @@ The service layer evaluates quiet hours and available channels on every insert, 
 
 Provider services enforce transactional updates to keep membership and invitation state in sync, while cache invalidation guarantees dashboards refresh instantly for cross-functional teams.【F:gigvora-backend-nodejs/src/services/providerWorkspaceService.js†L21-L130】【F:gigvora-backend-nodejs/src/services/providerWorkspaceService.js†L241-L320】
 
+## Gig Order Fulfilment Domain
+| Table | Purpose | Key Columns | Relationships |
+| --- | --- | --- | --- |
+| `gig_orders` | Primary record for every gig engagement flowing through the freelancer pipeline, including stage, statuses, financial values, and CSAT. | `freelancerId`, `clientId`, `pipelineStage`, `status`, `intakeStatus`, `kickoffStatus`, `valueAmount`, `escrowTotalAmount`, `deliveryDueAt`, `csatScore` | `belongsTo(User, as freelancer)`, `belongsTo(User, as client)`, `hasMany(GigOrderRequirementForm)`, `hasMany(GigOrderRevision)`, `hasMany(GigOrderEscrowCheckpoint)` |
+| `gig_order_requirement_forms` | Stores dynamic intake questionnaires and approvals that advance an order from inquiry through qualification. | `orderId`, `status`, `schemaVersion`, `questions`, `responses`, `requestedAt`, `submittedAt`, `approvedAt`, `reviewerId` | `belongsTo(GigOrder)`, `belongsTo(User, as reviewer)` |
+| `gig_order_revisions` | Tracks revision loops with numbering, deadlines, and completion timestamps. | `orderId`, `revisionNumber`, `status`, `summary`, `details`, `requestedById`, `requestedAt`, `dueAt`, `completedAt` | `belongsTo(GigOrder)`, `belongsTo(User, as requestedBy)` |
+| `gig_order_escrow_checkpoints` | Captures escrow milestones, release state, CSAT thresholds, and payout references tied to client satisfaction. | `orderId`, `label`, `amount`, `currency`, `status`, `approvalRequirement`, `csatThreshold`, `releasedAt`, `releasedById`, `payoutReference` | `belongsTo(GigOrder)`, `belongsTo(User, as releasedBy)` |
+
+`freelancerOrderPipelineService` layers reporting and workflow automation on top of these tables, deriving metrics (pending requirements, open revisions, escrow exposure) and coordinating stage transitions, requirement approvals, revision resolution, and escrow releases consumed by the freelancer dashboard.【F:gigvora-backend-nodejs/src/services/freelancerOrderPipelineService.js†L17-L618】【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerDashboardPage.jsx†L210-L575】
+
 ## Analytics & Governance
 | Table | Purpose | Key Columns |
 | --- | --- | --- |

@@ -7,6 +7,7 @@ This Vite-powered React application delivers the Gigvora experience across landi
 - **Home / Landing** with hero, opportunity overviews, and call-to-action.
 - **Authentication** flows including stylized login, registration, company/agency onboarding, and dedicated admin console.
 - **Explorer surfaces** for jobs, gigs, projects, experience launchpad, volunteering, groups, followers, and connections.
+- **Freelancer dashboard reputation engine** that pulls live testimonials, success stories, metrics, badges, and shareable widgets from the Node API.
 - **Tailwind CSS** design tokens tuned to the Gigvora palette with the Inter font loaded globally.
 
 ## Getting Started
