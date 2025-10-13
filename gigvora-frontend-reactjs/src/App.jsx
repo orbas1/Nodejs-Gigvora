@@ -24,6 +24,7 @@ import TermsPage from './pages/TermsPage.jsx';
 import PrivacyPage from './pages/PrivacyPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
 import FinanceHubPage from './pages/FinanceHubPage.jsx';
+import AboutPage from './pages/AboutPage.jsx';
 import UserDashboardPage from './pages/dashboards/UserDashboardPage.jsx';
 import FreelancerDashboardPage from './pages/dashboards/FreelancerDashboardPage.jsx';
 import FreelancerPipelinePage from './pages/dashboards/FreelancerPipelinePage.jsx';
@@ -57,6 +58,7 @@ export default function App() {
         <Route path="inbox" element={<InboxPage />} />
         <Route path="terms" element={<TermsPage />} />
         <Route path="privacy" element={<PrivacyPage />} />
+        <Route path="about" element={<AboutPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="finance" element={<FinanceHubPage />} />
       </Route>
