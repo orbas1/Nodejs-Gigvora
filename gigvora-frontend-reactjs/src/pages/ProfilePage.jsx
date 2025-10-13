@@ -4,7 +4,11 @@ import PageHeader from '../components/PageHeader.jsx';
 import ProfileEditor from '../components/ProfileEditor.jsx';
 import TrustScoreBreakdown from '../components/TrustScoreBreakdown.jsx';
 import UserAvatar from '../components/UserAvatar.jsx';
+import ReputationEngineShowcase from '../components/reputation/ReputationEngineShowcase.jsx';
 import { fetchProfile, updateProfile, updateProfileAvailability } from '../services/profile.js';
+import { fetchFreelancerReputation } from '../services/reputation.js';
+import useSession from '../hooks/useSession.js';
+import { formatAbsolute, formatRelativeTime } from '../utils/date.js';
 
 const AVAILABILITY_OPTIONS = [
   {
@@ -48,6 +52,7 @@ function buildAvailabilityDraft(availability = {}) {
 
 export default function ProfilePage() {
   const { id } = useParams();
+  const { session, isAuthenticated } = useSession();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -56,6 +61,14 @@ export default function ProfilePage() {
   const [reloadToken, setReloadToken] = useState(0);
   const [isEditorOpen, setEditorOpen] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [reputationState, setReputationState] = useState({
+    data: null,
+    loading: false,
+    error: null,
+    fromCache: false,
+    lastUpdated: null,
+  });
+  const [reputationReloadToken, setReputationReloadToken] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -80,6 +93,32 @@ export default function ProfilePage() {
 
   const metrics = profile?.metrics ?? {};
   const availability = useMemo(() => profile?.availability ?? {}, [profile]);
+  const allowedReputationRoles = useMemo(
+    () => new Set(['freelancer', 'agency', 'admin', 'trust']),
+    [],
+  );
+  const hasAuthorizedMembership = useMemo(() => {
+    if (!isAuthenticated) {
+      return false;
+    }
+    return (session?.memberships ?? []).some((membership) =>
+      allowedReputationRoles.has(membership),
+    );
+  }, [allowedReputationRoles, isAuthenticated, session?.memberships]);
+  const hasValidFreelancerId = useMemo(() => /^\d+$/.test(id ?? ''), [id]);
+  const canAccessReputation = isAuthenticated && hasAuthorizedMembership && hasValidFreelancerId;
+  const reputationAccessReason = useMemo(() => {
+    if (!isAuthenticated) {
+      return 'Sign in with a verified freelancer workspace to view live reputation and review controls.';
+    }
+    if (!hasAuthorizedMembership) {
+      return 'Reputation operations are limited to freelancer, agency, trust, or admin workspaces.';
+    }
+    if (!hasValidFreelancerId) {
+      return 'Reputation insights require a numeric freelancer profile identifier.';
+    }
+    return null;
+  }, [hasAuthorizedMembership, hasValidFreelancerId, isAuthenticated]);
 
   const statCards = useMemo(
     () => [
@@ -177,6 +216,14 @@ export default function ProfilePage() {
     handleAvailabilityChange({ focusAreas: availabilityDraft.focusAreas });
   }, [availabilityDraft.focusAreas, handleAvailabilityChange]);
 
+  const handleReputationRefresh = useCallback(() => {
+    if (!canAccessReputation) {
+      return Promise.resolve();
+    }
+    setReputationReloadToken((token) => token + 1);
+    return Promise.resolve();
+  }, [canAccessReputation]);
+
   const handleProfileSave = useCallback(
     async (changes) => {
       setSavingProfile(true);
@@ -194,6 +241,64 @@ export default function ProfilePage() {
     },
     [id, setAvailabilityDraft, setEditorOpen, setProfile],
   );
+
+  useEffect(() => {
+    if (!canAccessReputation) {
+      setReputationState({
+        data: null,
+        error: reputationAccessReason,
+        loading: false,
+        fromCache: false,
+        lastUpdated: null,
+      });
+      return;
+    }
+
+    let isMounted = true;
+    const controller = new AbortController();
+    setReputationState((previous) => ({
+      ...previous,
+      loading: true,
+      error: null,
+    }));
+
+    fetchFreelancerReputation(id, { signal: controller.signal })
+      .then((payload) => {
+        if (!isMounted) {
+          return;
+        }
+        const fromCache = Boolean(
+          payload?.meta?.source === 'cache' ||
+            payload?.meta?.fromCache === true ||
+            payload?.fromCache === true,
+        );
+        setReputationState({
+          data: payload,
+          loading: false,
+          error: null,
+          fromCache,
+          lastUpdated: new Date(),
+        });
+      })
+      .catch((fetchError) => {
+        if (!isMounted || fetchError?.name === 'AbortError') {
+          return;
+        }
+        setReputationState((previous) => ({
+          ...previous,
+          loading: false,
+          error:
+            fetchError?.body?.message ??
+            fetchError?.message ??
+            'Unable to load reputation overview. Please try again shortly.',
+        }));
+      });
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
+  }, [canAccessReputation, id, reputationAccessReason, reputationReloadToken]);
 
   if (loading) {
     return (
@@ -369,6 +474,44 @@ export default function ProfilePage() {
                   </article>
                 ))}
               </div>
+            </section>
+
+            <section
+              id="reputation"
+              className="rounded-4xl border border-slate-200 bg-white/95 p-8 shadow-soft"
+            >
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900">Reputation &amp; reviews</h2>
+                  <p className="text-sm text-slate-500">
+                    Showcase verified delivery proof, automate testimonial flows, and keep trust signals aligned across every touchpoint.
+                  </p>
+                </div>
+                {reputationState.lastUpdated && reputationState.data ? (
+                  <p
+                    className="text-xs text-slate-400"
+                    title={formatAbsolute(reputationState.lastUpdated)}
+                  >
+                    Synced {formatRelativeTime(reputationState.lastUpdated)}
+                  </p>
+                ) : null}
+              </div>
+              {canAccessReputation ? (
+                <div className="mt-8">
+                  <ReputationEngineShowcase
+                    data={reputationState.data}
+                    loading={reputationState.loading}
+                    error={reputationState.error}
+                    onRefresh={handleReputationRefresh}
+                    fromCache={reputationState.fromCache}
+                    lastUpdated={reputationState.lastUpdated}
+                  />
+                </div>
+              ) : (
+                <div className="mt-6 rounded-3xl border border-dashed border-slate-200 bg-slate-50/80 p-6 text-sm text-slate-600">
+                  {reputationAccessReason}
+                </div>
+              )}
             </section>
 
             {qualifications.length > 0 ? (
