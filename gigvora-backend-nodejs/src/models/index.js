@@ -44,6 +44,14 @@ export const MESSAGE_THREAD_STATES = ['active', 'archived', 'locked'];
 export const MESSAGE_TYPES = ['text', 'file', 'system', 'event'];
 export const SUPPORT_CASE_STATUSES = ['triage', 'in_progress', 'waiting_on_customer', 'resolved', 'closed'];
 export const SUPPORT_CASE_PRIORITIES = ['low', 'medium', 'high', 'urgent'];
+export const SUPPORT_PLAYBOOK_STAGES = ['intake', 'investigation', 'resolution', 'follow_up'];
+export const SUPPORT_PLAYBOOK_PERSONAS = ['freelancer', 'client', 'support_team', 'cross_functional'];
+export const SUPPORT_PLAYBOOK_CHANNELS = ['inbox', 'voice', 'video', 'email', 'platform'];
+export const SUPPORT_CASE_PLAYBOOK_STATUSES = ['active', 'completed', 'archived'];
+export const SUPPORT_CASE_LINK_TYPES = ['gig_order', 'project', 'transaction'];
+export const SUPPORT_CASE_SATISFACTION_SUBMITTER_TYPES = ['freelancer', 'client', 'support', 'system'];
+export const SUPPORT_KNOWLEDGE_CATEGORIES = ['policy', 'workflow', 'finance', 'compliance', 'tools'];
+export const SUPPORT_KNOWLEDGE_AUDIENCES = ['freelancer', 'client', 'support_team'];
 export const NOTIFICATION_CATEGORIES = ['system', 'message', 'project', 'financial', 'compliance', 'marketing'];
 export const NOTIFICATION_PRIORITIES = ['low', 'normal', 'high', 'critical'];
 export const NOTIFICATION_STATUSES = ['pending', 'delivered', 'read', 'dismissed'];
@@ -1013,6 +1021,192 @@ export const SupportCase = sequelize.define(
   },
 );
 
+export const SupportPlaybook = sequelize.define(
+  'SupportPlaybook',
+  {
+    slug: { type: DataTypes.STRING(120), allowNull: false, unique: true },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    summary: { type: DataTypes.TEXT, allowNull: false },
+    stage: {
+      type: DataTypes.ENUM(...SUPPORT_PLAYBOOK_STAGES),
+      allowNull: false,
+      defaultValue: 'intake',
+    },
+    persona: {
+      type: DataTypes.ENUM(...SUPPORT_PLAYBOOK_PERSONAS),
+      allowNull: false,
+      defaultValue: 'support_team',
+    },
+    channel: {
+      type: DataTypes.ENUM(...SUPPORT_PLAYBOOK_CHANNELS),
+      allowNull: false,
+      defaultValue: 'inbox',
+    },
+    csatImpact: { type: DataTypes.STRING(255), allowNull: true },
+  },
+  { tableName: 'support_playbooks' },
+);
+
+SupportPlaybook.prototype.toPublicObject = function toPublicObject() {
+  return this.get({ plain: true });
+};
+
+export const SupportPlaybookStep = sequelize.define(
+  'SupportPlaybookStep',
+  {
+    playbookId: { type: DataTypes.INTEGER, allowNull: false },
+    stepNumber: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    instructions: { type: DataTypes.TEXT, allowNull: false },
+    ownerRole: { type: DataTypes.STRING(120), allowNull: true },
+    expectedDurationMinutes: { type: DataTypes.INTEGER, allowNull: true },
+    requiresApproval: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+  },
+  {
+    tableName: 'support_playbook_steps',
+    indexes: [
+      { fields: ['playbookId'] },
+      { fields: ['stepNumber'] },
+    ],
+  },
+);
+
+SupportPlaybookStep.prototype.toPublicObject = function toPublicObject() {
+  return this.get({ plain: true });
+};
+
+export const SupportCasePlaybook = sequelize.define(
+  'SupportCasePlaybook',
+  {
+    supportCaseId: { type: DataTypes.INTEGER, allowNull: false },
+    playbookId: { type: DataTypes.INTEGER, allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...SUPPORT_CASE_PLAYBOOK_STATUSES),
+      allowNull: false,
+      defaultValue: 'active',
+    },
+    assignedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    completedAt: { type: DataTypes.DATE, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  {
+    tableName: 'support_case_playbooks',
+    indexes: [
+      { fields: ['supportCaseId'] },
+      { fields: ['playbookId'] },
+    ],
+  },
+);
+
+SupportCasePlaybook.prototype.toPublicObject = function toPublicObject() {
+  return this.get({ plain: true });
+};
+
+export const SupportCaseLink = sequelize.define(
+  'SupportCaseLink',
+  {
+    supportCaseId: { type: DataTypes.INTEGER, allowNull: false },
+    linkType: {
+      type: DataTypes.ENUM(...SUPPORT_CASE_LINK_TYPES),
+      allowNull: false,
+      defaultValue: 'gig_order',
+    },
+    reference: { type: DataTypes.STRING(180), allowNull: true },
+    gigId: { type: DataTypes.INTEGER, allowNull: true },
+    gigTitle: { type: DataTypes.STRING(255), allowNull: true },
+    clientName: { type: DataTypes.STRING(255), allowNull: true },
+    escrowTransactionId: { type: DataTypes.INTEGER, allowNull: true },
+    orderAmount: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    currencyCode: { type: DataTypes.STRING(3), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'support_case_links',
+    indexes: [
+      { fields: ['supportCaseId'] },
+      { fields: ['escrowTransactionId'] },
+    ],
+  },
+);
+
+SupportCaseLink.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  const rawAmount = plain.orderAmount;
+  return {
+    ...plain,
+    orderAmount:
+      rawAmount == null
+        ? null
+        : Number.parseFloat(typeof rawAmount === 'number' ? rawAmount : String(rawAmount)),
+  };
+};
+
+export const SupportCaseSatisfaction = sequelize.define(
+  'SupportCaseSatisfaction',
+  {
+    supportCaseId: { type: DataTypes.INTEGER, allowNull: false },
+    score: { type: DataTypes.INTEGER, allowNull: false },
+    comment: { type: DataTypes.TEXT, allowNull: true },
+    submittedBy: { type: DataTypes.INTEGER, allowNull: true },
+    submittedByType: {
+      type: DataTypes.ENUM(...SUPPORT_CASE_SATISFACTION_SUBMITTER_TYPES),
+      allowNull: false,
+      defaultValue: 'client',
+    },
+    capturedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'support_case_satisfactions',
+    indexes: [
+      { fields: ['supportCaseId'] },
+      { fields: ['submittedByType'] },
+    ],
+  },
+);
+
+SupportCaseSatisfaction.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    ...plain,
+    score: plain.score == null ? null : Number(plain.score),
+  };
+};
+
+export const SupportKnowledgeArticle = sequelize.define(
+  'SupportKnowledgeArticle',
+  {
+    slug: { type: DataTypes.STRING(180), allowNull: false, unique: true },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    summary: { type: DataTypes.TEXT, allowNull: false },
+    body: { type: DataTypes.TEXT, allowNull: false },
+    category: {
+      type: DataTypes.ENUM(...SUPPORT_KNOWLEDGE_CATEGORIES),
+      allowNull: false,
+      defaultValue: 'workflow',
+    },
+    audience: {
+      type: DataTypes.ENUM(...SUPPORT_KNOWLEDGE_AUDIENCES),
+      allowNull: false,
+      defaultValue: 'freelancer',
+    },
+    tags: { type: jsonType, allowNull: true },
+    resourceLinks: { type: jsonType, allowNull: true },
+    lastReviewedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'support_knowledge_articles',
+    indexes: [
+      { fields: ['category'] },
+      { fields: ['audience'] },
+    ],
+  },
+);
+
+SupportKnowledgeArticle.prototype.toPublicObject = function toPublicObject() {
+  return this.get({ plain: true });
+};
+
 export const Notification = sequelize.define(
   'Notification',
   {
@@ -1786,6 +1980,16 @@ SupportCase.belongsTo(User, { foreignKey: 'escalatedBy', as: 'escalatedByUser' }
 SupportCase.belongsTo(User, { foreignKey: 'assignedTo', as: 'assignedAgent' });
 SupportCase.belongsTo(User, { foreignKey: 'assignedBy', as: 'assignedByUser' });
 SupportCase.belongsTo(User, { foreignKey: 'resolvedBy', as: 'resolvedByUser' });
+SupportPlaybook.hasMany(SupportPlaybookStep, { foreignKey: 'playbookId', as: 'steps' });
+SupportPlaybookStep.belongsTo(SupportPlaybook, { foreignKey: 'playbookId', as: 'playbook' });
+SupportCase.hasMany(SupportCasePlaybook, { foreignKey: 'supportCaseId', as: 'casePlaybooks' });
+SupportCasePlaybook.belongsTo(SupportCase, { foreignKey: 'supportCaseId', as: 'supportCase' });
+SupportCasePlaybook.belongsTo(SupportPlaybook, { foreignKey: 'playbookId', as: 'playbook' });
+SupportCase.hasMany(SupportCaseSatisfaction, { foreignKey: 'supportCaseId', as: 'surveys' });
+SupportCaseSatisfaction.belongsTo(SupportCase, { foreignKey: 'supportCaseId', as: 'supportCase' });
+SupportCaseSatisfaction.belongsTo(User, { foreignKey: 'submittedBy', as: 'submittedByUser' });
+SupportCase.hasMany(SupportCaseLink, { foreignKey: 'supportCaseId', as: 'links' });
+SupportCaseLink.belongsTo(SupportCase, { foreignKey: 'supportCaseId', as: 'supportCase' });
 
 Notification.belongsTo(User, { foreignKey: 'userId', as: 'recipient' });
 NotificationPreference.belongsTo(User, { foreignKey: 'userId', as: 'user' });
@@ -1821,6 +2025,7 @@ EscrowTransaction.belongsTo(EscrowAccount, { foreignKey: 'accountId', as: 'accou
 EscrowTransaction.belongsTo(User, { foreignKey: 'initiatedById', as: 'initiator' });
 EscrowTransaction.belongsTo(User, { foreignKey: 'counterpartyId', as: 'counterparty' });
 EscrowTransaction.hasMany(DisputeCase, { foreignKey: 'escrowTransactionId', as: 'disputes' });
+SupportCaseLink.belongsTo(EscrowTransaction, { foreignKey: 'escrowTransactionId', as: 'transaction' });
 
 DisputeCase.belongsTo(EscrowTransaction, { foreignKey: 'escrowTransactionId', as: 'transaction' });
 DisputeCase.belongsTo(User, { foreignKey: 'openedById', as: 'openedBy' });
@@ -1862,6 +2067,12 @@ export default {
   Message,
   MessageAttachment,
   SupportCase,
+  SupportPlaybook,
+  SupportPlaybookStep,
+  SupportCasePlaybook,
+  SupportCaseLink,
+  SupportCaseSatisfaction,
+  SupportKnowledgeArticle,
   Notification,
   NotificationPreference,
   AnalyticsEvent,

@@ -1,6 +1,7 @@
 import { User } from '../models/index.js';
 import profileService from '../services/profileService.js';
 import userDashboardService from '../services/userDashboardService.js';
+import supportDeskService from '../services/supportDeskService.js';
 
 export async function listUsers(req, res) {
   const limitParam = Number.parseInt(req.query.limit ?? '20', 10);
@@ -56,4 +57,11 @@ export async function getUserDashboard(req, res) {
     bypassCache: req.query.fresh === 'true',
   });
   res.json(dashboard);
+}
+
+export async function getSupportDesk(req, res) {
+  const snapshot = await supportDeskService.getFreelancerSupportDesk(req.params.id, {
+    bypassCache: req.query.fresh === 'true',
+  });
+  res.json(snapshot);
 }

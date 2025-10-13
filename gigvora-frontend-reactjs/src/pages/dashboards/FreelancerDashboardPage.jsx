@@ -1,19 +1,24 @@
+import { useState } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import SupportDeskPanel from '../../components/support/SupportDeskPanel.jsx';
 
 const menuSections = [
   {
     label: 'Service delivery',
     items: [
       {
+        id: 'project-workspace-dashboard',
         name: 'Project workspace dashboard',
         description: 'Unified workspace for briefs, assets, conversations, and approvals.',
         tags: ['whiteboards', 'files'],
       },
       {
+        id: 'project-management',
         name: 'Project management',
         description: 'Detailed plan with sprints, dependencies, risk logs, and billing checkpoints.',
       },
       {
+        id: 'client-portals',
         name: 'Client portals',
         description: 'Shared timelines, scope controls, and decision logs with your clients.',
       },
@@ -23,15 +28,18 @@ const menuSections = [
     label: 'Gig commerce',
     items: [
       {
+        id: 'gig-manager',
         name: 'Gig manager',
         description: 'Monitor gigs, delivery milestones, bundled services, and upsells.',
         tags: ['gig catalog'],
       },
       {
+        id: 'post-a-gig',
         name: 'Post a gig',
         description: 'Launch new services with pricing matrices, availability calendars, and banners.',
       },
       {
+        id: 'purchased-gigs',
         name: 'Purchased gigs',
         description: 'Track incoming orders, requirements, revisions, and payouts.',
       },
@@ -41,14 +49,17 @@ const menuSections = [
     label: 'Growth & profile',
     items: [
       {
+        id: 'freelancer-profile',
         name: 'Freelancer profile',
         description: 'Update expertise tags, success metrics, testimonials, and hero banners.',
       },
       {
+        id: 'agency-collaborations',
         name: 'Agency collaborations',
         description: 'Manage invitations from agencies, share rate cards, and negotiate retainers.',
       },
       {
+        id: 'finance-insights',
         name: 'Finance & insights',
         description: 'Revenue analytics, payout history, taxes, and profitability dashboards.',
       },
@@ -176,13 +187,19 @@ const capabilitySections = [
         ],
       },
       {
+        id: 'support-desk',
         name: 'Support & dispute desk',
         description:
-          'Resolve client concerns, manage escalations, and collaborate with Gigvora support for smooth resolutions.',
+          'Resolve client concerns, manage escalations, and collaborate with Gigvora support for smooth resolutions across every gig touchpoint.',
         bulletPoints: [
-          'Conversation transcripts linked back to gig orders.',
-          'Resolution playbooks to keep satisfaction high.',
+          'Conversation transcripts linked back to gig orders with attachments, timestamps, and decision audit trails.',
+          'Guided resolution playbooks with recommended next steps, response templates, and approval checkpoints.',
+          'Escalation matrix that auto-assigns owners, notifies stakeholders, and tracks SLA countdown timers.',
+          'Refund, adjustment, and goodwill credit workflows that sync to invoices and payout ledgers.',
+          'Post-resolution CSAT pulse surveys with trend dashboards and sentiment alerts.',
+          'Knowledge base of FAQs, compliance guidelines, and Gigvora support escalation criteria in one pane.',
         ],
+        callout: 'Keep satisfaction high with proactive insights and compliance-ready records.',
       },
     ],
   },
@@ -232,6 +249,8 @@ const capabilitySections = [
 ];
 
 const profile = {
+  id: 101,
+  userId: 101,
   name: 'Riley Morgan',
   role: 'Lead Brand & Product Designer',
   initials: 'RM',
@@ -248,6 +267,26 @@ const profile = {
 const availableDashboards = ['freelancer', 'user', 'agency'];
 
 export default function FreelancerDashboardPage() {
+  const [activeMenuItemId, setActiveMenuItemId] = useState(null);
+
+  const supportDeskActive = activeMenuItemId === 'support-desk';
+
+  const handleMenuSelect = (item) => {
+    if (item?.id === 'support-desk') {
+      setActiveMenuItemId('support-desk');
+    } else {
+      setActiveMenuItemId(null);
+    }
+  };
+
+  const handleCloseSupportDesk = () => {
+    setActiveMenuItemId(null);
+  };
+
+  const supportDeskContent = supportDeskActive ? (
+    <SupportDeskPanel freelancerId={profile.id ?? profile.userId} onClose={handleCloseSupportDesk} />
+  ) : null;
+
   return (
     <DashboardLayout
       currentDashboard="freelancer"
@@ -258,6 +297,10 @@ export default function FreelancerDashboardPage() {
       sections={capabilitySections}
       profile={profile}
       availableDashboards={availableDashboards}
-    />
+      onMenuItemSelect={handleMenuSelect}
+      activeMenuItemId={supportDeskActive ? 'support-desk' : null}
+    >
+      {supportDeskContent}
+    </DashboardLayout>
   );
 }
