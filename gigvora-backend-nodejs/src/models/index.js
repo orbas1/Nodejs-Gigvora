@@ -1,5 +1,6 @@
 import { Sequelize, DataTypes, Op } from 'sequelize';
 import databaseConfig from '../config/database.js';
+import { buildLocationDetails } from '../utils/location.js';
 
 const { url: databaseUrl, ...sequelizeOptions } = databaseConfig;
 
@@ -162,6 +163,33 @@ export const ESCROW_TRANSACTION_STATUSES = [
   'cancelled',
   'disputed',
 ];
+export const ID_VERIFICATION_STATUSES = [
+  'pending',
+  'submitted',
+  'in_review',
+  'verified',
+  'rejected',
+  'expired',
+];
+export const CORPORATE_VERIFICATION_STATUSES = [
+  'pending',
+  'submitted',
+  'in_review',
+  'verified',
+  'rejected',
+  'requires_update',
+  'suspended',
+];
+export const QUALIFICATION_CREDENTIAL_STATUSES = [
+  'unverified',
+  'pending_review',
+  'verified',
+  'rejected',
+];
+export const WALLET_ACCOUNT_TYPES = ['user', 'freelancer', 'company', 'agency'];
+export const WALLET_ACCOUNT_STATUSES = ['pending', 'active', 'suspended', 'closed'];
+export const WALLET_LEDGER_ENTRY_TYPES = ['credit', 'debit', 'hold', 'release', 'adjustment'];
+export const ESCROW_INTEGRATION_PROVIDERS = ['stripe', 'escrow_com'];
 export const DISPUTE_STAGES = ['intake', 'mediation', 'arbitration', 'resolved'];
 export const DISPUTE_STATUSES = ['open', 'awaiting_customer', 'under_review', 'settled', 'closed'];
 export const DISPUTE_PRIORITIES = ['low', 'medium', 'high', 'urgent'];
@@ -574,6 +602,8 @@ export const User = sequelize.define(
     email: { type: DataTypes.STRING(255), unique: true, allowNull: false, validate: { isEmail: true } },
     password: { type: DataTypes.STRING(255), allowNull: false },
     address: { type: DataTypes.STRING(255), allowNull: true },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    geoLocation: { type: jsonType, allowNull: true },
     age: { type: DataTypes.INTEGER, allowNull: true, validate: { min: 13 } },
     userType: {
       type: DataTypes.ENUM('user', 'company', 'freelancer', 'agency', 'admin'),
@@ -618,6 +648,7 @@ export const Profile = sequelize.define(
     timezone: { type: DataTypes.STRING(120), allowNull: true },
     missionStatement: { type: DataTypes.TEXT, allowNull: true },
     areasOfFocus: { type: jsonType, allowNull: true },
+    geoLocation: { type: jsonType, allowNull: true },
     availabilityStatus: {
       type: DataTypes.ENUM(...PROFILE_AVAILABILITY_STATUSES),
       allowNull: false,
@@ -750,6 +781,8 @@ export const CompanyProfile = sequelize.define(
     companyName: { type: DataTypes.STRING(255), allowNull: false },
     description: { type: DataTypes.TEXT, allowNull: true },
     website: { type: DataTypes.STRING(255), allowNull: true },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    geoLocation: { type: jsonType, allowNull: true },
   },
   { tableName: 'company_profiles' },
 );
@@ -761,6 +794,8 @@ export const AgencyProfile = sequelize.define(
     agencyName: { type: DataTypes.STRING(255), allowNull: false },
     focusArea: { type: DataTypes.STRING(255), allowNull: true },
     website: { type: DataTypes.STRING(255), allowNull: true },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    geoLocation: { type: jsonType, allowNull: true },
   },
   { tableName: 'agency_profiles' },
 );
@@ -772,9 +807,358 @@ export const FreelancerProfile = sequelize.define(
     title: { type: DataTypes.STRING(255), allowNull: true },
     hourlyRate: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
     availability: { type: DataTypes.STRING(120), allowNull: true },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    geoLocation: { type: jsonType, allowNull: true },
   },
   { tableName: 'freelancer_profiles' },
 );
+
+export const IdentityVerification = sequelize.define(
+  'IdentityVerification',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    profileId: { type: DataTypes.INTEGER, allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...ID_VERIFICATION_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+      validate: { isIn: [ID_VERIFICATION_STATUSES] },
+    },
+    verificationProvider: { type: DataTypes.STRING(80), allowNull: false, defaultValue: 'manual_review' },
+    typeOfId: { type: DataTypes.STRING(120), allowNull: true },
+    idNumberLast4: { type: DataTypes.STRING(16), allowNull: true },
+    issuingCountry: { type: DataTypes.STRING(4), allowNull: true },
+    issuedAt: { type: DataTypes.DATE, allowNull: true },
+    expiresAt: { type: DataTypes.DATE, allowNull: true },
+    documentFrontKey: { type: DataTypes.STRING(500), allowNull: true },
+    documentBackKey: { type: DataTypes.STRING(500), allowNull: true },
+    selfieKey: { type: DataTypes.STRING(500), allowNull: true },
+    fullName: { type: DataTypes.STRING(255), allowNull: false },
+    dateOfBirth: { type: DataTypes.DATE, allowNull: false },
+    addressLine1: { type: DataTypes.STRING(255), allowNull: false },
+    addressLine2: { type: DataTypes.STRING(255), allowNull: true },
+    city: { type: DataTypes.STRING(120), allowNull: false },
+    state: { type: DataTypes.STRING(120), allowNull: true },
+    postalCode: { type: DataTypes.STRING(40), allowNull: false },
+    country: { type: DataTypes.STRING(4), allowNull: false },
+    reviewNotes: { type: DataTypes.TEXT, allowNull: true },
+    declinedReason: { type: DataTypes.TEXT, allowNull: true },
+    reviewerId: { type: DataTypes.INTEGER, allowNull: true },
+    submittedAt: { type: DataTypes.DATE, allowNull: true },
+    reviewedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'identity_verifications',
+    indexes: [
+      { fields: ['userId'] },
+      { fields: ['profileId'] },
+      { fields: ['status'] },
+      { fields: ['verificationProvider'] },
+    ],
+  },
+);
+
+IdentityVerification.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    profileId: plain.profileId,
+    status: plain.status,
+    verificationProvider: plain.verificationProvider,
+    typeOfId: plain.typeOfId,
+    idNumberLast4: plain.idNumberLast4,
+    issuingCountry: plain.issuingCountry,
+    issuedAt: plain.issuedAt,
+    expiresAt: plain.expiresAt,
+    documentFrontKey: plain.documentFrontKey,
+    documentBackKey: plain.documentBackKey,
+    selfieKey: plain.selfieKey,
+    fullName: plain.fullName,
+    dateOfBirth: plain.dateOfBirth,
+    addressLine1: plain.addressLine1,
+    addressLine2: plain.addressLine2,
+    city: plain.city,
+    state: plain.state,
+    postalCode: plain.postalCode,
+    country: plain.country,
+    reviewNotes: plain.reviewNotes,
+    declinedReason: plain.declinedReason,
+    reviewerId: plain.reviewerId,
+    submittedAt: plain.submittedAt,
+    reviewedAt: plain.reviewedAt,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const CorporateVerification = sequelize.define(
+  'CorporateVerification',
+  {
+    ownerType: {
+      type: DataTypes.ENUM('company', 'agency'),
+      allowNull: false,
+      defaultValue: 'company',
+      validate: { isIn: [['company', 'agency']] },
+    },
+    companyProfileId: { type: DataTypes.INTEGER, allowNull: true },
+    agencyProfileId: { type: DataTypes.INTEGER, allowNull: true },
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...CORPORATE_VERIFICATION_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+      validate: { isIn: [CORPORATE_VERIFICATION_STATUSES] },
+    },
+    companyName: { type: DataTypes.STRING(255), allowNull: false },
+    registrationNumber: { type: DataTypes.STRING(160), allowNull: true },
+    registrationCountry: { type: DataTypes.STRING(4), allowNull: true },
+    registeredAddressLine1: { type: DataTypes.STRING(255), allowNull: false },
+    registeredAddressLine2: { type: DataTypes.STRING(255), allowNull: true },
+    registeredCity: { type: DataTypes.STRING(120), allowNull: false },
+    registeredState: { type: DataTypes.STRING(120), allowNull: true },
+    registeredPostalCode: { type: DataTypes.STRING(40), allowNull: false },
+    registeredCountry: { type: DataTypes.STRING(4), allowNull: false },
+    registrationDocumentKey: { type: DataTypes.STRING(500), allowNull: true },
+    authorizationDocumentKey: { type: DataTypes.STRING(500), allowNull: true },
+    ownershipEvidenceKey: { type: DataTypes.STRING(500), allowNull: true },
+    domesticComplianceAttestation: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    domesticComplianceNotes: { type: DataTypes.TEXT, allowNull: true },
+    authorizedRepresentativeName: { type: DataTypes.STRING(255), allowNull: false },
+    authorizedRepresentativeEmail: { type: DataTypes.STRING(255), allowNull: false, validate: { isEmail: true } },
+    authorizedRepresentativeTitle: { type: DataTypes.STRING(255), allowNull: true },
+    authorizationExpiresAt: { type: DataTypes.DATE, allowNull: true },
+    submittedAt: { type: DataTypes.DATE, allowNull: true },
+    reviewedAt: { type: DataTypes.DATE, allowNull: true },
+    reviewerId: { type: DataTypes.INTEGER, allowNull: true },
+    reviewNotes: { type: DataTypes.TEXT, allowNull: true },
+    declineReason: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'corporate_verifications',
+    indexes: [
+      { fields: ['ownerType'] },
+      { fields: ['companyProfileId'] },
+      { fields: ['agencyProfileId'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+CorporateVerification.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    ownerType: plain.ownerType,
+    companyProfileId: plain.companyProfileId,
+    agencyProfileId: plain.agencyProfileId,
+    userId: plain.userId,
+    status: plain.status,
+    companyName: plain.companyName,
+    registrationNumber: plain.registrationNumber,
+    registrationCountry: plain.registrationCountry,
+    registeredAddressLine1: plain.registeredAddressLine1,
+    registeredAddressLine2: plain.registeredAddressLine2,
+    registeredCity: plain.registeredCity,
+    registeredState: plain.registeredState,
+    registeredPostalCode: plain.registeredPostalCode,
+    registeredCountry: plain.registeredCountry,
+    registrationDocumentKey: plain.registrationDocumentKey,
+    authorizationDocumentKey: plain.authorizationDocumentKey,
+    ownershipEvidenceKey: plain.ownershipEvidenceKey,
+    domesticComplianceAttestation: plain.domesticComplianceAttestation,
+    domesticComplianceNotes: plain.domesticComplianceNotes,
+    authorizedRepresentativeName: plain.authorizedRepresentativeName,
+    authorizedRepresentativeEmail: plain.authorizedRepresentativeEmail,
+    authorizedRepresentativeTitle: plain.authorizedRepresentativeTitle,
+    authorizationExpiresAt: plain.authorizationExpiresAt,
+    submittedAt: plain.submittedAt,
+    reviewedAt: plain.reviewedAt,
+    reviewerId: plain.reviewerId,
+    reviewNotes: plain.reviewNotes,
+    declineReason: plain.declineReason,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const QualificationCredential = sequelize.define(
+  'QualificationCredential',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    profileId: { type: DataTypes.INTEGER, allowNull: false },
+    sourceType: {
+      type: DataTypes.ENUM('transcript', 'certificate', 'portfolio', 'other'),
+      allowNull: false,
+      defaultValue: 'certificate',
+    },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    issuer: { type: DataTypes.STRING(255), allowNull: true },
+    issuedAt: { type: DataTypes.DATE, allowNull: true },
+    expiresAt: { type: DataTypes.DATE, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...QUALIFICATION_CREDENTIAL_STATUSES),
+      allowNull: false,
+      defaultValue: 'unverified',
+      validate: { isIn: [QUALIFICATION_CREDENTIAL_STATUSES] },
+    },
+    verificationNotes: { type: DataTypes.TEXT, allowNull: true },
+    documentKey: { type: DataTypes.STRING(500), allowNull: true },
+    evidenceMetadata: { type: jsonType, allowNull: true },
+    lastReviewedAt: { type: DataTypes.DATE, allowNull: true },
+    reviewerId: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  {
+    tableName: 'qualification_credentials',
+    indexes: [
+      { fields: ['userId'] },
+      { fields: ['profileId'] },
+      { fields: ['status'] },
+      { fields: ['sourceType'] },
+    ],
+  },
+);
+
+QualificationCredential.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    profileId: plain.profileId,
+    sourceType: plain.sourceType,
+    title: plain.title,
+    issuer: plain.issuer,
+    issuedAt: plain.issuedAt,
+    expiresAt: plain.expiresAt,
+    status: plain.status,
+    verificationNotes: plain.verificationNotes,
+    documentKey: plain.documentKey,
+    evidenceMetadata: plain.evidenceMetadata ?? null,
+    lastReviewedAt: plain.lastReviewedAt,
+    reviewerId: plain.reviewerId,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const WalletAccount = sequelize.define(
+  'WalletAccount',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    profileId: { type: DataTypes.INTEGER, allowNull: false },
+    accountType: {
+      type: DataTypes.ENUM(...WALLET_ACCOUNT_TYPES),
+      allowNull: false,
+      defaultValue: 'user',
+      validate: { isIn: [WALLET_ACCOUNT_TYPES] },
+    },
+    custodyProvider: {
+      type: DataTypes.ENUM(...ESCROW_INTEGRATION_PROVIDERS),
+      allowNull: false,
+      defaultValue: 'stripe',
+      validate: { isIn: [ESCROW_INTEGRATION_PROVIDERS] },
+    },
+    providerAccountId: { type: DataTypes.STRING(160), allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...WALLET_ACCOUNT_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+      validate: { isIn: [WALLET_ACCOUNT_STATUSES] },
+    },
+    currencyCode: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    currentBalance: { type: DataTypes.DECIMAL(18, 4), allowNull: false, defaultValue: 0 },
+    availableBalance: { type: DataTypes.DECIMAL(18, 4), allowNull: false, defaultValue: 0 },
+    pendingHoldBalance: { type: DataTypes.DECIMAL(18, 4), allowNull: false, defaultValue: 0 },
+    lastReconciledAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'wallet_accounts',
+    indexes: [
+      { fields: ['userId'] },
+      { fields: ['profileId'] },
+      { fields: ['accountType'] },
+      { fields: ['custodyProvider'] },
+      { fields: ['status'] },
+      { unique: true, fields: ['profileId', 'accountType'] },
+    ],
+  },
+);
+
+WalletAccount.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    profileId: plain.profileId,
+    accountType: plain.accountType,
+    custodyProvider: plain.custodyProvider,
+    providerAccountId: plain.providerAccountId,
+    status: plain.status,
+    currencyCode: plain.currencyCode,
+    currentBalance: Number.parseFloat(plain.currentBalance ?? 0),
+    availableBalance: Number.parseFloat(plain.availableBalance ?? 0),
+    pendingHoldBalance: Number.parseFloat(plain.pendingHoldBalance ?? 0),
+    lastReconciledAt: plain.lastReconciledAt,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const WalletLedgerEntry = sequelize.define(
+  'WalletLedgerEntry',
+  {
+    walletAccountId: { type: DataTypes.INTEGER, allowNull: false },
+    entryType: {
+      type: DataTypes.ENUM(...WALLET_LEDGER_ENTRY_TYPES),
+      allowNull: false,
+      defaultValue: 'credit',
+      validate: { isIn: [WALLET_LEDGER_ENTRY_TYPES] },
+    },
+    amount: { type: DataTypes.DECIMAL(18, 4), allowNull: false },
+    currencyCode: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    reference: { type: DataTypes.STRING(160), allowNull: false },
+    externalReference: { type: DataTypes.STRING(160), allowNull: true },
+    description: { type: DataTypes.STRING(500), allowNull: true },
+    initiatedById: { type: DataTypes.INTEGER, allowNull: true },
+    occurredAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    balanceAfter: { type: DataTypes.DECIMAL(18, 4), allowNull: false },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'wallet_ledger_entries',
+    indexes: [
+      { fields: ['walletAccountId'] },
+      { unique: true, fields: ['reference'] },
+      { fields: ['entryType'] },
+    ],
+  },
+);
+
+WalletLedgerEntry.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    walletAccountId: plain.walletAccountId,
+    entryType: plain.entryType,
+    amount: Number.parseFloat(plain.amount ?? 0),
+    currencyCode: plain.currencyCode,
+    reference: plain.reference,
+    externalReference: plain.externalReference,
+    description: plain.description,
+    initiatedById: plain.initiatedById,
+    occurredAt: plain.occurredAt,
+    balanceAfter: Number.parseFloat(plain.balanceAfter ?? 0),
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
 
 export const COMMUNITY_SPOTLIGHT_STATUSES = ['draft', 'scheduled', 'published', 'archived'];
 export const COMMUNITY_SPOTLIGHT_HIGHLIGHT_CATEGORIES = [
@@ -2955,6 +3339,7 @@ Project.prototype.toPublicObject = function toPublicObject() {
     status: plain.status,
     location: plain.location,
     geoLocation: plain.geoLocation,
+    locationDetails: buildLocationDetails(plain.location, plain.geoLocation),
     budgetAmount: plain.budgetAmount == null ? null : Number(plain.budgetAmount),
     budgetCurrency: plain.budgetCurrency ?? null,
     autoAssignEnabled: Boolean(plain.autoAssignEnabled),
@@ -8434,7 +8819,12 @@ export const EscrowAccount = sequelize.define(
   'EscrowAccount',
   {
     userId: { type: DataTypes.INTEGER, allowNull: false },
-    provider: { type: DataTypes.STRING(80), allowNull: false },
+    provider: {
+      type: DataTypes.STRING(80),
+      allowNull: false,
+      defaultValue: 'stripe',
+      validate: { isIn: [ESCROW_INTEGRATION_PROVIDERS] },
+    },
     externalId: { type: DataTypes.STRING(120), allowNull: true },
     status: {
       type: DataTypes.ENUM(...ESCROW_ACCOUNT_STATUSES),
@@ -8446,6 +8836,7 @@ export const EscrowAccount = sequelize.define(
     pendingReleaseTotal: { type: DataTypes.DECIMAL(18, 4), allowNull: false, defaultValue: 0 },
     metadata: { type: jsonType, allowNull: true },
     lastReconciledAt: { type: DataTypes.DATE, allowNull: true },
+    walletAccountId: { type: DataTypes.INTEGER, allowNull: true },
   },
   {
     tableName: 'escrow_accounts',
@@ -8453,6 +8844,7 @@ export const EscrowAccount = sequelize.define(
       { fields: ['userId'] },
       { fields: ['provider'] },
       { fields: ['status'] },
+      { fields: ['walletAccountId'] },
     ],
   },
 );
@@ -8469,6 +8861,7 @@ EscrowAccount.prototype.toPublicObject = function toPublicObject() {
     currentBalance: Number.parseFloat(plain.currentBalance ?? 0),
     pendingReleaseTotal: Number.parseFloat(plain.pendingReleaseTotal ?? 0),
     lastReconciledAt: plain.lastReconciledAt,
+    walletAccountId: plain.walletAccountId,
     metadata: plain.metadata,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
@@ -13534,6 +13927,57 @@ ProfileFollower.belongsTo(Profile, { as: 'profile', foreignKey: 'profileId' });
 ProfileFollower.belongsTo(User, { as: 'follower', foreignKey: 'followerId' });
 Profile.hasMany(ProfileEngagementJob, { as: 'engagementJobs', foreignKey: 'profileId', onDelete: 'CASCADE' });
 ProfileEngagementJob.belongsTo(Profile, { as: 'profile', foreignKey: 'profileId' });
+
+Profile.hasMany(IdentityVerification, { foreignKey: 'profileId', as: 'identityVerifications', onDelete: 'CASCADE' });
+IdentityVerification.belongsTo(Profile, { foreignKey: 'profileId', as: 'profile' });
+IdentityVerification.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+IdentityVerification.belongsTo(User, { foreignKey: 'reviewerId', as: 'reviewer' });
+User.hasMany(IdentityVerification, { foreignKey: 'userId', as: 'identityVerifications' });
+User.hasMany(IdentityVerification, { foreignKey: 'reviewerId', as: 'reviewedIdentityVerifications' });
+
+Profile.hasMany(QualificationCredential, {
+  foreignKey: 'profileId',
+  as: 'qualificationCredentials',
+  onDelete: 'CASCADE',
+});
+QualificationCredential.belongsTo(Profile, { foreignKey: 'profileId', as: 'profile' });
+QualificationCredential.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+QualificationCredential.belongsTo(User, { foreignKey: 'reviewerId', as: 'reviewer' });
+User.hasMany(QualificationCredential, { foreignKey: 'userId', as: 'qualificationCredentials' });
+User.hasMany(QualificationCredential, { foreignKey: 'reviewerId', as: 'reviewedQualificationCredentials' });
+
+Profile.hasMany(WalletAccount, { foreignKey: 'profileId', as: 'walletAccounts', onDelete: 'CASCADE' });
+WalletAccount.belongsTo(Profile, { foreignKey: 'profileId', as: 'profile' });
+WalletAccount.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasMany(WalletAccount, { foreignKey: 'userId', as: 'walletAccounts' });
+WalletAccount.hasMany(WalletLedgerEntry, {
+  foreignKey: 'walletAccountId',
+  as: 'ledgerEntries',
+  onDelete: 'CASCADE',
+});
+WalletLedgerEntry.belongsTo(WalletAccount, { foreignKey: 'walletAccountId', as: 'walletAccount' });
+WalletLedgerEntry.belongsTo(User, { foreignKey: 'initiatedById', as: 'initiatedBy' });
+User.hasMany(WalletLedgerEntry, { foreignKey: 'initiatedById', as: 'initiatedLedgerEntries' });
+
+WalletAccount.hasMany(EscrowAccount, { foreignKey: 'walletAccountId', as: 'escrowAccounts' });
+EscrowAccount.belongsTo(WalletAccount, { foreignKey: 'walletAccountId', as: 'walletAccount' });
+
+CompanyProfile.hasMany(CorporateVerification, {
+  foreignKey: 'companyProfileId',
+  as: 'corporateVerifications',
+  onDelete: 'CASCADE',
+});
+CorporateVerification.belongsTo(CompanyProfile, { foreignKey: 'companyProfileId', as: 'companyProfile' });
+AgencyProfile.hasMany(CorporateVerification, {
+  foreignKey: 'agencyProfileId',
+  as: 'corporateVerifications',
+  onDelete: 'CASCADE',
+});
+CorporateVerification.belongsTo(AgencyProfile, { foreignKey: 'agencyProfileId', as: 'agencyProfile' });
+CorporateVerification.belongsTo(User, { foreignKey: 'userId', as: 'requestor' });
+CorporateVerification.belongsTo(User, { foreignKey: 'reviewerId', as: 'reviewer' });
+User.hasMany(CorporateVerification, { foreignKey: 'userId', as: 'corporateVerifications' });
+User.hasMany(CorporateVerification, { foreignKey: 'reviewerId', as: 'reviewedCorporateVerifications' });
 
 Profile.hasMany(CommunitySpotlight, { foreignKey: 'profileId', as: 'communitySpotlights', onDelete: 'CASCADE' });
 CommunitySpotlight.belongsTo(Profile, { foreignKey: 'profileId', as: 'profile' });

@@ -7,6 +7,7 @@ import {
   WORKSPACE_STATUSES,
 } from '../models/index.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
+import { normalizeLocationPayload, areGeoLocationsEqual } from '../utils/location.js';
 import { buildAssignmentQueue, getProjectQueue } from './autoAssignService.js';
 import { initializeWorkspaceForProject } from './projectWorkspaceService.js';
 
@@ -261,8 +262,12 @@ export async function createProject(payload = {}, { actorId } = {}) {
   }
 
   const status = payload.status?.trim() || 'draft';
-  const location = payload.location?.trim() || null;
-  const geoLocation = payload.geoLocation ?? null;
+  const locationPayload = normalizeLocationPayload({
+    location: payload.location,
+    geoLocation: payload.geoLocation,
+  });
+  const location = locationPayload.location;
+  const geoLocation = locationPayload.geoLocation;
   const budgetAmount = normalizeBudgetAmount(payload.budgetAmount);
   const budgetCurrency = normalizeCurrency(payload.budgetCurrency);
   const autoAssignInput = payload.autoAssign ?? {};
@@ -457,21 +462,37 @@ export async function updateProjectDetails(projectId, payload = {}, { actorId } 
       workspaceStatusUpdate = deriveWorkspaceStatus(status);
     }
 
-    if (payload.location !== undefined) {
-      const location = payload.location?.trim() || null;
-      if (location !== project.location) {
-        updates.location = location;
-        changes.push({ field: 'location', previous: project.location, current: location });
-      }
-    }
+    const hasLocation = Object.prototype.hasOwnProperty.call(payload, 'location');
+    const hasGeoLocation = Object.prototype.hasOwnProperty.call(payload, 'geoLocation');
+    if (hasLocation || hasGeoLocation) {
+      const normalized = normalizeLocationPayload({
+        location: hasLocation ? payload.location : project.location,
+        geoLocation: hasGeoLocation ? payload.geoLocation : undefined,
+      });
 
-    if (payload.geoLocation !== undefined) {
-      const geoLocation = payload.geoLocation ?? null;
-      const current = project.geoLocation ?? null;
-      const changed = JSON.stringify(geoLocation) !== JSON.stringify(current);
-      if (changed) {
-        updates.geoLocation = geoLocation;
-        changes.push({ field: 'geoLocation', previous: current, current: geoLocation });
+      if (hasLocation) {
+        const nextLocation = normalized.location;
+        const previousLocation = project.location ?? null;
+        if (nextLocation !== previousLocation) {
+          updates.location = nextLocation;
+          changes.push({ field: 'location', previous: previousLocation, current: nextLocation });
+        }
+        if (nextLocation == null && !hasGeoLocation && project.geoLocation != null) {
+          updates.geoLocation = null;
+          changes.push({ field: 'geoLocation', previous: project.geoLocation ?? null, current: null });
+        }
+      } else if (hasGeoLocation && normalized.location !== (project.location ?? null)) {
+        updates.location = normalized.location;
+        changes.push({ field: 'location', previous: project.location ?? null, current: normalized.location });
+      }
+
+      if (hasGeoLocation) {
+        const previousGeo = project.geoLocation ?? null;
+        const nextGeo = normalized.geoLocation;
+        if (!areGeoLocationsEqual(previousGeo, nextGeo)) {
+          updates.geoLocation = nextGeo;
+          changes.push({ field: 'geoLocation', previous: previousGeo, current: nextGeo });
+        }
       }
     }
 
