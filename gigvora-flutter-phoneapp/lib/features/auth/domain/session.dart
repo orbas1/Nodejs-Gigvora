@@ -14,6 +14,7 @@ class SessionState {
 
 class UserSession {
   const UserSession({
+    required this.id,
     required this.name,
     required this.title,
     required this.email,
@@ -21,6 +22,7 @@ class UserSession {
     required this.memberships,
     required this.activeMembership,
     required this.dashboards,
+    required this.userType,
     this.avatarSeed,
     this.connections = 0,
     this.followers = 0,
@@ -28,11 +30,13 @@ class UserSession {
     this.agencies = const <String>[],
   }) : assert(memberships.isNotEmpty, 'memberships cannot be empty');
 
+  final int id;
   final String name;
   final String title;
   final String email;
   final String location;
   final String? avatarSeed;
+  final String userType;
   final List<String> memberships;
   final String activeMembership;
   final Map<String, RoleDashboard> dashboards;
@@ -64,10 +68,12 @@ class UserSession {
     final nextActive = activeMembership ?? this.activeMembership;
     final activeExists = nextMemberships.contains(nextActive);
     return UserSession(
+      id: id,
       name: name,
       title: title,
       email: email,
       location: location,
+      userType: userType,
       avatarSeed: avatarSeed,
       memberships: nextMemberships,
       activeMembership: activeExists ? nextActive : nextMemberships.first,
@@ -81,13 +87,16 @@ class UserSession {
 
   static UserSession demo() {
     return UserSession(
+      id: 1,
       name: 'Lena Fields',
       title: 'Product Designer',
       email: 'lena.fields@gigvora.com',
       location: 'Berlin, Germany',
       avatarSeed: 'Lena Fields',
       memberships: const ['user', 'freelancer', 'agency', 'headhunter'],
+      memberships: const ['user', 'freelancer', 'agency', 'admin'],
       activeMembership: 'user',
+      userType: 'freelancer',
       followers: 1280,
       connections: 324,
       companies: const ['Gigvora Labs', 'Atlas Studios'],
@@ -242,6 +251,51 @@ class UserSession {
           actions: [
             DashboardAction(label: 'Kick off partner retro', description: 'Review shared wins with Atlas Studios leadership.'),
             DashboardAction(label: 'Update availability matrix', description: 'Sync talent roster before Monday planning.'),
+            DashboardAction(
+              label: 'Launch brand page',
+              description: 'Publish a fresh company or program page to boost Explorer visibility.',
+            ),
+          ],
+        ),
+        'admin': RoleDashboard(
+          role: 'admin',
+          heroTitle: 'Admin control tower',
+          heroSubtitle: 'Monitor trust, campaign coverage, and monetisation signals.',
+          metrics: [
+            DashboardMetric(label: 'Live campaigns', value: '24', trend: '▲ 3 this week'),
+            DashboardMetric(label: 'Active disputes', value: '6', trend: '▼ improving'),
+            DashboardMetric(label: 'Escrow volume', value: '1.8M USD', trend: '↑ strong'),
+            DashboardMetric(label: 'Support backlog', value: '12', trend: '→ steady'),
+          ],
+          sections: [
+            DashboardSection(
+              title: 'Trust & operations',
+              subtitle: 'Keep disputes, compliance, and support SLAs on track.',
+              highlights: [
+                'Escrow release queue cleared ahead of payroll batches.',
+                'Compliance alerts down 14% after verification sprint.',
+                'Support first-response holding at 8 minutes network-wide.',
+              ],
+              icon: Icons.shield_moon_outlined,
+              accentColor: Color(0xFF2563EB),
+            ),
+            DashboardSection(
+              title: 'Gigvora ads',
+              subtitle: 'Review surface coverage, targeting gaps, and creative freshness.',
+              highlights: [
+                'Global dashboard coverage at 96% with fresh hero video.',
+                'Company portals need two new creatives for onboarding runs.',
+                'Volunteer hub placements scored 4.6 quality rating.',
+              ],
+              icon: Icons.campaign_outlined,
+              accentColor: Color(0xFF1E3A8A),
+            ),
+          ],
+          actions: const [
+            DashboardAction(
+              label: 'Open Gigvora Ads console',
+              description: 'Review placements, targeting telemetry, and recommendations.',
+            ),
           ],
         ),
         'headhunter': RoleDashboard(
