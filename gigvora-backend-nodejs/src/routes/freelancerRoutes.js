@@ -1,10 +1,18 @@
 import { Router } from 'express';
+import * as freelancerAgencyController from '../controllers/freelancerAgencyController.js';
+import asyncHandler from '../utils/asyncHandler.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import * as freelancerProfileController from '../controllers/freelancerProfileController.js';
 
 const router = Router();
 
 router.get(
+  '/:freelancerId/agency-collaborations',
+  asyncHandler(freelancerAgencyController.collaborationsOverview),
+);
+
+export default router;
+
   '/:userId/profile-hub',
   asyncHandler(freelancerProfileController.getProfileHub),
 );

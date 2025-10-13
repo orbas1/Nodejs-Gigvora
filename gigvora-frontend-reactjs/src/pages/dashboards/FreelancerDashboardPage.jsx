@@ -1,3 +1,11 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import AgencyCollaborationsPanel from '../../components/freelancer/AgencyCollaborationsPanel.jsx';
+import { fetchFreelancerAgencyCollaborations } from '../../services/freelancerAgency.js';
+
+const DEFAULT_FREELANCER_ID = Number.parseInt(import.meta.env.VITE_DEMO_FREELANCER_ID ?? '101', 10);
+
+const baseMenuSections = [
 import { useMemo, useState } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import useCachedResource from '../../hooks/useCachedResource.js';
@@ -707,6 +715,9 @@ const BASE_MENU_SECTIONS = [
         ],
       },
       {
+        name: 'Agency collaborations',
+        description: 'Manage invitations from agencies, share rate cards, and negotiate retainers.',
+        href: '#agency-collaborations',
         name: 'Upsell automation',
         description:
           'Trigger contextual upsells on milestones, status changes, or client behavior with automation lanes connected to CRM and comms.',
@@ -1960,6 +1971,136 @@ export default function FreelancerDashboardPage() {
       },
     ],
   },
+];
+
+const availableDashboards = ['freelancer', 'user', 'agency'];
+
+function getInitials(name) {
+  if (!name) return 'FR';
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join('');
+}
+
+function formatNumber(value) {
+  if (value == null || Number.isNaN(Number(value))) {
+    return '0';
+  }
+  return new Intl.NumberFormat('en-GB').format(Number(value));
+}
+
+function formatCurrency(amount, currency = 'USD') {
+  if (amount == null || Number.isNaN(Number(amount))) {
+    return new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(0);
+  }
+  const numeric = Number(amount);
+  return new Intl.NumberFormat('en-GB', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: Math.abs(numeric) >= 1000 ? 0 : 2,
+  }).format(numeric);
+}
+
+export default function FreelancerDashboardPage() {
+  const freelancerId = Number.isFinite(DEFAULT_FREELANCER_ID) && DEFAULT_FREELANCER_ID > 0 ? DEFAULT_FREELANCER_ID : 101;
+  const [collaborationsState, setCollaborationsState] = useState({ data: null, loading: false, error: null });
+
+  const loadCollaborations = useCallback(() => {
+    setCollaborationsState((previous) => ({ ...previous, loading: true, error: null }));
+    fetchFreelancerAgencyCollaborations(freelancerId, { lookbackDays: 120 })
+      .then((payload) => {
+        setCollaborationsState({ data: payload, loading: false, error: null });
+      })
+      .catch((error) => {
+        setCollaborationsState({
+          data: null,
+          loading: false,
+          error: error?.message ?? 'Unable to load agency collaborations.',
+        });
+      });
+  }, [freelancerId]);
+
+  useEffect(() => {
+    loadCollaborations();
+  }, [loadCollaborations]);
+
+  const summary = collaborationsState.data?.summary ?? null;
+
+  const menuSections = useMemo(() => {
+    return baseMenuSections.map((section) => ({
+      ...section,
+      items: section.items.map((item) => {
+        if (item.name !== 'Agency collaborations') {
+          return item;
+        }
+
+        if (!summary) {
+          return item;
+        }
+
+        const description = `${formatNumber(summary.activeCollaborations ?? 0)} active retainers · ${formatCurrency(
+          summary.monthlyRetainerValue,
+          summary.monthlyRetainerCurrency,
+        )} / month`;
+
+        return {
+          ...item,
+          description,
+          href: '#agency-collaborations',
+          tags: ['retainers', 'rate cards'],
+        };
+      }),
+    }));
+  }, [summary]);
+
+  const profile = useMemo(() => {
+    const freelancer = collaborationsState.data?.freelancer;
+    if (!freelancer) {
+      return {
+        name: 'Riley Morgan',
+        role: 'Lead Brand & Product Designer',
+        initials: 'RM',
+        status: 'Top-rated freelancer',
+        badges: ['Verified Pro', 'Gigvora Elite'],
+        metrics: [
+          { label: 'Active projects', value: '6' },
+          { label: 'Gigs fulfilled', value: '148' },
+          { label: 'Avg. CSAT', value: '4.9/5' },
+          { label: 'Monthly revenue', value: '$18.4k' },
+        ],
+      };
+    }
+
+    const badges = ['Agency partnerships'];
+    const metrics = Array.isArray(freelancer.metrics)
+      ? freelancer.metrics.map((metric) => ({
+          label: metric.label,
+          value:
+            metric.currency != null
+              ? formatCurrency(metric.value, metric.currency)
+              : formatNumber(metric.value ?? 0),
+        }))
+      : [];
+
+    const status = summary
+      ? `${formatNumber(summary.activeCollaborations ?? 0)} active retainers`
+      : 'Agency ready';
+
+    const composedName = `${freelancer.firstName ?? ''} ${freelancer.lastName ?? ''}`.trim();
+    const fallbackName = composedName || freelancer.email || 'Freelancer';
+
+    return {
+      name: freelancer.name ?? fallbackName,
+      role: freelancer.title ?? 'Independent operator',
+      initials: getInitials(freelancer.name ?? freelancer.email ?? 'FR'),
+      status,
+      badges,
+      metrics,
+    };
+  }, [collaborationsState.data?.freelancer, summary]);
 ];
 
 function pluralize(word, count, pluralForm = `${word}s`) {
@@ -4997,6 +5138,65 @@ export default function FreelancerDashboardPage() {
       profile={profile}
       availableDashboards={availableDashboards}
     >
+      <>
+        <AgencyCollaborationsPanel
+          data={collaborationsState.data}
+          loading={collaborationsState.loading}
+          error={collaborationsState.error}
+          onRetry={loadCollaborations}
+        />
+
+        {capabilitySections.map((section) => (
+          <section
+            key={section.title}
+            className="mt-10 rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_18px_40px_-24px_rgba(30,64,175,0.35)] sm:p-8"
+          >
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">{section.title}</h2>
+                {section.description ? (
+                  <p className="mt-2 max-w-3xl text-sm text-slate-600">{section.description}</p>
+                ) : null}
+              </div>
+              {section.meta ? (
+                <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-medium uppercase tracking-wide text-blue-700">
+                  {section.meta}
+                </div>
+              ) : null}
+            </div>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              {section.features.map((feature) => (
+                <div
+                  key={feature.name}
+                  className="group flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50 p-5 transition hover:border-blue-300 hover:bg-blue-50"
+                >
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900">{feature.name}</h3>
+                    {feature.description ? (
+                      <p className="mt-2 text-sm text-slate-600">{feature.description}</p>
+                    ) : null}
+                    {feature.bulletPoints?.length ? (
+                      <ul className="mt-3 space-y-2 text-sm text-slate-600">
+                        {feature.bulletPoints.map((point) => (
+                          <li key={point} className="flex gap-2">
+                            <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400" />
+                            <span>{point}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                  {feature.callout ? (
+                    <p className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium uppercase tracking-wide text-blue-700">
+                      {feature.callout}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
+      </>
       <div className="space-y-10">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <DataStatus
