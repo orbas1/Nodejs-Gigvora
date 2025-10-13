@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../auth/application/session_controller.dart';
 import '../../auth/domain/session.dart';
+import '../../finance/domain/finance_access_policy.dart';
 import '../../../theme/widgets.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -89,6 +90,10 @@ class HomeScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 24),
             _MetricsWrap(metrics: activeDashboard.metrics),
+            if (FinanceAccessPolicy.hasAccess(session)) ...[
+              const SizedBox(height: 24),
+              _FinanceCallout(onTap: () => GoRouter.of(context).go('/finance')),
+            ],
             const SizedBox(height: 24),
             ...activeDashboard.sections
                 .map((section) => Padding(
@@ -96,10 +101,16 @@ class HomeScreen extends ConsumerWidget {
                       child: _DashboardSectionCard(section: section),
                     ))
                 .toList(),
+            if (activeDashboard.role == 'admin') ...[
+              const SizedBox(height: 24),
+              const _AdminAdsCallout(),
+            ],
             if (activeDashboard.actions.isNotEmpty) ...[
               const SizedBox(height: 8),
               _DashboardActions(actions: activeDashboard.actions),
             ],
+            const SizedBox(height: 16),
+            const _NetworkCtaCard(),
             const SizedBox(height: 12),
           ],
         ),
@@ -133,6 +144,55 @@ class _RoleSwitcher extends StatelessWidget {
             ),
           )
           .toList(),
+    );
+  }
+}
+
+class _FinanceCallout extends StatelessWidget {
+  const _FinanceCallout({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return GigvoraCard(
+      child: Row(
+        children: [
+          Container(
+            height: 48,
+            width: 48,
+            decoration: BoxDecoration(
+              color: colorScheme.primary.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(Icons.account_balance_wallet_outlined, color: colorScheme.primary),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Finance, escrow & disputes',
+                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Open the finance control tower to review safeguarding balances, release queues, and dispute health.',
+                  style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          FilledButton.tonal(
+            onPressed: onTap,
+            child: const Text('Open'),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -273,6 +333,37 @@ class _MetricsWrap extends StatelessWidget {
               .toList(),
         );
       },
+    );
+  }
+}
+
+class _NetworkCtaCard extends StatelessWidget {
+  const _NetworkCtaCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return GigvoraCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Connection intelligence', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 8),
+          Text(
+            'Review first, second, and third-degree relationships to plan introductions with confidence.',
+            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: ElevatedButton.icon(
+              onPressed: () => GoRouter.of(context).go('/connections'),
+              icon: const Icon(Icons.group_outlined),
+              label: const Text('Open network graph'),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -445,6 +536,38 @@ class _DashboardActions extends StatelessWidget {
                 ],
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AdminAdsCallout extends StatelessWidget {
+  const _AdminAdsCallout();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return GigvoraCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Gigvora Ads console',
+            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Review campaign coverage, placements, and recommendations to keep monetisation surfaces healthy.',
+            style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: () => GoRouter.of(context).go('/admin/ads'),
+            icon: const Icon(Icons.campaign_outlined),
+            label: const Text('Open console'),
           ),
         ],
       ),
