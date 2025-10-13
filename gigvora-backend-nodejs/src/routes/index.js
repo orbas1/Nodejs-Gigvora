@@ -12,6 +12,7 @@ import projectRoutes from './projectRoutes.js';
 import launchpadRoutes from './launchpadRoutes.js';
 import headhunterRoutes from './headhunterRoutes.js';
 import adminRoutes from './adminRoutes.js';
+import clientPortalRoutes from './clientPortalRoutes.js';
 
 const router = Router();
 
@@ -28,5 +29,6 @@ router.use('/projects', projectRoutes);
 router.use('/launchpad', launchpadRoutes);
 router.use('/headhunter', headhunterRoutes);
 router.use('/admin', adminRoutes);
+router.use('/client-portals', clientPortalRoutes);
 
 export default router;

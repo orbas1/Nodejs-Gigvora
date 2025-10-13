@@ -16,6 +16,11 @@ const seededIds = {
   jobs: [1, 2],
   gigs: [1],
   projects: [1],
+  clientPortals: [1],
+  clientPortalTimelineEvents: [1, 2, 3, 4],
+  clientPortalScopeItems: [1, 2, 3, 4],
+  clientPortalDecisionLogs: [1, 2, 3],
+  clientPortalInsightWidgets: [1, 2, 3],
   experienceLaunchpads: [1],
   experienceLaunchpadApplications: [1, 2],
   experienceLaunchpadEmployerRequests: [1],
@@ -50,6 +55,10 @@ module.exports = {
       const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
       const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
       const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      const tenDaysFromNow = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000);
+      const fifteenDaysFromNow = new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000);
 
       await queryInterface.bulkInsert(
         'users',
@@ -504,6 +513,320 @@ module.exports = {
           },
         ],
         { transaction }
+      );
+
+      await queryInterface.bulkInsert(
+        'client_portals',
+        [
+          {
+            id: seededIds.clientPortals[0],
+            projectId: seededIds.projects[0],
+            ownerId: seededIds.users[1],
+            slug: 'brand-retainer-collaboration-hub',
+            title: 'Brand Retainer Collaboration Hub',
+            summary:
+              'Shared client portal for Rize Analytics to review milestones, scope agreements, and weekly decision logs.',
+            status: 'active',
+            brandColor: '#2563EB',
+            accentColor: '#F97316',
+            preferences: {
+              digest: {
+                frequency: 'weekly',
+                recipients: ['ops@rizeanalytics.com', 'finance@rizeanalytics.com'],
+              },
+              theme: { brand: '#2563EB', accent: '#F97316' },
+              insights: { showRevenue: true, riskTolerance: 'medium' },
+            },
+            stakeholders: [
+              {
+                name: 'Mia Operations',
+                role: 'COO',
+                email: 'mia@gigvora.com',
+                organization: 'Rize Analytics',
+                preferredChannel: 'email',
+                notify: true,
+              },
+              {
+                name: 'Leo Freelancer',
+                role: 'Account Lead',
+                email: 'leo@gigvora.com',
+                organization: 'Gigvora Collective',
+                preferredChannel: 'slack',
+                notify: true,
+              },
+              {
+                name: 'Sasha Patel',
+                role: 'Product Owner',
+                email: 'sasha@rizeanalytics.com',
+                organization: 'Rize Analytics',
+                preferredChannel: 'email',
+                notify: true,
+              },
+            ],
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+        ],
+        { transaction },
+      );
+
+      await queryInterface.bulkInsert(
+        'client_portal_timeline_events',
+        [
+          {
+            id: seededIds.clientPortalTimelineEvents[0],
+            portalId: seededIds.clientPortals[0],
+            ownerId: seededIds.users[1],
+            title: 'Kickoff alignment workshop',
+            description: 'Ran working session with marketing, product, and ops stakeholders to align KPIs.',
+            eventType: 'workshop',
+            status: 'completed',
+            startDate: threeDaysAgo,
+            dueDate: twoDaysAgo,
+            metadata: {
+              recordingsUrl: 'https://meetings.gigvora.com/kickoff-recording',
+              decisionSnapshot: 'Workshop outcomes documented in portal decision log #1.',
+            },
+            createdAt: threeDaysAgo,
+            updatedAt: twoDaysAgo,
+          },
+          {
+            id: seededIds.clientPortalTimelineEvents[1],
+            portalId: seededIds.clientPortals[0],
+            ownerId: seededIds.users[1],
+            title: 'Journey mapping sprints',
+            description: 'Assemble product discovery research into two prioritized customer journeys.',
+            eventType: 'milestone',
+            status: 'in_progress',
+            startDate: yesterday,
+            dueDate: tomorrow,
+            metadata: {
+              deliverables: ['Persona briefs', 'Service blueprint'],
+              blockers: [],
+            },
+            createdAt: yesterday,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.clientPortalTimelineEvents[2],
+            portalId: seededIds.clientPortals[0],
+            ownerId: seededIds.users[2],
+            title: 'Visual identity preview',
+            description: 'Present color directions and typography lockups for stakeholder review.',
+            eventType: 'review',
+            status: 'at_risk',
+            startDate: yesterday,
+            dueDate: nextWeek,
+            metadata: {
+              riskNotes: 'Awaiting photography approvals from legal; may delay feedback session.',
+            },
+            createdAt: yesterday,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.clientPortalTimelineEvents[3],
+            portalId: seededIds.clientPortals[0],
+            ownerId: seededIds.users[1],
+            title: 'Analytics instrumentation go-live',
+            description: 'Enable event streams, dashboards, and alerting for the new brand experience.',
+            eventType: 'launch',
+            status: 'planned',
+            startDate: nextWeek,
+            dueDate: fifteenDaysFromNow,
+            metadata: {
+              dependencies: ['Finalize dashboard schema', 'QA tracking plan'],
+            },
+            createdAt: now,
+            updatedAt: now,
+          },
+        ],
+        { transaction },
+      );
+
+      await queryInterface.bulkInsert(
+        'client_portal_scope_items',
+        [
+          {
+            id: seededIds.clientPortalScopeItems[0],
+            portalId: seededIds.clientPortals[0],
+            title: 'Brand messaging playbook',
+            description: 'Core messaging architecture with tone, proof points, and channel guardrails.',
+            category: 'Brand strategy',
+            status: 'delivered',
+            effortHours: 18,
+            valueCurrency: 'USD',
+            valueAmount: 6200,
+            lastDecisionAt: twoDaysAgo,
+            metadata: {
+              approvals: ['Rize leadership'],
+              files: ['https://cdn.gigvora.com/brand-playbook-v1.pdf'],
+            },
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.clientPortalScopeItems[1],
+            portalId: seededIds.clientPortals[0],
+            title: 'Marketing site redesign sprint',
+            description: 'Responsive redesign of the hero, product, and testimonial sections with analytics goals.',
+            category: 'Experience design',
+            status: 'in_delivery',
+            effortHours: 32,
+            valueCurrency: 'USD',
+            valueAmount: 10400,
+            lastDecisionAt: yesterday,
+            metadata: {
+              sprint: 'Sprint 3',
+              lead: 'Leo Freelancer',
+            },
+            createdAt: yesterday,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.clientPortalScopeItems[2],
+            portalId: seededIds.clientPortals[0],
+            title: 'Weekly growth analytics dashboard',
+            description: 'Self-serve dashboards for trials, signups, and retention with automated alerts.',
+            category: 'Analytics',
+            status: 'committed',
+            effortHours: 24,
+            valueCurrency: 'USD',
+            valueAmount: 8400,
+            metadata: {
+              dependencies: ['Data engineering availability'],
+            },
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.clientPortalScopeItems[3],
+            portalId: seededIds.clientPortals[0],
+            title: 'Localization expansion toolkit',
+            description: 'Optional add-on for translations, QA workflows, and regional design assets.',
+            category: 'Optional add-ons',
+            status: 'proposed',
+            effortHours: 16,
+            valueCurrency: 'USD',
+            valueAmount: 5800,
+            metadata: {
+              proposalId: 'PROP-4821',
+            },
+            createdAt: now,
+            updatedAt: now,
+          },
+        ],
+        { transaction },
+      );
+
+      await queryInterface.bulkInsert(
+        'client_portal_decision_logs',
+        [
+          {
+            id: seededIds.clientPortalDecisionLogs[0],
+            portalId: seededIds.clientPortals[0],
+            decidedById: seededIds.users[2],
+            summary: 'Scope change approval for analytics dashboards',
+            decision:
+              'Approved the expanded dashboard scope with additional product metrics contingent on engineering support.',
+            decidedAt: yesterday,
+            category: 'scope',
+            impactSummary: 'Adds 8 hours of analytics implementation and extends timeline by two business days.',
+            followUpDate: nextWeek,
+            visibility: 'client',
+            attachments: [
+              {
+                label: 'Revised dashboard brief',
+                url: 'https://cdn.gigvora.com/dashboards/revised-brief.pdf',
+              },
+            ],
+            createdAt: yesterday,
+            updatedAt: yesterday,
+          },
+          {
+            id: seededIds.clientPortalDecisionLogs[1],
+            portalId: seededIds.clientPortals[0],
+            decidedById: seededIds.users[1],
+            summary: 'Design direction sign-off',
+            decision:
+              'Confirmed direction B for the refreshed visual identity with updated typography and iconography.',
+            decidedAt: twoDaysAgo,
+            category: 'design',
+            impactSummary: 'Unblocks final layout production and signals marketing site production readiness.',
+            followUpDate: tenDaysFromNow,
+            visibility: 'client',
+            attachments: [],
+            createdAt: twoDaysAgo,
+            updatedAt: twoDaysAgo,
+          },
+          {
+            id: seededIds.clientPortalDecisionLogs[2],
+            portalId: seededIds.clientPortals[0],
+            decidedById: seededIds.users[1],
+            summary: 'Budget reallocation for localization toolkit',
+            decision: 'Deferred localization add-on to Q4 and reallocated budget to analytics automation.',
+            decidedAt: now,
+            category: 'budget',
+            impactSummary: 'Keeps retainer within budget ceiling while prioritising instrumentation wins.',
+            followUpDate: fifteenDaysFromNow,
+            visibility: 'internal',
+            attachments: [
+              {
+                label: 'Budget tracker',
+                url: 'https://sheets.gigvora.com/budget-tracker',
+              },
+            ],
+            createdAt: now,
+            updatedAt: now,
+          },
+        ],
+        { transaction },
+      );
+
+      await queryInterface.bulkInsert(
+        'client_portal_insight_widgets',
+        [
+          {
+            id: seededIds.clientPortalInsightWidgets[0],
+            portalId: seededIds.clientPortals[0],
+            widgetType: 'health',
+            title: 'Delivery confidence',
+            description: 'Composite score factoring milestone velocity, approvals, and stakeholder sentiment.',
+            data: { score: 82, trend: 'up', delta: 6 },
+            visibility: 'shared',
+            orderIndex: 1,
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.clientPortalInsightWidgets[1],
+            portalId: seededIds.clientPortals[0],
+            widgetType: 'finance',
+            title: 'Budget utilisation',
+            description: 'Tracks retainer burn against approved scope and pending change requests.',
+            data: { allocated: 32000, consumed: 21800, currency: 'USD' },
+            visibility: 'shared',
+            orderIndex: 2,
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.clientPortalInsightWidgets[2],
+            portalId: seededIds.clientPortals[0],
+            widgetType: 'engagement',
+            title: 'Stakeholder touchpoints',
+            description: 'Shows who has viewed the latest updates and who needs nudges.',
+            data: {
+              viewed: ['Mia Operations', 'Sasha Patel'],
+              pending: ['Finance Controller'],
+              lastDigestSentAt: yesterday,
+            },
+            visibility: 'shared',
+            orderIndex: 3,
+            createdAt: now,
+            updatedAt: now,
+          },
+        ],
+        { transaction },
       );
 
       await queryInterface.bulkInsert(
@@ -1365,6 +1688,31 @@ module.exports = {
         'experience_launchpads',
         { id: { [Op.in]: seededIds.experienceLaunchpads } },
         { transaction }
+      );
+      await queryInterface.bulkDelete(
+        'client_portal_insight_widgets',
+        { id: { [Op.in]: seededIds.clientPortalInsightWidgets } },
+        { transaction },
+      );
+      await queryInterface.bulkDelete(
+        'client_portal_decision_logs',
+        { id: { [Op.in]: seededIds.clientPortalDecisionLogs } },
+        { transaction },
+      );
+      await queryInterface.bulkDelete(
+        'client_portal_scope_items',
+        { id: { [Op.in]: seededIds.clientPortalScopeItems } },
+        { transaction },
+      );
+      await queryInterface.bulkDelete(
+        'client_portal_timeline_events',
+        { id: { [Op.in]: seededIds.clientPortalTimelineEvents } },
+        { transaction },
+      );
+      await queryInterface.bulkDelete(
+        'client_portals',
+        { id: { [Op.in]: seededIds.clientPortals } },
+        { transaction },
       );
       await queryInterface.bulkDelete('projects', { id: { [Op.in]: seededIds.projects } }, { transaction });
       await queryInterface.bulkDelete('gigs', { id: { [Op.in]: seededIds.gigs } }, { transaction });

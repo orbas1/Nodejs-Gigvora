@@ -1,24 +1,16 @@
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import {
+  ClientPortalSummary,
+  ClientPortalTimeline,
+  ClientPortalScopeSummary,
+  ClientPortalDecisionLog,
+  ClientPortalInsightWidgets,
+} from '../../components/clientPortal/index.js';
+import { fetchClientPortalDashboard } from '../../services/clientPortals.js';
 
-const menuSections = [
-  {
-    label: 'Service delivery',
-    items: [
-      {
-        name: 'Project workspace dashboard',
-        description: 'Unified workspace for briefs, assets, conversations, and approvals.',
-        tags: ['whiteboards', 'files'],
-      },
-      {
-        name: 'Project management',
-        description: 'Detailed plan with sprints, dependencies, risk logs, and billing checkpoints.',
-      },
-      {
-        name: 'Client portals',
-        description: 'Shared timelines, scope controls, and decision logs with your clients.',
-      },
-    ],
-  },
+const DEFAULT_MENU_STRUCTURE = [
   {
     label: 'Gig commerce',
     items: [
@@ -56,198 +48,131 @@ const menuSections = [
   },
 ];
 
-const capabilitySections = [
-  {
-    title: 'Project workspace excellence',
-    description:
-      'Deliver projects with structure. Each workspace combines real-time messaging, documents, tasks, billing, and client approvals.',
-    features: [
-      {
-        name: 'Workspace templates',
-        description:
-          'Kickstart delivery with industry-specific playbooks, requirement questionnaires, and automated onboarding flows.',
-        bulletPoints: [
-          'Standard operating procedures and checklists for repeat work.',
-          'Client welcome sequences and kickoff survey automation.',
-        ],
-      },
-      {
-        name: 'Task & sprint manager',
-        description:
-          'Run sprints, Kanban boards, and timeline views with burn charts, dependencies, and backlog grooming.',
-        bulletPoints: [
-          'Time tracking per task with billable vs. non-billable flags.',
-          'Risk registers and change request approvals with e-signatures.',
-        ],
-      },
-      {
-        name: 'Collaboration cockpit',
-        description:
-          'Host video rooms, creative proofing, code repositories, and AI assistants for documentation and QA.',
-        bulletPoints: [
-          'Inline annotations on files, prototypes, and project demos.',
-          'Client-specific permissions with comment-only or edit access.',
-        ],
-      },
-      {
-        name: 'Deliverable vault',
-        description:
-          'Secure storage with version history, watermarking, NDA controls, and automated delivery packages.',
-        bulletPoints: [
-          'Auto-generate delivery summaries with success metrics.',
-          'Long-term archiving and compliance exports.',
-        ],
-      },
-    ],
-  },
-  {
-    title: 'Gig marketplace operations',
-    description:
-      'Manage the full gig lifecycle from publishing listings to fulfillment, upsells, and post-delivery reviews.',
-    features: [
-      {
-        name: 'Gig builder',
-        description:
-          'Design irresistible gig pages with tiered pricing, add-ons, gallery media, and conversion-tested copy.',
-        bulletPoints: [
-          'Freelancer banner creator with dynamic call-to-actions.',
-          'Preview modes for desktop, tablet, and mobile experiences.',
-        ],
-      },
-      {
-        name: 'Order pipeline',
-        description:
-          'Monitor incoming orders, qualification forms, kickoff calls, and delivery status from inquiry to completion.',
-        bulletPoints: [
-          'Automated requirement forms and revision workflows.',
-          'Escrow release checkpoints tied to client satisfaction.',
-        ],
-      },
-      {
-        name: 'Client success automation',
-        description:
-          'Trigger onboarding sequences, educational drip emails, testimonials, and referral programs automatically.',
-        bulletPoints: [
-          'Smart nudges for review requests post-delivery.',
-          'Affiliate and referral tracking per gig.',
-        ],
-      },
-      {
-        name: 'Catalog insights',
-        description:
-          'See conversion rates, top-performing gig bundles, repeat clients, and cross-sell opportunities at a glance.',
-        bulletPoints: [
-          'Margin calculator factoring software costs and subcontractors.',
-          'Heatmaps of search keywords driving gig impressions.',
-        ],
-      },
-    ],
-  },
-  {
-    title: 'Finance, compliance, & reputation',
-    description:
-      'Get paid fast while staying compliant. Monitor cash flow, taxes, contracts, and reputation programs across clients.',
-    features: [
-      {
-        name: 'Finance control tower',
-        description:
-          'Revenue breakdowns, tax-ready exports, expense tracking, and smart savings goals for benefits or downtime.',
-        bulletPoints: [
-          'Split payouts between teammates or subcontractors instantly.',
-          'Predictive forecasts for retainers vs. one-off gigs.',
-        ],
-      },
-      {
-        name: 'Contract & compliance locker',
-        description:
-          'Store MSAs, NDAs, intellectual property agreements, and compliance attestations with e-sign audit logs.',
-        bulletPoints: [
-          'Automated reminders for renewals and insurance certificates.',
-          'Localization for GDPR, SOC2, and freelancer classifications.',
-        ],
-      },
-      {
-        name: 'Reputation engine',
-        description:
-          'Capture testimonials, publish success stories, and display verified metrics such as on-time delivery and CSAT.',
-        bulletPoints: [
-          'Custom badges and banners for featured freelancer programs.',
-          'Shareable review widgets for external websites.',
-        ],
-      },
-      {
-        name: 'Support & dispute desk',
-        description:
-          'Resolve client concerns, manage escalations, and collaborate with Gigvora support for smooth resolutions.',
-        bulletPoints: [
-          'Conversation transcripts linked back to gig orders.',
-          'Resolution playbooks to keep satisfaction high.',
-        ],
-      },
-    ],
-  },
-  {
-    title: 'Growth, partnerships, & skills',
-    description:
-      'Scale your business with targeted marketing, agency partnerships, continuous learning, and community mentoring.',
-    features: [
-      {
-        name: 'Pipeline CRM',
-        description:
-          'Track leads, proposals, follow-ups, and cross-selling campaigns separate from gig orders.',
-        bulletPoints: [
-          'Kanban views by industry, retainer size, or probability.',
-          'Proposal templates with case studies and ROI calculators.',
-        ],
-      },
-      {
-        name: 'Agency alliance manager',
-        description:
-          'Collaborate with agencies, share resource calendars, negotiate revenue splits, and join pods for large engagements.',
-        bulletPoints: [
-          'Rate card sharing with version history and approvals.',
-          'Resource heatmaps showing bandwidth across weeks.',
-        ],
-      },
-      {
-        name: 'Learning and certification hub',
-        description:
-          'Access curated courses, peer mentoring sessions, and skill gap diagnostics tied to your service lines.',
-        bulletPoints: [
-          'Certification tracker with renewal reminders.',
-          'AI recommendations for new service offerings.',
-        ],
-      },
-      {
-        name: 'Community spotlight',
-        description:
-          'Showcase contributions, speaking engagements, and open-source work with branded banners and social share kits.',
-        bulletPoints: [
-          'Automated newsletter features for top-performing freelancers.',
-          'Personalized marketing assets ready for social channels.',
-        ],
-      },
-    ],
-  },
-];
-
-const profile = {
-  name: 'Riley Morgan',
-  role: 'Lead Brand & Product Designer',
-  initials: 'RM',
-  status: 'Top-rated freelancer',
-  badges: ['Verified Pro', 'Gigvora Elite'],
-  metrics: [
-    { label: 'Active projects', value: '6' },
-    { label: 'Gigs fulfilled', value: '148' },
-    { label: 'Avg. CSAT', value: '4.9/5' },
-    { label: 'Monthly revenue', value: '$18.4k' },
-  ],
-};
-
-const availableDashboards = ['freelancer', 'user', 'agency'];
+const DEFAULT_PORTAL_ID = import.meta.env.VITE_FREELANCER_PORTAL_ID ?? '1';
 
 export default function FreelancerDashboardPage() {
+  const [searchParams] = useSearchParams();
+  const [portalData, setPortalData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const requestedPortalId = searchParams.get('portalId');
+  const portalIdentifier = (requestedPortalId ?? DEFAULT_PORTAL_ID ?? '1') || '1';
+
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await fetchClientPortalDashboard(portalIdentifier, { signal: controller.signal });
+        if (!cancelled) {
+          setPortalData(data);
+        }
+      } catch (err) {
+        if (!cancelled && err.name !== 'AbortError') {
+          setError(err);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    load();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [portalIdentifier, refreshKey]);
+
+  const portal = portalData?.portal;
+  const timelineSummary = portalData?.timeline?.summary ?? {};
+  const scopeSummary = portalData?.scope?.summary ?? {};
+  const decisionSummary = portalData?.decisions?.summary ?? {};
+
+  const profile = useMemo(() => {
+    const badges = [];
+    if (portal?.status) badges.push(`Status: ${portal.status}`);
+    if (portal?.riskLevel) badges.push(`Risk: ${portal.riskLevel}`);
+    if (!badges.length) badges.push('Verified Pro', 'Gigvora Elite');
+
+    return {
+      name: 'Riley Morgan',
+      role: 'Lead Brand & Product Designer',
+      initials: 'RM',
+      status: portal?.healthScore != null ? `Portal health ${portal.healthScore}` : 'Top-rated freelancer',
+      badges,
+      metrics: [
+        {
+          label: 'Milestones',
+          value: `${timelineSummary.completedCount ?? 0}/${timelineSummary.totalCount ?? 0}`,
+        },
+        {
+          label: 'Scope delivered',
+          value: `${scopeSummary.deliveredCount ?? 0}`,
+        },
+        {
+          label: 'Decisions logged',
+          value: `${decisionSummary.totalCount ?? 0}`,
+        },
+        {
+          label: 'Health score',
+          value: portal?.healthScore != null ? `${portal.healthScore}` : '—',
+        },
+      ],
+    };
+  }, [portal, timelineSummary, scopeSummary, decisionSummary]);
+
+  const menuSections = useMemo(() => {
+    const clientPortalTags = [];
+    if (portal?.status) clientPortalTags.push(portal.status);
+    if (portal?.healthScore != null) clientPortalTags.push(`health ${portal.healthScore}`);
+    if (timelineSummary.totalCount != null) {
+      clientPortalTags.push(`${timelineSummary.completedCount ?? 0}/${timelineSummary.totalCount} milestones`);
+    }
+    if (decisionSummary.totalCount != null) {
+      clientPortalTags.push(`${decisionSummary.totalCount} decisions`);
+    }
+
+    return [
+      {
+        label: 'Service delivery',
+        items: [
+          {
+            name: 'Client portals',
+            description: portal?.summary ?? 'Shared timelines, scope controls, and decision logs with your clients.',
+            tags: clientPortalTags,
+          },
+          {
+            name: 'Project workspace dashboard',
+            description: 'Unified workspace for briefs, assets, conversations, and approvals.',
+            tags: ['whiteboards', 'files'],
+          },
+          {
+            name: 'Project management',
+            description: 'Detailed plan with sprints, dependencies, risk logs, and billing checkpoints.',
+          },
+        ],
+      },
+      ...DEFAULT_MENU_STRUCTURE,
+    ];
+  }, [portal, timelineSummary, decisionSummary]);
+
+  const availableDashboards = ['freelancer', 'user', 'agency'];
+
+  const handleRetry = () => {
+    setPortalData(null);
+    setError(null);
+    setLoading(true);
+    setRefreshKey((key) => key + 1);
+  };
+
   return (
     <DashboardLayout
       currentDashboard="freelancer"
@@ -255,9 +180,32 @@ export default function FreelancerDashboardPage() {
       subtitle="Service business cockpit"
       description="An operating system for independent talent to manage gigs, complex projects, finances, and growth partnerships in one streamlined workspace."
       menuSections={menuSections}
-      sections={capabilitySections}
+      sections={[]}
       profile={profile}
       availableDashboards={availableDashboards}
-    />
+    >
+      <div className="space-y-6">
+        <ClientPortalSummary
+          portal={portal}
+          timelineSummary={timelineSummary}
+          scopeSummary={scopeSummary}
+          decisionSummary={decisionSummary}
+          loading={loading}
+          error={error}
+          onRetry={handleRetry}
+        />
+        <div className="grid gap-6 xl:grid-cols-3">
+          <ClientPortalTimeline
+            className="xl:col-span-2"
+            events={portalData?.timeline?.events ?? []}
+            summary={timelineSummary}
+            loading={loading}
+          />
+          <ClientPortalInsightWidgets className="xl:col-span-1" insights={portalData?.insights ?? {}} />
+        </div>
+        <ClientPortalScopeSummary scope={portalData?.scope ?? {}} />
+        <ClientPortalDecisionLog decisions={portalData?.decisions ?? {}} />
+      </div>
+    </DashboardLayout>
   );
 }
