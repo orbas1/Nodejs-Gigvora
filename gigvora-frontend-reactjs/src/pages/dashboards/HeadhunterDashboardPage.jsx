@@ -16,6 +16,14 @@ import {
   ShieldCheckIcon,
   SparklesIcon,
   UserGroupIcon,
+  SparklesIcon,
+  MagnifyingGlassCircleIcon,
+  MapIcon,
+  ShieldCheckIcon,
+  ChartPieIcon,
+  BeakerIcon,
+  BoltIcon,
+  MegaphoneIcon,
 } from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import DataStatus from '../../components/DataStatus.jsx';
@@ -29,15 +37,18 @@ const menuSections = [
       {
         name: 'Prospect discovery',
         description: 'Advanced search across Gigvora talent, projects, referrals, and external signals.',
+        sectionId: 'prospect-discovery',
         tags: ['AI sourcing'],
       },
       {
         name: 'Market maps',
         description: 'Track target companies, competitor org charts, and hiring movements.',
+        sectionId: 'prospect-market-maps',
       },
       {
         name: 'Outreach playbooks',
         description: 'Sequenced campaigns, messaging templates, and analytics for conversions.',
+        sectionId: 'campaign-studio',
       },
     ],
   },
@@ -48,6 +59,7 @@ const menuSections = [
         name: 'Prospect pipeline',
         description: 'Stage-based pipeline from discovery to offer with scoring, notes, and attachments.',
         sectionId: 'prospect-pipeline',
+        sectionId: 'pipeline-health',
       },
       {
         name: 'Interview coordination',
@@ -58,6 +70,7 @@ const menuSections = [
         name: 'Pass-on center',
         description: 'Share candidates with partner companies or agencies with insights and fit notes.',
         sectionId: 'pass-on-center',
+        sectionId: 'pass-on-network',
       },
     ],
   },
@@ -67,14 +80,17 @@ const menuSections = [
       {
         name: 'Client management',
         description: 'Manage retainers, success fees, contracts, and hiring mandates.',
+        sectionId: 'client-partnerships',
       },
       {
         name: 'Performance analytics',
         description: 'Placement rates, time-to-submit, interview-to-offer ratios, and revenue.',
+        sectionId: 'outreach-performance',
       },
       {
         name: 'Calendar & availability',
         description: 'Personal calendar, shared calendars with clients, and availability broadcasting.',
+        sectionId: 'interview-coordination',
       },
     ],
   },
@@ -127,6 +143,21 @@ function formatDate(value) {
 function formatStageValue(stage, currency) {
   if (!stage) return '—';
   return formatCurrency(stage.valueTotal ?? 0, currency);
+}
+
+function formatCompRange(comp, fallbackCurrency = 'USD') {
+  if (!comp) return '—';
+  const currency = comp.currency ?? fallbackCurrency;
+  if (comp.min != null && comp.max != null) {
+    return `${formatCurrency(comp.min, currency)} – ${formatCurrency(comp.max, currency)}`;
+  }
+  if (comp.min != null) {
+    return `≥ ${formatCurrency(comp.min, currency)}`;
+  }
+  if (comp.max != null) {
+    return `≤ ${formatCurrency(comp.max, currency)}`;
+  }
+  return '—';
 }
 
 export default function HeadhunterDashboardPage() {
@@ -374,6 +405,55 @@ export default function HeadhunterDashboardPage() {
     };
   });
 
+  const prospectIntelligence = data?.prospectIntelligence ?? {};
+  const intelligenceOverview = prospectIntelligence.overview ?? {};
+  const relocationBreakdown = intelligenceOverview.relocationReadiness ?? {};
+  const signalBreakdown = intelligenceOverview.signalIntentBreakdown ?? {};
+  const topMotivators = intelligenceOverview.topMotivators ?? [];
+  const talentProfiles = prospectIntelligence.talentProfiles ?? [];
+  const prospectCockpit = prospectIntelligence.cockpit ?? {};
+  const prospectSavedSearches = prospectCockpit.savedSearches ?? [];
+  const activeAlerts = prospectCockpit.activeAlerts ?? [];
+  const industryMaps = prospectCockpit.industryMaps ?? [];
+  const signalStream = prospectCockpit.signalStream ?? [];
+  const campaignStudio = prospectIntelligence.campaignStudio ?? {};
+  const campaignMetrics = campaignStudio.aggregateMetrics ?? {};
+  const campaignBreakdown = campaignStudio.channelBreakdown ?? [];
+  const campaignList = campaignStudio.campaigns ?? [];
+  const campaignAbTests = campaignStudio.abTests ?? [];
+  const researchCollaboration = prospectIntelligence.researchCollaboration ?? {};
+  const researchNotes = researchCollaboration.notes ?? [];
+  const researchTasks = researchCollaboration.tasks ?? [];
+  const researchTaskSummary = researchCollaboration.taskSummary ?? {};
+  const complianceGuardrails = researchCollaboration.compliance?.guardrails ?? {};
+  const complianceLog = researchCollaboration.compliance?.log ?? [];
+
+  const intelligenceStats = [
+    {
+      label: 'Profiles tracked',
+      value: intelligenceOverview.profilesTracked ?? 0,
+      icon: SparklesIcon,
+    },
+    {
+      label: 'High-intent signals',
+      value: intelligenceOverview.highIntentSignals ?? 0,
+      icon: BoltIcon,
+    },
+    {
+      label: 'Avg compensation target',
+      value:
+        intelligenceOverview.averageCompTarget != null
+          ? formatCurrency(intelligenceOverview.averageCompTarget, currency)
+          : '—',
+      icon: ChartPieIcon,
+    },
+    {
+      label: 'Exclusivity conflicts',
+      value: intelligenceOverview.exclusivityConflicts ?? 0,
+      icon: ShieldCheckIcon,
+    },
+  ];
+
   return (
     <DashboardLayout
       currentDashboard="headhunter"
@@ -385,7 +465,7 @@ export default function HeadhunterDashboardPage() {
       availableDashboards={availableDashboards}
     >
       <div className="space-y-10">
-        <section className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section id="command-center-overview" className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="text-lg font-semibold text-slate-900">Command center overview</h2>
@@ -460,7 +540,522 @@ export default function HeadhunterDashboardPage() {
           </div>
         </section>
 
-        <section className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section id="prospect-discovery" className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Prospect intelligence &amp; sourcing</h2>
+              <p className="text-sm text-slate-600">
+                Combine data, AI, and relationship signals to curate shortlists faster and surface actionable insights.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-3 text-xs text-slate-600 sm:grid-cols-2 lg:grid-cols-4">
+            {intelligenceStats.map((stat) => {
+              const Icon = stat.icon;
+              return (
+                <div key={stat.label} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wide text-slate-500">{stat.label}</p>
+                    <p className="text-base font-semibold text-slate-900">{stat.value}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex flex-wrap gap-2 text-xs text-slate-600">
+            {Object.entries(relocationBreakdown).length ? (
+              Object.entries(relocationBreakdown).map(([status, count]) => (
+                <span
+                  key={status}
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1"
+                >
+                  <MapIcon className="h-3.5 w-3.5 text-blue-500" />
+                  <span className="capitalize">
+                    {status.replace(/_/g, ' ')}: <strong className="text-slate-800">{count}</strong>
+                  </span>
+                </span>
+              ))
+            ) : (
+              <span className="text-slate-500">No relocation readiness data captured yet.</span>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-2 text-xs text-slate-600">
+            {Object.entries(signalBreakdown).length ? (
+              Object.entries(signalBreakdown).map(([intent, count]) => (
+                <span
+                  key={intent}
+                  className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1"
+                >
+                  <BoltIcon className="h-3.5 w-3.5 text-blue-600" />
+                  <span className="capitalize">
+                    {intent.replace(/_/g, ' ')}: <strong className="text-slate-800">{count}</strong>
+                  </span>
+                </span>
+              ))
+            ) : (
+              <span className="text-slate-500">No intent scoring available for this window.</span>
+            )}
+          </div>
+
+          <div className="grid gap-6 xl:grid-cols-3">
+            <div id="talent-profiles" className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-slate-800">360° talent profiles</h3>
+                <SparklesIcon className="h-5 w-5 text-blue-500" />
+              </div>
+              <div className="space-y-3">
+                {talentProfiles.length ? (
+                  talentProfiles.map((profile) => {
+                    const relocationLabel = profile.relocation ? profile.relocation.replace(/_/g, ' ') : 'unspecified';
+                    const latestSignal = profile.signals?.[0];
+                    return (
+                      <div key={profile.id} className="rounded-2xl border border-white bg-white p-4 shadow-sm">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="text-base font-semibold text-slate-900">{profile.name}</p>
+                            <p className="text-xs text-slate-500">{profile.headline ?? '—'}</p>
+                          </div>
+                          <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-[11px] font-medium text-blue-700">
+                            {profile.seniority ?? 'Unassigned'}
+                          </span>
+                        </div>
+                        <div className="mt-3 space-y-2 text-xs text-slate-600">
+                          <div className="flex items-start gap-2">
+                            <SparklesIcon className="mt-0.5 h-4 w-4 text-violet-500" />
+                            <span>{profile.aiHighlights?.[0] ?? 'AI insights will populate as new signals arrive.'}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <CalendarDaysIcon className="h-4 w-4 text-blue-500" />
+                            <span>
+                              Last signal{' '}
+                              {latestSignal?.occurredAt ? formatRelativeTime(latestSignal.occurredAt) : 'pending'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-slate-500">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1">
+                            <ClockIcon className="h-3.5 w-3.5 text-blue-500" />
+                            {profile.availability ?? 'Unknown availability'}
+                          </span>
+                          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 capitalize">
+                            <MapIcon className="h-3.5 w-3.5 text-blue-500" />
+                            {relocationLabel}
+                          </span>
+                          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1">
+                            <ChartBarIcon className="h-3.5 w-3.5 text-blue-500" />
+                            {formatCompRange(profile.compensation, currency)}
+                          </span>
+                          {profile.exclusivityConflict ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-3 py-1 text-rose-700">
+                              <ShieldCheckIcon className="h-3.5 w-3.5" />
+                              Exclusivity flag
+                            </span>
+                          ) : null}
+                        </div>
+                        {profile.exclusivityConflict && profile.exclusivityNotes ? (
+                          <p className="mt-2 text-[11px] text-rose-600">{profile.exclusivityNotes}</p>
+                        ) : null}
+                        <div className="mt-3">
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Motivators</p>
+                          <div className="mt-1 flex flex-wrap gap-1 text-[11px] text-slate-600">
+                            {profile.motivators?.length ? (
+                              profile.motivators.map((motivator) => (
+                                <span key={`${profile.id}-motivator-${motivator}`} className="rounded-full bg-slate-100 px-2 py-1">
+                                  {motivator}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-slate-400">No motivator insights yet.</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="mt-3">
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Recent signals</p>
+                          <div className="mt-1 space-y-1">
+                            {profile.signals?.length ? (
+                              profile.signals.map((signal) => (
+                                <div
+                                  key={signal.id}
+                                  className="flex items-center justify-between rounded-xl bg-slate-100 px-3 py-2"
+                                >
+                                  <div className="text-[11px] text-slate-600">
+                                    <span className="font-medium capitalize text-slate-700">{signal.intentLevel ?? 'n/a'}</span>
+                                    {' • '}
+                                    {signal.signalType}
+                                  </div>
+                                  <span className="text-[11px] text-slate-500">
+                                    {signal.occurredAt ? formatRelativeTime(signal.occurredAt) : '—'}
+                                  </span>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="rounded-xl border border-dashed border-slate-200 px-3 py-2 text-center text-[11px] text-slate-400">
+                                Waiting on new activity.
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+                    No enriched talent dossiers available yet.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div id="prospecting-cockpit" className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-slate-800">Prospecting cockpit</h3>
+                <MagnifyingGlassCircleIcon className="h-5 w-5 text-blue-500" />
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Saved searches</h4>
+                  <div className="mt-2 space-y-2">
+                    {prospectSavedSearches.length ? (
+                      prospectSavedSearches.slice(0, 3).map((search) => (
+                        <div key={search.id} className="rounded-2xl border border-white bg-white p-3 shadow-sm">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="text-sm font-semibold text-slate-900">{search.name}</p>
+                              <p className="text-xs text-slate-500">{search.description ?? '—'}</p>
+                            </div>
+                            {search.isAlertEnabled ? (
+                              <span className="rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-medium text-emerald-700">
+                                {search.alertCadence ? search.alertCadence.replace(/_/g, ' ') : 'alerts on'}
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-1 text-[11px] text-slate-600">
+                            {search.skills?.slice(0, 3).map((skill) => (
+                              <span key={`${search.id}-skill-${skill}`} className="rounded-full bg-slate-100 px-2 py-1">
+                                {skill}
+                              </span>
+                            ))}
+                            {search.diversityFocus?.slice(0, 2).map((tag) => (
+                              <span key={`${search.id}-diversity-${tag}`} className="rounded-full bg-blue-100 px-2 py-1 text-blue-700">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                          <div className="mt-2 text-[11px] text-slate-500">
+                            {search.resultsCount ?? 0} matching prospects • Last run{' '}
+                            {search.lastRunAt ? formatRelativeTime(search.lastRunAt) : 'never'}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-4 text-center text-sm text-slate-500">
+                        No saved prospect queries yet.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Signal-based alerts</h4>
+                  <div className="mt-2 space-y-2">
+                    {activeAlerts.length ? (
+                      activeAlerts.slice(0, 4).map((alert) => (
+                        <div
+                          key={alert.id}
+                          className="flex items-center justify-between rounded-2xl border border-white bg-white px-3 py-2 shadow-sm text-xs text-slate-600"
+                        >
+                          <div>
+                            <p className="font-semibold text-slate-800">{alert.searchName}</p>
+                            <p className="text-[11px] text-slate-500 capitalize">
+                              {alert.channel} • {alert.status}
+                            </p>
+                          </div>
+                          <span className="text-[11px] text-slate-500">
+                            {alert.lastTriggeredAt ? formatRelativeTime(alert.lastTriggeredAt) : 'pending'}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-3 text-center text-xs text-slate-500">
+                        No live alerts in this window.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div id="prospect-market-maps">
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Industry whitespace</h4>
+                  <div className="mt-2 space-y-1 text-xs text-slate-600">
+                    {industryMaps.length ? (
+                      industryMaps.map((entry) => (
+                        <div key={entry.industry} className="flex items-center justify-between rounded-xl bg-white px-3 py-2 shadow-sm">
+                          <span className="inline-flex items-center gap-2 text-slate-700">
+                            <MapIcon className="h-4 w-4 text-blue-500" />
+                            {entry.industry}
+                          </span>
+                          <span className="text-[11px] text-slate-500">
+                            {entry.totalResults} results • {entry.savedSearches} searches
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-2 text-center text-xs text-slate-500">
+                        No industry mapping insights captured.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="signal-feed" className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-slate-800">Signal feed &amp; motivators</h3>
+                <BoltIcon className="h-5 w-5 text-blue-500" />
+              </div>
+              <div className="space-y-2 text-xs text-slate-600">
+                {signalStream.length ? (
+                  signalStream.slice(0, 6).map((signal) => (
+                    <div key={signal.id} className="rounded-2xl border border-white bg-white px-3 py-2 shadow-sm">
+                      <p className="font-semibold text-slate-800">{signal.candidateName ?? 'Prospect'}</p>
+                      <p className="text-[11px] text-slate-500">
+                        {signal.signalType} • {signal.intentLevel ?? 'intent'}
+                      </p>
+                      <p className="mt-1 text-[11px] text-slate-600">{signal.summary}</p>
+                      <p className="mt-1 text-[11px] text-slate-500">
+                        {signal.occurredAt ? formatRelativeTime(signal.occurredAt) : 'timestamp unavailable'} • {signal.source ?? 'unknown source'}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-4 text-center text-sm text-slate-500">
+                    AI signals will populate as campaigns engage prospects.
+                  </div>
+                )}
+              </div>
+              <div>
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Motivator themes</h4>
+                <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-600">
+                  {topMotivators.length ? (
+                    topMotivators.map((item) => (
+                      <span key={item.label} className="rounded-full bg-white px-3 py-1 shadow-sm">
+                        {item.label} • {item.count}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-slate-400">No motivator insights yet.</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div id="campaign-studio" className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-slate-900">Campaign studio</h3>
+                <MegaphoneIcon className="h-6 w-6 text-blue-500" />
+              </div>
+              <div className="grid gap-3 text-xs text-slate-600 sm:grid-cols-2">
+                <div className="rounded-2xl bg-slate-50 px-3 py-2">
+                  <p className="font-semibold text-slate-500">Active campaigns</p>
+                  <p className="mt-1 text-base font-semibold text-slate-900">
+                    {campaignMetrics.activeCampaigns ?? 0} / {campaignMetrics.totalCampaigns ?? 0}
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-slate-50 px-3 py-2">
+                  <p className="font-semibold text-slate-500">Avg response rate</p>
+                  <p className="mt-1 text-base font-semibold text-slate-900">
+                    {campaignMetrics.averageResponseRate != null
+                      ? formatPercent(campaignMetrics.averageResponseRate)
+                      : '—'}
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-slate-50 px-3 py-2">
+                  <p className="font-semibold text-slate-500">Avg conversion</p>
+                  <p className="mt-1 text-base font-semibold text-slate-900">
+                    {campaignMetrics.averageConversionRate != null
+                      ? formatPercent(campaignMetrics.averageConversionRate)
+                      : '—'}
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-slate-50 px-3 py-2">
+                  <p className="font-semibold text-slate-500">Channels in play</p>
+                  <p className="mt-1 text-base font-semibold text-slate-900">{campaignBreakdown.length}</p>
+                </div>
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold text-slate-700">Channel mix</h4>
+                <div className="mt-2 space-y-2 text-xs text-slate-600">
+                  {campaignBreakdown.length ? (
+                    campaignBreakdown.map((entry) => (
+                      <div key={entry.channel} className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2">
+                        <span className="capitalize text-slate-700">{entry.channel}</span>
+                        <span className="text-[11px] text-slate-500">
+                          {entry.campaigns} campaigns • {entry.steps} steps
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-slate-200 px-3 py-2 text-center text-xs text-slate-500">
+                      No campaign channel data yet.
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold text-slate-700">Sequences</h4>
+                <div className="mt-2 space-y-2 text-xs text-slate-600">
+                  {campaignList.length ? (
+                    campaignList.slice(0, 4).map((campaign) => (
+                      <div key={campaign.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+                        <p className="text-sm font-semibold text-slate-900">{campaign.name}</p>
+                        <p className="text-[11px] text-slate-500">
+                          {campaign.persona ?? 'General persona'} • {campaign.status}
+                        </p>
+                        <p className="text-[11px] text-slate-500">
+                          Launched {campaign.launchDate ? formatRelativeTime(campaign.launchDate) : '—'} •{' '}
+                          {campaign.steps?.length ?? 0} steps
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-slate-200 px-3 py-2 text-center text-xs text-slate-500">
+                      No outreach sequences drafted yet.
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold text-slate-700">A/B experiments</h4>
+                <div className="mt-2 space-y-1 text-xs text-slate-600">
+                  {campaignAbTests.length ? (
+                    campaignAbTests.slice(0, 4).map((experiment, index) => (
+                      <div key={`${experiment.campaignId}-${experiment.variant}-${index}`} className="rounded-xl bg-slate-50 px-3 py-2">
+                        <p className="font-semibold text-slate-800">
+                          {experiment.campaignName} • Step {experiment.stepOrder}
+                        </p>
+                        <p className="text-[11px] text-slate-500">
+                          Variant {experiment.variant.replace('_', ' ')}{' '}
+                          {experiment.aiVariant ? `(${experiment.aiVariant})` : ''}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-slate-200 px-3 py-2 text-center text-xs text-slate-500">
+                      No live experiments configured.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div id="research-collaboration" className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-slate-900">Research collaboration</h3>
+                <BeakerIcon className="h-6 w-6 text-blue-500" />
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold text-slate-700">Shared notes</h4>
+                <div className="mt-2 space-y-2 text-xs text-slate-600">
+                  {researchNotes.length ? (
+                    researchNotes.slice(0, 4).map((note) => (
+                      <div key={note.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+                        <p className="text-sm font-semibold text-slate-900">{note.title}</p>
+                        <p className="text-[11px] text-slate-500">{note.candidate?.name ?? 'General'}</p>
+                        <p className="mt-1 line-clamp-2 text-[11px] text-slate-600">{note.body}</p>
+                        <p className="mt-1 text-[11px] text-slate-500">
+                          {note.author?.name ?? 'Unknown'} • {note.createdAt ? formatRelativeTime(note.createdAt) : '—'} •{' '}
+                          {note.visibility.replace(/_/g, ' ')}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-slate-200 px-3 py-2 text-center text-xs text-slate-500">
+                      No researcher notes logged in this period.
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold text-slate-700">Tasks &amp; guardrails</h4>
+                <div className="mt-2 space-y-2 text-xs text-slate-600">
+                  {researchTasks.length ? (
+                    researchTasks.slice(0, 4).map((task) => (
+                      <div key={task.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+                        <p className="text-sm font-semibold text-slate-900">{task.title}</p>
+                        <p className="text-[11px] text-slate-500 capitalize">
+                          {task.status} • Priority {task.priority}
+                        </p>
+                        <p className="text-[11px] text-slate-500">
+                          {task.dueAt ? `Due ${formatRelativeTime(task.dueAt)}` : 'No due date'} • {task.assignee?.name ?? 'Unassigned'}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-slate-200 px-3 py-2 text-center text-xs text-slate-500">
+                      No research tasks scheduled.
+                    </div>
+                  )}
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-slate-600">
+                  {Object.entries(researchTaskSummary).length ? (
+                    Object.entries(researchTaskSummary).map(([status, count]) => (
+                      <span key={status} className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 capitalize">
+                        <CalendarDaysIcon className="h-3.5 w-3.5 text-blue-500" />
+                        {status.replace(/_/g, ' ')}: <strong className="text-slate-800">{count}</strong>
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-slate-400">Task load is clear.</span>
+                  )}
+                </div>
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold text-slate-700">Compliance log</h4>
+                <div className="mt-2 grid gap-2 text-xs text-slate-600 sm:grid-cols-3">
+                  <div className="rounded-2xl bg-slate-50 px-3 py-2 text-center">
+                    <p className="text-[11px] uppercase tracking-wide text-slate-500">Restricted notes</p>
+                    <p className="mt-1 text-base font-semibold text-slate-900">{complianceGuardrails.restrictedNotes ?? 0}</p>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 px-3 py-2 text-center">
+                    <p className="text-[11px] uppercase tracking-wide text-slate-500">Compliance events</p>
+                    <p className="mt-1 text-base font-semibold text-slate-900">{complianceGuardrails.complianceEvents ?? 0}</p>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 px-3 py-2 text-center">
+                    <p className="text-[11px] uppercase tracking-wide text-slate-500">Retention reviews</p>
+                    <p className="mt-1 text-base font-semibold text-slate-900">{complianceGuardrails.retentionReviews ?? 0}</p>
+                  </div>
+                </div>
+                <div className="mt-3 space-y-1 text-[11px] text-slate-600">
+                  {complianceLog.length ? (
+                    complianceLog.slice(0, 4).map((entry, index) => (
+                      <div key={`${entry.id}-${index}`} className="rounded-xl border border-slate-200 px-3 py-2">
+                        <p className="font-semibold text-slate-800">{entry.title}</p>
+                        <p className="text-slate-500">
+                          {entry.candidateName ?? 'General'} • {entry.visibility.replace(/_/g, ' ')}
+                        </p>
+                        <p className="text-slate-500">{entry.createdAt ? formatRelativeTime(entry.createdAt) : '—'}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-slate-200 px-3 py-2 text-center text-xs text-slate-500">
+                      No compliance events logged.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="pipeline-health" className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="text-lg font-semibold text-slate-900">Pipeline health</h2>
@@ -811,7 +1406,7 @@ export default function HeadhunterDashboardPage() {
         </section>
 
         <section className="grid gap-6 lg:grid-cols-2">
-          <div className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div id="candidate-spotlight" className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-slate-900">Candidate spotlight</h3>
               <UserGroupIcon className="h-5 w-5 text-blue-500" />
@@ -855,7 +1450,7 @@ export default function HeadhunterDashboardPage() {
             </div>
           </div>
 
-          <div className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div id="pass-on-network" className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-slate-900">Pass-on network</h3>
               <HandThumbUpIcon className="h-5 w-5 text-blue-500" />
@@ -904,7 +1499,7 @@ export default function HeadhunterDashboardPage() {
           </div>
         </section>
 
-        <section className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section id="mandate-portfolio" className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-slate-900">Mandate portfolio</h3>
             <BriefcaseIcon className="h-5 w-5 text-blue-500" />
@@ -1154,6 +1749,7 @@ export default function HeadhunterDashboardPage() {
         </section>
 
         <section className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section id="outreach-performance" className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-slate-900">Outreach performance</h3>
             <ArrowPathIcon className="h-5 w-5 text-blue-500" />
@@ -1234,7 +1830,7 @@ export default function HeadhunterDashboardPage() {
         </section>
 
         <section className="grid gap-6 lg:grid-cols-2">
-          <div className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div id="client-partnerships" className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-slate-900">Client partnerships</h3>
               <BuildingOfficeIcon className="h-5 w-5 text-blue-500" />
@@ -1261,7 +1857,7 @@ export default function HeadhunterDashboardPage() {
             </div>
           </div>
 
-          <div className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div id="interview-coordination" className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-slate-900">Upcoming schedule</h3>
               <CalendarDaysIcon className="h-5 w-5 text-blue-500" />
@@ -1294,7 +1890,7 @@ export default function HeadhunterDashboardPage() {
           </div>
         </section>
 
-        <section className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section id="activity-timeline" className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-slate-900">Activity timeline</h3>
             <ChartBarIcon className="h-5 w-5 text-blue-500" />
