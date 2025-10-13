@@ -11,6 +11,15 @@ import {
 } from '@heroicons/react/24/outline';
 import { DASHBOARD_LINKS } from '../constants/dashboardLinks.js';
 
+function slugify(value) {
+  return value
+    ?.toString()
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') ?? '';
+}
+
 export default function DashboardLayout({
   currentDashboard,
   title,
@@ -21,6 +30,8 @@ export default function DashboardLayout({
   profile,
   availableDashboards,
   children,
+  onMenuItemSelect,
+  selectedMenuItemKey,
 }) {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -125,6 +136,48 @@ export default function DashboardLayout({
                 <div key={section.label}>
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{section.label}</p>
                   <ul className="mt-3 space-y-2">
+                    {section.items.map((item) => {
+                      const itemKey = item.key ?? item.slug ?? slugify(item.name);
+                      const isActive = selectedMenuItemKey && itemKey === selectedMenuItemKey;
+                      const isInteractive = typeof onMenuItemSelect === 'function';
+
+                      const baseClasses =
+                        'group flex w-full flex-col gap-1 rounded-2xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300';
+                      const palette = isActive
+                        ? 'border-blue-400 bg-blue-50 shadow-sm'
+                        : 'border-transparent bg-slate-100/70 hover:border-blue-300 hover:bg-blue-50';
+                      const textColor = isActive ? 'text-blue-700' : 'text-slate-700';
+
+                      const handleClick = () => {
+                        if (onMenuItemSelect) {
+                          onMenuItemSelect({ key: itemKey, item, section });
+                        }
+                        if (item.sectionId) {
+                          const target = document.getElementById(item.sectionId);
+                          target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
+                      };
+
+                      const Container = isInteractive ? 'button' : 'div';
+
+                      return (
+                        <li key={itemKey}>
+                          <Container
+                            type={isInteractive ? 'button' : undefined}
+                            onClick={isInteractive ? handleClick : undefined}
+                            className={`${baseClasses} ${palette}`}
+                            aria-pressed={isInteractive ? (isActive ? 'true' : 'false') : undefined}
+                          >
+                            <div className={`flex items-center justify-between ${textColor}`}>
+                              <span className={`text-sm font-medium ${textColor}`}>{item.name}</span>
+                              <ChevronRightIcon
+                                className={`h-4 w-4 transition ${
+                                  isActive ? 'text-blue-500' : 'text-slate-400 group-hover:text-blue-500'
+                                }`}
+                              />
+                            </div>
+                            {item.description ? (
+                              <p className={`text-xs ${isActive ? 'text-blue-600/80' : 'text-slate-500'}`}>{item.description}</p>
                     {section.items.map((item) => (
                       <li key={item.name}>
                         {item.href ? (
@@ -144,6 +197,9 @@ export default function DashboardLayout({
                                 {item.tags.map((tag) => (
                                   <span
                                     key={tag}
+                                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+                                      isActive ? 'bg-blue-100 text-blue-700' : 'bg-blue-50 text-blue-600'
+                                    }`}
                                     className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-600"
                                   >
                                     {tag}
@@ -151,6 +207,10 @@ export default function DashboardLayout({
                                 ))}
                               </div>
                             ) : null}
+                          </Container>
+                        </li>
+                      );
+                    })}
                           </a>
                         ) : (
                           <div className="group flex flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50">

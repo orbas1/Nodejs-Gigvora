@@ -83,6 +83,10 @@ export const DISPUTE_ACTION_TYPES = [
   'system_notice',
 ];
 export const DISPUTE_ACTOR_TYPES = ['customer', 'provider', 'mediator', 'admin', 'system'];
+export const LEARNING_COURSE_DIFFICULTIES = ['beginner', 'intermediate', 'advanced', 'expert'];
+export const LEARNING_ENROLLMENT_STATUSES = ['not_started', 'in_progress', 'completed', 'archived'];
+export const PEER_MENTORING_STATUSES = ['requested', 'scheduled', 'completed', 'cancelled'];
+export const CERTIFICATION_STATUSES = ['active', 'expiring_soon', 'expired', 'revoked'];
 export const LAUNCHPAD_STATUSES = ['draft', 'recruiting', 'active', 'archived'];
 export const LAUNCHPAD_APPLICATION_STATUSES = [
   'screening',
@@ -3317,6 +3321,173 @@ ExperienceLaunchpadOpportunityLink.belongsTo(ExperienceLaunchpad, {
 });
 ExperienceLaunchpadOpportunityLink.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
 
+export const ServiceLine = sequelize.define(
+  'ServiceLine',
+  {
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    slug: { type: DataTypes.STRING(160), allowNull: false, unique: true },
+    description: { type: DataTypes.TEXT, allowNull: true },
+  },
+  { tableName: 'service_lines' },
+);
+
+export const LearningCourse = sequelize.define(
+  'LearningCourse',
+  {
+    serviceLineId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(200), allowNull: false },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    difficulty: {
+      type: DataTypes.ENUM(...LEARNING_COURSE_DIFFICULTIES),
+      allowNull: false,
+      defaultValue: 'intermediate',
+    },
+    format: { type: DataTypes.STRING(120), allowNull: true },
+    durationHours: { type: DataTypes.DECIMAL(6, 2), allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'learning_courses' },
+);
+
+export const LearningCourseModule = sequelize.define(
+  'LearningCourseModule',
+  {
+    courseId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(200), allowNull: false },
+    moduleType: { type: DataTypes.STRING(120), allowNull: true },
+    durationMinutes: { type: DataTypes.INTEGER, allowNull: true },
+    sequence: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
+    resources: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'learning_course_modules' },
+);
+
+export const LearningCourseEnrollment = sequelize.define(
+  'LearningCourseEnrollment',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    courseId: { type: DataTypes.INTEGER, allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...LEARNING_ENROLLMENT_STATUSES),
+      allowNull: false,
+      defaultValue: 'not_started',
+    },
+    progress: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
+    lastAccessedAt: { type: DataTypes.DATE, allowNull: true },
+    startedAt: { type: DataTypes.DATE, allowNull: true },
+    completedAt: { type: DataTypes.DATE, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  { tableName: 'learning_course_enrollments' },
+);
+
+export const PeerMentoringSession = sequelize.define(
+  'PeerMentoringSession',
+  {
+    serviceLineId: { type: DataTypes.INTEGER, allowNull: true },
+    mentorId: { type: DataTypes.INTEGER, allowNull: false },
+    menteeId: { type: DataTypes.INTEGER, allowNull: false },
+    topic: { type: DataTypes.STRING(255), allowNull: false },
+    agenda: { type: DataTypes.TEXT, allowNull: true },
+    scheduledAt: { type: DataTypes.DATE, allowNull: false },
+    durationMinutes: { type: DataTypes.INTEGER, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...PEER_MENTORING_STATUSES),
+      allowNull: false,
+      defaultValue: 'requested',
+    },
+    meetingUrl: { type: DataTypes.STRING(255), allowNull: true },
+    recordingUrl: { type: DataTypes.STRING(255), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  { tableName: 'peer_mentoring_sessions' },
+);
+
+export const SkillGapDiagnostic = sequelize.define(
+  'SkillGapDiagnostic',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    serviceLineId: { type: DataTypes.INTEGER, allowNull: true },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    strengths: { type: jsonType, allowNull: true },
+    gaps: { type: jsonType, allowNull: true },
+    recommendedActions: { type: jsonType, allowNull: true },
+    completedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+  },
+  { tableName: 'skill_gap_diagnostics' },
+);
+
+export const FreelancerCertification = sequelize.define(
+  'FreelancerCertification',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    serviceLineId: { type: DataTypes.INTEGER, allowNull: true },
+    name: { type: DataTypes.STRING(200), allowNull: false },
+    issuingOrganization: { type: DataTypes.STRING(200), allowNull: true },
+    credentialId: { type: DataTypes.STRING(120), allowNull: true },
+    credentialUrl: { type: DataTypes.STRING(255), allowNull: true },
+    issueDate: { type: DataTypes.DATEONLY, allowNull: true },
+    expirationDate: { type: DataTypes.DATEONLY, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...CERTIFICATION_STATUSES),
+      allowNull: false,
+      defaultValue: 'active',
+    },
+    reminderSentAt: { type: DataTypes.DATE, allowNull: true },
+    attachments: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'freelancer_certifications' },
+);
+
+export const AiServiceRecommendation = sequelize.define(
+  'AiServiceRecommendation',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    serviceLineId: { type: DataTypes.INTEGER, allowNull: true },
+    title: { type: DataTypes.STRING(200), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    confidenceScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    sourceSignals: { type: jsonType, allowNull: true },
+    generatedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+  },
+  { tableName: 'ai_service_recommendations' },
+);
+
+ServiceLine.hasMany(LearningCourse, { foreignKey: 'serviceLineId', as: 'courses' });
+ServiceLine.hasMany(PeerMentoringSession, { foreignKey: 'serviceLineId', as: 'mentoringSessions' });
+ServiceLine.hasMany(SkillGapDiagnostic, { foreignKey: 'serviceLineId', as: 'skillDiagnostics' });
+ServiceLine.hasMany(FreelancerCertification, { foreignKey: 'serviceLineId', as: 'certifications' });
+ServiceLine.hasMany(AiServiceRecommendation, { foreignKey: 'serviceLineId', as: 'recommendations' });
+
+LearningCourse.belongsTo(ServiceLine, { foreignKey: 'serviceLineId', as: 'serviceLine' });
+LearningCourse.hasMany(LearningCourseModule, { foreignKey: 'courseId', as: 'modules' });
+LearningCourse.hasMany(LearningCourseEnrollment, { foreignKey: 'courseId', as: 'enrollments' });
+
+LearningCourseModule.belongsTo(LearningCourse, { foreignKey: 'courseId', as: 'course' });
+
+LearningCourseEnrollment.belongsTo(LearningCourse, { foreignKey: 'courseId', as: 'course' });
+LearningCourseEnrollment.belongsTo(User, { foreignKey: 'userId', as: 'learner' });
+User.hasMany(LearningCourseEnrollment, { foreignKey: 'userId', as: 'learningEnrollments' });
+
+PeerMentoringSession.belongsTo(ServiceLine, { foreignKey: 'serviceLineId', as: 'serviceLine' });
+PeerMentoringSession.belongsTo(User, { foreignKey: 'mentorId', as: 'mentor' });
+PeerMentoringSession.belongsTo(User, { foreignKey: 'menteeId', as: 'mentee' });
+User.hasMany(PeerMentoringSession, { foreignKey: 'mentorId', as: 'mentoringSessionsLed' });
+User.hasMany(PeerMentoringSession, { foreignKey: 'menteeId', as: 'mentoringSessions' });
+
+SkillGapDiagnostic.belongsTo(ServiceLine, { foreignKey: 'serviceLineId', as: 'serviceLine' });
+SkillGapDiagnostic.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasMany(SkillGapDiagnostic, { foreignKey: 'userId', as: 'skillDiagnostics' });
+
+FreelancerCertification.belongsTo(ServiceLine, { foreignKey: 'serviceLineId', as: 'serviceLine' });
+FreelancerCertification.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasMany(FreelancerCertification, { foreignKey: 'userId', as: 'certifications' });
+
+AiServiceRecommendation.belongsTo(ServiceLine, { foreignKey: 'serviceLineId', as: 'serviceLine' });
+AiServiceRecommendation.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasMany(AiServiceRecommendation, { foreignKey: 'userId', as: 'aiRecommendations' });
+
 MessageThread.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
 MessageThread.hasMany(MessageParticipant, { foreignKey: 'threadId', as: 'participants' });
 MessageThread.hasMany(MessageParticipant, { foreignKey: 'threadId', as: 'viewerParticipants' });
@@ -3455,6 +3626,14 @@ export default {
   ExperienceLaunchpadEmployerRequest,
   ExperienceLaunchpadPlacement,
   ExperienceLaunchpadOpportunityLink,
+  ServiceLine,
+  LearningCourse,
+  LearningCourseModule,
+  LearningCourseEnrollment,
+  PeerMentoringSession,
+  SkillGapDiagnostic,
+  FreelancerCertification,
+  AiServiceRecommendation,
   Volunteering,
   Group,
   GroupMembership,

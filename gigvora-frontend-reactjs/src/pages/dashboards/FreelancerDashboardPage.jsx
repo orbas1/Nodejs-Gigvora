@@ -1,3 +1,7 @@
+import { useState } from 'react';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import LearningHubSection from '../../components/dashboard/LearningHubSection.jsx';
+import useLearningHub from '../../hooks/useLearningHub.js';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import PageHeader from '../../components/PageHeader.jsx';
@@ -2090,6 +2094,19 @@ export default function FreelancerDashboardPage() {
           : 'Feedback cadence on track',
       },
       {
+        name: 'Learning and certification hub',
+        description:
+          'Deepen expertise with a personalized academy that aligns learning plans, credentials, and new revenue ideas to your active gigs.',
+        slug: 'learning-hub',
+        bulletPoints: [
+          'Curated course paths per service line with completion tracking, session replays, and micro-credential downloads.',
+          'Peer mentoring marketplace that pairs you with vetted specialists for co-working sessions, office hours, and portfolio reviews.',
+          'Skill gap diagnostics that benchmark your profile data against top performers to surface targeted practice briefs and labs.',
+          'Certification tracker with renewal reminders, document vault storage, and automated client-facing proof of compliance.',
+          'AI recommendations for new service offerings generated from marketplace demand, emerging tools, and your learning history.',
+          'Launchpad planner that converts earned badges into promotional campaigns, upsell scripts, and pricing experiments.',
+        ],
+        callout: 'Next renewal: HubSpot Solutions Partner — 18 days left',
         label: 'Approvals pending',
         value: metrics.pendingApprovals ?? 0,
         detail: `${metrics.overdueApprovals ?? 0} overdue decisions`,
@@ -2370,6 +2387,19 @@ const PIPELINE_STAGE_CONFIG = [
   },
 ];
 
+const profile = {
+  name: 'Riley Morgan',
+  role: 'Lead Brand & Product Designer',
+  initials: 'RM',
+  status: 'Top-rated freelancer',
+  id: 2,
+  badges: ['Verified Pro', 'Gigvora Elite'],
+  metrics: [
+    { label: 'Active projects', value: '6' },
+    { label: 'Gigs fulfilled', value: '148' },
+    { label: 'Avg. CSAT', value: '4.9/5' },
+    { label: 'Monthly revenue', value: '$18.4k' },
+  ],
 function mergePipelineStages(pipeline = []) {
   return PIPELINE_STAGE_CONFIG.map((stage) => {
     const match = pipeline.find((item) => item.key === stage.key);
@@ -2434,6 +2464,17 @@ const defaultSummary = {
 };
 
 export default function FreelancerDashboardPage() {
+  const [activeMenuKey, setActiveMenuKey] = useState('overview');
+  const learningHubState = useLearningHub({ freelancerId: profile.id, includeEmpty: true });
+  const showLearningHub = activeMenuKey === 'learning-hub';
+
+  const handleMenuSelect = ({ key }) => {
+    if (key === 'learning-hub') {
+      setActiveMenuKey('learning-hub');
+    } else {
+      setActiveMenuKey('overview');
+    }
+  };
   const freelancerId = 2; // Seeded demo freelancer
   const { data, error, loading, summaryCards: derivedSummaryCards, refresh, fromCache } =
     useFreelancerPurchasedGigsDashboard({ freelancerId });
@@ -2486,6 +2527,20 @@ export default function FreelancerDashboardPage() {
       sections={[]}
       profile={profile}
       availableDashboards={availableDashboards}
+      onMenuItemSelect={handleMenuSelect}
+      selectedMenuItemKey={showLearningHub ? 'learning-hub' : undefined}
+    >
+      {showLearningHub ? (
+        <LearningHubSection
+          data={learningHubState.data}
+          isLoading={learningHubState.loading}
+          error={learningHubState.error}
+          fromCache={learningHubState.fromCache}
+          onRefresh={() => learningHubState.refresh?.({ force: true })}
+          summaryCards={learningHubState.summaryCards}
+          upcomingRenewal={learningHubState.upcomingRenewalCopy}
+        />
+      ) : null}
     >
       <div className="space-y-10">
         {error ? (
