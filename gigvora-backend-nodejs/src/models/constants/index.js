@@ -3,6 +3,11 @@ export const PROFILE_APPRECIATION_TYPES = ['like', 'celebrate', 'support', 'endo
 export const PROFILE_FOLLOWER_STATUSES = ['active', 'muted', 'blocked'];
 export const PROFILE_ENGAGEMENT_JOB_STATUSES = ['pending', 'completed', 'failed'];
 
+export const GROUP_VISIBILITIES = ['public', 'private', 'secret'];
+export const GROUP_MEMBER_POLICIES = ['open', 'request', 'invite'];
+export const GROUP_MEMBERSHIP_STATUSES = ['pending', 'active', 'invited', 'suspended'];
+export const GROUP_MEMBERSHIP_ROLES = ['owner', 'moderator', 'member', 'observer'];
+
 export const EMPLOYER_BRAND_SECTION_TYPES = [
   'culture_video',
   'benefit',
