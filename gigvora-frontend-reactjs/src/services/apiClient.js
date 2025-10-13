@@ -26,6 +26,24 @@ function getStorage() {
 
 const storage = getStorage();
 
+function persistAuthToken(token) {
+  if (!storage) {
+    return;
+  }
+  if (!token) {
+    storage.removeItem(AUTH_TOKEN_KEY);
+    return;
+  }
+  storage.setItem(AUTH_TOKEN_KEY, token);
+}
+
+function readAuthToken() {
+  if (!storage) {
+    return null;
+  }
+  return storage.getItem(AUTH_TOKEN_KEY);
+}
+
 function buildUrl(path, params = {}) {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   const url = new URL(`${API_BASE_URL}${normalizedPath}`);
@@ -45,7 +63,7 @@ function getAuthHeaders() {
   if (!storage) {
     return {};
   }
-  const token = storage.getItem(AUTH_TOKEN_KEY);
+  const token = readAuthToken();
   if (!token) {
     return {};
   }
@@ -149,6 +167,9 @@ export const apiClient = {
   readCache,
   writeCache,
   removeCache,
+  setAuthToken: persistAuthToken,
+  getAuthToken: readAuthToken,
+  clearAuthToken: () => persistAuthToken(null),
   ApiError,
   API_BASE_URL,
 };
