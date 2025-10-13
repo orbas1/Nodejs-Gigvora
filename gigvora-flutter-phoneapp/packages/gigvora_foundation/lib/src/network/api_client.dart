@@ -155,6 +155,23 @@ class ApiClient {
     );
   }
 
+  Future<dynamic> patch(
+    String path, {
+    Object? body,
+    Map<String, dynamic>? query,
+    Map<String, String>? headers,
+    Duration timeout = const Duration(seconds: 12),
+  }) {
+    return _send(
+      method: 'PATCH',
+      path: path,
+      body: body,
+      query: query,
+      headers: headers,
+      timeout: timeout,
+    );
+  }
+
   Future<dynamic> delete(
     String path, {
     Object? body,
