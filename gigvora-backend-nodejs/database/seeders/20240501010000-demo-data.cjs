@@ -39,6 +39,10 @@ const seededIds = {
   providerWorkspaceMembers: [1, 2],
   providerWorkspaceInvites: [1],
   providerContactNotes: [1],
+  communitySpotlights: [1],
+  communitySpotlightHighlights: [1, 2, 3],
+  communitySpotlightAssets: [1, 2, 3, 4],
+  communitySpotlightNewsletterFeatures: [1, 2],
 };
 
 module.exports = {
@@ -50,6 +54,9 @@ module.exports = {
       const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
       const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
       const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      const lastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const lastMonth = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const inThreeDays = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
 
       await queryInterface.bulkInsert(
         'users',
@@ -321,6 +328,245 @@ module.exports = {
           },
         ],
         { transaction }
+      );
+
+      await queryInterface.bulkInsert(
+        'community_spotlights',
+        [
+          {
+            id: seededIds.communitySpotlights[0],
+            profileId: seededIds.profiles[0],
+            status: 'published',
+            heroTitle: 'Community spotlight studio',
+            tagline: 'Campaign-ready recognition for top 1% freelancers.',
+            summary:
+              'Gigvora marketing collaborates with Riley Morgan to amplify community contributions, speaking tours, and open-source launches across email, social, and press placements.',
+            campaignName: 'Gigvora Creator Series · September 2024',
+            bannerImageUrl: 'https://cdn.gigvora.com/spotlights/riley-morgan/hero-banner.png',
+            brandColor: '#1D4ED8',
+            primaryCtaLabel: 'Launch spotlight campaign',
+            primaryCtaUrl: 'https://gigvora.com/creators/riley-morgan/campaigns',
+            secondaryCtaLabel: 'Download social kit',
+            secondaryCtaUrl: 'https://cdn.gigvora.com/spotlights/riley-morgan/social-kit.zip',
+            shareKitUrl: 'https://cdn.gigvora.com/spotlights/riley-morgan/press-kit.zip',
+            metricsSnapshot: {
+              reach: {
+                value: 48500,
+                label: 'Spotlight reach',
+                unit: 'impressions',
+                change: 0.18,
+                trendLabel: 'vs prior campaign',
+              },
+              newsletterCtr: {
+                value: 0.42,
+                label: 'Newsletter CTR',
+                format: 'percentage',
+                percentile: 0.95,
+                trendLabel: 'Top 5% performer cohort',
+              },
+              assetDownloads: {
+                value: 86,
+                label: 'Asset downloads',
+                unit: 'kits',
+                updatedAt: yesterday.toISOString(),
+                trendLabel: 'Updated weekly by marketing',
+              },
+              socialShareRate: {
+                value: 0.67,
+                label: 'Social share rate',
+                format: 'percentage',
+                change: 0.12,
+                trendLabel: 'LinkedIn + X cross-posts',
+              },
+            },
+            newsletterFeatureEnabled: true,
+            newsletterAutomationConfig: {
+              cadence: 'weekly',
+              sendDay: 'monday',
+              segments: ['top_clients', 'high_intent_subscribers'],
+              distributionChannels: ['email', 'in_app'],
+              lastSyncedAt: yesterday.toISOString(),
+            },
+            publishedAt: lastWeek,
+            featuredUntil: inThreeDays,
+            createdAt: lastWeek,
+            updatedAt: now,
+          },
+        ],
+        { transaction },
+      );
+
+      await queryInterface.bulkInsert(
+        'community_spotlight_highlights',
+        [
+          {
+            id: seededIds.communitySpotlightHighlights[0],
+            spotlightId: seededIds.communitySpotlights[0],
+            category: 'open_source',
+            title: 'Design Ops Playbook (v3)',
+            description:
+              'Released the latest version of the Design Ops Playbook with cross-functional rituals and async facilitation guides.',
+            impactStatement: 'GitHub stars grew by 340 in the first seven days after launch with Gigvora co-marketing.',
+            occurredOn: lastMonth,
+            ctaLabel: 'View on GitHub',
+            ctaUrl: 'https://github.com/gigvora/design-ops-playbook',
+            mediaUrl: 'https://cdn.gigvora.com/spotlights/riley-morgan/design-ops-cover.png',
+            ordinal: 0,
+            metadata: { githubStars: 340, contributors: 28 },
+            createdAt: lastWeek,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.communitySpotlightHighlights[1],
+            spotlightId: seededIds.communitySpotlights[0],
+            category: 'speaking',
+            title: 'Women in Product Summit keynote',
+            description:
+              'Headline keynote covering inclusive product rituals and community-led discovery programmes.',
+            impactStatement: '12.6k live attendees and on-demand replay bundled in the speaker press kit.',
+            occurredOn: new Date('2024-09-12T16:00:00Z'),
+            ctaLabel: 'Watch replay',
+            ctaUrl: 'https://gigvora.com/events/women-in-product-summit/keynote',
+            mediaUrl: 'https://cdn.gigvora.com/spotlights/riley-morgan/wip-stage.jpg',
+            ordinal: 1,
+            metadata: { attendees: 12600, satisfactionScore: 4.9 },
+            createdAt: lastWeek,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.communitySpotlightHighlights[2],
+            spotlightId: seededIds.communitySpotlights[0],
+            category: 'contribution',
+            title: 'Inclusive UI Patterns audit',
+            description:
+              'Led a recurring accessibility audit for early-stage startups with practical remediation templates.',
+            impactStatement: 'Featured in the Gigvora Creator Newsletter and shared with enterprise clients.',
+            occurredOn: yesterday,
+            ctaLabel: 'Download findings',
+            ctaUrl: 'https://cdn.gigvora.com/spotlights/riley-morgan/inclusive-ui-audit.pdf',
+            mediaUrl: 'https://cdn.gigvora.com/spotlights/riley-morgan/a11y-report.png',
+            ordinal: 2,
+            metadata: { subscribers: 5400, auditCount: 18 },
+            createdAt: yesterday,
+            updatedAt: now,
+          },
+        ],
+        { transaction },
+      );
+
+      await queryInterface.bulkInsert(
+        'community_spotlight_assets',
+        [
+          {
+            id: seededIds.communitySpotlightAssets[0],
+            spotlightId: seededIds.communitySpotlights[0],
+            assetType: 'social',
+            channel: 'linkedin',
+            name: 'LinkedIn carousel kit',
+            description:
+              'Optimised Figma slides sized for LinkedIn with prompts for headline, proof point, and CTA.',
+            format: 'FIG',
+            aspectRatio: '1080x1080',
+            downloadUrl: 'https://cdn.gigvora.com/spotlights/riley-morgan/linkedin-carousel.fig',
+            previewUrl: 'https://cdn.gigvora.com/spotlights/riley-morgan/linkedin-carousel-preview.png',
+            readyForUse: true,
+            metadata: { frames: 8, theme: 'Electric Blue' },
+            createdAt: lastWeek,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.communitySpotlightAssets[1],
+            spotlightId: seededIds.communitySpotlights[0],
+            assetType: 'social',
+            channel: 'instagram',
+            name: 'Short-form video script pack',
+            description: '30, 45, and 60-second scripts aligned to the Gigvora brand tone for Reels & Shorts.',
+            format: 'DOCX',
+            aspectRatio: '9:16',
+            downloadUrl: 'https://cdn.gigvora.com/spotlights/riley-morgan/short-video-scripts.docx',
+            previewUrl: 'https://cdn.gigvora.com/spotlights/riley-morgan/short-video-preview.png',
+            readyForUse: true,
+            metadata: { durations: [30, 45, 60] },
+            createdAt: lastWeek,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.communitySpotlightAssets[2],
+            spotlightId: seededIds.communitySpotlights[0],
+            assetType: 'newsletter',
+            channel: 'email',
+            name: 'Newsletter hero banners',
+            description: 'Editable PSD + PNG bundle for monthly Gigvora spotlight campaigns.',
+            format: 'PSD · PNG',
+            aspectRatio: '1200x600',
+            downloadUrl: 'https://cdn.gigvora.com/spotlights/riley-morgan/newsletter-hero.zip',
+            previewUrl: 'https://cdn.gigvora.com/spotlights/riley-morgan/newsletter-hero-preview.png',
+            readyForUse: true,
+            metadata: { variants: ['Midnight', 'Dawn'] },
+            createdAt: lastWeek,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.communitySpotlightAssets[3],
+            spotlightId: seededIds.communitySpotlights[0],
+            assetType: 'press',
+            channel: 'press',
+            name: 'Speaker press kit',
+            description: 'One-sheet with biography, talk abstracts, and booking links for upcoming appearances.',
+            format: 'PDF',
+            aspectRatio: 'Letter',
+            downloadUrl: 'https://cdn.gigvora.com/spotlights/riley-morgan/speaker-press-kit.pdf',
+            previewUrl: 'https://cdn.gigvora.com/spotlights/riley-morgan/speaker-kit-preview.png',
+            readyForUse: true,
+            metadata: { includesBio: true, bookingLink: 'https://gigvora.com/creators/riley-morgan/book' },
+            createdAt: lastWeek,
+            updatedAt: now,
+          },
+        ],
+        { transaction },
+      );
+
+      await queryInterface.bulkInsert(
+        'community_spotlight_newsletter_features',
+        [
+          {
+            id: seededIds.communitySpotlightNewsletterFeatures[0],
+            spotlightId: seededIds.communitySpotlights[0],
+            status: 'sent',
+            editionDate: lastWeek,
+            editionName: 'Creator Pulse · September 16',
+            subjectLine: 'Riley Morgan’s inclusive design audit just dropped',
+            heroTitle: 'Top-performing freelancer: Riley Morgan',
+            heroSubtitle: 'Inclusive product rituals and open-source leadership',
+            audienceSegment: 'top_clients',
+            performanceMetrics: { openRate: 0.58, clickRate: 0.42, shareRate: 0.16 },
+            utmParameters: { utm_source: 'newsletter', utm_campaign: 'creator_pulse_sep16' },
+            shareUrl: 'https://gigvora.com/newsletters/creator-pulse-sep16',
+            callToActionLabel: 'Book a discovery session',
+            callToActionUrl: 'https://gigvora.com/creators/riley-morgan/book',
+            createdAt: lastWeek,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.communitySpotlightNewsletterFeatures[1],
+            spotlightId: seededIds.communitySpotlights[0],
+            status: 'scheduled',
+            editionDate: inThreeDays,
+            editionName: 'Creator Pulse · September 30',
+            subjectLine: 'See how Riley Morgan’s carousel kit boosts conversions',
+            heroTitle: 'Spotlight automation ready for Monday send',
+            heroSubtitle: 'Fresh assets for LinkedIn, X, and Instagram',
+            audienceSegment: 'high_intent_subscribers',
+            performanceMetrics: { projectedOpenRate: 0.6, projectedClickRate: 0.45 },
+            utmParameters: { utm_source: 'newsletter', utm_campaign: 'creator_pulse_sep30' },
+            shareUrl: 'https://gigvora.com/newsletters/creator-pulse-sep30',
+            callToActionLabel: 'Preview share kit',
+            callToActionUrl: 'https://gigvora.com/creators/riley-morgan/assets',
+            createdAt: now,
+            updatedAt: now,
+          },
+        ],
+        { transaction },
       );
 
       await queryInterface.bulkInsert(
@@ -1383,6 +1629,26 @@ module.exports = {
       await queryInterface.bulkDelete(
         'company_profiles',
         { id: { [Op.in]: seededIds.companyProfiles } },
+        { transaction }
+      );
+      await queryInterface.bulkDelete(
+        'community_spotlight_newsletter_features',
+        { id: { [Op.in]: seededIds.communitySpotlightNewsletterFeatures } },
+        { transaction }
+      );
+      await queryInterface.bulkDelete(
+        'community_spotlight_assets',
+        { id: { [Op.in]: seededIds.communitySpotlightAssets } },
+        { transaction }
+      );
+      await queryInterface.bulkDelete(
+        'community_spotlight_highlights',
+        { id: { [Op.in]: seededIds.communitySpotlightHighlights } },
+        { transaction }
+      );
+      await queryInterface.bulkDelete(
+        'community_spotlights',
+        { id: { [Op.in]: seededIds.communitySpotlights } },
         { transaction }
       );
       await queryInterface.bulkDelete(
