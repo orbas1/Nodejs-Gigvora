@@ -178,6 +178,19 @@ export default function DashboardLayout({
                             </div>
                             {item.description ? (
                               <p className={`text-xs ${isActive ? 'text-blue-600/80' : 'text-slate-500'}`}>{item.description}</p>
+                    {section.items.map((item) => (
+                      <li key={item.name}>
+                        {item.href ? (
+                          <a
+                            href={item.href}
+                            className="group flex flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium text-slate-700">{item.name}</span>
+                              <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
+                            </div>
+                            {item.description ? (
+                              <p className="text-xs text-slate-500">{item.description}</p>
                             ) : null}
                             {item.tags?.length ? (
                               <div className="mt-2 flex flex-wrap gap-2">
@@ -187,6 +200,7 @@ export default function DashboardLayout({
                                     className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
                                       isActive ? 'bg-blue-100 text-blue-700' : 'bg-blue-50 text-blue-600'
                                     }`}
+                                    className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-600"
                                   >
                                     {tag}
                                   </span>
@@ -197,6 +211,32 @@ export default function DashboardLayout({
                         </li>
                       );
                     })}
+                          </a>
+                        ) : (
+                          <div className="group flex flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium text-slate-700">{item.name}</span>
+                              <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
+                            </div>
+                            {item.description ? (
+                              <p className="text-xs text-slate-500">{item.description}</p>
+                            ) : null}
+                            {item.tags?.length ? (
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {item.tags.map((tag) => (
+                                  <span
+                                    key={tag}
+                                    className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-600"
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
+                        )}
+                      </li>
+                    ))}
                   </ul>
                 </div>
               ))}
@@ -305,6 +345,7 @@ export default function DashboardLayout({
                 : capabilitySections.map((section) => (
                     <section
                       key={section.title}
+                      id={section.id}
                       className="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_18px_40px_-24px_rgba(30,64,175,0.35)] sm:p-8"
                     >
                       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -320,36 +361,40 @@ export default function DashboardLayout({
                           </div>
                         ) : null}
                       </div>
-                      <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                        {section.features.map((feature) => (
-                          <div
-                            key={feature.name}
-                            className="group flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50 p-5 transition hover:border-blue-300 hover:bg-blue-50"
-                          >
-                            <div>
-                              <h3 className="text-lg font-semibold text-slate-900">{feature.name}</h3>
-                              {feature.description ? (
-                                <p className="mt-2 text-sm text-slate-600">{feature.description}</p>
-                              ) : null}
-                              {feature.bulletPoints?.length ? (
-                                <ul className="mt-3 space-y-2 text-sm text-slate-600">
-                                  {feature.bulletPoints.map((point) => (
-                                    <li key={point} className="flex gap-2">
-                                      <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400" />
-                                      <span>{point}</span>
-                                    </li>
-                                  ))}
-                                </ul>
+                      {typeof section.render === 'function' ? (
+                        <div className="mt-6">{section.render(section)}</div>
+                      ) : (
+                        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                          {(section.features ?? []).map((feature) => (
+                            <div
+                              key={feature.name}
+                              className="group flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50 p-5 transition hover:border-blue-300 hover:bg-blue-50"
+                            >
+                              <div>
+                                <h3 className="text-lg font-semibold text-slate-900">{feature.name}</h3>
+                                {feature.description ? (
+                                  <p className="mt-2 text-sm text-slate-600">{feature.description}</p>
+                                ) : null}
+                                {feature.bulletPoints?.length ? (
+                                  <ul className="mt-3 space-y-2 text-sm text-slate-600">
+                                    {feature.bulletPoints.map((point) => (
+                                      <li key={point} className="flex gap-2">
+                                        <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400" />
+                                        <span>{point}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                ) : null}
+                              </div>
+                              {feature.callout ? (
+                                <p className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium uppercase tracking-wide text-blue-700">
+                                  {feature.callout}
+                                </p>
                               ) : null}
                             </div>
-                            {feature.callout ? (
-                              <p className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium uppercase tracking-wide text-blue-700">
-                                {feature.callout}
-                              </p>
-                            ) : null}
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                      )}
                     </section>
                   ))}
             </div>
