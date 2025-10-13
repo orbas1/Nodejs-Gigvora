@@ -15,7 +15,17 @@ import {
   HiringAlert,
   CandidateDemographicSnapshot,
   CandidateSatisfactionSurvey,
+  InterviewPanelTemplate,
   InterviewSchedule,
+  InterviewerAvailability,
+  InterviewReminder,
+  CandidatePrepPortal,
+  InterviewEvaluation,
+  EvaluationCalibrationSession,
+  DecisionTracker,
+  OfferPackage,
+  OnboardingTask,
+  CandidateCareTicket,
   JobStage,
   JobApprovalWorkflow,
   JobCampaignPerformance,
@@ -62,6 +72,20 @@ function differenceInDays(start, end = new Date()) {
   return Math.round(diffMs / (1000 * 60 * 60 * 24));
 }
 
+function differenceInHours(start, end = new Date()) {
+  if (!start) return null;
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    return null;
+  }
+  const diffMs = endDate.getTime() - startDate.getTime();
+  if (!Number.isFinite(diffMs)) {
+    return null;
+  }
+  return diffMs / (1000 * 60 * 60);
+}
+
 function average(numbers) {
   const valid = numbers.filter((value) => Number.isFinite(value));
   if (!valid.length) {
@@ -88,6 +112,15 @@ function percentage(part, total) {
     return 0;
   }
   return Number(((part / total) * 100).toFixed(1));
+}
+
+function toDateKey(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return date.toISOString().slice(0, 10);
 }
 
 function resolveWorkspaceSelector({ workspaceId, workspaceSlug }) {
@@ -596,6 +629,122 @@ async function fetchInterviewSchedules({ workspaceId, since }) {
     where,
     order: [['scheduledAt', 'ASC']],
     limit: 100,
+  });
+}
+
+async function fetchInterviewPanelTemplates({ workspaceId }) {
+  return InterviewPanelTemplate.findAll({
+    where: { workspaceId },
+    order: [['updatedAt', 'DESC']],
+    limit: 50,
+  });
+}
+
+async function fetchInterviewerAvailability({ workspaceId, since }) {
+  const where = { workspaceId };
+  if (since) {
+    where.availableFrom = { [Op.gte]: new Date(since.getTime() - 48 * 60 * 60 * 1000) };
+  }
+  return InterviewerAvailability.findAll({
+    where,
+    order: [['availableFrom', 'ASC']],
+    limit: 150,
+  });
+}
+
+async function fetchInterviewReminders({ workspaceId, since }) {
+  const where = { workspaceId };
+  if (since) {
+    where.sentAt = { [Op.gte]: since };
+  }
+  return InterviewReminder.findAll({
+    where,
+    order: [['sentAt', 'DESC']],
+    limit: 200,
+  });
+}
+
+async function fetchCandidatePrepPortals({ workspaceId, since }) {
+  const where = { workspaceId };
+  if (since) {
+    where.createdAt = { [Op.gte]: since };
+  }
+  return CandidatePrepPortal.findAll({
+    where,
+    order: [['updatedAt', 'DESC']],
+    limit: 120,
+  });
+}
+
+async function fetchInterviewEvaluations({ workspaceId, since }) {
+  const where = { workspaceId };
+  if (since) {
+    where.submittedAt = { [Op.gte]: since };
+  }
+  return InterviewEvaluation.findAll({
+    where,
+    order: [['submittedAt', 'DESC']],
+    limit: 200,
+  });
+}
+
+async function fetchEvaluationCalibrationSessions({ workspaceId, since }) {
+  const where = { workspaceId };
+  if (since) {
+    where.scheduledAt = { [Op.gte]: since };
+  }
+  return EvaluationCalibrationSession.findAll({
+    where,
+    order: [['scheduledAt', 'DESC']],
+    limit: 50,
+  });
+}
+
+async function fetchDecisionTrackers({ workspaceId, since }) {
+  const where = { workspaceId };
+  if (since) {
+    where.openedAt = { [Op.gte]: since };
+  }
+  return DecisionTracker.findAll({
+    where,
+    order: [['updatedAt', 'DESC']],
+    limit: 100,
+  });
+}
+
+async function fetchOfferPackages({ workspaceId, since }) {
+  const where = { workspaceId };
+  if (since) {
+    where.createdAt = { [Op.gte]: since };
+  }
+  return OfferPackage.findAll({
+    where,
+    order: [['updatedAt', 'DESC']],
+    limit: 100,
+  });
+}
+
+async function fetchOnboardingTasks({ workspaceId, since }) {
+  const where = { workspaceId };
+  if (since) {
+    where.createdAt = { [Op.gte]: since };
+  }
+  return OnboardingTask.findAll({
+    where,
+    order: [['dueAt', 'ASC']],
+    limit: 200,
+  });
+}
+
+async function fetchCandidateCareTickets({ workspaceId, since }) {
+  const where = { workspaceId };
+  if (since) {
+    where.openedAt = { [Op.gte]: since };
+  }
+  return CandidateCareTicket.findAll({
+    where,
+    order: [['openedAt', 'DESC']],
+    limit: 150,
   });
 }
 
@@ -1119,7 +1268,547 @@ function buildCandidateExperienceSummary({ surveys }) {
   };
 }
 
-function buildOfferAndOnboardingSummary({ offers, candidateExperience, interviewOperations, applications, alerts }) {
+function buildInterviewSchedulerDetail({ schedules, availability, reminders }) {
+  const scheduleRecords = (Array.isArray(schedules) ? schedules : []).map((record) =>
+    record?.get ? record.get({ plain: true }) : record,
+  );
+  const availabilityRecords = (Array.isArray(availability) ? availability : []).map((record) =>
+    record?.get ? record.get({ plain: true }) : record,
+  );
+  const reminderRecords = (Array.isArray(reminders) ? reminders : []).map((record) =>
+    record?.get ? record.get({ plain: true }) : record,
+  );
+
+  const now = new Date();
+  const upcoming = scheduleRecords
+    .filter((schedule) => {
+      const scheduledAt = schedule?.scheduledAt ? new Date(schedule.scheduledAt) : null;
+      return scheduledAt && !Number.isNaN(scheduledAt.getTime()) && scheduledAt >= now;
+    })
+    .sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt));
+
+  const durations = [];
+  const leadTimes = [];
+  let reschedules = 0;
+  let roomsReserved = 0;
+  let conflicts = 0;
+  const interviewerLoad = new Map();
+  const timezoneCounts = new Map();
+
+  scheduleRecords.forEach((schedule) => {
+    const durationMinutes = Number(schedule?.durationMinutes ?? 0);
+    if (Number.isFinite(durationMinutes) && durationMinutes > 0) {
+      durations.push(durationMinutes);
+    }
+
+    const createdAt = schedule?.createdAt ?? schedule?.updatedAt;
+    if (createdAt && schedule?.scheduledAt) {
+      const lead = differenceInHours(createdAt, schedule.scheduledAt);
+      if (Number.isFinite(lead) && lead >= 0) {
+        leadTimes.push(lead);
+      }
+    }
+
+    reschedules += Number(schedule?.rescheduleCount ?? 0);
+
+    if (schedule?.metadata?.roomReservation?.status === 'confirmed') {
+      roomsReserved += 1;
+    }
+
+    if (schedule?.metadata?.conflict) {
+      conflicts += 1;
+    }
+
+    const roster = Array.isArray(schedule?.interviewerRoster) ? schedule.interviewerRoster : [];
+    roster.forEach((member) => {
+      const name = member?.name ?? member?.email ?? 'Unassigned';
+      interviewerLoad.set(name, (interviewerLoad.get(name) ?? 0) + 1);
+      const tz = member?.timezone ?? schedule?.metadata?.timezone;
+      if (tz) {
+        timezoneCounts.set(tz, (timezoneCounts.get(tz) ?? 0) + 1);
+      }
+    });
+  });
+
+  availabilityRecords.forEach((slot) => {
+    if (slot?.timezone) {
+      timezoneCounts.set(slot.timezone, (timezoneCounts.get(slot.timezone) ?? 0) + 1);
+    }
+  });
+
+  const reminderScheduleIds = new Set(
+    reminderRecords
+      .filter((reminder) => reminder?.interviewScheduleId && reminder?.deliveryStatus !== 'failed')
+      .map((reminder) => reminder.interviewScheduleId),
+  );
+  const reminderCoverage = upcoming.length ? percentage(reminderScheduleIds.size, upcoming.length) : 0;
+
+  const planningWindowEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const relevantAvailability = availabilityRecords.filter((slot) => {
+    const start = slot?.availableFrom ? new Date(slot.availableFrom) : null;
+    const end = slot?.availableTo ? new Date(slot.availableTo) : null;
+    if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      return false;
+    }
+    return end >= now && start <= planningWindowEnd;
+  });
+
+  const totalAvailabilityHours = relevantAvailability.reduce((total, slot) => {
+    const slotHours = Number(slot?.capacityHours ?? null);
+    if (Number.isFinite(slotHours) && slotHours > 0) {
+      return total + slotHours;
+    }
+    const calculated = differenceInHours(slot.availableFrom, slot.availableTo);
+    return Number.isFinite(calculated) && calculated > 0 ? total + calculated : total;
+  }, 0);
+
+  const scheduledHours = upcoming.reduce((total, schedule) => {
+    const minutes = Number(schedule?.durationMinutes ?? 0);
+    return Number.isFinite(minutes) ? total + minutes / 60 : total;
+  }, 0);
+
+  const availabilityCoverage =
+    totalAvailabilityHours > 0
+      ? Math.min(100, Number(((scheduledHours / totalAvailabilityHours) * 100).toFixed(1)))
+      : null;
+
+  const dailyAvailability = new Map();
+  relevantAvailability.forEach((slot) => {
+    const key = toDateKey(slot.availableFrom);
+    if (!key) return;
+    const existing = dailyAvailability.get(key) ?? { availableHours: 0, scheduledHours: 0 };
+    const slotHours = Number(slot?.capacityHours ?? null);
+    if (Number.isFinite(slotHours) && slotHours > 0) {
+      existing.availableHours += slotHours;
+    } else {
+      const calculated = differenceInHours(slot.availableFrom, slot.availableTo);
+      if (Number.isFinite(calculated) && calculated > 0) {
+        existing.availableHours += calculated;
+      }
+    }
+    dailyAvailability.set(key, existing);
+  });
+
+  upcoming.forEach((schedule) => {
+    const key = toDateKey(schedule?.scheduledAt);
+    if (!key) return;
+    const existing = dailyAvailability.get(key) ?? { availableHours: 0, scheduledHours: 0 };
+    const durationHours = Number(schedule?.durationMinutes ?? 0) / 60;
+    if (Number.isFinite(durationHours) && durationHours > 0) {
+      existing.scheduledHours += durationHours;
+    }
+    dailyAvailability.set(key, existing);
+  });
+
+  const availabilityGaps = Array.from(dailyAvailability.entries())
+    .map(([date, value]) => ({
+      date,
+      availableHours: Number(value.availableHours.toFixed?.(1) ?? value.availableHours),
+      scheduledHours: Number(value.scheduledHours.toFixed?.(1) ?? value.scheduledHours),
+      shortfallHours:
+        value.availableHours >= value.scheduledHours
+          ? 0
+          : Number((value.scheduledHours - value.availableHours).toFixed(1)),
+    }))
+    .filter((entry) => entry.shortfallHours > 0)
+    .slice(0, 5);
+
+  const upcomingSummary = upcoming.slice(0, 8).map((schedule) => ({
+    id: schedule.id,
+    stage: schedule.interviewStage,
+    scheduledAt: schedule.scheduledAt,
+    durationMinutes: schedule.durationMinutes,
+    interviewerCount: Array.isArray(schedule?.interviewerRoster) ? schedule.interviewerRoster.length : null,
+    location: schedule?.metadata?.roomReservation?.room ?? schedule?.metadata?.meetingUrl ?? null,
+    templateId: schedule?.metadata?.templateId ?? schedule?.templateId ?? null,
+  }));
+
+  return {
+    upcomingCount: upcoming.length,
+    averageLeadTimeHours: leadTimes.length ? Number(average(leadTimes).toFixed(1)) : null,
+    averageDurationMinutes: durations.length ? Number(average(durations).toFixed(1)) : null,
+    rescheduleRate: scheduleRecords.length ? percentage(reschedules, scheduleRecords.length) : 0,
+    reminderCoverage,
+    roomsReserved,
+    conflicts,
+    availabilityCoverage,
+    interviewerLoad: Array.from(interviewerLoad.entries())
+      .map(([name, load]) => ({ name, load }))
+      .sort((a, b) => b.load - a.load)
+      .slice(0, 6),
+    timezoneCoverage: Array.from(timezoneCounts.entries()).map(([timezone, count]) => ({ timezone, count })),
+    availabilityGaps,
+    upcoming: upcomingSummary,
+  };
+}
+
+function buildPanelTemplateSummary({ templates, evaluations }) {
+  const templateRecords = (Array.isArray(templates) ? templates : []).map((record) =>
+    record?.get ? record.get({ plain: true }) : record,
+  );
+  const evaluationRecords = (Array.isArray(evaluations) ? evaluations : []).map((record) =>
+    record?.get ? record.get({ plain: true }) : record,
+  );
+
+  const roleCoverage = new Set();
+  const stageCoverage = new Map();
+  const competencyCoverage = new Map();
+  const evaluationCounts = new Map();
+  const rubricScores = new Map();
+
+  evaluationRecords.forEach((evaluation) => {
+    if (evaluation?.templateId) {
+      evaluationCounts.set(
+        evaluation.templateId,
+        (evaluationCounts.get(evaluation.templateId) ?? 0) + 1,
+      );
+    }
+
+    const rubric = evaluation?.rubricScores;
+    if (rubric && typeof rubric === 'object') {
+      Object.entries(rubric).forEach(([competency, score]) => {
+        const numeric = Number(score);
+        if (!Number.isFinite(numeric)) return;
+        if (!rubricScores.has(competency)) {
+          rubricScores.set(competency, []);
+        }
+        rubricScores.get(competency).push(numeric);
+      });
+    }
+  });
+
+  templateRecords.forEach((template) => {
+    if (template?.roleName) {
+      roleCoverage.add(template.roleName);
+    }
+    if (template?.stage) {
+      stageCoverage.set(template.stage, (stageCoverage.get(template.stage) ?? 0) + 1);
+    }
+    const competencies = Array.isArray(template?.competencies) ? template.competencies : [];
+    competencies.forEach((competency) => {
+      const label = typeof competency === 'string' ? competency : competency?.name ?? competency?.title;
+      if (!label) return;
+      competencyCoverage.set(label, (competencyCoverage.get(label) ?? 0) + 1);
+    });
+  });
+
+  const topTemplates = templateRecords
+    .slice()
+    .sort((a, b) => new Date(b.updatedAt ?? b.createdAt ?? 0) - new Date(a.updatedAt ?? a.createdAt ?? 0))
+    .slice(0, 6)
+    .map((template) => ({
+      id: template.id,
+      roleName: template.roleName,
+      stage: template.stage,
+      durationMinutes: template.durationMinutes,
+      version: template.version,
+      lastUsedAt: template.lastUsedAt,
+      competencies: (Array.isArray(template?.competencies) ? template.competencies : []).slice(0, 4),
+      evaluations: evaluationCounts.get(template.id) ?? 0,
+    }));
+
+  const rubricLibrary = Array.from(rubricScores.entries()).map(([competency, scores]) => ({
+    competency,
+    averageScore: scores.length ? Number(average(scores).toFixed(1)) : null,
+    submissions: scores.length,
+  }));
+
+  return {
+    totalTemplates: templateRecords.length,
+    rolesCovered: roleCoverage.size,
+    stageCoverage: Array.from(stageCoverage.entries()).map(([stage, count]) => ({ stage, count })),
+    competencyCoverage: Array.from(competencyCoverage.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8),
+    topTemplates,
+    rubricLibrary,
+  };
+}
+
+function buildCandidatePrepSummary({ portals }) {
+  const portalRecords = (Array.isArray(portals) ? portals : []).map((record) =>
+    record?.get ? record.get({ plain: true }) : record,
+  );
+
+  const ndaRequired = portalRecords.filter((portal) => portal?.ndaRequired);
+  const ndaSigned = ndaRequired.filter((portal) => portal?.ndaStatus === 'signed');
+
+  const formsRequired = portalRecords.reduce((total, portal) => total + Number(portal?.formsRequired ?? 0), 0);
+  const formsCompleted = portalRecords.reduce((total, portal) => total + Number(portal?.formsCompleted ?? 0), 0);
+  const resourcesTotal = portalRecords.reduce((total, portal) => total + Number(portal?.resourceTotal ?? 0), 0);
+  const resourcesViewed = portalRecords.reduce((total, portal) => total + Number(portal?.resourceViews ?? 0), 0);
+  const totalVisits = portalRecords.reduce((total, portal) => total + Number(portal?.visitCount ?? 0), 0);
+  const followUpsPending = portalRecords.filter((portal) => {
+    if (!portal?.nextActionAt) return false;
+    const dueAt = new Date(portal.nextActionAt);
+    return !Number.isNaN(dueAt.getTime()) && dueAt > new Date();
+  }).length;
+
+  const topPortals = portalRecords
+    .slice()
+    .sort((a, b) => new Date(b.lastAccessedAt ?? b.updatedAt ?? 0) - new Date(a.lastAccessedAt ?? a.updatedAt ?? 0))
+    .slice(0, 6)
+    .map((portal) => ({
+      id: portal.id,
+      candidateName: portal.candidateName,
+      stage: portal.stage,
+      status: portal.status,
+      lastAccessedAt: portal.lastAccessedAt,
+      ndaStatus: portal.ndaStatus,
+      formsProgress:
+        portal.formsRequired > 0
+          ? Math.min(100, Math.round((Number(portal.formsCompleted ?? 0) / portal.formsRequired) * 100))
+          : null,
+      resourceProgress:
+        portal.resourceTotal > 0
+          ? Math.min(100, Math.round((Number(portal.resourceViews ?? 0) / portal.resourceTotal) * 100))
+          : null,
+    }));
+
+  return {
+    totalPortals: portalRecords.length,
+    activePortals: portalRecords.filter((portal) => portal?.status !== 'archived').length,
+    ndaCompletionRate: ndaRequired.length ? percentage(ndaSigned.length, ndaRequired.length) : 0,
+    formCompletionRate: formsRequired ? percentage(formsCompleted, formsRequired) : 0,
+    resourceEngagementRate: resourcesTotal ? percentage(resourcesViewed, resourcesTotal) : 0,
+    averageVisits: portalRecords.length ? Number((totalVisits / portalRecords.length).toFixed(1)) : null,
+    followUpsPending,
+    topPortals,
+  };
+}
+
+function buildEvaluationWorkspaceSummary({ evaluations, calibrationSessions, decisionTrackers }) {
+  const evaluationRecords = (Array.isArray(evaluations) ? evaluations : []).map((record) =>
+    record?.get ? record.get({ plain: true }) : record,
+  );
+  const calibrationRecords = (Array.isArray(calibrationSessions) ? calibrationSessions : []).map((record) =>
+    record?.get ? record.get({ plain: true }) : record,
+  );
+  const decisionRecords = (Array.isArray(decisionTrackers) ? decisionTrackers : []).map((record) =>
+    record?.get ? record.get({ plain: true }) : record,
+  );
+
+  const recommendations = new Map();
+  let anonymizedCount = 0;
+  const scores = [];
+  const biasFlags = new Map();
+
+  evaluationRecords.forEach((evaluation) => {
+    if (evaluation?.overallRecommendation) {
+      const label = evaluation.overallRecommendation;
+      recommendations.set(label, (recommendations.get(label) ?? 0) + 1);
+    }
+    const score = Number(evaluation?.overallScore ?? null);
+    if (Number.isFinite(score)) {
+      scores.push(score);
+    }
+    if (evaluation?.anonymized) {
+      anonymizedCount += 1;
+    }
+    const flags = Array.isArray(evaluation?.biasFlags)
+      ? evaluation.biasFlags
+      : evaluation?.biasFlags && typeof evaluation.biasFlags === 'object'
+        ? Object.entries(evaluation.biasFlags)
+            .filter(([, value]) => Boolean(value))
+            .map(([key]) => key)
+        : [];
+    flags.forEach((flag) => {
+      const label = normalizeCategory(flag);
+      biasFlags.set(label, (biasFlags.get(label) ?? 0) + 1);
+    });
+  });
+
+  const decisionVelocities = decisionRecords
+    .filter((decision) => decision?.decidedAt)
+    .map((decision) => differenceInDays(decision.openedAt, decision.decidedAt))
+    .filter((value) => Number.isFinite(value));
+
+  const decisionSummaries = decisionRecords.slice(0, 10).map((decision) => ({
+    id: decision.id,
+    applicationId: decision.applicationId,
+    candidateName: decision.candidateName,
+    status: decision.status,
+    decision: decision.decision,
+    updatedAt: decision.updatedAt,
+    approvals: decision.approvals,
+  }));
+
+  const calibrationSummaries = calibrationRecords
+    .slice(0, 8)
+    .map((session) => ({
+      id: session.id,
+      roleName: session.roleName,
+      scheduledAt: session.scheduledAt,
+      completedAt: session.completedAt,
+      alignmentScore:
+        session.alignmentScore == null ? null : Number(session.alignmentScore),
+      participants: session.participants,
+    }));
+
+  return {
+    evaluationsSubmitted: evaluationRecords.length,
+    averageScore: scores.length ? Number(average(scores).toFixed(1)) : null,
+    anonymizedShare: evaluationRecords.length ? percentage(anonymizedCount, evaluationRecords.length) : 0,
+    recommendationMix: Object.fromEntries(recommendations.entries()),
+    biasFlags: Array.from(biasFlags.entries())
+      .map(([flag, count]) => ({ flag, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8),
+    calibrationSessions: calibrationSummaries,
+    decisionVelocityDays: decisionVelocities.length ? Number(average(decisionVelocities).toFixed(1)) : null,
+    decisionTrackers: decisionSummaries,
+  };
+}
+
+function buildOfferBridgeDetail({ offerPackages, onboardingTasks }) {
+  const packageRecords = (Array.isArray(offerPackages) ? offerPackages : []).map((record) =>
+    record?.get ? record.get({ plain: true }) : record,
+  );
+  const taskRecords = (Array.isArray(onboardingTasks) ? onboardingTasks : []).map((record) =>
+    record?.get ? record.get({ plain: true }) : record,
+  );
+
+  const openOffers = packageRecords.filter((pkg) => ['extended', 'accepted', 'pending'].includes(pkg?.status)).length;
+  const approvalsPending = packageRecords.filter((pkg) => pkg?.approvalStatus === 'pending').length;
+  const backgroundChecksInProgress = packageRecords.filter((pkg) => pkg?.backgroundCheckStatus === 'in_progress').length;
+  const signaturesOutstanding = packageRecords.filter((pkg) => pkg?.digitalSignatureStatus !== 'completed').length;
+  const packageValues = packageRecords
+    .map((pkg) => Number(pkg?.packageValue ?? null))
+    .filter((value) => Number.isFinite(value));
+
+  const upcomingStartDates = packageRecords
+    .filter((pkg) => pkg?.startDate)
+    .sort((a, b) => new Date(a.startDate) - new Date(b.startDate))
+    .slice(0, 6)
+    .map((pkg) => ({
+      id: pkg.id,
+      candidateName: pkg.candidateName,
+      roleName: pkg.roleName,
+      startDate: pkg.startDate,
+      status: pkg.status,
+    }));
+
+  const tasksByCategory = new Map();
+  let completedTasks = 0;
+  taskRecords.forEach((task) => {
+    const category = task?.category ?? 'general';
+    const entry = tasksByCategory.get(category) ?? { total: 0, completed: 0 };
+    entry.total += 1;
+    if (task?.status === 'completed') {
+      entry.completed += 1;
+      completedTasks += 1;
+    }
+    tasksByCategory.set(category, entry);
+  });
+
+  const breakdown = Array.from(tasksByCategory.entries()).map(([category, metrics]) => ({
+    category,
+    total: metrics.total,
+    completed: metrics.completed,
+    completionRate: metrics.total ? percentage(metrics.completed, metrics.total) : 0,
+  }));
+
+  return {
+    openOffers,
+    approvalsPending,
+    backgroundChecksInProgress,
+    signaturesOutstanding,
+    averagePackageValue: packageValues.length ? Number(average(packageValues).toFixed(2)) : null,
+    offerPackages: packageRecords.slice(0, 10).map((pkg) => ({
+      id: pkg.id,
+      candidateName: pkg.candidateName,
+      roleName: pkg.roleName,
+      status: pkg.status,
+      approvalStatus: pkg.approvalStatus,
+      backgroundCheckStatus: pkg.backgroundCheckStatus,
+      digitalSignatureStatus: pkg.digitalSignatureStatus,
+      startDate: pkg.startDate,
+      packageValue: pkg.packageValue,
+      currency: pkg.currency,
+    })),
+    upcomingStartDates,
+    tasks: {
+      total: taskRecords.length,
+      completed: completedTasks,
+      completionRate: taskRecords.length ? percentage(completedTasks, taskRecords.length) : 0,
+      breakdown,
+    },
+  };
+}
+
+function buildCandidateCareCenterSummary({ tickets, candidateExperience }) {
+  const ticketRecords = (Array.isArray(tickets) ? tickets : []).map((record) =>
+    record?.get ? record.get({ plain: true }) : record,
+  );
+
+  const responseTimes = [];
+  let escalations = 0;
+  const inclusionCounts = new Map();
+
+  ticketRecords.forEach((ticket) => {
+    if (ticket?.firstRespondedAt) {
+      const minutes = differenceInHours(ticket.openedAt, ticket.firstRespondedAt);
+      if (Number.isFinite(minutes) && minutes >= 0) {
+        responseTimes.push(minutes * 60);
+      }
+    }
+    if (ticket?.escalatedAt) {
+      escalations += 1;
+    }
+    if (ticket?.inclusionCategory) {
+      const label = normalizeCategory(ticket.inclusionCategory);
+      inclusionCounts.set(label, (inclusionCounts.get(label) ?? 0) + 1);
+    }
+  });
+
+  const openTickets = ticketRecords.filter((ticket) => !['resolved', 'closed'].includes(ticket?.status)).length;
+  const followUpsPending = ticketRecords.filter((ticket) => {
+    if (!ticket?.followUpDueAt) return false;
+    const dueAt = new Date(ticket.followUpDueAt);
+    return !Number.isNaN(dueAt.getTime()) && dueAt > new Date();
+  }).length;
+
+  const inclusionScore = ticketRecords.length
+    ? Number(((inclusionCounts.size / ticketRecords.length) * 100).toFixed(1))
+    : null;
+
+  const recentTickets = ticketRecords
+    .slice()
+    .sort((a, b) => new Date(b.openedAt ?? b.createdAt ?? 0) - new Date(a.openedAt ?? a.createdAt ?? 0))
+    .slice(0, 8)
+    .map((ticket) => ({
+      id: ticket.id,
+      candidateName: ticket.candidateName,
+      type: ticket.type,
+      status: ticket.status,
+      openedAt: ticket.openedAt,
+      firstRespondedAt: ticket.firstRespondedAt,
+      priority: ticket.priority,
+      inclusionCategory: ticket.inclusionCategory,
+    }));
+
+  return {
+    satisfaction: candidateExperience?.averageScore ?? null,
+    nps: candidateExperience?.nps ?? null,
+    averageResponseMinutes: responseTimes.length ? Number(average(responseTimes).toFixed(1)) : null,
+    openTickets,
+    escalations,
+    followUpsPending: (candidateExperience?.followUpsPending ?? 0) + followUpsPending,
+    inclusionScore,
+    inclusionBreakdown: Object.fromEntries(inclusionCounts.entries()),
+    recentTickets,
+  };
+}
+
+function buildOfferAndOnboardingSummary({
+  offers,
+  candidateExperience,
+  interviewOperations,
+  applications,
+  alerts,
+  offerBridge,
+}) {
   const openOffers = Math.max((offers?.extended ?? 0) - (offers?.accepted ?? 0), 0);
   const rescheduleAlerts = alerts.items.filter((item) => normalizeCategory(item.category).toLowerCase().includes('schedule'));
 
@@ -1143,17 +1832,21 @@ function buildOfferAndOnboardingSummary({ offers, candidateExperience, interview
     interviewsToSchedule: interviewOperations.upcomingCount ?? 0,
     scheduleAlerts: rescheduleAlerts.length,
     averageDaysToStart: startLeadTimes.length ? Number(average(startLeadTimes).toFixed(1)) : null,
+    approvalsPending: offerBridge?.approvalsPending ?? 0,
+    backgroundChecksInProgress: offerBridge?.backgroundChecksInProgress ?? 0,
+    signaturesOutstanding: offerBridge?.signaturesOutstanding ?? 0,
   };
 }
 
-function buildCandidateCareSummary({ candidateExperience, alerts }) {
+function buildCandidateCareSummary({ candidateExperience, alerts, candidateCareCenter }) {
   const escalations = alerts.items.filter((item) => normalizeCategory(item.category).toLowerCase().includes('experience'));
 
   return {
     satisfaction: candidateExperience.averageScore,
     nps: candidateExperience.nps,
     followUpsPending: candidateExperience.followUpsPending,
-    escalations: escalations.length,
+    escalations: (candidateCareCenter?.escalations ?? 0) + escalations.length,
+    openTickets: candidateCareCenter?.openTickets ?? null,
   };
 }
 
@@ -1312,6 +2005,16 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       partnerEngagements,
       calendarEvents,
       brandAssets,
+      panelTemplates,
+      prepPortals,
+      interviewEvaluations,
+      calibrationSessions,
+      decisionTrackers,
+      offerPackages,
+      onboardingTasks,
+      candidateCareTickets,
+      interviewerAvailability,
+      interviewReminders,
     ] = await Promise.all([
       fetchApplications({ workspaceId: workspace.id, since }),
       fetchJobs({ since }),
@@ -1326,6 +2029,16 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       fetchPartnerEngagements({ workspaceId: workspace.id, since }),
       fetchCalendarEvents({ workspaceId: workspace.id, since }),
       fetchBrandAssets({ workspaceId: workspace.id }),
+      fetchInterviewPanelTemplates({ workspaceId: workspace.id }),
+      fetchCandidatePrepPortals({ workspaceId: workspace.id, since }),
+      fetchInterviewEvaluations({ workspaceId: workspace.id, since }),
+      fetchEvaluationCalibrationSessions({ workspaceId: workspace.id, since }),
+      fetchDecisionTrackers({ workspaceId: workspace.id, since }),
+      fetchOfferPackages({ workspaceId: workspace.id, since }),
+      fetchOnboardingTasks({ workspaceId: workspace.id, since }),
+      fetchCandidateCareTickets({ workspaceId: workspace.id, since }),
+      fetchInterviewerAvailability({ workspaceId: workspace.id, since }),
+      fetchInterviewReminders({ workspaceId: workspace.id, since }),
     ]);
 
     const applicationIds = applications.map((application) => application.id);
@@ -1394,6 +2107,26 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       partnerSummary,
     });
     const analyticsForecasting = buildAnalyticsForecastingSummary({ pipelineSummary, jobSummary, projectSummary });
+    const interviewScheduler = buildInterviewSchedulerDetail({
+      schedules: interviewSchedules,
+      availability: interviewerAvailability,
+      reminders: interviewReminders,
+    });
+    const panelTemplateSummary = buildPanelTemplateSummary({
+      templates: panelTemplates,
+      evaluations: interviewEvaluations,
+    });
+    const candidatePrep = buildCandidatePrepSummary({ portals: prepPortals });
+    const evaluationWorkspaceSummary = buildEvaluationWorkspaceSummary({
+      evaluations: interviewEvaluations,
+      calibrationSessions,
+      decisionTrackers,
+    });
+    const offerBridge = buildOfferBridgeDetail({ offerPackages, onboardingTasks });
+    const candidateCareCenter = buildCandidateCareCenterSummary({
+      tickets: candidateCareTickets,
+      candidateExperience,
+    });
     const partnerCollaborationDetails = buildPartnerCollaborationSummary({
       partnerSummary,
       engagements: partnerEngagements,
@@ -1408,8 +2141,13 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       interviewOperations,
       applications,
       alerts: alertsSummary,
+      offerBridge,
     });
-    const candidateCare = buildCandidateCareSummary({ candidateExperience, alerts: alertsSummary });
+    const candidateCare = buildCandidateCareSummary({
+      candidateExperience,
+      alerts: alertsSummary,
+      candidateCareCenter,
+    });
 
     const insights = {
       averageReviewScore: reviewScores.length ? average(reviewScores) : null,
@@ -1444,6 +2182,14 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       applicantRelationshipManager,
       analyticsForecasting,
       interviewOperations,
+      interviewExperience: {
+        scheduler: interviewScheduler,
+        panelTemplates: panelTemplateSummary,
+        candidatePrep,
+        evaluationWorkspace: evaluationWorkspaceSummary,
+        offerBridge,
+        candidateCareCenter,
+      },
       candidateExperience,
       offerOnboarding,
       candidateCare,
