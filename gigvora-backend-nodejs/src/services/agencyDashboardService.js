@@ -87,6 +87,52 @@ const PROJECT_STATUS_BUCKETS = {
   completed: ['completed', 'closed', 'archived'],
 };
 
+const AVAILABILITY_STATUS_WEIGHTS = {
+  available: 0,
+  limited: 0.55,
+  unavailable: 1,
+  on_leave: 0.2,
+  unknown: 0.6,
+};
+
+const AVAILABILITY_LABELS = {
+  available: 'Available',
+  limited: 'Partially allocated',
+  unavailable: 'Fully allocated',
+  on_leave: 'On leave',
+  unknown: 'Unknown',
+};
+
+const AVAILABILITY_ORDER = {
+  available: 0,
+  limited: 1,
+  unavailable: 2,
+  on_leave: 3,
+  unknown: 4,
+};
+
+const CANDIDATE_IN_FLIGHT_STATUSES = new Set([
+  'prospect',
+  'sourced',
+  'screening',
+  'application',
+  'applied',
+  'interview',
+  'interviewing',
+  'loop',
+  'offer',
+  'offer_made',
+  'offer_extended',
+  'hired',
+  'onboarding',
+  'internal_transfer',
+]);
+
+const CANDIDATE_ARCHIVED_STATUSES = new Set(['rejected', 'withdrawn', 'archived', 'declined', 'closed']);
+
+const EXIT_STATUSES_REQUIRING_ATTENTION = new Set(['preparing', 'in_progress']);
+const ONBOARDING_STATUSES = new Set(['in_progress']);
+
 function sanitizeWorkspaceRecord(workspace) {
   if (!workspace) return null;
   const plain = workspace.get({ plain: true });
@@ -140,6 +186,105 @@ function bucketiseProjectStatus(status) {
     }
   }
   return normalised;
+}
+
+function normaliseRoleDescriptor(value) {
+  if (!value || !String(value).trim()) {
+    return { key: 'unassigned', label: 'Unassigned' };
+  }
+
+  const trimmed = String(value).trim();
+  const key =
+    trimmed
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '') || 'unassigned';
+  const label = trimmed
+    .replace(/[_-]+/g, ' ')
+    .split(' ')
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(' ');
+
+  return { key, label: label || 'Unassigned' };
+}
+
+function extractCandidateRole(candidate = {}) {
+  if (!candidate) return 'Generalist';
+  const metadata = candidate.metadata ?? {};
+  const tagValue = Array.isArray(candidate.tags) ? candidate.tags[0] : null;
+  const potentialRole =
+    metadata.targetRole ??
+    metadata.role ??
+    metadata.roleTitle ??
+    metadata.position ??
+    metadata.jobTitle ??
+    candidate.department ??
+    candidate.preferredEngagement ??
+    tagValue ??
+    candidate.pipelineStage ??
+    candidate.status;
+
+  return potentialRole ?? 'Generalist';
+}
+
+function classifyCandidateStage(candidate = {}) {
+  const status = (candidate.status ?? '').toLowerCase();
+  const stage = (candidate.pipelineStage ?? '').toLowerCase();
+  const onboardingStatus = (candidate.onboardingStatus ?? '').toLowerCase();
+
+  if (ONBOARDING_STATUSES.has(onboardingStatus)) {
+    return 'onboarding';
+  }
+
+  if (status === 'hired') {
+    return 'hired';
+  }
+
+  const stageTokens = stage.split(/[^a-z0-9]+/g).filter(Boolean);
+  const hasStageToken = (tokens) => stageTokens.some((token) => tokens.includes(token));
+
+  if (hasStageToken(['offer', 'offer_made', 'offer_extended', 'offer_signed'])) {
+    return 'offer';
+  }
+
+  if (hasStageToken(['interview', 'onsite', 'assessment', 'loop'])) {
+    return 'interview';
+  }
+
+  if (hasStageToken(['screen', 'screening', 'application', 'applied', 'prospect', 'sourced'])) {
+    return 'sourcing';
+  }
+
+  if (CANDIDATE_IN_FLIGHT_STATUSES.has(status)) {
+    return 'sourcing';
+  }
+
+  return 'archived';
+}
+
+function parseCandidateStartDate(metadata = {}) {
+  const dateKeys = [
+    'startDate',
+    'start_date',
+    'expectedStartDate',
+    'expected_start_date',
+    'start',
+    'expectedStart',
+    'joiningDate',
+    'joining_date',
+  ];
+
+  for (const key of dateKeys) {
+    const value = metadata[key];
+    if (!value) continue;
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.valueOf())) {
+      return parsed;
+    }
+  }
+
+  return null;
 }
 
 function formatMember(member, profileMap) {
@@ -439,10 +584,46 @@ function buildScenarioExplorer(plans = [], breakdowns = []) {
       },
       owner: plain.owner ?? null,
       highlight: plain.highlight ?? null,
-function parseDate(value) {
-  if (!value) return null;
-  const date = value instanceof Date ? value : new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
+      narrative: plain.narrative ?? null,
+      variance: plain.variance == null ? null : normaliseNumber(plain.variance, 0),
+    });
+  });
+
+  const availableScenarios = Object.keys(scenarios);
+  const scenarioOrdering = new Map(
+    planItems
+      .slice()
+      .sort((a, b) => {
+        const aStart = parseDate(a.timeframeStart);
+        const bStart = parseDate(b.timeframeStart);
+        if (aStart && bStart) {
+          return aStart - bStart;
+        }
+        if (aStart) return -1;
+        if (bStart) return 1;
+        return String(a.label ?? a.id).localeCompare(String(b.label ?? b.id));
+      })
+      .map((plan, index) => [plan.scenarioType ?? `scenario_${plan.id}`, index])
+  );
+
+  const orderedScenarios = availableScenarios
+    .slice()
+    .sort((a, b) => {
+      const aIndex = scenarioOrdering.get(a) ?? Number.MAX_SAFE_INTEGER;
+      const bIndex = scenarioOrdering.get(b) ?? Number.MAX_SAFE_INTEGER;
+      if (aIndex !== bIndex) {
+        return aIndex - bIndex;
+      }
+      return a.localeCompare(b);
+    })
+    .map((key) => scenarios[key]);
+
+  return {
+    scenarios: orderedScenarios,
+    scenarioMap: scenarios,
+    breakdowns: buckets,
+    availableScenarios,
+  };
 }
 
 function buildProjectPortfolioInsights({ projects, snapshots, dependencies, events }) {
@@ -1127,6 +1308,9 @@ function buildFinancialOversightInsights({ financialSummaries, escrowTransaction
     engagements,
     alerts,
     escrow,
+  };
+}
+
 function ensureArray(value) {
   if (!value) return [];
   return Array.isArray(value) ? value : [value];
@@ -1407,16 +1591,343 @@ function buildBrandingSummary(assets, approvals, metrics) {
 }
 
 function buildHrManagementSummary(members, candidates, policies) {
-  const activeHeadcount = members.filter((member) => member.status === 'active').length;
-  const contractors = members.filter((member) => (member.role ?? '').toLowerCase().includes('contract')).length;
-  const onboarding = candidates.filter((candidate) => candidate.status === 'hired' && candidate.onboardingStatus !== 'completed').length;
-  const exitsInProgress = candidates.filter(
-    (candidate) => candidate.exitWorkflowStatus && !['not_applicable', 'completed'].includes(candidate.exitWorkflowStatus),
+  const memberList = Array.isArray(members) ? members : [];
+  const candidateList = Array.isArray(candidates) ? candidates : [];
+  const policyList = Array.isArray(policies) ? policies : [];
+
+  const activeHeadcount = memberList.filter((member) => ACTIVE_MEMBER_STATUSES.includes(member.status)).length;
+  const contractors = memberList.filter((member) => (member.role ?? '').toLowerCase().includes('contract')).length;
+  const benchMembers = memberList.filter(
+    (member) => (member.availability?.status ?? '').toLowerCase() === 'available',
   ).length;
-  const complianceOutstanding = policies.reduce((total, policy) => {
-    const outstanding = Math.max((policy.audienceCount ?? 0) - (policy.acknowledgedCount ?? 0), 0);
-    return total + outstanding;
-  }, 0);
+
+  const roleCoverageMap = new Map();
+  const pipelineMap = new Map();
+  const availabilityCounts = { ...AVAILABILITY_ORDER };
+  Object.keys(availabilityCounts).forEach((status) => {
+    availabilityCounts[status] = 0;
+  });
+
+  const ensureRoleEntry = (key, label) => {
+    if (!roleCoverageMap.has(key)) {
+      roleCoverageMap.set(key, {
+        role: label,
+        roleKey: key,
+        total: 0,
+        active: 0,
+        bench: 0,
+        contractors: 0,
+        capacityHours: 0,
+        utilizedHours: 0,
+        availability: {
+          available: 0,
+          limited: 0,
+          unavailable: 0,
+          on_leave: 0,
+          unknown: 0,
+        },
+      });
+    }
+    return roleCoverageMap.get(key);
+  };
+
+  let totalCapacityHours = 0;
+  let utilisedHours = 0;
+
+  memberList.forEach((member) => {
+    const { key, label } = normaliseRoleDescriptor(member.role);
+    const entry = ensureRoleEntry(key, label);
+    entry.total += 1;
+
+    const status = (member.status ?? '').toLowerCase();
+    const isActive = ACTIVE_MEMBER_STATUSES.includes(status);
+    if (isActive) {
+      entry.active += 1;
+    }
+
+    if ((member.role ?? '').toLowerCase().includes('contract')) {
+      entry.contractors += 1;
+    }
+
+    const availabilityStatusRaw = (member.availability?.status ?? 'unknown').toLowerCase();
+    const availabilityStatus = Object.prototype.hasOwnProperty.call(AVAILABILITY_STATUS_WEIGHTS, availabilityStatusRaw)
+      ? availabilityStatusRaw
+      : 'unknown';
+
+    entry.availability[availabilityStatus] = (entry.availability[availabilityStatus] ?? 0) + 1;
+    availabilityCounts[availabilityStatus] = (availabilityCounts[availabilityStatus] ?? 0) + 1;
+
+    if (availabilityStatus === 'available') {
+      entry.bench += 1;
+    }
+
+    const availableHours = normaliseNumber(member.availability?.availableHoursPerWeek, 0);
+    const weight = AVAILABILITY_STATUS_WEIGHTS[availabilityStatus] ?? AVAILABILITY_STATUS_WEIGHTS.unknown;
+
+    if (isActive && availableHours > 0) {
+      entry.capacityHours += availableHours;
+      const utilised = availableHours * Math.max(0, Math.min(weight, 1));
+      entry.utilizedHours += utilised;
+      totalCapacityHours += availableHours;
+      utilisedHours += utilised;
+    }
+  });
+
+  const unassignedMembers = memberList.filter((member) => !member.role || !String(member.role).trim()).length;
+
+  const ensurePipelineEntry = (key, label) => {
+    if (!pipelineMap.has(key)) {
+      pipelineMap.set(key, { role: label, sourcing: 0, interviewing: 0, offers: 0, onboarding: 0, hiring: 0 });
+    }
+    return pipelineMap.get(key);
+  };
+
+  let exitsInProgress = 0;
+  const onboardingQueue = [];
+
+  candidateList.forEach((candidate) => {
+    const status = (candidate.status ?? '').toLowerCase();
+    if (CANDIDATE_ARCHIVED_STATUSES.has(status)) {
+      return;
+    }
+
+    const exitStatus = (candidate.exitWorkflowStatus ?? '').toLowerCase();
+    if (EXIT_STATUSES_REQUIRING_ATTENTION.has(exitStatus)) {
+      exitsInProgress += 1;
+    }
+
+    const { key, label } = normaliseRoleDescriptor(extractCandidateRole(candidate));
+    ensureRoleEntry(key, label);
+    const pipelineEntry = ensurePipelineEntry(key, label);
+
+    const stage = classifyCandidateStage(candidate);
+    const onboardingStatus = (candidate.onboardingStatus ?? '').toLowerCase();
+    const isOnboardingPending = ['completed', 'not_applicable'].includes(onboardingStatus) === false;
+
+    switch (stage) {
+      case 'onboarding':
+      case 'hired': {
+        pipelineEntry.onboarding += 1;
+        pipelineEntry.hiring += 1;
+        if (isOnboardingPending) {
+          onboardingQueue.push({
+            id: candidate.id ?? candidate.email ?? `${key}-${candidate.fullName ?? 'candidate'}`,
+            name: candidate.fullName ?? 'Candidate',
+            role: label,
+            startDate: (() => {
+              const parsed = parseCandidateStartDate(candidate.metadata ?? {});
+              return parsed ? parsed.toISOString() : null;
+            })(),
+            status: candidate.onboardingStatus ?? 'in_progress',
+          });
+        }
+        break;
+      }
+      case 'offer':
+        pipelineEntry.offers += 1;
+        pipelineEntry.hiring += 1;
+        break;
+      case 'interview':
+        pipelineEntry.interviewing += 1;
+        pipelineEntry.hiring += 1;
+        break;
+      case 'sourcing':
+        pipelineEntry.sourcing += 1;
+        pipelineEntry.hiring += 1;
+        break;
+      default:
+        break;
+    }
+  });
+
+  const onboarding = onboardingQueue.length;
+
+  const roleCoverage = Array.from(roleCoverageMap.values())
+    .map((entry) => {
+      const pipeline = pipelineMap.get(entry.roleKey) ?? { sourcing: 0, interviewing: 0, offers: 0, onboarding: 0, hiring: 0 };
+      const benchHours = Math.max(entry.capacityHours - entry.utilizedHours, 0);
+      const utilisationRate = entry.capacityHours
+        ? Math.round(((entry.utilizedHours / entry.capacityHours) * 1000 + Number.EPSILON) / 10)
+        : null;
+
+      return {
+        role: entry.role,
+        roleKey: entry.roleKey,
+        total: entry.total,
+        active: entry.active,
+        bench: entry.bench,
+        contractors: entry.contractors,
+        capacityHours: Math.round(entry.capacityHours ?? 0),
+        benchHours: Math.round(benchHours),
+        utilizationRate,
+        availability: Object.entries(entry.availability).map(([status, count]) => ({
+          status,
+          label: AVAILABILITY_LABELS[status] ?? normaliseRoleDescriptor(status).label,
+          count,
+        })),
+        pipeline: {
+          sourcing: pipeline.sourcing ?? 0,
+          interviewing: pipeline.interviewing ?? 0,
+          offers: pipeline.offers ?? 0,
+          onboarding: pipeline.onboarding ?? 0,
+        },
+        hiring: pipeline.hiring ??
+          (pipeline.sourcing ?? 0) + (pipeline.interviewing ?? 0) + (pipeline.offers ?? 0) + (pipeline.onboarding ?? 0),
+        needsAttention:
+          entry.active === 0 && (pipeline.interviewing ?? 0) + (pipeline.offers ?? 0) + (pipeline.sourcing ?? 0) > 0,
+      };
+    })
+    .sort((a, b) => {
+      if (b.total === a.total) {
+        return a.role.localeCompare(b.role);
+      }
+      return b.total - a.total;
+    });
+
+  const policyAcknowledgements = policyList
+    .map((policy) => ({
+      id: policy.id ?? policy.title,
+      title: policy.title ?? 'Policy',
+      status: policy.status ?? 'draft',
+      effectiveDate: policy.effectiveDate ?? null,
+      reviewCycleDays: policy.reviewCycleDays ?? null,
+      outstanding: Math.max(Number(policy.audienceCount ?? 0) - Number(policy.acknowledgedCount ?? 0), 0),
+    }))
+    .filter((policy) => policy.outstanding > 0)
+    .sort((a, b) => b.outstanding - a.outstanding)
+    .slice(0, 5);
+
+  const complianceOutstanding = policyAcknowledgements.reduce((total, policy) => total + policy.outstanding, 0);
+
+  const availabilityBreakdown = Object.entries(availabilityCounts)
+    .map(([status, count]) => ({
+      status,
+      label: AVAILABILITY_LABELS[status] ?? normaliseRoleDescriptor(status).label,
+      count,
+      order: AVAILABILITY_ORDER[status] ?? AVAILABILITY_ORDER.unknown,
+    }))
+    .sort((a, b) => a.order - b.order)
+    .map(({ order, ...rest }) => rest);
+
+  const totalCapacity = Math.max(Math.round(totalCapacityHours), 0);
+  const committedHours = Math.max(Math.round(utilisedHours), 0);
+  const benchHours = Math.max(totalCapacity - committedHours, 0);
+  const utilizationRate = totalCapacity
+    ? Math.round(((committedHours / totalCapacity) * 1000 + Number.EPSILON) / 10)
+    : 0;
+  const benchRate = totalCapacity
+    ? Math.round(((benchHours / totalCapacity) * 1000 + Number.EPSILON) / 10)
+    : 0;
+
+  let healthLevel = 'balanced';
+  let healthSummary = 'Capacity is balanced across the team.';
+  let recommendedAction = 'Monitor utilisation and keep hiring plans aligned to delivery commitments.';
+
+  if (!totalCapacity) {
+    healthLevel = 'unknown';
+    healthSummary = 'Availability data is missing for this workspace.';
+    recommendedAction = 'Capture availability hours on member profiles to unlock staffing insights.';
+  } else if (utilizationRate >= 92) {
+    healthLevel = 'overcommitted';
+    healthSummary = 'Utilisation is exceeding the safe threshold for sustainable delivery.';
+    recommendedAction = 'Rebalance assignments or accelerate hiring for critical pods.';
+  } else if (benchRate >= 30) {
+    healthLevel = 'underutilised';
+    healthSummary = 'Bench hours are trending high across the roster.';
+    recommendedAction = 'Activate internal initiatives or fast-track assignment matching to reduce idle time.';
+  }
+
+  const staffingCapacity = {
+    totalCapacityHours: totalCapacity,
+    committedHours,
+    benchHours,
+    benchRate,
+    utilizationRate,
+    activeMembers: activeHeadcount,
+    benchMembers,
+    totalMembers: memberList.length,
+    availabilityBreakdown,
+    health: {
+      level: healthLevel,
+      summary: healthSummary,
+      recommendedAction,
+    },
+  };
+
+  const alerts = [];
+
+  if (complianceOutstanding > 0) {
+    alerts.push({
+      id: 'compliance-gap',
+      type: 'compliance',
+      severity: complianceOutstanding > 10 ? 'high' : 'medium',
+      message: `${complianceOutstanding} outstanding policy acknowledgements`,
+      recommendedAction: 'Trigger acknowledgement reminders and follow-up with managers.',
+    });
+  }
+
+  if (healthLevel === 'overcommitted') {
+    alerts.push({
+      id: 'capacity-overload',
+      type: 'capacity',
+      severity: 'high',
+      message: 'Utilisation is running above safe thresholds for active members.',
+      recommendedAction: 'Shift demand or approve short-term contractors to protect delivery.',
+    });
+  } else if (healthLevel === 'underutilised') {
+    alerts.push({
+      id: 'bench-spike',
+      type: 'capacity',
+      severity: 'medium',
+      message: `Bench hours now represent ${benchRate.toFixed(1)}% of weekly capacity`,
+      recommendedAction: 'Pair bench members with shadow engagements or rotate them into delivery pods.',
+    });
+  }
+
+  if (exitsInProgress > 0) {
+    alerts.push({
+      id: 'exit-workflows',
+      type: 'people_ops',
+      severity: exitsInProgress > 1 ? 'high' : 'medium',
+      message: `${exitsInProgress} exit workflows require attention`,
+      recommendedAction: 'Schedule exit interviews and redistribute responsibilities.',
+    });
+  }
+
+  roleCoverage
+    .filter((role) => role.needsAttention)
+    .slice(0, 3)
+    .forEach((role) => {
+      alerts.push({
+        id: `coverage-${role.roleKey}`,
+        type: 'coverage',
+        severity: 'high',
+        message: `${role.role} has no active assignees while ${
+          (role.pipeline.interviewing ?? 0) + (role.pipeline.offers ?? 0)
+        } candidates are in flight`,
+        recommendedAction: 'Accelerate the hiring pipeline or reassign talent from neighbouring pods.',
+      });
+    });
+
+  const roleAssignmentTotals = roleCoverage.reduce(
+    (acc, role) => {
+      acc.hiring += role.hiring ?? 0;
+      acc.offers += role.pipeline.offers ?? 0;
+      acc.interviewing += role.pipeline.interviewing ?? 0;
+      acc.onboarding += role.pipeline.onboarding ?? 0;
+      return acc;
+    },
+    { roles: roleCoverage.length, hiring: 0, offers: 0, interviewing: 0, onboarding: 0, unassignedMembers },
+  );
+
+  onboardingQueue.sort((a, b) => {
+    if (a.startDate && b.startDate) {
+      return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+    }
+    if (a.startDate) return -1;
+    if (b.startDate) return 1;
+    return a.name.localeCompare(b.name);
+  });
 
   return {
     activeHeadcount,
@@ -1424,6 +1935,15 @@ function buildHrManagementSummary(members, candidates, policies) {
     onboarding,
     exitsInProgress,
     complianceOutstanding,
+    roleAssignments: {
+      coverage: roleCoverage,
+      totals: roleAssignmentTotals,
+      attention: roleCoverage.filter((role) => role.needsAttention),
+    },
+    staffingCapacity,
+    policyAcknowledgements,
+    onboardingQueue: onboardingQueue.slice(0, 10),
+    alerts,
   };
 }
 
@@ -2667,6 +3187,8 @@ export async function getAgencyDashboard({ workspaceId, workspaceSlug, lookbackD
       governance: governanceDesk,
       leadership: leadershipHub,
       innovation: innovationLab,
+    };
+
     const projectPortfolioInsights = buildProjectPortfolioInsights({
       projects: formattedProjects,
       snapshots: operationalSnapshots,
