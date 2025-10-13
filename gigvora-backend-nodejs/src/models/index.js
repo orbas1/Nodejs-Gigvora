@@ -10,6 +10,7 @@ const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB 
 export * from './constants/index.js';
 
 const PIPELINE_OWNER_TYPES = ['freelancer', 'agency', 'company'];
+const TWO_FACTOR_METHODS = ['email', 'app', 'sms'];
 
 export const User = sequelize.define(
   'User',
@@ -27,6 +28,14 @@ export const User = sequelize.define(
       allowNull: false,
       defaultValue: 'user',
     },
+    twoFactorEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    twoFactorMethod: {
+      type: DataTypes.ENUM(...TWO_FACTOR_METHODS),
+      allowNull: false,
+      defaultValue: 'email',
+    },
+    lastLoginAt: { type: DataTypes.DATE, allowNull: true },
+    googleId: { type: DataTypes.STRING(255), allowNull: true },
   },
   {
     tableName: 'users',
@@ -5246,11 +5255,28 @@ export const Connection = sequelize.define(
 export const TwoFactorToken = sequelize.define(
   'TwoFactorToken',
   {
-    email: { type: DataTypes.STRING(255), primaryKey: true },
-    code: { type: DataTypes.STRING(6), allowNull: false },
+    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    email: { type: DataTypes.STRING(255), allowNull: false },
+    codeHash: { type: DataTypes.STRING(128), allowNull: false },
+    deliveryMethod: {
+      type: DataTypes.ENUM(...TWO_FACTOR_METHODS),
+      allowNull: false,
+      defaultValue: 'email',
+    },
     expiresAt: { type: DataTypes.DATE, allowNull: false },
+    attempts: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    consumedAt: { type: DataTypes.DATE, allowNull: true },
   },
-  { tableName: 'two_factor_tokens', timestamps: false },
+  {
+    tableName: 'two_factor_tokens',
+    timestamps: true,
+    createdAt: 'createdAt',
+    updatedAt: false,
+    indexes: [
+      { fields: ['email'] },
+      { fields: ['expiresAt'] },
+    ],
+  },
 );
 
 export const Application = sequelize.define(

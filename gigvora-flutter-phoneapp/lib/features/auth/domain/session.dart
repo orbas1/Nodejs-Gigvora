@@ -28,6 +28,10 @@ class UserSession {
     this.followers = 0,
     this.companies = const <String>[],
     this.agencies = const <String>[],
+    this.accessToken,
+    this.refreshToken,
+    this.tokenExpiresAt,
+    this.twoFactorEnabled = true,
   }) : assert(memberships.isNotEmpty, 'memberships cannot be empty');
 
   final int id;
@@ -44,6 +48,10 @@ class UserSession {
   final int followers;
   final List<String> companies;
   final List<String> agencies;
+  final String? accessToken;
+  final String? refreshToken;
+  final DateTime? tokenExpiresAt;
+  final bool twoFactorEnabled;
 
   static const Map<String, String> roleLabels = {
     'user': 'User & Job Seeker',
@@ -63,6 +71,10 @@ class UserSession {
     String? activeMembership,
     List<String>? memberships,
     Map<String, RoleDashboard>? dashboards,
+    String? accessToken,
+    String? refreshToken,
+    DateTime? tokenExpiresAt,
+    bool? twoFactorEnabled,
   }) {
     final nextMemberships = memberships ?? this.memberships;
     final nextActive = activeMembership ?? this.activeMembership;
@@ -82,6 +94,10 @@ class UserSession {
       followers: followers,
       companies: companies,
       agencies: agencies,
+      accessToken: accessToken ?? this.accessToken,
+      refreshToken: refreshToken ?? this.refreshToken,
+      tokenExpiresAt: tokenExpiresAt ?? this.tokenExpiresAt,
+      twoFactorEnabled: twoFactorEnabled ?? this.twoFactorEnabled,
     );
   }
 
@@ -102,6 +118,7 @@ class UserSession {
       connections: 324,
       companies: const ['Gigvora Labs', 'Atlas Studios'],
       agencies: const ['Northshore Creative'],
+      twoFactorEnabled: true,
       dashboards: const {
         'user': RoleDashboard(
           role: 'user',
