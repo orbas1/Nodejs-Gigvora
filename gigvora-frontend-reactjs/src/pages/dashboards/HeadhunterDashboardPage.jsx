@@ -29,6 +29,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import DataStatus from '../../components/DataStatus.jsx';
 import { useHeadhunterDashboard } from '../../hooks/useHeadhunterDashboard.js';
 import { formatRelativeTime, formatAbsolute } from '../../utils/date.js';
+import PartnershipsInsightsSection from './headhunter/sections/PartnershipsInsightsSection.jsx';
 
 const menuSections = [
   {
@@ -91,6 +92,26 @@ const menuSections = [
         name: 'Calendar & availability',
         description: 'Personal calendar, shared calendars with clients, and availability broadcasting.',
         sectionId: 'interview-coordination',
+      },
+      {
+        name: 'Client partnership excellence',
+        description: 'Deliver transparency to clients with shared dashboards, milestone updates, and ROI storytelling.',
+      },
+      {
+        name: 'Client portals',
+        description: 'Invite clients to review shortlists, feedback, and offer strategy with customizable branding and audit logs.',
+      },
+      {
+        name: 'Mandate performance dashboards',
+        description: 'Measure submissions, interviews, offers, placements, diversity, and quality metrics.',
+      },
+      {
+        name: 'Commercial operations',
+        description: 'Manage retainers, milestones, invoices, and commissions with finance-ready documentation.',
+      },
+      {
+        name: 'Issue resolution desk',
+        description: 'Address candidate withdrawals, renegotiations, or conflicts with structured playbooks and escalations.',
       },
     ],
   },
@@ -248,6 +269,7 @@ export default function HeadhunterDashboardPage() {
   const passOnNetwork = data?.passOnNetwork ?? { candidates: [] };
   const activityTimeline = data?.activityTimeline ?? [];
   const calendar = data?.calendar ?? { upcoming: [], workload: {} };
+  const clientPartnerships = data?.clientPartnerships ?? {};
   const clientPartnerships = data?.clientPartnerships ?? { topContacts: [] };
   const pipelineExecution = data?.pipelineExecution ?? {};
   const prospectPipeline = pipelineExecution.prospectPipeline ?? {
@@ -1829,6 +1851,7 @@ export default function HeadhunterDashboardPage() {
           </div>
         </section>
 
+        <PartnershipsInsightsSection partnerships={clientPartnerships} calendar={calendar} />
         <section className="grid gap-6 lg:grid-cols-2">
           <div id="client-partnerships" className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between">
