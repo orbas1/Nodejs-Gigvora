@@ -1,0 +1,663 @@
+import { Op } from 'sequelize';
+import {
+  Group,
+  GroupMembership,
+  User,
+  sequelize,
+  GROUP_VISIBILITIES,
+  GROUP_MEMBER_POLICIES,
+  GROUP_MEMBERSHIP_STATUSES,
+  GROUP_MEMBERSHIP_ROLES,
+} from '../models/index.js';
+import {
+  ValidationError,
+  NotFoundError,
+  AuthorizationError,
+  ConflictError,
+} from '../utils/errors.js';
+
+const GROUP_MANAGER_ROLES = new Set(['admin', 'agency']);
+
+function slugify(value, fallback = 'group') {
+  if (!value) {
+    return fallback;
+  }
+  return value
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80) || fallback;
+}
+
+function normalizeColour(value) {
+  if (!value) {
+    return '#2563eb';
+  }
+  const candidate = value.toString().trim().toLowerCase();
+  return /^#([0-9a-f]{6})$/.test(candidate) ? candidate : '#2563eb';
+}
+
+function ensureManager(actor) {
+  if (!actor || !GROUP_MANAGER_ROLES.has(actor.userType)) {
+    throw new AuthorizationError('You do not have permission to manage groups.');
+  }
+}
+
+function normalizeEnum(value, allowed, label) {
+  if (!value) {
+    return allowed[0];
+  }
+  if (!allowed.includes(value)) {
+    throw new ValidationError(`Invalid ${label} provided.`);
+  }
+  return value;
+}
+
+function computeMembershipMetrics(memberships = []) {
+  let totalMembers = 0;
+  let activeMembers = 0;
+  let pendingMembers = 0;
+  let invitedMembers = 0;
+  let suspendedMembers = 0;
+  let lastMemberJoinedAt = null;
+
+  for (const membership of memberships) {
+    totalMembers += 1;
+    const status = membership.status ?? 'pending';
+    if (status === 'active') {
+      activeMembers += 1;
+      if (membership.joinedAt) {
+        const joinedAt = new Date(membership.joinedAt).getTime();
+        if (!lastMemberJoinedAt || joinedAt > lastMemberJoinedAt) {
+          lastMemberJoinedAt = joinedAt;
+        }
+      }
+    } else if (status === 'pending') {
+      pendingMembers += 1;
+    } else if (status === 'invited') {
+      invitedMembers += 1;
+    } else if (status === 'suspended') {
+      suspendedMembers += 1;
+    }
+  }
+
+  return {
+    totalMembers,
+    activeMembers,
+    pendingMembers,
+    invitedMembers,
+    suspendedMembers,
+    acceptanceRate: totalMembers > 0 ? Math.round((activeMembers / totalMembers) * 100) : 0,
+    lastMemberJoinedAt: lastMemberJoinedAt ? new Date(lastMemberJoinedAt).toISOString() : null,
+  };
+}
+
+function sanitizeUser(user) {
+  if (!user) return null;
+  const plain = user.get ? user.get({ plain: true }) : user;
+  const fullName = [plain.firstName, plain.lastName].filter(Boolean).join(' ').trim();
+  return {
+    id: plain.id,
+    firstName: plain.firstName ?? null,
+    lastName: plain.lastName ?? null,
+    name: fullName || null,
+    email: plain.email ?? null,
+    userType: plain.userType ?? null,
+  };
+}
+
+function sanitizeMembership(membership) {
+  if (!membership) {
+    return null;
+  }
+  const plain = membership.get ? membership.get({ plain: true }) : membership;
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    role: plain.role,
+    status: plain.status,
+    joinedAt: plain.joinedAt ? new Date(plain.joinedAt).toISOString() : null,
+    invitedById: plain.invitedById ?? null,
+    notes: plain.notes ?? null,
+    member: sanitizeUser(plain.member ?? plain.Member),
+    invitedBy: sanitizeUser(plain.invitedBy ?? plain.InvitedBy),
+  };
+}
+
+function sanitizeGroup(group, { includeMembers = false } = {}) {
+  if (!group) {
+    return null;
+  }
+  const plain = group.get ? group.get({ plain: true }) : group;
+  const memberships = Array.isArray(plain.memberships ?? plain.GroupMemberships)
+    ? plain.memberships ?? plain.GroupMemberships
+    : [];
+  const metrics = computeMembershipMetrics(memberships);
+
+  const normalizedMembers = includeMembers
+    ? memberships.map((membership) => sanitizeMembership(membership))
+    : undefined;
+
+  return {
+    id: plain.id,
+    name: plain.name,
+    slug: plain.slug,
+    description: plain.description ?? null,
+    visibility: plain.visibility ?? 'public',
+    memberPolicy: plain.memberPolicy ?? 'request',
+    avatarColor: plain.avatarColor ?? '#2563eb',
+    bannerImageUrl: plain.bannerImageUrl ?? null,
+    settings: plain.settings ?? {},
+    metadata: plain.metadata ?? {},
+    createdAt: plain.createdAt ? new Date(plain.createdAt).toISOString() : null,
+    updatedAt: plain.updatedAt ? new Date(plain.updatedAt).toISOString() : null,
+    createdBy: sanitizeUser(plain.createdBy ?? plain.CreatedBy),
+    updatedBy: sanitizeUser(plain.updatedBy ?? plain.UpdatedBy),
+    metrics: {
+      totalMembers: metrics.totalMembers,
+      activeMembers: metrics.activeMembers,
+      pendingMembers: metrics.pendingMembers + metrics.invitedMembers,
+      suspendedMembers: metrics.suspendedMembers,
+      acceptanceRate: metrics.acceptanceRate,
+      lastMemberJoinedAt: metrics.lastMemberJoinedAt,
+    },
+    members: normalizedMembers,
+  };
+}
+
+async function resolveUniqueSlug(baseSlug, { transaction, excludeGroupId } = {}) {
+  const sanitizedBase = slugify(baseSlug);
+  let attempt = 0;
+  let candidate = sanitizedBase;
+  // allow a generous number of attempts before bailing out
+  while (attempt < 25) {
+    const where = { slug: candidate };
+    if (excludeGroupId) {
+      where.id = { [Op.ne]: excludeGroupId };
+    }
+    const existing = await Group.findOne({ where, transaction });
+    if (!existing) {
+      return candidate;
+    }
+    attempt += 1;
+    candidate = `${sanitizedBase}-${attempt + 1}`;
+  }
+  throw new ConflictError('Unable to allocate a unique URL slug for this group. Please try a different name.');
+}
+
+async function loadGroup(groupId, { includeMembers = false, transaction } = {}) {
+  const include = [
+    {
+      model: GroupMembership,
+      as: 'memberships',
+      required: false,
+      attributes: ['id', 'userId', 'role', 'status', 'joinedAt', 'invitedById', 'notes'],
+      include: includeMembers
+        ? [
+            { model: User, as: 'member', attributes: ['id', 'firstName', 'lastName', 'email', 'userType'] },
+            { model: User, as: 'invitedBy', attributes: ['id', 'firstName', 'lastName', 'email', 'userType'] },
+          ]
+        : [],
+    },
+    { model: User, as: 'createdBy', attributes: ['id', 'firstName', 'lastName', 'email', 'userType'] },
+    { model: User, as: 'updatedBy', attributes: ['id', 'firstName', 'lastName', 'email', 'userType'] },
+  ];
+
+  const group = await Group.findByPk(groupId, { include, transaction });
+  if (!group) {
+    throw new NotFoundError('Group not found');
+  }
+  return group;
+}
+
+export async function getGroup(groupId, { includeMembers = false, actor } = {}) {
+  if (!groupId) {
+    throw new ValidationError('groupId is required.');
+  }
+  ensureManager(actor);
+  const group = await loadGroup(groupId, { includeMembers, transaction: undefined });
+  return sanitizeGroup(group, { includeMembers });
+}
+
+export async function listGroups({
+  page = 1,
+  pageSize = 20,
+  search,
+  visibility,
+  includeMembers = false,
+  actor,
+} = {}) {
+  ensureManager(actor);
+  const parsedPageSize = Math.min(100, Math.max(1, Number.parseInt(pageSize, 10) || 20));
+  const parsedPage = Math.max(1, Number.parseInt(page, 10) || 1);
+  const offset = (parsedPage - 1) * parsedPageSize;
+
+  const where = {};
+  if (visibility && GROUP_VISIBILITIES.includes(visibility)) {
+    where.visibility = visibility;
+  }
+
+  const trimmedSearch = search?.toString().trim();
+  if (trimmedSearch) {
+    const like = `%${trimmedSearch}%`;
+    where[Op.or] = [
+      { name: { [Op.iLike ?? Op.like]: like } },
+      { description: { [Op.iLike ?? Op.like]: like } },
+      { slug: { [Op.iLike ?? Op.like]: like } },
+    ];
+  }
+
+  const include = [
+    {
+      model: GroupMembership,
+      as: 'memberships',
+      required: false,
+      attributes: ['id', 'userId', 'role', 'status', 'joinedAt', 'invitedById', 'notes'],
+      include: includeMembers
+        ? [
+            { model: User, as: 'member', attributes: ['id', 'firstName', 'lastName', 'email', 'userType'] },
+            { model: User, as: 'invitedBy', attributes: ['id', 'firstName', 'lastName', 'email', 'userType'] },
+          ]
+        : [],
+    },
+    { model: User, as: 'createdBy', attributes: ['id', 'firstName', 'lastName', 'email', 'userType'] },
+    { model: User, as: 'updatedBy', attributes: ['id', 'firstName', 'lastName', 'email', 'userType'] },
+  ];
+
+  const result = await Group.findAndCountAll({
+    where,
+    include,
+    distinct: true,
+    order: [['name', 'ASC']],
+    limit: parsedPageSize,
+    offset,
+  });
+
+  return {
+    data: result.rows.map((group) => sanitizeGroup(group, { includeMembers })),
+    pagination: {
+      page: parsedPage,
+      pageSize: parsedPageSize,
+      total: result.count,
+      totalPages: Math.ceil(result.count / parsedPageSize) || 0,
+    },
+  };
+}
+
+export async function discoverGroups({ limit = 12, search, actorId } = {}) {
+  const parsedLimit = Math.min(50, Math.max(1, Number.parseInt(limit, 10) || 12));
+  const baseWhere = {
+    visibility: { [Op.in]: ['public', 'private', 'secret'] },
+  };
+
+  const include = [
+    {
+      model: GroupMembership,
+      as: 'memberships',
+      required: false,
+      attributes: ['id', 'userId', 'role', 'status', 'joinedAt'],
+    },
+  ];
+
+  const groups = await Group.findAll({
+    where: baseWhere,
+    include,
+    distinct: true,
+    order: [['name', 'ASC']],
+    limit: parsedLimit * 2,
+  });
+
+  const trimmedSearch = search?.toString().trim().toLowerCase();
+
+  const filtered = groups
+    .filter((group) => {
+      const plain = group.get({ plain: true });
+      if (plain.visibility === 'public') {
+        return true;
+      }
+      if (!actorId) {
+        return false;
+      }
+      return (plain.memberships ?? plain.GroupMemberships ?? []).some((membership) => membership.userId === actorId);
+    })
+    .filter((group) => {
+      if (!trimmedSearch) {
+        return true;
+      }
+      const plain = group.get({ plain: true });
+      const haystack = `${plain.name ?? ''} ${plain.description ?? ''} ${plain.slug ?? ''}`.toLowerCase();
+      return haystack.includes(trimmedSearch);
+    })
+    .slice(0, parsedLimit);
+
+  const sanitized = filtered
+    .map((group) => sanitizeGroup(group, { includeMembers: false }))
+    .sort((a, b) => (b.metrics.activeMembers ?? 0) - (a.metrics.activeMembers ?? 0));
+
+  return {
+    data: sanitized,
+    metadata: {
+      total: sanitized.length,
+      recommendedIds: sanitized.slice(0, Math.min(3, sanitized.length)).map((group) => group.id),
+    },
+  };
+}
+
+export async function createGroup(payload, { actor } = {}) {
+  ensureManager(actor);
+  const name = payload?.name?.toString().trim();
+  if (!name) {
+    throw new ValidationError('Group name is required.');
+  }
+
+  const description = payload?.description?.toString().trim() || null;
+  const bannerImageUrl = payload?.bannerImageUrl?.toString().trim() || null;
+  const settings = payload?.settings ?? null;
+  const metadata = payload?.metadata ?? null;
+
+  return sequelize.transaction(async (transaction) => {
+    const slug = await resolveUniqueSlug(payload?.slug || name, { transaction });
+    const visibility = normalizeEnum(payload?.visibility || 'public', GROUP_VISIBILITIES, 'visibility');
+    const memberPolicy = normalizeEnum(payload?.memberPolicy || 'request', GROUP_MEMBER_POLICIES, 'member policy');
+    const avatarColor = normalizeColour(payload?.avatarColor);
+
+    const group = await Group.create(
+      {
+        name,
+        description,
+        slug,
+        visibility,
+        memberPolicy,
+        avatarColor,
+        bannerImageUrl,
+        settings,
+        metadata,
+        createdById: actor?.id ?? null,
+        updatedById: actor?.id ?? null,
+      },
+      { transaction },
+    );
+
+    if (actor?.id) {
+      await GroupMembership.create(
+        {
+          groupId: group.id,
+          userId: actor.id,
+          role: GROUP_MEMBERSHIP_ROLES.includes(payload?.ownerRole)
+            ? payload.ownerRole
+            : 'owner',
+          status: 'active',
+          invitedById: actor.id,
+          joinedAt: new Date(),
+        },
+        { transaction },
+      );
+    }
+
+    const reloaded = await loadGroup(group.id, { includeMembers: true, transaction });
+    return sanitizeGroup(reloaded, { includeMembers: true });
+  });
+}
+
+export async function updateGroup(groupId, payload, { actor } = {}) {
+  ensureManager(actor);
+  const group = await loadGroup(groupId, { includeMembers: false });
+
+  return sequelize.transaction(async (transaction) => {
+    const updates = {};
+
+    if (payload.name !== undefined) {
+      const trimmed = payload.name?.toString().trim();
+      if (!trimmed) {
+        throw new ValidationError('Group name cannot be empty.');
+      }
+      updates.name = trimmed;
+    }
+
+    if (payload.description !== undefined) {
+      updates.description = payload.description?.toString().trim() || null;
+    }
+
+    if (payload.slug !== undefined) {
+      const candidate = payload.slug?.toString().trim();
+      if (!candidate) {
+        throw new ValidationError('Slug cannot be empty.');
+      }
+      updates.slug = await resolveUniqueSlug(candidate, {
+        transaction,
+        excludeGroupId: group.id,
+      });
+    }
+
+    if (payload.visibility !== undefined) {
+      updates.visibility = normalizeEnum(payload.visibility, GROUP_VISIBILITIES, 'visibility');
+    }
+
+    if (payload.memberPolicy !== undefined) {
+      updates.memberPolicy = normalizeEnum(payload.memberPolicy, GROUP_MEMBER_POLICIES, 'member policy');
+    }
+
+    if (payload.avatarColor !== undefined) {
+      updates.avatarColor = normalizeColour(payload.avatarColor);
+    }
+
+    if (payload.bannerImageUrl !== undefined) {
+      updates.bannerImageUrl = payload.bannerImageUrl?.toString().trim() || null;
+    }
+
+    if (payload.settings !== undefined) {
+      updates.settings = payload.settings ?? null;
+    }
+
+    if (payload.metadata !== undefined) {
+      updates.metadata = payload.metadata ?? null;
+    }
+
+    updates.updatedById = actor?.id ?? group.updatedById ?? null;
+
+    await group.update(updates, { transaction });
+    const reloaded = await loadGroup(group.id, { includeMembers: true, transaction });
+    return sanitizeGroup(reloaded, { includeMembers: true });
+  });
+}
+
+export async function addMember({ groupId, userId, role, status, notes }, { actor } = {}) {
+  ensureManager(actor);
+  if (!groupId || !userId) {
+    throw new ValidationError('Both groupId and userId are required.');
+  }
+
+  return sequelize.transaction(async (transaction) => {
+    await loadGroup(groupId, { transaction });
+    const member = await User.findByPk(userId, {
+      attributes: ['id', 'firstName', 'lastName', 'email', 'userType'],
+      transaction,
+    });
+    if (!member) {
+      throw new ValidationError('User not found.');
+    }
+
+    const existing = await GroupMembership.findOne({
+      where: { groupId, userId },
+      transaction,
+    });
+    if (existing) {
+      throw new ConflictError('User already belongs to this group.');
+    }
+
+    const membership = await GroupMembership.create(
+      {
+        groupId,
+        userId,
+        role: GROUP_MEMBERSHIP_ROLES.includes(role) ? role : 'member',
+        status: GROUP_MEMBERSHIP_STATUSES.includes(status) ? status : 'invited',
+        invitedById: actor?.id ?? null,
+        joinedAt: status === 'active' ? new Date() : null,
+        notes: notes ?? null,
+      },
+      { transaction },
+    );
+
+    await membership.reload({
+      include: [
+        { model: User, as: 'member', attributes: ['id', 'firstName', 'lastName', 'email', 'userType'] },
+        { model: User, as: 'invitedBy', attributes: ['id', 'firstName', 'lastName', 'email', 'userType'] },
+      ],
+      transaction,
+    });
+
+    return sanitizeMembership(membership);
+  });
+}
+
+export async function updateMember(groupId, membershipId, payload, { actor } = {}) {
+  ensureManager(actor);
+  if (!groupId || !membershipId) {
+    throw new ValidationError('groupId and membershipId are required.');
+  }
+
+  return sequelize.transaction(async (transaction) => {
+    const membership = await GroupMembership.findOne({
+      where: { id: membershipId, groupId },
+      include: [
+        { model: User, as: 'member', attributes: ['id', 'firstName', 'lastName', 'email', 'userType'] },
+        { model: User, as: 'invitedBy', attributes: ['id', 'firstName', 'lastName', 'email', 'userType'] },
+      ],
+      transaction,
+    });
+
+    if (!membership) {
+      throw new NotFoundError('Group membership not found.');
+    }
+
+    if (payload.role !== undefined) {
+      if (!GROUP_MEMBERSHIP_ROLES.includes(payload.role)) {
+        throw new ValidationError('Invalid membership role.');
+      }
+      membership.role = payload.role;
+    }
+
+    if (payload.status !== undefined) {
+      if (!GROUP_MEMBERSHIP_STATUSES.includes(payload.status)) {
+        throw new ValidationError('Invalid membership status.');
+      }
+      membership.status = payload.status;
+      if (payload.status === 'active' && !membership.joinedAt) {
+        membership.joinedAt = new Date();
+      }
+    }
+
+    if (payload.notes !== undefined) {
+      membership.notes = payload.notes?.toString().trim() || null;
+    }
+
+    await membership.save({ transaction });
+    await membership.reload({
+      include: [
+        { model: User, as: 'member', attributes: ['id', 'firstName', 'lastName', 'email', 'userType'] },
+        { model: User, as: 'invitedBy', attributes: ['id', 'firstName', 'lastName', 'email', 'userType'] },
+      ],
+      transaction,
+    });
+
+    return sanitizeMembership(membership);
+  });
+}
+
+export async function removeMember(groupId, membershipId, { actor } = {}) {
+  ensureManager(actor);
+  if (!groupId || !membershipId) {
+    throw new ValidationError('groupId and membershipId are required.');
+  }
+
+  return sequelize.transaction(async (transaction) => {
+    const membership = await GroupMembership.findOne({
+      where: { id: membershipId, groupId },
+      transaction,
+    });
+    if (!membership) {
+      throw new NotFoundError('Group membership not found.');
+    }
+    await membership.destroy({ transaction });
+    return { success: true };
+  });
+}
+
+export async function requestMembership(groupId, { actor, message } = {}) {
+  if (!actor?.id) {
+    throw new AuthorizationError('Authentication required to request membership.');
+  }
+  if (!groupId) {
+    throw new ValidationError('groupId is required.');
+  }
+
+  return sequelize.transaction(async (transaction) => {
+    const group = await loadGroup(groupId, { includeMembers: true, transaction });
+    const existing = await GroupMembership.findOne({
+      where: { groupId, userId: actor.id },
+      include: [
+        { model: User, as: 'member', attributes: ['id', 'firstName', 'lastName', 'email', 'userType'] },
+        { model: User, as: 'invitedBy', attributes: ['id', 'firstName', 'lastName', 'email', 'userType'] },
+      ],
+      transaction,
+    });
+
+    const desiredStatus = group.memberPolicy === 'open' ? 'active' : 'pending';
+
+    if (existing) {
+      existing.status = desiredStatus;
+      if (desiredStatus === 'active' && !existing.joinedAt) {
+        existing.joinedAt = new Date();
+      }
+      if (message !== undefined) {
+        existing.notes = message?.toString().trim() || null;
+      }
+      await existing.save({ transaction });
+      await existing.reload({
+        include: [
+          { model: User, as: 'member', attributes: ['id', 'firstName', 'lastName', 'email', 'userType'] },
+          { model: User, as: 'invitedBy', attributes: ['id', 'firstName', 'lastName', 'email', 'userType'] },
+        ],
+        transaction,
+      });
+      return sanitizeMembership(existing);
+    }
+
+    const membership = await GroupMembership.create(
+      {
+        groupId,
+        userId: actor.id,
+        role: 'member',
+        status: desiredStatus,
+        invitedById: null,
+        joinedAt: desiredStatus === 'active' ? new Date() : null,
+        notes: message?.toString().trim() || null,
+      },
+      { transaction },
+    );
+
+    await membership.reload({
+      include: [
+        { model: User, as: 'member', attributes: ['id', 'firstName', 'lastName', 'email', 'userType'] },
+        { model: User, as: 'invitedBy', attributes: ['id', 'firstName', 'lastName', 'email', 'userType'] },
+      ],
+      transaction,
+    });
+
+    return sanitizeMembership(membership);
+  });
+}
+
+export default {
+  listGroups,
+  discoverGroups,
+  getGroup,
+  createGroup,
+  updateGroup,
+  addMember,
+  updateMember,
+  removeMember,
+  requestMembership,
+};

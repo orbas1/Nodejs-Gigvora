@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import PageHeader from '../components/PageHeader.jsx';
+import { registerUser } from '../services/auth.js';
+import apiClient from '../services/apiClient.js';
 
 const initialState = {
   firstName: '',
@@ -9,6 +11,8 @@ const initialState = {
   age: '',
   password: '',
   confirmPassword: '',
+  userType: 'user',
+  twoFactorEnabled: true,
 };
 
 const onboardingHighlights = [
@@ -19,16 +23,51 @@ const onboardingHighlights = [
 
 export default function RegisterPage() {
   const [form, setForm] = useState(initialState);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (event) => {
+  const handleToggleTwoFactor = () => {
+    setForm((prev) => ({ ...prev, twoFactorEnabled: !prev.twoFactorEnabled }));
+  };
+
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    alert('Registration submitted.');
-    setForm(initialState);
+    if (form.password !== form.confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+    setStatus('submitting');
+    setError(null);
+    setSuccess(null);
+    try {
+      const payload = {
+        firstName: form.firstName,
+        lastName: form.lastName,
+        email: form.email,
+        address: form.address,
+        age: form.age ? Number(form.age) : undefined,
+        password: form.password,
+        userType: form.userType,
+        twoFactorEnabled: form.twoFactorEnabled,
+      };
+      await registerUser(payload);
+      setSuccess('Registration complete. Check your inbox for your verification code and sign in to continue.');
+      setForm(initialState);
+    } catch (submissionError) {
+      if (submissionError instanceof apiClient.ApiError) {
+        setError(submissionError.body?.message || submissionError.message);
+      } else {
+        setError(submissionError.message || 'We could not create your account. Please try again.');
+      }
+    } finally {
+      setStatus('idle');
+    }
   };
 
   return (
@@ -97,6 +136,22 @@ export default function RegisterPage() {
                 />
               </div>
               <div className="space-y-2">
+                <label htmlFor="userType" className="text-sm font-medium text-slate-700">
+                  Account focus
+                </label>
+                <select
+                  id="userType"
+                  name="userType"
+                  value={form.userType}
+                  onChange={handleChange}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                >
+                  <option value="user">Career explorer</option>
+                  <option value="freelancer">Freelancer</option>
+                  <option value="agency">Agency</option>
+                </select>
+              </div>
+              <div className="space-y-2">
                 <label htmlFor="age" className="text-sm font-medium text-slate-700">
                   Age
                 </label>
@@ -139,11 +194,34 @@ export default function RegisterPage() {
                 />
               </div>
             </div>
+            <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-800">Protect my account with 2FA</p>
+                <p className="text-xs text-slate-500">We’ll email a code during sign-in. Authenticator apps arrive soon.</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleToggleTwoFactor}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
+                  form.twoFactorEnabled ? 'bg-accent' : 'bg-slate-300'
+                }`}
+                aria-pressed={form.twoFactorEnabled}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${
+                    form.twoFactorEnabled ? 'translate-x-5' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+            {error ? <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">{error}</p> : null}
+            {success ? <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-600">{success}</p> : null}
             <button
               type="submit"
-              className="w-full rounded-full bg-accent px-8 py-3 text-base font-semibold text-white shadow-soft transition hover:bg-accentDark"
+              className="w-full rounded-full bg-accent px-8 py-3 text-base font-semibold text-white shadow-soft transition hover:bg-accentDark disabled:cursor-not-allowed disabled:bg-accent/60"
+              disabled={status !== 'idle'}
             >
-              Create profile
+              {status === 'submitting' ? 'Creating your profile…' : 'Create profile'}
             </button>
           </form>
           <aside className="space-y-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
