@@ -67,6 +67,9 @@ import {
   EmployerBrandStory,
   EmployerBenefit,
   EmployeeJourneyProgram,
+  NetworkingSession,
+  NetworkingSessionSignup,
+  NetworkingBusinessCard,
   WorkspaceIntegration,
   WorkspaceCalendarConnection,
 } from '../models/index.js';
@@ -78,6 +81,7 @@ const CACHE_NAMESPACE = 'dashboard:company';
 const CACHE_TTL_SECONDS = 45;
 const MIN_LOOKBACK_DAYS = 7;
 const MAX_LOOKBACK_DAYS = 180;
+const NETWORKING_DEFAULT_PENALTY_RULES = { noShowThreshold: 2, cooldownDays: 14 };
 
 function clamp(value, { min, max, fallback }) {
   if (!Number.isFinite(Number(value))) {
@@ -4706,6 +4710,300 @@ async function listAvailableWorkspaces() {
   return workspaces.map((workspace) => workspace.get({ plain: true }));
 }
 
+async function fetchNetworkingSessionsForWorkspace({ workspaceId, since }) {
+  if (!workspaceId) {
+    return [];
+  }
+  const where = { companyId: workspaceId };
+  if (since) {
+    where.createdAt = { [Op.gte]: since };
+  }
+  return NetworkingSession.findAll({
+    where,
+    include: [{ model: NetworkingSessionSignup, as: 'signups' }],
+    order: [
+      ['startTime', 'ASC'],
+      ['createdAt', 'DESC'],
+    ],
+    limit: 200,
+  });
+}
+
+async function fetchNetworkingBusinessCardsForWorkspace({ workspaceId }) {
+  if (!workspaceId) {
+    return [];
+  }
+  return NetworkingBusinessCard.findAll({
+    where: { companyId: workspaceId },
+    order: [['updatedAt', 'DESC']],
+    limit: 200,
+  });
+}
+
+function buildNetworkingDashboard({ sessions, cards }) {
+  const now = Date.now();
+  const sessionSummaries = sessions.map((session) => {
+    const plain = session.toPublicObject();
+    const signups = Array.isArray(session.signups) ? session.signups : [];
+    const registered = signups.filter((signup) => signup.status === 'registered').length;
+    const waitlisted = signups.filter((signup) => signup.status === 'waitlisted').length;
+    const checkedIn = signups.filter((signup) => signup.status === 'checked_in').length;
+    const completed = signups.filter((signup) => signup.status === 'completed').length;
+    const noShows = signups.filter((signup) => signup.status === 'no_show').length;
+    const cardShares = signups.filter((signup) => signup.businessCardId != null).length;
+    const penalties = signups.filter((signup) => (signup.penaltyCount ?? 0) > 0).length;
+    const satisfactionScores = signups
+      .map((signup) => (signup.satisfactionScore == null ? null : Number(signup.satisfactionScore)))
+      .filter((score) => Number.isFinite(score));
+    const avgSatisfaction = satisfactionScores.length
+      ? Number((satisfactionScores.reduce((sum, score) => sum + score, 0) / satisfactionScores.length).toFixed(2))
+      : null;
+    const profileSharedCount = sumNumbers(signups.map((signup) => signup.profileSharedCount ?? 0));
+    const connectionsSaved = sumNumbers(signups.map((signup) => signup.connectionsSaved ?? 0));
+    const messagesSent = sumNumbers(signups.map((signup) => signup.messagesSent ?? 0));
+    const followUpsScheduled = sumNumbers(signups.map((signup) => signup.followUpsScheduled ?? 0));
+    const penaltyRules = normaliseMetadata(plain.penaltyRules ?? session.penaltyRules ?? {});
+
+    return {
+      ...plain,
+      metrics: {
+        registered,
+        waitlisted,
+        checkedIn,
+        completed,
+        noShows,
+        cardShares,
+        penalties,
+        profileSharedCount,
+        connectionsSaved,
+        messagesSent,
+        followUpsScheduled,
+        averageSatisfaction: avgSatisfaction,
+        penaltyRules,
+      },
+      upcoming: plain.startTime ? new Date(plain.startTime).getTime() > now : false,
+    };
+  });
+
+  const totals = sessionSummaries.reduce(
+    (acc, session) => {
+      const status = session.status;
+      if (status === 'in_progress') acc.active += 1;
+      if (status === 'scheduled' && session.upcoming) acc.upcoming += 1;
+      if (status === 'completed') acc.completed += 1;
+      if (status === 'draft') acc.draft += 1;
+      if (status === 'cancelled') acc.cancelled += 1;
+      acc.total += 1;
+      if (Number.isFinite(Number(session.joinLimit))) {
+        acc.joinLimits.push(Number(session.joinLimit));
+      }
+      if (Number.isFinite(Number(session.rotationDurationSeconds))) {
+        acc.rotationDurations.push(Number(session.rotationDurationSeconds));
+      }
+      const metrics = session.metrics;
+      acc.registered += metrics.registered;
+      acc.waitlist += metrics.waitlisted;
+      acc.checkedIn += metrics.checkedIn;
+      acc.completedAttendees += metrics.completed;
+      acc.noShows += metrics.noShows;
+      acc.profileShares += metrics.profileSharedCount;
+      acc.connectionsSaved += metrics.connectionsSaved;
+      acc.messagesSent += metrics.messagesSent;
+      acc.followUps += metrics.followUpsScheduled;
+      if (session.accessType === 'paid') {
+        acc.paidSessions += 1;
+        if (Number.isFinite(Number(session.priceCents))) {
+          const attendeeCount = metrics.checkedIn + metrics.completed;
+          acc.revenueCents += Number(session.priceCents) * Math.max(0, attendeeCount);
+          acc.pricePoints.push(Number(session.priceCents));
+        }
+      } else {
+        acc.freeSessions += 1;
+      }
+      if (Number.isFinite(metrics.averageSatisfaction)) {
+        acc.satisfactionScores.push(metrics.averageSatisfaction);
+      }
+      const telemetry = normaliseMetadata(session.videoTelemetry ?? {});
+      if (telemetry.qualityScore != null && Number.isFinite(Number(telemetry.qualityScore))) {
+        acc.videoQuality.push(Number(telemetry.qualityScore));
+      }
+      if (telemetry.announcements != null && Number.isFinite(Number(telemetry.announcements))) {
+        acc.hostAnnouncements += Number(telemetry.announcements);
+      }
+      if (telemetry.failoverRate != null && Number.isFinite(Number(telemetry.failoverRate))) {
+        acc.videoFailover.push(Number(telemetry.failoverRate));
+      }
+      const config = normaliseMetadata(session.videoConfig ?? {});
+      if (config.clientLoadShare != null && Number.isFinite(Number(config.clientLoadShare))) {
+        acc.browserLoadShare.push(Number(config.clientLoadShare));
+      }
+      acc.remindersSent += Number(session.metadata?.remindersSent ?? 0);
+      acc.searchDemand += Number(session.metadata?.searchInterest ?? 0);
+      acc.sponsorSlots += Number(session.monetization?.sponsorSlots ?? 0);
+      return acc;
+    },
+    {
+      total: 0,
+      active: 0,
+      upcoming: 0,
+      completed: 0,
+      draft: 0,
+      cancelled: 0,
+      joinLimits: [],
+      rotationDurations: [],
+      registered: 0,
+      waitlist: 0,
+      checkedIn: 0,
+      completedAttendees: 0,
+      noShows: 0,
+      profileShares: 0,
+      connectionsSaved: 0,
+      messagesSent: 0,
+      followUps: 0,
+      paidSessions: 0,
+      freeSessions: 0,
+      revenueCents: 0,
+      pricePoints: [],
+      satisfactionScores: [],
+      videoQuality: [],
+      hostAnnouncements: 0,
+      videoFailover: [],
+      browserLoadShare: [],
+      remindersSent: 0,
+      searchDemand: 0,
+      sponsorSlots: 0,
+    },
+  );
+
+  const cardsPlain = cards.map((card) => card.toPublicObject());
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const cardsUpdatedThisWeek = cardsPlain.filter((card) => {
+    const updatedAt = card.updatedAt ? new Date(card.updatedAt).getTime() : null;
+    return updatedAt != null && updatedAt >= sevenDaysAgo;
+  }).length;
+  const uniqueTags = new Set(cardsPlain.flatMap((card) => (Array.isArray(card.tags) ? card.tags : [])));
+  const cardShares = sessionSummaries.reduce((total, session) => total + session.metrics.cardShares, 0);
+
+  const averageJoinLimit = totals.joinLimits.length
+    ? Math.round(totals.joinLimits.reduce((sum, value) => sum + value, 0) / totals.joinLimits.length)
+    : null;
+  const averageRotationSeconds = totals.rotationDurations.length
+    ? Math.round(totals.rotationDurations.reduce((sum, value) => sum + value, 0) / totals.rotationDurations.length)
+    : null;
+  const averagePriceCents = totals.pricePoints.length
+    ? Math.round(totals.pricePoints.reduce((sum, value) => sum + value, 0) / totals.pricePoints.length)
+    : null;
+  const averageSatisfaction = totals.satisfactionScores.length
+    ? Number(
+        (
+          totals.satisfactionScores.reduce((sum, value) => sum + value, 0) /
+          totals.satisfactionScores.length
+        ).toFixed(2),
+      )
+    : null;
+  const averageVideoQuality = totals.videoQuality.length
+    ? Number((totals.videoQuality.reduce((sum, value) => sum + value, 0) / totals.videoQuality.length).toFixed(2))
+    : null;
+  const averageBrowserLoadShare = totals.browserLoadShare.length
+    ? Number(
+        (
+          totals.browserLoadShare.reduce((sum, value) => sum + value, 0) /
+          totals.browserLoadShare.length
+        ).toFixed(2),
+      )
+    : null;
+  const averageFailoverRate = totals.videoFailover.length
+    ? Number((totals.videoFailover.reduce((sum, value) => sum + value, 0) / totals.videoFailover.length).toFixed(3))
+    : null;
+
+  const totalSignups =
+    totals.registered + totals.checkedIn + totals.completedAttendees + totals.waitlist + totals.noShows;
+  const noShowRate = totalSignups > 0 ? Number(((totals.noShows / totalSignups) * 100).toFixed(1)) : null;
+
+  const featuredSession = sessionSummaries
+    .filter((session) => session.upcoming)
+    .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())[0] ??
+    sessionSummaries[0] ??
+    null;
+
+  return {
+    sessions: {
+      total: totals.total,
+      active: totals.active,
+      upcoming: totals.upcoming,
+      completed: totals.completed,
+      draft: totals.draft,
+      cancelled: totals.cancelled,
+      averageJoinLimit,
+      rotationDurationSeconds: averageRotationSeconds,
+      registered: totals.registered,
+      waitlist: totals.waitlist,
+      checkedIn: totals.checkedIn,
+      completedAttendees: totals.completedAttendees,
+      paid: totals.paidSessions,
+      free: totals.freeSessions,
+      revenueCents: totals.revenueCents,
+      averagePriceCents,
+      satisfactionAverage: averageSatisfaction,
+      list: sessionSummaries,
+    },
+    scheduling: {
+      preRegistrations: totals.registered + totals.checkedIn + totals.completedAttendees,
+      waitlist: totals.waitlist,
+      remindersSent: totals.remindersSent,
+      searches: totals.searchDemand,
+      sponsorSlots: totals.sponsorSlots,
+    },
+    monetization: {
+      paid: totals.paidSessions,
+      free: totals.freeSessions,
+      revenueCents: totals.revenueCents,
+      averagePriceCents,
+    },
+    penalties: {
+      noShowRate,
+      activePenalties: totals.noShows,
+      restrictedParticipants: sessionSummaries.reduce((count, session) => {
+        const threshold = Number(session.metrics.penaltyRules?.noShowThreshold ?? NETWORKING_DEFAULT_PENALTY_RULES.noShowThreshold);
+        const restricted = (session.signups ?? []).filter(
+          (signup) => (signup.penaltyCount ?? 0) >= threshold,
+        );
+        return count + restricted.length;
+      }, 0),
+      cooldownDays: sessionSummaries.reduce(
+        (max, session) => Math.max(max, Number(session.metrics.penaltyRules?.cooldownDays ?? 0)),
+        NETWORKING_DEFAULT_PENALTY_RULES.cooldownDays,
+      ),
+    },
+    attendeeExperience: {
+      profilesShared: totals.profileShares,
+      connectionsSaved: totals.connectionsSaved,
+      averageMessagesPerSession:
+        sessionSummaries.length > 0
+          ? Number(((totals.messagesSent || 0) / sessionSummaries.length).toFixed(1))
+          : 0,
+      followUpsScheduled: totals.followUps,
+    },
+    digitalBusinessCards: {
+      created: cardsPlain.length,
+      updatedThisWeek: cardsUpdatedThisWeek,
+      sharedInSession: cardShares,
+      templates: Math.max(3, uniqueTags.size || 0),
+    },
+    video: {
+      averageQualityScore: averageVideoQuality,
+      browserLoadShare: averageBrowserLoadShare,
+      hostAnnouncements: totals.hostAnnouncements,
+      failoverRate: averageFailoverRate,
+    },
+    showcase: {
+      featured: featuredSession,
+      librarySize: sessionSummaries.length,
+      cardsAvailable: cardsPlain.length,
+    },
+  };
+}
+
 export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookbackDays } = {}) {
   const selector = resolveWorkspaceSelector({ workspaceId, workspaceSlug });
   const lookback = clamp(lookbackDays, {
@@ -4782,6 +5080,8 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       employeeJourneys,
       workspaceIntegrations,
       calendarConnections,
+      networkingSessions,
+      networkingBusinessCards,
     ] = await Promise.all([
       fetchApplications({ workspaceId: workspace.id, since }),
       fetchJobs({ since }),
@@ -4848,6 +5148,8 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       fetchEmployeeJourneys({ workspaceId: workspace.id }),
       fetchWorkspaceIntegrations({ workspaceId: workspace.id }),
       fetchCalendarConnections({ workspaceId: workspace.id }),
+      fetchNetworkingSessionsForWorkspace({ workspaceId: workspace.id, since }),
+      fetchNetworkingBusinessCardsForWorkspace({ workspaceId: workspace.id }),
     ]);
 
     const applicationIds = applications.map((application) => application.id);
@@ -5031,6 +5333,10 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       journeys: plainEmployeeJourneys,
       memberSummary,
     });
+    const networking = buildNetworkingDashboard({
+      sessions: networkingSessions ?? [],
+      cards: networkingBusinessCards ?? [],
+    });
     const settingsGovernance = buildSettingsGovernanceDetails({
       governance,
       integrations: plainIntegrations,
@@ -5143,6 +5449,7 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       employerBrandWorkforce,
       governance,
       calendar: calendarDigest,
+      networking,
       brandAndPeople,
       reviews: {
         total: reviews.length,

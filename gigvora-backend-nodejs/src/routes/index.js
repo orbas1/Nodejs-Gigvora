@@ -29,6 +29,7 @@ import clientPortalRoutes from './clientPortalRoutes.js';
 import learningHubRoutes from './learningHubRoutes.js';
 import workspaceTemplateRoutes from './workspaceTemplateRoutes.js';
 import companyRoutes from './companyRoutes.js';
+import networkingRoutes from './networkingRoutes.js';
 
 const router = Router();
 
@@ -64,5 +65,6 @@ router.use('/learning-hub', learningHubRoutes);
 router.use('/workspace-templates', workspaceTemplateRoutes);
 router.use('/company', companyRoutes);
 router.use('/ads', adRoutes);
+router.use('/networking', networkingRoutes);
 
 export default router;
