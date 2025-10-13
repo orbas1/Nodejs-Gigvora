@@ -9,6 +9,20 @@ import {
   ClockIcon,
   EnvelopeOpenIcon,
   LightBulbIcon,
+  BookOpenIcon,
+  HeartIcon,
+  BoltIcon,
+  ClipboardDocumentCheckIcon,
+  DocumentTextIcon,
+  GlobeAmericasIcon,
+  ShareIcon,
+  ShieldCheckIcon,
+  SparklesIcon,
+  UserGroupIcon,
+  MagnifyingGlassCircleIcon,
+  MapIcon,
+  ChartPieIcon,
+  BeakerIcon,
   MapIcon,
   MegaphoneIcon,
   PaperAirplaneIcon,
@@ -200,6 +214,19 @@ function StageBreakdownTable({ stages = [], currency }) {
     );
   }
 
+  const cleanStart = start ? start.toString().slice(0, 5) : null;
+  const cleanEnd = end ? end.toString().slice(0, 5) : null;
+  if (cleanStart && cleanEnd) {
+    return `${cleanStart} – ${cleanEnd} ${timezone ?? 'UTC'}`;
+  }
+  return cleanStart ?? cleanEnd ?? '—';
+}
+
+function formatCompRange(comp, fallbackCurrency = 'USD') {
+  if (!comp) return '—';
+  const currency = comp.currency ?? fallbackCurrency;
+  if (comp.min != null && comp.max != null) {
+    return `${formatCurrency(comp.min, currency)} – ${formatCurrency(comp.max, currency)}`;
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200">
       <table className="min-w-full divide-y divide-slate-200 text-sm">
