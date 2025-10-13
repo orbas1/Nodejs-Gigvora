@@ -18,3 +18,6 @@ export { default as profileAnalyticsService } from './profileAnalyticsService.js
 export { default as headhunterService } from './headhunterService.js';
 export { default as userDashboardService } from './userDashboardService.js';
 export { default as freelancerProfileHubService } from './freelancerProfileHubService.js';
+export { default as gigManagerService } from './gigManagerService.js';
+export { default as workspaceTemplateService } from './workspaceTemplateService.js';
+export { default as companyDashboardService } from './companyDashboardService.js';
