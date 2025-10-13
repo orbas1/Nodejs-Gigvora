@@ -8694,8 +8694,6 @@ export const HeadhunterPassOnShare = sequelize.define(
   },
 );
 
-AutoAssignQueueEntry.prototype.toPublicObject = function toPublicObject() {
-FinanceForecastScenario.prototype.toPublicObject = function toPublicObject() {
 EscrowTransaction.prototype.toPublicObject = function toPublicObject() {
   const plain = this.get({ plain: true });
   return {
@@ -13030,7 +13028,6 @@ export const PipelineFollowUp = sequelize.define(
   },
 );
 
-AutoAssignQueueEntry.prototype.toPublicObject = function toPublicObject() {
 FinanceForecastScenario.prototype.toPublicObject = function toPublicObject() {
   const plain = this.get({ plain: true });
   return {

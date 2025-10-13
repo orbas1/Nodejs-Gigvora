@@ -107,6 +107,13 @@ describe('discoveryService', () => {
       budget: '$4,500',
       category: 'gig',
     });
-    expect(projects.items[0]).toMatchObject({ status: 'Planning', category: 'project' });
+    expect(projects.items[0]).toMatchObject({
+      status: 'Planning',
+      category: 'project',
+      autoAssignEnabled: false,
+      autoAssignStatus: 'inactive',
+      autoAssignLastQueueSize: null,
+    });
+    expect(projects.items[0].autoAssignSettings).toBeNull();
   });
 });

@@ -610,6 +610,11 @@ export function toOpportunityDto(record, category) {
         ...base,
         status: plain.status ?? null,
         isRemote: geo?.isRemote ?? isRemoteRole(plain.location, plain.description),
+        autoAssignEnabled: Boolean(plain.autoAssignEnabled),
+        autoAssignStatus: plain.autoAssignStatus ?? null,
+        autoAssignLastQueueSize: plain.autoAssignLastQueueSize ?? null,
+        autoAssignLastRunAt: plain.autoAssignLastRunAt ?? null,
+        autoAssignSettings: plain.autoAssignSettings ?? null,
       };
     case 'launchpad':
       return {
