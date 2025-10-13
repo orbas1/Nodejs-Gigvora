@@ -16,6 +16,7 @@ import '../features/marketplace/presentation/launchpad_screen.dart';
 import '../features/marketplace/presentation/volunteering_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/admin/presentation/admin_login_screen.dart';
+import '../features/ads/presentation/ads_dashboard_screen.dart';
 import '../features/notifications/presentation/notifications_screen.dart';
 import '../features/messaging/presentation/inbox_screen.dart';
 import '../features/services/presentation/service_operations_screen.dart';
@@ -60,6 +61,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(path: '/admin', builder: (context, state) => const AdminLoginScreen()),
+      GoRoute(path: '/admin/ads', builder: (context, state) => const AdsDashboardScreen()),
     ],
   );
 });

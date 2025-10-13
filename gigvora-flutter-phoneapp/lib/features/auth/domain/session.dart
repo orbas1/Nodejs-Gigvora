@@ -86,7 +86,7 @@ class UserSession {
       email: 'lena.fields@gigvora.com',
       location: 'Berlin, Germany',
       avatarSeed: 'Lena Fields',
-      memberships: const ['user', 'freelancer', 'agency'],
+      memberships: const ['user', 'freelancer', 'agency', 'admin'],
       activeMembership: 'user',
       followers: 1280,
       connections: 324,
@@ -242,6 +242,47 @@ class UserSession {
           actions: [
             DashboardAction(label: 'Kick off partner retro', description: 'Review shared wins with Atlas Studios leadership.'),
             DashboardAction(label: 'Update availability matrix', description: 'Sync talent roster before Monday planning.'),
+          ],
+        ),
+        'admin': RoleDashboard(
+          role: 'admin',
+          heroTitle: 'Admin control tower',
+          heroSubtitle: 'Monitor trust, campaign coverage, and monetisation signals.',
+          metrics: [
+            DashboardMetric(label: 'Live campaigns', value: '24', trend: '▲ 3 this week'),
+            DashboardMetric(label: 'Active disputes', value: '6', trend: '▼ improving'),
+            DashboardMetric(label: 'Escrow volume', value: '1.8M USD', trend: '↑ strong'),
+            DashboardMetric(label: 'Support backlog', value: '12', trend: '→ steady'),
+          ],
+          sections: [
+            DashboardSection(
+              title: 'Trust & operations',
+              subtitle: 'Keep disputes, compliance, and support SLAs on track.',
+              highlights: [
+                'Escrow release queue cleared ahead of payroll batches.',
+                'Compliance alerts down 14% after verification sprint.',
+                'Support first-response holding at 8 minutes network-wide.',
+              ],
+              icon: Icons.shield_moon_outlined,
+              accentColor: Color(0xFF2563EB),
+            ),
+            DashboardSection(
+              title: 'Gigvora ads',
+              subtitle: 'Review surface coverage, targeting gaps, and creative freshness.',
+              highlights: [
+                'Global dashboard coverage at 96% with fresh hero video.',
+                'Company portals need two new creatives for onboarding runs.',
+                'Volunteer hub placements scored 4.6 quality rating.',
+              ],
+              icon: Icons.campaign_outlined,
+              accentColor: Color(0xFF1E3A8A),
+            ),
+          ],
+          actions: const [
+            DashboardAction(
+              label: 'Open Gigvora Ads console',
+              description: 'Review placements, targeting telemetry, and recommendations.',
+            ),
           ],
         ),
       },
