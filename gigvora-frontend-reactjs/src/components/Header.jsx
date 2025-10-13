@@ -16,6 +16,7 @@ import { DASHBOARD_LINKS } from '../constants/dashboardLinks.js';
 import useSession from '../hooks/useSession.js';
 import useNotificationCenter from '../hooks/useNotificationCenter.js';
 import { formatRelativeTime } from '../utils/date.js';
+import { hasFinanceOperationsAccess } from '../utils/permissions.js';
 
 const AUTHENTICATED_NAV_LINKS = [
   { to: '/feed', label: 'Live Feed' },
@@ -248,6 +249,8 @@ export default function Header() {
     return membershipLabels[0] ?? session?.title ?? null;
   }, [isAuthenticated, membershipLabels, session?.title]);
 
+  const financeAccess = useMemo(() => hasFinanceOperationsAccess(session), [session]);
+
   const navClassName = ({ isActive }) =>
     `relative px-3 py-2 text-sm font-semibold transition-colors ${
       isActive ? 'text-accent' : 'text-slate-500 hover:text-slate-900'
@@ -298,32 +301,36 @@ export default function Header() {
               </Link>
             )}
           </Menu.Item>
-          <Menu.Item>
-            {({ active }) => (
-              <Link
-                to="/finance"
-                className={classNames(
-                  'flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium transition',
-                  active ? 'bg-accentSoft text-accent' : 'text-slate-600',
+          {financeAccess ? (
+            <>
+              <Menu.Item>
+                {({ active }) => (
+                  <Link
+                    to="/finance"
+                    className={classNames(
+                      'flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium transition',
+                      active ? 'bg-accentSoft text-accent' : 'text-slate-600',
+                    )}
+                  >
+                    Financial hub
+                  </Link>
                 )}
-              >
-                Financial hub
-              </Link>
-            )}
-          </Menu.Item>
-          <Menu.Item>
-            {({ active }) => (
-              <Link
-                to="/trust-center"
-                className={classNames(
-                  'flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium transition',
-                  active ? 'bg-accentSoft text-accent' : 'text-slate-600',
+              </Menu.Item>
+              <Menu.Item>
+                {({ active }) => (
+                  <Link
+                    to="/trust-center"
+                    className={classNames(
+                      'flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium transition',
+                      active ? 'bg-accentSoft text-accent' : 'text-slate-600',
+                    )}
+                  >
+                    Trust centre
+                  </Link>
                 )}
-              >
-                Trust centre
-              </Link>
-            )}
-          </Menu.Item>
+              </Menu.Item>
+            </>
+          ) : null}
           <Menu.Item>
             {({ active }) => (
               <a
