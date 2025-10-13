@@ -2,6 +2,8 @@ const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:400
 const DEFAULT_CACHE_TTL = 1000 * 60 * 2; // two minutes
 const CACHE_NAMESPACE = 'gigvora:web:cache:';
 const AUTH_TOKEN_KEY = 'gigvora:web:auth:accessToken';
+const REFRESH_TOKEN_KEY = 'gigvora:web:auth:refreshToken';
+const ACCESS_TOKEN_EXPIRY_KEY = 'gigvora:web:auth:accessTokenExpiresAt';
 
 class ApiError extends Error {
   constructor(message, status, body) {
@@ -140,6 +142,48 @@ function removeCache(key) {
   }
 }
 
+function setAuthTokens({ accessToken, refreshToken, expiresAt } = {}) {
+  if (!storage) {
+    return;
+  }
+  try {
+    if (accessToken) {
+      storage.setItem(AUTH_TOKEN_KEY, accessToken);
+    } else {
+      storage.removeItem(AUTH_TOKEN_KEY);
+    }
+
+    if (refreshToken) {
+      storage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+    } else {
+      storage.removeItem(REFRESH_TOKEN_KEY);
+    }
+
+    if (expiresAt) {
+      storage.setItem(ACCESS_TOKEN_EXPIRY_KEY, expiresAt);
+    } else {
+      storage.removeItem(ACCESS_TOKEN_EXPIRY_KEY);
+    }
+  } catch (error) {
+    console.warn('Failed to persist auth tokens', error);
+  }
+}
+
+function getAuthTokens() {
+  if (!storage) {
+    return { accessToken: null, refreshToken: null, expiresAt: null };
+  }
+  return {
+    accessToken: storage.getItem(AUTH_TOKEN_KEY),
+    refreshToken: storage.getItem(REFRESH_TOKEN_KEY),
+    expiresAt: storage.getItem(ACCESS_TOKEN_EXPIRY_KEY),
+  };
+}
+
+function clearAuthTokens() {
+  setAuthTokens({});
+}
+
 export const apiClient = {
   get: (path, options) => request('GET', path, options),
   post: (path, body, options) => request('POST', path, { ...options, body }),
@@ -151,6 +195,9 @@ export const apiClient = {
   removeCache,
   ApiError,
   API_BASE_URL,
+  setAuthTokens,
+  clearAuthTokens,
+  getAuthTokens,
 };
 
 export default apiClient;
