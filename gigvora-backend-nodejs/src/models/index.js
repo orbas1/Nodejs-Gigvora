@@ -1,12 +1,10 @@
 import { Sequelize, DataTypes, Op } from 'sequelize';
 import databaseConfig from '../config/database.js';
 import { buildLocationDetails } from '../utils/location.js';
+import { DataTypes, Op } from 'sequelize';
+import sequelize from './sequelizeClient.js';
 
-const { url: databaseUrl, ...sequelizeOptions } = databaseConfig;
-
-export const sequelize = databaseUrl
-  ? new Sequelize(databaseUrl, sequelizeOptions)
-  : new Sequelize(sequelizeOptions);
+export { sequelize } from './sequelizeClient.js';
 
 const dialect = sequelize.getDialect();
 const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB : DataTypes.JSON;
@@ -76,8 +74,6 @@ export const GIG_MILESTONE_STATUSES = ['planned', 'in_progress', 'waiting_on_cli
 export const GIG_BUNDLE_STATUSES = ['draft', 'testing', 'live', 'retired'];
 export const GIG_UPSELL_STATUSES = ['draft', 'pilot', 'running', 'paused', 'retired'];
 export const GIG_CATALOG_STATUSES = ['draft', 'published', 'archived'];
-export const GIG_MEDIA_TYPES = ['image', 'video', 'document'];
-export const GIG_PREVIEW_DEVICE_TYPES = ['desktop', 'tablet', 'mobile'];
 export const MESSAGE_CHANNEL_TYPES = ['support', 'project', 'contract', 'group', 'direct'];
 export const MESSAGE_THREAD_STATES = ['active', 'archived', 'locked'];
 export const MESSAGE_TYPES = ['text', 'file', 'system', 'event'];
@@ -203,6 +199,14 @@ export const DISPUTE_ACTION_TYPES = [
 ];
 export const DISPUTE_ACTOR_TYPES = ['customer', 'provider', 'mediator', 'admin', 'system'];
 
+export const NETWORKING_SESSION_STATUSES = ['draft', 'scheduled', 'in_progress', 'completed', 'cancelled', 'archived'];
+export const NETWORKING_SESSION_ACCESS_TYPES = ['free', 'paid', 'invite_only'];
+export const NETWORKING_SESSION_VISIBILITIES = ['private', 'workspace', 'public'];
+export const NETWORKING_SESSION_SIGNUP_STATUSES = ['registered', 'waitlisted', 'checked_in', 'no_show', 'removed', 'completed'];
+export const NETWORKING_SESSION_SIGNUP_SOURCES = ['self', 'host', 'admin', 'import'];
+export const NETWORKING_BUSINESS_CARD_STATUSES = ['draft', 'published', 'archived'];
+export const NETWORKING_ROTATION_STATUSES = ['scheduled', 'in_progress', 'completed', 'cancelled'];
+
 export const OPPORTUNITY_TAXONOMY_TYPES = ['job', 'gig', 'freelance', 'volunteering', 'launchpad'];
 export const AD_TYPES = ['video', 'display', 'text'];
 export const AD_STATUSES = ['draft', 'scheduled', 'active', 'paused', 'expired'];
@@ -249,6 +253,18 @@ export const GIG_ORDER_REQUIREMENT_FORM_STATUSES = [
   'archived',
 ];
 export const GIG_ORDER_REVISION_LIFECYCLE_STATUSES = [
+  'requested',
+  'open',
+  'in_progress',
+  'awaiting_client',
+  'submitted',
+  'approved',
+  'rejected',
+  'declined',
+  'completed',
+  'cancelled',
+  'archived',
+];
 export const GIG_ORDER_REVISION_STATUSES = [
   'requested',
   'open',
@@ -517,9 +533,6 @@ export const DELIVERABLE_RETENTION_POLICIES = [
 
 export const GIG_PREVIEW_STATUSES = ['draft', 'preview', 'published', 'archived'];
 export const GIG_BUILDER_STATUSES = ['draft', 'preview', 'published', 'archived'];
-export const GIG_MEDIA_TYPES = ['image', 'video', 'document'];
-export const GIG_PREVIEW_DEVICE_TYPES = ['desktop', 'tablet', 'mobile'];
-
 export const FINANCE_REVENUE_TYPES = ['retainer', 'one_off', 'passive', 'royalty', 'product', 'other'];
 export const FINANCE_REVENUE_STATUSES = ['draft', 'issued', 'pending_payment', 'paid', 'recognized', 'voided'];
 export const FINANCE_EXPENSE_STATUSES = ['pending', 'posted', 'reimbursed', 'excluded'];
@@ -2144,6 +2157,8 @@ export const ClientSuccessPlaybook = sequelize.define(
     isActive: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
     tags: { type: jsonType, allowNull: true },
     metadata: { type: jsonType, allowNull: true },
+    permissions: { type: jsonType, allowNull: true },
+    watermarkSettings: { type: jsonType, allowNull: true },
   },
   { tableName: 'client_success_playbooks' },
 );
@@ -3295,6 +3310,24 @@ GigCatalogItem.prototype.toPublicObject = function toPublicObject() {
 };
 export const WORKSPACE_STATUSES = ['briefing', 'active', 'blocked', 'completed'];
 export const WORKSPACE_RISK_LEVELS = ['low', 'moderate', 'high', 'critical'];
+
+export const PROJECT_MILESTONE_STATUSES = ['planned', 'in_progress', 'at_risk', 'blocked', 'completed'];
+export const PROJECT_COLLABORATOR_STATUSES = ['invited', 'active', 'observer', 'removed'];
+export const PROJECT_COLLABORATOR_ROLES = [
+  'owner',
+  'project_manager',
+  'mentor',
+  'freelancer',
+  'client_sponsor',
+  'stakeholder',
+  'viewer',
+];
+export const PROJECT_INTEGRATION_PROVIDERS = ['github', 'notion', 'figma', 'google_drive', 'slack'];
+export const PROJECT_INTEGRATION_STATUSES = ['connected', 'syncing', 'error', 'disconnected', 'pending'];
+export const PROJECT_TEMPLATE_CATEGORIES = ['hackathon', 'bootcamp', 'consulting', 'product_launch', 'volunteering'];
+export const PROJECT_RETROSPECTIVE_THEMES = ['wins', 'risks', 'actions', 'metrics'];
+
+export const VENDOR_RISK_LEVELS = ['low', 'moderate', 'high', 'critical'];
 export const WORKSPACE_WHITEBOARD_STATUSES = ['active', 'pending_review', 'archived'];
 export const WORKSPACE_CONVERSATION_PRIORITIES = ['low', 'normal', 'high', 'urgent'];
 export const WORKSPACE_APPROVAL_STATUSES = ['pending', 'in_review', 'approved', 'changes_requested', 'rejected'];
@@ -3689,6 +3722,8 @@ ProjectWorkspaceFile.prototype.toPublicObject = function toPublicObject() {
     checksum: plain.checksum,
     tags: Array.isArray(plain.tags) ? plain.tags : [],
     metadata: plain.metadata ?? null,
+    permissions: plain.permissions ?? null,
+    watermarkSettings: plain.watermarkSettings ?? null,
     uploadedById: plain.uploadedById,
     uploadedAt: plain.uploadedAt,
     createdAt: plain.createdAt,
@@ -3792,6 +3827,244 @@ ProjectOperationalSnapshot.prototype.toPublicObject = function toPublicObject() 
     riskLevel: plain.riskLevel,
     issuesOpen: Number(plain.issuesOpen ?? 0),
     notes: plain.notes,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ProjectMilestone = sequelize.define(
+  'ProjectMilestone',
+  {
+    projectId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...PROJECT_MILESTONE_STATUSES),
+      allowNull: false,
+      defaultValue: 'planned',
+      validate: { isIn: [PROJECT_MILESTONE_STATUSES] },
+    },
+    ordinal: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
+    startDate: { type: DataTypes.DATE, allowNull: true },
+    dueDate: { type: DataTypes.DATE, allowNull: true },
+    completedAt: { type: DataTypes.DATE, allowNull: true },
+    budgetAllocated: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    budgetSpent: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    effortPlannedHours: { type: DataTypes.DECIMAL(6, 2), allowNull: true },
+    effortLoggedMinutes: { type: DataTypes.INTEGER, allowNull: true },
+    successCriteria: { type: jsonType, allowNull: true },
+    deliverables: { type: jsonType, allowNull: true },
+    impactMetrics: { type: jsonType, allowNull: true },
+    ownerId: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  { tableName: 'project_milestones' },
+);
+
+ProjectMilestone.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    projectId: plain.projectId,
+    title: plain.title,
+    description: plain.description,
+    status: plain.status,
+    ordinal: plain.ordinal,
+    startDate: plain.startDate,
+    dueDate: plain.dueDate,
+    completedAt: plain.completedAt,
+    budgetAllocated: plain.budgetAllocated == null ? null : Number(plain.budgetAllocated),
+    budgetSpent: plain.budgetSpent == null ? null : Number(plain.budgetSpent),
+    effortPlannedHours: plain.effortPlannedHours == null ? null : Number(plain.effortPlannedHours),
+    effortLoggedMinutes: plain.effortLoggedMinutes == null ? null : Number(plain.effortLoggedMinutes),
+    successCriteria: plain.successCriteria ?? null,
+    deliverables: plain.deliverables ?? null,
+    impactMetrics: plain.impactMetrics ?? null,
+    ownerId: plain.ownerId,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ProjectCollaborator = sequelize.define(
+  'ProjectCollaborator',
+  {
+    projectId: { type: DataTypes.INTEGER, allowNull: false },
+    userId: { type: DataTypes.INTEGER, allowNull: true },
+    invitedById: { type: DataTypes.INTEGER, allowNull: true },
+    email: { type: DataTypes.STRING(180), allowNull: true },
+    name: { type: DataTypes.STRING(180), allowNull: true },
+    role: {
+      type: DataTypes.ENUM(...PROJECT_COLLABORATOR_ROLES),
+      allowNull: false,
+      defaultValue: 'viewer',
+      validate: { isIn: [PROJECT_COLLABORATOR_ROLES] },
+    },
+    status: {
+      type: DataTypes.ENUM(...PROJECT_COLLABORATOR_STATUSES),
+      allowNull: false,
+      defaultValue: 'invited',
+      validate: { isIn: [PROJECT_COLLABORATOR_STATUSES] },
+    },
+    permissions: { type: jsonType, allowNull: true },
+    responsibility: { type: DataTypes.STRING(255), allowNull: true },
+    invitedAt: { type: DataTypes.DATE, allowNull: true },
+    joinedAt: { type: DataTypes.DATE, allowNull: true },
+    lastEngagedAt: { type: DataTypes.DATE, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  { tableName: 'project_collaborators' },
+);
+
+ProjectCollaborator.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    projectId: plain.projectId,
+    userId: plain.userId,
+    invitedById: plain.invitedById,
+    email: plain.email,
+    name: plain.name,
+    role: plain.role,
+    status: plain.status,
+    permissions: plain.permissions ?? null,
+    responsibility: plain.responsibility,
+    invitedAt: plain.invitedAt,
+    joinedAt: plain.joinedAt,
+    lastEngagedAt: plain.lastEngagedAt,
+    notes: plain.notes,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ProjectTemplate = sequelize.define(
+  'ProjectTemplate',
+  {
+    name: { type: DataTypes.STRING(255), allowNull: false },
+    category: {
+      type: DataTypes.ENUM(...PROJECT_TEMPLATE_CATEGORIES),
+      allowNull: false,
+      defaultValue: 'consulting',
+      validate: { isIn: [PROJECT_TEMPLATE_CATEGORIES] },
+    },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    audience: { type: DataTypes.STRING(180), allowNull: true },
+    durationWeeks: { type: DataTypes.INTEGER, allowNull: true },
+    recommendedUseCases: { type: jsonType, allowNull: true },
+    deliverables: { type: jsonType, allowNull: true },
+    metricsFocus: { type: jsonType, allowNull: true },
+    automationPlaybooks: { type: jsonType, allowNull: true },
+    integrations: { type: jsonType, allowNull: true },
+    budgetRange: { type: jsonType, allowNull: true },
+    toolkit: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    isFeatured: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+  },
+  { tableName: 'project_templates' },
+);
+
+ProjectTemplate.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    name: plain.name,
+    category: plain.category,
+    description: plain.description,
+    summary: plain.summary,
+    audience: plain.audience,
+    durationWeeks: plain.durationWeeks,
+    recommendedUseCases: plain.recommendedUseCases ?? [],
+    deliverables: plain.deliverables ?? [],
+    metricsFocus: plain.metricsFocus ?? [],
+    automationPlaybooks: plain.automationPlaybooks ?? [],
+    integrations: plain.integrations ?? [],
+    budgetRange: plain.budgetRange ?? null,
+    toolkit: plain.toolkit ?? [],
+    metadata: plain.metadata ?? null,
+    isFeatured: Boolean(plain.isFeatured),
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ProjectIntegration = sequelize.define(
+  'ProjectIntegration',
+  {
+    projectId: { type: DataTypes.INTEGER, allowNull: false },
+    provider: {
+      type: DataTypes.ENUM(...PROJECT_INTEGRATION_PROVIDERS),
+      allowNull: false,
+      defaultValue: 'github',
+      validate: { isIn: [PROJECT_INTEGRATION_PROVIDERS] },
+    },
+    status: {
+      type: DataTypes.ENUM(...PROJECT_INTEGRATION_STATUSES),
+      allowNull: false,
+      defaultValue: 'connected',
+      validate: { isIn: [PROJECT_INTEGRATION_STATUSES] },
+    },
+    externalId: { type: DataTypes.STRING(255), allowNull: true },
+    connectedById: { type: DataTypes.INTEGER, allowNull: true },
+    connectedAt: { type: DataTypes.DATE, allowNull: true },
+    lastSyncedAt: { type: DataTypes.DATE, allowNull: true },
+    syncFrequencyMinutes: { type: DataTypes.INTEGER, allowNull: true },
+    syncLagMinutes: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'project_integrations' },
+);
+
+ProjectIntegration.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    projectId: plain.projectId,
+    provider: plain.provider,
+    status: plain.status,
+    externalId: plain.externalId,
+    connectedById: plain.connectedById,
+    connectedAt: plain.connectedAt,
+    lastSyncedAt: plain.lastSyncedAt,
+    syncFrequencyMinutes: plain.syncFrequencyMinutes == null ? null : Number(plain.syncFrequencyMinutes),
+    syncLagMinutes: plain.syncLagMinutes == null ? null : Number(plain.syncLagMinutes),
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ProjectRetrospective = sequelize.define(
+  'ProjectRetrospective',
+  {
+    projectId: { type: DataTypes.INTEGER, allowNull: false },
+    milestoneId: { type: DataTypes.INTEGER, allowNull: true },
+    authoredById: { type: DataTypes.INTEGER, allowNull: true },
+    summary: { type: DataTypes.TEXT, allowNull: false },
+    highlights: { type: jsonType, allowNull: true },
+    risks: { type: jsonType, allowNull: true },
+    actions: { type: jsonType, allowNull: true },
+    sentimentScore: { type: DataTypes.DECIMAL(4, 2), allowNull: true },
+    generatedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'project_retrospectives' },
+);
+
+ProjectRetrospective.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    projectId: plain.projectId,
+    milestoneId: plain.milestoneId,
+    authoredById: plain.authoredById,
+    summary: plain.summary,
+    highlights: plain.highlights ?? [],
+    risks: plain.risks ?? [],
+    actions: plain.actions ?? [],
+    sentimentScore: plain.sentimentScore == null ? null : Number(plain.sentimentScore),
+    generatedAt: plain.generatedAt,
     metadata: plain.metadata ?? null,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
@@ -4889,6 +5162,275 @@ ExperienceLaunchpadOpportunityLink.prototype.toPublicObject = function toPublicO
     source: plain.source,
     createdById: plain.createdById,
     notes: plain.notes,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const NetworkingSession = sequelize.define(
+  'NetworkingSession',
+  {
+    companyId: { type: DataTypes.INTEGER, allowNull: false },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    slug: { type: DataTypes.STRING(255), allowNull: false, unique: true },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...NETWORKING_SESSION_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [NETWORKING_SESSION_STATUSES] },
+    },
+    visibility: {
+      type: DataTypes.ENUM(...NETWORKING_SESSION_VISIBILITIES),
+      allowNull: false,
+      defaultValue: 'workspace',
+      validate: { isIn: [NETWORKING_SESSION_VISIBILITIES] },
+    },
+    format: { type: DataTypes.STRING(80), allowNull: false, defaultValue: 'speed_networking' },
+    accessType: {
+      type: DataTypes.ENUM(...NETWORKING_SESSION_ACCESS_TYPES),
+      allowNull: false,
+      defaultValue: 'free',
+      validate: { isIn: [NETWORKING_SESSION_ACCESS_TYPES] },
+    },
+    priceCents: { type: DataTypes.INTEGER, allowNull: true },
+    currency: { type: DataTypes.STRING(3), allowNull: true },
+    startTime: { type: DataTypes.DATE, allowNull: true },
+    endTime: { type: DataTypes.DATE, allowNull: true },
+    sessionLengthMinutes: { type: DataTypes.INTEGER, allowNull: true },
+    rotationDurationSeconds: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 120 },
+    joinLimit: { type: DataTypes.INTEGER, allowNull: true },
+    waitlistLimit: { type: DataTypes.INTEGER, allowNull: true },
+    registrationOpensAt: { type: DataTypes.DATE, allowNull: true },
+    registrationClosesAt: { type: DataTypes.DATE, allowNull: true },
+    requiresApproval: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    lobbyInstructions: { type: DataTypes.TEXT, allowNull: true },
+    followUpActions: { type: jsonType, allowNull: true },
+    hostControls: { type: jsonType, allowNull: true },
+    attendeeTools: { type: jsonType, allowNull: true },
+    penaltyRules: { type: jsonType, allowNull: true },
+    monetization: { type: jsonType, allowNull: true },
+    videoConfig: { type: jsonType, allowNull: true },
+    videoTelemetry: { type: jsonType, allowNull: true },
+    showcaseConfig: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    publishedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  { tableName: 'networking_sessions' },
+);
+
+NetworkingSession.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    companyId: plain.companyId,
+    createdById: plain.createdById,
+    updatedById: plain.updatedById,
+    title: plain.title,
+    slug: plain.slug,
+    description: plain.description,
+    status: plain.status,
+    visibility: plain.visibility,
+    format: plain.format,
+    accessType: plain.accessType,
+    priceCents: plain.priceCents == null ? null : Number(plain.priceCents),
+    currency: plain.currency,
+    startTime: plain.startTime,
+    endTime: plain.endTime,
+    sessionLengthMinutes: plain.sessionLengthMinutes,
+    rotationDurationSeconds: plain.rotationDurationSeconds,
+    joinLimit: plain.joinLimit,
+    waitlistLimit: plain.waitlistLimit,
+    registrationOpensAt: plain.registrationOpensAt,
+    registrationClosesAt: plain.registrationClosesAt,
+    requiresApproval: plain.requiresApproval,
+    lobbyInstructions: plain.lobbyInstructions,
+    followUpActions: plain.followUpActions ?? {},
+    hostControls: plain.hostControls ?? {},
+    attendeeTools: plain.attendeeTools ?? {},
+    penaltyRules: plain.penaltyRules ?? {},
+    monetization: plain.monetization ?? {},
+    videoConfig: plain.videoConfig ?? {},
+    videoTelemetry: plain.videoTelemetry ?? {},
+    showcaseConfig: plain.showcaseConfig ?? {},
+    metadata: plain.metadata ?? {},
+    publishedAt: plain.publishedAt,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const NetworkingSessionRotation = sequelize.define(
+  'NetworkingSessionRotation',
+  {
+    sessionId: { type: DataTypes.INTEGER, allowNull: false },
+    rotationNumber: { type: DataTypes.INTEGER, allowNull: false },
+    startTime: { type: DataTypes.DATE, allowNull: true },
+    endTime: { type: DataTypes.DATE, allowNull: true },
+    durationSeconds: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 120 },
+    status: {
+      type: DataTypes.ENUM(...NETWORKING_ROTATION_STATUSES),
+      allowNull: false,
+      defaultValue: 'scheduled',
+      validate: { isIn: [NETWORKING_ROTATION_STATUSES] },
+    },
+    pairingSeed: { type: DataTypes.STRING(64), allowNull: true },
+    seatingPlan: { type: jsonType, allowNull: true },
+    hostNotes: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'networking_session_rotations' },
+);
+
+NetworkingSessionRotation.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    sessionId: plain.sessionId,
+    rotationNumber: plain.rotationNumber,
+    startTime: plain.startTime,
+    endTime: plain.endTime,
+    durationSeconds: plain.durationSeconds,
+    status: plain.status,
+    pairingSeed: plain.pairingSeed,
+    seatingPlan: plain.seatingPlan ?? {},
+    hostNotes: plain.hostNotes,
+    metadata: plain.metadata ?? {},
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const NetworkingSessionSignup = sequelize.define(
+  'NetworkingSessionSignup',
+  {
+    sessionId: { type: DataTypes.INTEGER, allowNull: false },
+    participantId: { type: DataTypes.INTEGER, allowNull: true },
+    participantEmail: { type: DataTypes.STRING(255), allowNull: false, validate: { isEmail: true } },
+    participantName: { type: DataTypes.STRING(255), allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...NETWORKING_SESSION_SIGNUP_STATUSES),
+      allowNull: false,
+      defaultValue: 'registered',
+      validate: { isIn: [NETWORKING_SESSION_SIGNUP_STATUSES] },
+    },
+    source: {
+      type: DataTypes.ENUM(...NETWORKING_SESSION_SIGNUP_SOURCES),
+      allowNull: false,
+      defaultValue: 'self',
+      validate: { isIn: [NETWORKING_SESSION_SIGNUP_SOURCES] },
+    },
+    seatNumber: { type: DataTypes.INTEGER, allowNull: true },
+    joinUrl: { type: DataTypes.STRING(500), allowNull: true },
+    videoSessionId: { type: DataTypes.STRING(255), allowNull: true },
+    checkedInAt: { type: DataTypes.DATE, allowNull: true },
+    completedAt: { type: DataTypes.DATE, allowNull: true },
+    noShowCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    penaltyCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    lastPenaltyAt: { type: DataTypes.DATE, allowNull: true },
+    profileSharedCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    connectionsSaved: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    messagesSent: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    followUpsScheduled: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    satisfactionScore: { type: DataTypes.DECIMAL(4, 2), allowNull: true },
+    feedbackNotes: { type: DataTypes.TEXT, allowNull: true },
+    businessCardId: { type: DataTypes.INTEGER, allowNull: true },
+    businessCardSnapshot: { type: jsonType, allowNull: true },
+    profileSnapshot: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'networking_session_signups' },
+);
+
+NetworkingSessionSignup.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    sessionId: plain.sessionId,
+    participantId: plain.participantId,
+    participantEmail: plain.participantEmail,
+    participantName: plain.participantName,
+    status: plain.status,
+    source: plain.source,
+    seatNumber: plain.seatNumber,
+    joinUrl: plain.joinUrl,
+    videoSessionId: plain.videoSessionId,
+    checkedInAt: plain.checkedInAt,
+    completedAt: plain.completedAt,
+    noShowCount: plain.noShowCount,
+    penaltyCount: plain.penaltyCount,
+    lastPenaltyAt: plain.lastPenaltyAt,
+    profileSharedCount: plain.profileSharedCount,
+    connectionsSaved: plain.connectionsSaved,
+    messagesSent: plain.messagesSent,
+    followUpsScheduled: plain.followUpsScheduled,
+    satisfactionScore: plain.satisfactionScore == null ? null : Number(plain.satisfactionScore),
+    feedbackNotes: plain.feedbackNotes,
+    businessCardId: plain.businessCardId,
+    businessCardSnapshot: plain.businessCardSnapshot ?? null,
+    profileSnapshot: plain.profileSnapshot ?? null,
+    metadata: plain.metadata ?? {},
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const NetworkingBusinessCard = sequelize.define(
+  'NetworkingBusinessCard',
+  {
+    ownerId: { type: DataTypes.INTEGER, allowNull: false },
+    companyId: { type: DataTypes.INTEGER, allowNull: true },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    headline: { type: DataTypes.STRING(255), allowNull: true },
+    bio: { type: DataTypes.TEXT, allowNull: true },
+    contactEmail: { type: DataTypes.STRING(255), allowNull: false, validate: { isEmail: true } },
+    contactPhone: { type: DataTypes.STRING(50), allowNull: true },
+    websiteUrl: { type: DataTypes.STRING(500), allowNull: true },
+    linkedinUrl: { type: DataTypes.STRING(500), allowNull: true },
+    calendlyUrl: { type: DataTypes.STRING(500), allowNull: true },
+    portfolioUrl: { type: DataTypes.STRING(500), allowNull: true },
+    attachments: { type: jsonType, allowNull: true },
+    spotlightVideoUrl: { type: DataTypes.STRING(500), allowNull: true },
+    preferences: { type: jsonType, allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...NETWORKING_BUSINESS_CARD_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [NETWORKING_BUSINESS_CARD_STATUSES] },
+    },
+    lastSharedAt: { type: DataTypes.DATE, allowNull: true },
+    shareCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'networking_business_cards' },
+);
+
+NetworkingBusinessCard.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    ownerId: plain.ownerId,
+    companyId: plain.companyId,
+    title: plain.title,
+    headline: plain.headline,
+    bio: plain.bio,
+    contactEmail: plain.contactEmail,
+    contactPhone: plain.contactPhone,
+    websiteUrl: plain.websiteUrl,
+    linkedinUrl: plain.linkedinUrl,
+    calendlyUrl: plain.calendlyUrl,
+    portfolioUrl: plain.portfolioUrl,
+    attachments: Array.isArray(plain.attachments) ? plain.attachments : plain.attachments ?? [],
+    spotlightVideoUrl: plain.spotlightVideoUrl,
+    preferences: plain.preferences ?? {},
+    tags: Array.isArray(plain.tags) ? plain.tags : plain.tags ?? [],
+    status: plain.status,
+    lastSharedAt: plain.lastSharedAt,
+    shareCount: plain.shareCount,
+    metadata: plain.metadata ?? {},
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };
@@ -9087,8 +9629,6 @@ export const HeadhunterPassOnShare = sequelize.define(
   },
 );
 
-AutoAssignQueueEntry.prototype.toPublicObject = function toPublicObject() {
-FinanceForecastScenario.prototype.toPublicObject = function toPublicObject() {
 EscrowTransaction.prototype.toPublicObject = function toPublicObject() {
   const plain = this.get({ plain: true });
   return {
@@ -11983,6 +12523,57 @@ GigOrderEscrowCheckpoint.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+export const GigVendorScorecard = sequelize.define(
+  'GigVendorScorecard',
+  {
+    orderId: { type: DataTypes.INTEGER, allowNull: false },
+    vendorId: { type: DataTypes.INTEGER, allowNull: false },
+    reviewedById: { type: DataTypes.INTEGER, allowNull: true },
+    periodStart: { type: DataTypes.DATE, allowNull: true },
+    periodEnd: { type: DataTypes.DATE, allowNull: true },
+    onTimeDeliveryScore: { type: DataTypes.DECIMAL(4, 2), allowNull: true },
+    qualityScore: { type: DataTypes.DECIMAL(4, 2), allowNull: true },
+    communicationScore: { type: DataTypes.DECIMAL(4, 2), allowNull: true },
+    complianceScore: { type: DataTypes.DECIMAL(4, 2), allowNull: true },
+    overallScore: { type: DataTypes.DECIMAL(4, 2), allowNull: true },
+    riskLevel: {
+      type: DataTypes.ENUM(...VENDOR_RISK_LEVELS),
+      allowNull: false,
+      defaultValue: 'low',
+      validate: { isIn: [VENDOR_RISK_LEVELS] },
+    },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    recommendations: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    lastReviewedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  { tableName: 'gig_vendor_scorecards' },
+);
+
+GigVendorScorecard.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    orderId: plain.orderId,
+    vendorId: plain.vendorId,
+    reviewedById: plain.reviewedById,
+    periodStart: plain.periodStart,
+    periodEnd: plain.periodEnd,
+    onTimeDeliveryScore: plain.onTimeDeliveryScore == null ? null : Number(plain.onTimeDeliveryScore),
+    qualityScore: plain.qualityScore == null ? null : Number(plain.qualityScore),
+    communicationScore: plain.communicationScore == null ? null : Number(plain.communicationScore),
+    complianceScore: plain.complianceScore == null ? null : Number(plain.complianceScore),
+    overallScore: plain.overallScore == null ? null : Number(plain.overallScore),
+    riskLevel: plain.riskLevel,
+    notes: plain.notes,
+    recommendations: plain.recommendations ?? [],
+    metadata: plain.metadata ?? null,
+    lastReviewedAt: plain.lastReviewedAt,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 export const SearchSubscription = sequelize.define(
   'SearchSubscription',
 export const CollaborationAnnotation = sequelize.define(
@@ -13423,7 +14014,6 @@ export const PipelineFollowUp = sequelize.define(
   },
 );
 
-AutoAssignQueueEntry.prototype.toPublicObject = function toPublicObject() {
 FinanceForecastScenario.prototype.toPublicObject = function toPublicObject() {
   const plain = this.get({ plain: true });
   return {
@@ -14130,6 +14720,14 @@ GigOrder.hasMany(GigOrderActivity, { foreignKey: 'orderId', as: 'activities' });
 GigOrderActivity.belongsTo(GigOrder, { foreignKey: 'orderId', as: 'order' });
 GigOrderActivity.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
 User.hasMany(GigOrderActivity, { foreignKey: 'freelancerId', as: 'gigOrderActivities' });
+
+GigOrder.hasMany(GigVendorScorecard, { foreignKey: 'orderId', as: 'vendorScorecards' });
+GigVendorScorecard.belongsTo(GigOrder, { foreignKey: 'orderId', as: 'order' });
+GigVendorScorecard.belongsTo(User, { foreignKey: 'vendorId', as: 'vendor' });
+GigVendorScorecard.belongsTo(User, { foreignKey: 'reviewedById', as: 'reviewedBy' });
+User.hasMany(GigVendorScorecard, { foreignKey: 'vendorId', as: 'gigVendorScorecards' });
+User.hasMany(GigVendorScorecard, { foreignKey: 'reviewedById', as: 'gigVendorScorecardsReviewed' });
+
 Project.hasOne(ProjectWorkspace, {
   foreignKey: { name: 'projectId', allowNull: false },
   as: 'workspace',
@@ -14173,6 +14771,58 @@ ProjectWorkspaceFile.belongsTo(ProjectWorkspace, {
   as: 'workspace',
 });
 ProjectWorkspaceFile.belongsTo(User, { foreignKey: 'uploadedById', as: 'uploadedBy' });
+
+Project.hasMany(ProjectMilestone, {
+  foreignKey: { name: 'projectId', allowNull: false },
+  as: 'milestones',
+  onDelete: 'CASCADE',
+});
+ProjectMilestone.belongsTo(Project, {
+  foreignKey: { name: 'projectId', allowNull: false },
+  as: 'project',
+});
+ProjectMilestone.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
+
+Project.hasMany(ProjectCollaborator, {
+  foreignKey: { name: 'projectId', allowNull: false },
+  as: 'collaborators',
+  onDelete: 'CASCADE',
+});
+ProjectCollaborator.belongsTo(Project, {
+  foreignKey: { name: 'projectId', allowNull: false },
+  as: 'project',
+});
+ProjectCollaborator.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+ProjectCollaborator.belongsTo(User, { foreignKey: 'invitedById', as: 'invitedBy' });
+
+Project.hasMany(ProjectIntegration, {
+  foreignKey: { name: 'projectId', allowNull: false },
+  as: 'integrations',
+  onDelete: 'CASCADE',
+});
+ProjectIntegration.belongsTo(Project, {
+  foreignKey: { name: 'projectId', allowNull: false },
+  as: 'project',
+});
+ProjectIntegration.belongsTo(User, { foreignKey: 'connectedById', as: 'connectedBy' });
+
+Project.hasMany(ProjectRetrospective, {
+  foreignKey: { name: 'projectId', allowNull: false },
+  as: 'retrospectives',
+  onDelete: 'CASCADE',
+});
+ProjectRetrospective.belongsTo(Project, {
+  foreignKey: { name: 'projectId', allowNull: false },
+  as: 'project',
+});
+ProjectRetrospective.belongsTo(ProjectMilestone, { foreignKey: 'milestoneId', as: 'milestone' });
+ProjectRetrospective.belongsTo(User, { foreignKey: 'authoredById', as: 'authoredBy' });
+
+User.hasMany(ProjectMilestone, { foreignKey: 'ownerId', as: 'ownedProjectMilestones' });
+User.hasMany(ProjectCollaborator, { foreignKey: 'userId', as: 'projectCollaborations' });
+User.hasMany(ProjectCollaborator, { foreignKey: 'invitedById', as: 'projectInvitesSent' });
+User.hasMany(ProjectIntegration, { foreignKey: 'connectedById', as: 'projectIntegrationsConnected' });
+User.hasMany(ProjectRetrospective, { foreignKey: 'authoredById', as: 'authoredProjectRetrospectives' });
 
 ProjectWorkspace.hasMany(ProjectWorkspaceConversation, {
   foreignKey: { name: 'workspaceId', allowNull: false },
@@ -14440,6 +15090,10 @@ ExperienceLaunchpadPlacement.belongsTo(ExperienceLaunchpadApplication, {
   foreignKey: 'candidateId',
   as: 'candidate',
 });
+ExperienceLaunchpadApplication.hasMany(ExperienceLaunchpadPlacement, {
+  foreignKey: 'candidateId',
+  as: 'placements',
+});
 ExperienceLaunchpadPlacement.belongsTo(ExperienceLaunchpadEmployerRequest, {
   foreignKey: 'employerRequestId',
   as: 'employerRequest',
@@ -14467,6 +15121,19 @@ ExperienceLaunchpadOpportunityLink.belongsTo(ExperienceLaunchpad, {
   as: 'launchpad',
 });
 ExperienceLaunchpadOpportunityLink.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+
+NetworkingSession.belongsTo(ProviderWorkspace, { foreignKey: 'companyId', as: 'company' });
+NetworkingSession.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+NetworkingSession.belongsTo(User, { foreignKey: 'updatedById', as: 'updatedBy' });
+NetworkingSession.hasMany(NetworkingSessionRotation, { foreignKey: 'sessionId', as: 'rotations' });
+NetworkingSessionRotation.belongsTo(NetworkingSession, { foreignKey: 'sessionId', as: 'session' });
+NetworkingSession.hasMany(NetworkingSessionSignup, { foreignKey: 'sessionId', as: 'signups' });
+NetworkingSessionSignup.belongsTo(NetworkingSession, { foreignKey: 'sessionId', as: 'session' });
+NetworkingSessionSignup.belongsTo(NetworkingBusinessCard, { foreignKey: 'businessCardId', as: 'businessCard' });
+NetworkingSessionSignup.belongsTo(User, { foreignKey: 'participantId', as: 'participant' });
+NetworkingBusinessCard.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
+NetworkingBusinessCard.belongsTo(ProviderWorkspace, { foreignKey: 'companyId', as: 'company' });
+NetworkingBusinessCard.hasMany(NetworkingSessionSignup, { foreignKey: 'businessCardId', as: 'signups' });
 
 ClientSuccessPlaybook.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
 ClientSuccessPlaybook.hasMany(ClientSuccessStep, { foreignKey: 'playbookId', as: 'steps' });
@@ -16197,6 +16864,11 @@ export default {
   FreelancerSavingsGoal,
   FreelancerFinanceControl,
   ProjectAssignmentEvent,
+  ProjectMilestone,
+  ProjectCollaborator,
+  ProjectTemplate,
+  ProjectIntegration,
+  ProjectRetrospective,
   AutoAssignQueueEntry,
   CommunitySpotlight,
   CommunitySpotlightHighlight,
@@ -16230,6 +16902,7 @@ export default {
   GigOrderRequirementForm,
   GigOrderRevision,
   GigOrderEscrowCheckpoint,
+  GigVendorScorecard,
   CollaborationSpace,
   CollaborationParticipant,
   CollaborationRoom,
@@ -16249,5 +16922,9 @@ export default {
   InternalOpportunityMatch,
   MemberBrandingAsset,
   MemberBrandingApproval,
+  NetworkingSession,
+  NetworkingSessionRotation,
+  NetworkingSessionSignup,
+  NetworkingBusinessCard,
   MemberBrandingMetric,
 };

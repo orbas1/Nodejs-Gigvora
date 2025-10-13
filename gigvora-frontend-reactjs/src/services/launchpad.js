@@ -27,9 +27,50 @@ export async function fetchLaunchpadDashboard({ launchpadId, lookbackDays = 60 }
   });
 }
 
+export async function fetchLaunchpadWorkflow({ launchpadId, lookbackDays = 45 } = {}) {
+  return apiClient.get('/launchpad/workflow', {
+    params: {
+      launchpadId,
+      lookbackDays,
+    },
+  });
+}
+
+export async function fetchLaunchpadApplications(params = {}) {
+  const {
+    launchpadId,
+    status,
+    statuses,
+    search,
+    page,
+    pageSize,
+    minScore,
+    maxScore,
+    sort,
+    includeMatches = true,
+  } = params;
+
+  return apiClient.get('/launchpad/applications', {
+    params: {
+      launchpadId,
+      status,
+      statuses,
+      search,
+      page,
+      pageSize,
+      minScore,
+      maxScore,
+      sort,
+      includeMatches,
+    },
+  });
+}
+
 export default {
   submitTalentApplication,
   submitEmployerBrief,
   recordEmployerPlacement,
   fetchLaunchpadDashboard,
+  fetchLaunchpadWorkflow,
+  fetchLaunchpadApplications,
 };

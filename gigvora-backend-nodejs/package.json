@@ -14,14 +14,15 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.590.0",
     "@aws-sdk/s3-request-presigner": "^3.590.0",
+    "agora-access-token": "^2.0.4",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
     "meilisearch": "^0.37.0",
     "morgan": "^1.10.0",
-    "jsonwebtoken": "^9.0.2",
     "mysql2": "^3.9.4",
     "sequelize": "^6.37.1"
   },
@@ -31,8 +32,8 @@
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-import": "^2.29.1",
     "jest": "^29.7.0",
-    "supertest": "^6.3.4",
     "nodemon": "^3.1.0",
-    "sqlite3": "^5.1.7"
+    "sqlite3": "^5.1.7",
+    "supertest": "^6.3.4"
   }
 }

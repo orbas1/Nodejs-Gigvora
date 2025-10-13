@@ -10,6 +10,7 @@ import {
   escalateThreadToSupport,
   assignSupportAgent,
   updateSupportCaseStatus,
+  startOrJoinCall,
 } from '../services/messagingService.js';
 import { ValidationError } from '../utils/errors.js';
 
@@ -200,6 +201,20 @@ export async function updateSupportStatus(req, res) {
   });
 
   res.json(supportCase);
+}
+
+export async function createCallSession(req, res) {
+  const userId = resolveActorId(req);
+  const { threadId } = req.params;
+  const { callType, callId, role } = req.body ?? {};
+
+  const session = await startOrJoinCall(Number(threadId), userId, {
+    callType,
+    callId,
+    role,
+  });
+
+  res.status(session.isNew ? 201 : 200).json(session);
 }
 
 export default {

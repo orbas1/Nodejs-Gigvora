@@ -22,6 +22,8 @@ import { ValidationError, NotFoundError, ConflictError } from '../utils/errors.j
 import { appCache, buildCacheKey } from '../utils/cache.js';
 
 const APPLICATION_CACHE_PREFIX = 'launchpad:applications:list';
+const WORKFLOW_CACHE_PREFIX = 'launchpad:workflow';
+const AUTO_ASSIGN_MATCH_THRESHOLD = 0.65;
 
 const APPLICATION_STATUS_TRANSITIONS = {
   screening: new Set(['interview', 'waitlisted', 'rejected', 'withdrawn']),
@@ -55,6 +57,83 @@ function normaliseSkills(rawSkills) {
   throw new ValidationError('skills must be provided as an array or comma-separated string.');
 }
 
+function normaliseSkillTokens(skills) {
+  const entries = Array.isArray(skills) ? skills : [];
+  const cleaned = entries
+    .map((skill) => `${skill}`.trim())
+    .filter(Boolean);
+  const seen = new Set();
+  const normalized = [];
+  cleaned.forEach((skill) => {
+    const lowered = skill.toLowerCase();
+    if (seen.has(lowered)) {
+      return;
+    }
+    seen.add(lowered);
+    normalized.push({ label: skill, key: lowered });
+  });
+  return normalized;
+}
+
+function normaliseArrayParam(value) {
+  if (value == null) {
+    return [];
+  }
+  if (Array.isArray(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    return value
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  }
+  return [value];
+}
+
+function normaliseApplicationStatuses(rawStatuses) {
+  const entries = normaliseArrayParam(rawStatuses);
+  if (!entries.length) {
+    return [];
+  }
+  const normalized = new Set();
+  entries.forEach((entry) => {
+    const lowered = `${entry}`.trim().toLowerCase();
+    if (LAUNCHPAD_APPLICATION_STATUSES.includes(lowered)) {
+      normalized.add(lowered);
+    }
+  });
+  return [...normalized];
+}
+
+function computeMatchAgainstText(text, candidateSkills, learningGoals) {
+  if (!text) {
+    return { score: 0, matchedSkills: [], learningMatches: [] };
+  }
+
+  const haystack = text.toLowerCase();
+  const matchedSkills = candidateSkills
+    .filter((entry) => haystack.includes(entry.key))
+    .map((entry) => entry.label);
+  const learningMatches = learningGoals
+    .filter((entry) => haystack.includes(entry.key))
+    .map((entry) => entry.label);
+
+  const denominator = new Set([
+    ...candidateSkills.map((entry) => entry.key),
+    ...learningGoals.map((entry) => entry.key),
+  ]).size;
+
+  if (!denominator) {
+    return { score: 0, matchedSkills, learningMatches };
+  }
+
+  const weighted = matchedSkills.length + learningMatches.length * 0.6;
+  const score = Math.min(1, Math.round((weighted / denominator) * 100) / 100);
+
+  return { score, matchedSkills, learningMatches };
+}
+
 function clampScore(value) {
   if (!Number.isFinite(value)) {
     return 0;
@@ -62,7 +141,16 @@ function clampScore(value) {
   return Math.min(100, Math.max(0, Math.round(value * 100) / 100));
 }
 
-function evaluateCandidateReadiness(launchpad, { yearsExperience, skills, portfolioUrl, motivations }) {
+function entryDateValue(value) {
+  if (!value) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+  const date = new Date(value);
+  const time = date.getTime();
+  return Number.isFinite(time) ? time : Number.MAX_SAFE_INTEGER;
+}
+
+function evaluateCandidateReadiness(launchpad, { yearsExperience, skills, targetSkills, portfolioUrl, motivations }) {
   const criteria = launchpad.eligibilityCriteria ?? {};
   const minimumExperience = Number.isFinite(Number(criteria.minimumExperience))
     ? Number(criteria.minimumExperience)
@@ -79,6 +167,9 @@ function evaluateCandidateReadiness(launchpad, { yearsExperience, skills, portfo
     : 88;
 
   const evaluatedSkills = skills.map((skill) => skill.toLowerCase());
+  const learningGoals = Array.isArray(targetSkills)
+    ? targetSkills.map((skill) => `${skill}`.trim().toLowerCase()).filter(Boolean)
+    : [];
   const normalizedRequired = requiredSkills.map((skill) => skill.toLowerCase());
 
   let score = 55;
@@ -91,9 +182,13 @@ function evaluateCandidateReadiness(launchpad, { yearsExperience, skills, portfo
   }
 
   const missingSkills = normalizedRequired.filter((skill) => !evaluatedSkills.includes(skill));
+  const learningAlignedMissing = missingSkills.filter((skill) => learningGoals.includes(skill));
   const matchedSkills = normalizedRequired.filter((skill) => evaluatedSkills.includes(skill));
   score += matchedSkills.length * 5;
   score -= missingSkills.length * 7;
+  if (learningAlignedMissing.length) {
+    score += learningAlignedMissing.length * 4;
+  }
 
   if (requiresPortfolio) {
     score += portfolioUrl ? 8 : -12;
@@ -108,7 +203,7 @@ function evaluateCandidateReadiness(launchpad, { yearsExperience, skills, portfo
   const normalizedScore = clampScore(score);
   let recommendedStatus = 'screening';
   if (!meetsExperience || missingSkills.length > 0) {
-    recommendedStatus = 'waitlisted';
+    recommendedStatus = learningAlignedMissing.length === missingSkills.length ? 'screening' : 'waitlisted';
   }
   if (normalizedScore >= autoAdvanceScore && missingSkills.length === 0 && meetsExperience) {
     recommendedStatus = 'interview';
@@ -135,8 +230,14 @@ function evaluateCandidateReadiness(launchpad, { yearsExperience, skills, portfo
         meetsExperience,
         matchedSkills,
         missingSkills,
+        learningAlignedMissing,
         hasPortfolio: Boolean(portfolioUrl),
         motivationLength: typeof motivations === 'string' ? motivations.trim().length : 0,
+      },
+      candidate: {
+        yearsExperience: Number.isFinite(Number(yearsExperience)) ? Number(yearsExperience) : null,
+        skills,
+        targetSkills: Array.isArray(targetSkills) ? targetSkills : [],
       },
     },
   };
@@ -211,6 +312,7 @@ function invalidateLaunchpadCaches(launchpadId) {
   appCache.flushByPrefix(APPLICATION_CACHE_PREFIX);
   if (launchpadId) {
     appCache.flushByPrefix(buildCacheKey('launchpad:dashboard', { launchpadId }));
+    appCache.flushByPrefix(buildCacheKey(WORKFLOW_CACHE_PREFIX, { launchpadId }));
   }
 }
 
@@ -223,6 +325,7 @@ export async function applyToLaunchpad(payload) {
     applicantLastName,
     yearsExperience,
     skills: rawSkills,
+    targetSkills: rawTargetSkills,
     portfolioUrl,
     motivations,
     availabilityDate,
@@ -234,6 +337,7 @@ export async function applyToLaunchpad(payload) {
   }
 
   const skills = normaliseSkills(rawSkills);
+  const targetSkills = normaliseSkills(rawTargetSkills);
 
   const result = await sequelize.transaction(async (trx) => {
     const launchpad = await ExperienceLaunchpad.findByPk(launchpadId, { transaction: trx, lock: trx.LOCK.UPDATE });
@@ -270,9 +374,24 @@ export async function applyToLaunchpad(payload) {
     const { score, recommendedStatus, snapshot } = evaluateCandidateReadiness(launchpad, {
       yearsExperience,
       skills,
+      targetSkills,
       portfolioUrl,
       motivations,
     });
+
+    const enrichedSnapshot = {
+      ...snapshot,
+      candidate: {
+        ...(snapshot.candidate ?? {}),
+        skills,
+        targetSkills,
+      },
+      recommendation: {
+        recommendedStatus,
+        generatedAt: new Date().toISOString(),
+        qualificationScore: score,
+      },
+    };
 
     const created = await ExperienceLaunchpadApplication.create(
       {
@@ -286,7 +405,7 @@ export async function applyToLaunchpad(payload) {
         motivations: motivations ?? null,
         portfolioUrl: portfolioUrl ?? null,
         availabilityDate: availabilityDate ? new Date(availabilityDate) : null,
-        eligibilitySnapshot: snapshot,
+        eligibilitySnapshot: enrichedSnapshot,
       },
       { transaction: trx },
     );
@@ -582,6 +701,391 @@ export async function recordLaunchpadPlacement(payload, { actorId } = {}) {
   return placement;
 }
 
+function summariseText(text, limit = 220) {
+  if (!text) {
+    return '';
+  }
+  const trimmed = text.trim();
+  if (trimmed.length <= limit) {
+    return trimmed;
+  }
+  return `${trimmed.slice(0, limit).trim()}…`;
+}
+
+async function loadLinkedOpportunityMaps(links) {
+  const grouped = links.reduce(
+    (acc, link) => {
+      const plain = typeof link.get === 'function' ? link.get({ plain: true }) : link;
+      if (plain.targetType && Array.isArray(acc[plain.targetType])) {
+        acc[plain.targetType].push(plain.targetId);
+      }
+      return acc;
+    },
+    { job: [], gig: [], project: [] },
+  );
+
+  const [jobs, gigs, projects] = await Promise.all([
+    grouped.job.length
+      ? Job.findAll({ where: { id: { [Op.in]: grouped.job } } })
+      : [],
+    grouped.gig.length
+      ? Gig.findAll({ where: { id: { [Op.in]: grouped.gig } } })
+      : [],
+    grouped.project.length
+      ? Project.findAll({ where: { id: { [Op.in]: grouped.project } } })
+      : [],
+  ]);
+
+  const jobMap = new Map(jobs.map((record) => [record.id, record]));
+  const gigMap = new Map(gigs.map((record) => [record.id, record]));
+  const projectMap = new Map(projects.map((record) => [record.id, record]));
+
+  return { jobMap, gigMap, projectMap };
+}
+
+function buildOpportunitySummary(link, maps) {
+  const plainLink = typeof link.get === 'function' ? link.get({ plain: true }) : link;
+  let record = null;
+  if (plainLink.targetType === 'job') {
+    record = maps.jobMap.get(plainLink.targetId);
+  } else if (plainLink.targetType === 'gig') {
+    record = maps.gigMap.get(plainLink.targetId);
+  } else if (plainLink.targetType === 'project') {
+    record = maps.projectMap.get(plainLink.targetId);
+  }
+
+  if (!record) {
+    return null;
+  }
+
+  const plainRecord = typeof record.get === 'function' ? record.get({ plain: true }) : record;
+  const description = plainRecord.description ?? '';
+  const title = plainRecord.title ?? 'Untitled opportunity';
+  const updatedAt = plainRecord.updatedAt ?? plainRecord.createdAt ?? plainLink.updatedAt ?? null;
+
+  return {
+    id: plainLink.id,
+    targetType: plainLink.targetType,
+    targetId: plainLink.targetId,
+    source: plainLink.source,
+    notes: plainLink.notes ?? null,
+    createdAt: plainLink.createdAt ?? null,
+    updatedAt,
+    title,
+    description,
+    summary: summariseText(description || plainRecord.summary || ''),
+    textForMatching: `${title} ${description}`.trim(),
+  };
+}
+
+function buildCandidateProfile(application) {
+  const plain = typeof application.get === 'function' ? application.get({ plain: true }) : application;
+  const applicant = plain.applicant ?? {};
+  const applicantName = [applicant.firstName, applicant.lastName].filter(Boolean).join(' ').trim();
+  const skills = Array.isArray(plain.skills) ? plain.skills : [];
+  const normalizedSkills = normaliseSkillTokens(skills);
+  const snapshotCandidate = plain.eligibilitySnapshot?.candidate ?? {};
+  const targetSkills = Array.isArray(snapshotCandidate.targetSkills) ? snapshotCandidate.targetSkills : [];
+  const learningGoals = normaliseSkillTokens(targetSkills);
+
+  return {
+    applicationId: plain.id,
+    applicantId: plain.applicantId ?? applicant.id ?? null,
+    applicantName: applicantName || `Application #${plain.id}`,
+    status: plain.status,
+    normalizedSkills,
+    learningGoals,
+    displaySkills: skills,
+    displayLearningGoals: targetSkills,
+  };
+}
+
+async function computeOpportunityMatches(links, applications) {
+  if (!links.length || !applications.length) {
+    return [];
+  }
+
+  const maps = await loadLinkedOpportunityMaps(links);
+  const candidates = applications.map((application) => buildCandidateProfile(application));
+
+  const matches = [];
+
+  links.forEach((link) => {
+    const opportunity = buildOpportunitySummary(link, maps);
+    if (!opportunity || !opportunity.textForMatching) {
+      return;
+    }
+
+    let topMatch = null;
+    candidates.forEach((candidate) => {
+      const { score, matchedSkills, learningMatches } = computeMatchAgainstText(
+        opportunity.textForMatching,
+        candidate.normalizedSkills,
+        candidate.learningGoals,
+      );
+
+      if (score <= 0) {
+        return;
+      }
+
+      if (!topMatch || score > topMatch.score) {
+        topMatch = {
+          candidate,
+          score,
+          matchedSkills,
+          learningMatches,
+        };
+      }
+    });
+
+    if (topMatch) {
+      matches.push({
+        id: opportunity.id,
+        targetType: opportunity.targetType,
+        targetId: opportunity.targetId,
+        source: opportunity.source,
+        notes: opportunity.notes,
+        opportunity: {
+          title: opportunity.title,
+          summary: opportunity.summary,
+          updatedAt: opportunity.updatedAt,
+        },
+        bestCandidate: {
+          applicationId: topMatch.candidate.applicationId,
+          applicantId: topMatch.candidate.applicantId,
+          name: topMatch.candidate.applicantName,
+          status: topMatch.candidate.status,
+          score: topMatch.score,
+          matchedSkills: topMatch.matchedSkills,
+          learningMatches: topMatch.learningMatches,
+        },
+        autoAssigned: topMatch.score >= AUTO_ASSIGN_MATCH_THRESHOLD,
+      });
+    }
+  });
+
+  matches.sort((a, b) => b.bestCandidate.score - a.bestCandidate.score);
+
+  return matches;
+}
+
+export async function listLaunchpadApplications(filters = {}) {
+  const {
+    launchpadId,
+    statuses,
+    search,
+    minScore,
+    maxScore,
+    page = 1,
+    pageSize = 25,
+    sort = 'score_desc',
+    includeMatches = false,
+  } = filters;
+
+  if (!launchpadId) {
+    throw new ValidationError('launchpadId is required to list applications.');
+  }
+
+  const normalizedPage = Number.isFinite(Number(page)) ? Math.max(1, Number(page)) : 1;
+  const normalizedPageSize = Number.isFinite(Number(pageSize))
+    ? Math.min(100, Math.max(1, Number(pageSize)))
+    : 25;
+
+  const offset = (normalizedPage - 1) * normalizedPageSize;
+  const where = { launchpadId };
+
+  const normalizedStatuses = normaliseApplicationStatuses(statuses);
+  if (normalizedStatuses.length) {
+    where.status = { [Op.in]: normalizedStatuses };
+  }
+
+  const scoreClause = {};
+  if (Number.isFinite(Number(minScore))) {
+    scoreClause[Op.gte] = Number(minScore);
+  }
+  if (Number.isFinite(Number(maxScore))) {
+    scoreClause[Op.lte] = Number(maxScore);
+  }
+  if (Object.keys(scoreClause).length) {
+    where.qualificationScore = scoreClause;
+  }
+
+  const andConditions = [];
+  const searchTerm = typeof search === 'string' ? search.trim() : '';
+  if (searchTerm) {
+    const tokens = searchTerm
+      .split(/\s+/)
+      .map((token) => token.trim())
+      .filter(Boolean);
+    const likeOperator = Op.iLike ?? Op.like;
+    tokens.forEach((token) => {
+      andConditions.push({
+        [Op.or]: [
+          { '$applicant.firstName$': { [likeOperator]: `%${token}%` } },
+          { '$applicant.lastName$': { [likeOperator]: `%${token}%` } },
+          { '$applicant.email$': { [likeOperator]: `%${token}%` } },
+        ],
+      });
+    });
+  }
+  if (andConditions.length) {
+    where[Op.and] = andConditions;
+  }
+
+  const order = [];
+  if (sort === 'recent') {
+    order.push(['updatedAt', 'DESC']);
+  } else if (sort === 'score_asc') {
+    order.push([sequelize.literal('"ExperienceLaunchpadApplication"."qualificationScore" IS NULL'), 'ASC']);
+    order.push(['qualificationScore', 'ASC']);
+    order.push(['createdAt', 'DESC']);
+  } else {
+    order.push([sequelize.literal('"ExperienceLaunchpadApplication"."qualificationScore" IS NULL'), 'ASC']);
+    order.push(['qualificationScore', 'DESC']);
+    order.push(['createdAt', 'DESC']);
+  }
+
+  const query = await ExperienceLaunchpadApplication.findAndCountAll({
+    where,
+    include: [
+      { model: User, as: 'applicant', attributes: ['id', 'firstName', 'lastName', 'email'] },
+      {
+        model: ExperienceLaunchpadPlacement,
+        as: 'placements',
+        attributes: ['id', 'status', 'targetType', 'targetId', 'placementDate', 'endDate', 'createdAt'],
+        separate: true,
+        order: [['placementDate', 'DESC']],
+        limit: 5,
+      },
+    ],
+    order,
+    limit: normalizedPageSize,
+    offset,
+    distinct: true,
+  });
+
+  const statusTotalsPromise = ExperienceLaunchpadApplication.findAll({
+    attributes: ['status', [fn('COUNT', col('id')), 'count']],
+    where: { launchpadId },
+    group: ['status'],
+    raw: true,
+  });
+
+  let matches = [];
+  if (includeMatches && query.rows.length) {
+    const links = await ExperienceLaunchpadOpportunityLink.findAll({
+      where: { launchpadId },
+    });
+    matches = await computeOpportunityMatches(links, query.rows);
+  }
+
+  const statusTotals = await statusTotalsPromise;
+
+  const matchMap = new Map();
+  matches.forEach((match) => {
+    const candidate = match.bestCandidate;
+    if (!candidate) {
+      return;
+    }
+    const existing = matchMap.get(candidate.applicationId);
+    if (!existing || (candidate.score ?? 0) > (existing.score ?? 0)) {
+      matchMap.set(candidate.applicationId, {
+        score: candidate.score,
+        matchedSkills: candidate.matchedSkills ?? [],
+        learningMatches: candidate.learningMatches ?? [],
+        opportunity: {
+          id: match.id,
+          targetType: match.targetType,
+          targetId: match.targetId,
+          title: match.opportunity?.title ?? null,
+          summary: match.opportunity?.summary ?? null,
+          source: match.source ?? null,
+          updatedAt: match.opportunity?.updatedAt ?? null,
+        },
+        autoAssigned: Boolean(match.autoAssigned),
+      });
+    }
+  });
+
+  const items = query.rows.map((application) => {
+    const base = application.toPublicObject();
+    const applicantRecord = application.applicant;
+    const applicant = applicantRecord
+      ? {
+          id: applicantRecord.id,
+          firstName: applicantRecord.firstName,
+          lastName: applicantRecord.lastName,
+          email: applicantRecord.email,
+        }
+      : null;
+
+    const placements = Array.isArray(application.placements)
+      ? application.placements.map((placement) => {
+          const plain = typeof placement.get === 'function' ? placement.get({ plain: true }) : placement;
+          return {
+            id: plain.id,
+            status: plain.status,
+            targetType: plain.targetType,
+            targetId: plain.targetId,
+            placementDate: plain.placementDate,
+            endDate: plain.endDate,
+            createdAt: plain.createdAt,
+          };
+        })
+      : [];
+
+    const snapshot = base.eligibilitySnapshot ?? {};
+    const snapshotCandidate = snapshot.candidate ?? {};
+    const evaluation = snapshot.evaluation ?? {};
+    const recommendation = snapshot.recommendation ?? null;
+
+    const readiness = {
+      score: base.qualificationScore == null ? null : Number(base.qualificationScore),
+      meetsExperience: Boolean(evaluation.meetsExperience),
+      matchedSkills: Array.isArray(evaluation.matchedSkills) ? evaluation.matchedSkills : [],
+      missingSkills: Array.isArray(evaluation.missingSkills) ? evaluation.missingSkills : [],
+      learningAlignedMissing: Array.isArray(evaluation.learningAlignedMissing)
+        ? evaluation.learningAlignedMissing
+        : [],
+      targetSkills: Array.isArray(snapshotCandidate.targetSkills) ? snapshotCandidate.targetSkills : [],
+      skills: Array.isArray(base.skills) ? base.skills : [],
+      recommendedStatus: recommendation?.recommendedStatus ?? null,
+      recommendationGeneratedAt: recommendation?.generatedAt ?? null,
+    };
+
+    const matchHighlight = matchMap.get(base.id) ?? null;
+
+    return {
+      ...base,
+      applicant,
+      placements,
+      readiness,
+      matchHighlight,
+    };
+  });
+
+  const statusBreakdown = Object.fromEntries(
+    LAUNCHPAD_APPLICATION_STATUSES.map((status) => [status, 0]),
+  );
+  statusTotals.forEach((row) => {
+    statusBreakdown[row.status] = Number(row.count) || 0;
+  });
+
+  const totalItems = Number(query.count) || 0;
+  const totalPages = Math.ceil(totalItems / normalizedPageSize) || 0;
+
+  return {
+    items,
+    pagination: {
+      page: normalizedPage,
+      pageSize: normalizedPageSize,
+      total: totalItems,
+      totalPages,
+    },
+    statusBreakdown,
+  };
+}
+
 export async function getLaunchpadDashboard(launchpadId, { lookbackDays = 60 } = {}) {
   const whereClause = launchpadId ? { launchpadId } : {};
   const now = new Date();
@@ -589,7 +1093,16 @@ export async function getLaunchpadDashboard(launchpadId, { lookbackDays = 60 } =
   const cacheKey = buildCacheKey('launchpad:dashboard', { launchpadId: launchpadId ?? 'all', lookbackDays });
 
   return appCache.remember(cacheKey, 60, async () => {
-    const [pipelineRows, placementRows, upcomingInterviews, employerBriefs, opportunityRows, launchpad] = await Promise.all([
+    const [
+      pipelineRows,
+      placementRows,
+      upcomingInterviews,
+      employerBriefs,
+      opportunityRows,
+      launchpad,
+      opportunityLinks,
+      activeApplications,
+    ] = await Promise.all([
       ExperienceLaunchpadApplication.findAll({
         attributes: ['status', [fn('COUNT', col('id')), 'count']],
         where: whereClause,
@@ -627,6 +1140,21 @@ export async function getLaunchpadDashboard(launchpadId, { lookbackDays = 60 } =
         raw: true,
       }),
       launchpadId ? ExperienceLaunchpad.findByPk(launchpadId) : null,
+      launchpadId
+        ? ExperienceLaunchpadOpportunityLink.findAll({
+            where: { launchpadId },
+            order: [['updatedAt', 'DESC']],
+          })
+        : [],
+      launchpadId
+        ? ExperienceLaunchpadApplication.findAll({
+            where: {
+              launchpadId,
+              status: { [Op.in]: ['screening', 'interview', 'accepted', 'waitlisted'] },
+            },
+            include: [{ model: User, as: 'applicant', attributes: ['id', 'firstName', 'lastName'] }],
+          })
+        : [],
     ]);
 
     const pipeline = Object.fromEntries(LAUNCHPAD_APPLICATION_STATUSES.map((status) => [status, 0]));
@@ -649,12 +1177,16 @@ export async function getLaunchpadDashboard(launchpadId, { lookbackDays = 60 } =
       opportunities[row.targetType] = Number(row.count) || 0;
     });
 
+    const matches = launchpadId ? await computeOpportunityMatches(opportunityLinks, activeApplications) : [];
+    const autoAssignmentsCount = matches.filter((match) => match.autoAssigned).length;
+
     return {
       launchpad: launchpad ? launchpad.toPublicObject() : null,
       totals: {
         applications: totalApplications,
         placements: Object.values(placements).reduce((sum, value) => sum + value, 0),
         conversionRate,
+        autoAssignments: autoAssignmentsCount,
       },
       pipeline,
       placements,
@@ -671,7 +1203,245 @@ export async function getLaunchpadDashboard(launchpadId, { lookbackDays = 60 } =
       })),
       employerBriefs: employerBriefs.map((brief) => brief.toPublicObject()),
       opportunities,
+      matches,
       refreshedAt: new Date().toISOString(),
+    };
+  });
+}
+
+export async function getLaunchpadWorkflow(launchpadId, { lookbackDays = 45 } = {}) {
+  if (!launchpadId) {
+    throw new ValidationError('launchpadId is required to load the Experience Launchpad workflow.');
+  }
+
+  const now = new Date();
+  const lookbackDate = new Date(now.getTime() - lookbackDays * 24 * 60 * 60 * 1000);
+  const cacheKey = buildCacheKey(WORKFLOW_CACHE_PREFIX, { launchpadId, lookbackDays });
+
+  return appCache.remember(cacheKey, 30, async () => {
+    const [
+      launchpad,
+      applications,
+      placements,
+      employerBriefs,
+      opportunityLinks,
+    ] = await Promise.all([
+      ExperienceLaunchpad.findByPk(launchpadId),
+      ExperienceLaunchpadApplication.findAll({
+        where: { launchpadId },
+        include: [
+          { model: User, as: 'applicant', attributes: ['id', 'firstName', 'lastName', 'email'] },
+          { model: ExperienceLaunchpadPlacement, as: 'placements' },
+        ],
+        order: [
+          ['status', 'ASC'],
+          ['qualificationScore', 'DESC'],
+        ],
+      }),
+      ExperienceLaunchpadPlacement.findAll({
+        where: {
+          launchpadId,
+          createdAt: { [Op.gte]: lookbackDate },
+        },
+        include: [
+          {
+            model: ExperienceLaunchpadApplication,
+            as: 'candidate',
+            include: [{ model: User, as: 'applicant', attributes: ['id', 'firstName', 'lastName', 'email'] }],
+          },
+          { model: ExperienceLaunchpadEmployerRequest, as: 'employerRequest' },
+        ],
+        order: [['createdAt', 'DESC']],
+      }),
+      ExperienceLaunchpadEmployerRequest.findAll({
+        where: { launchpadId },
+        order: [['updatedAt', 'DESC']],
+      }),
+      ExperienceLaunchpadOpportunityLink.findAll({ where: { launchpadId } }),
+    ]);
+
+    ensureLaunchpadExists(launchpad);
+
+    const applicationEntries = applications.map((application) => {
+      const base = application.toPublicObject();
+      const applicantRecord = application.applicant;
+      const applicant = applicantRecord
+        ? {
+            id: applicantRecord.id,
+            firstName: applicantRecord.firstName,
+            lastName: applicantRecord.lastName,
+            email: applicantRecord.email,
+          }
+        : null;
+
+      const snapshot = base.eligibilitySnapshot ?? {};
+      const snapshotCandidate = snapshot.candidate ?? {};
+      const evaluation = snapshot.evaluation ?? {};
+      const recommendation = snapshot.recommendation ?? {};
+
+      const readiness = {
+        score: base.qualificationScore == null ? null : Number(base.qualificationScore),
+        meetsExperience: Boolean(evaluation.meetsExperience),
+        matchedSkills: Array.isArray(evaluation.matchedSkills) ? evaluation.matchedSkills : [],
+        missingSkills: Array.isArray(evaluation.missingSkills) ? evaluation.missingSkills : [],
+        learningAlignedMissing: Array.isArray(evaluation.learningAlignedMissing)
+          ? evaluation.learningAlignedMissing
+          : [],
+        targetSkills: Array.isArray(snapshotCandidate.targetSkills) ? snapshotCandidate.targetSkills : [],
+        skills: Array.isArray(base.skills) ? base.skills : [],
+        recommendedStatus: recommendation.recommendedStatus ?? null,
+        recommendationGeneratedAt: recommendation.generatedAt ?? null,
+      };
+
+      const reasonParts = [];
+      if ((readiness.missingSkills?.length ?? 0) > 0) {
+        reasonParts.push(
+          `${readiness.missingSkills.length} core skill gap${readiness.missingSkills.length === 1 ? '' : 's'}`,
+        );
+      }
+      if ((readiness.learningAlignedMissing?.length ?? 0) > 0) {
+        reasonParts.push('Learning aligned gaps present');
+      }
+      if (!reasonParts.length && readiness.recommendedStatus) {
+        reasonParts.push(`Recommended: ${readiness.recommendedStatus}`);
+      }
+
+      return {
+        ...base,
+        applicant,
+        readiness,
+        queueReason: reasonParts.join(' • ') || 'Ready for review',
+      };
+    });
+
+    const totalApplications = applicationEntries.length;
+    const totalReadiness = applicationEntries.reduce(
+      (sum, entry) => sum + (Number.isFinite(entry.readiness.score) ? entry.readiness.score : 0),
+      0,
+    );
+    const autoInterviewRecommended = applicationEntries.filter((entry) =>
+      ['interview', 'accepted'].includes(entry.readiness.recommendedStatus ?? ''),
+    ).length;
+    const upskillingCandidates = applicationEntries.filter(
+      (entry) => (entry.readiness.learningAlignedMissing?.length ?? 0) > 0,
+    ).length;
+    const flaggedCandidates = applicationEntries.filter((entry) => entry.status === 'waitlisted').length;
+
+    const readinessSummary = {
+      totalApplications,
+      averageReadinessScore:
+        totalApplications > 0 ? Math.round((totalReadiness / totalApplications) * 10) / 10 : null,
+      autoInterviewRecommended,
+      upskillingCandidates,
+      flaggedCandidates,
+    };
+
+    const intakeQueue = applicationEntries
+      .filter((entry) => ['screening', 'waitlisted'].includes(entry.status))
+      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+    const interviewQueue = applicationEntries
+      .filter((entry) => entry.status === 'interview')
+      .sort((a, b) => {
+        const aTime = entryDateValue(a.interviewScheduledAt);
+        const bTime = entryDateValue(b.interviewScheduledAt);
+        return aTime - bTime || entryDateValue(a.updatedAt) - entryDateValue(b.updatedAt);
+      });
+
+    const acceptedQueue = applicationEntries
+      .filter((entry) => entry.status === 'accepted')
+      .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+
+    const completedQueue = applicationEntries
+      .filter((entry) => entry.status === 'completed')
+      .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+
+    const interviewNeedsScheduling = interviewQueue.filter((entry) => !entry.interviewScheduledAt);
+    const interviewUpcoming = interviewQueue
+      .filter((entry) => entry.interviewScheduledAt)
+      .sort((a, b) => entryDateValue(a.interviewScheduledAt) - entryDateValue(b.interviewScheduledAt));
+
+    const placementEntries = placements.map((placement) => {
+      const base = placement.toPublicObject();
+      const candidateRecord = placement.candidate;
+      const employerRecord = placement.employerRequest;
+
+      const candidate = candidateRecord
+        ? {
+            id: candidateRecord.id,
+            applicationId: candidateRecord.id,
+            applicant: candidateRecord.applicant
+              ? {
+                  id: candidateRecord.applicant.id,
+                  firstName: candidateRecord.applicant.firstName,
+                  lastName: candidateRecord.applicant.lastName,
+                  email: candidateRecord.applicant.email,
+                }
+              : null,
+            status: candidateRecord.status,
+          }
+        : null;
+
+      return {
+        ...base,
+        candidate,
+        employerRequest: employerRecord ? employerRecord.toPublicObject() : null,
+      };
+    });
+
+    const placementTotals = Object.fromEntries(LAUNCHPAD_PLACEMENT_STATUSES.map((status) => [status, 0]));
+    placementEntries.forEach((entry) => {
+      placementTotals[entry.status] = (placementTotals[entry.status] ?? 0) + 1;
+    });
+
+    const employerEntries = employerBriefs.map((brief) => brief.toPublicObject());
+    const employerTotals = employerEntries.reduce((acc, entry) => {
+      acc[entry.status] = (acc[entry.status] ?? 0) + 1;
+      return acc;
+    }, {});
+
+    const matches = await computeOpportunityMatches(opportunityLinks, applications);
+    const automationHighlights = matches.slice(0, 8).map((match) => ({
+      id: match.id,
+      targetType: match.targetType,
+      targetId: match.targetId,
+      source: match.source,
+      autoAssigned: match.autoAssigned,
+      opportunity: match.opportunity,
+      bestCandidate: match.bestCandidate,
+    }));
+
+    return {
+      launchpad: launchpad.toPublicObject(),
+      refreshedAt: new Date().toISOString(),
+      readinessSummary,
+      intake: {
+        total: intakeQueue.length,
+        pendingReview: intakeQueue.filter((entry) => entry.status === 'screening').length,
+        queue: intakeQueue.slice(0, 25),
+      },
+      interviews: {
+        total: interviewQueue.length,
+        needsScheduling: interviewNeedsScheduling.length,
+        upcoming: interviewUpcoming.slice(0, 12),
+        queue: interviewQueue.slice(0, 25),
+      },
+      placements: {
+        totals: placementTotals,
+        active: placementEntries.filter((entry) => entry.status !== 'completed').slice(0, 20),
+        completed: placementEntries.filter((entry) => entry.status === 'completed').slice(0, 10),
+        readyCandidates: acceptedQueue.slice(0, 20),
+        alumni: completedQueue.slice(0, 15),
+      },
+      employerBriefs: {
+        totals: employerTotals,
+        queue: employerEntries.slice(0, 20),
+      },
+      automation: {
+        totalMatches: matches.length,
+        autoAssignable: matches.filter((match) => match.autoAssigned).length,
+        highlights: automationHighlights,
+      },
     };
   });
 }
@@ -682,5 +1452,7 @@ export default {
   submitEmployerRequest,
   recordLaunchpadPlacement,
   linkLaunchpadOpportunity,
+  listLaunchpadApplications,
   getLaunchpadDashboard,
+  getLaunchpadWorkflow,
 };
