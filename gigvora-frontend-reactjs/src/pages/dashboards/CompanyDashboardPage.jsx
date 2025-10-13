@@ -11,6 +11,7 @@ import {
 } from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import DataStatus from '../../components/DataStatus.jsx';
+import JobLifecycleSection from '../../components/company/JobLifecycleSection.jsx';
 import { useCompanyDashboard } from '../../hooks/useCompanyDashboard.js';
 import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
 
@@ -185,7 +186,6 @@ function buildSections(data) {
     pipelineSummary,
     diversity,
     alerts,
-    jobLifecycle,
     jobDesign,
     sourcing,
     applicantRelationshipManager,
@@ -200,7 +200,6 @@ function buildSections(data) {
     calendar,
     jobSummary,
     projectSummary,
-    recommendations,
   } = data;
 
   const statusEntries = Object.entries(pipelineSummary?.byStatus ?? {});
@@ -227,22 +226,6 @@ function buildSections(data) {
         alerts.latestDetection ? `Latest detected: ${formatRelativeTime(alerts.latestDetection)}` : 'No recent alerts detected.',
       ]
     : ['No active alerts in this lookback window.'];
-
-  const campaignChannelPoints = jobLifecycle?.campaigns?.byChannel?.length
-    ? jobLifecycle.campaigns.byChannel.slice(0, 3).map(
-        ({ channel, applications, conversionRate }) =>
-          `${channel}: ${formatNumber(applications)} apps • ${formatPercent(conversionRate)} hire rate`,
-      )
-    : ['Launch a campaign to see channel performance.'];
-
-  const jobStagePoints = jobLifecycle
-    ? [
-        `Total stages: ${formatNumber(jobLifecycle.totalStages)}`,
-        `Average stage duration: ${formatNumber(jobLifecycle.averageStageDurationHours, { suffix: ' hrs' })}`,
-        `Pending approvals: ${formatNumber(jobLifecycle.pendingApprovals)}`,
-        `Overdue approvals: ${formatNumber(jobLifecycle.overdueApprovals)}`,
-      ]
-    : ['Configure your hiring stages to see lifecycle analytics.'];
 
   const jobDesignPoints = jobDesign
     ? [
@@ -389,10 +372,6 @@ function buildSections(data) {
       ]
     : ['Governance metrics appear once approvals and alerts are captured.'];
 
-  const recommendationPoints = Array.isArray(recommendations) && recommendations.length
-    ? recommendations.map((item) => item.title)
-    : ['Keep capturing activity to surface recommended actions.'];
-
   return [
     {
       title: 'Hiring overview',
@@ -418,27 +397,6 @@ function buildSections(data) {
           name: 'Alerts & risk',
           description: 'Track SLA breaches, compliance flags, and emerging issues.',
           bulletPoints: alertPoints,
-        },
-      ],
-    },
-    {
-      title: 'Job lifecycle & ATS intelligence',
-      description: 'Optimise stage configurations, approvals, and campaign performance.',
-      features: [
-        {
-          name: 'Stage configuration',
-          description: 'Understand the structure and pacing of your ATS stages.',
-          bulletPoints: jobStagePoints,
-        },
-        {
-          name: 'Campaign performance',
-          description: 'Compare sourcing channels powering your requisitions.',
-          bulletPoints: campaignChannelPoints,
-        },
-        {
-          name: 'Recommended actions',
-          description: 'AI-assisted guidance based on current lifecycle metrics.',
-          bulletPoints: recommendationPoints,
         },
       ],
     },
@@ -1187,6 +1145,13 @@ export default function CompanyDashboardPage() {
         </div>
 
         <BrandAndPeopleSection data={brandAndPeople} />
+        {data ? (
+          <JobLifecycleSection
+            jobLifecycle={data.jobLifecycle}
+            recommendations={data.recommendations}
+            lookbackDays={data?.meta?.lookbackDays ?? lookbackDays}
+          />
+        ) : null}
 
         {sections.map((section) => (
           <section
