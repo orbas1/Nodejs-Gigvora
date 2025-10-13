@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../auth/application/session_controller.dart';
 import '../../auth/domain/session.dart';
+import '../../finance/domain/finance_access_policy.dart';
 import '../../../theme/widgets.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -89,6 +90,10 @@ class HomeScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 24),
             _MetricsWrap(metrics: activeDashboard.metrics),
+            if (FinanceAccessPolicy.hasAccess(session)) ...[
+              const SizedBox(height: 24),
+              _FinanceCallout(onTap: () => GoRouter.of(context).go('/finance')),
+            ],
             const SizedBox(height: 24),
             ...activeDashboard.sections
                 .map((section) => Padding(
@@ -139,6 +144,55 @@ class _RoleSwitcher extends StatelessWidget {
             ),
           )
           .toList(),
+    );
+  }
+}
+
+class _FinanceCallout extends StatelessWidget {
+  const _FinanceCallout({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return GigvoraCard(
+      child: Row(
+        children: [
+          Container(
+            height: 48,
+            width: 48,
+            decoration: BoxDecoration(
+              color: colorScheme.primary.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(Icons.account_balance_wallet_outlined, color: colorScheme.primary),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Finance, escrow & disputes',
+                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Open the finance control tower to review safeguarding balances, release queues, and dispute health.',
+                  style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          FilledButton.tonal(
+            onPressed: onTap,
+            child: const Text('Open'),
+          ),
+        ],
+      ),
     );
   }
 }
