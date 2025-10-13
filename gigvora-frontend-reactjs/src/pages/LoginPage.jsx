@@ -23,11 +23,13 @@ export default function LoginPage() {
       title: 'Product Designer',
       avatarSeed: 'Lena Fields',
       memberships: ['user', 'freelancer', 'agency'],
+      activeMembership: 'freelancer',
       primaryDashboard: 'user',
       followers: 1280,
       connections: 324,
       companies: ['Gigvora Labs', 'Atlas Studios'],
       agencies: ['Northshore Creative'],
+      freelancerId: 88421,
       accountTypes: ['Freelancer', 'Agency', 'Talent Lead'],
       isAuthenticated: true,
     });

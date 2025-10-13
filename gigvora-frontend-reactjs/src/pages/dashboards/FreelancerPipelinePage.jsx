@@ -12,6 +12,8 @@ import {
   createPipelineCampaign,
 } from '../../services/pipeline.js';
 import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
+import RoleGate from '../../components/access/RoleGate.jsx';
+import useRoleAccess from '../../hooks/useRoleAccess.js';
 
 const DEFAULT_OWNER_ID = 1;
 const viewLabels = {
@@ -803,39 +805,65 @@ function ProposalLibrary({ proposals, templates }) {
   );
 }
 
-const menuSections = [
-  {
-    label: 'Growth & profile',
-    items: [
+export default function FreelancerPipelinePage() {
+  const { session, hasAccess } = useRoleAccess(['freelancer']);
+  const ownerId = session?.freelancerId ?? DEFAULT_OWNER_ID;
+  const [view, setView] = useState('stage');
+  const [lookbackDays, setLookbackDays] = useState(30);
+
+  const menuSections = useMemo(
+    () => [
       {
-        name: 'Freelancer operations HQ',
-        description: 'Return to the overview dashboard.',
-        to: '/dashboard/freelancer',
-      },
-      {
-        name: 'Pipeline CRM',
-        description: 'Track leads, proposals, follow-ups, and campaigns.',
-        to: '/dashboard/freelancer/pipeline',
+        label: 'Growth & profile',
+        items: [
+          {
+            name: 'Freelancer operations HQ',
+            description: 'Return to the overview dashboard.',
+            to: '/dashboard/freelancer',
+          },
+          {
+            name: 'Pipeline CRM',
+            description: 'Track leads, proposals, follow-ups, and campaigns.',
+            to: '/dashboard/freelancer/pipeline',
+          },
+        ],
       },
     ],
-  },
-];
+    [],
+  );
 
-const profile = {
-  name: 'Riley Morgan',
-  role: 'Lead Brand & Product Designer',
-  initials: 'RM',
-  status: 'Relationship pipeline',
-  badges: ['Gigvora Elite'],
-};
+  const profile = useMemo(() => {
+    if (!session) {
+      return {
+        name: 'Riley Morgan',
+        role: 'Lead Brand & Product Designer',
+        initials: 'RM',
+        status: 'Relationship pipeline',
+        badges: ['Gigvora Elite'],
+      };
+    }
 
-export default function FreelancerPipelinePage() {
-  const ownerId = DEFAULT_OWNER_ID;
-  const [view, setView] = useState('stage');
+    const name = session.name ?? 'Freelancer';
+    const initials = name
+      .split(' ')
+      .map((part) => part?.[0] ?? '')
+      .join('')
+      .slice(0, 2)
+      .toUpperCase() || 'GV';
+
+    return {
+      name,
+      role: session.title ?? 'Freelancer pipeline member',
+      initials,
+      status: 'Relationship pipeline',
+      badges: ['Gigvora Elite'],
+    };
+  }, [session]);
+
   const { data, error, loading, fromCache, lastUpdated, refresh } = useCachedResource(
-    `freelancer:pipeline:${ownerId}:${view}`,
-    ({ signal }) => fetchFreelancerPipelineDashboard(ownerId, { view, signal }),
-    { dependencies: [ownerId, view] },
+    `freelancer:pipeline:${ownerId}:${view}:${lookbackDays}`,
+    ({ signal }) => fetchFreelancerPipelineDashboard(ownerId, { view, lookbackDays, signal }),
+    { dependencies: [ownerId, view, lookbackDays], enabled: hasAccess },
   );
 
   const summary = data?.summary ?? {
@@ -876,32 +904,54 @@ export default function FreelancerPipelinePage() {
   };
 
   return (
-    <DashboardLayout
-      currentDashboard="freelancer"
-      title="Pipeline CRM"
-      subtitle="Relationship command center"
-      description="Dedicated CRM for nurturing retainers, proposals, and cross-sell plays beyond day-to-day gig delivery."
-      menuSections={menuSections}
-      sections={[]}
-      profile={profile}
-      availableDashboards={['freelancer', 'user', 'agency']}
-    >
+    <RoleGate allowedRoles={['freelancer']} featureName="Freelancer pipeline workspace">
+      <DashboardLayout
+        currentDashboard="freelancer-pipeline"
+        title="Pipeline CRM"
+        subtitle="Relationship command center"
+        description="Dedicated CRM for nurturing retainers, proposals, and cross-sell plays beyond day-to-day gig delivery."
+        menuSections={menuSections}
+        sections={[]}
+        profile={profile}
+        availableDashboards={[
+          { id: 'freelancer', label: 'Freelancer', href: '/dashboard/freelancer' },
+          { id: 'freelancer-pipeline', label: 'Pipeline HQ', href: '/dashboard/freelancer/pipeline' },
+          { id: 'user', label: 'Talent', href: '/dashboard/user' },
+          { id: 'agency', label: 'Agency', href: '/dashboard/agency' },
+        ]}
+      >
       <div className="space-y-8 px-4 py-8 sm:px-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <DataStatus loading={loading} fromCache={fromCache} lastUpdated={lastUpdated} onRefresh={() => refresh({ force: true })} />
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Group by</span>
-            <select
-              value={view}
-              onChange={(event) => setView(event.target.value)}
-              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm"
-            >
-              {viewOptions.map((option) => (
-                <option key={option} value={option}>
-                  {viewLabels[option] ?? option}
-                </option>
-              ))}
-            </select>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Group by</span>
+              <select
+                value={view}
+                onChange={(event) => setView(event.target.value)}
+                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm"
+              >
+                {viewOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {viewLabels[option] ?? option}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Lookback</span>
+              <select
+                value={lookbackDays}
+                onChange={(event) => setLookbackDays(Number(event.target.value))}
+                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm"
+              >
+                {[14, 30, 60, 90].map((days) => (
+                  <option key={days} value={days}>
+                    Last {days} days
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -986,6 +1036,7 @@ export default function FreelancerPipelinePage() {
           )}
         </section>
       </div>
-    </DashboardLayout>
+      </DashboardLayout>
+    </RoleGate>
   );
 }
