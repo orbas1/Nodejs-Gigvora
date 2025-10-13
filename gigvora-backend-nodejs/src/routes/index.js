@@ -28,6 +28,7 @@ import workspaceTemplateRoutes from './workspaceTemplateRoutes.js';
 import companyRoutes from './companyRoutes.js';
 import interviewRoutes from './interviewRoutes.js';
 import networkingRoutes from './networkingRoutes.js';
+import mentorshipRoutes from './mentorshipRoutes.js';
 
 const router = Router();
 
@@ -60,5 +61,6 @@ router.use('/company', companyRoutes);
 router.use('/interviews', interviewRoutes);
 router.use('/ads', adRoutes);
 router.use('/networking', networkingRoutes);
+router.use('/mentors', mentorshipRoutes);
 
 export default router;
