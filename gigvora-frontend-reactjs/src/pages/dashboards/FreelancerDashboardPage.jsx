@@ -1,4 +1,7 @@
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import CatalogInsightsPanel from '../../components/freelancer/CatalogInsightsPanel.jsx';
+
+const DEFAULT_FREELANCER_ID = 2;
 
 const menuSections = [
   {
@@ -34,6 +37,12 @@ const menuSections = [
       {
         name: 'Purchased gigs',
         description: 'Track incoming orders, requirements, revisions, and payouts.',
+      },
+      {
+        name: 'Catalog insights',
+        description: 'Monitor conversion, margin, and discovery signals for your gig bundles.',
+        tags: ['analytics'],
+        targetId: 'catalog-insights',
       },
     ],
   },
@@ -140,6 +149,8 @@ const capabilitySections = [
           'Margin calculator factoring software costs and subcontractors.',
           'Heatmaps of search keywords driving gig impressions.',
         ],
+        anchorId: 'catalog-insights',
+        customContent: <CatalogInsightsPanel freelancerId={DEFAULT_FREELANCER_ID} />,
       },
     ],
   },
