@@ -4,11 +4,15 @@ import 'package:gigvora_design_system/gigvora_design_system.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
 
 import 'core/providers.dart';
+import 'features/auth/domain/auth_token_store.dart';
 import 'router/app_router.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await ServiceLocator.configure();
+  await ServiceLocator.configure(
+    requestInterceptors: [AuthTokenStore.attachToken],
+    authTokenResolver: AuthTokenStore.readAccessToken,
+  );
 
   try {
     final loader = GigvoraThemeLoader();

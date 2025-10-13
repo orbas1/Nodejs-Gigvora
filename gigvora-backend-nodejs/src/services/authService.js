@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { User, sequelize } from '../models/index.js';
 import { normalizeLocationPayload } from '../utils/location.js';
 import twoFactorService from './twoFactorService.js';
+import { resolveAccessTokenSecret, resolveRefreshTokenSecret } from '../utils/jwtSecrets.js';
 
 const TOKEN_EXPIRY = process.env.JWT_EXPIRES_IN || '1h';
 
@@ -64,8 +65,8 @@ async function verifyTwoFactor(email, code) {
 
   const user = await User.findOne({ where: { email } });
   const payload = { id: user.id, type: user.userType };
-  const accessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
-  const refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
+  const accessToken = jwt.sign(payload, resolveAccessTokenSecret(), { expiresIn: TOKEN_EXPIRY });
+  const refreshToken = jwt.sign(payload, resolveRefreshTokenSecret(), { expiresIn: '7d' });
 
   return { accessToken, refreshToken, user };
 }

@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { apiClient } from '../services/apiClient.js';
 
 const STORAGE_KEY = 'gigvora:web:session';
 
@@ -58,27 +59,74 @@ export function SessionProvider({ children }) {
     persistSession(session);
   }, [session]);
 
+  useEffect(() => {
+    const accessToken = session?.accessToken ?? null;
+    if (accessToken) {
+      apiClient.setAccessToken(accessToken);
+    } else {
+      apiClient.clearAccessToken();
+    }
+
+    const refreshToken = session?.refreshToken ?? null;
+    if (refreshToken) {
+      apiClient.setRefreshToken(refreshToken);
+    } else {
+      apiClient.clearRefreshToken();
+    }
+  }, [session?.accessToken, session?.refreshToken]);
+
   const value = useMemo(
     () => ({
       session,
       isAuthenticated: Boolean(session?.isAuthenticated),
       login: (payload = {}) => {
+        const { accessToken, refreshToken, ...rest } = payload;
+        if (accessToken) {
+          apiClient.setAccessToken(accessToken);
+        }
+        if (refreshToken) {
+          apiClient.setRefreshToken(refreshToken);
+        }
+
         const nextSession = {
           isAuthenticated: true,
-          ...payload,
+          ...rest,
+          ...(accessToken ? { accessToken } : {}),
+          ...(refreshToken ? { refreshToken } : {}),
         };
         setSession(nextSession);
         return nextSession;
       },
       logout: () => {
+        apiClient.clearAccessToken();
+        apiClient.clearRefreshToken();
         setSession(null);
       },
       updateSession: (updates = {}) => {
         setSession((previous) => {
-          if (!previous) {
-            return { isAuthenticated: true, ...updates };
+          const next = previous ? { ...previous } : { isAuthenticated: true };
+
+          if (Object.prototype.hasOwnProperty.call(updates, 'accessToken')) {
+            const nextAccess = updates.accessToken;
+            if (nextAccess) {
+              apiClient.setAccessToken(nextAccess);
+            } else {
+              apiClient.clearAccessToken();
+            }
+            next.accessToken = nextAccess;
           }
-          return { ...previous, ...updates };
+
+          if (Object.prototype.hasOwnProperty.call(updates, 'refreshToken')) {
+            const nextRefresh = updates.refreshToken;
+            if (nextRefresh) {
+              apiClient.setRefreshToken(nextRefresh);
+            } else {
+              apiClient.clearRefreshToken();
+            }
+            next.refreshToken = nextRefresh;
+          }
+
+          return { ...next, ...updates };
         });
       },
     }),

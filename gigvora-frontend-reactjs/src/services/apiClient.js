@@ -2,6 +2,7 @@ const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:400
 const DEFAULT_CACHE_TTL = 1000 * 60 * 2; // two minutes
 const CACHE_NAMESPACE = 'gigvora:web:cache:';
 const AUTH_TOKEN_KEY = 'gigvora:web:auth:accessToken';
+const REFRESH_TOKEN_KEY = 'gigvora:web:auth:refreshToken';
 
 class ApiError extends Error {
   constructor(message, status, body) {
@@ -50,6 +51,62 @@ function getAuthHeaders() {
     return {};
   }
   return { Authorization: `Bearer ${token}` };
+}
+
+function getAccessToken() {
+  if (!storage) {
+    return null;
+  }
+  try {
+    const token = storage.getItem(AUTH_TOKEN_KEY);
+    return token || null;
+  } catch (error) {
+    console.warn('Unable to read access token from storage', error);
+    return null;
+  }
+}
+
+function setAccessToken(token) {
+  if (!storage) {
+    return;
+  }
+  try {
+    if (!token) {
+      storage.removeItem(AUTH_TOKEN_KEY);
+      return;
+    }
+    storage.setItem(AUTH_TOKEN_KEY, token);
+  } catch (error) {
+    console.warn('Unable to persist access token', error);
+  }
+}
+
+function setRefreshToken(token) {
+  if (!storage) {
+    return;
+  }
+  try {
+    if (!token) {
+      storage.removeItem(REFRESH_TOKEN_KEY);
+      return;
+    }
+    storage.setItem(REFRESH_TOKEN_KEY, token);
+  } catch (error) {
+    console.warn('Unable to persist refresh token', error);
+  }
+}
+
+function getRefreshToken() {
+  if (!storage) {
+    return null;
+  }
+  try {
+    const token = storage.getItem(REFRESH_TOKEN_KEY);
+    return token || null;
+  } catch (error) {
+    console.warn('Unable to read refresh token from storage', error);
+    return null;
+  }
 }
 
 async function request(method, path, { body, params, signal, headers } = {}) {
@@ -151,6 +208,12 @@ export const apiClient = {
   removeCache,
   ApiError,
   API_BASE_URL,
+  getAccessToken,
+  setAccessToken,
+  setRefreshToken,
+  getRefreshToken,
+  clearAccessToken: () => setAccessToken(null),
+  clearRefreshToken: () => setRefreshToken(null),
 };
 
 export default apiClient;

@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ArrowPathIcon, CurrencyDollarIcon, LifebuoyIcon, ShieldCheckIcon, UsersIcon } from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import { fetchAdminDashboard } from '../../services/admin.js';
+import useSession from '../../hooks/useSession.js';
 
 const MENU_SECTIONS = [
   {
@@ -171,6 +173,48 @@ function calculatePercentages(dictionary = {}) {
   });
 }
 
+function computeInitials(name, fallback = 'GV') {
+  if (!name) return fallback;
+  const letters = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase());
+  if (letters.length === 0) {
+    return fallback;
+  }
+  return letters.slice(0, 2).join('').padEnd(2, fallback.charAt(0) || 'G');
+}
+
+function AccessNotice({ title, message, onPrimaryAction, primaryLabel, secondaryHref, secondaryLabel }) {
+  return (
+    <div className="py-20">
+      <div className="mx-auto max-w-2xl rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-soft">
+        <h2 className="text-2xl font-semibold text-slate-900">{title}</h2>
+        <p className="mt-3 text-sm text-slate-600">{message}</p>
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+          {primaryLabel ? (
+            <button
+              type="button"
+              onClick={onPrimaryAction}
+              className="inline-flex items-center justify-center rounded-full bg-accent px-6 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
+            >
+              {primaryLabel}
+            </button>
+          ) : null}
+          {secondaryHref && secondaryLabel ? (
+            <a
+              href={secondaryHref}
+              className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-6 py-2 text-sm font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+            >
+              {secondaryLabel}
+            </a>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SummaryCard({ label, value, caption, delta, icon: Icon }) {
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-blue-100/40">
@@ -259,12 +303,34 @@ function RecentList({ title, rows, columns, emptyLabel }) {
 }
 
 export default function AdminDashboardPage() {
+  const navigate = useNavigate();
+  const { session, isAuthenticated } = useSession();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshIndex, setRefreshIndex] = useState(0);
 
+  const hasAdminRole = useMemo(() => {
+    if (!session) {
+      return false;
+    }
+    const memberships = Array.isArray(session.memberships)
+      ? session.memberships.map((value) => `${value}`.toLowerCase())
+      : [];
+    const userType = session.user?.userType === 'admin';
+    const role = session.role?.toLowerCase?.() === 'admin';
+    return userType || role || memberships.includes('admin');
+  }, [session]);
+
+  const canAccessDashboard = isAuthenticated && hasAdminRole;
+
   useEffect(() => {
+    if (!canAccessDashboard) {
+      setLoading(false);
+      setData(null);
+      setError(null);
+      return;
+    }
     let active = true;
     setLoading(true);
     setError(null);
@@ -276,27 +342,49 @@ export default function AdminDashboardPage() {
       })
       .catch((err) => {
         if (!active) return;
-        setError(err?.message || 'Unable to load admin telemetry at this time.');
+        if (err?.status === 401) {
+          setError('Your session has expired. Please sign in again.');
+        } else if (err?.status === 403) {
+          setError('Admin access required to view this telemetry.');
+        } else {
+          setError(err?.message || 'Unable to load admin telemetry at this time.');
+        }
         setData(null);
         setLoading(false);
       });
     return () => {
       active = false;
     };
-  }, [refreshIndex]);
+  }, [refreshIndex, canAccessDashboard]);
 
   const profile = useMemo(() => {
     const totals = data?.summary?.totals ?? {};
     const support = data?.support ?? {};
     const trust = data?.trust ?? {};
     const financials = data?.financials ?? {};
+    const sessionUser = session?.user ?? {};
+    const displayName = [sessionUser.firstName, sessionUser.lastName]
+      .filter(Boolean)
+      .join(' ')
+      .trim() ||
+      session?.name ||
+      'Jordan Kim';
+    const displayRole = session?.title ?? sessionUser.title ?? 'Chief Platform Administrator';
+    const baseBadges = new Set(session?.badges ?? ['Security cleared']);
+    if (hasAdminRole) {
+      baseBadges.add('Super admin');
+    }
+    if (session?.lastLoginAt) {
+      baseBadges.add(`Signed in ${formatRelativeTime(session.lastLoginAt)}`);
+    }
 
     return {
-      name: 'Jordan Kim',
-      role: 'Chief Platform Administrator',
-      initials: 'JK',
-      status: data ? `Last refresh ${formatRelativeTime(data.refreshedAt)}` : 'Loading metrics…',
-      badges: ['Super admin', 'Security cleared'],
+      name: displayName,
+      role: displayRole,
+      initials: session?.initials ?? computeInitials(displayName, session?.email ?? sessionUser.email),
+      avatarUrl: session?.avatarUrl ?? sessionUser.avatarUrl ?? null,
+      status: data ? `Last refresh ${formatRelativeTime(data.refreshedAt)}` : session?.status ?? 'Loading metrics…',
+      badges: Array.from(baseBadges).filter(Boolean),
       metrics: [
         { label: 'Members', value: formatNumber(totals.totalUsers ?? 0) },
         { label: 'Support backlog', value: formatNumber(support.openCases ?? 0) },
@@ -304,7 +392,7 @@ export default function AdminDashboardPage() {
         { label: 'Gross volume', value: formatCurrency(financials.grossEscrowVolume ?? 0) },
       ],
     };
-  }, [data]);
+  }, [data, session, hasAdminRole]);
 
   const summaryCards = useMemo(() => {
     if (!data) return [];
@@ -758,6 +846,55 @@ export default function AdminDashboardPage() {
       </section>
     </div>
   ) : null;
+
+  let gatingView = null;
+  if (!isAuthenticated) {
+    gatingView = (
+      <AccessNotice
+        title="Sign in required"
+        message="Sign in with your Gigvora admin credentials to open the control tower."
+        primaryLabel="Go to admin login"
+        onPrimaryAction={() => navigate('/admin')}
+        secondaryLabel="Contact platform ops"
+        secondaryHref="mailto:ops@gigvora.com?subject=Admin%20access%20request"
+      />
+    );
+  } else if (!hasAdminRole) {
+    gatingView = (
+      <AccessNotice
+        title="Admin clearance required"
+        message="This workspace is restricted to platform administrators. Request elevated access from operations."
+        primaryLabel="Switch account"
+        onPrimaryAction={() => navigate('/admin')}
+        secondaryLabel="Contact platform ops"
+        secondaryHref="mailto:ops@gigvora.com?subject=Admin%20access%20request"
+      />
+    );
+  }
+
+  if (gatingView) {
+    return (
+      <DashboardLayout
+        currentDashboard="admin"
+        title="Gigvora Admin Control Tower"
+        subtitle="Enterprise governance & compliance"
+        description="Centralize every lever that powers Gigvora—from member growth and financial operations to trust, support, analytics, and the launchpad."
+        menuSections={MENU_SECTIONS}
+        sections={[]}
+        profile={profile}
+        availableDashboards={[
+          'admin',
+          'user',
+          'freelancer',
+          'company',
+          'agency',
+          'headhunter',
+        ]}
+      >
+        {gatingView}
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout
