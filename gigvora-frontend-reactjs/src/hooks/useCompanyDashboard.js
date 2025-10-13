@@ -11,6 +11,15 @@ function formatNumber(value) {
   return numeric.toLocaleString();
 }
 
+function formatPercentValue(value) {
+  if (value == null) return '—';
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return '—';
+  }
+  return `${numeric.toFixed(1)}%`;
+}
+
 export function useCompanyDashboard({ workspaceId, workspaceSlug, lookbackDays = 30, enabled = true } = {}) {
   const cacheKey = useMemo(() => {
     const identifier = workspaceSlug ?? workspaceId ?? 'default';
@@ -33,9 +42,22 @@ export function useCompanyDashboard({ workspaceId, workspaceSlug, lookbackDays =
       return [];
     }
 
-    const { pipelineSummary, memberSummary, offers, interviewOperations, candidateExperience, alerts } = state.data;
+    const {
+      pipelineSummary,
+      memberSummary,
+      offers,
+      interviewOperations,
+      candidateExperience,
+      alerts,
+      employerBrandWorkforce,
+    } = state.data;
 
-    return [
+    const brandWorkforce = employerBrandWorkforce ?? {};
+    const attritionRisk = brandWorkforce.workforceAnalytics?.attritionRiskScore;
+    const activeCampaigns = brandWorkforce.profileStudio?.campaignSummary?.active;
+    const referralConversion = brandWorkforce.internalMobility?.referralConversionRate;
+
+    const cards = [
       {
         label: 'Open requisitions',
         value: formatNumber(state.data.jobSummary?.total ?? 0),
@@ -77,7 +99,43 @@ export function useCompanyDashboard({ workspaceId, workspaceSlug, lookbackDays =
         label: 'Active recruiters',
         value: formatNumber(memberSummary?.active ?? 0),
       },
+      {
+        label: 'Attrition risk',
+        value: formatPercentValue(attritionRisk),
+      },
+      {
+        label: 'Brand campaigns',
+        value: formatNumber(activeCampaigns ?? 0),
+      },
+      {
+        label: 'Referral conversion',
+        value: formatPercentValue(referralConversion),
+      },
     ];
+
+    const partnerships = state.data?.partnerships ?? {};
+    if (partnerships.headhunterProgram?.briefs) {
+      cards.push({
+        label: 'Active headhunter briefs',
+        value: formatNumber(partnerships.headhunterProgram.briefs.active ?? 0),
+      });
+    }
+    if (partnerships.talentPools?.totals) {
+      cards.push({
+        label: 'Talent pool hires',
+        value: formatNumber(partnerships.talentPools.totals.hiresFromPools ?? 0),
+      });
+    }
+    if (partnerships.agencyCollaboration?.billing) {
+      cards.push({
+        label: 'Agency billing outstanding',
+        value: partnerships.agencyCollaboration.billing.outstandingAmount
+          ? formatNumber(partnerships.agencyCollaboration.billing.outstandingAmount)
+          : '—',
+      });
+    }
+
+    return cards;
   }, [state.data]);
 
   return { ...state, summaryCards };
