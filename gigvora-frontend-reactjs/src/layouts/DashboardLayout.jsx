@@ -11,6 +11,15 @@ import {
 } from '@heroicons/react/24/outline';
 import { DASHBOARD_LINKS } from '../constants/dashboardLinks.js';
 
+function slugify(value) {
+  return value
+    ?.toString()
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+}
+
 export default function DashboardLayout({
   currentDashboard,
   title,
@@ -25,6 +34,19 @@ export default function DashboardLayout({
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const handleNavigate = (targetId) => {
+    if (!targetId) {
+      return;
+    }
+    if (typeof document !== 'undefined') {
+      const targetElement = document.getElementById(targetId);
+      if (targetElement) {
+        targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+    setSidebarOpen(false);
+  };
 
   const navigationSections = Array.isArray(menuSections) ? menuSections : [];
   const capabilitySections = Array.isArray(sections) ? sections : [];
@@ -125,31 +147,38 @@ export default function DashboardLayout({
                 <div key={section.label}>
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{section.label}</p>
                   <ul className="mt-3 space-y-2">
-                    {section.items.map((item) => (
-                      <li key={item.name}>
-                        <div className="group flex flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-slate-700">{item.name}</span>
-                            <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
-                          </div>
-                          {item.description ? (
-                            <p className="text-xs text-slate-500">{item.description}</p>
-                          ) : null}
-                          {item.tags?.length ? (
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {item.tags.map((tag) => (
-                                <span
-                                  key={tag}
-                                  className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-600"
-                                >
-                                  {tag}
-                                </span>
-                              ))}
+                    {section.items.map((item) => {
+                      const targetId = item.targetId || slugify(item.name ?? '');
+                      return (
+                        <li key={item.name}>
+                          <button
+                            type="button"
+                            onClick={() => handleNavigate(targetId)}
+                            className="group flex w-full flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 text-left transition hover:border-blue-300 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium text-slate-700">{item.name}</span>
+                              <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
                             </div>
-                          ) : null}
-                        </div>
-                      </li>
-                    ))}
+                            {item.description ? (
+                              <p className="text-xs text-slate-500">{item.description}</p>
+                            ) : null}
+                            {item.tags?.length ? (
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {item.tags.map((tag) => (
+                                  <span
+                                    key={tag}
+                                    className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-600"
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : null}
+                          </button>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               ))}
@@ -274,16 +303,19 @@ export default function DashboardLayout({
                         ) : null}
                       </div>
                       <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                        {section.features.map((feature) => (
-                          <div
-                            key={feature.name}
-                            className="group flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50 p-5 transition hover:border-blue-300 hover:bg-blue-50"
-                          >
-                            <div>
-                              <h3 className="text-lg font-semibold text-slate-900">{feature.name}</h3>
-                              {feature.description ? (
-                                <p className="mt-2 text-sm text-slate-600">{feature.description}</p>
-                              ) : null}
+                        {section.features.map((feature) => {
+                          const featureId = feature.id ?? slugify(feature.name ?? '');
+                          return (
+                            <div
+                              key={feature.name}
+                              id={featureId || undefined}
+                              className="group flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50 p-5 transition hover:border-blue-300 hover:bg-blue-50"
+                            >
+                              <div>
+                                <h3 className="text-lg font-semibold text-slate-900">{feature.name}</h3>
+                                {feature.description ? (
+                                  <p className="mt-2 text-sm text-slate-600">{feature.description}</p>
+                                ) : null}
                               {feature.bulletPoints?.length ? (
                                 <ul className="mt-3 space-y-2 text-sm text-slate-600">
                                   {feature.bulletPoints.map((point) => (
@@ -294,14 +326,74 @@ export default function DashboardLayout({
                                   ))}
                                 </ul>
                               ) : null}
+                              {feature.pillars?.length ? (
+                                <div className="mt-4 space-y-3">
+                                  {feature.pillars.map((pillar) => (
+                                    <div
+                                      key={pillar.title ?? pillar.description}
+                                      className="rounded-2xl border border-slate-200 bg-white/70 p-4 shadow-[0_10px_25px_-18px_rgba(30,64,175,0.55)]"
+                                    >
+                                      <div className="flex flex-col gap-2">
+                                        {pillar.title ? (
+                                          <p className="text-xs font-semibold uppercase tracking-wide text-blue-600/80">
+                                            {pillar.title}
+                                          </p>
+                                        ) : null}
+                                        {pillar.description ? (
+                                          <p className="text-sm text-slate-600">{pillar.description}</p>
+                                        ) : null}
+                                      </div>
+                                      {pillar.items?.length ? (
+                                        <ul className="mt-3 space-y-2 text-sm text-slate-600">
+                                          {pillar.items.map((item) => (
+                                            <li key={item} className="flex gap-2">
+                                              <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-300" />
+                                              <span>{item}</span>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      ) : null}
+                                      {pillar.metrics?.length ? (
+                                        <dl className="mt-3 grid gap-2 sm:grid-cols-2">
+                                          {pillar.metrics.map(({ label, value }) => (
+                                            <div
+                                              key={`${pillar.title ?? 'pillar'}-${label}`}
+                                              className="rounded-xl border border-blue-100 bg-blue-50/80 p-3"
+                                            >
+                                              <dt className="text-[10px] font-semibold uppercase tracking-wide text-blue-500">
+                                                {label}
+                                              </dt>
+                                              <dd className="mt-1 text-sm font-semibold text-blue-900">{value}</dd>
+                                            </div>
+                                          ))}
+                                        </dl>
+                                      ) : null}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : null}
+                              {feature.metrics?.length ? (
+                                <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+                                  {feature.metrics.map(({ label, value }) => (
+                                    <div key={label} className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
+                                      <dt className="text-xs font-semibold uppercase tracking-wide text-blue-500/90">{label}</dt>
+                                      <dd className="mt-1 text-lg font-semibold text-blue-900">{value}</dd>
+                                    </div>
+                                  ))}
+                                </dl>
+                              ) : null}
+                              </div>
+                              {feature.callout ? (
+                                <p className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium uppercase tracking-wide text-blue-700">
+                                  {feature.callout}
+                                </p>
+                              ) : null}
+                              {feature.component ? (
+                                <div className="mt-5">{feature.component}</div>
+                              ) : null}
                             </div>
-                            {feature.callout ? (
-                              <p className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium uppercase tracking-wide text-blue-700">
-                                {feature.callout}
-                              </p>
-                            ) : null}
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </section>
                   ))}
