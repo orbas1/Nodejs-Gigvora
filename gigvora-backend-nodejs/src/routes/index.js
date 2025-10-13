@@ -35,6 +35,7 @@ router.use('/projects', projectRoutes);
 router.use('/launchpad', launchpadRoutes);
 router.use('/headhunter', headhunterRoutes);
 router.use('/admin', adminRoutes);
+router.use('/freelancers', freelancerRoutes);
 router.use('/freelancer', freelancerRoutes);
 router.use('/client-portals', clientPortalRoutes);
 router.use('/learning-hub', learningHubRoutes);

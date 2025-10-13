@@ -155,6 +155,11 @@ export const CLIENT_PORTAL_DECISION_VISIBILITIES = ['internal', 'client', 'publi
 export const CLIENT_PORTAL_INSIGHT_TYPES = ['health', 'finance', 'engagement', 'risk', 'custom'];
 export const CLIENT_PORTAL_INSIGHT_VISIBILITIES = ['internal', 'shared'];
 
+export const FREELANCER_EXPERTISE_STATUSES = ['live', 'in_progress', 'needs_decision', 'archived'];
+export const FREELANCER_SUCCESS_TRENDS = ['up', 'down', 'steady'];
+export const FREELANCER_TESTIMONIAL_STATUSES = ['draft', 'scheduled', 'published', 'archived'];
+export const FREELANCER_HERO_BANNER_STATUSES = ['planned', 'testing', 'live', 'paused', 'archived'];
+
 export const User = sequelize.define(
   'User',
   {
@@ -363,6 +368,128 @@ export const FreelancerProfile = sequelize.define(
     availability: { type: DataTypes.STRING(120), allowNull: true },
   },
   { tableName: 'freelancer_profiles' },
+);
+
+export const FreelancerExpertiseArea = sequelize.define(
+  'FreelancerExpertiseArea',
+  {
+    profileId: { type: DataTypes.INTEGER, allowNull: false },
+    slug: { type: DataTypes.STRING(120), allowNull: false },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...FREELANCER_EXPERTISE_STATUSES),
+      allowNull: false,
+      defaultValue: 'live',
+    },
+    tags: { type: jsonType, allowNull: false, defaultValue: [] },
+    tractionSnapshot: { type: jsonType, allowNull: false, defaultValue: [] },
+    recommendations: { type: jsonType, allowNull: false, defaultValue: [] },
+    healthScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    displayOrder: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  },
+  {
+    tableName: 'freelancer_expertise_areas',
+    indexes: [
+      { unique: true, fields: ['profileId', 'slug'] },
+      { fields: ['profileId', 'status'] },
+    ],
+  },
+);
+
+export const FreelancerSuccessMetric = sequelize.define(
+  'FreelancerSuccessMetric',
+  {
+    profileId: { type: DataTypes.INTEGER, allowNull: false },
+    metricKey: { type: DataTypes.STRING(120), allowNull: false },
+    label: { type: DataTypes.STRING(255), allowNull: false },
+    value: { type: DataTypes.STRING(255), allowNull: false },
+    numericValue: { type: DataTypes.DECIMAL(15, 2), allowNull: true },
+    deltaLabel: { type: DataTypes.STRING(255), allowNull: true },
+    targetLabel: { type: DataTypes.STRING(255), allowNull: true },
+    trendDirection: {
+      type: DataTypes.ENUM(...FREELANCER_SUCCESS_TRENDS),
+      allowNull: false,
+      defaultValue: 'steady',
+    },
+    breakdown: { type: jsonType, allowNull: false, defaultValue: [] },
+    periodStart: { type: DataTypes.DATE, allowNull: true },
+    periodEnd: { type: DataTypes.DATE, allowNull: true },
+    displayOrder: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  },
+  {
+    tableName: 'freelancer_success_metrics',
+    indexes: [
+      { unique: true, fields: ['profileId', 'metricKey'] },
+      { fields: ['profileId'] },
+    ],
+  },
+);
+
+export const FreelancerTestimonial = sequelize.define(
+  'FreelancerTestimonial',
+  {
+    profileId: { type: DataTypes.INTEGER, allowNull: false },
+    testimonialKey: { type: DataTypes.STRING(120), allowNull: false },
+    clientName: { type: DataTypes.STRING(255), allowNull: false },
+    clientRole: { type: DataTypes.STRING(255), allowNull: true },
+    clientCompany: { type: DataTypes.STRING(255), allowNull: true },
+    projectName: { type: DataTypes.STRING(255), allowNull: true },
+    quote: { type: DataTypes.TEXT, allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...FREELANCER_TESTIMONIAL_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+    },
+    isFeatured: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    weight: { type: DataTypes.DECIMAL(6, 2), allowNull: true },
+    nextAction: { type: DataTypes.STRING(255), allowNull: true },
+    curationNotes: { type: DataTypes.TEXT, allowNull: true },
+    metrics: { type: jsonType, allowNull: false, defaultValue: [] },
+    requestedAt: { type: DataTypes.DATE, allowNull: true },
+    recordedAt: { type: DataTypes.DATE, allowNull: true },
+    publishedAt: { type: DataTypes.DATE, allowNull: true },
+    displayOrder: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  },
+  {
+    tableName: 'freelancer_testimonials',
+    indexes: [
+      { unique: true, fields: ['profileId', 'testimonialKey'] },
+      { fields: ['profileId', 'status'] },
+    ],
+  },
+);
+
+export const FreelancerHeroBanner = sequelize.define(
+  'FreelancerHeroBanner',
+  {
+    profileId: { type: DataTypes.INTEGER, allowNull: false },
+    bannerKey: { type: DataTypes.STRING(120), allowNull: false },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    headline: { type: DataTypes.STRING(255), allowNull: false },
+    audience: { type: DataTypes.STRING(255), allowNull: true },
+    callToActionLabel: { type: DataTypes.STRING(255), allowNull: true },
+    callToActionUrl: { type: DataTypes.STRING(255), allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...FREELANCER_HERO_BANNER_STATUSES),
+      allowNull: false,
+      defaultValue: 'planned',
+    },
+    gradient: { type: DataTypes.STRING(255), allowNull: true },
+    metrics: { type: jsonType, allowNull: false, defaultValue: [] },
+    experimentId: { type: DataTypes.STRING(120), allowNull: true },
+    backgroundImageUrl: { type: DataTypes.STRING(255), allowNull: true },
+    conversionTarget: { type: DataTypes.STRING(255), allowNull: true },
+    lastLaunchedAt: { type: DataTypes.DATE, allowNull: true },
+    displayOrder: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  },
+  {
+    tableName: 'freelancer_hero_banners',
+    indexes: [
+      { unique: true, fields: ['profileId', 'bannerKey'] },
+      { fields: ['profileId', 'status'] },
+    ],
+  },
 );
 
 export const FeedPost = sequelize.define(
@@ -3579,6 +3706,18 @@ ProfileFollower.belongsTo(User, { as: 'follower', foreignKey: 'followerId' });
 Profile.hasMany(ProfileEngagementJob, { as: 'engagementJobs', foreignKey: 'profileId', onDelete: 'CASCADE' });
 ProfileEngagementJob.belongsTo(Profile, { as: 'profile', foreignKey: 'profileId' });
 
+Profile.hasMany(FreelancerExpertiseArea, { as: 'expertiseAreas', foreignKey: 'profileId', onDelete: 'CASCADE' });
+FreelancerExpertiseArea.belongsTo(Profile, { as: 'profile', foreignKey: 'profileId' });
+
+Profile.hasMany(FreelancerSuccessMetric, { as: 'successMetrics', foreignKey: 'profileId', onDelete: 'CASCADE' });
+FreelancerSuccessMetric.belongsTo(Profile, { as: 'profile', foreignKey: 'profileId' });
+
+Profile.hasMany(FreelancerTestimonial, { as: 'testimonials', foreignKey: 'profileId', onDelete: 'CASCADE' });
+FreelancerTestimonial.belongsTo(Profile, { as: 'profile', foreignKey: 'profileId' });
+
+Profile.hasMany(FreelancerHeroBanner, { as: 'heroBanners', foreignKey: 'profileId', onDelete: 'CASCADE' });
+FreelancerHeroBanner.belongsTo(Profile, { as: 'profile', foreignKey: 'profileId' });
+
 User.hasOne(CompanyProfile, { foreignKey: 'userId' });
 CompanyProfile.belongsTo(User, { foreignKey: 'userId' });
 
@@ -4139,6 +4278,10 @@ export default {
   CompanyProfile,
   AgencyProfile,
   FreelancerProfile,
+  FreelancerExpertiseArea,
+  FreelancerSuccessMetric,
+  FreelancerTestimonial,
+  FreelancerHeroBanner,
   FeedPost,
   Job,
   Gig,
