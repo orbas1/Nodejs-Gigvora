@@ -5,7 +5,7 @@ import '../../../theme/widgets.dart';
 import '../application/opportunity_controller.dart';
 import '../data/models/opportunity.dart';
 
-class OpportunityListScreen extends ConsumerStatefulWidget {
+class OpportunityListScreen extends ConsumerWidget {
   const OpportunityListScreen({
     super.key,
     required this.category,
@@ -26,10 +26,42 @@ class OpportunityListScreen extends ConsumerStatefulWidget {
   final String emptySearchMessage;
 
   @override
-  ConsumerState<OpportunityListScreen> createState() => _OpportunityListScreenState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    return GigvoraScaffold(
+      title: title,
+      subtitle: subtitle,
+      body: OpportunityListView(
+        category: category,
+        ctaLabel: ctaLabel,
+        searchPlaceholder: searchPlaceholder,
+        emptyDefaultMessage: emptyDefaultMessage,
+        emptySearchMessage: emptySearchMessage,
+      ),
+    );
+  }
 }
 
-class _OpportunityListScreenState extends ConsumerState<OpportunityListScreen> {
+class OpportunityListView extends ConsumerStatefulWidget {
+  const OpportunityListView({
+    super.key,
+    required this.category,
+    required this.ctaLabel,
+    required this.searchPlaceholder,
+    required this.emptyDefaultMessage,
+    required this.emptySearchMessage,
+  });
+
+  final OpportunityCategory category;
+  final String ctaLabel;
+  final String searchPlaceholder;
+  final String emptyDefaultMessage;
+  final String emptySearchMessage;
+
+  @override
+  ConsumerState<OpportunityListView> createState() => _OpportunityListViewState();
+}
+
+class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
   late final TextEditingController _searchController;
 
   @override
@@ -50,132 +82,128 @@ class _OpportunityListScreenState extends ConsumerState<OpportunityListScreen> {
     final controller = ref.read(opportunityControllerProvider(widget.category).notifier);
     final items = state.data?.items ?? const <OpportunitySummary>[];
 
-    return GigvoraScaffold(
-      title: widget.title,
-      subtitle: widget.subtitle,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextField(
-            controller: _searchController,
-            textInputAction: TextInputAction.search,
-            decoration: InputDecoration(
-              hintText: widget.searchPlaceholder,
-              prefixIcon: const Icon(Icons.search),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(28)),
-            ),
-            onChanged: controller.updateQuery,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: _searchController,
+          textInputAction: TextInputAction.search,
+          decoration: InputDecoration(
+            hintText: widget.searchPlaceholder,
+            prefixIcon: const Icon(Icons.search),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(28)),
           ),
-          const SizedBox(height: 16),
-          if (state.fromCache && !state.loading)
-            _StatusBanner(
-              icon: Icons.offline_bolt,
-              background: const Color(0xFFFEF3C7),
-              foreground: const Color(0xFF92400E),
-              message: 'Showing cached results while we reconnect.',
+          onChanged: controller.updateQuery,
+        ),
+        const SizedBox(height: 16),
+        if (state.fromCache && !state.loading)
+          _StatusBanner(
+            icon: Icons.offline_bolt,
+            background: const Color(0xFFFEF3C7),
+            foreground: const Color(0xFF92400E),
+            message: 'Showing cached results while we reconnect.',
+          ),
+        if (state.hasError && !state.loading)
+          _StatusBanner(
+            icon: Icons.error_outline,
+            background: const Color(0xFFFEE2E2),
+            foreground: const Color(0xFFB91C1C),
+            message: 'Unable to sync the latest results. Pull to refresh to retry.',
+          ),
+        if (state.lastUpdated != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Text(
+              'Last updated ${formatRelativeTime(state.lastUpdated!)}',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
-          if (state.hasError && !state.loading)
-            _StatusBanner(
-              icon: Icons.error_outline,
-              background: const Color(0xFFFEE2E2),
-              foreground: const Color(0xFFB91C1C),
-              message: 'Unable to sync the latest results. Pull to refresh to retry.',
-            ),
-          if (state.lastUpdated != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: Text(
-                'Last updated ${formatRelativeTime(state.lastUpdated!)}',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-              ),
-            ),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: controller.refresh,
-              child: state.loading && items.isEmpty
-                  ? const _OpportunitySkeleton()
-                  : items.isEmpty
-                      ? ListView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          children: [
-                            const SizedBox(height: 80),
-                            GigvoraCard(
-                              child: Text(
-                                _searchController.text.isEmpty
-                                    ? widget.emptyDefaultMessage
-                                    : widget.emptySearchMessage,
-                                style: Theme.of(context).textTheme.bodyMedium,
-                              ),
+          ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: controller.refresh,
+            child: state.loading && items.isEmpty
+                ? const _OpportunitySkeleton()
+                : items.isEmpty
+                    ? ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: [
+                          const SizedBox(height: 80),
+                          GigvoraCard(
+                            child: Text(
+                              _searchController.text.isEmpty
+                                  ? widget.emptyDefaultMessage
+                                  : widget.emptySearchMessage,
+                              style: Theme.of(context).textTheme.bodyMedium,
                             ),
-                          ],
-                        )
-                      : ListView.separated(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          itemCount: items.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 16),
-                          itemBuilder: (context, index) {
-                            final item = items[index];
-                            final meta = _buildMeta(item);
-                            return GigvoraCard(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Expanded(
-                                        child: Wrap(
-                                          spacing: 8,
-                                          runSpacing: 4,
-                                          children: meta
-                                              .map(
-                                                (entry) => Chip(
-                                                  backgroundColor: const Color(0xFFE0F2FE),
-                                                  label: Text(entry),
-                                                ),
-                                              )
-                                              .toList(),
-                                        ),
+                          ),
+                        ],
+                      )
+                    : ListView.separated(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        itemCount: items.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 16),
+                        itemBuilder: (context, index) {
+                          final item = items[index];
+                          final meta = _buildMeta(item);
+                          return GigvoraCard(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Wrap(
+                                        spacing: 8,
+                                        runSpacing: 4,
+                                        children: meta
+                                            .map(
+                                              (entry) => Chip(
+                                                backgroundColor: const Color(0xFFE0F2FE),
+                                                label: Text(entry),
+                                              ),
+                                            )
+                                            .toList(),
                                       ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        'Updated ${formatRelativeTime(item.updatedAt)}',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(item.title, style: Theme.of(context).textTheme.titleMedium),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    item.description,
-                                    maxLines: 4,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context).textTheme.bodyMedium,
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: ElevatedButton(
-                                      onPressed: () => controller.recordPrimaryCta(item),
-                                      child: Text(widget.ctaLabel),
                                     ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Updated ${formatRelativeTime(item.updatedAt)}',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Text(item.title, style: Theme.of(context).textTheme.titleMedium),
+                                const SizedBox(height: 8),
+                                Text(
+                                  item.description,
+                                  maxLines: 4,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                                const SizedBox(height: 16),
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: ElevatedButton(
+                                    onPressed: () => controller.recordPrimaryCta(item),
+                                    child: Text(widget.ctaLabel),
                                   ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-            ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
