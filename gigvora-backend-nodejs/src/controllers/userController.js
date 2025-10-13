@@ -2,6 +2,7 @@ import { User } from '../models/index.js';
 import profileService from '../services/profileService.js';
 import userDashboardService from '../services/userDashboardService.js';
 import gigBuilderService from '../services/gigBuilderService.js';
+import gigManagerService from '../services/gigManagerService.js';
 
 export async function listUsers(req, res) {
   const limitParam = Number.parseInt(req.query.limit ?? '20', 10);
@@ -65,4 +66,9 @@ export async function getFreelancerGigBuilder(req, res) {
     gigId: req.query.gigId,
   });
   res.json(payload);
+export async function getGigManagerSnapshot(req, res) {
+  const snapshot = await gigManagerService.getGigManagerSnapshot(req.params.id, {
+    bypassCache: req.query.fresh === 'true',
+  });
+  res.json(snapshot);
 }
