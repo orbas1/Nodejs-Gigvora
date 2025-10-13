@@ -326,6 +326,15 @@ export const REPUTATION_SUCCESS_STORY_STATUSES = ['draft', 'in_review', 'publish
 export const REPUTATION_METRIC_TREND_DIRECTIONS = ['up', 'down', 'flat'];
 export const REPUTATION_REVIEW_WIDGET_STATUSES = ['draft', 'active', 'paused'];
 
+export const PIPELINE_BOARD_GROUPINGS = ['industry', 'retainer_size', 'probability'];
+export const PIPELINE_STAGE_CATEGORIES = ['open', 'won', 'lost'];
+export const PIPELINE_DEAL_STATUSES = ['open', 'won', 'lost', 'on_hold'];
+export const PIPELINE_FOLLOW_UP_STATUSES = ['scheduled', 'completed', 'cancelled'];
+export const PIPELINE_CAMPAIGN_STATUSES = ['draft', 'active', 'paused', 'completed'];
+export const PIPELINE_PROPOSAL_STATUSES = ['draft', 'sent', 'accepted', 'declined'];
+
+const PIPELINE_OWNER_TYPES = ['freelancer', 'agency', 'company'];
+
 export const User = sequelize.define(
   'User',
   {
@@ -7516,6 +7525,215 @@ export const FinanceForecastScenario = sequelize.define(
   },
 );
 
+export const PipelineBoard = sequelize.define(
+  'PipelineBoard',
+  {
+    ownerId: { type: DataTypes.INTEGER, allowNull: false },
+    ownerType: {
+      type: DataTypes.ENUM(...PIPELINE_OWNER_TYPES),
+      allowNull: false,
+      defaultValue: 'freelancer',
+      validate: { isIn: [PIPELINE_OWNER_TYPES] },
+    },
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    grouping: {
+      type: DataTypes.ENUM(...PIPELINE_BOARD_GROUPINGS),
+      allowNull: false,
+      defaultValue: 'industry',
+      validate: { isIn: [PIPELINE_BOARD_GROUPINGS] },
+    },
+    filters: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'pipeline_boards',
+    indexes: [
+      { fields: ['ownerId', 'ownerType'] },
+    ],
+  },
+);
+
+export const PipelineStage = sequelize.define(
+  'PipelineStage',
+  {
+    boardId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(120), allowNull: false },
+    position: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    winProbability: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
+    statusCategory: {
+      type: DataTypes.ENUM(...PIPELINE_STAGE_CATEGORIES),
+      allowNull: false,
+      defaultValue: 'open',
+      validate: { isIn: [PIPELINE_STAGE_CATEGORIES] },
+    },
+  },
+  {
+    tableName: 'pipeline_stages',
+    indexes: [
+      { fields: ['boardId', 'position'] },
+    ],
+  },
+);
+
+export const PipelineCampaign = sequelize.define(
+  'PipelineCampaign',
+  {
+    ownerId: { type: DataTypes.INTEGER, allowNull: false },
+    ownerType: {
+      type: DataTypes.ENUM(...PIPELINE_OWNER_TYPES),
+      allowNull: false,
+      defaultValue: 'freelancer',
+      validate: { isIn: [PIPELINE_OWNER_TYPES] },
+    },
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    targetService: { type: DataTypes.STRING(160), allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...PIPELINE_CAMPAIGN_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [PIPELINE_CAMPAIGN_STATUSES] },
+    },
+    playbook: { type: jsonType, allowNull: true },
+    metrics: { type: jsonType, allowNull: true },
+    launchDate: { type: DataTypes.DATE, allowNull: true },
+    endDate: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'pipeline_campaigns',
+    indexes: [
+      { fields: ['ownerId', 'ownerType'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+export const PipelineDeal = sequelize.define(
+  'PipelineDeal',
+  {
+    boardId: { type: DataTypes.INTEGER, allowNull: false },
+    stageId: { type: DataTypes.INTEGER, allowNull: false },
+    campaignId: { type: DataTypes.INTEGER, allowNull: true },
+    ownerId: { type: DataTypes.INTEGER, allowNull: false },
+    ownerType: {
+      type: DataTypes.ENUM(...PIPELINE_OWNER_TYPES),
+      allowNull: false,
+      defaultValue: 'freelancer',
+      validate: { isIn: [PIPELINE_OWNER_TYPES] },
+    },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    clientName: { type: DataTypes.STRING(180), allowNull: false },
+    industry: { type: DataTypes.STRING(120), allowNull: true },
+    retainerSize: { type: DataTypes.STRING(60), allowNull: true },
+    pipelineValue: { type: DataTypes.DECIMAL(12, 2), allowNull: false, defaultValue: 0 },
+    winProbability: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
+    status: {
+      type: DataTypes.ENUM(...PIPELINE_DEAL_STATUSES),
+      allowNull: false,
+      defaultValue: 'open',
+      validate: { isIn: [PIPELINE_DEAL_STATUSES] },
+    },
+    source: { type: DataTypes.STRING(120), allowNull: true },
+    lastContactAt: { type: DataTypes.DATE, allowNull: true },
+    nextFollowUpAt: { type: DataTypes.DATE, allowNull: true },
+    expectedCloseDate: { type: DataTypes.DATE, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'pipeline_deals',
+    indexes: [
+      { fields: ['boardId', 'stageId'] },
+      { fields: ['ownerId', 'ownerType'] },
+      { fields: ['status'] },
+      { fields: ['industry'] },
+      { fields: ['retainerSize'] },
+    ],
+  },
+);
+
+export const PipelineProposalTemplate = sequelize.define(
+  'PipelineProposalTemplate',
+  {
+    ownerId: { type: DataTypes.INTEGER, allowNull: false },
+    ownerType: {
+      type: DataTypes.ENUM(...PIPELINE_OWNER_TYPES),
+      allowNull: false,
+      defaultValue: 'freelancer',
+      validate: { isIn: [PIPELINE_OWNER_TYPES] },
+    },
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    caseStudies: { type: jsonType, allowNull: true },
+    roiCalculator: { type: jsonType, allowNull: true },
+    pricingModel: { type: jsonType, allowNull: true },
+    isArchived: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    lastUsedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'pipeline_proposal_templates',
+    indexes: [
+      { fields: ['ownerId', 'ownerType'] },
+      { fields: ['isArchived'] },
+    ],
+  },
+);
+
+export const PipelineProposal = sequelize.define(
+  'PipelineProposal',
+  {
+    dealId: { type: DataTypes.INTEGER, allowNull: false },
+    templateId: { type: DataTypes.INTEGER, allowNull: true },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...PIPELINE_PROPOSAL_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [PIPELINE_PROPOSAL_STATUSES] },
+    },
+    version: { type: DataTypes.STRING(30), allowNull: true },
+    pricing: { type: jsonType, allowNull: true },
+    roiModel: { type: jsonType, allowNull: true },
+    caseStudies: { type: jsonType, allowNull: true },
+    sentAt: { type: DataTypes.DATE, allowNull: true },
+    acceptedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  { tableName: 'pipeline_proposals' },
+);
+
+export const PipelineFollowUp = sequelize.define(
+  'PipelineFollowUp',
+  {
+    dealId: { type: DataTypes.INTEGER, allowNull: false },
+    ownerId: { type: DataTypes.INTEGER, allowNull: false },
+    ownerType: {
+      type: DataTypes.ENUM(...PIPELINE_OWNER_TYPES),
+      allowNull: false,
+      defaultValue: 'freelancer',
+      validate: { isIn: [PIPELINE_OWNER_TYPES] },
+    },
+    dueAt: { type: DataTypes.DATE, allowNull: false },
+    completedAt: { type: DataTypes.DATE, allowNull: true },
+    channel: { type: DataTypes.STRING(80), allowNull: true },
+    note: { type: DataTypes.TEXT, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...PIPELINE_FOLLOW_UP_STATUSES),
+      allowNull: false,
+      defaultValue: 'scheduled',
+      validate: { isIn: [PIPELINE_FOLLOW_UP_STATUSES] },
+    },
+  },
+  {
+    tableName: 'pipeline_follow_ups',
+    indexes: [
+      { fields: ['ownerId', 'ownerType'] },
+      { fields: ['dealId', 'status'] },
+      { fields: ['dueAt'] },
+    ],
+  },
+);
+
+AutoAssignQueueEntry.prototype.toPublicObject = function toPublicObject() {
 FinanceForecastScenario.prototype.toPublicObject = function toPublicObject() {
   const plain = this.get({ plain: true });
   return {
@@ -7535,6 +7753,136 @@ FinanceForecastScenario.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+PipelineBoard.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    ownerId: plain.ownerId,
+    ownerType: plain.ownerType,
+    name: plain.name,
+    grouping: plain.grouping,
+    filters: plain.filters,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+PipelineStage.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    boardId: plain.boardId,
+    name: plain.name,
+    position: plain.position,
+    winProbability: plain.winProbability == null ? null : Number(plain.winProbability),
+    statusCategory: plain.statusCategory,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+PipelineCampaign.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    ownerId: plain.ownerId,
+    ownerType: plain.ownerType,
+    name: plain.name,
+    description: plain.description,
+    targetService: plain.targetService,
+    status: plain.status,
+    playbook: plain.playbook,
+    metrics: plain.metrics,
+    launchDate: plain.launchDate,
+    endDate: plain.endDate,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+PipelineDeal.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    boardId: plain.boardId,
+    stageId: plain.stageId,
+    campaignId: plain.campaignId,
+    ownerId: plain.ownerId,
+    ownerType: plain.ownerType,
+    title: plain.title,
+    clientName: plain.clientName,
+    industry: plain.industry,
+    retainerSize: plain.retainerSize,
+    pipelineValue: plain.pipelineValue == null ? null : Number(plain.pipelineValue),
+    winProbability: plain.winProbability == null ? null : Number(plain.winProbability),
+    status: plain.status,
+    source: plain.source,
+    lastContactAt: plain.lastContactAt,
+    nextFollowUpAt: plain.nextFollowUpAt,
+    expectedCloseDate: plain.expectedCloseDate,
+    notes: plain.notes,
+    tags: plain.tags,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+PipelineProposalTemplate.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    ownerId: plain.ownerId,
+    ownerType: plain.ownerType,
+    name: plain.name,
+    description: plain.description,
+    caseStudies: plain.caseStudies,
+    roiCalculator: plain.roiCalculator,
+    pricingModel: plain.pricingModel,
+    isArchived: plain.isArchived,
+    lastUsedAt: plain.lastUsedAt,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+PipelineProposal.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    dealId: plain.dealId,
+    templateId: plain.templateId,
+    title: plain.title,
+    summary: plain.summary,
+    status: plain.status,
+    version: plain.version,
+    pricing: plain.pricing,
+    roiModel: plain.roiModel,
+    caseStudies: plain.caseStudies,
+    sentAt: plain.sentAt,
+    acceptedAt: plain.acceptedAt,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+PipelineFollowUp.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    dealId: plain.dealId,
+    ownerId: plain.ownerId,
+    ownerType: plain.ownerType,
+    dueAt: plain.dueAt,
+    completedAt: plain.completedAt,
+    channel: plain.channel,
+    note: plain.note,
+    status: plain.status,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+SearchSubscription.prototype.toPublicObject = function toPublicObject() {
 export const FinanceTaxExport = sequelize.define(
   'FinanceTaxExport',
   {
@@ -8423,6 +8771,27 @@ FinanceForecastScenario.belongsTo(User, { foreignKey: 'userId', as: 'owner' });
 User.hasMany(FinanceTaxExport, { foreignKey: 'userId', as: 'financeTaxExports' });
 FinanceTaxExport.belongsTo(User, { foreignKey: 'userId', as: 'owner' });
 
+PipelineBoard.hasMany(PipelineStage, { foreignKey: 'boardId', as: 'stages', onDelete: 'CASCADE' });
+PipelineStage.belongsTo(PipelineBoard, { foreignKey: 'boardId', as: 'board' });
+
+PipelineBoard.hasMany(PipelineDeal, { foreignKey: 'boardId', as: 'deals', onDelete: 'CASCADE' });
+PipelineDeal.belongsTo(PipelineBoard, { foreignKey: 'boardId', as: 'board' });
+
+PipelineStage.hasMany(PipelineDeal, { foreignKey: 'stageId', as: 'deals' });
+PipelineDeal.belongsTo(PipelineStage, { foreignKey: 'stageId', as: 'stage' });
+
+PipelineDeal.belongsTo(PipelineCampaign, { foreignKey: 'campaignId', as: 'campaign' });
+PipelineCampaign.hasMany(PipelineDeal, { foreignKey: 'campaignId', as: 'deals' });
+
+PipelineDeal.hasMany(PipelineProposal, { foreignKey: 'dealId', as: 'proposals', onDelete: 'CASCADE' });
+PipelineProposal.belongsTo(PipelineDeal, { foreignKey: 'dealId', as: 'deal' });
+
+PipelineProposal.belongsTo(PipelineProposalTemplate, { foreignKey: 'templateId', as: 'template' });
+PipelineProposalTemplate.hasMany(PipelineProposal, { foreignKey: 'templateId', as: 'proposals' });
+
+PipelineDeal.hasMany(PipelineFollowUp, { foreignKey: 'dealId', as: 'followUps', onDelete: 'CASCADE' });
+PipelineFollowUp.belongsTo(PipelineDeal, { foreignKey: 'dealId', as: 'deal' });
+
 User.hasMany(EscrowAccount, { foreignKey: 'userId', as: 'escrowAccounts' });
 EscrowAccount.belongsTo(User, { foreignKey: 'userId', as: 'owner' });
 EscrowAccount.hasMany(EscrowTransaction, { foreignKey: 'accountId', as: 'transactions' });
@@ -8572,6 +8941,13 @@ export default {
   ProviderWorkspaceMember,
   ProviderWorkspaceInvite,
   ProviderContactNote,
+  PipelineBoard,
+  PipelineStage,
+  PipelineDeal,
+  PipelineProposal,
+  PipelineProposalTemplate,
+  PipelineFollowUp,
+  PipelineCampaign,
   FinanceRevenueEntry,
   FinanceExpenseEntry,
   FinanceSavingsGoal,
