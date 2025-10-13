@@ -39,6 +39,12 @@ export const AUTO_ASSIGN_STATUSES = [
   'reassigned',
   'completed',
 ];
+export const GIG_STATUSES = ['draft', 'active', 'in_delivery', 'paused', 'completed', 'cancelled'];
+export const GIG_PIPELINE_STAGES = ['discovery', 'kickoff', 'production', 'review', 'ready_to_close', 'completed'];
+export const GIG_MILESTONE_STATUSES = ['planned', 'in_progress', 'waiting_on_client', 'at_risk', 'completed'];
+export const GIG_BUNDLE_STATUSES = ['draft', 'testing', 'live', 'retired'];
+export const GIG_UPSELL_STATUSES = ['draft', 'pilot', 'running', 'paused', 'retired'];
+export const GIG_CATALOG_STATUSES = ['draft', 'published', 'archived'];
 export const MESSAGE_CHANNEL_TYPES = ['support', 'project', 'contract', 'group', 'direct'];
 export const MESSAGE_THREAD_STATES = ['active', 'archived', 'locked'];
 export const MESSAGE_TYPES = ['text', 'file', 'system', 'event'];
@@ -345,6 +351,28 @@ export const Gig = sequelize.define(
     duration: { type: DataTypes.STRING(120), allowNull: true },
     location: { type: DataTypes.STRING(255), allowNull: true },
     geoLocation: { type: jsonType, allowNull: true },
+    freelancerId: { type: DataTypes.INTEGER, allowNull: true },
+    status: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [GIG_STATUSES] },
+    },
+    pipelineStage: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'discovery',
+      validate: { isIn: [GIG_PIPELINE_STAGES] },
+    },
+    contractValueCents: { type: DataTypes.BIGINT, allowNull: false, defaultValue: 0 },
+    previousPipelineValueCents: { type: DataTypes.BIGINT, allowNull: false, defaultValue: 0 },
+    currency: { type: DataTypes.STRING(12), allowNull: false, defaultValue: 'USD' },
+    upsellEligibleValueCents: { type: DataTypes.BIGINT, allowNull: false, defaultValue: 0 },
+    expectedDeliveryDate: { type: DataTypes.DATE, allowNull: true },
+    clientName: { type: DataTypes.STRING(255), allowNull: true },
+    csatScore: { type: DataTypes.DECIMAL(3, 2), allowNull: true },
+    csatPreviousScore: { type: DataTypes.DECIMAL(3, 2), allowNull: true },
+    csatResponseCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
   },
   { tableName: 'gigs' },
 );
@@ -359,6 +387,219 @@ Gig.searchByTerm = async function searchByTerm(term) {
     limit: 20,
     order: [['title', 'ASC']],
   });
+};
+
+Gig.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    title: plain.title,
+    description: plain.description,
+    budget: plain.budget ?? null,
+    duration: plain.duration ?? null,
+    location: plain.location ?? null,
+    geoLocation: plain.geoLocation ?? null,
+    freelancerId: plain.freelancerId ?? null,
+    status: plain.status,
+    pipelineStage: plain.pipelineStage,
+    contractValueCents: plain.contractValueCents == null ? 0 : Number(plain.contractValueCents),
+    previousPipelineValueCents:
+      plain.previousPipelineValueCents == null ? 0 : Number(plain.previousPipelineValueCents),
+    currency: plain.currency ?? 'USD',
+    upsellEligibleValueCents:
+      plain.upsellEligibleValueCents == null ? 0 : Number(plain.upsellEligibleValueCents),
+    expectedDeliveryDate: plain.expectedDeliveryDate ?? null,
+    clientName: plain.clientName ?? null,
+    csatScore: plain.csatScore == null ? null : Number(plain.csatScore),
+    csatPreviousScore: plain.csatPreviousScore == null ? null : Number(plain.csatPreviousScore),
+    csatResponseCount: Number(plain.csatResponseCount ?? 0),
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const GigMilestone = sequelize.define(
+  'GigMilestone',
+  {
+    gigId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    dueDate: { type: DataTypes.DATE, allowNull: true },
+    status: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'planned',
+      validate: { isIn: [GIG_MILESTONE_STATUSES] },
+    },
+    ownerName: { type: DataTypes.STRING(120), allowNull: true },
+    sequenceIndex: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    progressPercent: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  { tableName: 'gig_milestones' },
+);
+
+GigMilestone.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    gigId: plain.gigId,
+    title: plain.title,
+    description: plain.description ?? null,
+    dueDate: plain.dueDate ?? null,
+    status: plain.status,
+    ownerName: plain.ownerName ?? null,
+    sequenceIndex: plain.sequenceIndex ?? 0,
+    progressPercent: plain.progressPercent == null ? null : Number(plain.progressPercent),
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const GigBundle = sequelize.define(
+  'GigBundle',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    priceCents: { type: DataTypes.BIGINT, allowNull: false, defaultValue: 0 },
+    currency: { type: DataTypes.STRING(12), allowNull: false, defaultValue: 'USD' },
+    status: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [GIG_BUNDLE_STATUSES] },
+    },
+    attachRate: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    attachRateChange: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    isFeatured: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    conversionWindowDays: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  { tableName: 'gig_bundles' },
+);
+
+GigBundle.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    name: plain.name,
+    description: plain.description ?? null,
+    priceCents: plain.priceCents == null ? 0 : Number(plain.priceCents),
+    currency: plain.currency ?? 'USD',
+    status: plain.status,
+    attachRate: plain.attachRate == null ? null : Number(plain.attachRate),
+    attachRateChange: plain.attachRateChange == null ? null : Number(plain.attachRateChange),
+    isFeatured: Boolean(plain.isFeatured),
+    conversionWindowDays: plain.conversionWindowDays == null ? null : Number(plain.conversionWindowDays),
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const GigBundleItem = sequelize.define(
+  'GigBundleItem',
+  {
+    bundleId: { type: DataTypes.INTEGER, allowNull: false },
+    label: { type: DataTypes.STRING(255), allowNull: false },
+    orderIndex: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  },
+  { tableName: 'gig_bundle_items' },
+);
+
+GigBundleItem.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    bundleId: plain.bundleId,
+    label: plain.label,
+    orderIndex: plain.orderIndex ?? 0,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const GigUpsell = sequelize.define(
+  'GigUpsell',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(255), allowNull: false },
+    triggerEvent: { type: DataTypes.STRING(255), allowNull: true },
+    deliveryAction: { type: DataTypes.STRING(255), allowNull: true },
+    status: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [GIG_UPSELL_STATUSES] },
+    },
+    automationChannel: { type: DataTypes.STRING(80), allowNull: true },
+    estimatedValueCents: { type: DataTypes.BIGINT, allowNull: false, defaultValue: 0 },
+    currency: { type: DataTypes.STRING(12), allowNull: false, defaultValue: 'USD' },
+    conversionRate: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    conversionChange: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+  },
+  { tableName: 'gig_upsells' },
+);
+
+GigUpsell.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    name: plain.name,
+    triggerEvent: plain.triggerEvent ?? null,
+    deliveryAction: plain.deliveryAction ?? null,
+    status: plain.status,
+    automationChannel: plain.automationChannel ?? null,
+    estimatedValueCents: plain.estimatedValueCents == null ? 0 : Number(plain.estimatedValueCents),
+    currency: plain.currency ?? 'USD',
+    conversionRate: plain.conversionRate == null ? null : Number(plain.conversionRate),
+    conversionChange: plain.conversionChange == null ? null : Number(plain.conversionChange),
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const GigCatalogItem = sequelize.define(
+  'GigCatalogItem',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    code: { type: DataTypes.STRING(40), allowNull: false },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    tier: { type: DataTypes.STRING(80), allowNull: true },
+    durationDays: { type: DataTypes.INTEGER, allowNull: true },
+    rating: { type: DataTypes.DECIMAL(3, 2), allowNull: true },
+    ratingCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    priceCents: { type: DataTypes.BIGINT, allowNull: false, defaultValue: 0 },
+    currency: { type: DataTypes.STRING(12), allowNull: false, defaultValue: 'USD' },
+    status: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [GIG_CATALOG_STATUSES] },
+    },
+    shortDescription: { type: DataTypes.TEXT, allowNull: true },
+  },
+  { tableName: 'gig_catalog_items' },
+);
+
+GigCatalogItem.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    code: plain.code,
+    title: plain.title,
+    tier: plain.tier ?? null,
+    durationDays: plain.durationDays == null ? null : Number(plain.durationDays),
+    rating: plain.rating == null ? null : Number(plain.rating),
+    ratingCount: Number(plain.ratingCount ?? 0),
+    priceCents: plain.priceCents == null ? 0 : Number(plain.priceCents),
+    currency: plain.currency ?? 'USD',
+    status: plain.status,
+    shortDescription: plain.shortDescription ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
 };
 
 export const Project = sequelize.define(
@@ -1710,6 +1951,23 @@ ProjectAssignmentEvent.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
 User.hasMany(AutoAssignQueueEntry, { foreignKey: 'freelancerId', as: 'autoAssignQueue' });
 AutoAssignQueueEntry.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
 
+User.hasMany(Gig, { foreignKey: 'freelancerId', as: 'gigs' });
+Gig.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
+Gig.hasMany(GigMilestone, { foreignKey: 'gigId', as: 'milestones' });
+GigMilestone.belongsTo(Gig, { foreignKey: 'gigId', as: 'gig' });
+
+User.hasMany(GigBundle, { foreignKey: 'freelancerId', as: 'gigBundles' });
+GigBundle.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+GigBundle.hasMany(GigBundleItem, { foreignKey: 'bundleId', as: 'items' });
+GigBundleItem.belongsTo(GigBundle, { foreignKey: 'bundleId', as: 'bundle' });
+
+User.hasMany(GigUpsell, { foreignKey: 'freelancerId', as: 'gigUpsells' });
+GigUpsell.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
+User.hasMany(GigCatalogItem, { foreignKey: 'freelancerId', as: 'gigCatalogItems' });
+GigCatalogItem.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
 User.hasMany(FeedPost, { foreignKey: 'userId' });
 FeedPost.belongsTo(User, { foreignKey: 'userId' });
 
@@ -1844,6 +2102,11 @@ export default {
   FeedPost,
   Job,
   Gig,
+  GigMilestone,
+  GigBundle,
+  GigBundleItem,
+  GigUpsell,
+  GigCatalogItem,
   Project,
   ExperienceLaunchpad,
   ExperienceLaunchpadApplication,

@@ -1,62 +1,65 @@
+import { useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import { fetchGigManagerSnapshot } from '../../services/gigManager.js';
 
-const menuSections = [
-  {
-    label: 'Service delivery',
-    items: [
-      {
-        name: 'Project workspace dashboard',
-        description: 'Unified workspace for briefs, assets, conversations, and approvals.',
-        tags: ['whiteboards', 'files'],
-      },
-      {
-        name: 'Project management',
-        description: 'Detailed plan with sprints, dependencies, risk logs, and billing checkpoints.',
-      },
-      {
-        name: 'Client portals',
-        description: 'Shared timelines, scope controls, and decision logs with your clients.',
-      },
-    ],
-  },
-  {
-    label: 'Gig commerce',
-    items: [
-      {
-        name: 'Gig manager',
-        description: 'Monitor gigs, delivery milestones, bundled services, and upsells.',
-        tags: ['gig catalog'],
-      },
-      {
-        name: 'Post a gig',
-        description: 'Launch new services with pricing matrices, availability calendars, and banners.',
-      },
-      {
-        name: 'Purchased gigs',
-        description: 'Track incoming orders, requirements, revisions, and payouts.',
-      },
-    ],
-  },
-  {
-    label: 'Growth & profile',
-    items: [
-      {
-        name: 'Freelancer profile',
-        description: 'Update expertise tags, success metrics, testimonials, and hero banners.',
-      },
-      {
-        name: 'Agency collaborations',
-        description: 'Manage invitations from agencies, share rate cards, and negotiate retainers.',
-      },
-      {
-        name: 'Finance & insights',
-        description: 'Revenue analytics, payout history, taxes, and profitability dashboards.',
-      },
-    ],
-  },
-];
+const FREELANCER_USER_ID = 2;
 
-const capabilitySections = [
+const BADGE_CLASS_MAP = {
+  healthy: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  attention: 'border-amber-200 bg-amber-50 text-amber-700',
+  waiting: 'border-sky-200 bg-sky-50 text-sky-700',
+  idle: 'border-slate-200 bg-slate-100 text-slate-600',
+};
+
+const numberFormatter = new Intl.NumberFormat('en-US');
+
+const CAPABILITY_SECTIONS = [
+  {
+    title: 'Gig commerce operations',
+    description:
+      'Manage the full gig lifecycle from publishing listings to fulfillment, upsells, and catalog analytics across your workspace.',
+    meta: 'Automation ready',
+    features: [
+      {
+        name: 'Pipeline command center',
+        description:
+          'Monitor order stages, SLA breaches, revision loops, and risk alerts in a single control plane across gigs and clients.',
+        bulletPoints: [
+          'Surface overdue milestones, blocked owners, and waiting-on-client approvals automatically.',
+          'Escalate to client portals or support with one-click triggers and templated playbooks.',
+        ],
+        callout: 'SLA intelligence',
+      },
+      {
+        name: 'Bundled services engine',
+        description:
+          'Design, price, and iterate bundled services with attach-rate telemetry, experimentation sandboxes, and featured placements.',
+        bulletPoints: [
+          'Version bundles safely with staged rollouts and A/B testing.',
+          'Audit profitability with hard costs, subcontractors, and blended rates baked in.',
+        ],
+      },
+      {
+        name: 'Upsell automation',
+        description:
+          'Trigger contextual upsells on milestones, status changes, or client behavior with automation lanes connected to CRM and comms.',
+        bulletPoints: [
+          'Multi-channel delivery via email, in-app nudges, and calendar scheduling.',
+          'Measure conversion, revenue lift, and experiment health across playbooks.',
+        ],
+        callout: 'Playbook studio',
+      },
+      {
+        name: 'Catalog insights',
+        description:
+          'Track impressions, conversion, CSAT, and revision cycles across tiers to optimise gig listings and marketing spend.',
+        bulletPoints: [
+          'Segment analytics by tier, client cohort, and acquisition source.',
+          'Benchmark against marketplace averages with automated insights.',
+        ],
+      },
+    ],
+  },
   {
     title: 'Project workspace excellence',
     description:
@@ -101,52 +104,9 @@ const capabilitySections = [
     ],
   },
   {
-    title: 'Gig marketplace operations',
-    description:
-      'Manage the full gig lifecycle from publishing listings to fulfillment, upsells, and post-delivery reviews.',
-    features: [
-      {
-        name: 'Gig builder',
-        description:
-          'Design irresistible gig pages with tiered pricing, add-ons, gallery media, and conversion-tested copy.',
-        bulletPoints: [
-          'Freelancer banner creator with dynamic call-to-actions.',
-          'Preview modes for desktop, tablet, and mobile experiences.',
-        ],
-      },
-      {
-        name: 'Order pipeline',
-        description:
-          'Monitor incoming orders, qualification forms, kickoff calls, and delivery status from inquiry to completion.',
-        bulletPoints: [
-          'Automated requirement forms and revision workflows.',
-          'Escrow release checkpoints tied to client satisfaction.',
-        ],
-      },
-      {
-        name: 'Client success automation',
-        description:
-          'Trigger onboarding sequences, educational drip emails, testimonials, and referral programs automatically.',
-        bulletPoints: [
-          'Smart nudges for review requests post-delivery.',
-          'Affiliate and referral tracking per gig.',
-        ],
-      },
-      {
-        name: 'Catalog insights',
-        description:
-          'See conversion rates, top-performing gig bundles, repeat clients, and cross-sell opportunities at a glance.',
-        bulletPoints: [
-          'Margin calculator factoring software costs and subcontractors.',
-          'Heatmaps of search keywords driving gig impressions.',
-        ],
-      },
-    ],
-  },
-  {
     title: 'Finance, compliance, & reputation',
     description:
-      'Get paid fast while staying compliant. Monitor cash flow, taxes, contracts, and reputation programs across clients.',
+      'Get paid fast while staying compliant. Monitor cash flow, taxes, contracts, and reputation programmes across clients.',
     features: [
       {
         name: 'Finance control tower',
@@ -163,7 +123,7 @@ const capabilitySections = [
           'Store MSAs, NDAs, intellectual property agreements, and compliance attestations with e-sign audit logs.',
         bulletPoints: [
           'Automated reminders for renewals and insurance certificates.',
-          'Localization for GDPR, SOC2, and freelancer classifications.',
+          'Localisation for GDPR, SOC2, and freelancer classifications.',
         ],
       },
       {
@@ -171,93 +131,708 @@ const capabilitySections = [
         description:
           'Capture testimonials, publish success stories, and display verified metrics such as on-time delivery and CSAT.',
         bulletPoints: [
-          'Custom badges and banners for featured freelancer programs.',
-          'Shareable review widgets for external websites.',
-        ],
-      },
-      {
-        name: 'Support & dispute desk',
-        description:
-          'Resolve client concerns, manage escalations, and collaborate with Gigvora support for smooth resolutions.',
-        bulletPoints: [
-          'Conversation transcripts linked back to gig orders.',
-          'Resolution playbooks to keep satisfaction high.',
-        ],
-      },
-    ],
-  },
-  {
-    title: 'Growth, partnerships, & skills',
-    description:
-      'Scale your business with targeted marketing, agency partnerships, continuous learning, and community mentoring.',
-    features: [
-      {
-        name: 'Pipeline CRM',
-        description:
-          'Track leads, proposals, follow-ups, and cross-selling campaigns separate from gig orders.',
-        bulletPoints: [
-          'Kanban views by industry, retainer size, or probability.',
-          'Proposal templates with case studies and ROI calculators.',
-        ],
-      },
-      {
-        name: 'Agency alliance manager',
-        description:
-          'Collaborate with agencies, share resource calendars, negotiate revenue splits, and join pods for large engagements.',
-        bulletPoints: [
-          'Rate card sharing with version history and approvals.',
-          'Resource heatmaps showing bandwidth across weeks.',
-        ],
-      },
-      {
-        name: 'Learning and certification hub',
-        description:
-          'Access curated courses, peer mentoring sessions, and skill gap diagnostics tied to your service lines.',
-        bulletPoints: [
-          'Certification tracker with renewal reminders.',
-          'AI recommendations for new service offerings.',
-        ],
-      },
-      {
-        name: 'Community spotlight',
-        description:
-          'Showcase contributions, speaking engagements, and open-source work with branded banners and social share kits.',
-        bulletPoints: [
-          'Automated newsletter features for top-performing freelancers.',
-          'Personalized marketing assets ready for social channels.',
+          'Automate review requests after milestone delivery.',
+          'Curate spotlight case studies directly to your profile.',
         ],
       },
     ],
   },
 ];
 
-const profile = {
-  name: 'Riley Morgan',
-  role: 'Lead Brand & Product Designer',
-  initials: 'RM',
-  status: 'Top-rated freelancer',
-  badges: ['Verified Pro', 'Gigvora Elite'],
-  metrics: [
-    { label: 'Active projects', value: '6' },
-    { label: 'Gigs fulfilled', value: '148' },
-    { label: 'Avg. CSAT', value: '4.9/5' },
-    { label: 'Monthly revenue', value: '$18.4k' },
-  ],
-};
+function pluralize(word, count, pluralForm = `${word}s`) {
+  return count === 1 ? word : pluralForm;
+}
 
-const availableDashboards = ['freelancer', 'user', 'agency'];
+function formatInteger(value) {
+  const numeric = Number(value ?? 0);
+  if (!Number.isFinite(numeric)) {
+    return '0';
+  }
+  return numberFormatter.format(Math.round(numeric));
+}
+
+function formatCurrency(valueCents, currency = 'USD') {
+  const numeric = Number(valueCents ?? 0) / 100;
+  const formatter = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: Math.abs(numeric) >= 1000 ? 0 : 2,
+  });
+  return formatter.format(Number.isFinite(numeric) ? numeric : 0);
+}
+
+function formatPercent(value, fractionDigits = 0) {
+  if (value == null) {
+    return '—';
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return '—';
+  }
+  return `${numeric.toFixed(fractionDigits)}%`;
+}
+
+function formatPercentDelta(value, period = 'last week') {
+  if (value == null) {
+    return `vs ${period}`;
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || Math.abs(numeric) < 0.05) {
+    return `Flat vs ${period}`;
+  }
+  const prefix = numeric > 0 ? '+' : '';
+  return `${prefix}${numeric.toFixed(1)}% vs ${period}`;
+}
+
+function formatScoreDelta(value, period = 'last 30 days') {
+  if (value == null) {
+    return `vs ${period}`;
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || Math.abs(numeric) < 0.05) {
+    return `Flat vs ${period}`;
+  }
+  const prefix = numeric > 0 ? '+' : '';
+  return `${prefix}${numeric.toFixed(1)} vs ${period}`;
+}
+
+function formatPointsDelta(value, period = 'last 30 days') {
+  if (value == null) {
+    return `vs ${period}`;
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || Math.abs(numeric) < 0.05) {
+    return `Flat vs ${period}`;
+  }
+  const prefix = numeric > 0 ? '+' : '';
+  return `${prefix}${numeric.toFixed(1)} pts`;
+}
+
+function formatDueLabel(date) {
+  if (!date) {
+    return 'No due date';
+  }
+  const due = new Date(date);
+  if (Number.isNaN(due.getTime())) {
+    return 'No due date';
+  }
+  const diffMs = due.getTime() - Date.now();
+  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays < -1) {
+    return `Overdue by ${Math.abs(diffDays)} days`;
+  }
+  if (diffDays === -1) {
+    return 'Overdue by 1 day';
+  }
+  if (diffDays === 0) {
+    return 'Due today';
+  }
+  if (diffDays === 1) {
+    return 'Due tomorrow';
+  }
+  if (diffDays < 7) {
+    return `Due in ${diffDays} days`;
+  }
+  return due.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function formatDuration(days) {
+  if (days == null) {
+    return '—';
+  }
+  const numeric = Number(days);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return '—';
+  }
+  if (numeric % 7 === 0) {
+    const weeks = numeric / 7;
+    return `${weeks} ${pluralize('week', weeks)}`;
+  }
+  if (numeric > 7) {
+    return `${(numeric / 7).toFixed(1)} wks`;
+  }
+  return `${numeric} days`;
+}
+
+function getBadgeClasses(category) {
+  return BADGE_CLASS_MAP[category] ?? BADGE_CLASS_MAP.idle;
+}
+
+function getUpsellBadge(status) {
+  if (!status) {
+    return BADGE_CLASS_MAP.idle;
+  }
+  const normalized = status.toLowerCase();
+  if (normalized === 'running' || normalized === 'live') {
+    return BADGE_CLASS_MAP.healthy;
+  }
+  if (normalized === 'pilot' || normalized === 'testing') {
+    return BADGE_CLASS_MAP.waiting;
+  }
+  if (normalized === 'paused' || normalized === 'draft' || normalized === 'retired') {
+    return BADGE_CLASS_MAP.idle;
+  }
+  return BADGE_CLASS_MAP.attention;
+}
+
+function buildMenuSections(summary) {
+  const activeGigsCount = Number(summary?.activeGigs ?? 0);
+  const dueThisWeekCount = Number(summary?.dueThisWeek ?? 0);
+  const pipelineValue = formatCurrency(summary?.pipelineValueCents ?? 0, summary?.currency ?? 'USD');
+  const activeGigsLabel = formatInteger(activeGigsCount);
+  const dueLabel = formatInteger(dueThisWeekCount);
+
+  return [
+    {
+      label: 'Service delivery',
+      items: [
+        {
+          name: 'Project workspace dashboard',
+          description: 'Unified workspace for briefs, assets, conversations, and approvals.',
+          tags: ['whiteboards', 'files'],
+        },
+        {
+          name: 'Project management',
+          description: 'Detailed plan with sprints, dependencies, risk logs, and billing checkpoints.',
+        },
+        {
+          name: 'Client portals',
+          description: 'Shared timelines, scope controls, and decision logs with your clients.',
+        },
+      ],
+    },
+    {
+      label: 'Gig commerce',
+      items: [
+        {
+          name: 'Gig manager',
+          description: `Monitor ${activeGigsLabel} active ${pluralize('gig', activeGigsCount)} with ${dueLabel} ${pluralize('delivery', dueThisWeekCount, 'deliveries')} due within 7 days and ${pipelineValue} in pipeline value.`,
+          tags: ['gig catalog', 'bundles', 'upsells'],
+        },
+        {
+          name: 'Post a gig',
+          description: 'Launch new services with pricing matrices, availability calendars, and banners.',
+        },
+        {
+          name: 'Purchased gigs',
+          description: 'Track incoming orders, requirements, revisions, and payouts.',
+        },
+      ],
+    },
+    {
+      label: 'Growth & profile',
+      items: [
+        {
+          name: 'Freelancer profile',
+          description: 'Update expertise tags, success metrics, testimonials, and hero banners.',
+        },
+        {
+          name: 'Agency collaborations',
+          description: 'Manage invitations from agencies, share rate cards, and negotiate retainers.',
+        },
+        {
+          name: 'Finance & insights',
+          description: 'Revenue analytics, payout history, taxes, and profitability dashboards.',
+        },
+      ],
+    },
+  ];
+}
+
+function buildMetrics(snapshot) {
+  if (!snapshot) {
+    return [];
+  }
+  const { summary } = snapshot;
+  return [
+    {
+      key: 'active-gigs',
+      label: 'Active gigs',
+      value: formatInteger(summary.activeGigs),
+      change: summary.dueThisWeek
+        ? `${formatInteger(summary.dueThisWeek)} due within 7 days`
+        : 'No deadlines within 7 days',
+      helper: `${formatInteger(summary.clientsActive)} active ${pluralize('client', summary.clientsActive)}`,
+    },
+    {
+      key: 'pipeline-value',
+      label: 'Pipeline value',
+      value: formatCurrency(summary.pipelineValueCents, summary.currency),
+      change: formatPercentDelta(summary.pipelineValueChangePercent),
+      helper: `Upsell eligible ${formatCurrency(summary.upsellEligibleValueCents, summary.currency)}`,
+    },
+    {
+      key: 'avg-csat',
+      label: 'Avg. CSAT',
+      value: summary.averageCsat != null ? `${summary.averageCsat.toFixed(1)} / 5` : '—',
+      change: formatScoreDelta(summary.csatDelta),
+      helper: `${formatInteger(summary.recentReviewCount)} recent ${pluralize('survey', summary.recentReviewCount)}`,
+    },
+    {
+      key: 'upsell-conversion',
+      label: 'Upsell conversion',
+      value: summary.upsellConversionRate != null ? formatPercent(summary.upsellConversionRate) : '—',
+      change: formatPercentDelta(summary.upsellConversionChange, 'last 30 days'),
+      helper: `${formatInteger(summary.upsellPlaybooksActive)} ${pluralize('playbook', summary.upsellPlaybooksActive)} live · Avg bundle attach ${
+        summary.averageBundleAttachRate != null ? formatPercent(summary.averageBundleAttachRate, 1) : '—'
+      }`,
+    },
+  ];
+}
+
+function buildProfileCard(snapshot) {
+  if (!snapshot) {
+    return undefined;
+  }
+  const { freelancer, summary } = snapshot;
+  const fullName = `${freelancer.firstName ?? ''} ${freelancer.lastName ?? ''}`.trim() || 'Freelancer';
+  const badges = [];
+  if (summary.bundlesLive > 0) {
+    badges.push(`${formatInteger(summary.bundlesLive)} live ${pluralize('bundle', summary.bundlesLive)}`);
+  }
+  if (summary.upsellPlaybooksActive > 0) {
+    badges.push(`${formatInteger(summary.upsellPlaybooksActive)} upsell ${pluralize('playbook', summary.upsellPlaybooksActive)}`);
+  }
+  return {
+    name: fullName,
+    role: freelancer.title ?? 'Freelancer',
+    initials: freelancer.initials ?? 'FL',
+    status: freelancer.availability ? `Availability: ${freelancer.availability}` : undefined,
+    badges,
+    metrics: [
+      { label: 'Active clients', value: formatInteger(summary.clientsActive) },
+      {
+        label: 'Avg. CSAT',
+        value: freelancer.averageCsat != null ? `${freelancer.averageCsat.toFixed(1)}/5` : '—',
+      },
+      {
+        label: 'Upsell conversion',
+        value: summary.upsellConversionRate != null ? formatPercent(summary.upsellConversionRate, 1) : '—',
+      },
+    ],
+  };
+}
+
+function LoadingState() {
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+      <div className="space-y-4">
+        <div className="h-6 w-48 animate-pulse rounded-full bg-slate-200" />
+        <div className="h-5 w-72 animate-pulse rounded-full bg-slate-200" />
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="h-24 animate-pulse rounded-2xl bg-slate-100" />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ErrorState({ message, onRetry }) {
+  return (
+    <section className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-rose-700">
+      <h2 className="text-lg font-semibold">We couldn&apos;t load your gig manager data</h2>
+      <p className="mt-2 text-sm">{message ?? 'An unexpected error occurred. Please try again.'}</p>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="mt-4 inline-flex items-center rounded-xl border border-rose-300 bg-white px-4 py-2 text-sm font-medium text-rose-700 transition hover:border-rose-400 hover:text-rose-800"
+      >
+        Retry
+      </button>
+    </section>
+  );
+}
+
+function GigManagerPanel({ metrics, pipeline, milestones, bundles, upsells, catalog, summary, onRefresh, loading }) {
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_18px_40px_-24px_rgba(30,64,175,0.35)] sm:p-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-blue-600/80">Gig commerce</p>
+          <h2 className="mt-1 text-2xl font-semibold text-slate-900 sm:text-3xl">Gig manager</h2>
+          <p className="mt-2 max-w-2xl text-sm text-slate-600">
+            Monitor gigs, delivery milestones, bundled services, and upsells. Stay ahead of risk with a single workspace that
+            blends catalog analytics, fulfillment control, and automation telemetry.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="inline-flex h-fit items-center rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-medium uppercase tracking-wide text-blue-700">
+            Gig catalog
+          </div>
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-blue-300 hover:text-blue-600 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
+          >
+            <span className="h-2 w-2 rounded-full bg-emerald-500" aria-hidden />
+            Refresh data
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {metrics.map((metric) => (
+          <div key={metric.key} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+            <p className="text-xs uppercase tracking-wide text-slate-500">{metric.label}</p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900">{metric.value}</p>
+            <p className="mt-1 text-xs font-medium text-blue-600">{metric.change}</p>
+            <p className="mt-2 text-sm text-slate-600">{metric.helper}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-8 grid gap-6 lg:grid-cols-5">
+        <div className="lg:col-span-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-slate-900">Pipeline health</h3>
+            <span className="text-xs uppercase tracking-wide text-slate-400">Order flow</span>
+          </div>
+          <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th scope="col" className="px-4 py-3 text-left font-semibold">
+                    Stage
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left font-semibold">
+                    Gigs
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left font-semibold">
+                    Value
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left font-semibold">
+                    SLA / Actions
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left font-semibold">
+                    Status
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {pipeline.map((stage) => (
+                  <tr key={stage.stage} className="text-slate-600">
+                    <td className="px-4 py-3 font-medium text-slate-900">{stage.label}</td>
+                    <td className="px-4 py-3">{formatInteger(stage.gigCount)}</td>
+                    <td className="px-4 py-3">{formatCurrency(stage.totalValueCents, stage.currency)}</td>
+                    <td className="px-4 py-3">
+                      <p>{stage.recommendedAction}</p>
+                      {stage.overdueMilestones > 0 ? (
+                        <p className="mt-1 text-xs text-amber-600">
+                          {formatInteger(stage.overdueMilestones)} overdue {pluralize('milestone', stage.overdueMilestones)}
+                        </p>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${getBadgeClasses(stage.statusCategory)}`}>
+                        {stage.statusLabel}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="lg:col-span-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-slate-900">Delivery milestones</h3>
+            <span className="text-xs uppercase tracking-wide text-slate-400">This week</span>
+          </div>
+          <div className="mt-3 space-y-3">
+            {milestones.slice(0, 5).map((milestone) => (
+              <div key={milestone.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm font-semibold text-slate-900">{milestone.gigTitle}</p>
+                <p className="mt-1 text-sm text-slate-600">{milestone.title}</p>
+                <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                  <span className="font-medium text-slate-700">{formatDueLabel(milestone.dueDate)}</span>
+                  <span className={`font-semibold ${getBadgeClasses(milestone.statusCategory)}`}>{milestone.statusLabel}</span>
+                  {milestone.clientName ? <span>Client: {milestone.clientName}</span> : null}
+                  {milestone.ownerName ? <span>Owner: {milestone.ownerName}</span> : null}
+                </div>
+                {milestone.progressPercent != null ? (
+                  <div className="mt-3">
+                    <div className="flex items-center justify-between text-xs text-slate-500">
+                      <span>Progress</span>
+                      <span>{milestone.progressPercent}%</span>
+                    </div>
+                    <div className="mt-1 h-2 rounded-full bg-slate-200">
+                      <div
+                        className="h-2 rounded-full bg-blue-500"
+                        style={{ width: `${Math.min(Math.max(milestone.progressPercent, 0), 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-8 grid gap-6 lg:grid-cols-2">
+        <div>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-slate-900">Bundled services</h3>
+            <span className="text-xs uppercase tracking-wide text-slate-400">Attach performance</span>
+          </div>
+          <div className="mt-3 space-y-4">
+            {bundles.map((bundle) => (
+              <div key={bundle.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">{bundle.name}</p>
+                    <p className="text-xs uppercase tracking-wide text-slate-400">{bundle.status}</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-semibold text-blue-600">{formatPercent(bundle.attachRate, 0)}</span>
+                    <span className="text-xs font-medium text-slate-500">{formatPointsDelta(bundle.attachRateChange)}</span>
+                    {bundle.isFeatured ? (
+                      <span className="inline-flex items-center rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-medium text-orange-600">
+                        Featured
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+                <p className="mt-2 text-sm text-slate-600">{bundle.description}</p>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-slate-700">
+                  <span className="font-semibold">{formatCurrency(bundle.priceCents, bundle.currency)}</span>
+                  <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+                    {bundle.items.map((item) => (
+                      <span key={item.id} className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1">
+                        {item.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-slate-900">Upsell playbook</h3>
+            <span className="text-xs uppercase tracking-wide text-slate-400">Automation rules</span>
+          </div>
+          <div className="mt-3 space-y-3">
+            {upsells.map((upsell) => (
+              <div key={upsell.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-slate-900">{upsell.name}</p>
+                  <span
+                    className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${getUpsellBadge(
+                      upsell.status
+                    )}`}
+                  >
+                    {upsell.status}
+                  </span>
+                </div>
+                <div className="mt-2 space-y-1 text-sm text-slate-600">
+                  {upsell.triggerEvent ? <p>{upsell.triggerEvent}</p> : null}
+                  {upsell.deliveryAction ? <p>{upsell.deliveryAction}</p> : null}
+                </div>
+                <div className="mt-2 flex flex-wrap items-center justify-between text-xs uppercase tracking-wide text-blue-600">
+                  <span>Avg value {formatCurrency(upsell.estimatedValueCents, upsell.currency)}</span>
+                  <span>
+                    Conversion {formatPercent(upsell.conversionRate, 0)} · {formatPercentDelta(upsell.conversionChange, 'last 30 days')}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-8">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-slate-900">Gig catalog</h3>
+          <span className="text-xs uppercase tracking-wide text-slate-400">Top listings</span>
+        </div>
+        <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200">
+          <table className="min-w-full divide-y divide-slate-200 text-sm">
+            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <tr>
+                <th scope="col" className="px-4 py-3 text-left font-semibold">
+                  Gig
+                </th>
+                <th scope="col" className="px-4 py-3 text-left font-semibold">
+                  Tier
+                </th>
+                <th scope="col" className="px-4 py-3 text-left font-semibold">
+                  Duration
+                </th>
+                <th scope="col" className="px-4 py-3 text-left font-semibold">
+                  Rating
+                </th>
+                <th scope="col" className="px-4 py-3 text-left font-semibold">
+                  Price
+                </th>
+                <th scope="col" className="px-4 py-3 text-left font-semibold">
+                  Status
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 bg-white">
+              {catalog.map((gig) => (
+                <tr key={gig.id} className="text-slate-600">
+                  <td className="px-4 py-3">
+                    <div>
+                      <p className="font-medium text-slate-900">{gig.title}</p>
+                      <p className="text-xs uppercase tracking-wide text-slate-400">{gig.code}</p>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">{gig.tier ?? '—'}</td>
+                  <td className="px-4 py-3">{formatDuration(gig.durationDays)}</td>
+                  <td className="px-4 py-3">
+                    {gig.rating != null ? `${gig.rating.toFixed(1)} (${formatInteger(gig.ratingCount)})` : '—'}
+                  </td>
+                  <td className="px-4 py-3 font-semibold text-slate-900">
+                    {formatCurrency(gig.priceCents, gig.currency)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${getBadgeClasses(
+                      gig.status === 'published' ? 'healthy' : gig.status === 'draft' ? 'idle' : 'waiting'
+                    )}`}>
+                      {gig.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CapabilitySection({ section }) {
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_18px_40px_-24px_rgba(30,64,175,0.35)] sm:p-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">{section.title}</h2>
+          {section.description ? (
+            <p className="mt-2 max-w-3xl text-sm text-slate-600">{section.description}</p>
+          ) : null}
+        </div>
+        {section.meta ? (
+          <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-medium uppercase tracking-wide text-blue-700">
+            {section.meta}
+          </div>
+        ) : null}
+      </div>
+      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        {section.features.map((feature) => (
+          <div
+            key={feature.name}
+            className="group flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50 p-5 transition hover:border-blue-300 hover:bg-blue-50"
+          >
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">{feature.name}</h3>
+              {feature.description ? <p className="mt-2 text-sm text-slate-600">{feature.description}</p> : null}
+              {feature.bulletPoints?.length ? (
+                <ul className="mt-3 space-y-2 text-sm text-slate-600">
+                  {feature.bulletPoints.map((point) => (
+                    <li key={point} className="flex gap-2">
+                      <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400" />
+                      <span>{point}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+            {feature.callout ? (
+              <p className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium uppercase tracking-wide text-blue-700">
+                {feature.callout}
+              </p>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 export default function FreelancerDashboardPage() {
+  const [snapshot, setSnapshot] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [refreshCounter, setRefreshCounter] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+
+    fetchGigManagerSnapshot(FREELANCER_USER_ID, {
+      signal: controller.signal,
+      fresh: refreshCounter > 0,
+    })
+      .then((data) => {
+        setSnapshot(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        if (err.name === 'AbortError') {
+          return;
+        }
+        setError(err);
+        setLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [refreshCounter]);
+
+  const metrics = useMemo(() => buildMetrics(snapshot), [snapshot]);
+  const menuSections = useMemo(() => buildMenuSections(snapshot?.summary), [snapshot]);
+  const profileCard = useMemo(() => buildProfileCard(snapshot), [snapshot]);
+
+  const handleRefresh = () => {
+    setRefreshCounter((value) => value + 1);
+  };
+
+  const pipeline = snapshot?.pipeline ?? [];
+  const milestones = snapshot?.milestones ?? [];
+  const bundles = snapshot?.bundles ?? [];
+  const upsells = snapshot?.upsells ?? [];
+  const catalog = snapshot?.catalog ?? [];
+
   return (
     <DashboardLayout
       currentDashboard="freelancer"
-      title="Freelancer Operations HQ"
-      subtitle="Service business cockpit"
-      description="An operating system for independent talent to manage gigs, complex projects, finances, and growth partnerships in one streamlined workspace."
+      title="Freelancer workspace"
+      subtitle="Gig manager"
+      description="Command your gig pipeline, fulfillment milestones, bundled services, and upsell playbooks from a single workspace."
       menuSections={menuSections}
-      sections={capabilitySections}
-      profile={profile}
-      availableDashboards={availableDashboards}
-    />
+      sections={CAPABILITY_SECTIONS}
+      profile={profileCard}
+    >
+      <div className="space-y-8">
+        {error ? <ErrorState message={error.message} onRetry={handleRefresh} /> : null}
+        {loading && !snapshot ? <LoadingState /> : null}
+        {snapshot ? (
+          <GigManagerPanel
+            metrics={metrics}
+            pipeline={pipeline}
+            milestones={milestones}
+            bundles={bundles}
+            upsells={upsells}
+            catalog={catalog}
+            summary={snapshot.summary}
+            onRefresh={handleRefresh}
+            loading={loading}
+          />
+        ) : null}
+        {CAPABILITY_SECTIONS.map((section) => (
+          <CapabilitySection key={section.title} section={section} />
+        ))}
+      </div>
+    </DashboardLayout>
   );
 }
+

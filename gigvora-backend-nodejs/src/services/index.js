@@ -17,3 +17,4 @@ export { default as profileEngagementService } from './profileEngagementService.
 export { default as profileAnalyticsService } from './profileAnalyticsService.js';
 export { default as headhunterService } from './headhunterService.js';
 export { default as userDashboardService } from './userDashboardService.js';
+export { default as gigManagerService } from './gigManagerService.js';
