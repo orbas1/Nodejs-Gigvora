@@ -20,6 +20,7 @@ export default function LoginPage() {
     event.preventDefault();
     login({
       id: 1,
+      userId: 1,
       name: 'Lena Fields',
       title: 'Product Designer',
       avatarSeed: 'Lena Fields',
