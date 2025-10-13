@@ -50,25 +50,21 @@ export default function DashboardLayout({
 
   const handleSearchSubmit = (event) => {
     event.preventDefault();
-    // Placeholder for database search wiring.
   };
 
   return (
-    <div className="relative min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(191,219,254,0.45),_transparent_55%)]"
-      />
+    <div className="relative min-h-screen bg-slate-50 text-slate-900">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(191,219,254,0.35),_transparent_65%)]" />
       <div className="relative z-10 flex min-h-screen">
         {/* Sidebar */}
         <aside
-          className={`$\{sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'\} fixed inset-y-0 left-0 z-20 w-80 shrink-0 transform border-r border-slate-200/80 bg-white/90 shadow-lg shadow-blue-100/40 backdrop-blur transition-transform duration-300 ease-in-out lg:static`}
+          className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} fixed inset-y-0 left-0 z-20 w-80 shrink-0 transform border-r border-slate-200 bg-white/95 backdrop-blur transition-transform duration-300 ease-in-out lg:static`}
         >
           <div className="flex h-full flex-col gap-6 overflow-y-auto p-6">
             <div className="flex items-center justify-between">
               <Link
                 to="/"
-                className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white px-3 py-1 text-sm font-medium text-blue-700 transition hover:border-blue-200 hover:bg-blue-50"
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-sm font-medium text-slate-600 shadow-sm transition hover:border-blue-300 hover:text-blue-600"
               >
                 <ArrowLeftOnRectangleIcon className="h-4 w-4" />
                 Return to site
@@ -76,26 +72,26 @@ export default function DashboardLayout({
               <button
                 type="button"
                 onClick={() => setSidebarOpen(false)}
-                className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 lg:hidden"
+                className="rounded-full p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 lg:hidden"
                 aria-label="Close menu"
               >
                 <XMarkIcon className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="rounded-3xl border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-blue-100/60 p-6 shadow-sm">
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600/15 text-lg font-semibold text-blue-700">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-100 text-lg font-semibold text-blue-700">
                   {activeProfile.initials}
                 </div>
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Profile</p>
+                  <p className="text-sm uppercase tracking-wide text-slate-500">Profile</p>
                   <p className="text-lg font-semibold text-slate-900">{activeProfile.name}</p>
                   <p className="text-sm text-slate-500">{activeProfile.role}</p>
                 </div>
               </div>
               {activeProfile.status ? (
-                <p className="mt-4 inline-flex items-center rounded-full border border-blue-200 bg-blue-100/70 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-700">
+                <p className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium uppercase tracking-wide text-blue-700">
                   {activeProfile.status}
                 </p>
               ) : null}
@@ -104,7 +100,7 @@ export default function DashboardLayout({
                   {activeProfile.badges.map((badge) => (
                     <span
                       key={badge}
-                      className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600 shadow-sm"
+                      className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs text-slate-600"
                     >
                       <CheckBadgeIcon className="h-4 w-4 text-blue-500" />
                       {badge}
@@ -115,8 +111,8 @@ export default function DashboardLayout({
               {activeProfile.metrics?.length ? (
                 <dl className="mt-6 grid grid-cols-2 gap-3">
                   {activeProfile.metrics.map(({ label, value }) => (
-                    <div key={label} className="rounded-2xl border border-slate-200 bg-white/80 p-3 shadow-sm">
-                      <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</dt>
+                    <div key={label} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                      <dt className="text-xs uppercase tracking-wide text-slate-500">{label}</dt>
                       <dd className="mt-1 text-lg font-semibold text-slate-900">{value}</dd>
                     </div>
                   ))}
@@ -131,9 +127,9 @@ export default function DashboardLayout({
                   <ul className="mt-3 space-y-2">
                     {section.items.map((item) => (
                       <li key={item.name}>
-                        <div className="group flex flex-col gap-1 rounded-2xl border border-transparent bg-white/80 p-3 shadow-sm transition hover:border-blue-200 hover:bg-blue-50">
+                        <div className="group flex flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50">
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-slate-900">{item.name}</span>
+                            <span className="text-sm font-medium text-slate-700">{item.name}</span>
                             <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
                           </div>
                           {item.description ? (
@@ -144,7 +140,7 @@ export default function DashboardLayout({
                               {item.tags.map((tag) => (
                                 <span
                                   key={tag}
-                                  className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-700"
+                                  className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-600"
                                 >
                                   {tag}
                                 </span>
@@ -159,12 +155,12 @@ export default function DashboardLayout({
               ))}
             </div>
 
-            <div className="mt-auto rounded-3xl border border-blue-100 bg-blue-50 p-5 text-blue-800 shadow-sm">
+            <div className="mt-auto rounded-3xl border border-blue-100 bg-blue-50 p-5 text-blue-700">
               <div className="flex items-center gap-3">
-                <Squares2X2Icon className="h-6 w-6 text-accent" />
+                <Squares2X2Icon className="h-6 w-6 text-blue-500" />
                 <div>
                   <p className="text-sm font-semibold">Workspace tips</p>
-                  <p className="text-xs text-blue-700/80">
+                  <p className="text-xs text-blue-600/80">
                     Use the search bar to query profiles, gigs, jobs, and project records across Gigvora.
                   </p>
                 </div>
@@ -175,25 +171,28 @@ export default function DashboardLayout({
 
         {/* Main content */}
         <div className="flex min-h-screen flex-1 flex-col lg:ml-80">
-          <header className="sticky top-0 z-10 border-b border-slate-200/80 bg-white/80 backdrop-blur">
+          <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur">
             <div className="flex flex-wrap items-center gap-3 px-4 py-4 sm:px-8">
               <button
                 type="button"
-                className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white p-2 text-slate-500 transition hover:border-blue-200 hover:text-blue-600 lg:hidden"
+                className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white p-2 text-slate-600 transition hover:border-blue-300 hover:text-blue-600 lg:hidden"
                 onClick={() => setSidebarOpen(true)}
                 aria-label="Open menu"
               >
                 <Bars3Icon className="h-5 w-5" />
               </button>
 
-              <form onSubmit={handleSearchSubmit} className="relative min-w-[240px] flex-1 rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <form
+                onSubmit={handleSearchSubmit}
+                className="relative flex-1 min-w-[240px] rounded-2xl border border-slate-200 bg-white shadow-sm"
+              >
                 <MagnifyingGlassIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                 <input
                   type="search"
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder="Search the Gigvora database..."
-                  className="w-full rounded-2xl border-0 bg-transparent py-3 pl-12 pr-4 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  className="w-full rounded-2xl border-0 bg-transparent py-3 pl-12 pr-4 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                 />
               </form>
 
@@ -208,7 +207,7 @@ export default function DashboardLayout({
                         navigate(DASHBOARD_LINKS[target].path);
                       }
                     }}
-                    className="appearance-none rounded-xl border border-slate-200 bg-white py-2 pl-3 pr-8 text-sm text-slate-700 shadow-sm focus:border-blue-300 focus:outline-none"
+                    className="appearance-none rounded-xl border border-slate-200 bg-white py-2 pl-3 pr-8 text-sm text-slate-700 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
                   >
                     {memberships
                       .filter((key) => DASHBOARD_LINKS[key])
@@ -224,22 +223,26 @@ export default function DashboardLayout({
             </div>
           </header>
 
-          <main className="flex-1">
+          <main className="flex-1 bg-transparent">
             <div className="mx-auto w-full max-w-6xl space-y-10 px-4 py-10 sm:px-8">
               <div className="space-y-4">
-                <p className="text-sm font-semibold uppercase tracking-wide text-blue-600/80">{heroSubtitle}</p>
+                <p className="text-sm uppercase tracking-wide text-blue-600/90">{heroSubtitle}</p>
                 <h1 className="text-3xl font-semibold text-slate-900 sm:text-4xl">{heroTitle}</h1>
                 <p className="max-w-3xl text-base text-slate-600">{heroDescription}</p>
 
                 {switchableDashboards.length ? (
                   <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600 shadow-sm">
-                    <span className="font-semibold text-slate-700">Your memberships:</span>
+                    <span className="font-medium text-slate-700">Your memberships:</span>
                     <div className="flex flex-wrap gap-2">
                       {memberships.map((key) =>
                         DASHBOARD_LINKS[key] ? (
                           <span
                             key={key}
-                            className={`$\{key === currentDashboard ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-600 border-slate-200'\} inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide`}
+                            className={`${
+                              key === currentDashboard
+                                ? 'bg-blue-50 text-blue-700 border-blue-300'
+                                : 'bg-slate-100 text-slate-600 border-slate-200'
+                            } inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium uppercase tracking-wide`}
                           >
                             {DASHBOARD_LINKS[key].label}
                           </span>
@@ -250,57 +253,58 @@ export default function DashboardLayout({
                 ) : null}
               </div>
 
-              {children ??
-                capabilitySections.map((section) => (
-                  <section
-                    key={section.title}
-                    className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg shadow-blue-100/40 sm:p-8"
-                  >
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">{section.title}</h2>
-                        {section.description ? (
-                          <p className="mt-2 max-w-3xl text-sm text-slate-600">{section.description}</p>
-                        ) : null}
-                      </div>
-                      {section.meta ? (
-                        <div className="rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-blue-700">
-                          {section.meta}
-                        </div>
-                      ) : null}
-                    </div>
-                    <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                      {section.features.map((feature) => (
-                        <div
-                          key={feature.name}
-                          className="group flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50/60 p-5 shadow-sm transition hover:border-blue-200 hover:bg-white"
-                        >
-                          <div>
-                            <h3 className="text-lg font-semibold text-slate-900">{feature.name}</h3>
-                            {feature.description ? (
-                              <p className="mt-2 text-sm text-slate-600">{feature.description}</p>
-                            ) : null}
-                            {feature.bulletPoints?.length ? (
-                              <ul className="mt-3 space-y-2 text-sm text-slate-600">
-                                {feature.bulletPoints.map((point) => (
-                                  <li key={point} className="flex gap-2">
-                                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
-                                    <span>{point}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            ) : null}
-                          </div>
-                          {feature.callout ? (
-                            <p className="mt-4 rounded-full border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-blue-700">
-                              {feature.callout}
-                            </p>
+              {children
+                ? children
+                : capabilitySections.map((section) => (
+                    <section
+                      key={section.title}
+                      className="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_18px_40px_-24px_rgba(30,64,175,0.35)] sm:p-8"
+                    >
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">{section.title}</h2>
+                          {section.description ? (
+                            <p className="mt-2 max-w-3xl text-sm text-slate-600">{section.description}</p>
                           ) : null}
                         </div>
-                      ))}
-                    </div>
-                  </section>
-                ))}
+                        {section.meta ? (
+                          <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-medium uppercase tracking-wide text-blue-700">
+                            {section.meta}
+                          </div>
+                        ) : null}
+                      </div>
+                      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                        {section.features.map((feature) => (
+                          <div
+                            key={feature.name}
+                            className="group flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50 p-5 transition hover:border-blue-300 hover:bg-blue-50"
+                          >
+                            <div>
+                              <h3 className="text-lg font-semibold text-slate-900">{feature.name}</h3>
+                              {feature.description ? (
+                                <p className="mt-2 text-sm text-slate-600">{feature.description}</p>
+                              ) : null}
+                              {feature.bulletPoints?.length ? (
+                                <ul className="mt-3 space-y-2 text-sm text-slate-600">
+                                  {feature.bulletPoints.map((point) => (
+                                    <li key={point} className="flex gap-2">
+                                      <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400" />
+                                      <span>{point}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : null}
+                            </div>
+                            {feature.callout ? (
+                              <p className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium uppercase tracking-wide text-blue-700">
+                                {feature.callout}
+                              </p>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  ))}
             </div>
           </main>
         </div>
