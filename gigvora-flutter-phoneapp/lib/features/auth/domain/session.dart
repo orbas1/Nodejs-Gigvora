@@ -532,6 +532,56 @@ class UserSession {
             ),
           ],
         ),
+        'company': RoleDashboard(
+          role: 'company',
+          heroTitle: 'Company networking orchestration',
+          heroSubtitle: 'Coordinate speed networking, sponsors, and business card experiences for your community.',
+          metrics: [
+            DashboardMetric(label: 'Active hubs', value: '3', trend: 'In progress'),
+            DashboardMetric(label: 'Upcoming events', value: '5', trend: 'Next: Wed 18:00'),
+            DashboardMetric(label: 'Attendee NPS', value: '4.7/5', trend: '↑ 0.3 WoW'),
+            DashboardMetric(label: 'Revenue (90d)', value: 'USD 86K', trend: '▲ 22% QoQ'),
+          ],
+          sections: [
+            DashboardSection(
+              title: 'Speed networking hub',
+              subtitle: 'Rotations, waitlists, and host controls are staged for the next showcase.',
+              highlights: [
+                'Auto-matched 420 introductions in the last 30 days.',
+                'Business card sharing up 18% after rolling out new templates.',
+                'Sponsor spotlight for Atlas Capital locked for Thursday session.',
+              ],
+              icon: Icons.auto_awesome,
+              accentColor: Color(0xFF2563EB),
+            ),
+            DashboardSection(
+              title: 'Attendee experience lab',
+              subtitle: 'Monitor satisfaction, follow-ups, and community momentum.',
+              highlights: [
+                'Average satisfaction score holding at 4.7/5.',
+                'Follow-up scheduler booked 58 meetings this month.',
+                'Messaging heatmap shows peak engagement at 18 minutes.',
+              ],
+              icon: Icons.groups_3,
+              accentColor: Color(0xFF10B981),
+            ),
+            DashboardSection(
+              title: 'Operational telemetry',
+              subtitle: 'Reminders, load share, and failover readiness are in the green.',
+              highlights: [
+                'Browser load share stable at 82% Chrome / 12% Safari.',
+                'Host announcements averaging 6 per event—keep sponsors engaged.',
+                'Failover rate below 0.4% with auto-heal on standby.',
+              ],
+              icon: Icons.speed,
+              accentColor: Color(0xFFF59E0B),
+            ),
+          ],
+          actions: [
+            DashboardAction(label: 'Open networking hub', description: 'Review sessions, cards, and live telemetry.'),
+            DashboardAction(label: 'Plan sponsor spotlight', description: 'Coordinate messaging ahead of the next rotation.'),
+          ],
+        ),
       },
     );
   }

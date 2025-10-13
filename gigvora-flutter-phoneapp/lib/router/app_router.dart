@@ -23,6 +23,7 @@ import '../features/notifications/presentation/notifications_screen.dart';
 import '../features/messaging/presentation/inbox_screen.dart';
 import '../features/mentorship/presentation/mentorship_screen.dart';
 import '../features/project_gig_management/presentation/project_gig_management_screen.dart';
+import '../features/networking/presentation/networking_screen.dart';
 import '../features/groups/presentation/groups_directory_screen.dart';
 import '../features/groups/presentation/group_profile_screen.dart';
 import '../features/groups/presentation/group_management_screen.dart';
@@ -104,6 +105,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const FreelancerPipelineScreen(),
       ),
       GoRoute(path: '/dashboard/mentor', builder: (context, state) => const MentorshipScreen()),
+      GoRoute(path: '/networking', builder: (context, state) => const NetworkingScreen()),
       GoRoute(path: '/groups', builder: (context, state) => const GroupsDirectoryScreen()),
       GoRoute(
         path: '/groups/:groupId',
