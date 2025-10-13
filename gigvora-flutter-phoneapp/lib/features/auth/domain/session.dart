@@ -10,10 +10,16 @@ class SessionState {
   final UserSession? session;
 
   bool get isAuthenticated => session != null;
+
+  int? get actorId => session?.actorId;
 }
 
 class UserSession {
   const UserSession({
+    this.id,
+    this.userId,
+    this.memberId,
+    this.accountId,
     required this.name,
     required this.title,
     required this.email,
@@ -33,6 +39,10 @@ class UserSession {
   final String email;
   final String location;
   final String? avatarSeed;
+  final int? id;
+  final int? userId;
+  final int? memberId;
+  final int? accountId;
   final List<String> memberships;
   final String activeMembership;
   final Map<String, RoleDashboard> dashboards;
@@ -55,15 +65,33 @@ class UserSession {
 
   String roleLabel(String role) => roleLabels[role] ?? role;
 
+  int? get actorId {
+    final candidates = [userId, id, memberId, accountId];
+    for (final candidate in candidates) {
+      if (candidate != null && candidate > 0) {
+        return candidate;
+      }
+    }
+    return null;
+  }
+
   UserSession copyWith({
     String? activeMembership,
     List<String>? memberships,
     Map<String, RoleDashboard>? dashboards,
+    int? id,
+    int? userId,
+    int? memberId,
+    int? accountId,
   }) {
     final nextMemberships = memberships ?? this.memberships;
     final nextActive = activeMembership ?? this.activeMembership;
     final activeExists = nextMemberships.contains(nextActive);
     return UserSession(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      memberId: memberId ?? this.memberId,
+      accountId: accountId ?? this.accountId,
       name: name,
       title: title,
       email: email,
@@ -81,6 +109,9 @@ class UserSession {
 
   static UserSession demo() {
     return UserSession(
+      id: 2,
+      userId: 2,
+      memberId: 2002,
       name: 'Lena Fields',
       title: 'Product Designer',
       email: 'lena.fields@gigvora.com',

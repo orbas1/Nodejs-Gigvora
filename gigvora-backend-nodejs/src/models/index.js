@@ -5210,6 +5210,7 @@ export const GroupMembership = sequelize.define(
     userId: { type: DataTypes.INTEGER, allowNull: false },
     groupId: { type: DataTypes.INTEGER, allowNull: false },
     role: { type: DataTypes.STRING(120), allowNull: false, defaultValue: 'member' },
+    metadata: { type: jsonType, allowNull: true },
   },
   { tableName: 'group_memberships' },
 );

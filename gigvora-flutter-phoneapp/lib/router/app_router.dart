@@ -21,6 +21,8 @@ import '../features/messaging/presentation/inbox_screen.dart';
 import '../features/services/presentation/service_operations_screen.dart';
 import '../features/mentorship/presentation/mentorship_screen.dart';
 import '../features/project_gig_management/presentation/project_gig_management_screen.dart';
+import '../features/groups/presentation/groups_directory_screen.dart';
+import '../features/groups/presentation/group_profile_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -46,6 +48,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/inbox', builder: (context, state) => const InboxScreen()),
       GoRoute(path: '/operations', builder: (context, state) => const ServiceOperationsScreen()),
       GoRoute(path: '/dashboard/mentor', builder: (context, state) => const MentorshipScreen()),
+      GoRoute(path: '/groups', builder: (context, state) => const GroupsDirectoryScreen()),
+      GoRoute(
+        path: '/groups/:groupId',
+        builder: (context, state) => GroupProfileScreen(
+          groupId: state.pathParameters['groupId'] ?? state.uri.pathSegments.last,
+        ),
+      ),
       GoRoute(
         path: '/profile',
         builder: (context, state) => ProfileScreen(profileId: state.uri.queryParameters['id']),

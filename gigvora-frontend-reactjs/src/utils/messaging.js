@@ -1,9 +1,5 @@
 import { formatRelativeTime } from './date.js';
-
-function normaliseId(value) {
-  const numeric = Number.parseInt(value, 10);
-  return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
-}
+import { resolveActorId } from './session.js';
 
 function formatName(user) {
   if (!user) {
@@ -14,25 +10,6 @@ function formatName(user) {
     return parts.join(' ');
   }
   return user.email ?? null;
-}
-
-export function resolveActorId(session) {
-  const candidates = [
-    session?.userId,
-    session?.id,
-    session?.user?.id,
-    session?.profile?.id,
-    session?.memberId,
-    session?.accountId,
-  ];
-
-  for (const candidate of candidates) {
-    const resolved = normaliseId(candidate);
-    if (resolved) {
-      return resolved;
-    }
-  }
-  return null;
 }
 
 export function formatThreadParticipants(thread, actorId) {

@@ -44,6 +44,10 @@ class FeedScreen extends ConsumerWidget {
                 onPressed: () => context.push('/operations'),
                 child: const Text('Gig operations'),
               ),
+              FilledButton.tonal(
+                onPressed: () => context.push('/groups'),
+                child: const Text('Community groups'),
+              ),
               OutlinedButton(
                 onPressed: () => context.push('/operations?section=buy'),
                 child: const Text('Buy a gig'),

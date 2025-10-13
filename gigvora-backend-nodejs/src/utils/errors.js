@@ -3,6 +3,7 @@ export class ApplicationError extends Error {
     super(message);
     this.name = this.constructor.name;
     this.statusCode = statusCode;
+    this.status = statusCode;
     this.details = details;
     Error.captureStackTrace?.(this, this.constructor);
   }
