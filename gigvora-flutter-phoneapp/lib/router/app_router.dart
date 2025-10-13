@@ -9,11 +9,13 @@ import '../features/explorer/presentation/explorer_screen.dart';
 import '../features/marketplace/presentation/jobs_screen.dart';
 import '../features/marketplace/presentation/gigs_screen.dart';
 import '../features/marketplace/presentation/projects_screen.dart';
+import '../features/marketplace/presentation/project_post_screen.dart';
 import '../features/marketplace/presentation/launchpad_screen.dart';
 import '../features/marketplace/presentation/volunteering_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/admin/presentation/admin_login_screen.dart';
 import '../features/mentorship/presentation/mentorship_screen.dart';
+import '../features/project_gig_management/presentation/project_gig_management_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -30,12 +32,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/jobs', builder: (context, state) => const JobsScreen()),
       GoRoute(path: '/gigs', builder: (context, state) => const GigsScreen()),
       GoRoute(path: '/projects', builder: (context, state) => const ProjectsScreen()),
+      GoRoute(path: '/projects/new', builder: (context, state) => const ProjectPostScreen()),
       GoRoute(path: '/launchpad', builder: (context, state) => const LaunchpadScreen()),
       GoRoute(path: '/volunteering', builder: (context, state) => const VolunteeringScreen()),
       GoRoute(path: '/dashboard/mentor', builder: (context, state) => const MentorshipScreen()),
       GoRoute(
         path: '/profile',
         builder: (context, state) => ProfileScreen(profileId: state.uri.queryParameters['id']),
+      ),
+      GoRoute(
+        path: '/operations',
+        builder: (context, state) => ProjectGigManagementScreen(
+          userId: state.uri.queryParameters['userId'] != null
+              ? int.tryParse(state.uri.queryParameters['userId']!)
+              : null,
+          initialSection: sectionFromQuery(state.uri.queryParameters['section']),
+        ),
       ),
       GoRoute(path: '/admin', builder: (context, state) => const AdminLoginScreen()),
     ],

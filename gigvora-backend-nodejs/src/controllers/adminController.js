@@ -1,4 +1,5 @@
 import { getAdminDashboardSnapshot } from '../services/adminDashboardService.js';
+import { getPlatformSettings, updatePlatformSettings } from '../services/platformSettingsService.js';
 
 function parseInteger(value, fallback) {
   if (value == null || value === '') {
@@ -17,6 +18,18 @@ export async function dashboard(req, res) {
   res.json(snapshot);
 }
 
+export async function fetchPlatformSettings(req, res) {
+  const settings = await getPlatformSettings();
+  res.json(settings);
+}
+
+export async function persistPlatformSettings(req, res) {
+  const settings = await updatePlatformSettings(req.body ?? {});
+  res.json(settings);
+}
+
 export default {
   dashboard,
+  fetchPlatformSettings,
+  persistPlatformSettings,
 };
