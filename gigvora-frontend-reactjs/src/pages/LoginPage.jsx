@@ -22,13 +22,14 @@ export default function LoginPage() {
       name: 'Lena Fields',
       title: 'Product Designer',
       avatarSeed: 'Lena Fields',
-      memberships: ['user', 'freelancer', 'agency'],
+      memberships: ['user', 'freelancer', 'agency', 'volunteer'],
       primaryDashboard: 'user',
+      activeMembership: 'user',
       followers: 1280,
       connections: 324,
       companies: ['Gigvora Labs', 'Atlas Studios'],
       agencies: ['Northshore Creative'],
-      accountTypes: ['Freelancer', 'Agency', 'Talent Lead'],
+      accountTypes: ['Freelancer', 'Agency', 'Talent Lead', 'Volunteer'],
       isAuthenticated: true,
     });
     navigate('/feed');
