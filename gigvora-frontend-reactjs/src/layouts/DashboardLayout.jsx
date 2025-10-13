@@ -125,31 +125,71 @@ export default function DashboardLayout({
                 <div key={section.label}>
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{section.label}</p>
                   <ul className="mt-3 space-y-2">
-                    {section.items.map((item) => (
-                      <li key={item.name}>
-                        <div className="group flex flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-slate-700">{item.name}</span>
-                            <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
-                          </div>
-                          {item.description ? (
-                            <p className="text-xs text-slate-500">{item.description}</p>
-                          ) : null}
-                          {item.tags?.length ? (
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {item.tags.map((tag) => (
-                                <span
-                                  key={tag}
-                                  className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-600"
-                                >
-                                  {tag}
-                                </span>
-                              ))}
+                    {section.items.map((item) => {
+                      const isInteractive = Boolean(item.href || item.onClick);
+                      const Element = item.href ? 'a' : 'div';
+                      const itemProps = {
+                        className:
+                          'group flex flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500' +
+                          (isInteractive ? ' cursor-pointer' : ''),
+                      };
+
+                      if (item.href) {
+                        itemProps.href = item.href;
+                        if (item.target) {
+                          itemProps.target = item.target;
+                          itemProps.rel = item.rel ?? 'noopener noreferrer';
+                        } else if (item.rel) {
+                          itemProps.rel = item.rel;
+                        }
+                      }
+
+                      if (item.onClick) {
+                        itemProps.onClick = (event) => {
+                          if (!item.href) {
+                            event.preventDefault();
+                          }
+                          item.onClick(event);
+                        };
+                      }
+
+                      if (!item.href && item.onClick) {
+                        itemProps.role = 'button';
+                        itemProps.tabIndex = 0;
+                        itemProps.onKeyDown = (event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            item.onClick(event);
+                          }
+                        };
+                      }
+
+                      return (
+                        <li key={item.name}>
+                          <Element {...itemProps}>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium text-slate-700">{item.name}</span>
+                              <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
                             </div>
-                          ) : null}
-                        </div>
-                      </li>
-                    ))}
+                            {item.description ? (
+                              <p className="text-xs text-slate-500">{item.description}</p>
+                            ) : null}
+                            {item.tags?.length ? (
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {item.tags.map((tag) => (
+                                  <span
+                                    key={tag}
+                                    className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-600"
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : null}
+                          </Element>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               ))}
@@ -293,6 +333,109 @@ export default function DashboardLayout({
                                     </li>
                                   ))}
                                 </ul>
+                              ) : null}
+                              {feature.workflows?.length ? (
+                                <div className="mt-4 space-y-3">
+                                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                                    {feature.workflowsLabel ?? 'Signature workflows'}
+                                  </p>
+                                  <div className="space-y-3">
+                                    {feature.workflows.map((workflow) => (
+                                      <div
+                                        key={workflow.title}
+                                        className="rounded-2xl border border-slate-200 bg-white/70 p-3 shadow-sm"
+                                      >
+                                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                          <div>
+                                            <p className="text-sm font-semibold text-slate-800">{workflow.title}</p>
+                                            {workflow.description ? (
+                                              <p className="mt-1 text-sm text-slate-600">{workflow.description}</p>
+                                            ) : null}
+                                          </div>
+                                          {workflow.badge ? (
+                                            <span className="inline-flex items-center whitespace-nowrap rounded-full border border-blue-200 bg-blue-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-blue-600">
+                                              {workflow.badge}
+                                            </span>
+                                          ) : null}
+                                        </div>
+                                        {workflow.items?.length ? (
+                                          <ul className="mt-3 space-y-2 text-sm text-slate-600">
+                                            {workflow.items.map((item) => (
+                                              <li key={item} className="flex gap-2">
+                                                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-300" />
+                                                <span>{item}</span>
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        ) : null}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : null}
+                              {feature.metrics?.length ? (
+                                <div className="mt-5">
+                                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                                    {feature.metricsLabel ?? 'Key metrics'}
+                                  </p>
+                                  <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+                                    {feature.metrics.map((metric) => (
+                                      <div
+                                        key={metric.label}
+                                        className="rounded-2xl border border-slate-200 bg-white/70 p-3 shadow-sm"
+                                      >
+                                        <dt className="text-xs uppercase tracking-wide text-slate-500">{metric.label}</dt>
+                                        <dd className="mt-1 text-lg font-semibold text-slate-900">{metric.value}</dd>
+                                        {metric.trend ? (
+                                          <p
+                                            className={`mt-1 text-xs font-medium ${
+                                              metric.trend.direction === 'down'
+                                                ? 'text-rose-600'
+                                                : 'text-emerald-600'
+                                            }`}
+                                          >
+                                            {metric.trend.label ?? metric.trend.value}
+                                          </p>
+                                        ) : null}
+                                        {metric.context ? (
+                                          <p className="mt-1 text-xs text-slate-500">{metric.context}</p>
+                                        ) : null}
+                                      </div>
+                                    ))}
+                                  </dl>
+                                </div>
+                              ) : null}
+                              {feature.automations?.length ? (
+                                <div className="mt-5">
+                                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                                    {feature.automationsLabel ?? 'Automations'}
+                                  </p>
+                                  <ul className="mt-2 space-y-2 text-sm text-slate-600">
+                                    {feature.automations.map((automation) => (
+                                      <li key={automation} className="flex gap-2">
+                                        <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-300" />
+                                        <span>{automation}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              ) : null}
+                              {feature.integrations?.length ? (
+                                <div className="mt-5">
+                                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                                    {feature.integrationsLabel ?? 'Integrations'}
+                                  </p>
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                    {feature.integrations.map((integration) => (
+                                      <span
+                                        key={integration}
+                                        className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-[11px] font-medium text-slate-600"
+                                      >
+                                        {integration}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
                               ) : null}
                             </div>
                             {feature.callout ? (

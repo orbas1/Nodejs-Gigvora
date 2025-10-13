@@ -39,6 +39,11 @@ const seededIds = {
   providerWorkspaceMembers: [1, 2],
   providerWorkspaceInvites: [1],
   providerContactNotes: [1],
+  reputationTestimonials: [1, 2, 3],
+  reputationSuccessStories: [1, 2],
+  reputationMetrics: [1, 2, 3, 4],
+  reputationBadges: [1, 2, 3],
+  reputationReviewWidgets: [1, 2],
 };
 
 module.exports = {
@@ -420,6 +425,301 @@ module.exports = {
             hourlyRate: 115,
             availability: '30 hrs/week',
             createdAt: threeDaysAgo,
+            updatedAt: now,
+          },
+        ],
+        { transaction }
+      );
+
+      await queryInterface.bulkInsert(
+        'reputation_testimonials',
+        [
+          {
+            id: seededIds.reputationTestimonials[0],
+            freelancerId: seededIds.users[1],
+            clientName: 'Sophia Patel',
+            clientRole: 'Head of Product',
+            company: 'Lumen Analytics',
+            projectName: 'Marketplace reliability sprint',
+            rating: 4.9,
+            comment:
+              'Leo rebuilt our delivery pipeline with observability baked in. We shipped 2x faster while holding uptime above 99.97%.',
+            capturedAt: yesterday,
+            deliveredAt: twoDaysAgo,
+            source: 'portal',
+            status: 'approved',
+            isFeatured: true,
+            shareUrl: 'https://proof.gigvora.com/leo/testimonials/lumen-analytics',
+            media: { format: 'text', sentiment: 'promoter' },
+            metadata: { responseTimeMinutes: 42, reviewRequestId: 'rr_123' },
+            createdAt: yesterday,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.reputationTestimonials[1],
+            freelancerId: seededIds.users[1],
+            clientName: 'Marcel Nguyen',
+            clientRole: 'Agency Director',
+            company: 'Catalyst Talent Agency',
+            projectName: 'Provider workspace launch',
+            rating: 5,
+            comment:
+              'Our launchpad went live with automated scorecards and spotless CSAT tracking. Leo orchestrated every integration flawlessly.',
+            capturedAt: now,
+            deliveredAt: yesterday,
+            source: 'video',
+            status: 'approved',
+            isFeatured: false,
+            shareUrl: 'https://proof.gigvora.com/leo/testimonials/catalyst-video',
+            media: { format: 'video', durationSeconds: 92, transcriptionAvailable: true },
+            metadata: { language: 'en', consentVersion: '2024-08-01' },
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.reputationTestimonials[2],
+            freelancerId: seededIds.users[1],
+            clientName: 'Ivy Chen',
+            clientRole: 'Program Manager',
+            company: 'Nova Accelerator',
+            projectName: 'Launchpad automation',
+            rating: 4.8,
+            comment:
+              'Weekly automation syncs kept our mentors and fellows aligned. The review workflows freed 10+ hours per cohort.',
+            capturedAt: yesterday,
+            deliveredAt: threeDaysAgo,
+            source: 'manual',
+            status: 'approved',
+            isFeatured: false,
+            shareUrl: null,
+            media: { format: 'audio', transcriptionAvailable: true },
+            metadata: { responseChannel: 'slack' },
+            createdAt: yesterday,
+            updatedAt: now,
+          },
+        ],
+        { transaction }
+      );
+
+      await queryInterface.bulkInsert(
+        'reputation_success_stories',
+        [
+          {
+            id: seededIds.reputationSuccessStories[0],
+            freelancerId: seededIds.users[1],
+            title: 'How Lumen Analytics doubled release velocity',
+            slug: 'lumen-analytics-release-velocity',
+            summary:
+              'Instrumented the Gigvora workspace for Lumen Analytics with automated QA and deploy guardrails, achieving a 52% faster release cadence.',
+            content:
+              'Partnered with Lumen to rebuild delivery pipelines, adding CI observability and value stream analytics. This enabled the team to catch regressions earlier and build trust with enterprise clients.',
+            heroImageUrl: 'https://cdn.gigvora.com/stories/lumen-analytics.jpg',
+            status: 'published',
+            publishedAt: yesterday,
+            featured: true,
+            impactMetrics: {
+              uptime: '99.97%',
+              deploymentFrequency: '2.1x',
+              csatLift: '+0.4',
+            },
+            ctaUrl: 'https://portfolio.leo.example.com/lumen-analytics',
+            metadata: { tags: ['engineering', 'observability'] },
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.reputationSuccessStories[1],
+            freelancerId: seededIds.users[1],
+            title: 'Catalyst Talent automates provider onboarding',
+            slug: 'catalyst-talent-provider-onboarding',
+            summary:
+              'Delivered a provider workspace rollout with badge automation and CSAT verification, reducing manual onboarding time by 68%.',
+            content:
+              'Configured badge issuance, testimonial capture, and compliance audits. Integrated Slack and CRM triggers so Catalyst teams could monitor activation health in real time.',
+            heroImageUrl: 'https://cdn.gigvora.com/stories/catalyst-talent.jpg',
+            status: 'published',
+            publishedAt: now,
+            featured: false,
+            impactMetrics: {
+              onboardingTimeReduction: '68%',
+              testimonialsCollected: 42,
+              referralPipelineGrowth: '3.2x',
+            },
+            ctaUrl: 'https://portfolio.leo.example.com/catalyst-provider-workspace',
+            metadata: { tags: ['operations', 'automation'] },
+            createdAt: yesterday,
+            updatedAt: now,
+          },
+        ],
+        { transaction }
+      );
+
+      await queryInterface.bulkInsert(
+        'reputation_metrics',
+        [
+          {
+            id: seededIds.reputationMetrics[0],
+            freelancerId: seededIds.users[1],
+            metricType: 'on_time_delivery_rate',
+            label: 'On-time delivery rate',
+            value: 98.4,
+            unit: 'percentage',
+            period: 'rolling_12_months',
+            source: 'project_workspace',
+            trendDirection: 'up',
+            trendValue: 2.1,
+            verifiedBy: 'Mia Operations',
+            verifiedAt: yesterday,
+            metadata: { sampleSize: 124 },
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.reputationMetrics[1],
+            freelancerId: seededIds.users[1],
+            metricType: 'average_csat',
+            label: 'Average CSAT',
+            value: 4.92,
+            unit: 'csat',
+            period: 'rolling_12_months',
+            source: 'post_project_surveys',
+            trendDirection: 'up',
+            trendValue: 0.3,
+            verifiedBy: 'Gigvora QA',
+            verifiedAt: yesterday,
+            metadata: { responseRate: 0.78 },
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.reputationMetrics[2],
+            freelancerId: seededIds.users[1],
+            metricType: 'referral_ready_clients',
+            label: 'Referral-ready clients',
+            value: 36,
+            unit: 'count',
+            period: 'rolling_6_months',
+            source: 'crm',
+            trendDirection: 'up',
+            trendValue: 6,
+            verifiedBy: 'Ava Founder',
+            verifiedAt: now,
+            metadata: { promoters: 36, passives: 4 },
+            createdAt: yesterday,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.reputationMetrics[3],
+            freelancerId: seededIds.users[1],
+            metricType: 'case_studies_published',
+            label: 'Case studies published',
+            value: 12,
+            unit: 'count',
+            period: 'rolling_12_months',
+            source: 'content_hub',
+            trendDirection: 'up',
+            trendValue: 4,
+            verifiedBy: 'Content Ops',
+            verifiedAt: now,
+            metadata: { distributionChannels: ['Gigvora', 'LinkedIn', 'Medium'] },
+            createdAt: yesterday,
+            updatedAt: now,
+          },
+        ],
+        { transaction }
+      );
+
+      await queryInterface.bulkInsert(
+        'reputation_badges',
+        [
+          {
+            id: seededIds.reputationBadges[0],
+            freelancerId: seededIds.users[1],
+            name: 'Gigvora Elite',
+            slug: 'gigvora-elite',
+            description: 'Awarded for sustained 95%+ CSAT across enterprise programs.',
+            issuedBy: 'Gigvora Trust Council',
+            issuedAt: twoDaysAgo,
+            expiresAt: null,
+            badgeType: 'program',
+            level: 'elite',
+            assetUrl: 'https://cdn.gigvora.com/badges/gigvora-elite.svg',
+            isPromoted: true,
+            metadata: { cohort: '2024Q3' },
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.reputationBadges[1],
+            freelancerId: seededIds.users[1],
+            name: 'On-time Delivery Champion',
+            slug: 'on-time-delivery-champion',
+            description: 'Recognises 12 consecutive months without a missed milestone.',
+            issuedBy: 'Gigvora Delivery Ops',
+            issuedAt: yesterday,
+            expiresAt: null,
+            badgeType: 'achievement',
+            level: 'gold',
+            assetUrl: 'https://cdn.gigvora.com/badges/on-time-champion.svg',
+            isPromoted: true,
+            metadata: { streakMonths: 12 },
+            createdAt: yesterday,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.reputationBadges[2],
+            freelancerId: seededIds.users[1],
+            name: 'Community Mentor',
+            slug: 'community-mentor',
+            description: 'Celebrates contributions to Gigvora launchpad mentorship cohorts.',
+            issuedBy: 'Launchpad Guild',
+            issuedAt: threeDaysAgo,
+            expiresAt: null,
+            badgeType: 'community',
+            level: 'mentor',
+            assetUrl: 'https://cdn.gigvora.com/badges/community-mentor.svg',
+            isPromoted: false,
+            metadata: { mentees: 14 },
+            createdAt: threeDaysAgo,
+            updatedAt: now,
+          },
+        ],
+        { transaction }
+      );
+
+      await queryInterface.bulkInsert(
+        'reputation_review_widgets',
+        [
+          {
+            id: seededIds.reputationReviewWidgets[0],
+            freelancerId: seededIds.users[1],
+            name: 'Portfolio testimonial carousel',
+            slug: 'testimonial-carousel',
+            widgetType: 'carousel',
+            status: 'active',
+            embedScript: '<script src="https://widgets.gigvora.com/carousel.js" data-widget="leo-testimonials"></script>',
+            config: { theme: 'midnight', autoRotateSeconds: 8 },
+            impressions: 1824,
+            ctaClicks: 164,
+            lastSyncedAt: now,
+            metadata: { placement: 'portfolio' },
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.reputationReviewWidgets[1],
+            freelancerId: seededIds.users[1],
+            name: 'Deal room success badge',
+            slug: 'deal-room-badge',
+            widgetType: 'badge',
+            status: 'active',
+            embedScript: '<script src="https://widgets.gigvora.com/badge.js" data-widget="leo-deal-badge"></script>',
+            config: { layout: 'compact', accentColor: '#0ea5e9' },
+            impressions: 642,
+            ctaClicks: 58,
+            lastSyncedAt: yesterday,
+            metadata: { placement: 'crm' },
+            createdAt: yesterday,
             updatedAt: now,
           },
         ],
@@ -1369,6 +1669,31 @@ module.exports = {
       await queryInterface.bulkDelete('projects', { id: { [Op.in]: seededIds.projects } }, { transaction });
       await queryInterface.bulkDelete('gigs', { id: { [Op.in]: seededIds.gigs } }, { transaction });
       await queryInterface.bulkDelete('jobs', { id: { [Op.in]: seededIds.jobs } }, { transaction });
+      await queryInterface.bulkDelete(
+        'reputation_review_widgets',
+        { id: { [Op.in]: seededIds.reputationReviewWidgets } },
+        { transaction },
+      );
+      await queryInterface.bulkDelete(
+        'reputation_badges',
+        { id: { [Op.in]: seededIds.reputationBadges } },
+        { transaction },
+      );
+      await queryInterface.bulkDelete(
+        'reputation_metrics',
+        { id: { [Op.in]: seededIds.reputationMetrics } },
+        { transaction },
+      );
+      await queryInterface.bulkDelete(
+        'reputation_success_stories',
+        { id: { [Op.in]: seededIds.reputationSuccessStories } },
+        { transaction },
+      );
+      await queryInterface.bulkDelete(
+        'reputation_testimonials',
+        { id: { [Op.in]: seededIds.reputationTestimonials } },
+        { transaction },
+      );
       await queryInterface.bulkDelete('feed_posts', { id: { [Op.in]: seededIds.feedPosts } }, { transaction });
       await queryInterface.bulkDelete(
         'freelancer_profiles',
