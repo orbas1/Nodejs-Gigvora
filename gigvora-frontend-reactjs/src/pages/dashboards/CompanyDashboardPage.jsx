@@ -108,6 +108,11 @@ const menuSections = [
     label: 'Brand & people',
     items: [
       {
+        name: 'Employer brand & workforce intelligence',
+        description:
+          'Promote your culture, understand workforce trends, and connect hiring with employee experience data.',
+      },
+      {
         name: 'Employer brand studio',
         description: 'Company profile, culture stories, benefits, and employer marketing assets.',
         sectionId: 'employer-brand-studio',
@@ -182,6 +187,16 @@ function formatPercent(value) {
   return `${Number(value).toFixed(1)}%`;
 }
 
+function formatCurrency(value) {
+  if (value == null || Number.isNaN(Number(value))) {
+    return '—';
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return '—';
+  }
+  const options = { minimumFractionDigits: 0, maximumFractionDigits: numeric % 1 === 0 ? 0 : 2 };
+  return `$${numeric.toLocaleString(undefined, options)}`;
 function formatCurrency(amount, currency = 'USD') {
   if (amount == null || Number.isNaN(Number(amount))) {
     return '—';
@@ -228,6 +243,8 @@ function buildSections(data) {
     calendar,
     jobSummary,
     projectSummary,
+    recommendations,
+    employerBrandWorkforce,
   } = data;
 
   const statusEntries = Object.entries(pipelineSummary?.byStatus ?? {});
@@ -444,6 +461,154 @@ function buildSections(data) {
       ]
     : ['Connect integrations and calendar syncs to populate governance metrics.'];
 
+  const brandWorkforce = employerBrandWorkforce ?? {};
+  const profileStudio = brandWorkforce.profileStudio ?? {};
+  const profileStudioCounts = profileStudio.counts ?? {};
+  const profileStudioCampaigns = profileStudio.campaignSummary ?? {};
+  const workforceAnalytics = brandWorkforce.workforceAnalytics ?? {};
+  const mobilityProgram = brandWorkforce.internalMobility ?? {};
+  const governanceCompliance = brandWorkforce.governanceCompliance ?? {};
+  const governanceAccessibility = governanceCompliance.accessibility ?? {};
+
+  const varianceValue =
+    workforceAnalytics.planAlignment?.variance != null
+      ? Number(workforceAnalytics.planAlignment.variance).toFixed(1)
+      : null;
+
+  const profileStudioPoints = [
+    `Culture videos published: ${formatNumber(profileStudioCounts.cultureVideos)}`,
+    `Team spotlights live: ${formatNumber(profileStudioCounts.teamSpotlights)}`,
+    `Offices featured: ${formatNumber(profileStudioCounts.offices)}`,
+    `Active campaigns: ${formatNumber(profileStudioCampaigns.active)}`,
+  ];
+
+  const workforceAnalyticsPoints = [
+    `Attrition risk: ${formatPercent(workforceAnalytics.attritionRiskScore)}`,
+    `Mobility opportunities: ${formatNumber(workforceAnalytics.mobilityOpportunities)}`,
+    `Skill gap alerts: ${formatNumber(workforceAnalytics.skillGapAlerts)}`,
+    `Headcount variance: ${
+      varianceValue != null
+        ? `${Number(varianceValue) >= 0 ? '+' : ''}${varianceValue} FTE`
+        : '—'
+    }`,
+  ];
+
+  const mobilityPoints = [
+    `Open internal roles: ${formatNumber(mobilityProgram.openRoles)}`,
+    `Internal applications: ${formatNumber(mobilityProgram.internalApplications)}`,
+    `Referral conversion: ${formatPercent(mobilityProgram.referralConversionRate)}`,
+    `Rewards issued: ${formatCurrency(mobilityProgram.rewardBudgetUsed)}`,
+  ];
+
+  const governanceCompliancePoints = [
+    `Active policies: ${formatNumber(governanceCompliance.activePolicies)}`,
+    `Regions covered: ${formatNumber(Object.keys(governanceCompliance.policiesByRegion ?? {}).length)}`,
+    `Audits open: ${formatNumber(governanceCompliance.auditsOpen)}`,
+    `Accessibility score: ${
+      governanceAccessibility.averageScore != null ? `${governanceAccessibility.averageScore}/100` : '—'
+    }`,
+  ];
+
+  const storytellingItems = profileStudio.featuredSections?.length
+    ? profileStudio.featuredSections
+        .slice(0, 5)
+        .map((section) => `${section.typeLabel ?? 'Story'} — ${section.title}`)
+    : ['Add featured sections to spotlight your teams, offices, and leadership stories.'];
+
+  const campaignItems = profileStudioCampaigns.byChannel?.length
+    ? profileStudioCampaigns.byChannel
+        .slice(0, 5)
+        .map(
+          (entry) =>
+            `${entry.channel} — ${formatCurrency(entry.spend)} • ${formatNumber(entry.hires)} hires • ${formatNumber(
+              entry.applications,
+            )} applications`,
+        )
+    : ['Track campaign performance across your paid, referral, and owned channels to see ROI.'];
+
+  const cohortItems = workforceAnalytics.cohortComparisons?.length
+    ? workforceAnalytics.cohortComparisons
+        .slice(0, 5)
+        .map((cohort) => {
+          const retention = cohort.retentionRate != null ? formatPercent(cohort.retentionRate) : '—';
+          const promotions = cohort.promotionRate != null ? formatPercent(cohort.promotionRate) : '—';
+          return `${cohort.label} — Retention ${retention} • Promotions ${promotions}`;
+        })
+    : ['Connect HRIS cohort data to compare retention, performance, and promotion trends.'];
+
+  const referralItems = mobilityProgram.leaderboard?.length
+    ? mobilityProgram.leaderboard
+        .slice(0, 5)
+        .map(
+          (referrer) =>
+            `${referrer.name} — ${formatNumber(referrer.referrals)} referrals • ${formatNumber(
+              referrer.rewardPoints,
+            )} pts • ${formatCurrency(referrer.rewardAmount)}`,
+        )
+    : ['Launch referral challenges to unlock gamified leaderboards and payouts.'];
+
+  const careerItems = mobilityProgram.careerProgress?.length
+    ? mobilityProgram.careerProgress
+        .slice(0, 5)
+        .map((plan) => {
+          const progressLabel =
+            plan.progressPercent != null ? `${Number(plan.progressPercent).toFixed(0)}% complete` : 'In planning';
+          return `${plan.employeeName} — ${plan.currentRole ?? 'Current role'} → ${plan.targetRole ?? 'Growth path'} (${progressLabel})`;
+        })
+    : ['Activate career pathing plans to personalise mobility journeys and learning recommendations.'];
+
+  const learningItems = mobilityProgram.learningRecommendations?.length
+    ? mobilityProgram.learningRecommendations.map((item) => `Learning: ${item}`)
+    : [];
+
+  const complianceItems = governanceCompliance.recentAudits?.length
+    ? governanceCompliance.recentAudits
+        .slice(0, 5)
+        .map((audit) => {
+          const findings = audit.findingsCount != null ? `${formatNumber(audit.findingsCount)} findings` : 'No findings logged';
+          const statusLabel = audit.status ? audit.status.replace(/_/g, ' ') : 'Unknown';
+          const formattedStatus = `${statusLabel.charAt(0).toUpperCase()}${statusLabel.slice(1)}`;
+          return `${audit.auditType}${audit.region ? ` (${audit.region})` : ''} — ${formattedStatus} • ${findings}`;
+        })
+    : ['Document policy reviews and audit outcomes to maintain regional compliance coverage.'];
+
+  const accessibilityItems = governanceAccessibility.recommendations?.length
+    ? governanceAccessibility.recommendations.slice(0, 4).map((recommendation) => `Accessibility: ${recommendation}`)
+    : [];
+
+  const employerBrandDetailCards = [
+    {
+      title: 'Storytelling highlights',
+      subtitle: 'Featured teams, offices & leaders',
+      items: storytellingItems,
+    },
+    {
+      title: 'Talent marketing performance',
+      subtitle: 'Campaign ROI by channel',
+      items: campaignItems,
+    },
+    {
+      title: 'Cohort comparisons',
+      subtitle: 'Retention & promotion benchmarks',
+      items: cohortItems,
+    },
+    {
+      title: 'Referral leaderboard',
+      subtitle: 'Gamified progress & rewards',
+      items: referralItems,
+    },
+    {
+      title: 'Career pathing journeys',
+      subtitle: 'Internal mobility & learning plans',
+      items: [...careerItems.slice(0, 4), ...learningItems.slice(0, Math.max(0, 4 - careerItems.length))],
+    },
+    {
+      title: 'Compliance & accessibility',
+      subtitle: 'Audits, policies & remediation',
+      items: [...complianceItems.slice(0, 4), ...accessibilityItems.slice(0, Math.max(0, 4 - complianceItems.length))],
+    },
+  ];
+
   const governancePoints = governance
     ? [
         `Pending approvals: ${formatNumber(governance.pendingApprovals)}`,
@@ -600,6 +765,36 @@ function buildSections(data) {
           bulletPoints: carePoints,
         },
       ],
+    },
+    {
+      title: 'Employer brand & workforce intelligence',
+      description:
+        'Promote your culture, understand workforce trends, and connect hiring with employee experience data.',
+      features: [
+        {
+          name: 'Company profile studio',
+          description:
+            'Design immersive employer profiles with culture videos, benefits, DEI commitments, and team spotlights.',
+          bulletPoints: profileStudioPoints,
+        },
+        {
+          name: 'Workforce analytics',
+          description: 'Blend hiring and HRIS data to uncover attrition risks, mobility opportunities, and skill gaps.',
+          bulletPoints: workforceAnalyticsPoints,
+        },
+        {
+          name: 'Internal mobility & referrals',
+          description: 'Promote jobs internally, reward referrals, and manage career pathing across departments.',
+          bulletPoints: mobilityPoints,
+        },
+        {
+          name: 'Governance & compliance',
+          description:
+            'Maintain GDPR/CCPA compliance, accessibility standards, and equitable hiring policies across every region.',
+          bulletPoints: governanceCompliancePoints,
+        },
+      ],
+      details: employerBrandDetailCards,
     },
     {
       title: 'Headhunter & partner collaboration',
@@ -1301,6 +1496,37 @@ export default function CompanyDashboardPage() {
                 <div className="mt-6">
                   <SectionComponent {...section.component.props} />
                 </div>
+              ))}
+            </div>
+            {section.details?.length ? (
+              <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {section.details.map((detail) => (
+                  <div
+                    key={detail.title}
+                    className="flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                  >
+                    <div>
+                      {detail.subtitle ? (
+                        <p className="text-xs font-semibold uppercase tracking-wide text-blue-500">{detail.subtitle}</p>
+                      ) : null}
+                      <h3 className="mt-2 text-lg font-semibold text-slate-900">{detail.title}</h3>
+                      {detail.items?.length ? (
+                        <ul className="mt-3 space-y-2 text-sm text-slate-600">
+                          {detail.items.map((item, index) => (
+                            <li key={`${item}-${index}`} className="flex gap-2">
+                              <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400" />
+                              <span>{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </section>
+        ))}
               ) : null}
 
               {section.features?.length ? (

@@ -11,6 +11,15 @@ function formatNumber(value) {
   return numeric.toLocaleString();
 }
 
+function formatPercentValue(value) {
+  if (value == null) return '—';
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return '—';
+  }
+  return `${numeric.toFixed(1)}%`;
+}
+
 export function useCompanyDashboard({ workspaceId, workspaceSlug, lookbackDays = 30, enabled = true } = {}) {
   const cacheKey = useMemo(() => {
     const identifier = workspaceSlug ?? workspaceId ?? 'default';
@@ -33,7 +42,20 @@ export function useCompanyDashboard({ workspaceId, workspaceSlug, lookbackDays =
       return [];
     }
 
-    const { pipelineSummary, memberSummary, offers, interviewOperations, candidateExperience, alerts } = state.data;
+    const {
+      pipelineSummary,
+      memberSummary,
+      offers,
+      interviewOperations,
+      candidateExperience,
+      alerts,
+      employerBrandWorkforce,
+    } = state.data;
+
+    const brandWorkforce = employerBrandWorkforce ?? {};
+    const attritionRisk = brandWorkforce.workforceAnalytics?.attritionRiskScore;
+    const activeCampaigns = brandWorkforce.profileStudio?.campaignSummary?.active;
+    const referralConversion = brandWorkforce.internalMobility?.referralConversionRate;
 
     const cards = [
       {
@@ -76,6 +98,18 @@ export function useCompanyDashboard({ workspaceId, workspaceSlug, lookbackDays =
       {
         label: 'Active recruiters',
         value: formatNumber(memberSummary?.active ?? 0),
+      },
+      {
+        label: 'Attrition risk',
+        value: formatPercentValue(attritionRisk),
+      },
+      {
+        label: 'Brand campaigns',
+        value: formatNumber(activeCampaigns ?? 0),
+      },
+      {
+        label: 'Referral conversion',
+        value: formatPercentValue(referralConversion),
       },
     ];
 

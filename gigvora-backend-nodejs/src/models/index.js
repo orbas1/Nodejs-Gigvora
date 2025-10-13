@@ -15,6 +15,25 @@ export const PROFILE_APPRECIATION_TYPES = ['like', 'celebrate', 'support', 'endo
 export const PROFILE_FOLLOWER_STATUSES = ['active', 'muted', 'blocked'];
 export const PROFILE_ENGAGEMENT_JOB_STATUSES = ['pending', 'completed', 'failed'];
 
+export const EMPLOYER_BRAND_SECTION_TYPES = [
+  'culture_video',
+  'benefit',
+  'dei_commitment',
+  'team_spotlight',
+  'office',
+  'leadership_story',
+  'custom',
+];
+export const EMPLOYER_BRAND_SECTION_STATUSES = ['draft', 'review', 'published', 'archived'];
+export const EMPLOYER_BRAND_CAMPAIGN_STATUSES = ['draft', 'scheduled', 'active', 'completed', 'archived'];
+export const WORKFORCE_COHORT_TYPES = ['department', 'location', 'tenure', 'job_family', 'gender', 'generation'];
+export const INTERNAL_JOB_POSTING_STATUSES = ['draft', 'open', 'interview', 'offer', 'filled', 'closed'];
+export const EMPLOYEE_REFERRAL_STATUSES = ['pending', 'qualified', 'interview', 'hired', 'rewarded', 'expired'];
+export const CAREER_PATHING_STATUSES = ['draft', 'active', 'completed', 'paused'];
+export const COMPLIANCE_POLICY_STATUSES = ['draft', 'active', 'under_review', 'archived'];
+export const COMPLIANCE_AUDIT_STATUSES = ['open', 'in_progress', 'completed', 'closed'];
+export const ACCESSIBILITY_AUDIT_STATUSES = ['pending', 'in_progress', 'remediation', 'verified'];
+
 
 export const APPLICATION_TARGET_TYPES = ['job', 'gig', 'project', 'launchpad', 'volunteer'];
 export const APPLICATION_STATUSES = [
@@ -4950,6 +4969,286 @@ export const PartnerCollaborationEvent = sequelize.define(
   },
 );
 
+export const EmployerBrandSection = sequelize.define(
+  'EmployerBrandSection',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    sectionType: {
+      type: DataTypes.ENUM(...EMPLOYER_BRAND_SECTION_TYPES),
+      allowNull: false,
+      defaultValue: 'custom',
+    },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    mediaUrl: { type: DataTypes.STRING(500), allowNull: true },
+    sortOrder: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    isFeatured: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    status: {
+      type: DataTypes.ENUM(...EMPLOYER_BRAND_SECTION_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+    },
+    metadata: { type: jsonType, allowNull: true },
+    publishedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'employer_brand_sections',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['sectionType'] },
+      { fields: ['status'] },
+      { fields: ['isFeatured'] },
+    ],
+  },
+);
+
+export const EmployerBrandCampaign = sequelize.define(
+  'EmployerBrandCampaign',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(255), allowNull: false },
+    channel: { type: DataTypes.STRING(120), allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...EMPLOYER_BRAND_CAMPAIGN_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+    },
+    startsAt: { type: DataTypes.DATE, allowNull: true },
+    endsAt: { type: DataTypes.DATE, allowNull: true },
+    spendAmount: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    impressions: { type: DataTypes.INTEGER, allowNull: true },
+    clicks: { type: DataTypes.INTEGER, allowNull: true },
+    applications: { type: DataTypes.INTEGER, allowNull: true },
+    hires: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'employer_brand_campaigns',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['channel'] },
+      { fields: ['status'] },
+      { fields: ['startsAt'] },
+    ],
+  },
+);
+
+export const WorkforceAnalyticsSnapshot = sequelize.define(
+  'WorkforceAnalyticsSnapshot',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    capturedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    attritionRiskScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    mobilityOpportunities: { type: DataTypes.INTEGER, allowNull: true },
+    skillGapAlerts: { type: DataTypes.INTEGER, allowNull: true },
+    headcountPlan: { type: DataTypes.INTEGER, allowNull: true },
+    headcountActual: { type: DataTypes.INTEGER, allowNull: true },
+    budgetPlanned: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    budgetActual: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'workforce_analytics_snapshots',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['capturedAt'] },
+    ],
+  },
+);
+
+export const WorkforceCohortMetric = sequelize.define(
+  'WorkforceCohortMetric',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    cohortType: {
+      type: DataTypes.ENUM(...WORKFORCE_COHORT_TYPES),
+      allowNull: false,
+      defaultValue: 'department',
+    },
+    cohortValue: { type: DataTypes.STRING(255), allowNull: false },
+    retentionRate: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    performanceIndex: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    promotionRate: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    headcount: { type: DataTypes.INTEGER, allowNull: true },
+    periodStart: { type: DataTypes.DATE, allowNull: true },
+    periodEnd: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'workforce_cohort_metrics',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['cohortType'] },
+      { fields: ['periodStart'] },
+    ],
+  },
+);
+
+export const InternalJobPosting = sequelize.define(
+  'InternalJobPosting',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    department: { type: DataTypes.STRING(255), allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...INTERNAL_JOB_POSTING_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+    },
+    postedAt: { type: DataTypes.DATE, allowNull: true },
+    internalApplications: { type: DataTypes.INTEGER, allowNull: true },
+    internalHires: { type: DataTypes.INTEGER, allowNull: true },
+    referralApplications: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'internal_job_postings',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['status'] },
+      { fields: ['postedAt'] },
+    ],
+  },
+);
+
+export const EmployeeReferral = sequelize.define(
+  'EmployeeReferral',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    referrerId: { type: DataTypes.INTEGER, allowNull: false },
+    referredEmail: { type: DataTypes.STRING(255), allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...EMPLOYEE_REFERRAL_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+    },
+    rewardPoints: { type: DataTypes.INTEGER, allowNull: true },
+    rewardAmount: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
+    progressPercent: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    stage: { type: DataTypes.STRING(120), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    convertedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'employee_referrals',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['referrerId'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+export const CareerPathingPlan = sequelize.define(
+  'CareerPathingPlan',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    employeeId: { type: DataTypes.INTEGER, allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...CAREER_PATHING_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+    },
+    currentRole: { type: DataTypes.STRING(255), allowNull: true },
+    targetRole: { type: DataTypes.STRING(255), allowNull: true },
+    progressPercent: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    recommendedLearningPaths: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'career_pathing_plans',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['employeeId'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+export const CompliancePolicy = sequelize.define(
+  'CompliancePolicy',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    ownerId: { type: DataTypes.INTEGER, allowNull: true },
+    name: { type: DataTypes.STRING(255), allowNull: false },
+    policyArea: { type: DataTypes.STRING(120), allowNull: false },
+    region: { type: DataTypes.STRING(120), allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...COMPLIANCE_POLICY_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+    },
+    version: { type: DataTypes.STRING(60), allowNull: true },
+    lastReviewedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'compliance_policies',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['policyArea'] },
+      { fields: ['region'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+export const ComplianceAuditLog = sequelize.define(
+  'ComplianceAuditLog',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    auditType: { type: DataTypes.STRING(120), allowNull: false },
+    region: { type: DataTypes.STRING(120), allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...COMPLIANCE_AUDIT_STATUSES),
+      allowNull: false,
+      defaultValue: 'open',
+    },
+    escalationLevel: { type: DataTypes.STRING(120), allowNull: true },
+    openedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    closedAt: { type: DataTypes.DATE, allowNull: true },
+    findingsCount: { type: DataTypes.INTEGER, allowNull: true },
+    severityScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'compliance_audit_logs',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['auditType'] },
+      { fields: ['status'] },
+      { fields: ['openedAt'] },
+    ],
+  },
+);
+
+export const AccessibilityAudit = sequelize.define(
+  'AccessibilityAudit',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    area: { type: DataTypes.STRING(255), allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...ACCESSIBILITY_AUDIT_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+    },
+    score: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    issuesOpen: { type: DataTypes.INTEGER, allowNull: true },
+    issuesResolved: { type: DataTypes.INTEGER, allowNull: true },
+    lastRunAt: { type: DataTypes.DATE, allowNull: true },
+    recommendations: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'accessibility_audits',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['status'] },
+      { fields: ['lastRunAt'] },
+    ],
+  },
+);
+
+export const MessageThread = sequelize.define(
+  'MessageThread',
 export const RecruitingCalendarEvent = sequelize.define(
   'RecruitingCalendarEvent',
 export const CareerInterviewScorecard = sequelize.define(
@@ -13323,6 +13622,16 @@ ProviderWorkspace.hasMany(AgencySlaSnapshot, { foreignKey: 'workspaceId', as: 'a
 ProviderWorkspace.hasMany(AgencyBillingEvent, { foreignKey: 'workspaceId', as: 'agencyBillingEvents' });
 ProviderWorkspace.hasMany(RecruitingCalendarEvent, { foreignKey: 'workspaceId', as: 'recruitingEvents' });
 ProviderWorkspace.hasMany(EmployerBrandAsset, { foreignKey: 'workspaceId', as: 'employerBrandAssets' });
+ProviderWorkspace.hasMany(EmployerBrandSection, { foreignKey: 'workspaceId', as: 'employerBrandSections' });
+ProviderWorkspace.hasMany(EmployerBrandCampaign, { foreignKey: 'workspaceId', as: 'employerBrandCampaigns' });
+ProviderWorkspace.hasMany(WorkforceAnalyticsSnapshot, { foreignKey: 'workspaceId', as: 'workforceSnapshots' });
+ProviderWorkspace.hasMany(WorkforceCohortMetric, { foreignKey: 'workspaceId', as: 'workforceCohorts' });
+ProviderWorkspace.hasMany(InternalJobPosting, { foreignKey: 'workspaceId', as: 'internalJobPostings' });
+ProviderWorkspace.hasMany(EmployeeReferral, { foreignKey: 'workspaceId', as: 'employeeReferrals' });
+ProviderWorkspace.hasMany(CareerPathingPlan, { foreignKey: 'workspaceId', as: 'careerPathingPlans' });
+ProviderWorkspace.hasMany(CompliancePolicy, { foreignKey: 'workspaceId', as: 'compliancePolicies' });
+ProviderWorkspace.hasMany(ComplianceAuditLog, { foreignKey: 'workspaceId', as: 'complianceAudits' });
+ProviderWorkspace.hasMany(AccessibilityAudit, { foreignKey: 'workspaceId', as: 'accessibilityAudits' });
 ProviderWorkspace.hasMany(ProjectOperationalSnapshot, {
   foreignKey: 'workspaceId',
   as: 'projectOperationalSnapshots',
@@ -13542,6 +13851,21 @@ AgencyBillingEvent.belongsTo(AgencyCollaboration, {
 });
 RecruitingCalendarEvent.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 EmployerBrandAsset.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+EmployerBrandSection.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+EmployerBrandCampaign.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+WorkforceAnalyticsSnapshot.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+WorkforceCohortMetric.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+InternalJobPosting.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+EmployeeReferral.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+EmployeeReferral.belongsTo(User, { foreignKey: 'referrerId', as: 'referrer' });
+CareerPathingPlan.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+CareerPathingPlan.belongsTo(User, { foreignKey: 'employeeId', as: 'employee' });
+CompliancePolicy.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+CompliancePolicy.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
+ComplianceAuditLog.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+AccessibilityAudit.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+User.hasMany(EmployeeReferral, { foreignKey: 'referrerId', as: 'referralsMade' });
+User.hasMany(CareerPathingPlan, { foreignKey: 'employeeId', as: 'careerPathingPlans' });
 WorkspaceOperatingBlueprint.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 ResourceCapacitySnapshot.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 ResourceScenarioPlan.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
@@ -13933,6 +14257,16 @@ export default {
   AgencyBillingEvent,
   RecruitingCalendarEvent,
   EmployerBrandAsset,
+  EmployerBrandSection,
+  EmployerBrandCampaign,
+  WorkforceAnalyticsSnapshot,
+  WorkforceCohortMetric,
+  InternalJobPosting,
+  EmployeeReferral,
+  CareerPathingPlan,
+  CompliancePolicy,
+  ComplianceAuditLog,
+  AccessibilityAudit,
   EmployerBrandStory,
   EmployerBenefit,
   EmployeeJourneyProgram,
