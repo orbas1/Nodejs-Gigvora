@@ -25,6 +25,7 @@ import PrivacyPage from './pages/PrivacyPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
 import FinanceHubPage from './pages/FinanceHubPage.jsx';
 import AboutPage from './pages/AboutPage.jsx';
+import NotificationsPage from './pages/NotificationsPage.jsx';
 import UserDashboardPage from './pages/dashboards/UserDashboardPage.jsx';
 import FreelancerDashboardPage from './pages/dashboards/FreelancerDashboardPage.jsx';
 import FreelancerPipelinePage from './pages/dashboards/FreelancerPipelinePage.jsx';
@@ -53,6 +54,7 @@ export default function App() {
         <Route path="volunteering" element={<VolunteeringPage />} />
         <Route path="groups" element={<GroupsPage />} />
         <Route path="connections" element={<ConnectionsPage />} />
+        <Route path="notifications" element={<NotificationsPage />} />
         <Route path="trust-center" element={<TrustCenterPage />} />
         <Route path="auto-assign" element={<AutoAssignQueuePage />} />
         <Route path="inbox" element={<InboxPage />} />
