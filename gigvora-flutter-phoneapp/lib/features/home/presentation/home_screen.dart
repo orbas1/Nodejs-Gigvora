@@ -101,10 +101,16 @@ class HomeScreen extends ConsumerWidget {
                       child: _DashboardSectionCard(section: section),
                     ))
                 .toList(),
+            if (activeDashboard.role == 'admin') ...[
+              const SizedBox(height: 24),
+              const _AdminAdsCallout(),
+            ],
             if (activeDashboard.actions.isNotEmpty) ...[
               const SizedBox(height: 8),
               _DashboardActions(actions: activeDashboard.actions),
             ],
+            const SizedBox(height: 16),
+            const _NetworkCtaCard(),
             const SizedBox(height: 12),
           ],
         ),
@@ -331,6 +337,37 @@ class _MetricsWrap extends StatelessWidget {
   }
 }
 
+class _NetworkCtaCard extends StatelessWidget {
+  const _NetworkCtaCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return GigvoraCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Connection intelligence', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 8),
+          Text(
+            'Review first, second, and third-degree relationships to plan introductions with confidence.',
+            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: ElevatedButton.icon(
+              onPressed: () => GoRouter.of(context).go('/connections'),
+              icon: const Icon(Icons.group_outlined),
+              label: const Text('Open network graph'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _MetricCard extends StatelessWidget {
   const _MetricCard({required this.metric});
 
@@ -499,6 +536,38 @@ class _DashboardActions extends StatelessWidget {
                 ],
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AdminAdsCallout extends StatelessWidget {
+  const _AdminAdsCallout();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return GigvoraCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Gigvora Ads console',
+            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Review campaign coverage, placements, and recommendations to keep monetisation surfaces healthy.',
+            style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: () => GoRouter.of(context).go('/admin/ads'),
+            icon: const Icon(Icons.campaign_outlined),
+            label: const Text('Open console'),
           ),
         ],
       ),
