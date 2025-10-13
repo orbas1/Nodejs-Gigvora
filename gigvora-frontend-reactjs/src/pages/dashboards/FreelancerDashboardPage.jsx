@@ -1,4 +1,7 @@
+import { useState } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import LearningHubSection from '../../components/dashboard/LearningHubSection.jsx';
+import useLearningHub from '../../hooks/useLearningHub.js';
 
 const menuSections = [
   {
@@ -212,11 +215,17 @@ const capabilitySections = [
       {
         name: 'Learning and certification hub',
         description:
-          'Access curated courses, peer mentoring sessions, and skill gap diagnostics tied to your service lines.',
+          'Deepen expertise with a personalized academy that aligns learning plans, credentials, and new revenue ideas to your active gigs.',
+        slug: 'learning-hub',
         bulletPoints: [
-          'Certification tracker with renewal reminders.',
-          'AI recommendations for new service offerings.',
+          'Curated course paths per service line with completion tracking, session replays, and micro-credential downloads.',
+          'Peer mentoring marketplace that pairs you with vetted specialists for co-working sessions, office hours, and portfolio reviews.',
+          'Skill gap diagnostics that benchmark your profile data against top performers to surface targeted practice briefs and labs.',
+          'Certification tracker with renewal reminders, document vault storage, and automated client-facing proof of compliance.',
+          'AI recommendations for new service offerings generated from marketplace demand, emerging tools, and your learning history.',
+          'Launchpad planner that converts earned badges into promotional campaigns, upsell scripts, and pricing experiments.',
         ],
+        callout: 'Next renewal: HubSpot Solutions Partner — 18 days left',
       },
       {
         name: 'Community spotlight',
@@ -236,6 +245,7 @@ const profile = {
   role: 'Lead Brand & Product Designer',
   initials: 'RM',
   status: 'Top-rated freelancer',
+  id: 2,
   badges: ['Verified Pro', 'Gigvora Elite'],
   metrics: [
     { label: 'Active projects', value: '6' },
@@ -248,6 +258,18 @@ const profile = {
 const availableDashboards = ['freelancer', 'user', 'agency'];
 
 export default function FreelancerDashboardPage() {
+  const [activeMenuKey, setActiveMenuKey] = useState('overview');
+  const learningHubState = useLearningHub({ freelancerId: profile.id, includeEmpty: true });
+  const showLearningHub = activeMenuKey === 'learning-hub';
+
+  const handleMenuSelect = ({ key }) => {
+    if (key === 'learning-hub') {
+      setActiveMenuKey('learning-hub');
+    } else {
+      setActiveMenuKey('overview');
+    }
+  };
+
   return (
     <DashboardLayout
       currentDashboard="freelancer"
@@ -258,6 +280,20 @@ export default function FreelancerDashboardPage() {
       sections={capabilitySections}
       profile={profile}
       availableDashboards={availableDashboards}
-    />
+      onMenuItemSelect={handleMenuSelect}
+      selectedMenuItemKey={showLearningHub ? 'learning-hub' : undefined}
+    >
+      {showLearningHub ? (
+        <LearningHubSection
+          data={learningHubState.data}
+          isLoading={learningHubState.loading}
+          error={learningHubState.error}
+          fromCache={learningHubState.fromCache}
+          onRefresh={() => learningHubState.refresh?.({ force: true })}
+          summaryCards={learningHubState.summaryCards}
+          upcomingRenewal={learningHubState.upcomingRenewalCopy}
+        />
+      ) : null}
+    </DashboardLayout>
   );
 }
