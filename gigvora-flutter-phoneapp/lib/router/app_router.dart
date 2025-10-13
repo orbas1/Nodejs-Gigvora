@@ -13,6 +13,7 @@ import '../features/marketplace/presentation/launchpad_screen.dart';
 import '../features/marketplace/presentation/volunteering_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/admin/presentation/admin_login_screen.dart';
+import '../features/project_gig_management/presentation/project_gig_management_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -34,6 +35,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/profile',
         builder: (context, state) => ProfileScreen(profileId: state.uri.queryParameters['id']),
+      ),
+      GoRoute(
+        path: '/operations',
+        builder: (context, state) => ProjectGigManagementScreen(
+          userId: state.uri.queryParameters['userId'] != null
+              ? int.tryParse(state.uri.queryParameters['userId']!)
+              : null,
+          initialSection: sectionFromQuery(state.uri.queryParameters['section']),
+        ),
       ),
       GoRoute(path: '/admin', builder: (context, state) => const AdminLoginScreen()),
     ],

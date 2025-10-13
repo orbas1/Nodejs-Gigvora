@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
 import '../../../theme/widgets.dart';
 import '../application/feed_controller.dart';
@@ -29,6 +30,25 @@ class FeedScreen extends ConsumerWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              FilledButton.tonal(
+                onPressed: () => context.push('/operations'),
+                child: const Text('Gig operations'),
+              ),
+              OutlinedButton(
+                onPressed: () => context.push('/operations?section=buy'),
+                child: const Text('Buy a gig'),
+              ),
+              OutlinedButton(
+                onPressed: () => context.push('/operations?section=post'),
+                child: const Text('Post a gig'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
           if (state.fromCache && !state.loading)
             _StatusBanner(
               icon: Icons.offline_bolt,
