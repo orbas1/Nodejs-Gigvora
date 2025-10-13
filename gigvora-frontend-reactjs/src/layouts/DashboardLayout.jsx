@@ -21,10 +21,14 @@ export default function DashboardLayout({
   profile,
   availableDashboards,
   children,
+  activeMenuItem,
+  onMenuItemSelect,
 }) {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const currentMenuItem = activeMenuItem ?? null;
+  const handleMenuItemSelect = typeof onMenuItemSelect === 'function' ? onMenuItemSelect : undefined;
 
   const navigationSections = Array.isArray(menuSections) ? menuSections : [];
   const capabilitySections = Array.isArray(sections) ? sections : [];
@@ -125,31 +129,49 @@ export default function DashboardLayout({
                 <div key={section.label}>
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{section.label}</p>
                   <ul className="mt-3 space-y-2">
-                    {section.items.map((item) => (
-                      <li key={item.name}>
-                        <div className="group flex flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-slate-700">{item.name}</span>
-                            <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
-                          </div>
-                          {item.description ? (
-                            <p className="text-xs text-slate-500">{item.description}</p>
-                          ) : null}
-                          {item.tags?.length ? (
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {item.tags.map((tag) => (
-                                <span
-                                  key={tag}
-                                  className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-600"
-                                >
-                                  {tag}
-                                </span>
-                              ))}
+                    {section.items.map((item) => {
+                      const itemId = item.id ?? item.slug ?? item.name;
+                      const isActive = currentMenuItem === itemId;
+                      return (
+                        <li key={itemId}>
+                          <button
+                            type="button"
+                            onClick={() => handleMenuItemSelect?.(itemId, item)}
+                            className={`group w-full text-left transition ${
+                              isActive
+                                ? 'border-blue-400 bg-blue-50 shadow-sm'
+                                : 'border-transparent bg-slate-100/70'
+                            } flex flex-col gap-1 rounded-2xl border p-3 hover:border-blue-300 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-400/60`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className={`text-sm font-medium ${isActive ? 'text-blue-700' : 'text-slate-700'}`}>
+                                {item.name}
+                              </span>
+                              <ChevronRightIcon
+                                className={`h-4 w-4 transition ${isActive ? 'text-blue-500' : 'text-slate-400 group-hover:text-blue-500'}`}
+                              />
                             </div>
-                          ) : null}
-                        </div>
-                      </li>
-                    ))}
+                            {item.description ? (
+                              <p className={`text-xs ${isActive ? 'text-blue-600/80' : 'text-slate-500'}`}>{item.description}</p>
+                            ) : null}
+                            {item.tags?.length ? (
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {item.tags.map((tag) => (
+                                  <span
+                                    key={tag}
+                                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+                                      isActive ? 'bg-blue-500 text-white' : 'bg-blue-50 text-blue-600'
+                                    }`}
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : null}
+                          </button>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               ))}
@@ -293,6 +315,95 @@ export default function DashboardLayout({
                                     </li>
                                   ))}
                                 </ul>
+                              ) : null}
+                              {feature.metrics?.length ? (
+                                <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+                                  {feature.metrics.map(({ label, value, description: metricDescription }) => (
+                                    <div
+                                      key={`${feature.name}-${label}-${value}`}
+                                      className="rounded-2xl border border-slate-200 bg-white/70 p-3"
+                                    >
+                                      <dt className="text-xs uppercase tracking-wide text-slate-400">{label}</dt>
+                                      <dd className="mt-1 text-base font-semibold text-slate-900">{value}</dd>
+                                      {metricDescription ? (
+                                        <p className="mt-1 text-xs text-slate-500">{metricDescription}</p>
+                                      ) : null}
+                                    </div>
+                                  ))}
+                                </dl>
+                              ) : null}
+                              {feature.detailSections?.length ? (
+                                <div className="mt-4 space-y-4">
+                                  {feature.detailSections.map((detail) => (
+                                    <div
+                                      key={`${feature.name}-${detail.title}`}
+                                      className="rounded-2xl border border-slate-200 bg-white/80 p-4"
+                                    >
+                                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                        <div>
+                                          <h4 className="text-sm font-semibold text-slate-800">{detail.title}</h4>
+                                          {detail.description ? (
+                                            <p className="mt-1 text-sm text-slate-600">{detail.description}</p>
+                                          ) : null}
+                                        </div>
+                                        {detail.meta ? (
+                                          <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-[10px] font-medium uppercase tracking-wide text-blue-700">
+                                            {detail.meta}
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                      {detail.items?.length ? (
+                                        <ul className="mt-3 space-y-1.5 text-sm text-slate-600">
+                                          {detail.items.map((item) => (
+                                            <li key={item} className="flex gap-2">
+                                              <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-blue-300" />
+                                              <span>{item}</span>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      ) : null}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : null}
+                              {feature.workflow?.stages?.length ? (
+                                <div className="mt-5">
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                                    {feature.workflow.title ?? 'Workflow stages'}
+                                  </p>
+                                  <ol className="mt-3 space-y-3">
+                                    {feature.workflow.stages.map((stage) => (
+                                      <li
+                                        key={`${feature.name}-${stage.name}`}
+                                        className="rounded-2xl border border-slate-200 bg-white/80 p-4"
+                                      >
+                                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                          <div>
+                                            <p className="text-sm font-semibold text-slate-800">{stage.name}</p>
+                                            {stage.description ? (
+                                              <p className="mt-1 text-sm text-slate-600">{stage.description}</p>
+                                            ) : null}
+                                          </div>
+                                          {stage.owner ? (
+                                            <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                                              {stage.owner}
+                                            </span>
+                                          ) : null}
+                                        </div>
+                                        {stage.outputs?.length ? (
+                                          <ul className="mt-2 space-y-1.5 text-xs text-slate-500">
+                                            {stage.outputs.map((output) => (
+                                              <li key={output} className="flex gap-2">
+                                                <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-blue-300" />
+                                                <span>{output}</span>
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        ) : null}
+                                      </li>
+                                    ))}
+                                  </ol>
+                                </div>
                               ) : null}
                             </div>
                             {feature.callout ? (
