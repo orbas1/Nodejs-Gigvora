@@ -9,5 +9,6 @@ export 'src/network/api_client.dart';
 export 'src/network/graphql_gateway.dart';
 export 'src/network/realtime_gateway.dart';
 export 'src/network/repository_result.dart';
+export 'src/notifications/push_notification_service.dart';
 export 'src/state/resource_state.dart';
 export 'src/utils/date_formatter.dart';

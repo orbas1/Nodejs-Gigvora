@@ -48,6 +48,7 @@ class GigvoraApp extends ConsumerWidget {
     final theme = ref.watch(appThemeProvider);
     final router = ref.watch(appRouterProvider);
     ref.watch(featureFlagsBootstrapProvider);
+    ref.watch(pushNotificationBootstrapProvider);
 
     ref.listen<AsyncValue<void>>(analyticsBootstrapProvider, (_, next) {
       next.whenOrNull(error: (error, stackTrace) {
@@ -58,6 +59,12 @@ class GigvoraApp extends ConsumerWidget {
     ref.listen<AsyncValue<void>>(featureFlagsBootstrapProvider, (_, next) {
       next.whenOrNull(error: (error, stackTrace) {
         debugPrint('Feature flag bootstrap failed: $error');
+      });
+    });
+
+    ref.listen<AsyncValue<void>>(pushNotificationBootstrapProvider, (_, next) {
+      next.whenOrNull(error: (error, stackTrace) {
+        debugPrint('Push notification bootstrap failed: $error');
       });
     });
 
