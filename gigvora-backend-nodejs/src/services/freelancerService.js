@@ -6,6 +6,7 @@ import {
 } from '../models/index.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
 import { listFreelancerGigs } from './gigService.js';
+import { getAdDashboardSnapshot } from './adService.js';
 
 const DEFAULT_GIG_BLUEPRINT = {
   title: 'Brand Identity Accelerator',
@@ -292,6 +293,24 @@ export async function getFreelancerDashboard({ freelancerId, limitGigs = 10 } = 
     freelancer.assignmentMetric ?? null,
   );
 
+  const adKeywordHints = [
+    profileCard?.tagline ?? null,
+    profileCard?.role ?? null,
+    ...gigs.map((gig) => gig.title).filter(Boolean),
+  ].filter(Boolean);
+
+  const gigIds = gigs
+    .map((gig) => (Number.isInteger(Number(gig.id)) ? Number(gig.id) : null))
+    .filter((value) => value != null);
+
+  const ads = await getAdDashboardSnapshot({
+    surfaces: ['freelancer_dashboard', 'global_dashboard'],
+    context: {
+      keywordHints: adKeywordHints,
+      opportunityTargets: gigIds.length ? [{ targetType: 'gig', ids: gigIds }] : [],
+    },
+  });
+
   return {
     profile: profileCard,
     menuSections: buildMenuSections(),
@@ -306,6 +325,7 @@ export async function getFreelancerDashboard({ freelancerId, limitGigs = 10 } = 
       health: gigHealth,
       recentActivities,
     },
+    ads,
   };
 }
 

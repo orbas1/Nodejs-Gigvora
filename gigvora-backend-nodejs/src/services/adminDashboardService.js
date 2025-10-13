@@ -19,6 +19,7 @@ import {
 } from '../models/index.js';
 import { getLaunchpadDashboard } from './launchpadService.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
+import { getAdDashboardSnapshot } from './adService.js';
 
 const DASHBOARD_CACHE_TTL = 45; // seconds
 
@@ -325,6 +326,16 @@ export async function getAdminDashboardSnapshot(options = {}) {
       return sum + pending;
     }, 0);
 
+    const adKeywordHints = [
+      ...Object.keys(userBreakdown ?? {}),
+      ...topAnalyticsEvents.map((event) => event.eventName),
+    ].filter(Boolean);
+
+    const ads = await getAdDashboardSnapshot({
+      surfaces: ['admin_dashboard', 'global_dashboard'],
+      context: { keywordHints: adKeywordHints },
+    });
+
     return {
       refreshedAt: new Date().toISOString(),
       lookbackDays,
@@ -381,6 +392,7 @@ export async function getAdminDashboardSnapshot(options = {}) {
         criticalOpen: parseInteger(criticalNotificationsCount),
       },
       launchpad: launchpadDashboard,
+      ads,
     };
   });
 }

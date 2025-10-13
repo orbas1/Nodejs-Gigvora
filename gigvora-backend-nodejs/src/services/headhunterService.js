@@ -43,6 +43,7 @@ import {
 } from '../models/headhunterExtras.js';
 import { NotFoundError } from '../utils/errors.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
+import { getAdDashboardSnapshot } from './adService.js';
 
 const DASHBOARD_CACHE_TTL_SECONDS = 45;
 const MAX_LOOKBACK_DAYS = 120;
@@ -386,6 +387,27 @@ function buildStageBreakdown(applications) {
     valueTotal: Number(valueTotals[key].toFixed(2)),
     percentage: computePercentage(totals[key], totalApplications),
     statuses: bucket.statuses,
+  }));
+}
+
+function buildOpportunityTargetsFromApplications(applications = []) {
+  const allowedTypes = new Set(['job', 'gig', 'launchpad', 'volunteering']);
+  const targets = new Map();
+
+  applications.forEach((application) => {
+    const rawType = `${application.targetType ?? ''}`.trim().toLowerCase();
+    const targetId = Number(application.targetId);
+    if (!allowedTypes.has(rawType) || !Number.isInteger(targetId) || targetId <= 0) {
+      return;
+    }
+    const bucket = targets.get(rawType) ?? new Set();
+    bucket.add(targetId);
+    targets.set(rawType, bucket);
+  });
+
+  return Array.from(targets.entries()).map(([targetType, ids]) => ({
+    targetType,
+    ids: Array.from(ids),
   }));
 }
 
@@ -3728,6 +3750,7 @@ export async function getDashboardSnapshot({ workspaceId: rawWorkspaceId, lookba
     const dataset = scopedApplications.length ? scopedApplications : applications;
     const hasWorkspaceScopedData = scopedApplications.length > 0;
     const candidateProfiles = await loadCandidateProfiles(dataset);
+    const opportunityTargets = buildOpportunityTargetsFromApplications(dataset);
 
     const stageBreakdown = buildStageBreakdown(dataset);
     const recentActivity = aggregateRecentActivity(dataset);
@@ -3980,6 +4003,32 @@ export async function getDashboardSnapshot({ workspaceId: rawWorkspaceId, lookba
       availableWorkspaces,
     };
 
+    const keywordHints = new Set(
+      [
+        workspaceSummary?.name,
+        workspaceSummary?.type,
+        ...(workspaceSummary?.health?.badges ?? []),
+        ...stageBreakdown.map((stage) => stage.label),
+        ...Object.keys(pipelineSummary.conversionRates ?? {}),
+        ...mandatePortfolio.mandates.slice(0, 6).map((mandate) => mandate.title),
+        ...mandatePortfolio.mandates.slice(0, 6).map((mandate) => mandate.location),
+        ...candidateSpotlight.slice(0, 5).map((candidate) => candidate.headline ?? candidate.name),
+        ...outreachPerformance.channelBreakdown.map((entry) => entry.channel),
+      ]
+        .flat()
+        .filter(Boolean)
+        .map((value) => `${value}`.trim())
+        .filter(Boolean),
+    );
+
+    const ads = await getAdDashboardSnapshot({
+      surfaces: ['headhunter_dashboard', 'global_dashboard'],
+      context: {
+        keywordHints: Array.from(keywordHints),
+        opportunityTargets,
+      },
+    });
+
     return {
       workspaceSummary: {
         ...workspaceSummary,
@@ -4000,6 +4049,7 @@ export async function getDashboardSnapshot({ workspaceId: rawWorkspaceId, lookba
       wellbeing,
       prospectIntelligence,
       meta,
+      ads,
     };
   });
 }

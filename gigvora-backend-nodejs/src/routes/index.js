@@ -13,6 +13,7 @@ import projectRoutes from './projectRoutes.js';
 import launchpadRoutes from './launchpadRoutes.js';
 import headhunterRoutes from './headhunterRoutes.js';
 import adminRoutes from './adminRoutes.js';
+import adRoutes from './adRoutes.js';
 import freelancerRoutes from './freelancerRoutes.js';
 import pipelineRoutes from './pipelineRoutes.js';
 import reputationRoutes from './reputationRoutes.js';
@@ -62,5 +63,6 @@ router.use('/client-portals', clientPortalRoutes);
 router.use('/learning-hub', learningHubRoutes);
 router.use('/workspace-templates', workspaceTemplateRoutes);
 router.use('/company', companyRoutes);
+router.use('/ads', adRoutes);
 
 export default router;

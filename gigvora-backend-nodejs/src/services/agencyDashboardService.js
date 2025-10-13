@@ -77,6 +77,7 @@ import {
 } from '../models/index.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
 import { NotFoundError } from '../utils/errors.js';
+import { getAdDashboardSnapshot } from './adService.js';
 
 const ACTIVE_MEMBER_STATUSES = ['active'];
 const PROJECT_STATUS_BUCKETS = {
@@ -2733,6 +2734,32 @@ export async function getAgencyDashboard({ workspaceId, workspaceSlug, lookbackD
       brandingReach: branding.metrics.totals.reach,
     };
 
+    const adKeywordHints = [
+      ...gigSummaries.map((gig) => gig.title).filter(Boolean),
+      ...jobSummaries.map((job) => job.title).filter(Boolean),
+      agencyProfilePlain?.specialties?.primary ?? null,
+      workspace?.industryFocus ?? null,
+    ].filter(Boolean);
+
+    const adGigIds = gigSummaries
+      .map((gig) => (Number.isInteger(Number(gig.id)) ? Number(gig.id) : null))
+      .filter((value) => value != null);
+
+    const adJobIds = jobSummaries
+      .map((job) => (Number.isInteger(Number(job.id)) ? Number(job.id) : null))
+      .filter((value) => value != null);
+
+    const ads = await getAdDashboardSnapshot({
+      surfaces: ['agency_dashboard', 'global_dashboard'],
+      context: {
+        keywordHints: adKeywordHints,
+        opportunityTargets: [
+          ...(adGigIds.length ? [{ targetType: 'gig', ids: adGigIds }] : []),
+          ...(adJobIds.length ? [{ targetType: 'job', ids: adJobIds }] : []),
+        ],
+      },
+    });
+
     return {
       workspace: workspace ? sanitizeWorkspaceRecord(workspace) : null,
       agencyProfile: agencyProfilePlain,
@@ -2793,6 +2820,7 @@ export async function getAgencyDashboard({ workspaceId, workspaceSlug, lookbackD
         marketingAutomation: marketingAutomationInsights,
         clientAdvocacy: clientAdvocacyInsights,
       },
+      ads,
       refreshedAt: new Date().toISOString(),
     };
   });
