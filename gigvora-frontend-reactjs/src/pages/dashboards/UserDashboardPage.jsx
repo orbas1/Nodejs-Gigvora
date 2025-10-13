@@ -4,6 +4,7 @@ import useCachedResource from '../../hooks/useCachedResource.js';
 import DataStatus from '../../components/DataStatus.jsx';
 import { fetchUserDashboard } from '../../services/userDashboard.js';
 import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
+import DocumentStudioSection from '../../components/documentStudio/DocumentStudioSection.jsx';
 
 const DEFAULT_USER_ID = 1;
 const availableDashboards = ['user', 'freelancer', 'agency', 'company', 'headhunter'];
@@ -61,6 +62,11 @@ function buildProfileCard(data, summary) {
 function buildMenuSections(data) {
   const summary = data?.summary ?? {};
   const documents = data?.documents ?? {};
+  const documentStudio = data?.documentStudio;
+  const documentSummary = documentStudio?.summary ?? {};
+  const portfolioProjects = Array.isArray(documentStudio?.brandHub?.portfolioProjects)
+    ? documentStudio.brandHub.portfolioProjects.length
+    : documents.portfolioLinks?.length ?? 0;
   const portfolioCount = documents.portfolioLinks?.length ?? 0;
   return [
     {
@@ -88,16 +94,16 @@ function buildMenuSections(data) {
       items: [
         {
           name: 'Document library',
-          description: `${formatNumber(summary.documentsUploaded)} tailored CVs and cover letters ready to send.`,
+          description: `${formatNumber(documentSummary.totalDocuments ?? summary.documentsUploaded ?? 0)} tailored assets ready to send.`,
           tags: ['resumes'],
         },
         {
           name: 'Portfolio evidence',
-          description: `${portfolioCount} public links, including launchpad case studies and testimonials.`,
+          description: `${formatNumber(portfolioProjects || portfolioCount)} public case studies, testimonials, and banners.`,
         },
         {
           name: 'Purchased gigs',
-          description: 'Review vendor deliverables and attach outcomes to your projects.',
+          description: `Review ${formatNumber(documentStudio?.purchasedGigs?.stats?.total ?? 0)} vendor deliverables feeding your workspace.`,
         },
       ],
     },
@@ -150,6 +156,7 @@ export default function UserDashboardPage() {
   const automations = Array.isArray(data?.tasks?.automations) ? data.tasks.automations : [];
   const interviews = Array.isArray(data?.interviews) ? data.interviews : [];
   const documents = data?.documents ?? { attachments: [], portfolioLinks: [] };
+  const documentStudio = data?.documentStudio ?? null;
   const notifications = Array.isArray(data?.notifications?.recent) ? data.notifications.recent : [];
   const projectActivity = Array.isArray(data?.projectActivity?.recent) ? data.projectActivity.recent : [];
   const launchpadApplications = Array.isArray(data?.launchpad?.applications) ? data.launchpad.applications : [];
@@ -364,6 +371,8 @@ export default function UserDashboardPage() {
             </div>
           </div>
         </section>
+
+        {documentStudio ? <DocumentStudioSection data={documentStudio} /> : null}
 
         <section className="grid gap-6 lg:grid-cols-2">
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
