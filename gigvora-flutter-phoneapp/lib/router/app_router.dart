@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../features/auth/application/session_controller.dart';
 import '../features/auth/presentation/login_screen.dart';
 import '../features/auth/presentation/register_screen.dart';
 import '../features/auth/presentation/company_register_screen.dart';
@@ -29,7 +30,27 @@ import '../features/connections/presentation/connections_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
+const _notificationRoles = <String>{
+  'user',
+  'freelancer',
+  'agency',
+  'company',
+  'headhunter',
+  'mentor',
+  'admin',
+};
+
 final appRouterProvider = Provider<GoRouter>((ref) {
+  final sessionState = ref.watch(sessionControllerProvider);
+
+  bool canAccessNotifications() {
+    final session = sessionState.session;
+    if (session == null) {
+      return false;
+    }
+    return session.memberships.any(_notificationRoles.contains);
+  }
+
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
     initialLocation: '/home',
@@ -47,6 +68,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/projects/new', builder: (context, state) => const ProjectPostScreen()),
       GoRoute(path: '/launchpad', builder: (context, state) => const LaunchpadScreen()),
       GoRoute(path: '/volunteering', builder: (context, state) => const VolunteeringScreen()),
+      GoRoute(
+        path: '/notifications',
+        redirect: (context, state) {
+          if (!sessionState.isAuthenticated) {
+            final redirectTo = Uri.encodeComponent(state.uri.toString());
+            return '/login?from=$redirectTo';
+          }
+          if (!canAccessNotifications()) {
+            return '/home?notice=notifications_locked';
+          }
+          return null;
+        },
+        builder: (context, state) => const NotificationsScreen(),
+      ),
       GoRoute(path: '/pages', builder: (context, state) => const PagesScreen()),
       GoRoute(path: '/notifications', builder: (context, state) => const NotificationsScreen()),
       GoRoute(path: '/inbox', builder: (context, state) => const InboxScreen()),
