@@ -89,6 +89,16 @@ export const AGENCY_RETAINER_EVENT_ACTOR_TYPES = ['freelancer', 'agency', 'syste
 export const AGENCY_RETAINER_EVENT_TYPES = ['note', 'term_update', 'document_shared', 'meeting', 'status_change'];
 export const ESCROW_ACCOUNT_STATUSES = ['pending', 'active', 'suspended', 'closed'];
 export const ESCROW_TRANSACTION_TYPES = ['project', 'gig', 'milestone', 'retainer'];
+export const HEADHUNTER_INVITE_STATUSES = ['pending', 'accepted', 'declined', 'expired', 'revoked'];
+export const HEADHUNTER_BRIEF_STATUSES = ['draft', 'shared', 'in_progress', 'filled', 'closed'];
+export const HEADHUNTER_ASSIGNMENT_STATUSES = ['invited', 'accepted', 'submitted', 'shortlisted', 'placed', 'closed'];
+export const HEADHUNTER_COMMISSION_STATUSES = ['pending', 'invoiced', 'paid', 'overdue', 'cancelled'];
+export const TALENT_POOL_TYPES = ['silver_medalist', 'alumni', 'referral', 'campus', 'partner', 'internal'];
+export const TALENT_POOL_STATUSES = ['active', 'paused', 'archived'];
+export const TALENT_POOL_MEMBER_STATUSES = ['active', 'engaged', 'interview', 'offered', 'hired', 'archived'];
+export const TALENT_POOL_MEMBER_SOURCE_TYPES = TALENT_POOL_TYPES;
+export const TALENT_POOL_ENGAGEMENT_TYPES = ['email', 'call', 'event', 'meeting', 'note', 'update', 'campaign'];
+export const AGENCY_BILLING_STATUSES = ['draft', 'sent', 'paid', 'overdue', 'cancelled'];
 export const ESCROW_TRANSACTION_STATUSES = [
   'initiated',
   'funded',
@@ -4339,6 +4349,349 @@ export const PartnerEngagement = sequelize.define(
     ],
   },
 );
+
+export const HeadhunterInvite = sequelize.define(
+  'HeadhunterInvite',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    headhunterWorkspaceId: { type: DataTypes.INTEGER, allowNull: true },
+    email: { type: DataTypes.STRING(255), allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...HEADHUNTER_INVITE_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+    },
+    invitedById: { type: DataTypes.INTEGER, allowNull: true },
+    sentAt: { type: DataTypes.DATE, allowNull: false },
+    respondedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'headhunter_invites',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['headhunterWorkspaceId'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+export const HeadhunterBrief = sequelize.define(
+  'HeadhunterBrief',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    roleFocus: { type: DataTypes.STRING(180), allowNull: true },
+    location: { type: DataTypes.STRING(180), allowNull: true },
+    openings: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
+    feePercentage: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...HEADHUNTER_BRIEF_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+    },
+    sharedAt: { type: DataTypes.DATE, allowNull: true },
+    dueAt: { type: DataTypes.DATE, allowNull: true },
+    filledAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'headhunter_briefs',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['status'] },
+      { fields: ['dueAt'] },
+    ],
+  },
+);
+
+HeadhunterBrief.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    ...plain,
+    feePercentage: plain.feePercentage != null ? Number.parseFloat(plain.feePercentage) : null,
+  };
+};
+
+export const HeadhunterBriefAssignment = sequelize.define(
+  'HeadhunterBriefAssignment',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    briefId: { type: DataTypes.INTEGER, allowNull: false },
+    headhunterWorkspaceId: { type: DataTypes.INTEGER, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...HEADHUNTER_ASSIGNMENT_STATUSES),
+      allowNull: false,
+      defaultValue: 'invited',
+    },
+    submittedCandidates: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    placements: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    responseTimeHours: { type: DataTypes.DECIMAL(6, 2), allowNull: true },
+    submittedAt: { type: DataTypes.DATE, allowNull: true },
+    placedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'headhunter_brief_assignments',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['briefId'] },
+      { fields: ['headhunterWorkspaceId'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+HeadhunterBriefAssignment.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    ...plain,
+    responseTimeHours: plain.responseTimeHours != null ? Number.parseFloat(plain.responseTimeHours) : null,
+  };
+};
+
+export const HeadhunterPerformanceSnapshot = sequelize.define(
+  'HeadhunterPerformanceSnapshot',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    headhunterWorkspaceId: { type: DataTypes.INTEGER, allowNull: true },
+    headhunterName: { type: DataTypes.STRING(255), allowNull: true },
+    responseRate: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    averageTimeToSubmitHours: { type: DataTypes.DECIMAL(6, 2), allowNull: true },
+    placements: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    interviews: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    qualityScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    activeBriefs: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    pipelineValue: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    pipelineCurrency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    lastSubmissionAt: { type: DataTypes.DATE, allowNull: true },
+    periodStart: { type: DataTypes.DATE, allowNull: true },
+    periodEnd: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'headhunter_performance_snapshots',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['headhunterWorkspaceId'] },
+      { fields: ['periodEnd'] },
+    ],
+  },
+);
+
+HeadhunterPerformanceSnapshot.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    ...plain,
+    responseRate: plain.responseRate != null ? Number.parseFloat(plain.responseRate) : null,
+    averageTimeToSubmitHours:
+      plain.averageTimeToSubmitHours != null ? Number.parseFloat(plain.averageTimeToSubmitHours) : null,
+    qualityScore: plain.qualityScore != null ? Number.parseFloat(plain.qualityScore) : null,
+    pipelineValue: plain.pipelineValue != null ? Number.parseFloat(plain.pipelineValue) : null,
+  };
+};
+
+export const HeadhunterCommission = sequelize.define(
+  'HeadhunterCommission',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    headhunterWorkspaceId: { type: DataTypes.INTEGER, allowNull: true },
+    headhunterName: { type: DataTypes.STRING(255), allowNull: true },
+    candidateName: { type: DataTypes.STRING(255), allowNull: true },
+    briefId: { type: DataTypes.INTEGER, allowNull: true },
+    invoiceNumber: { type: DataTypes.STRING(120), allowNull: true },
+    amount: { type: DataTypes.DECIMAL(12, 2), allowNull: false },
+    currency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    status: {
+      type: DataTypes.ENUM(...HEADHUNTER_COMMISSION_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+    },
+    dueAt: { type: DataTypes.DATE, allowNull: true },
+    paidAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'headhunter_commissions',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['headhunterWorkspaceId'] },
+      { fields: ['status'] },
+      { fields: ['dueAt'] },
+    ],
+  },
+);
+
+HeadhunterCommission.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    ...plain,
+    amount: plain.amount != null ? Number.parseFloat(plain.amount) : 0,
+  };
+};
+
+export const TalentPool = sequelize.define(
+  'TalentPool',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(180), allowNull: false },
+    poolType: {
+      type: DataTypes.ENUM(...TALENT_POOL_TYPES),
+      allowNull: false,
+      defaultValue: 'silver_medalist',
+    },
+    status: {
+      type: DataTypes.ENUM(...TALENT_POOL_STATUSES),
+      allowNull: false,
+      defaultValue: 'active',
+    },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    ownerId: { type: DataTypes.INTEGER, allowNull: true },
+    candidateCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    activeCandidates: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    hiresCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    lastEngagedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'talent_pools',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['poolType'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+export const TalentPoolMember = sequelize.define(
+  'TalentPoolMember',
+  {
+    poolId: { type: DataTypes.INTEGER, allowNull: false },
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    profileId: { type: DataTypes.INTEGER, allowNull: true },
+    candidateName: { type: DataTypes.STRING(255), allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...TALENT_POOL_MEMBER_STATUSES),
+      allowNull: false,
+      defaultValue: 'active',
+    },
+    sourceType: {
+      type: DataTypes.ENUM(...TALENT_POOL_MEMBER_SOURCE_TYPES),
+      allowNull: false,
+      defaultValue: 'silver_medalist',
+    },
+    stage: { type: DataTypes.STRING(120), allowNull: true },
+    lastInteractionAt: { type: DataTypes.DATE, allowNull: true },
+    nextActionAt: { type: DataTypes.DATE, allowNull: true },
+    joinedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    tags: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'talent_pool_members',
+    indexes: [
+      { fields: ['poolId'] },
+      { fields: ['workspaceId'] },
+      { fields: ['status'] },
+      { fields: ['sourceType'] },
+      { fields: ['nextActionAt'] },
+    ],
+  },
+);
+
+export const TalentPoolEngagement = sequelize.define(
+  'TalentPoolEngagement',
+  {
+    poolId: { type: DataTypes.INTEGER, allowNull: false },
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    performedById: { type: DataTypes.INTEGER, allowNull: true },
+    interactionType: {
+      type: DataTypes.ENUM(...TALENT_POOL_ENGAGEMENT_TYPES),
+      allowNull: false,
+      defaultValue: 'update',
+    },
+    occurredAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'talent_pool_engagements',
+    indexes: [
+      { fields: ['poolId'] },
+      { fields: ['workspaceId'] },
+      { fields: ['occurredAt'] },
+    ],
+  },
+);
+
+export const AgencySlaSnapshot = sequelize.define(
+  'AgencySlaSnapshot',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    agencyCollaborationId: { type: DataTypes.INTEGER, allowNull: false },
+    periodStart: { type: DataTypes.DATE, allowNull: false },
+    periodEnd: { type: DataTypes.DATE, allowNull: false },
+    onTimeDeliveryRate: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    responseTimeHoursAvg: { type: DataTypes.DECIMAL(6, 2), allowNull: true },
+    breachCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    escalationsCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'agency_sla_snapshots',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['agencyCollaborationId'] },
+      { fields: ['periodEnd'] },
+    ],
+  },
+);
+
+AgencySlaSnapshot.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    ...plain,
+    onTimeDeliveryRate: plain.onTimeDeliveryRate != null ? Number.parseFloat(plain.onTimeDeliveryRate) : null,
+    responseTimeHoursAvg: plain.responseTimeHoursAvg != null ? Number.parseFloat(plain.responseTimeHoursAvg) : null,
+  };
+};
+
+export const AgencyBillingEvent = sequelize.define(
+  'AgencyBillingEvent',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    agencyCollaborationId: { type: DataTypes.INTEGER, allowNull: true },
+    invoiceNumber: { type: DataTypes.STRING(120), allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...AGENCY_BILLING_STATUSES),
+      allowNull: false,
+      defaultValue: 'sent',
+    },
+    amount: { type: DataTypes.DECIMAL(12, 2), allowNull: false },
+    currency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    issuedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    dueAt: { type: DataTypes.DATE, allowNull: true },
+    paidAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'agency_billing_events',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['agencyCollaborationId'] },
+      { fields: ['status'] },
+      { fields: ['dueAt'] },
+    ],
+  },
+);
+
+AgencyBillingEvent.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    ...plain,
+    amount: plain.amount != null ? Number.parseFloat(plain.amount) : 0,
+  };
+};
 
 export const RecruitingCalendarEvent = sequelize.define(
   'RecruitingCalendarEvent',
@@ -9262,6 +9615,22 @@ ProviderWorkspace.hasMany(JobStage, { foreignKey: 'workspaceId', as: 'jobStages'
 ProviderWorkspace.hasMany(JobApprovalWorkflow, { foreignKey: 'workspaceId', as: 'jobApprovals' });
 ProviderWorkspace.hasMany(JobCampaignPerformance, { foreignKey: 'workspaceId', as: 'jobCampaignPerformance' });
 ProviderWorkspace.hasMany(PartnerEngagement, { foreignKey: 'workspaceId', as: 'partnerEngagements' });
+ProviderWorkspace.hasMany(HeadhunterInvite, { foreignKey: 'workspaceId', as: 'headhunterInvites' });
+ProviderWorkspace.hasMany(HeadhunterBrief, { foreignKey: 'workspaceId', as: 'headhunterBriefs' });
+ProviderWorkspace.hasMany(HeadhunterBriefAssignment, {
+  foreignKey: 'workspaceId',
+  as: 'headhunterBriefAssignments',
+});
+ProviderWorkspace.hasMany(HeadhunterPerformanceSnapshot, {
+  foreignKey: 'workspaceId',
+  as: 'headhunterPerformanceSnapshots',
+});
+ProviderWorkspace.hasMany(HeadhunterCommission, { foreignKey: 'workspaceId', as: 'headhunterCommissions' });
+ProviderWorkspace.hasMany(TalentPool, { foreignKey: 'workspaceId', as: 'talentPools' });
+ProviderWorkspace.hasMany(TalentPoolMember, { foreignKey: 'workspaceId', as: 'talentPoolMembers' });
+ProviderWorkspace.hasMany(TalentPoolEngagement, { foreignKey: 'workspaceId', as: 'talentPoolEngagements' });
+ProviderWorkspace.hasMany(AgencySlaSnapshot, { foreignKey: 'workspaceId', as: 'agencySlaSnapshots' });
+ProviderWorkspace.hasMany(AgencyBillingEvent, { foreignKey: 'workspaceId', as: 'agencyBillingEvents' });
 ProviderWorkspace.hasMany(RecruitingCalendarEvent, { foreignKey: 'workspaceId', as: 'recruitingEvents' });
 ProviderWorkspace.hasMany(EmployerBrandAsset, { foreignKey: 'workspaceId', as: 'employerBrandAssets' });
 
@@ -9283,6 +9652,51 @@ JobStage.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspac
 JobApprovalWorkflow.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 JobCampaignPerformance.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 PartnerEngagement.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+HeadhunterInvite.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+HeadhunterInvite.belongsTo(ProviderWorkspace, {
+  foreignKey: 'headhunterWorkspaceId',
+  as: 'headhunterWorkspace',
+});
+HeadhunterInvite.belongsTo(User, { foreignKey: 'invitedById', as: 'invitedBy' });
+HeadhunterBrief.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+HeadhunterBrief.hasMany(HeadhunterBriefAssignment, { foreignKey: 'briefId', as: 'assignments' });
+HeadhunterBriefAssignment.belongsTo(HeadhunterBrief, { foreignKey: 'briefId', as: 'brief' });
+HeadhunterBriefAssignment.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+HeadhunterBriefAssignment.belongsTo(ProviderWorkspace, {
+  foreignKey: 'headhunterWorkspaceId',
+  as: 'headhunterWorkspace',
+});
+HeadhunterPerformanceSnapshot.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+HeadhunterPerformanceSnapshot.belongsTo(ProviderWorkspace, {
+  foreignKey: 'headhunterWorkspaceId',
+  as: 'headhunterWorkspace',
+});
+HeadhunterCommission.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+HeadhunterCommission.belongsTo(ProviderWorkspace, {
+  foreignKey: 'headhunterWorkspaceId',
+  as: 'headhunterWorkspace',
+});
+HeadhunterCommission.belongsTo(HeadhunterBrief, { foreignKey: 'briefId', as: 'brief' });
+TalentPool.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+TalentPool.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
+TalentPool.hasMany(TalentPoolMember, { foreignKey: 'poolId', as: 'members' });
+TalentPool.hasMany(TalentPoolEngagement, { foreignKey: 'poolId', as: 'engagements' });
+TalentPoolMember.belongsTo(TalentPool, { foreignKey: 'poolId', as: 'pool' });
+TalentPoolMember.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+TalentPoolMember.belongsTo(Profile, { foreignKey: 'profileId', as: 'profile' });
+TalentPoolEngagement.belongsTo(TalentPool, { foreignKey: 'poolId', as: 'pool' });
+TalentPoolEngagement.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+TalentPoolEngagement.belongsTo(User, { foreignKey: 'performedById', as: 'performedBy' });
+AgencySlaSnapshot.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+AgencySlaSnapshot.belongsTo(AgencyCollaboration, {
+  foreignKey: 'agencyCollaborationId',
+  as: 'collaboration',
+});
+AgencyBillingEvent.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+AgencyBillingEvent.belongsTo(AgencyCollaboration, {
+  foreignKey: 'agencyCollaborationId',
+  as: 'collaboration',
+});
 RecruitingCalendarEvent.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 EmployerBrandAsset.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 
@@ -9311,6 +9725,14 @@ AgencyCollaborationInvitation.belongsTo(User, { foreignKey: 'sentById', as: 'sen
 AgencyCollaborationInvitation.belongsTo(ProviderWorkspace, {
   foreignKey: 'agencyWorkspaceId',
   as: 'agencyWorkspace',
+});
+AgencyCollaboration.hasMany(AgencySlaSnapshot, {
+  foreignKey: 'agencyCollaborationId',
+  as: 'slaSnapshots',
+});
+AgencyCollaboration.hasMany(AgencyBillingEvent, {
+  foreignKey: 'agencyCollaborationId',
+  as: 'billingEvents',
 });
 
 AgencyRateCard.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
@@ -9613,6 +10035,16 @@ export default {
   JobApprovalWorkflow,
   JobCampaignPerformance,
   PartnerEngagement,
+  HeadhunterInvite,
+  HeadhunterBrief,
+  HeadhunterBriefAssignment,
+  HeadhunterPerformanceSnapshot,
+  HeadhunterCommission,
+  TalentPool,
+  TalentPoolMember,
+  TalentPoolEngagement,
+  AgencySlaSnapshot,
+  AgencyBillingEvent,
   RecruitingCalendarEvent,
   EmployerBrandAsset,
   EscrowAccount,

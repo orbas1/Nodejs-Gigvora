@@ -20,6 +20,20 @@ import {
   JobApprovalWorkflow,
   JobCampaignPerformance,
   PartnerEngagement,
+  HeadhunterInvite,
+  HeadhunterBrief,
+  HeadhunterBriefAssignment,
+  HeadhunterPerformanceSnapshot,
+  HeadhunterCommission,
+  TalentPool,
+  TalentPoolMember,
+  TalentPoolEngagement,
+  AgencyCollaboration,
+  AgencyCollaborationInvitation,
+  AgencyRateCard,
+  AgencyRateCardItem,
+  AgencySlaSnapshot,
+  AgencyBillingEvent,
   RecruitingCalendarEvent,
   EmployerBrandAsset,
 } from '../models/index.js';
@@ -88,6 +102,44 @@ function percentage(part, total) {
     return 0;
   }
   return Number(((part / total) * 100).toFixed(1));
+}
+
+function differenceInHours(start, end = new Date()) {
+  if (!start) return null;
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    return null;
+  }
+  const diffMs = endDate.getTime() - startDate.getTime();
+  if (!Number.isFinite(diffMs)) {
+    return null;
+  }
+  return Number((diffMs / (1000 * 60 * 60)).toFixed(1));
+}
+
+function startOfQuarter(reference = new Date()) {
+  const date = new Date(reference);
+  const month = date.getMonth();
+  const quarterStartMonth = Math.floor(month / 3) * 3;
+  return new Date(date.getFullYear(), quarterStartMonth, 1);
+}
+
+function toPlain(record) {
+  return record?.get ? record.get({ plain: true }) : record;
+}
+
+function safeNumber(value) {
+  if (value == null) return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function sumBy(items, selector) {
+  return items.reduce((total, item) => {
+    const value = selector(item);
+    return total + (Number.isFinite(value) ? value : 0);
+  }, 0);
 }
 
 function resolveWorkspaceSelector({ workspaceId, workspaceSlug }) {
@@ -643,6 +695,171 @@ async function fetchPartnerEngagements({ workspaceId, since }) {
   });
 }
 
+async function fetchHeadhunterInvites({ workspaceId, since }) {
+  const where = { workspaceId };
+  if (since) {
+    where.sentAt = { [Op.gte]: since };
+  }
+  return HeadhunterInvite.findAll({
+    where,
+    include: [{ model: ProviderWorkspace, as: 'headhunterWorkspace', attributes: ['id', 'name', 'type'] }],
+    order: [['sentAt', 'DESC']],
+    limit: 100,
+  });
+}
+
+async function fetchHeadhunterBriefs({ workspaceId }) {
+  return HeadhunterBrief.findAll({
+    where: { workspaceId },
+    include: [
+      {
+        model: HeadhunterBriefAssignment,
+        as: 'assignments',
+        include: [{ model: ProviderWorkspace, as: 'headhunterWorkspace', attributes: ['id', 'name', 'type'] }],
+      },
+    ],
+    order: [['updatedAt', 'DESC']],
+    limit: 80,
+  });
+}
+
+async function fetchHeadhunterAssignments({ workspaceId }) {
+  return HeadhunterBriefAssignment.findAll({
+    where: { workspaceId },
+    include: [
+      { model: HeadhunterBrief, as: 'brief', attributes: ['id', 'title', 'status', 'dueAt'] },
+      { model: ProviderWorkspace, as: 'headhunterWorkspace', attributes: ['id', 'name'] },
+    ],
+  });
+}
+
+async function fetchHeadhunterPerformance({ workspaceId, since }) {
+  const where = { workspaceId };
+  if (since) {
+    where.periodEnd = { [Op.gte]: since };
+  }
+  return HeadhunterPerformanceSnapshot.findAll({
+    where,
+    include: [{ model: ProviderWorkspace, as: 'headhunterWorkspace', attributes: ['id', 'name'] }],
+    order: [['periodEnd', 'DESC']],
+    limit: 100,
+  });
+}
+
+async function fetchHeadhunterCommissions({ workspaceId, since }) {
+  const where = { workspaceId };
+  if (since) {
+    where.updatedAt = { [Op.gte]: since };
+  }
+  return HeadhunterCommission.findAll({
+    where,
+    include: [
+      { model: HeadhunterBrief, as: 'brief', attributes: ['id', 'title'] },
+      { model: ProviderWorkspace, as: 'headhunterWorkspace', attributes: ['id', 'name'] },
+    ],
+    order: [['dueAt', 'ASC']],
+  });
+}
+
+async function fetchTalentPools({ workspaceId }) {
+  return TalentPool.findAll({
+    where: { workspaceId },
+    include: [{ model: User, as: 'owner', attributes: ['id', 'firstName', 'lastName', 'email'] }],
+    order: [['updatedAt', 'DESC']],
+    limit: 60,
+  });
+}
+
+async function fetchTalentPoolMembers({ workspaceId }) {
+  return TalentPoolMember.findAll({
+    where: { workspaceId },
+    include: [{ model: TalentPool, as: 'pool', attributes: ['id', 'name', 'poolType'] }],
+    order: [['updatedAt', 'DESC']],
+    limit: 300,
+  });
+}
+
+async function fetchTalentPoolEngagements({ workspaceId, since }) {
+  const where = { workspaceId };
+  if (since) {
+    where.occurredAt = { [Op.gte]: since };
+  }
+  return TalentPoolEngagement.findAll({
+    where,
+    include: [
+      { model: TalentPool, as: 'pool', attributes: ['id', 'name'] },
+      { model: User, as: 'performedBy', attributes: ['id', 'firstName', 'lastName'] },
+    ],
+    order: [['occurredAt', 'DESC']],
+    limit: 120,
+  });
+}
+
+async function fetchAgencyCollaborations({ workspaceId }) {
+  const collaborations = await AgencyCollaboration.findAll({
+    include: [{ model: ProviderWorkspace, as: 'agencyWorkspace', attributes: ['id', 'name', 'slug'] }],
+    order: [['updatedAt', 'DESC']],
+    limit: 80,
+  });
+
+  return collaborations.filter((collaboration) => {
+    const plain = collaboration?.get ? collaboration.get({ plain: true }) : collaboration;
+    const snapshot = plain.sharedDeliverySnapshot ?? {};
+    if (snapshot && typeof snapshot === 'object' && Number.isInteger(snapshot.companyWorkspaceId)) {
+      return Number(snapshot.companyWorkspaceId) === workspaceId;
+    }
+    return true;
+  });
+}
+
+async function fetchAgencyInvitations({ collaborationIds }) {
+  if (!collaborationIds.length) {
+    return [];
+  }
+  return AgencyCollaborationInvitation.findAll({
+    where: { collaborationId: { [Op.in]: collaborationIds } },
+    order: [['createdAt', 'DESC']],
+  });
+}
+
+async function fetchAgencyRateCards({ agencyWorkspaceIds }) {
+  if (!agencyWorkspaceIds.length) {
+    return [];
+  }
+  return AgencyRateCard.findAll({
+    where: { agencyWorkspaceId: { [Op.in]: agencyWorkspaceIds } },
+    include: [{ model: AgencyRateCardItem, as: 'items' }],
+    order: [['updatedAt', 'DESC']],
+    limit: 60,
+  });
+}
+
+async function fetchAgencySlaSnapshots({ collaborationIds, since }) {
+  if (!collaborationIds.length) {
+    return [];
+  }
+  const where = { agencyCollaborationId: { [Op.in]: collaborationIds } };
+  if (since) {
+    where.periodEnd = { [Op.gte]: since };
+  }
+  return AgencySlaSnapshot.findAll({
+    where,
+    order: [['periodEnd', 'DESC']],
+  });
+}
+
+async function fetchAgencyBillingEvents({ workspaceId, since }) {
+  const where = { workspaceId };
+  if (since) {
+    where.updatedAt = { [Op.gte]: since };
+  }
+  return AgencyBillingEvent.findAll({
+    where,
+    order: [['dueAt', 'ASC']],
+    limit: 120,
+  });
+}
+
 async function fetchCalendarEvents({ workspaceId, since }) {
   const where = { workspaceId };
   if (since) {
@@ -1181,6 +1398,577 @@ function buildPartnerCollaborationSummary({ partnerSummary, engagements }) {
   };
 }
 
+function buildHeadhunterProgramSummary({ invites, briefs, assignments, performanceSnapshots, commissions, lookbackDays }) {
+  const inviteRecords = (invites ?? []).map(toPlain);
+  const briefRecords = (briefs ?? []).map((brief) => (brief?.toPublicObject ? brief.toPublicObject() : toPlain(brief)));
+  const assignmentRecords = (assignments ?? []).map((assignment) =>
+    assignment?.toPublicObject ? assignment.toPublicObject() : toPlain(assignment),
+  );
+  const performanceRecords = (performanceSnapshots ?? []).map((snapshot) =>
+    snapshot?.toPublicObject ? snapshot.toPublicObject() : toPlain(snapshot),
+  );
+  const commissionRecords = (commissions ?? []).map((commission) =>
+    commission?.toPublicObject ? commission.toPublicObject() : toPlain(commission),
+  );
+
+  const inviteSummary = {
+    total: inviteRecords.length,
+    accepted: 0,
+    pending: 0,
+    declined: 0,
+    expired: 0,
+    acceptanceRate: 0,
+    medianResponseHours: null,
+    lastInviteAt: null,
+  };
+
+  const inviteResponseHours = [];
+
+  inviteRecords.forEach((invite) => {
+    if (invite.status === 'accepted') {
+      inviteSummary.accepted += 1;
+    } else if (invite.status === 'pending') {
+      inviteSummary.pending += 1;
+    } else if (invite.status === 'declined') {
+      inviteSummary.declined += 1;
+    } else if (invite.status === 'expired' || invite.status === 'revoked') {
+      inviteSummary.expired += 1;
+    }
+
+    const response = differenceInHours(invite.sentAt, invite.respondedAt);
+    if (Number.isFinite(response)) {
+      inviteResponseHours.push(response);
+    }
+
+    if (!inviteSummary.lastInviteAt || new Date(invite.sentAt) > new Date(inviteSummary.lastInviteAt)) {
+      inviteSummary.lastInviteAt = invite.sentAt;
+    }
+  });
+
+  inviteSummary.acceptanceRate = inviteSummary.total
+    ? Number(((inviteSummary.accepted / inviteSummary.total) * 100).toFixed(1))
+    : 0;
+  inviteSummary.medianResponseHours = inviteResponseHours.length ? median(inviteResponseHours) : null;
+
+  const assignmentByBrief = new Map();
+  assignmentRecords.forEach((assignment) => {
+    const list = assignmentByBrief.get(assignment.briefId) ?? [];
+    list.push(assignment);
+    assignmentByBrief.set(assignment.briefId, list);
+  });
+
+  const briefFeeValues = [];
+  const briefAgingDays = [];
+  const activeStatuses = new Set(['shared', 'in_progress']);
+  const pipeline = [];
+
+  briefRecords.forEach((brief) => {
+    const numericFee = safeNumber(brief.feePercentage);
+    if (Number.isFinite(numericFee)) {
+      briefFeeValues.push(numericFee);
+    }
+
+    if (brief.sharedAt && activeStatuses.has(brief.status)) {
+      const age = differenceInDays(brief.sharedAt);
+      if (Number.isFinite(age)) {
+        briefAgingDays.push(age);
+      }
+    }
+
+    if (activeStatuses.has(brief.status)) {
+      const relatedAssignments = assignmentByBrief.get(brief.id) ?? [];
+      const headhunterNames = new Set();
+      let submissions = 0;
+      let placements = 0;
+
+      relatedAssignments.forEach((assignment) => {
+        submissions += Number(assignment.submittedCandidates ?? 0);
+        placements += Number(assignment.placements ?? 0);
+        if (assignment.headhunterWorkspace?.name) {
+          headhunterNames.add(assignment.headhunterWorkspace.name);
+        }
+      });
+
+      pipeline.push({
+        id: brief.id,
+        title: brief.title,
+        status: brief.status,
+        openings: Number(brief.openings ?? 0),
+        headhunters: Array.from(headhunterNames),
+        submissions,
+        placements,
+        dueAt: brief.dueAt,
+      });
+    }
+  });
+
+  const assignmentResponseTimes = assignmentRecords
+    .map((assignment) => safeNumber(assignment.responseTimeHours))
+    .filter((value) => Number.isFinite(value));
+
+  const assignmentsSummary = {
+    totalAssignments: assignmentRecords.length,
+    submittedCandidates: sumBy(assignmentRecords, (assignment) => Number(assignment.submittedCandidates ?? 0)),
+    placements: sumBy(assignmentRecords, (assignment) => Number(assignment.placements ?? 0)),
+    averageResponseHours: assignmentResponseTimes.length ? Number(average(assignmentResponseTimes)) : null,
+  };
+
+  const totalOpenings = sumBy(briefRecords, (brief) => safeNumber(brief.openings) ?? 0);
+  assignmentsSummary.fillRate = totalOpenings
+    ? percentage(assignmentsSummary.placements, totalOpenings)
+    : percentage(assignmentsSummary.placements, assignmentsSummary.submittedCandidates || 1);
+
+  const performanceLeaderboard = performanceRecords
+    .map((record) => ({
+      id: record.id,
+      headhunterWorkspaceId: record.headhunterWorkspaceId,
+      name: record.headhunterName ?? record.headhunterWorkspace?.name ?? 'Partner',
+      placements: Number(record.placements ?? 0),
+      interviews: Number(record.interviews ?? 0),
+      responseRate: safeNumber(record.responseRate),
+      averageTimeToSubmitHours: safeNumber(record.averageTimeToSubmitHours),
+      qualityScore: safeNumber(record.qualityScore),
+      activeBriefs: Number(record.activeBriefs ?? 0),
+      lastSubmissionAt: record.lastSubmissionAt,
+    }))
+    .sort((a, b) => b.placements - a.placements || (b.responseRate ?? 0) - (a.responseRate ?? 0))
+    .slice(0, 8);
+
+  const averageResponseRate = average(
+    performanceLeaderboard
+      .map((entry) => entry.responseRate)
+      .filter((value) => Number.isFinite(value)),
+  );
+  const averageQualityScore = average(
+    performanceLeaderboard
+      .map((entry) => entry.qualityScore)
+      .filter((value) => Number.isFinite(value)),
+  );
+
+  const normalizedQuality = averageQualityScore != null ? (averageQualityScore / 5) * 100 : null;
+  const healthScore = (() => {
+    if (averageResponseRate == null && normalizedQuality == null) {
+      return null;
+    }
+    const responseComponent = averageResponseRate != null ? averageResponseRate * 0.6 : 0;
+    const qualityComponent = normalizedQuality != null ? normalizedQuality * 0.4 : 0;
+    return Number((responseComponent + qualityComponent).toFixed(1));
+  })();
+
+  const outstandingStatuses = new Set(['pending', 'invoiced', 'overdue']);
+  const outstandingCommissions = commissionRecords.filter((commission) => outstandingStatuses.has(commission.status));
+  const dueSoonThreshold = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  const dueSoonCommissions = outstandingCommissions.filter((commission) => {
+    if (!commission.dueAt) return false;
+    const dueDate = new Date(commission.dueAt);
+    return dueDate <= dueSoonThreshold && dueDate >= new Date();
+  });
+  const quarterStart = startOfQuarter();
+  const paidThisQuarter = commissionRecords.filter(
+    (commission) => commission.status === 'paid' && commission.paidAt && new Date(commission.paidAt) >= quarterStart,
+  );
+
+  const commissionCurrency =
+    outstandingCommissions.find((commission) => commission.currency)?.currency || commissionRecords[0]?.currency || 'USD';
+
+  const commissionsSummary = {
+    outstandingCount: outstandingCommissions.length,
+    outstandingAmount: Number(
+      sumBy(outstandingCommissions, (commission) => safeNumber(commission.amount) ?? 0).toFixed(2),
+    ),
+    dueSoon: {
+      count: dueSoonCommissions.length,
+      amount: Number(sumBy(dueSoonCommissions, (commission) => safeNumber(commission.amount) ?? 0).toFixed(2)),
+    },
+    paidThisQuarter: {
+      count: paidThisQuarter.length,
+      amount: Number(sumBy(paidThisQuarter, (commission) => safeNumber(commission.amount) ?? 0).toFixed(2)),
+    },
+    currency: commissionCurrency,
+    upcoming: outstandingCommissions
+      .slice()
+      .sort((a, b) => {
+        const aDue = a.dueAt ? new Date(a.dueAt).getTime() : Number.POSITIVE_INFINITY;
+        const bDue = b.dueAt ? new Date(b.dueAt).getTime() : Number.POSITIVE_INFINITY;
+        return aDue - bDue;
+      })
+      .slice(0, 6)
+      .map((commission) => ({
+        headhunter: commission.headhunterName ?? commission.headhunterWorkspace?.name ?? 'Partner',
+        candidate: commission.candidateName,
+        amount: safeNumber(commission.amount),
+        currency: commission.currency ?? commissionCurrency,
+        status: commission.status,
+        dueAt: commission.dueAt,
+      })),
+  };
+
+  const lookbackMillis = Number.isFinite(lookbackDays)
+    ? lookbackDays * 24 * 60 * 60 * 1000
+    : null;
+  const lookbackStart = lookbackMillis ? new Date(Date.now() - lookbackMillis) : null;
+  const briefsSharedInWindow = lookbackStart
+    ? briefRecords.filter((brief) => brief.sharedAt && new Date(brief.sharedAt) >= lookbackStart).length
+    : null;
+
+  return {
+    invites: inviteSummary,
+    briefs: {
+      total: briefRecords.length,
+      active: briefRecords.filter((brief) => activeStatuses.has(brief.status)).length,
+      sharedThisWindow: briefsSharedInWindow,
+      averageFeePercentage: briefFeeValues.length ? Number(average(briefFeeValues)) : null,
+      averageAgeDays: briefAgingDays.length ? Number(average(briefAgingDays)) : null,
+      pipeline: pipeline
+        .sort((a, b) => {
+          if (!a.dueAt && !b.dueAt) return 0;
+          if (!a.dueAt) return 1;
+          if (!b.dueAt) return -1;
+          return new Date(a.dueAt) - new Date(b.dueAt);
+        })
+        .slice(0, 8),
+    },
+    assignments: assignmentsSummary,
+    performance: {
+      leaderboard: performanceLeaderboard,
+      averageResponseRate,
+      averageQualityScore,
+      healthScore,
+      totalPlacements: sumBy(performanceRecords, (record) => Number(record.placements ?? 0)),
+    },
+    commissions: commissionsSummary,
+  };
+}
+
+function buildTalentPoolSummary({ pools, members, engagements, lookbackDays }) {
+  const poolRecords = (pools ?? []).map((pool) => (pool?.get ? pool.get({ plain: true }) : pool));
+  const memberRecords = (members ?? []).map(toPlain);
+  const engagementRecords = (engagements ?? []).map(toPlain);
+
+  const poolsById = new Map(poolRecords.map((pool) => [pool.id, pool]));
+  const activePoolCount = poolRecords.filter((pool) => pool.status === 'active').length;
+  const pausedPoolCount = poolRecords.filter((pool) => pool.status === 'paused').length;
+  const archivedPoolCount = poolRecords.filter((pool) => pool.status === 'archived').length;
+
+  const activeCandidateStatuses = new Set(['active', 'engaged', 'interview', 'offered']);
+  const totalCandidates = memberRecords.length;
+  const activeCandidates = memberRecords.filter((member) => activeCandidateStatuses.has(member.status)).length;
+  const hiresFromPools = memberRecords.filter((member) => member.status === 'hired').length;
+
+  const stageCounts = { outreach: 0, engaged: 0, interview: 0, offer: 0, hired: 0 };
+  const stageMapping = {
+    active: 'outreach',
+    engaged: 'engaged',
+    interview: 'interview',
+    offered: 'offer',
+    hired: 'hired',
+  };
+
+  const typeStats = new Map();
+
+  poolRecords.forEach((pool) => {
+    if (!typeStats.has(pool.poolType)) {
+      typeStats.set(pool.poolType, {
+        type: pool.poolType,
+        pools: 0,
+        candidates: 0,
+        active: 0,
+        hires: 0,
+        _durations: [],
+      });
+    }
+    typeStats.get(pool.poolType).pools += 1;
+  });
+
+  memberRecords.forEach((member) => {
+    const pool = poolsById.get(member.poolId);
+    const poolType = pool?.poolType ?? member.sourceType ?? 'silver_medalist';
+    if (!typeStats.has(poolType)) {
+      typeStats.set(poolType, {
+        type: poolType,
+        pools: 0,
+        candidates: 0,
+        active: 0,
+        hires: 0,
+        _durations: [],
+      });
+    }
+    const entry = typeStats.get(poolType);
+    entry.candidates += 1;
+    if (activeCandidateStatuses.has(member.status)) {
+      entry.active += 1;
+    }
+    if (member.status === 'hired') {
+      entry.hires += 1;
+    }
+    const duration = differenceInDays(member.joinedAt);
+    if (Number.isFinite(duration)) {
+      entry._durations.push(duration);
+    }
+
+    const stageKey = stageMapping[member.status];
+    if (stageKey) {
+      stageCounts[stageKey] += 1;
+    }
+  });
+
+  const typeBreakdown = Array.from(typeStats.values()).map((entry) => {
+    const durations = entry._durations ?? [];
+    const averageTimeInPoolDays = durations.length ? Number(average(durations)) : null;
+    delete entry._durations;
+    return {
+      ...entry,
+      averageTimeInPoolDays,
+    };
+  });
+
+  const latestEngagement = engagementRecords
+    .map((engagement) => engagement.occurredAt)
+    .filter(Boolean)
+    .sort((a, b) => new Date(b) - new Date(a))[0] ?? null;
+
+  const lookbackStart = Number.isFinite(lookbackDays)
+    ? new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000)
+    : null;
+  const engagementsInWindow = lookbackStart
+    ? engagementRecords.filter((engagement) => new Date(engagement.occurredAt) >= lookbackStart)
+    : engagementRecords;
+
+  const upcomingActions = memberRecords
+    .filter((member) => member.nextActionAt && new Date(member.nextActionAt) >= new Date())
+    .sort((a, b) => new Date(a.nextActionAt) - new Date(b.nextActionAt))
+    .slice(0, 8)
+    .map((member) => {
+      const pool = poolsById.get(member.poolId);
+      const owner = pool?.owner;
+      const ownerName = owner ? `${owner.firstName ?? ''} ${owner.lastName ?? ''}`.trim() : null;
+      return {
+        poolName: pool?.name ?? 'Talent pool',
+        candidateName: member.candidateName,
+        nextActionAt: member.nextActionAt,
+        status: member.status,
+        ownerName: ownerName?.length ? ownerName : null,
+      };
+    });
+
+  const recentEngagements = engagementRecords
+    .slice()
+    .sort((a, b) => new Date(b.occurredAt) - new Date(a.occurredAt))
+    .slice(0, 8)
+    .map((engagement) => ({
+      poolName: engagement.pool?.name ?? poolsById.get(engagement.poolId)?.name ?? 'Talent pool',
+      interactionType: engagement.interactionType,
+      occurredAt: engagement.occurredAt,
+      summary: engagement.summary,
+      performedBy: engagement.performedBy
+        ? `${engagement.performedBy.firstName ?? ''} ${engagement.performedBy.lastName ?? ''}`.trim()
+        : null,
+    }));
+
+  return {
+    totals: {
+      pools: poolRecords.length,
+      activePools: activePoolCount,
+      pausedPools: pausedPoolCount,
+      archivedPools: archivedPoolCount,
+      totalCandidates,
+      activeCandidates,
+      hiresFromPools,
+      engagementsInWindow: engagementsInWindow.length,
+      lastEngagedAt: latestEngagement,
+    },
+    byType: typeBreakdown.sort((a, b) => b.candidates - a.candidates),
+    pipeline: {
+      stageCounts,
+      conversionRate: totalCandidates ? percentage(stageCounts.hired, totalCandidates) : 0,
+    },
+    upcomingActions,
+    recentEngagements,
+  };
+}
+
+function buildAgencyCollaborationInsights({
+  collaborations,
+  invitations,
+  rateCards,
+  slaSnapshots,
+  billingEvents,
+}) {
+  const collaborationRecords = (collaborations ?? []).map((collaboration) =>
+    collaboration?.toPublicObject ? collaboration.toPublicObject() : toPlain(collaboration),
+  );
+  const invitationRecords = (invitations ?? []).map(toPlain);
+  const rateCardRecords = (rateCards ?? []).map((card) => (card?.toPublicObject ? card.toPublicObject() : toPlain(card)));
+  const slaRecords = (slaSnapshots ?? []).map((snapshot) =>
+    snapshot?.toPublicObject ? snapshot.toPublicObject() : toPlain(snapshot),
+  );
+  const billingRecords = (billingEvents ?? []).map((event) =>
+    event?.toPublicObject ? event.toPublicObject() : toPlain(event),
+  );
+
+  const summary = {
+    total: collaborationRecords.length,
+    active: collaborationRecords.filter((collaboration) => collaboration.status === 'active').length,
+    paused: collaborationRecords.filter((collaboration) => collaboration.status === 'paused').length,
+    ended: collaborationRecords.filter((collaboration) => ['ended', 'closed'].includes(collaboration.status)).length,
+    averageHealthScore: null,
+    averageSatisfactionScore: null,
+    forecastedUpsellValue: Number(sumBy(collaborationRecords, (collaboration) => safeNumber(collaboration.forecastedUpsellValue) ?? 0).toFixed(2)),
+  };
+
+  const healthScores = collaborationRecords
+    .map((collaboration) => safeNumber(collaboration.healthScore))
+    .filter((value) => Number.isFinite(value));
+  summary.averageHealthScore = healthScores.length ? Number(average(healthScores)) : null;
+
+  const satisfactionScores = collaborationRecords
+    .map((collaboration) => safeNumber(collaboration.satisfactionScore))
+    .filter((value) => Number.isFinite(value));
+  summary.averageSatisfactionScore = satisfactionScores.length ? Number(average(satisfactionScores)) : null;
+
+  const upcomingRenewals = collaborationRecords
+    .filter((collaboration) => collaboration.renewalDate && new Date(collaboration.renewalDate) >= new Date())
+    .sort((a, b) => new Date(a.renewalDate) - new Date(b.renewalDate))
+    .slice(0, 6)
+    .map((collaboration) => ({
+      agencyName: collaboration.agencyWorkspace?.name ?? 'Partner agency',
+      renewalDate: collaboration.renewalDate,
+      status: collaboration.status,
+      healthScore: safeNumber(collaboration.healthScore),
+      satisfactionScore: safeNumber(collaboration.satisfactionScore),
+    }));
+
+  const inviteSummary = {
+    total: invitationRecords.length,
+    pending: invitationRecords.filter((invite) => invite.status === 'pending').length,
+    accepted: invitationRecords.filter((invite) => invite.status === 'accepted').length,
+    declined: invitationRecords.filter((invite) => invite.status === 'declined').length,
+    lastSentAt: invitationRecords.length
+      ? invitationRecords.map((invite) => invite.createdAt).sort((a, b) => new Date(b) - new Date(a))[0]
+      : null,
+  };
+
+  const rateCardSummary = {
+    total: rateCardRecords.length,
+    shared: rateCardRecords.filter((card) => card.status === 'shared').length,
+    draft: rateCardRecords.filter((card) => card.status === 'draft').length,
+    newest: rateCardRecords
+      .slice()
+      .sort((a, b) => new Date(b.updatedAt ?? b.createdAt ?? 0) - new Date(a.updatedAt ?? a.createdAt ?? 0))
+      .slice(0, 5)
+      .map((card) => ({
+        title: card.title,
+        status: card.status,
+        effectiveFrom: card.effectiveFrom,
+        effectiveTo: card.effectiveTo,
+        currency: card.currency,
+        itemCount: Array.isArray(card.items) ? card.items.length : 0,
+      })),
+  };
+
+  const slaSummary = (() => {
+    if (!slaRecords.length) {
+      return {
+        onTimeDeliveryRate: null,
+        averageResponseHours: null,
+        breachCount: 0,
+        escalations: 0,
+        partners: [],
+      };
+    }
+
+    const onTimeRates = slaRecords
+      .map((snapshot) => safeNumber(snapshot.onTimeDeliveryRate))
+      .filter((value) => Number.isFinite(value));
+    const responseHours = slaRecords
+      .map((snapshot) => safeNumber(snapshot.responseTimeHoursAvg))
+      .filter((value) => Number.isFinite(value));
+
+    const latestByCollaboration = new Map();
+    slaRecords.forEach((snapshot) => {
+      const existing = latestByCollaboration.get(snapshot.agencyCollaborationId);
+      if (!existing || new Date(snapshot.periodEnd) > new Date(existing.periodEnd)) {
+        latestByCollaboration.set(snapshot.agencyCollaborationId, snapshot);
+      }
+    });
+
+    const partners = Array.from(latestByCollaboration.values())
+      .map((snapshot) => ({
+        collaborationId: snapshot.agencyCollaborationId,
+        onTimeDeliveryRate: safeNumber(snapshot.onTimeDeliveryRate),
+        responseTimeHours: safeNumber(snapshot.responseTimeHoursAvg),
+        breachCount: Number(snapshot.breachCount ?? 0),
+        escalationsCount: Number(snapshot.escalationsCount ?? 0),
+      }))
+      .sort((a, b) => (b.onTimeDeliveryRate ?? 0) - (a.onTimeDeliveryRate ?? 0))
+      .slice(0, 6);
+
+    return {
+      onTimeDeliveryRate: onTimeRates.length ? Number(average(onTimeRates)) : null,
+      averageResponseHours: responseHours.length ? Number(average(responseHours)) : null,
+      breachCount: sumBy(slaRecords, (snapshot) => Number(snapshot.breachCount ?? 0)),
+      escalations: sumBy(slaRecords, (snapshot) => Number(snapshot.escalationsCount ?? 0)),
+      partners,
+    };
+  })();
+
+  const billingSummary = (() => {
+    if (!billingRecords.length) {
+      return {
+        outstandingAmount: 0,
+        outstandingCount: 0,
+        currency: 'USD',
+        dueSoon: { count: 0, amount: 0 },
+        paidThisQuarter: { count: 0, amount: 0 },
+        upcomingInvoices: [],
+      };
+    }
+
+    const outstandingStatuses = new Set(['draft', 'sent', 'overdue']);
+    const outstanding = billingRecords.filter((event) => outstandingStatuses.has(event.status));
+    const dueSoonThreshold = new Date(Date.now() + 21 * 24 * 60 * 60 * 1000);
+    const dueSoon = outstanding.filter((event) => event.dueAt && new Date(event.dueAt) <= dueSoonThreshold);
+    const quarterStart = startOfQuarter();
+    const paid = billingRecords.filter((event) => event.status === 'paid' && event.paidAt && new Date(event.paidAt) >= quarterStart);
+
+    const currency = outstanding.find((event) => event.currency)?.currency || billingRecords[0]?.currency || 'USD';
+
+    return {
+      outstandingAmount: Number(sumBy(outstanding, (event) => safeNumber(event.amount) ?? 0).toFixed(2)),
+      outstandingCount: outstanding.length,
+      currency,
+      dueSoon: {
+        count: dueSoon.length,
+        amount: Number(sumBy(dueSoon, (event) => safeNumber(event.amount) ?? 0).toFixed(2)),
+      },
+      paidThisQuarter: {
+        count: paid.length,
+        amount: Number(sumBy(paid, (event) => safeNumber(event.amount) ?? 0).toFixed(2)),
+      },
+      upcomingInvoices: outstanding
+        .slice()
+        .sort((a, b) => new Date(a.dueAt ?? a.issuedAt ?? 0) - new Date(b.dueAt ?? b.issuedAt ?? 0))
+        .slice(0, 6)
+        .map((event) => ({
+          invoiceNumber: event.invoiceNumber,
+          status: event.status,
+          amount: safeNumber(event.amount),
+          currency: event.currency ?? currency,
+          dueAt: event.dueAt,
+        })),
+    };
+  })();
+
+  return {
+    summary,
+    renewals: upcomingRenewals,
+    invites: inviteSummary,
+    rateCards: rateCardSummary,
+    sla: slaSummary,
+    billing: billingSummary,
+  };
+}
+
 function buildBrandIntelligenceSummary({ profile, assets, jobSummary }) {
   const publishedAssets = assets.filter((asset) => asset.status === 'published');
   const engagementScores = publishedAssets
@@ -1312,6 +2100,16 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       partnerEngagements,
       calendarEvents,
       brandAssets,
+      headhunterInvites,
+      headhunterBriefs,
+      headhunterAssignments,
+      headhunterPerformanceSnapshots,
+      headhunterCommissions,
+      talentPools,
+      talentPoolMembers,
+      talentPoolEngagements,
+      agencyCollaborations,
+      agencyBillingEvents,
     ] = await Promise.all([
       fetchApplications({ workspaceId: workspace.id, since }),
       fetchJobs({ since }),
@@ -1326,6 +2124,28 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       fetchPartnerEngagements({ workspaceId: workspace.id, since }),
       fetchCalendarEvents({ workspaceId: workspace.id, since }),
       fetchBrandAssets({ workspaceId: workspace.id }),
+      fetchHeadhunterInvites({ workspaceId: workspace.id, since }),
+      fetchHeadhunterBriefs({ workspaceId: workspace.id }),
+      fetchHeadhunterAssignments({ workspaceId: workspace.id }),
+      fetchHeadhunterPerformance({ workspaceId: workspace.id, since }),
+      fetchHeadhunterCommissions({ workspaceId: workspace.id, since }),
+      fetchTalentPools({ workspaceId: workspace.id }),
+      fetchTalentPoolMembers({ workspaceId: workspace.id }),
+      fetchTalentPoolEngagements({ workspaceId: workspace.id, since }),
+      fetchAgencyCollaborations({ workspaceId: workspace.id }),
+      fetchAgencyBillingEvents({ workspaceId: workspace.id, since }),
+    ]);
+
+    const agencyCollaborationIds = agencyCollaborations.map((collaboration) => collaboration.id).filter((id) => id != null);
+    const agencyWorkspaceIds = agencyCollaborations
+      .map((collaboration) => collaboration.agencyWorkspaceId ?? collaboration.agencyWorkspace?.id)
+      .filter((id) => Number.isInteger(Number(id)))
+      .map((id) => Number(id));
+
+    const [agencyInvitations, agencyRateCards, agencySlaSnapshots] = await Promise.all([
+      fetchAgencyInvitations({ collaborationIds: agencyCollaborationIds }),
+      fetchAgencyRateCards({ agencyWorkspaceIds }),
+      fetchAgencySlaSnapshots({ collaborationIds: agencyCollaborationIds, since }),
     ]);
 
     const applicationIds = applications.map((application) => application.id);
@@ -1398,6 +2218,27 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       partnerSummary,
       engagements: partnerEngagements,
     });
+    const headhunterProgram = buildHeadhunterProgramSummary({
+      invites: headhunterInvites,
+      briefs: headhunterBriefs,
+      assignments: headhunterAssignments,
+      performanceSnapshots: headhunterPerformanceSnapshots,
+      commissions: headhunterCommissions,
+      lookbackDays: lookback,
+    });
+    const talentPoolSummary = buildTalentPoolSummary({
+      pools: talentPools,
+      members: talentPoolMembers,
+      engagements: talentPoolEngagements,
+      lookbackDays: lookback,
+    });
+    const agencyCollaborationInsights = buildAgencyCollaborationInsights({
+      collaborations: agencyCollaborations,
+      invitations: agencyInvitations,
+      rateCards: agencyRateCards,
+      slaSnapshots: agencySlaSnapshots,
+      billingEvents: agencyBillingEvents,
+    });
     const plainBrandAssets = brandAssets.map((asset) => (asset?.get ? asset.get({ plain: true }) : asset));
     const brandIntelligence = buildBrandIntelligenceSummary({ profile, assets: plainBrandAssets, jobSummary });
     const governance = buildGovernanceSummary({ approvals: jobApprovals, alerts: alertsSummary, workspace: workspaceSummary });
@@ -1448,6 +2289,11 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       offerOnboarding,
       candidateCare,
       partnerCollaboration: partnerCollaborationDetails,
+      partnerships: {
+        headhunterProgram,
+        talentPools: talentPoolSummary,
+        agencyCollaboration: agencyCollaborationInsights,
+      },
       brandIntelligence,
       governance,
       calendar: calendarDigest,
