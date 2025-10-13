@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowLeftOnRectangleIcon,
   Bars3Icon,
@@ -23,6 +23,7 @@ export default function DashboardLayout({
   children,
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -127,27 +128,65 @@ export default function DashboardLayout({
                   <ul className="mt-3 space-y-2">
                     {section.items.map((item) => (
                       <li key={item.name}>
-                        <div className="group flex flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-slate-700">{item.name}</span>
-                            <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
-                          </div>
-                          {item.description ? (
-                            <p className="text-xs text-slate-500">{item.description}</p>
-                          ) : null}
-                          {item.tags?.length ? (
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {item.tags.map((tag) => (
-                                <span
-                                  key={tag}
-                                  className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-600"
-                                >
-                                  {tag}
-                                </span>
-                              ))}
+                        {(() => {
+                          const isActive = item.to && location.pathname === item.to;
+                          const baseClass =
+                            'group flex flex-col gap-1 rounded-2xl border bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50';
+                          const activeClass = isActive ? ' border-blue-400 bg-blue-50 shadow-sm' : ' border-transparent';
+                          const className = `${baseClass}${activeClass}`;
+                          if (item.to) {
+                            return (
+                              <Link
+                                to={item.to}
+                                onClick={() => setSidebarOpen(false)}
+                                className={className}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm font-medium text-slate-700">{item.name}</span>
+                                  <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
+                                </div>
+                                {item.description ? (
+                                  <p className="text-xs text-slate-500">{item.description}</p>
+                                ) : null}
+                                {item.tags?.length ? (
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                    {item.tags.map((tag) => (
+                                      <span
+                                        key={tag}
+                                        className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-600"
+                                      >
+                                        {tag}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : null}
+                              </Link>
+                            );
+                          }
+                          return (
+                            <div className={className}>
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium text-slate-700">{item.name}</span>
+                                <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
+                              </div>
+                              {item.description ? (
+                                <p className="text-xs text-slate-500">{item.description}</p>
+                              ) : null}
+                              {item.tags?.length ? (
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  {item.tags.map((tag) => (
+                                    <span
+                                      key={tag}
+                                      className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-600"
+                                    >
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : null}
                             </div>
-                          ) : null}
-                        </div>
+                          );
+                        })()}
                       </li>
                     ))}
                   </ul>

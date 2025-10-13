@@ -194,11 +194,18 @@ const capabilitySections = [
       {
         name: 'Pipeline CRM',
         description:
-          'Track leads, proposals, follow-ups, and cross-selling campaigns separate from gig orders.',
+          'Dedicated relationship management engine to nurture prospects, retainer renewals, and cross-sell plays outside of daily gig fulfillment.',
+        to: '/dashboard/freelancer/pipeline',
         bulletPoints: [
-          'Kanban views by industry, retainer size, or probability.',
-          'Proposal templates with case studies and ROI calculators.',
+          'Drag-and-drop pipelines segmented by industry, retainer tier, or close probability with automated stage actions.',
+          'Deal workspaces capturing stakeholders, last touch, decision dates, tasks, and proposal assets in one shared view.',
+          'Automated follow-up cadences across email, in-app nudges, and reminders that pause the moment a client replies.',
+          'Proposal templates packed with case studies, ROI calculators, pricing tables, and optional upsell bundles.',
+          'Forecast dashboards showing weighted revenue, pipeline velocity, and cross-sell potential by service line.',
+          'Activity logs syncing discovery calls, meeting notes, and files from Gigvora or connected CRMs.',
+          'Smart suggestions to trigger cross-selling campaigns or convert qualified leads into ready-to-purchase gig offers.',
         ],
+        callout: 'Keep relationship selling organized without cluttering your gig delivery pipelines.',
       },
       {
         name: 'Agency alliance manager',
