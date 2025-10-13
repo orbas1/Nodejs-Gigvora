@@ -1,11 +1,7 @@
-import { Sequelize, DataTypes, Op } from 'sequelize';
-import databaseConfig from '../config/database.js';
+import { DataTypes, Op } from 'sequelize';
+import sequelize from './sequelizeClient.js';
 
-const { url: databaseUrl, ...sequelizeOptions } = databaseConfig;
-
-export const sequelize = databaseUrl
-  ? new Sequelize(databaseUrl, sequelizeOptions)
-  : new Sequelize(sequelizeOptions);
+export { sequelize } from './sequelizeClient.js';
 
 const dialect = sequelize.getDialect();
 const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB : DataTypes.JSON;
@@ -221,6 +217,18 @@ export const GIG_ORDER_REQUIREMENT_FORM_STATUSES = [
   'archived',
 ];
 export const GIG_ORDER_REVISION_LIFECYCLE_STATUSES = [
+  'requested',
+  'open',
+  'in_progress',
+  'awaiting_client',
+  'submitted',
+  'approved',
+  'rejected',
+  'declined',
+  'completed',
+  'cancelled',
+  'archived',
+];
 export const GIG_ORDER_REVISION_STATUSES = [
   'requested',
   'open',
@@ -489,9 +497,6 @@ export const DELIVERABLE_RETENTION_POLICIES = [
 
 export const GIG_PREVIEW_STATUSES = ['draft', 'preview', 'published', 'archived'];
 export const GIG_BUILDER_STATUSES = ['draft', 'preview', 'published', 'archived'];
-export const GIG_MEDIA_TYPES = ['image', 'video', 'document'];
-export const GIG_PREVIEW_DEVICE_TYPES = ['desktop', 'tablet', 'mobile'];
-
 export const FINANCE_REVENUE_TYPES = ['retainer', 'one_off', 'passive', 'royalty', 'product', 'other'];
 export const FINANCE_REVENUE_STATUSES = ['draft', 'issued', 'pending_payment', 'paid', 'recognized', 'voided'];
 export const FINANCE_EXPENSE_STATUSES = ['pending', 'posted', 'reimbursed', 'excluded'];
