@@ -39,6 +39,12 @@ export const AUTO_ASSIGN_STATUSES = [
   'reassigned',
   'completed',
 ];
+export const GIG_STATUSES = ['draft', 'active', 'in_delivery', 'paused', 'completed', 'cancelled'];
+export const GIG_PIPELINE_STAGES = ['discovery', 'kickoff', 'production', 'review', 'ready_to_close', 'completed'];
+export const GIG_MILESTONE_STATUSES = ['planned', 'in_progress', 'waiting_on_client', 'at_risk', 'completed'];
+export const GIG_BUNDLE_STATUSES = ['draft', 'testing', 'live', 'retired'];
+export const GIG_UPSELL_STATUSES = ['draft', 'pilot', 'running', 'paused', 'retired'];
+export const GIG_CATALOG_STATUSES = ['draft', 'published', 'archived'];
 export const MESSAGE_CHANNEL_TYPES = ['support', 'project', 'contract', 'group', 'direct'];
 export const MESSAGE_THREAD_STATES = ['active', 'archived', 'locked'];
 export const MESSAGE_TYPES = ['text', 'file', 'system', 'event'];
@@ -91,6 +97,18 @@ export const LAUNCHPAD_EMPLOYER_REQUEST_STATUSES = ['new', 'needs_review', 'appr
 export const LAUNCHPAD_PLACEMENT_STATUSES = ['scheduled', 'in_progress', 'completed', 'cancelled'];
 export const LAUNCHPAD_TARGET_TYPES = ['job', 'gig', 'project'];
 export const LAUNCHPAD_OPPORTUNITY_SOURCES = ['employer_request', 'placement', 'manual'];
+export const WORKSPACE_TEMPLATE_STATUSES = ['draft', 'active', 'deprecated'];
+export const WORKSPACE_TEMPLATE_VISIBILITIES = ['public', 'private'];
+export const WORKSPACE_TEMPLATE_STAGE_TYPES = ['intake', 'strategy', 'production', 'delivery', 'retainer', 'quality', 'retro'];
+export const WORKSPACE_TEMPLATE_RESOURCE_TYPES = [
+  'sop',
+  'checklist',
+  'questionnaire',
+  'automation',
+  'asset',
+  'video',
+  'integration',
+];
 
 export const GIG_ORDER_STATUSES = [
   'awaiting_requirements',
@@ -370,6 +388,28 @@ export const Gig = sequelize.define(
     duration: { type: DataTypes.STRING(120), allowNull: true },
     location: { type: DataTypes.STRING(255), allowNull: true },
     geoLocation: { type: jsonType, allowNull: true },
+    freelancerId: { type: DataTypes.INTEGER, allowNull: true },
+    status: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [GIG_STATUSES] },
+    },
+    pipelineStage: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'discovery',
+      validate: { isIn: [GIG_PIPELINE_STAGES] },
+    },
+    contractValueCents: { type: DataTypes.BIGINT, allowNull: false, defaultValue: 0 },
+    previousPipelineValueCents: { type: DataTypes.BIGINT, allowNull: false, defaultValue: 0 },
+    currency: { type: DataTypes.STRING(12), allowNull: false, defaultValue: 'USD' },
+    upsellEligibleValueCents: { type: DataTypes.BIGINT, allowNull: false, defaultValue: 0 },
+    expectedDeliveryDate: { type: DataTypes.DATE, allowNull: true },
+    clientName: { type: DataTypes.STRING(255), allowNull: true },
+    csatScore: { type: DataTypes.DECIMAL(3, 2), allowNull: true },
+    csatPreviousScore: { type: DataTypes.DECIMAL(3, 2), allowNull: true },
+    csatResponseCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
   },
   { tableName: 'gigs' },
 );
@@ -441,6 +481,67 @@ GigOrder.prototype.toPublicObject = function toPublicObject() {
     dueAt: plain.dueAt ?? null,
     completedAt: plain.completedAt ?? null,
     metadata: plain.metadata ?? null,
+Gig.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    title: plain.title,
+    description: plain.description,
+    budget: plain.budget ?? null,
+    duration: plain.duration ?? null,
+    location: plain.location ?? null,
+    geoLocation: plain.geoLocation ?? null,
+    freelancerId: plain.freelancerId ?? null,
+    status: plain.status,
+    pipelineStage: plain.pipelineStage,
+    contractValueCents: plain.contractValueCents == null ? 0 : Number(plain.contractValueCents),
+    previousPipelineValueCents:
+      plain.previousPipelineValueCents == null ? 0 : Number(plain.previousPipelineValueCents),
+    currency: plain.currency ?? 'USD',
+    upsellEligibleValueCents:
+      plain.upsellEligibleValueCents == null ? 0 : Number(plain.upsellEligibleValueCents),
+    expectedDeliveryDate: plain.expectedDeliveryDate ?? null,
+    clientName: plain.clientName ?? null,
+    csatScore: plain.csatScore == null ? null : Number(plain.csatScore),
+    csatPreviousScore: plain.csatPreviousScore == null ? null : Number(plain.csatPreviousScore),
+    csatResponseCount: Number(plain.csatResponseCount ?? 0),
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const GigMilestone = sequelize.define(
+  'GigMilestone',
+  {
+    gigId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    dueDate: { type: DataTypes.DATE, allowNull: true },
+    status: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'planned',
+      validate: { isIn: [GIG_MILESTONE_STATUSES] },
+    },
+    ownerName: { type: DataTypes.STRING(120), allowNull: true },
+    sequenceIndex: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    progressPercent: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  { tableName: 'gig_milestones' },
+);
+
+GigMilestone.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    gigId: plain.gigId,
+    title: plain.title,
+    description: plain.description ?? null,
+    dueDate: plain.dueDate ?? null,
+    status: plain.status,
+    ownerName: plain.ownerName ?? null,
+    sequenceIndex: plain.sequenceIndex ?? 0,
+    progressPercent: plain.progressPercent == null ? null : Number(plain.progressPercent),
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };
@@ -487,6 +588,42 @@ GigOrderRequirement.prototype.toPublicObject = function toPublicObject() {
     notes: plain.notes ?? null,
     items: Array.isArray(plain.items) ? plain.items : plain.items ?? [],
     metadata: plain.metadata ?? null,
+export const GigBundle = sequelize.define(
+  'GigBundle',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    priceCents: { type: DataTypes.BIGINT, allowNull: false, defaultValue: 0 },
+    currency: { type: DataTypes.STRING(12), allowNull: false, defaultValue: 'USD' },
+    status: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [GIG_BUNDLE_STATUSES] },
+    },
+    attachRate: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    attachRateChange: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    isFeatured: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    conversionWindowDays: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  { tableName: 'gig_bundles' },
+);
+
+GigBundle.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    name: plain.name,
+    description: plain.description ?? null,
+    priceCents: plain.priceCents == null ? 0 : Number(plain.priceCents),
+    currency: plain.currency ?? 'USD',
+    status: plain.status,
+    attachRate: plain.attachRate == null ? null : Number(plain.attachRate),
+    attachRateChange: plain.attachRateChange == null ? null : Number(plain.attachRateChange),
+    isFeatured: Boolean(plain.isFeatured),
+    conversionWindowDays: plain.conversionWindowDays == null ? null : Number(plain.conversionWindowDays),
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };
@@ -535,6 +672,23 @@ GigOrderRevision.prototype.toPublicObject = function toPublicObject() {
     submittedAt: plain.submittedAt ?? null,
     approvedAt: plain.approvedAt ?? null,
     metadata: plain.metadata ?? null,
+export const GigBundleItem = sequelize.define(
+  'GigBundleItem',
+  {
+    bundleId: { type: DataTypes.INTEGER, allowNull: false },
+    label: { type: DataTypes.STRING(255), allowNull: false },
+    orderIndex: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  },
+  { tableName: 'gig_bundle_items' },
+);
+
+GigBundleItem.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    bundleId: plain.bundleId,
+    label: plain.label,
+    orderIndex: plain.orderIndex ?? 0,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };
@@ -574,6 +728,42 @@ GigOrderPayout.prototype.toPublicObject = function toPublicObject() {
     releasedAt: plain.releasedAt ?? null,
     riskNote: plain.riskNote ?? null,
     metadata: plain.metadata ?? null,
+export const GigUpsell = sequelize.define(
+  'GigUpsell',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(255), allowNull: false },
+    triggerEvent: { type: DataTypes.STRING(255), allowNull: true },
+    deliveryAction: { type: DataTypes.STRING(255), allowNull: true },
+    status: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [GIG_UPSELL_STATUSES] },
+    },
+    automationChannel: { type: DataTypes.STRING(80), allowNull: true },
+    estimatedValueCents: { type: DataTypes.BIGINT, allowNull: false, defaultValue: 0 },
+    currency: { type: DataTypes.STRING(12), allowNull: false, defaultValue: 'USD' },
+    conversionRate: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    conversionChange: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+  },
+  { tableName: 'gig_upsells' },
+);
+
+GigUpsell.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    name: plain.name,
+    triggerEvent: plain.triggerEvent ?? null,
+    deliveryAction: plain.deliveryAction ?? null,
+    status: plain.status,
+    automationChannel: plain.automationChannel ?? null,
+    estimatedValueCents: plain.estimatedValueCents == null ? 0 : Number(plain.estimatedValueCents),
+    currency: plain.currency ?? 'USD',
+    conversionRate: plain.conversionRate == null ? null : Number(plain.conversionRate),
+    conversionChange: plain.conversionChange == null ? null : Number(plain.conversionChange),
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };
@@ -611,10 +801,53 @@ GigOrderActivity.prototype.toPublicObject = function toPublicObject() {
     description: plain.description ?? null,
     occurredAt: plain.occurredAt ?? null,
     metadata: plain.metadata ?? null,
+export const GigCatalogItem = sequelize.define(
+  'GigCatalogItem',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    code: { type: DataTypes.STRING(40), allowNull: false },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    tier: { type: DataTypes.STRING(80), allowNull: true },
+    durationDays: { type: DataTypes.INTEGER, allowNull: true },
+    rating: { type: DataTypes.DECIMAL(3, 2), allowNull: true },
+    ratingCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    priceCents: { type: DataTypes.BIGINT, allowNull: false, defaultValue: 0 },
+    currency: { type: DataTypes.STRING(12), allowNull: false, defaultValue: 'USD' },
+    status: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [GIG_CATALOG_STATUSES] },
+    },
+    shortDescription: { type: DataTypes.TEXT, allowNull: true },
+  },
+  { tableName: 'gig_catalog_items' },
+);
+
+GigCatalogItem.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    code: plain.code,
+    title: plain.title,
+    tier: plain.tier ?? null,
+    durationDays: plain.durationDays == null ? null : Number(plain.durationDays),
+    rating: plain.rating == null ? null : Number(plain.rating),
+    ratingCount: Number(plain.ratingCount ?? 0),
+    priceCents: plain.priceCents == null ? 0 : Number(plain.priceCents),
+    currency: plain.currency ?? 'USD',
+    status: plain.status,
+    shortDescription: plain.shortDescription ?? null,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };
 };
+export const WORKSPACE_STATUSES = ['briefing', 'active', 'blocked', 'completed'];
+export const WORKSPACE_RISK_LEVELS = ['low', 'moderate', 'high', 'critical'];
+export const WORKSPACE_WHITEBOARD_STATUSES = ['active', 'pending_review', 'archived'];
+export const WORKSPACE_CONVERSATION_PRIORITIES = ['low', 'normal', 'high', 'urgent'];
+export const WORKSPACE_APPROVAL_STATUSES = ['pending', 'in_review', 'approved', 'changes_requested', 'rejected'];
 
 export const Project = sequelize.define(
   'Project',
@@ -663,6 +896,259 @@ Project.prototype.toPublicObject = function toPublicObject() {
     autoAssignSettings: plain.autoAssignSettings ?? null,
     autoAssignLastRunAt: plain.autoAssignLastRunAt ?? null,
     autoAssignLastQueueSize: plain.autoAssignLastQueueSize ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ProjectWorkspace = sequelize.define(
+  'ProjectWorkspace',
+  {
+    projectId: { type: DataTypes.INTEGER, allowNull: false, unique: true },
+    status: {
+      type: DataTypes.ENUM(...WORKSPACE_STATUSES),
+      allowNull: false,
+      defaultValue: 'briefing',
+      validate: { isIn: [WORKSPACE_STATUSES] },
+    },
+    healthScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    velocityScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    riskLevel: {
+      type: DataTypes.ENUM(...WORKSPACE_RISK_LEVELS),
+      allowNull: false,
+      defaultValue: 'low',
+      validate: { isIn: [WORKSPACE_RISK_LEVELS] },
+    },
+    progressPercent: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
+    clientSatisfaction: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    automationCoverage: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    billingStatus: { type: DataTypes.STRING(80), allowNull: true },
+    nextMilestone: { type: DataTypes.STRING(255), allowNull: true },
+    nextMilestoneDueAt: { type: DataTypes.DATE, allowNull: true },
+    metricsSnapshot: { type: jsonType, allowNull: true },
+    lastActivityAt: { type: DataTypes.DATE, allowNull: true },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  { tableName: 'project_workspaces' },
+);
+
+ProjectWorkspace.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    projectId: plain.projectId,
+    status: plain.status,
+    healthScore: plain.healthScore == null ? null : Number(plain.healthScore),
+    velocityScore: plain.velocityScore == null ? null : Number(plain.velocityScore),
+    riskLevel: plain.riskLevel,
+    progressPercent: plain.progressPercent == null ? null : Number(plain.progressPercent),
+    clientSatisfaction: plain.clientSatisfaction == null ? null : Number(plain.clientSatisfaction),
+    automationCoverage: plain.automationCoverage == null ? null : Number(plain.automationCoverage),
+    billingStatus: plain.billingStatus,
+    nextMilestone: plain.nextMilestone,
+    nextMilestoneDueAt: plain.nextMilestoneDueAt,
+    metricsSnapshot: plain.metricsSnapshot ?? null,
+    lastActivityAt: plain.lastActivityAt,
+    updatedById: plain.updatedById,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ProjectWorkspaceBrief = sequelize.define(
+  'ProjectWorkspaceBrief',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false, unique: true },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    objectives: { type: jsonType, allowNull: true },
+    deliverables: { type: jsonType, allowNull: true },
+    successMetrics: { type: jsonType, allowNull: true },
+    clientStakeholders: { type: jsonType, allowNull: true },
+    lastUpdatedById: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  { tableName: 'project_workspace_briefs' },
+);
+
+ProjectWorkspaceBrief.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    title: plain.title,
+    summary: plain.summary,
+    objectives: Array.isArray(plain.objectives) ? plain.objectives : [],
+    deliverables: Array.isArray(plain.deliverables) ? plain.deliverables : [],
+    successMetrics: Array.isArray(plain.successMetrics) ? plain.successMetrics : [],
+    clientStakeholders: Array.isArray(plain.clientStakeholders) ? plain.clientStakeholders : [],
+    lastUpdatedById: plain.lastUpdatedById,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ProjectWorkspaceWhiteboard = sequelize.define(
+  'ProjectWorkspaceWhiteboard',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...WORKSPACE_WHITEBOARD_STATUSES),
+      allowNull: false,
+      defaultValue: 'active',
+      validate: { isIn: [WORKSPACE_WHITEBOARD_STATUSES] },
+    },
+    ownerName: { type: DataTypes.STRING(255), allowNull: true },
+    thumbnailUrl: { type: DataTypes.STRING(500), allowNull: true },
+    lastEditedAt: { type: DataTypes.DATE, allowNull: true },
+    lastEditedById: { type: DataTypes.INTEGER, allowNull: true },
+    activeCollaborators: { type: jsonType, allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'project_workspace_whiteboards' },
+);
+
+ProjectWorkspaceWhiteboard.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    title: plain.title,
+    status: plain.status,
+    ownerName: plain.ownerName,
+    thumbnailUrl: plain.thumbnailUrl,
+    lastEditedAt: plain.lastEditedAt,
+    lastEditedById: plain.lastEditedById,
+    activeCollaborators: Array.isArray(plain.activeCollaborators) ? plain.activeCollaborators : [],
+    tags: Array.isArray(plain.tags) ? plain.tags : [],
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ProjectWorkspaceFile = sequelize.define(
+  'ProjectWorkspaceFile',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(255), allowNull: false },
+    category: { type: DataTypes.STRING(80), allowNull: true },
+    fileType: { type: DataTypes.STRING(60), allowNull: true },
+    storageProvider: { type: DataTypes.STRING(80), allowNull: true },
+    storagePath: { type: DataTypes.STRING(500), allowNull: true },
+    version: { type: DataTypes.STRING(40), allowNull: true },
+    sizeBytes: { type: DataTypes.BIGINT, allowNull: true },
+    checksum: { type: DataTypes.STRING(120), allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    uploadedById: { type: DataTypes.INTEGER, allowNull: true },
+    uploadedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  { tableName: 'project_workspace_files' },
+);
+
+ProjectWorkspaceFile.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    name: plain.name,
+    category: plain.category,
+    fileType: plain.fileType,
+    storageProvider: plain.storageProvider,
+    storagePath: plain.storagePath,
+    version: plain.version,
+    sizeBytes: plain.sizeBytes == null ? null : Number(plain.sizeBytes),
+    checksum: plain.checksum,
+    tags: Array.isArray(plain.tags) ? plain.tags : [],
+    metadata: plain.metadata ?? null,
+    uploadedById: plain.uploadedById,
+    uploadedAt: plain.uploadedAt,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ProjectWorkspaceConversation = sequelize.define(
+  'ProjectWorkspaceConversation',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    channelType: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'project' },
+    topic: { type: DataTypes.STRING(255), allowNull: false },
+    priority: {
+      type: DataTypes.ENUM(...WORKSPACE_CONVERSATION_PRIORITIES),
+      allowNull: false,
+      defaultValue: 'normal',
+      validate: { isIn: [WORKSPACE_CONVERSATION_PRIORITIES] },
+    },
+    unreadCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    lastMessagePreview: { type: DataTypes.STRING(500), allowNull: true },
+    lastMessageAt: { type: DataTypes.DATE, allowNull: true },
+    lastReadAt: { type: DataTypes.DATE, allowNull: true },
+    externalLink: { type: DataTypes.STRING(500), allowNull: true },
+    participants: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'project_workspace_conversations' },
+);
+
+ProjectWorkspaceConversation.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    channelType: plain.channelType,
+    topic: plain.topic,
+    priority: plain.priority,
+    unreadCount: plain.unreadCount,
+    lastMessagePreview: plain.lastMessagePreview,
+    lastMessageAt: plain.lastMessageAt,
+    lastReadAt: plain.lastReadAt,
+    externalLink: plain.externalLink,
+    participants: Array.isArray(plain.participants) ? plain.participants : [],
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ProjectWorkspaceApproval = sequelize.define(
+  'ProjectWorkspaceApproval',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    stage: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'discovery' },
+    status: {
+      type: DataTypes.ENUM(...WORKSPACE_APPROVAL_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+      validate: { isIn: [WORKSPACE_APPROVAL_STATUSES] },
+    },
+    ownerName: { type: DataTypes.STRING(255), allowNull: true },
+    approverEmail: { type: DataTypes.STRING(255), allowNull: true },
+    dueAt: { type: DataTypes.DATE, allowNull: true },
+    submittedAt: { type: DataTypes.DATE, allowNull: true },
+    decidedAt: { type: DataTypes.DATE, allowNull: true },
+    decisionNotes: { type: DataTypes.TEXT, allowNull: true },
+    attachments: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'project_workspace_approvals' },
+);
+
+ProjectWorkspaceApproval.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    title: plain.title,
+    stage: plain.stage,
+    status: plain.status,
+    ownerName: plain.ownerName,
+    approverEmail: plain.approverEmail,
+    dueAt: plain.dueAt,
+    submittedAt: plain.submittedAt,
+    decidedAt: plain.decidedAt,
+    decisionNotes: plain.decisionNotes,
+    attachments: Array.isArray(plain.attachments) ? plain.attachments : [],
+    metadata: plain.metadata ?? null,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };
@@ -1115,6 +1601,249 @@ ApplicationReview.prototype.toPublicObject = function toPublicObject() {
   return this.get({ plain: true });
 };
 
+export const HiringAlert = sequelize.define(
+  'HiringAlert',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    category: { type: DataTypes.STRING(80), allowNull: false },
+    severity: {
+      type: DataTypes.ENUM('low', 'medium', 'high', 'critical'),
+      allowNull: false,
+      defaultValue: 'medium',
+    },
+    status: {
+      type: DataTypes.ENUM('open', 'acknowledged', 'resolved'),
+      allowNull: false,
+      defaultValue: 'open',
+    },
+    message: { type: DataTypes.TEXT, allowNull: false },
+    detectedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    resolvedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'hiring_alerts',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['severity'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+export const CandidateDemographicSnapshot = sequelize.define(
+  'CandidateDemographicSnapshot',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    applicationId: { type: DataTypes.INTEGER, allowNull: false },
+    genderIdentity: { type: DataTypes.STRING(120), allowNull: true },
+    ethnicity: { type: DataTypes.STRING(180), allowNull: true },
+    veteranStatus: { type: DataTypes.STRING(120), allowNull: true },
+    disabilityStatus: { type: DataTypes.STRING(120), allowNull: true },
+    seniorityLevel: { type: DataTypes.STRING(120), allowNull: true },
+    locationRegion: { type: DataTypes.STRING(180), allowNull: true },
+    capturedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'candidate_demographic_snapshots',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['applicationId'] },
+      { fields: ['capturedAt'] },
+    ],
+  },
+);
+
+export const CandidateSatisfactionSurvey = sequelize.define(
+  'CandidateSatisfactionSurvey',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    applicationId: { type: DataTypes.INTEGER, allowNull: true },
+    stage: { type: DataTypes.STRING(80), allowNull: true },
+    score: { type: DataTypes.INTEGER, allowNull: true, validate: { min: 0, max: 10 } },
+    npsRating: { type: DataTypes.INTEGER, allowNull: true, validate: { min: 0, max: 10 } },
+    sentiment: { type: DataTypes.STRING(40), allowNull: true },
+    followUpScheduledAt: { type: DataTypes.DATE, allowNull: true },
+    responseAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'candidate_satisfaction_surveys',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['applicationId'] },
+      { fields: ['responseAt'] },
+    ],
+  },
+);
+
+export const InterviewSchedule = sequelize.define(
+  'InterviewSchedule',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    applicationId: { type: DataTypes.INTEGER, allowNull: false },
+    interviewStage: { type: DataTypes.STRING(120), allowNull: false },
+    scheduledAt: { type: DataTypes.DATE, allowNull: false },
+    completedAt: { type: DataTypes.DATE, allowNull: true },
+    durationMinutes: { type: DataTypes.INTEGER, allowNull: true },
+    rescheduleCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    interviewerRoster: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'interview_schedules',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['applicationId'] },
+      { fields: ['scheduledAt'] },
+    ],
+  },
+);
+
+export const JobStage = sequelize.define(
+  'JobStage',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    jobId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(120), allowNull: false },
+    orderIndex: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    slaHours: { type: DataTypes.INTEGER, allowNull: true },
+    averageDurationHours: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
+    guideUrl: { type: DataTypes.STRING(500), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'job_stages',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['jobId'] },
+      { fields: ['orderIndex'] },
+    ],
+  },
+);
+
+export const JobApprovalWorkflow = sequelize.define(
+  'JobApprovalWorkflow',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    jobId: { type: DataTypes.INTEGER, allowNull: true },
+    approverRole: { type: DataTypes.STRING(120), allowNull: false },
+    status: {
+      type: DataTypes.ENUM('pending', 'in_review', 'approved', 'rejected'),
+      allowNull: false,
+      defaultValue: 'pending',
+    },
+    dueAt: { type: DataTypes.DATE, allowNull: true },
+    completedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'job_approval_workflows',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['jobId'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+export const JobCampaignPerformance = sequelize.define(
+  'JobCampaignPerformance',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    jobId: { type: DataTypes.INTEGER, allowNull: true },
+    channel: { type: DataTypes.STRING(120), allowNull: false },
+    impressions: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    clicks: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    applications: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    hires: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    spendAmount: { type: DataTypes.DECIMAL(12, 2), allowNull: false, defaultValue: 0 },
+    currencyCode: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    reportingDate: { type: DataTypes.DATEONLY, allowNull: false },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'job_campaign_performances',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['jobId'] },
+      { fields: ['channel'] },
+      { fields: ['reportingDate'] },
+    ],
+  },
+);
+
+export const PartnerEngagement = sequelize.define(
+  'PartnerEngagement',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    partnerType: { type: DataTypes.STRING(120), allowNull: false },
+    partnerName: { type: DataTypes.STRING(255), allowNull: false },
+    touchpoints: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    lastInteractionAt: { type: DataTypes.DATE, allowNull: true },
+    activeBriefs: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    conversionRate: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'partner_engagements',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['partnerType'] },
+      { fields: ['partnerName'] },
+    ],
+  },
+);
+
+export const RecruitingCalendarEvent = sequelize.define(
+  'RecruitingCalendarEvent',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    eventType: { type: DataTypes.STRING(120), allowNull: false },
+    startsAt: { type: DataTypes.DATE, allowNull: false },
+    endsAt: { type: DataTypes.DATE, allowNull: true },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'recruiting_calendar_events',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['eventType'] },
+      { fields: ['startsAt'] },
+    ],
+  },
+);
+
+export const EmployerBrandAsset = sequelize.define(
+  'EmployerBrandAsset',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    assetType: { type: DataTypes.STRING(120), allowNull: false },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    status: {
+      type: DataTypes.ENUM('draft', 'review', 'published', 'archived'),
+      allowNull: false,
+      defaultValue: 'draft',
+    },
+    url: { type: DataTypes.STRING(500), allowNull: true },
+    publishedAt: { type: DataTypes.DATE, allowNull: true },
+    engagementScore: { type: DataTypes.DECIMAL(8, 2), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'employer_brand_assets',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['assetType'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
 export const MessageThread = sequelize.define(
   'MessageThread',
   {
@@ -1503,6 +2232,171 @@ export const ProviderContactNote = sequelize.define(
 
 ProviderContactNote.prototype.toPublicObject = function toPublicObject() {
   return this.get({ plain: true });
+};
+
+export const WorkspaceTemplateCategory = sequelize.define(
+  'WorkspaceTemplateCategory',
+  {
+    slug: { type: DataTypes.STRING(120), allowNull: false, unique: true },
+    name: { type: DataTypes.STRING(180), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    icon: { type: DataTypes.STRING(120), allowNull: true },
+    sortOrder: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  },
+  {
+    tableName: 'workspace_template_categories',
+    indexes: [{ fields: ['sortOrder'] }],
+  },
+);
+
+export const WorkspaceTemplate = sequelize.define(
+  'WorkspaceTemplate',
+  {
+    categoryId: { type: DataTypes.INTEGER, allowNull: false },
+    slug: { type: DataTypes.STRING(150), allowNull: false, unique: true },
+    name: { type: DataTypes.STRING(200), allowNull: false },
+    tagline: { type: DataTypes.STRING(255), allowNull: true },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    industry: { type: DataTypes.STRING(120), allowNull: true },
+    workflowType: { type: DataTypes.STRING(120), allowNull: true },
+    recommendedTeamSize: { type: DataTypes.STRING(60), allowNull: true },
+    estimatedDurationDays: { type: DataTypes.INTEGER, allowNull: true },
+    automationLevel: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    qualityScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...WORKSPACE_TEMPLATE_STATUSES),
+      allowNull: false,
+      defaultValue: 'active',
+      validate: { isIn: [WORKSPACE_TEMPLATE_STATUSES] },
+    },
+    visibility: {
+      type: DataTypes.ENUM(...WORKSPACE_TEMPLATE_VISIBILITIES),
+      allowNull: false,
+      defaultValue: 'public',
+      validate: { isIn: [WORKSPACE_TEMPLATE_VISIBILITIES] },
+    },
+    clientExperience: { type: DataTypes.TEXT, allowNull: true },
+    requirementChecklist: { type: jsonType, allowNull: true },
+    onboardingSequence: { type: jsonType, allowNull: true },
+    deliverables: { type: jsonType, allowNull: true },
+    metrics: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    lastPublishedAt: { type: DataTypes.DATE, allowNull: true },
+    archivedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'workspace_templates',
+    indexes: [
+      { fields: ['categoryId', 'status'] },
+      { fields: ['slug'], unique: true },
+      { fields: ['industry'] },
+    ],
+  },
+);
+
+export const WorkspaceTemplateStage = sequelize.define(
+  'WorkspaceTemplateStage',
+  {
+    templateId: { type: DataTypes.INTEGER, allowNull: false },
+    slug: { type: DataTypes.STRING(150), allowNull: false },
+    title: { type: DataTypes.STRING(200), allowNull: false },
+    stageType: {
+      type: DataTypes.ENUM(...WORKSPACE_TEMPLATE_STAGE_TYPES),
+      allowNull: false,
+      defaultValue: 'production',
+      validate: { isIn: [WORKSPACE_TEMPLATE_STAGE_TYPES] },
+    },
+    sortOrder: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    checklists: { type: jsonType, allowNull: true },
+    questionnaires: { type: jsonType, allowNull: true },
+    automations: { type: jsonType, allowNull: true },
+    deliverables: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'workspace_template_stages',
+    indexes: [{ fields: ['templateId', 'sortOrder'] }],
+  },
+);
+
+export const WorkspaceTemplateResource = sequelize.define(
+  'WorkspaceTemplateResource',
+  {
+    templateId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(200), allowNull: false },
+    resourceType: {
+      type: DataTypes.ENUM(...WORKSPACE_TEMPLATE_RESOURCE_TYPES),
+      allowNull: false,
+      defaultValue: 'asset',
+      validate: { isIn: [WORKSPACE_TEMPLATE_RESOURCE_TYPES] },
+    },
+    url: { type: DataTypes.STRING(500), allowNull: true },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    sortOrder: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  },
+  {
+    tableName: 'workspace_template_resources',
+    indexes: [{ fields: ['templateId', 'resourceType'] }],
+  },
+);
+
+WorkspaceTemplate.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    slug: plain.slug,
+    name: plain.name,
+    tagline: plain.tagline ?? null,
+    description: plain.description ?? null,
+    industry: plain.industry ?? null,
+    workflowType: plain.workflowType ?? null,
+    recommendedTeamSize: plain.recommendedTeamSize ?? null,
+    estimatedDurationDays: plain.estimatedDurationDays ?? null,
+    automationLevel: Number.isFinite(Number(plain.automationLevel)) ? Number(plain.automationLevel) : 0,
+    qualityScore: plain.qualityScore != null ? Number(plain.qualityScore) : null,
+    status: plain.status,
+    visibility: plain.visibility,
+    clientExperience: plain.clientExperience ?? null,
+    requirementChecklist: Array.isArray(plain.requirementChecklist) ? plain.requirementChecklist : [],
+    onboardingSequence: Array.isArray(plain.onboardingSequence) ? plain.onboardingSequence : [],
+    deliverables: Array.isArray(plain.deliverables) ? plain.deliverables : [],
+    metrics: Array.isArray(plain.metrics) ? plain.metrics : [],
+    metadata: plain.metadata ?? {},
+    lastPublishedAt: plain.lastPublishedAt ?? null,
+    archivedAt: plain.archivedAt ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+WorkspaceTemplateStage.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    slug: plain.slug,
+    title: plain.title,
+    stageType: plain.stageType,
+    sortOrder: plain.sortOrder,
+    description: plain.description ?? null,
+    checklists: Array.isArray(plain.checklists) ? plain.checklists : [],
+    questionnaires: Array.isArray(plain.questionnaires) ? plain.questionnaires : [],
+    automations: Array.isArray(plain.automations) ? plain.automations : [],
+    deliverables: Array.isArray(plain.deliverables) ? plain.deliverables : [],
+  };
+};
+
+WorkspaceTemplateResource.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    title: plain.title,
+    resourceType: plain.resourceType,
+    url: plain.url ?? null,
+    description: plain.description ?? null,
+    metadata: plain.metadata ?? {},
+    sortOrder: plain.sortOrder ?? 0,
+  };
 };
 
 export const EscrowAccount = sequelize.define(
@@ -1971,6 +2865,69 @@ GigOrder.hasMany(GigOrderActivity, { foreignKey: 'orderId', as: 'activities' });
 GigOrderActivity.belongsTo(GigOrder, { foreignKey: 'orderId', as: 'order' });
 GigOrderActivity.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
 User.hasMany(GigOrderActivity, { foreignKey: 'freelancerId', as: 'gigOrderActivities' });
+Project.hasOne(ProjectWorkspace, {
+  foreignKey: { name: 'projectId', allowNull: false },
+  as: 'workspace',
+  onDelete: 'CASCADE',
+});
+ProjectWorkspace.belongsTo(Project, {
+  foreignKey: { name: 'projectId', allowNull: false },
+  as: 'project',
+});
+ProjectWorkspace.belongsTo(User, { foreignKey: 'updatedById', as: 'updatedBy' });
+
+ProjectWorkspace.hasOne(ProjectWorkspaceBrief, {
+  foreignKey: { name: 'workspaceId', allowNull: false },
+  as: 'brief',
+  onDelete: 'CASCADE',
+});
+ProjectWorkspaceBrief.belongsTo(ProjectWorkspace, {
+  foreignKey: { name: 'workspaceId', allowNull: false },
+  as: 'workspace',
+});
+ProjectWorkspaceBrief.belongsTo(User, { foreignKey: 'lastUpdatedById', as: 'lastUpdatedBy' });
+
+ProjectWorkspace.hasMany(ProjectWorkspaceWhiteboard, {
+  foreignKey: { name: 'workspaceId', allowNull: false },
+  as: 'whiteboards',
+  onDelete: 'CASCADE',
+});
+ProjectWorkspaceWhiteboard.belongsTo(ProjectWorkspace, {
+  foreignKey: { name: 'workspaceId', allowNull: false },
+  as: 'workspace',
+});
+ProjectWorkspaceWhiteboard.belongsTo(User, { foreignKey: 'lastEditedById', as: 'lastEditedBy' });
+
+ProjectWorkspace.hasMany(ProjectWorkspaceFile, {
+  foreignKey: { name: 'workspaceId', allowNull: false },
+  as: 'files',
+  onDelete: 'CASCADE',
+});
+ProjectWorkspaceFile.belongsTo(ProjectWorkspace, {
+  foreignKey: { name: 'workspaceId', allowNull: false },
+  as: 'workspace',
+});
+ProjectWorkspaceFile.belongsTo(User, { foreignKey: 'uploadedById', as: 'uploadedBy' });
+
+ProjectWorkspace.hasMany(ProjectWorkspaceConversation, {
+  foreignKey: { name: 'workspaceId', allowNull: false },
+  as: 'conversations',
+  onDelete: 'CASCADE',
+});
+ProjectWorkspaceConversation.belongsTo(ProjectWorkspace, {
+  foreignKey: { name: 'workspaceId', allowNull: false },
+  as: 'workspace',
+});
+
+ProjectWorkspace.hasMany(ProjectWorkspaceApproval, {
+  foreignKey: { name: 'workspaceId', allowNull: false },
+  as: 'approvals',
+  onDelete: 'CASCADE',
+});
+ProjectWorkspaceApproval.belongsTo(ProjectWorkspace, {
+  foreignKey: { name: 'workspaceId', allowNull: false },
+  as: 'workspace',
+});
 
 Project.hasMany(ProjectAssignmentEvent, {
   foreignKey: { name: 'projectId', allowNull: false },
@@ -1986,6 +2943,23 @@ ProjectAssignmentEvent.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
 
 User.hasMany(AutoAssignQueueEntry, { foreignKey: 'freelancerId', as: 'autoAssignQueue' });
 AutoAssignQueueEntry.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
+User.hasMany(Gig, { foreignKey: 'freelancerId', as: 'gigs' });
+Gig.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
+Gig.hasMany(GigMilestone, { foreignKey: 'gigId', as: 'milestones' });
+GigMilestone.belongsTo(Gig, { foreignKey: 'gigId', as: 'gig' });
+
+User.hasMany(GigBundle, { foreignKey: 'freelancerId', as: 'gigBundles' });
+GigBundle.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+GigBundle.hasMany(GigBundleItem, { foreignKey: 'bundleId', as: 'items' });
+GigBundleItem.belongsTo(GigBundle, { foreignKey: 'bundleId', as: 'bundle' });
+
+User.hasMany(GigUpsell, { foreignKey: 'freelancerId', as: 'gigUpsells' });
+GigUpsell.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
+User.hasMany(GigCatalogItem, { foreignKey: 'freelancerId', as: 'gigCatalogItems' });
+GigCatalogItem.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
 
 User.hasMany(FeedPost, { foreignKey: 'userId' });
 FeedPost.belongsTo(User, { foreignKey: 'userId' });
@@ -2006,6 +2980,24 @@ Application.belongsTo(User, { foreignKey: 'applicantId', as: 'applicant' });
 Application.hasMany(ApplicationReview, { foreignKey: 'applicationId', as: 'reviews' });
 ApplicationReview.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });
 ApplicationReview.belongsTo(User, { foreignKey: 'reviewerId', as: 'reviewer' });
+
+Application.hasMany(InterviewSchedule, { foreignKey: 'applicationId', as: 'interviews' });
+InterviewSchedule.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });
+
+Application.hasMany(CandidateDemographicSnapshot, { foreignKey: 'applicationId', as: 'demographics' });
+CandidateDemographicSnapshot.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });
+
+Application.hasMany(CandidateSatisfactionSurvey, { foreignKey: 'applicationId', as: 'surveys' });
+CandidateSatisfactionSurvey.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });
+
+Job.hasMany(JobStage, { foreignKey: 'jobId', as: 'stages' });
+JobStage.belongsTo(Job, { foreignKey: 'jobId', as: 'job' });
+
+Job.hasMany(JobApprovalWorkflow, { foreignKey: 'jobId', as: 'approvalWorkflow' });
+JobApprovalWorkflow.belongsTo(Job, { foreignKey: 'jobId', as: 'job' });
+
+Job.hasMany(JobCampaignPerformance, { foreignKey: 'jobId', as: 'campaignPerformance' });
+JobCampaignPerformance.belongsTo(Job, { foreignKey: 'jobId', as: 'job' });
 
 ExperienceLaunchpad.hasMany(ExperienceLaunchpadApplication, { foreignKey: 'launchpadId', as: 'applications' });
 ExperienceLaunchpadApplication.belongsTo(ExperienceLaunchpad, { foreignKey: 'launchpadId', as: 'launchpad' });
@@ -2078,6 +3070,22 @@ ProviderWorkspace.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
 ProviderWorkspace.hasMany(ProviderWorkspaceMember, { foreignKey: 'workspaceId', as: 'members' });
 ProviderWorkspace.hasMany(ProviderWorkspaceInvite, { foreignKey: 'workspaceId', as: 'invites' });
 ProviderWorkspace.hasMany(ProviderContactNote, { foreignKey: 'workspaceId', as: 'contactNotes' });
+ProviderWorkspace.hasMany(HiringAlert, { foreignKey: 'workspaceId', as: 'hiringAlerts' });
+ProviderWorkspace.hasMany(CandidateDemographicSnapshot, {
+  foreignKey: 'workspaceId',
+  as: 'candidateDemographics',
+});
+ProviderWorkspace.hasMany(CandidateSatisfactionSurvey, {
+  foreignKey: 'workspaceId',
+  as: 'candidateSurveys',
+});
+ProviderWorkspace.hasMany(InterviewSchedule, { foreignKey: 'workspaceId', as: 'interviewSchedules' });
+ProviderWorkspace.hasMany(JobStage, { foreignKey: 'workspaceId', as: 'jobStages' });
+ProviderWorkspace.hasMany(JobApprovalWorkflow, { foreignKey: 'workspaceId', as: 'jobApprovals' });
+ProviderWorkspace.hasMany(JobCampaignPerformance, { foreignKey: 'workspaceId', as: 'jobCampaignPerformance' });
+ProviderWorkspace.hasMany(PartnerEngagement, { foreignKey: 'workspaceId', as: 'partnerEngagements' });
+ProviderWorkspace.hasMany(RecruitingCalendarEvent, { foreignKey: 'workspaceId', as: 'recruitingEvents' });
+ProviderWorkspace.hasMany(EmployerBrandAsset, { foreignKey: 'workspaceId', as: 'employerBrandAssets' });
 
 ProviderWorkspaceMember.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 ProviderWorkspaceMember.belongsTo(User, { foreignKey: 'userId', as: 'member' });
@@ -2089,6 +3097,23 @@ ProviderWorkspaceInvite.belongsTo(User, { foreignKey: 'invitedById', as: 'invite
 ProviderContactNote.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 ProviderContactNote.belongsTo(User, { foreignKey: 'authorId', as: 'author' });
 ProviderContactNote.belongsTo(User, { foreignKey: 'subjectUserId', as: 'subject' });
+HiringAlert.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+CandidateDemographicSnapshot.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+CandidateSatisfactionSurvey.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+InterviewSchedule.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+JobStage.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+JobApprovalWorkflow.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+JobCampaignPerformance.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+PartnerEngagement.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+RecruitingCalendarEvent.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+EmployerBrandAsset.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+
+WorkspaceTemplateCategory.hasMany(WorkspaceTemplate, { foreignKey: 'categoryId', as: 'templates' });
+WorkspaceTemplate.belongsTo(WorkspaceTemplateCategory, { foreignKey: 'categoryId', as: 'category' });
+WorkspaceTemplate.hasMany(WorkspaceTemplateStage, { foreignKey: 'templateId', as: 'stages' });
+WorkspaceTemplate.hasMany(WorkspaceTemplateResource, { foreignKey: 'templateId', as: 'resources' });
+WorkspaceTemplateStage.belongsTo(WorkspaceTemplate, { foreignKey: 'templateId', as: 'template' });
+WorkspaceTemplateResource.belongsTo(WorkspaceTemplate, { foreignKey: 'templateId', as: 'template' });
 
 User.hasMany(EscrowAccount, { foreignKey: 'userId', as: 'escrowAccounts' });
 EscrowAccount.belongsTo(User, { foreignKey: 'userId', as: 'owner' });
@@ -2126,7 +3151,18 @@ export default {
   GigOrderRevision,
   GigOrderPayout,
   GigOrderActivity,
+  GigMilestone,
+  GigBundle,
+  GigBundleItem,
+  GigUpsell,
+  GigCatalogItem,
   Project,
+  ProjectWorkspace,
+  ProjectWorkspaceBrief,
+  ProjectWorkspaceWhiteboard,
+  ProjectWorkspaceFile,
+  ProjectWorkspaceConversation,
+  ProjectWorkspaceApproval,
   ExperienceLaunchpad,
   ExperienceLaunchpadApplication,
   ExperienceLaunchpadEmployerRequest,
@@ -2152,6 +3188,20 @@ export default {
   ProviderWorkspaceMember,
   ProviderWorkspaceInvite,
   ProviderContactNote,
+  WorkspaceTemplateCategory,
+  WorkspaceTemplate,
+  WorkspaceTemplateStage,
+  WorkspaceTemplateResource,
+  HiringAlert,
+  CandidateDemographicSnapshot,
+  CandidateSatisfactionSurvey,
+  InterviewSchedule,
+  JobStage,
+  JobApprovalWorkflow,
+  JobCampaignPerformance,
+  PartnerEngagement,
+  RecruitingCalendarEvent,
+  EmployerBrandAsset,
   EscrowAccount,
   EscrowTransaction,
   DisputeCase,

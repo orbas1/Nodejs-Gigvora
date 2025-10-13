@@ -4,9 +4,11 @@ import {
   Project,
   AutoAssignQueueEntry,
   ProjectAssignmentEvent,
+  WORKSPACE_STATUSES,
 } from '../models/index.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
 import { buildAssignmentQueue, getProjectQueue } from './autoAssignService.js';
+import { initializeWorkspaceForProject } from './projectWorkspaceService.js';
 
 const DEFAULT_AUTO_ASSIGN_LIMIT = 12;
 
@@ -43,6 +45,29 @@ function normalizeCurrency(input) {
     throw new ValidationError('budgetCurrency must be a 3-letter ISO code.');
   }
   return trimmed;
+}
+
+function deriveWorkspaceStatus(projectStatus) {
+  if (!projectStatus) {
+    return null;
+  }
+  const normalized = projectStatus.toString().toLowerCase();
+  if (normalized.includes('block')) {
+    return 'blocked';
+  }
+  if (normalized.includes('complete') || normalized.includes('launch') || normalized.includes('closed')) {
+    return 'completed';
+  }
+  if (
+    normalized.includes('active') ||
+    normalized.includes('delivery') ||
+    normalized.includes('execution') ||
+    normalized.includes('progress') ||
+    normalized.includes('live')
+  ) {
+    return 'active';
+  }
+  return WORKSPACE_STATUSES.includes('briefing') ? 'briefing' : WORKSPACE_STATUSES[0];
 }
 
 function normaliseWeights(weights = {}) {
@@ -261,6 +286,8 @@ export async function createProject(payload = {}, { actorId } = {}) {
       { transaction },
     );
 
+    await initializeWorkspaceForProject(project, { transaction, actorId });
+
     const eventsToPersist = [];
     queueProjectEvent(eventsToPersist, project.id, actorId, 'created', {
       status,
@@ -394,6 +421,7 @@ export async function updateProjectDetails(projectId, payload = {}, { actorId } 
     const previousState = project.get({ plain: true });
     const updates = {};
     const changes = [];
+    let workspaceStatusUpdate = null;
 
     if (payload.title !== undefined) {
       const title = payload.title?.trim();
@@ -426,6 +454,7 @@ export async function updateProjectDetails(projectId, payload = {}, { actorId } 
         updates.status = status;
         changes.push({ field: 'status', previous: project.status, current: status });
       }
+      workspaceStatusUpdate = deriveWorkspaceStatus(status);
     }
 
     if (payload.location !== undefined) {
@@ -469,6 +498,20 @@ export async function updateProjectDetails(projectId, payload = {}, { actorId } 
 
     if (Object.keys(updates).length) {
       await project.update(updates, { transaction });
+    }
+
+    if (workspaceStatusUpdate) {
+      const workspace = await initializeWorkspaceForProject(project, { transaction, actorId });
+      if (workspace.status !== workspaceStatusUpdate) {
+        await workspace.update(
+          {
+            status: workspaceStatusUpdate,
+            lastActivityAt: new Date(),
+            updatedById: actorId ?? null,
+          },
+          { transaction },
+        );
+      }
     }
 
     if (changes.length) {
