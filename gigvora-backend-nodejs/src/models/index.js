@@ -54,6 +54,15 @@ export const PROVIDER_WORKSPACE_MEMBER_ROLES = ['owner', 'admin', 'manager', 'st
 export const PROVIDER_WORKSPACE_MEMBER_STATUSES = ['pending', 'active', 'suspended', 'revoked'];
 export const PROVIDER_WORKSPACE_INVITE_STATUSES = ['pending', 'accepted', 'expired', 'revoked'];
 export const PROVIDER_CONTACT_NOTE_VISIBILITIES = ['internal', 'shared', 'compliance'];
+export const AGENCY_COLLABORATION_STATUSES = ['invited', 'active', 'paused', 'ended'];
+export const AGENCY_COLLABORATION_TYPES = ['project', 'retainer', 'on_call', 'embedded'];
+export const AGENCY_INVITATION_STATUSES = ['pending', 'accepted', 'declined', 'expired', 'withdrawn'];
+export const AGENCY_RATE_CARD_STATUSES = ['draft', 'shared', 'archived'];
+export const AGENCY_RATE_CARD_ITEM_UNIT_TYPES = ['hour', 'day', 'sprint', 'project', 'retainer', 'deliverable'];
+export const AGENCY_RETAINER_NEGOTIATION_STATUSES = ['draft', 'in_discussion', 'awaiting_signature', 'signed', 'lost'];
+export const AGENCY_RETAINER_NEGOTIATION_STAGES = ['qualification', 'scoping', 'commercials', 'legal', 'kickoff'];
+export const AGENCY_RETAINER_EVENT_ACTOR_TYPES = ['freelancer', 'agency', 'system'];
+export const AGENCY_RETAINER_EVENT_TYPES = ['note', 'term_update', 'document_shared', 'meeting', 'status_change'];
 export const ESCROW_ACCOUNT_STATUSES = ['pending', 'active', 'suspended', 'closed'];
 export const ESCROW_TRANSACTION_TYPES = ['project', 'gig', 'milestone', 'retainer'];
 export const ESCROW_TRANSACTION_STATUSES = [
@@ -1250,6 +1259,241 @@ ProviderContactNote.prototype.toPublicObject = function toPublicObject() {
   return this.get({ plain: true });
 };
 
+export const AgencyCollaboration = sequelize.define(
+  'AgencyCollaboration',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    agencyWorkspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...AGENCY_COLLABORATION_STATUSES),
+      allowNull: false,
+      defaultValue: 'invited',
+    },
+    collaborationType: {
+      type: DataTypes.ENUM(...AGENCY_COLLABORATION_TYPES),
+      allowNull: false,
+      defaultValue: 'retainer',
+    },
+    retainerAmountMonthly: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    currency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    renewalDate: { type: DataTypes.DATE, allowNull: true },
+    healthScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    satisfactionScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    sharedDeliverySnapshot: { type: jsonType, allowNull: true },
+    sharedResourcePlan: { type: jsonType, allowNull: true },
+    sharedDeliverablesDue: { type: jsonType, allowNull: true },
+    activeBriefsCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    atRiskDeliverablesCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    forecastedUpsellValue: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    forecastedUpsellCurrency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    lastActivityAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'agency_collaborations',
+    indexes: [
+      { fields: ['freelancerId'] },
+      { fields: ['agencyWorkspaceId'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+AgencyCollaboration.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    ...plain,
+    retainerAmountMonthly: plain.retainerAmountMonthly != null ? Number.parseFloat(plain.retainerAmountMonthly) : null,
+    healthScore: plain.healthScore != null ? Number.parseFloat(plain.healthScore) : null,
+    satisfactionScore: plain.satisfactionScore != null ? Number.parseFloat(plain.satisfactionScore) : null,
+    forecastedUpsellValue: plain.forecastedUpsellValue != null ? Number.parseFloat(plain.forecastedUpsellValue) : null,
+  };
+};
+
+export const AgencyCollaborationInvitation = sequelize.define(
+  'AgencyCollaborationInvitation',
+  {
+    collaborationId: { type: DataTypes.INTEGER, allowNull: true },
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    agencyWorkspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    sentById: { type: DataTypes.INTEGER, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...AGENCY_INVITATION_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+    },
+    roleTitle: { type: DataTypes.STRING(255), allowNull: true },
+    engagementType: {
+      type: DataTypes.ENUM(...AGENCY_COLLABORATION_TYPES),
+      allowNull: false,
+      defaultValue: 'retainer',
+    },
+    proposedRetainer: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    currency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    responseDueAt: { type: DataTypes.DATE, allowNull: true },
+    message: { type: DataTypes.TEXT, allowNull: true },
+    attachments: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'agency_collaboration_invitations',
+    indexes: [
+      { fields: ['freelancerId'] },
+      { fields: ['agencyWorkspaceId'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+AgencyCollaborationInvitation.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    ...plain,
+    proposedRetainer: plain.proposedRetainer != null ? Number.parseFloat(plain.proposedRetainer) : null,
+  };
+};
+
+export const AgencyRateCard = sequelize.define(
+  'AgencyRateCard',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    agencyWorkspaceId: { type: DataTypes.INTEGER, allowNull: true },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...AGENCY_RATE_CARD_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+    },
+    effectiveFrom: { type: DataTypes.DATE, allowNull: true },
+    effectiveTo: { type: DataTypes.DATE, allowNull: true },
+    currency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    defaultTerms: { type: jsonType, allowNull: true },
+    shareHistory: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'agency_rate_cards',
+    indexes: [
+      { fields: ['freelancerId'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+AgencyRateCard.prototype.toPublicObject = function toPublicObject() {
+  return this.get({ plain: true });
+};
+
+export const AgencyRateCardItem = sequelize.define(
+  'AgencyRateCardItem',
+  {
+    rateCardId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    unitType: {
+      type: DataTypes.ENUM(...AGENCY_RATE_CARD_ITEM_UNIT_TYPES),
+      allowNull: false,
+      defaultValue: 'hour',
+    },
+    unitAmount: { type: DataTypes.INTEGER, allowNull: true },
+    unitPrice: { type: DataTypes.DECIMAL(12, 2), allowNull: false },
+    currency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    leadTimeDays: { type: DataTypes.INTEGER, allowNull: true },
+    minCommitment: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    sortOrder: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  },
+  {
+    tableName: 'agency_rate_card_items',
+    indexes: [
+      { fields: ['rateCardId'] },
+    ],
+  },
+);
+
+AgencyRateCardItem.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    ...plain,
+    unitPrice: Number.parseFloat(plain.unitPrice ?? 0),
+  };
+};
+
+export const AgencyRetainerNegotiation = sequelize.define(
+  'AgencyRetainerNegotiation',
+  {
+    collaborationId: { type: DataTypes.INTEGER, allowNull: true },
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    agencyWorkspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(255), allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...AGENCY_RETAINER_NEGOTIATION_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+    },
+    stage: {
+      type: DataTypes.ENUM(...AGENCY_RETAINER_NEGOTIATION_STAGES),
+      allowNull: false,
+      defaultValue: 'qualification',
+    },
+    confidence: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    proposedAmount: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    currency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    targetStartDate: { type: DataTypes.DATE, allowNull: true },
+    nextStep: { type: DataTypes.STRING(255), allowNull: true },
+    nextStepDueAt: { type: DataTypes.DATE, allowNull: true },
+    lastAgencyMessageAt: { type: DataTypes.DATE, allowNull: true },
+    lastFreelancerMessageAt: { type: DataTypes.DATE, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  {
+    tableName: 'agency_retainer_negotiations',
+    indexes: [
+      { fields: ['freelancerId'] },
+      { fields: ['agencyWorkspaceId'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+AgencyRetainerNegotiation.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    ...plain,
+    confidence: plain.confidence != null ? Number.parseFloat(plain.confidence) : null,
+    proposedAmount: plain.proposedAmount != null ? Number.parseFloat(plain.proposedAmount) : null,
+  };
+};
+
+export const AgencyRetainerEvent = sequelize.define(
+  'AgencyRetainerEvent',
+  {
+    negotiationId: { type: DataTypes.INTEGER, allowNull: false },
+    actorType: {
+      type: DataTypes.ENUM(...AGENCY_RETAINER_EVENT_ACTOR_TYPES),
+      allowNull: false,
+      defaultValue: 'freelancer',
+    },
+    actorId: { type: DataTypes.INTEGER, allowNull: true },
+    eventType: {
+      type: DataTypes.ENUM(...AGENCY_RETAINER_EVENT_TYPES),
+      allowNull: false,
+      defaultValue: 'note',
+    },
+    summary: { type: DataTypes.STRING(255), allowNull: false },
+    payload: { type: jsonType, allowNull: true },
+    occurredAt: { type: DataTypes.DATE, allowNull: false },
+  },
+  {
+    tableName: 'agency_retainer_events',
+    indexes: [
+      { fields: ['negotiationId'] },
+      { fields: ['occurredAt'] },
+    ],
+  },
+);
+
+AgencyRetainerEvent.prototype.toPublicObject = function toPublicObject() {
+  return this.get({ plain: true });
+};
+
 export const EscrowAccount = sequelize.define(
   'EscrowAccount',
   {
@@ -1813,6 +2057,61 @@ ProviderContactNote.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as
 ProviderContactNote.belongsTo(User, { foreignKey: 'authorId', as: 'author' });
 ProviderContactNote.belongsTo(User, { foreignKey: 'subjectUserId', as: 'subject' });
 
+User.hasMany(AgencyCollaboration, { foreignKey: 'freelancerId', as: 'agencyCollaborations' });
+AgencyCollaboration.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+AgencyCollaboration.belongsTo(ProviderWorkspace, { foreignKey: 'agencyWorkspaceId', as: 'agencyWorkspace' });
+ProviderWorkspace.hasMany(AgencyCollaboration, { foreignKey: 'agencyWorkspaceId', as: 'freelancerCollaborations' });
+
+AgencyCollaboration.hasMany(AgencyCollaborationInvitation, {
+  foreignKey: 'collaborationId',
+  as: 'invitations',
+});
+AgencyCollaborationInvitation.belongsTo(AgencyCollaboration, {
+  foreignKey: 'collaborationId',
+  as: 'collaboration',
+});
+AgencyCollaborationInvitation.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+AgencyCollaborationInvitation.belongsTo(User, { foreignKey: 'sentById', as: 'sentBy' });
+AgencyCollaborationInvitation.belongsTo(ProviderWorkspace, {
+  foreignKey: 'agencyWorkspaceId',
+  as: 'agencyWorkspace',
+});
+
+AgencyRateCard.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+AgencyRateCard.belongsTo(ProviderWorkspace, { foreignKey: 'agencyWorkspaceId', as: 'agencyWorkspace' });
+AgencyRateCard.hasMany(AgencyRateCardItem, {
+  foreignKey: 'rateCardId',
+  as: 'items',
+  onDelete: 'CASCADE',
+  hooks: true,
+});
+AgencyRateCardItem.belongsTo(AgencyRateCard, { foreignKey: 'rateCardId', as: 'rateCard' });
+
+AgencyCollaboration.hasMany(AgencyRetainerNegotiation, {
+  foreignKey: 'collaborationId',
+  as: 'negotiations',
+});
+AgencyRetainerNegotiation.belongsTo(AgencyCollaboration, {
+  foreignKey: 'collaborationId',
+  as: 'collaboration',
+});
+AgencyRetainerNegotiation.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+AgencyRetainerNegotiation.belongsTo(ProviderWorkspace, {
+  foreignKey: 'agencyWorkspaceId',
+  as: 'agencyWorkspace',
+});
+AgencyRetainerNegotiation.hasMany(AgencyRetainerEvent, {
+  foreignKey: 'negotiationId',
+  as: 'events',
+  onDelete: 'CASCADE',
+  hooks: true,
+});
+AgencyRetainerEvent.belongsTo(AgencyRetainerNegotiation, {
+  foreignKey: 'negotiationId',
+  as: 'negotiation',
+});
+AgencyRetainerEvent.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
+
 User.hasMany(EscrowAccount, { foreignKey: 'userId', as: 'escrowAccounts' });
 EscrowAccount.belongsTo(User, { foreignKey: 'userId', as: 'owner' });
 EscrowAccount.hasMany(EscrowTransaction, { foreignKey: 'accountId', as: 'transactions' });
@@ -1870,6 +2169,12 @@ export default {
   ProviderWorkspaceMember,
   ProviderWorkspaceInvite,
   ProviderContactNote,
+  AgencyCollaboration,
+  AgencyCollaborationInvitation,
+  AgencyRateCard,
+  AgencyRateCardItem,
+  AgencyRetainerNegotiation,
+  AgencyRetainerEvent,
   EscrowAccount,
   EscrowTransaction,
   DisputeCase,
