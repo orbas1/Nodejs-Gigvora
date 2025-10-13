@@ -1,3 +1,10 @@
+import { useMemo, useState } from 'react';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import AgencyAllianceManager from '../../components/alliances/AgencyAllianceManager.jsx';
+import useCachedResource from '../../hooks/useCachedResource.js';
+import { fetchFreelancerAllianceDashboard } from '../../services/freelancerAlliance.js';
+
+const DEFAULT_FREELANCER_ID = 2;
 import { useState } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import SupportDeskPanel from '../../components/support/SupportDeskPanel.jsx';
@@ -467,9 +474,33 @@ import {
 
 const BASE_MENU_SECTIONS = [
   {
+    label: 'Agency alliances',
+    items: [
+      {
+        id: 'agency-alliance-manager',
+        name: 'Agency alliance manager',
+        description:
+          'Collaborate with agencies, share resource calendars, negotiate revenue splits, and activate pods for large engagements.',
+        tags: ['alliances', 'pods'],
+      },
+      {
+        id: 'rate-card-library',
+        name: 'Rate card library',
+        description: 'Maintain shareable pricing catalogs with audit history and digital approvals.',
+        tags: ['pricing'],
+      },
+      {
+        id: 'resource-heatmap',
+        name: 'Resource calendar',
+        description: 'Visualise partner bandwidth, conflicts, and staffing signals across weeks.',
+      },
+    ],
+  },
+  {
     label: 'Service delivery',
     items: [
       {
+        id: 'project-workspaces',
         id: 'deliverable-vault',
         name: 'Deliverable vault',
         description:
@@ -1442,6 +1473,123 @@ const BASE_MENU_SECTIONS = [
         description: 'Percentage of referrals that converted or earned rewards.',
       },
       {
+        name: 'Agency alliance manager',
+        description:
+          'Collaborate with agencies, share resource calendars, negotiate revenue splits, and join pods for large engagements.',
+        bulletPoints: [
+          'Alliance health scoring with alerts for unmet SLAs or resource gaps.',
+          'Pod-ready staffing suggestions based on complementary capabilities.',
+          'Centralized alliance communications with decision logs and files.',
+        ],
+        metrics: [
+          {
+            label: 'Active alliances',
+            value: '12',
+            description: 'Cross-agency partnerships currently in delivery or pursuit.',
+          },
+          {
+            label: 'Joint pipeline',
+            value: '$420k',
+            description: 'Value of co-sold opportunities in negotiation stages.',
+          },
+          {
+            label: 'Average fill rate',
+            value: '86%',
+            description: 'Resource coverage across upcoming pod requests.',
+          },
+          {
+            label: 'Rate card versions',
+            value: '34',
+            description: 'Approved pricing iterations tracked with digital signatures.',
+          },
+        ],
+        detailSections: [
+          {
+            title: 'Alliance lifecycle cockpit',
+            description:
+              'Move from discovery to delivery with structured playbooks, mutual NDA templates, and governance checkpoints.',
+            items: [
+              'Matchmake with agencies by industry, geography, and compliance posture.',
+              'Auto-generate joint opportunity briefs and assign revenue split proposals for review.',
+              'Track renewal cadences, executive sponsors, and satisfaction surveys in one view.',
+            ],
+            meta: 'Lifecycle automation',
+          },
+          {
+            title: 'Shared resourcing & availability',
+            description:
+              'Visualize supply and demand across teams with granular scheduling signals and guardrails.',
+            items: [
+              'Dynamic resource calendars with skill tags, PTO, and utilization thresholds.',
+              'Resource heatmaps showing bandwidth across weeks with clash detection for pod workstreams.',
+              'Real-time staffing requests routed to agency partners with acceptance workflows.',
+            ],
+            meta: 'Capacity intelligence',
+          },
+          {
+            title: 'Commercial collaboration',
+            description:
+              'Align on pricing and profitability with transparent audit trails and automated guardrails.',
+            items: [
+              'Rate card sharing with version history, digital approvals, and comparison views.',
+              'Revenue split simulations factoring delivery costs, subcontractor fees, and contingencies.',
+              'Deal desk escalations with automatic notifications when margins drop below thresholds.',
+            ],
+            meta: 'Deal desk',
+          },
+          {
+            title: 'Compliance & knowledge hub',
+            description:
+              'Keep every alliance audit-ready while capturing institutional knowledge for future pursuits.',
+            items: [
+              'Central repository for joint statements of work, insurance certificates, and security questionnaires.',
+              'Decision logs with timestamped notes, attachments, and accountable owners.',
+              'Retrospective insights capturing lessons learned, client feedback, and playbook updates.',
+            ],
+          },
+        ],
+        workflow: {
+          title: 'Alliance activation workflow',
+          stages: [
+            {
+              name: 'Discovery & intent',
+              owner: 'Business development',
+              description: 'Qualify agency partners, align on goals, and validate service fit.',
+              outputs: [
+                'Mutual NDA executed and profiles exchanged.',
+                'Target client segments and opportunity archetypes documented.',
+              ],
+            },
+            {
+              name: 'Co-selling preparation',
+              owner: 'Alliance manager',
+              description: 'Prepare joint collateral, pricing frameworks, and engagement pods.',
+              outputs: [
+                'Shared rate cards approved with version control.',
+                'Pod staffing matrix with availability heatmap attached.',
+              ],
+            },
+            {
+              name: 'Delivery governance',
+              owner: 'Engagement lead',
+              description: 'Monitor execution, manage escalations, and update revenue allocations.',
+              outputs: [
+                'Weekly alliance scorecard with utilization, CSAT, and financial metrics.',
+                'Change requests approved with updated revenue split ledger.',
+              ],
+            },
+            {
+              name: 'Renewal & expansion',
+              owner: 'Executive sponsors',
+              description: 'Review performance, capture testimonials, and plan next fiscal targets.',
+              outputs: [
+                'Alliance health review with recommendations and commitments.',
+                'Pipeline of expansion opportunities prioritized by readiness.',
+              ],
+            },
+          ],
+        },
+        callout: 'Pod-ready alliances close enterprise deals 37% faster with shared visibility.',
         label: 'Review response rate',
         value: formatPercentage(summary.reviewResponseRate),
         description: 'Clients responding to review nudges across gigs.',
@@ -2445,6 +2593,27 @@ function OrderCard({
   const csatScore = order.csatScore != null ? Number(order.csatScore).toFixed(2) : null;
 
 export default function FreelancerDashboardPage() {
+  const [activeMenuItem, setActiveMenuItem] = useState('agency-alliance-manager');
+
+  const {
+    data: allianceData,
+    loading: alliancesLoading,
+    error: alliancesError,
+    fromCache,
+    lastUpdated,
+    refresh,
+  } = useCachedResource(
+    `dashboard:freelancer:alliances:${DEFAULT_FREELANCER_ID}`,
+    ({ signal, force }) => fetchFreelancerAllianceDashboard(DEFAULT_FREELANCER_ID, { signal, force }),
+    { enabled: activeMenuItem === 'agency-alliance-manager' },
+  );
+
+  const layoutSections = useMemo(() => {
+    if (activeMenuItem === 'agency-alliance-manager') {
+      return [];
+    }
+    return capabilitySections;
+  }, [activeMenuItem]);
   const [activeMenuItemId, setActiveMenuItemId] = useState(null);
 
   const supportDeskActive = activeMenuItemId === 'support-desk';
@@ -2472,9 +2641,23 @@ export default function FreelancerDashboardPage() {
       subtitle="Service business cockpit"
       description="An operating system for independent talent to manage gigs, complex projects, finances, and growth partnerships in one streamlined workspace."
       menuSections={menuSections}
-      sections={capabilitySections}
+      sections={layoutSections}
       profile={profile}
       availableDashboards={availableDashboards}
+      activeMenuItem={activeMenuItem}
+      onMenuItemSelect={(itemId) => setActiveMenuItem(itemId)}
+    >
+      {activeMenuItem === 'agency-alliance-manager' ? (
+        <AgencyAllianceManager
+          data={allianceData}
+          loading={alliancesLoading}
+          error={alliancesError}
+          fromCache={fromCache}
+          lastUpdated={lastUpdated}
+          onRefresh={() => refresh({ force: true })}
+        />
+      ) : null}
+    </DashboardLayout>
       onMenuItemSelect={handleMenuSelect}
       activeMenuItemId={supportDeskActive ? 'support-desk' : null}
     >

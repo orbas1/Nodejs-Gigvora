@@ -68,6 +68,16 @@ export const PROVIDER_WORKSPACE_MEMBER_ROLES = ['owner', 'admin', 'manager', 'st
 export const PROVIDER_WORKSPACE_MEMBER_STATUSES = ['pending', 'active', 'suspended', 'revoked'];
 export const PROVIDER_WORKSPACE_INVITE_STATUSES = ['pending', 'accepted', 'expired', 'revoked'];
 export const PROVIDER_CONTACT_NOTE_VISIBILITIES = ['internal', 'shared', 'compliance'];
+export const AGENCY_ALLIANCE_STATUSES = ['planned', 'active', 'paused', 'closed'];
+export const AGENCY_ALLIANCE_TYPES = ['delivery_pod', 'channel_partner', 'co_sell', 'managed_service'];
+export const AGENCY_ALLIANCE_MEMBER_ROLES = ['lead', 'contributor', 'specialist', 'contractor'];
+export const AGENCY_ALLIANCE_MEMBER_STATUSES = ['invited', 'active', 'paused', 'exited'];
+export const AGENCY_ALLIANCE_POD_TYPES = ['delivery', 'strategy', 'growth', 'specialist'];
+export const AGENCY_ALLIANCE_POD_STATUSES = ['forming', 'active', 'scaling', 'sunset'];
+export const AGENCY_ALLIANCE_RATE_CARD_STATUSES = ['draft', 'in_review', 'active', 'superseded', 'rejected'];
+export const AGENCY_ALLIANCE_RATE_CARD_APPROVAL_STATUSES = ['pending', 'approved', 'rejected'];
+export const AGENCY_ALLIANCE_REVENUE_SPLIT_TYPES = ['fixed', 'tiered', 'performance'];
+export const AGENCY_ALLIANCE_REVENUE_SPLIT_STATUSES = ['draft', 'pending_approval', 'active', 'expired'];
 export const AGENCY_COLLABORATION_STATUSES = ['invited', 'active', 'paused', 'ended'];
 export const AGENCY_COLLABORATION_TYPES = ['project', 'retainer', 'on_call', 'embedded'];
 export const AGENCY_INVITATION_STATUSES = ['pending', 'accepted', 'declined', 'expired', 'withdrawn'];
@@ -7288,6 +7298,373 @@ FinanceRevenueEntry.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+export const AgencyAlliance = sequelize.define(
+  'AgencyAlliance',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: true },
+    name: { type: DataTypes.STRING(200), allowNull: false },
+    slug: { type: DataTypes.STRING(200), allowNull: false, unique: true },
+    status: {
+      type: DataTypes.ENUM(...AGENCY_ALLIANCE_STATUSES),
+      allowNull: false,
+      defaultValue: 'planned',
+      validate: { isIn: [AGENCY_ALLIANCE_STATUSES] },
+    },
+    allianceType: {
+      type: DataTypes.ENUM(...AGENCY_ALLIANCE_TYPES),
+      allowNull: false,
+      defaultValue: 'delivery_pod',
+      validate: { isIn: [AGENCY_ALLIANCE_TYPES] },
+    },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    focusAreas: { type: jsonType, allowNull: true },
+    defaultRevenueSplit: { type: jsonType, allowNull: true },
+    startDate: { type: DataTypes.DATE, allowNull: true },
+    endDate: { type: DataTypes.DATE, allowNull: true },
+    nextReviewAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'agency_alliances',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['status'] },
+      { fields: ['allianceType'] },
+    ],
+  },
+);
+
+AgencyAlliance.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    name: plain.name,
+    slug: plain.slug,
+    status: plain.status,
+    allianceType: plain.allianceType,
+    description: plain.description,
+    focusAreas: plain.focusAreas ?? [],
+    defaultRevenueSplit: plain.defaultRevenueSplit ?? null,
+    startDate: plain.startDate,
+    endDate: plain.endDate,
+    nextReviewAt: plain.nextReviewAt,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const AgencyAllianceMember = sequelize.define(
+  'AgencyAllianceMember',
+  {
+    allianceId: { type: DataTypes.INTEGER, allowNull: false },
+    workspaceId: { type: DataTypes.INTEGER, allowNull: true },
+    workspaceMemberId: { type: DataTypes.INTEGER, allowNull: true },
+    userId: { type: DataTypes.INTEGER, allowNull: true },
+    role: {
+      type: DataTypes.ENUM(...AGENCY_ALLIANCE_MEMBER_ROLES),
+      allowNull: false,
+      defaultValue: 'contributor',
+      validate: { isIn: [AGENCY_ALLIANCE_MEMBER_ROLES] },
+    },
+    status: {
+      type: DataTypes.ENUM(...AGENCY_ALLIANCE_MEMBER_STATUSES),
+      allowNull: false,
+      defaultValue: 'invited',
+      validate: { isIn: [AGENCY_ALLIANCE_MEMBER_STATUSES] },
+    },
+    joinDate: { type: DataTypes.DATE, allowNull: true },
+    exitDate: { type: DataTypes.DATE, allowNull: true },
+    commitmentHours: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
+    revenueSharePercent: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    objectives: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'agency_alliance_members',
+    indexes: [
+      { fields: ['allianceId', 'status'] },
+      { fields: ['userId'] },
+    ],
+  },
+);
+
+AgencyAllianceMember.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    allianceId: plain.allianceId,
+    workspaceId: plain.workspaceId,
+    workspaceMemberId: plain.workspaceMemberId,
+    userId: plain.userId,
+    role: plain.role,
+    status: plain.status,
+    joinDate: plain.joinDate,
+    exitDate: plain.exitDate,
+    commitmentHours: plain.commitmentHours ? Number.parseFloat(plain.commitmentHours) : null,
+    revenueSharePercent: plain.revenueSharePercent ? Number.parseFloat(plain.revenueSharePercent) : null,
+    objectives: plain.objectives ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const AgencyAlliancePod = sequelize.define(
+  'AgencyAlliancePod',
+  {
+    allianceId: { type: DataTypes.INTEGER, allowNull: false },
+    leadMemberId: { type: DataTypes.INTEGER, allowNull: true },
+    name: { type: DataTypes.STRING(200), allowNull: false },
+    focusArea: { type: DataTypes.STRING(255), allowNull: true },
+    podType: {
+      type: DataTypes.ENUM(...AGENCY_ALLIANCE_POD_TYPES),
+      allowNull: false,
+      defaultValue: 'delivery',
+      validate: { isIn: [AGENCY_ALLIANCE_POD_TYPES] },
+    },
+    status: {
+      type: DataTypes.ENUM(...AGENCY_ALLIANCE_POD_STATUSES),
+      allowNull: false,
+      defaultValue: 'forming',
+      validate: { isIn: [AGENCY_ALLIANCE_POD_STATUSES] },
+    },
+    backlogValue: { type: DataTypes.DECIMAL(14, 2), allowNull: true },
+    capacityTarget: { type: DataTypes.INTEGER, allowNull: true },
+    externalNotes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  {
+    tableName: 'agency_alliance_pods',
+    indexes: [
+      { fields: ['allianceId'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+AgencyAlliancePod.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    allianceId: plain.allianceId,
+    leadMemberId: plain.leadMemberId,
+    name: plain.name,
+    focusArea: plain.focusArea,
+    podType: plain.podType,
+    status: plain.status,
+    backlogValue: plain.backlogValue ? Number.parseFloat(plain.backlogValue) : null,
+    capacityTarget: plain.capacityTarget,
+    externalNotes: plain.externalNotes,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const AgencyAlliancePodMember = sequelize.define(
+  'AgencyAlliancePodMember',
+  {
+    podId: { type: DataTypes.INTEGER, allowNull: false },
+    allianceMemberId: { type: DataTypes.INTEGER, allowNull: false },
+    role: { type: DataTypes.STRING(120), allowNull: false },
+    weeklyCommitmentHours: { type: DataTypes.INTEGER, allowNull: true },
+    utilizationTarget: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  {
+    tableName: 'agency_alliance_pod_members',
+    indexes: [
+      { fields: ['podId'] },
+      { fields: ['allianceMemberId'] },
+    ],
+  },
+);
+
+AgencyAlliancePodMember.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    podId: plain.podId,
+    allianceMemberId: plain.allianceMemberId,
+    role: plain.role,
+    weeklyCommitmentHours: plain.weeklyCommitmentHours,
+    utilizationTarget: plain.utilizationTarget,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const AgencyAllianceResourceSlot = sequelize.define(
+  'AgencyAllianceResourceSlot',
+  {
+    allianceId: { type: DataTypes.INTEGER, allowNull: false },
+    allianceMemberId: { type: DataTypes.INTEGER, allowNull: false },
+    weekStartDate: { type: DataTypes.DATEONLY, allowNull: false },
+    plannedHours: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
+    bookedHours: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
+    engagementType: { type: DataTypes.STRING(120), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  {
+    tableName: 'agency_alliance_resource_slots',
+    indexes: [
+      { fields: ['allianceId', 'weekStartDate'] },
+      { fields: ['allianceMemberId'] },
+    ],
+  },
+);
+
+AgencyAllianceResourceSlot.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    allianceId: plain.allianceId,
+    allianceMemberId: plain.allianceMemberId,
+    weekStartDate: plain.weekStartDate,
+    plannedHours: Number.parseFloat(plain.plannedHours ?? 0),
+    bookedHours: Number.parseFloat(plain.bookedHours ?? 0),
+    engagementType: plain.engagementType,
+    notes: plain.notes,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const AgencyAllianceRateCard = sequelize.define(
+  'AgencyAllianceRateCard',
+  {
+    allianceId: { type: DataTypes.INTEGER, allowNull: false },
+    version: { type: DataTypes.INTEGER, allowNull: false },
+    serviceLine: { type: DataTypes.STRING(200), allowNull: false },
+    deliveryModel: { type: DataTypes.STRING(120), allowNull: true },
+    currency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    unit: { type: DataTypes.STRING(120), allowNull: false, defaultValue: 'hour' },
+    rate: { type: DataTypes.DECIMAL(12, 2), allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...AGENCY_ALLIANCE_RATE_CARD_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [AGENCY_ALLIANCE_RATE_CARD_STATUSES] },
+    },
+    effectiveFrom: { type: DataTypes.DATE, allowNull: true },
+    effectiveTo: { type: DataTypes.DATE, allowNull: true },
+    changeSummary: { type: DataTypes.TEXT, allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  {
+    tableName: 'agency_alliance_rate_cards',
+    indexes: [
+      { unique: true, fields: ['allianceId', 'serviceLine', 'version'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+AgencyAllianceRateCard.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    allianceId: plain.allianceId,
+    version: plain.version,
+    serviceLine: plain.serviceLine,
+    deliveryModel: plain.deliveryModel,
+    currency: plain.currency,
+    unit: plain.unit,
+    rate: Number.parseFloat(plain.rate ?? 0),
+    status: plain.status,
+    effectiveFrom: plain.effectiveFrom,
+    effectiveTo: plain.effectiveTo,
+    changeSummary: plain.changeSummary,
+    createdById: plain.createdById,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const AgencyAllianceRateCardApproval = sequelize.define(
+  'AgencyAllianceRateCardApproval',
+  {
+    rateCardId: { type: DataTypes.INTEGER, allowNull: false },
+    approverId: { type: DataTypes.INTEGER, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...AGENCY_ALLIANCE_RATE_CARD_APPROVAL_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+      validate: { isIn: [AGENCY_ALLIANCE_RATE_CARD_APPROVAL_STATUSES] },
+    },
+    comment: { type: DataTypes.TEXT, allowNull: true },
+    decidedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'agency_alliance_rate_card_approvals',
+    indexes: [
+      { fields: ['rateCardId'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+AgencyAllianceRateCardApproval.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    rateCardId: plain.rateCardId,
+    approverId: plain.approverId,
+    status: plain.status,
+    comment: plain.comment,
+    decidedAt: plain.decidedAt,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const AgencyAllianceRevenueSplit = sequelize.define(
+  'AgencyAllianceRevenueSplit',
+  {
+    allianceId: { type: DataTypes.INTEGER, allowNull: false },
+    splitType: {
+      type: DataTypes.ENUM(...AGENCY_ALLIANCE_REVENUE_SPLIT_TYPES),
+      allowNull: false,
+      defaultValue: 'fixed',
+      validate: { isIn: [AGENCY_ALLIANCE_REVENUE_SPLIT_TYPES] },
+    },
+    terms: { type: jsonType, allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...AGENCY_ALLIANCE_REVENUE_SPLIT_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [AGENCY_ALLIANCE_REVENUE_SPLIT_STATUSES] },
+    },
+    effectiveFrom: { type: DataTypes.DATE, allowNull: false },
+    effectiveTo: { type: DataTypes.DATE, allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    approvedById: { type: DataTypes.INTEGER, allowNull: true },
+    approvedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'agency_alliance_revenue_splits',
+    indexes: [
+      { fields: ['allianceId'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+AgencyAllianceRevenueSplit.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    allianceId: plain.allianceId,
+    splitType: plain.splitType,
+    terms: plain.terms,
+    status: plain.status,
+    effectiveFrom: plain.effectiveFrom,
+    effectiveTo: plain.effectiveTo,
+    createdById: plain.createdById,
+    approvedById: plain.approvedById,
+    approvedAt: plain.approvedAt,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const EscrowAccount = sequelize.define(
+  'EscrowAccount',
 export const FinanceExpenseEntry = sequelize.define(
   'FinanceExpenseEntry',
   {
@@ -8792,6 +9169,41 @@ PipelineProposalTemplate.hasMany(PipelineProposal, { foreignKey: 'templateId', a
 PipelineDeal.hasMany(PipelineFollowUp, { foreignKey: 'dealId', as: 'followUps', onDelete: 'CASCADE' });
 PipelineFollowUp.belongsTo(PipelineDeal, { foreignKey: 'dealId', as: 'deal' });
 
+AgencyAlliance.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+AgencyAlliance.hasMany(AgencyAllianceMember, { foreignKey: 'allianceId', as: 'members' });
+AgencyAlliance.hasMany(AgencyAlliancePod, { foreignKey: 'allianceId', as: 'pods' });
+AgencyAlliance.hasMany(AgencyAllianceResourceSlot, { foreignKey: 'allianceId', as: 'resourceSlots' });
+AgencyAlliance.hasMany(AgencyAllianceRateCard, { foreignKey: 'allianceId', as: 'rateCards' });
+AgencyAlliance.hasMany(AgencyAllianceRevenueSplit, { foreignKey: 'allianceId', as: 'revenueSplits' });
+
+AgencyAllianceMember.belongsTo(AgencyAlliance, { foreignKey: 'allianceId', as: 'alliance' });
+AgencyAllianceMember.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+AgencyAllianceMember.belongsTo(ProviderWorkspaceMember, { foreignKey: 'workspaceMemberId', as: 'workspaceMember' });
+AgencyAllianceMember.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+AgencyAllianceMember.hasMany(AgencyAlliancePodMember, { foreignKey: 'allianceMemberId', as: 'podMemberships' });
+AgencyAllianceMember.hasMany(AgencyAllianceResourceSlot, { foreignKey: 'allianceMemberId', as: 'resourceSlots' });
+
+AgencyAlliancePod.belongsTo(AgencyAlliance, { foreignKey: 'allianceId', as: 'alliance' });
+AgencyAlliancePod.belongsTo(AgencyAllianceMember, { foreignKey: 'leadMemberId', as: 'leadMember' });
+AgencyAlliancePod.hasMany(AgencyAlliancePodMember, { foreignKey: 'podId', as: 'members' });
+
+AgencyAlliancePodMember.belongsTo(AgencyAlliancePod, { foreignKey: 'podId', as: 'pod' });
+AgencyAlliancePodMember.belongsTo(AgencyAllianceMember, { foreignKey: 'allianceMemberId', as: 'member' });
+
+AgencyAllianceResourceSlot.belongsTo(AgencyAlliance, { foreignKey: 'allianceId', as: 'alliance' });
+AgencyAllianceResourceSlot.belongsTo(AgencyAllianceMember, { foreignKey: 'allianceMemberId', as: 'member' });
+
+AgencyAllianceRateCard.belongsTo(AgencyAlliance, { foreignKey: 'allianceId', as: 'alliance' });
+AgencyAllianceRateCard.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+AgencyAllianceRateCard.hasMany(AgencyAllianceRateCardApproval, { foreignKey: 'rateCardId', as: 'approvals' });
+
+AgencyAllianceRateCardApproval.belongsTo(AgencyAllianceRateCard, { foreignKey: 'rateCardId', as: 'rateCard' });
+AgencyAllianceRateCardApproval.belongsTo(User, { foreignKey: 'approverId', as: 'approver' });
+
+AgencyAllianceRevenueSplit.belongsTo(AgencyAlliance, { foreignKey: 'allianceId', as: 'alliance' });
+AgencyAllianceRevenueSplit.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+AgencyAllianceRevenueSplit.belongsTo(User, { foreignKey: 'approvedById', as: 'approvedBy' });
+
 User.hasMany(EscrowAccount, { foreignKey: 'userId', as: 'escrowAccounts' });
 EscrowAccount.belongsTo(User, { foreignKey: 'userId', as: 'owner' });
 EscrowAccount.hasMany(EscrowTransaction, { foreignKey: 'accountId', as: 'transactions' });
@@ -8941,6 +9353,14 @@ export default {
   ProviderWorkspaceMember,
   ProviderWorkspaceInvite,
   ProviderContactNote,
+  AgencyAlliance,
+  AgencyAllianceMember,
+  AgencyAlliancePod,
+  AgencyAlliancePodMember,
+  AgencyAllianceResourceSlot,
+  AgencyAllianceRateCard,
+  AgencyAllianceRateCardApproval,
+  AgencyAllianceRevenueSplit,
   PipelineBoard,
   PipelineStage,
   PipelineDeal,

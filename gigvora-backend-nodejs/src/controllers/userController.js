@@ -1,6 +1,7 @@
 import { User } from '../models/index.js';
 import profileService from '../services/profileService.js';
 import userDashboardService from '../services/userDashboardService.js';
+import freelancerAllianceService from '../services/freelancerAllianceService.js';
 import supportDeskService from '../services/supportDeskService.js';
 import catalogInsightsService from '../services/catalogInsightsService.js';
 import gigBuilderService from '../services/gigBuilderService.js';
@@ -62,6 +63,11 @@ export async function getUserDashboard(req, res) {
   res.json(dashboard);
 }
 
+export async function getFreelancerAlliances(req, res) {
+  const alliances = await freelancerAllianceService.getFreelancerAllianceDashboard(req.params.id, {
+    bypassCache: req.query.fresh === 'true',
+  });
+  res.json(alliances);
 export async function getSupportDesk(req, res) {
   const snapshot = await supportDeskService.getFreelancerSupportDesk(req.params.id, {
 export async function getFreelancerCatalogInsights(req, res) {
