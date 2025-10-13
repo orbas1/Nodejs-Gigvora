@@ -16,7 +16,7 @@ import {
   NETWORKING_BUSINESS_CARD_STATUSES,
   NETWORKING_ROTATION_STATUSES,
 } from '../models/index.js';
-import { ValidationError, NotFoundError, ConflictError } from '../utils/errors.js';
+import { AuthorizationError, ValidationError, NotFoundError, ConflictError } from '../utils/errors.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
 
 const CACHE_NAMESPACE = 'networking:sessions:list';
@@ -32,6 +32,30 @@ const DEFAULT_PENALTY_RULES = {
   cooldownDays: 14,
   penaltyWeight: 1,
 };
+
+function normaliseWorkspaceIds(ids) {
+  if (!Array.isArray(ids)) {
+    return [];
+  }
+  return ids
+    .map((value) => Number.parseInt(value, 10))
+    .filter((value) => Number.isInteger(value));
+}
+
+function assertWorkspacePermission(companyId, authorizedWorkspaceIds = []) {
+  const normalised = normaliseWorkspaceIds(authorizedWorkspaceIds);
+  if (!normalised.length) {
+    return normalised;
+  }
+  const numericCompanyId = Number(companyId);
+  if (!Number.isFinite(numericCompanyId)) {
+    throw new AuthorizationError('Workspace selection required for networking access.');
+  }
+  if (!normalised.includes(numericCompanyId)) {
+    throw new AuthorizationError('You do not have permission to manage this networking workspace.');
+  }
+  return normalised;
+}
 
 function slugify(value, fallback = 'networking-session') {
   const base = `${value ?? ''}`
@@ -396,14 +420,15 @@ async function countRecentPenalties({ companyId, participantId, participantEmail
 }
 
 function clearCaches({ companyId, sessionId }) {
-  const keys = [
-    buildCacheKey(CACHE_NAMESPACE, { companyId }),
-    buildCacheKey(RUNTIME_CACHE_NAMESPACE, { sessionId }),
-  ];
-  keys.forEach((key) => appCache.forget(key));
+  if (companyId != null) {
+    appCache.flushByPrefix(`${CACHE_NAMESPACE}:`);
+  }
+  if (sessionId != null) {
+    appCache.flushByPrefix(`${RUNTIME_CACHE_NAMESPACE}:`);
+  }
 }
 
-export async function createNetworkingSession(payload = {}, { actorId } = {}) {
+export async function createNetworkingSession(payload = {}, { actorId, authorizedWorkspaceIds = [] } = {}) {
   const {
     companyId,
     title,
@@ -451,6 +476,8 @@ export async function createNetworkingSession(payload = {}, { actorId } = {}) {
   if (!NETWORKING_SESSION_VISIBILITIES.includes(visibility)) {
     throw new ValidationError('Invalid session visibility provided.');
   }
+
+  assertWorkspacePermission(companyId, authorizedWorkspaceIds);
 
   const workspace = await ensureWorkspace(companyId);
   const slugCandidate = slugify(slug ?? title);
@@ -535,7 +562,11 @@ export async function createNetworkingSession(payload = {}, { actorId } = {}) {
   });
 }
 
-export async function updateNetworkingSession(sessionId, payload = {}, { actorId } = {}) {
+export async function updateNetworkingSession(
+  sessionId,
+  payload = {},
+  { actorId, authorizedWorkspaceIds = [] } = {},
+) {
   const session = await NetworkingSession.findByPk(sessionId, {
     include: [
       { model: NetworkingSessionRotation, as: 'rotations' },
@@ -543,6 +574,7 @@ export async function updateNetworkingSession(sessionId, payload = {}, { actorId
     ],
   });
   ensureSession(session);
+  assertWorkspacePermission(session.companyId, authorizedWorkspaceIds);
 
   const updates = {};
   if (payload.title != null) {
@@ -679,24 +711,37 @@ export async function updateNetworkingSession(sessionId, payload = {}, { actorId
   });
 }
 
-export async function listNetworkingSessions({
-  companyId,
-  status,
-  includeMetrics = true,
-  upcomingOnly = false,
-  lookbackDays = 180,
-} = {}) {
+export async function listNetworkingSessions(
+  { companyId, status, includeMetrics = true, upcomingOnly = false, lookbackDays = 180 } = {},
+  { authorizedWorkspaceIds = [] } = {},
+) {
+  const normalisedAuthorized = normaliseWorkspaceIds(authorizedWorkspaceIds);
+  const scope = normalisedAuthorized.length
+    ? normalisedAuthorized
+        .slice()
+        .sort((a, b) => a - b)
+        .join('-')
+    : 'global';
+
   const cacheKey = buildCacheKey(CACHE_NAMESPACE, {
     companyId,
     status,
     includeMetrics,
     upcomingOnly,
     lookbackDays,
+    scope,
   });
 
   return appCache.remember(cacheKey, CACHE_TTL_SECONDS, async () => {
     const where = {};
-    if (companyId != null) {
+    if (normalisedAuthorized.length) {
+      if (companyId != null) {
+        assertWorkspacePermission(companyId, normalisedAuthorized);
+        where.companyId = companyId;
+      } else {
+        where.companyId = { [Op.in]: normalisedAuthorized };
+      }
+    } else if (companyId != null) {
       where.companyId = companyId;
     }
     if (status && NETWORKING_SESSION_STATUSES.includes(status)) {
@@ -728,7 +773,10 @@ export async function listNetworkingSessions({
   });
 }
 
-export async function getNetworkingSession(sessionId, { includeAssociations = true } = {}) {
+export async function getNetworkingSession(
+  sessionId,
+  { includeAssociations = true, authorizedWorkspaceIds = [] } = {},
+) {
   const session = await NetworkingSession.findByPk(sessionId, {
     include: includeAssociations
       ? [
@@ -738,12 +786,14 @@ export async function getNetworkingSession(sessionId, { includeAssociations = tr
       : [],
   });
   ensureSession(session);
+  assertWorkspacePermission(session.companyId, authorizedWorkspaceIds);
   return serialiseSession(session, { includeAssociations });
 }
 
-export async function regenerateNetworkingRotations(sessionId, payload = {}) {
+export async function regenerateNetworkingRotations(sessionId, payload = {}, { authorizedWorkspaceIds = [] } = {}) {
   const session = await NetworkingSession.findByPk(sessionId);
   ensureSession(session);
+  assertWorkspacePermission(session.companyId, authorizedWorkspaceIds);
   const schedule = buildRotationSchedule({
     startTime: payload.startTime ?? session.startTime,
     sessionLengthMinutes: payload.sessionLengthMinutes ?? session.sessionLengthMinutes,
@@ -848,7 +898,16 @@ export async function registerForNetworkingSession(sessionId, payload = {}, { ac
   });
 }
 
-export async function updateNetworkingSignup(sessionId, signupId, payload = {}) {
+export async function updateNetworkingSignup(
+  sessionId,
+  signupId,
+  payload = {},
+  { authorizedWorkspaceIds = [] } = {},
+) {
+  const session = await NetworkingSession.findByPk(sessionId);
+  ensureSession(session);
+  assertWorkspacePermission(session.companyId, authorizedWorkspaceIds);
+
   const signup = await NetworkingSessionSignup.findOne({
     where: { id: signupId, sessionId },
   });
@@ -939,19 +998,31 @@ export async function updateNetworkingSignup(sessionId, signupId, payload = {}) 
   });
 }
 
-export async function listNetworkingBusinessCards({ ownerId, companyId } = {}) {
+export async function listNetworkingBusinessCards(
+  { ownerId, companyId } = {},
+  { authorizedWorkspaceIds = [] } = {},
+) {
   const where = {};
+  const normalisedAuthorized = normaliseWorkspaceIds(authorizedWorkspaceIds);
+
   if (ownerId != null) {
     where.ownerId = ownerId;
   }
   if (companyId != null) {
-    where.companyId = companyId;
+    assertWorkspacePermission(companyId, normalisedAuthorized);
+    where.companyId = Number(companyId);
+  } else if (normalisedAuthorized.length) {
+    where.companyId = { [Op.in]: normalisedAuthorized };
   }
   const cards = await NetworkingBusinessCard.findAll({ where, order: [['updatedAt', 'DESC']], limit: 100 });
   return cards.map((card) => serialiseBusinessCard(card));
 }
 
-export async function createNetworkingBusinessCard(payload = {}, { ownerId, companyId } = {}) {
+export async function createNetworkingBusinessCard(
+  payload = {},
+  { ownerId, companyId, authorizedWorkspaceIds = [] } = {},
+) {
+  assertWorkspacePermission(companyId, authorizedWorkspaceIds);
   const {
     title,
     headline,
@@ -1001,9 +1072,10 @@ export async function createNetworkingBusinessCard(payload = {}, { ownerId, comp
   return serialiseBusinessCard(card);
 }
 
-export async function updateNetworkingBusinessCard(cardId, payload = {}) {
+export async function updateNetworkingBusinessCard(cardId, payload = {}, { authorizedWorkspaceIds = [] } = {}) {
   const card = await NetworkingBusinessCard.findByPk(cardId);
   ensureBusinessCard(card);
+  assertWorkspacePermission(card.companyId, authorizedWorkspaceIds);
   const updates = {};
   if (payload.title != null) {
     updates.title = payload.title.trim();
@@ -1064,8 +1136,11 @@ export async function updateNetworkingBusinessCard(cardId, payload = {}) {
   return serialiseBusinessCard(card);
 }
 
-export async function getNetworkingSessionRuntime(sessionId) {
-  const cacheKey = buildCacheKey(RUNTIME_CACHE_NAMESPACE, { sessionId });
+export async function getNetworkingSessionRuntime(sessionId, { authorizedWorkspaceIds = [] } = {}) {
+  const cacheKey = buildCacheKey(RUNTIME_CACHE_NAMESPACE, {
+    sessionId,
+    scope: normaliseWorkspaceIds(authorizedWorkspaceIds).join('-') || 'global',
+  });
   return appCache.remember(cacheKey, 15, async () => {
     const session = await NetworkingSession.findByPk(sessionId, {
       include: [
@@ -1074,6 +1149,7 @@ export async function getNetworkingSessionRuntime(sessionId) {
       ],
     });
     ensureSession(session);
+    assertWorkspacePermission(session.companyId, authorizedWorkspaceIds);
     const now = Date.now();
     const rotations = session.rotations ?? [];
     const activeRotation = rotations.find((rotation) => {

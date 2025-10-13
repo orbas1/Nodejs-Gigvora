@@ -11,6 +11,7 @@ class ProjectGigManagementSnapshot {
     required this.reminders,
     required this.vendorStats,
     required this.storytelling,
+    required this.access,
   });
 
   factory ProjectGigManagementSnapshot.fromJson(Map<String, dynamic> json) {
@@ -35,6 +36,7 @@ class ProjectGigManagementSnapshot {
           .toList(growable: false),
       vendorStats: VendorStats.fromJson(_ensureMap(purchasedGigs['stats'])),
       storytelling: StorytellingSnapshot.fromJson(_ensureMap(json['storytelling'])),
+      access: ProjectGigAccess.fromJson(_ensureMap(json['access'])),
     );
   }
 
@@ -47,6 +49,35 @@ class ProjectGigManagementSnapshot {
   final List<GigReminder> reminders;
   final VendorStats vendorStats;
   final StorytellingSnapshot storytelling;
+  final ProjectGigAccess access;
+}
+
+class ProjectGigAccess {
+  const ProjectGigAccess({
+    required this.canManage,
+    required this.canView,
+    this.actorRole,
+    this.allowedRoles = const [],
+    this.reason,
+  });
+
+  factory ProjectGigAccess.fromJson(Map<String, dynamic> json) {
+    return ProjectGigAccess(
+      canManage: json['canManage'] != false,
+      canView: json['canView'] != false,
+      actorRole: _string(json['actorRole']),
+      allowedRoles: _stringList(json['allowedRoles']),
+      reason: _string(json['reason']),
+    );
+  }
+
+  final bool canManage;
+  final bool canView;
+  final String? actorRole;
+  final List<String> allowedRoles;
+  final String? reason;
+
+  String? get humanisedActorRole => actorRole?.replaceAll('_', ' ');
 }
 
 class ProjectGigSummary {

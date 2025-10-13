@@ -11,6 +11,14 @@ import useSession from '../../hooks/useSession.js';
 const DEFAULT_USER_ID = 1;
 const availableDashboards = ['user', 'freelancer', 'agency', 'company', 'headhunter'];
 
+function resolveUserId(session) {
+  if (!session) {
+    return DEFAULT_USER_ID;
+  }
+
+  return session.userId ?? session.user?.id ?? session.id ?? DEFAULT_USER_ID;
+}
+
 function formatNumber(value) {
   if (value == null) return '0';
   const formatter = new Intl.NumberFormat('en-GB');
@@ -97,13 +105,17 @@ function normalizePrompts(value) {
   return [];
 }
 
-function buildProfileCard(data, summary) {
+function buildProfileCard(data, summary, session) {
   const profile = data?.profile ?? {};
   const user = profile.user ?? {};
-  const fallbackName = [user.firstName, user.lastName].filter(Boolean).join(' ');
+  const sessionName = session?.name ?? null;
+  const sessionHeadline = session?.title ?? null;
+  const fallbackName = sessionName || [user.firstName, user.lastName].filter(Boolean).join(' ');
   const name = profile.name ?? (fallbackName || 'Gigvora member');
-  const headline = profile.headline || profile.missionStatement || 'Professional member';
-  const initials = (profile.initials || name)
+  const headline = profile.headline || profile.missionStatement || sessionHeadline || 'Professional member';
+  const initials = (profile.initials ||
+    (sessionName ? sessionName.split(' ').map((part) => part[0]).join('') : null) ||
+    name)
     .split(' ')
     .filter(Boolean)
     .map((part) => part[0])
@@ -113,9 +125,15 @@ function buildProfileCard(data, summary) {
 
   const availability = profile.availability?.status ? formatStatus(profile.availability.status) : null;
   const launchpadStatus = profile.launchpadEligibility?.status === 'eligible' ? 'Launchpad ready' : null;
+  const membershipBadges = (session?.memberships ?? [])
+    .filter((membership) => membership && typeof membership === 'string')
+    .slice(0, 3)
+    .map((membership) => `${membership.charAt(0).toUpperCase()}${membership.slice(1)} member`);
+
   const badges = [
     ...(profile.statusFlags?.slice?.(0, 2) ?? []),
     ...(launchpadStatus ? [launchpadStatus] : []),
+    ...membershipBadges,
   ].map(formatStatus);
 
   return {
@@ -301,6 +319,8 @@ export default function UserDashboardPage() {
   const { session } = useSession();
   const sessionUserId = session?.id ?? session?.userId ?? null;
   const userId = sessionUserId ?? DEFAULT_USER_ID;
+  const userId = resolveUserId(session);
+  const shouldLoadDashboard = Boolean(session && userId);
 
   const {
     data,
@@ -314,6 +334,15 @@ export default function UserDashboardPage() {
     dependencies: [userId],
     enabled: Boolean(userId),
   });
+  } = useCachedResource(
+    `dashboard:user:${userId}`,
+    ({ signal }) => fetchUserDashboard(userId, { signal }),
+    {
+      ttl: 1000 * 60,
+      dependencies: [userId],
+      enabled: shouldLoadDashboard,
+    },
+  );
 
   const summary = data?.summary ?? {
     totalApplications: 0,
@@ -403,7 +432,7 @@ export default function UserDashboardPage() {
   const supportSummary = supportDesk.summary ?? {};
 
   const menuSections = useMemo(() => buildMenuSections(data), [data]);
-  const profileCard = useMemo(() => buildProfileCard(data, summary), [data, summary]);
+  const profileCard = useMemo(() => buildProfileCard(data, summary, session), [data, session, summary]);
 
   const summaryCards = [
     {

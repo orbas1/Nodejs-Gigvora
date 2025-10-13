@@ -3,6 +3,7 @@ export class ApplicationError extends Error {
     super(message);
     this.name = this.constructor.name;
     this.statusCode = statusCode;
+    this.status = statusCode;
     this.details = details;
     Error.captureStackTrace?.(this, this.constructor);
   }
@@ -32,10 +33,18 @@ export class AuthorizationError extends ApplicationError {
   }
 }
 
+export class AuthenticationError extends ApplicationError {
+  constructor(message, details = {}) {
+  constructor(message = 'Authentication required', details = {}) {
+    super(message, 401, details);
+  }
+}
+
 export default {
   ApplicationError,
   ValidationError,
   NotFoundError,
   ConflictError,
   AuthorizationError,
+  AuthenticationError,
 };
