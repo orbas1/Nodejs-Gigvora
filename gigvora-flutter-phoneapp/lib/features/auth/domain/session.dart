@@ -86,7 +86,7 @@ class UserSession {
       email: 'lena.fields@gigvora.com',
       location: 'Berlin, Germany',
       avatarSeed: 'Lena Fields',
-      memberships: const ['user', 'freelancer', 'agency'],
+      memberships: const ['user', 'freelancer', 'agency', 'headhunter'],
       activeMembership: 'user',
       followers: 1280,
       connections: 324,
@@ -242,6 +242,62 @@ class UserSession {
           actions: [
             DashboardAction(label: 'Kick off partner retro', description: 'Review shared wins with Atlas Studios leadership.'),
             DashboardAction(label: 'Update availability matrix', description: 'Sync talent roster before Monday planning.'),
+          ],
+        ),
+        'headhunter': RoleDashboard(
+          role: 'headhunter',
+          heroTitle: 'Headhunter command centre',
+          heroSubtitle: 'Command mandates, pipelines, and client expectations with confidence.',
+          metrics: [
+            DashboardMetric(label: 'Active mandates', value: '12', trend: '▲ 2 this month'),
+            DashboardMetric(label: 'Pipeline value', value: '\$1.8M', trend: '▲ 14% QoQ'),
+            DashboardMetric(label: 'Avg days in stage', value: '6.4', trend: '→ on target'),
+            DashboardMetric(label: 'Client NPS', value: '4.7/5', trend: 'Trusted partner'),
+          ],
+          sections: [
+            DashboardSection(
+              title: 'Pipeline health',
+              subtitle: 'Stage velocity, conversion rates, and automation guardrails.',
+              highlights: [
+                'Discovery to shortlist conversion holding at 42%.',
+                'Two offers pending with enterprise design and data mandates.',
+                'AI enrichment unlocked 18 fresh outreach targets.',
+              ],
+              icon: Icons.timeline,
+              accentColor: Color(0xFF2563EB),
+            ),
+            DashboardSection(
+              title: 'Client partnership spotlight',
+              subtitle: 'Retainers, renewals, and portal engagement signals.',
+              highlights: [
+                'Atlas Studios renewal due in 18 days—prep success fee brief.',
+                'Shared portal engagement up 23% after last briefing.',
+                'Issue desk clear—no escalations awaiting action.',
+              ],
+              icon: Icons.handshake,
+              accentColor: Color(0xFF0EA5E9),
+            ),
+            DashboardSection(
+              title: 'Outreach operations',
+              subtitle: 'Sequenced campaigns and pass-on collaborations ready to scale.',
+              highlights: [
+                'Warm introductions campaign running at 68% reply rate.',
+                'Compliance centre cleared 5 pending consent requests.',
+                'Two partner agencies awaiting feedback on pass-on matches.',
+              ],
+              icon: Icons.send,
+              accentColor: Color(0xFFF59E0B),
+            ),
+          ],
+          actions: [
+            DashboardAction(
+              label: 'Refresh mandate scorecard',
+              description: 'Align client reporting ahead of Tuesday status review.',
+            ),
+            DashboardAction(
+              label: 'Schedule outreach stand-up',
+              description: 'Sync prioritised sequences with sourcing leads.',
+            ),
           ],
         ),
       },
