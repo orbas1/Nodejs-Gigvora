@@ -20,6 +20,16 @@ export async function fetchProjectEvents(projectId, { limit } = {}) {
   return apiClient.get(`/projects/${projectId}/events`, { params: { limit } });
 }
 
+export async function listProjectBlueprints() {
+  return apiClient.get('/projects/blueprints');
+}
+
+export async function fetchProjectBlueprint(projectId) {
+  return apiClient.get(`/projects/${projectId}/blueprint`);
+}
+
+export async function upsertProjectBlueprint(projectId, payload) {
+  return apiClient.put(`/projects/${projectId}/blueprint`, payload);
 export async function fetchProjectWorkspace(projectId) {
   return apiClient.get(`/projects/${projectId}/workspace`);
 }
@@ -42,6 +52,9 @@ export default {
   updateProjectAutoAssign,
   fetchProject,
   fetchProjectEvents,
+  listProjectBlueprints,
+  fetchProjectBlueprint,
+  upsertProjectBlueprint,
   fetchProjectWorkspace,
   updateProjectWorkspaceBrief,
   updateProjectWorkspaceApproval,

@@ -16,6 +16,11 @@ const seededIds = {
   jobs: [1, 2],
   gigs: [1, 2, 3, 4, 5, 6, 7],
   projects: [1],
+  projectBlueprints: [1],
+  projectBlueprintSprints: [1, 2, 3, 4],
+  projectBlueprintDependencies: [1, 2, 3, 4],
+  projectBlueprintRisks: [1, 2, 3],
+  projectBillingCheckpoints: [1, 2, 3, 4],
   experienceLaunchpads: [1],
   experienceLaunchpadApplications: [1, 2],
   experienceLaunchpadEmployerRequests: [1],
@@ -61,6 +66,10 @@ module.exports = {
       const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
       const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      const twoWeeksLater = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+      const threeWeeksLater = new Date(now.getTime() + 21 * 24 * 60 * 60 * 1000);
+      const sixWeeksLater = new Date(now.getTime() + 42 * 24 * 60 * 60 * 1000);
       const inTwoDays = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
       const inFiveDays = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000);
       const inSevenDays = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -1003,6 +1012,110 @@ module.exports = {
       );
 
       await queryInterface.bulkInsert(
+        'project_blueprints',
+        [
+          {
+            id: seededIds.projectBlueprints[0],
+            projectId: seededIds.projects[0],
+            summary:
+              'Program blueprint translating discovery, design, build, and launch into accountable sprints with financial guardrails.',
+            methodology: 'dual-track agile',
+            governanceModel: 'weekly_governance_forum',
+            sprintCadence: 'bi-weekly',
+            programManager: 'Mia Operations',
+            healthStatus: 'at_risk',
+            startDate: twoDaysAgo,
+            endDate: sixWeeksLater,
+            lastReviewedAt: yesterday,
+            metadata: {
+              billingCadence: 'milestone',
+              riskAppetite: 'moderate',
+              stakeholderGroups: ['Product', 'Marketing', 'Compliance'],
+            },
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+        ],
+        { transaction }
+      );
+
+      await queryInterface.bulkInsert(
+        'project_blueprint_sprints',
+        [
+          {
+            id: seededIds.projectBlueprintSprints[0],
+            blueprintId: seededIds.projectBlueprints[0],
+            sequence: 1,
+            name: 'Sprint 0 – Discovery Kickoff',
+            objective: 'Align stakeholders, confirm backlog, and baseline success metrics.',
+            startDate: twoDaysAgo,
+            endDate: yesterday,
+            status: 'completed',
+            owner: 'Mia Operations',
+            velocityCommitment: 0,
+            progress: 100,
+            deliverables: [
+              'Kickoff workshop summary',
+              'Stakeholder alignment map',
+              'Prioritized backlog with acceptance criteria',
+            ],
+            acceptanceCriteria: 'Stakeholders sign off on backlog scope and baseline KPIs.',
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.projectBlueprintSprints[1],
+            blueprintId: seededIds.projectBlueprints[0],
+            sequence: 2,
+            name: 'Sprint 1 – Research & Strategy',
+            objective: 'Synthesize interviews, moodboards, and analytics to inform design.',
+            startDate: yesterday,
+            endDate: nextWeek,
+            status: 'in_progress',
+            owner: 'Leo Freelancer',
+            velocityCommitment: 18,
+            progress: 55,
+            deliverables: [
+              'Interview synthesis report',
+              'Experience architecture deck',
+              'Dependency sign-off log',
+            ],
+            acceptanceCriteria: 'Research insights documented and approved by creative lead.',
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.projectBlueprintSprints[2],
+            blueprintId: seededIds.projectBlueprints[0],
+            sequence: 3,
+            name: 'Sprint 2 – Build & Proof',
+            objective: 'Produce high-fidelity assets and interactive prototypes for testing.',
+            startDate: nextWeek,
+            endDate: twoWeeksLater,
+            status: 'planned',
+            owner: 'Noor Designer',
+            velocityCommitment: 20,
+            progress: 0,
+            deliverables: ['High-fidelity design system', 'Prototype test results', 'Engineering handoff package'],
+            acceptanceCriteria: 'Prototype meets usability thresholds with signed QA checklist.',
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.projectBlueprintSprints[3],
+            blueprintId: seededIds.projectBlueprints[0],
+            sequence: 4,
+            name: 'Sprint 3 – Launch & Optimise',
+            objective: 'Oversee implementation, launch readiness, and post-launch optimisations.',
+            startDate: twoWeeksLater,
+            endDate: threeWeeksLater,
+            status: 'planned',
+            owner: 'Ava Founder',
+            velocityCommitment: 16,
+            progress: 0,
+            deliverables: ['Launch runbook', 'Go-live QA summary', 'Optimisation backlog'],
+            acceptanceCriteria: 'Launch retrospective logged with next-iteration backlog prioritised.',
+            createdAt: twoDaysAgo,
         'gig_orders',
         [
           {
@@ -1138,6 +1251,71 @@ module.exports = {
       );
 
       await queryInterface.bulkInsert(
+        'project_blueprint_dependencies',
+        [
+          {
+            id: seededIds.projectBlueprintDependencies[0],
+            blueprintId: seededIds.projectBlueprints[0],
+            impactedSprintId: seededIds.projectBlueprintSprints[1],
+            name: 'Stakeholder interview scheduling',
+            description: 'Secure executive availability to inform positioning and tone of voice.',
+            dependencyType: 'client',
+            owner: 'Mia Operations',
+            status: 'in_progress',
+            dueDate: nextWeek,
+            riskLevel: 'medium',
+            impact: 'Delays insight synthesis if interviews slip.',
+            notes: 'Marketing ops confirmed 80% availability; legal still pending.',
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.projectBlueprintDependencies[1],
+            blueprintId: seededIds.projectBlueprints[0],
+            impactedSprintId: seededIds.projectBlueprintSprints[2],
+            name: 'Brand system sign-off',
+            description: 'Formal approval on refreshed brand tokens and accessibility palette.',
+            dependencyType: 'client',
+            owner: 'Ava Founder',
+            status: 'pending',
+            dueDate: nextWeek,
+            riskLevel: 'high',
+            impact: 'Blocks high-fidelity design production and QA.',
+            notes: 'Escalate to governance council if no response by end of week.',
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.projectBlueprintDependencies[2],
+            blueprintId: seededIds.projectBlueprints[0],
+            impactedSprintId: seededIds.projectBlueprintSprints[2],
+            name: 'Content inventory & redirects',
+            description: 'Audit existing community resources and define redirect matrix.',
+            dependencyType: 'internal',
+            owner: 'Operations Guild',
+            status: 'blocked',
+            dueDate: tomorrow,
+            riskLevel: 'high',
+            impact: 'Blocks migration plan and SEO readiness.',
+            notes: 'Awaiting CSV export from legacy CMS partner.',
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.projectBlueprintDependencies[3],
+            blueprintId: seededIds.projectBlueprints[0],
+            impactedSprintId: seededIds.projectBlueprintSprints[3],
+            name: 'Analytics instrumentation mapping',
+            description: 'Confirm event taxonomy and consent model across new community journeys.',
+            dependencyType: 'third_party',
+            owner: 'Data Partner Collective',
+            status: 'pending',
+            dueDate: twoWeeksLater,
+            riskLevel: 'medium',
+            impact: 'Delays KPI dashboard availability if not finalised pre-launch.',
+            notes: 'Partner requested schema sample; follow-up scheduled tomorrow.',
+            createdAt: twoDaysAgo,
+            updatedAt: now,
         'gig_order_requirements',
         [
           {
@@ -1250,6 +1428,58 @@ module.exports = {
       );
 
       await queryInterface.bulkInsert(
+        'project_blueprint_risks',
+        [
+          {
+            id: seededIds.projectBlueprintRisks[0],
+            blueprintId: seededIds.projectBlueprints[0],
+            title: 'Scope expansion from marketing stakeholders',
+            description: 'Marketing wants additional campaign landing pages within current budget and timeline.',
+            probability: 45,
+            impact: 70,
+            severityScore: 31.5,
+            status: 'open',
+            owner: 'Mia Operations',
+            mitigationPlan: 'Hold change-control workshop and evaluate trade-offs next governance sync.',
+            contingencyPlan: 'Apply change order with budget uplift or phase backlog items.',
+            nextReviewAt: nextWeek,
+            tags: ['scope', 'budget'],
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.projectBlueprintRisks[1],
+            blueprintId: seededIds.projectBlueprints[0],
+            title: 'Compliance review turnaround',
+            description: 'Legal/compliance review requires 5 business days; overlaps with sprint 2 asset approvals.',
+            probability: 35,
+            impact: 80,
+            severityScore: 28,
+            status: 'monitoring',
+            owner: 'Compliance Pod',
+            mitigationPlan: 'Submit assets in rolling batches and pre-book compliance office hours.',
+            contingencyPlan: 'Shift go-live by two days with proactive client communication.',
+            nextReviewAt: nextWeek,
+            tags: ['compliance', 'schedule'],
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.projectBlueprintRisks[2],
+            blueprintId: seededIds.projectBlueprints[0],
+            title: 'Third-party integration slippage',
+            description: 'Community analytics vendor is upgrading APIs, risking launch-day instrumentation.',
+            probability: 50,
+            impact: 80,
+            severityScore: 40,
+            status: 'mitigated',
+            owner: 'Data Partner Collective',
+            mitigationPlan: 'Parallelise fallback tracking plan and lock freeze date with vendor.',
+            contingencyPlan: 'Deploy manual reporting for first week post-launch.',
+            nextReviewAt: twoWeeksLater,
+            tags: ['data', 'launch'],
+            createdAt: twoDaysAgo,
+            updatedAt: now,
         'gig_order_revisions',
         [
           {
@@ -1345,6 +1575,73 @@ module.exports = {
       );
 
       await queryInterface.bulkInsert(
+        'project_billing_checkpoints',
+        [
+          {
+            id: seededIds.projectBillingCheckpoints[0],
+            blueprintId: seededIds.projectBlueprints[0],
+            relatedSprintId: seededIds.projectBlueprintSprints[0],
+            name: 'Kickoff deposit',
+            description: 'Initial deposit covering onboarding and discovery readiness.',
+            billingType: 'milestone',
+            amount: 2500,
+            currency: 'USD',
+            dueDate: twoDaysAgo,
+            status: 'paid',
+            approvalRequired: false,
+            invoiceUrl: 'https://billing.gigvora.com/invoices/CGI-001',
+            notes: 'Paid via ACH reference 9821.',
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.projectBillingCheckpoints[1],
+            blueprintId: seededIds.projectBlueprints[0],
+            relatedSprintId: seededIds.projectBlueprintSprints[1],
+            name: 'Discovery sign-off invoice',
+            description: 'Billable on acceptance of research synthesis and alignment artefacts.',
+            billingType: 'milestone',
+            amount: 4000,
+            currency: 'USD',
+            dueDate: nextWeek,
+            status: 'invoiced',
+            approvalRequired: true,
+            invoiceUrl: 'https://billing.gigvora.com/invoices/CGI-002',
+            notes: 'Client finance requested PO alignment; due within 10 days.',
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.projectBillingCheckpoints[2],
+            blueprintId: seededIds.projectBlueprints[0],
+            relatedSprintId: seededIds.projectBlueprintSprints[2],
+            name: 'Build completion milestone',
+            description: 'Triggered once high-fidelity assets and QA sign-off are delivered.',
+            billingType: 'milestone',
+            amount: 6500,
+            currency: 'USD',
+            dueDate: twoWeeksLater,
+            status: 'upcoming',
+            approvalRequired: true,
+            notes: 'Requires compliance approval snapshot before invoicing.',
+            createdAt: twoDaysAgo,
+            updatedAt: now,
+          },
+          {
+            id: seededIds.projectBillingCheckpoints[3],
+            blueprintId: seededIds.projectBlueprints[0],
+            relatedSprintId: seededIds.projectBlueprintSprints[3],
+            name: 'Launch & optimisation retainer',
+            description: 'Covers launch support, retrospectives, and first-month optimisation.',
+            billingType: 'retainer',
+            amount: 3000,
+            currency: 'USD',
+            dueDate: threeWeeksLater,
+            status: 'upcoming',
+            approvalRequired: true,
+            notes: 'Bundle upcoming analytics add-ons for upsell opportunity.',
+            createdAt: twoDaysAgo,
+            updatedAt: now,
         'gig_order_activities',
         [
           {
@@ -2329,6 +2626,28 @@ module.exports = {
         { transaction }
       );
       await queryInterface.bulkDelete(
+        'project_billing_checkpoints',
+        { id: { [Op.in]: seededIds.projectBillingCheckpoints } },
+        { transaction }
+      );
+      await queryInterface.bulkDelete(
+        'project_blueprint_risks',
+        { id: { [Op.in]: seededIds.projectBlueprintRisks } },
+        { transaction }
+      );
+      await queryInterface.bulkDelete(
+        'project_blueprint_dependencies',
+        { id: { [Op.in]: seededIds.projectBlueprintDependencies } },
+        { transaction }
+      );
+      await queryInterface.bulkDelete(
+        'project_blueprint_sprints',
+        { id: { [Op.in]: seededIds.projectBlueprintSprints } },
+        { transaction }
+      );
+      await queryInterface.bulkDelete(
+        'project_blueprints',
+        { id: { [Op.in]: seededIds.projectBlueprints } },
         'gig_order_activities',
         { id: { [Op.in]: seededIds.gigOrderActivities } },
         { transaction }
