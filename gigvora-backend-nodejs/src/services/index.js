@@ -15,3 +15,4 @@ export { default as launchpadService } from './launchpadService.js';
 export { default as profileService } from './profileService.js';
 export { default as profileEngagementService } from './profileEngagementService.js';
 export { default as profileAnalyticsService } from './profileAnalyticsService.js';
+export { default as userDashboardService } from './userDashboardService.js';
