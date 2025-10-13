@@ -5,6 +5,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import { fetchAdminDashboard } from '../../services/admin.js';
 import { fetchPlatformSettings, updatePlatformSettings } from '../../services/platformSettings.js';
 import useSession from '../../hooks/useSession.js';
+import GigvoraAdsConsole from '../../components/ads/GigvoraAdsConsole.jsx';
 
 const MENU_SECTIONS = [
   {
@@ -32,6 +33,12 @@ const MENU_SECTIONS = [
       {
         name: 'Engagement & comms',
         description: 'Platform analytics, event telemetry, and notification delivery.',
+      },
+      {
+        name: 'Gigvora Ads',
+        description: 'Campaign coverage, targeting telemetry, and creative governance.',
+        tags: ['ads', 'monetisation'],
+        sectionId: 'gigvora-ads',
       },
       {
         name: 'Launchpad performance',
@@ -1328,8 +1335,21 @@ export default function AdminDashboardPage() {
   );
 
   const renderLoadingState = (
-    <div className="rounded-3xl border border-dashed border-blue-200 bg-blue-50/40 p-8 text-center text-sm text-blue-700">
-      Synchronising telemetry from the platform. This typically takes just a moment…
+    <div className="space-y-6">
+      <div className="rounded-3xl border border-dashed border-blue-200 bg-blue-50/40 p-8 text-center text-sm text-blue-700">
+        Synchronising telemetry from the platform. This typically takes just a moment…
+      </div>
+      <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+        <div className="animate-pulse space-y-4">
+          <div className="h-6 w-1/3 rounded-full bg-slate-200" />
+          <div className="h-4 w-2/3 rounded-full bg-slate-200" />
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[...Array(4)].map((_, index) => (
+              <div key={index} className="h-28 rounded-2xl bg-slate-100" />
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 
@@ -1732,6 +1752,11 @@ export default function AdminDashboardPage() {
             </div>
           </div>
         </div>
+      </section>
+
+      {/* Gigvora Ads */}
+      <section id="gigvora-ads">
+        <GigvoraAdsConsole initialSnapshot={data.ads} defaultContext={data.ads?.overview?.context} />
       </section>
     </div>
   ) : null;

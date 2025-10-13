@@ -173,4 +173,9 @@ export const QUICK_CARD_ICONS = {
   chart: ChartBarSquareIcon,
 };
 
-export const AVAILABLE_DASHBOARDS = ['freelancer', 'company', 'headhunter'];
+export const AVAILABLE_DASHBOARDS = [
+  { id: 'freelancer', label: 'Freelancer', href: '/dashboard/freelancer' },
+  { id: 'freelancer-pipeline', label: 'Pipeline HQ', href: '/dashboard/freelancer/pipeline' },
+  { id: 'company', label: 'Company', href: '/dashboard/company' },
+  { id: 'headhunter', label: 'Headhunter', href: '/dashboard/headhunter' },
+];
