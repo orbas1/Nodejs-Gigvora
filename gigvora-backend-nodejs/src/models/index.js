@@ -92,6 +92,17 @@ export const LAUNCHPAD_PLACEMENT_STATUSES = ['scheduled', 'in_progress', 'comple
 export const LAUNCHPAD_TARGET_TYPES = ['job', 'gig', 'project'];
 export const LAUNCHPAD_OPPORTUNITY_SOURCES = ['employer_request', 'placement', 'manual'];
 
+export const DELIVERABLE_VAULT_WATERMARK_MODES = ['none', 'basic', 'dynamic'];
+export const DELIVERABLE_ITEM_STATUSES = ['draft', 'in_review', 'approved', 'delivered', 'archived'];
+export const DELIVERABLE_ITEM_WATERMARK_MODES = ['inherit', 'none', 'basic', 'dynamic'];
+export const DELIVERABLE_ITEM_NDA_STATUSES = ['not_required', 'pending', 'signed', 'waived'];
+export const DELIVERABLE_RETENTION_POLICIES = [
+  'standard_7_year',
+  'client_defined',
+  'indefinite',
+  'short_term',
+];
+
 export const User = sequelize.define(
   'User',
   {
@@ -1491,6 +1502,325 @@ DisputeEvent.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+export const DeliverableVault = sequelize.define(
+  'DeliverableVault',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(160), allowNull: false, defaultValue: 'Client deliverables' },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    watermarkMode: {
+      type: DataTypes.ENUM(...DELIVERABLE_VAULT_WATERMARK_MODES),
+      allowNull: false,
+      defaultValue: 'dynamic',
+    },
+    retentionPolicy: {
+      type: DataTypes.ENUM(...DELIVERABLE_RETENTION_POLICIES),
+      allowNull: false,
+      defaultValue: 'standard_7_year',
+    },
+    ndaTemplateUrl: { type: DataTypes.STRING(500), allowNull: true },
+    settings: { type: jsonType, allowNull: true },
+    isArchived: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+  },
+  {
+    tableName: 'deliverable_vaults',
+    indexes: [{ fields: ['freelancerId'] }],
+  },
+);
+
+DeliverableVault.prototype.toPublicObject = function toPublicObject({ includeSettings = true } = {}) {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    title: plain.title,
+    description: plain.description,
+    watermarkMode: plain.watermarkMode,
+    retentionPolicy: plain.retentionPolicy,
+    ndaTemplateUrl: plain.ndaTemplateUrl,
+    settings: includeSettings ? plain.settings ?? {} : undefined,
+    isArchived: Boolean(plain.isArchived),
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const DeliverableVaultItem = sequelize.define(
+  'DeliverableVaultItem',
+  {
+    vaultId: { type: DataTypes.INTEGER, allowNull: false },
+    projectId: { type: DataTypes.INTEGER, allowNull: true },
+    clientName: { type: DataTypes.STRING(255), allowNull: true },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...DELIVERABLE_ITEM_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+    },
+    ndaRequired: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    ndaStatus: {
+      type: DataTypes.ENUM(...DELIVERABLE_ITEM_NDA_STATUSES),
+      allowNull: false,
+      defaultValue: 'not_required',
+    },
+    ndaSignedAt: { type: DataTypes.DATE, allowNull: true },
+    ndaReferenceId: { type: DataTypes.STRING(120), allowNull: true },
+    watermarkMode: {
+      type: DataTypes.ENUM(...DELIVERABLE_ITEM_WATERMARK_MODES),
+      allowNull: false,
+      defaultValue: 'inherit',
+    },
+    retentionPolicy: {
+      type: DataTypes.ENUM(...DELIVERABLE_RETENTION_POLICIES),
+      allowNull: false,
+      defaultValue: 'standard_7_year',
+    },
+    retentionUntil: { type: DataTypes.DATE, allowNull: true },
+    deliveredAt: { type: DataTypes.DATE, allowNull: true },
+    currentVersionId: { type: DataTypes.INTEGER, allowNull: true },
+    latestPackageId: { type: DataTypes.INTEGER, allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    successSummary: { type: DataTypes.TEXT, allowNull: true },
+    successMetrics: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    isArchived: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    createdById: { type: DataTypes.INTEGER, allowNull: false },
+    lastTouchedById: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  {
+    tableName: 'deliverable_vault_items',
+    indexes: [
+      { fields: ['vaultId'] },
+      { fields: ['status'] },
+      { fields: ['ndaStatus'] },
+      { fields: ['retentionPolicy'] },
+    ],
+  },
+);
+
+DeliverableVaultItem.prototype.toPublicObject = function toPublicObject({ includeVersions = true, includePackages = true } = {}) {
+  const plain = this.get({ plain: true });
+  const tags = Array.isArray(plain.tags)
+    ? plain.tags
+    : typeof plain.tags === 'string'
+      ? plain.tags
+          .split(',')
+          .map((tag) => tag.trim())
+          .filter(Boolean)
+      : [];
+
+  const normalizeMetrics = (metrics) => {
+    if (!metrics || typeof metrics !== 'object') {
+      return {};
+    }
+    return Object.fromEntries(
+      Object.entries(metrics).map(([key, value]) => [key, typeof value === 'number' ? value : Number(value) || value]),
+    );
+  };
+
+  const versions = Array.isArray(plain.versions)
+    ? [...plain.versions]
+        .sort((a, b) => Number(b.versionNumber ?? 0) - Number(a.versionNumber ?? 0))
+        .map((version) => ({
+          id: version.id,
+          itemId: version.itemId,
+          versionNumber: version.versionNumber,
+          storageKey: version.storageKey,
+          fileUrl: version.fileUrl,
+          fileName: version.fileName,
+          fileExt: version.fileExt,
+          fileSize: version.fileSize == null ? null : Number(version.fileSize),
+          checksum: version.checksum,
+          watermarkApplied: Boolean(version.watermarkApplied),
+          notes: version.notes,
+          storageRegion: version.storageRegion,
+          metadata: version.metadata ?? null,
+          uploadedAt: version.uploadedAt ?? version.createdAt,
+          uploadedById: version.uploadedById ?? version.uploadedBy?.id ?? null,
+          uploadedBy: version.uploadedBy
+            ? {
+                id: version.uploadedBy.id,
+                firstName: version.uploadedBy.firstName,
+                lastName: version.uploadedBy.lastName,
+                email: version.uploadedBy.email,
+              }
+            : null,
+        }))
+    : [];
+
+  const deliveryPackages = Array.isArray(plain.deliveryPackages)
+    ? [...plain.deliveryPackages]
+        .sort((a, b) => new Date(b.generatedAt ?? b.createdAt ?? 0) - new Date(a.generatedAt ?? a.createdAt ?? 0))
+        .map((pkg) => ({
+          id: pkg.id,
+          itemId: pkg.itemId,
+          packageKey: pkg.packageKey,
+          packageUrl: pkg.packageUrl,
+          checksum: pkg.checksum,
+          includesWatermark: Boolean(pkg.includesWatermark),
+          generatedById: pkg.generatedById ?? pkg.generatedBy?.id ?? null,
+          generatedBy: pkg.generatedBy
+            ? {
+                id: pkg.generatedBy.id,
+                firstName: pkg.generatedBy.firstName,
+                lastName: pkg.generatedBy.lastName,
+                email: pkg.generatedBy.email,
+              }
+            : null,
+          generatedAt: pkg.generatedAt ?? pkg.createdAt,
+          expiresAt: pkg.expiresAt ?? null,
+          deliverySummary: pkg.deliverySummary,
+          deliveryMetrics: normalizeMetrics(pkg.deliveryMetrics),
+          ndaSnapshot: pkg.ndaSnapshot ?? null,
+          status: pkg.status ?? 'active',
+          metadata: pkg.metadata ?? null,
+        }))
+    : [];
+
+  const auditTrail = Array.isArray(plain.metadata?.auditTrail) ? plain.metadata.auditTrail : [];
+
+  return {
+    id: plain.id,
+    vaultId: plain.vaultId,
+    projectId: plain.projectId,
+    clientName: plain.clientName,
+    title: plain.title,
+    description: plain.description,
+    status: plain.status,
+    ndaRequired: Boolean(plain.ndaRequired),
+    ndaStatus: plain.ndaStatus,
+    ndaSignedAt: plain.ndaSignedAt,
+    ndaReferenceId: plain.ndaReferenceId,
+    watermarkMode: plain.watermarkMode,
+    retentionPolicy: plain.retentionPolicy,
+    retentionUntil: plain.retentionUntil,
+    deliveredAt: plain.deliveredAt,
+    currentVersionId: plain.currentVersionId,
+    latestPackageId: plain.latestPackageId,
+    versionCount: versions.length,
+    latestVersion: versions[0] ?? null,
+    tags,
+    successSummary: plain.successSummary,
+    successMetrics: normalizeMetrics(plain.successMetrics),
+    metadata: plain.metadata ?? {},
+    auditTrail,
+    isArchived: Boolean(plain.isArchived),
+    createdById: plain.createdById,
+    lastTouchedById: plain.lastTouchedById,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+    versions: includeVersions ? versions : undefined,
+    deliveryPackages: includePackages ? deliveryPackages : undefined,
+    vault: plain.vault
+      ? {
+          id: plain.vault.id,
+          freelancerId: plain.vault.freelancerId,
+          watermarkMode: plain.vault.watermarkMode,
+          retentionPolicy: plain.vault.retentionPolicy,
+        }
+      : undefined,
+  };
+};
+
+export const DeliverableVersion = sequelize.define(
+  'DeliverableVersion',
+  {
+    itemId: { type: DataTypes.INTEGER, allowNull: false },
+    versionNumber: { type: DataTypes.INTEGER, allowNull: false },
+    storageKey: { type: DataTypes.STRING(255), allowNull: false },
+    fileUrl: { type: DataTypes.STRING(500), allowNull: false },
+    fileName: { type: DataTypes.STRING(255), allowNull: false },
+    fileExt: { type: DataTypes.STRING(16), allowNull: true },
+    fileSize: { type: DataTypes.BIGINT, allowNull: true },
+    checksum: { type: DataTypes.STRING(128), allowNull: true },
+    uploadedById: { type: DataTypes.INTEGER, allowNull: false },
+    uploadedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    watermarkApplied: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    storageRegion: { type: DataTypes.STRING(60), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'deliverable_versions',
+    indexes: [
+      { fields: ['itemId', 'versionNumber'], unique: true },
+      { fields: ['uploadedById'] },
+    ],
+  },
+);
+
+DeliverableVersion.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    itemId: plain.itemId,
+    versionNumber: plain.versionNumber,
+    storageKey: plain.storageKey,
+    fileUrl: plain.fileUrl,
+    fileName: plain.fileName,
+    fileExt: plain.fileExt,
+    fileSize: plain.fileSize == null ? null : Number(plain.fileSize),
+    checksum: plain.checksum,
+    uploadedById: plain.uploadedById,
+    uploadedAt: plain.uploadedAt,
+    watermarkApplied: Boolean(plain.watermarkApplied),
+    notes: plain.notes,
+    storageRegion: plain.storageRegion,
+    metadata: plain.metadata ?? {},
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const DeliverableDeliveryPackage = sequelize.define(
+  'DeliverableDeliveryPackage',
+  {
+    itemId: { type: DataTypes.INTEGER, allowNull: false },
+    packageKey: { type: DataTypes.STRING(255), allowNull: false },
+    packageUrl: { type: DataTypes.STRING(500), allowNull: false },
+    checksum: { type: DataTypes.STRING(128), allowNull: true },
+    generatedById: { type: DataTypes.INTEGER, allowNull: false },
+    generatedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    expiresAt: { type: DataTypes.DATE, allowNull: true },
+    includesWatermark: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    deliverySummary: { type: DataTypes.TEXT, allowNull: true },
+    deliveryMetrics: { type: jsonType, allowNull: true },
+    ndaSnapshot: { type: jsonType, allowNull: true },
+    status: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'active' },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'deliverable_delivery_packages',
+    indexes: [
+      { fields: ['itemId'] },
+      { fields: ['generatedAt'] },
+    ],
+  },
+);
+
+DeliverableDeliveryPackage.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    itemId: plain.itemId,
+    packageKey: plain.packageKey,
+    packageUrl: plain.packageUrl,
+    checksum: plain.checksum,
+    generatedById: plain.generatedById,
+    generatedAt: plain.generatedAt,
+    expiresAt: plain.expiresAt,
+    includesWatermark: Boolean(plain.includesWatermark),
+    deliverySummary: plain.deliverySummary,
+    deliveryMetrics: plain.deliveryMetrics ?? {},
+    ndaSnapshot: plain.ndaSnapshot ?? null,
+    status: plain.status,
+    metadata: plain.metadata ?? {},
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 export const SearchSubscription = sequelize.define(
   'SearchSubscription',
   {
@@ -1792,6 +2122,24 @@ NotificationPreference.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasOne(NotificationPreference, { foreignKey: 'userId', as: 'notificationPreference' });
 User.hasMany(Notification, { foreignKey: 'userId', as: 'notifications' });
 
+User.hasMany(DeliverableVault, { foreignKey: 'freelancerId', as: 'deliverableVaults' });
+DeliverableVault.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+DeliverableVault.hasMany(DeliverableVaultItem, { foreignKey: 'vaultId', as: 'items' });
+
+DeliverableVaultItem.belongsTo(DeliverableVault, { foreignKey: 'vaultId', as: 'vault' });
+DeliverableVaultItem.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+DeliverableVaultItem.belongsTo(User, { foreignKey: 'lastTouchedById', as: 'lastTouchedBy' });
+DeliverableVaultItem.belongsTo(DeliverableVersion, { foreignKey: 'currentVersionId', as: 'currentVersion' });
+DeliverableVaultItem.belongsTo(DeliverableDeliveryPackage, { foreignKey: 'latestPackageId', as: 'latestPackage' });
+DeliverableVaultItem.hasMany(DeliverableVersion, { foreignKey: 'itemId', as: 'versions' });
+DeliverableVaultItem.hasMany(DeliverableDeliveryPackage, { foreignKey: 'itemId', as: 'deliveryPackages' });
+
+DeliverableVersion.belongsTo(DeliverableVaultItem, { foreignKey: 'itemId', as: 'item' });
+DeliverableVersion.belongsTo(User, { foreignKey: 'uploadedById', as: 'uploadedBy' });
+
+DeliverableDeliveryPackage.belongsTo(DeliverableVaultItem, { foreignKey: 'itemId', as: 'item' });
+DeliverableDeliveryPackage.belongsTo(User, { foreignKey: 'generatedById', as: 'generatedBy' });
+
 User.hasMany(SearchSubscription, { foreignKey: 'userId', as: 'searchSubscriptions' });
 SearchSubscription.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
@@ -1866,6 +2214,10 @@ export default {
   NotificationPreference,
   AnalyticsEvent,
   AnalyticsDailyRollup,
+  DeliverableVault,
+  DeliverableVaultItem,
+  DeliverableVersion,
+  DeliverableDeliveryPackage,
   ProviderWorkspace,
   ProviderWorkspaceMember,
   ProviderWorkspaceInvite,
