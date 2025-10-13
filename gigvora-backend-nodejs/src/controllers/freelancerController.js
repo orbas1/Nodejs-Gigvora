@@ -1,3 +1,15 @@
+import { getFreelancerSpotlight } from '../services/communitySpotlightService.js';
+
+export async function communitySpotlight(req, res) {
+  const { freelancerId } = req.params;
+  const { profileId, includeDraft } = req.query ?? {};
+
+  const result = await getFreelancerSpotlight({
+    userId: freelancerId,
+    profileId,
+    includeDraft: includeDraft === 'true',
+  });
+
 import {
   getFreelancerOrderPipeline,
   createFreelancerOrder,
@@ -85,6 +97,7 @@ export async function updateOrderEscrowCheckpoint(req, res) {
 }
 
 export default {
+  communitySpotlight,
   orderPipeline,
   createOrder,
   updateOrder,

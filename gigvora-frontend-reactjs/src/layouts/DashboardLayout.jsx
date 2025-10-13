@@ -1,3 +1,4 @@
+import { useState, useMemo, useCallback } from 'react';
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useCallback, useState } from 'react';
@@ -25,6 +26,8 @@ function slugify(value) {
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
     .replace(/(^-|-$)/g, '');
     .toLowerCase()
     .trim()
@@ -79,6 +82,21 @@ export default function DashboardLayout({
   const navigationSections = Array.isArray(menuSections) ? menuSections : [];
   const interactiveMenu = typeof onMenuItemSelect === 'function';
   const capabilitySections = Array.isArray(sections) ? sections : [];
+  const resolvedSections = useMemo(
+    () =>
+      capabilitySections.map((section, index) => {
+        const candidateId = section?.id ?? slugify(section?.title ?? `section-${index + 1}`);
+        return {
+          ...section,
+          id: candidateId || `section-${index + 1}`,
+        };
+      }),
+    [capabilitySections],
+  );
+  const availableSectionIds = useMemo(
+    () => new Set(resolvedSections.map((section) => section.id).filter(Boolean)),
+    [resolvedSections],
+  );
   const heroTitle = title ?? 'Dashboard';
   const heroSubtitle = subtitle ?? 'Workspace overview';
   const heroDescription = description ?? '';
@@ -98,6 +116,32 @@ export default function DashboardLayout({
     : Object.keys(DASHBOARD_LINKS);
 
   const switchableDashboards = memberships.filter((key) => key !== currentDashboard && DASHBOARD_LINKS[key]);
+
+  const baseActionButtonClasses =
+    'inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-blue-200';
+  const actionButtonVariants = {
+    primary: 'bg-blue-600 text-white shadow-sm hover:bg-blue-700 focus:ring-offset-2',
+    secondary: 'border border-blue-300 text-blue-700 hover:border-blue-400 hover:text-blue-800 focus:ring-offset-2',
+    ghost: 'text-slate-600 hover:text-blue-600 focus:ring-offset-2',
+  };
+
+  const handleNavigateToSection = useCallback(
+    (sectionId) => {
+      if (!sectionId || typeof document === 'undefined') {
+        return;
+      }
+      const target = document.getElementById(sectionId);
+      if (!target) {
+        return;
+      }
+      const headerOffset = 96;
+      const rect = target.getBoundingClientRect();
+      const offset = window.scrollY + rect.top - headerOffset;
+      window.scrollTo({ top: offset > 0 ? offset : 0, behavior: 'smooth' });
+      setSidebarOpen(false);
+    },
+    [],
+  );
 
   const handleSearchSubmit = (event) => {
     event.preventDefault();
@@ -202,6 +246,14 @@ export default function DashboardLayout({
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{section.label}</p>
                   <ul className="mt-3 space-y-2">
                     {section.items.map((item) => {
+                      const key = item.name;
+                      const isSectionLink = Boolean(item.sectionId && availableSectionIds.has(item.sectionId));
+                      const isExternalLink = Boolean(item.href);
+                      const menuItemClass =
+                        'group flex w-full flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 text-left transition hover:border-blue-300 hover:bg-blue-50';
+                      const target = item.target ?? (item.href?.startsWith('http') ? '_blank' : undefined);
+                      const rel = target === '_blank' ? 'noreferrer' : undefined;
+                      const showChevron = isSectionLink || isExternalLink;
                       const itemId = item.id ?? item.slug ?? item.name;
                       const isActive = currentMenuItem === itemId;
                       const itemId = item.id ?? item.name;
@@ -488,6 +540,9 @@ export default function DashboardLayout({
                         <>
                           <div className="flex items-center justify-between">
                             <span className="text-sm font-medium text-slate-700">{item.name}</span>
+                            {showChevron ? (
+                              <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
+                            ) : null}
                             <ChevronRightIcon
                               className={`h-4 w-4 transition ${
                                 activeMenuItemId && activeMenuItemId === (item.id ?? item.name)
@@ -516,6 +571,22 @@ export default function DashboardLayout({
                         </>
                       );
 
+                      return (
+                        <li key={key}>
+                          {isExternalLink ? (
+                            <a href={item.href} target={target} rel={rel} className={menuItemClass}>
+                              {content}
+                            </a>
+                          ) : isSectionLink ? (
+                            <button
+                              type="button"
+                              onClick={() => handleNavigateToSection(item.sectionId)}
+                              className={menuItemClass}
+                            >
+                              {content}
+                            </button>
+                          ) : (
+                            <div className={menuItemClass}>{content}</div>
                       if (item.href) {
                         return (
                           <li key={itemKey}>
@@ -795,8 +866,9 @@ export default function DashboardLayout({
 
               {children
                 ? children
-                : capabilitySections.map((section) => (
+                : resolvedSections.map((section) => (
                     <section
+                      key={section.id || section.title}
                       key={section.title}
                       id={section.id}
                       className="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_18px_40px_-24px_rgba(30,64,175,0.35)] sm:p-8"
@@ -815,6 +887,66 @@ export default function DashboardLayout({
                         ) : null}
                       </div>
                       <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                        {(section.features ?? []).map((feature) => (
+                          <div
+                            key={feature.name}
+                            className="group flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50 p-5 transition hover:border-blue-300 hover:bg-blue-50"
+                          >
+                          <div>
+                            <h3 className="text-lg font-semibold text-slate-900">{feature.name}</h3>
+                            {feature.description ? (
+                              <p className="mt-2 text-sm text-slate-600">{feature.description}</p>
+                            ) : null}
+                            {feature.bulletPoints?.length ? (
+                              <ul className="mt-3 space-y-2 text-sm text-slate-600">
+                                {feature.bulletPoints.map((point) => (
+                                  <li key={point} className="flex gap-2">
+                                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400" />
+                                    <span>{point}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : null}
+                            {feature.stats?.length ? (
+                              <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                {feature.stats.map(({ label, value, trend }) => (
+                                  <div
+                                    key={`${feature.name}-${label}`}
+                                    className="rounded-2xl border border-slate-200 bg-white/60 p-3"
+                                  >
+                                    <dt className="text-xs uppercase tracking-wide text-slate-500">{label}</dt>
+                                    <dd className="mt-1 text-base font-semibold text-slate-900">{value}</dd>
+                                    {trend ? (
+                                      <p className="text-xs font-medium text-blue-600/80">{trend}</p>
+                                    ) : null}
+                                  </div>
+                                ))}
+                              </dl>
+                            ) : null}
+                            {feature.highlights?.length ? (
+                              <div className="mt-4 space-y-3">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                                  Spotlight highlights
+                                </p>
+                                <div className="space-y-3">
+                                  {feature.highlights.map((highlight) => (
+                                    <div
+                                      key={`${feature.name}-${highlight.title}`}
+                                      className="rounded-2xl border border-slate-200 bg-white/70 p-3"
+                                    >
+                                      <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-blue-700">
+                                        <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] uppercase tracking-wide text-blue-600">
+                                          {highlight.type}
+                                        </span>
+                                        {highlight.date ? (
+                                          <span className="text-slate-500">{highlight.date}</span>
+                                        ) : null}
+                                      </div>
+                                      <p className="mt-2 text-sm font-semibold text-slate-900">{highlight.title}</p>
+                                      {highlight.impact ? (
+                                        <p className="mt-1 text-sm text-slate-600">{highlight.impact}</p>
+                                      ) : null}
+                                    </div>
                         {section.features.map((feature) => {
                           const featureId = feature.anchorId || feature.targetId || slugify(feature.name);
                           const featureKey = `${section.title}:${feature.name}`;
@@ -924,7 +1056,102 @@ export default function DashboardLayout({
                                       <span>{point}</span>
                                     </li>
                                   ))}
+                                </div>
+                              </div>
+                            ) : null}
+                            {feature.resources?.length ? (
+                              <div className="mt-4 rounded-2xl border border-dashed border-blue-200 bg-blue-50/40 p-4">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-blue-600/90">
+                                  Share-ready assets
+                                </p>
+                                <ul className="mt-3 space-y-3">
+                                  {(feature.resources ?? []).map((resource) => {
+                                    if (!resource?.name) {
+                                      return null;
+                                    }
+                                    const resourceTarget =
+                                      resource.target ?? (resource.href?.startsWith('http') ? '_blank' : undefined);
+                                    const resourceRel = resourceTarget === '_blank' ? 'noreferrer' : undefined;
+                                    return (
+                                      <li
+                                        key={`${feature.name}-${resource.name}`}
+                                        className="flex flex-wrap items-start justify-between gap-3"
+                                      >
+                                        <div>
+                                          {resource.href ? (
+                                            <a
+                                              href={resource.href}
+                                              target={resourceTarget}
+                                              rel={resourceRel}
+                                              className="text-sm font-medium text-blue-700 hover:underline"
+                                            >
+                                              {resource.name}
+                                            </a>
+                                          ) : (
+                                            <p className="text-sm font-medium text-slate-800">{resource.name}</p>
+                                          )}
+                                          {resource.description ? (
+                                            <p className="text-xs text-slate-600">{resource.description}</p>
+                                          ) : null}
+                                        </div>
+                                        {resource.format ? (
+                                          <span className="rounded-full border border-blue-200 bg-white px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-blue-600">
+                                            {resource.format}
+                                          </span>
+                                        ) : null}
+                                      </li>
+                                    );
+                                  })}
                                 </ul>
+                              </div>
+                            ) : null}
+                          </div>
+                          {feature.callout ? (
+                            <p className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium uppercase tracking-wide text-blue-700">
+                              {feature.callout}
+                            </p>
+                          ) : null}
+                          {feature.actions?.length ? (
+                            <div className="mt-4 flex flex-wrap gap-3">
+                              {(feature.actions ?? [])
+                                .filter((action) => action && action.label)
+                                .map((action) => {
+                                  const variant =
+                                    action.variant && actionButtonVariants[action.variant]
+                                      ? action.variant
+                                      : 'secondary';
+                                  const buttonClass = `${baseActionButtonClasses} ${actionButtonVariants[variant]}`;
+                                  if (action.href) {
+                                    const target = action.target ?? (action.href.startsWith('http') ? '_blank' : undefined);
+                                    const rel = target === '_blank' ? 'noreferrer' : undefined;
+                                    return (
+                                      <a
+                                        key={`${feature.name}-${action.label}`}
+                                        href={action.href}
+                                        target={target}
+                                        rel={rel}
+                                        className={buttonClass}
+                                      >
+                                        {action.label}
+                                      </a>
+                                    );
+                                  }
+                                  return (
+                                    <button
+                                      key={`${feature.name}-${action.label}`}
+                                      type="button"
+                                      onClick={action.onClick ?? undefined}
+                                      disabled={Boolean(action.disabled)}
+                                      className={`${buttonClass} ${action.disabled ? 'cursor-not-allowed opacity-60' : ''}`}
+                                    >
+                                      {action.label}
+                                    </button>
+                                  );
+                                })}
+                            </div>
+                          ) : null}
+                        </div>
+                        ))}
                                 {feature.bulletPoints?.length ? (
                                   <ul className="mt-3 space-y-2 text-sm text-slate-600">
                                     {feature.bulletPoints.map((point) => (

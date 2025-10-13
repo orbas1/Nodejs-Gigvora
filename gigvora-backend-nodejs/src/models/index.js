@@ -555,6 +555,117 @@ export const FreelancerProfile = sequelize.define(
   { tableName: 'freelancer_profiles' },
 );
 
+export const COMMUNITY_SPOTLIGHT_STATUSES = ['draft', 'scheduled', 'published', 'archived'];
+export const COMMUNITY_SPOTLIGHT_HIGHLIGHT_CATEGORIES = [
+  'speaking',
+  'open_source',
+  'contribution',
+  'press',
+  'mentorship',
+  'award',
+];
+export const COMMUNITY_SPOTLIGHT_ASSET_TYPES = ['social', 'newsletter', 'press', 'video', 'website', 'other'];
+export const COMMUNITY_SPOTLIGHT_NEWSLETTER_STATUSES = ['draft', 'scheduled', 'sent'];
+
+export const CommunitySpotlight = sequelize.define(
+  'CommunitySpotlight',
+  {
+    profileId: { type: DataTypes.INTEGER, allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...COMMUNITY_SPOTLIGHT_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [COMMUNITY_SPOTLIGHT_STATUSES] },
+    },
+    heroTitle: { type: DataTypes.STRING(255), allowNull: false },
+    tagline: { type: DataTypes.STRING(255), allowNull: true },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    campaignName: { type: DataTypes.STRING(255), allowNull: true },
+    bannerImageUrl: { type: DataTypes.STRING(512), allowNull: true },
+    brandColor: { type: DataTypes.STRING(64), allowNull: true },
+    primaryCtaLabel: { type: DataTypes.STRING(120), allowNull: true },
+    primaryCtaUrl: { type: DataTypes.STRING(512), allowNull: true },
+    secondaryCtaLabel: { type: DataTypes.STRING(120), allowNull: true },
+    secondaryCtaUrl: { type: DataTypes.STRING(512), allowNull: true },
+    shareKitUrl: { type: DataTypes.STRING(512), allowNull: true },
+    metricsSnapshot: { type: jsonType, allowNull: true },
+    newsletterFeatureEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    newsletterAutomationConfig: { type: jsonType, allowNull: true },
+    publishedAt: { type: DataTypes.DATE, allowNull: true },
+    featuredUntil: { type: DataTypes.DATE, allowNull: true },
+  },
+  { tableName: 'community_spotlights' },
+);
+
+export const CommunitySpotlightHighlight = sequelize.define(
+  'CommunitySpotlightHighlight',
+  {
+    spotlightId: { type: DataTypes.INTEGER, allowNull: false },
+    category: {
+      type: DataTypes.ENUM(...COMMUNITY_SPOTLIGHT_HIGHLIGHT_CATEGORIES),
+      allowNull: false,
+      defaultValue: 'contribution',
+      validate: { isIn: [COMMUNITY_SPOTLIGHT_HIGHLIGHT_CATEGORIES] },
+    },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    impactStatement: { type: DataTypes.TEXT, allowNull: true },
+    occurredOn: { type: DataTypes.DATE, allowNull: true },
+    ctaLabel: { type: DataTypes.STRING(120), allowNull: true },
+    ctaUrl: { type: DataTypes.STRING(512), allowNull: true },
+    mediaUrl: { type: DataTypes.STRING(512), allowNull: true },
+    ordinal: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'community_spotlight_highlights' },
+);
+
+export const CommunitySpotlightAsset = sequelize.define(
+  'CommunitySpotlightAsset',
+  {
+    spotlightId: { type: DataTypes.INTEGER, allowNull: false },
+    assetType: {
+      type: DataTypes.ENUM(...COMMUNITY_SPOTLIGHT_ASSET_TYPES),
+      allowNull: false,
+      defaultValue: 'social',
+      validate: { isIn: [COMMUNITY_SPOTLIGHT_ASSET_TYPES] },
+    },
+    channel: { type: DataTypes.STRING(120), allowNull: true },
+    name: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    format: { type: DataTypes.STRING(80), allowNull: true },
+    aspectRatio: { type: DataTypes.STRING(40), allowNull: true },
+    downloadUrl: { type: DataTypes.STRING(512), allowNull: true },
+    previewUrl: { type: DataTypes.STRING(512), allowNull: true },
+    readyForUse: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'community_spotlight_assets' },
+);
+
+export const CommunitySpotlightNewsletterFeature = sequelize.define(
+  'CommunitySpotlightNewsletterFeature',
+  {
+    spotlightId: { type: DataTypes.INTEGER, allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...COMMUNITY_SPOTLIGHT_NEWSLETTER_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [COMMUNITY_SPOTLIGHT_NEWSLETTER_STATUSES] },
+    },
+    editionDate: { type: DataTypes.DATE, allowNull: true },
+    editionName: { type: DataTypes.STRING(255), allowNull: true },
+    subjectLine: { type: DataTypes.STRING(255), allowNull: true },
+    heroTitle: { type: DataTypes.STRING(255), allowNull: true },
+    heroSubtitle: { type: DataTypes.STRING(255), allowNull: true },
+    audienceSegment: { type: DataTypes.STRING(255), allowNull: true },
+    performanceMetrics: { type: jsonType, allowNull: true },
+    utmParameters: { type: jsonType, allowNull: true },
+    shareUrl: { type: DataTypes.STRING(512), allowNull: true },
+    callToActionLabel: { type: DataTypes.STRING(120), allowNull: true },
+    callToActionUrl: { type: DataTypes.STRING(512), allowNull: true },
+  },
+  { tableName: 'community_spotlight_newsletter_features' },
 export const ReputationTestimonial = sequelize.define(
   'ReputationTestimonial',
   {
@@ -1034,6 +1145,95 @@ export const Project = sequelize.define(
   },
   { tableName: 'projects' },
 );
+
+CommunitySpotlight.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    profileId: plain.profileId,
+    status: plain.status,
+    heroTitle: plain.heroTitle,
+    tagline: plain.tagline,
+    summary: plain.summary,
+    campaignName: plain.campaignName,
+    bannerImageUrl: plain.bannerImageUrl,
+    brandColor: plain.brandColor,
+    primaryCtaLabel: plain.primaryCtaLabel,
+    primaryCtaUrl: plain.primaryCtaUrl,
+    secondaryCtaLabel: plain.secondaryCtaLabel,
+    secondaryCtaUrl: plain.secondaryCtaUrl,
+    shareKitUrl: plain.shareKitUrl,
+    metricsSnapshot: plain.metricsSnapshot,
+    newsletterFeatureEnabled: plain.newsletterFeatureEnabled,
+    newsletterAutomationConfig: plain.newsletterAutomationConfig,
+    publishedAt: plain.publishedAt,
+    featuredUntil: plain.featuredUntil,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+CommunitySpotlightHighlight.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    spotlightId: plain.spotlightId,
+    category: plain.category,
+    title: plain.title,
+    description: plain.description,
+    impactStatement: plain.impactStatement,
+    occurredOn: plain.occurredOn,
+    ctaLabel: plain.ctaLabel,
+    ctaUrl: plain.ctaUrl,
+    mediaUrl: plain.mediaUrl,
+    ordinal: plain.ordinal,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+CommunitySpotlightAsset.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    spotlightId: plain.spotlightId,
+    assetType: plain.assetType,
+    channel: plain.channel,
+    name: plain.name,
+    description: plain.description,
+    format: plain.format,
+    aspectRatio: plain.aspectRatio,
+    downloadUrl: plain.downloadUrl,
+    previewUrl: plain.previewUrl,
+    readyForUse: plain.readyForUse,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+CommunitySpotlightNewsletterFeature.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    spotlightId: plain.spotlightId,
+    status: plain.status,
+    editionDate: plain.editionDate,
+    editionName: plain.editionName,
+    subjectLine: plain.subjectLine,
+    heroTitle: plain.heroTitle,
+    heroSubtitle: plain.heroSubtitle,
+    audienceSegment: plain.audienceSegment,
+    performanceMetrics: plain.performanceMetrics,
+    utmParameters: plain.utmParameters,
+    shareUrl: plain.shareUrl,
+    callToActionLabel: plain.callToActionLabel,
+    callToActionUrl: plain.callToActionUrl,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
 
 Project.searchByTerm = async function searchByTerm(term) {
   if (!term) return [];
@@ -8322,6 +8522,26 @@ ProfileFollower.belongsTo(User, { as: 'follower', foreignKey: 'followerId' });
 Profile.hasMany(ProfileEngagementJob, { as: 'engagementJobs', foreignKey: 'profileId', onDelete: 'CASCADE' });
 ProfileEngagementJob.belongsTo(Profile, { as: 'profile', foreignKey: 'profileId' });
 
+Profile.hasMany(CommunitySpotlight, { foreignKey: 'profileId', as: 'communitySpotlights', onDelete: 'CASCADE' });
+CommunitySpotlight.belongsTo(Profile, { foreignKey: 'profileId', as: 'profile' });
+CommunitySpotlight.hasMany(CommunitySpotlightHighlight, {
+  foreignKey: 'spotlightId',
+  as: 'highlights',
+  onDelete: 'CASCADE',
+});
+CommunitySpotlight.hasMany(CommunitySpotlightAsset, {
+  foreignKey: 'spotlightId',
+  as: 'assets',
+  onDelete: 'CASCADE',
+});
+CommunitySpotlight.hasMany(CommunitySpotlightNewsletterFeature, {
+  foreignKey: 'spotlightId',
+  as: 'newsletterFeatures',
+  onDelete: 'CASCADE',
+});
+CommunitySpotlightHighlight.belongsTo(CommunitySpotlight, { foreignKey: 'spotlightId', as: 'spotlight' });
+CommunitySpotlightAsset.belongsTo(CommunitySpotlight, { foreignKey: 'spotlightId', as: 'spotlight' });
+CommunitySpotlightNewsletterFeature.belongsTo(CommunitySpotlight, { foreignKey: 'spotlightId', as: 'spotlight' });
 Profile.hasMany(FreelancerExpertiseArea, { as: 'expertiseAreas', foreignKey: 'profileId', onDelete: 'CASCADE' });
 FreelancerExpertiseArea.belongsTo(Profile, { as: 'profile', foreignKey: 'profileId' });
 
@@ -9414,6 +9634,10 @@ export default {
   FreelancerFinanceControl,
   ProjectAssignmentEvent,
   AutoAssignQueueEntry,
+  CommunitySpotlight,
+  CommunitySpotlightHighlight,
+  CommunitySpotlightAsset,
+  CommunitySpotlightNewsletterFeature,
   ComplianceDocument,
   ComplianceDocumentVersion,
   ComplianceObligation,
