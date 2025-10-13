@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
+import 'package:go_router/go_router.dart';
 import '../../../theme/widgets.dart';
 import '../application/feed_controller.dart';
 import '../data/models/feed_post.dart';
@@ -72,29 +73,31 @@ class FeedScreen extends ConsumerWidget {
             child: RefreshIndicator(
               onRefresh: () => controller.refresh(),
               child: posts.isEmpty && state.loading
-                  ? _FeedSkeleton()
-                  : posts.isEmpty
-                      ? ListView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          children: const [
-                            SizedBox(height: 80),
-                            _EmptyFeedState(),
-                          ],
-                        )
-                      : ListView.separated(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          itemCount: posts.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 16),
-                          itemBuilder: (context, index) {
-                            final post = posts[index];
-                            return _FeedPostCard(
-                              post: post,
-                              onReact: () => controller.recordReaction(post, 'react'),
-                              onComment: () => controller.recordCommentIntent(post),
-                              onShare: () => controller.recordShareIntent(post),
-                            );
+                  ? const _FeedSkeleton()
+                  : ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        _ExplorerPromoCard(
+                          onOpenExplorer: () {
+                            controller.recordExplorerShortcut();
+                            context.go('/explorer');
                           },
                         ),
+                        const SizedBox(height: 16),
+                        if (posts.isEmpty)
+                          const _EmptyFeedState()
+                        else
+                          ...[for (var i = 0; i < posts.length; i++) ...[
+                            _FeedPostCard(
+                              post: posts[i],
+                              onReact: () => controller.recordReaction(posts[i], 'react'),
+                              onComment: () => controller.recordCommentIntent(posts[i]),
+                              onShare: () => controller.recordShareIntent(posts[i]),
+                            ),
+                            if (i != posts.length - 1) const SizedBox(height: 16),
+                          ]],
+                      ],
+                    ),
             ),
           ),
         ],
@@ -258,6 +261,52 @@ class _EmptyFeedState extends StatelessWidget {
           Text(
             'Follow teams and projects to personalise your feed. Pull to refresh for the latest stories.',
             style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExplorerPromoCard extends StatelessWidget {
+  const _ExplorerPromoCard({required this.onOpenExplorer});
+
+  final VoidCallback onOpenExplorer;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return GigvoraCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Explorer consolidation',
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(color: colorScheme.primary),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Jobs, gigs, projects, cohorts, volunteering, and talent discovery now live inside the Explorer. '
+            'Use filters to pivot without leaving your flow.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: ElevatedButton.icon(
+              onPressed: onOpenExplorer,
+              icon: const Icon(Icons.travel_explore_outlined),
+              label: const Text('Open Explorer'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: colorScheme.primary,
+                foregroundColor: colorScheme.onPrimary,
+                shape: const StadiumBorder(),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              ),
+            ),
           ),
         ],
       ),
