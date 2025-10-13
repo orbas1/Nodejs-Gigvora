@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { apiClient } from '../services/apiClient.js';
 
 const STORAGE_KEY = 'gigvora:web:session';
 
@@ -58,6 +59,14 @@ export function SessionProvider({ children }) {
     persistSession(session);
   }, [session]);
 
+  useEffect(() => {
+    if (!session?.accessToken) {
+      apiClient.clearAccessToken();
+    } else {
+      apiClient.storeAccessToken(session.accessToken);
+    }
+  }, [session?.accessToken]);
+
   const value = useMemo(
     () => ({
       session,
@@ -67,16 +76,30 @@ export function SessionProvider({ children }) {
           isAuthenticated: true,
           ...payload,
         };
+        if (payload.accessToken) {
+          apiClient.storeAccessToken(payload.accessToken);
+        }
         setSession(nextSession);
         return nextSession;
       },
       logout: () => {
         setSession(null);
+        apiClient.clearAccessToken();
       },
       updateSession: (updates = {}) => {
         setSession((previous) => {
           if (!previous) {
+            if (updates.accessToken) {
+              apiClient.storeAccessToken(updates.accessToken);
+            } else if (updates.accessToken === null) {
+              apiClient.clearAccessToken();
+            }
             return { isAuthenticated: true, ...updates };
+          }
+          if (updates.accessToken) {
+            apiClient.storeAccessToken(updates.accessToken);
+          } else if (updates.accessToken === null) {
+            apiClient.clearAccessToken();
           }
           return { ...previous, ...updates };
         });

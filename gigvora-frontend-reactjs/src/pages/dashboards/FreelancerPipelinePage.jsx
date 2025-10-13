@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import DataStatus from '../../components/DataStatus.jsx';
 import useCachedResource from '../../hooks/useCachedResource.js';
+import useSession from '../../hooks/useSession.js';
 import {
   fetchFreelancerPipelineDashboard,
   createPipelineDeal,
@@ -13,13 +14,23 @@ import {
 } from '../../services/pipeline.js';
 import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
 
-const DEFAULT_OWNER_ID = 1;
 const viewLabels = {
   stage: 'Pipeline stages',
   industry: 'Industry segments',
   retainer_size: 'Retainer tiers',
   probability: 'Win likelihood',
 };
+
+function EmptyOwnerState({ title }) {
+  return (
+    <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">
+      <h3 className="text-sm font-semibold text-slate-700">{title}</h3>
+      <p className="mt-2 text-xs text-slate-500">
+        Sign in with a freelancer workspace to activate pipeline management.
+      </p>
+    </div>
+  );
+}
 
 function formatCurrency(value) {
   if (value == null) return '$0';
@@ -138,6 +149,9 @@ function DealsKanban({ grouping, stages, onStageChange }) {
 }
 
 function NewDealForm({ stages, campaigns, ownerId, onCreated }) {
+  if (!ownerId) {
+    return <EmptyOwnerState title="Add new relationship" />;
+  }
   const [form, setForm] = useState({
     title: '',
     clientName: '',
@@ -339,6 +353,9 @@ function NewDealForm({ stages, campaigns, ownerId, onCreated }) {
 }
 
 function NewProposalForm({ deals, templates, ownerId, onCreated }) {
+  if (!ownerId) {
+    return <EmptyOwnerState title="Draft proposal" />;
+  }
   const [form, setForm] = useState({ dealId: deals[0]?.id ?? '', templateId: '', status: 'draft', sentAt: '', acceptedAt: '' });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -470,6 +487,9 @@ function NewProposalForm({ deals, templates, ownerId, onCreated }) {
 }
 
 function NewFollowUpForm({ deals, ownerId, onSaved }) {
+  if (!ownerId) {
+    return <EmptyOwnerState title="Schedule follow-up" />;
+  }
   const [form, setForm] = useState({ dealId: deals[0]?.id ?? '', dueAt: '', channel: 'email', note: '' });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -586,6 +606,9 @@ function NewFollowUpForm({ deals, ownerId, onSaved }) {
 }
 
 function NewCampaignForm({ ownerId, onCreated }) {
+  if (!ownerId) {
+    return <EmptyOwnerState title="Launch nurture campaign" />;
+  }
   const [form, setForm] = useState({
     name: '',
     targetService: '',
@@ -830,12 +853,22 @@ const profile = {
 };
 
 export default function FreelancerPipelinePage() {
-  const ownerId = DEFAULT_OWNER_ID;
+  const { session } = useSession();
+  const rawOwnerId = session?.id;
+  const numericOwnerId =
+    rawOwnerId == null ? null : Number.isInteger(rawOwnerId) ? rawOwnerId : Number.parseInt(rawOwnerId, 10);
+  const ownerId = Number.isInteger(numericOwnerId) && numericOwnerId > 0 ? numericOwnerId : null;
+  const canLoad = ownerId != null;
   const [view, setView] = useState('stage');
   const { data, error, loading, fromCache, lastUpdated, refresh } = useCachedResource(
-    `freelancer:pipeline:${ownerId}:${view}`,
-    ({ signal }) => fetchFreelancerPipelineDashboard(ownerId, { view, signal }),
-    { dependencies: [ownerId, view] },
+    canLoad ? `freelancer:pipeline:${ownerId}:${view}` : `freelancer:pipeline:pending:${view}`,
+    ({ signal }) => {
+      if (!canLoad) {
+        return Promise.reject(new Error('Pipeline owner is not available.'));
+      }
+      return fetchFreelancerPipelineDashboard(ownerId, { view, signal });
+    },
+    { dependencies: [ownerId, view], enabled: canLoad },
   );
 
   const summary = data?.summary ?? {
@@ -857,6 +890,7 @@ export default function FreelancerPipelinePage() {
   const stageOptions = useMemo(() => stages, [stages]);
 
   const handleStageChange = async (deal, stageId) => {
+    if (!ownerId) return;
     if (stageId === deal.stageId) return;
     try {
       await updatePipelineDeal(ownerId, deal.id, { stageId });
@@ -867,6 +901,7 @@ export default function FreelancerPipelinePage() {
   };
 
   const handleFollowUpComplete = async (followUp) => {
+    if (!ownerId) return;
     try {
       await updatePipelineFollowUp(ownerId, followUp.id, { status: 'completed', completedAt: new Date().toISOString() });
       refresh({ force: true });
@@ -888,13 +923,23 @@ export default function FreelancerPipelinePage() {
     >
       <div className="space-y-8 px-4 py-8 sm:px-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <DataStatus loading={loading} fromCache={fromCache} lastUpdated={lastUpdated} onRefresh={() => refresh({ force: true })} />
+          <DataStatus
+            loading={loading && canLoad}
+            fromCache={fromCache}
+            lastUpdated={lastUpdated}
+            onRefresh={() => {
+              if (canLoad) {
+                refresh({ force: true });
+              }
+            }}
+          />
           <div className="flex items-center gap-3">
             <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Group by</span>
             <select
               value={view}
               onChange={(event) => setView(event.target.value)}
-              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm"
+              disabled={!canLoad}
+              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm disabled:cursor-not-allowed disabled:bg-slate-50"
             >
               {viewOptions.map((option) => (
                 <option key={option} value={option}>
