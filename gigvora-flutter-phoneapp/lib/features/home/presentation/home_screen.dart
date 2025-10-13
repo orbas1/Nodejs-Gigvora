@@ -151,54 +151,74 @@ class _DashboardHero extends StatelessWidget {
     final emphasisColor = colorScheme.primary.withOpacity(0.12);
 
     return GigvoraCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            dashboard.heroTitle,
-            style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            dashboard.heroSubtitle,
-            style: textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
+      padding: EdgeInsets.zero,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                colorScheme.primary.withOpacity(0.12),
+                colorScheme.primaryContainer.withOpacity(0.18),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
           ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
+          padding: const EdgeInsets.fromLTRB(28, 28, 28, 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _HeroPill(
-                icon: Icons.people_outline,
-                label: 'Connections',
-                value: session.connections.toString(),
-                backgroundColor: emphasisColor,
-              ),
-              _HeroPill(
-                icon: Icons.favorite_outline,
-                label: 'Followers',
-                value: session.followers.toString(),
-                backgroundColor: emphasisColor,
-              ),
-              if (session.companies.isNotEmpty)
-                _HeroPill(
-                  icon: Icons.business,
-                  label: 'Companies',
-                  value: session.companies.join(', '),
-                  backgroundColor: emphasisColor,
+              Text(
+                dashboard.heroTitle,
+                style: textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.onPrimaryContainer,
                 ),
-              if (session.agencies.isNotEmpty)
-                _HeroPill(
-                  icon: Icons.apartment_outlined,
-                  label: 'Agencies',
-                  value: session.agencies.join(', '),
-                  backgroundColor: emphasisColor,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                dashboard.heroSubtitle,
+                style: textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onPrimaryContainer.withOpacity(0.82),
                 ),
+              ),
+              const SizedBox(height: 20),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  _HeroPill(
+                    icon: Icons.people_outline,
+                    label: 'Connections',
+                    value: session.connections.toString(),
+                    backgroundColor: emphasisColor,
+                  ),
+                  _HeroPill(
+                    icon: Icons.favorite_outline,
+                    label: 'Followers',
+                    value: session.followers.toString(),
+                    backgroundColor: emphasisColor,
+                  ),
+                  if (session.companies.isNotEmpty)
+                    _HeroPill(
+                      icon: Icons.business,
+                      label: 'Companies',
+                      value: session.companies.join(', '),
+                      backgroundColor: emphasisColor,
+                    ),
+                  if (session.agencies.isNotEmpty)
+                    _HeroPill(
+                      icon: Icons.apartment_outlined,
+                      label: 'Agencies',
+                      value: session.agencies.join(', '),
+                      backgroundColor: emphasisColor,
+                    ),
+                ],
+              ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }

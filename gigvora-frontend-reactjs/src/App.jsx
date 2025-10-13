@@ -27,6 +27,7 @@ import SettingsPage from './pages/SettingsPage.jsx';
 import FinanceHubPage from './pages/FinanceHubPage.jsx';
 import AboutPage from './pages/AboutPage.jsx';
 import NotificationsPage from './pages/NotificationsPage.jsx';
+import RequireDashboardAccess from './components/auth/RequireDashboardAccess.jsx';
 import UserDashboardPage from './pages/dashboards/UserDashboardPage.jsx';
 import FreelancerDashboardPage from './pages/dashboards/FreelancerDashboardPage.jsx';
 import FreelancerPipelinePage from './pages/dashboards/FreelancerPipelinePage.jsx';
@@ -69,7 +70,14 @@ export default function App() {
         <Route path="settings" element={<SettingsPage />} />
         <Route path="finance" element={<FinanceHubPage />} />
       </Route>
-      <Route path="dashboard/user" element={<UserDashboardPage />} />
+      <Route
+        path="dashboard/user"
+        element={
+          <RequireDashboardAccess requiredRoles={["user"]}>
+            <UserDashboardPage />
+          </RequireDashboardAccess>
+        }
+      />
       <Route path="dashboard/freelancer" element={<FreelancerDashboardPage />} />
       <Route path="dashboard/freelancer/pipeline" element={<FreelancerPipelinePage />} />
       <Route path="dashboard/admin" element={<AdminDashboardPage />} />
