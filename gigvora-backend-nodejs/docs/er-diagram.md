@@ -16,6 +16,11 @@ erDiagram
   Message ||--o{ MessageAttachment : attaches
   User ||--o{ Notification : receives
   User ||--o{ NotificationPreference : configures
+  User ||--o{ GigOrder : fulfils
+  GigOrder ||--o{ GigOrderRequirementForm : collects
+  GigOrder ||--o{ GigOrderRevision : iterates
+  GigOrder ||--o{ GigOrderEscrowCheckpoint : secures
+  User ||--o{ GigOrderEscrowCheckpoint : releases
   ProviderWorkspace ||--o{ ProviderWorkspaceMember : includes
   ProviderWorkspace ||--o{ ProviderWorkspaceInvite : issues
   ProviderWorkspace ||--o{ ProviderContactNote : records
@@ -29,5 +34,6 @@ erDiagram
 - Double bars (`||`) indicate mandatory relationships (e.g., every `Application` requires a `User` applicant).
 - Circles (`o{`) represent optional multi-valued relationships, reflecting that workspaces can have zero or more invites or members at any time.
 - Analytics events are modelled as append-only records linked to the interaction that generated them, providing parity across applications, messaging, and provider operations.
+- Gig order entities capture the end-to-end freelancer fulfilment lifecycle, linking intake forms, revision loops, and escrow checkpoints back to freelancer and client actors for audit trails.
 
 Use the diagram alongside `schema-overview.md` to understand the authorised pathways for API design, caching, and analytics instrumentation.
