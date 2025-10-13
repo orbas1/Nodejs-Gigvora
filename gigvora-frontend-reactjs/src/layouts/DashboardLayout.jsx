@@ -136,6 +136,20 @@ export default function DashboardLayout({
                 <div key={section.label}>
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{section.label}</p>
                   <ul className="mt-3 space-y-2">
+                    {section.items.map((item) => {
+                      const ItemComponent = item.href ? 'a' : 'div';
+                      const itemProps = item.href
+                        ? { href: item.href, className: 'group flex flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50' }
+                        : { className: 'group flex flex-col gap-1 rounded-2xl border border-transparent bg-slate-100/70 p-3 transition hover:border-blue-300 hover:bg-blue-50' };
+
+                      return (
+                        <li key={item.name}>
+                          <ItemComponent {...itemProps}>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium text-slate-700">{item.name}</span>
+                              <ChevronRightIcon className="h-4 w-4 text-slate-400 transition group-hover:text-blue-500" />
+                            </div>
+                            {item.description ? <p className="text-xs text-slate-500">{item.description}</p> : null}
                     {section.items.map((item) => (
                       <li key={item.name}>
                         {(item.href ? 'a' : 'div') === 'a' ? (
@@ -260,6 +274,10 @@ export default function DashboardLayout({
                                 ))}
                               </div>
                             ) : null}
+                          </ItemComponent>
+                        </li>
+                      );
+                    })}
                           </Container>
                         </li>
                       );

@@ -169,6 +169,13 @@ export const FREELANCER_SUCCESS_TRENDS = ['up', 'down', 'steady'];
 export const FREELANCER_TESTIMONIAL_STATUSES = ['draft', 'scheduled', 'published', 'archived'];
 export const FREELANCER_HERO_BANNER_STATUSES = ['planned', 'testing', 'live', 'paused', 'archived'];
 
+export const FINANCE_VALUE_UNITS = ['currency', 'percentage', 'ratio', 'count'];
+export const FINANCE_CHANGE_UNITS = ['currency', 'percentage', 'percentage_points', 'count', 'ratio'];
+export const FINANCE_TRENDS = ['up', 'down', 'neutral'];
+export const FREELANCER_PAYOUT_STATUSES = ['released', 'scheduled', 'in_escrow', 'pending', 'failed'];
+export const FREELANCER_TAX_ESTIMATE_STATUSES = ['on_track', 'due_soon', 'past_due', 'paid', 'processing'];
+export const FREELANCER_FILING_STATUSES = ['not_started', 'in_progress', 'submitted', 'overdue'];
+
 export const User = sequelize.define(
   'User',
   {
@@ -3808,6 +3815,432 @@ FreelancerAssignmentMetric.prototype.toPublicObject = function toPublicObject() 
   };
 };
 
+function decimalToNumber(value) {
+  if (value == null) {
+    return null;
+  }
+  if (typeof value === 'number') {
+    return value;
+  }
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export const FreelancerFinanceMetric = sequelize.define(
+  'FreelancerFinanceMetric',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    metricKey: { type: DataTypes.STRING(64), allowNull: false },
+    label: { type: DataTypes.STRING(160), allowNull: false },
+    value: { type: DataTypes.DECIMAL(18, 4), allowNull: false, defaultValue: 0 },
+    valueUnit: {
+      type: DataTypes.ENUM(...FINANCE_VALUE_UNITS),
+      allowNull: false,
+      defaultValue: 'currency',
+      validate: { isIn: [FINANCE_VALUE_UNITS] },
+    },
+    currencyCode: { type: DataTypes.STRING(3), allowNull: true },
+    changeValue: { type: DataTypes.DECIMAL(18, 4), allowNull: true },
+    changeUnit: {
+      type: DataTypes.ENUM(...FINANCE_CHANGE_UNITS),
+      allowNull: true,
+      validate: { isIn: [FINANCE_CHANGE_UNITS] },
+    },
+    trend: {
+      type: DataTypes.ENUM(...FINANCE_TRENDS),
+      allowNull: false,
+      defaultValue: 'neutral',
+      validate: { isIn: [FINANCE_TRENDS] },
+    },
+    caption: { type: DataTypes.TEXT, allowNull: true },
+    effectiveAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'freelancer_finance_metrics',
+    indexes: [
+      { fields: ['freelancerId', 'metricKey'] },
+      { fields: ['freelancerId', 'effectiveAt'] },
+    ],
+  },
+);
+
+FreelancerFinanceMetric.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    metricKey: plain.metricKey,
+    label: plain.label,
+    value: decimalToNumber(plain.value),
+    valueUnit: plain.valueUnit,
+    currencyCode: plain.currencyCode,
+    changeValue: decimalToNumber(plain.changeValue),
+    changeUnit: plain.changeUnit,
+    trend: plain.trend,
+    caption: plain.caption,
+    effectiveAt: plain.effectiveAt,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const FreelancerRevenueMonthly = sequelize.define(
+  'FreelancerRevenueMonthly',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    month: { type: DataTypes.DATEONLY, allowNull: false },
+    bookedAmount: { type: DataTypes.DECIMAL(18, 2), allowNull: false, defaultValue: 0 },
+    realizedAmount: { type: DataTypes.DECIMAL(18, 2), allowNull: false, defaultValue: 0 },
+    currencyCode: { type: DataTypes.STRING(3), allowNull: true },
+  },
+  {
+    tableName: 'freelancer_revenue_monthlies',
+    indexes: [
+      { unique: true, fields: ['freelancerId', 'month'] },
+      { fields: ['freelancerId', 'createdAt'] },
+    ],
+  },
+);
+
+FreelancerRevenueMonthly.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    month: plain.month,
+    bookedAmount: decimalToNumber(plain.bookedAmount),
+    realizedAmount: decimalToNumber(plain.realizedAmount),
+    currencyCode: plain.currencyCode,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const FreelancerRevenueStream = sequelize.define(
+  'FreelancerRevenueStream',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    sharePercent: { type: DataTypes.DECIMAL(6, 2), allowNull: false, defaultValue: 0 },
+    monthlyRecurringRevenue: { type: DataTypes.DECIMAL(18, 2), allowNull: false, defaultValue: 0 },
+    currencyCode: { type: DataTypes.STRING(3), allowNull: true },
+    yoyChangePercent: { type: DataTypes.DECIMAL(6, 2), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'freelancer_revenue_streams',
+    indexes: [{ fields: ['freelancerId'] }],
+  },
+);
+
+FreelancerRevenueStream.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    name: plain.name,
+    sharePercent: decimalToNumber(plain.sharePercent),
+    monthlyRecurringRevenue: decimalToNumber(plain.monthlyRecurringRevenue),
+    currencyCode: plain.currencyCode,
+    yoyChangePercent: decimalToNumber(plain.yoyChangePercent),
+    notes: plain.notes,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const FreelancerPayout = sequelize.define(
+  'FreelancerPayout',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    payoutDate: { type: DataTypes.DATEONLY, allowNull: false },
+    clientName: { type: DataTypes.STRING(160), allowNull: false },
+    gigTitle: { type: DataTypes.STRING(160), allowNull: false },
+    amount: { type: DataTypes.DECIMAL(18, 2), allowNull: false, defaultValue: 0 },
+    currencyCode: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    status: {
+      type: DataTypes.ENUM(...FREELANCER_PAYOUT_STATUSES),
+      allowNull: false,
+      defaultValue: 'scheduled',
+      validate: { isIn: [FREELANCER_PAYOUT_STATUSES] },
+    },
+    reference: { type: DataTypes.STRING(120), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'freelancer_payouts',
+    indexes: [
+      { fields: ['freelancerId', 'payoutDate'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+FreelancerPayout.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    payoutDate: plain.payoutDate,
+    clientName: plain.clientName,
+    gigTitle: plain.gigTitle,
+    amount: decimalToNumber(plain.amount),
+    currencyCode: plain.currencyCode,
+    status: plain.status,
+    reference: plain.reference,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const FreelancerTaxEstimate = sequelize.define(
+  'FreelancerTaxEstimate',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    dueDate: { type: DataTypes.DATEONLY, allowNull: false },
+    amount: { type: DataTypes.DECIMAL(18, 2), allowNull: false, defaultValue: 0 },
+    currencyCode: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    status: {
+      type: DataTypes.ENUM(...FREELANCER_TAX_ESTIMATE_STATUSES),
+      allowNull: false,
+      defaultValue: 'on_track',
+      validate: { isIn: [FREELANCER_TAX_ESTIMATE_STATUSES] },
+    },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'freelancer_tax_estimates',
+    indexes: [{ fields: ['freelancerId', 'dueDate'] }],
+  },
+);
+
+FreelancerTaxEstimate.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    dueDate: plain.dueDate,
+    amount: decimalToNumber(plain.amount),
+    currencyCode: plain.currencyCode,
+    status: plain.status,
+    notes: plain.notes,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const FreelancerTaxFiling = sequelize.define(
+  'FreelancerTaxFiling',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(180), allowNull: false },
+    jurisdiction: { type: DataTypes.STRING(120), allowNull: true },
+    dueDate: { type: DataTypes.DATEONLY, allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...FREELANCER_FILING_STATUSES),
+      allowNull: false,
+      defaultValue: 'not_started',
+      validate: { isIn: [FREELANCER_FILING_STATUSES] },
+    },
+    submittedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'freelancer_tax_filings',
+    indexes: [
+      { fields: ['freelancerId'] },
+      { fields: ['dueDate'] },
+    ],
+  },
+);
+
+FreelancerTaxFiling.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    name: plain.name,
+    jurisdiction: plain.jurisdiction,
+    dueDate: plain.dueDate,
+    status: plain.status,
+    submittedAt: plain.submittedAt,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const FreelancerDeductionSummary = sequelize.define(
+  'FreelancerDeductionSummary',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    taxYear: { type: DataTypes.INTEGER, allowNull: false },
+    amount: { type: DataTypes.DECIMAL(18, 2), allowNull: false, defaultValue: 0 },
+    currencyCode: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    changePercentage: { type: DataTypes.DECIMAL(6, 2), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  {
+    tableName: 'freelancer_deduction_summaries',
+    indexes: [{ unique: true, fields: ['freelancerId', 'taxYear'] }],
+  },
+);
+
+FreelancerDeductionSummary.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    taxYear: plain.taxYear,
+    amount: decimalToNumber(plain.amount),
+    currencyCode: plain.currencyCode,
+    changePercentage: decimalToNumber(plain.changePercentage),
+    notes: plain.notes,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const FreelancerProfitabilityMetric = sequelize.define(
+  'FreelancerProfitabilityMetric',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    metricKey: { type: DataTypes.STRING(64), allowNull: false },
+    label: { type: DataTypes.STRING(160), allowNull: false },
+    value: { type: DataTypes.DECIMAL(10, 4), allowNull: false, defaultValue: 0 },
+    valueUnit: {
+      type: DataTypes.ENUM(...FINANCE_VALUE_UNITS),
+      allowNull: false,
+      defaultValue: 'percentage',
+      validate: { isIn: [FINANCE_VALUE_UNITS] },
+    },
+    changeValue: { type: DataTypes.DECIMAL(10, 4), allowNull: true },
+    changeUnit: {
+      type: DataTypes.ENUM(...FINANCE_CHANGE_UNITS),
+      allowNull: true,
+      validate: { isIn: [FINANCE_CHANGE_UNITS] },
+    },
+    currencyCode: { type: DataTypes.STRING(3), allowNull: true },
+  },
+  {
+    tableName: 'freelancer_profitability_metrics',
+    indexes: [{ fields: ['freelancerId', 'metricKey'] }],
+  },
+);
+
+FreelancerProfitabilityMetric.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    metricKey: plain.metricKey,
+    label: plain.label,
+    value: decimalToNumber(plain.value),
+    valueUnit: plain.valueUnit,
+    changeValue: decimalToNumber(plain.changeValue),
+    changeUnit: plain.changeUnit,
+    currencyCode: plain.currencyCode,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const FreelancerCostBreakdown = sequelize.define(
+  'FreelancerCostBreakdown',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    label: { type: DataTypes.STRING(160), allowNull: false },
+    percentage: { type: DataTypes.DECIMAL(6, 2), allowNull: false, defaultValue: 0 },
+    caption: { type: DataTypes.TEXT, allowNull: true },
+  },
+  {
+    tableName: 'freelancer_cost_breakdowns',
+    indexes: [{ fields: ['freelancerId'] }],
+  },
+);
+
+FreelancerCostBreakdown.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    label: plain.label,
+    percentage: decimalToNumber(plain.percentage),
+    caption: plain.caption,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const FreelancerSavingsGoal = sequelize.define(
+  'FreelancerSavingsGoal',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    targetAmount: { type: DataTypes.DECIMAL(18, 2), allowNull: false, defaultValue: 0 },
+    currencyCode: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    progress: { type: DataTypes.DECIMAL(6, 4), allowNull: false, defaultValue: 0 },
+    cadence: { type: DataTypes.STRING(160), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'freelancer_savings_goals',
+    indexes: [{ fields: ['freelancerId'] }],
+  },
+);
+
+FreelancerSavingsGoal.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    name: plain.name,
+    targetAmount: decimalToNumber(plain.targetAmount),
+    currencyCode: plain.currencyCode,
+    progress: decimalToNumber(plain.progress),
+    cadence: plain.cadence,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const FreelancerFinanceControl = sequelize.define(
+  'FreelancerFinanceControl',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    bullets: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'freelancer_finance_controls',
+    indexes: [{ fields: ['freelancerId'] }],
+  },
+);
+
+FreelancerFinanceControl.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    name: plain.name,
+    description: plain.description,
+    bullets: Array.isArray(plain.bullets) ? plain.bullets : [],
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 export const ProjectAssignmentEvent = sequelize.define(
   'ProjectAssignmentEvent',
   {
@@ -3968,6 +4401,38 @@ FreelancerProfile.belongsTo(User, { foreignKey: 'userId' });
 User.hasOne(FreelancerAssignmentMetric, { foreignKey: 'freelancerId', as: 'assignmentMetric' });
 FreelancerAssignmentMetric.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
 
+User.hasMany(FreelancerFinanceMetric, { foreignKey: 'freelancerId', as: 'financeMetrics' });
+FreelancerFinanceMetric.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
+User.hasMany(FreelancerRevenueMonthly, { foreignKey: 'freelancerId', as: 'revenueMonths' });
+FreelancerRevenueMonthly.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
+User.hasMany(FreelancerRevenueStream, { foreignKey: 'freelancerId', as: 'revenueStreams' });
+FreelancerRevenueStream.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
+User.hasMany(FreelancerPayout, { foreignKey: 'freelancerId', as: 'payouts' });
+FreelancerPayout.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
+User.hasMany(FreelancerTaxEstimate, { foreignKey: 'freelancerId', as: 'taxEstimates' });
+FreelancerTaxEstimate.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
+User.hasMany(FreelancerTaxFiling, { foreignKey: 'freelancerId', as: 'taxFilings' });
+FreelancerTaxFiling.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
+User.hasMany(FreelancerDeductionSummary, { foreignKey: 'freelancerId', as: 'deductionSummaries' });
+FreelancerDeductionSummary.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
+User.hasMany(FreelancerProfitabilityMetric, { foreignKey: 'freelancerId', as: 'profitabilityMetrics' });
+FreelancerProfitabilityMetric.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
+User.hasMany(FreelancerCostBreakdown, { foreignKey: 'freelancerId', as: 'costBreakdowns' });
+FreelancerCostBreakdown.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
+User.hasMany(FreelancerSavingsGoal, { foreignKey: 'freelancerId', as: 'savingsGoals' });
+FreelancerSavingsGoal.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
+User.hasMany(FreelancerFinanceControl, { foreignKey: 'freelancerId', as: 'financeControls' });
+FreelancerFinanceControl.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
 Gig.hasMany(GigOrder, { foreignKey: 'gigId', as: 'orders' });
 GigOrder.belongsTo(Gig, { foreignKey: 'gigId', as: 'gig' });
 
@@ -4662,6 +5127,17 @@ export default {
   DisputeEvent,
   SearchSubscription,
   FreelancerAssignmentMetric,
+  FreelancerFinanceMetric,
+  FreelancerRevenueMonthly,
+  FreelancerRevenueStream,
+  FreelancerPayout,
+  FreelancerTaxEstimate,
+  FreelancerTaxFiling,
+  FreelancerDeductionSummary,
+  FreelancerProfitabilityMetric,
+  FreelancerCostBreakdown,
+  FreelancerSavingsGoal,
+  FreelancerFinanceControl,
   ProjectAssignmentEvent,
   AutoAssignQueueEntry,
 };
