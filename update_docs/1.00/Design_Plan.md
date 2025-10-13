@@ -36,9 +36,11 @@ Deliver a cohesive, themeable Gigvora experience that makes talent discovery, bo
 - **Trust Center**: Operations-grade dashboard presenting escrow KPIs, release queues, dispute workload, and evidence health messaging with accessibility-first typography and audit copy.
 
 ### Provider Tools (Web & Mobile)
-- **Agency Dashboards**: Pipeline overview, financial health, and volunteer staffing views using new data visualisation tokens.
+- **Agency Dashboards**: Pipeline overview, financial health, payments distribution, and volunteer staffing views using new data visualisation tokens with export and payout status states.
 - **Company Dashboards**: ATS timeline, interview scheduler, and Launchpad readiness cards with contextual actions and theme-specific badges.
 - **Settings & Administration**: Unified preference pages for theme selection, security controls, and compliance documents.
+
+The payments distribution workspace introduces dedicated payout scorecards, outstanding split chips, teammate distribution tables, and export download controls so finance teams receive parity-ready specifications alongside the existing HR command centre assets.
 
 ## Design System & Theming
 - **Token Architecture**: Root tokens for colour, type scale, radius, elevation, opacity, and motion. Theme-specific tokens cascade to components and are exported to Flutter (JSON) and React (TypeScript). Theme switch toggles available to marketing for homepage/landing pages and to agencies for white-labelling.

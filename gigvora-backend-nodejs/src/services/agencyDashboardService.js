@@ -61,6 +61,9 @@ import {
   ResourceScenarioPlan,
   QualityReviewRun,
   FinancialEngagementSummary,
+  FinancePayoutBatch,
+  FinancePayoutSplit,
+  FinanceTaxExport,
   TalentCandidate,
   TalentInterview,
   TalentOffer,
@@ -1311,9 +1314,389 @@ function buildFinancialOversightInsights({ financialSummaries, escrowTransaction
   };
 }
 
+function startOfQuarter(date) {
+  const reference = parseDate(date) ?? new Date();
+  const quarterStartMonth = Math.floor(reference.getMonth() / 3) * 3;
+  const start = new Date(reference);
+  start.setMonth(quarterStartMonth, 1);
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
+function addCurrencyTotal(map, currencyCode, amount) {
+  const numeric = normaliseNumber(amount, 0);
+  if (!Number.isFinite(numeric) || numeric === 0) {
+    return;
+  }
+  const currency = (currencyCode || 'USD').toUpperCase();
+  map.set(currency, (map.get(currency) ?? 0) + numeric);
+}
+
+function currencyTotalsToArray(map) {
+  return Array.from(map.entries()).map(([currency, total]) => ({
+    currency,
+    amount: Math.round(total * 100) / 100,
+  }));
+}
+
+function findDominantCurrency(...maps) {
+  const aggregate = new Map();
+  maps.forEach((map) => {
+    if (!map || typeof map.forEach !== 'function') {
+      return;
+    }
+    map.forEach((value, currency) => {
+      aggregate.set(currency, (aggregate.get(currency) ?? 0) + value);
+    });
+  });
+  if (!aggregate.size) {
+    return 'USD';
+  }
+  const [topCurrency] = Array.from(aggregate.entries()).sort((a, b) => b[1] - a[1])[0];
+  return topCurrency;
+}
+
+function formatIso(value) {
+  const parsed = parseDate(value);
+  return parsed ? parsed.toISOString() : null;
+}
+
 function ensureArray(value) {
   if (!value) return [];
   return Array.isArray(value) ? value : [value];
+}
+
+function buildPaymentsDistributionInsights({
+  batches = [],
+  splits = [],
+  exports: exportRecords = [],
+  financialSummaries = [],
+  now = new Date(),
+} = {}) {
+  const normalizedBatches = ensureArray(batches);
+  const normalizedSplits = ensureArray(splits);
+  const normalizedExports = ensureArray(exportRecords);
+  const normalizedFinancials = ensureArray(financialSummaries);
+
+  const nowDate = parseDate(now) ?? new Date();
+  const quarterStart = startOfQuarter(nowDate);
+
+  const quarterTotals = new Map();
+  const scheduledTotals = new Map();
+  const outstandingTotals = new Map();
+  const failedTotals = new Map();
+  const invoiceOutstandingTotals = new Map();
+  const splitStatusBreakdown = {};
+
+  const splitsByBatch = groupByKey(normalizedSplits, 'batchId');
+  const batchMap = new Map();
+  normalizedBatches.forEach((batch) => {
+    if (batch?.id != null) {
+      batchMap.set(batch.id, batch);
+    }
+  });
+
+  let outstandingCount = 0;
+  let failedCount = 0;
+  let processingDurationTotal = 0;
+  let processingDurationCount = 0;
+
+  const upcomingBatches = [];
+
+  const detailedBatches = normalizedBatches
+    .slice()
+    .sort((a, b) => {
+      const aTime = parseDate(a?.executedAt ?? a?.scheduledAt ?? a?.createdAt)?.getTime() ?? 0;
+      const bTime = parseDate(b?.executedAt ?? b?.scheduledAt ?? b?.createdAt)?.getTime() ?? 0;
+      return bTime - aTime;
+    })
+    .map((batch) => {
+      if (!batch) return null;
+      const currency = (batch.currencyCode || 'USD').toUpperCase();
+      const executedAt = parseDate(batch.executedAt);
+      const scheduledAt = parseDate(batch.scheduledAt);
+      const createdAt = parseDate(batch.createdAt);
+      const totalAmount = normaliseNumber(batch.totalAmount, 0);
+
+      if (executedAt && executedAt >= quarterStart) {
+        addCurrencyTotal(quarterTotals, currency, totalAmount);
+      }
+
+      const batchSplits = splitsByBatch.get(batch.id) ?? [];
+      const completedSplits = [];
+      const failedSplits = [];
+      const inFlightSplits = [];
+
+      const splitSummaries = batchSplits
+        .map((split) => {
+          if (!split) return null;
+          const splitCurrency = (split.currencyCode || currency).toUpperCase();
+          const splitAmount = normaliseNumber(split.amount, 0);
+          const status = String(split.status ?? 'unknown').toLowerCase();
+          splitStatusBreakdown[status] = (splitStatusBreakdown[status] ?? 0) + 1;
+
+          if (status === 'completed') {
+            completedSplits.push(split);
+          } else if (status === 'failed') {
+            failedSplits.push(split);
+            addCurrencyTotal(failedTotals, splitCurrency, splitAmount);
+          } else {
+            inFlightSplits.push(split);
+            addCurrencyTotal(outstandingTotals, splitCurrency, splitAmount);
+          }
+
+          return {
+            id: split.id,
+            teammateName: split.teammateName,
+            teammateRole: split.teammateRole ?? null,
+            status,
+            amount: Math.round(splitAmount * 100) / 100,
+            currency: splitCurrency,
+            sharePercentage: split.sharePercentage == null ? null : Number(split.sharePercentage),
+            recipientEmail: split.recipientEmail ?? null,
+          };
+        })
+        .filter(Boolean);
+
+      outstandingCount += inFlightSplits.length;
+      failedCount += failedSplits.length;
+
+      if ((!executedAt || batch.status !== 'completed') && scheduledAt && scheduledAt >= nowDate) {
+        addCurrencyTotal(scheduledTotals, currency, totalAmount);
+        upcomingBatches.push({
+          id: batch.id,
+          name: batch.name,
+          scheduledAt: scheduledAt.toISOString(),
+          totalAmount: Math.round(totalAmount * 100) / 100,
+          currency,
+          outstandingSplits: inFlightSplits.length,
+        });
+      }
+
+      if (executedAt && (scheduledAt || createdAt)) {
+        const baseline = scheduledAt ?? createdAt;
+        const durationDays = Math.max(0, (executedAt.getTime() - baseline.getTime()) / (1000 * 60 * 60 * 24));
+        processingDurationTotal += durationDays;
+        processingDurationCount += 1;
+      }
+
+      return {
+        id: batch.id,
+        name: batch.name,
+        status: batch.status,
+        currency,
+        totalAmount: Math.round(totalAmount * 100) / 100,
+        executedAt: executedAt ? executedAt.toISOString() : null,
+        scheduledAt: scheduledAt ? scheduledAt.toISOString() : null,
+        completionRate: batchSplits.length ? completedSplits.length / batchSplits.length : null,
+        outstandingSplits: inFlightSplits.length,
+        failedSplits: failedSplits.length,
+        splits: splitSummaries,
+        metadata: batch.metadata ?? null,
+      };
+    })
+    .filter(Boolean);
+
+  normalizedFinancials.forEach((summary) => {
+    if (!summary) return;
+    const currency = (summary.billingCurrency || 'USD').toUpperCase();
+    const outstanding = normaliseNumber(summary.outstandingAmount, 0);
+    if (outstanding > 0) {
+      addCurrencyTotal(invoiceOutstandingTotals, currency, outstanding);
+    }
+  });
+
+  const invoiceOutstandingCount = normalizedFinancials.filter(
+    (summary) => normaliseNumber(summary?.outstandingAmount, 0) > 0,
+  ).length;
+
+  const teammateMap = new Map();
+  normalizedSplits.forEach((split) => {
+    if (!split) return;
+    const batch = batchMap.get(split.batchId);
+    const currency = (split.currencyCode || batch?.currencyCode || 'USD').toUpperCase();
+    const amount = normaliseNumber(split.amount, 0);
+    const key = `${split.teammateName ?? 'Team member'}|${split.recipientEmail ?? ''}|${split.teammateRole ?? ''}`;
+    if (!teammateMap.has(key)) {
+      teammateMap.set(key, {
+        teammateName: split.teammateName ?? 'Team member',
+        teammateRole: split.teammateRole ?? null,
+        recipientEmail: split.recipientEmail ?? null,
+        totalAmount: 0,
+        currencyBreakdown: new Map(),
+        shareSum: 0,
+        shareCount: 0,
+        statusBreakdown: {},
+        lastPaidAt: null,
+      });
+    }
+    const entry = teammateMap.get(key);
+    entry.totalAmount += amount;
+    entry.currencyBreakdown.set(currency, (entry.currencyBreakdown.get(currency) ?? 0) + amount);
+    if (split.sharePercentage != null && Number.isFinite(Number(split.sharePercentage))) {
+      entry.shareSum += Number(split.sharePercentage);
+      entry.shareCount += 1;
+    }
+    const status = String(split.status ?? 'unknown').toLowerCase();
+    entry.statusBreakdown[status] = (entry.statusBreakdown[status] ?? 0) + 1;
+    const executedAt = parseDate(batch?.executedAt);
+    if (executedAt && (!entry.lastPaidAt || executedAt > entry.lastPaidAt)) {
+      entry.lastPaidAt = executedAt;
+    }
+  });
+
+  const teammates = Array.from(teammateMap.values())
+    .map((entry) => {
+      const currencyRanking = Array.from(entry.currencyBreakdown.entries()).sort((a, b) => b[1] - a[1]);
+      const primaryCurrency = currencyRanking[0]?.[0] ?? 'USD';
+      return {
+        teammateName: entry.teammateName,
+        teammateRole: entry.teammateRole,
+        recipientEmail: entry.recipientEmail,
+        totalAmount: Math.round(entry.totalAmount * 100) / 100,
+        currency: primaryCurrency,
+        currencyBreakdown: currencyRanking.map(([currency, total]) => ({
+          currency,
+          amount: Math.round(total * 100) / 100,
+        })),
+        averageSharePercentage:
+          entry.shareCount > 0 ? Math.round((entry.shareSum / entry.shareCount) * 100) / 100 : null,
+        statusBreakdown: entry.statusBreakdown,
+        lastPaidAt: entry.lastPaidAt ? entry.lastPaidAt.toISOString() : null,
+      };
+    })
+    .sort((a, b) => b.totalAmount - a.totalAmount)
+    .slice(0, 20);
+
+  const sanitizedExports = normalizedExports
+    .slice()
+    .sort((a, b) => {
+      const aTime = parseDate(a?.generatedAt ?? a?.createdAt)?.getTime() ?? 0;
+      const bTime = parseDate(b?.generatedAt ?? b?.createdAt)?.getTime() ?? 0;
+      return bTime - aTime;
+    })
+    .map((record) => ({
+      id: record.id,
+      exportType: record.exportType,
+      status: String(record.status ?? 'unknown').toLowerCase(),
+      amount: Math.round(normaliseNumber(record.amount, 0) * 100) / 100,
+      currency: (record.currencyCode || 'USD').toUpperCase(),
+      periodStart: formatIso(record.periodStart),
+      periodEnd: formatIso(record.periodEnd),
+      generatedAt: formatIso(record.generatedAt ?? record.createdAt),
+      downloadUrl: record.downloadUrl ?? null,
+      metadata: record.metadata ?? null,
+    }));
+
+  const availableExports = sanitizedExports.filter((record) => record.status === 'available');
+  const generatingExports = sanitizedExports.filter((record) => record.status === 'generating');
+  const failedExports = sanitizedExports.filter((record) => record.status === 'failed');
+  const archivedExports = sanitizedExports.filter((record) => record.status === 'archived');
+  const latestExport = availableExports[0] ?? sanitizedExports[0] ?? null;
+
+  const averageProcessingTimeDays =
+    processingDurationCount > 0 ? Math.round((processingDurationTotal / processingDurationCount) * 10) / 10 : null;
+
+  const recommendedActions = [];
+  if (outstandingCount > 0) {
+    recommendedActions.push({
+      type: 'outstanding_splits',
+      severity: outstandingCount > 5 ? 'warning' : 'info',
+      message: `Review ${outstandingCount} in-flight payout split${outstandingCount === 1 ? '' : 's'} awaiting approval.`,
+    });
+  }
+  if (failedCount > 0) {
+    recommendedActions.push({
+      type: 'failed_splits',
+      severity: 'critical',
+      message: `Retry ${failedCount} failed payout split${failedCount === 1 ? '' : 's'} before the next payment cycle.`,
+    });
+  }
+  if (!availableExports.length) {
+    recommendedActions.push({
+      type: 'export_schedule',
+      severity: 'warning',
+      message: 'Schedule a finance export to keep ledger reconciliations up to date.',
+    });
+  } else if (latestExport?.generatedAt) {
+    const latestExportDate = parseDate(latestExport.generatedAt);
+    const daysSinceLatest =
+      latestExportDate != null ? Math.floor((nowDate.getTime() - latestExportDate.getTime()) / (1000 * 60 * 60 * 24)) : null;
+    if (daysSinceLatest != null && daysSinceLatest > 30) {
+      recommendedActions.push({
+        type: 'export_refresh',
+        severity: 'info',
+        message: 'Last finance export is older than 30 days. Generate a fresh export for audit readiness.',
+      });
+    }
+  }
+  if (invoiceOutstandingCount > 0) {
+    recommendedActions.push({
+      type: 'invoice_collection',
+      severity: invoiceOutstandingCount > 3 ? 'warning' : 'info',
+      message: `Follow up on ${invoiceOutstandingCount} engagement${invoiceOutstandingCount === 1 ? '' : 's'} with outstanding invoices.`,
+    });
+  }
+
+  const dominantCurrency = findDominantCurrency(
+    quarterTotals,
+    scheduledTotals,
+    outstandingTotals,
+    invoiceOutstandingTotals,
+  );
+
+  const sortedUpcoming = upcomingBatches
+    .slice()
+    .sort((a, b) => (parseDate(a.scheduledAt)?.getTime() ?? 0) - (parseDate(b.scheduledAt)?.getTime() ?? 0));
+
+  return {
+    summary: {
+      totalBatches: normalizedBatches.length,
+      totalSplits: normalizedSplits.length,
+      processedThisQuarter: currencyTotalsToArray(quarterTotals),
+      upcomingBatches: {
+        count: sortedUpcoming.length,
+        totals: currencyTotalsToArray(scheduledTotals),
+        nextScheduledAt: sortedUpcoming[0]?.scheduledAt ?? null,
+      },
+      outstandingSplits: {
+        count: outstandingCount,
+        totals: currencyTotalsToArray(outstandingTotals),
+      },
+      failedSplits: {
+        count: failedCount,
+        totals: currencyTotalsToArray(failedTotals),
+      },
+      averageProcessingTimeDays,
+      invoiceOutstanding: currencyTotalsToArray(invoiceOutstandingTotals),
+      invoiceOutstandingCount,
+      splitStatusBreakdown,
+      currency: dominantCurrency,
+    },
+    batches: detailedBatches.slice(0, 20),
+    upcomingBatches: sortedUpcoming.slice(0, 10),
+    teammates,
+    exports: {
+      summary: {
+        total: sanitizedExports.length,
+        available: availableExports.length,
+        generating: generatingExports.length,
+        failed: failedExports.length,
+        archived: archivedExports.length,
+      },
+      latest: latestExport,
+      available: availableExports.slice(0, 10),
+      generating: generatingExports.slice(0, 10),
+      failed: failedExports.slice(0, 10),
+      archived: archivedExports.slice(0, 10),
+    },
+    insights: {
+      invoiceOutstanding: currencyTotalsToArray(invoiceOutstandingTotals),
+      invoiceOutstandingCount,
+      splitStatus: splitStatusBreakdown,
+      recommendedActions,
+    },
+  };
 }
 
 function calculateDaysBetween(start, end) {
@@ -2724,6 +3107,9 @@ export async function getAgencyDashboard({ workspaceId, workspaceSlug, lookbackD
       };
     });
     const financialSummaries = financialSummaryRows.map((row) => row.toPublicObject());
+    const payoutBatches = payoutBatchRows.map((row) => row.toPublicObject());
+    const payoutSplits = payoutSplitRows.map((row) => row.toPublicObject());
+    const financeExports = financeExportRows.map((row) => row.toPublicObject());
 
     const agencyProfilePlain = agencyProfile ? agencyProfile.get({ plain: true }) : null;
 
@@ -2759,6 +3145,39 @@ export async function getAgencyDashboard({ workspaceId, workspaceSlug, lookbackD
 
     const gigIds = gigSummaries.map((gig) => gig.id).filter((id) => Number.isInteger(id));
     const workspaceOwnerId = workspace?.ownerId ?? null;
+
+    let payoutBatchRows = [];
+    let payoutSplitRows = [];
+    let financeExportRows = [];
+
+    if (workspaceOwnerId) {
+      [payoutBatchRows, financeExportRows] = await Promise.all([
+        FinancePayoutBatch.findAll({
+          where: { userId: workspaceOwnerId },
+          order: [
+            ['executedAt', 'DESC'],
+            ['scheduledAt', 'DESC'],
+          ],
+          limit: 24,
+        }),
+        FinanceTaxExport.findAll({
+          where: { userId: workspaceOwnerId },
+          order: [['generatedAt', 'DESC']],
+          limit: 20,
+        }),
+      ]);
+    }
+
+    const payoutBatchIds = payoutBatchRows.map((batch) => batch.id).filter((id) => Number.isInteger(id));
+    if (payoutBatchIds.length) {
+      payoutSplitRows = await FinancePayoutSplit.findAll({
+        where: { batchId: { [Op.in]: payoutBatchIds } },
+        order: [
+          ['batchId', 'ASC'],
+          ['createdAt', 'ASC'],
+        ],
+      });
+    }
 
     let gigPackageRows = [];
     let gigAddonRows = [];
@@ -3217,6 +3636,13 @@ export async function getAgencyDashboard({ workspaceId, workspaceSlug, lookbackD
       financialSummaries,
       escrowTransactions,
     });
+    const paymentsDistribution = buildPaymentsDistributionInsights({
+      batches: payoutBatches,
+      splits: payoutSplits,
+      exports: financeExports,
+      financialSummaries,
+      now,
+    });
     const talentCrm = buildTalentCrmSummary(
       talentCandidateRows,
       talentInterviewRows,
@@ -3422,6 +3848,7 @@ export async function getAgencyDashboard({ workspaceId, workspaceSlug, lookbackD
           jobs: jobSummaries,
         },
       },
+      paymentsDistribution,
     };
 
     return {
@@ -3448,6 +3875,7 @@ export async function getAgencyDashboard({ workspaceId, workspaceSlug, lookbackD
         resourceIntelligence: resourceIntelligenceInsights.summary,
         quality: qualityWorkflowInsights.summary,
         financialOversight: financialOversightInsights.summary,
+        paymentsDistribution: paymentsDistribution.summary,
       },
       executive,
       members: {
@@ -3488,6 +3916,7 @@ export async function getAgencyDashboard({ workspaceId, workspaceSlug, lookbackD
         clientAdvocacy: clientAdvocacyInsights,
       },
       ads,
+      paymentsDistribution,
       refreshedAt: new Date().toISOString(),
     };
   });
