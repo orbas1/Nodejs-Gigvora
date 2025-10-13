@@ -18,6 +18,7 @@ import MentorsPage from './pages/MentorsPage.jsx';
 import VolunteeringPage from './pages/VolunteeringPage.jsx';
 import AdminLoginPage from './pages/AdminLoginPage.jsx';
 import GroupsPage from './pages/GroupsPage.jsx';
+import GroupProfilePage from './pages/GroupProfilePage.jsx';
 import PagesPage from './pages/PagesPage.jsx';
 import ConnectionsPage from './pages/ConnectionsPage.jsx';
 import TrustCenterPage from './pages/TrustCenter.jsx';
@@ -41,6 +42,9 @@ import HeadhunterDashboardPage from './pages/dashboards/HeadhunterDashboardPage.
 import CompanyNetworkingHubPage from './pages/networking/CompanyNetworkingHubPage.jsx';
 import MentorDashboardPage from './pages/dashboards/MentorDashboardPage.jsx';
 import LaunchpadOperationsPage from './pages/dashboards/LaunchpadOperationsPage.jsx';
+import ProtectedRoute from './components/routing/ProtectedRoute.jsx';
+
+const COMMUNITY_ACCESS_MEMBERSHIPS = ['user', 'freelancer', 'agency', 'company', 'mentor', 'headhunter'];
 import RequireMembership from './components/auth/RequireMembership.jsx';
 import RoleProtectedRoute from './components/auth/RoleProtectedRoute.jsx';
 
@@ -64,6 +68,10 @@ export default function App() {
         <Route path="experience-launchpad" element={<LaunchpadPage />} />
         <Route path="mentors" element={<MentorsPage />} />
         <Route path="volunteering" element={<VolunteeringPage />} />
+        <Route element={<ProtectedRoute requiredMemberships={COMMUNITY_ACCESS_MEMBERSHIPS} />}>
+          <Route path="groups" element={<GroupsPage />} />
+          <Route path="groups/:groupId" element={<GroupProfilePage />} />
+        </Route>
         <Route path="groups" element={<GroupsPage />} />
         <Route path="pages" element={<PagesPage />} />
         <Route path="connections" element={<ConnectionsPage />} />

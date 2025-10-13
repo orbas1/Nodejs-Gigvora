@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/providers.dart';
@@ -100,6 +103,12 @@ class ProfileScreen extends ConsumerWidget {
               if (profile.groups.isNotEmpty)
                 _GroupsCard(
                   groups: profile.groups,
+                  onGroupTap: (group) async {
+                    unawaited(controller.recordGroupTap(group));
+                    if (context.mounted) {
+                      GoRouter.of(context).push('/groups/${group.id}');
+                    }
+                  },
                   onGroupTap: controller.recordGroupTap,
             if (profile.metrics.isNotEmpty)
               _ProfileMetricsCard(metrics: profile.metrics),
