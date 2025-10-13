@@ -1,6 +1,7 @@
 import { User } from '../models/index.js';
 import profileService from '../services/profileService.js';
 import userDashboardService from '../services/userDashboardService.js';
+import gigManagerService from '../services/gigManagerService.js';
 
 export async function listUsers(req, res) {
   const limitParam = Number.parseInt(req.query.limit ?? '20', 10);
@@ -56,4 +57,11 @@ export async function getUserDashboard(req, res) {
     bypassCache: req.query.fresh === 'true',
   });
   res.json(dashboard);
+}
+
+export async function getGigManagerSnapshot(req, res) {
+  const snapshot = await gigManagerService.getGigManagerSnapshot(req.params.id, {
+    bypassCache: req.query.fresh === 'true',
+  });
+  res.json(snapshot);
 }
