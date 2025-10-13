@@ -91,6 +91,18 @@ export const LAUNCHPAD_EMPLOYER_REQUEST_STATUSES = ['new', 'needs_review', 'appr
 export const LAUNCHPAD_PLACEMENT_STATUSES = ['scheduled', 'in_progress', 'completed', 'cancelled'];
 export const LAUNCHPAD_TARGET_TYPES = ['job', 'gig', 'project'];
 export const LAUNCHPAD_OPPORTUNITY_SOURCES = ['employer_request', 'placement', 'manual'];
+export const WORKSPACE_TEMPLATE_STATUSES = ['draft', 'active', 'deprecated'];
+export const WORKSPACE_TEMPLATE_VISIBILITIES = ['public', 'private'];
+export const WORKSPACE_TEMPLATE_STAGE_TYPES = ['intake', 'strategy', 'production', 'delivery', 'retainer', 'quality', 'retro'];
+export const WORKSPACE_TEMPLATE_RESOURCE_TYPES = [
+  'sop',
+  'checklist',
+  'questionnaire',
+  'automation',
+  'asset',
+  'video',
+  'integration',
+];
 
 export const User = sequelize.define(
   'User',
@@ -1250,6 +1262,171 @@ ProviderContactNote.prototype.toPublicObject = function toPublicObject() {
   return this.get({ plain: true });
 };
 
+export const WorkspaceTemplateCategory = sequelize.define(
+  'WorkspaceTemplateCategory',
+  {
+    slug: { type: DataTypes.STRING(120), allowNull: false, unique: true },
+    name: { type: DataTypes.STRING(180), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    icon: { type: DataTypes.STRING(120), allowNull: true },
+    sortOrder: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  },
+  {
+    tableName: 'workspace_template_categories',
+    indexes: [{ fields: ['sortOrder'] }],
+  },
+);
+
+export const WorkspaceTemplate = sequelize.define(
+  'WorkspaceTemplate',
+  {
+    categoryId: { type: DataTypes.INTEGER, allowNull: false },
+    slug: { type: DataTypes.STRING(150), allowNull: false, unique: true },
+    name: { type: DataTypes.STRING(200), allowNull: false },
+    tagline: { type: DataTypes.STRING(255), allowNull: true },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    industry: { type: DataTypes.STRING(120), allowNull: true },
+    workflowType: { type: DataTypes.STRING(120), allowNull: true },
+    recommendedTeamSize: { type: DataTypes.STRING(60), allowNull: true },
+    estimatedDurationDays: { type: DataTypes.INTEGER, allowNull: true },
+    automationLevel: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    qualityScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...WORKSPACE_TEMPLATE_STATUSES),
+      allowNull: false,
+      defaultValue: 'active',
+      validate: { isIn: [WORKSPACE_TEMPLATE_STATUSES] },
+    },
+    visibility: {
+      type: DataTypes.ENUM(...WORKSPACE_TEMPLATE_VISIBILITIES),
+      allowNull: false,
+      defaultValue: 'public',
+      validate: { isIn: [WORKSPACE_TEMPLATE_VISIBILITIES] },
+    },
+    clientExperience: { type: DataTypes.TEXT, allowNull: true },
+    requirementChecklist: { type: jsonType, allowNull: true },
+    onboardingSequence: { type: jsonType, allowNull: true },
+    deliverables: { type: jsonType, allowNull: true },
+    metrics: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    lastPublishedAt: { type: DataTypes.DATE, allowNull: true },
+    archivedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'workspace_templates',
+    indexes: [
+      { fields: ['categoryId', 'status'] },
+      { fields: ['slug'], unique: true },
+      { fields: ['industry'] },
+    ],
+  },
+);
+
+export const WorkspaceTemplateStage = sequelize.define(
+  'WorkspaceTemplateStage',
+  {
+    templateId: { type: DataTypes.INTEGER, allowNull: false },
+    slug: { type: DataTypes.STRING(150), allowNull: false },
+    title: { type: DataTypes.STRING(200), allowNull: false },
+    stageType: {
+      type: DataTypes.ENUM(...WORKSPACE_TEMPLATE_STAGE_TYPES),
+      allowNull: false,
+      defaultValue: 'production',
+      validate: { isIn: [WORKSPACE_TEMPLATE_STAGE_TYPES] },
+    },
+    sortOrder: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    checklists: { type: jsonType, allowNull: true },
+    questionnaires: { type: jsonType, allowNull: true },
+    automations: { type: jsonType, allowNull: true },
+    deliverables: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'workspace_template_stages',
+    indexes: [{ fields: ['templateId', 'sortOrder'] }],
+  },
+);
+
+export const WorkspaceTemplateResource = sequelize.define(
+  'WorkspaceTemplateResource',
+  {
+    templateId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(200), allowNull: false },
+    resourceType: {
+      type: DataTypes.ENUM(...WORKSPACE_TEMPLATE_RESOURCE_TYPES),
+      allowNull: false,
+      defaultValue: 'asset',
+      validate: { isIn: [WORKSPACE_TEMPLATE_RESOURCE_TYPES] },
+    },
+    url: { type: DataTypes.STRING(500), allowNull: true },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    sortOrder: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  },
+  {
+    tableName: 'workspace_template_resources',
+    indexes: [{ fields: ['templateId', 'resourceType'] }],
+  },
+);
+
+WorkspaceTemplate.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    slug: plain.slug,
+    name: plain.name,
+    tagline: plain.tagline ?? null,
+    description: plain.description ?? null,
+    industry: plain.industry ?? null,
+    workflowType: plain.workflowType ?? null,
+    recommendedTeamSize: plain.recommendedTeamSize ?? null,
+    estimatedDurationDays: plain.estimatedDurationDays ?? null,
+    automationLevel: Number.isFinite(Number(plain.automationLevel)) ? Number(plain.automationLevel) : 0,
+    qualityScore: plain.qualityScore != null ? Number(plain.qualityScore) : null,
+    status: plain.status,
+    visibility: plain.visibility,
+    clientExperience: plain.clientExperience ?? null,
+    requirementChecklist: Array.isArray(plain.requirementChecklist) ? plain.requirementChecklist : [],
+    onboardingSequence: Array.isArray(plain.onboardingSequence) ? plain.onboardingSequence : [],
+    deliverables: Array.isArray(plain.deliverables) ? plain.deliverables : [],
+    metrics: Array.isArray(plain.metrics) ? plain.metrics : [],
+    metadata: plain.metadata ?? {},
+    lastPublishedAt: plain.lastPublishedAt ?? null,
+    archivedAt: plain.archivedAt ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+WorkspaceTemplateStage.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    slug: plain.slug,
+    title: plain.title,
+    stageType: plain.stageType,
+    sortOrder: plain.sortOrder,
+    description: plain.description ?? null,
+    checklists: Array.isArray(plain.checklists) ? plain.checklists : [],
+    questionnaires: Array.isArray(plain.questionnaires) ? plain.questionnaires : [],
+    automations: Array.isArray(plain.automations) ? plain.automations : [],
+    deliverables: Array.isArray(plain.deliverables) ? plain.deliverables : [],
+  };
+};
+
+WorkspaceTemplateResource.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    title: plain.title,
+    resourceType: plain.resourceType,
+    url: plain.url ?? null,
+    description: plain.description ?? null,
+    metadata: plain.metadata ?? {},
+    sortOrder: plain.sortOrder ?? 0,
+  };
+};
+
 export const EscrowAccount = sequelize.define(
   'EscrowAccount',
   {
@@ -1813,6 +1990,13 @@ ProviderContactNote.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as
 ProviderContactNote.belongsTo(User, { foreignKey: 'authorId', as: 'author' });
 ProviderContactNote.belongsTo(User, { foreignKey: 'subjectUserId', as: 'subject' });
 
+WorkspaceTemplateCategory.hasMany(WorkspaceTemplate, { foreignKey: 'categoryId', as: 'templates' });
+WorkspaceTemplate.belongsTo(WorkspaceTemplateCategory, { foreignKey: 'categoryId', as: 'category' });
+WorkspaceTemplate.hasMany(WorkspaceTemplateStage, { foreignKey: 'templateId', as: 'stages' });
+WorkspaceTemplate.hasMany(WorkspaceTemplateResource, { foreignKey: 'templateId', as: 'resources' });
+WorkspaceTemplateStage.belongsTo(WorkspaceTemplate, { foreignKey: 'templateId', as: 'template' });
+WorkspaceTemplateResource.belongsTo(WorkspaceTemplate, { foreignKey: 'templateId', as: 'template' });
+
 User.hasMany(EscrowAccount, { foreignKey: 'userId', as: 'escrowAccounts' });
 EscrowAccount.belongsTo(User, { foreignKey: 'userId', as: 'owner' });
 EscrowAccount.hasMany(EscrowTransaction, { foreignKey: 'accountId', as: 'transactions' });
@@ -1870,6 +2054,10 @@ export default {
   ProviderWorkspaceMember,
   ProviderWorkspaceInvite,
   ProviderContactNote,
+  WorkspaceTemplateCategory,
+  WorkspaceTemplate,
+  WorkspaceTemplateStage,
+  WorkspaceTemplateResource,
   EscrowAccount,
   EscrowTransaction,
   DisputeCase,

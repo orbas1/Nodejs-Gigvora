@@ -1,9 +1,18 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import WorkspaceTemplatesSection from '../../components/WorkspaceTemplatesSection.jsx';
+import { fetchWorkspaceTemplates } from '../../services/workspaceTemplates.js';
 
-const menuSections = [
+const BASE_MENU_SECTIONS = [
   {
     label: 'Service delivery',
     items: [
+      {
+        name: 'Workspace templates',
+        description: 'Industry-specific playbooks, requirement questionnaires, and automated onboarding flows.',
+        tags: ['templates', 'automation'],
+        href: '#workspace-templates',
+      },
       {
         name: 'Project workspace dashboard',
         description: 'Unified workspace for briefs, assets, conversations, and approvals.',
@@ -56,7 +65,7 @@ const menuSections = [
   },
 ];
 
-const capabilitySections = [
+const BASE_CAPABILITY_SECTIONS = [
   {
     title: 'Project workspace excellence',
     description:
@@ -67,9 +76,14 @@ const capabilitySections = [
         description:
           'Kickstart delivery with industry-specific playbooks, requirement questionnaires, and automated onboarding flows.',
         bulletPoints: [
-          'Standard operating procedures and checklists for repeat work.',
-          'Client welcome sequences and kickoff survey automation.',
+          'Pre-built workspace layouts for marketing, product design, development, video, and consulting practices.',
+          'Standard operating procedures with reusable task lists, dependencies, and milestone sign-offs.',
+          'Interactive requirement questionnaires that branch based on client inputs and service tiers.',
+          'Client welcome sequences with automated kickoff surveys, contract packets, and onboarding videos.',
+          'Role-based permissions and assignment presets for collaborators, reviewers, and finance approvers.',
+          'Template governance that tracks revisions, owners, and adoption analytics across your team.',
         ],
+        callout: 'Launch new client workspaces in minutes while keeping delivery standards consistent.',
       },
       {
         name: 'Task & sprint manager',
@@ -248,6 +262,163 @@ const profile = {
 const availableDashboards = ['freelancer', 'user', 'agency'];
 
 export default function FreelancerDashboardPage() {
+  const [templatesState, setTemplatesState] = useState({ data: null, loading: true, error: null });
+  const [activeCategory, setActiveCategory] = useState('all');
+  const [selectedTemplateSlug, setSelectedTemplateSlug] = useState(null);
+
+  const loadTemplates = useCallback(() => {
+    setTemplatesState((previous) => ({ ...previous, loading: true, error: null }));
+
+    fetchWorkspaceTemplates({ workspaceType: 'freelancer', includeStages: true, includeResources: true })
+      .then((payload) => {
+        setTemplatesState({ data: payload, loading: false, error: null });
+      })
+      .catch((error) => {
+        setTemplatesState({
+          data: null,
+          loading: false,
+          error: error.message ?? 'Unable to load workspace templates.',
+        });
+      });
+  }, []);
+
+  useEffect(() => {
+    loadTemplates();
+  }, [loadTemplates]);
+
+  const templates = templatesState.data?.templates ?? [];
+  const categories = templatesState.data?.categories ?? [];
+  const meta = templatesState.data?.meta ?? null;
+  const stats = templatesState.data?.stats ?? null;
+
+  useEffect(() => {
+    if (templatesState.loading || templatesState.error) {
+      return;
+    }
+    if (!templates.length) {
+      setSelectedTemplateSlug(null);
+      return;
+    }
+    setSelectedTemplateSlug((current) => {
+      if (current && templates.some((template) => template.slug === current)) {
+        return current;
+      }
+      return templates[0].slug;
+    });
+  }, [templatesState.loading, templatesState.error, templates]);
+
+  useEffect(() => {
+    if (activeCategory === 'all') {
+      return;
+    }
+    const availableSlugs = new Set(categories.map((category) => category.slug));
+    if (!availableSlugs.has(activeCategory)) {
+      setActiveCategory('all');
+    }
+  }, [activeCategory, categories]);
+
+  const filteredTemplates = useMemo(() => {
+    if (activeCategory === 'all') {
+      return templates;
+    }
+    return templates.filter((template) => template.category?.slug === activeCategory);
+  }, [templates, activeCategory]);
+
+  useEffect(() => {
+    if (templatesState.loading) {
+      return;
+    }
+    if (!filteredTemplates.length) {
+      if (!templates.length) {
+        setSelectedTemplateSlug(null);
+      }
+      return;
+    }
+
+    setSelectedTemplateSlug((current) => {
+      if (current && filteredTemplates.some((template) => template.slug === current)) {
+        return current;
+      }
+      return filteredTemplates[0].slug;
+    });
+  }, [filteredTemplates, templates.length, templatesState.loading]);
+
+  const selectedTemplate = useMemo(() => {
+    if (!selectedTemplateSlug) {
+      return filteredTemplates[0] ?? null;
+    }
+    return (
+      filteredTemplates.find((template) => template.slug === selectedTemplateSlug) ??
+      templates.find((template) => template.slug === selectedTemplateSlug) ??
+      filteredTemplates[0] ??
+      null
+    );
+  }, [filteredTemplates, selectedTemplateSlug, templates]);
+
+  const templatesTotal = templatesState.data?.stats?.totalTemplates ?? templates.length;
+
+  const menuSections = useMemo(() => {
+    return BASE_MENU_SECTIONS.map((section) => {
+      if (section.label !== 'Service delivery') {
+        return section;
+      }
+      return {
+        ...section,
+        items: section.items.map((item) => {
+          if (item.name !== 'Workspace templates') {
+            return item;
+          }
+          const dynamicDescription = templatesTotal
+            ? `Spin up ${templatesTotal} ready-to-use workspaces with questionnaires and automated onboarding flows.`
+            : item.description;
+          return {
+            ...item,
+            description: dynamicDescription,
+          };
+        }),
+      };
+    });
+  }, [templatesTotal]);
+
+  const workspaceTemplateSection = useMemo(
+    () => ({
+      id: 'workspace-templates',
+      title: 'Workspace template library',
+      description:
+        'Kickstart delivery with production-ready playbooks, interactive questionnaires, and automated onboarding journeys tailored to your service lines.',
+      meta: templatesTotal ? `${templatesTotal} production-ready templates` : undefined,
+      render: () => (
+        <WorkspaceTemplatesSection
+          categories={categories}
+          templates={filteredTemplates}
+          stats={stats}
+          meta={meta}
+          loading={templatesState.loading}
+          error={templatesState.error}
+          onRetry={loadTemplates}
+          activeCategory={activeCategory}
+          onCategoryChange={(slug) => setActiveCategory(slug)}
+          selectedTemplate={selectedTemplate}
+          onSelectTemplate={(slug) => setSelectedTemplateSlug(slug)}
+        />
+      ),
+    }),
+    [
+      activeCategory,
+      categories,
+      filteredTemplates,
+      loadTemplates,
+      meta,
+      selectedTemplate,
+      stats,
+      templatesState.error,
+      templatesState.loading,
+      templatesTotal,
+    ],
+  );
+
+  const sections = useMemo(() => [workspaceTemplateSection, ...BASE_CAPABILITY_SECTIONS], [workspaceTemplateSection]);
+
   return (
     <DashboardLayout
       currentDashboard="freelancer"
@@ -255,7 +426,7 @@ export default function FreelancerDashboardPage() {
       subtitle="Service business cockpit"
       description="An operating system for independent talent to manage gigs, complex projects, finances, and growth partnerships in one streamlined workspace."
       menuSections={menuSections}
-      sections={capabilitySections}
+      sections={sections}
       profile={profile}
       availableDashboards={availableDashboards}
     />
