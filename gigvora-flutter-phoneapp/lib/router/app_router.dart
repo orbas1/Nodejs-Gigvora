@@ -9,6 +9,7 @@ import '../features/explorer/presentation/explorer_screen.dart';
 import '../features/marketplace/presentation/jobs_screen.dart';
 import '../features/marketplace/presentation/gigs_screen.dart';
 import '../features/marketplace/presentation/projects_screen.dart';
+import '../features/marketplace/presentation/project_post_screen.dart';
 import '../features/marketplace/presentation/launchpad_screen.dart';
 import '../features/marketplace/presentation/volunteering_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
@@ -29,6 +30,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/jobs', builder: (context, state) => const JobsScreen()),
       GoRoute(path: '/gigs', builder: (context, state) => const GigsScreen()),
       GoRoute(path: '/projects', builder: (context, state) => const ProjectsScreen()),
+      GoRoute(path: '/projects/new', builder: (context, state) => const ProjectPostScreen()),
       GoRoute(path: '/launchpad', builder: (context, state) => const LaunchpadScreen()),
       GoRoute(path: '/volunteering', builder: (context, state) => const VolunteeringScreen()),
       GoRoute(

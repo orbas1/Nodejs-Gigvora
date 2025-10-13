@@ -15,6 +15,7 @@ class OpportunityListScreen extends ConsumerStatefulWidget {
     required this.searchPlaceholder,
     required this.emptyDefaultMessage,
     required this.emptySearchMessage,
+    this.actions,
   });
 
   final OpportunityCategory category;
@@ -24,6 +25,7 @@ class OpportunityListScreen extends ConsumerStatefulWidget {
   final String searchPlaceholder;
   final String emptyDefaultMessage;
   final String emptySearchMessage;
+  final List<Widget>? actions;
 
   @override
   ConsumerState<OpportunityListScreen> createState() => _OpportunityListScreenState();
@@ -53,6 +55,7 @@ class _OpportunityListScreenState extends ConsumerState<OpportunityListScreen> {
     return GigvoraScaffold(
       title: widget.title,
       subtitle: widget.subtitle,
+      actions: widget.actions,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
