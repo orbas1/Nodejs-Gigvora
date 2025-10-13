@@ -21,6 +21,16 @@ class FeedAuthor {
     if (json == null) {
       return const FeedAuthor(name: 'Gigvora member');
     }
+
+    if (json['name'] is String) {
+      final name = (json['name'] as String).trim();
+      final headline = json['headline'] as String? ?? json['title'] as String?;
+      return FeedAuthor(
+        name: name.isEmpty ? 'Gigvora member' : name,
+        headline: (headline?.trim().isEmpty ?? true) ? null : headline,
+      );
+    }
+
     final firstName = json['firstName'] as String? ?? '';
     final lastName = json['lastName'] as String? ?? '';
     final profile = json['Profile'] ?? json['profile'];
@@ -43,6 +53,7 @@ enum FeedPostType {
   project,
   volunteering,
   launchpad,
+  news,
 }
 
 extension FeedPostTypeMetadata on FeedPostType {
@@ -55,6 +66,7 @@ extension FeedPostTypeMetadata on FeedPostType {
       FeedPostType.project => 'Project',
       FeedPostType.volunteering => 'Volunteering',
       FeedPostType.launchpad => 'Launchpad',
+      FeedPostType.news => 'News',
     };
   }
 
@@ -67,6 +79,7 @@ extension FeedPostTypeMetadata on FeedPostType {
       FeedPostType.project => 'Rally collaborators around a multi-disciplinary brief.',
       FeedPostType.volunteering => 'Mobilise talent towards purpose-led community missions.',
       FeedPostType.launchpad => 'Showcase cohort-based Experience Launchpad programmes.',
+      FeedPostType.news => 'Gigvora-curated headlines sourced from verified publications.',
     };
   }
 
@@ -81,6 +94,11 @@ class FeedPost {
     required this.author,
     this.type = FeedPostType.update,
     this.link,
+    this.title,
+    this.summary,
+    this.imageUrl,
+    this.source,
+    this.publishedAt,
     this.reactionCount = 0,
     this.commentCount = 0,
     this.viewerHasReacted = false,
@@ -93,6 +111,11 @@ class FeedPost {
   final FeedAuthor author;
   final FeedPostType type;
   final String? link;
+  final String? title;
+  final String? summary;
+  final String? imageUrl;
+  final String? source;
+  final DateTime? publishedAt;
   final int reactionCount;
   final int commentCount;
   final bool viewerHasReacted;
@@ -105,6 +128,11 @@ class FeedPost {
     FeedAuthor? author,
     FeedPostType? type,
     String? link,
+    String? title,
+    String? summary,
+    String? imageUrl,
+    String? source,
+    DateTime? publishedAt,
     int? reactionCount,
     int? commentCount,
     bool? viewerHasReacted,
@@ -117,6 +145,11 @@ class FeedPost {
       author: author ?? this.author,
       type: type ?? this.type,
       link: link ?? this.link,
+      title: title ?? this.title,
+      summary: summary ?? this.summary,
+      imageUrl: imageUrl ?? this.imageUrl,
+      source: source ?? this.source,
+      publishedAt: publishedAt ?? this.publishedAt,
       reactionCount: reactionCount ?? this.reactionCount,
       commentCount: commentCount ?? this.commentCount,
       viewerHasReacted: viewerHasReacted ?? this.viewerHasReacted,
@@ -126,7 +159,13 @@ class FeedPost {
 
   factory FeedPost.fromJson(Map<String, dynamic> json) {
     final user = json['User'] ?? json['user'];
-    final author = FeedAuthor.fromJson(user is Map<String, dynamic> ? Map<String, dynamic>.from(user) : null);
+    final authorJson = json['author'];
+    FeedAuthor author;
+    if (authorJson is Map<String, dynamic>) {
+      author = FeedAuthor.fromJson(Map<String, dynamic>.from(authorJson));
+    } else {
+      author = FeedAuthor.fromJson(user is Map<String, dynamic> ? Map<String, dynamic>.from(user) : null);
+    }
     final reactionCount = _parseCount(
       json['reactionCount'] ??
           (json['reactions'] is Map ? (json['reactions'] as Map)['likes'] : null) ??
@@ -149,6 +188,11 @@ class FeedPost {
       author: author,
       type: _parseType(json['type'] ?? json['category'] ?? json['opportunityType']),
       link: _parseLink(json),
+      title: _parseString(json['title'] ?? json['headline']),
+      summary: _parseString(json['summary'] ?? json['content']),
+      imageUrl: _parseString(json['imageUrl'] ?? json['imageURL'] ?? json['mediaUrl']),
+      source: _parseString(json['source'] ?? json['publisher']),
+      publishedAt: _parseDate(json['publishedAt']),
       reactionCount: reactionCount,
       commentCount: commentCount,
       viewerHasReacted: viewerReacted,
@@ -169,6 +213,7 @@ FeedPostType _parseType(dynamic raw) {
     'project' || 'projects' => FeedPostType.project,
     'volunteering' || 'volunteer' => FeedPostType.volunteering,
     'launchpad' => FeedPostType.launchpad,
+    'news' => FeedPostType.news,
     _ => FeedPostType.update,
   };
 }
@@ -188,6 +233,24 @@ String? _parseLink(Map<String, dynamic> json) {
     if (value is String && value.trim().isNotEmpty) {
       return value.trim();
     }
+  }
+  return null;
+}
+
+String? _parseString(dynamic value) {
+  if (value is String) {
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+  return null;
+}
+
+DateTime? _parseDate(dynamic value) {
+  if (value is String) {
+    return DateTime.tryParse(value);
+  }
+  if (value is DateTime) {
+    return value;
   }
   return null;
 }
