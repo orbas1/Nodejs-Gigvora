@@ -183,6 +183,19 @@ export const SPRINT_RISK_IMPACTS = ['low', 'medium', 'high', 'critical'];
 export const SPRINT_RISK_STATUSES = ['open', 'mitigating', 'resolved', 'closed'];
 export const CHANGE_REQUEST_STATUSES = ['draft', 'pending_approval', 'approved', 'rejected'];
 
+export const COLLABORATION_SPACE_STATUSES = ['active', 'archived'];
+export const COLLABORATION_PERMISSION_LEVELS = ['view', 'comment', 'edit', 'manage'];
+export const COLLABORATION_PARTICIPANT_ROLES = ['owner', 'contributor', 'reviewer', 'client', 'guest'];
+export const COLLABORATION_PARTICIPANT_STATUSES = ['invited', 'active', 'inactive', 'removed'];
+export const COLLABORATION_ROOM_TYPES = ['video', 'whiteboard', 'huddle'];
+export const COLLABORATION_ASSET_TYPES = ['file', 'prototype', 'demo', 'document'];
+export const COLLABORATION_ASSET_STATUSES = ['in_review', 'approved', 'needs_changes'];
+export const COLLABORATION_ANNOTATION_TYPES = ['comment', 'issue', 'decision'];
+export const COLLABORATION_ANNOTATION_STATUSES = ['open', 'resolved', 'dismissed'];
+export const COLLABORATION_REPOSITORY_STATUSES = ['connected', 'syncing', 'error'];
+export const COLLABORATION_AI_SESSION_TYPES = ['documentation', 'qa', 'summary', 'retro'];
+export const COLLABORATION_AI_SESSION_STATUSES = ['pending', 'processing', 'completed', 'failed'];
+
 export const User = sequelize.define(
   'User',
   {
@@ -4609,6 +4622,374 @@ SearchSubscription.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+export const CollaborationSpace = sequelize.define(
+  'CollaborationSpace',
+  {
+    ownerId: { type: DataTypes.INTEGER, allowNull: false },
+    profileId: { type: DataTypes.INTEGER, allowNull: true },
+    name: { type: DataTypes.STRING(180), allowNull: false },
+    clientName: { type: DataTypes.STRING(180), allowNull: true },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...COLLABORATION_SPACE_STATUSES),
+      allowNull: false,
+      defaultValue: 'active',
+    },
+    defaultPermission: {
+      type: DataTypes.ENUM(...COLLABORATION_PERMISSION_LEVELS),
+      allowNull: false,
+      defaultValue: 'comment',
+    },
+    meetingCadence: { type: DataTypes.STRING(120), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'collaboration_spaces',
+    indexes: [
+      { fields: ['ownerId'] },
+      { fields: ['profileId'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+CollaborationSpace.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    ownerId: plain.ownerId,
+    profileId: plain.profileId,
+    name: plain.name,
+    clientName: plain.clientName,
+    summary: plain.summary,
+    status: plain.status,
+    defaultPermission: plain.defaultPermission,
+    meetingCadence: plain.meetingCadence,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const CollaborationParticipant = sequelize.define(
+  'CollaborationParticipant',
+  {
+    spaceId: { type: DataTypes.INTEGER, allowNull: false },
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    role: {
+      type: DataTypes.ENUM(...COLLABORATION_PARTICIPANT_ROLES),
+      allowNull: false,
+      defaultValue: 'contributor',
+    },
+    permissionLevel: {
+      type: DataTypes.ENUM(...COLLABORATION_PERMISSION_LEVELS),
+      allowNull: false,
+      defaultValue: 'comment',
+    },
+    status: {
+      type: DataTypes.ENUM(...COLLABORATION_PARTICIPANT_STATUSES),
+      allowNull: false,
+      defaultValue: 'invited',
+    },
+    invitedAt: { type: DataTypes.DATE, allowNull: true },
+    joinedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'collaboration_participants',
+    indexes: [
+      { unique: true, fields: ['spaceId', 'userId'] },
+      { fields: ['role'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+CollaborationParticipant.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    spaceId: plain.spaceId,
+    userId: plain.userId,
+    role: plain.role,
+    permissionLevel: plain.permissionLevel,
+    status: plain.status,
+    invitedAt: plain.invitedAt,
+    joinedAt: plain.joinedAt,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const CollaborationRoom = sequelize.define(
+  'CollaborationRoom',
+  {
+    spaceId: { type: DataTypes.INTEGER, allowNull: false },
+    roomType: {
+      type: DataTypes.ENUM(...COLLABORATION_ROOM_TYPES),
+      allowNull: false,
+      defaultValue: 'video',
+    },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    provider: { type: DataTypes.STRING(120), allowNull: false },
+    joinUrl: { type: DataTypes.TEXT, allowNull: false },
+    recordingUrl: { type: DataTypes.TEXT, allowNull: true },
+    lastStartedAt: { type: DataTypes.DATE, allowNull: true },
+    settings: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'collaboration_rooms',
+    indexes: [
+      { fields: ['spaceId'] },
+      { fields: ['roomType'] },
+      { fields: ['provider'] },
+    ],
+  },
+);
+
+CollaborationRoom.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    spaceId: plain.spaceId,
+    roomType: plain.roomType,
+    title: plain.title,
+    provider: plain.provider,
+    joinUrl: plain.joinUrl,
+    recordingUrl: plain.recordingUrl,
+    lastStartedAt: plain.lastStartedAt,
+    settings: plain.settings,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const CollaborationAsset = sequelize.define(
+  'CollaborationAsset',
+  {
+    spaceId: { type: DataTypes.INTEGER, allowNull: false },
+    uploadedById: { type: DataTypes.INTEGER, allowNull: true },
+    assetType: {
+      type: DataTypes.ENUM(...COLLABORATION_ASSET_TYPES),
+      allowNull: false,
+      defaultValue: 'file',
+    },
+    status: {
+      type: DataTypes.ENUM(...COLLABORATION_ASSET_STATUSES),
+      allowNull: false,
+      defaultValue: 'in_review',
+    },
+    title: { type: DataTypes.STRING(200), allowNull: false },
+    sourceUrl: { type: DataTypes.TEXT, allowNull: false },
+    version: { type: DataTypes.STRING(60), allowNull: true },
+    checksum: { type: DataTypes.STRING(120), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'collaboration_assets',
+    indexes: [
+      { fields: ['spaceId'] },
+      { fields: ['assetType'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+CollaborationAsset.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    spaceId: plain.spaceId,
+    uploadedById: plain.uploadedById,
+    assetType: plain.assetType,
+    status: plain.status,
+    title: plain.title,
+    sourceUrl: plain.sourceUrl,
+    version: plain.version,
+    checksum: plain.checksum,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const CollaborationAnnotation = sequelize.define(
+  'CollaborationAnnotation',
+  {
+    assetId: { type: DataTypes.INTEGER, allowNull: false },
+    authorId: { type: DataTypes.INTEGER, allowNull: false },
+    annotationType: {
+      type: DataTypes.ENUM(...COLLABORATION_ANNOTATION_TYPES),
+      allowNull: false,
+      defaultValue: 'comment',
+    },
+    status: {
+      type: DataTypes.ENUM(...COLLABORATION_ANNOTATION_STATUSES),
+      allowNull: false,
+      defaultValue: 'open',
+    },
+    body: { type: DataTypes.TEXT, allowNull: false },
+    context: { type: jsonType, allowNull: true },
+    occurredAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'collaboration_annotations',
+    indexes: [
+      { fields: ['assetId'] },
+      { fields: ['authorId'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+CollaborationAnnotation.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    assetId: plain.assetId,
+    authorId: plain.authorId,
+    annotationType: plain.annotationType,
+    status: plain.status,
+    body: plain.body,
+    context: plain.context,
+    occurredAt: plain.occurredAt,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const CollaborationRepository = sequelize.define(
+  'CollaborationRepository',
+  {
+    spaceId: { type: DataTypes.INTEGER, allowNull: false },
+    provider: { type: DataTypes.STRING(120), allowNull: false },
+    repositoryName: { type: DataTypes.STRING(200), allowNull: false },
+    branch: { type: DataTypes.STRING(120), allowNull: true },
+    integrationStatus: {
+      type: DataTypes.ENUM(...COLLABORATION_REPOSITORY_STATUSES),
+      allowNull: false,
+      defaultValue: 'connected',
+    },
+    settings: { type: jsonType, allowNull: true },
+    syncMetadata: { type: jsonType, allowNull: true },
+    lastSyncedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'collaboration_repositories',
+    indexes: [
+      { fields: ['spaceId'] },
+      { fields: ['provider'] },
+      { fields: ['integrationStatus'] },
+      { unique: true, fields: ['spaceId', 'provider', 'repositoryName'] },
+    ],
+  },
+);
+
+CollaborationRepository.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    spaceId: plain.spaceId,
+    provider: plain.provider,
+    repositoryName: plain.repositoryName,
+    branch: plain.branch,
+    integrationStatus: plain.integrationStatus,
+    settings: plain.settings,
+    syncMetadata: plain.syncMetadata,
+    lastSyncedAt: plain.lastSyncedAt,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const CollaborationAiSession = sequelize.define(
+  'CollaborationAiSession',
+  {
+    spaceId: { type: DataTypes.INTEGER, allowNull: false },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    sessionType: {
+      type: DataTypes.ENUM(...COLLABORATION_AI_SESSION_TYPES),
+      allowNull: false,
+      defaultValue: 'summary',
+    },
+    status: {
+      type: DataTypes.ENUM(...COLLABORATION_AI_SESSION_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+    },
+    prompt: { type: DataTypes.TEXT, allowNull: false },
+    response: { type: DataTypes.TEXT, allowNull: true },
+    metrics: { type: jsonType, allowNull: true },
+    ranAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'collaboration_ai_sessions',
+    indexes: [
+      { fields: ['spaceId'] },
+      { fields: ['sessionType'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+CollaborationAiSession.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    spaceId: plain.spaceId,
+    createdById: plain.createdById,
+    sessionType: plain.sessionType,
+    status: plain.status,
+    prompt: plain.prompt,
+    response: plain.response,
+    metrics: plain.metrics,
+    ranAt: plain.ranAt,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+CollaborationSpace.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
+CollaborationSpace.belongsTo(Profile, { foreignKey: 'profileId', as: 'profile' });
+CollaborationSpace.hasMany(CollaborationParticipant, {
+  foreignKey: 'spaceId',
+  as: 'participants',
+  onDelete: 'CASCADE',
+});
+CollaborationSpace.hasMany(CollaborationRoom, { foreignKey: 'spaceId', as: 'rooms', onDelete: 'CASCADE' });
+CollaborationSpace.hasMany(CollaborationAsset, { foreignKey: 'spaceId', as: 'assets', onDelete: 'CASCADE' });
+CollaborationSpace.hasMany(CollaborationRepository, {
+  foreignKey: 'spaceId',
+  as: 'repositories',
+  onDelete: 'CASCADE',
+});
+CollaborationSpace.hasMany(CollaborationAiSession, {
+  foreignKey: 'spaceId',
+  as: 'aiSessions',
+  onDelete: 'CASCADE',
+});
+
+CollaborationParticipant.belongsTo(CollaborationSpace, { foreignKey: 'spaceId', as: 'space' });
+CollaborationParticipant.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+CollaborationRoom.belongsTo(CollaborationSpace, { foreignKey: 'spaceId', as: 'space' });
+
+CollaborationAsset.belongsTo(CollaborationSpace, { foreignKey: 'spaceId', as: 'space' });
+CollaborationAsset.belongsTo(User, { foreignKey: 'uploadedById', as: 'uploader' });
+CollaborationAsset.hasMany(CollaborationAnnotation, {
+  foreignKey: 'assetId',
+  as: 'annotations',
+  onDelete: 'CASCADE',
+});
+
+CollaborationAnnotation.belongsTo(CollaborationAsset, { foreignKey: 'assetId', as: 'asset' });
+CollaborationAnnotation.belongsTo(User, { foreignKey: 'authorId', as: 'author' });
+
+CollaborationRepository.belongsTo(CollaborationSpace, { foreignKey: 'spaceId', as: 'space' });
+
+CollaborationAiSession.belongsTo(CollaborationSpace, { foreignKey: 'spaceId', as: 'space' });
+CollaborationAiSession.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
 User.hasMany(Gig, { foreignKey: 'ownerId', as: 'gigs' });
 Gig.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
 
@@ -5437,4 +5818,11 @@ export default {
   FreelancerFinanceControl,
   ProjectAssignmentEvent,
   AutoAssignQueueEntry,
+  CollaborationSpace,
+  CollaborationParticipant,
+  CollaborationRoom,
+  CollaborationAsset,
+  CollaborationAnnotation,
+  CollaborationRepository,
+  CollaborationAiSession,
 };
