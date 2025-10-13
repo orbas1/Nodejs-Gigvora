@@ -35,6 +35,24 @@ Gigvora uses Agora for realtime voice and video inside message threads. Set the 
 
 Without these credentials call sessions will be disabled and the API will return a 500 error when attempting to request a call token.
 
+## Platform monetization controls
+
+Administrators can manage commissions, subscriptions, and payment credentials through the new `/api/admin/platform-settings` endpoints:
+
+- `GET /api/admin/platform-settings` – Returns the current merged configuration derived from persisted admin settings and `.env` defaults.
+- `PUT /api/admin/platform-settings` – Persists validated updates for commission percentages, subscription plans, feature gating, and third-party integrations (Stripe, Escrow.com, SMTP, Cloudflare R2).
+
+The service loads sane defaults from the `.env` file. Copy `.env.example` and provide credentials for:
+
+- **Commission settings** – toggle `PLATFORM_COMMISSIONS_ENABLED`, set `PLATFORM_COMMISSION_RATE`, optional `PLATFORM_COMMISSION_MINIMUM_FEE` and currency.
+- **Subscription settings** – toggle `PLATFORM_SUBSCRIPTIONS_ENABLED` and list restricted features via `PLATFORM_SUBSCRIPTION_RESTRICTED_FEATURES`.
+- **Payment providers** – configure `STRIPE_*` keys or `ESCROW_COM_*` secrets and choose the active `PAYMENT_PROVIDER`.
+- **SMTP** – populate `SMTP_HOST`, port, credentials, and the default from address.
+- **Cloudflare R2** – supply bucket credentials via `CLOUDFLARE_R2_*` variables.
+- **Feature toggles** – disable earnings features globally using `FEATURE_COMMISSIONS_ENABLED`, `FEATURE_SUBSCRIPTIONS_ENABLED`, and `FEATURE_ESCROW_ENABLED`.
+
+All values entered through the admin panel are validated and persisted to the new `platform_settings` table, enabling centralised management of earnings, paywall features, and infrastructure secrets.
+
 ## Key Directories
 
 - `src/controllers` – Request handlers for authentication, feed, user and search flows.

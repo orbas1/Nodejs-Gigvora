@@ -15,6 +15,7 @@ class OpportunityListScreen extends ConsumerWidget {
     required this.searchPlaceholder,
     required this.emptyDefaultMessage,
     required this.emptySearchMessage,
+    this.actions,
   });
 
   final OpportunityCategory category;
@@ -24,6 +25,7 @@ class OpportunityListScreen extends ConsumerWidget {
   final String searchPlaceholder;
   final String emptyDefaultMessage;
   final String emptySearchMessage;
+  final List<Widget>? actions;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -92,6 +94,22 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
             hintText: widget.searchPlaceholder,
             prefixIcon: const Icon(Icons.search),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(28)),
+    return GigvoraScaffold(
+      title: widget.title,
+      subtitle: widget.subtitle,
+      actions: widget.actions,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _searchController,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: widget.searchPlaceholder,
+              prefixIcon: const Icon(Icons.search),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(28)),
+            ),
+            onChanged: controller.updateQuery,
           ),
           onChanged: controller.updateQuery,
         ),

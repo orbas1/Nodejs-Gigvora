@@ -117,6 +117,41 @@ function formatScorecardChange(card, defaultCurrency = 'USD') {
   return { text: `${valueText}${comparison}`.trim(), className };
 }
 
+const HR_ALERT_STYLES = {
+  high: {
+    border: 'border-rose-200',
+    background: 'bg-rose-50/80',
+    text: 'text-rose-700',
+    badge: 'bg-rose-100 text-rose-700',
+    accent: 'text-rose-600',
+  },
+  medium: {
+    border: 'border-amber-200',
+    background: 'bg-amber-50/70',
+    text: 'text-amber-700',
+    badge: 'bg-amber-100 text-amber-700',
+    accent: 'text-amber-600',
+  },
+  low: {
+    border: 'border-slate-200',
+    background: 'bg-slate-50/80',
+    text: 'text-slate-700',
+    badge: 'bg-slate-100 text-slate-600',
+    accent: 'text-slate-500',
+  },
+  default: {
+    border: 'border-slate-200',
+    background: 'bg-slate-50/80',
+    text: 'text-slate-700',
+    badge: 'bg-slate-100 text-slate-600',
+    accent: 'text-slate-500',
+  },
+};
+
+function getHrAlertStyle(severity = 'medium') {
+  return HR_ALERT_STYLES[severity] ?? HR_ALERT_STYLES.default;
+}
+
 function getInitials(name) {
   if (!name) return 'AG';
   return name
@@ -135,6 +170,13 @@ function titleCase(value) {
     .split(/[_\s-]+/)
     .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
     .join(' ');
+}
+
+function formatAvailabilityLabel(status) {
+  if (!status) {
+    return 'Unknown';
+  }
+  return titleCase(status);
 }
 
 export default function AgencyDashboardPage() {
@@ -349,6 +391,15 @@ export default function AgencyDashboardPage() {
   const talentOpportunityBoard = talentLifecycle.opportunityBoard ?? {};
   const brandingStudio = talentLifecycle.branding ?? {};
   const hrManagement = talentLifecycle.hrManagement ?? {};
+  const staffingCapacity = hrManagement.staffingCapacity ?? {};
+  const hrAlerts = hrManagement.alerts ?? [];
+  const hrRoleCoverage = hrManagement.roleAssignments?.coverage ?? [];
+  const hrRoleTotals = hrManagement.roleAssignments?.totals ?? {};
+  const hrAttentionRoles = hrManagement.roleAssignments?.attention ?? [];
+  const outstandingPolicies = hrManagement.policyAcknowledgements ?? [];
+  const onboardingQueue = (hrManagement.onboardingQueue ?? []).slice(0, 5);
+  const availabilityBreakdown = staffingCapacity.availabilityBreakdown ?? [];
+  const hrHealth = staffingCapacity.health ?? {};
   const capacityPlanning = talentLifecycle.capacityPlanning ?? {};
   const internalMarketplace = talentLifecycle.internalMarketplace ?? {};
   const leadership = state.data?.marketplaceLeadership ?? {};
@@ -1752,7 +1803,7 @@ export default function AgencyDashboardPage() {
             {formatNumber(hrManagement?.activeHeadcount ?? summary?.members?.total ?? members.length ?? 0)}
           </dd>
           <dd className="mt-1 text-xs text-slate-500">
-            {formatNumber(hrManagement?.contractors ?? 0)} contractors
+            {formatNumber(hrManagement?.contractors ?? 0)} contractors · Bench {formatPercent(staffingCapacity?.benchRate ?? 0)}
           </dd>
         </div>
         <div className="rounded-2xl border border-white/60 bg-white/80 px-4 py-3 shadow-sm">
@@ -1767,10 +1818,16 @@ export default function AgencyDashboardPage() {
         <div className="rounded-2xl border border-white/60 bg-white/80 px-4 py-3 shadow-sm">
           <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Bench capacity</dt>
           <dd className="mt-2 text-xl font-semibold text-slate-900">
-            {formatNumber(Math.round(capacityPlanning?.benchCapacityHours ?? 0))} hrs
+            {formatNumber(Math.round(staffingCapacity?.benchHours ?? capacityPlanning?.benchCapacityHours ?? 0))} hrs
           </dd>
           <dd className="mt-1 text-xs text-slate-500">
-            Utilisation {formatPercent(capacityPlanning?.utilizationRate ?? summary?.members?.utilizationRate ?? 0)}
+            {`Utilisation ${formatPercent(
+              staffingCapacity?.utilizationRate ??
+                capacityPlanning?.utilizationRate ??
+                summary?.members?.utilizationRate ??
+                0,
+            )}`}{' '}
+            · {`Health ${titleCase((hrHealth?.level ?? 'balanced').replace(/_/g, ' '))}`}
           </dd>
         </div>
         <div className="rounded-2xl border border-white/60 bg-white/80 px-4 py-3 shadow-sm">
@@ -1784,6 +1841,238 @@ export default function AgencyDashboardPage() {
         </div>
       </dl>
     </div>
+  );
+
+  const renderHrManagementSection = (
+    <section className="rounded-3xl border border-purple-100 bg-white p-8 shadow-sm">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-purple-600">Workforce intelligence</p>
+          <h2 className="mt-1 text-2xl font-semibold text-slate-900">Agency HR command centre</h2>
+          <p className="mt-2 text-sm text-slate-500">
+            Monitor role coverage, staffing health, and compliance follow-ups with production signals from the provider workspace.
+          </p>
+        </div>
+        <div className="rounded-2xl border border-purple-200 bg-purple-50/60 px-4 py-3 text-right">
+          <p className="text-xs font-semibold uppercase tracking-wide text-purple-600">Utilisation</p>
+          <p className="mt-1 text-xl font-semibold text-slate-900">
+            {formatPercent(staffingCapacity?.utilizationRate ?? summary?.members?.utilizationRate ?? 0)}
+          </p>
+          <p className="text-xs text-slate-500">
+            {formatNumber(staffingCapacity?.activeMembers ?? summary?.members?.active ?? totalMembersCount)} active team members
+          </p>
+        </div>
+      </div>
+
+      <dl className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-2xl border border-slate-200 bg-slate-50/60 px-4 py-3">
+          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Headcount</dt>
+          <dd className="mt-2 text-xl font-semibold text-slate-900">{formatNumber(hrManagement?.activeHeadcount ?? 0)}</dd>
+          <dd className="mt-1 text-xs text-slate-500">{formatNumber(hrManagement?.contractors ?? 0)} contractors</dd>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-slate-50/60 px-4 py-3">
+          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Hiring pipeline</dt>
+          <dd className="mt-2 text-xl font-semibold text-slate-900">{formatNumber(hrRoleTotals?.hiring ?? 0)}</dd>
+          <dd className="mt-1 text-xs text-slate-500">
+            {formatNumber(hrRoleTotals?.interviewing ?? 0)} interviewing · {formatNumber(hrRoleTotals?.offers ?? 0)} offers ·{' '}
+            {formatNumber(hrAttentionRoles.length)} coverage risks
+          </dd>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-slate-50/60 px-4 py-3">
+          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Compliance tasks</dt>
+          <dd className="mt-2 text-xl font-semibold text-slate-900">
+            {formatNumber(hrManagement?.complianceOutstanding ?? 0)}
+          </dd>
+          <dd className="mt-1 text-xs text-slate-500">Outstanding acknowledgements</dd>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-slate-50/60 px-4 py-3">
+          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Bench health</dt>
+          <dd className="mt-2 text-xl font-semibold text-slate-900">{formatNumber(staffingCapacity?.benchHours ?? 0)} hrs</dd>
+          <dd className="mt-1 text-xs text-slate-500">
+            {`Health ${titleCase((hrHealth?.level ?? 'balanced').replace(/_/g, ' '))}`}
+          </dd>
+        </div>
+      </dl>
+
+      <div className="mt-6 grid gap-6 xl:grid-cols-2">
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-5">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Priority alerts</p>
+              <span className="text-xs text-slate-500">{formatNumber(hrAlerts.length)} open</span>
+            </div>
+            <ul className="mt-3 space-y-3">
+              {hrAlerts.length ? (
+                hrAlerts.slice(0, 4).map((alert) => {
+                  const style = getHrAlertStyle(alert.severity);
+                  return (
+                    <li
+                      key={alert.id ?? alert.message}
+                      className={`rounded-2xl border ${style.border} ${style.background} px-4 py-3`}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className={`text-sm font-semibold ${style.text}`}>{alert.message}</p>
+                          {alert.recommendedAction ? (
+                            <p className="mt-1 text-xs text-slate-600">Next: {alert.recommendedAction}</p>
+                          ) : null}
+                        </div>
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${style.badge}`}
+                        >
+                          <ExclamationTriangleIcon className={`h-3.5 w-3.5 ${style.accent}`} />
+                          {titleCase(alert.type ?? 'alert')}
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })
+              ) : (
+                <li className="text-sm text-slate-500">No alerts detected in the last 30 days.</li>
+              )}
+            </ul>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Outstanding policies</p>
+            <ul className="mt-3 space-y-2">
+              {outstandingPolicies.length ? (
+                outstandingPolicies.map((policy) => (
+                  <li
+                    key={policy.id ?? policy.title}
+                    className="flex items-center justify-between rounded-xl border border-white/60 bg-white/80 px-3 py-2"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">{policy.title ?? 'Policy'}</p>
+                      <p className="text-xs text-slate-500">
+                        {formatNumber(policy.outstanding ?? 0)} outstanding
+                        {policy.reviewCycleDays ? ` · Review every ${policy.reviewCycleDays}d` : ''}
+                      </p>
+                    </div>
+                    {policy.effectiveDate ? (
+                      <span className="text-xs text-slate-500">{formatAbsolute(policy.effectiveDate)}</span>
+                    ) : null}
+                  </li>
+                ))
+              ) : (
+                <li className="text-sm text-slate-500">All published policies are acknowledged.</li>
+              )}
+            </ul>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-5">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Role coverage</p>
+              <span className="text-xs text-slate-500">
+                {formatNumber(hrRoleTotals?.roles ?? hrRoleCoverage.length)} roles · {formatNumber(hrRoleTotals?.hiring ?? 0)} hiring
+              </span>
+            </div>
+            <ul className="mt-3 space-y-3">
+              {hrRoleCoverage.length ? (
+                hrRoleCoverage.slice(0, 5).map((role) => {
+                  const utilisationText =
+                    role.utilizationRate == null ? 'N/A' : formatPercent(role.utilizationRate ?? 0);
+                  return (
+                    <li key={role.roleKey ?? role.role} className="rounded-2xl border border-white/60 bg-white/80 px-4 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{role.role ?? 'Role'}</p>
+                          <p className="text-xs text-slate-500">
+                            {formatNumber(role.active ?? 0)} active · {formatNumber(role.hiring ?? 0)} in pipeline
+                          </p>
+                        </div>
+                        <span className="text-xs font-medium text-slate-500">{utilisationText}</span>
+                      </div>
+                      <div className="mt-2 h-2 rounded-full bg-slate-200">
+                        <div
+                          className={`h-full rounded-full ${role.needsAttention ? 'bg-rose-500' : 'bg-purple-500'}`}
+                          style={{ width: `${Math.min(role.utilizationRate ?? 0, 100)}%` }}
+                        />
+                      </div>
+                      <p className="mt-2 text-xs text-slate-500">
+                        Bench {formatNumber(role.bench ?? 0)} · Capacity {formatNumber(role.capacityHours ?? 0)} hrs
+                        {role.pipeline?.offers ? ` · Offers ${formatNumber(role.pipeline.offers)}` : ''}
+                      </p>
+                      {role.needsAttention ? (
+                        <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-rose-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-rose-700">
+                          <ExclamationTriangleIcon className="h-3.5 w-3.5" />
+                          Coverage risk
+                        </span>
+                      ) : null}
+                    </li>
+                  );
+                })
+              ) : (
+                <li className="text-sm text-slate-500">Assign members to roles to unlock coverage insights.</li>
+              )}
+            </ul>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Staffing insights</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">{formatNumber(staffingCapacity?.totalCapacityHours ?? 0)} hrs</p>
+                <p className="text-xs text-slate-500">Total capacity</p>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-900">{formatNumber(staffingCapacity?.committedHours ?? 0)} hrs</p>
+                <p className="text-xs text-slate-500">Committed</p>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-900">{formatNumber(staffingCapacity?.benchMembers ?? 0)}</p>
+                <p className="text-xs text-slate-500">Bench members</p>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-900">{formatPercent(staffingCapacity?.benchRate ?? 0)}</p>
+                <p className="text-xs text-slate-500">Bench rate</p>
+              </div>
+            </div>
+            <p className="mt-4 text-xs text-slate-500">{hrHealth.summary ?? 'Capacity insights ready.'}</p>
+            {hrHealth.recommendedAction ? (
+              <p className="mt-1 text-xs font-medium text-purple-600">Next: {hrHealth.recommendedAction}</p>
+            ) : null}
+            <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-600">
+              {availabilityBreakdown.filter((item) => item.count > 0).length ? (
+                availabilityBreakdown
+                  .filter((item) => item.count > 0)
+                  .map((item) => (
+                    <span key={item.status} className="rounded-full bg-purple-50 px-3 py-1 font-medium text-purple-700">
+                      {formatAvailabilityLabel(item.status)} · {formatNumber(item.count)}
+                    </span>
+                  ))
+              ) : (
+                <span className="text-xs text-slate-500">Availability data pending.</span>
+              )}
+            </div>
+            <div className="mt-4 border-t border-slate-200 pt-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Upcoming onboarding</p>
+              <ul className="mt-2 space-y-2">
+                {onboardingQueue.length ? (
+                  onboardingQueue.map((candidate) => (
+                    <li
+                      key={candidate.id ?? candidate.name}
+                      className="rounded-xl border border-white/60 bg-white/80 px-3 py-2"
+                    >
+                      <p className="text-sm font-semibold text-slate-900">{candidate.name}</p>
+                      <p className="text-xs text-slate-500">
+                        {candidate.role ?? 'Role TBC'}
+                        {candidate.startDate ? ` · Starts ${formatAbsolute(candidate.startDate)}` : ' · Start date TBC'}
+                        {candidate.status ? ` · ${titleCase(candidate.status)}` : ''}
+                      </p>
+                    </li>
+                  ))
+                ) : (
+                  <li className="text-xs text-slate-500">No onboarding workflows queued.</li>
+                )}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 
   const renderTalentCrm = (
@@ -3949,6 +4238,8 @@ export default function AgencyDashboardPage() {
             {renderLeadershipHubSection}
             {renderInnovationLabSection}
             <section>{renderTalentOverview}</section>
+
+            {renderHrManagementSection}
 
             <section className="grid gap-6 xl:grid-cols-2">
               {renderTalentCrm}

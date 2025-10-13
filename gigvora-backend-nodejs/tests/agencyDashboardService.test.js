@@ -16,6 +16,8 @@ import {
   Job,
   User,
   ProjectAssignmentEvent,
+  TalentCandidate,
+  PeopleOpsPolicy,
 } from '../src/models/index.js';
 import { getAgencyDashboard } from '../src/services/agencyDashboardService.js';
 import { createUser } from './helpers/factories.js';
@@ -101,6 +103,16 @@ describe('agencyDashboardService', () => {
         availableHoursPerWeek: 32,
       },
     ]);
+
+    await PeopleOpsPolicy.create({
+      workspaceId: workspace.id,
+      title: 'Data Handling Policy',
+      status: 'active',
+      effectiveDate: new Date(),
+      reviewCycleDays: 180,
+      acknowledgedCount: 1,
+      audienceCount: 3,
+    });
 
     await ProviderContactNote.create({
       workspaceId: workspace.id,
@@ -218,6 +230,32 @@ describe('agencyDashboardService', () => {
       description: 'Lead experimentation roadmaps for fintech client.',
       employmentType: 'Contract',
     });
+
+    await TalentCandidate.bulkCreate([
+      {
+        workspaceId: workspace.id,
+        fullName: 'Avery Grey',
+        status: 'hired',
+        pipelineStage: 'offer',
+        onboardingStatus: 'in_progress',
+        exitWorkflowStatus: 'not_applicable',
+        metadata: {
+          targetRole: 'Manager',
+          startDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+      },
+      {
+        workspaceId: workspace.id,
+        fullName: 'Jordan Rivers',
+        status: 'hired',
+        pipelineStage: 'exit',
+        onboardingStatus: 'completed',
+        exitWorkflowStatus: 'in_progress',
+        metadata: {
+          targetRole: 'Staff',
+        },
+      },
+    ]);
   });
 
   it('returns a workspace-scoped dashboard with member, project, and financial insights', async () => {
@@ -236,6 +274,19 @@ describe('agencyDashboardService', () => {
     expect(dashboard.projects.list.map((project) => project.title)).toContain('Commerce Revamp');
     expect(dashboard.projects.events).toHaveLength(1);
     expect(dashboard.contactNotes[0].note).toMatch(/renewal/);
+
+    const hr = dashboard.talentLifecycle.hrManagement;
+    expect(hr.activeHeadcount).toBe(3);
+    expect(hr.exitsInProgress).toBe(1);
+    expect(hr.staffingCapacity.totalCapacityHours).toBeGreaterThan(0);
+    expect(hr.staffingCapacity.health.level).toBeDefined();
+    expect(hr.staffingCapacity.benchMembers).toBeGreaterThan(0);
+    expect(hr.roleAssignments.coverage.length).toBeGreaterThan(0);
+    const managerCoverage = hr.roleAssignments.coverage.find((role) => role.roleKey === 'manager');
+    expect(managerCoverage?.pipeline.onboarding ?? 0).toBeGreaterThanOrEqual(1);
+    expect(hr.policyAcknowledgements[0].outstanding).toBe(2);
+    expect(hr.onboardingQueue.length).toBeGreaterThan(0);
+    expect(hr.alerts.some((alert) => alert.type === 'compliance')).toBe(true);
   });
 
   it('falls back to global data when no workspace filter is provided', async () => {
