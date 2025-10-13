@@ -30,6 +30,20 @@ export async function fetchProjectBlueprint(projectId) {
 
 export async function upsertProjectBlueprint(projectId, payload) {
   return apiClient.put(`/projects/${projectId}/blueprint`, payload);
+export async function fetchProjectWorkspace(projectId) {
+  return apiClient.get(`/projects/${projectId}/workspace`);
+}
+
+export async function updateProjectWorkspaceBrief(projectId, payload) {
+  return apiClient.put(`/projects/${projectId}/workspace/brief`, payload);
+}
+
+export async function updateProjectWorkspaceApproval(projectId, approvalId, payload) {
+  return apiClient.patch(`/projects/${projectId}/workspace/approvals/${approvalId}`, payload);
+}
+
+export async function acknowledgeProjectWorkspaceConversation(projectId, conversationId, payload) {
+  return apiClient.patch(`/projects/${projectId}/workspace/conversations/${conversationId}`, payload);
 }
 
 export default {
@@ -41,4 +55,8 @@ export default {
   listProjectBlueprints,
   fetchProjectBlueprint,
   upsertProjectBlueprint,
+  fetchProjectWorkspace,
+  updateProjectWorkspaceBrief,
+  updateProjectWorkspaceApproval,
+  acknowledgeProjectWorkspaceConversation,
 };

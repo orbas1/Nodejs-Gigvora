@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import authRoutes from './authRoutes.js';
 import userRoutes from './userRoutes.js';
+import freelancerRoutes from './freelancerRoutes.js';
 import feedRoutes from './feedRoutes.js';
 import searchRoutes from './searchRoutes.js';
 import discoveryRoutes from './discoveryRoutes.js';
@@ -12,10 +13,13 @@ import projectRoutes from './projectRoutes.js';
 import launchpadRoutes from './launchpadRoutes.js';
 import headhunterRoutes from './headhunterRoutes.js';
 import adminRoutes from './adminRoutes.js';
+import workspaceTemplateRoutes from './workspaceTemplateRoutes.js';
+import companyRoutes from './companyRoutes.js';
 
 const router = Router();
 
 router.use('/auth', authRoutes);
+router.use('/freelancers', freelancerRoutes);
 router.use('/users', userRoutes);
 router.use('/feed', feedRoutes);
 router.use('/search', searchRoutes);
@@ -28,5 +32,7 @@ router.use('/projects', projectRoutes);
 router.use('/launchpad', launchpadRoutes);
 router.use('/headhunter', headhunterRoutes);
 router.use('/admin', adminRoutes);
+router.use('/workspace-templates', workspaceTemplateRoutes);
+router.use('/company', companyRoutes);
 
 export default router;
