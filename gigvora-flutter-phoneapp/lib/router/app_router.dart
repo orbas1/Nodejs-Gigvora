@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../features/auth/presentation/login_screen.dart';
 import '../features/auth/presentation/register_screen.dart';
 import '../features/auth/presentation/company_register_screen.dart';
+import '../features/auth/presentation/sign_up_screen.dart';
+import '../features/home/presentation/home_screen.dart';
 import '../features/feed/presentation/feed_screen.dart';
 import '../features/explorer/presentation/explorer_screen.dart';
 import '../features/marketplace/presentation/jobs_screen.dart';
@@ -19,8 +21,10 @@ final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
-    initialLocation: '/feed',
+    initialLocation: '/home',
     routes: [
+      GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
+      GoRoute(path: '/signup', builder: (context, state) => const SignUpScreen()),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(path: '/register', builder: (context, state) => const RegisterScreen()),
       GoRoute(path: '/register/company', builder: (context, state) => const CompanyRegisterScreen()),
