@@ -14,6 +14,7 @@ class SessionState {
 
 class UserSession {
   const UserSession({
+    required this.id,
     required this.name,
     required this.title,
     required this.email,
@@ -21,6 +22,7 @@ class UserSession {
     required this.memberships,
     required this.activeMembership,
     required this.dashboards,
+    required this.userType,
     this.avatarSeed,
     this.connections = 0,
     this.followers = 0,
@@ -28,11 +30,13 @@ class UserSession {
     this.agencies = const <String>[],
   }) : assert(memberships.isNotEmpty, 'memberships cannot be empty');
 
+  final int id;
   final String name;
   final String title;
   final String email;
   final String location;
   final String? avatarSeed;
+  final String userType;
   final List<String> memberships;
   final String activeMembership;
   final Map<String, RoleDashboard> dashboards;
@@ -64,10 +68,12 @@ class UserSession {
     final nextActive = activeMembership ?? this.activeMembership;
     final activeExists = nextMemberships.contains(nextActive);
     return UserSession(
+      id: id,
       name: name,
       title: title,
       email: email,
       location: location,
+      userType: userType,
       avatarSeed: avatarSeed,
       memberships: nextMemberships,
       activeMembership: activeExists ? nextActive : nextMemberships.first,
@@ -81,13 +87,17 @@ class UserSession {
 
   static UserSession demo() {
     return UserSession(
+      id: 1,
       name: 'Lena Fields',
       title: 'Product Designer',
       email: 'lena.fields@gigvora.com',
       location: 'Berlin, Germany',
       avatarSeed: 'Lena Fields',
-      memberships: const ['user', 'freelancer', 'agency'],
+      memberships: const ['user', 'freelancer', 'agency', 'company'],
+      memberships: const ['user', 'freelancer', 'agency', 'headhunter'],
+      memberships: const ['user', 'freelancer', 'agency', 'admin'],
       activeMembership: 'user',
+      userType: 'freelancer',
       followers: 1280,
       connections: 324,
       companies: const ['Gigvora Labs', 'Atlas Studios'],
@@ -255,6 +265,166 @@ class UserSession {
           actions: [
             DashboardAction(label: 'Kick off partner retro', description: 'Review shared wins with Atlas Studios leadership.'),
             DashboardAction(label: 'Update availability matrix', description: 'Sync talent roster before Monday planning.'),
+            DashboardAction(
+              label: 'Launch brand page',
+              description: 'Publish a fresh company or program page to boost Explorer visibility.',
+            ),
+          ],
+        ),
+        'admin': RoleDashboard(
+          role: 'admin',
+          heroTitle: 'Admin control tower',
+          heroSubtitle: 'Monitor trust, campaign coverage, and monetisation signals.',
+          metrics: [
+            DashboardMetric(label: 'Live campaigns', value: '24', trend: '▲ 3 this week'),
+            DashboardMetric(label: 'Active disputes', value: '6', trend: '▼ improving'),
+            DashboardMetric(label: 'Escrow volume', value: '1.8M USD', trend: '↑ strong'),
+            DashboardMetric(label: 'Support backlog', value: '12', trend: '→ steady'),
+          ],
+          sections: [
+            DashboardSection(
+              title: 'Trust & operations',
+              subtitle: 'Keep disputes, compliance, and support SLAs on track.',
+              highlights: [
+                'Escrow release queue cleared ahead of payroll batches.',
+                'Compliance alerts down 14% after verification sprint.',
+                'Support first-response holding at 8 minutes network-wide.',
+              ],
+              icon: Icons.shield_moon_outlined,
+              accentColor: Color(0xFF2563EB),
+            ),
+            DashboardSection(
+              title: 'Gigvora ads',
+              subtitle: 'Review surface coverage, targeting gaps, and creative freshness.',
+              highlights: [
+                'Global dashboard coverage at 96% with fresh hero video.',
+                'Company portals need two new creatives for onboarding runs.',
+                'Volunteer hub placements scored 4.6 quality rating.',
+              ],
+              icon: Icons.campaign_outlined,
+              accentColor: Color(0xFF1E3A8A),
+            ),
+          ],
+          actions: const [
+            DashboardAction(
+              label: 'Open Gigvora Ads console',
+              description: 'Review placements, targeting telemetry, and recommendations.',
+            ),
+          ],
+        ),
+        'headhunter': RoleDashboard(
+          role: 'headhunter',
+          heroTitle: 'Headhunter command centre',
+          heroSubtitle: 'Command mandates, pipelines, and client expectations with confidence.',
+          metrics: [
+            DashboardMetric(label: 'Active mandates', value: '12', trend: '▲ 2 this month'),
+            DashboardMetric(label: 'Pipeline value', value: '\$1.8M', trend: '▲ 14% QoQ'),
+            DashboardMetric(label: 'Avg days in stage', value: '6.4', trend: '→ on target'),
+            DashboardMetric(label: 'Client NPS', value: '4.7/5', trend: 'Trusted partner'),
+          ],
+          sections: [
+            DashboardSection(
+              title: 'Pipeline health',
+              subtitle: 'Stage velocity, conversion rates, and automation guardrails.',
+              highlights: [
+                'Discovery to shortlist conversion holding at 42%.',
+                'Two offers pending with enterprise design and data mandates.',
+                'AI enrichment unlocked 18 fresh outreach targets.',
+              ],
+              icon: Icons.timeline,
+              accentColor: Color(0xFF2563EB),
+            ),
+            DashboardSection(
+              title: 'Client partnership spotlight',
+              subtitle: 'Retainers, renewals, and portal engagement signals.',
+              highlights: [
+                'Atlas Studios renewal due in 18 days—prep success fee brief.',
+                'Shared portal engagement up 23% after last briefing.',
+                'Issue desk clear—no escalations awaiting action.',
+              ],
+              icon: Icons.handshake,
+              accentColor: Color(0xFF0EA5E9),
+            ),
+            DashboardSection(
+              title: 'Outreach operations',
+              subtitle: 'Sequenced campaigns and pass-on collaborations ready to scale.',
+              highlights: [
+                'Warm introductions campaign running at 68% reply rate.',
+                'Compliance centre cleared 5 pending consent requests.',
+                'Two partner agencies awaiting feedback on pass-on matches.',
+              ],
+              icon: Icons.send,
+              accentColor: Color(0xFFF59E0B),
+            ),
+          ],
+          actions: [
+            DashboardAction(
+              label: 'Refresh mandate scorecard',
+              description: 'Align client reporting ahead of Tuesday status review.',
+            ),
+            DashboardAction(
+              label: 'Schedule outreach stand-up',
+              description: 'Sync prioritised sequences with sourcing leads.',
+            ),
+          ],
+        ),
+        'company': RoleDashboard(
+          role: 'company',
+          heroTitle: 'Company talent acquisition hub',
+          heroSubtitle:
+              'Monitor requisitions, interviews, offers, and partner performance with enterprise guardrails.',
+          metrics: [
+            DashboardMetric(label: 'Open requisitions', value: '48', trend: '▲ 6 net new'),
+            DashboardMetric(label: 'Active candidates', value: '1,260', trend: 'Pipeline steady'),
+            DashboardMetric(label: 'Upcoming interviews', value: '32', trend: 'Next: Wed 14:00'),
+            DashboardMetric(label: 'Offer win rate', value: '78%', trend: '▲ 5 pts'),
+            DashboardMetric(label: 'Candidate NPS', value: '4.6/5', trend: 'Satisfaction green'),
+            DashboardMetric(label: 'Open alerts', value: '2', trend: '▼ Cleared 3 today'),
+          ],
+          sections: [
+            DashboardSection(
+              title: 'Hiring overview',
+              subtitle: 'Velocity, diversity, and governance signals for every requisition.',
+              highlights: [
+                'Average time to decision sits at 18 days with SLA green.',
+                'Diversity representation index tracking at 1.04 across funnel.',
+                'Two medium-severity compliance alerts require review this week.',
+              ],
+              icon: Icons.bar_chart_rounded,
+              accentColor: const Color(0xFF2563EB),
+            ),
+            DashboardSection(
+              title: 'Sourcing intelligence',
+              subtitle: 'Campaign ROI, nurture cadences, and partner pipelines.',
+              highlights: [
+                'Referral campaigns delivering 32% of qualified interviews.',
+                'Headhunter briefs on track with 11 submissions awaiting review.',
+                'Applicant nurture flows triggered 540 follow-ups this month.',
+              ],
+              icon: Icons.public,
+              accentColor: const Color(0xFF0EA5E9),
+            ),
+            DashboardSection(
+              title: 'Experience & governance',
+              subtitle: 'Interview automation, offer bridge, and care centre coverage.',
+              highlights: [
+                'Scheduler coverage at 92% with auto-reminders live for panels.',
+                'Offer bridge shows 5 approvals pending; average start in 21 days.',
+                'Candidate care centre resolved 18 tickets with 2 escalations open.',
+              ],
+              icon: Icons.verified_user,
+              accentColor: const Color(0xFF22C55E),
+            ),
+          ],
+          actions: [
+            DashboardAction(
+              label: 'Review networking insights',
+              description: 'Validate attendance controls before Friday sessions.',
+            ),
+            DashboardAction(
+              label: 'Publish new employer story',
+              description: 'Showcase culture wins to boost campaign conversion.',
+            ),
           ],
         ),
       },

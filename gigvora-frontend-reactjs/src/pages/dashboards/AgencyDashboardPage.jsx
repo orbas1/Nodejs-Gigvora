@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   ArrowTrendingUpIcon,
   BriefcaseIcon,
@@ -19,7 +20,7 @@ import { fetchAgencyDashboard } from '../../services/agency.js';
 import { formatRelativeTime, formatAbsolute } from '../../utils/date.js';
 
 const DEFAULT_WORKSPACE_SLUG = 'nova-collective';
-const DEFAULT_MEMBERSHIPS = ['agency', 'freelancer', 'company'];
+const DEFAULT_MEMBERSHIPS = ['agency'];
 
 function formatNumber(value) {
   if (value == null || Number.isNaN(Number(value))) {
@@ -437,6 +438,24 @@ export default function AgencyDashboardPage() {
   const partnerSummary = partnerPrograms.summary ?? {};
   const marketingAutomation = leadership.marketingAutomation ?? {};
   const marketingSummary = marketingAutomation.summary ?? {};
+  const pageStudio = marketingAutomation.pageStudio ?? {};
+  const pageStudioStats = [
+    {
+      label: 'Pages live',
+      value: formatNumber(pageStudio.live ?? pageStudio.published ?? 0),
+      helper: 'Published destinations',
+    },
+    {
+      label: 'Drafts in review',
+      value: formatNumber(pageStudio.inReview ?? pageStudio.drafts ?? 0),
+      helper: 'Awaiting approval',
+    },
+    {
+      label: 'Avg conversion',
+      value: formatPercent(pageStudio.averageConversionRate ?? pageStudio.conversionRate ?? 0),
+      helper: 'Explorer to lead',
+    },
+  ];
   const clientAdvocacy = leadership.clientAdvocacy ?? {};
   const clientAdvocacySummary = clientAdvocacy.summary ?? {};
   const defaultCurrency = financialSummary.currency ?? 'USD';
@@ -3709,6 +3728,53 @@ export default function AgencyDashboardPage() {
                 </li>
               ))}
               {!marketingAutomation.landingPages?.length ? <p className="text-xs text-slate-500">No landing pages published.</p> : null}
+            </ul>
+          </div>
+          <div className="rounded-3xl border border-blue-100 bg-blue-50/60 p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-base font-semibold text-slate-900">Brand pages studio</h3>
+                <p className="mt-1 text-xs text-slate-600">
+                  Launch LinkedIn-style pages for anchor clients, agencies, and community initiatives.
+                </p>
+                {pageStudio.lastPublishedAt ? (
+                  <p className="mt-2 text-xs text-slate-500">
+                    Last page published {formatRelativeTime(pageStudio.lastPublishedAt)}
+                  </p>
+                ) : null}
+              </div>
+              <Link
+                to="/pages"
+                className="inline-flex items-center rounded-full border border-blue-200 bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-blue-700 transition hover:border-blue-400 hover:text-blue-900"
+              >
+                Create page
+              </Link>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              {pageStudioStats.map((stat) => (
+                <div key={stat.label} className="rounded-2xl border border-blue-100 bg-white/80 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-blue-600">{stat.label}</p>
+                  <p className="mt-1 text-lg font-semibold text-slate-900">{stat.value}</p>
+                  <p className="text-xs text-slate-500">{stat.helper}</p>
+                </div>
+              ))}
+            </div>
+            <ul className="mt-4 space-y-2 text-xs text-slate-600">
+              {(pageStudio.queue ?? pageStudio.pipeline ?? []).slice(0, 3).map((entry, index) => (
+                <li key={entry.id ?? entry.slug ?? index} className="rounded-2xl border border-blue-100 bg-white/80 px-3 py-2">
+                  <p className="font-semibold text-slate-900">{entry.title ?? entry.name ?? 'Page draft'}</p>
+                  <p className="text-[11px] text-slate-500">
+                    {entry.owner ? `Owner ${entry.owner}` : 'Owner to assign'}
+                    {entry.targetLaunch ? ` • Launch ${formatAbsolute(entry.targetLaunch)}` : ''}
+                    {entry.segment ? ` • Segment ${entry.segment}` : ''}
+                  </p>
+                </li>
+              ))}
+              {!((pageStudio.queue ?? pageStudio.pipeline ?? []).length) ? (
+                <li className="rounded-2xl border border-dashed border-blue-200 bg-white/70 px-3 py-3 text-[11px] text-slate-500">
+                  No drafts queued—spin up a new page to boost Explorer coverage.
+                </li>
+              ) : null}
             </ul>
           </div>
         </div>
