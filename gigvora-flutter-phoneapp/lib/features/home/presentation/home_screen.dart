@@ -439,6 +439,16 @@ class _DashboardActions extends StatelessWidget {
                             color: colorScheme.onSurfaceVariant,
                           ),
                         ),
+                        if (action.route != null) ...[
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: FilledButton.tonal(
+                              onPressed: () => GoRouter.of(context).go(action.route!),
+                              child: const Text('Open'),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),

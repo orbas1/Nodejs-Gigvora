@@ -86,7 +86,7 @@ class UserSession {
       email: 'lena.fields@gigvora.com',
       location: 'Berlin, Germany',
       avatarSeed: 'Lena Fields',
-      memberships: const ['user', 'freelancer', 'agency'],
+      memberships: const ['user', 'freelancer', 'agency', 'admin'],
       activeMembership: 'user',
       followers: 1280,
       connections: 324,
@@ -244,6 +244,63 @@ class UserSession {
             DashboardAction(label: 'Update availability matrix', description: 'Sync talent roster before Monday planning.'),
           ],
         ),
+        'admin': RoleDashboard(
+          role: 'admin',
+          heroTitle: 'Workspace governance HQ',
+          heroSubtitle: 'Oversee community health, approvals, and compliance signals in one console.',
+          metrics: [
+            DashboardMetric(label: 'Managed groups', value: '24', trend: '↑ 3 this week'),
+            DashboardMetric(label: 'Pending approvals', value: '11', trend: 'Queue clear in 4h'),
+            DashboardMetric(label: 'Escalations', value: '2', trend: '⇢ None overdue'),
+            DashboardMetric(label: 'Security posture', value: 'AA', trend: 'Policy coverage green'),
+          ],
+          sections: [
+            DashboardSection(
+              title: 'Community health pulse',
+              subtitle: 'Keep every group vibrant and well supported.',
+              highlights: [
+                'Engagement sentiment steady at 4.6 / 5 across top cohorts.',
+                'Two groups flagged for review due to inactive moderators.',
+                'Weekly growth pacing +18% after refined onboarding journeys.',
+              ],
+              icon: Icons.health_and_safety_outlined,
+              accentColor: Color(0xFF2563EB),
+            ),
+            DashboardSection(
+              title: 'Approval runway',
+              subtitle: 'Triage join requests, invites, and compliance signals with clarity.',
+              highlights: [
+                '11 join requests awaiting final approval across 4 groups.',
+                'Auto-reminders sent to mentors for outstanding references.',
+                'No SLA breaches detected in the last 24 hours.',
+              ],
+              icon: Icons.fact_check_outlined,
+              accentColor: Color(0xFF16A34A),
+            ),
+            DashboardSection(
+              title: 'Security and governance',
+              subtitle: 'Monitor policies, access tiers, and audit events.',
+              highlights: [
+                'All admin sessions passing MFA and device trust checks.',
+                '4 policy updates shipped to community guidelines this month.',
+                'Audit trail synced to compliance vault at 04:00 UTC.',
+              ],
+              icon: Icons.admin_panel_settings_outlined,
+              accentColor: Color(0xFF9333EA),
+            ),
+          ],
+          actions: [
+            DashboardAction(
+              label: 'Open group management console',
+              description: 'Review requests, send invites, and curate visibility settings in real time.',
+              route: '/groups/manage',
+            ),
+            DashboardAction(
+              label: 'Audit membership escalations',
+              description: 'Double-check escalation queue before the weekly compliance review.',
+            ),
+          ],
+        ),
       },
     );
   }
@@ -299,8 +356,10 @@ class DashboardAction {
   const DashboardAction({
     required this.label,
     required this.description,
+    this.route,
   });
 
   final String label;
   final String description;
+  final String? route;
 }
