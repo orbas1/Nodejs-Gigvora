@@ -114,6 +114,94 @@ class ProfileController extends StateNotifier<ResourceState<ProfileModel>> {
       metadata: const {'source': 'mobile_app'},
     );
   }
+
+  Future<void> sendReferenceInvite({
+    required String clientName,
+    String? email,
+    String? relationship,
+    String? message,
+  }) async {
+    await _analytics.track(
+      'mobile_reference_invite_started',
+      context: {
+        'profileId': profileId,
+        'clientName': clientName,
+      },
+      metadata: const {'source': 'mobile_app'},
+    );
+
+    try {
+      await _repository.requestReferenceInvite(
+        profileId,
+        clientName: clientName,
+        email: email,
+        relationship: relationship,
+        message: message,
+      );
+
+      await _analytics.track(
+        'mobile_reference_invite_sent',
+        context: {
+          'profileId': profileId,
+          'clientName': clientName,
+        },
+        metadata: const {'source': 'mobile_app'},
+      );
+
+      await refresh();
+    } catch (error) {
+      await _analytics.track(
+        'mobile_reference_invite_failed',
+        context: {
+          'profileId': profileId,
+          'clientName': clientName,
+          'reason': '$error',
+        },
+        metadata: const {'source': 'mobile_app'},
+      );
+      rethrow;
+    }
+  }
+
+  Future<void> updateReferenceSettings(ProfileReferenceSettings settings) async {
+    final current = state.data;
+    if (current == null) {
+      throw StateError('Profile not loaded');
+    }
+
+    final previous = current.referenceSettings;
+    final optimistic = current.copyWith(referenceSettings: settings);
+    state = state.copyWith(data: optimistic);
+
+    try {
+      final persisted = await _repository.updateReferenceSettings(profileId, settings);
+      state = state.copyWith(data: optimistic.copyWith(referenceSettings: persisted));
+
+      await _analytics.track(
+        'mobile_reference_settings_updated',
+        context: {
+          'profileId': profileId,
+          'allowPrivate': persisted.allowPrivate,
+          'showBadges': persisted.showBadges,
+          'autoShareToFeed': persisted.autoShareToFeed,
+          'autoRequest': persisted.autoRequest,
+          'escalateConcerns': persisted.escalateConcerns,
+        },
+        metadata: const {'source': 'mobile_app'},
+      );
+    } catch (error) {
+      state = state.copyWith(data: current.copyWith(referenceSettings: previous));
+      await _analytics.track(
+        'mobile_reference_settings_failed',
+        context: {
+          'profileId': profileId,
+          'reason': '$error',
+        },
+        metadata: const {'source': 'mobile_app'},
+      );
+      rethrow;
+    }
+  }
 }
 
 final profileRepositoryProvider = Provider<ProfileRepository>((ref) {

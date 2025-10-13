@@ -12,6 +12,8 @@ export const SUPPORT_CASE_PRIORITIES = ['low', 'medium', 'high', 'urgent'];
 const dialect = sequelize.getDialect();
 const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB : DataTypes.JSON;
 
+const TWO_FACTOR_METHODS = ['email', 'app', 'sms'];
+
 export const User = sequelize.define(
   'User',
   {
@@ -26,6 +28,14 @@ export const User = sequelize.define(
       allowNull: false,
       defaultValue: 'user',
     },
+    twoFactorEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    twoFactorMethod: {
+      type: DataTypes.ENUM(...TWO_FACTOR_METHODS),
+      allowNull: false,
+      defaultValue: 'email',
+    },
+    lastLoginAt: { type: DataTypes.DATE, allowNull: true },
+    googleId: { type: DataTypes.STRING(255), allowNull: true },
   },
   {
     tableName: 'users',

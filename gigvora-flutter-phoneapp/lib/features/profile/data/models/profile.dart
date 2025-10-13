@@ -64,6 +64,131 @@ class ProfileMetric {
   }
 }
 
+class ProfileReference {
+  const ProfileReference({
+    required this.id,
+    required this.client,
+    required this.relationship,
+    required this.company,
+    required this.quote,
+    required this.status,
+    required this.verified,
+    this.rating,
+    this.weight,
+    this.lastInteractionAt,
+    this.isPrivate = false,
+  });
+
+  final String id;
+  final String client;
+  final String relationship;
+  final String company;
+  final String quote;
+  final String status;
+  final bool verified;
+  final double? rating;
+  final String? weight;
+  final DateTime? lastInteractionAt;
+  final bool isPrivate;
+
+  factory ProfileReference.fromJson(Map<String, dynamic> json) {
+    final ratingValue = json['rating'] ?? json['score'] ?? json['nps'];
+    final lastInteraction = json['lastInteractionAt'] ?? json['lastInteractedAt'] ?? json['updatedAt'];
+    return ProfileReference(
+      id: '${json['id'] ?? json['referenceId'] ?? json['uuid'] ?? ''}',
+      client: (json['client'] as String? ?? json['clientName'] as String? ?? json['reviewer'] as String? ?? '').trim(),
+      relationship: (json['relationship'] as String? ?? json['role'] as String? ?? '').trim(),
+      company: (json['company'] as String? ?? json['organisation'] as String? ?? json['companyName'] as String? ?? '').trim(),
+      quote: (json['quote'] as String? ?? json['testimonial'] as String? ?? json['comment'] as String? ?? '').trim(),
+      status: (json['status'] as String? ?? (json['published'] == true ? 'published' : 'draft')).trim(),
+      verified: json['verified'] as bool? ?? json['isVerified'] as bool? ?? json['status'] == 'verified',
+      rating: ratingValue is num
+          ? ratingValue.toDouble()
+          : ratingValue is String
+              ? double.tryParse(ratingValue)
+              : null,
+      weight: (json['weight'] as String? ?? json['impact'] as String?)?.trim().isEmpty ?? true
+          ? null
+          : (json['weight'] as String? ?? json['impact'] as String?).toString().trim(),
+      lastInteractionAt: lastInteraction is String && lastInteraction.isNotEmpty
+          ? DateTime.tryParse(lastInteraction)
+          : null,
+      isPrivate: json['private'] as bool? ?? json['isPrivate'] as bool? ?? false,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'client': client,
+      'relationship': relationship,
+      'company': company,
+      'quote': quote,
+      'status': status,
+      'verified': verified,
+      if (rating != null) 'rating': rating,
+      if (weight != null) 'weight': weight,
+      if (lastInteractionAt != null) 'lastInteractionAt': lastInteractionAt!.toIso8601String(),
+      'private': isPrivate,
+    };
+  }
+}
+
+class ProfileReferenceSettings {
+  const ProfileReferenceSettings({
+    this.allowPrivate = true,
+    this.showBadges = true,
+    this.autoShareToFeed = false,
+    this.autoRequest = false,
+    this.escalateConcerns = true,
+  });
+
+  final bool allowPrivate;
+  final bool showBadges;
+  final bool autoShareToFeed;
+  final bool autoRequest;
+  final bool escalateConcerns;
+
+  factory ProfileReferenceSettings.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return const ProfileReferenceSettings();
+    }
+    return ProfileReferenceSettings(
+      allowPrivate: json['allowPrivate'] as bool? ?? json['allowPrivateReferences'] as bool? ?? true,
+      showBadges: json['showBadges'] as bool? ?? json['displayBadges'] as bool? ?? true,
+      autoShareToFeed: json['autoShareToFeed'] as bool? ?? json['feedCrossPosting'] as bool? ?? false,
+      autoRequest: json['autoRequest'] as bool? ?? json['requestAutomation'] as bool? ?? false,
+      escalateConcerns: json['escalateConcerns'] as bool? ?? json['routeConcernsToSupport'] as bool? ?? true,
+    );
+  }
+
+  ProfileReferenceSettings copyWith({
+    bool? allowPrivate,
+    bool? showBadges,
+    bool? autoShareToFeed,
+    bool? autoRequest,
+    bool? escalateConcerns,
+  }) {
+    return ProfileReferenceSettings(
+      allowPrivate: allowPrivate ?? this.allowPrivate,
+      showBadges: showBadges ?? this.showBadges,
+      autoShareToFeed: autoShareToFeed ?? this.autoShareToFeed,
+      autoRequest: autoRequest ?? this.autoRequest,
+      escalateConcerns: escalateConcerns ?? this.escalateConcerns,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'allowPrivate': allowPrivate,
+      'showBadges': showBadges,
+      'autoShareToFeed': autoShareToFeed,
+      'autoRequest': autoRequest,
+      'escalateConcerns': escalateConcerns,
+    };
+  }
+}
+
 class ProfileAvailability {
   const ProfileAvailability({
     required this.status,
@@ -162,6 +287,8 @@ class ProfileModel {
     required this.experiences,
     required this.metrics,
     required this.focusAreas,
+    this.references = const <ProfileReference>[],
+    this.referenceSettings = const ProfileReferenceSettings(),
     this.avatarUrl,
   });
 
@@ -176,6 +303,8 @@ class ProfileModel {
   final List<ProfileExperience> experiences;
   final List<ProfileMetric> metrics;
   final List<String> focusAreas;
+  final List<ProfileReference> references;
+  final ProfileReferenceSettings referenceSettings;
   final String? avatarUrl;
 
   factory ProfileModel.fromJson(Map<String, dynamic> json) {
@@ -215,6 +344,20 @@ class ProfileModel {
         .where((value) => value.isNotEmpty)
         .toList(growable: false);
 
+    final referencesRaw = json['references'] ?? json['testimonials'] ?? json['items'];
+    final references = referencesRaw is List
+        ? referencesRaw
+            .whereType<Map>()
+            .map((item) => ProfileReference.fromJson(Map<String, dynamic>.from(item as Map)))
+            .toList(growable: false)
+        : const <ProfileReference>[];
+
+    final referenceSettings = ProfileReferenceSettings.fromJson(
+      json['referenceSettings'] as Map<String, dynamic>? ??
+          json['settings'] as Map<String, dynamic>? ??
+          json['preferences'] as Map<String, dynamic>?,
+    );
+
     final profile = json['profile'] is Map<String, dynamic>
         ? Map<String, dynamic>.from(json['profile'] as Map<String, dynamic>)
         : json;
@@ -231,7 +374,43 @@ class ProfileModel {
       experiences: experiences,
       metrics: metrics,
       focusAreas: focusAreas,
+      references: references,
+      referenceSettings: referenceSettings,
       avatarUrl: (profile['avatarUrl'] as String? ?? profile['photoUrl'] as String?)?.trim(),
+    );
+  }
+
+  ProfileModel copyWith({
+    String? id,
+    String? fullName,
+    String? headline,
+    String? bio,
+    String? location,
+    List<String>? skills,
+    List<ProfileGroup>? groups,
+    ProfileAvailability? availability,
+    List<ProfileExperience>? experiences,
+    List<ProfileMetric>? metrics,
+    List<String>? focusAreas,
+    List<ProfileReference>? references,
+    ProfileReferenceSettings? referenceSettings,
+    String? avatarUrl,
+  }) {
+    return ProfileModel(
+      id: id ?? this.id,
+      fullName: fullName ?? this.fullName,
+      headline: headline ?? this.headline,
+      bio: bio ?? this.bio,
+      location: location ?? this.location,
+      skills: skills ?? this.skills,
+      groups: groups ?? this.groups,
+      availability: availability ?? this.availability,
+      experiences: experiences ?? this.experiences,
+      metrics: metrics ?? this.metrics,
+      focusAreas: focusAreas ?? this.focusAreas,
+      references: references ?? this.references,
+      referenceSettings: referenceSettings ?? this.referenceSettings,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
     );
   }
 
@@ -248,6 +427,8 @@ class ProfileModel {
       'experiences': experiences.map((exp) => exp.toJson()).toList(),
       'metrics': {for (final metric in metrics) metric.key: metric.toJson()},
       'focusAreas': focusAreas,
+      'references': references.map((reference) => reference.toJson()).toList(),
+      'referenceSettings': referenceSettings.toJson(),
       if (avatarUrl != null) 'avatarUrl': avatarUrl,
     };
   }
