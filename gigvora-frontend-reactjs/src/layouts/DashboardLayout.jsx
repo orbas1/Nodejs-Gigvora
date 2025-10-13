@@ -123,7 +123,7 @@ export default function DashboardLayout({
             <div className="space-y-6">
               {navigationSections.map((section) => (
                 <div key={section.label}>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{section.label}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{section.label}</p>
                   <ul className="mt-3 space-y-2">
                     {section.items.map((item) => (
                       <li key={item.name}>
@@ -197,7 +197,7 @@ export default function DashboardLayout({
               </form>
 
               <div className="flex items-center gap-2">
-                <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Switch</span>
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Switch</span>
                 <div className="relative">
                   <select
                     value={currentDashboard}
