@@ -15120,6 +15120,7 @@ User.hasMany(ComplianceDocument, { foreignKey: 'ownerId', as: 'complianceDocumen
 Notification.belongsTo(User, { foreignKey: 'userId', as: 'recipient' });
 NotificationPreference.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasOne(NotificationPreference, { foreignKey: 'userId', as: 'notificationPreference' });
+
 User.hasMany(Notification, { foreignKey: 'userId', as: 'notifications' });
 User.hasMany(EmployerBrandStory, { foreignKey: 'authorId', as: 'authoredBrandStories' });
 User.hasMany(EmployeeJourneyProgram, { foreignKey: 'ownerId', as: 'managedJourneyPrograms' });

@@ -243,6 +243,42 @@ SupportCase.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+export const UserAiProviderSetting = sequelize.define(
+  'UserAiProviderSetting',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    provider: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'openai' },
+    apiKey: { type: DataTypes.STRING(255), allowNull: true },
+    model: { type: DataTypes.STRING(120), allowNull: false, defaultValue: 'gpt-4o-mini' },
+    autoReplyEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    autoReplyInstructions: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'user_ai_provider_settings',
+    indexes: [
+      { unique: true, fields: ['userId', 'provider'] },
+      { fields: ['provider'] },
+      { fields: ['autoReplyEnabled'] },
+    ],
+  },
+);
+
+UserAiProviderSetting.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    provider: plain.provider,
+    model: plain.model,
+    autoReplyEnabled: Boolean(plain.autoReplyEnabled),
+    autoReplyInstructions: plain.autoReplyInstructions ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 MessageThread.hasMany(MessageParticipant, { as: 'participants', foreignKey: 'threadId' });
 MessageThread.hasMany(MessageParticipant, { as: 'viewerParticipants', foreignKey: 'threadId' });
 MessageParticipant.belongsTo(MessageThread, { as: 'thread', foreignKey: 'threadId' });
@@ -261,6 +297,8 @@ SupportCase.belongsTo(User, { as: 'escalatedByUser', foreignKey: 'escalatedBy' }
 SupportCase.belongsTo(User, { as: 'assignedAgent', foreignKey: 'assignedTo' });
 SupportCase.belongsTo(User, { as: 'assignedByUser', foreignKey: 'assignedBy' });
 SupportCase.belongsTo(User, { as: 'resolvedByUser', foreignKey: 'resolvedBy' });
+UserAiProviderSetting.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasMany(UserAiProviderSetting, { foreignKey: 'userId', as: 'aiProviderSettings' });
 
 export default {
   sequelize,
@@ -275,4 +313,5 @@ export default {
   Message,
   MessageAttachment,
   SupportCase,
+  UserAiProviderSetting,
 };
