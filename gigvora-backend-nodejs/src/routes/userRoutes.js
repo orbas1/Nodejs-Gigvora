@@ -11,6 +11,11 @@ router.get(
   authenticate({ roles: ['user', 'admin'], matchParam: 'id' }),
   asyncHandler(userController.getUserDashboard),
 );
+router.get(
+  '/:id/affiliate/dashboard',
+  authenticate({ roles: ['user', 'freelancer', 'agency', 'company', 'headhunter', 'admin'], matchParam: 'id' }),
+  asyncHandler(userController.getUserAffiliateDashboard),
+);
 router.get('/:id/alliances', asyncHandler(userController.getFreelancerAlliances));
 router.get('/:id/support-desk', asyncHandler(userController.getSupportDesk));
 router.get('/:id/catalog-insights', asyncHandler(userController.getFreelancerCatalogInsights));

@@ -8,6 +8,7 @@ import AdminGroupManagementPanel from './admin/AdminGroupManagementPanel.jsx';
 import useSession from '../../hooks/useSession.js';
 import { fetchAdminDashboard } from '../../services/admin.js';
 import { fetchPlatformSettings, updatePlatformSettings } from '../../services/platformSettings.js';
+import { fetchAffiliateSettings, updateAffiliateSettings } from '../../services/affiliateSettings.js';
 
 const MENU_SECTIONS = [
   {
@@ -68,16 +69,22 @@ const MENU_SECTIONS = [
   },
   {
     label: 'Configuration stack',
-    items: [
-      {
-        name: 'All platform settings',
-        description: 'Govern application defaults, commission policies, and feature gates.',
-        tags: ['settings'],
-        sectionId: 'admin-settings-overview',
-      },
-      {
-        name: 'CMS controls',
-        description: 'Editorial workflow, restricted features, and monetisation toggles.',
+      items: [
+        {
+          name: 'All platform settings',
+          description: 'Govern application defaults, commission policies, and feature gates.',
+          tags: ['settings'],
+          sectionId: 'admin-settings-overview',
+        },
+        {
+          name: 'Affiliate economics',
+          description: 'Tiered commissions, payout cadences, and partner compliance.',
+          tags: ['affiliate'],
+          sectionId: 'admin-affiliate-settings',
+        },
+        {
+          name: 'CMS controls',
+          description: 'Editorial workflow, restricted features, and monetisation toggles.',
         sectionId: 'admin-settings-cms',
       },
       {
@@ -558,6 +565,14 @@ export default function AdminDashboardPage() {
   const [settingsDirty, setSettingsDirty] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsStatus, setSettingsStatus] = useState('');
+  const [affiliateSettings, setAffiliateSettings] = useState(null);
+  const [affiliateDraft, setAffiliateDraft] = useState(null);
+  const [affiliateLoading, setAffiliateLoading] = useState(false);
+  const [affiliateError, setAffiliateError] = useState(null);
+  const [affiliateDirty, setAffiliateDirty] = useState(false);
+  const [affiliateSaving, setAffiliateSaving] = useState(false);
+  const [affiliateStatus, setAffiliateStatus] = useState('');
+  const [affiliateLastSavedAt, setAffiliateLastSavedAt] = useState(null);
   const [lastSavedAt, setLastSavedAt] = useState(null);
   const [restrictedFeaturesInput, setRestrictedFeaturesInput] = useState('');
 
@@ -576,6 +591,14 @@ export default function AdminDashboardPage() {
       setSettingsSaving(false);
       setSettingsStatus('');
       setLastSavedAt(null);
+      setAffiliateSettings(null);
+      setAffiliateDraft(null);
+      setAffiliateLoading(false);
+      setAffiliateError(null);
+      setAffiliateDirty(false);
+      setAffiliateSaving(false);
+      setAffiliateStatus('');
+      setAffiliateLastSavedAt(null);
       return;
     }
     if (!hasAdminAccess) {
@@ -589,6 +612,14 @@ export default function AdminDashboardPage() {
       setSettingsError(null);
       setSettingsStatus('');
       setLastSavedAt(null);
+      setAffiliateSettings(null);
+      setAffiliateDraft(null);
+      setAffiliateDirty(false);
+      setAffiliateLoading(false);
+      setAffiliateSaving(false);
+      setAffiliateError(null);
+      setAffiliateStatus('');
+      setAffiliateLastSavedAt(null);
       return;
     }
 
@@ -601,12 +632,17 @@ export default function AdminDashboardPage() {
     setSettingsError(null);
     setSettingsSaving(false);
     setSettingsStatus('');
+    setAffiliateLoading(true);
+    setAffiliateError(null);
+    setAffiliateSaving(false);
+    setAffiliateStatus('');
 
     const hydrate = async () => {
       try {
-        const [dashboardResult, settingsResult] = await Promise.allSettled([
+        const [dashboardResult, settingsResult, affiliateResult] = await Promise.allSettled([
           fetchAdminDashboard({}, { signal: abortController.signal }),
           fetchPlatformSettings({ signal: abortController.signal }),
+          fetchAffiliateSettings({ signal: abortController.signal }),
         ]);
 
         if (!isActive) {
@@ -664,6 +700,31 @@ export default function AdminDashboardPage() {
           }
         }
         setSettingsLoading(false);
+
+        if (affiliateResult.status === 'fulfilled') {
+          const receivedAffiliate = affiliateResult.value;
+          setAffiliateSettings(receivedAffiliate);
+          setAffiliateDraft(cloneDeep(receivedAffiliate));
+          setAffiliateDirty(false);
+          setAffiliateLastSavedAt(new Date().toISOString());
+        } else {
+          const reason = affiliateResult.reason;
+          if (reason?.name !== 'AbortError') {
+            if (reason?.status === 401) {
+              setAffiliateError('Session expired while loading affiliate policies.');
+            } else if (reason?.status === 403) {
+              setAffiliateError('Admin privileges are required to configure affiliate policies.');
+            } else {
+              const message =
+                reason?.message || (reason instanceof Error ? reason.message : 'Unable to load affiliate settings.');
+              setAffiliateError(message);
+            }
+            setAffiliateSettings(null);
+            setAffiliateDraft(null);
+            setAffiliateDirty(false);
+          }
+        }
+        setAffiliateLoading(false);
       } catch (err) {
         if (!isActive || err?.name === 'AbortError') {
           return;
@@ -671,6 +732,7 @@ export default function AdminDashboardPage() {
         setError(err?.message || 'Unable to load admin telemetry at this time.');
         setLoading(false);
         setSettingsLoading(false);
+        setAffiliateLoading(false);
       }
     };
 
@@ -764,6 +826,15 @@ export default function AdminDashboardPage() {
     [settingsDraft, settings],
   );
 
+  const normalizedAffiliate = useMemo(
+    () => affiliateDraft ?? affiliateSettings ?? {},
+    [affiliateDraft, affiliateSettings],
+  );
+
+  const normalizedAffiliateTiers = Array.isArray(normalizedAffiliate.tiers)
+    ? normalizedAffiliate.tiers
+    : [];
+
   const updateSettingsDraft = (path, value) => {
     setSettingsDraft((current) => {
       const baseline = current ?? cloneDeep(settings ?? {});
@@ -785,6 +856,94 @@ export default function AdminDashboardPage() {
     updateSettingsDraft(path, event.target.checked);
   };
 
+  const updateAffiliateDraft = (path, value) => {
+    setAffiliateDraft((current) => {
+      const baseline = current ?? cloneDeep(affiliateSettings ?? {});
+      const next = setNestedValue(baseline, path, value);
+      setAffiliateDirty(true);
+      return next;
+    });
+  };
+
+  const handleAffiliateTextChange = (path) => (event) => {
+    updateAffiliateDraft(path, event.target.value);
+  };
+
+  const handleAffiliateNumberChange = (path) => (event) => {
+    const raw = event.target.value;
+    updateAffiliateDraft(path, raw === '' ? '' : Number(raw));
+  };
+
+  const handleAffiliateToggleChange = (path) => (event) => {
+    updateAffiliateDraft(path, event.target.checked);
+  };
+
+  const handleAffiliateRecurrenceChange = (event) => {
+    updateAffiliateDraft(['payouts', 'recurrence', 'type'], event.target.value);
+  };
+
+  const handleAffiliateRecurrenceLimitChange = (event) => {
+    const raw = event.target.value;
+    updateAffiliateDraft(['payouts', 'recurrence', 'limit'], raw === '' ? '' : Number(raw));
+  };
+
+  const handleAffiliateTierChange = (index, field) => (event) => {
+    const raw = event.target.value;
+    setAffiliateDraft((current) => {
+      const baseline = cloneDeep(current ?? affiliateSettings ?? {});
+      const tiers = Array.isArray(baseline.tiers) ? [...baseline.tiers] : [];
+      if (!tiers[index]) {
+        tiers[index] = { id: `tier-${index + 1}`, name: `Tier ${index + 1}`, minValue: 0, maxValue: null, rate: 0 };
+      }
+      const tier = { ...tiers[index] };
+      if (field === 'rate' || field === 'minValue' || field === 'maxValue') {
+        tier[field] = raw === '' ? '' : Number(raw);
+      } else {
+        tier[field] = raw;
+      }
+      if (!tier.id) {
+        tier.id = `tier-${index + 1}`;
+      }
+      tiers[index] = tier;
+      baseline.tiers = tiers;
+      setAffiliateDirty(true);
+      return baseline;
+    });
+  };
+
+  const handleAffiliateRemoveTier = (index) => () => {
+    setAffiliateDraft((current) => {
+      const baseline = cloneDeep(current ?? affiliateSettings ?? {});
+      const tiers = Array.isArray(baseline.tiers) ? [...baseline.tiers] : [];
+      if (index < 0 || index >= tiers.length) {
+        return baseline;
+      }
+      tiers.splice(index, 1);
+      baseline.tiers = tiers;
+      setAffiliateDirty(true);
+      return baseline;
+    });
+  };
+
+  const handleAffiliateAddTier = () => {
+    setAffiliateDraft((current) => {
+      const baseline = cloneDeep(current ?? affiliateSettings ?? {});
+      const tiers = Array.isArray(baseline.tiers) ? [...baseline.tiers] : [];
+      const nextIndex = tiers.length + 1;
+      const lastMax = tiers.length ? tiers[tiers.length - 1].maxValue : null;
+      tiers.push({
+        id: `tier-${Date.now()}-${nextIndex}`,
+        name: `Tier ${nextIndex}`,
+        minValue: typeof lastMax === 'number' ? lastMax : 0,
+        maxValue: null,
+        rate: 5,
+      });
+      baseline.tiers = tiers;
+      setAffiliateDirty(true);
+      return baseline;
+    });
+  };
+
   const handleRestrictedFeaturesChange = (value) => {
     setRestrictedFeaturesInput(value);
     const features = value
@@ -792,6 +951,15 @@ export default function AdminDashboardPage() {
       .map((item) => item.trim())
       .filter((item) => item.length > 0);
     updateSettingsDraft(['subscriptions', 'restrictedFeatures'], features);
+  };
+
+  const handleAffiliateDocumentsChange = (event) => {
+    const value = event.target.value;
+    const documents = value
+      .split(',')
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+    updateAffiliateDraft(['compliance', 'requiredDocuments'], documents);
   };
 
   const handleSaveSettings = async () => {
@@ -847,6 +1015,78 @@ export default function AdminDashboardPage() {
   };
 
   const disableSettingsInputs = settingsLoading || settingsSaving || !settingsDraft;
+
+  const handleSaveAffiliateSettings = async () => {
+    if (!affiliateDraft || affiliateSaving) {
+      return;
+    }
+    setAffiliateSaving(true);
+    setAffiliateError(null);
+    setAffiliateStatus('');
+    try {
+      const payload = cloneDeep(affiliateDraft);
+      if (Array.isArray(payload?.tiers)) {
+        payload.tiers = payload.tiers.map((tier, index) => ({
+          id: tier.id ?? `tier-${index + 1}`,
+          name: tier.name ?? `Tier ${index + 1}`,
+          minValue:
+            tier.minValue === '' || tier.minValue == null ? 0 : Number.isFinite(Number(tier.minValue)) ? Number(tier.minValue) : 0,
+          maxValue:
+            tier.maxValue === '' || tier.maxValue == null
+              ? null
+              : Number.isFinite(Number(tier.maxValue))
+              ? Number(tier.maxValue)
+              : null,
+          rate:
+            tier.rate === '' || tier.rate == null ? 0 : Number.isFinite(Number(tier.rate)) ? Number(tier.rate) : 0,
+        }));
+      }
+      if (payload?.payouts) {
+        const recurrence = payload.payouts.recurrence ?? {};
+        if (recurrence.type !== 'finite') {
+          recurrence.limit = null;
+        } else if (recurrence.limit === '') {
+          recurrence.limit = null;
+        }
+        payload.payouts.recurrence = recurrence;
+        if (payload.payouts.minimumPayoutThreshold === '') {
+          payload.payouts.minimumPayoutThreshold = 0;
+        }
+      }
+      if (payload.defaultCommissionRate === '') {
+        payload.defaultCommissionRate = 0;
+      }
+      if (payload.referralWindowDays === '') {
+        payload.referralWindowDays = 0;
+      }
+      const response = await updateAffiliateSettings(payload);
+      setAffiliateSettings(response);
+      setAffiliateDraft(cloneDeep(response));
+      setAffiliateDirty(false);
+      setAffiliateStatus('Affiliate settings updated successfully.');
+      setAffiliateLastSavedAt(new Date().toISOString());
+    } catch (err) {
+      setAffiliateError(err?.message || 'Failed to update affiliate settings.');
+    } finally {
+      setAffiliateSaving(false);
+    }
+  };
+
+  const handleResetAffiliateSettings = () => {
+    if (!affiliateSettings) {
+      setAffiliateDraft(null);
+      setAffiliateDirty(false);
+      setAffiliateError(null);
+      setAffiliateStatus('');
+      return;
+    }
+    setAffiliateDraft(cloneDeep(affiliateSettings));
+    setAffiliateDirty(false);
+    setAffiliateError(null);
+    setAffiliateStatus('Affiliate draft reset to last saved configuration.');
+  };
+
+  const disableAffiliateInputs = affiliateLoading || affiliateSaving || (!affiliateDraft && !affiliateSettings);
 
   const renderSettingsSection = (
     <section
@@ -1484,6 +1724,361 @@ export default function AdminDashboardPage() {
     </section>
   );
 
+  const affiliateDocumentsValue = Array.isArray(normalizedAffiliate.compliance?.requiredDocuments)
+    ? normalizedAffiliate.compliance.requiredDocuments.join(', ')
+    : '';
+
+  const renderAffiliateSettingsSection = (
+    <section
+      id="admin-affiliate-settings"
+      className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg shadow-emerald-100/40 sm:p-8"
+    >
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div>
+          <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Affiliate programme configuration</h2>
+          <p className="mt-2 max-w-3xl text-sm text-slate-600">
+            Govern referral economics, payout cadence, and compliance requirements across the Gigvora network.
+          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-wide">
+            <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-600">
+              {affiliateLoading
+                ? 'Syncing settings…'
+                : affiliateLastSavedAt
+                ? `Last synced ${formatRelativeTime(affiliateLastSavedAt)}`
+                : 'Awaiting sync'}
+            </span>
+            {affiliateDirty ? (
+              <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-amber-700">
+                Unsaved changes
+              </span>
+            ) : null}
+            {normalizedAffiliate.enabled === false ? (
+              <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-rose-600">
+                Programme paused
+              </span>
+            ) : null}
+          </div>
+        </div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <button
+            type="button"
+            onClick={handleResetAffiliateSettings}
+            className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={affiliateLoading || affiliateSaving}
+          >
+            Reset draft
+          </button>
+          <button
+            type="button"
+            onClick={handleSaveAffiliateSettings}
+            className="inline-flex items-center justify-center rounded-full bg-emerald-600 px-6 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={disableAffiliateInputs}
+          >
+            {affiliateSaving ? 'Saving…' : 'Save affiliate settings'}
+          </button>
+        </div>
+      </div>
+
+      {affiliateError ? (
+        <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{affiliateError}</p>
+      ) : null}
+      {affiliateStatus ? (
+        <p className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          {affiliateStatus}
+        </p>
+      ) : null}
+
+      <div className="mt-6 grid gap-6 xl:grid-cols-3">
+        <div className="space-y-6 xl:col-span-2">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+              <span className="font-semibold text-slate-800">Programme enabled</span>
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                checked={Boolean(normalizedAffiliate.enabled)}
+                onChange={handleAffiliateToggleChange(['enabled'])}
+                disabled={disableAffiliateInputs}
+              />
+            </label>
+            <label className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+              <span className="font-semibold text-slate-800">Auto-approve payouts</span>
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                checked={Boolean(normalizedAffiliate.payouts?.autoApprove)}
+                onChange={handleAffiliateToggleChange(['payouts', 'autoApprove'])}
+                disabled={disableAffiliateInputs}
+              />
+            </label>
+            <label className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+              <span className="font-semibold text-slate-800">Two-factor required</span>
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                checked={Boolean(normalizedAffiliate.compliance?.twoFactorRequired)}
+                onChange={handleAffiliateToggleChange(['compliance', 'twoFactorRequired'])}
+                disabled={disableAffiliateInputs}
+              />
+            </label>
+            <label className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+              <span className="font-semibold text-slate-800">KYC verification</span>
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                checked={Boolean(normalizedAffiliate.compliance?.payoutKyc)}
+                onChange={handleAffiliateToggleChange(['compliance', 'payoutKyc'])}
+                disabled={disableAffiliateInputs}
+              />
+            </label>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="flex flex-col gap-2 text-sm text-slate-700">
+              <span className="font-semibold text-slate-800">Default commission rate (%)</span>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-2"
+                value={normalizedAffiliate.defaultCommissionRate ?? ''}
+                onChange={handleAffiliateNumberChange(['defaultCommissionRate'])}
+                disabled={disableAffiliateInputs}
+              />
+            </label>
+            <label className="flex flex-col gap-2 text-sm text-slate-700">
+              <span className="font-semibold text-slate-800">Referral attribution window (days)</span>
+              <input
+                type="number"
+                min="1"
+                max="365"
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-2"
+                value={normalizedAffiliate.referralWindowDays ?? ''}
+                onChange={handleAffiliateNumberChange(['referralWindowDays'])}
+                disabled={disableAffiliateInputs}
+              />
+            </label>
+            <label className="flex flex-col gap-2 text-sm text-slate-700">
+              <span className="font-semibold text-slate-800">Payout frequency</span>
+              <select
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-2"
+                value={normalizedAffiliate.payouts?.frequency ?? 'monthly'}
+                onChange={handleAffiliateTextChange(['payouts', 'frequency'])}
+                disabled={disableAffiliateInputs}
+              >
+                <option value="weekly">Weekly</option>
+                <option value="biweekly">Bi-weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="quarterly">Quarterly</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-2 text-sm text-slate-700">
+              <span className="font-semibold text-slate-800">Minimum payout threshold ({normalizedAffiliate.currency ?? 'USD'})</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-2"
+                value={normalizedAffiliate.payouts?.minimumPayoutThreshold ?? ''}
+                onChange={handleAffiliateNumberChange(['payouts', 'minimumPayoutThreshold'])}
+                disabled={disableAffiliateInputs}
+              />
+            </label>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="flex flex-col gap-2 text-sm text-slate-700">
+              <span className="font-semibold text-slate-800">Recurrence model</span>
+              <select
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-2"
+                value={normalizedAffiliate.payouts?.recurrence?.type ?? 'infinite'}
+                onChange={handleAffiliateRecurrenceChange}
+                disabled={disableAffiliateInputs}
+              >
+                <option value="infinite">Infinite – recurring commissions</option>
+                <option value="finite">Finite – limited commissions</option>
+                <option value="one_time">Single – first transaction only</option>
+              </select>
+            </label>
+            {normalizedAffiliate.payouts?.recurrence?.type === 'finite' ? (
+              <label className="flex flex-col gap-2 text-sm text-slate-700">
+                <span className="font-semibold text-slate-800">Recurrence limit (transactions)</span>
+                <input
+                  type="number"
+                  min="1"
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-2"
+                  value={normalizedAffiliate.payouts?.recurrence?.limit ?? ''}
+                  onChange={handleAffiliateRecurrenceLimitChange}
+                  disabled={disableAffiliateInputs}
+                />
+              </label>
+            ) : null}
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-slate-50/80 p-5">
+            <h3 className="text-base font-semibold text-slate-900">Required compliance documents</h3>
+            <p className="mt-1 text-sm text-slate-600">
+              Specify documentation partners must submit before payouts are released. Separate values with commas.
+            </p>
+            <input
+              type="text"
+              className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm"
+              value={affiliateDocumentsValue}
+              onChange={handleAffiliateDocumentsChange}
+              placeholder="e.g. W-8BEN, Photo ID, Proof of address"
+              disabled={disableAffiliateInputs}
+            />
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold text-slate-900">Commission tiers</h3>
+              <button
+                type="button"
+                onClick={handleAffiliateAddTier}
+                className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={disableAffiliateInputs}
+              >
+                Add tier
+              </button>
+            </div>
+            {normalizedAffiliateTiers.length ? (
+              <div className="space-y-3">
+                {normalizedAffiliateTiers.map((tier, index) => (
+                  <div key={tier.id ?? `tier-${index}`} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex-1">
+                        <label className="flex flex-col gap-2 text-sm text-slate-700">
+                          <span className="font-semibold text-slate-800">Tier name</span>
+                          <input
+                            type="text"
+                            className="rounded-2xl border border-slate-200 bg-white px-4 py-2"
+                            value={tier.name ?? ''}
+                            onChange={handleAffiliateTierChange(index, 'name')}
+                            disabled={disableAffiliateInputs}
+                          />
+                        </label>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleAffiliateRemoveTier(index)}
+                        className="inline-flex items-center justify-center rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-600 transition hover:border-rose-300 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={disableAffiliateInputs}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                      <label className="flex flex-col gap-2 text-sm text-slate-700">
+                        <span className="font-semibold text-slate-800">Rate (%)</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.1"
+                          className="rounded-2xl border border-slate-200 bg-white px-4 py-2"
+                          value={tier.rate ?? ''}
+                          onChange={handleAffiliateTierChange(index, 'rate')}
+                          disabled={disableAffiliateInputs}
+                        />
+                      </label>
+                      <label className="flex flex-col gap-2 text-sm text-slate-700">
+                        <span className="font-semibold text-slate-800">Min value ({normalizedAffiliate.currency ?? 'USD'})</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className="rounded-2xl border border-slate-200 bg-white px-4 py-2"
+                          value={tier.minValue ?? ''}
+                          onChange={handleAffiliateTierChange(index, 'minValue')}
+                          disabled={disableAffiliateInputs}
+                        />
+                      </label>
+                      <label className="flex flex-col gap-2 text-sm text-slate-700">
+                        <span className="font-semibold text-slate-800">Max value ({normalizedAffiliate.currency ?? 'USD'})</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className="rounded-2xl border border-slate-200 bg-white px-4 py-2"
+                          value={tier.maxValue ?? ''}
+                          onChange={handleAffiliateTierChange(index, 'maxValue')}
+                          disabled={disableAffiliateInputs}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/60 p-6 text-sm text-slate-500">
+                No tiers configured yet. Add at least one tier to establish commission multipliers.
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="rounded-3xl border border-slate-200 bg-slate-50/80 p-5">
+            <h3 className="text-base font-semibold text-slate-900">Programme snapshot</h3>
+            <dl className="mt-4 space-y-2 text-sm text-slate-700">
+              <div className="flex items-center justify-between">
+                <dt>Default commission</dt>
+                <dd>{formatPercent(normalizedAffiliate.defaultCommissionRate ?? 0)}</dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt>Referral window</dt>
+                <dd>{normalizedAffiliate.referralWindowDays ?? 0} days</dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt>Payout cadence</dt>
+                <dd>{normalizedAffiliate.payouts?.frequency ?? 'monthly'}</dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt>Threshold</dt>
+                <dd>
+                  {formatCurrency(
+                    normalizedAffiliate.payouts?.minimumPayoutThreshold ?? 0,
+                    normalizedAffiliate.currency ?? 'USD',
+                  )}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt>Tiers configured</dt>
+                <dd>{normalizedAffiliateTiers.length}</dd>
+              </div>
+            </dl>
+            <p className="mt-4 text-xs text-slate-500">
+              Adjusting these settings updates partner experiences across web and mobile dashboards instantly.
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 className="text-base font-semibold text-slate-900">Security posture</h3>
+            <ul className="mt-3 space-y-2 text-sm text-slate-600">
+              <li>
+                <span className="font-semibold text-slate-800">2FA enforcement:</span>{' '}
+                {normalizedAffiliate.compliance?.twoFactorRequired ? 'Required for affiliate logins' : 'Optional for partners'}
+              </li>
+              <li>
+                <span className="font-semibold text-slate-800">KYC verification:</span>{' '}
+                {normalizedAffiliate.compliance?.payoutKyc ? 'Mandatory prior to payout' : 'Deferred to finance review'}
+              </li>
+              <li>
+                <span className="font-semibold text-slate-800">Required documents:</span>{' '}
+                {affiliateDocumentsValue || 'None configured'}
+              </li>
+            </ul>
+            <p className="mt-4 text-xs text-slate-500">
+              Align these requirements with your compliance team to ensure audit-ready payout processes.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+
 
   const handleRefresh = () => {
     setRefreshIndex((index) => index + 1);
@@ -2009,6 +2604,7 @@ export default function AdminDashboardPage() {
     return (
       <div className="space-y-10">
         {renderSettingsSection}
+        {renderAffiliateSettingsSection}
         {dashboardContent}
       </div>
     );
