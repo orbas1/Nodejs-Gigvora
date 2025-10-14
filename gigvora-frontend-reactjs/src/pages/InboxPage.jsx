@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowPathIcon,
@@ -13,6 +13,7 @@ import {
   fetchThreadMessages,
   sendMessage,
   createCallSession,
+  markThreadRead,
 } from '../services/messaging.js';
 import { resolveActorId } from '../utils/session.js';
 import {
@@ -25,6 +26,22 @@ import {
 import ConversationMessage from '../components/messaging/ConversationMessage.jsx';
 import AgoraCallPanel from '../components/messaging/AgoraCallPanel.jsx';
 import { classNames } from '../utils/classNames.js';
+import { canAccessMessaging, getMessagingMemberships, MESSAGING_ALLOWED_MEMBERSHIPS } from '../constants/access.js';
+import { DASHBOARD_LINKS } from '../constants/dashboardLinks.js';
+
+const INBOX_REFRESH_INTERVAL = 60_000;
+
+function sortThreads(threads = []) {
+  return [...threads].sort((a, b) => {
+    const aTime = a?.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+    const bTime = b?.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+    return bTime - aTime;
+  });
+}
+
+function formatMembershipLabel(key) {
+  return DASHBOARD_LINKS[key]?.label ?? key.replace(/-/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+}
 
 function ThreadCard({ thread, actorId, onSelect, selected }) {
   const title = buildThreadTitle(thread, actorId);
@@ -37,13 +54,15 @@ function ThreadCard({ thread, actorId, onSelect, selected }) {
       type="button"
       onClick={() => onSelect(thread.id)}
       className={classNames(
-        'w-full rounded-3xl border px-5 py-4 text-left transition',
+        'w-full rounded-3xl border px-5 py-4 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
         selected
           ? 'border-accent bg-accentSoft shadow-soft'
           : unread
           ? 'border-slate-200 bg-white shadow-sm hover:border-accent/60'
           : 'border-slate-200 bg-white hover:border-accent/60',
       )}
+      aria-pressed={selected}
+      aria-label={`Open conversation ${title}`}
     >
       <div className="flex items-center justify-between">
         <p className="text-sm font-semibold text-slate-900">{title}</p>
@@ -68,6 +87,19 @@ export default function InboxPage() {
   const { session, isAuthenticated } = useSession();
   const navigate = useNavigate();
   const actorId = resolveActorId(session);
+  const inboxRequestRef = useRef(0);
+  const messageRequestRef = useRef(0);
+
+  const messagingMemberships = useMemo(() => getMessagingMemberships(session), [session]);
+  const allowedMembershipLabels = useMemo(
+    () => messagingMemberships.map((membership) => formatMembershipLabel(membership)),
+    [messagingMemberships],
+  );
+  const allowedRoleCatalog = useMemo(
+    () => MESSAGING_ALLOWED_MEMBERSHIPS.map((membership) => formatMembershipLabel(membership)),
+    [],
+  );
+  const hasMessagingAccess = useMemo(() => canAccessMessaging(session), [session]);
 
   const [threads, setThreads] = useState([]);
   const [inboxLoading, setInboxLoading] = useState(false);
@@ -89,15 +121,20 @@ export default function InboxPage() {
   }, [isAuthenticated, navigate]);
 
   const loadInbox = useCallback(async () => {
-    if (!isAuthenticated || !actorId) {
+    if (!isAuthenticated || !actorId || !hasMessagingAccess) {
       return;
     }
+    const requestId = inboxRequestRef.current + 1;
+    inboxRequestRef.current = requestId;
     setInboxLoading(true);
     setInboxError(null);
     try {
       const response = await fetchInbox({ userId: actorId, includeParticipants: true, pageSize: 30 });
       const data = Array.isArray(response?.data) ? response.data : [];
-      setThreads(data);
+      if (inboxRequestRef.current !== requestId) {
+        return;
+      }
+      setThreads(sortThreads(data));
       if (!selectedThreadId && data.length) {
         setSelectedThreadId(data[0].id);
       } else if (selectedThreadId) {
@@ -111,20 +148,42 @@ export default function InboxPage() {
     } finally {
       setInboxLoading(false);
     }
-  }, [actorId, isAuthenticated, selectedThreadId]);
+  }, [actorId, hasMessagingAccess, inboxRequestRef, isAuthenticated, selectedThreadId]);
+
+  const updateThreadViewerState = useCallback((threadId) => {
+    const now = new Date().toISOString();
+    setThreads((previous) =>
+      previous.map((thread) =>
+        thread.id === threadId
+          ? {
+              ...thread,
+              unreadCount: 0,
+              viewerState: { ...(thread.viewerState ?? {}), lastReadAt: now },
+            }
+          : thread,
+      ),
+    );
+  }, []);
 
   const loadMessages = useCallback(
     async (threadId) => {
-      if (!isAuthenticated || !actorId || !threadId) {
+      if (!isAuthenticated || !actorId || !threadId || !hasMessagingAccess) {
         setMessages([]);
         return;
       }
+      const requestId = messageRequestRef.current + 1;
+      messageRequestRef.current = requestId;
       setMessagesLoading(true);
       setMessagesError(null);
       try {
         const response = await fetchThreadMessages(threadId, { pageSize: 100 });
         const data = Array.isArray(response?.data) ? sortMessages(response.data) : [];
+        if (messageRequestRef.current !== requestId) {
+          return;
+        }
         setMessages(data);
+        updateThreadViewerState(threadId);
+        await markThreadRead(threadId, { userId: actorId });
       } catch (err) {
         setMessages([]);
         setMessagesError(err?.body?.message ?? err?.message ?? 'Unable to load conversation.');
@@ -132,15 +191,15 @@ export default function InboxPage() {
         setMessagesLoading(false);
       }
     },
-    [actorId, isAuthenticated],
+    [actorId, hasMessagingAccess, isAuthenticated, messageRequestRef, updateThreadViewerState],
   );
 
   useEffect(() => {
-    if (!isAuthenticated || !actorId) {
+    if (!isAuthenticated || !actorId || !hasMessagingAccess) {
       return;
     }
     loadInbox();
-  }, [isAuthenticated, actorId, loadInbox]);
+  }, [isAuthenticated, actorId, hasMessagingAccess, loadInbox]);
 
   useEffect(() => {
     if (!selectedThreadId) {
@@ -150,6 +209,82 @@ export default function InboxPage() {
     loadMessages(selectedThreadId);
   }, [selectedThreadId, loadMessages]);
 
+  useEffect(() => {
+    if (!isAuthenticated || !actorId || !hasMessagingAccess) {
+      return undefined;
+    }
+    const interval = window.setInterval(() => {
+      loadInbox();
+      if (selectedThreadId) {
+        loadMessages(selectedThreadId);
+      }
+    }, INBOX_REFRESH_INTERVAL);
+    return () => window.clearInterval(interval);
+  }, [actorId, hasMessagingAccess, isAuthenticated, loadInbox, loadMessages, selectedThreadId]);
+
+  if (isAuthenticated && !hasMessagingAccess) {
+    return (
+      <section className="relative overflow-hidden py-20">
+        <div
+          className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(191,219,254,0.35),_transparent_65%)]"
+          aria-hidden="true"
+        />
+        <div className="absolute -left-12 bottom-6 h-72 w-72 rounded-full bg-emerald-200/40 blur-[120px]" aria-hidden="true" />
+        <div className="relative mx-auto max-w-4xl px-6">
+          <PageHeader
+            eyebrow="Messaging"
+            title="Inbox access pending"
+            description="Your account doesn’t currently have an active messaging workspace. Update your memberships or contact Gigvora support to enable secure communications."
+            actions={
+              <button
+                type="button"
+                onClick={() => navigate('/settings')}
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-accent/60 hover:text-accent"
+              >
+                Manage memberships
+              </button>
+            }
+          />
+          <div className="mt-10 rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
+            <h2 className="text-base font-semibold text-slate-900">Workspaces with messaging enabled</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Messaging is available to team, talent, and partner roles. Ask an administrator to add one of the roles below to your account.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {allowedRoleCatalog.length ? (
+                allowedRoleCatalog.map((label) => (
+                  <span
+                    key={label}
+                    className="inline-flex items-center rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold text-accent"
+                  >
+                    {label}
+                  </span>
+                ))
+              ) : (
+                <span className="text-xs text-slate-500">Messaging roles are configured by workspace administrators.</span>
+              )}
+            </div>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => navigate('/feed')}
+                className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
+              >
+                Return to feed
+              </button>
+              <a
+                href="mailto:support@gigvora.com"
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-accent/60 hover:text-accent"
+              >
+                Contact support
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   const selectedThread = useMemo(
     () => threads.find((thread) => thread.id === selectedThreadId) ?? null,
     [threads, selectedThreadId],
@@ -158,7 +293,7 @@ export default function InboxPage() {
   const handleSend = useCallback(
     async (event) => {
       event.preventDefault();
-      if (!composer.trim() || !selectedThreadId || !actorId) {
+      if (!composer.trim() || !selectedThreadId || !actorId || !hasMessagingAccess) {
         return;
       }
       setSending(true);
@@ -178,12 +313,12 @@ export default function InboxPage() {
         setSending(false);
       }
     },
-    [composer, selectedThreadId, actorId, loadInbox],
+    [composer, selectedThreadId, actorId, hasMessagingAccess, loadInbox],
   );
 
   const startCall = useCallback(
     async (callType, callId) => {
-      if (!selectedThreadId || !actorId) {
+      if (!selectedThreadId || !actorId || !hasMessagingAccess) {
         return;
       }
       setCallLoading(true);
@@ -211,25 +346,38 @@ export default function InboxPage() {
         setCallLoading(false);
       }
     },
-    [selectedThreadId, actorId, loadInbox],
+    [selectedThreadId, actorId, hasMessagingAccess, loadInbox],
   );
 
   const handleJoinCall = useCallback(
     (callMetadata) => {
-      if (!callMetadata?.id) {
+      if (!callMetadata?.id || !hasMessagingAccess) {
         return;
       }
       startCall(callMetadata?.type ?? 'video', callMetadata.id);
     },
-    [startCall],
+    [hasMessagingAccess, startCall],
   );
 
   const closeCallPanel = useCallback(() => {
     setCallSession(null);
-    if (selectedThreadId) {
+    if (selectedThreadId && hasMessagingAccess) {
       loadMessages(selectedThreadId);
     }
-  }, [selectedThreadId, loadMessages]);
+  }, [hasMessagingAccess, selectedThreadId, loadMessages]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !actorId || !hasMessagingAccess) {
+      return undefined;
+    }
+    const interval = window.setInterval(() => {
+      loadInbox();
+      if (selectedThreadId) {
+        loadMessages(selectedThreadId);
+      }
+    }, INBOX_REFRESH_INTERVAL);
+    return () => window.clearInterval(interval);
+  }, [actorId, hasMessagingAccess, isAuthenticated, loadInbox, loadMessages, selectedThreadId]);
 
   return (
     <section className="relative overflow-hidden py-20">
@@ -255,6 +403,18 @@ export default function InboxPage() {
             <div className="rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
               <p className="text-sm font-semibold text-slate-800">{session?.name ?? 'Gigvora member'}</p>
               <p className="text-xs text-slate-500">Inbox syncs across dashboards, client portals, and partner workspaces.</p>
+              {allowedMembershipLabels.length ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {allowedMembershipLabels.map((label) => (
+                    <span
+                      key={label}
+                      className="inline-flex items-center rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold text-accent"
+                    >
+                      {label}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
             </div>
             <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between">
@@ -270,7 +430,9 @@ export default function InboxPage() {
               </div>
               <div className="mt-3 space-y-3">
                 {inboxError ? (
-                  <p className="rounded-3xl bg-rose-50 px-4 py-3 text-xs text-rose-600">{inboxError}</p>
+                  <p className="rounded-3xl bg-rose-50 px-4 py-3 text-xs text-rose-600" role="alert">
+                    {inboxError}
+                  </p>
                 ) : null}
                 {inboxLoading ? (
                   <div className="space-y-2">
@@ -335,10 +497,16 @@ export default function InboxPage() {
             ) : (
               <p className="text-sm text-slate-500">Select a conversation to view history, share documents, and launch calls.</p>
             )}
-            {callError ? <p className="rounded-2xl bg-rose-50 px-4 py-2 text-xs text-rose-600">{callError}</p> : null}
+            {callError ? (
+              <p className="rounded-2xl bg-rose-50 px-4 py-2 text-xs text-rose-600" role="alert">
+                {callError}
+              </p>
+            ) : null}
             <div className="max-h-[32rem] space-y-4 overflow-y-auto pr-2">
               {messagesError ? (
-                <p className="rounded-2xl bg-rose-50 px-4 py-2 text-xs text-rose-600">{messagesError}</p>
+                <p className="rounded-2xl bg-rose-50 px-4 py-2 text-xs text-rose-600" role="alert">
+                  {messagesError}
+                </p>
               ) : null}
               {messagesLoading ? (
                 <div className="space-y-3">

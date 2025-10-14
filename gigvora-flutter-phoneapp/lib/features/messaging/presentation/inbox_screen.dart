@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/providers.dart';
 import '../../../theme/widgets.dart';
@@ -9,6 +10,8 @@ import '../application/messaging_state.dart';
 import '../data/models/message_thread.dart';
 import '../data/models/thread_message.dart';
 import '../utils/messaging_formatters.dart';
+import '../utils/messaging_access.dart';
+import '../../auth/application/session_controller.dart';
 
 class InboxScreen extends ConsumerStatefulWidget {
   const InboxScreen({super.key});
@@ -64,6 +67,116 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     final state = ref.watch(messagingControllerProvider);
     final controller = ref.read(messagingControllerProvider.notifier);
     final tokens = ref.watch(designTokensProvider).maybeWhen(data: (value) => value, orElse: () => null);
+    final sessionState = ref.watch(sessionControllerProvider);
+    final session = sessionState.session;
+    final isAuthenticated = sessionState.isAuthenticated;
+    final hasMessagingAccess = canAccessMessaging(session);
+    final membershipBadges = messagingMembershipLabels(session);
+    final allowedRoleLabels = messagingAllowedRoleLabels(session);
+
+    if (!isAuthenticated) {
+      return GigvoraScaffold(
+        title: 'Inbox',
+        subtitle: 'Stay aligned with partners, teams, and clients in one secure channel.',
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: GigvoraCard(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Sign in to access messaging', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 12),
+                  Text('Secure messaging, call controls, and synced history unlock once you authenticate.', style: Theme.of(context).textTheme.bodyMedium),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      FilledButton(
+                        onPressed: () => context.go('/login'),
+                        child: const Text('Sign in'),
+                      ),
+                      OutlinedButton(
+                        onPressed: () => context.go('/home'),
+                        child: const Text('Return home'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (!hasMessagingAccess) {
+      return GigvoraScaffold(
+        title: 'Inbox',
+        subtitle: 'Stay aligned with partners, teams, and clients in one secure channel.',
+        body: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: GigvoraCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Inbox access pending', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Your current workspace membership doesn\'t include messaging. Ask an administrator to enable one of the roles below for secure conversations.',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 16),
+                  if (allowedRoleLabels.isNotEmpty)
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: allowedRoleLabels
+                          .map(
+                            (label) => Chip(
+                              label: Text(label),
+                              backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                              labelStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                    color: Theme.of(context).colorScheme.primary,
+                                  ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  if (allowedRoleLabels.isNotEmpty) const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      FilledButton(
+                        onPressed: () => context.go('/home'),
+                        child: const Text('Return home'),
+                      ),
+                      OutlinedButton(
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Email support@gigvora.com to enable messaging.'),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        },
+                        child: const Text('Contact support'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
 
     final threads = state.threads;
     final messages = state.messages;
@@ -102,6 +215,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
             onRefresh: () => controller.loadInbox(forceRefresh: true),
             actorController: _actorController,
             onApplyActorId: _applyActorId,
+            membershipBadges: membershipBadges,
           );
 
           final conversationPanel = _ConversationPanel(
@@ -166,6 +280,7 @@ class _ThreadPanel extends StatelessWidget {
     required this.onRefresh,
     required this.actorController,
     required this.onApplyActorId,
+    required this.membershipBadges,
   });
 
   final MessagingState state;
@@ -174,6 +289,7 @@ class _ThreadPanel extends StatelessWidget {
   final Future<void> Function() onRefresh;
   final TextEditingController actorController;
   final VoidCallback onApplyActorId;
+  final List<String> membershipBadges;
 
   @override
   Widget build(BuildContext context) {
@@ -185,6 +301,37 @@ class _ThreadPanel extends StatelessWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(bottom: 24),
         children: [
+          if (membershipBadges.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: GigvoraCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Active messaging workspaces',
+                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: membershipBadges
+                          .map(
+                            (label) => Chip(
+                              label: Text(label),
+                              backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
+                              labelStyle: theme.textTheme.labelMedium?.copyWith(
+                                    color: theme.colorScheme.primary,
+                                  ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           _ActorSelector(actorController: actorController, onApply: onApplyActorId),
           const SizedBox(height: 16),
           if (state.inbox.hasError)
