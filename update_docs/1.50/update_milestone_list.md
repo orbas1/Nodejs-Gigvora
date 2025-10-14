@@ -143,3 +143,13 @@
   - Coordinate deployment sequencing across backend, web, and mobile clients with feature flags.
   - Monitor post-launch metrics, error budgets, and customer feedback for rapid remediation.
   - Capture retrospective insights and backlog items feeding Version 1.60 planning.
+
+## Additional UI/UX Design Milestones (Supplemental)
+These milestones extend the primary delivery plan with design-specific checkpoints captured in `Design_update_milestone_list.md`. They are tracked separately but align to the same Version 1.50 release window.
+
+1. **Token & Theme Architecture Finalisation:** Publish unified tokens, validate emo/high-contrast themes, and document theme switching guidelines.
+2. **Application Experience Blueprinting:** Re-map persona dashboards, annotate navigation and widgets, and harmonise logic flows across app surfaces.
+3. **Web Marketing & Dashboard Refresh:** Modernise landing pages, expand modular partial catalog, and refresh authenticated dashboards.
+4. **Theme & Partial Infrastructure Enablement:** Configure CMS slots, ship emo asset packs, and deliver QA scripts for theme permutations.
+5. **Governance, Accessibility, and Security Enhancements:** Audit compliance flows, enforce accessibility standards, and provide secure UI patterns.
+6. **Handoff, QA, and Implementation Support:** Package redlines, coordinate design QA walkthroughs, and support engineering teams through rollout.

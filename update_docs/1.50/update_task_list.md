@@ -101,3 +101,17 @@ Each numbered task maps to the update plan and contains explicit integration cov
 - **API:** Execute contract tests with partner sandboxes and maintain versioned changelog entries.
 - **Logic:** Conduct scenario-based QA across marketplace, finance, integrations, and mobile parity flows.
 - **Design:** Update design system docs, marketing collateral, and produce the end-of-update report plus changelog.
+
+## Supplemental UI/UX Design Tasks (Reference `Design_update_task_list.md`)
+These tasks complement the existing engineering-focused backlog and should be cross-referenced when planning Version 1.50 sprints.
+
+1. **Finalise Token Architecture:** Publish tokens, map theme aliases, and execute contrast audits.
+2. **Consolidate Iconography & Imagery:** Curate SVG/Lottie libraries, produce emo overlays, and optimise assets.
+3. **Re-map Application Screen Hierarchy:** Validate persona inventories, reorder dashboards, and align navigation flows.
+4. **Refine Application Widgets & States:** Document interactions, responsive behaviors, telemetry hooks, and accessibility patterns.
+5. **Redesign Marketing Landing Pages:** Craft hero/CTA layouts, modular sections, theme toggles, and analytics hooks.
+6. **Expand Secondary Web Pages:** Create templates, copy decks, navigation, and responsive QA for community/compliance hubs.
+7. **Refresh Authenticated Web Dashboards:** Detail component specs, data density rules, and personalised experiences.
+8. **Implement Theme & Partial Infrastructure:** Configure CMS slots, manage asset packs, and script theme QA workflows.
+9. **Governance & Security UX Updates:** Update consent/legal experiences, finance messaging, and compliance badges.
+10. **Handoff, QA, and Documentation:** Deliver redlines, accessibility checklists, and maintain design decision changelog.
