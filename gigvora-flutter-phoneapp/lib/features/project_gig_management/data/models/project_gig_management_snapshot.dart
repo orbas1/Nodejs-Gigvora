@@ -12,6 +12,7 @@ class ProjectGigManagementSnapshot {
     required this.vendorStats,
     required this.storytelling,
     required this.access,
+    required this.operations,
   });
 
   factory ProjectGigManagementSnapshot.fromJson(Map<String, dynamic> json) {
@@ -37,6 +38,7 @@ class ProjectGigManagementSnapshot {
       vendorStats: VendorStats.fromJson(_ensureMap(purchasedGigs['stats'])),
       storytelling: StorytellingSnapshot.fromJson(_ensureMap(json['storytelling'])),
       access: ProjectGigAccess.fromJson(_ensureMap(json['access'])),
+      operations: ProjectOperationsConsole.fromJson(_ensureMap(json['operations'])),
     );
   }
 
@@ -50,6 +52,7 @@ class ProjectGigManagementSnapshot {
   final VendorStats vendorStats;
   final StorytellingSnapshot storytelling;
   final ProjectGigAccess access;
+  final ProjectOperationsConsole operations;
 }
 
 class ProjectGigAccess {
@@ -703,6 +706,232 @@ class StoryQuickExports {
   final List<String> resume;
   final List<String> linkedin;
   final List<String> coverLetter;
+}
+
+class ProjectOperationsConsole {
+  const ProjectOperationsConsole({
+    required this.allowedRoles,
+    required this.metrics,
+    required this.tasks,
+    this.lastSyncedAt,
+  });
+
+  factory ProjectOperationsConsole.fromJson(Map<String, dynamic> json) {
+    if (json.isEmpty) {
+      return const ProjectOperationsConsole(
+        allowedRoles: <String>[],
+        metrics: ProjectOperationsMetrics.empty,
+        tasks: <ProjectTaskRecord>[],
+        lastSyncedAt: null,
+      );
+    }
+    final metricsJson = _ensureMap(json['metrics']);
+    final tasks = _mapList(json['tasks']).map(ProjectTaskRecord.fromJson).toList(growable: false);
+    return ProjectOperationsConsole(
+      allowedRoles: _stringList(json['allowedRoles']),
+      metrics: ProjectOperationsMetrics.fromJson(metricsJson),
+      tasks: tasks,
+      lastSyncedAt: _parseDate(json['lastSyncedAt']),
+    );
+  }
+
+  final List<String> allowedRoles;
+  final ProjectOperationsMetrics metrics;
+  final List<ProjectTaskRecord> tasks;
+  final DateTime? lastSyncedAt;
+
+  static const ProjectOperationsConsole empty = ProjectOperationsConsole(
+    allowedRoles: <String>[],
+    metrics: ProjectOperationsMetrics.empty,
+    tasks: <ProjectTaskRecord>[],
+    lastSyncedAt: null,
+  );
+}
+
+class ProjectOperationsMetrics {
+  const ProjectOperationsMetrics({
+    required this.total,
+    required this.completed,
+    required this.blocked,
+    required this.atRisk,
+  });
+
+  factory ProjectOperationsMetrics.fromJson(Map<String, dynamic> json) {
+    if (json.isEmpty) {
+      return ProjectOperationsMetrics.empty;
+    }
+    final total = _parseInt(json['total']) ?? 0;
+    final completed = _parseInt(json['completed']) ?? 0;
+    final blocked = _parseInt(json['blocked']) ?? 0;
+    final atRisk = _parseInt(json['atRisk']) ?? _parseInt(json['risk']) ?? 0;
+    return ProjectOperationsMetrics(
+      total: total,
+      completed: completed,
+      blocked: blocked,
+      atRisk: atRisk,
+    );
+  }
+
+  final int total;
+  final int completed;
+  final int blocked;
+  final int atRisk;
+
+  static const ProjectOperationsMetrics empty = ProjectOperationsMetrics(
+    total: 0,
+    completed: 0,
+    blocked: 0,
+    atRisk: 0,
+  );
+}
+
+class ProjectTaskRecord {
+  const ProjectTaskRecord({
+    required this.id,
+    required this.projectId,
+    required this.projectName,
+    required this.title,
+    required this.lane,
+    required this.status,
+    required this.riskLevel,
+    required this.ownerName,
+    required this.ownerType,
+    required this.startDate,
+    required this.endDate,
+    required this.progressPercent,
+    required this.workloadHours,
+    required this.notes,
+    required this.updatedAt,
+  });
+
+  factory ProjectTaskRecord.fromJson(Map<String, dynamic> json) {
+    return ProjectTaskRecord(
+      id: _string(json['id']) ?? _string(json['taskId']) ?? (_string(json['title']) ?? 'task'),
+      projectId: _parseInt(json['projectId']) ?? _parseInt(json['project_id']) ?? 0,
+      projectName: _string(json['projectName']) ?? _string(json['project']) ?? 'Project',
+      title: _string(json['title']) ?? 'Task',
+      lane: _string(json['lane']) ?? 'Delivery',
+      status: _string(json['status']) ?? 'planned',
+      riskLevel: _string(json['riskLevel']) ?? 'low',
+      ownerName: _string(json['ownerName']) ?? _string(json['owner']) ?? '',
+      ownerType: _string(json['ownerType']) ?? 'agency_member',
+      startDate: _parseDate(json['startDate']),
+      endDate: _parseDate(json['endDate']),
+      progressPercent: _parseDouble(json['progressPercent']) ?? 0,
+      workloadHours: _parseDouble(json['workloadHours']),
+      notes: _string(json['notes']) ?? _string(json['summary']) ?? '',
+      updatedAt: _parseDate(json['updatedAt']),
+    );
+  }
+
+  final String id;
+  final int projectId;
+  final String projectName;
+  final String title;
+  final String lane;
+  final String status;
+  final String riskLevel;
+  final String ownerName;
+  final String ownerType;
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final double progressPercent;
+  final double? workloadHours;
+  final String notes;
+  final DateTime? updatedAt;
+}
+
+class ProjectTaskDraft {
+  const ProjectTaskDraft({
+    required this.projectId,
+    required this.title,
+    required this.lane,
+    required this.status,
+    required this.riskLevel,
+    this.ownerName,
+    this.ownerType,
+    this.startDate,
+    this.endDate,
+    this.progressPercent,
+    this.workloadHours,
+    this.notes,
+  });
+
+  Map<String, dynamic> toJson() {
+    final payload = <String, dynamic>{
+      'title': title,
+      'lane': lane,
+      'status': status,
+      'riskLevel': riskLevel,
+      'projectId': projectId,
+      if (ownerName != null && ownerName!.trim().isNotEmpty) 'ownerName': ownerName!.trim(),
+      if (ownerType != null && ownerType!.trim().isNotEmpty) 'ownerType': ownerType,
+      if (startDate != null) 'startDate': startDate!.toIso8601String(),
+      if (endDate != null) 'endDate': endDate!.toIso8601String(),
+      if (progressPercent != null) 'progressPercent': progressPercent,
+      if (workloadHours != null) 'workloadHours': workloadHours,
+      if (notes != null && notes!.trim().isNotEmpty) 'notes': notes!.trim(),
+    };
+    return payload;
+  }
+
+  final int projectId;
+  final String title;
+  final String lane;
+  final String status;
+  final String riskLevel;
+  final String? ownerName;
+  final String? ownerType;
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final double? progressPercent;
+  final double? workloadHours;
+  final String? notes;
+}
+
+class ProjectTaskMutation {
+  const ProjectTaskMutation({
+    this.title,
+    this.lane,
+    this.status,
+    this.riskLevel,
+    this.ownerName,
+    this.ownerType,
+    this.startDate,
+    this.endDate,
+    this.progressPercent,
+    this.workloadHours,
+    this.notes,
+  });
+
+  Map<String, dynamic> toJson() {
+    final payload = <String, dynamic>{
+      if (title != null) 'title': title,
+      if (lane != null) 'lane': lane,
+      if (status != null) 'status': status,
+      if (riskLevel != null) 'riskLevel': riskLevel,
+      if (ownerName != null) 'ownerName': ownerName,
+      if (ownerType != null) 'ownerType': ownerType,
+      if (startDate != null) 'startDate': startDate!.toIso8601String(),
+      if (endDate != null) 'endDate': endDate!.toIso8601String(),
+      if (progressPercent != null) 'progressPercent': progressPercent,
+      if (workloadHours != null) 'workloadHours': workloadHours,
+      if (notes != null) 'notes': notes,
+    };
+    return payload;
+  }
+
+  final String? title;
+  final String? lane;
+  final String? status;
+  final String? riskLevel;
+  final String? ownerName;
+  final String? ownerType;
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final double? progressPercent;
+  final double? workloadHours;
+  final String? notes;
 }
 
 class ProjectDraft {

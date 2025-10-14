@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -12,6 +14,14 @@ import '../data/models/project_gig_management_snapshot.dart';
 
 enum GigManagementSection { manage, buy, post }
 
+const List<String> _projectManagementRoleLabels = <String>[
+  'Agency lead',
+  'Operations lead',
+  'Company operator',
+  'Workspace admin',
+  'Platform admin',
+];
+
 GigManagementSection? sectionFromQuery(String? value) {
   switch (value?.toLowerCase()) {
     case 'manage':
@@ -24,6 +34,46 @@ GigManagementSection? sectionFromQuery(String? value) {
       return null;
   }
 }
+
+const Map<String, String> _laneLabels = <String, String>{
+  'Discovery': 'Discovery',
+  'Delivery': 'Delivery',
+  'QA & Enablement': 'QA & Enablement',
+  'Change Management': 'Change Management',
+  'Launch': 'Launch',
+};
+
+const Map<String, String> _statusLabels = <String, String>{
+  'planned': 'Planned',
+  'in_progress': 'In progress',
+  'blocked': 'Blocked',
+  'at_risk': 'At risk',
+  'completed': 'Completed',
+};
+
+const Map<String, String> _riskLabels = <String, String>{
+  'low': 'Low',
+  'medium': 'Medium',
+  'high': 'High',
+  'critical': 'Critical',
+};
+
+const Map<String, String> _ownerTypeLabels = <String, String>{
+  'agency_member': 'Agency lead',
+  'company_member': 'Internal stakeholder',
+  'freelancer': 'Freelancer',
+  'vendor': 'Vendor partner',
+};
+
+const List<String> _statusOrder = <String>['planned', 'in_progress', 'blocked', 'at_risk', 'completed'];
+
+const Map<String, double> _statusProgressDefaults = <String, double>{
+  'planned': 10,
+  'in_progress': 35,
+  'blocked': 35,
+  'at_risk': 60,
+  'completed': 100,
+};
 
 class ProjectGigManagementScreen extends ConsumerWidget {
   const ProjectGigManagementScreen({
@@ -103,6 +153,12 @@ class ProjectGigManagementScreen extends ConsumerWidget {
               ),
             if (snapshot != null) ...[
               _SummaryCard(snapshot: snapshot, lastUpdated: state.lastUpdated),
+              const SizedBox(height: 16),
+              _ProjectOperationsConsoleCard(
+                snapshot: snapshot,
+                controller: controller,
+                loading: state.loading,
+              ),
               if (!snapshot.access.canManage)
                 Padding(
                   padding: const EdgeInsets.only(top: 12, left: 16, right: 16),
@@ -183,6 +239,982 @@ class ProjectGigManagementScreen extends ConsumerWidget {
     );
   }
 }
+
+class _ProjectOperationsConsoleCard extends StatefulWidget {
+  const _ProjectOperationsConsoleCard({
+    required this.snapshot,
+    required this.controller,
+    required this.loading,
+  });
+
+  final ProjectGigManagementSnapshot snapshot;
+  final ProjectGigManagementController controller;
+  final bool loading;
+
+  @override
+  State<_ProjectOperationsConsoleCard> createState() => _ProjectOperationsConsoleCardState();
+}
+
+class _ProjectOperationsConsoleCardState extends State<_ProjectOperationsConsoleCard> {
+  String _laneFilter = 'all';
+  String _statusFilter = 'all';
+  String _riskFilter = 'all';
+  String _query = '';
+  bool _processing = false;
+  String? _activeTaskId;
+  String? _activeAction;
+
+  List<ProjectTaskRecord> get _tasks => widget.snapshot.operations.tasks;
+
+  bool get _canManage => widget.snapshot.access.canManage;
+
+  void _showSnack(String message, {bool error = false}) {
+    if (!mounted) return;
+    final theme = Theme.of(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor:
+            error ? theme.colorScheme.error.withOpacity(0.9) : theme.colorScheme.primary.withOpacity(0.85),
+      ),
+    );
+  }
+
+  List<ProjectTaskRecord> _filteredTasks() {
+    final query = _query.trim().toLowerCase();
+    return _tasks.where((task) {
+      final laneMatches = _laneFilter == 'all' || task.lane == _laneFilter;
+      final statusMatches = _statusFilter == 'all' || task.status == _statusFilter;
+      final riskMatches = _riskFilter == 'all' || task.riskLevel == _riskFilter;
+      final queryMatches = query.isEmpty ||
+          <String?>[
+            task.title,
+            task.ownerName.isEmpty ? null : task.ownerName,
+            task.notes.isEmpty ? null : task.notes,
+            task.projectName,
+          ].any((value) => value != null && value!.toLowerCase().contains(query));
+      return laneMatches && statusMatches && riskMatches && queryMatches;
+    }).toList(growable: false);
+  }
+
+  List<MapEntry<String, List<ProjectTaskRecord>>> _groupedTasks(List<ProjectTaskRecord> tasks) {
+    final grouped = <String, List<ProjectTaskRecord>>{};
+    for (final task in tasks) {
+      final lane = task.lane.isEmpty ? 'Delivery' : task.lane;
+      grouped.putIfAbsent(lane, () => <ProjectTaskRecord>[]).add(task);
+    }
+    final entries = grouped.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    for (final entry in entries) {
+      entry.value.sort((a, b) {
+        final startA = a.startDate?.millisecondsSinceEpoch ?? 0;
+        final startB = b.startDate?.millisecondsSinceEpoch ?? 0;
+        if (startA != startB) return startA.compareTo(startB);
+        final statusIndexA = _statusOrder.indexOf(a.status);
+        final statusIndexB = _statusOrder.indexOf(b.status);
+        return statusIndexA.compareTo(statusIndexB);
+      });
+    }
+    return entries;
+  }
+
+  Color _statusChipColor(String status, ThemeData theme) {
+    switch (status) {
+      case 'in_progress':
+        return const Color(0xFFD1FAE5);
+      case 'blocked':
+        return const Color(0xFFFDE68A);
+      case 'at_risk':
+        return const Color(0xFFFFEDD5);
+      case 'completed':
+        return theme.colorScheme.primary;
+      default:
+        return const Color(0xFFE2E8F0);
+    }
+  }
+
+  Color _statusChipTextColor(String status, ThemeData theme) {
+    if (status == 'completed') {
+      return theme.colorScheme.onPrimary;
+    }
+    switch (status) {
+      case 'in_progress':
+        return const Color(0xFF047857);
+      case 'blocked':
+        return const Color(0xFF92400E);
+      case 'at_risk':
+        return const Color(0xFFC2410C);
+      default:
+        return const Color(0xFF475569);
+    }
+  }
+
+  Color _riskChipColor(String risk) {
+    switch (risk) {
+      case 'medium':
+        return const Color(0xFFFFF7ED);
+      case 'high':
+        return const Color(0xFFFFE4E6);
+      case 'critical':
+        return const Color(0xFFFECACA);
+      default:
+        return const Color(0xFFE7F5EC);
+    }
+  }
+
+  Color _riskChipTextColor(String risk) {
+    switch (risk) {
+      case 'medium':
+        return const Color(0xFF92400E);
+      case 'high':
+        return const Color(0xFFB91C1C);
+      case 'critical':
+        return const Color(0xFF991B1B);
+      default:
+        return const Color(0xFF047857);
+    }
+  }
+
+  Future<void> _openCreateTask() async {
+    if (!_canManage) {
+      _showSnack('Task management is read-only for your role.', error: true);
+      return;
+    }
+    final result = await showModalBottomSheet<_TaskFormResult>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => _TaskFormSheet(projects: widget.snapshot.projects),
+    );
+    if (!mounted || result == null) return;
+    if (result.draft == null) return;
+    setState(() {
+      _processing = true;
+      _activeTaskId = null;
+      _activeAction = 'create';
+    });
+    try {
+      await widget.controller.createProjectTask(result.draft!);
+      _showSnack('Task created for ${_laneLabels[result.draft!.lane] ?? result.draft!.lane}.');
+    } catch (error) {
+      _showSnack('Unable to create task: $error', error: true);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _processing = false;
+          _activeTaskId = null;
+          _activeAction = null;
+        });
+      }
+    }
+  }
+
+  Future<void> _openEditTask(ProjectTaskRecord task) async {
+    final result = await showModalBottomSheet<_TaskFormResult>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => _TaskFormSheet(projects: widget.snapshot.projects, task: task),
+    );
+    if (!mounted || result == null) return;
+    if (result.delete) {
+      await _deleteTask(task);
+      return;
+    }
+    final mutation = result.mutation;
+    if (mutation == null || mutation.toJson().isEmpty) {
+      return;
+    }
+    setState(() {
+      _processing = true;
+      _activeTaskId = task.id;
+      _activeAction = 'update';
+    });
+    try {
+      await widget.controller.updateProjectTask(task, mutation);
+      _showSnack('Task updated.');
+    } catch (error) {
+      _showSnack('Unable to update task: $error', error: true);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _processing = false;
+          _activeTaskId = null;
+          _activeAction = null;
+        });
+      }
+    }
+  }
+
+  Future<void> _advanceTask(ProjectTaskRecord task) async {
+    final currentIndex = _statusOrder.indexOf(task.status);
+    final nextIndex = currentIndex == -1 ? 1 : math.min(_statusOrder.length - 1, currentIndex + 1);
+    if (currentIndex != -1 && currentIndex == nextIndex) {
+      _showSnack('Task already completed.');
+      return;
+    }
+    final nextStatus = _statusOrder[nextIndex];
+    setState(() {
+      _processing = true;
+      _activeTaskId = task.id;
+      _activeAction = 'advance';
+    });
+    final nextProgress = nextStatus == 'completed'
+        ? 100
+        : math.max(task.progressPercent, _statusProgressDefaults[nextStatus] ?? 35);
+    try {
+      await widget.controller.updateProjectTask(
+        task,
+        ProjectTaskMutation(
+          status: nextStatus,
+          progressPercent: nextProgress,
+        ),
+      );
+      _showSnack('Task moved to ${_statusLabels[nextStatus] ?? nextStatus}.');
+    } catch (error) {
+      _showSnack('Unable to advance task: $error', error: true);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _processing = false;
+          _activeTaskId = null;
+          _activeAction = null;
+        });
+      }
+    }
+  }
+
+  Future<void> _deleteTask(ProjectTaskRecord task) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete task'),
+        content: Text('Delete "${task.title}"? This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+    setState(() {
+      _processing = true;
+      _activeTaskId = task.id;
+      _activeAction = 'delete';
+    });
+    try {
+      await widget.controller.deleteProjectTask(task);
+      _showSnack('Task deleted.');
+    } catch (error) {
+      _showSnack('Unable to delete task: $error', error: true);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _processing = false;
+          _activeTaskId = null;
+          _activeAction = null;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final operations = widget.snapshot.operations;
+    final metrics = operations.metrics;
+    final filtered = _filteredTasks();
+    final grouped = _groupedTasks(filtered);
+    final totalTasks = metrics.total != 0 ? metrics.total : _tasks.length;
+    final completedTasks = metrics.completed != 0 || metrics.total != 0
+        ? metrics.completed
+        : _tasks.where((task) => task.status == 'completed').length;
+    final riskTasks = (metrics.blocked != 0 || metrics.atRisk != 0)
+        ? metrics.blocked + metrics.atRisk
+        : _tasks
+            .where((task) =>
+                task.status == 'blocked' || task.riskLevel == 'high' || task.riskLevel == 'critical')
+            .length;
+
+    return GigvoraCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Project operations control tower', style: theme.textTheme.titleMedium),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Monitor delivery tasks, surface risks, and orchestrate cross-functional owners.',
+                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                    ),
+                    if (operations.allowedRoles.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          'Enabled for roles: ${operations.allowedRoles.map((role) => role.replaceAll('_', ' ')).join(', ')}',
+                          style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    operations.lastSyncedAt != null
+                        ? 'Last synced ${formatRelativeTime(operations.lastSyncedAt!)}'
+                        : widget.loading
+                            ? 'Syncing…'
+                            : 'Awaiting sync',
+                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 8),
+                  FilledButton.tonal(
+                    onPressed: _processing || !_canManage || widget.snapshot.projects.isEmpty ? null : _openCreateTask,
+                    child: Text(_processing && _activeAction == 'create' ? 'Working…' : 'Add task'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          if (!_canManage)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text(
+                widget.snapshot.access.reason ??
+                    'Project operations are read-only for this role on mobile. Contact your administrator for write access.',
+                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
+              ),
+            ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              _SummaryChip(label: 'Tracked tasks', value: '$totalTasks'),
+              _SummaryChip(label: 'Completed', value: '$completedTasks'),
+              _SummaryChip(label: 'At risk & blocked', value: '$riskTasks'),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SizedBox(
+                width: 200,
+                child: TextField(
+                  enabled: !_processing,
+                  decoration: const InputDecoration(labelText: 'Search tasks'),
+                  onChanged: (value) => setState(() => _query = value),
+                ),
+              ),
+              DropdownButton<String>(
+                value: _laneFilter,
+                onChanged: _processing ? null : (value) => setState(() => _laneFilter = value ?? 'all'),
+                items: <DropdownMenuItem<String>>[
+                  const DropdownMenuItem<String>(value: 'all', child: Text('All lanes')),
+                  ..._laneLabels.entries
+                      .map((entry) => DropdownMenuItem<String>(value: entry.key, child: Text(entry.value))),
+                ],
+              ),
+              DropdownButton<String>(
+                value: _statusFilter,
+                onChanged: _processing ? null : (value) => setState(() => _statusFilter = value ?? 'all'),
+                items: <DropdownMenuItem<String>>[
+                  const DropdownMenuItem<String>(value: 'all', child: Text('All statuses')),
+                  ..._statusLabels.entries
+                      .map((entry) => DropdownMenuItem<String>(value: entry.key, child: Text(entry.value))),
+                ],
+              ),
+              DropdownButton<String>(
+                value: _riskFilter,
+                onChanged: _processing ? null : (value) => setState(() => _riskFilter = value ?? 'all'),
+                items: <DropdownMenuItem<String>>[
+                  const DropdownMenuItem<String>(value: 'all', child: Text('All risk levels')),
+                  ..._riskLabels.entries
+                      .map((entry) => DropdownMenuItem<String>(value: entry.key, child: Text('${entry.value} risk'))),
+                ],
+              ),
+              TextButton(
+                onPressed: _processing
+                    ? null
+                    : () => setState(() {
+                          _laneFilter = 'all';
+                          _statusFilter = 'all';
+                          _riskFilter = 'all';
+                          _query = '';
+                        }),
+                child: const Text('Reset'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (grouped.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: theme.colorScheme.outlineVariant),
+                color: theme.colorScheme.surfaceVariant.withOpacity(0.35),
+              ),
+              child: Text(
+                _canManage
+                    ? 'No project tasks captured yet. Use “Add task” to build your integrated delivery plan.'
+                    : 'Project tasks will appear here once your operations team starts tracking them.',
+                style: theme.textTheme.bodyMedium,
+              ),
+            )
+          else
+            Column(
+              children: grouped
+                  .map(
+                    (entry) => Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: theme.colorScheme.outlineVariant),
+                        color: theme.colorScheme.surfaceVariant.withOpacity(0.35),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _laneLabels[entry.key] ?? entry.key,
+                            style: theme.textTheme.titleSmall?.copyWith(letterSpacing: 0.4),
+                          ),
+                          const SizedBox(height: 12),
+                          ...entry.value.map((task) => _buildTaskTile(context, task)).toList(growable: false),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTaskTile(BuildContext context, ProjectTaskRecord task) {
+    final theme = Theme.of(context);
+    final statusLabel = _statusLabels[task.status] ?? task.status;
+    final riskLabel = _riskLabels[task.riskLevel] ?? task.riskLevel;
+    final isBusy = _processing && _activeTaskId == task.id;
+    final progress = task.progressPercent.round();
+    final schedule =
+        '${task.startDate != null ? formatRelativeTime(task.startDate!) : 'TBC'} → ${task.endDate != null ? formatRelativeTime(task.endDate!) : 'TBC'}';
+    final workload = task.workloadHours != null ? '${task.workloadHours!.toStringAsFixed(1)} hrs' : 'Workload TBC';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+        color: theme.colorScheme.surface,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(task.title, style: theme.textTheme.titleMedium),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${task.ownerName.isNotEmpty ? task.ownerName : 'Unassigned'} • ${_ownerTypeLabels[task.ownerType] ?? task.ownerType}',
+                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      task.projectName,
+                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuButton<String>(
+                enabled: _canManage && !_processing,
+                onSelected: (value) {
+                  switch (value) {
+                    case 'edit':
+                      _openEditTask(task);
+                      break;
+                    case 'advance':
+                      _advanceTask(task);
+                      break;
+                    case 'delete':
+                      _deleteTask(task);
+                      break;
+                  }
+                },
+                itemBuilder: (context) => <PopupMenuEntry<String>>[
+                  const PopupMenuItem<String>(value: 'edit', child: Text('Edit details')),
+                  if (task.status != 'completed')
+                    const PopupMenuItem<String>(value: 'advance', child: Text('Advance status')),
+                  const PopupMenuItem<String>(value: 'delete', child: Text('Delete task')),
+                ],
+                icon: const Icon(Icons.more_vert),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              Chip(
+                backgroundColor: _statusChipColor(task.status, theme),
+                labelStyle: theme.textTheme.labelSmall?.copyWith(
+                  color: _statusChipTextColor(task.status, theme),
+                  fontWeight: FontWeight.w600,
+                ),
+                label: Text(statusLabel),
+              ),
+              Chip(
+                backgroundColor: _riskChipColor(task.riskLevel),
+                labelStyle: theme.textTheme.labelSmall?.copyWith(
+                  color: _riskChipTextColor(task.riskLevel),
+                  fontWeight: FontWeight.w600,
+                ),
+                label: Text('$riskLabel risk'),
+              ),
+              Chip(
+                backgroundColor: theme.colorScheme.surfaceVariant,
+                labelStyle: theme.textTheme.labelSmall,
+                label: Text('$progress% complete • $workload'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(schedule, style: theme.textTheme.bodySmall),
+          if (task.updatedAt != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                'Updated ${formatRelativeTime(task.updatedAt!)}',
+                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              ),
+            ),
+          if (task.notes.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                task.notes,
+                style: theme.textTheme.bodyMedium,
+              ),
+            ),
+          if (isBusy)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Row(
+                children: const [
+                  SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                  SizedBox(width: 8),
+                  Text('Syncing changes…'),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TaskFormResult {
+  const _TaskFormResult.create(this.draft)
+      : mutation = null,
+        delete = false;
+
+  const _TaskFormResult.update(this.mutation)
+      : draft = null,
+        delete = false;
+
+  const _TaskFormResult.delete()
+      : draft = null,
+        mutation = null,
+        delete = true;
+
+  final ProjectTaskDraft? draft;
+  final ProjectTaskMutation? mutation;
+  final bool delete;
+}
+
+class _TaskFormSheet extends StatefulWidget {
+  const _TaskFormSheet({
+    required this.projects,
+    this.task,
+  });
+
+  final List<ProjectGigRecord> projects;
+  final ProjectTaskRecord? task;
+
+  bool get isEditing => task != null;
+
+  @override
+  State<_TaskFormSheet> createState() => _TaskFormSheetState();
+}
+
+class _TaskFormSheetState extends State<_TaskFormSheet> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _titleController;
+  late final TextEditingController _ownerController;
+  late final TextEditingController _notesController;
+  late final TextEditingController _startController;
+  late final TextEditingController _endController;
+  late final TextEditingController _progressController;
+  late final TextEditingController _workloadController;
+  int? _selectedProjectId;
+  late String _lane;
+  late String _status;
+  late String _risk;
+  late String _ownerType;
+  DateTime? _startDate;
+  DateTime? _endDate;
+
+  @override
+  void initState() {
+    super.initState();
+    final task = widget.task;
+    _selectedProjectId = task?.projectId ?? (widget.projects.isNotEmpty ? widget.projects.first.id : null);
+    _lane = task?.lane ?? _laneLabels.keys.first;
+    _status = task?.status ?? 'planned';
+    _risk = task?.riskLevel ?? 'low';
+    _ownerType = task?.ownerType ?? 'agency_member';
+    _startDate = task?.startDate;
+    _endDate = task?.endDate;
+    _titleController = TextEditingController(text: task?.title ?? '');
+    _ownerController = TextEditingController(text: task?.ownerName ?? '');
+    _notesController = TextEditingController(text: task?.notes ?? '');
+    _startController = TextEditingController(text: _formatDate(_startDate));
+    _endController = TextEditingController(text: _formatDate(_endDate));
+    _progressController = TextEditingController(
+      text: task != null ? task.progressPercent.toStringAsFixed(0) : '',
+    );
+    _workloadController = TextEditingController(
+      text: task?.workloadHours != null ? task!.workloadHours!.toStringAsFixed(1) : '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _ownerController.dispose();
+    _notesController.dispose();
+    _startController.dispose();
+    _endController.dispose();
+    _progressController.dispose();
+    _workloadController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        top: 24,
+        bottom: 24 + MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.isEditing ? 'Edit project task' : 'Create project task',
+                style: theme.textTheme.titleMedium,
+              ),
+              const SizedBox(height: 16),
+              if (!widget.isEditing)
+                DropdownButtonFormField<int>(
+                  value: _selectedProjectId,
+                  decoration: const InputDecoration(labelText: 'Project workspace'),
+                  items: widget.projects
+                      .map((project) => DropdownMenuItem<int>(
+                            value: project.id,
+                            child: Text(project.title),
+                          ))
+                      .toList(growable: false),
+                  onChanged: (value) => setState(() => _selectedProjectId = value),
+                  validator: (value) => value == null ? 'Select a project' : null,
+                )
+              else
+                TextFormField(
+                  readOnly: true,
+                  initialValue: widget.task?.projectName,
+                  decoration: const InputDecoration(labelText: 'Project workspace'),
+                ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _titleController,
+                decoration: const InputDecoration(labelText: 'Task title'),
+                validator: (value) => value == null || value.trim().isEmpty ? 'Enter the task title' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _ownerController,
+                decoration: const InputDecoration(labelText: 'Owner (optional)'),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: _ownerType,
+                decoration: const InputDecoration(labelText: 'Owner type'),
+                items: _ownerTypeLabels.entries
+                    .map((entry) => DropdownMenuItem<String>(value: entry.key, child: Text(entry.value)))
+                    .toList(growable: false),
+                onChanged: (value) => setState(() => _ownerType = value ?? 'agency_member'),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: _lane,
+                decoration: const InputDecoration(labelText: 'Workstream lane'),
+                items: _laneLabels.entries
+                    .map((entry) => DropdownMenuItem<String>(value: entry.key, child: Text(entry.value)))
+                    .toList(growable: false),
+                onChanged: (value) => setState(() => _lane = value ?? _laneLabels.keys.first),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: _status,
+                decoration: const InputDecoration(labelText: 'Status'),
+                items: _statusLabels.entries
+                    .map((entry) => DropdownMenuItem<String>(value: entry.key, child: Text(entry.value)))
+                    .toList(growable: false),
+                onChanged: (value) => setState(() => _status = value ?? 'planned'),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: _risk,
+                decoration: const InputDecoration(labelText: 'Risk level'),
+                items: _riskLabels.entries
+                    .map((entry) => DropdownMenuItem<String>(value: entry.key, child: Text(entry.value)))
+                    .toList(growable: false),
+                onChanged: (value) => setState(() => _risk = value ?? 'low'),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _startController,
+                      readOnly: true,
+                      decoration: InputDecoration(
+                        labelText: 'Start date',
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.calendar_today),
+                          onPressed: () => _pickDate(isStart: true),
+                        ),
+                      ),
+                      validator: (_) => null,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _endController,
+                      readOnly: true,
+                      decoration: InputDecoration(
+                        labelText: 'End date',
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.calendar_today),
+                          onPressed: () => _pickDate(isStart: false),
+                        ),
+                      ),
+                      validator: (_) {
+                        if (_startDate != null && _endDate != null && _endDate!.isBefore(_startDate!)) {
+                          return 'Ends before start';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _progressController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Progress (%)'),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return null;
+                  }
+                  final parsed = double.tryParse(value);
+                  if (parsed == null || parsed < 0 || parsed > 100) {
+                    return 'Enter 0–100';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _workloadController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Workload (hours)'),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return null;
+                  }
+                  final parsed = double.tryParse(value);
+                  if (parsed == null || parsed < 0) {
+                    return 'Enter a positive number';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _notesController,
+                maxLines: 3,
+                decoration: const InputDecoration(labelText: 'Notes (optional)'),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  if (widget.isEditing)
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(const _TaskFormResult.delete()),
+                      style: TextButton.styleFrom(foregroundColor: theme.colorScheme.error),
+                      child: const Text('Delete task'),
+                    ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 12),
+                  FilledButton(
+                    onPressed: _handleSubmit,
+                    child: Text(widget.isEditing ? 'Save changes' : 'Create task'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickDate({required bool isStart}) async {
+    final now = DateTime.now();
+    final initialDate = isStart ? (_startDate ?? now) : (_endDate ?? _startDate ?? now);
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(now.year - 2),
+      lastDate: DateTime(now.year + 5),
+    );
+    if (selected == null) {
+      return;
+    }
+    setState(() {
+      if (isStart) {
+        _startDate = selected;
+        _startController.text = _formatDate(selected);
+      } else {
+        _endDate = selected;
+        _endController.text = _formatDate(selected);
+      }
+    });
+  }
+
+  void _handleSubmit() {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    final title = _titleController.text.trim();
+    final ownerName = _ownerController.text.trim();
+    final notes = _notesController.text.trim();
+    final progress = _progressController.text.trim().isEmpty
+        ? null
+        : double.tryParse(_progressController.text.trim())?.clamp(0, 100);
+    final workload = _workloadController.text.trim().isEmpty
+        ? null
+        : double.tryParse(_workloadController.text.trim());
+
+    if (!widget.isEditing) {
+      final projectId = _selectedProjectId;
+      if (projectId == null) {
+        return;
+      }
+      final draft = ProjectTaskDraft(
+        projectId: projectId,
+        title: title,
+        lane: _lane,
+        status: _status,
+        riskLevel: _risk,
+        ownerName: ownerName.isEmpty ? null : ownerName,
+        ownerType: _ownerType,
+        startDate: _startDate,
+        endDate: _endDate,
+        progressPercent: progress,
+        workloadHours: workload,
+        notes: notes.isEmpty ? null : notes,
+      );
+      Navigator.of(context).pop(_TaskFormResult.create(draft));
+      return;
+    }
+
+    final task = widget.task!;
+    bool sameDay(DateTime? a, DateTime? b) {
+      if (a == null && b == null) return true;
+      if (a == null || b == null) return false;
+      return a.year == b.year && a.month == b.month && a.day == b.day;
+    }
+
+    final mutation = ProjectTaskMutation(
+      title: title != task.title ? title : null,
+      lane: _lane != task.lane ? _lane : null,
+      status: _status != task.status ? _status : null,
+      riskLevel: _risk != task.riskLevel ? _risk : null,
+      ownerName: ownerName != task.ownerName ? (ownerName.isEmpty ? '' : ownerName) : null,
+      ownerType: _ownerType != task.ownerType ? _ownerType : null,
+      startDate: !sameDay(_startDate, task.startDate) ? _startDate : null,
+      endDate: !sameDay(_endDate, task.endDate) ? _endDate : null,
+      progressPercent: progress != null && progress != task.progressPercent ? progress : null,
+      workloadHours: workload != null && workload != task.workloadHours ? workload : null,
+      notes: notes != task.notes ? notes : null,
+    );
+
+    Navigator.of(context).pop(_TaskFormResult.update(mutation));
+  }
+
+  String _formatDate(DateTime? value) {
+    if (value == null) {
+      return '';
+    }
+    return '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+  }
+}
+
 class _SummaryCard extends StatelessWidget {
   const _SummaryCard({
     required this.snapshot,
@@ -270,6 +1302,7 @@ class _AccessDeniedCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
@@ -277,26 +1310,79 @@ class _AccessDeniedCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Workspace access required',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                reason ??
-                    'Project operations are restricted to agency, company, operations, and admin leads. Request access from your workspace administrator to continue.',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    height: 44,
+                    width: 44,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.secondaryContainer.withOpacity(0.6),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Icon(Icons.lock_outline, color: theme.colorScheme.onSecondaryContainer),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Workspace access required',
+                          style: theme.textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          reason ??
+                              'Project operations are restricted to agency, company, operations, and admin leads. Request access from your workspace administrator to continue.',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 20),
-              Row(
-                children: const [
-                  Icon(Icons.mail_outline, size: 18),
-                  SizedBox(width: 8),
-                  SelectableText('operations@gigvora.com'),
-                ],
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: _projectManagementRoleLabels
+                    .map(
+                      (label) => Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.secondaryContainer.withOpacity(0.35),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(color: theme.colorScheme.secondaryContainer),
+                        ),
+                        child: Text(
+                          label,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSecondaryContainer,
+                            letterSpacing: 0.4,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  children: const [
+                    Icon(Icons.mail_outline, size: 18),
+                    SizedBox(width: 8),
+                    SelectableText('operations@gigvora.com'),
+                  ],
+                ),
               ),
             ],
           ),

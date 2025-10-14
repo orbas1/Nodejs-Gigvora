@@ -1,4 +1,10 @@
-import { useDeferredValue, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowTopRightOnSquareIcon,
@@ -8,12 +14,16 @@ import {
   SparklesIcon,
   UserGroupIcon,
 } from '@heroicons/react/24/outline';
-import { useCallback, useEffect, useMemo, useState } from 'react';
 import PageHeader from '../components/PageHeader.jsx';
 import useSession from '../hooks/useSession.js';
 import useEngagementSignals from '../hooks/useEngagementSignals.js';
 import { useGroupDirectory } from '../hooks/useGroups.js';
-import { joinGroup, leaveGroup } from '../services/groups.js';
+import {
+  fetchDiscoverGroups,
+  joinGroup,
+  leaveGroup,
+  requestMembership,
+} from '../services/groups.js';
 import { resolveActorId } from '../utils/session.js';
 import { classNames } from '../utils/classNames.js';
 
@@ -24,9 +34,9 @@ const FOCUS_SEGMENTS = [
   { id: 'future of work', label: 'Future of work' },
   { id: 'experience launchpad', label: 'Launchpad alumni' },
   { id: 'sustainability', label: 'Impact & volunteering' },
-import groupsService from '../services/groups.js';
+];
 
-const fallbackGroups = [
+const FALLBACK_DISCOVER_GROUPS = [
   {
     id: 1,
     name: 'Future of Work Collective',
@@ -67,9 +77,21 @@ function getErrorMessage(error) {
   return 'We could not process that request. Please try again.';
 }
 
+function normaliseDiscoverResponse(response) {
+  if (!response) {
+    return { items: [], metadata: {} };
+  }
+
+  const candidates = [response?.data?.items, response?.data, response?.items];
+  const items = candidates.find((candidate) => Array.isArray(candidate)) ?? [];
+  const metadata = response?.metadata ?? response?.data?.metadata ?? {};
+
+  return { items, metadata };
+}
+
 function GroupCard({ group, onJoin, onLeave, pendingSlug }) {
   const isMember = group.membership?.status === 'member';
-  const joinPolicy = group.joinPolicy;
+  const joinPolicy = group.joinPolicy ?? group.memberPolicy ?? 'open';
   const primaryTopic = group.focusAreas?.[0] ?? 'Community';
   const upcomingEvent = group.upcomingEvents?.[0] ?? null;
   const accentColor = group.accentColor ?? '#2563EB';
@@ -92,7 +114,7 @@ function GroupCard({ group, onJoin, onLeave, pendingSlug }) {
             <span className="h-2 w-2 rounded-full" style={{ backgroundColor: accentColor }} />
             {primaryTopic}
           </span>
-          <span>{formatNumber(group.stats?.memberCount)} members</span>
+          <span>{formatNumber(group.stats?.memberCount)}</span>
         </div>
         <h2 className="mt-4 text-xl font-semibold text-slate-900">{group.name}</h2>
         <p className="mt-2 text-sm text-slate-600">{group.summary}</p>
@@ -232,7 +254,8 @@ export default function GroupsPage() {
   const actorId = resolveActorId(session);
   const navigate = useNavigate();
   const location = useLocation();
-  const { groupSuggestions } = useEngagementSignals({ session, limit: 12 });
+  const engagementSignals = useEngagementSignals({ session, limit: 12 }) ?? {};
+  const groupSuggestions = engagementSignals.groupSuggestions ?? [];
 
   const { data, loading, error, fromCache, lastUpdated, refresh } = useGroupDirectory({
     query: deferredSearch,
@@ -245,6 +268,43 @@ export default function GroupsPage() {
   const featuredSlugs = data?.metadata?.featured ?? [];
   const [pendingSlug, setPendingSlug] = useState(null);
   const [feedback, setFeedback] = useState(null);
+  const [discover, setDiscover] = useState({
+    loading: true,
+    error: null,
+    groups: FALLBACK_DISCOVER_GROUPS,
+    metadata: {},
+  });
+  const [joinState, setJoinState] = useState({});
+
+  useEffect(() => {
+    let cancelled = false;
+
+    setDiscover((previous) => ({ ...previous, loading: true, error: null }));
+
+    fetchDiscoverGroups({ limit: 12 })
+      .then((response) => {
+        if (cancelled) return;
+        const { items, metadata } = normaliseDiscoverResponse(response);
+        setDiscover({
+          loading: false,
+          error: null,
+          groups: items.length ? items : FALLBACK_DISCOVER_GROUPS,
+          metadata,
+        });
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setDiscover((previous) => ({
+          ...previous,
+          loading: false,
+          error: getErrorMessage(err) ?? 'Unable to load the community catalogue right now.',
+        }));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const joinedGroups = useMemo(
     () => groups.filter((group) => group.membership?.status === 'member'),
@@ -265,7 +325,7 @@ export default function GroupsPage() {
   }, [featuredSlugs, groups]);
 
   const recommendedGroups = useMemo(() => {
-    if (!Array.isArray(groupSuggestions) || !groupSuggestions.length) {
+    if (!Array.isArray(groupSuggestions) || !groupSuggestions.length || !groups.length) {
       return [];
     }
     const lookup = new Map(groups.map((group) => [group.name.toLowerCase(), group]));
@@ -275,44 +335,96 @@ export default function GroupsPage() {
       .slice(0, 3);
   }, [groupSuggestions, groups]);
 
-  const handleJoin = async (group) => {
-    if (!isAuthenticated || !actorId) {
-      navigate('/login', { state: { from: location.pathname } });
-      return;
-    }
-    setPendingSlug(group.slug);
-    try {
-      await joinGroup(group.slug, { actorId });
-      await refresh({ force: true });
-      setFeedback({
-        type: 'success',
-        message: `You are now a member of ${group.name}.` ,
-      });
-    } catch (err) {
-      setFeedback({ type: 'error', message: getErrorMessage(err) });
-    } finally {
-      setPendingSlug(null);
-    }
-  };
+  const handleJoin = useCallback(
+    async (group) => {
+      if (!isAuthenticated || !actorId) {
+        navigate('/login', { state: { from: location.pathname } });
+        return;
+      }
+      setPendingSlug(group.slug);
+      try {
+        await joinGroup(group.slug ?? group.id, { actorId });
+        await refresh({ force: true });
+        setFeedback({ type: 'success', message: `You are now a member of ${group.name}.` });
+      } catch (err) {
+        setFeedback({ type: 'error', message: getErrorMessage(err) });
+      } finally {
+        setPendingSlug(null);
+      }
+    },
+    [actorId, isAuthenticated, location.pathname, navigate, refresh],
+  );
 
-  const handleLeave = async (group) => {
-    if (!isAuthenticated || !actorId) {
-      return;
+  const handleLeave = useCallback(
+    async (group) => {
+      if (!isAuthenticated || !actorId) {
+        return;
+      }
+      setPendingSlug(group.slug);
+      try {
+        await leaveGroup(group.slug ?? group.id, { actorId });
+        await refresh({ force: true });
+        setFeedback({ type: 'neutral', message: `You have left ${group.name}.` });
+      } catch (err) {
+        setFeedback({ type: 'error', message: getErrorMessage(err) });
+      } finally {
+        setPendingSlug(null);
+      }
+    },
+    [actorId, isAuthenticated, refresh],
+  );
+
+  const handleJoinRequest = useCallback(
+    async (group) => {
+      if (!group?.id) {
+        return;
+      }
+      if (!isAuthenticated || !actorId) {
+        navigate('/login', { state: { from: location.pathname } });
+        return;
+      }
+      setJoinState((previous) => ({
+        ...previous,
+        [group.id]: { status: 'loading' },
+      }));
+      try {
+        await requestMembership(group.id, { actorId });
+        setJoinState((previous) => ({
+          ...previous,
+          [group.id]: { status: 'success' },
+        }));
+      } catch (err) {
+        setJoinState((previous) => ({
+          ...previous,
+          [group.id]: {
+            status: 'error',
+            message: getErrorMessage(err),
+          },
+        }));
+      }
+    },
+    [actorId, isAuthenticated, location.pathname, navigate],
+  );
+
+  const renderJoinFeedback = useCallback((groupId) => {
+    const state = joinState[groupId];
+    if (!state) return null;
+    if (state.status === 'success') {
+      return (
+        <p className="mt-2 text-xs font-semibold text-emerald-600">
+          Request submitted. We will notify you as soon as a moderator responds.
+        </p>
+      );
     }
-    setPendingSlug(group.slug);
-    try {
-      await leaveGroup(group.slug, { actorId });
-      await refresh({ force: true });
-      setFeedback({
-        type: 'neutral',
-        message: `You have left ${group.name}.`,
-      });
-    } catch (err) {
-      setFeedback({ type: 'error', message: getErrorMessage(err) });
-    } finally {
-      setPendingSlug(null);
+    if (state.status === 'error') {
+      return (
+        <p className="mt-2 text-xs font-semibold text-rose-600">
+          {state.message ?? 'We could not process your request. Please try again later.'}
+        </p>
+      );
     }
-  };
+    return null;
+  }, [joinState]);
 
   const showAccessWarning = useMemo(() => {
     if (!isAuthenticated) {
@@ -323,85 +435,8 @@ export default function GroupsPage() {
     }
     return !session.memberships.some((membership) => COMMUNITY_MEMBERSHIPS.includes(membership));
   }, [isAuthenticated, session?.memberships]);
-  const { session } = useSession();
-  const engagementSignals = useEngagementSignals({ session, limit: 8 });
-  const [catalog, setCatalog] = useState({ loading: true, error: null, groups: [], metadata: {} });
-  const [joinState, setJoinState] = useState({});
 
-  useEffect(() => {
-    let cancelled = false;
-    setCatalog((previous) => ({ ...previous, loading: true, error: null }));
-
-    groupsService
-      .fetchDiscoverGroups({ limit: 12 })
-      .then((response) => {
-        if (cancelled) return;
-        const groups = Array.isArray(response?.data) ? response.data : [];
-        setCatalog({
-          loading: false,
-          error: null,
-          groups,
-          metadata: response?.metadata ?? {},
-        });
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        setCatalog({
-          loading: false,
-          error: error?.message ?? 'Unable to load groups at the moment.',
-          groups: [],
-          metadata: {},
-        });
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const catalogGroups = useMemo(() => {
-    if (catalog.groups.length) {
-      return catalog.groups;
-    }
-    return fallbackGroups;
-  }, [catalog.groups]);
-
-  const recommendedGroups = useMemo(() => {
-    if (catalog.groups.length) {
-      return catalog.groups.slice(0, 3);
-    }
-    return engagementSignals.groupSuggestions.slice(0, 3);
-  }, [catalog.groups, engagementSignals.groupSuggestions]);
-
-  const suggestedConnections = engagementSignals.connectionSuggestions.slice(0, 3);
-  const interestSignals = engagementSignals.interests;
-
-  const handleJoinRequest = useCallback(async (group) => {
-    if (!group?.id) {
-      return;
-    }
-    setJoinState((previous) => ({
-      ...previous,
-      [group.id]: { status: 'loading' },
-    }));
-    try {
-      await groupsService.requestMembership(group.id);
-      setJoinState((previous) => ({
-        ...previous,
-        [group.id]: { status: 'success' },
-      }));
-    } catch (error) {
-      setJoinState((previous) => ({
-        ...previous,
-        [group.id]: {
-          status: 'error',
-          message: error?.message ?? 'We could not process your request. Please try again shortly.',
-        },
-      }));
-    }
-  }, []);
-
-  const memberCountLabel = (group) => {
+  const memberCountLabel = useCallback((group) => {
     const metrics = group?.metrics ?? {};
     const members = metrics.activeMembers ?? metrics.totalMembers ?? group?.members ?? 0;
     if (!Number.isFinite(members)) {
@@ -409,31 +444,15 @@ export default function GroupsPage() {
     }
     const formatter = new Intl.NumberFormat('en-US');
     return `${formatter.format(members)} member${members === 1 ? '' : 's'}`;
-  };
+  }, []);
 
-  const accessLabel = (group) => {
+  const accessLabel = useCallback((group) => {
     const policy = group?.memberPolicy ?? group?.accessPolicy;
     if (policy === 'open') return 'Instant join';
     if (policy === 'invite') return 'Invite-only';
     if (policy === 'request') return 'Request to join';
     return 'Curated access';
-  };
-
-  const renderJoinFeedback = (groupId) => {
-    const state = joinState[groupId];
-    if (!state) return null;
-    if (state.status === 'success') {
-      return <p className="mt-2 text-xs font-semibold text-emerald-600">Request submitted. We\'ll let you know as soon as a moderator responds.</p>;
-    }
-    if (state.status === 'error') {
-      return (
-        <p className="mt-2 text-xs font-semibold text-red-600">
-          {state.message ?? 'Something went wrong. Please try again later.'}
-        </p>
-      );
-    }
-    return null;
-  };
+  }, []);
 
   return (
     <section className="relative overflow-hidden py-20">
@@ -474,6 +493,11 @@ export default function GroupsPage() {
             </div>
           </div>
         ) : null}
+        {error && groups.length === 0 ? (
+          <div className="mt-6 rounded-3xl border border-rose-200 bg-rose-50 px-6 py-4 text-sm text-rose-600">
+            {getErrorMessage(error)}
+          </div>
+        ) : null}
         <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,2.3fr),minmax(260px,1fr)]">
           <div className="space-y-6">
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
@@ -512,12 +536,6 @@ export default function GroupsPage() {
               </div>
             </div>
 
-            {error ? (
-              <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-600">
-                {getErrorMessage(error)}
-              </div>
-            ) : null}
-
             {loading && groups.length === 0 ? (
               <div className="space-y-6">
                 <GroupCardSkeleton />
@@ -538,7 +556,7 @@ export default function GroupsPage() {
             <div className="space-y-6">
               {groups.map((group) => (
                 <GroupCard
-                  key={group.id}
+                  key={group.id ?? group.slug}
                   group={group}
                   onJoin={handleJoin}
                   onLeave={handleLeave}
@@ -546,7 +564,8 @@ export default function GroupsPage() {
                 />
               ))}
             </div>
-            {catalog.loading ? (
+
+            {discover.loading ? (
               <div className="animate-pulse rounded-3xl border border-slate-200 bg-white p-6">
                 <div className="h-4 w-32 rounded-full bg-slate-200" />
                 <div className="mt-4 space-y-3">
@@ -560,35 +579,38 @@ export default function GroupsPage() {
                 </div>
               </div>
             ) : null}
-            {catalog.error ? (
-              <div className="rounded-3xl border border-red-200 bg-red-50/80 p-6">
-                <p className="text-sm font-semibold text-red-700">We couldn\'t reach the community catalogue</p>
-                <p className="mt-2 text-xs text-red-600">{catalog.error}</p>
+
+            {discover.error ? (
+              <div className="rounded-3xl border border-rose-200 bg-rose-50/80 p-6">
+                <p className="text-sm font-semibold text-rose-700">We could not reach the community catalogue</p>
+                <p className="mt-2 text-xs text-rose-600">{discover.error}</p>
               </div>
             ) : null}
+
             {recommendedGroups.length ? (
               <div className="rounded-3xl border border-accent/30 bg-accentSoft/80 p-6 shadow-soft">
                 <p className="text-sm font-semibold text-accentDark">Recommended for you</p>
                 <p className="mt-1 text-xs text-slate-600">Signals across your collaborations and interests informed these picks.</p>
                 <ul className="mt-4 space-y-3 text-sm text-slate-700">
-                  {recommendedGroups.map((group) => {
-                    const highlights = Array.isArray(group?.metadata?.domain)
-                      ? group.metadata.domain.slice(0, 3)
-                      : [];
-                    return (
-                      <li key={`recommended-${group.id ?? group.name}`} className="rounded-2xl border border-accent/40 bg-white/80 px-4 py-3">
-                        <p className="text-sm font-semibold text-slate-900">{group.name}</p>
-                        <p className="mt-1 text-xs text-slate-500">{group.description ?? 'A tightly curated space to accelerate momentum together.'}</p>
-                        <p className="mt-2 text-xs text-slate-400">
-                          {memberCountLabel(group)} · {highlights.length ? highlights.join(' • ') : accessLabel(group)}
-                        </p>
-                      </li>
-                    );
-                  })}
+                  {recommendedGroups.map((group) => (
+                    <li
+                      key={`recommended-${group.id ?? group.name}`}
+                      className="rounded-2xl border border-accent/40 bg-white/80 px-4 py-3"
+                    >
+                      <p className="text-sm font-semibold text-slate-900">{group.name}</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {group.summary ?? 'A tightly curated space to accelerate momentum together.'}
+                      </p>
+                      <p className="mt-2 text-xs text-slate-400">
+                        {memberCountLabel(group)} · {accessLabel(group)}
+                      </p>
+                    </li>
+                  ))}
                 </ul>
               </div>
             ) : null}
-            {catalogGroups.map((group) => (
+
+            {discover.groups.map((group) => (
               <article
                 key={group.id ?? group.name}
                 className="rounded-3xl border border-slate-200 bg-white p-6 transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-soft"
@@ -600,22 +622,26 @@ export default function GroupsPage() {
                   </span>
                 </div>
                 <h2 className="mt-3 text-xl font-semibold text-slate-900">{group.name}</h2>
-                <p className="mt-2 text-sm text-slate-600">{group.description ?? 'Discover strategies, share playbooks, and ship stronger outcomes together.'}</p>
+                <p className="mt-2 text-sm text-slate-600">
+                  {group.description ?? 'Discover strategies, share playbooks, and ship stronger outcomes together.'}
+                </p>
                 <button
                   type="button"
                   onClick={() => handleJoinRequest(group)}
                   disabled={joinState[group.id]?.status === 'loading' || joinState[group.id]?.status === 'success'}
-                  className={`mt-5 inline-flex items-center gap-2 rounded-full border px-5 py-2 text-xs font-semibold transition ${
+                  className={classNames(
+                    'mt-5 inline-flex items-center gap-2 rounded-full border px-5 py-2 text-xs font-semibold transition',
                     joinState[group.id]?.status === 'success'
                       ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                      : 'border-slate-200 text-slate-600 hover:border-accent hover:text-accent'
-                  } ${joinState[group.id]?.status === 'loading' ? 'cursor-wait opacity-70' : ''}`}
+                      : 'border-slate-200 text-slate-600 hover:border-accent hover:text-accent',
+                    joinState[group.id]?.status === 'loading' ? 'cursor-wait opacity-70' : '',
+                  )}
                 >
                   {joinState[group.id]?.status === 'success'
                     ? 'Request sent'
                     : joinState[group.id]?.status === 'loading'
-                      ? 'Submitting...'
-                      : 'Request to join'}{' '}
+                    ? 'Submitting…'
+                    : 'Request to join'}{' '}
                   <span aria-hidden="true">→</span>
                 </button>
                 {renderJoinFeedback(group.id)}
@@ -651,7 +677,7 @@ export default function GroupsPage() {
                 <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">Your memberships</p>
                 <ul className="mt-3 space-y-3 text-sm text-emerald-700">
                   {joinedGroups.map((group) => (
-                    <li key={group.id} className="flex items-start gap-3">
+                    <li key={group.id ?? group.slug} className="flex items-start gap-3">
                       <CheckCircleIcon className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-500" />
                       <div>
                         <p className="font-semibold text-emerald-800">{group.name}</p>
@@ -663,24 +689,13 @@ export default function GroupsPage() {
               </div>
             ) : null}
 
-            {recommendedGroups.length ? (
+            {discover.metadata?.curators ? (
               <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Recommended for you</p>
-                <ul className="mt-4 space-y-3 text-sm text-slate-600">
-                  {recommendedGroups.map((group) => (
-                    <li key={group.id} className="rounded-2xl border border-slate-200 px-4 py-3">
-                      <p className="text-sm font-semibold text-slate-900">{group.name}</p>
-                      <p className="mt-1 text-xs text-slate-500">{group.summary}</p>
-                      <Link
-                        to={`/groups/${group.slug}`}
-                        className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-accent hover:text-accentDark"
-                      >
-                        View community
-                        <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Curated by</p>
+                <p className="mt-2 text-sm font-semibold text-slate-900">{discover.metadata.curators}</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Our community ops team hand-selects the most relevant groups each week.
+                </p>
               </div>
             ) : null}
 

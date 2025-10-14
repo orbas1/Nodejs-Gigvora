@@ -16,11 +16,11 @@ import ProjectAutoMatchPage from './pages/ProjectAutoMatchPage.jsx';
 import LaunchpadPage from './pages/LaunchpadPage.jsx';
 import MentorsPage from './pages/MentorsPage.jsx';
 import VolunteeringPage from './pages/VolunteeringPage.jsx';
-import AdminLoginPage from './pages/AdminLoginPage.jsx';
 import GroupsPage from './pages/GroupsPage.jsx';
 import GroupProfilePage from './pages/GroupProfilePage.jsx';
 import PagesPage from './pages/PagesPage.jsx';
 import ConnectionsPage from './pages/ConnectionsPage.jsx';
+import NotificationsPage from './pages/NotificationsPage.jsx';
 import TrustCenterPage from './pages/TrustCenter.jsx';
 import AutoAssignQueuePage from './pages/AutoAssignQueuePage.jsx';
 import InboxPage from './pages/InboxPage.jsx';
@@ -34,14 +34,23 @@ import UserDashboardPage from './pages/dashboards/UserDashboardPage.jsx';
 import FreelancerDashboardPage from './pages/dashboards/FreelancerDashboardPage.jsx';
 import FreelancerPipelinePage from './pages/dashboards/FreelancerPipelinePage.jsx';
 import AdminDashboardPage from './pages/dashboards/AdminDashboardPage.jsx';
+import UserDashboardPage from './pages/dashboards/UserDashboardPage.jsx';
+import FreelancerDashboardPage from './pages/dashboards/FreelancerDashboardPage.jsx';
+import FreelancerPipelinePage from './pages/dashboards/FreelancerPipelinePage.jsx';
 import AgencyDashboardPage from './pages/dashboards/AgencyDashboardPage.jsx';
 import CompanyDashboardPage from './pages/dashboards/CompanyDashboardPage.jsx';
-import HeadhunterDashboardPage from './pages/dashboards/HeadhunterDashboardPage.jsx';
 import CompanyNetworkingHubPage from './pages/networking/CompanyNetworkingHubPage.jsx';
+import HeadhunterDashboardPage from './pages/dashboards/HeadhunterDashboardPage.jsx';
 import MentorDashboardPage from './pages/dashboards/MentorDashboardPage.jsx';
 import LaunchpadOperationsPage from './pages/dashboards/LaunchpadOperationsPage.jsx';
 import ProtectedRoute from './components/routing/ProtectedRoute.jsx';
 import RequireRole from './components/routing/RequireRole.jsx';
+import AdminDashboardPage from './pages/dashboards/AdminDashboardPage.jsx';
+import AdminLoginPage from './pages/AdminLoginPage.jsx';
+import ProtectedRouteOutlet from './components/routing/ProtectedRoute.jsx';
+import RoleProtectedRoute from './components/auth/RoleProtectedRoute.jsx';
+import MembershipGate from './components/auth/MembershipGate.jsx';
+import { LAUNCHPAD_ALLOWED_MEMBERSHIPS } from './constants/access.js';
 
 const COMMUNITY_ACCESS_MEMBERSHIPS = ['user', 'freelancer', 'agency', 'company', 'mentor', 'headhunter'];
 
@@ -62,9 +71,15 @@ export default function App() {
         <Route path="projects/new" element={<ProjectCreatePage />} />
         <Route path="projects/:projectId" element={<ProjectDetailPage />} />
         <Route path="projects/:projectId/auto-match" element={<ProjectAutoMatchPage />} />
-        <Route path="experience-launchpad" element={<LaunchpadPage />} />
+        <Route element={<ProtectedRouteOutlet requiredMemberships={LAUNCHPAD_ALLOWED_MEMBERSHIPS} />}>
+          <Route path="experience-launchpad" element={<LaunchpadPage />} />
+        </Route>
         <Route path="mentors" element={<MentorsPage />} />
         <Route path="volunteering" element={<VolunteeringPage />} />
+        <Route element={<ProtectedRouteOutlet requiredMemberships={COMMUNITY_ACCESS_MEMBERSHIPS} />}>
+          <Route path="groups" element={<GroupsPage />} />
+          <Route path="groups/:groupId" element={<GroupProfilePage />} />
+        </Route>
         <Route path="pages" element={<PagesPage />} />
         <Route path="connections" element={<ConnectionsPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
@@ -89,6 +104,9 @@ export default function App() {
           <RequireRole allowedRoles={['user']}>
             <UserDashboardPage />
           </RequireRole>
+          <MembershipGate allowedMemberships={['user']}>
+            <UserDashboardPage />
+          </MembershipGate>
         }
       />
       <Route
@@ -161,6 +179,14 @@ export default function App() {
           <RequireRole allowedRoles={['admin', 'mentor']}>
             <LaunchpadOperationsPage />
           </RequireRole>
+        }
+      />
+      <Route
+        path="dashboard/admin"
+        element={
+          <RoleProtectedRoute allowedRoles={['admin']}>
+            <AdminDashboardPage />
+          </RoleProtectedRoute>
         }
       />
       <Route path="admin" element={<AdminLoginPage />} />

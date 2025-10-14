@@ -1,35 +1,63 @@
+import { ExclamationTriangleIcon } from '@heroicons/react/24/solid';
 import { formatRelativeTime, formatAbsolute } from '../utils/date.js';
 
-export default function DataStatus({ loading, fromCache, lastUpdated, onRefresh }) {
+function resolveDate(value) {
+  if (!value) {
+    return null;
+  }
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+export default function DataStatus({
+  loading,
+  fromCache,
+  lastUpdated,
+  onRefresh,
+  error,
+  statusLabel = 'Live data',
+}) {
+  const resolvedLastUpdated = resolveDate(lastUpdated);
+  const label = fromCache ? 'Offline snapshot' : statusLabel;
+  const badgeTone = fromCache ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700';
+  const dotTone = fromCache ? 'bg-amber-500' : 'bg-emerald-500';
+
   return (
-    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
-      <span
-        className={`inline-flex items-center gap-2 rounded-full px-3 py-1 font-semibold ${
-          fromCache ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
-        }`}
-      >
-        <span
-          aria-hidden="true"
-          className={`inline-block h-2 w-2 rounded-full ${
-            fromCache ? 'bg-amber-500' : 'bg-emerald-500'
-          }`}
-        />
-        {fromCache ? 'Offline snapshot' : 'Live data'}
-      </span>
-      {loading ? <span className="animate-pulse">Refreshing…</span> : null}
-      {lastUpdated ? (
-        <span title={formatAbsolute(lastUpdated)} className="text-slate-400">
-          Updated {formatRelativeTime(lastUpdated)}
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+        <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 font-semibold ${badgeTone}`}>
+          <span aria-hidden="true" className={`inline-block h-2 w-2 rounded-full ${dotTone}`} />
+          {label}
         </span>
+        {loading ? <span className="animate-pulse">Refreshing…</span> : null}
+        {resolvedLastUpdated ? (
+          <span title={formatAbsolute(resolvedLastUpdated)} className="text-slate-400">
+            Updated {formatRelativeTime(resolvedLastUpdated)}
+          </span>
+        ) : null}
+        <button
+          type="button"
+          onClick={() => onRefresh?.()}
+          disabled={loading}
+          className="rounded-full border border-slate-200 px-3 py-1 font-semibold text-slate-600 transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Refresh
+        </button>
+      </div>
+      {error ? (
+        <div className="inline-flex w-full items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50/80 px-4 py-3 text-sm text-rose-700">
+          <ExclamationTriangleIcon className="mt-0.5 h-5 w-5 flex-shrink-0" aria-hidden="true" />
+          <div className="space-y-1">
+            <p className="font-semibold">We couldn&apos;t refresh your data</p>
+            <p className="text-xs text-rose-600/90">
+              {error.message ?? 'A temporary issue prevented us from loading the latest snapshot. Try refreshing in a moment.'}
+            </p>
+          </div>
+        </div>
       ) : null}
-      <button
-        type="button"
-        onClick={() => onRefresh?.()}
-        disabled={loading}
-        className="rounded-full border border-slate-200 px-3 py-1 font-semibold text-slate-600 transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        Refresh
-      </button>
     </div>
   );
 }

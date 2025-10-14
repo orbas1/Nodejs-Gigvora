@@ -7,6 +7,8 @@ import {
   GigCallToAction,
   GigPreviewLayout,
   GigPerformanceSnapshot,
+  OpportunityTaxonomyAssignment,
+  OpportunityTaxonomy,
   User,
 } from '../models/index.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
@@ -50,6 +52,17 @@ function buildPrice(amount, currency) {
     currency: currency || 'USD',
     formatted: amount == null ? null : formatMoney(amount, currency || 'USD'),
   };
+}
+
+function formatLabelFromSlug(slug) {
+  if (!slug) {
+    return '';
+  }
+  return `${slug}`
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function computePriceRange(packages) {
@@ -192,6 +205,18 @@ export async function getFreelancerGigBuilder({ freelancerId, gigId, transaction
         limit: 3,
         order: [['snapshotDate', 'DESC']],
       },
+      {
+        model: OpportunityTaxonomyAssignment,
+        as: 'taxonomyAssignments',
+        separate: true,
+        include: [
+          {
+            model: OpportunityTaxonomy,
+            as: 'taxonomy',
+            attributes: ['id', 'slug', 'label', 'type'],
+          },
+        ],
+      },
     ],
     order: [
       [
@@ -218,6 +243,41 @@ export async function getFreelancerGigBuilder({ freelancerId, gigId, transaction
   const latestSnapshot = Array.isArray(gig.performanceSnapshots)
     ? gig.performanceSnapshots[0] ?? null
     : null;
+  const taxonomyAssignments = Array.isArray(gig.taxonomyAssignments) ? gig.taxonomyAssignments : [];
+  const seoTagsRaw = taxonomyAssignments
+    .map((assignment) => {
+      const plain = typeof assignment.get === 'function' ? assignment.get({ plain: true }) : assignment;
+      const taxonomyPlain = plain.taxonomy
+        ? typeof plain.taxonomy.get === 'function'
+          ? plain.taxonomy.get({ plain: true })
+          : plain.taxonomy
+        : null;
+      const slug = taxonomyPlain?.slug ?? null;
+      if (!slug) {
+        return null;
+      }
+      const label = taxonomyPlain?.label ?? formatLabelFromSlug(slug);
+      return {
+        id: plain.id ?? null,
+        taxonomyId: taxonomyPlain?.id ?? plain.taxonomyId ?? null,
+        slug,
+        label,
+        type: taxonomyPlain?.type ?? null,
+        weight: plain.weight ?? null,
+        source: plain.source ?? 'manual',
+      };
+    })
+    .filter(Boolean);
+  const seoTags = [];
+  const seenSeoSlugs = new Set();
+  seoTagsRaw.forEach((tag) => {
+    const key = `${tag.slug}`.toLowerCase();
+    if (seenSeoSlugs.has(key)) {
+      return;
+    }
+    seenSeoSlugs.add(key);
+    seoTags.push(tag);
+  });
 
   const priceRange = computePriceRange(packages);
   const activePreview = selectActivePreview(previews);
@@ -230,7 +290,10 @@ export async function getFreelancerGigBuilder({ freelancerId, gigId, transaction
       email: user.email,
       userType: user.userType,
     },
-    gig: gigPayload,
+    gig: {
+      ...gigPayload,
+      taxonomies: seoTags,
+    },
     pricing: {
       packages,
       priceRange,
@@ -260,6 +323,13 @@ export async function getFreelancerGigBuilder({ freelancerId, gigId, transaction
     sellingPoints: gigPayload.sellingPoints,
     faqs: gigPayload.faqs,
     conversionCopy: gigPayload.conversionCopy,
+    seo: {
+      tags: seoTags,
+      summary: {
+        total: seoTags.length,
+        primaryTypes: Array.from(new Set(seoTags.map((tag) => tag.type).filter(Boolean))),
+      },
+    },
   };
 
   return response;

@@ -215,6 +215,8 @@ class _AgencyDashboardBody extends StatelessWidget {
           const SizedBox(height: 20),
           _SquadSection(squads: snapshot.squads),
           const SizedBox(height: 20),
+          _AgencyHrSection(hr: snapshot.hr),
+          const SizedBox(height: 20),
           _PipelineSection(pipeline: snapshot.pipeline),
           const SizedBox(height: 20),
           _BenchSection(bench: snapshot.bench),
@@ -458,6 +460,402 @@ class _SquadSection extends StatelessWidget {
                 )
                 .toList(),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AgencyHrSection extends StatelessWidget {
+  const _AgencyHrSection({required this.hr});
+
+  final AgencyHrSnapshot hr;
+
+  Color _alertBackground(AgencyHrAlertSeverity severity) {
+    switch (severity) {
+      case AgencyHrAlertSeverity.critical:
+        return const Color(0xFFFFEBEE);
+      case AgencyHrAlertSeverity.warning:
+        return const Color(0xFFFFF7ED);
+      case AgencyHrAlertSeverity.info:
+      default:
+        return const Color(0xFFEFF6FF);
+    }
+  }
+
+  Color _alertBorder(AgencyHrAlertSeverity severity) {
+    switch (severity) {
+      case AgencyHrAlertSeverity.critical:
+        return const Color(0xFFF44336);
+      case AgencyHrAlertSeverity.warning:
+        return const Color(0xFFFB8C00);
+      case AgencyHrAlertSeverity.info:
+      default:
+        return const Color(0xFF1D4ED8);
+    }
+  }
+
+  Color _alertText(AgencyHrAlertSeverity severity) {
+    switch (severity) {
+      case AgencyHrAlertSeverity.critical:
+        return const Color(0xFFB71C1C);
+      case AgencyHrAlertSeverity.warning:
+        return const Color(0xFF9C4221);
+      case AgencyHrAlertSeverity.info:
+      default:
+        return const Color(0xFF1E3A8A);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    final hrMetrics = [
+      _HrMetric(
+        label: 'Active headcount',
+        value: hr.headcount.toString(),
+        caption: '${hr.contractors} contractors',
+      ),
+      _HrMetric(
+        label: 'Compliance tasks',
+        value: hr.complianceOutstanding.toString(),
+        caption: 'Acknowledgements outstanding',
+      ),
+      _HrMetric(
+        label: 'Bench hours',
+        value: '${hr.benchHours} hrs',
+        caption: hr.benchHealthLabel,
+      ),
+      _HrMetric(
+        label: 'Utilisation',
+        value: '${(hr.utilizationRate * 100).toStringAsFixed(0)}%',
+        caption: 'Target 88%',
+      ),
+    ];
+
+    return GigvoraCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Agency HR command centre', style: theme.textTheme.titleMedium),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Monitor role coverage, staffing health, onboarding, and compliance follow-ups with live signals.',
+                      style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '${(hr.utilizationRate * 100).toStringAsFixed(0)}%',
+                      style: theme.textTheme.headlineSmall?.copyWith(color: colorScheme.primary),
+                    ),
+                    const SizedBox(height: 4),
+                    Text('Utilisation', style: theme.textTheme.bodySmall),
+                    const SizedBox(height: 4),
+                    Text('Bench ${hr.benchHealthLabel}', style: theme.textTheme.bodySmall),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: hrMetrics
+                .map(
+                  (metric) => SizedBox(
+                    width: 160,
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceVariant.withOpacity(0.35),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(metric.label, style: theme.textTheme.labelMedium),
+                          const SizedBox(height: 8),
+                          Text(metric.value, style: theme.textTheme.titleLarge),
+                          const SizedBox(height: 6),
+                          Text(
+                            metric.caption,
+                            style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+          const SizedBox(height: 20),
+          Text('Priority alerts', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 12),
+          if (hr.alerts.isEmpty)
+            Text(
+              'No active HR alerts. All pods are within guardrails.',
+              style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+            )
+          else
+            Column(
+              children: hr.alerts
+                  .map(
+                    (alert) => Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: _alertBackground(alert.severity),
+                        border: Border.all(color: _alertBorder(alert.severity).withOpacity(0.6)),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(alert.message, style: theme.textTheme.bodyMedium?.copyWith(color: _alertText(alert.severity))),
+                          if (alert.nextAction != null) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              'Next: ${alert.nextAction}',
+                              style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+          const SizedBox(height: 20),
+          Text('Outstanding policies', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 12),
+          if (hr.policies.isEmpty)
+            Text(
+              'All published policies are acknowledged.',
+              style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+            )
+          else
+            Column(
+              children: hr.policies
+                  .map(
+                    (policy) => Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        color: colorScheme.surfaceVariant.withOpacity(0.3),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(policy.title, style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${policy.outstanding} outstanding · Review every ${policy.reviewCycleDays ?? 120} days',
+                                  style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (policy.effectiveDate != null)
+                            Text(
+                              formatRelativeTime(policy.effectiveDate!),
+                              style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                            ),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+          const SizedBox(height: 20),
+          Text('Role coverage', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 12),
+          Column(
+            children: hr.roleCoverage
+                .map(
+                  (role) => Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      color: colorScheme.surfaceVariant.withOpacity(0.25),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(role.role, style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${role.active} active · ${role.hiring} hiring · Bench ${role.bench}',
+                                    style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Text(
+                              '${(role.utilizationRate * 100).toStringAsFixed(0)}% utilisation',
+                              style: theme.textTheme.bodySmall,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        LinearProgressIndicator(
+                          value: role.utilizationRate.clamp(0.0, 1.0),
+                          backgroundColor: colorScheme.surface,
+                          color: role.needsAttention ? const Color(0xFFDC2626) : colorScheme.primary,
+                        ),
+                        if (role.needsAttention)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(
+                              'Coverage flagged for attention',
+                              style: theme.textTheme.bodySmall?.copyWith(color: const Color(0xFFB91C1C)),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              color: colorScheme.secondary.withOpacity(0.08),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Staffing summary', style: theme.textTheme.titleMedium),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  children: [
+                    _HrChip(label: 'Total capacity', value: '${hr.staffing.totalCapacityHours} hrs'),
+                    _HrChip(label: 'Committed', value: '${hr.staffing.committedHours} hrs'),
+                    _HrChip(label: 'Bench members', value: hr.staffing.benchMembers.toString()),
+                    _HrChip(
+                      label: 'Bench rate',
+                      value: '${(hr.staffing.benchRate * 100).toStringAsFixed(0)}%',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  hr.staffing.summary,
+                  style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+                ),
+                if (hr.staffing.recommendedAction != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Next: ${hr.staffing.recommendedAction}',
+                    style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.primary),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text('Onboarding queue', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 12),
+          if (hr.onboarding.isEmpty)
+            Text(
+              'No onboarding tasks pending.',
+              style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+            )
+          else
+            Column(
+              children: hr.onboarding
+                  .map(
+                    (candidate) => ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(candidate.name, style: theme.textTheme.bodyLarge),
+                      subtitle: Text(
+                        '${candidate.role} • ${candidate.status.replaceAll('_', ' ')}',
+                        style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                      ),
+                      trailing: candidate.startDate != null
+                          ? Text(
+                              'Starts ${formatRelativeTime(candidate.startDate!)}',
+                              style: theme.textTheme.bodySmall,
+                            )
+                          : const Text('Start TBC'),
+                    ),
+                  )
+                  .toList(),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HrMetric {
+  const _HrMetric({required this.label, required this.value, required this.caption});
+
+  final String label;
+  final String value;
+  final String caption;
+}
+
+class _HrChip extends StatelessWidget {
+  const _HrChip({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        color: colorScheme.surfaceVariant.withOpacity(0.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+          const SizedBox(width: 6),
+          Text(value, style: theme.textTheme.labelMedium),
         ],
       ),
     );

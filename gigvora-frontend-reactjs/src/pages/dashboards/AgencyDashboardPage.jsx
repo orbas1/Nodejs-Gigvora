@@ -928,6 +928,30 @@ export default function AgencyDashboardPage() {
     const internalMarketplaceDescription = `${formatNumber(internalMarketplaceOpportunities)} opportunities · ${formatNumber(
       internalMarketplaceBenchReady,
     )} bench ready`;
+    const operationsUtilizationRate = operationsUtilization.rate ?? 0;
+    const operationsAlertsCount = operationsAlerts.length;
+    const managedProjects = projectsWorkspaceSummary.totalProjects ?? totalProjectsCount;
+    const managedGigs = gigProgramsSummary.managedGigs ?? gigProgramsSummary.totalGigs ?? totalGigsCount;
+    const gigOnTimeRate = gigProgramsSummary.onTimeRate ?? 0;
+    const conversionRate = talentLifecycleSummary?.conversionRate ?? talentCrm?.conversionRate ?? 0;
+    const wellbeingScore = talentLifecycleSummary?.wellbeingScore ?? peopleOps?.wellbeing?.averageScore ?? 0;
+    const openInternalOpportunities =
+      talentOpportunityBoard?.summary?.open ?? internalMarketplace?.openOpportunities ?? 0;
+    const averageMatchScore = talentOpportunityBoard?.summary?.averageMatchScore ?? 0;
+    const brandingReach = brandingStudio?.metrics?.totals?.reach ?? 0;
+    const hrHeadcount = hrManagement?.activeHeadcount ?? totalMembersCount;
+    const hrComplianceOutstanding = hrManagement?.complianceOutstanding ?? 0;
+    const hrBenchMembers = hrManagement?.staffingCapacity?.benchMembers ?? benchCount;
+    const hrUtilization =
+      staffingCapacity?.utilizationRate ?? summary?.members?.utilizationRate ?? operationsUtilizationRate;
+    const benchCapacityHours = Math.round(
+      Number.isFinite(Number(capacityPlanning?.benchCapacityHours))
+        ? Number(capacityPlanning?.benchCapacityHours ?? 0)
+        : Number(staffingCapacity?.benchHours ?? 0),
+    );
+    const marketplaceBenchReady = internalMarketplace?.benchAvailable ?? benchMembers.length ?? 0;
+    const pendingMatches = internalMarketplace?.pendingMatches ?? pendingMatchesCount ?? 0;
+
     return [
       {
         label: 'Executive intelligence & governance',
@@ -971,16 +995,18 @@ export default function AgencyDashboardPage() {
             name: 'Agency overview',
             sectionId: 'agency-overview',
             description: `${formatPercent(operationsUtilization.rate)} utilization · ${formatNumber(operationsAlertsCount)} alerts open`,
+            description: `${formatPercent(operationsUtilizationRate)} utilization · ${formatNumber(operationsAlertsCount)} alerts open`,
           },
           {
             name: 'Projects workspace',
             sectionId: 'projects-workspace',
-            description: `${formatNumber(projectsWorkspaceSummary.totalProjects ?? totalProjectsCount)} engagements · Margin ${formatPercent(projectsWorkspaceSummary.avgMargin ?? 0)}`,
+            description: `${formatNumber(managedProjects)} engagements · Margin ${formatPercent(projectsWorkspaceSummary.avgMargin ?? 0)}`,
           },
           {
             name: 'Gig programs',
             sectionId: 'gig-programs',
             description: `${formatNumber(gigProgramsManagedCount)} managed gigs · ${formatPercent(gigProgramsSummary.onTimeRate ?? 0)} on-time`,
+            description: `${formatNumber(managedGigs)} managed gigs · ${formatPercent(gigOnTimeRate)} on-time`,
           },
         ],
       },
@@ -988,14 +1014,21 @@ export default function AgencyDashboardPage() {
         label: 'Talent lifecycle & HR excellence',
         items: [
           {
+            name: 'Talent overview',
+            sectionId: 'talent-overview',
+            description: `${formatPercent(conversionRate)} conversion · Wellbeing ${formatScore(wellbeingScore)}`,
+          },
+          {
             name: 'Talent CRM',
             sectionId: 'talent-crm',
             description: `${formatNumber(talentCrm?.totals?.candidates ?? 0)} candidates · ${formatPercent(conversionRate)} conversion`,
+            tags: ['talent_crm'],
           },
           {
             name: 'People ops hub',
             sectionId: 'people-ops',
             description: `${formatNumber(peopleOps?.policies?.active ?? 0)} active policies · ${formatPercent(peopleOps?.policies?.acknowledgementRate ?? 0)} acknowledgement`,
+            tags: ['people_ops'],
           },
           {
             name: 'Internal opportunity board',
@@ -1006,26 +1039,38 @@ export default function AgencyDashboardPage() {
             name: 'Agency member branding',
             sectionId: 'agency-member-branding',
             description: `${formatNumber(brandingStudio?.totals?.published ?? 0)} published assets · ${formatNumber(brandingReach)} reach`,
+            description: `${formatNumber(openInternalOpportunities)} open opportunities · Avg match ${formatScore(averageMatchScore)}`,
+            tags: ['opportunity_board'],
+          },
+          {
+            name: 'Agency member branding',
+            sectionId: 'agency-branding',
+            description: `${formatNumber(brandingStudio?.totals?.published ?? 0)} published assets · ${formatNumber(brandingReach)} reach`,
+            tags: ['branding'],
           },
           {
             name: 'HR management',
             sectionId: 'hr-management',
             description: `${formatNumber(totalMembersCount)} members · ${formatNumber(benchCount)} on bench · ${pendingInvitesLabel} invites open · Avg weekly capacity ${averageWeeklyCapacityLabel}`,
+            description: `${formatNumber(hrHeadcount)} members · ${formatNumber(hrBenchMembers)} on bench · ${formatNumber(hrComplianceOutstanding)} compliance tasks`,
           },
           {
             name: 'Capacity planning',
             sectionId: 'capacity-planning',
             description: `${benchSummaryText} · Utilisation ${formatPercent(utilisationRate)}`,
+            description: `${benchCapacityHours} bench hours · Utilisation ${formatPercent(hrUtilization)}`,
           },
           {
             name: 'Internal marketplace',
             sectionId: 'internal-marketplace',
             description: internalMarketplaceDescription,
+            description: `${formatNumber(pendingMatches || openInternalOpportunities)} opportunities · ${formatNumber(marketplaceBenchReady)} bench ready`,
+            tags: ['marketplace'],
           },
         ],
       },
       {
-        label: 'Growth & brand',
+        label: 'Operating intelligence',
         items: [
           {
             name: 'Analytics & insights',
@@ -1041,6 +1086,40 @@ export default function AgencyDashboardPage() {
             name: 'Settings & governance',
             sectionId: 'settings-governance',
             description: `Workspace ${workspaceSlugValue} · ${workspaceScopeLabel}.`,
+            name: 'Project portfolio mastery',
+            sectionId: 'project-portfolio-mastery',
+            description: `${formatNumber(portfolioSummary.totalProjects ?? 0)} projects · ${formatPercent(portfolioSummary.avgMargin ?? 0)} avg margin`,
+          },
+          {
+            name: 'Workspace orchestrator',
+            sectionId: 'workspace-orchestrator',
+            description: `${formatNumber(orchestratorSummary.totalBlueprints ?? 0)} blueprints · ${formatNumber(orchestratorSummary.automationGuardrails ?? 0)} guardrails`,
+          },
+          {
+            name: 'Resource intelligence',
+            sectionId: 'resource-intelligence',
+            description: `${formatPercent(resourceSummary.averageUtilization ?? 0)} utilisation · ${formatNumber(resourceSummary.totalScenarioPlans ?? 0)} scenarios`,
+          },
+          {
+            name: 'Quality assurance workflow',
+            sectionId: 'quality-assurance',
+            description: `${formatNumber(qualitySummary.completedReviews ?? 0)} reviews · QA ${formatPercent(qualitySummary.averageQaScore ?? 0)}`,
+          },
+          {
+            name: 'Financial oversight',
+            sectionId: 'financial-oversight',
+            description: `${formatNumber(financialOversightSummary.totalEngagements ?? 0)} engagements · ${formatNumber(financialOversightSummary.alerts ?? 0)} alerts`,
+          },
+          {
+            name: 'Payments distribution',
+            sectionId: 'payments-distribution',
+            description: `${formatCurrencyTotals(
+              paymentsSummary.processedThisQuarter ?? [],
+              paymentsSummary.currency ?? financialSummary.currency ?? 'USD',
+            )} processed · ${formatCurrencyTotals(
+              paymentsSummary.outstandingSplits?.totals ?? [],
+              paymentsSummary.currency ?? financialSummary.currency ?? 'USD',
+            )} outstanding`,
           },
         ],
       },
@@ -1061,6 +1140,7 @@ export default function AgencyDashboardPage() {
             name: 'Marketing automation',
             sectionId: 'marketing-automation',
             description: `${formatNumber(marketingSummary.activeCampaigns ?? 0)} live campaigns · ${marketingPipelineText} pipeline`,
+            description: `${formatNumber(marketingSummary.activeCampaigns ?? 0)} live campaigns · ${formatCurrency(marketingSummary.totalPipelineValue ?? 0, defaultCurrency)} pipeline`,
           },
           {
             name: 'Client advocacy',
@@ -1157,6 +1237,58 @@ export default function AgencyDashboardPage() {
     totalGigsCount,
     utilisationRate,
     workspaceSlugValue,
+          },
+        ],
+      },
+    ];
+  }, [
+    analyticsScorecardCount,
+    analyticsCategoryCount,
+    averageMatchScore,
+    benchCapacityHours,
+    benchMembers.length,
+    benchCount,
+    brandingReach,
+    clientAdvocacySummary,
+    conversionRate,
+    defaultCurrency,
+    financialOversightSummary,
+    financialSummary.currency,
+    gigProgramsSummary,
+    governanceObligationCount,
+    governancePolicyCount,
+    hrComplianceOutstanding,
+    hrHeadcount,
+    hrBenchMembers,
+    hrUtilization,
+    innovationCount,
+    internalMarketplace,
+    marketingSummary,
+    operationsAlertsCount,
+    operationsUtilizationRate,
+    partnerSummary,
+    paymentsSummary,
+    peopleOps,
+    portfolioSummary,
+    projectsWorkspaceSummary,
+    resourceSummary,
+    revenueRunRateText,
+    scenarioCount,
+    summary?.members?.utilizationRate,
+    summaryScope,
+    talentCrm,
+    talentLifecycleSummary,
+    talentOpportunityBoard,
+    totalGigsCount,
+    totalMembersCount,
+    totalProjectsCount,
+    wellbeingScore,
+    workspaceSlugValue,
+    leadershipDecisionCount,
+    leadershipRitualCount,
+    marginText,
+    operationsAlerts,
+    studioSummary,
   ]);
 
   const portfolioSummaryCards = [
@@ -2143,7 +2275,10 @@ export default function AgencyDashboardPage() {
                 <li className="text-sm text-slate-500">No audit exports generated yet.</li>
               )}
   const renderTalentOverview = (
-    <div className="rounded-3xl border border-purple-100 bg-gradient-to-r from-purple-50 via-indigo-50 to-sky-50 p-6">
+    <section
+      id="talent-overview"
+      className="rounded-3xl border border-purple-100 bg-gradient-to-r from-purple-50 via-indigo-50 to-sky-50 p-6"
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-slate-900">Talent lifecycle &amp; HR excellence</h2>
@@ -2199,11 +2334,11 @@ export default function AgencyDashboardPage() {
           </dd>
         </div>
       </dl>
-    </div>
+    </section>
   );
 
   const renderHrManagementSection = (
-    <section className="rounded-3xl border border-purple-100 bg-white p-8 shadow-sm">
+    <section id="hr-management" className="rounded-3xl border border-purple-100 bg-white p-8 shadow-sm">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-purple-600">Workforce intelligence</p>
@@ -2435,7 +2570,7 @@ export default function AgencyDashboardPage() {
   );
 
   const renderTalentCrm = (
-    <div className="rounded-3xl border border-purple-100 bg-white p-6">
+    <section id="talent-crm" className="rounded-3xl border border-purple-100 bg-white p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-slate-900">Talent CRM</h2>
@@ -2516,11 +2651,11 @@ export default function AgencyDashboardPage() {
           </ul>
         </div>
       </div>
-    </div>
+    </section>
   );
 
   const renderPeopleOpsHub = (
-    <div className="rounded-3xl border border-purple-100 bg-white p-6">
+    <section id="people-ops" className="rounded-3xl border border-purple-100 bg-white p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-slate-900">People ops hub</h2>
@@ -2878,11 +3013,11 @@ export default function AgencyDashboardPage() {
         </div>
       </div>
     </section>
-    </div>
+    </section>
   );
 
   const renderTalentOpportunityBoard = (
-    <div className="rounded-3xl border border-purple-100 bg-white p-6">
+    <section id="internal-opportunity-board" className="rounded-3xl border border-purple-100 bg-white p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-slate-900">Internal opportunity board</h2>
@@ -2940,11 +3075,11 @@ export default function AgencyDashboardPage() {
           </ul>
         </div>
       </div>
-    </div>
+    </section>
   );
 
   const renderBrandingStudio = (
-    <div className="rounded-3xl border border-purple-100 bg-white p-6">
+    <section id="agency-branding" className="rounded-3xl border border-purple-100 bg-white p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-slate-900">Agency member branding</h2>
@@ -3010,7 +3145,7 @@ export default function AgencyDashboardPage() {
           </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 
   const renderProjects = (

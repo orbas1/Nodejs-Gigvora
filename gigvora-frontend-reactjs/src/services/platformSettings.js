@@ -1,7 +1,7 @@
 import { apiClient } from './apiClient.js';
 
-export async function fetchPlatformSettings() {
-  return apiClient.get('/admin/platform-settings');
+export async function fetchPlatformSettings(options = {}) {
+  return apiClient.get('/admin/platform-settings', options);
 }
 
 export async function updatePlatformSettings(payload) {

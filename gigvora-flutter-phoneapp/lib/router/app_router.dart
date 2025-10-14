@@ -34,6 +34,7 @@ import '../features/services/presentation/service_operations_screen.dart';
 import '../features/finance/presentation/finance_screen.dart';
 import '../features/pages/presentation/pages_screen.dart';
 import '../features/connections/presentation/connections_screen.dart';
+import '../features/user_dashboard/presentation/user_dashboard_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -45,6 +46,14 @@ const _notificationRoles = <String>{
   'headhunter',
   'mentor',
   'admin',
+};
+
+const _userDashboardRoles = <String>{
+  'user',
+  'freelancer',
+  'agency',
+  'company',
+  'headhunter',
 };
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -113,6 +122,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/dashboard/freelancer/pipeline',
         builder: (context, state) => const FreelancerPipelineScreen(),
+      ),
+      GoRoute(
+        path: '/dashboard/user',
+        redirect: (context, state) {
+          final session = sessionState.session;
+          if (session == null) {
+            final target = Uri.encodeComponent(state.uri.toString());
+            return '/login?redirect=$target';
+          }
+          if (!session.memberships.any(_userDashboardRoles.contains)) {
+            return '/home?notice=user_dashboard_locked';
+          }
+          return null;
+        },
+        builder: (context, state) => const UserDashboardScreen(),
       ),
       GoRoute(path: '/dashboard/mentor', builder: (context, state) => const MentorshipScreen()),
       GoRoute(

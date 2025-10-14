@@ -79,7 +79,7 @@ import {
   MemberBrandingMetric,
 } from '../models/index.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
-import { NotFoundError } from '../utils/errors.js';
+import { AuthenticationError, AuthorizationError, NotFoundError } from '../utils/errors.js';
 import { getAdDashboardSnapshot } from './adService.js';
 import { getFinanceControlTowerOverview } from './financeService.js';
 
@@ -3036,22 +3036,85 @@ function buildClientAdvocacyInsights({
   };
 }
 
-export async function getAgencyDashboard({ workspaceId, workspaceSlug, lookbackDays = 90 } = {}) {
+export async function getAgencyDashboard(
+  { workspaceId, workspaceSlug, lookbackDays = 90 } = {},
+  { actorId, actorRole } = {},
+) {
+  if (!actorId) {
+    throw new AuthenticationError('Authentication required to open the agency dashboard.');
+  }
+
+  const normalizedRole = typeof actorRole === 'string' ? actorRole.toLowerCase() : null;
+  const allowedRoles = new Set(['agency', 'agency_admin', 'admin']);
+  if (!allowedRoles.has(normalizedRole)) {
+    throw new AuthorizationError('You do not have permission to access the agency dashboard.');
+  }
+
   const parsedLookback = Number.isFinite(Number(lookbackDays)) && Number(lookbackDays) > 0 ? Number(lookbackDays) : 90;
+
+  async function ensureWorkspaceAccess(workspaceInstance) {
+    if (!workspaceInstance) {
+      return null;
+    }
+    if (normalizedRole === 'admin') {
+      return workspaceInstance;
+    }
+    if (workspaceInstance.ownerId === actorId) {
+      return workspaceInstance;
+    }
+
+    const membershipCount = await ProviderWorkspaceMember.count({
+      where: { workspaceId: workspaceInstance.id, userId: actorId },
+    });
+
+    if (membershipCount === 0) {
+      throw new AuthorizationError('You do not have permission to access this agency workspace.');
+    }
+
+    return workspaceInstance;
+  }
 
   let workspace = null;
   if (workspaceId || workspaceSlug) {
-    const where = {};
+    const where = { type: 'agency' };
     if (workspaceId) where.id = workspaceId;
     if (workspaceSlug) where.slug = workspaceSlug;
     workspace = await ProviderWorkspace.findOne({ where });
     if (!workspace) {
       throw new NotFoundError('Agency workspace not found.');
     }
+    await ensureWorkspaceAccess(workspace);
   }
 
   if (!workspace) {
-    workspace = await ProviderWorkspace.findOne({ where: { type: 'agency' }, order: [['createdAt', 'ASC']] });
+    if (normalizedRole === 'admin') {
+      workspace = await ProviderWorkspace.findOne({ where: { type: 'agency' }, order: [['createdAt', 'ASC']] });
+    } else {
+      workspace = await ProviderWorkspace.findOne({
+        where: { type: 'agency', ownerId: actorId },
+        order: [['createdAt', 'ASC']],
+      });
+
+      if (!workspace) {
+        const membership = await ProviderWorkspaceMember.findOne({
+          where: { userId: actorId },
+          include: [
+            {
+              model: ProviderWorkspace,
+              as: 'workspace',
+              where: { type: 'agency' },
+              required: true,
+            },
+          ],
+          order: [['createdAt', 'ASC']],
+        });
+        workspace = membership?.workspace ?? null;
+      }
+
+      if (!workspace) {
+        throw new AuthorizationError('No agency workspace is linked to your account yet.');
+      }
+    }
   }
 
   const cacheKey = buildCacheKey('agency:dashboard', {
