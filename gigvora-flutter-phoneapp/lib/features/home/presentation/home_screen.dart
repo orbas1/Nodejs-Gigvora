@@ -7,6 +7,7 @@ import '../../auth/domain/session.dart';
 import '../../ads/presentation/ad_coupon_strip.dart';
 import '../../finance/domain/finance_access_policy.dart';
 import '../../../theme/widgets.dart';
+import '../../blog/presentation/blog_spotlight_card.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -91,6 +92,8 @@ class HomeScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 24),
             _MetricsWrap(metrics: activeDashboard.metrics),
+            const SizedBox(height: 24),
+            const BlogSpotlightCard(),
             if (FinanceAccessPolicy.hasAccess(session)) ...[
               const SizedBox(height: 24),
               _FinanceCallout(onTap: () => GoRouter.of(context).go('/finance')),

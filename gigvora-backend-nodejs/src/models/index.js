@@ -7,6 +7,15 @@ import {
   GROUP_MEMBERSHIP_STATUSES,
   GROUP_MEMBERSHIP_ROLES,
 } from './constants/index.js';
+import {
+  BlogCategory,
+  BlogMedia,
+  BlogPost,
+  BlogPostMedia,
+  BlogPostTag,
+  BlogTag,
+  registerBlogAssociations,
+} from './blogModels.js';
 
 export { sequelize } from './sequelizeClient.js';
 
@@ -14,6 +23,7 @@ const dialect = sequelize.getDialect();
 const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB : DataTypes.JSON;
 
 export * from './constants/index.js';
+export { BlogCategory, BlogMedia, BlogPost, BlogPostMedia, BlogPostTag, BlogTag } from './blogModels.js';
 
 const PIPELINE_OWNER_TYPES = ['freelancer', 'agency', 'company'];
 const TWO_FACTOR_METHODS = ['email', 'app', 'sms'];
@@ -16603,4 +16613,12 @@ export default {
   NetworkingSessionSignup,
   NetworkingBusinessCard,
   MemberBrandingMetric,
+  BlogCategory,
+  BlogTag,
+  BlogMedia,
+  BlogPost,
+  BlogPostTag,
+  BlogPostMedia,
 };
+
+registerBlogAssociations({ User });
