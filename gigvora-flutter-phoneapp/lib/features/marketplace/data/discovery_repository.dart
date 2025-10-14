@@ -62,6 +62,21 @@ class DiscoveryRepository {
     String? sort,
     bool includeFacets = false,
     Map<String, String>? headers,
+    bool forceRefresh = false,
+  }) async {
+    final queryKey = (query ?? '').trim();
+    final filtersKey = _filtersCacheKey(filters);
+    final sortKey = (sort?.trim().isNotEmpty ?? false) ? sort!.trim() : 'default';
+    final facetKey = includeFacets ? 'facets' : 'no-facets';
+    final headerKey = headers == null || headers.isEmpty ? 'no-headers' : _filtersCacheKey(headers);
+    final cacheKey =
+        'opportunities:${categoryToPath(category)}:${queryKey.isEmpty ? 'all' : queryKey}:$filtersKey:$sortKey:$facetKey:$headerKey:$pageSize';
+
+    final cached = _cache.read<OpportunityPage>(cacheKey, (raw) {
+      if (raw is Map<String, dynamic>) {
+        return _mapToOpportunityPage(category, raw).copyWith(query: queryKey.isEmpty ? null : queryKey);
+      }
+      return null;
   }) async {
     final queryKey = (query ?? '').trim().toLowerCase();
     final filterToken = _filtersCacheKey(filters);
@@ -118,6 +133,8 @@ class DiscoveryRepository {
         query: {
           'q': queryKey.isEmpty ? null : queryKey,
           'pageSize': pageSize,
+          'filters': filtersKey == 'none' ? null : filtersKey,
+          'sort': sortKey == 'default' ? null : sortKey,
           'filters': filterToken == 'none' ? null : filterToken,
           'sort': sortToken == 'default' ? null : sortToken,
           'includeFacets': includeFacets ? 'true' : null,
@@ -130,6 +147,7 @@ class DiscoveryRepository {
       }
 
       await _cache.write(cacheKey, response, ttl: _opportunityTtl);
+      final page = _mapToOpportunityPage(category, response).copyWith(query: queryKey.isEmpty ? null : queryKey);
       final pageData =
           _mapToOpportunityPage(category, response).copyWith(query: queryKey.isEmpty ? null : queryKey);
       return RepositoryResult(

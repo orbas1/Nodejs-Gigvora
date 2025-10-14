@@ -12,6 +12,25 @@ const endpointByCategory = {
   mentors: '/discovery/mentors',
 };
 
+function stableStringify(value) {
+  if (value == null) {
+    return '';
+  }
+
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => stableStringify(entry)).join(',')}]`;
+  }
+
+  if (typeof value === 'object') {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${key}:${stableStringify(value[key])}`)
+      .join(',')}}`;
+  }
+
+  return `${value}`;
+}
+
 function normaliseFilters(filters) {
   if (!filters || typeof filters !== 'object') {
     return null;
@@ -22,6 +41,10 @@ function normaliseFilters(filters) {
       return accumulator;
     }
 
+    if (Array.isArray(value)) {
+      const cleaned = value
+        .map((entry) => `${entry}`.trim())
+        .filter((entry) => entry.length > 0);
     if (typeof value === 'string') {
       const trimmed = value.trim();
       if (trimmed.length) {
@@ -62,6 +85,9 @@ function normaliseFilters(filters) {
       return accumulator;
     }
 
+    const trimmed = `${value}`.trim();
+    if (trimmed.length) {
+      accumulator[key] = trimmed;
     const stringValue = `${value}`.trim();
     if (stringValue.length) {
       accumulator[key] = value;
@@ -70,6 +96,8 @@ function normaliseFilters(filters) {
   }, {});
 }
 
+function normaliseHeaders(headers) {
+  if (!headers || typeof headers !== 'object') {
 function normaliseSort(sort) {
   if (sort == null) {
 function stableSerialise(value) {
@@ -86,6 +114,16 @@ function stableSerialise(value) {
   return sort;
 }
 
+  return Object.entries(headers).reduce((accumulator, [key, value]) => {
+    if (value == null) {
+      return accumulator;
+    }
+    const trimmed = `${value}`.trim();
+    if (trimmed.length) {
+      accumulator[key] = trimmed;
+    }
+    return accumulator;
+  }, {});
 function normaliseViewport(viewport) {
   if (viewport == null) {
     return null;
@@ -191,7 +229,46 @@ export default function useOpportunityListing(
     throw new Error(`Unsupported opportunity category: ${category}`);
   }
 
+  if (!endpoint) {
+    throw new Error(`Unsupported opportunity category: ${category}`);
+  }
+
   const normalisedFilters = useMemo(() => normaliseFilters(filters), [filters]);
+  const normalisedHeaders = useMemo(() => normaliseHeaders(headers), [headers]);
+
+  const sortKey = useMemo(() => stableStringify(sort) || 'default-sort', [sort]);
+  const filtersKey = useMemo(
+    () => (normalisedFilters ? stableStringify(normalisedFilters) : 'no-filters'),
+    [normalisedFilters],
+  );
+  const viewportKey = useMemo(
+    () => (viewport == null ? 'no-viewport' : stableStringify(viewport)),
+    [viewport],
+  );
+  const headersKey = useMemo(
+    () => (normalisedHeaders ? stableStringify(normalisedHeaders) : 'no-headers'),
+    [normalisedHeaders],
+  );
+
+  const cacheKey = useMemo(() => {
+    const parts = [
+      category,
+      debouncedQuery || 'all',
+      page,
+      pageSize,
+      filtersKey,
+      sortKey,
+      includeFacets ? 'with-facets' : 'no-facets',
+      viewportKey,
+      headersKey,
+    ];
+    return `opportunity:${parts.join(':')}`;
+  }, [category, debouncedQuery, page, pageSize, filtersKey, sortKey, includeFacets, viewportKey, headersKey]);
+
+  const params = useMemo(
+    () => ({
+      q: debouncedQuery || undefined,
+      page: page > 1 ? page : undefined,
   const normalisedSort = useMemo(() => normaliseSort(sort), [sort]);
   const normalisedViewport = useMemo(() => normaliseViewport(viewport), [viewport]);
   const normalisedHeaders = useMemo(() => normaliseHeaders(headers), [headers]);
@@ -246,13 +323,18 @@ export default function useOpportunityListing(
           ? JSON.stringify(normalisedViewport)
           : undefined,
     }),
+    [debouncedQuery, page, pageSize, normalisedFilters, sort, includeFacets, viewport],
     [page, pageSize, debouncedQuery, normalisedFilters, normalisedSort, includeFacets, normalisedViewport],
   );
 
   const requestHeaders = useMemo(() => {
-    if (!headers) {
+    if (!normalisedHeaders) {
       return undefined;
     }
+    return normalisedHeaders;
+  }, [normalisedHeaders]);
+
+  const shouldFetch = Boolean(enabled);
 
     return Object.entries(headers).reduce((accumulator, [key, value]) => {
       if (value == null) {
@@ -277,6 +359,12 @@ export default function useOpportunityListing(
       apiClient.get(endpoint, {
         signal,
         params,
+        headers: requestHeaders,
+      }),
+    {
+      dependencies: [endpoint, cacheKey],
+      ttl: 1000 * 60 * 5,
+      enabled: shouldFetch,
         headers: normalisedHeaders || undefined,
       }),
     {

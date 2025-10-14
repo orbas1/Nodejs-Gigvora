@@ -229,6 +229,17 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
     super.dispose();
   }
 
+  void setFilters(Map<String, dynamic>? filters) {
+    final next = filters == null
+        ? <String, dynamic>{}
+        : Map<String, dynamic>.from(filters)..removeWhere((key, value) => value == null);
+    if (mapEquals(next, _filters)) {
+      return;
+    }
+    _filters = next;
+    _viewRecorded = false;
+    unawaited(load());
+    unawaited(_analytics.track(
   Future<void> _reloadWithFilterAnalytics() async {
     await load();
     await _analytics.track(
@@ -239,6 +250,34 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
         'filters': _filters.isEmpty ? null : _filters,
       },
       metadata: const {'source': 'mobile_app'},
+    ));
+  }
+
+  void updateFilters(Map<String, dynamic> updates) {
+    final next = Map<String, dynamic>.from(_filters);
+    updates.forEach((key, value) {
+      if (value == null) {
+        next.remove(key);
+        return;
+      }
+      if (value is String && value.trim().isEmpty) {
+        next.remove(key);
+        return;
+      }
+      if (value is Iterable && value.isEmpty) {
+        next.remove(key);
+        return;
+      }
+      next[key] = value;
+    });
+
+    if (mapEquals(next, _filters)) {
+      return;
+    }
+
+    _filters = next;
+    _viewRecorded = false;
+    unawaited(load());
     );
   }
 
