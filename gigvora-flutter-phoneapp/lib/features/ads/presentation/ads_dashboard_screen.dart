@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../../theme/widgets.dart';
 import '../../auth/application/session_controller.dart';
@@ -123,6 +124,10 @@ class _AdsDashboardScreenState extends ConsumerState<AdsDashboardScreen> {
                       message: 'We couldn\'t refresh ads telemetry. Pull to refresh to try again.',
                     ),
                   _SummarySection(overview: snapshot.overview),
+                  if (snapshot.forecast != null) ...[
+                    const SizedBox(height: 24),
+                    _ForecastSection(forecast: snapshot.forecast!),
+                  ],
                   const SizedBox(height: 24),
                   _SurfaceSection(
                     surfaces: surfaces,
@@ -333,6 +338,424 @@ class _MetricTile extends StatelessWidget {
           Text(
             caption,
             style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ForecastSection extends StatelessWidget {
+  const _ForecastSection({required this.forecast});
+
+  final AdForecast forecast;
+
+  String _formatPercent(NumberFormat formatter, double value, {bool fromPercentage = false}) {
+    final ratio = fromPercentage ? value / 100 : value;
+    return formatter.format(ratio);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final compact = NumberFormat.compact();
+    final currencyNoDecimals = NumberFormat.simpleCurrency(decimalDigits: 0);
+    final currencyPrecise = NumberFormat.simpleCurrency();
+    final percent = NumberFormat.percentPattern()..maximumFractionDigits = 0;
+    final percentPrecise = NumberFormat.percentPattern()..maximumFractionDigits = 1;
+
+    final summary = forecast.summary;
+    final traffic = forecast.traffic;
+    final scenarios = forecast.scenarios;
+    final assumptions = forecast.assumptions;
+    final safetyChecks = forecast.safetyChecks;
+    final trend = traffic.trend.take(7).toList();
+    final dateFormatter = DateFormat.MMMd();
+
+    Widget buildMetric({
+      required IconData icon,
+      required String label,
+      required String value,
+      String? caption,
+      Color? color,
+    }) {
+      return SizedBox(
+        width: 210,
+        child: GigvoraCard(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Icon(icon, color: color ?? theme.colorScheme.primary),
+                  Text(
+                    value,
+                    style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              if (caption != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  caption,
+                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
+    Color levelColor(String level) {
+      switch (level) {
+        case 'warning':
+          return const Color(0xFFFFB020);
+        case 'critical':
+          return const Color(0xFFEF4444);
+        default:
+          return theme.colorScheme.primary;
+      }
+    }
+
+    IconData levelIcon(String level) {
+      switch (level) {
+        case 'warning':
+        case 'critical':
+          return Icons.warning_amber_rounded;
+        default:
+          return Icons.info_outline;
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Results forecast',
+          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 16),
+        GigvoraCard(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '${summary.horizonDays}-day performance outlook',
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  Chip(
+                    avatar: const Icon(Icons.trending_up, size: 18),
+                    label: const Text('Forecast ready'),
+                    shape: StadiumBorder(side: BorderSide(color: theme.colorScheme.primary.withOpacity(0.2))),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 16,
+                runSpacing: 16,
+                children: [
+                  buildMetric(
+                    icon: Icons.query_stats_outlined,
+                    label: 'Projected sessions',
+                    value: compact.format(summary.projectedSessions),
+                    caption:
+                        'Coverage ${summary.coverageScore.toStringAsFixed(1)}% • ${summary.creativeVariants} variants',
+                    color: theme.colorScheme.primary,
+                  ),
+                  buildMetric(
+                    icon: Icons.show_chart,
+                    label: 'Impressions',
+                    value: compact.format(summary.expectedImpressions),
+                    caption:
+                        'CTR ${_formatPercent(percentPrecise, summary.ctr, fromPercentage: true)}',
+                    color: theme.colorScheme.primary,
+                  ),
+                  buildMetric(
+                    icon: Icons.mouse_outlined,
+                    label: 'Clicks',
+                    value: compact.format(summary.expectedClicks),
+                    caption:
+                        'Active coverage ${_formatPercent(percentPrecise, summary.activePlacementRatio)}',
+                    color: theme.colorScheme.tertiary,
+                  ),
+                  buildMetric(
+                    icon: Icons.how_to_reg_outlined,
+                    label: 'Leads',
+                    value: compact.format(summary.expectedLeads),
+                    caption:
+                        'Conversion ${_formatPercent(percentPrecise, summary.conversionRate, fromPercentage: true)}',
+                    color: theme.colorScheme.secondary,
+                  ),
+                  buildMetric(
+                    icon: Icons.attach_money,
+                    label: 'Revenue forecast',
+                    value: currencyNoDecimals.format(summary.expectedRevenue),
+                    caption:
+                        'Spend ${currencyPrecise.format(summary.expectedSpend)} • ROI ${summary.projectedRoi != null ? _formatPercent(percentPrecise, summary.projectedRoi!) : '—'}',
+                    color: theme.colorScheme.primary,
+                  ),
+                  buildMetric(
+                    icon: Icons.card_giftcard_outlined,
+                    label: 'Incentive coverage',
+                    value: '${summary.couponCoverage.toStringAsFixed(1)}% of placements',
+                    caption: 'Quality score ${summary.averageScore.toStringAsFixed(1)}',
+                    color: theme.colorScheme.secondary,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        GigvoraCard(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Scenario planning',
+                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 12),
+              if (scenarios.isEmpty)
+                Text(
+                  'Scenario modelling will unlock once campaigns gather more telemetry.',
+                  style: theme.textTheme.bodyMedium,
+                )
+              else
+                Column(
+                  children: scenarios
+                      .map(
+                        (scenario) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: CircleAvatar(
+                              backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
+                              child: Icon(Icons.stacked_bar_chart, color: theme.colorScheme.primary),
+                            ),
+                            title: Text(
+                              scenario.label,
+                              style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Confidence ${_formatPercent(percentPrecise, scenario.confidence)}',
+                                  style: theme.textTheme.bodySmall,
+                                ),
+                                Text(
+                                  '${compact.format(scenario.impressions)} impressions • ${compact.format(scenario.clicks)} clicks • ${compact.format(scenario.leads)} leads',
+                                  style: theme.textTheme.bodySmall,
+                                ),
+                                Text(
+                                  '${currencyPrecise.format(scenario.revenue)} revenue vs ${currencyPrecise.format(scenario.spend)} spend',
+                                  style: theme.textTheme.bodySmall,
+                                ),
+                                Text(
+                                  'ROI ${scenario.roi != null ? _formatPercent(percentPrecise, scenario.roi!) : '—'}',
+                                  style: theme.textTheme.bodySmall,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        GigvoraCard(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Traffic & guardrails',
+                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 24,
+                runSpacing: 12,
+                children: [
+                  _TrafficStat(
+                    label: 'Avg daily sessions',
+                    value: compact.format(traffic.averageDailySessions),
+                  ),
+                  _TrafficStat(
+                    label: 'Projected lift',
+                    value: _formatPercent(percentPrecise, traffic.growthRate),
+                  ),
+                  _TrafficStat(
+                    label: 'Returning visitors',
+                    value: _formatPercent(percentPrecise, traffic.returningVisitorRate, fromPercentage: true),
+                  ),
+                  _TrafficStat(
+                    label: 'Mobile share',
+                    value: _formatPercent(percentPrecise, traffic.mobileShare, fromPercentage: true),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (traffic.sourceBreakdown.isNotEmpty)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Source mix',
+                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 8),
+                    ...traffic.sourceBreakdown.map(
+                      (source) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(source.source, style: theme.textTheme.bodyMedium),
+                            Text(
+                              _formatPercent(percentPrecise, source.share),
+                              style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              if (trend.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'Trend (last ${trend.length} days)',
+                  style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                ...trend.map(
+                  (point) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(point.date != null ? dateFormatter.format(point.date!) : '—'),
+                        Text(compact.format(point.sessions), style: theme.textTheme.bodyMedium),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+              if (traffic.usesFallback) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'Analytics fallback in use — connect session rollups for higher fidelity.',
+                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.secondary),
+                ),
+              ],
+              if (assumptions.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Text(
+                  'Key assumptions',
+                  style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                ...assumptions.map(
+                  (assumption) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.info_outline, size: 18, color: theme.colorScheme.primary),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            assumption,
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              Text(
+                'Operational guardrails',
+                style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+              if (safetyChecks.isEmpty)
+                Text(
+                  'No operational risks detected. Continue monitoring placement freshness.',
+                  style: theme.textTheme.bodyMedium,
+                )
+              else
+                Column(
+                  children: safetyChecks
+                      .map(
+                        (check) => Card(
+                          color: levelColor(check.level).withOpacity(0.08),
+                          elevation: 0,
+                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          child: ListTile(
+                            leading: Icon(levelIcon(check.level), color: levelColor(check.level)),
+                            title: Text(
+                              check.message,
+                              style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                            subtitle: check.suggestion.isNotEmpty
+                                ? Text(check.suggestion, style: theme.textTheme.bodySmall)
+                                : null,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TrafficStat extends StatelessWidget {
+  const _TrafficStat({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SizedBox(
+      width: 160,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
         ],
       ),
