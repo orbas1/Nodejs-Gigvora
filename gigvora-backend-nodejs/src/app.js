@@ -1,13 +1,13 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
 import pinoHttp from 'pino-http';
 import routes from './routes/index.js';
 import correlationId from './middleware/correlationId.js';
 import errorHandler from './middleware/errorHandler.js';
 import healthRouter from './routes/health.js';
 import logger from './utils/logger.js';
+import createInstrumentedRateLimiter from './middleware/rateLimiter.js';
 
 const app = express();
 
@@ -43,19 +43,33 @@ const bodyLimit = process.env.REQUEST_BODY_LIMIT || '1mb';
 app.use(express.json({ limit: bodyLimit }));
 app.use(express.urlencoded({ extended: true, limit: bodyLimit }));
 
-const windowMs = Number(process.env.RATE_LIMIT_WINDOW_MS ?? 60_000);
-const maxRequests = Number(process.env.RATE_LIMIT_MAX_REQUESTS ?? 300);
-const limiter = rateLimit({
-  windowMs,
-  max: Number.isNaN(maxRequests) ? 300 : maxRequests,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    message: 'Too many requests, please try again later.',
-  },
-  skip: (req) => req.path.startsWith('/health'),
-});
-app.use(limiter);
+const windowMsCandidate = Number(process.env.RATE_LIMIT_WINDOW_MS ?? 60_000);
+const maxRequestsCandidate = Number(process.env.RATE_LIMIT_MAX_REQUESTS ?? 300);
+const resolvedWindowMs = Number.isFinite(windowMsCandidate) && windowMsCandidate > 0 ? windowMsCandidate : 60_000;
+const resolvedMaxRequests =
+  Number.isFinite(maxRequestsCandidate) && maxRequestsCandidate > 0 ? maxRequestsCandidate : 300;
+
+const shouldSkipRateLimit = (req) => {
+  if (req.method && req.method.toUpperCase() === 'OPTIONS') {
+    return true;
+  }
+  const path = req.path || req.originalUrl || '';
+  if (path.startsWith('/health')) {
+    return true;
+  }
+  if (path.startsWith('/api/admin/runtime/health')) {
+    return true;
+  }
+  return false;
+};
+
+app.use(
+  createInstrumentedRateLimiter({
+    windowMs: resolvedWindowMs,
+    max: resolvedMaxRequests,
+    skip: shouldSkipRateLimit,
+  }),
+);
 
 app.use('/health', healthRouter);
 

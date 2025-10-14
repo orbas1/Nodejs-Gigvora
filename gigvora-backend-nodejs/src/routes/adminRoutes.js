@@ -9,6 +9,7 @@ const router = Router();
 router.use(requireAdmin);
 
 router.get('/dashboard', asyncHandler(adminController.dashboard));
+router.get('/runtime/health', asyncHandler(adminController.runtimeHealth));
 router.get('/platform-settings', asyncHandler(adminController.fetchPlatformSettings));
 router.put('/platform-settings', asyncHandler(adminController.persistPlatformSettings));
 router.get('/affiliate-settings', asyncHandler(adminController.fetchAffiliateSettings));

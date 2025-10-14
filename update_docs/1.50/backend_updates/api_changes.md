@@ -4,6 +4,7 @@
 - Added `GET /health/live` returning lightweight process and HTTP runtime status for container orchestrators.
 - Added `GET /health/ready` returning dependency-aware readiness reports, including database latency metrics and worker states. Responses emit `503` when dependencies degrade.
 - Maintained `GET /health` as an alias of the readiness endpoint for backwards compatibility with existing load balancer checks.
+- Added `GET /api/admin/runtime/health` delivering combined readiness, liveness, dependency, environment, and rate-limit telemetry for operator tooling and the admin dashboard; powered by `runtimeObservabilityService` and the instrumented rate-limiter metrics store.
 
 ## Request Governance
 - Enforced configurable JSON/urlencoded body limits via `REQUEST_BODY_LIMIT` to guard against oversized payload attacks.

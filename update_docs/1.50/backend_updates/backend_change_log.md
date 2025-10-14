@@ -1,5 +1,10 @@
 # Backend Change Log — Version 1.50 Update
 
+## 07 Apr 2024
+- Introduced an observability-focused rate limiter wrapper and metrics store that track per-window utilisation, top offenders, and blocked ratios without external persistence.
+- Added `runtimeObservabilityService` and `/api/admin/runtime/health` so operators can inspect readiness, dependency health, environment metadata, and rate-limit pressure programmatically.
+- Expanded admin controller/routes to expose runtime telemetry while honouring admin authentication.
+
 ## 06 Apr 2024
 - Delivered `/api/domains/*` routes backed by a new DomainIntrospectionService that serialises bounded contexts, Sequelize metadata, and service bindings for operational tooling.
 - Added capability descriptors to auth, marketplace, and platform domain services so diagnostics expose available workflows alongside context membership.

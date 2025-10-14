@@ -21,3 +21,9 @@
 | `src/services/domainIntrospectionService.js` | Service that serialises bounded-context metadata, model definitions, and service bindings for the `/api/domains` endpoints. |
 | `src/routes/domainRoutes.js` | Express router exposing `/api/domains/registry`, context drill-down, and model definition endpoints. |
 | `shared-contracts/clients/typescript/*` | Generated TypeScript declarations mirroring domain schemas for Node and React consumers. |
+| `src/observability/rateLimitMetrics.js` | Instrumented metrics store that tracks per-key request attempts, blocks, utilisation history, and top consumers for the API rate limiter. |
+| `src/middleware/rateLimiter.js` | Wrapper around `express-rate-limit` that records telemetry, applies admin-aware keys, and exposes metrics to the observability service. |
+| `src/services/runtimeObservabilityService.js` | Aggregates readiness, dependency, environment, and rate-limit data for `/api/admin/runtime/health`. |
+| `tests/observability/rateLimitMetrics.test.js` | Unit coverage for the metrics store ensuring window rollovers, blocked ratios, and history snapshots remain accurate. |
+| `tests/services/runtimeObservabilityService.test.js` | Integration test validating runtime snapshots include readiness, liveness, and rate-limit data. |
+| `tests/adminRuntimeRoutes.test.js` | Route test covering admin authentication requirements and response shape for `/api/admin/runtime/health`. |
