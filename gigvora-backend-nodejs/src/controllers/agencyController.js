@@ -8,6 +8,8 @@ function parseNumber(value) {
 
 export async function dashboard(req, res) {
   const { workspaceId, workspaceSlug, lookbackDays } = req.query ?? {};
+  const actorId = req.user?.id ?? null;
+  const actorRole = req.user?.type ?? null;
 
   const payload = {
     workspaceId: parseNumber(workspaceId),
@@ -15,7 +17,7 @@ export async function dashboard(req, res) {
     lookbackDays: parseNumber(lookbackDays),
   };
 
-  const result = await getAgencyDashboard(payload);
+  const result = await getAgencyDashboard(payload, { actorId, actorRole });
   res.json(result);
 }
 

@@ -1,7 +1,8 @@
 import { apiClient } from './apiClient.js';
 
-export async function fetchAdminDashboard(params = {}) {
-  return apiClient.get('/admin/dashboard', { params });
+export async function fetchAdminDashboard(params = {}, options = {}) {
+  const config = { params, ...options };
+  return apiClient.get('/admin/dashboard', config);
 }
 
 export async function fetchAdCoupons(params = {}) {

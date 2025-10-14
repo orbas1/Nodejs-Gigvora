@@ -35,6 +35,7 @@ import '../features/finance/presentation/finance_screen.dart';
 import '../features/pages/presentation/pages_screen.dart';
 import '../features/connections/presentation/connections_screen.dart';
 import '../features/integrations/presentation/company_integrations_screen.dart';
+import '../features/user_dashboard/presentation/user_dashboard_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -48,6 +49,14 @@ const _notificationRoles = <String>{
   'admin',
 };
 
+const _userDashboardRoles = <String>{
+  'user',
+  'freelancer',
+  'agency',
+  'company',
+  'headhunter',
+};
+
 final appRouterProvider = Provider<GoRouter>((ref) {
   final sessionState = ref.watch(sessionControllerProvider);
 
@@ -57,6 +66,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       return false;
     }
     return session.memberships.any(_notificationRoles.contains);
+  }
+
+  bool canAccessAgencyDashboard() {
+    final session = sessionState.session;
+    if (session == null) {
+      return false;
+    }
+    return session.memberships
+        .map((role) => role.toLowerCase())
+        .contains('agency');
   }
 
   return GoRouter(
@@ -97,7 +116,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const NotificationsScreen(),
       ),
       GoRoute(path: '/pages', builder: (context, state) => const PagesScreen()),
-      GoRoute(path: '/notifications', builder: (context, state) => const NotificationsScreen()),
       GoRoute(path: '/inbox', builder: (context, state) => const InboxScreen()),
       GoRoute(path: '/finance', builder: (context, state) => const FinanceScreen()),
       GoRoute(path: '/connections', builder: (context, state) => const ConnectionsScreen()),
@@ -121,8 +139,36 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/dashboard/freelancer/pipeline',
         builder: (context, state) => const FreelancerPipelineScreen(),
       ),
+      GoRoute(
+        path: '/dashboard/user',
+        redirect: (context, state) {
+          final session = sessionState.session;
+          if (session == null) {
+            final target = Uri.encodeComponent(state.uri.toString());
+            return '/login?redirect=$target';
+          }
+          if (!session.memberships.any(_userDashboardRoles.contains)) {
+            return '/home?notice=user_dashboard_locked';
+          }
+          return null;
+        },
+        builder: (context, state) => const UserDashboardScreen(),
+      ),
       GoRoute(path: '/dashboard/mentor', builder: (context, state) => const MentorshipScreen()),
-      GoRoute(path: '/dashboard/agency', builder: (context, state) => const AgencyDashboardScreen()),
+      GoRoute(
+        path: '/dashboard/agency',
+        redirect: (context, state) {
+          if (!sessionState.isAuthenticated) {
+            final redirectTo = Uri.encodeComponent(state.uri.toString());
+            return '/login?from=$redirectTo';
+          }
+          if (!canAccessAgencyDashboard()) {
+            return '/home?notice=agency_access_required';
+          }
+          return null;
+        },
+        builder: (context, state) => const AgencyDashboardScreen(),
+      ),
       GoRoute(path: '/networking', builder: (context, state) => const NetworkingScreen()),
       GoRoute(path: '/groups', builder: (context, state) => const GroupsDirectoryScreen()),
       GoRoute(

@@ -3,6 +3,15 @@ import PropTypes from 'prop-types';
 import useProjectGigManagement from '../../hooks/useProjectGigManagement.js';
 import DataStatus from '../DataStatus.jsx';
 import ProjectGigManagementSection from './ProjectGigManagementSection.jsx';
+import { useProjectManagementAccess } from '../../hooks/useAuthorization.js';
+
+const PROJECT_MANAGEMENT_ROLE_LABELS = [
+  'Agency lead',
+  'Operations lead',
+  'Company operator',
+  'Workspace admin',
+  'Platform admin',
+];
 
 const INITIAL_PROJECT_FORM = {
   title: '',
@@ -98,7 +107,41 @@ function validateGigForm(values) {
 }
 
 export default function ProjectGigManagementContainer({ userId }) {
-  const { data, loading, error, actions } = useProjectGigManagement(userId);
+  const { canManageProjects, denialReason } = useProjectManagementAccess();
+
+  if (!canManageProjects) {
+    return (
+      <section
+        id="project-workspace"
+        className="rounded-3xl border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-white/60 p-8 shadow-sm"
+      >
+        <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-500">Project workspace</p>
+        <h2 className="mt-3 text-xl font-semibold text-slate-900">Workspace access required</h2>
+        <p className="mt-3 text-sm text-slate-600">
+          {denialReason ??
+            'Project workspaces are reserved for agency, operations, company, and administrator memberships. Switch to an eligible role or request an upgrade from your workspace owner.'}
+        </p>
+        <div className="mt-6 flex flex-wrap gap-2">
+          {PROJECT_MANAGEMENT_ROLE_LABELS.map((label) => (
+            <span
+              key={label}
+              className="inline-flex items-center rounded-full border border-amber-200 bg-white px-3 py-1 text-xs font-semibold text-amber-700"
+            >
+              {label}
+            </span>
+          ))}
+        </div>
+        <a
+          href="mailto:operations@gigvora.com?subject=Project%20workspace%20access%20request"
+          className="mt-6 inline-flex items-center justify-center rounded-full bg-amber-500 px-5 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-amber-600"
+        >
+          Contact operations@gigvora.com
+        </a>
+      </section>
+    );
+  }
+
+  const { data, loading, error, actions, reload } = useProjectGigManagement(userId);
   const [projectForm, setProjectForm] = useState(INITIAL_PROJECT_FORM);
   const [gigForm, setGigForm] = useState(INITIAL_GIG_FORM);
   const [submitting, setSubmitting] = useState(false);
@@ -108,13 +151,14 @@ export default function ProjectGigManagementContainer({ userId }) {
   const [projectFeedback, setProjectFeedback] = useState(null);
   const [gigFeedback, setGigFeedback] = useState(null);
 
-  const access = data?.access ?? {};
-  const canManage = access.canManage !== false;
+  const access = data?.access ?? { canManage: false };
+  const hasSnapshot = Boolean(data);
+  const canManage = hasSnapshot && access.canManage !== false;
   const allowedRoles = useMemo(
     () => access.allowedRoles?.filter(Boolean).map((role) => role.replace(/_/g, ' ')) ?? [],
     [access],
   );
-  const accessReason = !canManage
+  const accessReason = hasSnapshot && !canManage
     ? access.reason ??
       (access.actorRole
         ? `Gig operations are view-only for the ${access.actorRole.replace(/_/g, ' ')} role.`
@@ -216,9 +260,12 @@ export default function ProjectGigManagementContainer({ userId }) {
     }
   };
 
-  return (
-    <section className="flex flex-col gap-8">
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+  const meta = data?.meta ?? {};
+  const lastUpdated = meta.lastUpdated ?? null;
+  const fromCache = meta.fromCache ?? false;
+
+  const renderProjectForm = () => (
+    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Kick off a new initiative</h2>
         <p className="mt-1 text-sm text-slate-500">
           Launch a project workspace with default milestones, workspace metrics, and collaborator scaffolding.
@@ -345,9 +392,11 @@ export default function ProjectGigManagementContainer({ userId }) {
             {submitting ? 'Creating project…' : 'Create project workspace'}
           </button>
         </form>
-      </div>
+    </div>
+  );
 
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+  const renderGigForm = () => (
+    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Track a purchased gig</h2>
         <p className="mt-1 text-sm text-slate-500">Capture vendor engagements, milestone tracking, and revision rounds.</p>
         {gigFeedback ? (
@@ -469,10 +518,64 @@ export default function ProjectGigManagementContainer({ userId }) {
             {gigSubmitting ? 'Saving gig…' : 'Add gig engagement'}
           </button>
         </form>
+    </div>
+  );
+
+  return (
+    <section id="project-workspace" className="flex flex-col gap-8">
+      <div className="flex flex-col gap-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent">Project workspace</p>
+        <h1 className="text-2xl font-semibold text-slate-900">Project &amp; gig command centre</h1>
+        <p className="max-w-3xl text-sm text-slate-600">
+          Launch structured initiatives, govern vendor engagements, and keep delivery rituals on track across every client workspace.
+        </p>
       </div>
 
-      <DataStatus loading={loading} error={error} />
-      {data ? <ProjectGigManagementSection data={data} /> : null}
+      <DataStatus
+        loading={loading}
+        error={error}
+        fromCache={fromCache}
+        lastUpdated={lastUpdated}
+        onRefresh={reload}
+      />
+
+      {loading && !data ? (
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="h-full rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm">
+            <div className="h-full animate-pulse space-y-4">
+              <div className="h-4 w-1/2 rounded bg-slate-200" />
+              <div className="h-3 w-3/4 rounded bg-slate-200" />
+              <div className="h-32 rounded-xl bg-slate-100" />
+              <div className="h-10 rounded-xl bg-slate-100" />
+            </div>
+          </div>
+          <div className="h-full rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm">
+            <div className="h-full animate-pulse space-y-4">
+              <div className="h-4 w-2/3 rounded bg-slate-200" />
+              <div className="h-3 w-1/2 rounded bg-slate-200" />
+              <div className="h-32 rounded-xl bg-slate-100" />
+              <div className="h-10 rounded-xl bg-slate-100" />
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-6 md:grid-cols-2">
+            {renderProjectForm()}
+            {renderGigForm()}
+          </div>
+          {data ? <ProjectGigManagementSection data={data} /> : null}
+        </>
+      )}
+
+      {error && !data ? (
+        <div className="rounded-3xl border border-rose-200 bg-rose-50/70 p-6 text-sm text-rose-700">
+          <p className="font-semibold">We couldn&apos;t load your project workspace snapshot.</p>
+          <p className="mt-2 text-rose-600/90">
+            Check your connection or try again in a moment. If the issue persists, contact operations@gigvora.com with the timestamp above.
+          </p>
+        </div>
+      ) : null}
     </section>
   );
 }

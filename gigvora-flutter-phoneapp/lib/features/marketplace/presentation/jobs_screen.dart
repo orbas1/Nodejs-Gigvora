@@ -105,7 +105,7 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final controller = ref.read(opportunityControllerProvider(OpportunityCategory.job).notifier);
       controller.setIncludeFacets(true);
-      controller.updateFilters(_buildFilters());
+      controller.setFilters(_buildFilters());
       controller.updateSort(_sort == 'default' ? null : _sort);
     });
   }
@@ -132,21 +132,21 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
         _employmentTypes.add(value);
       }
     });
-    ref.read(opportunityControllerProvider(OpportunityCategory.job).notifier).updateFilters(_buildFilters());
+    ref.read(opportunityControllerProvider(OpportunityCategory.job).notifier).setFilters(_buildFilters());
   }
 
   void _setRemoteFilter(_RemoteFilter value) {
     setState(() {
       _remoteFilter = value;
     });
-    ref.read(opportunityControllerProvider(OpportunityCategory.job).notifier).updateFilters(_buildFilters());
+    ref.read(opportunityControllerProvider(OpportunityCategory.job).notifier).setFilters(_buildFilters());
   }
 
   void _setFreshness(String value) {
     setState(() {
       _freshness = value;
     });
-    ref.read(opportunityControllerProvider(OpportunityCategory.job).notifier).updateFilters(_buildFilters());
+    ref.read(opportunityControllerProvider(OpportunityCategory.job).notifier).setFilters(_buildFilters());
   }
 
   void _setSort(String value) {
@@ -166,7 +166,7 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
       _sort = 'default';
     });
     final controller = ref.read(opportunityControllerProvider(OpportunityCategory.job).notifier);
-    controller.updateFilters(_buildFilters());
+    controller.setFilters(_buildFilters());
     controller.updateSort(null);
   }
 
@@ -187,7 +187,7 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
       }
     }
     final items = page?.items ?? const <OpportunitySummary>[];
-    return items.where((item) => item.isRemote == true).length;
+    return items.where((item) => item.isRemote).length;
   }
 
   int _recentCount(OpportunityPage? page) {

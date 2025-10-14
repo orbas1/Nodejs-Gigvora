@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
@@ -137,86 +139,160 @@ class _ExplorerScreenState extends ConsumerState<ExplorerScreen> {
     return GigvoraScaffold(
       title: 'Explorer Search',
       subtitle: 'Discover talent, opportunities, and collaborators',
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      body: Stack(
         children: [
-          TextField(
-            controller: _searchController,
-            textInputAction: TextInputAction.search,
-            decoration: InputDecoration(
-              hintText: 'Search across roles, gigs, projects, cohorts, and people',
-              prefixIcon: const Icon(Icons.search),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(28)),
-            ),
-            onChanged: controller.updateQuery,
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: categories.map((category) {
-              final isActive = category.id == _selectedCategory;
-              final textColor = isActive
-                  ? theme.colorScheme.onPrimaryContainer
-                  : theme.colorScheme.onSurfaceVariant;
-              return ChoiceChip(
-                label: Text(category.label),
-                selected: isActive,
-                selectedColor: theme.colorScheme.primaryContainer,
-                backgroundColor: theme.colorScheme.surfaceVariant.withOpacity(0.5),
-                labelStyle: theme.textTheme.labelLarge?.copyWith(
-                  color: textColor,
-                  fontWeight: FontWeight.w600,
+          const _ExplorerBackdrop(),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface.withOpacity(0.82),
+                  borderRadius: BorderRadius.circular(32),
+                  border: Border.all(color: theme.colorScheme.primary.withOpacity(0.08)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: theme.colorScheme.primary.withOpacity(0.08),
+                      offset: const Offset(0, 24),
+                      blurRadius: 48,
+                    ),
+                  ],
                 ),
-                side: BorderSide(
-                  color: isActive
-                      ? theme.colorScheme.primary.withOpacity(0.4)
-                      : theme.dividerColor,
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(28),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surface.withOpacity(0.9),
+                            borderRadius: BorderRadius.circular(28),
+                            border: Border.all(color: theme.colorScheme.primary.withOpacity(0.12)),
+                          ),
+                          child: TextField(
+                            controller: _searchController,
+                            textInputAction: TextInputAction.search,
+                            decoration: InputDecoration(
+                              hintText: 'Search across roles, gigs, projects, cohorts, and people',
+                              prefixIcon: const Icon(Icons.search),
+                              suffixIcon: IconButton(
+                                icon: const Icon(Icons.mic_none),
+                                tooltip: 'Request Explorer voice search',
+                                onPressed: () {
+                                  controller.recordVoiceSearchIntent();
+                                  final messenger = ScaffoldMessenger.of(context);
+                                  messenger.hideCurrentSnackBar();
+                                  messenger.showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Voice search is coming soon. Contact support for early access.'),
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                },
+                              ),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                            ),
+                            onChanged: controller.updateQuery,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: categories.map((category) {
+                        final isActive = category.id == _selectedCategory;
+                        final textColor = isActive
+                            ? theme.colorScheme.onPrimaryContainer
+                            : theme.colorScheme.onSurfaceVariant;
+                        return ChoiceChip(
+                          label: Text(category.label),
+                          showCheckmark: false,
+                          labelPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          selected: isActive,
+                          selectedColor: theme.colorScheme.primaryContainer,
+                          backgroundColor: theme.colorScheme.surfaceVariant.withOpacity(0.6),
+                          labelStyle: theme.textTheme.labelLarge?.copyWith(
+                            color: textColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          side: BorderSide(
+                            color: isActive
+                                ? theme.colorScheme.primary.withOpacity(0.45)
+                                : theme.dividerColor.withOpacity(0.8),
+                          ),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                          onSelected: (_) {
+                            setState(() => _selectedCategory = category.id);
+                            controller.recordFilterSelection(category.category);
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ],
                 ),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                onSelected: (_) {
-                  setState(() => _selectedCategory = category.id);
-                  controller.recordFilterSelection(category.category);
-                },
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 16),
-          if (fromCache && !isLoading)
-            const _StatusBanner(
-              icon: Icons.offline_bolt,
-              background: Color(0xFFFEF3C7),
-              foreground: Color(0xFF92400E),
-              message: 'Showing cached discovery results while we reconnect.',
-            ),
-          if (error != null && !isLoading)
-            const _StatusBanner(
-              icon: Icons.error_outline,
-              background: Color(0xFFFEE2E2),
-              foreground: Color(0xFFB91C1C),
-              message: 'Unable to load the latest discovery results. Pull to refresh to try again.',
-            ),
-          if (lastUpdated != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: Text(
-                'Last updated ${formatRelativeTime(lastUpdated)}',
-                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
-            ),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: controller.refreshActive,
-              child: _buildResults(
-                context,
-                selected,
-                query,
-                isLoading,
-                opportunities,
-                peopleResults,
-                controller,
+              const SizedBox(height: 16),
+              if (fromCache && !isLoading)
+                const _StatusBanner(
+                  icon: Icons.offline_bolt,
+                  background: Color(0xFFFEF3C7),
+                  foreground: Color(0xFF92400E),
+                  message: 'Showing cached discovery results while we reconnect.',
+                ),
+              if (error != null && !isLoading)
+                const _StatusBanner(
+                  icon: Icons.error_outline,
+                  background: Color(0xFFFEE2E2),
+                  foreground: Color(0xFFB91C1C),
+                  message: 'Unable to load the latest discovery results. Pull to refresh to try again.',
+                ),
+              if (lastUpdated != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    'Last updated ${formatRelativeTime(lastUpdated)}',
+                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  ),
+                ),
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface,
+                    borderRadius: BorderRadius.circular(32),
+                    border: Border.all(color: theme.colorScheme.surfaceVariant.withOpacity(0.4)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        offset: const Offset(0, 18),
+                        blurRadius: 40,
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(32),
+                    child: RefreshIndicator(
+                      color: theme.colorScheme.primary,
+                      onRefresh: controller.refreshActive,
+                      child: _buildResults(
+                        context,
+                        selected,
+                        query,
+                        isLoading,
+                        opportunities,
+                        peopleResults,
+                        controller,
+                      ),
+                    ),
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
         ],
       ),
@@ -384,11 +460,11 @@ class _ExplorerScreenState extends ConsumerState<ExplorerScreen> {
 
     if (isLoading && opportunities.isEmpty) {
       return const _ExplorerSkeleton();
-    }
+  }
 
-    if (opportunities.isEmpty) {
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
+  if (opportunities.isEmpty) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
         children: [
           const SizedBox(height: 80),
           GigvoraCard(
@@ -697,6 +773,45 @@ class _StatusBanner extends StatelessWidget {
                   .textTheme
                   .bodyMedium
                   ?.copyWith(color: foreground),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExplorerBackdrop extends StatelessWidget {
+  const _ExplorerBackdrop();
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Stack(
+        fit: StackFit.expand,
+        children: const [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xB70F172A),
+                  Color(0x000F172A),
+                ],
+              ),
+            ),
+          ),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: Alignment.topRight,
+                radius: 1.2,
+                colors: [
+                  Color(0x332563EB),
+                  Colors.transparent,
+                ],
+              ),
             ),
           ),
         ],
