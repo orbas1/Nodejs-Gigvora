@@ -8,12 +8,14 @@ import {
 } from '../services/discoveryService.js';
 
 function parseQueryParams(req) {
-  const { page, pageSize, q, limit } = req.query ?? {};
+  const { page, pageSize, q, limit, filters, sort } = req.query ?? {};
   return {
     page: page ?? undefined,
     pageSize: pageSize ?? undefined,
     query: q ?? undefined,
     limit: limit ?? undefined,
+    filters: filters ?? undefined,
+    sort: sort ?? undefined,
   };
 }
 
@@ -48,8 +50,8 @@ export async function launchpads(req, res) {
 }
 
 export async function volunteering(req, res) {
-  const { page, pageSize, query } = parseQueryParams(req);
-  const result = await listVolunteering({ page, pageSize, query });
+  const { page, pageSize, query, filters, sort } = parseQueryParams(req);
+  const result = await listVolunteering({ page, pageSize, query, filters, sort });
   res.json(result);
 }
 

@@ -71,6 +71,7 @@ class UserSession {
     'headhunter': 'Headhunter',
     'mentor': 'Mentor',
     'admin': 'Admin',
+    'volunteer': 'Volunteer',
   };
 
   RoleDashboard? dashboardFor(String role) => dashboards[role];
@@ -160,6 +161,7 @@ class UserSession {
       email: 'lena.fields@gigvora.com',
       location: 'Berlin, Germany',
       avatarSeed: 'Lena Fields',
+      memberships: const ['user', 'freelancer', 'agency', 'volunteer'],
       memberships: const ['user', 'freelancer', 'agency', 'company'],
       memberships: const ['user', 'freelancer', 'agency', 'headhunter'],
       memberships: const ['user', 'freelancer', 'agency', 'admin'],

@@ -30,6 +30,8 @@ const AUTHENTICATED_NAV_LINKS = [
   { to: '/inbox', label: 'Inbox' },
 ];
 
+const VOLUNTEERING_NAV_LINK = { to: '/volunteering', label: 'Volunteering' };
+
 function NotificationMenu({
   notifications = [],
   unreadCount = 0,
@@ -266,6 +268,18 @@ export default function Header() {
       isActive ? 'text-accent' : 'text-slate-500 hover:text-slate-900'
     }`;
 
+  const navLinks = useMemo(() => {
+    const links = [...AUTHENTICATED_NAV_LINKS];
+    if (!isAuthenticated) {
+      return links;
+    }
+    const memberships = (session?.memberships ?? []).map((value) => `${value}`.trim().toLowerCase());
+    if (memberships.some((role) => ['volunteer', 'mentor', 'admin'].includes(role))) {
+      links.push(VOLUNTEERING_NAV_LINK);
+    }
+    return links;
+  }, [isAuthenticated, session?.memberships]);
+
   const closeMobileNav = () => setOpen(false);
 
   const handleLogout = () => {
@@ -383,7 +397,7 @@ export default function Header() {
         </Link>
         {isAuthenticated ? (
           <nav className="hidden items-center gap-1 md:flex">
-            {AUTHENTICATED_NAV_LINKS.map((item) => (
+            {navLinks.map((item) => (
               <NavLink key={item.to} to={item.to} className={navClassName}>
                 {({ isActive }) => (
                   <span className="relative inline-flex items-center">
@@ -489,7 +503,7 @@ export default function Header() {
                 </Link>
               </div>
               <nav className="flex flex-col gap-1 py-4 text-sm font-semibold">
-                {AUTHENTICATED_NAV_LINKS.map((item) => (
+                {navLinks.map((item) => (
                   <NavLink
                     key={item.to}
                     to={item.to}
