@@ -17,6 +17,13 @@ import useSession from '../hooks/useSession.js';
 import useNotificationCenter from '../hooks/useNotificationCenter.js';
 import useAuthorization from '../hooks/useAuthorization.js';
 import { formatRelativeTime } from '../utils/date.js';
+import { hasExplorerAccess } from '../utils/accessControl.js';
+
+const AUTHENTICATED_NAV_LINKS = [
+  { id: 'feed', to: '/feed', label: 'Live Feed' },
+  { id: 'explorer', to: '/search', label: 'Explorer' },
+  { id: 'mentors', to: '/mentors', label: 'Mentors' },
+  { id: 'inbox', to: '/inbox', label: 'Inbox' },
 import { hasFinanceOperationsAccess } from '../utils/permissions.js';
 
 const AUTHENTICATED_NAV_LINKS = [
@@ -390,6 +397,19 @@ export default function Header() {
     </Menu>
   );
 
+  const explorerAvailable = useMemo(() => hasExplorerAccess(session), [session]);
+  const primaryNavLinks = useMemo(() => {
+    if (!isAuthenticated) {
+      return [];
+    }
+    return AUTHENTICATED_NAV_LINKS.filter((item) => {
+      if (item.id === 'explorer') {
+        return explorerAvailable;
+      }
+      return true;
+    });
+  }, [isAuthenticated, explorerAvailable]);
+
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
@@ -398,6 +418,7 @@ export default function Header() {
         </Link>
         {isAuthenticated ? (
           <nav className="hidden items-center gap-1 md:flex">
+            {primaryNavLinks.map((item) => (
             {navLinks.map((item) => (
               <NavLink key={item.to} to={item.to} className={navClassName}>
                 {({ isActive }) => (
@@ -504,6 +525,7 @@ export default function Header() {
                 </Link>
               </div>
               <nav className="flex flex-col gap-1 py-4 text-sm font-semibold">
+                {primaryNavLinks.map((item) => (
                 {navLinks.map((item) => (
                   <NavLink
                     key={item.to}

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
+import 'package:go_router/go_router.dart';
 import '../../../theme/widgets.dart';
+import '../../../core/access/explorer_access.dart';
+import '../../auth/application/session_controller.dart';
 import '../../marketplace/data/models/opportunity.dart';
 import '../application/explorer_controller.dart';
 import '../data/discovery_models.dart';
@@ -54,10 +57,65 @@ class _ExplorerScreenState extends ConsumerState<ExplorerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final sessionState = ref.watch(sessionControllerProvider);
+    final session = sessionState.session;
+    final explorerUnlocked = hasExplorerAccess(session);
+
+    if (!sessionState.isAuthenticated) {
+      return _buildAccessRestriction(
+        context,
+        headline: 'Sign in to open Explorer',
+        message:
+            'Explorer consolidates roles, gigs, launchpads, and volunteering missions into a single, secure search experience. Sign in or create an account to continue.',
+        actions: [
+          FilledButton(
+            onPressed: () => context.push('/login'),
+            child: const Text('Sign in'),
+          ),
+          OutlinedButton(
+            onPressed: () => context.push('/register'),
+            child: const Text('Create account'),
+          ),
+        ],
+      );
+    }
+
+    if (!explorerUnlocked) {
+      final eligibleRoles = kExplorerAllowedMemberships
+          .map((role) => role[0].toUpperCase() + role.substring(1))
+          .join(', ');
+
+      return _buildAccessRestriction(
+        context,
+        headline: 'Explorer access requires activation',
+        message:
+            'Your current workspace membership does not include Explorer search. Switch to an eligible role or request activation from your Gigvora administrator.',
+        footer: Text(
+          'Eligible memberships: $eligibleRoles',
+          textAlign: TextAlign.center,
+          style: Theme.of(context)
+              .textTheme
+              .bodySmall
+              ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => context.push('/home'),
+            child: const Text('Go to home'),
+          ),
+          OutlinedButton(
+            onPressed: () => _showSupportSnackBar(context),
+            child: const Text('Contact support'),
+          ),
+        ],
+      );
+    }
+
     final state = ref.watch(explorerControllerProvider);
     final controller = ref.read(explorerControllerProvider.notifier);
     final selected = categories.firstWhere((element) => element.id == _selectedCategory);
     final query = state.query;
+    final theme = Theme.of(context);
 
     final isLoading = query.isEmpty ? state.snapshot.loading : state.search.loading;
     final error = query.isEmpty ? state.snapshot.error : state.search.error;
@@ -98,9 +156,24 @@ class _ExplorerScreenState extends ConsumerState<ExplorerScreen> {
             runSpacing: 8,
             children: categories.map((category) {
               final isActive = category.id == _selectedCategory;
+              final textColor = isActive
+                  ? theme.colorScheme.onPrimaryContainer
+                  : theme.colorScheme.onSurfaceVariant;
               return ChoiceChip(
                 label: Text(category.label),
                 selected: isActive,
+                selectedColor: theme.colorScheme.primaryContainer,
+                backgroundColor: theme.colorScheme.surfaceVariant.withOpacity(0.5),
+                labelStyle: theme.textTheme.labelLarge?.copyWith(
+                  color: textColor,
+                  fontWeight: FontWeight.w600,
+                ),
+                side: BorderSide(
+                  color: isActive
+                      ? theme.colorScheme.primary.withOpacity(0.4)
+                      : theme.dividerColor,
+                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                 onSelected: (_) {
                   setState(() => _selectedCategory = category.id);
                   controller.recordFilterSelection(category.category);
@@ -128,10 +201,7 @@ class _ExplorerScreenState extends ConsumerState<ExplorerScreen> {
               padding: const EdgeInsets.only(bottom: 16),
               child: Text(
                 'Last updated ${formatRelativeTime(lastUpdated)}',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
             ),
           Expanded(
@@ -149,6 +219,93 @@ class _ExplorerScreenState extends ConsumerState<ExplorerScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildAccessRestriction(
+    BuildContext context, {
+    required String headline,
+    required String message,
+    required List<Widget> actions,
+    Widget? footer,
+  }) {
+    final theme = Theme.of(context);
+    return GigvoraScaffold(
+      title: 'Explorer Search',
+      subtitle: 'Discover talent, opportunities, and collaborators',
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: GigvoraCard(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Icon(Icons.lock_outline, size: 36, color: theme.colorScheme.primary),
+                const SizedBox(height: 16),
+                Text(
+                  headline,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    height: 1.45,
+                  ),
+                ),
+                if (footer != null) ...[
+                  const SizedBox(height: 12),
+                  footer,
+                ],
+                const SizedBox(height: 24),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  alignment: WrapAlignment.center,
+                  children: actions,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showSupportSnackBar(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Email support@gigvora.com to request Explorer activation.'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _openOpportunity(
+    BuildContext context,
+    ExplorerController controller,
+    OpportunityCategory category,
+    String categoryLabel,
+    OpportunitySummary opportunity,
+  ) {
+    controller.recordResultOpened(
+      category: category,
+      id: opportunity.id,
+      title: opportunity.title,
+    );
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => _OpportunityDetailSheet(
+        opportunity: opportunity,
+        categoryLabel: categoryLabel,
       ),
     );
   }
@@ -212,7 +369,10 @@ class _ExplorerScreenState extends ConsumerState<ExplorerScreen> {
                 Text(person.email, style: Theme.of(context).textTheme.bodySmall),
                 const SizedBox(height: 8),
                 ElevatedButton(
-                  onPressed: () => controller.recordPersonOpened(person),
+                  onPressed: () {
+                    controller.recordPersonOpened(person);
+                    context.push('/profile?id=${Uri.encodeComponent(person.id)}');
+                  },
                   child: const Text('View profile'),
                 ),
               ],
@@ -249,7 +409,8 @@ class _ExplorerScreenState extends ConsumerState<ExplorerScreen> {
       separatorBuilder: (_, __) => const SizedBox(height: 16),
       itemBuilder: (context, index) {
         final item = opportunities[index];
-        final meta = _buildMeta(item);
+        final meta = _metaForOpportunity(item);
+        final theme = Theme.of(context);
         return GigvoraCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -260,35 +421,39 @@ class _ExplorerScreenState extends ConsumerState<ExplorerScreen> {
                 children: meta
                     .map(
                       (entry) => Chip(
-                        backgroundColor: const Color(0xFFE0F2FE),
-                        label: Text(entry),
+                        backgroundColor: theme.colorScheme.primaryContainer.withOpacity(0.25),
+                        label: Text(
+                          entry,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: theme.colorScheme.onPrimaryContainer,
+                          ),
+                        ),
                       ),
                     )
                     .toList(),
               ),
               const SizedBox(height: 12),
-              Text(item.title, style: Theme.of(context).textTheme.titleMedium),
+              Text(item.title, style: theme.textTheme.titleMedium),
               const SizedBox(height: 8),
               Text(
                 item.description,
                 maxLines: 4,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodyMedium,
+                style: theme.textTheme.bodyMedium,
               ),
               const SizedBox(height: 12),
               Text(
                 'Updated ${formatRelativeTime(item.updatedAt)}',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: 12),
               ElevatedButton(
-                onPressed: () => controller.recordResultOpened(
-                  category: selected.category ?? OpportunityCategory.job,
-                  id: item.id,
-                  title: item.title,
+                onPressed: () => _openOpportunity(
+                  context,
+                  controller,
+                  selected.category ?? OpportunityCategory.job,
+                  selected.label,
+                  item,
                 ),
                 child: const Text('View details'),
               ),
@@ -299,19 +464,203 @@ class _ExplorerScreenState extends ConsumerState<ExplorerScreen> {
     );
   }
 
-  List<String> _buildMeta(OpportunitySummary item) {
-    switch (item.category) {
-      case OpportunityCategory.job:
-        return [item.location, item.employmentType].whereType<String>().where((value) => value.isNotEmpty).toList();
-      case OpportunityCategory.gig:
-        return [item.budget, item.duration].whereType<String>().where((value) => value.isNotEmpty).toList();
-      case OpportunityCategory.project:
-        return [item.status, item.location].whereType<String>().where((value) => value.isNotEmpty).toList();
-      case OpportunityCategory.launchpad:
-        return [item.track].whereType<String>().where((value) => value.isNotEmpty).toList();
-      case OpportunityCategory.volunteering:
-        return [item.organization, item.location].whereType<String>().where((value) => value.isNotEmpty).toList();
-    }
+}
+
+List<String> _metaForOpportunity(OpportunitySummary item) {
+  switch (item.category) {
+    case OpportunityCategory.job:
+      return [item.location, item.employmentType].whereType<String>().where((value) => value.isNotEmpty).toList();
+    case OpportunityCategory.gig:
+      return [item.budget, item.duration].whereType<String>().where((value) => value.isNotEmpty).toList();
+    case OpportunityCategory.project:
+      return [item.status, item.location].whereType<String>().where((value) => value.isNotEmpty).toList();
+    case OpportunityCategory.launchpad:
+      return [item.track].whereType<String>().where((value) => value.isNotEmpty).toList();
+    case OpportunityCategory.volunteering:
+      return [item.organization, item.location].whereType<String>().where((value) => value.isNotEmpty).toList();
+  }
+}
+
+class _OpportunityDetailSheet extends StatelessWidget {
+  const _OpportunityDetailSheet({
+    required this.opportunity,
+    required this.categoryLabel,
+  });
+
+  final OpportunitySummary opportunity;
+  final String categoryLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final meta = _metaForOpportunity(opportunity);
+    return DraggableScrollableSheet(
+      initialChildSize: 0.7,
+      minChildSize: 0.45,
+      maxChildSize: 0.9,
+      builder: (context, controller) => Container(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.12),
+              blurRadius: 32,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            controller: controller,
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    height: 4,
+                    width: 48,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.outlineVariant,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  categoryLabel.toUpperCase(),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    letterSpacing: 2.4,
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  opportunity.title,
+                  style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 12),
+                if (meta.isNotEmpty)
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: meta
+                        .map(
+                          (entry) => Chip(
+                            label: Text(
+                              entry,
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: theme.colorScheme.onPrimaryContainer,
+                              ),
+                            ),
+                            backgroundColor: theme.colorScheme.primaryContainer.withOpacity(0.25),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                const SizedBox(height: 16),
+                Text(
+                  opportunity.description,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 16,
+                  children: [
+                    if (opportunity.organization != null && opportunity.organization!.isNotEmpty)
+                      _DetailTile(
+                        icon: Icons.apartment_outlined,
+                        label: 'Organisation',
+                        value: opportunity.organization!,
+                      ),
+                    if (opportunity.location != null && opportunity.location!.isNotEmpty)
+                      _DetailTile(
+                        icon: Icons.location_on_outlined,
+                        label: 'Primary location',
+                        value: opportunity.location!,
+                      ),
+                    if (opportunity.employmentType != null && opportunity.employmentType!.isNotEmpty)
+                      _DetailTile(
+                        icon: Icons.badge_outlined,
+                        label: 'Engagement type',
+                        value: opportunity.employmentType!,
+                      ),
+                    if (opportunity.duration != null && opportunity.duration!.isNotEmpty)
+                      _DetailTile(
+                        icon: Icons.timer_outlined,
+                        label: 'Duration',
+                        value: opportunity.duration!,
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Updated ${formatRelativeTime(opportunity.updatedAt)}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DetailTile extends StatelessWidget {
+  const _DetailTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 180, maxWidth: 220),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceVariant.withOpacity(0.35),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 20, color: theme.colorScheme.primary),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: theme.textTheme.labelSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
