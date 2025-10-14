@@ -29,3 +29,7 @@
 - Rebuilt `LaunchpadPage.jsx` with cohort selection, live dashboard insights, and dedicated talent/employer forms wired to the new `/api/launchpad` endpoints.
 - Added `LaunchpadTalentApplicationForm`, `LaunchpadEmployerRequestForm`, and `LaunchpadPlacementsInsights` components delivering production-grade forms, telemetry, and insight cards aligned with design artefacts.
 - Introduced `launchpad.js` service binding the new API surface (applications, employer briefs, placements, dashboards) with shared analytics hooks and error handling.
+
+## Agency Dashboard – Finance Distribution
+- Extended `AgencyDashboardPage.jsx` with a payments distribution workspace covering processed totals, upcoming payout batches, outstanding split heat, teammate payout distribution, and finance export readiness controls wired to the refreshed `/agency/dashboard` payload.
+- Added currency aggregation helpers and navigation metadata so the operating intelligence quick links surface finance distribution health alongside existing portfolio, orchestrator, resource, and quality sections.

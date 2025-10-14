@@ -18,16 +18,31 @@
 4. **Employer Briefs Table**
    - Table height 360px with sticky header. Columns: Employer, Track, Status badge, SLA countdown, Brief owner.
    - Row colours shift to amber when SLA <8 hours. Includes inline "Assign partner" button.
-5. **Notifications**
+5. **Finance Overview Hero**
+   - Trio of cards ("Releasing this week", "Outstanding splits", "Teams covered") using `FinanceMetricCard` variant with inline sparkline (height 42px) and CTA chips linking to batch or export drawers.
+   - Cards animate deltas via `animate-pulse` when backend sends new amounts; tooltips clarify multi-currency conversions.
+6. **Upcoming Payout Batches**
+   - Table height 420px with sticky header and expandable rows; columns: Batch, Total, Release date, Owner, Status (chip), Export.
+   - Expanding a row reveals split summary list, compliance warnings, and quick actions (Schedule release, Escalate, Open ledger export).
+7. **Outstanding Split Tracker**
+   - List card stacking unresolved splits with avatar, amount owed, days outstanding, and action buttons (Remind, Adjust, Escalate).
+   - Filter chips across top (`All`, `Overdue`, `Needs info`, `Compliance hold`) update list instantly with React Query cache updates.
+8. **Teammate Distribution**
+   - Donut chart module sized 320px diameter with legend stacked right; tooltips show count + value, subtext surfaces variance vs expected distribution.
+   - Inline alert banner appears when variance >3%, linking to `Resolve variance` flow inside batch drawer.
+9. **Export Readiness Checklist**
+   - Vertical timeline card covering CSV export, accounting pack, treasury upload, and SFTP drop; each item toggles to complete with timestamp + owner.
+   - Items locked (disabled + tooltip) until outstanding blockers resolved; final action triggers audit modal before download.
+10. **Notifications**
    - Card height 320px, lists 6 latest notifications. Each entry 56px, includes icon, timestamp.
-6. **Opportunities Snapshot**
+11. **Opportunities Snapshot**
    - Table-style card summarising pipeline stages; uses segmented controls for `Applied`, `Invited`, `In Review`.
-7. **Community Pulse**
+12. **Community Pulse**
    - Card showing trending groups, upcoming events; includes CTA to view calendar.
 
 ## Quick Actions Drawer
-- Floating button bottom-right (64px). On click, opens drawer width 360px listing quick actions (Post opportunity, Create launchpad, Invite team, Contact support).
-- Drawer uses `shadow-medium`, `border-radius: 24px`, `padding: 28px`.
+- Floating button bottom-right (64px). On click, opens drawer width 360px listing quick actions (Post opportunity, Create launchpad, Invite team, Contact support, Trigger urgent payout, Notify finance).
+- Drawer uses `shadow-medium`, `border-radius: 24px`, `padding: 28px`. Finance actions require confirmation modals capturing reason + effective date for audit logging.
 
 ## Visual Hierarchy
 - Primary metric row uses accent gradient backgrounds; other cards stay neutral.
@@ -42,9 +57,10 @@
 - Progress bars include `aria-valuenow`, `aria-valuemax`, descriptive text.
 
 ## Data Sources
-- Metrics via `/api/dashboard/metrics` (refresh 5 min).
+- Core metrics via `/api/dashboard/metrics` (refresh 5 min).
+- Finance hero & tables via `/api/agency/finance/payouts`, `/api/agency/finance/splits`, `/api/agency/finance/exports` (refresh 2 min, manual refresh CTA available).
 - Tasks via `/api/dashboard/tasks` with patch for completion.
-- Notifications via websocket channel `dashboard.notifications`.
+- Notifications via websocket channel `dashboard.notifications` plus finance events `finance.payouts.updated` for toast triggers.
 
 ## Visual Assets
 - Illustrations minimal; use icon badges from Heroicons/Phosphor sized 32px.

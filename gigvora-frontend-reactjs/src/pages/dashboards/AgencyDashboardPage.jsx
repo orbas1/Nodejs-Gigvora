@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
+  ArrowPathIcon,
   ArrowTrendingUpIcon,
   BriefcaseIcon,
   BuildingOffice2Icon,
@@ -15,11 +17,15 @@ import {
   UsersIcon,
 } from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import { apiClient } from '../../services/apiClient.js';
 import { fetchAgencyDashboard } from '../../services/agency.js';
 import { formatRelativeTime, formatAbsolute } from '../../utils/date.js';
 
 const DEFAULT_WORKSPACE_SLUG = 'nova-collective';
 const DEFAULT_MEMBERSHIPS = ['agency', 'freelancer', 'company'];
+const DEFAULT_LOOKBACK_DAYS = 120;
+const DASHBOARD_CACHE_TTL_MS = 1000 * 60 * 5; // five minutes
+const DEFAULT_MEMBERSHIPS = ['agency'];
 
 function formatNumber(value) {
   if (value == null || Number.isNaN(Number(value))) {
@@ -48,6 +54,15 @@ function formatCurrency(amount, currency = 'USD') {
     maximumFractionDigits: Math.abs(numeric) >= 1000 ? 0 : 2,
   });
   return formatter.format(numeric);
+}
+
+function formatCurrencyTotals(totals, fallbackCurrency = 'USD') {
+  if (!Array.isArray(totals) || totals.length === 0) {
+    return formatCurrency(0, fallbackCurrency);
+  }
+  return totals
+    .map((entry) => formatCurrency(entry.amount ?? 0, entry.currency ?? fallbackCurrency))
+    .join(' · ');
 }
 
 function formatScore(value, decimals = 1) {
@@ -180,28 +195,83 @@ function formatAvailabilityLabel(status) {
 }
 
 export default function AgencyDashboardPage() {
-  const [state, setState] = useState({ data: null, loading: true, error: null });
+  const [state, setState] = useState({
+    data: null,
+    loading: true,
+    error: null,
+    fromCache: false,
+    lastUpdated: null,
+  });
+  const [refreshToken, setRefreshToken] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
-    setState((previous) => ({ ...previous, loading: true, error: null }));
+    const abortController = new AbortController();
+    const cacheKey = `dashboard:agency:${DEFAULT_WORKSPACE_SLUG}:${DEFAULT_LOOKBACK_DAYS}`;
+    const skipCache = refreshToken > 0;
 
-    fetchAgencyDashboard({ workspaceSlug: DEFAULT_WORKSPACE_SLUG, lookbackDays: 120 })
+    if (!skipCache) {
+      const cached = apiClient.readCache(cacheKey);
+      if (cached?.data && isMounted) {
+        setState({
+          data: cached.data,
+          loading: false,
+          error: null,
+          fromCache: true,
+          lastUpdated: cached.timestamp ?? null,
+        });
+      } else {
+        setState((previous) => ({ ...previous, loading: true, error: null }));
+      }
+    } else {
+      setState((previous) => ({ ...previous, loading: true, error: null }));
+    }
+
+    fetchAgencyDashboard(
+      { workspaceSlug: DEFAULT_WORKSPACE_SLUG, lookbackDays: DEFAULT_LOOKBACK_DAYS },
+      { signal: abortController.signal },
+    )
       .then((payload) => {
-        if (isMounted) {
-          setState({ data: payload, loading: false, error: null });
+        if (!isMounted) {
+          return;
         }
+        apiClient.writeCache(cacheKey, payload, DASHBOARD_CACHE_TTL_MS);
+        setState({
+          data: payload,
+          loading: false,
+          error: null,
+          fromCache: false,
+          lastUpdated: new Date(),
+        });
+        setRefreshing(false);
       })
       .catch((error) => {
-        if (isMounted) {
-          setState({ data: null, loading: false, error: error.message ?? 'Unable to load agency dashboard.' });
+        if (!isMounted) {
+          return;
         }
+        if (error.name === 'AbortError') {
+          setRefreshing(false);
+          return;
+        }
+        setState((previous) => ({
+          ...previous,
+          loading: false,
+          error: error.message ?? 'Unable to load agency dashboard.',
+        }));
+        setRefreshing(false);
       });
 
     return () => {
       isMounted = false;
+      abortController.abort();
     };
-  }, []);
+  }, [refreshToken]);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    setRefreshToken((previous) => previous + 1);
+  };
 
   const summary = state.data?.summary ?? null;
   const workspace = state.data?.workspace ?? null;
@@ -215,6 +285,24 @@ export default function AgencyDashboardPage() {
   const jobs = state.data?.jobs ?? [];
   const pipeline = summary?.pipeline ?? { statuses: {}, topCandidates: [] };
   const financialSummary = summary?.financials ?? { inEscrow: 0, released: 0, outstanding: 0, currency: 'USD' };
+  const paymentsDistribution = state.data?.paymentsDistribution ?? {};
+  const paymentsSummary = paymentsDistribution.summary ?? {};
+  const paymentsUpcoming = paymentsDistribution.upcomingBatches ?? [];
+  const paymentsTeammates = paymentsDistribution.teammates ?? [];
+  const paymentsExports = paymentsDistribution.exports ?? { summary: {}, available: [], generating: [], failed: [], archived: [] };
+  const paymentsInsights = paymentsDistribution.insights ?? { recommendedActions: [], splitStatus: {} };
+  const paymentsOutstandingTotals = paymentsSummary.outstandingSplits?.totals ?? [];
+  const paymentsFailedTotals = paymentsSummary.failedSplits?.totals ?? [];
+  const paymentsInvoiceTotals = paymentsSummary.invoiceOutstanding ?? [];
+  const paymentsActions = paymentsInsights.recommendedActions ?? [];
+  const paymentsSplitStatus = paymentsInsights.splitStatus ?? {};
+  const paymentsCurrency = paymentsSummary.currency ?? financialSummary.currency ?? 'USD';
+  const paymentsExportsSummary = paymentsExports.summary ?? {};
+  const paymentsAvailableExports = paymentsExports.available ?? [];
+  const paymentsGeneratingExports = paymentsExports.generating ?? [];
+  const paymentsFailedExports = paymentsExports.failed ?? [];
+  const hasPaymentsData =
+    (paymentsSummary.totalBatches ?? 0) > 0 || paymentsTeammates.length > 0 || paymentsUpcoming.length > 0;
   const executiveData = state.data?.executive ?? {};
   const intelligenceOverview = executiveData.intelligence ?? {};
   const analyticsWarRoomData = executiveData.analyticsWarRoom ?? { summary: {}, scorecards: [], grouped: {} };
@@ -357,6 +445,14 @@ export default function AgencyDashboardPage() {
   const innovationInitiatives = (innovationLabData.initiatives ?? []).slice(0, 6);
   const fundingSummary = innovationLabData.funding?.summary ?? {};
   const fundingEvents = (innovationLabData.funding?.events ?? []).slice(0, 5);
+
+  const benchMembers = useMemo(
+    () =>
+      members
+        .filter((member) => member.availability?.status === 'available')
+        .slice(0, 4),
+    [members],
+  );
 
   const activeProjectsCount = summary?.projects?.buckets?.active ?? summary?.projects?.total ?? 0;
   const totalProjectsCount = summary?.projects?.total ?? projects.length ?? 0;
@@ -541,13 +637,27 @@ export default function AgencyDashboardPage() {
   const partnerSummary = partnerPrograms.summary ?? {};
   const marketingAutomation = leadership.marketingAutomation ?? {};
   const marketingSummary = marketingAutomation.summary ?? {};
+  const pageStudio = marketingAutomation.pageStudio ?? {};
+  const pageStudioStats = [
+    {
+      label: 'Pages live',
+      value: formatNumber(pageStudio.live ?? pageStudio.published ?? 0),
+      helper: 'Published destinations',
+    },
+    {
+      label: 'Drafts in review',
+      value: formatNumber(pageStudio.inReview ?? pageStudio.drafts ?? 0),
+      helper: 'Awaiting approval',
+    },
+    {
+      label: 'Avg conversion',
+      value: formatPercent(pageStudio.averageConversionRate ?? pageStudio.conversionRate ?? 0),
+      helper: 'Explorer to lead',
+    },
+  ];
   const clientAdvocacy = leadership.clientAdvocacy ?? {};
   const clientAdvocacySummary = clientAdvocacy.summary ?? {};
   const defaultCurrency = financialSummary.currency ?? 'USD';
-
-  const benchMembers = members
-    .filter((member) => member.availability?.status === 'available')
-    .slice(0, 4);
 
   const operatingIntelligence = state.data?.operatingIntelligence ?? {};
   const portfolioInsights = operatingIntelligence.projectPortfolioMastery ?? {};
@@ -959,6 +1069,11 @@ export default function AgencyDashboardPage() {
           description: `${formatNumber(financialOversightSummary.totalEngagements ?? 0)} engagements · ${formatNumber(financialOversightSummary.alerts ?? 0)} alerts`,
           sectionId: 'financial-oversight',
         },
+        {
+          name: 'Payments distribution',
+          description: `${formatCurrencyTotals(paymentsSummary.processedThisQuarter ?? [], paymentsSummary.currency ?? financialSummary.currency ?? 'USD')} processed · ${formatCurrencyTotals(paymentsSummary.outstandingSplits?.totals ?? [], paymentsSummary.currency ?? financialSummary.currency ?? 'USD')} outstanding`,
+          sectionId: 'payments-distribution',
+        },
       ],
     });
 
@@ -976,6 +1091,7 @@ export default function AgencyDashboardPage() {
     resourceSummary,
     qualitySummary,
     financialOversightSummary,
+    paymentsSummary,
   ]);
 
   const portfolioSummaryCards = [
@@ -1144,6 +1260,53 @@ export default function AgencyDashboardPage() {
       metrics,
     };
   }, [agencyProfile, workspace, summary, state.data?.scope]);
+
+  const lastUpdatedRelative = state.lastUpdated ? formatRelativeTime(state.lastUpdated) : '';
+  const lastUpdatedAbsolute = state.lastUpdated
+    ? formatAbsolute(state.lastUpdated, { dateStyle: 'medium', timeStyle: 'short' })
+    : '';
+  const lastUpdatedText = state.lastUpdated
+    ? `Last synced ${lastUpdatedRelative} (${lastUpdatedAbsolute}).`
+    : 'Awaiting first sync.';
+  const syncLabelClass = state.fromCache ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700';
+  const syncLabelText = state.fromCache ? 'Cached snapshot' : 'Live sync';
+  const hasSyncedData = Boolean(state.data);
+
+  const renderSyncStatus = hasSyncedData ? (
+    <section className="rounded-3xl border border-slate-200 bg-slate-50/80 p-5 shadow-sm">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${syncLabelClass}`}>
+              <span className="inline-flex h-2 w-2 rounded-full bg-current opacity-70" aria-hidden="true" />
+              {syncLabelText}
+            </span>
+            <span className="text-xs font-medium uppercase tracking-wide text-slate-500">{lastUpdatedText}</span>
+          </div>
+          <p className="text-sm text-slate-600">
+            Workspace <span className="font-semibold text-slate-900">{workspaceSlugValue}</span> · Data window covers the last{' '}
+            {DEFAULT_LOOKBACK_DAYS} days.
+          </p>
+          {state.error ? (
+            <p className="text-sm font-medium text-amber-600">
+              Unable to refresh the latest metrics: {state.error}
+            </p>
+          ) : null}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
+          >
+            <ArrowPathIcon className={`h-4 w-4 ${refreshing ? 'animate-spin text-accent' : 'text-slate-500'}`} />
+            {refreshing ? 'Refreshing…' : 'Refresh data'}
+          </button>
+        </div>
+      </div>
+    </section>
+  ) : null;
 
   const capabilitySections = [];
 
@@ -4149,6 +4312,53 @@ export default function AgencyDashboardPage() {
               {!marketingAutomation.landingPages?.length ? <p className="text-xs text-slate-500">No landing pages published.</p> : null}
             </ul>
           </div>
+          <div className="rounded-3xl border border-blue-100 bg-blue-50/60 p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-base font-semibold text-slate-900">Brand pages studio</h3>
+                <p className="mt-1 text-xs text-slate-600">
+                  Launch LinkedIn-style pages for anchor clients, agencies, and community initiatives.
+                </p>
+                {pageStudio.lastPublishedAt ? (
+                  <p className="mt-2 text-xs text-slate-500">
+                    Last page published {formatRelativeTime(pageStudio.lastPublishedAt)}
+                  </p>
+                ) : null}
+              </div>
+              <Link
+                to="/pages"
+                className="inline-flex items-center rounded-full border border-blue-200 bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-blue-700 transition hover:border-blue-400 hover:text-blue-900"
+              >
+                Create page
+              </Link>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              {pageStudioStats.map((stat) => (
+                <div key={stat.label} className="rounded-2xl border border-blue-100 bg-white/80 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-blue-600">{stat.label}</p>
+                  <p className="mt-1 text-lg font-semibold text-slate-900">{stat.value}</p>
+                  <p className="text-xs text-slate-500">{stat.helper}</p>
+                </div>
+              ))}
+            </div>
+            <ul className="mt-4 space-y-2 text-xs text-slate-600">
+              {(pageStudio.queue ?? pageStudio.pipeline ?? []).slice(0, 3).map((entry, index) => (
+                <li key={entry.id ?? entry.slug ?? index} className="rounded-2xl border border-blue-100 bg-white/80 px-3 py-2">
+                  <p className="font-semibold text-slate-900">{entry.title ?? entry.name ?? 'Page draft'}</p>
+                  <p className="text-[11px] text-slate-500">
+                    {entry.owner ? `Owner ${entry.owner}` : 'Owner to assign'}
+                    {entry.targetLaunch ? ` • Launch ${formatAbsolute(entry.targetLaunch)}` : ''}
+                    {entry.segment ? ` • Segment ${entry.segment}` : ''}
+                  </p>
+                </li>
+              ))}
+              {!((pageStudio.queue ?? pageStudio.pipeline ?? []).length) ? (
+                <li className="rounded-2xl border border-dashed border-blue-200 bg-white/70 px-3 py-3 text-[11px] text-slate-500">
+                  No drafts queued—spin up a new page to boost Explorer coverage.
+                </li>
+              ) : null}
+            </ul>
+          </div>
         </div>
       </div>
     </section>
@@ -4421,6 +4631,270 @@ export default function AgencyDashboardPage() {
             </tbody>
           </table>
         </div>
+  const renderPaymentsDistribution = (
+    <section id="payments-distribution" className="space-y-6 rounded-3xl border border-blue-100 bg-white p-6">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-blue-500">Finance operations</p>
+          <h2 className="text-xl font-semibold text-slate-900">Payments distribution & exports</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Track payout batches, outstanding splits, and export readiness to keep finance audit-ready.
+          </p>
+        </div>
+        <div className="rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-2 text-right">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Average processing</p>
+          <p className="text-2xl font-semibold text-slate-900">
+            {paymentsSummary.averageProcessingTimeDays != null
+              ? `${Number(paymentsSummary.averageProcessingTimeDays).toFixed(1)} days`
+              : 'n/a'}
+          </p>
+        </div>
+      </header>
+      {hasPaymentsData ? (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-3xl border border-slate-200/60 bg-slate-50/60 p-5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Processed this quarter</p>
+              <p className="mt-2 text-2xl font-semibold text-slate-900">
+                {formatCurrencyTotals(paymentsSummary.processedThisQuarter ?? [], paymentsCurrency)}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                {formatNumber(paymentsSummary.totalBatches ?? 0)} batches executed
+              </p>
+            </div>
+            <div className="rounded-3xl border border-slate-200/60 bg-slate-50/60 p-5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Upcoming payouts</p>
+              <p className="mt-2 text-2xl font-semibold text-slate-900">
+                {formatCurrencyTotals(paymentsSummary.upcomingBatches?.totals ?? [], paymentsCurrency)}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                {paymentsSummary.upcomingBatches?.nextScheduledAt
+                  ? `Next ${formatRelativeTime(paymentsSummary.upcomingBatches.nextScheduledAt)}`
+                  : 'No batches scheduled'}
+              </p>
+            </div>
+            <div className="rounded-3xl border border-slate-200/60 bg-slate-50/60 p-5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Outstanding splits</p>
+              <p className="mt-2 text-2xl font-semibold text-slate-900">
+                {formatCurrencyTotals(paymentsOutstandingTotals, paymentsCurrency)}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                {formatNumber(paymentsSummary.outstandingSplits?.count ?? 0)} splits awaiting approval
+              </p>
+            </div>
+            <div className="rounded-3xl border border-slate-200/60 bg-slate-50/60 p-5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Invoice outstanding</p>
+              <p className="mt-2 text-2xl font-semibold text-slate-900">
+                {formatCurrencyTotals(paymentsInvoiceTotals, paymentsCurrency)}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                {formatNumber(paymentsSummary.invoiceOutstandingCount ?? 0)} engagements with balance
+              </p>
+            </div>
+          </div>
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-2 space-y-6">
+              <div className="rounded-3xl border border-slate-200/60 bg-white p-6 shadow-sm">
+                <h3 className="text-sm font-semibold text-slate-900">Upcoming payout batches</h3>
+                <p className="text-xs text-slate-500">Scheduled distributions and outstanding split counts.</p>
+                <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200/60">
+                  <table className="min-w-full divide-y divide-slate-200">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        <th scope="col" className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Batch
+                        </th>
+                        <th scope="col" className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Scheduled
+                        </th>
+                        <th scope="col" className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Amount
+                        </th>
+                        <th scope="col" className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Outstanding
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 bg-white">
+                      {paymentsUpcoming.slice(0, 6).map((batch) => (
+                        <tr key={batch.id ?? batch.name}>
+                          <td className="whitespace-nowrap px-4 py-3 text-sm font-semibold text-slate-900">{batch.name ?? 'Payout batch'}</td>
+                          <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-500">
+                            {batch.scheduledAt ? formatAbsolute(batch.scheduledAt) : 'Schedule TBC'}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3 text-right text-sm font-semibold text-slate-900">
+                            {formatCurrency(batch.totalAmount ?? 0, batch.currency ?? paymentsCurrency)}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-slate-500">
+                            {formatNumber(batch.outstandingSplits ?? 0)} splits
+                          </td>
+                        </tr>
+                      ))}
+                      {!paymentsUpcoming.length ? (
+                        <tr>
+                          <td colSpan={4} className="px-4 py-4 text-sm text-slate-500">
+                            No upcoming payout batches scheduled.
+                          </td>
+                        </tr>
+                      ) : null}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {Object.entries(paymentsSplitStatus).map(([status, count]) => (
+                    <span
+                      key={status}
+                      className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600"
+                    >
+                      {titleCase(status)} · {formatNumber(count)}
+                    </span>
+                  ))}
+                  {!Object.keys(paymentsSplitStatus).length ? (
+                    <span className="text-xs text-slate-500">No split status data recorded yet.</span>
+                  ) : null}
+                </div>
+              </div>
+              {paymentsActions.length ? (
+                <div className="rounded-3xl border border-amber-200 bg-amber-50/60 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Recommended actions</p>
+                  <ul className="mt-3 space-y-2">
+                    {paymentsActions.slice(0, 4).map((action, index) => (
+                      <li key={`${action.type}-${index}`} className="flex items-start gap-3">
+                        <span
+                          className={`mt-1 inline-flex h-2 w-2 rounded-full ${
+                            action.severity === 'critical'
+                              ? 'bg-rose-500'
+                              : action.severity === 'warning'
+                              ? 'bg-amber-500'
+                              : 'bg-blue-500'
+                          }`}
+                        />
+                        <p className="text-sm text-slate-700">{action.message}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+            <div className="space-y-6">
+              <div className="rounded-3xl border border-slate-200/60 bg-white p-6 shadow-sm">
+                <h3 className="text-sm font-semibold text-slate-900">Teammate payouts</h3>
+                <p className="text-xs text-slate-500">Top recipients across recent payout batches.</p>
+                <ul className="mt-4 space-y-3">
+                  {paymentsTeammates.slice(0, 5).map((member) => (
+                    <li
+                      key={`${member.teammateName}-${member.recipientEmail ?? member.currency}`}
+                      className="rounded-2xl border border-slate-200/60 bg-slate-50/80 px-4 py-3"
+                    >
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{member.teammateName}</p>
+                          {member.teammateRole ? <p className="text-xs text-slate-500">{member.teammateRole}</p> : null}
+                        </div>
+                        <p className="text-sm font-semibold text-slate-900">
+                          {formatCurrency(member.totalAmount ?? 0, member.currency ?? paymentsCurrency)}
+                        </p>
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                        {member.averageSharePercentage != null ? (
+                          <span>Avg share {Number(member.averageSharePercentage).toFixed(2)}%</span>
+                        ) : null}
+                        {member.lastPaidAt ? <span>Last paid {formatRelativeTime(member.lastPaidAt)}</span> : null}
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {member.currencyBreakdown?.slice(0, 3).map((entry) => (
+                          <span
+                            key={`${entry.currency}-${entry.amount}`}
+                            className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium uppercase tracking-wide text-slate-600"
+                          >
+                            {entry.currency} {formatCurrency(entry.amount ?? 0, entry.currency ?? paymentsCurrency)}
+                          </span>
+                        ))}
+                      </div>
+                    </li>
+                  ))}
+                  {!paymentsTeammates.length ? (
+                    <li className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+                      No teammate payouts recorded yet.
+                    </li>
+                  ) : null}
+                </ul>
+              </div>
+              <div className="rounded-3xl border border-slate-200/60 bg-white p-6 shadow-sm">
+                <h3 className="text-sm font-semibold text-slate-900">Export readiness</h3>
+                <p className="text-xs text-slate-500">
+                  {paymentsExportsSummary.available
+                    ? `${formatNumber(paymentsExportsSummary.available)} export${paymentsExportsSummary.available === 1 ? '' : 's'} ready to download.`
+                    : 'Generate exports to keep reconciliation on track.'}
+                </p>
+                <ul className="mt-4 space-y-2">
+                  {paymentsAvailableExports.slice(0, 3).map((record) => {
+                    const downloadDisabled = !record.downloadUrl;
+                    return (
+                      <li key={record.id ?? record.exportType} className="rounded-2xl border border-blue-100 bg-blue-50/60 px-4 py-3">
+                        <div className="flex items-center justify-between gap-4">
+                          <div>
+                            <p className="text-sm font-semibold text-slate-900">{titleCase(record.exportType ?? 'export')}</p>
+                            <p className="text-xs text-slate-500">
+                              {record.generatedAt ? `Generated ${formatRelativeTime(record.generatedAt)}` : 'Generated'}
+                              {record.periodEnd ? ` · Period ended ${formatAbsolute(record.periodEnd)}` : ''}
+                            </p>
+                          </div>
+                          <a
+                            className={`inline-flex items-center rounded-full border border-blue-300 bg-white px-3 py-1 text-xs font-semibold text-blue-700 ${
+                              downloadDisabled ? 'cursor-not-allowed opacity-60' : 'hover:bg-blue-50'
+                            }`}
+                            href={downloadDisabled ? '#' : record.downloadUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={(event) => {
+                              if (downloadDisabled) {
+                                event.preventDefault();
+                              }
+                            }}
+                            aria-disabled={downloadDisabled}
+                          >
+                            Download
+                          </a>
+                        </div>
+                        <p className="mt-2 text-xs text-slate-500">
+                          {formatCurrency(record.amount ?? 0, record.currency ?? paymentsCurrency)}
+                        </p>
+                      </li>
+                    );
+                  })}
+                  {paymentsGeneratingExports.slice(0, 2).map((record) => (
+                    <li key={`${record.id ?? record.exportType}-generating`} className="rounded-2xl border border-amber-200 bg-amber-50/60 px-4 py-3">
+                      <p className="text-sm font-semibold text-amber-800">Generating {titleCase(record.exportType ?? 'export')}</p>
+                      <p className="text-xs text-amber-700">Queued — refresh later for download.</p>
+                    </li>
+                  ))}
+                  {paymentsFailedExports.slice(0, 2).map((record) => (
+                    <li key={`${record.id ?? record.exportType}-failed`} className="rounded-2xl border border-rose-200 bg-rose-50/70 px-4 py-3">
+                      <p className="text-sm font-semibold text-rose-700">Export failed</p>
+                      <p className="text-xs text-rose-600">{titleCase(record.exportType ?? 'export')} needs regeneration.</p>
+                    </li>
+                  ))}
+                  {!paymentsAvailableExports.length && !paymentsGeneratingExports.length && !paymentsFailedExports.length ? (
+                    <li className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+                      No finance exports generated yet.
+                    </li>
+                  ) : null}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-6 py-12 text-center">
+          <p className="text-sm font-medium text-slate-600">
+            Payments distribution data will appear once payout batches and finance exports are recorded.
+          </p>
+        </div>
+      )}
+    </section>
+  );
+
   const renderClientAdvocacy = (
     <section id="client-advocacy" className="rounded-3xl border border-blue-100 bg-white p-6">
       <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
@@ -4587,6 +5061,7 @@ export default function AgencyDashboardPage() {
           {renderResourceIntelligence}
           {renderQualityAssurance}
           {renderFinancialOversight}
+          {renderPaymentsDistribution}
           {renderFinancials}
         </div>
       </div>
@@ -4695,12 +5170,15 @@ export default function AgencyDashboardPage() {
     </section>
   );
 
-  const renderContent = state.loading
+  const shouldShowError = state.error && !hasSyncedData;
+
+  const renderContent = state.loading && !hasSyncedData
     ? renderLoading
-    : state.error
+    : shouldShowError
       ? renderError
       : (
           <div className="space-y-10">
+            {renderSyncStatus}
             {renderAgencyOverview}
             {renderExecutiveIntelligenceSection}
             {renderAnalyticsWarRoomSection}

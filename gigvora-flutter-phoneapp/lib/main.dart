@@ -4,11 +4,24 @@ import 'package:gigvora_design_system/gigvora_design_system.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
 
 import 'core/providers.dart';
+import 'features/auth/domain/auth_token_store.dart';
 import 'router/app_router.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await ServiceLocator.configure();
+  await ServiceLocator.configure(
+    requestInterceptors: [AuthTokenStore.attachToken],
+    authTokenResolver: AuthTokenStore.readAccessToken,
+  const demoToken =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MjAxLCJ0eXBlIjoiYWRtaW4iLCJleHAiOjE3NjAzOTg2Mzl9.PoszIfAN5fZ0ah3qfsUJ60OomK7NcdQ5lMXsHT53CX4';
+  await ServiceLocator.configure(
+    requestInterceptors: [
+      (context) async {
+        context.headers.putIfAbsent('Authorization', () => 'Bearer $demoToken');
+      },
+    ],
+    authTokenResolver: () async => demoToken,
+  );
 
   try {
     final loader = GigvoraThemeLoader();
@@ -48,6 +61,7 @@ class GigvoraApp extends ConsumerWidget {
     final theme = ref.watch(appThemeProvider);
     final router = ref.watch(appRouterProvider);
     ref.watch(featureFlagsBootstrapProvider);
+    ref.watch(pushNotificationBootstrapProvider);
 
     ref.listen<AsyncValue<void>>(analyticsBootstrapProvider, (_, next) {
       next.whenOrNull(error: (error, stackTrace) {
@@ -58,6 +72,12 @@ class GigvoraApp extends ConsumerWidget {
     ref.listen<AsyncValue<void>>(featureFlagsBootstrapProvider, (_, next) {
       next.whenOrNull(error: (error, stackTrace) {
         debugPrint('Feature flag bootstrap failed: $error');
+      });
+    });
+
+    ref.listen<AsyncValue<void>>(pushNotificationBootstrapProvider, (_, next) {
+      next.whenOrNull(error: (error, stackTrace) {
+        debugPrint('Push notification bootstrap failed: $error');
       });
     });
 

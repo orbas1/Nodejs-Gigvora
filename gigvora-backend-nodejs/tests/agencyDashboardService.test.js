@@ -10,6 +10,10 @@ import {
   AutoAssignQueueEntry,
   EscrowTransaction,
   EscrowAccount,
+  FinancialEngagementSummary,
+  FinancePayoutBatch,
+  FinancePayoutSplit,
+  FinanceTaxExport,
   AgencyProfile,
   Profile,
   Gig,
@@ -222,6 +226,100 @@ describe('agencyDashboardService', () => {
       counterpartyId: owner.id,
       projectId: planningProject.id,
       releasedAt: new Date(),
+    });
+
+    await FinancialEngagementSummary.create({
+      workspaceId: workspace.id,
+      projectId: activeProject.id,
+      clientName: 'Commerce Revamp',
+      billingCurrency: 'USD',
+      budgetAmount: 120000,
+      actualSpend: 54000,
+      invoicedAmount: 42000,
+      outstandingAmount: 8000,
+      changeOrdersCount: 1,
+      marginPercent: 24.5,
+      profitabilityScore: 72.4,
+      complianceStatus: 'on_track',
+      lastInvoiceDate: buildDateOffset(12),
+      nextInvoiceDate: buildDateOffset(-3),
+    });
+
+    const completedBatch = await FinancePayoutBatch.create({
+      userId: owner.id,
+      name: 'April payroll',
+      status: 'completed',
+      totalAmount: 25000,
+      currencyCode: 'USD',
+      scheduledAt: buildDateOffset(10),
+      executedAt: buildDateOffset(8),
+    });
+
+    await FinancePayoutSplit.bulkCreate([
+      {
+        batchId: completedBatch.id,
+        teammateName: 'Nova Lead',
+        teammateRole: 'Owner',
+        status: 'completed',
+        sharePercentage: 60,
+        amount: 15000,
+        currencyCode: 'USD',
+        recipientEmail: 'owner@nova.test',
+      },
+      {
+        batchId: completedBatch.id,
+        teammateName: 'Mira Strategist',
+        teammateRole: 'Manager',
+        status: 'completed',
+        sharePercentage: 40,
+        amount: 10000,
+        currencyCode: 'USD',
+        recipientEmail: 'strategist@nova.test',
+      },
+    ]);
+
+    const upcomingBatch = await FinancePayoutBatch.create({
+      userId: owner.id,
+      name: 'May distribution',
+      status: 'scheduled',
+      totalAmount: 18000,
+      currencyCode: 'USD',
+      scheduledAt: buildDateOffset(-3),
+    });
+
+    await FinancePayoutSplit.bulkCreate([
+      {
+        batchId: upcomingBatch.id,
+        teammateName: 'Kai Designer',
+        teammateRole: 'Staff',
+        status: 'processing',
+        sharePercentage: 50,
+        amount: 9000,
+        currencyCode: 'USD',
+        recipientEmail: 'designer@nova.test',
+      },
+      {
+        batchId: upcomingBatch.id,
+        teammateName: 'Jordan Rivers',
+        teammateRole: 'Contractor',
+        status: 'failed',
+        sharePercentage: 50,
+        amount: 9000,
+        currencyCode: 'USD',
+        recipientEmail: 'contract@nova.test',
+      },
+    ]);
+
+    await FinanceTaxExport.create({
+      userId: owner.id,
+      exportType: 'quarterly_revenue',
+      status: 'available',
+      periodStart: buildDateOffset(90),
+      periodEnd: new Date(),
+      amount: 42000,
+      currencyCode: 'USD',
+      generatedAt: buildDateOffset(2),
+      downloadUrl: 'https://downloads.gigvora.test/exports/quarterly.csv',
     });
 
     await Gig.create({
@@ -442,6 +540,17 @@ describe('agencyDashboardService', () => {
     expect(financeTower.payouts.totals.shareOfReleased).toBeGreaterThan(0.9);
     expect(financeTower.payouts.upcomingBatches.length).toBeGreaterThan(0);
     expect(financeTower.exports.history[0].exportType).toBe('quarterly_vat');
+    const payments = dashboard.paymentsDistribution;
+    expect(payments.summary.totalBatches).toBeGreaterThanOrEqual(2);
+    expect(payments.summary.outstandingSplits.count).toBe(1);
+    expect(payments.summary.failedSplits.count).toBe(1);
+    expect(payments.summary.processedThisQuarter.some((entry) => entry.amount > 0)).toBe(true);
+    expect(payments.upcomingBatches.some((batch) => batch.name === 'May distribution')).toBe(true);
+    expect(payments.teammates.find((member) => member.teammateName === 'Nova Lead')?.totalAmount ?? 0).toBeGreaterThan(0);
+    expect(payments.exports.summary.available).toBe(1);
+    expect(payments.insights.recommendedActions.length).toBeGreaterThan(0);
+    expect(dashboard.summary.paymentsDistribution.outstandingSplits.count).toBe(1);
+    expect(dashboard.operations.paymentsDistribution.summary.totalBatches).toBe(payments.summary.totalBatches);
   });
 
   it('falls back to global data when no workspace filter is provided', async () => {

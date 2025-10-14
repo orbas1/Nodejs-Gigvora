@@ -37,8 +37,11 @@ Deliver a cohesive, themeable Gigvora experience that makes talent discovery, bo
 
 ### Provider Tools (Web & Mobile)
 - **Agency Dashboards**: Pipeline overview, finance control tower, and volunteer staffing views using new data visualisation tokens, ensuring revenue, payout, runway, and compliance widgets share the same grammar as HR and pipeline analytics.
+- **Agency Dashboards**: Pipeline overview, financial health, payments distribution, and volunteer staffing views using new data visualisation tokens with export and payout status states.
 - **Company Dashboards**: ATS timeline, interview scheduler, and Launchpad readiness cards with contextual actions and theme-specific badges.
 - **Settings & Administration**: Unified preference pages for theme selection, security controls, and compliance documents.
+
+The payments distribution workspace introduces dedicated payout scorecards, outstanding split chips, teammate distribution tables, and export download controls so finance teams receive parity-ready specifications alongside the existing HR command centre assets.
 
 ## Design System & Theming
 - **Token Architecture**: Root tokens for colour, type scale, radius, elevation, opacity, and motion. Theme-specific tokens cascade to components and are exported to Flutter (JSON) and React (TypeScript). Theme switch toggles available to marketing for homepage/landing pages and to agencies for white-labelling.

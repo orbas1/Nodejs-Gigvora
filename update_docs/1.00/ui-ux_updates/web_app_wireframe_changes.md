@@ -83,6 +83,14 @@
 - **Mission detail modal:** Tabbed overlay (Overview, Requirements, Logistics, Organisation, Testimonials) includes sticky CTA for Accept/Contact, share actions, and related missions rail.
 - **Availability scheduler:** For accepted missions, inline calendar supports selecting shifts, confirming attendance, and syncing to personal calendars with ICS export.
 
+## Agency Finance Distribution Dashboard
+- **Payout overview band:** Top row hero cards surface `Total releasing this week`, `Outstanding splits`, and `Teams covered` with comparison deltas and tooltips explaining currency conversions. Each card includes quick links (`Review batch`, `View splits`, `Open ledger export`).
+- **Upcoming payout batches:** Primary table lists payout name, total, release date, batch owner, and status chips (`Scheduled`, `Needs review`, `Blocked`). Rows expand to show split summaries and compliance warnings when required.
+- **Outstanding split tracker:** Right-rail panel aggregates unresolved teammate splits with avatars, owed amount, and action buttons (`Send reminder`, `Adjust split`, `Escalate`). Supports filter chips for `Overdue`, `Pending info`, and `Compliance hold` states.
+- **Teammate distribution donut:** Visualises percentage split by squad/contractor type with hover tooltips describing count and total amount. Inline legend surfaces mismatches between expected vs. actual totals.
+- **Export readiness checklist:** Card enumerates CSV, accounting pack, and treasury upload statuses with toggles to generate exports, download audit PDFs, or trigger SFTP drop. Includes compliance notes for PII handling and locks exports behind completion of outstanding blockers.
+- **Quick actions rail:** Contains `Trigger urgent payout`, `Download last ledger export`, and `Notify finance` CTAs with descriptive helper text and audit logging cues.
+
 ## Profile Page
 - **Header:** Cover gradient, avatar, action buttons.
 - **Content sections:** About, Experience, Projects, Portfolio, Launchpad progress, Volunteering timeline, Recommendations.

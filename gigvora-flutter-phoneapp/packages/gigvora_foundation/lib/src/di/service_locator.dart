@@ -8,6 +8,7 @@ import '../config/feature_flag_service.dart';
 import '../network/api_client.dart';
 import '../network/graphql_gateway.dart';
 import '../network/realtime_gateway.dart';
+import '../notifications/push_notification_service.dart';
 
 class ServiceLocator {
   ServiceLocator._();
@@ -53,6 +54,13 @@ class ServiceLocator {
       config: resolvedConfig,
     );
     _getIt.registerSingleton<AnalyticsService>(analytics);
+
+    final pushNotifications = PushNotificationService(
+      apiClient: apiClient,
+      cache: offlineCache,
+      config: resolvedConfig,
+    );
+    _getIt.registerSingleton<PushNotificationService>(pushNotifications);
 
     final graphQlGateway = GraphQLGateway(
       config: resolvedConfig,
@@ -117,6 +125,12 @@ class ServiceLocator {
 
     if (_getIt.isRegistered<AnalyticsService>()) {
       _getIt.unregister<AnalyticsService>();
+    }
+
+    if (_getIt.isRegistered<PushNotificationService>()) {
+      final service = _getIt<PushNotificationService>();
+      futures.add(service.dispose());
+      _getIt.unregister<PushNotificationService>();
     }
 
     if (_getIt.isRegistered<ApiClient>()) {
