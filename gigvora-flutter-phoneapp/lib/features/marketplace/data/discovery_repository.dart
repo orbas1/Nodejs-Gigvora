@@ -35,29 +35,26 @@ class DiscoveryRepository {
   Future<RepositoryResult<OpportunityPage>> fetchOpportunities(
     OpportunityCategory category, {
     String? query,
-    bool forceRefresh = false,
     int pageSize = 20,
     Map<String, dynamic>? filters,
     String? sort,
     bool includeFacets = false,
-  }) async {
-    final queryKey = (query ?? '').trim().toLowerCase();
-    final filterToken = filters == null || filters.isEmpty ? 'no-filters' : jsonEncode(_normaliseForEncoding(filters));
-    final sortToken = sort?.trim().isEmpty ?? true ? 'default' : sort!.trim();
-    final facetToken = includeFacets ? 'facets' : 'no-facets';
-    final cacheKey =
-        'opportunities:${categoryToPath(category)}:${queryKey.isEmpty ? 'all' : queryKey}:$filterToken:$sortToken:$facetToken';
     Map<String, String>? headers,
+    bool forceRefresh = false,
   }) async {
-    final queryKey = (query ?? '').trim().toLowerCase();
+    final queryKey = (query ?? '').trim();
     final filtersKey = _filtersCacheKey(filters);
+    final sortKey = (sort?.trim().isNotEmpty ?? false) ? sort!.trim() : 'default';
+    final facetKey = includeFacets ? 'facets' : 'no-facets';
+    final headerKey = headers == null || headers.isEmpty ? 'no-headers' : _filtersCacheKey(headers);
     final cacheKey =
-        'opportunities:${categoryToPath(category)}:${queryKey.isEmpty ? 'all' : queryKey}:$filtersKey';
+        'opportunities:${categoryToPath(category)}:${queryKey.isEmpty ? 'all' : queryKey}:$filtersKey:$sortKey:$facetKey:$headerKey:$pageSize';
+
     final cached = _cache.read<OpportunityPage>(cacheKey, (raw) {
-      if (raw is Map) {
-        return _mapToOpportunityPage(category, Map<String, dynamic>.from(raw));
+      if (raw is Map<String, dynamic>) {
+        return _mapToOpportunityPage(category, raw).copyWith(query: queryKey.isEmpty ? null : queryKey);
       }
-      return OpportunityPage(category: category, items: const [], page: 1, pageSize: pageSize, total: 0, totalPages: 1, query: queryKey);
+      return null;
     });
 
     if (!forceRefresh && cached != null) {
@@ -70,20 +67,14 @@ class DiscoveryRepository {
 
     try {
       final endpoint = '/discovery/${categoryToPath(category)}';
-      final queryParams = <String, dynamic>{
-        'q': queryKey.isEmpty ? null : queryKey,
-        'pageSize': pageSize,
-        'filters': filters == null || filters.isEmpty ? null : jsonEncode(filters),
-        'sort': sortToken == 'default' ? null : sortToken,
-        'includeFacets': includeFacets ? 'true' : null,
-      };
-      final response = await _apiClient.get(endpoint, query: queryParams);
       final response = await _apiClient.get(
         endpoint,
         query: {
           'q': queryKey.isEmpty ? null : queryKey,
           'pageSize': pageSize,
           'filters': filtersKey == 'none' ? null : filtersKey,
+          'sort': sortKey == 'default' ? null : sortKey,
+          'includeFacets': includeFacets ? 'true' : null,
         },
         headers: headers,
       );
@@ -91,7 +82,7 @@ class DiscoveryRepository {
         throw Exception('Unexpected response from $endpoint');
       }
       await _cache.write(cacheKey, response, ttl: _opportunityTtl);
-      final page = _mapToOpportunityPage(category, response).copyWith(query: queryKey);
+      final page = _mapToOpportunityPage(category, response).copyWith(query: queryKey.isEmpty ? null : queryKey);
       return RepositoryResult(
         data: page,
         fromCache: false,

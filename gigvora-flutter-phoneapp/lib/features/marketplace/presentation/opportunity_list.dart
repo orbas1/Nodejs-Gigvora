@@ -70,21 +70,26 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
   bool _remoteOnly = false;
   String _freshness = '30d';
   final Set<String> _selectedOrganizations = <String>{};
+  final Set<String> _selectedTagSlugs = <String>{};
   bool _defaultsApplied = false;
 
+  bool get _isGigCategory => widget.category == OpportunityCategory.gig;
   bool get _showVolunteerFilters => widget.category == OpportunityCategory.volunteering;
 
   @override
   void initState() {
     super.initState();
     _searchController = TextEditingController();
+    final controller = ref.read(opportunityControllerProvider(widget.category).notifier);
+    if (_isGigCategory) {
+      controller.setIncludeFacets(true);
+    }
     if (_showVolunteerFilters) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_defaultsApplied) {
           return;
         }
         _defaultsApplied = true;
-        final controller = ref.read(opportunityControllerProvider(widget.category).notifier);
         controller.updateFilters({'updatedWithin': '30d'});
       });
     }
@@ -112,6 +117,7 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
             .toList(growable: false)
           ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()))
         : const <String>[];
+    final tagOptions = _isGigCategory ? _deriveTagOptions(items, state.data?.facets) : const <_TagOption>[];
 
     if (_showVolunteerFilters) {
       final validSelection = _selectedOrganizations.where(organizationOptions.contains).toSet();
@@ -121,6 +127,20 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
             _selectedOrganizations
               ..clear()
               ..addAll(validSelection);
+          });
+          _applyFilters(controller);
+        });
+      }
+    }
+    if (_isGigCategory) {
+      final availableSlugs = tagOptions.map((option) => option.slug).toSet();
+      final validTags = _selectedTagSlugs.where(availableSlugs.contains).toSet();
+      if (validTags.length != _selectedTagSlugs.length) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          setState(() {
+            _selectedTagSlugs
+              ..clear()
+              ..addAll(validTags);
           });
           _applyFilters(controller);
         });
@@ -178,36 +198,49 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
           TextField(
             controller: _searchController,
             textInputAction: TextInputAction.search,
+            onChanged: controller.updateQuery,
             decoration: InputDecoration(
               hintText: widget.searchPlaceholder,
-              prefixIcon: const Icon(Icons.search),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(28)),
-        TextField(
-          controller: _searchController,
-          textInputAction: TextInputAction.search,
-          onChanged: controller.updateQuery,
-          decoration: InputDecoration(
-            hintText: widget.searchPlaceholder,
-            prefixIcon: const Icon(Icons.search),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(28)),
-            prefixIcon: Icon(Icons.search, color: colorScheme.onSurfaceVariant),
-            filled: true,
-            fillColor: colorScheme.surface,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(28),
-              borderSide: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.4)),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(28),
-              borderSide: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.4)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(28),
-              borderSide: BorderSide(color: colorScheme.primary.withOpacity(0.6)),
+              prefixIcon: Icon(Icons.search, color: colorScheme.onSurfaceVariant),
+              filled: true,
+              fillColor: colorScheme.surface,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(28),
+                borderSide: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.4)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(28),
+                borderSide: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.4)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(28),
+                borderSide: BorderSide(color: colorScheme.primary.withOpacity(0.6)),
+              ),
             ),
           ),
           const SizedBox(height: 16),
+          if (_isGigCategory && tagOptions.isNotEmpty)
+            _GigTagFilterBar(
+              options: tagOptions,
+              selected: _selectedTagSlugs,
+              onToggle: (slug) {
+                setState(() {
+                  if (_selectedTagSlugs.contains(slug)) {
+                    _selectedTagSlugs.remove(slug);
+                  } else {
+                    _selectedTagSlugs.add(slug);
+                  }
+                });
+                _applyFilters(controller);
+              },
+              onClear: () {
+                setState(() {
+                  _selectedTagSlugs.clear();
+                });
+                _applyFilters(controller);
+              },
+            ),
         ],
         ),
         const SizedBox(height: 16),
@@ -277,6 +310,8 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
                           final item = items[index];
                           final meta = _buildMeta(item);
                           final taxonomyLabels = item.taxonomyLabels.take(4).toList(growable: false);
+                          final primaryChipBackground = colorScheme.primary.withOpacity(0.08);
+                          final primaryChipBorder = colorScheme.primary.withOpacity(0.2);
                           return GigvoraCard(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -291,16 +326,14 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
                                         children: meta
                                             .map(
                                               (entry) => Chip(
-                                                backgroundColor: Theme.of(context)
-                                                    .colorScheme
-                                                    .primaryContainer
-                                                    .withOpacity(0.3),
                                                 label: Text(entry),
-                                                backgroundColor:
-                                                    colorScheme.primary.withOpacity(0.08),
                                                 labelStyle: theme.textTheme.labelSmall?.copyWith(
                                                   color: colorScheme.primary,
                                                   fontWeight: FontWeight.w600,
+                                                ),
+                                                backgroundColor: primaryChipBackground,
+                                                shape: StadiumBorder(
+                                                  side: BorderSide(color: primaryChipBorder),
                                                 ),
                                                 visualDensity: VisualDensity.compact,
                                                 materialTapTargetSize:
@@ -343,8 +376,14 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
                                     children: taxonomyLabels
                                         .map(
                                           (label) => Chip(
-                                            backgroundColor: const Color(0xFFE0E7FF),
                                             label: Text(label),
+                                            backgroundColor: colorScheme.secondaryContainer,
+                                            labelStyle: theme.textTheme.labelSmall?.copyWith(
+                                              color: colorScheme.onSecondaryContainer,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                            visualDensity: VisualDensity.compact,
+                                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                           ),
                                         )
                                         .toList(),
@@ -373,25 +412,36 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
   }
 
   void _applyFilters(OpportunityController controller) {
-    controller.updateFilters({
-      'isRemote': _remoteOnly ? true : null,
-      'updatedWithin': _freshness == 'all' ? null : _freshness,
-      'organizations': _selectedOrganizations.isEmpty
-          ? null
-          : _selectedOrganizations.toList(growable: false),
-    });
+    if (_showVolunteerFilters) {
+      controller.setFilters({
+        'isRemote': _remoteOnly ? true : null,
+        'updatedWithin': _freshness == 'all' ? null : _freshness,
+        'organizations': _selectedOrganizations.isEmpty
+            ? null
+            : _selectedOrganizations.toList(growable: false),
+      });
+      return;
+    }
+
+    if (_isGigCategory) {
+      controller.setFilters({
+        'taxonomySlugs': _selectedTagSlugs.isEmpty
+            ? null
+            : _selectedTagSlugs.toList(growable: false),
+      });
+      return;
+    }
+
+    controller.setFilters(null);
   }
 
   List<String> _buildMeta(OpportunitySummary item) {
     switch (widget.category) {
       case OpportunityCategory.job:
         return [
-          item.location,
-          item.employmentType,
-          if (item.isRemote == true) 'Remote',
-        ].whereType<String>().where((value) => value.isNotEmpty).toList();
           if ((item.location ?? '').isNotEmpty) item.location!,
           if ((item.employmentType ?? '').isNotEmpty) item.employmentType!,
+          if (item.isRemote) 'Remote',
         ];
       case OpportunityCategory.gig:
         return [
@@ -410,11 +460,8 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
         ];
       case OpportunityCategory.volunteering:
         return [
-          item.organization,
-          if (item.isRemote) 'Remote friendly',
-          item.location,
-        ].whereType<String>().where((value) => value.isNotEmpty).toList();
           if ((item.organization ?? '').isNotEmpty) item.organization!,
+          if (item.isRemote) 'Remote friendly',
           if ((item.location ?? '').isNotEmpty) item.location!,
         ];
     }
@@ -468,6 +515,141 @@ class _SignalTile extends StatelessWidget {
       ],
     );
   }
+}
+
+class _GigTagFilterBar extends StatelessWidget {
+  const _GigTagFilterBar({
+    required this.options,
+    required this.selected,
+    required this.onToggle,
+    required this.onClear,
+  });
+
+  final List<_TagOption> options;
+  final Set<String> selected;
+  final void Function(String slug) onToggle;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: options.take(12).map((option) {
+            final isSelected = selected.contains(option.slug);
+            return FilterChip(
+              label: Text('${option.label} (${option.count})'),
+              selected: isSelected,
+              onSelected: (_) => onToggle(option.slug),
+              labelStyle: theme.textTheme.labelSmall?.copyWith(
+                color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              ),
+              showCheckmark: false,
+              backgroundColor: colorScheme.surfaceVariant.withOpacity(0.6),
+              selectedColor: colorScheme.primary.withOpacity(0.18),
+              side: BorderSide(
+                color: isSelected
+                    ? colorScheme.primary.withOpacity(0.4)
+                    : colorScheme.outlineVariant.withOpacity(0.5),
+              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              visualDensity: VisualDensity.compact,
+            );
+          }).toList(),
+        ),
+        if (selected.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: TextButton.icon(
+              onPressed: onClear,
+              icon: const Icon(Icons.clear),
+              label: const Text('Clear SEO tags'),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _TagOption {
+  const _TagOption({required this.slug, required this.label, required this.count});
+
+  final String slug;
+  final String label;
+  final int count;
+}
+
+List<_TagOption> _deriveTagOptions(List<OpportunitySummary> items, Map<String, dynamic>? facets) {
+  if (items.isEmpty && facets == null) {
+    return const <_TagOption>[];
+  }
+
+  String formatLabel(String slug, [String? label]) {
+    final candidate = label?.trim();
+    if (candidate != null && candidate.isNotEmpty) {
+      return candidate;
+    }
+    return slug
+        .replaceAll(RegExp(r'[_-]+'), ' ')
+        .split(' ')
+        .where((part) => part.isNotEmpty)
+        .map((part) => part[0].toUpperCase() + part.substring(1))
+        .join(' ');
+  }
+
+  final Map<String, _TagOption> map = {};
+
+  void register(String slug, {String? label, int weight = 1}) {
+    if (slug.isEmpty) {
+      return;
+    }
+    final key = slug.toLowerCase();
+    final current = map[key];
+    final resolvedLabel = formatLabel(slug, label ?? current?.label);
+    final count = (current?.count ?? 0) + weight;
+    map[key] = _TagOption(slug: slug, label: resolvedLabel, count: count);
+  }
+
+  final taxonomyFacet = facets != null && facets['taxonomySlugs'] is Map<String, dynamic>
+      ? Map<String, dynamic>.from(facets['taxonomySlugs'] as Map)
+      : const <String, dynamic>{};
+  taxonomyFacet.forEach((slug, value) {
+    final count = value is num ? value.toInt() : 0;
+    if (slug is String && count > 0) {
+      register(slug, weight: count);
+    }
+  });
+
+  for (final item in items) {
+    if (item.taxonomies.isNotEmpty) {
+      for (final taxonomy in item.taxonomies) {
+        register(taxonomy.slug, label: taxonomy.label);
+      }
+      continue;
+    }
+    for (var i = 0; i < item.taxonomySlugs.length; i++) {
+      final slug = item.taxonomySlugs[i];
+      final label = i < item.taxonomyLabels.length ? item.taxonomyLabels[i] : null;
+      register(slug, label: label);
+    }
+  }
+
+  final options = map.values.toList()
+    ..sort((a, b) {
+      final countComparison = b.count.compareTo(a.count);
+      if (countComparison != 0) {
+        return countComparison;
+      }
+      return a.label.toLowerCase().compareTo(b.label.toLowerCase());
+    });
+
+  return options;
 }
 
 class _VolunteerFilterCard extends StatelessWidget {

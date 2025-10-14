@@ -23,6 +23,17 @@ const DEVICE_LABELS = {
   mobile: 'Mobile',
 };
 
+function formatTagLabelFromSlug(slug) {
+  if (!slug) {
+    return '';
+  }
+  return `${slug}`
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 function MetricTile({ label, value, hint }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -102,6 +113,49 @@ export default function GigBuilderDeepDive({ freelancerId, gigId }) {
   const faqs = data?.faqs ?? [];
   const conversionCopy = data?.conversionCopy ?? {};
   const performance = data?.performance ?? {};
+  const seoTags = useMemo(() => {
+    const rawTags = Array.isArray(data?.seo?.tags)
+      ? data.seo.tags
+      : Array.isArray(data?.gig?.taxonomies)
+        ? data.gig.taxonomies
+        : [];
+    if (!rawTags.length) {
+      return [];
+    }
+    const seen = new Set();
+    return rawTags
+      .map((tag) => {
+        const slug = tag?.slug;
+        if (!slug) {
+          return null;
+        }
+        const key = `${slug}`.toLowerCase();
+        if (seen.has(key)) {
+          return null;
+        }
+        seen.add(key);
+        const label =
+          typeof tag?.label === 'string' && tag.label.trim().length
+            ? tag.label.trim()
+            : formatTagLabelFromSlug(slug);
+        return {
+          slug,
+          label,
+          type: tag?.type ?? null,
+          weight: tag?.weight ?? null,
+          source: tag?.source ?? null,
+        };
+      })
+      .filter(Boolean);
+  }, [data?.seo?.tags, data?.gig?.taxonomies]);
+  const seoSummary = useMemo(() => {
+    const summary = data?.seo?.summary ?? {};
+    const total = typeof summary.total === 'number' ? summary.total : seoTags.length;
+    const primaryTypes = Array.isArray(summary.primaryTypes)
+      ? summary.primaryTypes.filter((type) => typeof type === 'string' && type.trim().length)
+      : Array.from(new Set(seoTags.map((tag) => tag.type).filter(Boolean)));
+    return { total, primaryTypes };
+  }, [data?.seo?.summary, seoTags]);
 
   const pricingRangeLabel = data?.pricing?.formattedRange ?? null;
   const hero = data?.gig?.hero ?? {};
@@ -160,6 +214,25 @@ export default function GigBuilderDeepDive({ freelancerId, gigId }) {
                 ))}
               </ul>
             ) : null}
+            {seoTags.length ? (
+              <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-wide text-blue-700">
+                {seoTags.slice(0, 6).map((tag) => (
+                  <span
+                    key={tag.slug}
+                    className="inline-flex items-center gap-2 rounded-full bg-blue-100 px-3 py-1 text-blue-700"
+                  >
+                    <span>{tag.label}</span>
+                    {tag.type ? (
+                      <span className="text-[10px] font-normal uppercase tracking-wide text-blue-500">{tag.type}</span>
+                    ) : null}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-4 rounded-2xl border border-dashed border-blue-200 bg-white/80 px-4 py-3 text-xs text-blue-700">
+                Tag this gig with SEO taxonomies to amplify marketplace discovery coverage.
+              </div>
+            )}
           </div>
           <DataStatus
             loading={loading}
@@ -235,6 +308,43 @@ export default function GigBuilderDeepDive({ freelancerId, gigId }) {
         </div>
 
         <div className="space-y-6">
+          <div className="rounded-2xl border border-blue-200 bg-blue-50 p-6 shadow-sm">
+            <h4 className="text-sm font-semibold uppercase tracking-wide text-blue-700">SEO tagging readiness</h4>
+            <p className="mt-1 text-sm text-blue-700">
+              {seoSummary.total
+                ? 'Discovery taxonomies are synced with the Gigvora search index.'
+                : 'Add taxonomy tags so the gig surfaces in high-intent marketplace searches.'}
+            </p>
+            {seoTags.length ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {seoTags.slice(0, 8).map((tag) => (
+                  <span
+                    key={tag.slug}
+                    className="inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-blue-700"
+                  >
+                    <span>{tag.label}</span>
+                    {tag.type ? (
+                      <span className="text-[10px] uppercase tracking-wide text-blue-500">{tag.type}</span>
+                    ) : null}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-600">Tagged taxonomies</p>
+                <p className="text-lg font-semibold text-blue-900">{seoSummary.total}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-600">Primary focus areas</p>
+                <p className="text-sm text-blue-900">
+                  {Array.isArray(seoSummary.primaryTypes) && seoSummary.primaryTypes.length
+                    ? seoSummary.primaryTypes.join(', ')
+                    : 'No focus areas defined'}
+                </p>
+              </div>
+            </div>
+          </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h4 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
               Add-on marketplace
