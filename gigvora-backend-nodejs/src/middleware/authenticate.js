@@ -10,12 +10,15 @@ function extractToken(req) {
       return token.trim();
     }
   }
+
   if (req.cookies?.accessToken) {
-    return req.cookies.accessToken;
+    return `${req.cookies.accessToken}`.trim();
   }
+
   if (req.query?.accessToken) {
-    return req.query.accessToken;
+    return `${req.query.accessToken}`.trim();
   }
+
   return null;
 }
 

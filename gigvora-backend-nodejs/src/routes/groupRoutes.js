@@ -15,19 +15,19 @@ router.get('/:groupId', authenticate(), requireRoles('admin', 'agency'), asyncHa
 router.put('/:groupId', authenticate(), requireRoles('admin', 'agency'), asyncHandler(groupController.update));
 
 router.post(
-  '/:groupId/memberships',
+  '/manage/:groupId/memberships',
   authenticate(),
   requireRoles('admin', 'agency'),
   asyncHandler(groupController.addMember),
 );
 router.patch(
-  '/:groupId/memberships/:membershipId',
+  '/manage/:groupId/memberships/:membershipId',
   authenticate(),
   requireRoles('admin', 'agency'),
   asyncHandler(groupController.updateMember),
 );
 router.delete(
-  '/:groupId/memberships/:membershipId',
+  '/manage/:groupId/memberships/:membershipId',
   authenticate(),
   requireRoles('admin', 'agency'),
   asyncHandler(groupController.removeMember),

@@ -5,7 +5,6 @@ import { OAuth2Client } from 'google-auth-library';
 import { User, sequelize } from '../models/index.js';
 import { normalizeLocationPayload } from '../utils/location.js';
 import twoFactorService from './twoFactorService.js';
-import { resolveAccessTokenSecret, resolveRefreshTokenSecret } from '../utils/jwtSecrets.js';
 
 const TOKEN_EXPIRY = process.env.JWT_EXPIRES_IN || '1h';
 const REFRESH_EXPIRY = process.env.JWT_REFRESH_EXPIRES_IN || '7d';

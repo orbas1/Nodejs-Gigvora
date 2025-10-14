@@ -1312,6 +1312,7 @@ export async function requestMembership(groupId, { actor, message } = {}) {
 }
 
 export default {
+  listMemberGroups,
   listGroups,
   getGroupProfile,
   joinGroup,

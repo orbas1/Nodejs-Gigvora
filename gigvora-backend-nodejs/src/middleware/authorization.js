@@ -1,7 +1,7 @@
 import { ValidationError } from '../utils/errors.js';
 
-function normaliseMemberships(input) {
-  if (!input) {
+function normalizeToArray(input) {
+  if (input == null) {
     return [];
   }
   if (Array.isArray(input)) {
@@ -50,7 +50,7 @@ export function requireMembership(allowed = [], { allowAdmin = true } = {}) {
     const memberships = extractMemberships(req);
     if (!memberships.length) {
       return res.status(403).json({
-        message: 'Volunteer workspace access requires an authenticated volunteer membership.',
+        message: 'Volunteer workspace access requires an authenticated membership.',
         code: 'volunteer_access_required',
       });
     }
@@ -135,18 +135,34 @@ function collectRequestRoles(req) {
     extractRoles(values).forEach((value) => aggregated.add(value));
   };
 
-  merge(req?.user?.roles);
-  merge(req?.user?.memberships);
-  merge(req?.user?.role);
-  merge(req?.user?.accountTypes);
-  merge(req?.headers?.['x-roles']);
-  merge(req?.headers?.['x-role']);
-  merge(req?.headers?.['x-workspace-roles']);
-  merge(req?.headers?.['x-memberships']);
-  merge(req?.query?.roles);
-  merge(req?.query?.memberships);
-  merge(req?.body?.roles);
-  merge(req?.body?.memberships);
+  const sources = [
+    req.user?.roles,
+    req.user?.memberships,
+    req.user?.role,
+    req.user?.accountTypes,
+    req.headers?.['x-roles'],
+    req.headers?.['x-role'],
+    req.headers?.['x-workspace-roles'],
+    req.headers?.['x-memberships'],
+    req.query?.roles,
+    req.query?.memberships,
+    req.body?.roles,
+    req.body?.memberships,
+  ];
+
+  for (const source of sources) {
+    normalizeToArray(source).forEach((entry) => {
+      if (typeof entry === 'string') {
+        entry
+          .split(/[,\s]+/)
+          .map((part) => part.trim())
+          .filter(Boolean)
+          .forEach(push);
+      } else {
+        push(entry);
+      }
+    });
+  }
 
   return aggregated;
 }
@@ -174,22 +190,10 @@ export function requireProjectManagementRole(req, res, next) {
 }
 
 function normaliseRoles(input) {
-  if (!input) {
-    return [];
-  }
-  if (Array.isArray(input)) {
-    return input.flatMap((value) => normaliseRoles(value));
-  }
-  if (typeof input === 'string') {
-    return input
-      .split(',')
-      .map((value) => value.trim().toLowerCase())
-      .filter(Boolean);
-  }
-  if (typeof input === 'object') {
-    return normaliseRoles(Object.values(input));
-  }
-  return [`${input}`.trim().toLowerCase()].filter(Boolean);
+  return normalizeToArray(input)
+    .flatMap((value) => `${value}`.split(','))
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
 }
 
 export function requireUserType(allowedUserTypes = [], { allowHeaderFallback = true, raise = true } = {}) {
