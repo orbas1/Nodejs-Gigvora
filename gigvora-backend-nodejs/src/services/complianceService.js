@@ -15,6 +15,8 @@ import {
 } from '../models/index.js';
 import { ValidationError, NotFoundError, ConflictError } from '../utils/errors.js';
 
+const CLOSED_LOOP_CLASSIFICATION = 'closed_loop_non_cash';
+
 function ensureHttpStatus(error) {
   if (error && error.statusCode && !error.status) {
     error.status = error.statusCode;
@@ -87,6 +89,16 @@ function safeNumber(value) {
 
 function generateLedgerReference(prefix = 'WL') {
   return `${prefix}-${randomUUID().replace(/-/g, '').slice(0, 22).toUpperCase()}`;
+}
+
+function ensurePlainObject(value, label) {
+  if (value == null) {
+    return {};
+  }
+  if (typeof value !== 'object' || Array.isArray(value)) {
+    throw ensureHttpStatus(new ValidationError(`${label} must be an object.`));
+  }
+  return { ...value };
 }
 
 function resolveCustodyProvider(accountType, requestedProvider) {
@@ -423,14 +435,43 @@ export async function recordWalletLedgerEntry(walletAccountId, payload = {}, { t
     'entryType',
   );
 
-  const amount = safeNumber(payload.amount);
-  if (amount <= 0) {
+  const rawAmount = safeNumber(payload.amount);
+  const amount = Math.round(rawAmount * 10000) / 10000;
+  if (!Number.isFinite(amount) || amount <= 0) {
     throw ensureHttpStatus(new ValidationError('amount must be greater than zero.'));
   }
 
   let currentBalance = safeNumber(account.currentBalance);
   let availableBalance = safeNumber(account.availableBalance);
   let pendingHoldBalance = safeNumber(account.pendingHoldBalance);
+
+  const metadata = ensurePlainObject(payload.metadata, 'metadata');
+  const regulatoryClassification = metadata.regulatoryClassification ?? CLOSED_LOOP_CLASSIFICATION;
+  if (regulatoryClassification !== CLOSED_LOOP_CLASSIFICATION) {
+    throw ensureHttpStatus(
+      new ValidationError(
+        'Wallet ledger only supports closed-loop non-cash balances and cannot record FCA-regulated e-money classifications.',
+      ),
+    );
+  }
+
+  if (metadata.iosIapCompliant === false) {
+    throw ensureHttpStatus(
+      new ValidationError(
+        'Ledger entries must remain compliant with Apple App Store guideline 3.1.5 and cannot depend on in-app purchase flows.',
+      ),
+    );
+  }
+
+  metadata.regulatoryClassification = CLOSED_LOOP_CLASSIFICATION;
+  metadata.iosIapCompliant = true;
+  metadata.iosIapJustification =
+    metadata.iosIapJustification ??
+    'Service marketplace transactions settle outside the iOS app in line with App Store Review Guideline 3.1.5.';
+  metadata.fcaSupervisionRequired = false;
+  metadata.complianceSummary =
+    metadata.complianceSummary ??
+    'Closed-loop wallet credit for on-platform services; Gigvora is not providing FCA-regulated e-money.';
 
   switch (entryType) {
     case 'credit':
@@ -489,7 +530,7 @@ export async function recordWalletLedgerEntry(walletAccountId, payload = {}, { t
       initiatedById: payload.initiatedById ? normalizeId(payload.initiatedById, 'initiatedById') : null,
       occurredAt,
       balanceAfter: currentBalance,
-      metadata: payload.metadata ?? null,
+      metadata,
     },
     { transaction },
   );
@@ -688,6 +729,35 @@ function buildWalletSnapshot(accounts, ledgerEntries) {
       : currentBalance === 0;
     const holdsBalanced = Math.abs(currentBalance - (availableBalance + pendingHoldBalance)) < 0.0001;
 
+    const hasLedgerActivity = ledger.length > 0;
+    const missingComplianceMetadata = ledger.some(
+      (entry) => !entry.metadata || !entry.metadata.regulatoryClassification,
+    );
+    const classificationMismatch = ledger.some((entry) => {
+      const classification = entry.metadata?.regulatoryClassification;
+      return classification && classification !== CLOSED_LOOP_CLASSIFICATION;
+    });
+    const iosNonCompliant = ledger.some((entry) => entry.metadata?.iosIapCompliant === false);
+
+    let complianceStatus = 'inactive';
+    let complianceNotes = 'No wallet activity yet. Closed-loop compliance confirmed once funds flow.';
+    if (hasLedgerActivity) {
+      if (classificationMismatch || iosNonCompliant) {
+        complianceStatus = 'review_required';
+        complianceNotes = classificationMismatch
+          ? 'Ledger entry flagged as non closed-loop. Investigate before releasing funds.'
+          : 'Ledger entry indicates Apple IAP non-compliance. Update payout policy immediately.';
+      } else if (missingComplianceMetadata) {
+        complianceStatus = 'verification_required';
+        complianceNotes =
+          'Ledger entries missing compliance metadata. Regenerate using the latest wallet service to enforce closed-loop rules.';
+      } else {
+        complianceStatus = 'closed_loop';
+        complianceNotes =
+          'Closed-loop wallet credits confirmed. App Store distribution remains compliant without IAP.';
+      }
+    }
+
     const ledgerSample = ledger.slice(-5).map((entry) => ({
       id: entry.id,
       entryType: entry.entryType,
@@ -715,6 +785,9 @@ function buildWalletSnapshot(accounts, ledgerEntries) {
         ledgerBalanced && holdsBalanced
           ? 'Ledger reconciled with custodial balances.'
           : 'Ledger imbalance detected. Investigate before releasing funds.',
+      complianceStatus,
+      complianceNotes,
+      appStoreCompliant: !iosNonCompliant && !classificationMismatch,
       ledgerSample,
     };
   });
@@ -723,9 +796,22 @@ function buildWalletSnapshot(accounts, ledgerEntries) {
     ? 'good'
     : 'attention_required';
 
+  let complianceStatus = 'closed_loop';
+  if (accountSnapshots.some((account) => account.complianceStatus === 'review_required')) {
+    complianceStatus = 'review_required';
+  } else if (accountSnapshots.some((account) => account.complianceStatus === 'verification_required')) {
+    complianceStatus = 'verification_required';
+  } else if (accountSnapshots.every((account) => account.complianceStatus === 'inactive')) {
+    complianceStatus = 'inactive';
+  }
+
+  const appStoreCompliant = accountSnapshots.every((account) => account.appStoreCompliant !== false);
+
   return {
     accounts: accountSnapshots,
     ledgerIntegrity,
+    complianceStatus,
+    appStoreCompliant,
   };
 }
 
