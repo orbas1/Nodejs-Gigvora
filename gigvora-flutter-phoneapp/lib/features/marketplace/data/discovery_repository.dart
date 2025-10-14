@@ -16,12 +16,37 @@ class DiscoveryRepository {
   static const _snapshotTtl = Duration(minutes: 3);
   static const _searchTtl = Duration(minutes: 4);
 
+  dynamic _normaliseForEncoding(dynamic value) {
+    if (value is Map) {
+      final sorted = SplayTreeMap<String, dynamic>.fromIterables(
+        value.keys.map((key) => key.toString()),
+        value.values.map(_normaliseForEncoding),
+      );
+      return sorted;
+    }
+    if (value is Iterable) {
+      final list = value.map(_normaliseForEncoding).toList();
+      list.sort((a, b) => jsonEncode(a).compareTo(jsonEncode(b)));
+      return list;
+    }
+    return value;
+  }
+
   Future<RepositoryResult<OpportunityPage>> fetchOpportunities(
     OpportunityCategory category, {
     String? query,
     bool forceRefresh = false,
     int pageSize = 20,
     Map<String, dynamic>? filters,
+    String? sort,
+    bool includeFacets = false,
+  }) async {
+    final queryKey = (query ?? '').trim().toLowerCase();
+    final filterToken = filters == null || filters.isEmpty ? 'no-filters' : jsonEncode(_normaliseForEncoding(filters));
+    final sortToken = sort?.trim().isEmpty ?? true ? 'default' : sort!.trim();
+    final facetToken = includeFacets ? 'facets' : 'no-facets';
+    final cacheKey =
+        'opportunities:${categoryToPath(category)}:${queryKey.isEmpty ? 'all' : queryKey}:$filterToken:$sortToken:$facetToken';
     Map<String, String>? headers,
   }) async {
     final queryKey = (query ?? '').trim().toLowerCase();
@@ -45,6 +70,14 @@ class DiscoveryRepository {
 
     try {
       final endpoint = '/discovery/${categoryToPath(category)}';
+      final queryParams = <String, dynamic>{
+        'q': queryKey.isEmpty ? null : queryKey,
+        'pageSize': pageSize,
+        'filters': filters == null || filters.isEmpty ? null : jsonEncode(filters),
+        'sort': sortToken == 'default' ? null : sortToken,
+        'includeFacets': includeFacets ? 'true' : null,
+      };
+      final response = await _apiClient.get(endpoint, query: queryParams);
       final response = await _apiClient.get(
         endpoint,
         query: {
@@ -190,6 +223,9 @@ class DiscoveryRepository {
       total: payload['total'] is num ? (payload['total'] as num).toInt() : items.length,
       totalPages: payload['totalPages'] is num ? (payload['totalPages'] as num).toInt() : 1,
       query: payload['query'] as String?,
+      facets: payload['facets'] is Map<String, dynamic>
+          ? Map<String, dynamic>.from(payload['facets'] as Map)
+          : null,
     );
   }
 }

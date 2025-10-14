@@ -23,6 +23,9 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
   String _query = '';
   Timer? _debounce;
   bool _viewRecorded = false;
+  Map<String, dynamic> _filters = const {};
+  String? _sort;
+  bool _includeFacets = false;
   Map<String, dynamic> _filters = const <String, dynamic>{};
 
   Future<void> load({bool forceRefresh = false}) async {
@@ -34,6 +37,8 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
         query: _query,
         forceRefresh: forceRefresh,
         filters: _filters.isEmpty ? null : _filters,
+        sort: _sort,
+        includeFacets: _includeFacets,
         headers: headers,
       );
       state = ResourceState<OpportunityPage>(
@@ -79,6 +84,42 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
   }
 
   Future<void> refresh() => load(forceRefresh: true);
+
+  Future<void> updateFilters(Map<String, dynamic> filters) async {
+    _filters = Map<String, dynamic>.from(filters);
+    await load();
+    await _analytics.track(
+      'mobile_opportunity_filters_updated',
+      context: {
+        'category': categoryToPath(category),
+        'query': _query.isEmpty ? null : _query,
+        'filters': _filters,
+      },
+      metadata: const {'source': 'mobile_app'},
+    );
+  }
+
+  Future<void> updateSort(String? sort) async {
+    final normalised = sort?.trim();
+    if (_sort == normalised) {
+      return;
+    }
+    _sort = normalised?.isEmpty ?? true ? null : normalised;
+    await load();
+    await _analytics.track(
+      'mobile_opportunity_sort_updated',
+      context: {
+        'category': categoryToPath(category),
+        'query': _query.isEmpty ? null : _query,
+        'sort': _sort ?? 'default',
+      },
+      metadata: const {'source': 'mobile_app'},
+    );
+  }
+
+  void setIncludeFacets(bool value) {
+    _includeFacets = value;
+  }
 
   void updateQuery(String value) {
     final trimmed = value.trim();

@@ -386,6 +386,10 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
     switch (widget.category) {
       case OpportunityCategory.job:
         return [
+          item.location,
+          item.employmentType,
+          if (item.isRemote == true) 'Remote',
+        ].whereType<String>().where((value) => value.isNotEmpty).toList();
           if ((item.location ?? '').isNotEmpty) item.location!,
           if ((item.employmentType ?? '').isNotEmpty) item.employmentType!,
         ];

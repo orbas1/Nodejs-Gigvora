@@ -21,6 +21,7 @@ import { hasFinanceOperationsAccess } from '../utils/permissions.js';
 
 const AUTHENTICATED_NAV_LINKS = [
   { to: '/feed', label: 'Live Feed' },
+  { to: '/jobs', label: 'Jobs' },
   { to: '/search', label: 'Explorer' },
   { to: '/gigs', label: 'Gigs' },
   { to: '/experience-launchpad', label: 'Launchpad' },
