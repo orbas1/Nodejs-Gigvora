@@ -1,18 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowPathIcon, CurrencyDollarIcon, LifebuoyIcon, ShieldCheckIcon, UsersIcon } from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
-import { fetchAdminDashboard } from '../../services/admin.js';
 import AdCouponManager from '../../components/admin/AdCouponManager.jsx';
-import useSession from '../../hooks/useSession.js';
-import { Link } from 'react-router-dom';
-import { ArrowPathIcon, CurrencyDollarIcon, LifebuoyIcon, ShieldCheckIcon, UsersIcon } from '@heroicons/react/24/outline';
-import DashboardLayout from '../../layouts/DashboardLayout.jsx';
-import { fetchAdminDashboard } from '../../services/admin.js';
-import AdminGroupManagementPanel from './admin/AdminGroupManagementPanel.jsx';
-import { fetchPlatformSettings, updatePlatformSettings } from '../../services/platformSettings.js';
-import useSession from '../../hooks/useSession.js';
 import GigvoraAdsConsole from '../../components/ads/GigvoraAdsConsole.jsx';
+import AdminGroupManagementPanel from './admin/AdminGroupManagementPanel.jsx';
+import useSession from '../../hooks/useSession.js';
+import { fetchAdminDashboard } from '../../services/admin.js';
+import { fetchPlatformSettings, updatePlatformSettings } from '../../services/platformSettings.js';
 
 const MENU_SECTIONS = [
   {
@@ -110,6 +105,8 @@ const USER_TYPE_LABELS = {
 };
 
 const numberFormatter = new Intl.NumberFormat('en-US');
+
+const ADMIN_ACCESS_ALIASES = new Set(['admin', 'administrator', 'super-admin', 'superadmin']);
 
 function formatNumber(value) {
   const numeric = Number(value ?? 0);
@@ -214,6 +211,31 @@ function calculatePercentages(dictionary = {}) {
     const percent = total > 0 ? Math.round((numeric / total) * 100) : 0;
     return { key, value: numeric, percent, label: humanizeLabel(key) };
   });
+}
+
+function normalizeToLowercaseArray(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      if (typeof item !== 'string') {
+        return null;
+      }
+      const trimmed = item.trim();
+      return trimmed ? trimmed.toLowerCase() : null;
+    })
+    .filter(Boolean);
+}
+
+function normalizeToLowercaseString(value) {
+  if (value == null) {
+    return '';
+  }
+
+  return `${value}`.trim().toLowerCase();
+}
 
 function cloneDeep(value) {
   if (value == null) {
@@ -475,15 +497,55 @@ function RecentList({ title, rows, columns, emptyLabel }) {
 export default function AdminDashboardPage() {
   const navigate = useNavigate();
   const { session, isAuthenticated } = useSession();
-  const { session: activeSession } = useSession();
-  const memberships = Array.isArray(activeSession?.memberships) ? activeSession.memberships : [];
-  const roles = Array.isArray(activeSession?.roles) ? activeSession.roles : [];
-  const hasAdminAccess =
-    memberships.includes('admin') ||
-    roles.includes('admin') ||
-    activeSession?.primaryDashboard === 'admin' ||
-    activeSession?.role === 'admin' ||
-    activeSession?.userType === 'admin';
+  const normalizedMemberships = useMemo(() => normalizeToLowercaseArray(session?.memberships), [session?.memberships]);
+  const normalizedRoles = useMemo(() => normalizeToLowercaseArray(session?.roles), [session?.roles]);
+  const normalizedPermissions = useMemo(
+    () => normalizeToLowercaseArray(session?.permissions),
+    [session?.permissions],
+  );
+  const normalizedCapabilities = useMemo(
+    () => normalizeToLowercaseArray(session?.capabilities),
+    [session?.capabilities],
+  );
+  const sessionRole = useMemo(
+    () => normalizeToLowercaseString(session?.role ?? session?.user?.role),
+    [session?.role, session?.user?.role],
+  );
+  const sessionUserType = useMemo(
+    () => normalizeToLowercaseString(session?.user?.userType ?? session?.userType),
+    [session?.user?.userType, session?.userType],
+  );
+  const primaryDashboard = useMemo(
+    () => normalizeToLowercaseString(session?.primaryDashboard ?? session?.user?.primaryDashboard),
+    [session?.primaryDashboard, session?.user?.primaryDashboard],
+  );
+
+  const hasAdminSeat = useMemo(() => {
+    if (!session) {
+      return false;
+    }
+
+    const permissionAccess =
+      normalizedPermissions.includes('admin:full') || normalizedCapabilities.includes('admin:access');
+
+    return (
+      permissionAccess ||
+      normalizedMemberships.some((membership) => ADMIN_ACCESS_ALIASES.has(membership)) ||
+      normalizedRoles.some((role) => ADMIN_ACCESS_ALIASES.has(role)) ||
+      ADMIN_ACCESS_ALIASES.has(sessionRole) ||
+      ADMIN_ACCESS_ALIASES.has(sessionUserType)
+    );
+  }, [
+    session,
+    normalizedMemberships,
+    normalizedRoles,
+    normalizedPermissions,
+    normalizedCapabilities,
+    sessionRole,
+    sessionUserType,
+  ]);
+
+  const hasAdminAccess = useMemo(() => hasAdminSeat || primaryDashboard === 'admin', [hasAdminSeat, primaryDashboard]);
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -499,29 +561,23 @@ export default function AdminDashboardPage() {
   const [lastSavedAt, setLastSavedAt] = useState(null);
   const [restrictedFeaturesInput, setRestrictedFeaturesInput] = useState('');
 
-  const hasAdminRole = useMemo(() => {
-    if (!session) {
-      return false;
-    }
-    const memberships = Array.isArray(session.memberships)
-      ? session.memberships.map((value) => `${value}`.toLowerCase())
-      : [];
-    const userType = session.user?.userType === 'admin';
-    const role = session.role?.toLowerCase?.() === 'admin';
-    return userType || role || memberships.includes('admin');
-  }, [session]);
-
-  const canAccessDashboard = isAuthenticated && hasAdminRole;
+  const canAccessDashboard = isAuthenticated && hasAdminSeat;
 
   useEffect(() => {
     if (!canAccessDashboard) {
       setLoading(false);
       setData(null);
       setError(null);
+      setSettings(null);
+      setSettingsDraft(null);
+      setSettingsLoading(false);
+      setSettingsError(null);
+      setSettingsDirty(false);
+      setSettingsSaving(false);
+      setSettingsStatus('');
+      setLastSavedAt(null);
       return;
     }
-    let active = true;
-
     if (!hasAdminAccess) {
       setData(null);
       setSettings(null);
@@ -533,78 +589,98 @@ export default function AdminDashboardPage() {
       setSettingsError(null);
       setSettingsStatus('');
       setLastSavedAt(null);
-      return () => {
-        active = false;
-      };
+      return;
     }
+
+    const abortController = new AbortController();
+    let isActive = true;
 
     setLoading(true);
     setSettingsLoading(true);
     setError(null);
-    fetchAdminDashboard()
-      .then((response) => {
-        if (!active) return;
-        setData(response);
-        setLoading(false);
-      })
-      .catch((err) => {
-        if (!active) return;
-        if (err?.status === 401) {
-          setError('Your session has expired. Please sign in again.');
-        } else if (err?.status === 403) {
-          setError('Admin access required to view this telemetry.');
-        } else {
-          setError(err?.message || 'Unable to load admin telemetry at this time.');
-        }
     setSettingsError(null);
+    setSettingsSaving(false);
     setSettingsStatus('');
 
-    Promise.allSettled([fetchAdminDashboard(), fetchPlatformSettings()]).then(([dashboardResult, settingsResult]) => {
-      if (!active) {
-        return;
-      }
+    const hydrate = async () => {
+      try {
+        const [dashboardResult, settingsResult] = await Promise.allSettled([
+          fetchAdminDashboard({}, { signal: abortController.signal }),
+          fetchPlatformSettings({ signal: abortController.signal }),
+        ]);
 
-      if (dashboardResult.status === 'fulfilled') {
-        setData(dashboardResult.value);
-      } else {
-        const reason = dashboardResult.reason;
-        const message =
-          reason?.message ||
-          (reason instanceof Error ? reason.message : 'Unable to load admin telemetry at this time.');
-        setError(message);
-        setData(null);
-      }
-      setLoading(false);
+        if (!isActive) {
+          return;
+        }
 
-      if (settingsResult.status === 'fulfilled') {
-        const received = settingsResult.value;
-        setSettings(received);
-        const draft = cloneDeep(received);
-        setSettingsDraft(draft);
-        setRestrictedFeaturesInput(
-          Array.isArray(received?.subscriptions?.restrictedFeatures)
-            ? received.subscriptions.restrictedFeatures.join(', ')
-            : '',
-        );
-        setSettingsDirty(false);
-        setLastSavedAt(new Date().toISOString());
-      } else {
-        const reason = settingsResult.reason;
-        const message =
-          reason?.message || (reason instanceof Error ? reason.message : 'Unable to load platform settings.');
-        setSettingsError(message);
-        setSettings(null);
-        setSettingsDraft(null);
-        setSettingsDirty(false);
+        if (dashboardResult.status === 'fulfilled') {
+          setData(dashboardResult.value);
+          setError(null);
+        } else {
+          const reason = dashboardResult.reason;
+          if (reason?.name !== 'AbortError') {
+            if (reason?.status === 401) {
+              setError('Your session has expired. Please sign in again.');
+            } else if (reason?.status === 403) {
+              setError('Admin access required to view this telemetry.');
+            } else {
+              const message =
+                reason?.message ||
+                (reason instanceof Error ? reason.message : 'Unable to load admin telemetry at this time.');
+              setError(message);
+            }
+            setData(null);
+          }
+        }
+        setLoading(false);
+
+        if (settingsResult.status === 'fulfilled') {
+          const received = settingsResult.value;
+          setSettings(received);
+          const draft = cloneDeep(received);
+          setSettingsDraft(draft);
+          setRestrictedFeaturesInput(
+            Array.isArray(received?.subscriptions?.restrictedFeatures)
+              ? received.subscriptions.restrictedFeatures.join(', ')
+              : '',
+          );
+          setSettingsDirty(false);
+          setLastSavedAt(new Date().toISOString());
+        } else {
+          const reason = settingsResult.reason;
+          if (reason?.name !== 'AbortError') {
+            if (reason?.status === 401) {
+              setSettingsError('Session expired while loading platform settings.');
+            } else if (reason?.status === 403) {
+              setSettingsError('Admin privileges are required to review platform settings.');
+            } else {
+              const message =
+                reason?.message || (reason instanceof Error ? reason.message : 'Unable to load platform settings.');
+              setSettingsError(message);
+            }
+            setSettings(null);
+            setSettingsDraft(null);
+            setSettingsDirty(false);
+          }
+        }
+        setSettingsLoading(false);
+      } catch (err) {
+        if (!isActive || err?.name === 'AbortError') {
+          return;
+        }
+        setError(err?.message || 'Unable to load admin telemetry at this time.');
+        setLoading(false);
+        setSettingsLoading(false);
       }
-      setSettingsLoading(false);
-    });
+    };
+
+    hydrate();
 
     return () => {
-      active = false;
+      isActive = false;
+      abortController.abort();
     };
-  }, [refreshIndex, canAccessDashboard]);
-  }, [refreshIndex, hasAdminAccess]);
+  }, [refreshIndex, canAccessDashboard, hasAdminAccess]);
 
   const profile = useMemo(() => {
     const totals = data?.summary?.totals ?? {};
@@ -620,7 +696,7 @@ export default function AdminDashboardPage() {
       'Jordan Kim';
     const displayRole = session?.title ?? sessionUser.title ?? 'Chief Platform Administrator';
     const baseBadges = new Set(session?.badges ?? ['Security cleared']);
-    if (hasAdminRole) {
+    if (hasAdminSeat) {
       baseBadges.add('Super admin');
     }
     if (session?.lastLoginAt) {
@@ -641,7 +717,7 @@ export default function AdminDashboardPage() {
         { label: 'Gross volume', value: formatCurrency(financials.grossEscrowVolume ?? 0) },
       ],
     };
-  }, [data, session, hasAdminRole]);
+  }, [data, session, hasAdminSeat]);
 
   const summaryCards = useMemo(() => {
     if (!data) return [];
@@ -1879,7 +1955,7 @@ export default function AdminDashboardPage() {
         secondaryHref="mailto:ops@gigvora.com?subject=Admin%20access%20request"
       />
     );
-  } else if (!hasAdminRole) {
+  } else if (!hasAdminSeat) {
     gatingView = (
       <AccessNotice
         title="Admin clearance required"
