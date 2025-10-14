@@ -24,6 +24,11 @@ class ProjectsScreen extends StatelessWidget {
           icon: const Icon(Icons.add),
           label: const Text('Post project'),
         ),
+        TextButton.icon(
+          onPressed: () => context.push('/projects/1/auto-match'),
+          icon: const Icon(Icons.auto_mode_outlined),
+          label: const Text('Auto-match queue'),
+        ),
       ],
     );
   }

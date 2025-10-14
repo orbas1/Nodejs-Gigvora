@@ -56,9 +56,14 @@ class GigvoraScaffold extends ConsumerWidget {
 }
 
 class GigvoraCard extends ConsumerWidget {
-  const GigvoraCard({required this.child, super.key});
+  const GigvoraCard({
+    required this.child,
+    this.padding,
+    super.key,
+  });
 
   final Widget child;
+  final EdgeInsetsGeometry? padding;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -83,7 +88,7 @@ class GigvoraCard extends ConsumerWidget {
           ),
         ],
       ),
-      padding: EdgeInsets.all(tokens?.spacing['lg'] ?? 20),
+      padding: padding ?? EdgeInsets.all(tokens?.spacing['lg'] ?? 20),
       child: child,
     );
   }
