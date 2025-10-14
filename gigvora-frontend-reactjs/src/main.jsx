@@ -5,6 +5,7 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 import App from './App.jsx';
 import './index.css';
 import { SessionProvider } from './context/SessionContext.jsx';
+import { LanguageProvider } from './context/LanguageContext.jsx';
 
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
@@ -17,9 +18,11 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
       <GoogleOAuthProvider clientId={googleClientId}>
-        <SessionProvider>
-          <App />
-        </SessionProvider>
+        <LanguageProvider>
+          <SessionProvider>
+            <App />
+          </SessionProvider>
+        </LanguageProvider>
       </GoogleOAuthProvider>
     </BrowserRouter>
   </React.StrictMode>,
