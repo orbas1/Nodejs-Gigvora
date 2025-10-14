@@ -30,11 +30,9 @@ import SettingsPage from './pages/SettingsPage.jsx';
 import FinanceHubPage from './pages/FinanceHubPage.jsx';
 import AboutPage from './pages/AboutPage.jsx';
 import NotificationsPage from './pages/NotificationsPage.jsx';
-import RequireDashboardAccess from './components/auth/RequireDashboardAccess.jsx';
 import UserDashboardPage from './pages/dashboards/UserDashboardPage.jsx';
 import FreelancerDashboardPage from './pages/dashboards/FreelancerDashboardPage.jsx';
 import FreelancerPipelinePage from './pages/dashboards/FreelancerPipelinePage.jsx';
-import RequireRole from './components/routing/RequireRole.jsx';
 import AdminDashboardPage from './pages/dashboards/AdminDashboardPage.jsx';
 import AgencyDashboardPage from './pages/dashboards/AgencyDashboardPage.jsx';
 import CompanyDashboardPage from './pages/dashboards/CompanyDashboardPage.jsx';
@@ -42,15 +40,10 @@ import HeadhunterDashboardPage from './pages/dashboards/HeadhunterDashboardPage.
 import CompanyNetworkingHubPage from './pages/networking/CompanyNetworkingHubPage.jsx';
 import MentorDashboardPage from './pages/dashboards/MentorDashboardPage.jsx';
 import LaunchpadOperationsPage from './pages/dashboards/LaunchpadOperationsPage.jsx';
-import ProtectedRoute from './components/auth/ProtectedRoute.jsx';
-import ProtectedDashboardRoute from './components/auth/ProtectedDashboardRoute.jsx';
-import RequireMembership from './components/security/RequireMembership.jsx';
-import MembershipGate from './components/auth/MembershipGate.jsx';
 import ProtectedRoute from './components/routing/ProtectedRoute.jsx';
+import RequireRole from './components/routing/RequireRole.jsx';
 
 const COMMUNITY_ACCESS_MEMBERSHIPS = ['user', 'freelancer', 'agency', 'company', 'mentor', 'headhunter'];
-import RequireMembership from './components/auth/RequireMembership.jsx';
-import RoleProtectedRoute from './components/auth/RoleProtectedRoute.jsx';
 
 export default function App() {
   return (
@@ -72,11 +65,6 @@ export default function App() {
         <Route path="experience-launchpad" element={<LaunchpadPage />} />
         <Route path="mentors" element={<MentorsPage />} />
         <Route path="volunteering" element={<VolunteeringPage />} />
-        <Route element={<ProtectedRoute requiredMemberships={COMMUNITY_ACCESS_MEMBERSHIPS} />}>
-          <Route path="groups" element={<GroupsPage />} />
-          <Route path="groups/:groupId" element={<GroupProfilePage />} />
-        </Route>
-        <Route path="groups" element={<GroupsPage />} />
         <Route path="pages" element={<PagesPage />} />
         <Route path="connections" element={<ConnectionsPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
@@ -88,152 +76,91 @@ export default function App() {
         <Route path="about" element={<AboutPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="finance" element={<FinanceHubPage />} />
+
+        <Route element={<ProtectedRoute requiredMemberships={COMMUNITY_ACCESS_MEMBERSHIPS} />}> 
+          <Route path="groups" element={<GroupsPage />} />
+          <Route path="groups/:groupId" element={<GroupProfilePage />} />
+        </Route>
       </Route>
+
       <Route
         path="dashboard/user"
-        element={(
-          <MembershipGate allowedMemberships={["user"]}>
-            <UserDashboardPage />
-          </MembershipGate>
-        )}
         element={
-          <RequireDashboardAccess requiredRoles={["user"]}>
+          <RequireRole allowedRoles={['user']}>
             <UserDashboardPage />
-          </RequireDashboardAccess>
-        }
-      />
-      <Route path="dashboard/freelancer" element={<FreelancerDashboardPage />} />
-      <Route
-        path="dashboard/freelancer/pipeline"
-        element={
-          <RequireRole allowedRoles={['freelancer']} fallback="/login">
-            <FreelancerPipelinePage />
           </RequireRole>
-        }
-      />
-      <Route path="dashboard/admin" element={<AdminDashboardPage />} />
-      <Route
-        path="dashboard/agency"
-        element={
-          <ProtectedDashboardRoute role="agency">
-            <AgencyDashboardPage />
-          </ProtectedDashboardRoute>
-      <Route path="dashboard/agency" element={<AgencyDashboardPage />} />
-      <Route
-        path="dashboard/company"
-        element={(
-          <ProtectedRoute allowedMemberships={["company"]}>
-            <CompanyDashboardPage />
-          </ProtectedRoute>
-          <RequireMembership allowed={["company"]} title="Company hub access required">
-            <CompanyDashboardPage />
-          </RequireMembership>
-        )}
-      />
-      <Route
-        path="dashboard/company/networking"
-        element={(
-          <ProtectedRoute allowedMemberships={["company"]}>
-            <CompanyNetworkingHubPage />
-          </ProtectedRoute>
-        )}
-      />
-          <RequireMembership allowed={["company"]} title="Company hub access required">
-            <CompanyNetworkingHubPage />
-          </RequireMembership>
-        )}
-      />
-      <Route
-        path="dashboard/agency"
-        element={
-          <RequireMembership role="agency">
-            <AgencyDashboardPage />
-          </RequireMembership>
-        }
-      />
-      <Route path="dashboard/company" element={<CompanyDashboardPage />} />
-      <Route path="dashboard/company/networking" element={<CompanyNetworkingHubPage />} />
-      <Route path="dashboard/headhunter" element={<HeadhunterDashboardPage />} />
-      <Route path="dashboard/mentor" element={<MentorDashboardPage />} />
-      <Route path="dashboard/launchpad" element={<LaunchpadOperationsPage />} />
-      <Route
-        path="dashboard/user"
-        element={
-          <RoleProtectedRoute allowedRoles={['user']}>
-            <UserDashboardPage />
-          </RoleProtectedRoute>
         }
       />
       <Route
         path="dashboard/freelancer"
         element={
-          <RoleProtectedRoute allowedRoles={['freelancer']}>
+          <RequireRole allowedRoles={['freelancer']}>
             <FreelancerDashboardPage />
-          </RoleProtectedRoute>
+          </RequireRole>
         }
       />
       <Route
         path="dashboard/freelancer/pipeline"
         element={
-          <RoleProtectedRoute allowedRoles={['freelancer']}>
+          <RequireRole allowedRoles={['freelancer']}>
             <FreelancerPipelinePage />
-          </RoleProtectedRoute>
+          </RequireRole>
         }
       />
       <Route
         path="dashboard/admin"
         element={
-          <RoleProtectedRoute allowedRoles={['admin']}>
+          <RequireRole allowedRoles={['admin']}>
             <AdminDashboardPage />
-          </RoleProtectedRoute>
+          </RequireRole>
         }
       />
       <Route
         path="dashboard/agency"
         element={
-          <RoleProtectedRoute allowedRoles={['agency']}>
+          <RequireRole allowedRoles={['agency']}>
             <AgencyDashboardPage />
-          </RoleProtectedRoute>
+          </RequireRole>
         }
       />
       <Route
         path="dashboard/company"
         element={
-          <RoleProtectedRoute allowedRoles={['company']}>
+          <RequireRole allowedRoles={['company']}>
             <CompanyDashboardPage />
-          </RoleProtectedRoute>
+          </RequireRole>
         }
       />
       <Route
         path="dashboard/company/networking"
         element={
-          <RoleProtectedRoute allowedRoles={['company']}>
+          <RequireRole allowedRoles={['company']}>
             <CompanyNetworkingHubPage />
-          </RoleProtectedRoute>
+          </RequireRole>
         }
       />
       <Route
         path="dashboard/headhunter"
         element={
-          <RoleProtectedRoute allowedRoles={['headhunter']}>
+          <RequireRole allowedRoles={['headhunter']}>
             <HeadhunterDashboardPage />
-          </RoleProtectedRoute>
+          </RequireRole>
         }
       />
       <Route
         path="dashboard/mentor"
         element={
-          <RoleProtectedRoute allowedRoles={['mentor']}>
+          <RequireRole allowedRoles={['mentor']}>
             <MentorDashboardPage />
-          </RoleProtectedRoute>
+          </RequireRole>
         }
       />
       <Route
         path="dashboard/launchpad"
         element={
-          <RoleProtectedRoute allowedRoles={['admin', 'mentor']}>
+          <RequireRole allowedRoles={['admin', 'mentor']}>
             <LaunchpadOperationsPage />
-          </RoleProtectedRoute>
+          </RequireRole>
         }
       />
       <Route path="admin" element={<AdminLoginPage />} />

@@ -21,8 +21,11 @@ class AgencyDashboardScreen extends ConsumerWidget {
       return const _LoginRequiredView();
     }
 
-    if (!session.memberships.contains('agency')) {
-      return _AccessDeniedView(session: session);
+    final memberships = session.memberships.map((role) => role.toLowerCase()).toSet();
+    final hasAgencyAccess = memberships.contains('agency');
+
+    if (!hasAgencyAccess) {
+      return _AccessDeniedView(session: session, memberships: memberships);
     }
 
     final dashboardState = ref.watch(agencyDashboardControllerProvider);
@@ -91,14 +94,20 @@ class _LoginRequiredView extends StatelessWidget {
 }
 
 class _AccessDeniedView extends StatelessWidget {
-  const _AccessDeniedView({required this.session});
+  const _AccessDeniedView({required this.session, required this.memberships});
 
   final UserSession session;
+  final Set<String> memberships;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final roleLabels = memberships
+        .map((role) => UserSession.roleLabels[role] ?? role)
+        .toList(growable: false)
+      ..sort();
+    final joinedRoles = roleLabels.join(', ');
     return GigvoraScaffold(
       title: 'Agency command studio',
       subtitle: 'Access restricted',
@@ -113,7 +122,7 @@ class _AccessDeniedView extends StatelessWidget {
                 const SizedBox(height: 12),
                 Text(
                   'Switch to a role that is available on your account or contact your workspace admin to activate the agency '
-                  'dashboard. Roles you currently have access to: ${session.memberships.join(', ')}.',
+                  'dashboard. Roles you currently have access to: $joinedRoles.',
                   style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
                 ),
                 const SizedBox(height: 16),
