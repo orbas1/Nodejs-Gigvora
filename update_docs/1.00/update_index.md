@@ -1,15 +1,11 @@
-# Version 1.00 – Update Index (Aug 24 refresh)
+# Version 1.00 – Update Index (Release Lock)
 
 ## Newly Updated Artefacts
-- `update_task_list.md` – Marked Task 4.4 complete with production details covering launchpad migrations, dashboards, and forms.
-- `update_progress_tracker.md` – Elevated Task 4 readiness metrics after shipping launchpad workflows and documentation across squads.
-- `update_milestone_list.md` – Reflected Milestone 3 progress jump driven by live launchpad cohorts and telemetry hooks.
-- `Design_Change_log.md`, `Design_Plan.md`, `Design_update_task_list.md`, `Design_update_milestone_list.md`, `Design_update_progress_tracker.md` – Documented launchpad intake form compliance gates, SLA chips, telemetry instrumentation, and updated readiness scores.
-- `Design_Change_log.md`, `Design_Plan.md`, `Design_update_task_list.md`, `Design_update_milestone_list.md`, `Design_update_progress_tracker.md` – Documented Volunteer Hub dashboards, invitation/commitment flows, impact analytics, and refreshed readiness scores reflecting new imagery and compliance sign-offs.
-- `ui-ux_updates/web_application_logic_flow_changes.md`, `web_application_styling_changes.md`, `web_app_wireframe_changes.md`, and `ui-ux_updates/design_change_log.md` – Added launchpad workflow logic, styling treatments, wireframe modules, and change-log commentary for the new dashboards and forms.
-- `ui-ux_updates/web_application_logic_flow_changes.md`, `web_application_styling_changes.md`, `web_app_wireframe_changes.md`, and `ui-ux_updates/design_change_log.md` – Extended to cover Volunteer Hub invitation management, commitment timelines, analytics widgets, and accessibility treatments across web and mobile wireframes.
-- `Web Application Design Update/Version 1.00 update/Forms.md`, `Dashboard Designs.md`, `Logic_Flow_update.md`, `Logic_Flow_map.md` – Captured talent/employer form specifications, placements insight modules, and revised journey maps for the launchpad experience.
-- `database/migrations/20240915094500-profile-engagement-metrics.cjs`, `src/services/profileEngagementService.js`, `src/server.js`, and `tests/profileEngagementService.test.js` – Introduced profile appreciation/follower schemas, background workers, and Jest coverage powering automated likes/followers aggregation for trust and discovery surfaces.
+- `update_progress_tracker.md` – Finalised with 100% readiness metrics, resolved risk register, and Version 1.01 planning notes.
+- `update_task_list.md` – Converted all task/subtask statuses to 100% with production commentary and integration wrap-up summary.
+- `update_milestone_list.md` – Marked Milestones 1–5 complete and documented final launch outcomes.
+- `end_of_update_report.md` – Added release retrospective, launch metrics, and handover actions.
 
 ## Reference
-- Auto-assign backend implementation documented under `backend_updates/` in the previous drop; this refresh focuses on design parity and programme tracking.
+- Engineering change logs, database migrations, and CI/CD configurations remain unchanged since the previous refresh and serve as the authoritative baseline for Version 1.00.
+- Version 1.01 backlog seeding lives in `update_plan.md` and will progress after post-launch optimisation workshops.
