@@ -9,6 +9,7 @@ class MentorshipRepository {
   final OfflineCache _cache;
 
   static const _dashboardTtl = Duration(minutes: 3);
+  static const _mentorHeaders = {'x-workspace-roles': 'mentor'};
 
   Future<RepositoryResult<MentorDashboard>> fetchDashboard({
     int lookbackDays = 30,
@@ -31,9 +32,13 @@ class MentorshipRepository {
     }
 
     try {
-      final response = await _apiClient.get('/mentors/dashboard', query: {
-        'lookbackDays': lookbackDays,
-      });
+      final response = await _apiClient.get(
+        '/mentors/dashboard',
+        query: {
+          'lookbackDays': lookbackDays,
+        },
+        headers: _mentorHeaders,
+      );
       if (response is! Map<String, dynamic>) {
         throw Exception('Unexpected mentor dashboard payload');
       }
@@ -58,14 +63,22 @@ class MentorshipRepository {
   }
 
   Future<void> saveAvailability(List<MentorAvailabilitySlot> slots) {
-    return _apiClient.post('/mentors/availability', body: {
-      'slots': slots.map((slot) => slot.toPayload()).toList(growable: false),
-    });
+    return _apiClient.post(
+      '/mentors/availability',
+      body: {
+        'slots': slots.map((slot) => slot.toPayload()).toList(growable: false),
+      },
+      headers: _mentorHeaders,
+    );
   }
 
   Future<void> savePackages(List<MentorPackage> packages) {
-    return _apiClient.post('/mentors/packages', body: {
-      'packages': packages.map((pack) => pack.toJson()).toList(growable: false),
-    });
+    return _apiClient.post(
+      '/mentors/packages',
+      body: {
+        'packages': packages.map((pack) => pack.toJson()).toList(growable: false),
+      },
+      headers: _mentorHeaders,
+    );
   }
 }
