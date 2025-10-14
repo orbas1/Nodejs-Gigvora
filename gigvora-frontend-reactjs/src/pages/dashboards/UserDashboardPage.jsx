@@ -1473,7 +1473,13 @@ export default function UserDashboardPage() {
         </section>
 
         <ProjectGigManagementContainer userId={userId} />
-        {documentStudio ? <DocumentStudioSection data={documentStudio} /> : null}
+        {documentStudio ? (
+          <DocumentStudioSection
+            data={documentStudio}
+            userId={userId}
+            onRefresh={() => refresh({ force: true })}
+          />
+        ) : null}
 
         <section className="grid gap-6 lg:grid-cols-2">
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">

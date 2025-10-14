@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import * as userController from '../controllers/userController.js';
+import * as careerDocumentController from '../controllers/careerDocumentController.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import authenticate from '../middleware/authenticate.js';
 
@@ -24,5 +25,23 @@ router.get('/:id/gig-manager', asyncHandler(userController.getGigManagerSnapshot
 router.get('/:id', asyncHandler(userController.getUserProfile));
 router.put('/:id', asyncHandler(userController.updateUser));
 router.patch('/:id/profile', asyncHandler(userController.updateProfileSettings));
+
+const DOCUMENT_ROLES = ['user', 'freelancer', 'agency', 'company', 'headhunter', 'mentor', 'admin'];
+
+router.get(
+  '/:id/cv-documents/workspace',
+  authenticate({ roles: DOCUMENT_ROLES, matchParam: 'id' }),
+  asyncHandler(careerDocumentController.getWorkspace),
+);
+router.post(
+  '/:id/cv-documents',
+  authenticate({ roles: DOCUMENT_ROLES, matchParam: 'id' }),
+  asyncHandler(careerDocumentController.createDocument),
+);
+router.post(
+  '/:id/cv-documents/:documentId/upload',
+  authenticate({ roles: DOCUMENT_ROLES, matchParam: 'id' }),
+  asyncHandler(careerDocumentController.uploadVersion),
+);
 
 export default router;

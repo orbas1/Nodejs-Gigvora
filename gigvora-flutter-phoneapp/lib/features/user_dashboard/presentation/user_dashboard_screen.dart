@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../auth/application/session_controller.dart';
@@ -692,6 +693,15 @@ class _DocumentStudioCard extends StatelessWidget {
           Text(
             'Last updated ${digest.lastUpdatedBy}',
             style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 16),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => context.go('/dashboard/user/cv-workspace'),
+              icon: const Icon(Icons.launch),
+              label: const Text('Open CV workspace'),
+            ),
           ),
         ],
       ),
