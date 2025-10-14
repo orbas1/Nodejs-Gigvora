@@ -81,6 +81,7 @@ import {
 import { appCache, buildCacheKey } from '../utils/cache.js';
 import { NotFoundError } from '../utils/errors.js';
 import { getAdDashboardSnapshot } from './adService.js';
+import { getFinanceControlTowerOverview } from './financeService.js';
 
 const ACTIVE_MEMBER_STATUSES = ['active'];
 const PROJECT_STATUS_BUCKETS = {
@@ -1314,6 +1315,259 @@ function buildFinancialOversightInsights({ financialSummaries, escrowTransaction
   };
 }
 
+function buildFinanceControlTower({ financialSummary = {}, financeOverview = null, upcomingBatches = [], upcomingSplits = [] }) {
+  const defaultCurrency = financialSummary.currency ?? 'USD';
+
+  if (!financeOverview) {
+    return {
+      summary: {
+        currency: defaultCurrency,
+        totalReleased: normaliseNumber(financialSummary.released ?? 0),
+        inEscrow: normaliseNumber(financialSummary.inEscrow ?? 0),
+        outstanding: normaliseNumber(financialSummary.outstanding ?? 0),
+        monthToDateRevenue: null,
+        trackedExpenses: null,
+        savingsRunway: null,
+        taxReadyBalance: null,
+        latestPayout: null,
+        recipientCount: 0,
+        shareOfReleased: 0,
+        scheduledTotal: 0,
+        nextScheduledAt: null,
+        generatedAt: new Date().toISOString(),
+      },
+      payouts: {
+        latestBatch: null,
+        totals: { totalAmount: 0, recipients: 0, shareOfReleased: 0, currency: defaultCurrency },
+        topRecipients: [],
+        roleBreakdown: [],
+        upcomingBatches: upcomingBatches.map((batch) => ({
+          id: batch.id,
+          name: batch.name,
+          status: batch.status,
+          scheduledAt: batch.scheduledAt ?? null,
+          executedAt: batch.executedAt ?? null,
+          currency: batch.currencyCode ?? defaultCurrency,
+          totalAmount: normaliseNumber(batch.totalAmount ?? 0),
+          recipientCount: 0,
+          splits: [],
+        })),
+      },
+      exports: { latest: null, history: [] },
+    };
+  }
+
+  const monthRevenue = financeOverview.summary?.monthToDateRevenue ?? null;
+  const trackedExpenses = financeOverview.summary?.trackedExpenses ?? null;
+  const savingsRunway = financeOverview.summary?.savingsRunway ?? null;
+  const taxReadyBalance = financeOverview.summary?.taxReadyBalance ?? null;
+  const currency =
+    monthRevenue?.currency ??
+    trackedExpenses?.currency ??
+    savingsRunway?.currency ??
+    taxReadyBalance?.currency ??
+    defaultCurrency;
+
+  const payoutBatch = financeOverview.payoutSplits?.batch ?? null;
+  const payoutEntries = Array.isArray(financeOverview.payoutSplits?.entries)
+    ? financeOverview.payoutSplits.entries
+    : [];
+
+  const payoutTotalAmount = Math.round(sumNumbers(payoutEntries.map((entry) => normaliseNumber(entry.amount, 0))) * 100) / 100;
+  const payoutRecipientCount = payoutEntries.length;
+  const shareOfReleased =
+    payoutTotalAmount > 0 && normaliseNumber(financialSummary.released ?? 0) > 0
+      ? payoutTotalAmount / normaliseNumber(financialSummary.released ?? 0)
+      : 0;
+
+  const topRecipients = payoutEntries
+    .map((entry) => ({
+      id: entry.id,
+      name: entry.teammateName ?? 'Recipient',
+      role: entry.teammateRole ?? 'Contributor',
+      amount: Math.round(normaliseNumber(entry.amount, 0) * 100) / 100,
+      sharePercentage: entry.sharePercentage == null ? null : normaliseNumber(entry.sharePercentage, 0),
+      shareOfBatch:
+        payoutTotalAmount > 0 ? normaliseNumber(entry.amount, 0) / payoutTotalAmount : 0,
+      status: entry.status ?? 'completed',
+      currency: entry.currency ?? entry.currencyCode ?? currency,
+      recipientEmail: entry.recipientEmail ?? null,
+    }))
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 6);
+
+  const roleBuckets = new Map();
+  payoutEntries.forEach((entry) => {
+    const descriptor = normaliseRoleDescriptor(entry.teammateRole ?? 'Contributor');
+    if (!roleBuckets.has(descriptor.key)) {
+      roleBuckets.set(descriptor.key, {
+        role: descriptor.label,
+        amount: 0,
+        recipients: 0,
+      });
+    }
+    const bucket = roleBuckets.get(descriptor.key);
+    bucket.amount += normaliseNumber(entry.amount, 0);
+    bucket.recipients += 1;
+  });
+
+  const roleBreakdown = Array.from(roleBuckets.values())
+    .map((bucket) => ({
+      role: bucket.role,
+      amount: Math.round(bucket.amount * 100) / 100,
+      recipients: bucket.recipients,
+      shareOfBatch: payoutTotalAmount > 0 ? bucket.amount / payoutTotalAmount : 0,
+    }))
+    .sort((a, b) => b.amount - a.amount);
+
+  const splitsByBatch = upcomingSplits.reduce((accumulator, split) => {
+    const list = accumulator.get(split.batchId) ?? [];
+    list.push({
+      id: split.id,
+      teammateName: split.teammateName,
+      teammateRole: split.teammateRole,
+      sharePercentage: split.sharePercentage == null ? null : normaliseNumber(split.sharePercentage, 0),
+      amount: Math.round(normaliseNumber(split.amount, 0) * 100) / 100,
+      currency: split.currencyCode ?? currency,
+      status: split.status ?? 'scheduled',
+      recipientEmail: split.recipientEmail ?? null,
+    });
+    accumulator.set(split.batchId, list);
+    return accumulator;
+  }, new Map());
+
+  const upcoming = upcomingBatches
+    .map((batch) => {
+      const splits = splitsByBatch.get(batch.id) ?? [];
+      return {
+        id: batch.id,
+        name: batch.name,
+        status: batch.status,
+        scheduledAt: batch.scheduledAt ?? null,
+        executedAt: batch.executedAt ?? null,
+        currency: batch.currencyCode ?? currency,
+        totalAmount: Math.round(normaliseNumber(batch.totalAmount ?? 0) * 100) / 100,
+        recipientCount: splits.length,
+        splits: splits.slice(0, 5),
+      };
+    })
+    .sort((a, b) => {
+      const first = a.scheduledAt ? new Date(a.scheduledAt).getTime() : Number.MAX_SAFE_INTEGER;
+      const second = b.scheduledAt ? new Date(b.scheduledAt).getTime() : Number.MAX_SAFE_INTEGER;
+      return first - second;
+    });
+
+  const scheduledTotal = Math.round(sumNumbers(upcoming.map((item) => item.totalAmount)) * 100) / 100;
+
+  const latestPayout = payoutBatch
+    ? {
+        id: payoutBatch.id,
+        name: payoutBatch.name,
+        status: payoutBatch.status,
+        totalAmount: Math.round(normaliseNumber(payoutBatch.totalAmount ?? payoutTotalAmount) * 100) / 100,
+        currency: payoutBatch.currency ?? payoutBatch.currencyCode ?? currency,
+        executedAt: payoutBatch.executedAt ?? null,
+        scheduledAt: payoutBatch.scheduledAt ?? null,
+      }
+    : null;
+
+  const monthToDateRevenue = monthRevenue
+    ? {
+        amount: Math.round(normaliseNumber(monthRevenue.amount, 0) * 100) / 100,
+        previousAmount: Math.round(normaliseNumber(monthRevenue.previousAmount, 0) * 100) / 100,
+        changePercentage:
+          monthRevenue.changePercentage == null
+            ? null
+            : normaliseNumber(monthRevenue.changePercentage, 0),
+        currency: monthRevenue.currency ?? currency,
+      }
+    : null;
+
+  const trackedExpensesSummary = trackedExpenses
+    ? {
+        amount: Math.round(normaliseNumber(trackedExpenses.amount, 0) * 100) / 100,
+        count: normaliseNumber(trackedExpenses.count, 0),
+        currency: trackedExpenses.currency ?? currency,
+      }
+    : null;
+
+  const savingsRunwaySummary = savingsRunway
+    ? {
+        months: savingsRunway.months == null ? null : normaliseNumber(savingsRunway.months, 0),
+        reserveAmount: Math.round(normaliseNumber(savingsRunway.reserveAmount, 0) * 100) / 100,
+        monthlyBurn: savingsRunway.monthlyBurn == null ? null : normaliseNumber(savingsRunway.monthlyBurn, 0),
+        currency: savingsRunway.currency ?? currency,
+      }
+    : null;
+
+  const latestTaxExportRaw = taxReadyBalance?.latestExport ?? null;
+  const latestTaxExport = latestTaxExportRaw
+    ? {
+        id: latestTaxExportRaw.id,
+        exportType: latestTaxExportRaw.exportType,
+        status: latestTaxExportRaw.status,
+        amount: Math.round(normaliseNumber(latestTaxExportRaw.amount, 0) * 100) / 100,
+        currency: latestTaxExportRaw.currency ?? latestTaxExportRaw.currencyCode ?? currency,
+        generatedAt: latestTaxExportRaw.generatedAt ?? null,
+        downloadUrl: latestTaxExportRaw.downloadUrl ?? null,
+      }
+    : null;
+
+  const taxReadyBalanceSummary = taxReadyBalance
+    ? {
+        amount: Math.round(normaliseNumber(taxReadyBalance.amount, 0) * 100) / 100,
+        currency: taxReadyBalance.currency ?? currency,
+        fiscalYear: taxReadyBalance.fiscalYear ?? new Date().getFullYear(),
+        latestExport: latestTaxExport,
+      }
+    : null;
+
+  const exportHistory = (financeOverview.taxExports ?? []).map((record) => ({
+    id: record.id,
+    exportType: record.exportType,
+    status: record.status,
+    periodStart: record.periodStart ?? null,
+    periodEnd: record.periodEnd ?? null,
+    amount: Math.round(normaliseNumber(record.amount, 0) * 100) / 100,
+    currency: record.currency ?? record.currencyCode ?? currency,
+    downloadUrl: record.downloadUrl ?? null,
+    generatedAt: record.generatedAt ?? null,
+  }));
+
+  return {
+    summary: {
+      currency,
+      totalReleased: normaliseNumber(financialSummary.released ?? 0),
+      inEscrow: normaliseNumber(financialSummary.inEscrow ?? 0),
+      outstanding: normaliseNumber(financialSummary.outstanding ?? 0),
+      monthToDateRevenue,
+      trackedExpenses: trackedExpensesSummary,
+      savingsRunway: savingsRunwaySummary,
+      taxReadyBalance: taxReadyBalanceSummary,
+      latestPayout,
+      recipientCount: payoutRecipientCount,
+      shareOfReleased,
+      scheduledTotal,
+      nextScheduledAt: upcoming[0]?.scheduledAt ?? null,
+      generatedAt: financeOverview.generatedAt ?? new Date().toISOString(),
+    },
+    payouts: {
+      latestBatch: latestPayout,
+      totals: {
+        totalAmount: payoutTotalAmount,
+        recipients: payoutRecipientCount,
+        shareOfReleased,
+        currency,
+      },
+      topRecipients,
+      roleBreakdown,
+      upcomingBatches: upcoming,
+    },
+    exports: {
+      latest: latestTaxExport,
+      history: exportHistory,
+    },
+  };
 function startOfQuarter(date) {
   const reference = parseDate(date) ?? new Date();
   const quarterStartMonth = Math.floor(reference.getMonth() / 3) * 3;
@@ -2810,6 +3064,7 @@ export async function getAgencyDashboard({ workspaceId, workspaceSlug, lookbackD
     const lookbackDate = new Date(now.getTime() - parsedLookback * 24 * 60 * 60 * 1000);
 
     const workspaceIdFilter = workspace ? workspace.id : null;
+    const workspaceOwnerId = workspace ? workspace.ownerId : null;
 
     let memberRows = [];
     let inviteRows = [];
@@ -3111,6 +3366,41 @@ export async function getAgencyDashboard({ workspaceId, workspaceSlug, lookbackD
     const payoutSplits = payoutSplitRows.map((row) => row.toPublicObject());
     const financeExports = financeExportRows.map((row) => row.toPublicObject());
 
+    let financeOverview = null;
+    let upcomingPayoutBatchRows = [];
+    let upcomingPayoutSplitRows = [];
+
+    if (workspaceOwnerId) {
+      [financeOverview, upcomingPayoutBatchRows] = await Promise.all([
+        getFinanceControlTowerOverview(workspaceOwnerId, { forceRefresh: true }),
+        FinancePayoutBatch.findAll({
+          where: {
+            userId: workspaceOwnerId,
+            status: { [Op.in]: ['scheduled', 'processing'] },
+            scheduledAt: {
+              [Op.gte]: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000),
+            },
+          },
+          order: [
+            ['scheduledAt', 'ASC'],
+            ['createdAt', 'DESC'],
+          ],
+          limit: 6,
+        }),
+      ]);
+
+      const upcomingBatchIds = upcomingPayoutBatchRows.map((batch) => batch.id).filter((id) => Number.isInteger(id));
+      upcomingPayoutSplitRows = upcomingBatchIds.length
+        ? await FinancePayoutSplit.findAll({
+            where: { batchId: { [Op.in]: upcomingBatchIds } },
+            order: [
+              ['batchId', 'ASC'],
+              ['amount', 'DESC'],
+            ],
+          })
+        : [];
+    }
+
     const agencyProfilePlain = agencyProfile ? agencyProfile.get({ plain: true }) : null;
 
     const formattedProjects = scopedProjects.map((project) => ({
@@ -3144,7 +3434,6 @@ export async function getAgencyDashboard({ workspaceId, workspaceSlug, lookbackD
     const jobSummaries = jobRows.map((job) => toPlain(job));
 
     const gigIds = gigSummaries.map((gig) => gig.id).filter((id) => Number.isInteger(id));
-    const workspaceOwnerId = workspace?.ownerId ?? null;
 
     let payoutBatchRows = [];
     let payoutSplitRows = [];
@@ -3708,6 +3997,13 @@ export async function getAgencyDashboard({ workspaceId, workspaceSlug, lookbackD
       },
     });
 
+    const financeControlTower = buildFinanceControlTower({
+      financialSummary,
+      financeOverview,
+      upcomingBatches: upcomingPayoutBatchRows.map((row) => row.toPublicObject()),
+      upcomingSplits: upcomingPayoutSplitRows.map((row) => row.toPublicObject()),
+    });
+
     const operationsAlerts = [];
 
     (projectPortfolioInsights.projects ?? []).forEach((project) => {
@@ -3848,6 +4144,7 @@ export async function getAgencyDashboard({ workspaceId, workspaceSlug, lookbackD
           jobs: jobSummaries,
         },
       },
+      finance: financeControlTower,
       paymentsDistribution,
     };
 
@@ -3898,6 +4195,7 @@ export async function getAgencyDashboard({ workspaceId, workspaceSlug, lookbackD
         qualityAssurance: qualityWorkflowInsights,
         financialOversight: financialOversightInsights,
       },
+      financeControlTower,
       talentLifecycle: {
         summary: talentLifecycleSummary,
         crm: talentCrm,

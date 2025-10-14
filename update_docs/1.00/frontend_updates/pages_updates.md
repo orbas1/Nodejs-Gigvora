@@ -38,3 +38,9 @@
 - Embedded `LaunchpadPlacementsInsights` to visualise pipeline, placement, interview, and employer brief metrics returned by the new backend dashboard endpoint.
 - Integrated `LaunchpadTalentApplicationForm` and `LaunchpadEmployerRequestForm` grids with smooth scroll focus, allowing talent and employers to complete workflows without leaving the page.
 - Wired dashboard refresh triggers after submissions and employer briefs to keep insights current without a full page reload.
+
+## Agency Dashboard (`src/pages/dashboards/AgencyDashboardPage.jsx`)
+- Replaced the placeholder finance card with a production-grade control tower that renders revenue, escrow, and payout analytics sourced from the finance control tower API payload.
+- Added runway, tax readiness, and compliance export widgets alongside dynamic stat tiles showing month-to-date revenue, scheduled payouts, and latest batch coverage.
+- Surfaced top payout recipients, role allocation heat bars, and upcoming batch breakdowns with split previews so operations teams can validate distribution before execution.
+- Introduced latest payout summary and export history sidebars with contextual badges, relative timestamps, and download links to keep finance, legal, and payroll stakeholders aligned.
