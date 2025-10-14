@@ -4,31 +4,62 @@ import {
   ProviderWorkspaceMember,
   ProviderWorkspace,
 } from '../models/index.js';
+import { AuthenticationError, AuthorizationError } from '../utils/errors.js';
 
 const DEFAULT_SECRET = process.env.JWT_SECRET || 'dev-insecure-secret';
+const HEADER_OVERRIDE_ENABLED = (process.env.AUTH_HEADER_OVERRIDE ?? '').toLowerCase() === 'true';
 
 function extractToken(req) {
-  const header = req.headers?.authorization || req.headers?.Authorization;
-  if (header && header.startsWith('Bearer ')) {
-    return header.slice(7).trim();
+  const header = req.headers?.authorization ?? req.headers?.Authorization;
+  if (typeof header === 'string' && header.trim().toLowerCase().startsWith('bearer ')) {
+    return header.trim().slice('bearer '.length);
   }
-
+  if (Array.isArray(header) && header.length > 0) {
+    return extractToken({ headers: { authorization: header[0] } });
+  }
   if (req.headers?.['x-access-token']) {
-    return `${req.headers['x-access-token']}`.trim();
+    return String(req.headers['x-access-token']);
   }
-
   if (req.cookies?.accessToken) {
-    return `${req.cookies.accessToken}`.trim();
+    return String(req.cookies.accessToken);
   }
-
   if (req.query?.accessToken) {
-    return `${req.query.accessToken}`.trim();
+    return String(req.query.accessToken);
   }
-
   return null;
 }
 
-async function buildRequestUser(user, tokenPayload) {
+function parseHeaderOverride(req) {
+  if (!HEADER_OVERRIDE_ENABLED && process.env.NODE_ENV === 'production') {
+    return null;
+  }
+  const rawId = req.headers?.['x-user-id'] ?? req.headers?.['x-actor-id'];
+  const parsedId = Number.parseInt(rawId, 10);
+  if (!Number.isInteger(parsedId) || parsedId <= 0) {
+    return null;
+  }
+  const rawRoles = req.headers?.['x-roles'] ?? req.headers?.['x-user-roles'];
+  const declaredType = req.headers?.['x-user-type'] ?? req.headers?.['x-session-type'];
+  const roles = new Set();
+  if (rawRoles) {
+    String(rawRoles)
+      .split(',')
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean)
+      .forEach((role) => roles.add(role));
+  }
+  if (declaredType) {
+    roles.add(String(declaredType).trim().toLowerCase());
+  }
+  return {
+    id: parsedId,
+    roles: Array.from(roles),
+    userType: declaredType ? String(declaredType).trim().toLowerCase() : null,
+    source: 'header-override',
+  };
+}
+
+async function hydrateUser(user, payload) {
   if (!user) {
     return null;
   }
@@ -59,13 +90,7 @@ async function buildRequestUser(user, tokenPayload) {
       : null,
   }));
 
-  const permissions = Array.isArray(tokenPayload?.permissions)
-    ? tokenPayload.permissions
-    : [];
-
-  const defaultCompanyMembership = membershipPayload.find(
-    (membership) => membership.workspace?.type === 'company',
-  );
+  const permissions = Array.isArray(payload?.permissions) ? payload.permissions : [];
 
   return {
     id: user.id,
@@ -75,63 +100,65 @@ async function buildRequestUser(user, tokenPayload) {
     userType: user.userType,
     memberships: membershipPayload,
     permissions,
-    companyId: defaultCompanyMembership?.workspaceId ?? null,
   };
 }
 
-export function authenticateRequest({ optional = false } = {}) {
-  return async function authenticateMiddleware(req, res, next) {
-import { User } from '../models/index.js';
-import { AuthorizationError } from '../utils/errors.js';
+async function resolveAuthenticatedUser(req, { optional }) {
+  const token = extractToken(req);
+  if (token) {
+    const payload = jwt.verify(token, DEFAULT_SECRET);
+    if (!payload?.id) {
+      throw new AuthenticationError('Invalid authentication token.');
+    }
+    const user = await User.findByPk(payload.id, {
+      attributes: ['id', 'email', 'firstName', 'lastName', 'userType'],
+    });
+    if (!user) {
+      throw new AuthenticationError('Account not found or inactive.');
+    }
+    return hydrateUser(user, payload);
+  }
 
-function extractToken(req) {
-  const header = req.headers?.authorization ?? req.headers?.Authorization;
-  if (!header) {
+  if (!optional) {
+    const override = parseHeaderOverride(req);
+    if (override) {
+      return override;
+    }
+  } else {
+    const override = parseHeaderOverride(req);
+    if (override) {
+      return override;
+    }
+  }
+
+  if (optional) {
     return null;
   }
-  if (Array.isArray(header)) {
-    return extractToken({ headers: { authorization: header[0] } });
-  }
-  const value = header.trim();
-  if (!value) {
-    return null;
-  }
-  if (value.startsWith('Bearer ')) {
-    return value.slice(7).trim();
-  }
-  return value;
+  throw new AuthenticationError('Authentication required.');
 }
 
-export function authenticate({ optional = false } = {}) {
-  return async function authenticateRequest(req, _res, next) {
+export function authenticateRequest({ optional = false } = {}) {
+  return async function authenticationMiddleware(req, res, next) {
     try {
-      const token = extractToken(req);
-      if (!token) {
-        if (optional) {
-          return next();
-        }
-        return res.status(401).json({ message: 'Authentication required.' });
+      const user = await resolveAuthenticatedUser(req, { optional });
+      if (!user && !optional) {
+        throw new AuthenticationError('Authentication required.');
       }
-
-      const payload = jwt.verify(token, DEFAULT_SECRET);
-      const user = await User.findByPk(payload.id, {
-        attributes: ['id', 'email', 'firstName', 'lastName', 'userType'],
-      });
-
-      if (!user) {
-        if (optional) {
-          return next();
-        }
-        return res.status(401).json({ message: 'Authentication required.' });
+      if (user) {
+        req.user = user;
       }
-
-      req.user = await buildRequestUser(user, payload);
       return next();
     } catch (error) {
-      if (optional && (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError')) {
+      if (optional && (error instanceof AuthenticationError || error instanceof AuthorizationError)) {
         return next();
       }
+      if (error instanceof AuthenticationError || error instanceof AuthorizationError) {
+        return res.status(401).json({ message: error.message });
+      }
       if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+        if (optional) {
+          return next();
+        }
         return res.status(401).json({ message: 'Authentication required.' });
       }
       return next(error);
@@ -139,179 +166,44 @@ export function authenticate({ optional = false } = {}) {
   };
 }
 
-export default authenticateRequest;
-        throw new AuthorizationError('Authentication required');
-      }
-
-      const payload = jwt.verify(token, process.env.JWT_SECRET);
-      if (!payload?.id) {
-        throw new AuthorizationError('Invalid authentication token');
-      }
-
-      const user = await User.findByPk(payload.id, {
-        attributes: ['id', 'firstName', 'lastName', 'email', 'userType'],
-      });
-      if (!user) {
-        throw new AuthorizationError('Account not found or inactive');
-import { User, FreelancerProfile } from '../models/index.js';
-import { AuthenticationError, AuthorizationError } from '../utils/errors.js';
-
-function normaliseRole(value) {
-  if (!value) return null;
-  return `${value}`.trim().toLowerCase().replace(/\s+/g, '-');
+export function authenticate(options = {}) {
+  return authenticateRequest(options);
 }
 
-function parseHeaderRoles(headerValue) {
-  if (!headerValue) return [];
-  return `${headerValue}`
-    .split(',')
-    .map(normaliseRole)
-    .filter(Boolean);
+function extractRoleSet(user) {
+  const roles = new Set();
+  if (!user) {
+    return roles;
+  }
+  if (Array.isArray(user.roles)) {
+    user.roles.map((role) => String(role).toLowerCase()).forEach((role) => roles.add(role));
+  }
+  if (user.userType) {
+    roles.add(String(user.userType).toLowerCase());
+  }
+  if (Array.isArray(user.memberships)) {
+    user.memberships
+      .map((membership) => membership.role)
+      .filter(Boolean)
+      .map((role) => String(role).toLowerCase())
+      .forEach((role) => roles.add(role));
+  }
+  return roles;
 }
 
-const HEADER_OVERRIDE_ENABLED = (process.env.AUTH_HEADER_OVERRIDE ?? '').toLowerCase() === 'true';
-
-export function authenticate({ optional = false } = {}) {
-  return async function authenticateMiddleware(req, _res, next) {
-    const authHeader = req.headers?.authorization;
-    const token = authHeader?.startsWith('Bearer ')
-      ? authHeader.slice('Bearer '.length).trim()
-      : null;
-
-    if (!token) {
-      const allowHeaderFallback =
-        HEADER_OVERRIDE_ENABLED || (process.env.NODE_ENV !== 'production' && process.env.AUTH_HEADER_OVERRIDE !== 'false');
-
-      if (allowHeaderFallback) {
-        const headerUserId = req.headers?.['x-user-id'] ?? req.headers?.['x-actor-id'];
-        const parsedUserId = Number.parseInt(headerUserId, 10);
-        if (Number.isInteger(parsedUserId) && parsedUserId > 0) {
-          const roles = new Set(parseHeaderRoles(req.headers?.['x-roles'] ?? req.headers?.['x-user-roles']));
-          const declaredType = req.headers?.['x-user-type'] ?? req.headers?.['x-session-type'];
-          if (declaredType) {
-            roles.add(normaliseRole(declaredType));
-          }
-          req.user = {
-            id: parsedUserId,
-            type: declaredType ? normaliseRole(declaredType) : null,
-            roles: Array.from(roles.values()).filter(Boolean),
-            source: 'header-override',
-          };
-          return next();
-        }
-      }
-
-      if (optional) {
-        return next();
-      }
-
-      return next(new AuthenticationError('Authentication token is required.'));
-    }
-
-    try {
-      const payload = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await User.findByPk(payload.id, { attributes: ['id', 'userType'] });
-      if (!user) {
-        throw new AuthenticationError('The authenticated user could not be resolved.');
-      }
-
-      const roles = new Set();
-      if (payload.type) {
-        roles.add(normaliseRole(payload.type));
-      }
-      if (Array.isArray(payload.roles)) {
-        payload.roles.map(normaliseRole).forEach((role) => role && roles.add(role));
-      }
-      if (user.userType) {
-        roles.add(normaliseRole(user.userType));
-      }
-
-      if (!roles.has('freelancer')) {
-        const freelancerProfile = await FreelancerProfile.findOne({
-          where: { userId: user.id },
-          attributes: ['id'],
-        });
-        if (freelancerProfile) {
-          roles.add('freelancer');
-        }
-      }
-
-      req.user = {
-        id: user.id,
-        userType: user.userType,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-      };
-
-      return next();
-    } catch (error) {
-      if (optional && error instanceof AuthorizationError) {
-        return next();
-      }
-      return next(
-        error instanceof AuthorizationError
-          ? error
-          : new AuthorizationError('Authentication failed'),
-      );
-    }
-  };
-}
-
-export function requireRoles(...roles) {
-  const allowed = roles.filter(Boolean);
-  return function enforceRole(req, _res, next) {
-    if (!req.user) {
-      return next(new AuthorizationError('Authentication required'));
-    }
-    if (allowed.length && !allowed.includes(req.user.userType)) {
-      return next(new AuthorizationError('You do not have permission to perform this action.'));
-    }
-        type: normaliseRole(user.userType),
-        roles: Array.from(roles.values()).filter(Boolean),
-        source: 'bearer-token',
-      };
-      return next();
-    } catch (error) {
-      const message =
-        error instanceof AuthenticationError || error.name === 'JsonWebTokenError'
-          ? 'Invalid or expired authentication token.'
-          : 'Unable to authenticate request.';
-      return next(new AuthenticationError(message, { cause: error instanceof Error ? error.message : String(error) }));
-    }
-  };
-}
-
-export function requireRoles(allowedRoles = []) {
-  const required = allowedRoles.map(normaliseRole).filter(Boolean);
+export function requireRoles(...allowedRoles) {
+  const normalized = allowedRoles.flat().map((role) => String(role).toLowerCase());
   return function requireRolesMiddleware(req, _res, next) {
-    if (!req.user) {
-      return next(new AuthenticationError('Authentication is required for this action.'));
-    }
-    if (required.length === 0) {
+    if (!normalized.length) {
       return next();
     }
-
-    const availableRoles = new Set((req.user.roles ?? []).map(normaliseRole).filter(Boolean));
-    if (req.user.type) {
-      availableRoles.add(normaliseRole(req.user.type));
-    }
-
-    const hasRole = required.some((role) => availableRoles.has(role));
+    const roles = extractRoleSet(req.user);
+    const hasRole = normalized.some((role) => roles.has(role));
     if (!hasRole) {
-      return next(
-        new AuthorizationError('You do not have the required permissions to access this workspace.', {
-          required,
-          available: Array.from(availableRoles),
-        }),
-      );
+      return next(new AuthorizationError('You do not have permission to access this resource.'));
     }
-
     return next();
   };
 }
 
-export default {
-  authenticate,
-  requireRoles,
-};
+export default authenticateRequest;

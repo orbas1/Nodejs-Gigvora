@@ -231,13 +231,7 @@ function sanitizeProjectEvent(event, targetMap) {
   };
 }
 
-function compileSummary({
-  projects,
-  queueEntries,
-  gigs,
-  transactions,
-  assignmentMetric,
-}) {
+function compileSummary({ projects, queueEntries, transactions, assignmentMetric }) {
   const activeProjects = projects.filter((project) =>
     ACTIVE_PROJECT_STATUSES.has(project.status ?? ''),
   );
@@ -485,7 +479,6 @@ export async function getFreelancerDashboard(
   const summary = compileSummary({
     projects,
     queueEntries,
-    gigs: gigsRaw.map((gig) => toPlainTarget(gig)),
     transactions,
     assignmentMetric: assignmentMetric?.toPublicObject?.() ?? assignmentMetric?.get?.({ plain: true }),
   });

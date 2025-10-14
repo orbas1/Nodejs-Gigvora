@@ -219,7 +219,7 @@ async function ensureUserExists(userId, { transaction } = {}) {
   return user;
 }
 
-export async function createClientPortal(input = {}, { actorId } = {}) {
+export async function createClientPortal(input = {}) {
   const projectId = parseInteger(input.projectId, { field: 'projectId', allowNull: false });
   const ownerId = input.ownerId == null ? null : parseInteger(input.ownerId, { field: 'ownerId' });
   const title = typeof input.title === 'string' ? input.title.trim() : '';
@@ -266,7 +266,7 @@ export async function createClientPortal(input = {}, { actorId } = {}) {
   });
 }
 
-export async function updateClientPortal(portalId, input = {}, { actorId } = {}) {
+export async function updateClientPortal(portalId, input = {}) {
   const id = parseInteger(portalId, { field: 'portalId', allowNull: false });
   return sequelize.transaction(async (transaction) => {
     const portal = await ClientPortal.findByPk(id, { transaction });
@@ -344,7 +344,7 @@ export async function updateClientPortal(portalId, input = {}, { actorId } = {})
   });
 }
 
-export async function addTimelineEvent(portalId, input = {}, { actorId } = {}) {
+export async function addTimelineEvent(portalId, input = {}) {
   const id = parseInteger(portalId, { field: 'portalId', allowNull: false });
   const title = typeof input.title === 'string' ? input.title.trim() : '';
   if (!title) {

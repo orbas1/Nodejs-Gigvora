@@ -1,45 +1,4 @@
-import { getFreelancerDashboard } from '../services/freelancerDashboardService.js';
-import { ValidationError } from '../utils/errors.js';
-
-function parseNumber(value) {
-  if (value == null) {
-    return undefined;
-  }
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : undefined;
-}
-
-export async function dashboard(req, res) {
-  const { freelancerId } = req.query ?? {};
-  const id = parseNumber(freelancerId);
-
-  if (!id) {
-    throw new ValidationError('freelancerId query parameter is required.');
-  }
-
-  const payload = await getFreelancerDashboard(id, {
-    bypassCache: req.query.fresh === 'true',
-  });
-
-  res.json(payload);
-}
-
-export default {
-  dashboard,
-};
-
 import { getFreelancerSpotlight } from '../services/communitySpotlightService.js';
-
-export async function communitySpotlight(req, res) {
-  const { freelancerId } = req.params;
-  const { profileId, includeDraft } = req.query ?? {};
-
-  const result = await getFreelancerSpotlight({
-    userId: freelancerId,
-    profileId,
-    includeDraft: includeDraft === 'true',
-  });
-
 import {
   getFreelancerOrderPipeline,
   createFreelancerOrder,
@@ -51,35 +10,81 @@ import {
   createEscrowCheckpoint,
   updateEscrowCheckpoint,
 } from '../services/freelancerOrderPipelineService.js';
-
-function toOptionalNumber(value) {
-import { getFreelancerDashboard } from '../services/freelancerService.js';
+import freelancerPurchasedGigService from '../services/freelancerPurchasedGigService.js';
+import { getFreelancerDashboard as getFreelancerSummary } from '../services/freelancerService.js';
 import {
   createGigBlueprint,
   updateGigBlueprint,
   publishGig,
   getGigDetail,
 } from '../services/gigService.js';
+import { ValidationError } from '../utils/errors.js';
 
-function parseNumber(value) {
+function parsePositiveInteger(value) {
   if (value == null || value === '') {
     return undefined;
   }
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : undefined;
+
+  const numeric = Number.parseInt(value, 10);
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : undefined;
+}
+
+function requireFreelancerId(value) {
+  const parsed = parsePositiveInteger(value);
+
+  if (!parsed) {
+    throw new ValidationError('freelancerId must be a positive integer.');
+  }
+
+  return parsed;
+}
+
+export async function dashboard(req, res) {
+  const { freelancerId, actorId, limit } = req.query ?? {};
+  const resolvedId = requireFreelancerId(freelancerId ?? actorId);
+  const limitGigs = parsePositiveInteger(limit) ?? 10;
+
+  const payload = await getFreelancerSummary({
+    freelancerId: resolvedId,
+    limitGigs,
+  });
+
+  res.json(payload);
+}
+
+export async function communitySpotlight(req, res) {
+  const { freelancerId } = req.params;
+  const { profileId, includeDraft } = req.query ?? {};
+
+  const spotlight = await getFreelancerSpotlight({
+    userId: requireFreelancerId(freelancerId),
+    profileId,
+    includeDraft: includeDraft === 'true',
+  });
+
+  res.json(spotlight);
 }
 
 export async function orderPipeline(req, res) {
   const { freelancerId, lookbackDays } = req.query ?? {};
-  const result = await getFreelancerOrderPipeline(freelancerId, { lookbackDays });
-  res.json(result);
+
+  const pipeline = await getFreelancerOrderPipeline(requireFreelancerId(freelancerId), {
+    lookbackDays: parsePositiveInteger(lookbackDays),
+  });
+
+  res.json(pipeline);
 }
 
 export async function createOrder(req, res) {
-  const payload = req.body ?? {};
-  if (payload.freelancerId == null) {
-    payload.freelancerId = toOptionalNumber(req.query?.freelancerId) ?? payload.freelancerId;
+  const payload = req.body ? { ...req.body } : {};
+  const { freelancerId } = req.query ?? {};
+
+  payload.freelancerId = payload.freelancerId ?? parsePositiveInteger(freelancerId);
+
+  if (!payload.freelancerId) {
+    throw new ValidationError('freelancerId is required to create an order.');
   }
+
   const result = await createFreelancerOrder(payload);
   res.status(201).json(result);
 }
@@ -126,36 +131,19 @@ export async function updateOrderEscrowCheckpoint(req, res) {
   res.json(result);
 }
 
-export default {
-  communitySpotlight,
-  orderPipeline,
-  createOrder,
-  updateOrder,
-  createOrderRequirement,
-  updateOrderRequirement,
-  createOrderRevision,
-  updateOrderRevision,
-  createOrderEscrowCheckpoint,
-  updateOrderEscrowCheckpoint,
-export async function dashboard(req, res) {
-  const { freelancerId, limit, actorId } = req.query ?? {};
-  const normalizedId = parseNumber(freelancerId ?? actorId);
-  const limitGigs = parseNumber(limit) ?? 10;
-  const data = await getFreelancerDashboard({ freelancerId: normalizedId, limitGigs });
-  res.json(data);
-}
-
 export async function createGig(req, res) {
-  const payload = req.body ?? {};
-  const actorId = parseNumber(payload.actorId ?? payload.ownerId);
+  const payload = req.body ? { ...req.body } : {};
+  const actorId = parsePositiveInteger(payload.actorId ?? payload.ownerId);
+
   const gig = await createGigBlueprint(payload, { actorId });
   res.status(201).json(gig);
 }
 
 export async function updateGig(req, res) {
   const { gigId } = req.params;
-  const payload = req.body ?? {};
-  const actorId = parseNumber(payload.actorId ?? payload.ownerId);
+  const payload = req.body ? { ...req.body } : {};
+  const actorId = parsePositiveInteger(payload.actorId ?? payload.ownerId);
+
   const gig = await updateGigBlueprint(gigId, payload, { actorId });
   res.json(gig);
 }
@@ -163,8 +151,13 @@ export async function updateGig(req, res) {
 export async function publish(req, res) {
   const { gigId } = req.params;
   const payload = req.body ?? {};
-  const actorId = parseNumber(payload.actorId ?? payload.ownerId);
-  const gig = await publishGig(gigId, { actorId, visibility: payload.visibility });
+  const actorId = parsePositiveInteger(payload.actorId ?? payload.ownerId);
+
+  const gig = await publishGig(gigId, {
+    actorId,
+    visibility: payload.visibility,
+  });
+
   res.json(gig);
 }
 
@@ -174,18 +167,11 @@ export async function show(req, res) {
   res.json(gig);
 }
 
-export default {
-  dashboard,
-  createGig,
-  updateGig,
-  publish,
-  show,
-import freelancerPurchasedGigService from '../services/freelancerPurchasedGigService.js';
-
 export async function getPurchasedGigWorkspace(req, res) {
   const { id } = req.params;
+
   const dashboard = await freelancerPurchasedGigService.getFreelancerPurchasedGigDashboard(id, {
-    bypassCache: req.query.fresh === 'true',
+    bypassCache: req.query?.fresh === 'true',
   });
 
   if (!dashboard.freelancer) {
@@ -196,5 +182,20 @@ export async function getPurchasedGigWorkspace(req, res) {
 }
 
 export default {
+  dashboard,
+  communitySpotlight,
+  orderPipeline,
+  createOrder,
+  updateOrder,
+  createOrderRequirement,
+  updateOrderRequirement,
+  createOrderRevision,
+  updateOrderRevision,
+  createOrderEscrowCheckpoint,
+  updateOrderEscrowCheckpoint,
+  createGig,
+  updateGig,
+  publish,
+  show,
   getPurchasedGigWorkspace,
 };

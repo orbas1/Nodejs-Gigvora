@@ -83,19 +83,26 @@ export default function useSavedSearches({ enabled = true } = {}) {
 
   const [localItems, setLocalItems] = useState(() => (canUseServer ? [] : readLocalSavedSearches()));
 
+  const { data, error, loading, refresh } = savedState;
+
   useEffect(() => {
     if (!canUseServer) {
       setLocalItems(readLocalSavedSearches());
     }
   }, [canUseServer]);
 
-  const items = canUseServer ? savedState.data?.items ?? [] : localItems;
+  const items = useMemo(() => {
+    const remote = data?.items ?? [];
+    return canUseServer ? remote : localItems;
+  }, [canUseServer, data, localItems]);
+
+  const refreshSaved = useCallback((options) => refresh(options), [refresh]);
 
   const createSavedSearch = useCallback(
     async (payload) => {
       if (canUseServer) {
         const created = await apiClient.post('/search/subscriptions', payload, { headers: actorHeaders });
-        await savedState.refresh({ force: true });
+        await refreshSaved({ force: true });
         return created;
       }
 
@@ -117,23 +124,25 @@ export default function useSavedSearches({ enabled = true } = {}) {
       writeLocalSavedSearches(next);
       return next[next.length - 1];
     },
-    [actorHeaders, canUseServer, items, savedState],
+    [actorHeaders, canUseServer, items, refreshSaved],
   );
 
   const updateSavedSearch = useCallback(
     async (id, changes) => {
       if (canUseServer) {
         const updated = await apiClient.patch(`/search/subscriptions/${id}`, changes, { headers: actorHeaders });
-        await savedState.refresh({ force: true });
+        await refreshSaved({ force: true });
         return updated;
       }
 
-      const next = items.map((item) => (item.id === id ? { ...item, ...changes, updatedAt: new Date().toISOString() } : item));
+      const next = items.map((item) =>
+        item.id === id ? { ...item, ...changes, updatedAt: new Date().toISOString() } : item,
+      );
       setLocalItems(next);
       writeLocalSavedSearches(next);
       return next.find((item) => item.id === id) ?? null;
     },
-    [actorHeaders, canUseServer, items, savedState],
+    [actorHeaders, canUseServer, items, refreshSaved],
   );
 
   const deleteSavedSearch = useCallback(
@@ -141,21 +150,21 @@ export default function useSavedSearches({ enabled = true } = {}) {
       const id = typeof target === 'object' ? target.id : target;
       if (canUseServer) {
         await apiClient.delete(`/search/subscriptions/${id}`, { headers: actorHeaders });
-        await savedState.refresh({ force: true });
+        await refreshSaved({ force: true });
         return;
       }
       const next = items.filter((item) => item.id !== id);
       setLocalItems(next);
       writeLocalSavedSearches(next);
     },
-    [actorHeaders, canUseServer, items, savedState],
+    [actorHeaders, canUseServer, items, refreshSaved],
   );
 
   return {
     items,
-    loading: canUseServer ? savedState.loading : false,
-    error: canUseServer ? savedState.error : null,
-    refresh: savedState.refresh,
+    loading: canUseServer ? loading : false,
+    error: canUseServer ? error : null,
+    refresh: refreshSaved,
     createSavedSearch,
     updateSavedSearch,
     deleteSavedSearch,

@@ -1,5 +1,45 @@
 import { Op } from 'sequelize';
-import {
+
+import * as models from '../models/index.js';
+import { MessageThread, Message } from '../models/messagingModels.js';
+import { appCache, buildCacheKey } from '../utils/cache.js';
+import { ValidationError, NotFoundError } from '../utils/errors.js';
+import { buildLocationDetails } from '../utils/location.js';
+
+import { getAdDashboardSnapshot } from './adService.js';
+
+function withDefaultModel(model) {
+  if (model) {
+    return model;
+  }
+
+  return {
+    async findAll() {
+      return [];
+    },
+    async findOne() {
+      return null;
+    },
+    async count() {
+      return 0;
+    },
+    async create() {
+      return null;
+    },
+    async bulkCreate() {
+      return [];
+    },
+  };
+}
+
+function safeFindAll(model, options = {}) {
+  if (!model?.findAll) {
+    return Promise.resolve([]);
+  }
+  return model.findAll(options);
+}
+
+const {
   ProviderWorkspace,
   ProviderWorkspaceMember,
   ProviderWorkspaceInvite,
@@ -30,50 +70,103 @@ import {
   JobApprovalWorkflow,
   JobCampaignPerformance,
   PartnerEngagement,
-  PartnerAgreement,
-  PartnerCommission,
-  PartnerSlaSnapshot,
-  PartnerCollaborationEvent,
-  RecruitingCalendarEvent,
+  PartnerAgreement: PartnerAgreementRaw,
+  PartnerCommission: PartnerCommissionRaw,
+  PartnerSlaSnapshot: PartnerSlaSnapshotRaw,
+  PartnerCollaborationEvent: PartnerCollaborationEventRaw,
+  RecruitingCalendarEvent: RecruitingCalendarEventRaw,
   EmployerBrandAsset,
-  EmployerBrandSection,
-  EmployerBrandCampaign,
-  EmployerBrandStory,
-  EmployerBenefit,
-  WorkforceAnalyticsSnapshot,
-  WorkforceCohortMetric,
-  InternalJobPosting,
-  EmployeeReferral,
-  CareerPathingPlan,
-  CompliancePolicy,
-  ComplianceAuditLog,
-  AccessibilityAudit,
-  HeadhunterInvite,
-  HeadhunterBrief,
-  HeadhunterBriefAssignment,
-  HeadhunterPerformanceSnapshot,
-  HeadhunterCommission,
-  TalentPool,
-  TalentPoolMember,
-  TalentPoolEngagement,
-  AgencyCollaboration,
-  AgencyCollaborationInvitation,
-  AgencyRateCard,
-  AgencyRateCardItem,
-  AgencySlaSnapshot,
-  AgencyBillingEvent,
-  EmployeeJourneyProgram,
-  NetworkingSession,
-  NetworkingSessionSignup,
-  NetworkingBusinessCard,
-  WorkspaceIntegration,
-  WorkspaceCalendarConnection,
-} from '../models/index.js';
-import { MessageThread } from '../models/messagingModels.js';
-import { appCache, buildCacheKey } from '../utils/cache.js';
-import { ValidationError, NotFoundError } from '../utils/errors.js';
-import { buildLocationDetails } from '../utils/location.js';
-import { getAdDashboardSnapshot } from './adService.js';
+  EmployerBrandSection: EmployerBrandSectionRaw,
+  EmployerBrandCampaign: EmployerBrandCampaignRaw,
+  EmployerBrandStory: EmployerBrandStoryRaw,
+  EmployerBenefit: EmployerBenefitRaw,
+  WorkforceAnalyticsSnapshot: WorkforceAnalyticsSnapshotRaw,
+  WorkforceCohortMetric: WorkforceCohortMetricRaw,
+  InternalJobPosting: InternalJobPostingRaw,
+  EmployeeReferral: EmployeeReferralRaw,
+  CareerPathingPlan: CareerPathingPlanRaw,
+  CompliancePolicy: CompliancePolicyRaw,
+  ComplianceAuditLog: ComplianceAuditLogRaw,
+  AccessibilityAudit: AccessibilityAuditRaw,
+  HeadhunterInvite: HeadhunterInviteRaw,
+  HeadhunterBrief: HeadhunterBriefRaw,
+  HeadhunterBriefAssignment: HeadhunterBriefAssignmentRaw,
+  HeadhunterPerformanceSnapshot: HeadhunterPerformanceSnapshotRaw,
+  HeadhunterCommission: HeadhunterCommissionRaw,
+  TalentPool: TalentPoolRaw,
+  TalentPoolMember: TalentPoolMemberRaw,
+  TalentPoolEngagement: TalentPoolEngagementRaw,
+  AgencyCollaboration: AgencyCollaborationRaw,
+  AgencyCollaborationInvitation: AgencyCollaborationInvitationRaw,
+  AgencyRateCard: AgencyRateCardRaw,
+  AgencyRateCardItem: AgencyRateCardItemRaw,
+  AgencySlaSnapshot: AgencySlaSnapshotRaw,
+  AgencyBillingEvent: AgencyBillingEventRaw,
+  EmployeeJourneyProgram: EmployeeJourneyProgramRaw,
+  NetworkingSession: NetworkingSessionRaw,
+  NetworkingSessionSignup: NetworkingSessionSignupRaw,
+  NetworkingBusinessCard: NetworkingBusinessCardRaw,
+  WorkspaceIntegration: WorkspaceIntegrationRaw,
+  WorkspaceCalendarConnection: WorkspaceCalendarConnectionRaw,
+} = models;
+
+const EmployerBrandAssetModel = withDefaultModel(EmployerBrandAsset);
+const EmployerBrandSectionModel = withDefaultModel(EmployerBrandSectionRaw);
+const EmployerBrandCampaignModel = withDefaultModel(EmployerBrandCampaignRaw);
+const EmployerBrandStoryModel = withDefaultModel(EmployerBrandStoryRaw);
+const EmployerBenefitModel = withDefaultModel(EmployerBenefitRaw);
+const InterviewPanelTemplateModel = withDefaultModel(InterviewPanelTemplate);
+const InterviewScheduleModel = withDefaultModel(InterviewSchedule);
+const InterviewerAvailabilityModel = withDefaultModel(InterviewerAvailability);
+const InterviewReminderModel = withDefaultModel(InterviewReminder);
+const CandidatePrepPortalModel = withDefaultModel(CandidatePrepPortal);
+const InterviewEvaluationModel = withDefaultModel(InterviewEvaluation);
+const EvaluationCalibrationSessionModel = withDefaultModel(EvaluationCalibrationSession);
+const DecisionTrackerModel = withDefaultModel(DecisionTracker);
+const OfferPackageModel = withDefaultModel(OfferPackage);
+const OnboardingTaskModel = withDefaultModel(OnboardingTask);
+const CandidateCareTicketModel = withDefaultModel(CandidateCareTicket);
+const ApplicationModel = withDefaultModel(Application);
+const ApplicationReviewModel = withDefaultModel(ApplicationReview);
+const HiringAlertModel = withDefaultModel(HiringAlert);
+const CandidateDemographicSnapshotModel = withDefaultModel(CandidateDemographicSnapshot);
+const CandidateSatisfactionSurveyModel = withDefaultModel(CandidateSatisfactionSurvey);
+const JobStageModel = withDefaultModel(JobStage);
+const JobApprovalWorkflowModel = withDefaultModel(JobApprovalWorkflow);
+const JobCampaignPerformanceModel = withDefaultModel(JobCampaignPerformance);
+const PartnerEngagementModel = withDefaultModel(PartnerEngagement);
+const WorkforceAnalyticsSnapshotModel = withDefaultModel(WorkforceAnalyticsSnapshotRaw);
+const WorkforceCohortMetricModel = withDefaultModel(WorkforceCohortMetricRaw);
+const InternalJobPostingModel = withDefaultModel(InternalJobPostingRaw);
+const EmployeeReferralModel = withDefaultModel(EmployeeReferralRaw);
+const CareerPathingPlanModel = withDefaultModel(CareerPathingPlanRaw);
+const CompliancePolicyModel = withDefaultModel(CompliancePolicyRaw);
+const ComplianceAuditLogModel = withDefaultModel(ComplianceAuditLogRaw);
+const AccessibilityAuditModel = withDefaultModel(AccessibilityAuditRaw);
+const HeadhunterInviteModel = withDefaultModel(HeadhunterInviteRaw);
+const HeadhunterBriefModel = withDefaultModel(HeadhunterBriefRaw);
+const HeadhunterBriefAssignmentModel = withDefaultModel(HeadhunterBriefAssignmentRaw);
+const HeadhunterPerformanceSnapshotModel = withDefaultModel(HeadhunterPerformanceSnapshotRaw);
+const HeadhunterCommissionModel = withDefaultModel(HeadhunterCommissionRaw);
+const TalentPoolModel = withDefaultModel(TalentPoolRaw);
+const TalentPoolMemberModel = withDefaultModel(TalentPoolMemberRaw);
+const TalentPoolEngagementModel = withDefaultModel(TalentPoolEngagementRaw);
+const AgencyCollaborationModel = withDefaultModel(AgencyCollaborationRaw);
+const AgencyCollaborationInvitationModel = withDefaultModel(AgencyCollaborationInvitationRaw);
+const AgencyRateCardModel = withDefaultModel(AgencyRateCardRaw);
+const AgencySlaSnapshotModel = withDefaultModel(AgencySlaSnapshotRaw);
+const AgencyBillingEventModel = withDefaultModel(AgencyBillingEventRaw);
+const EmployeeJourneyProgramModel = withDefaultModel(EmployeeJourneyProgramRaw);
+const NetworkingSessionModel = withDefaultModel(NetworkingSessionRaw);
+const NetworkingSessionSignupModel = withDefaultModel(NetworkingSessionSignupRaw);
+const NetworkingBusinessCardModel = withDefaultModel(NetworkingBusinessCardRaw);
+const WorkspaceIntegrationModel = withDefaultModel(WorkspaceIntegrationRaw);
+const WorkspaceCalendarConnectionModel = withDefaultModel(WorkspaceCalendarConnectionRaw);
+const PartnerAgreementModel = withDefaultModel(PartnerAgreementRaw);
+const PartnerCommissionModel = withDefaultModel(PartnerCommissionRaw);
+const PartnerSlaSnapshotModel = withDefaultModel(PartnerSlaSnapshotRaw);
+const PartnerCollaborationEventModel = withDefaultModel(PartnerCollaborationEventRaw);
+const RecruitingCalendarEventModel = withDefaultModel(RecruitingCalendarEventRaw);
 
 const CACHE_NAMESPACE = 'dashboard:company';
 const CACHE_TTL_SECONDS = 45;
@@ -322,10 +415,21 @@ function toPlain(record) {
   return record?.get ? record.get({ plain: true }) : record;
 }
 
-function safeNumber(value) {
-  if (value == null) return null;
+function safeNumber(value, precision = null, fallback = 0) {
+  if (value == null) {
+    return fallback;
+  }
+
   const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : null;
+  if (!Number.isFinite(numeric)) {
+    return fallback;
+  }
+
+  if (precision == null) {
+    return numeric;
+  }
+
+  return Number(numeric.toFixed(precision));
 }
 
 function sumBy(items, selector) {
@@ -333,6 +437,8 @@ function sumBy(items, selector) {
     const value = selector(item);
     return total + (Number.isFinite(value) ? value : 0);
   }, 0);
+}
+
 function toDateKey(value) {
   if (!value) return null;
   const date = new Date(value);
@@ -340,6 +446,8 @@ function toDateKey(value) {
     return null;
   }
   return date.toISOString().slice(0, 10);
+}
+
 function normalizeStageKey(value) {
   if (value == null) {
     return null;
@@ -691,7 +799,7 @@ async function fetchNotes(workspaceId) {
 }
 
 async function fetchEmployerBrandSections({ workspaceId }) {
-  return EmployerBrandSection.findAll({
+  return EmployerBrandSectionModel.findAll({
     where: {
       workspaceId,
       status: 'published',
@@ -709,7 +817,7 @@ async function fetchEmployerBrandCampaigns({ workspaceId, since }) {
   if (since) {
     where.startsAt = { [Op.gte]: since };
   }
-  return EmployerBrandCampaign.findAll({
+  return EmployerBrandCampaignModel.findAll({
     where,
     order: [
       ['status', 'DESC'],
@@ -723,14 +831,14 @@ async function fetchWorkforceSnapshots({ workspaceId, since }) {
   if (since) {
     where.capturedAt = { [Op.gte]: since };
   }
-  return WorkforceAnalyticsSnapshot.findAll({
+  return safeFindAll(WorkforceAnalyticsSnapshotModel, {
     where,
     order: [['capturedAt', 'DESC']],
   });
 }
 
 async function fetchWorkforceCohorts({ workspaceId }) {
-  return WorkforceCohortMetric.findAll({
+  return safeFindAll(WorkforceCohortMetricModel, {
     where: { workspaceId },
     order: [
       ['periodStart', 'DESC'],
@@ -744,7 +852,7 @@ async function fetchInternalJobPostings({ workspaceId, since }) {
   if (since) {
     where.postedAt = { [Op.gte]: since };
   }
-  return InternalJobPosting.findAll({
+  return safeFindAll(InternalJobPostingModel, {
     where,
     order: [
       ['status', 'ASC'],
@@ -758,7 +866,7 @@ async function fetchEmployeeReferrals({ workspaceId, since }) {
   if (since) {
     where.createdAt = { [Op.gte]: since };
   }
-  return EmployeeReferral.findAll({
+  return safeFindAll(EmployeeReferralModel, {
     where,
     include: [{ model: User, as: 'referrer', attributes: ['id', 'firstName', 'lastName'] }],
     order: [['createdAt', 'DESC']],
@@ -766,7 +874,7 @@ async function fetchEmployeeReferrals({ workspaceId, since }) {
 }
 
 async function fetchCareerPlans({ workspaceId }) {
-  return CareerPathingPlan.findAll({
+  return safeFindAll(CareerPathingPlanModel, {
     where: { workspaceId },
     include: [{ model: User, as: 'employee', attributes: ['id', 'firstName', 'lastName'] }],
     order: [['updatedAt', 'DESC']],
@@ -774,7 +882,7 @@ async function fetchCareerPlans({ workspaceId }) {
 }
 
 async function fetchCompliancePolicies({ workspaceId }) {
-  return CompliancePolicy.findAll({
+  return safeFindAll(CompliancePolicyModel, {
     where: { workspaceId },
     include: [{ model: User, as: 'owner', attributes: ['id', 'firstName', 'lastName'] }],
     order: [['policyArea', 'ASC']],
@@ -786,7 +894,7 @@ async function fetchComplianceAudits({ workspaceId, since }) {
   if (since) {
     where.openedAt = { [Op.gte]: since };
   }
-  return ComplianceAuditLog.findAll({
+  return safeFindAll(ComplianceAuditLogModel, {
     where,
     order: [['openedAt', 'DESC']],
   });
@@ -797,7 +905,7 @@ async function fetchAccessibilityAudits({ workspaceId, since }) {
   if (since) {
     where.lastRunAt = { [Op.gte]: since };
   }
-  return AccessibilityAudit.findAll({
+  return safeFindAll(AccessibilityAuditModel, {
     where,
     order: [['lastRunAt', 'DESC']],
   });
@@ -814,7 +922,7 @@ async function fetchApplications({ workspaceId, since }) {
 
   // We do not yet store a direct foreign key to the company workspace on applications.
   // As a pragmatic interim, we scope by metadata.workspaceId when present and fall back to all records.
-  const applications = await Application.findAll({
+  const applications = await safeFindAll(ApplicationModel, {
     where,
     attributes: [
       'id',
@@ -858,7 +966,7 @@ async function fetchApplicationReviews({ applicationIds, since }) {
   if (since) {
     where.createdAt = { [Op.gte]: since };
   }
-  return ApplicationReview.findAll({
+  return safeFindAll(ApplicationReviewModel, {
     where,
     attributes: ['id', 'applicationId', 'stage', 'decision', 'score', 'decidedAt', 'createdAt'],
   });
@@ -922,7 +1030,7 @@ async function fetchHiringAlerts({ workspaceId, since }) {
   if (since) {
     where.detectedAt = { [Op.gte]: since };
   }
-  return HiringAlert.findAll({
+  return safeFindAll(HiringAlertModel, {
     where,
     order: [['detectedAt', 'DESC']],
     limit: 25,
@@ -937,7 +1045,7 @@ async function fetchCandidateSnapshots({ workspaceId, applicationIds, since }) {
   if (applicationIds?.length) {
     where.applicationId = { [Op.in]: applicationIds };
   }
-  return CandidateDemographicSnapshot.findAll({
+  return safeFindAll(CandidateDemographicSnapshotModel, {
     where,
     attributes: [
       'id',
@@ -957,7 +1065,7 @@ async function fetchCandidateSurveys({ workspaceId, since }) {
   if (since) {
     where.responseAt = { [Op.gte]: since };
   }
-  return CandidateSatisfactionSurvey.findAll({
+  return safeFindAll(CandidateSatisfactionSurveyModel, {
     where,
     order: [['responseAt', 'DESC']],
     limit: 100,
@@ -969,7 +1077,7 @@ async function fetchInterviewSchedules({ workspaceId, since }) {
   if (since) {
     where.scheduledAt = { [Op.gte]: since };
   }
-  return InterviewSchedule.findAll({
+  return safeFindAll(InterviewScheduleModel, {
     where,
     order: [['scheduledAt', 'ASC']],
     limit: 100,
@@ -977,7 +1085,7 @@ async function fetchInterviewSchedules({ workspaceId, since }) {
 }
 
 async function fetchInterviewPanelTemplates({ workspaceId }) {
-  return InterviewPanelTemplate.findAll({
+  return safeFindAll(InterviewPanelTemplateModel, {
     where: { workspaceId },
     order: [['updatedAt', 'DESC']],
     limit: 50,
@@ -989,7 +1097,7 @@ async function fetchInterviewerAvailability({ workspaceId, since }) {
   if (since) {
     where.availableFrom = { [Op.gte]: new Date(since.getTime() - 48 * 60 * 60 * 1000) };
   }
-  return InterviewerAvailability.findAll({
+  return safeFindAll(InterviewerAvailabilityModel, {
     where,
     order: [['availableFrom', 'ASC']],
     limit: 150,
@@ -1001,7 +1109,7 @@ async function fetchInterviewReminders({ workspaceId, since }) {
   if (since) {
     where.sentAt = { [Op.gte]: since };
   }
-  return InterviewReminder.findAll({
+  return safeFindAll(InterviewReminderModel, {
     where,
     order: [['sentAt', 'DESC']],
     limit: 200,
@@ -1013,7 +1121,7 @@ async function fetchCandidatePrepPortals({ workspaceId, since }) {
   if (since) {
     where.createdAt = { [Op.gte]: since };
   }
-  return CandidatePrepPortal.findAll({
+  return safeFindAll(CandidatePrepPortalModel, {
     where,
     order: [['updatedAt', 'DESC']],
     limit: 120,
@@ -1025,7 +1133,7 @@ async function fetchInterviewEvaluations({ workspaceId, since }) {
   if (since) {
     where.submittedAt = { [Op.gte]: since };
   }
-  return InterviewEvaluation.findAll({
+  return safeFindAll(InterviewEvaluationModel, {
     where,
     order: [['submittedAt', 'DESC']],
     limit: 200,
@@ -1037,7 +1145,7 @@ async function fetchEvaluationCalibrationSessions({ workspaceId, since }) {
   if (since) {
     where.scheduledAt = { [Op.gte]: since };
   }
-  return EvaluationCalibrationSession.findAll({
+  return safeFindAll(EvaluationCalibrationSessionModel, {
     where,
     order: [['scheduledAt', 'DESC']],
     limit: 50,
@@ -1049,7 +1157,7 @@ async function fetchDecisionTrackers({ workspaceId, since }) {
   if (since) {
     where.openedAt = { [Op.gte]: since };
   }
-  return DecisionTracker.findAll({
+  return safeFindAll(DecisionTrackerModel, {
     where,
     order: [['updatedAt', 'DESC']],
     limit: 100,
@@ -1061,7 +1169,7 @@ async function fetchOfferPackages({ workspaceId, since }) {
   if (since) {
     where.createdAt = { [Op.gte]: since };
   }
-  return OfferPackage.findAll({
+  return safeFindAll(OfferPackageModel, {
     where,
     order: [['updatedAt', 'DESC']],
     limit: 100,
@@ -1073,7 +1181,7 @@ async function fetchOnboardingTasks({ workspaceId, since }) {
   if (since) {
     where.createdAt = { [Op.gte]: since };
   }
-  return OnboardingTask.findAll({
+  return safeFindAll(OnboardingTaskModel, {
     where,
     order: [['dueAt', 'ASC']],
     limit: 200,
@@ -1085,7 +1193,7 @@ async function fetchCandidateCareTickets({ workspaceId, since }) {
   if (since) {
     where.openedAt = { [Op.gte]: since };
   }
-  return CandidateCareTicket.findAll({
+  return safeFindAll(CandidateCareTicketModel, {
     where,
     order: [['openedAt', 'DESC']],
     limit: 150,
@@ -1093,7 +1201,7 @@ async function fetchCandidateCareTickets({ workspaceId, since }) {
 }
 
 async function fetchJobStagesData({ workspaceId }) {
-  return JobStage.findAll({
+  return safeFindAll(JobStageModel, {
     where: { workspaceId },
     order: [['orderIndex', 'ASC']],
     limit: 50,
@@ -1105,7 +1213,7 @@ async function fetchJobApprovals({ workspaceId, since }) {
   if (since) {
     where.createdAt = { [Op.gte]: since };
   }
-  return JobApprovalWorkflow.findAll({
+  return safeFindAll(JobApprovalWorkflowModel, {
     where,
     order: [['createdAt', 'DESC']],
     limit: 100,
@@ -1117,7 +1225,7 @@ async function fetchJobCampaigns({ workspaceId, since }) {
   if (since) {
     where.reportingDate = { [Op.gte]: since };
   }
-  return JobCampaignPerformance.findAll({
+  return safeFindAll(JobCampaignPerformanceModel, {
     where,
     order: [['reportingDate', 'DESC']],
     limit: 120,
@@ -1129,7 +1237,7 @@ async function fetchPartnerEngagements({ workspaceId, since }) {
   if (since) {
     where.lastInteractionAt = { [Op.gte]: since };
   }
-  return PartnerEngagement.findAll({
+  return safeFindAll(PartnerEngagementModel, {
     where,
     order: [['lastInteractionAt', 'DESC']],
     limit: 50,
@@ -1141,7 +1249,7 @@ async function fetchPartnerCommissions({ workspaceId, since }) {
   if (since) {
     where.updatedAt = { [Op.gte]: since };
   }
-  return PartnerCommission.findAll({
+  return safeFindAll(PartnerCommissionModel, {
     where,
     order: [['dueDate', 'ASC']],
     limit: 120,
@@ -1149,7 +1257,7 @@ async function fetchPartnerCommissions({ workspaceId, since }) {
 }
 
 async function fetchPartnerAgreements({ workspaceId }) {
-  return PartnerAgreement.findAll({
+  return safeFindAll(PartnerAgreementModel, {
     where: { workspaceId },
     order: [['renewalDate', 'ASC']],
     limit: 60,
@@ -1161,7 +1269,7 @@ async function fetchPartnerSlaSnapshots({ workspaceId, since }) {
   if (since) {
     where.reportingPeriodStart = { [Op.gte]: since };
   }
-  return PartnerSlaSnapshot.findAll({
+  return safeFindAll(PartnerSlaSnapshotModel, {
     where,
     order: [['reportingPeriodEnd', 'DESC']],
     limit: 120,
@@ -1173,7 +1281,7 @@ async function fetchPartnerCollaborationEvents({ workspaceId, since }) {
   if (since) {
     where.occurredAt = { [Op.gte]: since };
   }
-  return PartnerCollaborationEvent.findAll({
+  return safeFindAll(PartnerCollaborationEventModel, {
     where,
     order: [['occurredAt', 'DESC']],
     limit: 120,
@@ -1250,13 +1358,12 @@ async function loadApplicants(applications) {
   return new Map(applicants.map((applicant) => [applicant.id, applicant.get({ plain: true })]));
 }
 
-async function fetchCalendarEvents({ workspaceId, since }) {
 async function fetchHeadhunterInvites({ workspaceId, since }) {
   const where = { workspaceId };
   if (since) {
     where.sentAt = { [Op.gte]: since };
   }
-  return HeadhunterInvite.findAll({
+  return safeFindAll(HeadhunterInviteModel, {
     where,
     include: [{ model: ProviderWorkspace, as: 'headhunterWorkspace', attributes: ['id', 'name', 'type'] }],
     order: [['sentAt', 'DESC']],
@@ -1274,52 +1381,38 @@ const EMPLOYER_BRAND_SECTION_LABELS = {
   custom: 'Story',
 };
 
-function toPlain(record) {
-  return record?.get ? record.get({ plain: true }) : record;
-}
-
-function safeNumber(value, precision = null) {
-  if (value == null) {
-    return 0;
-  }
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) {
-    return 0;
-  }
-  if (precision == null) {
-    return numeric;
-  }
-  return Number(numeric.toFixed(precision));
-}
-
-function sumBy(items, selector) {
-  return items.reduce((total, item) => {
-    const value = selector(item);
-    const numeric = Number(value);
-    return Number.isFinite(numeric) ? total + numeric : total;
-  }, 0);
 async function fetchHeadhunterBriefs({ workspaceId }) {
-  return HeadhunterBrief.findAll({
+  const include = HeadhunterBriefAssignmentRaw
+    ? [
+        {
+          model: HeadhunterBriefAssignmentRaw,
+          as: 'assignments',
+          include: [
+            { model: ProviderWorkspace, as: 'headhunterWorkspace', attributes: ['id', 'name', 'type'] },
+          ],
+        },
+      ]
+    : [];
+
+  return safeFindAll(HeadhunterBriefModel, {
     where: { workspaceId },
-    include: [
-      {
-        model: HeadhunterBriefAssignment,
-        as: 'assignments',
-        include: [{ model: ProviderWorkspace, as: 'headhunterWorkspace', attributes: ['id', 'name', 'type'] }],
-      },
-    ],
+    include,
     order: [['updatedAt', 'DESC']],
     limit: 80,
   });
 }
 
 async function fetchHeadhunterAssignments({ workspaceId }) {
-  return HeadhunterBriefAssignment.findAll({
+  const include = [
+    HeadhunterBriefRaw
+      ? { model: HeadhunterBriefRaw, as: 'brief', attributes: ['id', 'title', 'status', 'dueAt'] }
+      : null,
+    { model: ProviderWorkspace, as: 'headhunterWorkspace', attributes: ['id', 'name'] },
+  ].filter(Boolean);
+
+  return safeFindAll(HeadhunterBriefAssignmentModel, {
     where: { workspaceId },
-    include: [
-      { model: HeadhunterBrief, as: 'brief', attributes: ['id', 'title', 'status', 'dueAt'] },
-      { model: ProviderWorkspace, as: 'headhunterWorkspace', attributes: ['id', 'name'] },
-    ],
+    include,
   });
 }
 
@@ -1328,7 +1421,7 @@ async function fetchHeadhunterPerformance({ workspaceId, since }) {
   if (since) {
     where.periodEnd = { [Op.gte]: since };
   }
-  return HeadhunterPerformanceSnapshot.findAll({
+  return safeFindAll(HeadhunterPerformanceSnapshotModel, {
     where,
     include: [{ model: ProviderWorkspace, as: 'headhunterWorkspace', attributes: ['id', 'name'] }],
     order: [['periodEnd', 'DESC']],
@@ -1341,29 +1434,34 @@ async function fetchHeadhunterCommissions({ workspaceId, since }) {
   if (since) {
     where.updatedAt = { [Op.gte]: since };
   }
-  return HeadhunterCommission.findAll({
+  return safeFindAll(HeadhunterCommissionModel, {
     where,
     include: [
-      { model: HeadhunterBrief, as: 'brief', attributes: ['id', 'title'] },
+      HeadhunterBriefRaw ? { model: HeadhunterBriefRaw, as: 'brief', attributes: ['id', 'title'] } : null,
       { model: ProviderWorkspace, as: 'headhunterWorkspace', attributes: ['id', 'name'] },
-    ],
+    ].filter(Boolean),
     order: [['dueAt', 'ASC']],
   });
 }
 
 async function fetchTalentPools({ workspaceId }) {
-  return TalentPool.findAll({
+  const include = [{ model: User, as: 'owner', attributes: ['id', 'firstName', 'lastName', 'email'] }];
+  return safeFindAll(TalentPoolModel, {
     where: { workspaceId },
-    include: [{ model: User, as: 'owner', attributes: ['id', 'firstName', 'lastName', 'email'] }],
+    include,
     order: [['updatedAt', 'DESC']],
     limit: 60,
   });
 }
 
 async function fetchTalentPoolMembers({ workspaceId }) {
-  return TalentPoolMember.findAll({
+  const include = TalentPoolRaw
+    ? [{ model: TalentPoolRaw, as: 'pool', attributes: ['id', 'name', 'poolType'] }]
+    : [];
+
+  return safeFindAll(TalentPoolMemberModel, {
     where: { workspaceId },
-    include: [{ model: TalentPool, as: 'pool', attributes: ['id', 'name', 'poolType'] }],
+    include,
     order: [['updatedAt', 'DESC']],
     limit: 300,
   });
@@ -1374,19 +1472,22 @@ async function fetchTalentPoolEngagements({ workspaceId, since }) {
   if (since) {
     where.occurredAt = { [Op.gte]: since };
   }
-  return TalentPoolEngagement.findAll({
+
+  const include = [
+    TalentPoolRaw ? { model: TalentPoolRaw, as: 'pool', attributes: ['id', 'name'] } : null,
+    { model: User, as: 'performedBy', attributes: ['id', 'firstName', 'lastName'] },
+  ].filter(Boolean);
+
+  return safeFindAll(TalentPoolEngagementModel, {
     where,
-    include: [
-      { model: TalentPool, as: 'pool', attributes: ['id', 'name'] },
-      { model: User, as: 'performedBy', attributes: ['id', 'firstName', 'lastName'] },
-    ],
+    include,
     order: [['occurredAt', 'DESC']],
     limit: 120,
   });
 }
 
 async function fetchAgencyCollaborations({ workspaceId }) {
-  const collaborations = await AgencyCollaboration.findAll({
+  const collaborations = await safeFindAll(AgencyCollaborationModel, {
     include: [{ model: ProviderWorkspace, as: 'agencyWorkspace', attributes: ['id', 'name', 'slug'] }],
     order: [['updatedAt', 'DESC']],
     limit: 80,
@@ -1406,7 +1507,7 @@ async function fetchAgencyInvitations({ collaborationIds }) {
   if (!collaborationIds.length) {
     return [];
   }
-  return AgencyCollaborationInvitation.findAll({
+  return safeFindAll(AgencyCollaborationInvitationModel, {
     where: { collaborationId: { [Op.in]: collaborationIds } },
     order: [['createdAt', 'DESC']],
   });
@@ -1416,9 +1517,11 @@ async function fetchAgencyRateCards({ agencyWorkspaceIds }) {
   if (!agencyWorkspaceIds.length) {
     return [];
   }
-  return AgencyRateCard.findAll({
+  return safeFindAll(AgencyRateCardModel, {
     where: { agencyWorkspaceId: { [Op.in]: agencyWorkspaceIds } },
-    include: [{ model: AgencyRateCardItem, as: 'items' }],
+    include: [
+      AgencyRateCardItemRaw ? { model: AgencyRateCardItemRaw, as: 'items' } : null,
+    ].filter(Boolean),
     order: [['updatedAt', 'DESC']],
     limit: 60,
   });
@@ -1432,7 +1535,7 @@ async function fetchAgencySlaSnapshots({ collaborationIds, since }) {
   if (since) {
     where.periodEnd = { [Op.gte]: since };
   }
-  return AgencySlaSnapshot.findAll({
+  return safeFindAll(AgencySlaSnapshotModel, {
     where,
     order: [['periodEnd', 'DESC']],
   });
@@ -1443,7 +1546,7 @@ async function fetchAgencyBillingEvents({ workspaceId, since }) {
   if (since) {
     where.updatedAt = { [Op.gte]: since };
   }
-  return AgencyBillingEvent.findAll({
+  return safeFindAll(AgencyBillingEventModel, {
     where,
     order: [['dueAt', 'ASC']],
     limit: 120,
@@ -1455,7 +1558,7 @@ async function fetchCalendarEvents({ workspaceId, since }) {
   if (since) {
     where.startsAt = { [Op.gte]: since };
   }
-  return RecruitingCalendarEvent.findAll({
+  return safeFindAll(RecruitingCalendarEventModel, {
     where,
     order: [['startsAt', 'ASC']],
     limit: 50,
@@ -1463,7 +1566,7 @@ async function fetchCalendarEvents({ workspaceId, since }) {
 }
 
 async function fetchBrandAssets({ workspaceId }) {
-  return EmployerBrandAsset.findAll({
+  return safeFindAll(EmployerBrandAssetModel, {
     where: { workspaceId },
     order: [['updatedAt', 'DESC']],
     limit: 25,
@@ -1475,7 +1578,7 @@ async function fetchBrandStories({ workspaceId, since }) {
   if (since) {
     where.updatedAt = { [Op.gte]: since };
   }
-  return EmployerBrandStory.findAll({
+  return EmployerBrandStoryModel.findAll({
     where,
     include: [
       {
@@ -1497,7 +1600,7 @@ async function fetchBrandStories({ workspaceId, since }) {
 }
 
 async function fetchEmployerBenefits({ workspaceId }) {
-  return EmployerBenefit.findAll({
+  return EmployerBenefitModel.findAll({
     where: { workspaceId },
     order: [['isFeatured', 'DESC'], ['updatedAt', 'DESC']],
     limit: 40,
@@ -1505,7 +1608,7 @@ async function fetchEmployerBenefits({ workspaceId }) {
 }
 
 async function fetchEmployeeJourneys({ workspaceId }) {
-  return EmployeeJourneyProgram.findAll({
+  return safeFindAll(EmployeeJourneyProgramModel, {
     where: { workspaceId },
     include: [
       {
@@ -1523,7 +1626,7 @@ async function fetchEmployeeJourneys({ workspaceId }) {
 }
 
 async function fetchWorkspaceIntegrations({ workspaceId }) {
-  return WorkspaceIntegration.findAll({
+  return safeFindAll(WorkspaceIntegrationModel, {
     where: { workspaceId },
     order: [['status', 'ASC'], ['displayName', 'ASC']],
     limit: 50,
@@ -1531,7 +1634,7 @@ async function fetchWorkspaceIntegrations({ workspaceId }) {
 }
 
 async function fetchCalendarConnections({ workspaceId }) {
-  return WorkspaceCalendarConnection.findAll({
+  return safeFindAll(WorkspaceCalendarConnectionModel, {
     where: { workspaceId },
     order: [['status', 'ASC'], ['updatedAt', 'DESC']],
     limit: 20,
@@ -4984,7 +5087,10 @@ function buildEmployeeJourneysSummary({ journeys, memberSummary }) {
       return aRate - bRate;
     })
     .slice(0, 5)
-    .map(({ priority, ...program }) => program);
+    .map(({ priority, ...program }) => {
+      void priority;
+      return program;
+    });
 
   const highlights = [];
   if (programsAtRisk) {
@@ -5167,9 +5273,17 @@ async function fetchNetworkingSessionsForWorkspace({ workspaceId, since }) {
   if (since) {
     where.createdAt = { [Op.gte]: since };
   }
-  return NetworkingSession.findAll({
+  if (!NetworkingSessionModel?.findAll) {
+    return [];
+  }
+
+  const include = NetworkingSessionSignupModel
+    ? [{ model: NetworkingSessionSignupModel, as: 'signups' }]
+    : [];
+
+  return NetworkingSessionModel.findAll({
     where,
-    include: [{ model: NetworkingSessionSignup, as: 'signups' }],
+    include,
     order: [
       ['startTime', 'ASC'],
       ['createdAt', 'DESC'],
@@ -5182,7 +5296,7 @@ async function fetchNetworkingBusinessCardsForWorkspace({ workspaceId }) {
   if (!workspaceId) {
     return [];
   }
-  return NetworkingBusinessCard.findAll({
+  return safeFindAll(NetworkingBusinessCardModel, {
     where: { companyId: workspaceId },
     order: [['updatedAt', 'DESC']],
     limit: 200,
@@ -5514,23 +5628,6 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       talentPoolEngagements,
       agencyCollaborations,
       agencyBillingEvents,
-      panelTemplates,
-      prepPortals,
-      interviewEvaluations,
-      calibrationSessions,
-      decisionTrackers,
-      offerPackages,
-      onboardingTasks,
-      candidateCareTickets,
-      interviewerAvailability,
-      interviewReminders,
-      brandStories,
-      employerBenefits,
-      employeeJourneys,
-      workspaceIntegrations,
-      calendarConnections,
-      networkingSessions,
-      networkingBusinessCards,
     ] = await Promise.all([
       fetchApplications({ workspaceId: workspace.id, since }),
       fetchJobs({ since }),
@@ -5578,7 +5675,28 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       .filter((id) => Number.isInteger(Number(id)))
       .map((id) => Number(id));
 
-    const [agencyInvitations, agencyRateCards, agencySlaSnapshots] = await Promise.all([
+    const [
+      agencyInvitations,
+      agencyRateCards,
+      agencySlaSnapshots,
+      panelTemplates,
+      prepPortals,
+      interviewEvaluations,
+      calibrationSessions,
+      decisionTrackers,
+      offerPackages,
+      onboardingTasks,
+      candidateCareTickets,
+      interviewerAvailability,
+      interviewReminders,
+      brandStories,
+      employerBenefits,
+      employeeJourneys,
+      workspaceIntegrations,
+      calendarConnections,
+      networkingSessions,
+      networkingBusinessCards,
+    ] = await Promise.all([
       fetchAgencyInvitations({ collaborationIds: agencyCollaborationIds }),
       fetchAgencyRateCards({ agencyWorkspaceIds }),
       fetchAgencySlaSnapshots({ collaborationIds: agencyCollaborationIds, since }),

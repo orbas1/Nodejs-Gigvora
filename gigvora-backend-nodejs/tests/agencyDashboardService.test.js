@@ -18,16 +18,12 @@ import {
   Profile,
   Gig,
   Job,
-  User,
   ProjectAssignmentEvent,
   TalentCandidate,
   PeopleOpsPolicy,
   FinanceRevenueEntry,
   FinanceExpenseEntry,
   FinanceSavingsGoal,
-  FinancePayoutBatch,
-  FinancePayoutSplit,
-  FinanceTaxExport,
 } from '../src/models/index.js';
 import { getAgencyDashboard } from '../src/services/agencyDashboardService.js';
 import { createUser } from './helpers/factories.js';
@@ -412,7 +408,7 @@ describe('agencyDashboardService', () => {
       lastContributionAt: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
     });
 
-    const completedBatch = await FinancePayoutBatch.create({
+    const recentBatch = await FinancePayoutBatch.create({
       userId: owner.id,
       name: 'April Delivery Payroll',
       status: 'completed',
@@ -424,7 +420,7 @@ describe('agencyDashboardService', () => {
 
     await FinancePayoutSplit.bulkCreate([
       {
-        batchId: completedBatch.id,
+        batchId: recentBatch.id,
         teammateName: 'Mira Strategist',
         teammateRole: 'Manager',
         recipientEmail: 'strategist@nova.test',
@@ -434,7 +430,7 @@ describe('agencyDashboardService', () => {
         status: 'completed',
       },
       {
-        batchId: completedBatch.id,
+        batchId: recentBatch.id,
         teammateName: 'Kai Designer',
         teammateRole: 'Designer',
         recipientEmail: 'designer@nova.test',

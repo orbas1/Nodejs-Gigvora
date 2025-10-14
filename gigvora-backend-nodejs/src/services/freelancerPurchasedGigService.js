@@ -280,7 +280,7 @@ async function fetchActivityFeed(freelancerId) {
   });
 }
 
-function calculateSummary(orders, { requirementQueue, revisionQueue, payoutSchedule }) {
+function calculateSummary(orders, { requirementQueue, revisionQueue }) {
   const summary = {
     activeOrders: 0,
     requirementsDue: requirementQueue.length,
@@ -368,7 +368,7 @@ async function fetchDashboard(freelancerId) {
         ['submittedAt', 'DESC'],
         ['createdAt', 'DESC'],
       ],
-    ]),
+    }),
     fetchActivityFeed(freelancerId),
     loadFreelancerProfile(freelancerId),
   ]);
@@ -380,7 +380,6 @@ async function fetchDashboard(freelancerId) {
   const summary = calculateSummary(sanitizedOrders, {
     requirementQueue,
     revisionQueue,
-    payoutSchedule,
   });
 
   const pipeline = buildPipeline(sanitizedOrders);

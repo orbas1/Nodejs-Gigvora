@@ -15,7 +15,6 @@ import {
   CLIENT_SUCCESS_STEP_TYPES,
   CLIENT_SUCCESS_STEP_CHANNELS,
   CLIENT_SUCCESS_REFERRAL_STATUSES,
-  CLIENT_SUCCESS_REVIEW_NUDGE_STATUSES,
   CLIENT_SUCCESS_AFFILIATE_STATUSES,
 } from '../models/index.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';

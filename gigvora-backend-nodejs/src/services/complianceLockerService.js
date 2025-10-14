@@ -305,7 +305,6 @@ function computeDocumentSummary(documents) {
   const jurisdictions = new Set();
   const typeCounts = {};
   const now = Date.now();
-  const soonThreshold = now + 45 * 24 * 60 * 60 * 1000;
   const renewals = [];
 
   documents.forEach((document) => {

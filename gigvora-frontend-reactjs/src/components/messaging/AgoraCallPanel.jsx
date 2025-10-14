@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import AgoraRTC from 'agora-rtc-sdk-ng';
 import {
   MicrophoneIcon,
-  MicrophoneSlashIcon,
+  NoSymbolIcon,
   PhoneXMarkIcon,
   VideoCameraIcon,
   VideoCameraSlashIcon,
@@ -253,7 +253,7 @@ export default function AgoraCallPanel({ session, onClose }) {
                 {micEnabled ? (
                   <MicrophoneIcon className="h-4 w-4" />
                 ) : (
-                  <MicrophoneSlashIcon className="h-4 w-4" />
+                  <NoSymbolIcon className="h-4 w-4" />
                 )}
                 {micEnabled ? 'Mute' : 'Unmute'}
               </button>

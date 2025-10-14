@@ -2,15 +2,14 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
 import useSession from '../hooks/useSession.js';
-import { registerCompany, registerAgency } from '../services/auth.js';
-import apiClient from '../services/apiClient.js';
+import { registerAgency, registerCompany } from '../services/auth.js';
 
-const initialState = {
+const INITIAL_FORM = {
   companyName: '',
-  website: '',
-  focusArea: '',
   contactName: '',
   email: '',
+  website: '',
+  focusArea: '',
   teamSize: '',
   location: '',
   password: '',
@@ -18,133 +17,107 @@ const initialState = {
   twoFactorEnabled: true,
 };
 
-const partnershipPillars = [
-  'Publish roles, gigs, and launchpad challenges with beautiful employer branding.',
-  'Manage inbound talent pipelines with collaborative scoring and tags.',
-  'Co-create private groups and showcase company culture to the Gigvora community.',
+const PARTNERSHIP_PILLARS = [
+  'Publish roles, gigs, and launchpad challenges with polished branding.',
+  'Collaborate on inbound talent pipelines with shared scoring and notes.',
+  'Co-create private groups and showcase culture to the Gigvora community.',
 ];
 
 export default function CompanyRegisterPage() {
-  const [form, setForm] = useState(initialState);
-  const [type, setType] = useState('company');
+  const [form, setForm] = useState(INITIAL_FORM);
+  const [workspaceType, setWorkspaceType] = useState('company');
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [confirmation, setConfirmation] = useState(null);
   const { isAuthenticated, session, login, updateSession } = useSession();
-  const [status, setStatus] = useState('idle');
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
+
+  const membershipLabel = useMemo(() => (workspaceType === 'company' ? 'Company' : 'Agency'), [workspaceType]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm((previous) => ({ ...previous, [name]: value }));
   };
 
-  const membershipLabel = useMemo(() => (type === 'company' ? 'Company' : 'Agency'), [type]);
+  const toggleTwoFactor = () => {
+    setForm((previous) => ({ ...previous, twoFactorEnabled: !previous.twoFactorEnabled }));
+  };
 
-  const handleSubmit = (event) => {
-    event.preventDefault();
-
-    const trimmedName = form.companyName.trim();
-    const trimmedContact = form.contactName.trim();
-    const resolvedName = trimmedName || `${membershipLabel} workspace`;
-    const resolvedContact = trimmedContact || 'Gigvora partner lead';
-    const registrationPayload = {
-      type,
-      companyName: resolvedName,
-      website: form.website.trim() || null,
-      focusArea: form.focusArea.trim() || null,
-      contactName: resolvedContact,
-      email: form.email.trim() || null,
-      teamSize: form.teamSize.trim() || null,
-      location: form.location.trim() || null,
-      submittedAt: new Date().toISOString(),
-    };
-
-    const normalizedMemberships = new Set([type === 'company' ? 'company' : 'agency']);
+  const hydrateSession = (workspaceName) => {
+    const membership = workspaceType === 'company' ? 'company' : 'agency';
+    const nextMemberships = new Set([membership]);
+    if (session?.memberships) {
+      session.memberships.forEach((value) => nextMemberships.add(value));
+    }
 
     if (isAuthenticated && session) {
-      (session.memberships ?? []).forEach((membership) => normalizedMemberships.add(membership));
-
-      const nextPayload = {
-        memberships: Array.from(normalizedMemberships),
-        primaryDashboard: type === 'company' ? 'company' : session.primaryDashboard ?? 'user',
+      updateSession({
+        memberships: Array.from(nextMemberships),
+        primaryDashboard: membership,
         companies:
-          type === 'company'
-            ? Array.from(new Set([resolvedName, ...(session.companies ?? [])]))
+          workspaceType === 'company'
+            ? Array.from(new Set([workspaceName, ...(session.companies ?? [])]))
             : session.companies ?? [],
         agencies:
-          type === 'agency'
-            ? Array.from(new Set([resolvedName, ...(session.agencies ?? [])]))
+          workspaceType === 'agency'
+            ? Array.from(new Set([workspaceName, ...(session.agencies ?? [])]))
             : session.agencies ?? [],
-        accountTypes: Array.from(new Set([...(session.accountTypes ?? []), membershipLabel])),
-        latestCompanyRegistration: registrationPayload,
-      };
-
-      updateSession(nextPayload);
+      });
     } else {
-      const baseAccountTypes = type === 'company' ? ['Company'] : ['Agency'];
       login({
-        name: resolvedContact,
+        name: form.contactName || 'Partner lead',
         title: 'Talent Acquisition Lead',
-        avatarSeed: resolvedContact,
-        memberships: Array.from(normalizedMemberships),
-        primaryDashboard: type === 'company' ? 'company' : 'agency',
-        companies: type === 'company' ? [resolvedName] : [],
-        agencies: type === 'agency' ? [resolvedName] : [],
-        accountTypes: baseAccountTypes,
-        registrationContext: registrationPayload,
+        memberships: Array.from(nextMemberships),
+        primaryDashboard: membership,
+        companies: workspaceType === 'company' ? [workspaceName] : [],
+        agencies: workspaceType === 'agency' ? [workspaceName] : [],
         isAuthenticated: true,
       });
     }
-
-    setConfirmation({ name: resolvedName, type });
-    setForm(initialState);
-  const handleToggleTwoFactor = () => {
-    setForm((prev) => ({ ...prev, twoFactorEnabled: !prev.twoFactorEnabled }));
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    if (status === 'submitting') {
+      return;
+    }
+    if (!form.companyName.trim()) {
+      setError('Add the workspace or company name so we can set things up.');
+      return;
+    }
     if (form.password !== form.confirmPassword) {
       setError('Passwords do not match.');
       return;
     }
+
     setStatus('submitting');
-    setError(null);
-    setSuccess(null);
+    setError('');
+    setSuccess('');
+
+    const payload = {
+      companyName: form.companyName.trim(),
+      contactName: form.contactName.trim() || 'Gigvora partner lead',
+      email: form.email.trim(),
+      password: form.password,
+      website: form.website.trim() || undefined,
+      focusArea: form.focusArea.trim() || undefined,
+      location: form.location.trim() || undefined,
+      teamSize: form.teamSize.trim() || undefined,
+      twoFactorEnabled: form.twoFactorEnabled,
+    };
+
     try {
-      const [firstName = '', ...restName] = form.contactName.split(' ');
-      const lastName = restName.join(' ');
-      const payload = {
-        email: form.email,
-        password: form.password,
-        firstName: firstName || form.contactName,
-        lastName: lastName || 'Operations',
-        address: form.location,
-        location: form.location,
-        twoFactorEnabled: form.twoFactorEnabled,
-        userType: type,
-        website: form.website,
-        focusArea: form.focusArea,
-      };
-      if (type === 'company') {
-        await registerCompany({
-          ...payload,
-          companyName: form.companyName,
-        });
+      if (workspaceType === 'company') {
+        await registerCompany(payload);
       } else {
-        await registerAgency({
-          ...payload,
-          agencyName: form.companyName,
-        });
+        await registerAgency({ ...payload, agencyName: payload.companyName });
       }
-      setSuccess('Thanks! Your workspace is provisioned. Check your inbox for the first sign-in link and 2FA code.');
-      setForm(initialState);
+      hydrateSession(payload.companyName);
+      setConfirmation({ name: payload.companyName, type: workspaceType });
+      setSuccess('Workspace requested successfully. Check your inbox for the welcome email and 2FA setup link.');
+      setForm(INITIAL_FORM);
     } catch (submissionError) {
-      if (submissionError instanceof apiClient.ApiError) {
-        setError(submissionError.body?.message || submissionError.message);
-      } else {
-        setError(submissionError.message || 'Unable to create your workspace.');
-      }
+      setError(submissionError?.message || 'We could not create the workspace right now.');
     } finally {
       setStatus('idle');
     }
@@ -157,33 +130,42 @@ export default function CompanyRegisterPage() {
       <div className="relative mx-auto max-w-5xl px-6">
         <PageHeader
           eyebrow="Partner with Gigvora"
-          title={`Build your ${type === 'company' ? 'company' : 'agency'} hub`}
-          description="Set up a branded home to recruit talent, post gigs, and collaborate with the Gigvora network."
+          title={`Build your ${workspaceType === 'company' ? 'company' : 'agency'} hub`}
+          description="Set up a branded space to recruit talent, post gigs, and collaborate with the Gigvora network."
           actions={(
             <div className="flex rounded-full border border-slate-200 bg-surfaceMuted p-1 text-xs font-semibold">
               <button
                 type="button"
                 onClick={() => {
-                  setType('company');
+                  setWorkspaceType('company');
                   setConfirmation(null);
+                  setSuccess('');
+                  setError('');
                 }}
-                className={`flex-1 rounded-full px-4 py-2 transition ${type === 'company' ? 'bg-accent text-white' : 'text-slate-600 hover:text-accent'}`}
+                className={`flex-1 rounded-full px-4 py-2 transition ${
+                  workspaceType === 'company' ? 'bg-accent text-white' : 'text-slate-600 hover:text-accent'
+                }`}
               >
                 Company
               </button>
               <button
                 type="button"
                 onClick={() => {
-                  setType('agency');
+                  setWorkspaceType('agency');
                   setConfirmation(null);
+                  setSuccess('');
+                  setError('');
                 }}
-                className={`flex-1 rounded-full px-4 py-2 transition ${type === 'agency' ? 'bg-accent text-white' : 'text-slate-600 hover:text-accent'}`}
+                className={`flex-1 rounded-full px-4 py-2 transition ${
+                  workspaceType === 'agency' ? 'bg-accent text-white' : 'text-slate-600 hover:text-accent'
+                }`}
               >
                 Agency
               </button>
             </div>
           )}
         />
+
         {confirmation ? (
           <div className="mt-10 overflow-hidden rounded-3xl border border-emerald-200 bg-emerald-50/70 p-6 shadow-soft backdrop-blur">
             <div className="flex flex-col gap-4 text-sm text-emerald-900 md:flex-row md:items-center md:justify-between">
@@ -199,191 +181,155 @@ export default function CompanyRegisterPage() {
                   to={confirmation.type === 'company' ? '/dashboard/company' : '/dashboard/agency'}
                   className="inline-flex items-center justify-center rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-emerald-700"
                 >
-                  {confirmation.type === 'company' ? 'Preview company hub' : 'Open agency hub'}
+                  View dashboard
                 </Link>
-                <a
-                  href="mailto:partnerships@gigvora.com"
-                  className="inline-flex items-center justify-center rounded-full border border-emerald-200 px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:border-emerald-300 hover:text-emerald-900"
+                <button
+                  type="button"
+                  onClick={() => setConfirmation(null)}
+                  className="inline-flex items-center justify-center rounded-full border border-emerald-200 px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:border-emerald-300 hover:text-emerald-900"
                 >
-                  Contact partnerships
-                </a>
+                  Submit another
+                </button>
               </div>
             </div>
           </div>
         ) : null}
-        <div className="grid gap-10 lg:grid-cols-[1.2fr,0.8fr] lg:items-start">
-          <form onSubmit={handleSubmit} className="space-y-6 rounded-3xl border border-slate-200 bg-white p-10 shadow-soft">
-            <div className="grid gap-6 md:grid-cols-2">
-              <div className="space-y-2">
-                <label htmlFor="companyName" className="text-sm font-medium text-slate-700">
-                  {type === 'company' ? 'Company' : 'Agency'} name
-                </label>
+
+        <div className="mt-12 grid gap-10 lg:grid-cols-[1fr_0.9fr]">
+          <form className="space-y-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-soft" onSubmit={handleSubmit}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="space-y-2 text-sm">
+                <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Workspace name</span>
                 <input
-                  id="companyName"
                   name="companyName"
                   value={form.companyName}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  placeholder="Acme Labs"
                   required
                 />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="website" className="text-sm font-medium text-slate-700">
-                  Website
-                </label>
+              </label>
+              <label className="space-y-2 text-sm">
+                <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Primary contact</span>
                 <input
-                  id="website"
-                  name="website"
-                  value={form.website}
-                  onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-                  placeholder="https://"
-                />
-              </div>
-              <div className="md:col-span-2 space-y-2">
-                <label htmlFor="focusArea" className="text-sm font-medium text-slate-700">
-                  Focus area / mission
-                </label>
-                <textarea
-                  id="focusArea"
-                  name="focusArea"
-                  value={form.focusArea}
-                  onChange={handleChange}
-                  rows={3}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-                />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="contactName" className="text-sm font-medium text-slate-700">
-                  Primary contact
-                </label>
-                <input
-                  id="contactName"
                   name="contactName"
                   value={form.contactName}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-                  required
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  placeholder="Taylor Morgan"
                 />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="email" className="text-sm font-medium text-slate-700">
-                  Contact email
-                </label>
+              </label>
+              <label className="space-y-2 text-sm">
+                <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Work email</span>
                 <input
-                  id="email"
                   name="email"
                   type="email"
                   value={form.email}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  placeholder="talent@gigvora.com"
                   required
                 />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="teamSize" className="text-sm font-medium text-slate-700">
-                  Team size
-                </label>
+              </label>
+              <label className="space-y-2 text-sm">
+                <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Website</span>
                 <input
-                  id="teamSize"
+                  name="website"
+                  value={form.website}
+                  onChange={handleChange}
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  placeholder="https://example.com"
+                />
+              </label>
+              <label className="space-y-2 text-sm">
+                <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Focus area</span>
+                <input
+                  name="focusArea"
+                  value={form.focusArea}
+                  onChange={handleChange}
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  placeholder="Product design, growth marketing"
+                />
+              </label>
+              <label className="space-y-2 text-sm">
+                <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Team size</span>
+                <input
                   name="teamSize"
                   value={form.teamSize}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  placeholder="25"
                 />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="location" className="text-sm font-medium text-slate-700">
-                  HQ location
-                </label>
+              </label>
+              <label className="space-y-2 text-sm">
+                <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Location</span>
                 <input
-                  id="location"
                   name="location"
                   value={form.location}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  placeholder="Remote first"
                 />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="password" className="text-sm font-medium text-slate-700">
-                  Admin password
-                </label>
+              </label>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="space-y-2 text-sm">
+                <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Create password</span>
                 <input
-                  id="password"
                   name="password"
                   type="password"
                   value={form.password}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-                  placeholder="Create a strong password"
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  placeholder="••••••••"
                   required
-                  minLength={12}
                 />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="confirmPassword" className="text-sm font-medium text-slate-700">
-                  Confirm password
-                </label>
+              </label>
+              <label className="space-y-2 text-sm">
+                <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Confirm password</span>
                 <input
-                  id="confirmPassword"
                   name="confirmPassword"
                   type="password"
                   value={form.confirmPassword}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-                  placeholder="Repeat password"
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  placeholder="••••••••"
                   required
                 />
-              </div>
+              </label>
             </div>
-            <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-              <div>
-                <p className="text-sm font-semibold text-slate-800">Enforce 2FA for administrators</p>
-                <p className="text-xs text-slate-500">Security policies mirror the web and mobile dashboards.</p>
-              </div>
-              <button
-                type="button"
-                onClick={handleToggleTwoFactor}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
-                  form.twoFactorEnabled ? 'bg-accent' : 'bg-slate-300'
-                }`}
-                aria-pressed={form.twoFactorEnabled}
-              >
-                <span
-                  className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${
-                    form.twoFactorEnabled ? 'translate-x-5' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
+
+            <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+              <input type="checkbox" checked={form.twoFactorEnabled} onChange={toggleTwoFactor} className="h-4 w-4 rounded border-slate-300 text-accent focus:ring-accent" />
+              Require secure two-factor authentication for workspace admins
+            </label>
+
             {error ? <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">{error}</p> : null}
             {success ? <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-600">{success}</p> : null}
+
             <button
               type="submit"
-              className="w-full rounded-full bg-accent px-8 py-3 text-base font-semibold text-white shadow-soft transition hover:bg-accentDark disabled:cursor-not-allowed disabled:bg-accent/60"
-              disabled={status !== 'idle'}
+              className="w-full rounded-full bg-accent px-6 py-3 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark disabled:cursor-not-allowed disabled:bg-accent/60"
+              disabled={status === 'submitting'}
             >
-              {status === 'submitting'
-                ? 'Provisioning secure workspace…'
-                : `Launch ${type === 'company' ? 'company' : 'agency'} hub`}
+              {status === 'submitting' ? 'Submitting…' : `Create ${membershipLabel.toLowerCase()} workspace`}
             </button>
           </form>
-          <aside className="space-y-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-            <h2 className="text-xl font-semibold text-slate-900">Why partners love Gigvora</h2>
-            <ul className="space-y-4 text-sm text-slate-600">
-              {partnershipPillars.map((item) => (
-                <li key={item} className="flex gap-3">
-                  <span className="mt-1 inline-flex h-2.5 w-2.5 rounded-full bg-accent" aria-hidden="true" />
+
+          <aside className="space-y-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
+            <h2 className="text-lg font-semibold text-slate-900">What partners unlock</h2>
+            <ul className="mt-4 space-y-3 text-sm text-slate-600">
+              {PARTNERSHIP_PILLARS.map((item) => (
+                <li key={item} className="flex items-start gap-3">
+                  <span className="mt-1 inline-flex h-2 w-2 rounded-full bg-accent" aria-hidden="true" />
                   <span>{item}</span>
                 </li>
               ))}
             </ul>
-            <div className="rounded-2xl border border-slate-200 bg-surfaceMuted p-5 text-sm text-slate-600">
-              <p className="font-semibold text-slate-900">Dedicated success team</p>
-              <p className="mt-2">
-                Our concierge crew helps craft your first listings, migrate applicants, and launch branded campaigns that mirror the Gigvora aesthetic.
-              </p>
-            </div>
+            <p className="mt-6 text-xs text-slate-500">
+              Already a partner? <Link to="/login" className="font-semibold text-accent hover:text-accentDark">Log in</Link> to manage your workspace.
+            </p>
           </aside>
         </div>
       </div>

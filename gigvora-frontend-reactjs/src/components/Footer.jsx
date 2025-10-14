@@ -1,26 +1,35 @@
 import { Link } from 'react-router-dom';
 import { LOGO_URL } from '../constants/branding.js';
 
-const navigation = {
-  product: [
-    { label: 'Launchpad', to: '/launchpad' },
-    { label: 'Jobs', to: '/jobs' },
-    { label: 'Projects', to: '/projects' },
-    { label: 'Volunteering', to: '/volunteering' },
-  ],
-  company: [
-    { label: 'About us', to: '/about' },
-    { label: 'Trust center', to: '/trust' },
-    { label: 'Privacy', to: '/privacy' },
-    { label: 'Terms', to: '/terms' },
-  ],
-  resources: [
-    { label: 'Support centre', to: '/support' },
-    { label: 'Community guidelines', to: '/community' },
-    { label: 'Blog', to: '/pages/blog' },
-    { label: 'Contact', to: '/support/contact' },
-  ],
-};
+const navigation = [
+  {
+    title: 'Platform',
+    links: [
+      { label: 'Launchpad', to: '/launchpad' },
+      { label: 'Jobs', to: '/jobs' },
+      { label: 'Projects', to: '/projects' },
+      { label: 'Volunteering', to: '/volunteering' },
+    ],
+  },
+  {
+    title: 'Company',
+    links: [
+      { label: 'About', to: '/about' },
+      { label: 'Blog', to: '/blog' },
+      { label: 'Trust center', to: '/trust' },
+      { label: 'Contact', to: '/support/contact' },
+    ],
+  },
+  {
+    title: 'Resources',
+    links: [
+      { label: 'Support centre', to: '/support' },
+      { label: 'Community guidelines', to: '/community' },
+      { label: 'Privacy', to: '/privacy' },
+      { label: 'Terms', to: '/terms' },
+    ],
+  },
+];
 
 const socialLinks = [
   {
@@ -78,12 +87,11 @@ export default function Footer() {
     <footer className="border-t border-slate-200 bg-white/95">
       <div className="mx-auto grid max-w-7xl gap-12 px-6 py-14 text-sm text-slate-500 lg:grid-cols-[1.2fr_repeat(3,1fr)]">
         <div className="space-y-6">
-          <Link to="/" className="inline-flex items-center gap-3 text-slate-700">
+          <Link to="/" className="inline-flex">
             <img src={LOGO_URL} alt="Gigvora" className="h-11 w-auto" />
-            <span className="text-base font-semibold">Gigvora</span>
           </Link>
           <p className="text-sm text-slate-500">
-            Building the world&apos;s most human marketplace for teams, talent, and communities.
+            The professional community bringing clients, teams, and independent talent together with calm, reliable workflows.
           </p>
           <Link
             to="/support"
@@ -106,11 +114,11 @@ export default function Footer() {
             ))}
           </div>
         </div>
-        {Object.entries(navigation).map(([section, links]) => (
-          <div key={section} className="space-y-4">
-            <h3 className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">{section}</h3>
+        {navigation.map((section) => (
+          <div key={section.title} className="space-y-4">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">{section.title}</h3>
             <ul className="space-y-3">
-              {links.map((item) => (
+              {section.links.map((item) => (
                 <li key={item.label}>
                   <Link to={item.to} className="transition hover:text-accent">
                     {item.label}

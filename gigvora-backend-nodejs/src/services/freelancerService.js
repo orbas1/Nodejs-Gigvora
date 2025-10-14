@@ -1,9 +1,4 @@
-import {
-  User,
-  Profile,
-  FreelancerProfile,
-  FreelancerAssignmentMetric,
-} from '../models/index.js';
+import { User, Profile, FreelancerProfile } from '../models/index.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
 import { listFreelancerGigs } from './gigService.js';
 import { getAdDashboardSnapshot } from './adService.js';

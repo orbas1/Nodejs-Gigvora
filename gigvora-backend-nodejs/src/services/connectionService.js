@@ -80,7 +80,7 @@ function buildUserSummary(user) {
     userType: normaliseRole(user.userType),
     headline: profile.headline ?? null,
     location: profile.location ?? null,
-    avatarSeed: profile.avatarSeed ?? name || `user-${user.id}`,
+    avatarSeed: (profile.avatarSeed ?? name) || `user-${user.id}`,
   };
 }
 

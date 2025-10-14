@@ -6,8 +6,7 @@ function normaliseMemberships(input) {
   }
   if (Array.isArray(input)) {
     return input
-      .flatMap((value) => `${value}`.split(','))
-      .map((value) => value.trim().toLowerCase())
+      .flatMap((value) => normaliseMemberships(value))
       .filter((value) => value.length > 0);
   }
   if (typeof input === 'string') {
@@ -17,26 +16,23 @@ function normaliseMemberships(input) {
       .filter((value) => value.length > 0);
   }
   if (typeof input === 'object') {
-    return Object.values(input)
-      .flatMap((value) => normaliseMemberships(value))
-      .filter((value) => value.length > 0);
+    return normaliseMemberships(Object.values(input));
   }
-  return [];
+  return [`${input}`.trim().toLowerCase()].filter((value) => value.length > 0);
 }
 
 export function extractMemberships(req) {
   const header =
-    req.headers['x-gigvora-memberships'] ??
-    req.headers['x-gigvora-membership'] ??
-    req.headers['x-gigvora-roles'];
+    req.headers?.['x-gigvora-memberships'] ??
+    req.headers?.['x-gigvora-membership'] ??
+    req.headers?.['x-gigvora-roles'];
 
   const memberships = normaliseMemberships(header);
-
   if (memberships.length) {
     return memberships;
   }
 
-  if (req.user && Array.isArray(req.user.memberships)) {
+  if (Array.isArray(req.user?.memberships)) {
     return normaliseMemberships(req.user.memberships);
   }
 
@@ -44,16 +40,15 @@ export function extractMemberships(req) {
 }
 
 export function requireMembership(allowed = [], { allowAdmin = true } = {}) {
-  if (!Array.isArray(allowed) || allowed.length === 0) {
+  const allowedValues = normaliseMemberships(allowed);
+  if (!allowedValues.length) {
     throw new ValidationError('requireMembership middleware requires a non-empty array of allowed roles.');
   }
-
-  const allowedSet = new Set(allowed.map((value) => `${value}`.trim().toLowerCase()).filter(Boolean));
+  const allowedSet = new Set(allowedValues);
 
   return (req, res, next) => {
     const memberships = extractMemberships(req);
-
-    if (!Array.isArray(memberships) || memberships.length === 0) {
+    if (!memberships.length) {
       return res.status(403).json({
         message: 'Volunteer workspace access requires an authenticated volunteer membership.',
         code: 'volunteer_access_required',
@@ -79,7 +74,6 @@ export function requireMembership(allowed = [], { allowAdmin = true } = {}) {
   };
 }
 
-export default requireMembership;
 const PROJECT_MANAGEMENT_ROLES = new Set([
   'project_manager',
   'project_management',
@@ -97,26 +91,18 @@ function normaliseRole(role) {
   if (!role) {
     return null;
   }
-
   if (typeof role !== 'string') {
     return normaliseRole(String(role));
   }
-
   const trimmed = role.trim();
   if (!trimmed) {
     return null;
   }
-
   return trimmed.toLowerCase().replace(/[^a-z0-9]+/g, '_');
 }
 
 function extractRoles(input) {
   const roles = new Set();
-
-  if (!input) {
-    return roles;
-  }
-
   const pushRole = (value) => {
     const normalised = normaliseRole(value);
     if (normalised) {
@@ -124,11 +110,13 @@ function extractRoles(input) {
     }
   };
 
-  if (Array.isArray(input)) {
-    input.forEach(pushRole);
+  if (!input) {
     return roles;
   }
-
+  if (Array.isArray(input)) {
+    input.forEach((value) => extractRoles(value).forEach((item) => roles.add(item)));
+    return roles;
+  }
   if (typeof input === 'string') {
     input
       .split(/[,\s]+/)
@@ -137,14 +125,12 @@ function extractRoles(input) {
       .forEach(pushRole);
     return roles;
   }
-
   pushRole(input);
   return roles;
 }
 
 function collectRequestRoles(req) {
   const aggregated = new Set();
-
   const merge = (values) => {
     extractRoles(values).forEach((value) => aggregated.add(value));
   };
@@ -170,13 +156,11 @@ export function hasProjectManagementAccess(req) {
   if (!roles.size) {
     return false;
   }
-
   for (const role of roles) {
     if (PROJECT_MANAGEMENT_ROLES.has(role)) {
       return true;
     }
   }
-
   return false;
 }
 
@@ -184,18 +168,10 @@ export function requireProjectManagementRole(req, res, next) {
   if (hasProjectManagementAccess(req)) {
     return next();
   }
-
   return res.status(403).json({
-    message:
-      'You do not have permission to manage projects. Contact an operations lead to obtain the correct workspace role.',
+    message: 'You do not have permission to manage projects. Contact an operations lead to obtain the correct workspace role.',
   });
 }
-
-export default {
-  hasProjectManagementAccess,
-  requireProjectManagementRole,
-};
-import { ValidationError } from '../utils/errors.js';
 
 function normaliseRoles(input) {
   if (!input) {
@@ -237,7 +213,6 @@ export function requireUserType(allowedUserTypes = [], { allowHeaderFallback = t
     sources.push(req.body?.userType, req.query?.userType);
 
     const resolvedRoles = normaliseRoles(sources);
-
     const hasAccess = resolvedRoles.some((role) => allowed.has(role));
 
     if (!hasAccess) {
@@ -253,4 +228,15 @@ export function requireUserType(allowedUserTypes = [], { allowHeaderFallback = t
   };
 }
 
-export default { requireUserType };
+export function requireRoles(roles, options) {
+  return requireMembership(roles, options);
+}
+
+export default {
+  extractMemberships,
+  requireMembership,
+  requireRoles,
+  hasProjectManagementAccess,
+  requireProjectManagementRole,
+  requireUserType,
+};

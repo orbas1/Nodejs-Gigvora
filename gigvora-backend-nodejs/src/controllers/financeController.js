@@ -1,13 +1,9 @@
 import { getFinanceControlTowerOverview } from '../services/financeService.js';
+import { getFreelancerFinanceInsights } from '../services/financeInsightsService.js';
 import { ValidationError } from '../utils/errors.js';
 
 function resolveUserId(req, { required = true } = {}) {
-  const candidates = [
-    req.user?.id,
-    req.query?.userId,
-    req.body?.userId,
-    req.params?.userId,
-  ];
+  const candidates = [req.user?.id, req.query?.userId, req.body?.userId, req.params?.userId];
 
   for (const candidate of candidates) {
     if (candidate == null) continue;
@@ -35,21 +31,22 @@ export async function controlTowerOverview(req, res) {
   res.json(overview);
 }
 
-export default {
-  controlTowerOverview,
-import { getFreelancerFinanceInsights } from '../services/financeInsightsService.js';
-
 function parseFreelancerId(value) {
-  return Number.parseInt(value, 10);
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new ValidationError('freelancerId must be a positive integer.');
+  }
+  return parsed;
 }
 
 export async function showFreelancerInsights(req, res) {
-  const { freelancerId } = req.params;
+  const { freelancerId } = req.params ?? {};
   const normalizedId = parseFreelancerId(freelancerId);
   const insights = await getFreelancerFinanceInsights(normalizedId);
   res.json(insights);
 }
 
 export default {
+  controlTowerOverview,
   showFreelancerInsights,
 };

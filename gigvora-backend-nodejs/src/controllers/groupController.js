@@ -1,195 +1,171 @@
 import {
   listGroups,
+  discoverGroups,
   getGroupProfile,
+  createGroup,
+  updateGroup,
+  addMember,
+  updateMember,
+  removeMember,
   joinGroup,
   leaveGroup,
   updateMembershipSettings,
+  requestMembership,
 } from '../services/groupService.js';
 
-function toNumber(value, fallback = null) {
+function parseIntOrNull(value) {
   if (value == null || value === '') {
-    return fallback;
+    return null;
   }
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : fallback;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isNaN(parsed) ? null : parsed;
 }
 
-function toBoolean(value, fallback = false) {
+function normaliseBoolean(value, fallback = false) {
   if (value == null) {
     return fallback;
   }
   if (typeof value === 'boolean') {
     return value;
   }
-  const normalized = `${value}`.toLowerCase();
-  if (['1', 'true', 'yes', 'on'].includes(normalized)) {
+  const normalised = String(value).trim().toLowerCase();
+  if (['true', '1', 'yes', 'on'].includes(normalised)) {
     return true;
   }
-  if (['0', 'false', 'no', 'off'].includes(normalized)) {
+  if (['false', '0', 'no', 'off'].includes(normalised)) {
     return false;
   }
   return fallback;
 }
 
+function resolveActor(req) {
+  return req.user ?? null;
+}
+
 function resolveActorId(req) {
   return (
-    toNumber(req?.user?.id) ??
-    toNumber(req?.user?.userId) ??
-    toNumber(req?.query?.actorId) ??
-    toNumber(req?.body?.actorId)
+    parseIntOrNull(req.user?.id) ??
+    parseIntOrNull(req.user?.userId) ??
+    parseIntOrNull(req.query?.actorId) ??
+    parseIntOrNull(req.body?.actorId)
   );
-}
-
-export async function index(req, res) {
-  const actorId = resolveActorId(req);
-  const { limit, offset, focus, q, query, includeEmpty } = req.query ?? {};
-  const result = await listGroups({
-    actorId,
-    limit: toNumber(limit, 12),
-    offset: toNumber(offset, 0),
-    focus: focus ?? undefined,
-    query: q ?? query ?? undefined,
-    includeEmpty: toBoolean(includeEmpty, false),
-import groupService from '../services/groupService.js';
-
-function parseId(value, fallback = null) {
-  const parsed = Number.parseInt(value, 10);
-  return Number.isNaN(parsed) ? fallback : parsed;
-}
-
-function parseBoolean(value) {
-  if (typeof value === 'boolean') return value;
-  if (typeof value === 'string') {
-    const normalized = value.trim().toLowerCase();
-    return normalized === 'true' || normalized === '1' || normalized === 'yes';
-  }
-  return false;
 }
 
 export async function discover(req, res) {
   const { limit, search } = req.query ?? {};
-  const actorId = req.user?.id ?? null;
-  const result = await groupService.discoverGroups({ limit, search, actorId });
+  const result = await discoverGroups({
+    limit: limit != null ? Number(limit) : undefined,
+    search: search ?? undefined,
+    actorId: resolveActorId(req),
+  });
   res.json(result);
 }
 
 export async function index(req, res) {
   const { page, pageSize, search, visibility, includeMembers } = req.query ?? {};
-  const result = await groupService.listGroups({
+  const result = await listGroups({
     page,
     pageSize,
     search,
     visibility,
-    includeMembers: parseBoolean(includeMembers),
-    actor: req.user,
+    includeMembers: normaliseBoolean(includeMembers),
+    actor: resolveActor(req),
   });
   res.json(result);
 }
 
 export async function show(req, res) {
+  const groupId = parseIntOrNull(req.params?.groupId);
   const actorId = resolveActorId(req);
-  const { groupId } = req.params ?? {};
   const result = await getGroupProfile(groupId, { actorId });
   res.json(result);
 }
 
-export async function join(req, res) {
-  const actorId = resolveActorId(req);
-  const { groupId } = req.params ?? {};
-  const { role } = req.body ?? {};
-  const result = await joinGroup(groupId, { actorId, role });
-  res.status(201).json(result);
-}
-
-export async function leave(req, res) {
-  const actorId = resolveActorId(req);
-  const { groupId } = req.params ?? {};
-  const result = await leaveGroup(groupId, { actorId });
-  res.json(result);
-}
-
-export async function updateMembership(req, res) {
-  const actorId = resolveActorId(req);
-  const { groupId } = req.params ?? {};
-  const payload = req.body ?? {};
-  const result = await updateMembershipSettings(groupId, { actorId, ...payload });
-  res.json(result);
-}
-
-export default {
-  index,
-  show,
-  join,
-  leave,
-  updateMembership,
 export async function create(req, res) {
   const payload = req.body ?? {};
-  const result = await groupService.createGroup(payload, { actor: req.user });
+  const result = await createGroup(payload, { actor: resolveActor(req) });
   res.status(201).json(result);
-}
-
-export async function show(req, res) {
-  const groupId = parseId(req.params.groupId);
-  const group = await groupService.getGroup(groupId, { includeMembers: true, actor: req.user });
-  res.json(group);
 }
 
 export async function update(req, res) {
-  const groupId = parseId(req.params.groupId);
+  const groupId = parseIntOrNull(req.params?.groupId);
   const payload = req.body ?? {};
-  const result = await groupService.updateGroup(groupId, payload, { actor: req.user });
+  const result = await updateGroup(groupId, payload, { actor: resolveActor(req) });
   res.json(result);
 }
 
-export async function addMember(req, res) {
-  const groupId = parseId(req.params.groupId);
-  const payload = req.body ?? {};
-  const result = await groupService.addMember(
+export async function addMemberController(req, res) {
+  const groupId = parseIntOrNull(req.params?.groupId);
+  const { userId, role, status, notes } = req.body ?? {};
+  const result = await addMember(
     {
       groupId,
-      userId: parseId(payload.userId),
-      role: payload.role,
-      status: payload.status,
-      notes: payload.notes,
+      userId: parseIntOrNull(userId),
+      role,
+      status,
+      notes,
     },
-    { actor: req.user },
+    { actor: resolveActor(req) },
   );
   res.status(201).json(result);
 }
 
-export async function updateMember(req, res) {
-  const groupId = parseId(req.params.groupId);
-  const membershipId = parseId(req.params.membershipId);
+export async function updateMemberController(req, res) {
+  const groupId = parseIntOrNull(req.params?.groupId);
+  const membershipId = parseIntOrNull(req.params?.membershipId);
   const payload = req.body ?? {};
-  const result = await groupService.updateMember(groupId, membershipId, payload, { actor: req.user });
+  const result = await updateMember(groupId, membershipId, payload, { actor: resolveActor(req) });
   res.json(result);
 }
 
-export async function removeMember(req, res) {
-  const groupId = parseId(req.params.groupId);
-  const membershipId = parseId(req.params.membershipId);
-  await groupService.removeMember(groupId, membershipId, { actor: req.user });
-  res.status(204).end();
+export async function removeMemberController(req, res) {
+  const groupId = parseIntOrNull(req.params?.groupId);
+  const membershipId = parseIntOrNull(req.params?.membershipId);
+  const result = await removeMember(groupId, membershipId, { actor: resolveActor(req) });
+  res.json(result);
 }
 
-export async function requestMembership(req, res) {
-  const groupId = parseId(req.params.groupId);
+export async function join(req, res) {
+  const groupId = parseIntOrNull(req.params?.groupId);
+  const { role } = req.body ?? {};
+  const result = await joinGroup(groupId, { actorId: resolveActorId(req), role });
+  res.status(201).json(result);
+}
+
+export async function leave(req, res) {
+  const groupId = parseIntOrNull(req.params?.groupId);
+  const result = await leaveGroup(groupId, { actorId: resolveActorId(req) });
+  res.json(result);
+}
+
+export async function updateMembership(req, res) {
+  const groupId = parseIntOrNull(req.params?.groupId);
   const payload = req.body ?? {};
-  const result = await groupService.requestMembership(groupId, {
-    actor: req.user,
-    message: payload.message,
+  const result = await updateMembershipSettings(groupId, {
+    actorId: resolveActorId(req),
+    ...payload,
   });
+  res.json(result);
+}
+
+export async function requestMembershipController(req, res) {
+  const groupId = parseIntOrNull(req.params?.groupId);
+  const { message } = req.body ?? {};
+  const result = await requestMembership(groupId, { actor: resolveActor(req), message });
   res.status(202).json(result);
 }
 
 export default {
   discover,
   index,
-  create,
   show,
+  create,
   update,
-  addMember,
-  updateMember,
-  removeMember,
-  requestMembership,
+  addMember: addMemberController,
+  updateMember: updateMemberController,
+  removeMember: removeMemberController,
+  join,
+  leave,
+  updateMembership,
+  requestMembership: requestMembershipController,
 };

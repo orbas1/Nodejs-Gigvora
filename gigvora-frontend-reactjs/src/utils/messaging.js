@@ -1,6 +1,8 @@
 import { formatRelativeTime } from './date.js';
 import { resolveActorId } from './session.js';
 
+export { resolveActorId } from './session.js';
+
 function formatName(user) {
   if (!user) {
     return null;
