@@ -176,6 +176,112 @@ class ProjectGigManagementController
       rethrow;
     }
   }
+
+  Future<void> createProjectTask(ProjectTaskDraft draft) async {
+    try {
+      if (state.data?.access.canManage == false) {
+        throw StateError('Project task management is restricted for your role.');
+      }
+      await _repository.createProjectTask(draft);
+      await _analytics.track(
+        'mobile_project_task_created',
+        context: {
+          'userId': userId,
+          'projectId': draft.projectId,
+          'lane': draft.lane,
+          'status': draft.status,
+        },
+        metadata: const {'source': 'mobile_app'},
+      );
+      await load(forceRefresh: true);
+    } catch (error) {
+      unawaited(
+        _analytics.track(
+          'mobile_project_task_failed',
+          context: {
+            'userId': userId,
+            'projectId': draft.projectId,
+            'action': 'create',
+            'reason': '$error',
+          },
+          metadata: const {'source': 'mobile_app'},
+        ),
+      );
+      rethrow;
+    }
+  }
+
+  Future<void> updateProjectTask(ProjectTaskRecord task, ProjectTaskMutation mutation) async {
+    final payload = mutation.toJson();
+    if (payload.isEmpty) {
+      return;
+    }
+    try {
+      if (state.data?.access.canManage == false) {
+        throw StateError('Project task management is restricted for your role.');
+      }
+      await _repository.updateProjectTask(task.projectId, task.id, mutation);
+      await _analytics.track(
+        'mobile_project_task_updated',
+        context: {
+          'userId': userId,
+          'projectId': task.projectId,
+          'taskId': task.id,
+        },
+        metadata: const {'source': 'mobile_app'},
+      );
+      await load(forceRefresh: true);
+    } catch (error) {
+      unawaited(
+        _analytics.track(
+          'mobile_project_task_failed',
+          context: {
+            'userId': userId,
+            'projectId': task.projectId,
+            'taskId': task.id,
+            'action': 'update',
+            'reason': '$error',
+          },
+          metadata: const {'source': 'mobile_app'},
+        ),
+      );
+      rethrow;
+    }
+  }
+
+  Future<void> deleteProjectTask(ProjectTaskRecord task) async {
+    try {
+      if (state.data?.access.canManage == false) {
+        throw StateError('Project task management is restricted for your role.');
+      }
+      await _repository.deleteProjectTask(task.projectId, task.id);
+      await _analytics.track(
+        'mobile_project_task_deleted',
+        context: {
+          'userId': userId,
+          'projectId': task.projectId,
+          'taskId': task.id,
+        },
+        metadata: const {'source': 'mobile_app'},
+      );
+      await load(forceRefresh: true);
+    } catch (error) {
+      unawaited(
+        _analytics.track(
+          'mobile_project_task_failed',
+          context: {
+            'userId': userId,
+            'projectId': task.projectId,
+            'taskId': task.id,
+            'action': 'delete',
+            'reason': '$error',
+          },
+          metadata: const {'source': 'mobile_app'},
+        ),
+      );
+      rethrow;
+    }
+  }
 }
 
 final projectGigManagementRepositoryProvider = Provider<ProjectGigManagementRepository>((ref) {
