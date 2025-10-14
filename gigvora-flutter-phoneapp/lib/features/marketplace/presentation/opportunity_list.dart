@@ -5,6 +5,7 @@ import 'package:gigvora_foundation/gigvora_foundation.dart';
 import '../../../theme/widgets.dart';
 import '../application/opportunity_controller.dart';
 import '../data/models/opportunity.dart';
+import 'widgets/gig_lifecycle_showcase.dart';
 
 class OpportunityListScreen extends ConsumerWidget {
   const OpportunityListScreen({
@@ -153,6 +154,7 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
 
     final filtersActive = _remoteOnly || _freshness != '30d' || _selectedOrganizations.isNotEmpty;
     final gigSignals = widget.category == OpportunityCategory.gig ? _deriveGigSignals(items) : null;
+    final showGigLifecycle = _isGigCategory;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -306,103 +308,119 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
                               style: theme.textTheme.bodyMedium,
                             ),
                           ),
+                          if (showGigLifecycle) ...const [
+                            SizedBox(height: 24),
+                            GigLifecycleShowcase(),
+                            SizedBox(height: 24),
+                          ],
                         ],
                       )
-                    : ListView.separated(
+                    : ListView.builder(
                         physics: const AlwaysScrollableScrollPhysics(),
-                        itemCount: items.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 16),
+                        itemCount: items.length + (showGigLifecycle ? 1 : 0),
                         itemBuilder: (context, index) {
+                          if (showGigLifecycle && index == items.length) {
+                            return const Padding(
+                              padding: EdgeInsets.only(top: 8, bottom: 24),
+                              child: GigLifecycleShowcase(),
+                            );
+                          }
+
                           final item = items[index];
                           final meta = _buildMeta(item);
                           final taxonomyLabels = item.taxonomyLabels.take(4).toList(growable: false);
                           final primaryChipBackground = colorScheme.primary.withOpacity(0.08);
                           final primaryChipBorder = colorScheme.primary.withOpacity(0.2);
-                          return GigvoraCard(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Wrap(
-                                  alignment: WrapAlignment.spaceBetween,
-                                  runSpacing: 8,
-                                  children: [
-                                    if (meta.isNotEmpty)
-                                      Wrap(
-                                        spacing: 8,
-                                        runSpacing: 6,
-                                        children: meta
-                                            .map(
-                                              (entry) => Chip(
-                                                backgroundColor: colorScheme.primary.withOpacity(0.08),
-                                                label: Text(entry),
-                                                labelStyle: theme.textTheme.labelSmall?.copyWith(
-                                                  color: colorScheme.primary,
-                                                  fontWeight: FontWeight.w600,
+                          final addBottomSpacing = showGigLifecycle || index < items.length - 1;
+
+                          return Padding(
+                            padding: EdgeInsets.only(bottom: addBottomSpacing ? 16 : 0),
+                            child: GigvoraCard(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Wrap(
+                                    alignment: WrapAlignment.spaceBetween,
+                                    runSpacing: 8,
+                                    children: [
+                                      if (meta.isNotEmpty)
+                                        Wrap(
+                                          spacing: 8,
+                                          runSpacing: 6,
+                                          children: meta
+                                              .map(
+                                                (entry) => Chip(
+                                                  backgroundColor: colorScheme.primary.withOpacity(0.08),
+                                                  label: Text(entry),
+                                                  labelStyle: theme.textTheme.labelSmall?.copyWith(
+                                                    color: colorScheme.primary,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                  backgroundColor: primaryChipBackground,
+                                                  shape: StadiumBorder(
+                                                    side: BorderSide(color: primaryChipBorder),
+                                                  ),
+                                                  visualDensity: VisualDensity.compact,
+                                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                  label: Text(entry),
                                                 ),
-                                                backgroundColor: primaryChipBackground,
-                                                shape: StadiumBorder(
-                                                  side: BorderSide(color: primaryChipBorder),
-                                                ),
-                                                visualDensity: VisualDensity.compact,
-                                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                                label: Text(entry),
+                                              )
+                                              .toList(),
+                                        ),
+                                      Text(
+                                        'Updated ${formatRelativeTime(item.updatedAt)}',
+                                        style: theme.textTheme.bodySmall?.copyWith(
+                                          color: colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    item.title,
+                                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    item.description,
+                                    maxLines: 4,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  if (taxonomyLabels.isNotEmpty) ...[
+                                    const SizedBox(height: 12),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 4,
+                                      children: taxonomyLabels
+                                          .map(
+                                            (label) => Chip(
+                                              label: Text(label),
+                                              backgroundColor: colorScheme.secondaryContainer,
+                                              labelStyle: theme.textTheme.labelSmall?.copyWith(
+                                                color: colorScheme.onSecondaryContainer,
+                                                fontWeight: FontWeight.w600,
                                               ),
-                                            )
-                                            .toList(),
-                                      ),
-                                    Text(
-                                      'Updated ${formatRelativeTime(item.updatedAt)}',
-                                      style: theme.textTheme.bodySmall?.copyWith(
-                                        color: colorScheme.onSurfaceVariant,
-                                      ),
+                                              visualDensity: VisualDensity.compact,
+                                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                            ),
+                                          )
+                                          .toList(),
                                     ),
                                   ],
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  item.title,
-                                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  item.description,
-                                  maxLines: 4,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                                if (taxonomyLabels.isNotEmpty) ...[
-                                  const SizedBox(height: 12),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 4,
-                                    children: taxonomyLabels
-                                        .map(
-                                          (label) => Chip(
-                                            label: Text(label),
-                                            backgroundColor: colorScheme.secondaryContainer,
-                                            labelStyle: theme.textTheme.labelSmall?.copyWith(
-                                              color: colorScheme.onSecondaryContainer,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                            visualDensity: VisualDensity.compact,
-                                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                          ),
-                                        )
-                                        .toList(),
+                                  const SizedBox(height: 16),
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: FilledButton(
+                                      onPressed: () => controller.recordPrimaryCta(item),
+                                      style: FilledButton.styleFrom(shape: const StadiumBorder()),
+                                      child: Text(widget.ctaLabel),
+                                    ),
                                   ),
                                 ],
-                                const SizedBox(height: 16),
-                                Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: FilledButton(
-                                    onPressed: () => controller.recordPrimaryCta(item),
-                                    style: FilledButton.styleFrom(shape: const StadiumBorder()),
-                                    child: Text(widget.ctaLabel),
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
                           );
                         },

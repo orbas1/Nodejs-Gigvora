@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
 import DataStatus from '../components/DataStatus.jsx';
+import GigLifecycleShowcase from '../components/gigs/GigLifecycleShowcase.jsx';
 import useOpportunityListing from '../hooks/useOpportunityListing.js';
 import analytics from '../services/analytics.js';
 import { formatRelativeTime } from '../utils/date.js';
@@ -553,6 +554,7 @@ export default function GigsPage() {
             </div>
           </aside>
         </div>
+        <GigLifecycleShowcase />
       </div>
     </section>
   );
