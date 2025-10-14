@@ -37,6 +37,7 @@ import '../features/connections/presentation/connections_screen.dart';
 import '../features/work_management/presentation/work_management_screen.dart';
 import '../features/integrations/presentation/company_integrations_screen.dart';
 import '../features/user_dashboard/presentation/user_dashboard_screen.dart';
+import '../features/cv/presentation/cv_workspace_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -145,6 +146,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => WorkManagementScreen(
           projectId: int.tryParse(state.uri.queryParameters['projectId'] ?? ''),
         ),
+      ),
+      GoRoute(
         path: '/dashboard/user',
         redirect: (context, state) {
           final session = sessionState.session;
@@ -158,6 +161,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return null;
         },
         builder: (context, state) => const UserDashboardScreen(),
+      ),
+      GoRoute(
+        path: '/dashboard/user/cv-workspace',
+        redirect: (context, state) {
+          final session = sessionState.session;
+          if (session == null) {
+            final target = Uri.encodeComponent(state.uri.toString());
+            return '/login?redirect=$target';
+          }
+          if (!session.memberships.any(_userDashboardRoles.contains)) {
+            return '/home?notice=user_dashboard_locked';
+          }
+          return null;
+        },
+        builder: (context, state) => const CvWorkspaceScreen(),
       ),
       GoRoute(path: '/dashboard/mentor', builder: (context, state) => const MentorshipScreen()),
       GoRoute(
