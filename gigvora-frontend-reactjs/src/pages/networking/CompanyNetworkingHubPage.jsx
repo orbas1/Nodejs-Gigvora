@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { LockClosedIcon } from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import NetworkingSessionsBoard from '../../components/networking/NetworkingSessionsBoard.jsx';
 import NetworkingSessionDesigner from '../../components/networking/NetworkingSessionDesigner.jsx';
@@ -12,6 +13,7 @@ import {
   createNetworkingBusinessCard,
   listNetworkingBusinessCards,
 } from '../../services/networking.js';
+import useNetworkingAccess from '../../hooks/useNetworkingAccess.js';
 
 const DEFAULT_PENALTY_RULES = { noShowThreshold: 2, cooldownDays: 14 };
 const CARD_TEMPLATE_BASELINE = 3;
@@ -365,8 +367,67 @@ function buildNetworkingOverview({ sessions = [], cards = [] }) {
   };
 }
 
+function formatMembershipLabel(value) {
+  if (!value) {
+    return 'Workspace';
+  }
+  const normalised = `${value}`.replace(/_/g, ' ').trim();
+  return normalised.charAt(0).toUpperCase() + normalised.slice(1);
+}
+
+function AccessDeniedNotice({ reason, memberships }) {
+  const hasMemberships = Array.isArray(memberships) && memberships.length > 0;
+
+  return (
+    <section className="flex flex-col items-center gap-6 rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+      <span className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+        <LockClosedIcon className="h-6 w-6" aria-hidden="true" />
+      </span>
+      <div>
+        <h2 className="text-xl font-semibold text-slate-900">Networking hub is locked</h2>
+        <p className="mt-2 max-w-xl text-sm text-slate-600">
+          {reason ||
+            'Switch to a company workspace with networking permissions to unlock full speed networking controls.'}
+        </p>
+      </div>
+      <div className="flex flex-wrap justify-center gap-2">
+        {hasMemberships ? (
+          memberships.map((membership) => (
+            <span
+              key={membership}
+              className="inline-flex items-center rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-600"
+            >
+              {formatMembershipLabel(membership)}
+            </span>
+          ))
+        ) : (
+          <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Company or agency membership required
+          </span>
+        )}
+      </div>
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <a
+          href="/dashboard/company"
+          className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-600 transition hover:border-blue-200 hover:text-blue-600"
+        >
+          Return to company overview
+        </a>
+        <a
+          href="mailto:success@gigvora.com?subject=Networking%20hub%20access"
+          className="inline-flex items-center justify-center rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500"
+        >
+          Contact success team
+        </a>
+      </div>
+    </section>
+  );
+}
+
 export default function CompanyNetworkingHubPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const networkingAccess = useNetworkingAccess();
+  const { canManageNetworking, reason: accessDeniedReason, allowedMemberships } = networkingAccess;
   const companyIdParam = searchParams.get('companyId');
   const parsedCompanyId = Number(companyIdParam);
   const companyId = Number.isFinite(parsedCompanyId) ? parsedCompanyId : undefined;
@@ -381,7 +442,7 @@ export default function CompanyNetworkingHubPage() {
     loading,
     error,
     refresh,
-  } = useNetworkingSessions({ companyId, lookbackDays: 180, enabled: true });
+  } = useNetworkingSessions({ companyId, lookbackDays: 180, enabled: canManageNetworking });
 
   const networkingOverview = useMemo(
     () => buildNetworkingOverview({ sessions: networkingData?.sessions ?? [], cards: cardLibrary }),
@@ -390,27 +451,44 @@ export default function CompanyNetworkingHubPage() {
 
   const sessions = networkingOverview.sessions?.list ?? [];
 
-  const resolvedCompanyId = useMemo(() => {
-    if (Number.isFinite(Number(networkingData?.meta?.selectedWorkspaceId))) {
-      return Number(networkingData.meta.selectedWorkspaceId);
+  const permittedWorkspaceIds = useMemo(() => {
+    const metaIds = networkingData?.meta?.permittedWorkspaceIds;
+    if (!Array.isArray(metaIds)) {
+      return [];
     }
-    if (Number.isFinite(companyId)) {
+    return metaIds
+      .map((value) => Number(value))
+      .filter((value) => Number.isFinite(value));
+  }, [networkingData?.meta?.permittedWorkspaceIds]);
+
+  const resolvedCompanyId = useMemo(() => {
+    if (!canManageNetworking) {
+      return undefined;
+    }
+    const metaSelected = Number(networkingData?.meta?.selectedWorkspaceId);
+    if (Number.isFinite(metaSelected) && (!permittedWorkspaceIds.length || permittedWorkspaceIds.includes(metaSelected))) {
+      return metaSelected;
+    }
+    if (Number.isFinite(companyId) && (!permittedWorkspaceIds.length || permittedWorkspaceIds.includes(companyId))) {
       return companyId;
     }
     if (sessions.length) {
-      const firstId = sessions[0]?.companyId;
-      return Number.isFinite(Number(firstId)) ? Number(firstId) : undefined;
+      const firstId = Number(sessions[0]?.companyId);
+      if (Number.isFinite(firstId) && (!permittedWorkspaceIds.length || permittedWorkspaceIds.includes(firstId))) {
+        return firstId;
+      }
     }
-    return undefined;
-  }, [networkingData?.meta?.selectedWorkspaceId, companyId, sessions]);
+    return permittedWorkspaceIds[0] ?? undefined;
+  }, [canManageNetworking, networkingData?.meta?.selectedWorkspaceId, companyId, sessions, permittedWorkspaceIds]);
 
   const selectedSessionId = useMemo(() => {
+    if (!canManageNetworking) return null;
     if (runtimeSessionId) return runtimeSessionId;
     if (sessions.length) {
       return sessions[0].id;
     }
     return null;
-  }, [runtimeSessionId, sessions]);
+  }, [canManageNetworking, runtimeSessionId, sessions]);
 
   useEffect(() => {
     if (!runtimeSessionId) return;
@@ -419,9 +497,17 @@ export default function CompanyNetworkingHubPage() {
     }
   }, [runtimeSessionId, sessions]);
 
-  const runtime = useNetworkingSessionRuntime(selectedSessionId, { enabled: Boolean(selectedSessionId) });
+  const runtime = useNetworkingSessionRuntime(selectedSessionId, {
+    enabled: canManageNetworking && Boolean(selectedSessionId),
+  });
 
   const handleRefreshCards = useCallback(async () => {
+    if (!canManageNetworking) {
+      const message = 'Networking business cards are available to company or agency managers.';
+      setCardLibrary([]);
+      setCardLoadError(message);
+      return [];
+    }
     if (!resolvedCompanyId) {
       setCardLibrary([]);
       setCardLoadError(null);
@@ -444,7 +530,7 @@ export default function CompanyNetworkingHubPage() {
     } finally {
       setCardLoading(false);
     }
-  }, [resolvedCompanyId]);
+  }, [canManageNetworking, resolvedCompanyId]);
 
   useEffect(() => {
     if (!resolvedCompanyId) {
@@ -455,10 +541,14 @@ export default function CompanyNetworkingHubPage() {
 
   const handleCreateSession = useCallback(
     async (payload) => {
-      const request = { ...payload };
-      if (resolvedCompanyId) {
-        request.companyId = resolvedCompanyId;
+      if (!canManageNetworking) {
+        throw new Error('You do not have permission to create networking sessions.');
       }
+      const request = { ...payload };
+      if (!resolvedCompanyId) {
+        throw new Error('Select an eligible workspace before creating a networking session.');
+      }
+      request.companyId = resolvedCompanyId;
       try {
         await createNetworkingSession(request);
         await refresh({ force: true });
@@ -470,11 +560,16 @@ export default function CompanyNetworkingHubPage() {
         throw submissionError;
       }
     },
-    [refresh, resolvedCompanyId],
+    [canManageNetworking, refresh, resolvedCompanyId],
   );
 
   const handleCreateCard = useCallback(
     async (payload) => {
+      if (!canManageNetworking) {
+        const message = 'You do not have permission to create networking business cards.';
+        setCardLoadError(message);
+        throw new Error(message);
+      }
       if (!resolvedCompanyId) {
         const message = 'Select a workspace before creating business cards.';
         setCardLoadError(message);
@@ -492,7 +587,7 @@ export default function CompanyNetworkingHubPage() {
         throw submissionError;
       }
     },
-    [handleRefreshCards, resolvedCompanyId],
+    [canManageNetworking, handleRefreshCards, resolvedCompanyId],
   );
 
   const menuSections = [
@@ -506,6 +601,23 @@ export default function CompanyNetworkingHubPage() {
       ],
     },
   ];
+
+  if (!canManageNetworking) {
+    return (
+      <DashboardLayout
+        currentDashboard="company"
+        title="Networking hub"
+        subtitle="Plan, promote, and run browser-based speed networking."
+        description="Design immersive networking programs, monitor attendance in real time, and keep digital cards ready to share."
+        menuSections={[]}
+        sections={[]}
+        availableDashboards={['company', 'agency', 'headhunter']}
+        activeMenuItem="sessions"
+      >
+        <AccessDeniedNotice reason={accessDeniedReason} memberships={allowedMemberships} />
+      </DashboardLayout>
+    );
+  }
 
   const pageContent = (
     <div className="flex flex-col gap-8">
@@ -570,7 +682,8 @@ export default function CompanyNetworkingHubPage() {
       description="Design immersive networking programs, monitor attendance in real time, and keep digital cards ready to share."
       menuSections={menuSections}
       sections={[]}
-      availableDashboards={['company', 'agency', 'freelancer', 'headhunter']}
+      availableDashboards={['company', 'agency', 'headhunter']}
+      activeMenuItem="sessions"
     >
       {loading && !networkingData ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600">Loading networking data…</div>

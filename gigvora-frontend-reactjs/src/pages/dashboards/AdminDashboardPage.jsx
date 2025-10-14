@@ -4,6 +4,14 @@ import { ArrowPathIcon, CurrencyDollarIcon, LifebuoyIcon, ShieldCheckIcon, Users
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import { fetchAdminDashboard } from '../../services/admin.js';
 import useSession from '../../hooks/useSession.js';
+import { Link } from 'react-router-dom';
+import { ArrowPathIcon, CurrencyDollarIcon, LifebuoyIcon, ShieldCheckIcon, UsersIcon } from '@heroicons/react/24/outline';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import { fetchAdminDashboard } from '../../services/admin.js';
+import AdminGroupManagementPanel from './admin/AdminGroupManagementPanel.jsx';
+import { fetchPlatformSettings, updatePlatformSettings } from '../../services/platformSettings.js';
+import useSession from '../../hooks/useSession.js';
+import GigvoraAdsConsole from '../../components/ads/GigvoraAdsConsole.jsx';
 
 const MENU_SECTIONS = [
   {
@@ -33,6 +41,12 @@ const MENU_SECTIONS = [
         description: 'Platform analytics, event telemetry, and notification delivery.',
       },
       {
+        name: 'Gigvora Ads',
+        description: 'Campaign coverage, targeting telemetry, and creative governance.',
+        tags: ['ads', 'monetisation'],
+        sectionId: 'gigvora-ads',
+      },
+      {
         name: 'Launchpad performance',
         description: 'Talent placements, interview runway, and employer demand.',
       },
@@ -53,6 +67,34 @@ const MENU_SECTIONS = [
       {
         name: 'Audit center',
         description: 'Trace admin actions, approvals, and configuration changes.',
+      },
+    ],
+  },
+  {
+    label: 'Configuration stack',
+    items: [
+      {
+        name: 'All platform settings',
+        description: 'Govern application defaults, commission policies, and feature gates.',
+        tags: ['settings'],
+        sectionId: 'admin-settings-overview',
+      },
+      {
+        name: 'CMS controls',
+        description: 'Editorial workflow, restricted features, and monetisation toggles.',
+        sectionId: 'admin-settings-cms',
+      },
+      {
+        name: 'Environment & secrets',
+        description: 'Runtime environment, storage credentials, and database endpoints.',
+        sectionId: 'admin-settings-environment',
+        tags: ['ops'],
+      },
+      {
+        name: 'API & notifications',
+        description: 'REST endpoints, payment gateways, and outbound email security.',
+        sectionId: 'admin-settings-api',
+        tags: ['api'],
       },
     ],
   },
@@ -171,6 +213,133 @@ function calculatePercentages(dictionary = {}) {
     const percent = total > 0 ? Math.round((numeric / total) * 100) : 0;
     return { key, value: numeric, percent, label: humanizeLabel(key) };
   });
+
+function cloneDeep(value) {
+  if (value == null) {
+    return value;
+  }
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch (error) {
+    console.warn('Unable to clone value', error);
+    return value;
+  }
+}
+
+function getNestedValue(source, path, fallback = '') {
+  if (!Array.isArray(path) || path.length === 0) {
+    return fallback;
+  }
+  const result = path.reduce((accumulator, key) => {
+    if (accumulator == null) {
+      return undefined;
+    }
+    return accumulator[key];
+  }, source);
+  return result ?? fallback;
+}
+
+function setNestedValue(source, path, value) {
+  if (!Array.isArray(path) || path.length === 0) {
+    return value;
+  }
+  const [head, ...rest] = path;
+  const current = source && typeof source === 'object' ? source : {};
+  const clone = Array.isArray(current) ? [...current] : { ...current };
+  clone[head] = rest.length ? setNestedValue(current?.[head], rest, value) : value;
+  return clone;
+}
+
+function maskSecret(value) {
+  if (!value) {
+    return '—';
+  }
+  const stringValue = String(value);
+  if (stringValue.length <= 4) {
+    return '•'.repeat(stringValue.length);
+  }
+  return `${'•'.repeat(stringValue.length - 4)}${stringValue.slice(-4)}`;
+}
+
+function buildSettingsOverview(settings = {}) {
+  const app = settings?.app ?? {};
+  const commissions = settings?.commissions ?? {};
+  const featureToggles = settings?.featureToggles ?? {};
+  const subscriptions = settings?.subscriptions ?? {};
+  const payments = settings?.payments ?? {};
+  const stripe = payments?.stripe ?? {};
+  const escrow = payments?.escrow_com ?? {};
+  const smtp = settings?.smtp ?? {};
+  const storage = settings?.storage ?? {};
+  const storageR2 = storage?.cloudflare_r2 ?? {};
+  const database = settings?.database ?? {};
+
+  const toggleValues = Object.values(featureToggles);
+  const activeToggleCount = toggleValues.filter(Boolean).length;
+  const totalToggleCount = Object.keys(featureToggles).length;
+
+  return {
+    overviewMetrics: [
+      {
+        label: 'Workspace name',
+        value: app.name || 'Gigvora',
+        caption: app.clientUrl ? `Client URL ${app.clientUrl}` : null,
+      },
+      {
+        label: 'Runtime environment',
+        value: (app.environment || 'development').toUpperCase(),
+        caption: app.apiUrl ? `API ${app.apiUrl}` : 'API URL not configured',
+      },
+      {
+        label: 'Active feature toggles',
+        value: activeToggleCount,
+        caption: `${totalToggleCount} total toggles`,
+      },
+      {
+        label: 'Commission policy',
+        value: `${commissions.rate ?? 0}% ${commissions.currency ?? 'USD'}`,
+        caption: commissions.enabled ? 'Enabled' : 'Disabled',
+      },
+    ],
+    cms: {
+      subscriptionsEnabled: Boolean(subscriptions.enabled),
+      restrictedFeatures: Array.isArray(subscriptions.restrictedFeatures)
+        ? subscriptions.restrictedFeatures
+        : [],
+      plans: Array.isArray(subscriptions.plans) ? subscriptions.plans : [],
+      featureToggles,
+      commissions,
+    },
+    environment: {
+      environmentName: app.environment ?? 'development',
+      clientUrl: app.clientUrl ?? '',
+      appName: app.name ?? '',
+      storageProvider: storage.provider ?? 'cloudflare_r2',
+      storageBucket: storageR2.bucket ?? '',
+      storageEndpoint: storageR2.endpoint ?? '',
+      storagePublicBaseUrl: storageR2.publicBaseUrl ?? '',
+      databaseHost: database.host ?? '',
+      databasePort: database.port ?? '',
+      databaseName: database.name ?? '',
+      databaseUser: database.username ?? '',
+    },
+    api: {
+      apiUrl: app.apiUrl ?? '',
+      paymentProvider: payments.provider ?? 'stripe',
+      stripePublishableKey: stripe.publishableKey ?? '',
+      stripeWebhookSecret: stripe.webhookSecret ?? '',
+      stripeAccountId: stripe.accountId ?? '',
+      escrowSandbox: escrow.sandbox ?? true,
+      escrowApiKey: escrow.apiKey ?? '',
+      escrowApiSecret: escrow.apiSecret ?? '',
+      smtpHost: smtp.host ?? '',
+      smtpPort: smtp.port ?? '',
+      smtpSecure: Boolean(smtp.secure),
+      smtpUsername: smtp.username ?? '',
+      smtpFromAddress: smtp.fromAddress ?? '',
+      smtpFromName: smtp.fromName ?? '',
+    },
+  };
 }
 
 function computeInitials(name, fallback = 'GV') {
@@ -305,10 +474,29 @@ function RecentList({ title, rows, columns, emptyLabel }) {
 export default function AdminDashboardPage() {
   const navigate = useNavigate();
   const { session, isAuthenticated } = useSession();
+  const { session: activeSession } = useSession();
+  const memberships = Array.isArray(activeSession?.memberships) ? activeSession.memberships : [];
+  const roles = Array.isArray(activeSession?.roles) ? activeSession.roles : [];
+  const hasAdminAccess =
+    memberships.includes('admin') ||
+    roles.includes('admin') ||
+    activeSession?.primaryDashboard === 'admin' ||
+    activeSession?.role === 'admin' ||
+    activeSession?.userType === 'admin';
+
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshIndex, setRefreshIndex] = useState(0);
+  const [settings, setSettings] = useState(null);
+  const [settingsDraft, setSettingsDraft] = useState(null);
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [settingsError, setSettingsError] = useState(null);
+  const [settingsDirty, setSettingsDirty] = useState(false);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsStatus, setSettingsStatus] = useState('');
+  const [lastSavedAt, setLastSavedAt] = useState(null);
+  const [restrictedFeaturesInput, setRestrictedFeaturesInput] = useState('');
 
   const hasAdminRole = useMemo(() => {
     if (!session) {
@@ -332,7 +520,25 @@ export default function AdminDashboardPage() {
       return;
     }
     let active = true;
+
+    if (!hasAdminAccess) {
+      setData(null);
+      setSettings(null);
+      setSettingsDraft(null);
+      setSettingsDirty(false);
+      setLoading(false);
+      setSettingsLoading(false);
+      setError(null);
+      setSettingsError(null);
+      setSettingsStatus('');
+      setLastSavedAt(null);
+      return () => {
+        active = false;
+      };
+    }
+
     setLoading(true);
+    setSettingsLoading(true);
     setError(null);
     fetchAdminDashboard()
       .then((response) => {
@@ -349,13 +555,55 @@ export default function AdminDashboardPage() {
         } else {
           setError(err?.message || 'Unable to load admin telemetry at this time.');
         }
+    setSettingsError(null);
+    setSettingsStatus('');
+
+    Promise.allSettled([fetchAdminDashboard(), fetchPlatformSettings()]).then(([dashboardResult, settingsResult]) => {
+      if (!active) {
+        return;
+      }
+
+      if (dashboardResult.status === 'fulfilled') {
+        setData(dashboardResult.value);
+      } else {
+        const reason = dashboardResult.reason;
+        const message =
+          reason?.message ||
+          (reason instanceof Error ? reason.message : 'Unable to load admin telemetry at this time.');
+        setError(message);
         setData(null);
-        setLoading(false);
-      });
+      }
+      setLoading(false);
+
+      if (settingsResult.status === 'fulfilled') {
+        const received = settingsResult.value;
+        setSettings(received);
+        const draft = cloneDeep(received);
+        setSettingsDraft(draft);
+        setRestrictedFeaturesInput(
+          Array.isArray(received?.subscriptions?.restrictedFeatures)
+            ? received.subscriptions.restrictedFeatures.join(', ')
+            : '',
+        );
+        setSettingsDirty(false);
+        setLastSavedAt(new Date().toISOString());
+      } else {
+        const reason = settingsResult.reason;
+        const message =
+          reason?.message || (reason instanceof Error ? reason.message : 'Unable to load platform settings.');
+        setSettingsError(message);
+        setSettings(null);
+        setSettingsDraft(null);
+        setSettingsDirty(false);
+      }
+      setSettingsLoading(false);
+    });
+
     return () => {
       active = false;
     };
   }, [refreshIndex, canAccessDashboard]);
+  }, [refreshIndex, hasAdminAccess]);
 
   const profile = useMemo(() => {
     const totals = data?.summary?.totals ?? {};
@@ -434,13 +682,776 @@ export default function AdminDashboardPage() {
     ];
   }, [data]);
 
+  const normalizedSettings = useMemo(
+    () => buildSettingsOverview(settingsDraft ?? settings ?? {}),
+    [settingsDraft, settings],
+  );
+
+  const updateSettingsDraft = (path, value) => {
+    setSettingsDraft((current) => {
+      const baseline = current ?? cloneDeep(settings ?? {});
+      const next = setNestedValue(baseline, path, value);
+      setSettingsDirty(true);
+      return next;
+    });
+  };
+
+  const handleTextChange = (path) => (event) => {
+    updateSettingsDraft(path, event.target.value);
+  };
+
+  const handleSelectChange = (path) => (event) => {
+    updateSettingsDraft(path, event.target.value);
+  };
+
+  const handleToggleChange = (path) => (event) => {
+    updateSettingsDraft(path, event.target.checked);
+  };
+
+  const handleRestrictedFeaturesChange = (value) => {
+    setRestrictedFeaturesInput(value);
+    const features = value
+      .split(',')
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+    updateSettingsDraft(['subscriptions', 'restrictedFeatures'], features);
+  };
+
+  const handleSaveSettings = async () => {
+    if (!settingsDraft || settingsSaving) {
+      return;
+    }
+    setSettingsSaving(true);
+    setSettingsError(null);
+    setSettingsStatus('');
+    try {
+      const payload = cloneDeep(settingsDraft);
+      if (Array.isArray(payload?.subscriptions?.restrictedFeatures)) {
+        payload.subscriptions.restrictedFeatures = payload.subscriptions.restrictedFeatures
+          .map((item) => (typeof item === 'string' ? item.trim() : ''))
+          .filter((item) => item.length > 0);
+      }
+      const response = await updatePlatformSettings(payload);
+      setSettings(response);
+      const draft = cloneDeep(response);
+      setSettingsDraft(draft);
+      setRestrictedFeaturesInput(
+        Array.isArray(response?.subscriptions?.restrictedFeatures)
+          ? response.subscriptions.restrictedFeatures.join(', ')
+          : '',
+      );
+      setSettingsDirty(false);
+      setSettingsStatus('Platform settings updated successfully.');
+      setLastSavedAt(new Date().toISOString());
+    } catch (err) {
+      setSettingsError(err?.message || 'Failed to update platform settings.');
+    } finally {
+      setSettingsSaving(false);
+    }
+  };
+
+  const handleResetSettings = () => {
+    if (!settings) {
+      setSettingsDraft(null);
+      setSettingsDirty(false);
+      setRestrictedFeaturesInput('');
+      return;
+    }
+    const baseline = cloneDeep(settings);
+    setSettingsDraft(baseline);
+    setRestrictedFeaturesInput(
+      Array.isArray(baseline?.subscriptions?.restrictedFeatures)
+        ? baseline.subscriptions.restrictedFeatures.join(', ')
+        : '',
+    );
+    setSettingsDirty(false);
+    setSettingsError(null);
+    setSettingsStatus('Draft reset to last saved configuration.');
+  };
+
+  const disableSettingsInputs = settingsLoading || settingsSaving || !settingsDraft;
+
+  const renderSettingsSection = (
+    <section
+      id="admin-settings-overview"
+      className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg shadow-blue-100/40 sm:p-8"
+    >
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div>
+          <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Platform configuration</h2>
+          <p className="mt-2 max-w-3xl text-sm text-slate-600">
+            Manage CMS controls, environment credentials, and API integrations from one hardened console.
+          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-wide">
+            <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-600">
+              {settingsLoading ? 'Syncing settings…' : lastSavedAt ? `Last synced ${formatRelativeTime(lastSavedAt)}` : 'Awaiting sync'}
+            </span>
+            {settingsDirty ? (
+              <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-amber-700">
+                Unsaved changes
+              </span>
+            ) : null}
+          </div>
+        </div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <button
+            type="button"
+            onClick={handleRefresh}
+            className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={loading || settingsLoading}
+          >
+            <ArrowPathIcon className="mr-2 h-4 w-4" /> Re-sync data
+          </button>
+          <button
+            type="button"
+            onClick={handleResetSettings}
+            className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={!settingsDirty || settingsSaving || settingsLoading}
+          >
+            Discard draft
+          </button>
+          <button
+            type="button"
+            onClick={handleSaveSettings}
+            className="inline-flex items-center justify-center rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark disabled:cursor-not-allowed disabled:bg-accent/60"
+            disabled={!settingsDirty || settingsSaving || settingsLoading}
+          >
+            {settingsSaving ? 'Saving…' : 'Save changes'}
+          </button>
+        </div>
+      </div>
+      {settingsError ? (
+        <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{settingsError}</div>
+      ) : null}
+      {settingsStatus ? (
+        <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{settingsStatus}</div>
+      ) : null}
+      <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {normalizedSettings.overviewMetrics.map((metric) => (
+          <div key={metric.label} className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{metric.label}</p>
+            <p className="mt-1 text-lg font-semibold text-slate-900">{metric.value}</p>
+            {metric.caption ? (
+              <p className="mt-1 text-[11px] uppercase tracking-wide text-slate-500">{metric.caption}</p>
+            ) : null}
+          </div>
+        ))}
+      </div>
+      {settingsLoading && !settingsDraft ? (
+        <div className="mt-6 rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-6 text-sm text-slate-500">
+          Synchronising secure configuration…
+        </div>
+      ) : (
+        <>
+          <div className="mt-8 grid gap-6 xl:grid-cols-2">
+            <div id="admin-settings-cms" className="rounded-2xl border border-slate-200 bg-slate-50/80 p-6 shadow-sm">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900">CMS controls & monetisation</h3>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Toggle editorial workflows, feature gating, and revenue programs powering the marketplace.
+                  </p>
+                </div>
+                <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-700">
+                  {normalizedSettings.cms.plans.length} plans
+                </span>
+              </div>
+              <div className="mt-5 space-y-4">
+                <label className="flex items-start justify-between gap-4 rounded-2xl border border-white bg-white px-4 py-3 shadow-sm">
+                  <span>
+                    <span className="text-sm font-semibold text-slate-800">Subscriptions</span>
+                    <span className="mt-1 block text-xs text-slate-500">
+                      Enable paid tiers and premium content access across Explorer.
+                    </span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5 rounded border-slate-300 text-accent focus:ring-accent"
+                    checked={Boolean(getNestedValue(settingsDraft, ['subscriptions', 'enabled'], normalizedSettings.cms.subscriptionsEnabled))}
+                    onChange={handleToggleChange(['subscriptions', 'enabled'])}
+                    disabled={disableSettingsInputs}
+                  />
+                </label>
+                <label className="flex items-start justify-between gap-4 rounded-2xl border border-white bg-white px-4 py-3 shadow-sm">
+                  <span>
+                    <span className="text-sm font-semibold text-slate-800">Escrow features</span>
+                    <span className="mt-1 block text-xs text-slate-500">Control job escrow, milestone protection, and compliance.</span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5 rounded border-slate-300 text-accent focus:ring-accent"
+                    checked={Boolean(getNestedValue(settingsDraft, ['featureToggles', 'escrow'], settings?.featureToggles?.escrow ?? true))}
+                    onChange={handleToggleChange(['featureToggles', 'escrow'])}
+                    disabled={disableSettingsInputs}
+                  />
+                </label>
+                <label className="flex items-start justify-between gap-4 rounded-2xl border border-white bg-white px-4 py-3 shadow-sm">
+                  <span>
+                    <span className="text-sm font-semibold text-slate-800">Marketplace subscriptions</span>
+                    <span className="mt-1 block text-xs text-slate-500">
+                      Lock advanced analytics and workflow automation behind paid tiers.
+                    </span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5 rounded border-slate-300 text-accent focus:ring-accent"
+                    checked={Boolean(getNestedValue(settingsDraft, ['featureToggles', 'subscriptions'], settings?.featureToggles?.subscriptions ?? true))}
+                    onChange={handleToggleChange(['featureToggles', 'subscriptions'])}
+                    disabled={disableSettingsInputs}
+                  />
+                </label>
+                <label className="flex items-start justify-between gap-4 rounded-2xl border border-white bg-white px-4 py-3 shadow-sm">
+                  <span>
+                    <span className="text-sm font-semibold text-slate-800">Commission engine</span>
+                    <span className="mt-1 block text-xs text-slate-500">
+                      Toggle marketplace fee capture globally.
+                    </span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5 rounded border-slate-300 text-accent focus:ring-accent"
+                    checked={Boolean(getNestedValue(settingsDraft, ['featureToggles', 'commissions'], settings?.featureToggles?.commissions ?? true))}
+                    onChange={handleToggleChange(['featureToggles', 'commissions'])}
+                    disabled={disableSettingsInputs}
+                  />
+                </label>
+                <div>
+                  <label className="text-sm font-semibold text-slate-800" htmlFor="restrictedFeatures">
+                    Restricted features (comma separated)
+                  </label>
+                  <textarea
+                    id="restrictedFeatures"
+                    value={restrictedFeaturesInput}
+                    onChange={(event) => handleRestrictedFeaturesChange(event.target.value)}
+                    disabled={disableSettingsInputs}
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                    rows={3}
+                    placeholder="analytics_pro, gig_high_value"
+                  />
+                  <p className="mt-2 text-xs text-slate-500">
+                    These features require an active subscription. Separate values with commas.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-6 shadow-sm">
+              <h3 className="text-lg font-semibold text-slate-900">Marketplace monetisation</h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Fine-tune commission rates, currency, and minimum fees to align with treasury policy.
+              </p>
+              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <label htmlFor="commissionRate" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Commission rate (%)
+                  </label>
+                  <input
+                    id="commissionRate"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value={getNestedValue(settingsDraft, ['commissions', 'rate'], settings?.commissions?.rate ?? '')}
+                    onChange={handleTextChange(['commissions', 'rate'])}
+                    disabled={disableSettingsInputs}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="commissionCurrency" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Currency
+                  </label>
+                  <input
+                    id="commissionCurrency"
+                    value={getNestedValue(settingsDraft, ['commissions', 'currency'], settings?.commissions?.currency ?? 'USD')}
+                    onChange={handleTextChange(['commissions', 'currency'])}
+                    disabled={disableSettingsInputs}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                    placeholder="USD"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="commissionMinimum" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Minimum fee
+                  </label>
+                  <input
+                    id="commissionMinimum"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={getNestedValue(settingsDraft, ['commissions', 'minimumFee'], settings?.commissions?.minimumFee ?? '')}
+                    onChange={handleTextChange(['commissions', 'minimumFee'])}
+                    disabled={disableSettingsInputs}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Policy snapshot</p>
+                  <p className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+                    {normalizedSettings.cms.commissions.enabled
+                      ? 'Commission active across gigs and projects.'
+                      : 'Commission policy currently disabled.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="mt-6 grid gap-6 xl:grid-cols-2">
+            <div id="admin-settings-environment" className="rounded-2xl border border-slate-200 bg-slate-50/80 p-6 shadow-sm">
+              <h3 className="text-lg font-semibold text-slate-900">Environment & runtime</h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Ensure the application name, environment, and storage endpoints align with deployment posture.
+              </p>
+              <div className="mt-5 space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="appName" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Workspace name
+                  </label>
+                  <input
+                    id="appName"
+                    value={getNestedValue(settingsDraft, ['app', 'name'], settings?.app?.name ?? '')}
+                    onChange={handleTextChange(['app', 'name'])}
+                    disabled={disableSettingsInputs}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="appEnvironment" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Environment
+                  </label>
+                  <select
+                    id="appEnvironment"
+                    value={getNestedValue(settingsDraft, ['app', 'environment'], settings?.app?.environment ?? 'development')}
+                    onChange={handleSelectChange(['app', 'environment'])}
+                    disabled={disableSettingsInputs}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  >
+                    <option value="development">Development</option>
+                    <option value="staging">Staging</option>
+                    <option value="production">Production</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="clientUrl" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Client URL
+                  </label>
+                  <input
+                    id="clientUrl"
+                    type="url"
+                    value={getNestedValue(settingsDraft, ['app', 'clientUrl'], settings?.app?.clientUrl ?? '')}
+                    onChange={handleTextChange(['app', 'clientUrl'])}
+                    disabled={disableSettingsInputs}
+                    placeholder="https://app.gigvora.com"
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="storageProvider" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Storage provider
+                  </label>
+                  <select
+                    id="storageProvider"
+                    value={getNestedValue(settingsDraft, ['storage', 'provider'], settings?.storage?.provider ?? 'cloudflare_r2')}
+                    onChange={handleSelectChange(['storage', 'provider'])}
+                    disabled={disableSettingsInputs}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  >
+                    <option value="cloudflare_r2">Cloudflare R2</option>
+                    <option value="aws_s3">AWS S3</option>
+                    <option value="azure_blob">Azure Blob Storage</option>
+                  </select>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label htmlFor="storageBucket" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Storage bucket
+                    </label>
+                    <input
+                      id="storageBucket"
+                      value={getNestedValue(settingsDraft, ['storage', 'cloudflare_r2', 'bucket'], settings?.storage?.cloudflare_r2?.bucket ?? '')}
+                      onChange={handleTextChange(['storage', 'cloudflare_r2', 'bucket'])}
+                      disabled={disableSettingsInputs}
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="storageEndpoint" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Endpoint
+                    </label>
+                    <input
+                      id="storageEndpoint"
+                      value={getNestedValue(settingsDraft, ['storage', 'cloudflare_r2', 'endpoint'], settings?.storage?.cloudflare_r2?.endpoint ?? '')}
+                      onChange={handleTextChange(['storage', 'cloudflare_r2', 'endpoint'])}
+                      disabled={disableSettingsInputs}
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <label htmlFor="storagePublicUrl" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Public base URL
+                    </label>
+                    <input
+                      id="storagePublicUrl"
+                      value={getNestedValue(settingsDraft, ['storage', 'cloudflare_r2', 'publicBaseUrl'], settings?.storage?.cloudflare_r2?.publicBaseUrl ?? '')}
+                      onChange={handleTextChange(['storage', 'cloudflare_r2', 'publicBaseUrl'])}
+                      disabled={disableSettingsInputs}
+                      placeholder="https://cdn.gigvora.com"
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-6 shadow-sm">
+              <h3 className="text-lg font-semibold text-slate-900">Database & credentials</h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Securely manage database endpoints and connection secrets with instant rollback support.
+              </p>
+              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <label htmlFor="databaseHost" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Database host
+                  </label>
+                  <input
+                    id="databaseHost"
+                    value={getNestedValue(settingsDraft, ['database', 'host'], settings?.database?.host ?? '')}
+                    onChange={handleTextChange(['database', 'host'])}
+                    disabled={disableSettingsInputs}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="databasePort" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Port
+                  </label>
+                  <input
+                    id="databasePort"
+                    type="number"
+                    min="0"
+                    value={getNestedValue(settingsDraft, ['database', 'port'], settings?.database?.port ?? '')}
+                    onChange={handleTextChange(['database', 'port'])}
+                    disabled={disableSettingsInputs}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="databaseName" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Database name
+                  </label>
+                  <input
+                    id="databaseName"
+                    value={getNestedValue(settingsDraft, ['database', 'name'], settings?.database?.name ?? '')}
+                    onChange={handleTextChange(['database', 'name'])}
+                    disabled={disableSettingsInputs}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="databaseUser" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Username
+                  </label>
+                  <input
+                    id="databaseUser"
+                    value={getNestedValue(settingsDraft, ['database', 'username'], settings?.database?.username ?? '')}
+                    onChange={handleTextChange(['database', 'username'])}
+                    disabled={disableSettingsInputs}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <label htmlFor="databasePassword" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Password
+                  </label>
+                  <input
+                    id="databasePassword"
+                    type="password"
+                    value={getNestedValue(settingsDraft, ['database', 'password'], settings?.database?.password ?? '')}
+                    onChange={handleTextChange(['database', 'password'])}
+                    disabled={disableSettingsInputs}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Secret fingerprints</p>
+                  <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+                    DB password • {maskSecret(getNestedValue(settingsDraft, ['database', 'password'], settings?.database?.password ?? ''))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="mt-6 grid gap-6 xl:grid-cols-2">
+            <div id="admin-settings-api" className="rounded-2xl border border-slate-200 bg-slate-50/80 p-6 shadow-sm">
+              <h3 className="text-lg font-semibold text-slate-900">API & payment gateways</h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Configure REST endpoints, payment providers, and webhook credentials for integrations.
+              </p>
+              <div className="mt-5 space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="apiUrl" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    API base URL
+                  </label>
+                  <input
+                    id="apiUrl"
+                    type="url"
+                    value={getNestedValue(settingsDraft, ['app', 'apiUrl'], settings?.app?.apiUrl ?? '')}
+                    onChange={handleTextChange(['app', 'apiUrl'])}
+                    disabled={disableSettingsInputs}
+                    placeholder="https://api.gigvora.com"
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="paymentProvider" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Payment provider
+                  </label>
+                  <select
+                    id="paymentProvider"
+                    value={getNestedValue(settingsDraft, ['payments', 'provider'], settings?.payments?.provider ?? 'stripe')}
+                    onChange={handleSelectChange(['payments', 'provider'])}
+                    disabled={disableSettingsInputs}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  >
+                    <option value="stripe">Stripe</option>
+                    <option value="escrow_com">Escrow.com</option>
+                  </select>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label htmlFor="stripePublishableKey" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Stripe publishable key
+                    </label>
+                    <input
+                      id="stripePublishableKey"
+                      value={getNestedValue(settingsDraft, ['payments', 'stripe', 'publishableKey'], settings?.payments?.stripe?.publishableKey ?? '')}
+                      onChange={handleTextChange(['payments', 'stripe', 'publishableKey'])}
+                      disabled={disableSettingsInputs}
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="stripeAccountId" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Stripe account ID
+                    </label>
+                    <input
+                      id="stripeAccountId"
+                      value={getNestedValue(settingsDraft, ['payments', 'stripe', 'accountId'], settings?.payments?.stripe?.accountId ?? '')}
+                      onChange={handleTextChange(['payments', 'stripe', 'accountId'])}
+                      disabled={disableSettingsInputs}
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="stripeWebhookSecret" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Webhook secret
+                    </label>
+                    <input
+                      id="stripeWebhookSecret"
+                      type="password"
+                      value={getNestedValue(settingsDraft, ['payments', 'stripe', 'webhookSecret'], settings?.payments?.stripe?.webhookSecret ?? '')}
+                      onChange={handleTextChange(['payments', 'stripe', 'webhookSecret'])}
+                      disabled={disableSettingsInputs}
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="escrowApiKey" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Escrow.com API key
+                    </label>
+                    <input
+                      id="escrowApiKey"
+                      type="password"
+                      value={getNestedValue(settingsDraft, ['payments', 'escrow_com', 'apiKey'], settings?.payments?.escrow_com?.apiKey ?? '')}
+                      onChange={handleTextChange(['payments', 'escrow_com', 'apiKey'])}
+                      disabled={disableSettingsInputs}
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="escrowApiSecret" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Escrow.com API secret
+                    </label>
+                    <input
+                      id="escrowApiSecret"
+                      type="password"
+                      value={getNestedValue(settingsDraft, ['payments', 'escrow_com', 'apiSecret'], settings?.payments?.escrow_com?.apiSecret ?? '')}
+                      onChange={handleTextChange(['payments', 'escrow_com', 'apiSecret'])}
+                      disabled={disableSettingsInputs}
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                    />
+                  </div>
+                  <label className="flex items-center gap-3 sm:col-span-2 rounded-2xl border border-white bg-white px-4 py-3 shadow-sm">
+                    <input
+                      type="checkbox"
+                      className="h-5 w-5 rounded border-slate-300 text-accent focus:ring-accent"
+                      checked={Boolean(getNestedValue(settingsDraft, ['payments', 'escrow_com', 'sandbox'], settings?.payments?.escrow_com?.sandbox ?? true))}
+                      onChange={handleToggleChange(['payments', 'escrow_com', 'sandbox'])}
+                      disabled={disableSettingsInputs}
+                    />
+                    <span className="text-sm text-slate-600">Use Escrow.com sandbox environment</span>
+                  </label>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+                  <p className="font-semibold text-slate-800">Secret fingerprints</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Stripe webhook • {maskSecret(getNestedValue(settingsDraft, ['payments', 'stripe', 'webhookSecret'], settings?.payments?.stripe?.webhookSecret ?? ''))}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Escrow key • {maskSecret(getNestedValue(settingsDraft, ['payments', 'escrow_com', 'apiKey'], settings?.payments?.escrow_com?.apiKey ?? ''))}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-6 shadow-sm">
+              <h3 className="text-lg font-semibold text-slate-900">Notifications & email</h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Deliver transactional email reliably with secure SMTP credentials and branding controls.
+              </p>
+              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <label htmlFor="smtpHost" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    SMTP host
+                  </label>
+                  <input
+                    id="smtpHost"
+                    value={getNestedValue(settingsDraft, ['smtp', 'host'], settings?.smtp?.host ?? '')}
+                    onChange={handleTextChange(['smtp', 'host'])}
+                    disabled={disableSettingsInputs}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="smtpPort" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Port
+                  </label>
+                  <input
+                    id="smtpPort"
+                    type="number"
+                    min="0"
+                    value={getNestedValue(settingsDraft, ['smtp', 'port'], settings?.smtp?.port ?? '')}
+                    onChange={handleTextChange(['smtp', 'port'])}
+                    disabled={disableSettingsInputs}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  />
+                </div>
+                <label className="flex items-center gap-3 sm:col-span-2 rounded-2xl border border-white bg-white px-4 py-3 shadow-sm">
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5 rounded border-slate-300 text-accent focus:ring-accent"
+                    checked={Boolean(getNestedValue(settingsDraft, ['smtp', 'secure'], settings?.smtp?.secure ?? false))}
+                    onChange={handleToggleChange(['smtp', 'secure'])}
+                    disabled={disableSettingsInputs}
+                  />
+                  <span className="text-sm text-slate-600">Use secure TLS/SSL</span>
+                </label>
+                <div className="space-y-2">
+                  <label htmlFor="smtpUsername" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Username
+                  </label>
+                  <input
+                    id="smtpUsername"
+                    value={getNestedValue(settingsDraft, ['smtp', 'username'], settings?.smtp?.username ?? '')}
+                    onChange={handleTextChange(['smtp', 'username'])}
+                    disabled={disableSettingsInputs}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="smtpPassword" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Password
+                  </label>
+                  <input
+                    id="smtpPassword"
+                    type="password"
+                    value={getNestedValue(settingsDraft, ['smtp', 'password'], settings?.smtp?.password ?? '')}
+                    onChange={handleTextChange(['smtp', 'password'])}
+                    disabled={disableSettingsInputs}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="smtpFromAddress" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    From address
+                  </label>
+                  <input
+                    id="smtpFromAddress"
+                    type="email"
+                    value={getNestedValue(settingsDraft, ['smtp', 'fromAddress'], settings?.smtp?.fromAddress ?? '')}
+                    onChange={handleTextChange(['smtp', 'fromAddress'])}
+                    disabled={disableSettingsInputs}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="smtpFromName" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    From name
+                  </label>
+                  <input
+                    id="smtpFromName"
+                    value={getNestedValue(settingsDraft, ['smtp', 'fromName'], settings?.smtp?.fromName ?? '')}
+                    onChange={handleTextChange(['smtp', 'fromName'])}
+                    disabled={disableSettingsInputs}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Current signature</p>
+                  <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+                    {getNestedValue(settingsDraft, ['smtp', 'fromName'], settings?.smtp?.fromName ?? 'Gigvora')} • {getNestedValue(settingsDraft, ['smtp', 'fromAddress'], settings?.smtp?.fromAddress ?? 'ops@gigvora.com')}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </section>
+  );
+
+
   const handleRefresh = () => {
     setRefreshIndex((index) => index + 1);
   };
 
+  const renderAccessDenied = (
+    <div className="rounded-3xl border border-amber-200 bg-amber-50 p-8 text-amber-900">
+      <h2 className="text-xl font-semibold text-amber-900">Admin role required</h2>
+      <p className="mt-3 text-sm">
+        This control tower is restricted to verified Gigvora administrators. Switch to an authorised account or request elevated access from the platform team.
+      </p>
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+        <Link
+          to="/admin"
+          className="inline-flex items-center justify-center rounded-full border border-amber-300 bg-white px-5 py-2 text-sm font-semibold text-amber-900 transition hover:border-amber-400 hover:bg-amber-100"
+        >
+          Return to admin login
+        </Link>
+        <button
+          type="button"
+          onClick={() => setRefreshIndex((index) => index + 1)}
+          className="inline-flex items-center justify-center rounded-full border border-transparent bg-amber-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-amber-700"
+        >
+          Check access again
+        </button>
+      </div>
+    </div>
+  );
+
   const renderLoadingState = (
-    <div className="rounded-3xl border border-dashed border-blue-200 bg-blue-50/40 p-8 text-center text-sm text-blue-700">
-      Synchronising telemetry from the platform. This typically takes just a moment…
+    <div className="space-y-6">
+      <div className="rounded-3xl border border-dashed border-blue-200 bg-blue-50/40 p-8 text-center text-sm text-blue-700">
+        Synchronising telemetry from the platform. This typically takes just a moment…
+      </div>
+      <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+        <div className="animate-pulse space-y-4">
+          <div className="h-6 w-1/3 rounded-full bg-slate-200" />
+          <div className="h-4 w-2/3 rounded-full bg-slate-200" />
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[...Array(4)].map((_, index) => (
+              <div key={index} className="h-28 rounded-2xl bg-slate-100" />
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 
@@ -460,6 +1471,8 @@ export default function AdminDashboardPage() {
 
   const renderDashboardSections = data ? (
     <div className="space-y-10">
+      <AdminGroupManagementPanel />
+
       {/* Summary cards */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {summaryCards.map((card) => (
@@ -844,6 +1857,11 @@ export default function AdminDashboardPage() {
           </div>
         </div>
       </section>
+
+      {/* Gigvora Ads */}
+      <section id="gigvora-ads">
+        <GigvoraAdsConsole initialSnapshot={data.ads} defaultContext={data.ads?.overview?.context} />
+      </section>
     </div>
   ) : null;
 
@@ -895,6 +1913,28 @@ export default function AdminDashboardPage() {
       </DashboardLayout>
     );
   }
+  const renderContent = (() => {
+    if (!hasAdminAccess) {
+      return renderAccessDenied;
+    }
+
+    let dashboardContent = null;
+
+    if (loading && !data) {
+      dashboardContent = renderLoadingState;
+    } else if (error) {
+      dashboardContent = renderErrorState;
+    } else if (renderDashboardSections) {
+      dashboardContent = renderDashboardSections;
+    }
+
+    return (
+      <div className="space-y-10">
+        {renderSettingsSection}
+        {dashboardContent}
+      </div>
+    );
+  })();
 
   return (
     <DashboardLayout
@@ -914,7 +1954,7 @@ export default function AdminDashboardPage() {
         'headhunter',
       ]}
     >
-      {loading ? renderLoadingState : error ? renderErrorState : renderDashboardSections}
+      {renderContent}
     </DashboardLayout>
   );
 }
