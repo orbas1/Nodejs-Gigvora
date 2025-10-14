@@ -91,6 +91,12 @@ const CATEGORIES = [
     placeholder: 'Search groups or focus areas',
   },
   {
+    id: 'pages',
+    label: 'Pages',
+    tagline: 'Company and agency destinations curated for Explorer.',
+    placeholder: 'Search company, agency, or initiative pages',
+  },
+  {
     id: 'headhunter',
     label: 'Headhunters',
     tagline: 'Specialist partners for executive and niche searches.',
@@ -153,6 +159,11 @@ const SORT_OPTIONS = {
     { id: 'members', label: 'Member count' },
     { id: 'recent', label: 'Recently active' },
   ],
+  pages: [
+    { id: 'default', label: 'Relevance' },
+    { id: 'followers', label: 'Follower count' },
+    { id: 'recent', label: 'Recently updated' },
+  ],
   headhunter: [
     { id: 'default', label: 'Relevance' },
     { id: 'alphabetical', label: 'A–Z' },
@@ -186,6 +197,33 @@ const FRESHNESS_LABELS = {
   '30d': 'Last 30 days',
   '90d': 'Last 90 days',
 };
+
+const FALLBACK_PAGE_SPOTLIGHTS = [
+  {
+    id: 'gigvora-labs',
+    title: 'Gigvora Labs',
+    summary: 'Product innovation studio powering launchpad ventures.',
+    followers: 12840,
+    engagementScore: 86,
+    updatedAt: '2024-08-28T09:00:00Z',
+    location: 'Global',
+    category: 'pages',
+    categoryLabel: 'Pages',
+    tags: ['Future of work', 'Product innovation', 'Launchpads'],
+  },
+  {
+    id: 'northshore-creative',
+    title: 'Northshore Creative',
+    summary: 'Story-driven agency partnering with venture-backed teams.',
+    followers: 6210,
+    engagementScore: 74,
+    updatedAt: '2024-08-26T15:30:00Z',
+    location: 'Remote-first',
+    category: 'pages',
+    categoryLabel: 'Pages',
+    tags: ['Brand', 'Storytelling', 'Campaigns'],
+  },
+];
 
 function normaliseFilters(state = {}) {
   return { ...DEFAULT_FILTERS, ...state };
@@ -457,13 +495,23 @@ export default function SearchPage() {
       setResultDialogState({ open: false, item: null, externalUrl: null });
     }
   }, [explorerAccessEnabled, results, activeResultId]);
+  const resolveSnapshotItems = useCallback(
+    (categoryId) => {
+      const dataset = snapshotState.data?.[`${categoryId}s`] ?? snapshotState.data?.[categoryId];
+      if (dataset?.items?.length) {
+        return dataset;
+      }
+      if (categoryId === 'pages') {
+        return { items: FALLBACK_PAGE_SPOTLIGHTS };
+      }
+      return dataset ?? null;
+    },
+    [snapshotState.data],
+  );
 
   const trendingAcrossCategories = useMemo(() => {
-    if (!snapshotState.data) {
-      return [];
-    }
     return CATEGORIES.flatMap((category) => {
-      const items = snapshotState.data?.[`${category.id}s`] ?? snapshotState.data?.[category.id];
+      const items = resolveSnapshotItems(category.id);
       if (!items?.items?.length) {
         return [];
       }
@@ -473,7 +521,7 @@ export default function SearchPage() {
         categoryLabel: category.label,
       }));
     });
-  }, [snapshotState.data]);
+  }, [resolveSnapshotItems]);
 
   const handleCategoryChange = useCallback((categoryId) => {
     analytics.track('web_explorer_category_selected', { category: categoryId }, { source: 'web_app' });

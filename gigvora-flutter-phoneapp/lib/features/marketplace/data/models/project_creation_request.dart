@@ -21,7 +21,7 @@ class ProjectCreationRequest {
     this.expiresInMinutes,
     this.fairnessMaxAssignments,
     Map<String, double>? weights,
-    this.actorId = 1,
+    this.actorId,
   }) : weights = Map<String, double>.from(weights ?? kDefaultProjectWeights);
 
   final String title;
@@ -35,7 +35,7 @@ class ProjectCreationRequest {
   final int? expiresInMinutes;
   final int? fairnessMaxAssignments;
   final Map<String, double> weights;
-  final int actorId;
+  final int? actorId;
 
   Map<String, double> get normalizedWeights {
     if (weights.isEmpty) {
@@ -64,8 +64,11 @@ class ProjectCreationRequest {
       'title': title.trim(),
       'description': description.trim(),
       'status': status.trim().isEmpty ? 'planning' : status.trim(),
-      'actorId': actorId,
     };
+
+    if (actorId != null) {
+      payload['actorId'] = actorId;
+    }
 
     final normalizedLocation = location?.trim();
     if (normalizedLocation != null && normalizedLocation.isNotEmpty) {

@@ -56,6 +56,9 @@ class OpportunitySummary {
     this.status,
     this.track,
     this.organization,
+    this.isRemote,
+    this.isRemote = false,
+    this.taxonomyLabels = const <String>[],
   });
 
   final String id;
@@ -70,6 +73,9 @@ class OpportunitySummary {
   final String? status;
   final String? track;
   final String? organization;
+  final bool? isRemote;
+  final bool isRemote;
+  final List<String> taxonomyLabels;
 
   factory OpportunitySummary.fromJson(OpportunityCategory category, Map<String, dynamic> json) {
     return OpportunitySummary(
@@ -85,6 +91,13 @@ class OpportunitySummary {
       status: json['status'] as String?,
       track: json['track'] as String?,
       organization: json['organization'] as String?,
+      isRemote: json['isRemote'] as bool?,
+      isRemote: json['isRemote'] == true,
+      taxonomyLabels: (json['taxonomyLabels'] as List<dynamic>? ?? const <dynamic>[])
+          .whereType<String>()
+          .map((label) => label.trim())
+          .where((label) => label.isNotEmpty)
+          .toList(growable: false),
     );
   }
 }
@@ -98,6 +111,7 @@ class OpportunityPage {
     required this.total,
     required this.totalPages,
     this.query,
+    this.facets,
   });
 
   final OpportunityCategory category;
@@ -107,6 +121,7 @@ class OpportunityPage {
   final int total;
   final int totalPages;
   final String? query;
+  final Map<String, dynamic>? facets;
 
   OpportunityPage copyWith({
     List<OpportunitySummary>? items,
@@ -115,6 +130,7 @@ class OpportunityPage {
     int? total,
     int? totalPages,
     String? query,
+    Map<String, dynamic>? facets,
   }) {
     return OpportunityPage(
       category: category,
@@ -124,6 +140,7 @@ class OpportunityPage {
       total: total ?? this.total,
       totalPages: totalPages ?? this.totalPages,
       query: query ?? this.query,
+      facets: facets ?? this.facets,
     );
   }
 }

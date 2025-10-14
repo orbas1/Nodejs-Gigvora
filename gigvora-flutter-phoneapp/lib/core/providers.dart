@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigvora_design_system/gigvora_design_system.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
 
+import '../features/auth/application/session_controller.dart';
+
 final appConfigProvider = Provider<AppConfig>((ref) {
   return ServiceLocator.read<AppConfig>();
 });
@@ -58,6 +60,28 @@ final realtimeGatewayProvider = Provider<RealtimeGateway>((ref) {
 final realtimeStatusProvider = StreamProvider<RealtimeConnectionState>((ref) {
   final gateway = ref.watch(realtimeGatewayProvider);
   return gateway.statusStream;
+});
+
+final membershipHeadersProvider = Provider<Map<String, String>?>((ref) {
+  final sessionState = ref.watch(sessionControllerProvider);
+  final session = sessionState.session;
+  if (session == null) {
+    return null;
+  }
+  final memberships = session.memberships
+      .map((role) => role.trim().toLowerCase())
+      .where((role) => role.isNotEmpty)
+      .toList(growable: false);
+  if (memberships.isEmpty) {
+    return null;
+  }
+  final headers = <String, String>{
+    'X-Gigvora-Memberships': memberships.join(','),
+  };
+  if (session.activeMembership.trim().isNotEmpty) {
+    headers['X-Gigvora-Active-Membership'] = session.activeMembership;
+  }
+  return headers;
 });
 
 final designTokenLoaderProvider = Provider<GigvoraThemeLoader>((ref) {
