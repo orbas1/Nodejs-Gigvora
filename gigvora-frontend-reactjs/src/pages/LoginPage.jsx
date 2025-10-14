@@ -5,6 +5,7 @@ import PageHeader from '../components/PageHeader.jsx';
 import useSession from '../hooks/useSession.js';
 import { loginWithPassword, verifyTwoFactor, resendTwoFactor, loginWithGoogle } from '../services/auth.js';
 import apiClient from '../services/apiClient.js';
+import SocialAuthButton, { SOCIAL_PROVIDERS } from '../components/SocialAuthButton.jsx';
 
 const DASHBOARD_ROUTES = {
   admin: '/dashboard/admin',
@@ -66,7 +67,7 @@ export default function LoginPage() {
       if (response.requiresTwoFactor) {
         setChallenge(response.challenge);
         setCode('');
-        setInfo(`Verification code sent to ${response.challenge.maskedDestination}.`);
+        setInfo('Check your email for the verification code to finish signing in.');
       } else if (response.session) {
         const sessionState = login(response.session);
         navigate(resolveLanding(sessionState), { replace: true });
@@ -156,6 +157,32 @@ export default function LoginPage() {
     setInfo('You can continue with your email and password or try Google again in a moment.');
   };
 
+  const handleSocialRedirect = (provider) => {
+    if (status !== 'idle') {
+      return;
+    }
+
+    setError(null);
+    setInfo(`Redirecting to ${provider === 'x' ? 'X' : provider.charAt(0).toUpperCase() + provider.slice(1)} to continue.`);
+    setStatus('redirecting');
+    const apiBase = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api').replace(/\/$/, '');
+    const authBase = apiBase.replace(/\/api$/, '');
+    const routes = {
+      x: '/auth/x/login',
+      linkedin: '/auth/linkedin/login',
+      facebook: '/auth/facebook/login',
+    };
+
+    const next = routes[provider];
+    if (next) {
+      window.location.href = `${authBase}${next}`;
+    } else {
+      setStatus('idle');
+      setInfo(null);
+      setError('Social sign-in is not available right now. Please try another option.');
+    }
+  };
+
   return (
     <section className="relative overflow-hidden py-20">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(191,219,254,0.35),_transparent_65%)]" aria-hidden="true" />
@@ -209,7 +236,7 @@ export default function LoginPage() {
                     className="w-full rounded-full bg-accent px-6 py-3 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark disabled:cursor-not-allowed disabled:bg-accent/60"
                     disabled={status !== 'idle'}
                   >
-                    {status === 'submitting' ? 'Sending code…' : 'Request 2FA code'}
+                    {status === 'submitting' ? 'Signing in…' : 'Sign in'}
                   </button>
                   <div className="relative py-4 text-center text-xs uppercase tracking-[0.35em] text-slate-400">
                     <span className="relative z-10 bg-white px-3">or</span>
@@ -223,28 +250,38 @@ export default function LoginPage() {
                     >
                       Create a new account
                     </button>
-                    <div className="flex justify-center">
-                      {googleEnabled ? (
-                        <GoogleLogin
-                          onSuccess={handleGoogleSuccess}
-                          onError={handleGoogleError}
-                          useOneTap={false}
-                          width="100%"
-                          text="continue_with"
-                          shape="pill"
+                    <div className="grid gap-3">
+                      {SOCIAL_PROVIDERS.map((provider) => (
+                        <SocialAuthButton
+                          key={provider}
+                          provider={provider}
+                          onClick={() => handleSocialRedirect(provider)}
+                          disabled={status !== 'idle'}
                         />
-                      ) : (
-                        <button
-                          type="button"
-                          disabled
-                          className="w-full rounded-full border border-slate-200 px-6 py-3 text-sm font-semibold text-slate-400"
-                        >
-                          Google sign-in unavailable
-                        </button>
-                      )}
+                      ))}
+                      <div className="w-full">
+                        {googleEnabled ? (
+                          <GoogleLogin
+                            onSuccess={handleGoogleSuccess}
+                            onError={handleGoogleError}
+                            useOneTap={false}
+                            width="100%"
+                            text="continue_with"
+                            shape="pill"
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            disabled
+                            className="w-full rounded-full border border-slate-200 px-6 py-3 text-sm font-semibold text-slate-400"
+                          >
+                            Google sign-in unavailable
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <p className="text-center text-xs text-slate-500">
-                      Enterprise security is enforced for every login, including optional 2FA and Google SSO.
+                      Prefer to use a social account? Choose your network above and we&apos;ll guide you through a secure sign-in.
                     </p>
                   </div>
                 </form>
@@ -252,7 +289,7 @@ export default function LoginPage() {
                 <form onSubmit={handleVerify} className="space-y-6" noValidate>
                   <div className="space-y-2">
                     <label htmlFor="twoFactorCode" className="text-sm font-medium text-slate-700">
-                      Enter the 6-digit code we sent
+                      Enter the 6-digit verification code
                     </label>
                     <input
                       id="twoFactorCode"
@@ -307,23 +344,23 @@ export default function LoginPage() {
             </div>
           </div>
           <div className="space-y-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-            <h2 className="text-xl font-semibold text-slate-900">Security-first authentication</h2>
+            <h2 className="text-xl font-semibold text-slate-900">Pick up right where you left off</h2>
             <ul className="space-y-4 text-sm text-slate-600">
               <li className="flex gap-3">
                 <span className="mt-1 inline-flex h-2 w-2 rounded-full bg-accent" aria-hidden="true" />
-                <span>Email + password with anomaly detection and device reputation checks on every sign-in.</span>
+                <span>Stay connected across gigs, jobs, and projects with a single secure account.</span>
               </li>
               <li className="flex gap-3">
                 <span className="mt-1 inline-flex h-2 w-2 rounded-full bg-accent" aria-hidden="true" />
-                <span>Configurable 2FA via secure email codes today, authenticator apps and passkeys next.</span>
+                <span>Switch between freelancer, agency, and company dashboards after you add each role.</span>
               </li>
               <li className="flex gap-3">
                 <span className="mt-1 inline-flex h-2 w-2 rounded-full bg-accent" aria-hidden="true" />
-                <span>Mobile parity: the Flutter app honours the same enterprise policies and responsive styling.</span>
+                <span>Use your favourite social network to get started in seconds, then tailor your profile.</span>
               </li>
               <li className="flex gap-3">
                 <span className="mt-1 inline-flex h-2 w-2 rounded-full bg-accent" aria-hidden="true" />
-                <span>SSO ready: Google login keeps admin, agency, and talent accounts in the right workspaces.</span>
+                <span>Need a hand? Our support team is on standby for onboarding and account help.</span>
               </li>
             </ul>
           </div>

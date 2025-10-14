@@ -1,24 +1,49 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { GoogleLogin } from '@react-oauth/google';
 import PageHeader from '../components/PageHeader.jsx';
-import { registerUser } from '../services/auth.js';
+import { registerUser, loginWithGoogle } from '../services/auth.js';
 import apiClient from '../services/apiClient.js';
+import useSession from '../hooks/useSession.js';
+import SocialAuthButton, { SOCIAL_PROVIDERS } from '../components/SocialAuthButton.jsx';
+
+const DASHBOARD_ROUTES = {
+  admin: '/dashboard/admin',
+  agency: '/dashboard/agency',
+  company: '/dashboard/company',
+  freelancer: '/dashboard/freelancer',
+  headhunter: '/dashboard/headhunter',
+  mentor: '/dashboard/mentor',
+  user: '/feed',
+};
+
+function resolveLanding(session) {
+  if (!session) {
+    return '/feed';
+  }
+  const key = session.primaryDashboard ?? session.memberships?.[0];
+  return DASHBOARD_ROUTES[key] ?? '/feed';
+}
+
+const PROVIDER_LABELS = {
+  x: 'X',
+  linkedin: 'LinkedIn',
+  facebook: 'Facebook',
+};
 
 const initialState = {
   firstName: '',
   lastName: '',
   email: '',
-  address: '',
-  age: '',
+  dateOfBirth: '',
   password: '',
   confirmPassword: '',
-  userType: 'user',
-  twoFactorEnabled: true,
 };
 
 const onboardingHighlights = [
   'Showcase your craft with a multimedia profile and featured wins.',
   'Unlock tailored feeds across jobs, gigs, projects, and volunteering.',
-  'Build trusted connections with agencies, companies, and fellow talent.',
+  'Add freelancer, agency, or company capabilities later to switch dashboards instantly.',
 ];
 
 export default function RegisterPage() {
@@ -26,20 +51,25 @@ export default function RegisterPage() {
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const navigate = useNavigate();
+  const { login } = useSession();
+
+  const googleEnabled = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID);
+  const maxBirthDate = new Date().toISOString().split('T')[0];
 
   const handleChange = (event) => {
     const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleToggleTwoFactor = () => {
-    setForm((prev) => ({ ...prev, twoFactorEnabled: !prev.twoFactorEnabled }));
-  };
-
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (form.password !== form.confirmPassword) {
       setError('Passwords do not match.');
+      return;
+    }
+    if (!form.dateOfBirth) {
+      setError('Please share your date of birth.');
       return;
     }
     setStatus('submitting');
@@ -50,14 +80,12 @@ export default function RegisterPage() {
         firstName: form.firstName,
         lastName: form.lastName,
         email: form.email,
-        address: form.address,
-        age: form.age ? Number(form.age) : undefined,
+        dateOfBirth: form.dateOfBirth,
         password: form.password,
-        userType: form.userType,
-        twoFactorEnabled: form.twoFactorEnabled,
+        twoFactorEnabled: false,
       };
       await registerUser(payload);
-      setSuccess('Registration complete. Check your inbox for your verification code and sign in to continue.');
+      setSuccess('Registration complete. You can now sign in and add any additional roles you need.');
       setForm(initialState);
     } catch (submissionError) {
       if (submissionError instanceof apiClient.ApiError) {
@@ -67,6 +95,60 @@ export default function RegisterPage() {
       }
     } finally {
       setStatus('idle');
+    }
+  };
+
+  const handleGoogleSuccess = async (response) => {
+    if (!response?.credential || status !== 'idle') {
+      return;
+    }
+
+    setStatus('google');
+    setError(null);
+    setSuccess(null);
+    try {
+      const result = await loginWithGoogle(response.credential);
+      const sessionState = login(result.session);
+      navigate(resolveLanding(sessionState), { replace: true });
+    } catch (googleError) {
+      if (googleError instanceof apiClient.ApiError) {
+        setError(googleError.body?.message || googleError.message);
+      } else {
+        setError(googleError.message || 'Google sign up failed. Please try again.');
+      }
+    } finally {
+      setStatus('idle');
+    }
+  };
+
+  const handleGoogleError = () => {
+    setStatus('idle');
+    setError('Google sign up was cancelled. Please try again.');
+    setSuccess(null);
+  };
+
+  const handleSocialRedirect = (provider) => {
+    if (status !== 'idle') {
+      return;
+    }
+
+    setError(null);
+    setSuccess(null);
+    setStatus('redirecting');
+    const apiBase = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api').replace(/\/$/, '');
+    const authBase = apiBase.replace(/\/api$/, '');
+    const routes = {
+      x: '/auth/x/register',
+      linkedin: '/auth/linkedin/register',
+      facebook: '/auth/facebook/register',
+    };
+
+    const next = routes[provider];
+    if (next) {
+      window.location.href = `${authBase}${next}`;
+    } else {
+      setStatus('idle');
+      setError('Social sign up is not available right now. Please try another option.');
     }
   };
 
@@ -124,45 +206,18 @@ export default function RegisterPage() {
                 />
               </div>
               <div className="space-y-2">
-                <label htmlFor="address" className="text-sm font-medium text-slate-700">
-                  City &amp; country
+                <label htmlFor="dateOfBirth" className="text-sm font-medium text-slate-700">
+                  Date of birth
                 </label>
                 <input
-                  id="address"
-                  name="address"
-                  value={form.address}
+                  id="dateOfBirth"
+                  name="dateOfBirth"
+                  type="date"
+                  value={form.dateOfBirth}
                   onChange={handleChange}
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-                />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="userType" className="text-sm font-medium text-slate-700">
-                  Account focus
-                </label>
-                <select
-                  id="userType"
-                  name="userType"
-                  value={form.userType}
-                  onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-                >
-                  <option value="user">Career explorer</option>
-                  <option value="freelancer">Freelancer</option>
-                  <option value="agency">Agency</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="age" className="text-sm font-medium text-slate-700">
-                  Age
-                </label>
-                <input
-                  id="age"
-                  name="age"
-                  type="number"
-                  value={form.age}
-                  onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-                  min="16"
+                  required
+                  max={maxBirthDate}
                 />
               </div>
               <div className="space-y-2">
@@ -194,26 +249,6 @@ export default function RegisterPage() {
                 />
               </div>
             </div>
-            <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-              <div>
-                <p className="text-sm font-semibold text-slate-800">Protect my account with 2FA</p>
-                <p className="text-xs text-slate-500">We’ll email a code during sign-in. Authenticator apps arrive soon.</p>
-              </div>
-              <button
-                type="button"
-                onClick={handleToggleTwoFactor}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
-                  form.twoFactorEnabled ? 'bg-accent' : 'bg-slate-300'
-                }`}
-                aria-pressed={form.twoFactorEnabled}
-              >
-                <span
-                  className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${
-                    form.twoFactorEnabled ? 'translate-x-5' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
             {error ? <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">{error}</p> : null}
             {success ? <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-600">{success}</p> : null}
             <button
@@ -223,6 +258,54 @@ export default function RegisterPage() {
             >
               {status === 'submitting' ? 'Creating your profile…' : 'Create profile'}
             </button>
+            <div className="space-y-3">
+              <div className="relative py-2 text-center text-xs uppercase tracking-[0.35em] text-slate-400">
+                <span className="relative z-10 bg-white px-3">or</span>
+                <span className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-slate-200" aria-hidden="true" />
+              </div>
+              <div className="grid gap-3">
+                {SOCIAL_PROVIDERS.map((provider) => (
+                  <SocialAuthButton
+                    key={provider}
+                    provider={provider}
+                    label={`Sign up with ${PROVIDER_LABELS[provider] ?? provider}`}
+                    onClick={() => handleSocialRedirect(provider)}
+                    disabled={status !== 'idle'}
+                  />
+                ))}
+                <div className="w-full">
+                  {googleEnabled ? (
+                    <GoogleLogin
+                      onSuccess={handleGoogleSuccess}
+                      onError={handleGoogleError}
+                      useOneTap={false}
+                      width="100%"
+                      text="signup_with"
+                      shape="pill"
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      disabled
+                      className="w-full rounded-full border border-slate-200 px-6 py-3 text-sm font-semibold text-slate-400"
+                    >
+                      Google sign up unavailable
+                    </button>
+                  )}
+                </div>
+              </div>
+              <p className="text-center text-xs text-slate-500">
+                Already have an account?{' '}
+                <button
+                  type="button"
+                  onClick={() => navigate('/login')}
+                  className="font-semibold text-accent transition hover:text-accentDark"
+                >
+                  Sign in
+                </button>{' '}
+                to add more roles or continue where you left off.
+              </p>
+            </div>
           </form>
           <aside className="space-y-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
             <h2 className="text-xl font-semibold text-slate-900">What you unlock</h2>
