@@ -1,8 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
 import UserAvatar from '../components/UserAvatar.jsx';
 import projectsService from '../services/projects.js';
+import { useProjectManagementAccess } from '../hooks/useAuthorization.js';
+import useSession from '../hooks/useSession.js';
 
 const DEFAULT_WEIGHTS = {
   recency: 0.25,
@@ -18,6 +20,9 @@ function formatPercent(value) {
 
 export default function ProjectCreatePage() {
   const navigate = useNavigate();
+  const redirectTimerRef = useRef(null);
+  const { session } = useSession();
+  const { canManageProjects, denialReason } = useProjectManagementAccess();
   const [formState, setFormState] = useState({
     title: '',
     description: '',
@@ -34,6 +39,14 @@ export default function ProjectCreatePage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
+
+  useEffect(() => {
+    return () => {
+      if (redirectTimerRef.current) {
+        clearTimeout(redirectTimerRef.current);
+      }
+    };
+  }, []);
 
   const weightsTotal = useMemo(() => {
     return Object.values(formState.weights).reduce((sum, value) => sum + Number(value || 0), 0);
@@ -72,6 +85,7 @@ export default function ProjectCreatePage() {
     setSubmitting(true);
     setError(null);
     try {
+      const actorId = session?.userId ?? session?.id ?? session?.profileId ?? undefined;
       const payload = {
         title: formState.title,
         description: formState.description,
@@ -91,11 +105,11 @@ export default function ProjectCreatePage() {
               weights: normalizedWeights,
             }
           : { enabled: false },
-        actorId: 1,
+        actorId,
       };
       const response = await projectsService.createProject(payload);
       setResult(response);
-      setTimeout(() => {
+      redirectTimerRef.current = setTimeout(() => {
         navigate('/projects');
       }, 1200);
     } catch (err) {
@@ -105,9 +119,50 @@ export default function ProjectCreatePage() {
     }
   };
 
+  if (!canManageProjects) {
+    return (
+      <section className="relative overflow-hidden py-20">
+        <div
+          className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(191,219,254,0.3),_transparent_65%)]"
+          aria-hidden="true"
+        />
+        <div className="relative mx-auto max-w-3xl space-y-8 px-6">
+          <PageHeader
+            eyebrow="Projects"
+            title="Project workspace locked"
+            description="Only approved project operators can launch new initiatives."
+          />
+          <div className="rounded-4xl border border-amber-200 bg-amber-50/70 p-8 text-sm text-amber-900 shadow-sm">
+            <p className="text-base font-semibold text-amber-900">Access required</p>
+            <p className="mt-3 leading-relaxed">{denialReason}</p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <a
+                href="mailto:operations@gigvora.com?subject=Project workspace access request"
+                className="inline-flex items-center gap-2 rounded-full border border-amber-300 bg-white px-5 py-2 text-sm font-semibold text-amber-900 transition hover:border-amber-400"
+              >
+                Email operations team
+                <span aria-hidden="true">→</span>
+              </a>
+              <button
+                type="button"
+                onClick={() => navigate('/projects')}
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300"
+              >
+                Return to projects
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="relative overflow-hidden py-20">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(191,219,254,0.3),_transparent_65%)]" aria-hidden="true" />
+      <div
+        className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(191,219,254,0.3),_transparent_65%)]"
+        aria-hidden="true"
+      />
       <div className="relative mx-auto max-w-4xl space-y-10 px-6">
         <PageHeader
           eyebrow="Projects"
@@ -118,6 +173,23 @@ export default function ProjectCreatePage() {
           onSubmit={handleSubmit}
           className="rounded-4xl border border-slate-200 bg-white/95 p-8 shadow-lg backdrop-blur"
         >
+          <div className="mb-8 grid gap-4 rounded-3xl border border-accent/10 bg-accentSoft/40 p-4 text-xs text-slate-500 lg:grid-cols-3">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 inline-flex h-2.5 w-2.5 rounded-full bg-accent" aria-hidden="true" />
+              <p>
+                Server-side validation enforces ISO currency codes, positive budgets, and actor attribution for audit readiness.
+              </p>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 inline-flex h-2.5 w-2.5 rounded-full bg-accent" aria-hidden="true" />
+              <p>Auto-assign queues expire automatically to keep freelancer rotations fresh and equitable.</p>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 inline-flex h-2.5 w-2.5 rounded-full bg-accent" aria-hidden="true" />
+              <p>All submissions stream to the operations ledger for launch readiness, compliance, and forecasting.</p>
+            </div>
+          </div>
+
           <div className="grid gap-6 lg:grid-cols-2">
             <label className="space-y-2 text-sm text-slate-600">
               <span className="font-semibold text-slate-900">Project title</span>
@@ -240,6 +312,11 @@ export default function ProjectCreatePage() {
                       <span>Weighting</span>
                       <span>Total {formatPercent(weightsTotal || 0)}</span>
                     </div>
+                    {Math.abs(weightsTotal - 1) > 0.05 ? (
+                      <p className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                        Tip: We normalise weights on submit. Align sliders near 100% for predictable queue scoring.
+                      </p>
+                    ) : null}
                     {(
                       [
                         ['recency', 'Last assignment recency'],
@@ -277,7 +354,7 @@ export default function ProjectCreatePage() {
                       <UserAvatar name="Nova" seed="nova" size="sm" />
                       <div>
                         <p className="font-semibold text-slate-900">Nova Strategist</p>
-                        <p className="text-xs text-slate-500">Fairness boosted &bull; 96% completion</p>
+                        <p className="text-xs text-slate-500">Fairness boosted • 96% completion</p>
                       </div>
                     </div>
                   </div>
@@ -306,7 +383,7 @@ export default function ProjectCreatePage() {
             </div>
           ) : null}
 
-          <div className="mt-8 flex items-center justify-end gap-3">
+          <div className="mt-8 flex flex-wrap items-center justify-end gap-3">
             <button
               type="button"
               onClick={() => navigate('/projects')}

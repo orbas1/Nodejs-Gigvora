@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
 
@@ -8,7 +10,7 @@ import '../data/discovery_repository.dart';
 import '../data/models/opportunity.dart';
 
 class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>> {
-  OpportunityController(this._repository, this._analytics, this.category)
+  OpportunityController(this._repository, this._analytics, this.category, this._ref)
       : super(ResourceState<OpportunityPage>.loading()) {
     load();
   }
@@ -16,6 +18,7 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
   final DiscoveryRepository _repository;
   final AnalyticsService _analytics;
   final OpportunityCategory category;
+  final Ref _ref;
 
   String _query = '';
   Timer? _debounce;
@@ -23,10 +26,12 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
   Map<String, dynamic> _filters = const {};
   String? _sort;
   bool _includeFacets = false;
+  Map<String, dynamic> _filters = const <String, dynamic>{};
 
   Future<void> load({bool forceRefresh = false}) async {
     state = state.copyWith(loading: true, error: null);
     try {
+      final headers = _ref.read(membershipHeadersProvider);
       final result = await _repository.fetchOpportunities(
         category,
         query: _query,
@@ -34,6 +39,7 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
         filters: _filters.isEmpty ? null : _filters,
         sort: _sort,
         includeFacets: _includeFacets,
+        headers: headers,
       );
       state = ResourceState<OpportunityPage>(
         data: result.data,
@@ -41,6 +47,10 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
         error: result.error,
         fromCache: result.fromCache,
         lastUpdated: result.lastUpdated,
+        metadata: {
+          ...state.metadata,
+          'filters': _filters,
+        },
       );
 
       await _emitViewAnalytics(result.data, fromCache: result.fromCache);
@@ -53,6 +63,7 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
             'query': _query.isEmpty ? null : _query,
             'reason': '${result.error}',
             'fromCache': result.fromCache,
+            'filters': _filters.isEmpty ? null : _filters,
           },
           metadata: const {'source': 'mobile_app'},
         );
@@ -65,6 +76,7 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
           'category': categoryToPath(category),
           'query': _query.isEmpty ? null : _query,
           'reason': '$error',
+          'filters': _filters.isEmpty ? null : _filters,
         },
         metadata: const {'source': 'mobile_app'},
       );
@@ -126,6 +138,7 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
             'category': categoryToPath(category),
             'query': _query,
             'results': items.length,
+            'filters': _filters.isEmpty ? null : _filters,
           },
           metadata: const {'source': 'mobile_app'},
         );
@@ -141,6 +154,7 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
         'id': opportunity.id,
         'title': opportunity.title,
         'query': _query.isEmpty ? null : _query,
+        'filters': _filters.isEmpty ? null : _filters,
       },
       metadata: const {'source': 'mobile_app'},
     );
@@ -151,6 +165,35 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
     _debounce?.cancel();
     super.dispose();
   }
+
+  void updateFilters(Map<String, dynamic> updates) {
+    final next = Map<String, dynamic>.from(_filters);
+    updates.forEach((key, value) {
+      if (value == null) {
+        next.remove(key);
+        return;
+      }
+      if (value is String && value.trim().isEmpty) {
+        next.remove(key);
+        return;
+      }
+      if (value is Iterable && value.isEmpty) {
+        next.remove(key);
+        return;
+      }
+      next[key] = value;
+    });
+
+    if (mapEquals(next, _filters)) {
+      return;
+    }
+
+    _filters = next;
+    _viewRecorded = false;
+    unawaited(load());
+  }
+
+  Map<String, dynamic> get filters => _filters;
 
   Future<void> _emitViewAnalytics(OpportunityPage page, {required bool fromCache}) async {
     final items = page.items;
@@ -166,6 +209,7 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
           'resultCount': items.length,
           'fromCache': fromCache,
           'query': _query.isEmpty ? null : _query,
+          'filters': _filters.isEmpty ? null : _filters,
         },
         metadata: const {'source': 'mobile_app'},
       );
@@ -184,6 +228,6 @@ final opportunityControllerProvider = StateNotifierProvider.family<OpportunityCo
   (ref, category) {
     final repository = ref.watch(discoveryRepositoryProvider);
     final analytics = ref.watch(analyticsServiceProvider);
-    return OpportunityController(repository, analytics, category);
+    return OpportunityController(repository, analytics, category, ref);
   },
 );

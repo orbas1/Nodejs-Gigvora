@@ -2,8 +2,9 @@ import 'dart:collection';
 import 'dart:convert';
 
 import 'package:gigvora_foundation/gigvora_foundation.dart';
-import 'models/opportunity.dart';
+
 import '../../explorer/data/discovery_models.dart';
+import 'models/opportunity.dart';
 
 class DiscoveryRepository {
   DiscoveryRepository(this._apiClient, this._cache);
@@ -46,6 +47,12 @@ class DiscoveryRepository {
     final facetToken = includeFacets ? 'facets' : 'no-facets';
     final cacheKey =
         'opportunities:${categoryToPath(category)}:${queryKey.isEmpty ? 'all' : queryKey}:$filterToken:$sortToken:$facetToken';
+    Map<String, String>? headers,
+  }) async {
+    final queryKey = (query ?? '').trim().toLowerCase();
+    final filtersKey = _filtersCacheKey(filters);
+    final cacheKey =
+        'opportunities:${categoryToPath(category)}:${queryKey.isEmpty ? 'all' : queryKey}:$filtersKey';
     final cached = _cache.read<OpportunityPage>(cacheKey, (raw) {
       if (raw is Map) {
         return _mapToOpportunityPage(category, Map<String, dynamic>.from(raw));
@@ -71,6 +78,15 @@ class DiscoveryRepository {
         'includeFacets': includeFacets ? 'true' : null,
       };
       final response = await _apiClient.get(endpoint, query: queryParams);
+      final response = await _apiClient.get(
+        endpoint,
+        query: {
+          'q': queryKey.isEmpty ? null : queryKey,
+          'pageSize': pageSize,
+          'filters': filtersKey == 'none' ? null : filtersKey,
+        },
+        headers: headers,
+      );
       if (response is! Map<String, dynamic>) {
         throw Exception('Unexpected response from $endpoint');
       }
@@ -212,4 +228,64 @@ class DiscoveryRepository {
           : null,
     );
   }
+}
+
+String _filtersCacheKey(Map<String, dynamic>? filters) {
+  final normalised = _normaliseFilters(filters);
+  if (normalised == null) {
+    return 'none';
+  }
+  return jsonEncode(normalised);
+}
+
+dynamic _normaliseFilters(dynamic value) {
+  if (value is Map<String, dynamic>) {
+    final sorted = SplayTreeMap<String, dynamic>();
+    value.forEach((key, val) {
+      final normalised = _normaliseFilters(val);
+      if (_isMeaningful(normalised)) {
+        sorted[key] = normalised;
+      }
+    });
+    return sorted.isEmpty ? null : sorted;
+  }
+
+  if (value is Iterable) {
+    final list = value
+        .map(_normaliseFilters)
+        .where(_isMeaningful)
+        .toList(growable: false);
+    return list.isEmpty ? null : list;
+  }
+
+  if (value == null) {
+    return null;
+  }
+
+  if (value is String) {
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
+  if (value is bool || value is num) {
+    return value;
+  }
+
+  return '$value';
+}
+
+bool _isMeaningful(dynamic value) {
+  if (value == null) {
+    return false;
+  }
+  if (value is String) {
+    return value.isNotEmpty;
+  }
+  if (value is Iterable) {
+    return value.isNotEmpty;
+  }
+  if (value is Map) {
+    return value.isNotEmpty;
+  }
+  return true;
 }

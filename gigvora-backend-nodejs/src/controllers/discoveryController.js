@@ -21,6 +21,7 @@ function parseQueryParams(req) {
     }
   }
 
+  const { page, pageSize, q, limit, filters, sort } = req.query ?? {};
   return {
     page: page ?? undefined,
     pageSize: pageSize ?? undefined,
@@ -66,6 +67,8 @@ export async function launchpads(req, res) {
 export async function volunteering(req, res) {
   const { page, pageSize, query, filters, sort, includeFacets, viewport } = parseQueryParams(req);
   const result = await listVolunteering({ page, pageSize, query, filters, sort, includeFacets, viewport });
+  const { page, pageSize, query, filters, sort } = parseQueryParams(req);
+  const result = await listVolunteering({ page, pageSize, query, filters, sort });
   res.json(result);
 }
 
