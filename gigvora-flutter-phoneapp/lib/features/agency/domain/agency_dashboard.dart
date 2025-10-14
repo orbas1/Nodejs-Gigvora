@@ -150,6 +150,94 @@ class AgencyStaffingSummary {
   final String? recommendedAction;
 }
 
+class AgencyDelegationAssignment {
+  const AgencyDelegationAssignment({
+    required this.memberName,
+    required this.role,
+    this.capacityHours,
+    this.allocatedHours,
+    this.status,
+  });
+
+  final String memberName;
+  final String role;
+  final double? capacityHours;
+  final double? allocatedHours;
+  final String? status;
+}
+
+class AgencyDelegationSummary {
+  const AgencyDelegationSummary({
+    required this.activeAssignments,
+    required this.backlogCount,
+    required this.capacityHours,
+    required this.allocatedHours,
+    required this.atRiskCount,
+    this.assignments = const [],
+  });
+
+  final int activeAssignments;
+  final int backlogCount;
+  final double capacityHours;
+  final double allocatedHours;
+  final int atRiskCount;
+  final List<AgencyDelegationAssignment> assignments;
+
+  double get utilisation =>
+      capacityHours <= 0 ? 0 : (allocatedHours / capacityHours).clamp(0, 1);
+}
+
+class AgencyMilestoneSignal {
+  const AgencyMilestoneSignal({
+    required this.title,
+    this.project,
+    this.dueDate,
+    this.status,
+  });
+
+  final String title;
+  final String? project;
+  final DateTime? dueDate;
+  final String? status;
+}
+
+class AgencyMilestoneSummary {
+  const AgencyMilestoneSummary({
+    required this.completed,
+    required this.overdue,
+    required this.upcoming,
+    this.next,
+  });
+
+  final int completed;
+  final int overdue;
+  final int upcoming;
+  final AgencyMilestoneSignal? next;
+}
+
+class AgencyPaymentSplitSummary {
+  const AgencyPaymentSplitSummary({
+    required this.totalSplits,
+    required this.approvedSplits,
+    required this.pendingSplits,
+    required this.failedSplits,
+    this.nextPayoutDate,
+    this.nextPayoutAmount,
+    this.nextPayoutCurrency,
+  });
+
+  final int totalSplits;
+  final int approvedSplits;
+  final int pendingSplits;
+  final int failedSplits;
+  final DateTime? nextPayoutDate;
+  final double? nextPayoutAmount;
+  final String? nextPayoutCurrency;
+
+  double get coverage =>
+      totalSplits <= 0 ? 0 : (approvedSplits / totalSplits).clamp(0, 1);
+}
+
 class AgencyHrSnapshot {
   const AgencyHrSnapshot({
     required this.headcount,
@@ -163,6 +251,9 @@ class AgencyHrSnapshot {
     required this.roleCoverage,
     required this.staffing,
     required this.onboarding,
+    required this.delegation,
+    required this.milestones,
+    required this.paymentSplits,
   });
 
   final int headcount;
@@ -176,6 +267,9 @@ class AgencyHrSnapshot {
   final List<AgencyHrRoleCoverage> roleCoverage;
   final AgencyStaffingSummary staffing;
   final List<AgencyHrOnboardingCandidate> onboarding;
+  final AgencyDelegationSummary delegation;
+  final AgencyMilestoneSummary milestones;
+  final AgencyPaymentSplitSummary paymentSplits;
 }
 
 class AgencyDashboardSnapshot {

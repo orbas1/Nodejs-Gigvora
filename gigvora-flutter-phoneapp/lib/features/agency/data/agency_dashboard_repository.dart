@@ -216,6 +216,56 @@ class AgencyDashboardRepository {
             startDate: now.add(const Duration(days: 12)),
           ),
         ],
+        delegation: AgencyDelegationSummary(
+          activeAssignments: 18,
+          backlogCount: 6,
+          capacityHours: 720,
+          allocatedHours: 612,
+          atRiskCount: 2,
+          assignments: const [
+            AgencyDelegationAssignment(
+              memberName: 'Elena Quinn',
+              role: 'Delivery lead',
+              capacityHours: 40,
+              allocatedHours: 38,
+              status: 'active',
+            ),
+            AgencyDelegationAssignment(
+              memberName: 'Mason Clarke',
+              role: 'Automation architect',
+              capacityHours: 35,
+              allocatedHours: 34,
+              status: 'active',
+            ),
+            AgencyDelegationAssignment(
+              memberName: 'Priya Chawla',
+              role: 'Revenue operations',
+              capacityHours: 32,
+              allocatedHours: 31,
+              status: 'at_risk',
+            ),
+          ],
+        ),
+        milestones: AgencyMilestoneSummary(
+          completed: 42,
+          overdue: 1,
+          upcoming: 5,
+          next: AgencyMilestoneSignal(
+            title: 'Brand platform launch',
+            project: 'Atlas retail modernisation',
+            dueDate: now.add(const Duration(days: 3)),
+            status: 'scheduled',
+          ),
+        ),
+        paymentSplits: AgencyPaymentSplitSummary(
+          totalSplits: 64,
+          approvedSplits: 52,
+          pendingSplits: 9,
+          failedSplits: 3,
+          nextPayoutDate: now.add(const Duration(days: 2)),
+          nextPayoutAmount: 48600,
+          nextPayoutCurrency: 'USD',
+        ),
       ),
     );
 
