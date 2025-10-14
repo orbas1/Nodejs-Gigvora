@@ -133,6 +133,8 @@ class FeedController extends StateNotifier<ResourceState<List<FeedPost>>> {
       ),
       type: type,
       link: (link ?? '').trim().isEmpty ? null : link?.trim(),
+      summary: trimmedContent,
+      publishedAt: DateTime.now(),
       reactionCount: 0,
       commentCount: 0,
       viewerHasReacted: false,

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import DataStatus from '../../components/DataStatus.jsx';
 import useCachedResource from '../../hooks/useCachedResource.js';
+import useSession from '../../hooks/useSession.js';
 import {
   fetchFreelancerPipelineDashboard,
   createPipelineDeal,
@@ -12,14 +13,26 @@ import {
   createPipelineCampaign,
 } from '../../services/pipeline.js';
 import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
+import RoleGate from '../../components/access/RoleGate.jsx';
+import useRoleAccess from '../../hooks/useRoleAccess.js';
 
-const DEFAULT_OWNER_ID = 1;
 const viewLabels = {
   stage: 'Pipeline stages',
   industry: 'Industry segments',
   retainer_size: 'Retainer tiers',
   probability: 'Win likelihood',
 };
+
+function EmptyOwnerState({ title }) {
+  return (
+    <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">
+      <h3 className="text-sm font-semibold text-slate-700">{title}</h3>
+      <p className="mt-2 text-xs text-slate-500">
+        Sign in with a freelancer workspace to activate pipeline management.
+      </p>
+    </div>
+  );
+}
 
 function formatCurrency(value) {
   if (value == null) return '$0';
@@ -138,6 +151,9 @@ function DealsKanban({ grouping, stages, onStageChange }) {
 }
 
 function NewDealForm({ stages, campaigns, ownerId, onCreated }) {
+  if (!ownerId) {
+    return <EmptyOwnerState title="Add new relationship" />;
+  }
   const [form, setForm] = useState({
     title: '',
     clientName: '',
@@ -339,6 +355,9 @@ function NewDealForm({ stages, campaigns, ownerId, onCreated }) {
 }
 
 function NewProposalForm({ deals, templates, ownerId, onCreated }) {
+  if (!ownerId) {
+    return <EmptyOwnerState title="Draft proposal" />;
+  }
   const [form, setForm] = useState({ dealId: deals[0]?.id ?? '', templateId: '', status: 'draft', sentAt: '', acceptedAt: '' });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -470,6 +489,9 @@ function NewProposalForm({ deals, templates, ownerId, onCreated }) {
 }
 
 function NewFollowUpForm({ deals, ownerId, onSaved }) {
+  if (!ownerId) {
+    return <EmptyOwnerState title="Schedule follow-up" />;
+  }
   const [form, setForm] = useState({ dealId: deals[0]?.id ?? '', dueAt: '', channel: 'email', note: '' });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -586,6 +608,9 @@ function NewFollowUpForm({ deals, ownerId, onSaved }) {
 }
 
 function NewCampaignForm({ ownerId, onCreated }) {
+  if (!ownerId) {
+    return <EmptyOwnerState title="Launch nurture campaign" />;
+  }
   const [form, setForm] = useState({
     name: '',
     targetService: '',
@@ -803,39 +828,82 @@ function ProposalLibrary({ proposals, templates }) {
   );
 }
 
-const menuSections = [
-  {
-    label: 'Growth & profile',
-    items: [
+export default function FreelancerPipelinePage() {
+  const { session, hasAccess } = useRoleAccess(['freelancer']);
+  const ownerId = session?.freelancerId ?? DEFAULT_OWNER_ID;
+  const [view, setView] = useState('stage');
+  const [lookbackDays, setLookbackDays] = useState(30);
+
+  const menuSections = useMemo(
+    () => [
       {
-        name: 'Freelancer operations HQ',
-        description: 'Return to the overview dashboard.',
-        to: '/dashboard/freelancer',
-      },
-      {
-        name: 'Pipeline CRM',
-        description: 'Track leads, proposals, follow-ups, and campaigns.',
-        to: '/dashboard/freelancer/pipeline',
+        label: 'Growth & profile',
+        items: [
+          {
+            name: 'Freelancer operations HQ',
+            description: 'Return to the overview dashboard.',
+            to: '/dashboard/freelancer',
+          },
+          {
+            name: 'Pipeline CRM',
+            description: 'Track leads, proposals, follow-ups, and campaigns.',
+            to: '/dashboard/freelancer/pipeline',
+          },
+        ],
       },
     ],
-  },
-];
+    [],
+  );
 
-const profile = {
-  name: 'Riley Morgan',
-  role: 'Lead Brand & Product Designer',
-  initials: 'RM',
-  status: 'Relationship pipeline',
-  badges: ['Gigvora Elite'],
-};
+  const profile = useMemo(() => {
+    if (!session) {
+      return {
+        name: 'Riley Morgan',
+        role: 'Lead Brand & Product Designer',
+        initials: 'RM',
+        status: 'Relationship pipeline',
+        badges: ['Gigvora Elite'],
+      };
+    }
 
+    const name = session.name ?? 'Freelancer';
+    const initials = name
+      .split(' ')
+      .map((part) => part?.[0] ?? '')
+      .join('')
+      .slice(0, 2)
+      .toUpperCase() || 'GV';
+
+    return {
+      name,
+      role: session.title ?? 'Freelancer pipeline member',
+      initials,
+      status: 'Relationship pipeline',
+      badges: ['Gigvora Elite'],
+    };
+  }, [session]);
+
+  const { data, error, loading, fromCache, lastUpdated, refresh } = useCachedResource(
+    `freelancer:pipeline:${ownerId}:${view}:${lookbackDays}`,
+    ({ signal }) => fetchFreelancerPipelineDashboard(ownerId, { view, lookbackDays, signal }),
+    { dependencies: [ownerId, view, lookbackDays], enabled: hasAccess },
 export default function FreelancerPipelinePage() {
-  const ownerId = DEFAULT_OWNER_ID;
+  const { session } = useSession();
+  const rawOwnerId = session?.id;
+  const numericOwnerId =
+    rawOwnerId == null ? null : Number.isInteger(rawOwnerId) ? rawOwnerId : Number.parseInt(rawOwnerId, 10);
+  const ownerId = Number.isInteger(numericOwnerId) && numericOwnerId > 0 ? numericOwnerId : null;
+  const canLoad = ownerId != null;
   const [view, setView] = useState('stage');
   const { data, error, loading, fromCache, lastUpdated, refresh } = useCachedResource(
-    `freelancer:pipeline:${ownerId}:${view}`,
-    ({ signal }) => fetchFreelancerPipelineDashboard(ownerId, { view, signal }),
-    { dependencies: [ownerId, view] },
+    canLoad ? `freelancer:pipeline:${ownerId}:${view}` : `freelancer:pipeline:pending:${view}`,
+    ({ signal }) => {
+      if (!canLoad) {
+        return Promise.reject(new Error('Pipeline owner is not available.'));
+      }
+      return fetchFreelancerPipelineDashboard(ownerId, { view, signal });
+    },
+    { dependencies: [ownerId, view], enabled: canLoad },
   );
 
   const summary = data?.summary ?? {
@@ -857,6 +925,7 @@ export default function FreelancerPipelinePage() {
   const stageOptions = useMemo(() => stages, [stages]);
 
   const handleStageChange = async (deal, stageId) => {
+    if (!ownerId) return;
     if (stageId === deal.stageId) return;
     try {
       await updatePipelineDeal(ownerId, deal.id, { stageId });
@@ -867,6 +936,7 @@ export default function FreelancerPipelinePage() {
   };
 
   const handleFollowUpComplete = async (followUp) => {
+    if (!ownerId) return;
     try {
       await updatePipelineFollowUp(ownerId, followUp.id, { status: 'completed', completedAt: new Date().toISOString() });
       refresh({ force: true });
@@ -876,25 +946,71 @@ export default function FreelancerPipelinePage() {
   };
 
   return (
-    <DashboardLayout
-      currentDashboard="freelancer"
-      title="Pipeline CRM"
-      subtitle="Relationship command center"
-      description="Dedicated CRM for nurturing retainers, proposals, and cross-sell plays beyond day-to-day gig delivery."
-      menuSections={menuSections}
-      sections={[]}
-      profile={profile}
-      availableDashboards={['freelancer', 'user', 'agency']}
-    >
+    <RoleGate allowedRoles={['freelancer']} featureName="Freelancer pipeline workspace">
+      <DashboardLayout
+        currentDashboard="freelancer-pipeline"
+        title="Pipeline CRM"
+        subtitle="Relationship command center"
+        description="Dedicated CRM for nurturing retainers, proposals, and cross-sell plays beyond day-to-day gig delivery."
+        menuSections={menuSections}
+        sections={[]}
+        profile={profile}
+        availableDashboards={[
+          { id: 'freelancer', label: 'Freelancer', href: '/dashboard/freelancer' },
+          { id: 'freelancer-pipeline', label: 'Pipeline HQ', href: '/dashboard/freelancer/pipeline' },
+          { id: 'user', label: 'Talent', href: '/dashboard/user' },
+          { id: 'agency', label: 'Agency', href: '/dashboard/agency' },
+        ]}
+      >
       <div className="space-y-8 px-4 py-8 sm:px-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <DataStatus loading={loading} fromCache={fromCache} lastUpdated={lastUpdated} onRefresh={() => refresh({ force: true })} />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Group by</span>
+              <select
+                value={view}
+                onChange={(event) => setView(event.target.value)}
+                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm"
+              >
+                {viewOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {viewLabels[option] ?? option}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Lookback</span>
+              <select
+                value={lookbackDays}
+                onChange={(event) => setLookbackDays(Number(event.target.value))}
+                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm"
+              >
+                {[14, 30, 60, 90].map((days) => (
+                  <option key={days} value={days}>
+                    Last {days} days
+                  </option>
+                ))}
+              </select>
+            </div>
+          <DataStatus
+            loading={loading && canLoad}
+            fromCache={fromCache}
+            lastUpdated={lastUpdated}
+            onRefresh={() => {
+              if (canLoad) {
+                refresh({ force: true });
+              }
+            }}
+          />
           <div className="flex items-center gap-3">
             <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Group by</span>
             <select
               value={view}
               onChange={(event) => setView(event.target.value)}
-              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm"
+              disabled={!canLoad}
+              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm disabled:cursor-not-allowed disabled:bg-slate-50"
             >
               {viewOptions.map((option) => (
                 <option key={option} value={option}>
@@ -986,6 +1102,7 @@ export default function FreelancerPipelinePage() {
           )}
         </section>
       </div>
-    </DashboardLayout>
+      </DashboardLayout>
+    </RoleGate>
   );
 }

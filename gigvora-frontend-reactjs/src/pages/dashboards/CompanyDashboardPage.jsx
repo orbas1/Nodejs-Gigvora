@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   BriefcaseIcon,
   UsersIcon,
@@ -8,14 +9,18 @@ import {
   SparklesIcon,
   GlobeAltIcon,
   ClipboardDocumentCheckIcon,
+  ShieldCheckIcon,
+  ChartBarIcon,
+  ChatBubbleLeftRightIcon,
 } from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import DataStatus from '../../components/DataStatus.jsx';
 import PartnershipsSourcingSection from '../../components/dashboard/PartnershipsSourcingSection.jsx';
 import JobLifecycleSection from '../../components/company/JobLifecycleSection.jsx';
-import { useCompanyDashboard } from '../../hooks/useCompanyDashboard.js';
-import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
 import InterviewExperienceSection from '../../components/dashboard/InterviewExperienceSection.jsx';
+import { useCompanyDashboard } from '../../hooks/useCompanyDashboard.js';
+import { useSession } from '../../context/SessionContext.jsx';
+import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
 
 const menuSections = [
   {
@@ -24,24 +29,29 @@ const menuSections = [
       {
         name: 'Hiring overview',
         description: 'Pipeline health, hiring velocity, diversity metrics, and alerts.',
+        sectionId: 'hiring-overview',
       },
       {
         name: 'Job lifecycle & ATS intelligence',
         description:
           'Run a modern applicant tracking system with collaborative job creation, smart sourcing, and full-funnel insights.',
         tags: ['ATS'],
+        sectionId: 'job-lifecycle-ats-intelligence',
       },
       {
         name: 'Interview excellence & candidate experience',
         description: 'Structured guides, scheduling automation, and feedback collaboration for every interview panel.',
+        sectionId: 'interview-excellence',
       },
       {
         name: 'Offer & onboarding bridge',
         description: 'Generate offers, track approvals, manage background checks, and orchestrate onboarding tasks.',
+        sectionId: 'offer-onboarding',
       },
       {
         name: 'Candidate care center',
         description: 'Monitor response times, candidate NPS, and inclusion metrics to deliver a world-class experience.',
+        sectionId: 'candidate-care-center',
       },
     ],
   },
@@ -51,15 +61,18 @@ const menuSections = [
       {
         name: 'Job design studio',
         description: 'Craft requisitions with intake surveys, leveling frameworks, compensation guidelines, and approvals.',
+        sectionId: 'job-design-studio',
       },
       {
         name: 'Multi-channel sourcing',
         description:
-          'Publish to Gigvora, job boards, employee referrals, and talent pools with personalized landing pages and reporting.',
+          'Publish to Gigvora, job boards, employee referrals, and talent pools with personalised landing pages and reporting.',
+        sectionId: 'multi-channel-sourcing',
       },
       {
         name: 'Applicant relationship manager',
         description: 'Segment candidates, send nurture campaigns, and manage compliance across GDPR, CCPA, and internal policies.',
+        sectionId: 'applicant-relationship-manager',
       },
     ],
   },
@@ -81,7 +94,7 @@ const menuSections = [
       {
         name: 'Attendance controls',
         description: 'Automate penalties for repeated no-shows and manage eligibility for future sessions.',
-        sectionId: 'networking-sessions',
+        sectionId: 'networking-attendance-controls',
         href: '/dashboard/company/networking',
       },
     ],
@@ -92,14 +105,17 @@ const menuSections = [
       {
         name: 'Analytics & forecasting',
         description: 'Predict time-to-fill, offer acceptance, and pipeline conversion to forecast headcount.',
+        sectionId: 'analytics-forecasting',
       },
       {
         name: 'Workforce analytics',
         description: 'Blend hiring and HRIS data to uncover attrition risks, mobility opportunities, and skill gaps.',
+        sectionId: 'workforce-analytics',
       },
       {
         name: 'Scenario planning',
         description: 'Model hiring freezes or acceleration plans with interactive dashboards by department, level, or location.',
+        sectionId: 'scenario-planning',
       },
     ],
   },
@@ -124,6 +140,7 @@ const menuSections = [
       {
         name: 'Partner performance manager',
         description: 'Compare agencies, headhunters, and recruiters with leaderboards, SLAs, and ROI analytics.',
+        sectionId: 'partner-performance-manager',
       },
     ],
   },
@@ -132,8 +149,8 @@ const menuSections = [
     items: [
       {
         name: 'Employer brand & workforce intelligence',
-        description:
-          'Promote your culture, understand workforce trends, and connect hiring with employee experience data.',
+        description: 'Promote your culture, understand workforce trends, and connect hiring with employee experience data.',
+        sectionId: 'employer-brand-workforce',
       },
       {
         name: 'Employer brand studio',
@@ -158,14 +175,17 @@ const menuSections = [
       {
         name: 'Calendar & communications',
         description: 'Sync recruiting calendars, digests, integrations, and cross-functional updates.',
+        sectionId: 'calendar-communications',
       },
       {
         name: 'Settings & governance',
         description: 'Permissions, integrations, compliance, and approval workflows.',
+        sectionId: 'settings-governance',
       },
       {
         name: 'Governance & compliance',
         description: 'Maintain GDPR/CCPA compliance, accessibility standards, and equitable hiring policies.',
+        sectionId: 'governance-compliance',
       },
     ],
   },
@@ -181,952 +201,133 @@ const SUMMARY_ICONS = [
   SparklesIcon,
   GlobeAltIcon,
   ClipboardDocumentCheckIcon,
+  ShieldCheckIcon,
+  ChartBarIcon,
+  ChatBubbleLeftRightIcon,
 ];
 
-function slugify(value) {
-  if (!value) return '';
-  return value
-    .toString()
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 80);
-}
-
-function formatNumber(value, { fallback = '—', suffix = '' } = {}) {
-  if (value == null) return fallback;
+function formatNumber(value, { fallback = '—', suffix = '', decimals = null } = {}) {
+  if (value == null || Number.isNaN(Number(value))) {
+    return fallback;
+  }
   const numeric = Number(value);
-  if (!Number.isFinite(numeric)) {
-    return `${value}${suffix}`;
-  }
-  return `${numeric.toLocaleString()}${suffix}`;
+  const formatted =
+    decimals == null
+      ? numeric.toLocaleString()
+      : numeric.toLocaleString(undefined, {
+          minimumFractionDigits: decimals,
+          maximumFractionDigits: decimals,
+        });
+  return `${formatted}${suffix}`;
 }
 
-function formatPercent(value) {
+function formatPercent(value, { fallback = '—', decimals = 1 } = {}) {
   if (value == null || Number.isNaN(Number(value))) {
-    return '—';
+    return fallback;
   }
-  return `${Number(value).toFixed(1)}%`;
+  return `${Number(value).toFixed(decimals)}%`;
 }
 
-function formatCurrency(value) {
+function formatCurrency(value, currency = 'USD', { fallback = '—' } = {}) {
   if (value == null || Number.isNaN(Number(value))) {
-    return '—';
+    return fallback;
   }
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) {
-    return '—';
+    return fallback;
   }
-  const options = { minimumFractionDigits: 0, maximumFractionDigits: numeric % 1 === 0 ? 0 : 2 };
-  return `$${numeric.toLocaleString(undefined, options)}`;
-function formatCurrency(amount, currency = 'USD') {
-  if (amount == null || Number.isNaN(Number(amount))) {
-    return '—';
-  }
-  const numeric = Number(amount);
-  return `${currency} ${numeric.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-function slugify(value) {
-  if (!value) {
-    return '';
-  }
-  return value
-    .toString()
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 80);
-}
-
-function buildSections(data) {
-  if (!data) {
-    return [];
-  }
-
-  const {
-    pipelineSummary,
-    diversity,
-    alerts,
-    jobDesign,
-    sourcing,
-    applicantRelationshipManager,
-    analyticsForecasting,
-    interviewOperations,
-    interviewExperience,
-    candidateExperience,
-    offerOnboarding,
-    candidateCare,
-    partnerCollaboration,
-    brandIntelligence,
-    governance,
-    calendar,
-    jobSummary,
-    projectSummary,
-    recommendations,
-    employerBrandWorkforce,
-  } = data;
-
-  const statusEntries = Object.entries(pipelineSummary?.byStatus ?? {});
-  const statusBulletPoints = statusEntries.length
-    ? statusEntries
-        .sort(([, a], [, b]) => b - a)
-        .slice(0, 6)
-        .map(([status, count]) => `${status.replace(/_/g, ' ')} — ${formatNumber(count)}`)
-    : ['No application activity recorded in this window.'];
-
-  const diversityBreakdown = diversity?.breakdowns?.gender ?? [];
-  const diversityPoints = diversityBreakdown.length
-    ? [
-        `Representation index: ${diversity?.representationIndex != null ? diversity.representationIndex.toFixed(2) : '—'}`,
-        `Responses captured: ${formatNumber(diversity?.total)}`,
-        ...diversityBreakdown.slice(0, 3).map((item) => `${item.label}: ${formatPercent(item.percentage)}`),
-      ]
-    : ['Capture optional demographic surveys to unlock representation reporting.'];
-
-  const alertPoints = alerts?.items?.length
-    ? [
-        `Open alerts: ${formatNumber(alerts.open ?? 0)}`,
-        `Critical issues: ${formatNumber(alerts.bySeverity?.critical ?? 0)}`,
-        alerts.latestDetection ? `Latest detected: ${formatRelativeTime(alerts.latestDetection)}` : 'No recent alerts detected.',
-      ]
-    : ['No active alerts in this lookback window.'];
-
-  const jobDesignPoints = jobDesign
-    ? [
-        `Approvals in flight: ${formatNumber(jobDesign.approvalsInFlight)}`,
-        `Co-author sessions: ${formatNumber(jobDesign.coAuthorSessions)}`,
-        `Structured stages: ${formatNumber(jobDesign.structuredStages)}`,
-        `Compliance alerts: ${formatNumber(jobDesign.complianceAlerts)}`,
-      ]
-    : ['Track job approvals and compliance to surface design insights.'];
-
-  const sourcingSources = sourcing?.sources?.length
-    ? sourcing.sources.slice(0, 4).map((entry) => `${entry.source}: ${formatNumber(entry.count)} (${formatPercent(entry.percentage)})`)
-    : ['No candidate source data captured in this window.'];
-
-  const sourcingTotals = sourcing
-    ? [
-        `Campaign applications: ${formatNumber(sourcing.campaignTotals?.applications)}`,
-        `Campaign hires: ${formatNumber(sourcing.campaignTotals?.hires)}`,
-        `Average CPA: ${
-          sourcing.averageCostPerApplication != null
-            ? `$${Number(sourcing.averageCostPerApplication).toFixed(2)}`
-            : '—'
-        }`,
-        `Hire contribution rate: ${formatPercent(sourcing.hireContributionRate)}`,
-      ]
-    : ['Activate campaign tracking to monitor sourcing ROI.'];
-
-  const armPoints = applicantRelationshipManager
-    ? [
-        `Active candidates: ${formatNumber(applicantRelationshipManager.totalActiveCandidates)}`,
-        `Nurture campaigns logged: ${formatNumber(applicantRelationshipManager.nurtureCampaigns)}`,
-        `Follow-ups scheduled: ${formatNumber(applicantRelationshipManager.followUpsScheduled)}`,
-        `Compliance reviews: ${formatNumber(applicantRelationshipManager.complianceReviews)}`,
-      ]
-    : ['Log nurture campaigns to power the applicant relationship manager.'];
-
-  const forecastingPoints = analyticsForecasting
-    ? [
-        `Projected hires: ${formatNumber(analyticsForecasting.projectedHires)}`,
-        `Estimated backlog: ${formatNumber(analyticsForecasting.backlog)}`,
-        `Average time to fill: ${formatNumber(analyticsForecasting.timeToFillDays, { suffix: ' days' })}`,
-        `Projects at risk: ${formatNumber(analyticsForecasting.atRiskProjects)}`,
-      ]
-    : ['Forecast models will appear once enough activity is captured.'];
-
-  const schedulerMetrics = interviewExperience?.scheduler ?? {};
-  const offerBridgeMetrics = interviewExperience?.offerBridge ?? {};
-  const candidateCareCenterMetrics = interviewExperience?.candidateCareCenter ?? {};
-
-  const interviewPoints = [
-    `Upcoming interviews: ${formatNumber(
-      schedulerMetrics.upcomingCount ?? interviewOperations?.upcomingCount,
-    )}`,
-    `Reminder coverage: ${formatPercent(schedulerMetrics.reminderCoverage)}`,
-    `Availability coverage: ${formatPercent(schedulerMetrics.availabilityCoverage)}`,
-    `Feedback logged: ${formatNumber(interviewOperations?.feedbackLogged)}`,
-  ];
-
-  const candidateExperiencePoints = [
-    `Survey responses: ${formatNumber(candidateExperience?.responseCount)}`,
-    `Avg satisfaction: ${formatNumber(candidateExperience?.averageScore)}`,
-    `Candidate NPS: ${
-      candidateExperience?.nps != null && Number.isFinite(Number(candidateExperience.nps))
-        ? `${Number(candidateExperience.nps).toFixed(1)}`
-        : '—'
-    }`,
-    `Follow-ups pending: ${formatNumber(candidateExperience?.followUpsPending)}`,
-  ];
-
-  const offerPoints = [
-    `Open offers: ${formatNumber(offerOnboarding?.openOffers)}`,
-    `Acceptance rate: ${formatPercent(offerOnboarding?.acceptanceRate)}`,
-    `Approvals pending: ${formatNumber(offerBridgeMetrics.approvalsPending)}`,
-    `Average days to start: ${formatNumber(offerOnboarding?.averageDaysToStart)}`,
-  ];
-
-  const carePoints = [
-    `Satisfaction score: ${formatNumber(candidateCare?.satisfaction)}`,
-    `Candidate NPS: ${
-      candidateCare?.nps != null && Number.isFinite(Number(candidateCare.nps))
-        ? `${Number(candidateCare.nps).toFixed(1)}`
-        : '—'
-    }`,
-    `Follow-ups pending: ${formatNumber(candidateCare?.followUpsPending)}`,
-    `Escalations: ${formatNumber(candidateCare?.escalations)}`,
-  ];
-
-  const headhunterDashboard = partnerCollaboration?.headhunterDashboard ?? null;
-  const partnerPerformance = partnerCollaboration?.partnerPerformanceManager ?? null;
-  const collaborationSuite = partnerCollaboration?.collaborationSuite ?? null;
-  const partnerCalendarComms = partnerCollaboration?.calendarCommunications ?? null;
-
-  const headhunterPoints = headhunterDashboard
-    ? [
-        `Open briefs shared: ${formatNumber(headhunterDashboard.stats?.openBriefs)}`,
-        `Active submissions: ${formatNumber(headhunterDashboard.stats?.activeSubmissions)}`,
-        `Interviews scheduled: ${formatNumber(headhunterDashboard.stats?.interviewsScheduled)}`,
-        `Commission pipeline: ${formatCurrency(headhunterDashboard.stats?.totalCommissionValue)}`,
-      ]
-    : ['Share job briefs with headhunters to surface external recruiting analytics.'];
-
-  const partnerPerformancePoints = partnerPerformance
-    ? [
-        partnerPerformance.leaderboard?.[0]
-          ? `Top partner: ${partnerPerformance.leaderboard[0].name} (${formatPercent(partnerPerformance.leaderboard[0].conversionRate)})`
-          : 'Activate performance tracking to populate leaderboards.',
-        partnerPerformance.sla?.averages?.submissionToInterviewHours != null
-          ? `Submission→interview SLA: ${formatNumber(partnerPerformance.sla.averages.submissionToInterviewHours, { suffix: ' hrs' })}`
-          : 'Capture SLA snapshots to benchmark responsiveness.',
-        `Commission liability: ${formatCurrency(partnerPerformance.roi?.totalCommission)}`,
-        `Renewals this quarter: ${formatNumber(partnerPerformance.agreements?.renewals?.length ?? 0)}`,
-      ]
-    : ['Monitor partner SLAs and ROI once collaboration begins.'];
-
-  const collaborationSuitePoints = collaborationSuite
-    ? [
-        `Active partner threads: ${formatNumber(collaborationSuite.activeThreads)}`,
-        `Files shared: ${formatNumber(collaborationSuite.filesShared)}`,
-        `Open escalations: ${formatNumber(collaborationSuite.escalationsOpen)}`,
-        collaborationSuite.latestActivity?.[0]
-          ? `Latest activity: ${collaborationSuite.latestActivity[0].eventType} • ${formatRelativeTime(collaborationSuite.latestActivity[0].occurredAt)}`
-          : 'No recent partner activity logged.',
-      ]
-    : ['Enable partner messaging and audit trails to see collaboration insights.'];
-
-  const partnerCalendarPoints = partnerCalendarComms
-    ? [
-        `Events this week: ${formatNumber(partnerCalendarComms.eventsThisWeek)}`,
-        partnerCalendarComms.interviewLoad?.length
-          ? `Next peak load: ${partnerCalendarComms.interviewLoad[0].date} (${formatNumber(partnerCalendarComms.interviewLoad[0].interviews)} interviews)`
-          : 'No partner interviews scheduled in the next 7 days.',
-        `Pending escalations: ${formatNumber(partnerCalendarComms.pendingEscalations)}`,
-        partnerCalendarComms.weeklyDigest?.highlights?.[0] ?? 'Weekly digest will populate after first sync.',
-      ]
-    : ['Connect recruiting calendars and integrations to orchestrate partner communications.'];
-
-  const calendarPoints = calendar?.upcoming?.length
-    ? calendar.upcoming.slice(0, 3).map((event) => `${event.eventType} • ${formatAbsolute(event.startsAt)}`)
-    : ['Connect your recruiting calendar to see upcoming events.'];
-
-  const networking = data?.networking ?? {};
-  const networkingSessions = networking.sessions ?? {};
-  const networkingScheduling = networking.scheduling ?? {};
-  const networkingMonetization = networking.monetization ?? {};
-  const networkingPenalties = networking.penalties ?? {};
-  const networkingAttendeeExperience = networking.attendeeExperience ?? {};
-  const networkingCards = networking.digitalBusinessCards ?? {};
-  const networkingVideo = networking.video ?? {};
-
-  const hasSessionMetrics = Object.values(networkingSessions).some((value) => value != null);
-  const rotationMinutes =
-    networkingSessions.rotationDurationMinutes ?? networkingSessions.averageSlotMinutes ?? null;
-  const networkingSessionPoints = hasSessionMetrics
-    ? [
-        `Active sessions: ${formatNumber(networkingSessions.active)}`,
-        `Upcoming sessions: ${formatNumber(networkingSessions.upcoming)}`,
-        `Default join limit: ${formatNumber(networkingSessions.defaultJoinLimit ?? networkingSessions.joinLimit)}`,
-        rotationMinutes != null
-          ? `Rotation cadence: ${formatNumber(rotationMinutes, { suffix: ' min slots' })}`
-          : 'Rotation cadence: Configure 2 or 5 minute slots for every pairing.',
-      ]
-    : [
-        'Create speed networking sessions with configurable join limits and pair rotations.',
-        'Pick 2 or 5 minute slot lengths so each attendee gets equal time to pitch.',
-        'Auto-shuffle matches until the host-defined session end time is reached.',
-      ];
-
-  const hasSchedulingData =
-    Object.values(networkingScheduling).some((value) => value != null) ||
-    Object.values(networkingMonetization).some((value) => value != null);
-  const networkingSchedulingPoints = hasSchedulingData
-    ? [
-        `Pre-registrations confirmed: ${formatNumber(
-          networkingScheduling.preRegistrations ?? networkingSessions.registered,
-        )}`,
-        `Waitlist size: ${formatNumber(networkingScheduling.waitlist ?? networkingSessions.waitlist)}`,
-        `Paid vs free: ${formatNumber(networkingMonetization.paid)} paid • ${formatNumber(networkingMonetization.free)} free`,
-        networkingScheduling.searches != null
-          ? `Session searches this week: ${formatNumber(networkingScheduling.searches)}`
-          : 'Search and filter upcoming sessions right after login.',
-      ]
-    : [
-        'Schedule networking programs in advance with attendee pre-signups and automatic reminders.',
-        'Choose whether a session is free or paid before seats open up.',
-        'Let companies search the session directory to invite the right audiences.',
-      ];
-
-  const hasPenaltyData = Object.values(networkingPenalties).some((value) => value != null);
-  const networkingPenaltyPoints = hasPenaltyData
-    ? [
-        `No-show rate: ${formatPercent(networkingPenalties.noShowRate)}`,
-        `Active penalties: ${formatNumber(networkingPenalties.activePenalties)}`,
-        `Restricted attendees: ${formatNumber(networkingPenalties.restrictedParticipants)}`,
-        networkingPenalties.cooldownDays != null
-          ? `Standard cooldown: ${formatNumber(networkingPenalties.cooldownDays, { suffix: ' days' })}`
-          : 'Cooldown windows configured per workspace.',
-      ]
-    : [
-        'Automatically flag no-shows and apply cooldown periods after repeated misses.',
-        'Track penalty history before approving new sign-ups.',
-        'Restrict networking access for attendees who exceed the no-show threshold.',
-      ];
-
-  const hasAttendeeCardData = Object.values(networkingCards).some((value) => value != null);
-  const networkingDigitalCardPoints = hasAttendeeCardData
-    ? [
-        `Digital cards created: ${formatNumber(networkingCards.created)}`,
-        `Updated this week: ${formatNumber(networkingCards.updatedThisWeek)}`,
-        `Shared in session: ${formatNumber(networkingCards.sharedInSession)}`,
-        networkingCards.templates != null
-          ? `Available templates: ${formatNumber(networkingCards.templates)}`
-          : 'Templates tailored for roles, industries, and partnership goals.',
-      ]
-    : [
-        'Attendees design digital business cards before the session starts.',
-        'Cards include contact details, elevator pitches, and optional attachments ready to share.',
-        'One-click sharing delivers cards to current matches and post-session downloads.',
-      ];
-
-  const hasAttendeeExperienceData = Object.values(networkingAttendeeExperience).some((value) => value != null);
-  const networkingConnectionPoints = hasAttendeeExperienceData
-    ? [
-        `Profiles shared: ${formatNumber(networkingAttendeeExperience.profilesShared)}`,
-        `Connections saved: ${formatNumber(networkingAttendeeExperience.connectionsSaved)}`,
-        `Chats sent per session: ${formatNumber(networkingAttendeeExperience.averageMessagesPerSession)}`,
-        networkingAttendeeExperience.followUpsScheduled != null
-          ? `Follow-ups scheduled: ${formatNumber(networkingAttendeeExperience.followUpsScheduled)}`
-          : 'Encourage quick follow-ups with automated reminders.',
-      ]
-    : [
-        'Share Gigvora profiles and digital cards directly within the networking room.',
-        'Real-time chat lets attendees swap links, notes, and contact details.',
-        'Save promising matches to revisit after the session wraps up.',
-      ];
-
-  const hasVideoData = Object.values(networkingVideo).some((value) => value != null);
-  const networkingVideoPoints = hasVideoData
-    ? [
-        `Average call quality: ${formatPercent(networkingVideo.averageQualityScore)}`,
-        `Browser load handled client-side: ${formatPercent(networkingVideo.browserLoadShare)}`,
-        `Announcements broadcast: ${formatNumber(networkingVideo.hostAnnouncements)}`,
-        networkingVideo.failoverRate != null
-          ? `Failover rate: ${formatPercent(networkingVideo.failoverRate)}`
-          : 'Failover protections keep rotations running smoothly.',
-      ]
-    : [
-        'Browser-based video keeps networking lightweight with no downloads required.',
-        'Hosts can broadcast announcements without interrupting rotations.',
-        'Client-side load balancing maintains smooth connections even at scale.',
-      ];
-
-  const networkingAttendeeDetails = [
-    {
-      subtitle: 'Pre-session prep',
-      title: 'Digital business cards',
-      items: [
-        'Collect preferred pronouns, focus areas, and goals for every attendee.',
-        'Allow imports from existing Gigvora profiles or manual entry in minutes.',
-        'Share cards instantly with matches or export to CRM tools after the event.',
-      ],
-    },
-    {
-      subtitle: 'Live collaboration',
-      title: 'Chat & profile sharing',
-      items: [
-        'Drop Gigvora profiles or pitch decks into the chat without leaving the session.',
-        'Balance speaking time automatically so each attendee gets half of the rotation.',
-        'Hosts can pin prompts or resources to keep conversations focused.',
-      ],
-    },
-    {
-      subtitle: 'Video experience',
-      title: 'Lightweight browser video',
-      items: [
-        'Our video service runs primarily in the browser to minimize infrastructure load.',
-        'Automatic shuffling moves attendees to the next pairing when timers expire.',
-        'Support for 2 or 5 minute slots keeps speed networking snappy and consistent.',
-      ],
-    },
-  ];
-
-  const brandStudio = data?.brandAndPeople?.employerBrandStudio;
-  const journeysSummary = data?.brandAndPeople?.employeeJourneys;
-  const settingsGovernance = data?.brandAndPeople?.settingsGovernance;
-
-  const brandStudioPoints = brandStudio
-    ? [
-        `Profile completeness: ${formatPercent(brandStudio.profileCompleteness)}`,
-        `Published assets live: ${formatNumber(brandStudio.publishedAssets)}`,
-        brandStudio?.stories?.topStories?.[0]
-          ? `Top story: ${brandStudio.stories.topStories[0].title}`
-          : 'Publish a culture story to spotlight your team.',
-        brandStudio?.benefits?.categories?.length
-          ? `${formatNumber(brandStudio.benefits.categories.length)} benefit categories documented`
-          : 'Document benefits to enrich offer packs.',
-      ]
-    : ['Publish culture stories and benefits to unlock brand analytics.'];
-
-  const journeyPoints = journeysSummary
-    ? [
-        `Active programs: ${formatNumber(journeysSummary.totalPrograms)}`,
-        `Employees in flight: ${formatNumber(journeysSummary.activeEmployees)}`,
-        `Avg completion: ${formatPercent(journeysSummary.averageCompletionRate)}`,
-        journeysSummary.programsAtRisk
-          ? `${formatNumber(journeysSummary.programsAtRisk)} program(s) flagged for follow-up`
-          : 'All journeys currently on track.',
-      ]
-    : ['Launch onboarding and mobility journeys to monitor employee progress.'];
-
-  const settingsGovernancePoints = settingsGovernance
-    ? [
-        `Calendar sync: ${formatNumber(settingsGovernance.calendar?.connected ?? 0)} active / ${formatNumber(
-          settingsGovernance.calendar?.totalConnections ?? 0,
-        )} connected`,
-        `Integrations live: ${formatNumber(settingsGovernance.integrations?.connected ?? 0)} of ${formatNumber(
-          settingsGovernance.integrations?.total ?? 0,
-        )}`,
-        `Pending invites: ${formatNumber(settingsGovernance.permissions?.pendingInvites ?? 0)}`,
-        settingsGovernance.compliance?.criticalAlerts
-          ? `${formatNumber(settingsGovernance.compliance.criticalAlerts)} critical compliance alert(s)`
-          : 'No critical compliance alerts.',
-      ]
-    : ['Connect integrations and calendar syncs to populate governance metrics.'];
-
-  const brandWorkforce = employerBrandWorkforce ?? {};
-  const profileStudio = brandWorkforce.profileStudio ?? {};
-  const profileStudioCounts = profileStudio.counts ?? {};
-  const profileStudioCampaigns = profileStudio.campaignSummary ?? {};
-  const workforceAnalytics = brandWorkforce.workforceAnalytics ?? {};
-  const mobilityProgram = brandWorkforce.internalMobility ?? {};
-  const governanceCompliance = brandWorkforce.governanceCompliance ?? {};
-  const governanceAccessibility = governanceCompliance.accessibility ?? {};
-
-  const varianceValue =
-    workforceAnalytics.planAlignment?.variance != null
-      ? Number(workforceAnalytics.planAlignment.variance).toFixed(1)
-      : null;
-
-  const profileStudioPoints = [
-    `Culture videos published: ${formatNumber(profileStudioCounts.cultureVideos)}`,
-    `Team spotlights live: ${formatNumber(profileStudioCounts.teamSpotlights)}`,
-    `Offices featured: ${formatNumber(profileStudioCounts.offices)}`,
-    `Active campaigns: ${formatNumber(profileStudioCampaigns.active)}`,
-  ];
-
-  const workforceAnalyticsPoints = [
-    `Attrition risk: ${formatPercent(workforceAnalytics.attritionRiskScore)}`,
-    `Mobility opportunities: ${formatNumber(workforceAnalytics.mobilityOpportunities)}`,
-    `Skill gap alerts: ${formatNumber(workforceAnalytics.skillGapAlerts)}`,
-    `Headcount variance: ${
-      varianceValue != null
-        ? `${Number(varianceValue) >= 0 ? '+' : ''}${varianceValue} FTE`
-        : '—'
-    }`,
-  ];
-
-  const mobilityPoints = [
-    `Open internal roles: ${formatNumber(mobilityProgram.openRoles)}`,
-    `Internal applications: ${formatNumber(mobilityProgram.internalApplications)}`,
-    `Referral conversion: ${formatPercent(mobilityProgram.referralConversionRate)}`,
-    `Rewards issued: ${formatCurrency(mobilityProgram.rewardBudgetUsed)}`,
-  ];
-
-  const governanceCompliancePoints = [
-    `Active policies: ${formatNumber(governanceCompliance.activePolicies)}`,
-    `Regions covered: ${formatNumber(Object.keys(governanceCompliance.policiesByRegion ?? {}).length)}`,
-    `Audits open: ${formatNumber(governanceCompliance.auditsOpen)}`,
-    `Accessibility score: ${
-      governanceAccessibility.averageScore != null ? `${governanceAccessibility.averageScore}/100` : '—'
-    }`,
-  ];
-
-  const storytellingItems = profileStudio.featuredSections?.length
-    ? profileStudio.featuredSections
-        .slice(0, 5)
-        .map((section) => `${section.typeLabel ?? 'Story'} — ${section.title}`)
-    : ['Add featured sections to spotlight your teams, offices, and leadership stories.'];
-
-  const campaignItems = profileStudioCampaigns.byChannel?.length
-    ? profileStudioCampaigns.byChannel
-        .slice(0, 5)
-        .map(
-          (entry) =>
-            `${entry.channel} — ${formatCurrency(entry.spend)} • ${formatNumber(entry.hires)} hires • ${formatNumber(
-              entry.applications,
-            )} applications`,
-        )
-    : ['Track campaign performance across your paid, referral, and owned channels to see ROI.'];
-
-  const cohortItems = workforceAnalytics.cohortComparisons?.length
-    ? workforceAnalytics.cohortComparisons
-        .slice(0, 5)
-        .map((cohort) => {
-          const retention = cohort.retentionRate != null ? formatPercent(cohort.retentionRate) : '—';
-          const promotions = cohort.promotionRate != null ? formatPercent(cohort.promotionRate) : '—';
-          return `${cohort.label} — Retention ${retention} • Promotions ${promotions}`;
-        })
-    : ['Connect HRIS cohort data to compare retention, performance, and promotion trends.'];
-
-  const referralItems = mobilityProgram.leaderboard?.length
-    ? mobilityProgram.leaderboard
-        .slice(0, 5)
-        .map(
-          (referrer) =>
-            `${referrer.name} — ${formatNumber(referrer.referrals)} referrals • ${formatNumber(
-              referrer.rewardPoints,
-            )} pts • ${formatCurrency(referrer.rewardAmount)}`,
-        )
-    : ['Launch referral challenges to unlock gamified leaderboards and payouts.'];
-
-  const careerItems = mobilityProgram.careerProgress?.length
-    ? mobilityProgram.careerProgress
-        .slice(0, 5)
-        .map((plan) => {
-          const progressLabel =
-            plan.progressPercent != null ? `${Number(plan.progressPercent).toFixed(0)}% complete` : 'In planning';
-          return `${plan.employeeName} — ${plan.currentRole ?? 'Current role'} → ${plan.targetRole ?? 'Growth path'} (${progressLabel})`;
-        })
-    : ['Activate career pathing plans to personalise mobility journeys and learning recommendations.'];
-
-  const learningItems = mobilityProgram.learningRecommendations?.length
-    ? mobilityProgram.learningRecommendations.map((item) => `Learning: ${item}`)
-    : [];
-
-  const complianceItems = governanceCompliance.recentAudits?.length
-    ? governanceCompliance.recentAudits
-        .slice(0, 5)
-        .map((audit) => {
-          const findings = audit.findingsCount != null ? `${formatNumber(audit.findingsCount)} findings` : 'No findings logged';
-          const statusLabel = audit.status ? audit.status.replace(/_/g, ' ') : 'Unknown';
-          const formattedStatus = `${statusLabel.charAt(0).toUpperCase()}${statusLabel.slice(1)}`;
-          return `${audit.auditType}${audit.region ? ` (${audit.region})` : ''} — ${formattedStatus} • ${findings}`;
-        })
-    : ['Document policy reviews and audit outcomes to maintain regional compliance coverage.'];
-
-  const accessibilityItems = governanceAccessibility.recommendations?.length
-    ? governanceAccessibility.recommendations.slice(0, 4).map((recommendation) => `Accessibility: ${recommendation}`)
-    : [];
-
-  const employerBrandDetailCards = [
-    {
-      title: 'Storytelling highlights',
-      subtitle: 'Featured teams, offices & leaders',
-      items: storytellingItems,
-    },
-    {
-      title: 'Talent marketing performance',
-      subtitle: 'Campaign ROI by channel',
-      items: campaignItems,
-    },
-    {
-      title: 'Cohort comparisons',
-      subtitle: 'Retention & promotion benchmarks',
-      items: cohortItems,
-    },
-    {
-      title: 'Referral leaderboard',
-      subtitle: 'Gamified progress & rewards',
-      items: referralItems,
-    },
-    {
-      title: 'Career pathing journeys',
-      subtitle: 'Internal mobility & learning plans',
-      items: [...careerItems.slice(0, 4), ...learningItems.slice(0, Math.max(0, 4 - careerItems.length))],
-    },
-    {
-      title: 'Compliance & accessibility',
-      subtitle: 'Audits, policies & remediation',
-      items: [...complianceItems.slice(0, 4), ...accessibilityItems.slice(0, Math.max(0, 4 - complianceItems.length))],
-    },
-  ];
-
-  const governancePoints = governance
-    ? [
-        `Pending approvals: ${formatNumber(governance.pendingApprovals)}`,
-        `Critical alerts: ${formatNumber(governance.criticalAlerts)}`,
-        `Workspace active: ${governance.workspaceActive ? 'Yes' : 'No'}`,
-        governance.timezone ? `Primary timezone: ${governance.timezone}` : 'Set a default timezone for scheduling.',
-      ]
-    : ['Governance metrics appear once approvals and alerts are captured.'];
-
-  const recommendationPoints = Array.isArray(recommendations) && recommendations.length
-    ? recommendations.map((item) => item.title)
-    : ['Keep capturing activity to surface recommended actions.'];
-
-  const sections = [
-    {
-      title: 'Hiring overview',
-      description: 'Pipeline health, hiring velocity, diversity metrics, and alerts.',
-      features: [
-        { name: 'Pipeline health', description: 'Stage distribution across the hiring funnel.', bulletPoints: statusBulletPoints },
-        {
-          name: 'Velocity & conversion',
-          description: 'Measure time-to-hire and conversion rates across stages.',
-          bulletPoints: [
-            `Average days to decision: ${formatNumber(pipelineSummary?.velocity?.averageDaysToDecision)}`,
-            `Median days to interview: ${formatNumber(pipelineSummary?.velocity?.medianDaysToInterview)}`,
-            `Interview rate: ${formatPercent(pipelineSummary?.conversionRates?.interviewRate)}`,
-            `Offer-to-hire: ${formatPercent(pipelineSummary?.conversionRates?.hireRate)}`,
-          ],
-        },
-        {
-          name: 'Diversity & inclusion',
-          description: 'Monitor representation across self-reported demographics.',
-          bulletPoints: diversityPoints,
-        },
-        {
-          name: 'Alerts & risk',
-          description: 'Track SLA breaches, compliance flags, and emerging issues.',
-          bulletPoints: alertPoints,
-        },
-      ],
-    },
-    {
-      title: 'Job design studio',
-      description: 'Craft requisitions with collaborative approvals and compliance controls.',
-      features: [
-        {
-          name: 'Design throughput',
-          description: 'Keep requisitions flowing with cross-functional co-authoring.',
-          bulletPoints: jobDesignPoints,
-        },
-        {
-          name: 'Jobs management',
-          description: 'Inventory of open jobs and gigs promoted to the market.',
-          bulletPoints: [
-            `Total roles: ${formatNumber(jobSummary?.total)}`,
-            `Jobs vs gigs: ${formatNumber(jobSummary?.byType?.jobs)} jobs • ${formatNumber(jobSummary?.byType?.gigs)} gigs`,
-            ...(jobSummary?.topLocations?.slice?.(0, 3).map((item) => `${item.location} — ${formatNumber(item.count)} openings`) ?? []),
-          ],
-        },
-      ],
-    },
-    {
-      title: 'Multi-channel sourcing',
-      description: 'Publish requisitions across campaigns, referrals, and targeted pools.',
-      features: [
-        {
-          name: 'Source mix',
-          description: 'Top channels contributing applicants this period.',
-          bulletPoints: sourcingSources,
-        },
-        {
-          name: 'Campaign ROI',
-          description: 'Spend, applications, and hires generated by tracked campaigns.',
-          bulletPoints: sourcingTotals,
-        },
-      ],
-    },
-    {
-      title: 'Applicant relationship manager',
-      description: 'Nurture candidates, manage follow-ups, and stay compliant.',
-      features: [
-        {
-          name: 'Pipeline engagement',
-          description: 'Track nurture sequences and compliance tasks.',
-          bulletPoints: armPoints,
-        },
-      ],
-    },
-    {
-      title: 'Analytics & forecasting',
-      description: 'Model hiring plans, forecast headcount, and spot delivery risks.',
-      features: [
-        {
-          name: 'Planning insights',
-          description: 'Forward-looking metrics for leadership reviews.',
-          bulletPoints: forecastingPoints,
-        },
-        {
-          name: 'Delivery readiness',
-          description: 'Link project signals to hiring capacity.',
-          bulletPoints: [
-            `Projects active: ${formatNumber(projectSummary?.totals?.active)}`,
-            `Planning pipeline: ${formatNumber(projectSummary?.totals?.planning)}`,
-            `At-risk delivery: ${formatNumber(projectSummary?.totals?.atRisk)}`,
-            `Automation-enabled: ${formatNumber(projectSummary?.automation?.automationEnabled)}`,
-          ],
-        },
-      ],
-    },
-    {
-      title: 'Interview excellence & candidate experience',
-      description: 'Enable consistent, inclusive interviews with rich feedback loops.',
-      component: {
-        Component: InterviewExperienceSection,
-        props: {
-          data: interviewExperience,
-          interviewOperations,
-          candidateExperience,
-          offerOnboarding,
-        },
-      },
-      features: [
-        {
-          name: 'Interview operations',
-          description: 'Scheduling health and interviewer readiness.',
-          bulletPoints: interviewPoints,
-        },
-        {
-          name: 'Experience insights',
-          description: 'Candidate feedback and sentiment trends.',
-          bulletPoints: candidateExperiencePoints,
-        },
-      ],
-    },
-    {
-      title: 'Offer & onboarding bridge',
-      description: 'Close candidates confidently and orchestrate day-one readiness.',
-      features: [
-        {
-          name: 'Offer pipeline',
-          description: 'Conversion, follow-ups, and start-date readiness.',
-          bulletPoints: offerPoints,
-        },
-      ],
-    },
-    {
-      title: 'Candidate care center',
-      description: 'Deliver responsive, inclusive experiences throughout the journey.',
-      features: [
-        {
-          name: 'Experience health',
-          description: 'Satisfaction, NPS, and escalations in one view.',
-          bulletPoints: carePoints,
-        },
-      ],
-    },
-    {
-      id: 'networking-sessions',
-      title: 'Networking sessions',
-      description: 'Launch company-hosted speed networking with configurable rotations, monetization, and attendance controls.',
-      features: [
-        {
-          name: 'Session builder',
-          description: 'Design video-first networking programs with rotation timers and join limits tuned to your goals.',
-          bulletPoints: networkingSessionPoints,
-        },
-        {
-          name: 'Scheduling & monetization',
-          description: 'Publish discoverable sessions, manage pre-registrations, and choose between free or paid access.',
-          bulletPoints: networkingSchedulingPoints,
-        },
-        {
-          name: 'Attendance controls',
-          description: 'Capture check-ins, track penalties, and enforce cooldowns for repeat no-shows.',
-          bulletPoints: networkingPenaltyPoints,
-        },
-      ],
-    },
-    {
-      id: 'networking-attendee-experience',
-      title: 'Networking attendee experience',
-      description:
-        'Equip every participant with digital business cards, lightweight browser video, and chat-powered follow-ups.',
-      features: [
-        {
-          name: 'Digital business cards',
-          description: 'Let attendees prepare shareable cards and pitches ahead of the networking session.',
-          bulletPoints: networkingDigitalCardPoints,
-        },
-        {
-          name: 'Connections & chat',
-          description: 'Real-time chat, profile sharing, and saved connections keep momentum after each rotation.',
-          bulletPoints: networkingConnectionPoints,
-        },
-        {
-          name: 'Browser-based video',
-          description: 'Gigvora’s client-side video service powers fast rotations without heavy infrastructure load.',
-          bulletPoints: networkingVideoPoints,
-        },
-      ],
-      details: networkingAttendeeDetails,
-    },
-    {
-      title: 'Employer brand & workforce intelligence',
-      description:
-        'Promote your culture, understand workforce trends, and connect hiring with employee experience data.',
-      features: [
-        {
-          name: 'Company profile studio',
-          description:
-            'Design immersive employer profiles with culture videos, benefits, DEI commitments, and team spotlights.',
-          bulletPoints: profileStudioPoints,
-        },
-        {
-          name: 'Workforce analytics',
-          description: 'Blend hiring and HRIS data to uncover attrition risks, mobility opportunities, and skill gaps.',
-          bulletPoints: workforceAnalyticsPoints,
-        },
-        {
-          name: 'Internal mobility & referrals',
-          description: 'Promote jobs internally, reward referrals, and manage career pathing across departments.',
-          bulletPoints: mobilityPoints,
-        },
-        {
-          name: 'Governance & compliance',
-          description:
-            'Maintain GDPR/CCPA compliance, accessibility standards, and equitable hiring policies across every region.',
-          bulletPoints: governanceCompliancePoints,
-        },
-      ],
-      details: employerBrandDetailCards,
-    },
-    {
-      title: 'Headhunter & partner collaboration',
-      description: 'Empower agencies and headhunters with shared accountability.',
-      features: [
-        {
-          name: 'Headhunter dashboard',
-          description: 'Job briefs, submissions, interviews, and commission visibility for external recruiters.',
-          bulletPoints: headhunterPoints,
-        },
-        {
-          name: 'Partner performance manager',
-          description: 'Leaderboards, SLAs, ROI analytics, and renewal tracking across agencies and headhunters.',
-          bulletPoints: partnerPerformancePoints,
-        },
-        {
-          name: 'Collaboration suite',
-          description: 'Secure messaging, file sharing, and decision threads with approvals and audit trails.',
-          bulletPoints: collaborationSuitePoints,
-        },
-        {
-          name: 'Calendar & communications',
-          description: 'Shared recruiting calendar, integrations, and executive digests for partner programs.',
-          bulletPoints: partnerCalendarPoints,
-        },
-      ],
-    },
-    {
-      title: 'Calendar & communications',
-      description: 'Coordinate interviews, events, and executive reviews.',
-      features: [
-        {
-          name: 'Upcoming events',
-          description: 'Recruiting calendar highlights and digests.',
-          bulletPoints: calendarPoints,
-        },
-      ],
-    },
-    {
-      id: 'brand-and-people-overview',
-      title: 'Brand & people programs',
-      description: 'Promote culture narratives, guide employee journeys, and keep governance healthy.',
-      features: [
-        {
-          name: 'Employer brand studio',
-          description: 'Manage culture stories, benefits, and employer assets in one workspace.',
-          bulletPoints: brandStudioPoints,
-        },
-        {
-          name: 'Employee journeys',
-          description: 'Track onboarding, mobility, and performance snapshots for your workforce.',
-          bulletPoints: journeyPoints,
-        },
-        {
-          name: 'Settings & governance',
-          description: 'Monitor calendar syncs, permissions, and integrations across the workspace.',
-          bulletPoints: settingsGovernancePoints,
-        },
-      ],
-    },
-    {
-      title: 'Governance & compliance',
-      description: 'Stay audit-ready with approvals, policies, and accessibility checks.',
-      features: [
-        {
-          name: 'Policy health',
-          description: 'Ensure approvals, alerts, and workspace controls are on track.',
-          bulletPoints: governancePoints,
-        },
-      ],
-    },
-  ];
-
-  return sections.map((section) => ({
-    ...section,
-    id: section.id ?? slugify(section.title),
-  }));
+  return new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency: currency || 'USD',
+    maximumFractionDigits: numeric < 100 ? 2 : 0,
+  }).format(numeric);
 }
 
 function buildProfile(data, summaryCards) {
-  if (!data?.workspace) {
-    return {
-      name: 'Atlas Robotics',
-      role: 'Global Talent Acquisition Team',
-      initials: 'AR',
-      status: 'Hiring across multiple regions',
-      badges: ['Employer of choice', 'Diversity champion'],
-      metrics: summaryCards.slice(0, 4).map((card) => ({ label: card.label, value: `${card.value}` })),
-    };
-  }
-
-  const workspace = data.workspace;
-  const profile = data.profile ?? {};
-  const displayName = profile.companyName ?? workspace.name ?? 'Company';
+  const workspace = data?.workspace ?? {};
+  const companyProfile = data?.profile ?? {};
+  const displayName = companyProfile.companyName ?? workspace.name ?? 'Company workspace';
   const initials = displayName
     .split(' ')
-    .map((part) => part.charAt(0))
+    .map((part) => part[0])
+    .filter(Boolean)
+    .slice(0, 2)
     .join('')
-    .slice(0, 3)
     .toUpperCase();
+
+  const healthBadges = workspace.health?.badges ?? [];
+  const status = workspace.health?.statusLabel ?? workspace.health?.status ?? 'Monitoring hiring performance';
+
+  const metrics = (summaryCards ?? []).slice(0, 4).map((card) => ({
+    label: card.label,
+    value: card.value,
+  }));
 
   return {
     name: displayName,
     role: 'Talent acquisition workspace',
-    initials,
-    status: workspace.health?.badges?.[0] ?? 'Monitoring hiring performance',
-    badges: workspace.health?.badges ?? [],
-    metrics: summaryCards.slice(0, 4).map((card) => ({ label: card.label, value: `${card.value}` })),
+    initials: initials || 'CO',
+    status,
+    badges: healthBadges,
+    metrics,
   };
 }
 
-function MembershipList({ memberships }) {
-  if (!memberships?.length) {
+function normaliseMembership(membership) {
+  if (!membership) {
+    return null;
+  }
+  if (typeof membership === 'string') {
+    const label = membership.replace(/_/g, ' ');
+    return {
+      id: membership,
+      label: label.charAt(0).toUpperCase() + label.slice(1),
+      description: 'Active workspace membership',
+      active: true,
+    };
+  }
+  const fallbackId =
+    membership.id ??
+    membership.slug ??
+    membership.name ??
+    membership.label ??
+    membership.role ??
+    membership.type ??
+    null;
+
+  return {
+    id: typeof fallbackId === 'string' ? fallbackId : JSON.stringify(fallbackId ?? membership),
+    label: membership.name ?? membership.label ?? membership.slug ?? 'Membership',
+    description: membership.description ?? membership.summary ?? 'Workspace membership',
+    active: membership.active ?? membership.status === 'active' ?? true,
+  };
+}
+
+function MembershipHighlights({ memberships }) {
+  const resolved = (memberships ?? [])
+    .map((membership) => normaliseMembership(membership))
+    .filter(Boolean);
+
+  if (!resolved.length) {
     return (
-      <p className="text-sm text-blue-700">Enable additional workspace memberships to collaborate across programs.</p>
+      <p className="text-sm text-slate-500">
+        Enable additional workspace memberships to collaborate across programs and dashboards.
+      </p>
     );
   }
 
   return (
-    <div className="flex flex-wrap gap-4">
-      {memberships.map((membership) => (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {resolved.map((membership) => (
         <div
-          key={membership.name}
-          className="min-w-[200px] flex-1 rounded-2xl border border-blue-100 bg-blue-50/70 p-4 shadow-sm"
+          key={membership.id}
+          className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4 text-sm shadow-sm"
         >
-          <p className="text-sm font-semibold text-blue-900">{membership.name}</p>
-          <p className="mt-2 text-xs text-blue-700">{membership.description}</p>
-          <div className="mt-3 flex items-center text-xs font-semibold">
+          <p className="font-semibold text-blue-900">{membership.label}</p>
+          <p className="mt-1 text-xs text-blue-700">{membership.description}</p>
+          <div className="mt-3 inline-flex items-center gap-2 text-xs font-semibold">
             <span
-              className={`mr-2 inline-block h-2.5 w-2.5 rounded-full ${membership.active ? 'bg-emerald-500' : 'bg-slate-300'}`}
+              className={`inline-block h-2.5 w-2.5 rounded-full ${membership.active ? 'bg-emerald-500' : 'bg-slate-300'}`}
             />
             <span className={membership.active ? 'text-emerald-600' : 'text-slate-500'}>
               {membership.active ? 'Active membership' : 'Inactive'}
@@ -1138,11 +339,40 @@ function MembershipList({ memberships }) {
   );
 }
 
-function RecentNotes({ items }) {
+function SummaryCardGrid({ cards }) {
+  if (!cards?.length) {
+    return null;
+  }
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+      {cards.map((card, index) => {
+        const Icon = SUMMARY_ICONS[index % SUMMARY_ICONS.length];
+        return (
+          <div
+            key={card.label}
+            className="flex items-center justify-between rounded-2xl border border-blue-100 bg-blue-50/60 px-4 py-5 shadow-sm"
+          >
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{card.label}</p>
+              <p className="mt-2 text-2xl font-semibold text-slate-900">{card.value ?? '—'}</p>
+              {card.helper ? <p className="mt-1 text-xs text-slate-500">{card.helper}</p> : null}
+            </div>
+            <div className="rounded-2xl bg-white p-3 text-blue-600 shadow-sm">
+              <Icon className="h-6 w-6" />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ActivityTimeline({ items }) {
   if (!items?.length) {
     return (
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <p className="text-sm text-slate-500">No partner notes captured in this window. Encourage your team to log updates.</p>
+      <div className="rounded-3xl border border-dashed border-slate-200 bg-white/60 p-6 text-sm text-slate-500">
+        No partner updates captured in this window. Encourage your team to log outreach notes and decision changes.
       </div>
     );
   }
@@ -1150,20 +380,28 @@ function RecentNotes({ items }) {
   return (
     <div className="space-y-4">
       {items.map((item) => (
-        <div key={item.id} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-start justify-between gap-4">
+        <div key={item.id ?? `${item.note}-${item.createdAt}`}
+          className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
+        >
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <p className="text-sm font-semibold text-slate-800">{item.subject ? `${item.subject.firstName} ${item.subject.lastName}` : 'Contact update'}</p>
-              <p className="mt-1 text-sm text-slate-600">{item.note}</p>
+              <p className="text-sm font-semibold text-slate-900">
+                {item.subject ? `${item.subject.firstName} ${item.subject.lastName}` : 'Workspace note'}
+              </p>
+              <p className="mt-1 text-sm text-slate-600">{item.note ?? 'Update logged'}</p>
             </div>
-            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium uppercase tracking-wide text-blue-600">
-              {item.visibility}
-            </span>
+            {item.visibility ? (
+              <span className="inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-600">
+                {item.visibility}
+              </span>
+            ) : null}
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500">
-            <span>{item.author ? `By ${item.author.firstName} ${item.author.lastName}` : 'System'}</span>
+            {item.author ? <span>By {item.author.firstName} {item.author.lastName}</span> : <span>System</span>}
             <span aria-hidden="true">•</span>
-            <span title={formatAbsolute(item.createdAt)}>{formatRelativeTime(item.createdAt)}</span>
+            <span title={item.createdAt ? formatAbsolute(item.createdAt) : undefined}>
+              {item.createdAt ? formatRelativeTime(item.createdAt) : 'Recently'}
+            </span>
           </div>
         </div>
       ))}
@@ -1171,14 +409,372 @@ function RecentNotes({ items }) {
   );
 }
 
-function BrandAndPeopleSection({ data }) {
+function AccessDeniedPanel({ availableDashboards, onNavigate }) {
+  return (
+    <div className="rounded-3xl border border-rose-200 bg-rose-50/70 p-6 text-slate-700">
+      <h2 className="text-xl font-semibold text-rose-700">Access restricted</h2>
+      <p className="mt-2 text-sm">
+        The company talent acquisition hub is only available to workspace members with the company role. Contact your
+        administrator to request access or switch to another dashboard below.
+      </p>
+      <div className="mt-4 flex flex-wrap gap-3">
+        {(availableDashboards ?? []).map((dashboard) => (
+          <button
+            key={dashboard}
+            type="button"
+            onClick={() => onNavigate?.(dashboard)}
+            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+          >
+            Switch to {dashboard.charAt(0).toUpperCase() + dashboard.slice(1)} dashboard
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function buildSections(data) {
   if (!data) {
-    return null;
+    return [];
   }
 
+  const pipeline = data.pipelineSummary ?? {};
+  const conversions = pipeline.conversionRates ?? {};
+  const velocity = pipeline.velocity ?? {};
+  const diversity = data.diversity ?? {};
+  const diversityBreakdowns = Array.isArray(diversity.breakdowns?.gender)
+    ? diversity.breakdowns.gender.slice(0, 3)
+    : [];
+  const alerts = data.alerts ?? {};
+  const jobDesign = data.jobDesign ?? {};
+  const sourcing = data.sourcing ?? {};
+  const applicantRelationshipManager = data.applicantRelationshipManager ?? {};
+  const analyticsForecasting = data.analyticsForecasting ?? {};
+  const workforce = data.employerBrandWorkforce?.workforceAnalytics ?? {};
+  const mobility = data.employerBrandWorkforce?.internalMobility ?? {};
+  const scenarioPlanning = analyticsForecasting.scenarios ?? {};
+  const networking = data.networking ?? {};
+  const governance = data.governance ?? {};
+  const calendar = data.calendar ?? {};
+  const candidateExperience = data.candidateExperience ?? {};
+  const candidateCare = data.candidateCare ?? {};
+  const offer = data.offerOnboarding ?? {};
+
+  const recommendedActions = Array.isArray(data.recommendations)
+    ? data.recommendations.slice(0, 6).map((item) => item.title)
+    : [];
+
+  const diversityItems = diversityBreakdowns.length
+    ? diversityBreakdowns.map((item) => `${item.label}: ${formatPercent(item.percentage)}`)
+    : ['Capture voluntary demographic surveys to unlock representation insights.'];
+
+  const alertItems = Array.isArray(alerts.items) && alerts.items.length
+    ? alerts.items.slice(0, 4).map((item) => `${item.title ?? item.type ?? 'Alert'} • ${formatRelativeTime(item.detectedAt)}`)
+    : ['No active alerts detected in this window.'];
+
+  const networkingSessions = networking.sessions ?? {};
+  const networkingExperience = networking.attendeeExperience ?? {};
+  const networkingPenalties = networking.penalties ?? {};
+
+  return [
+    {
+      id: 'hiring-overview',
+      title: 'Hiring overview',
+      description: 'Monitor open requisitions, conversion velocity, diversity, and critical guardrails in one hub.',
+      features: [
+        {
+          name: 'Pipeline health',
+          sectionId: 'hiring-overview',
+          bulletPoints: [
+            `Open requisitions: ${formatNumber(data.jobSummary?.total ?? data.jobSummary?.active ?? 0)}`,
+            `Applications in flight: ${formatNumber(pipeline.totals?.applications)}`,
+            `Interviews scheduled: ${formatNumber(pipeline.totals?.interviews)}`,
+            `Offers extended: ${formatNumber(offer.openOffers)}`,
+          ],
+        },
+        {
+          name: 'Conversion & velocity',
+          sectionId: 'hiring-overview',
+          bulletPoints: [
+            `Average days to decision: ${formatNumber(velocity.averageDaysToDecision, { suffix: ' days' })}`,
+            `Median days to interview: ${formatNumber(velocity.medianDaysToInterview, { suffix: ' days' })}`,
+            `Interview rate: ${formatPercent(conversions.interviewRate)}`,
+            `Offer-to-hire rate: ${formatPercent(conversions.hireRate)}`,
+          ],
+        },
+        {
+          name: 'Alerts & representation',
+          sectionId: 'candidate-care-center',
+          bulletPoints: [
+            `Open alerts: ${formatNumber(alerts.open)}`,
+            `Critical severity: ${formatNumber(alerts.bySeverity?.critical)}`,
+            `Representation index: ${
+              diversity.representationIndex != null
+                ? Number(diversity.representationIndex).toFixed(2)
+                : '—'
+            }`,
+            diversityBreakdowns.length ? diversityItems[0] : 'Invite candidates to share demographic data securely.',
+          ],
+        },
+      ],
+      details: [
+        {
+          title: 'Diversity breakdown',
+          subtitle: 'Self reported demographics',
+          items: diversityItems,
+        },
+        {
+          title: 'Alert center',
+          subtitle: 'Governance & compliance',
+          items: alertItems,
+        },
+        {
+          title: 'Recommended actions',
+          subtitle: 'Automation & guardrails',
+          items: recommendedActions.length ? recommendedActions : ['Keep activity flowing to surface playbook suggestions.'],
+        },
+      ],
+    },
+    {
+      id: 'job-lifecycle-ats-intelligence',
+      title: 'Job lifecycle & ATS intelligence',
+      description: 'Design requisitions, launch sourcing campaigns, and nurture pipelines with built-in compliance.',
+      features: [
+        {
+          name: 'Job design studio',
+          sectionId: 'job-design-studio',
+          bulletPoints: [
+            `Approvals in flight: ${formatNumber(jobDesign.approvalsInFlight)}`,
+            `Co-author sessions: ${formatNumber(jobDesign.coAuthorSessions)}`,
+            `Structured stages: ${formatNumber(jobDesign.structuredStages)}`,
+            `Compliance alerts: ${formatNumber(jobDesign.complianceAlerts)}`,
+          ],
+        },
+        {
+          name: 'Multi-channel sourcing',
+          sectionId: 'multi-channel-sourcing',
+          bulletPoints: [
+            `Campaign applications: ${formatNumber(sourcing.campaignTotals?.applications)}`,
+            `Campaign hires: ${formatNumber(sourcing.campaignTotals?.hires)}`,
+            `Average CPA: ${formatCurrency(sourcing.averageCostPerApplication)}`,
+            `Hire contribution rate: ${formatPercent(sourcing.hireContributionRate)}`,
+          ],
+        },
+        {
+          name: 'Applicant relationship manager',
+          sectionId: 'applicant-relationship-manager',
+          bulletPoints: [
+            `Active candidates: ${formatNumber(applicantRelationshipManager.totalActiveCandidates)}`,
+            `Nurture campaigns: ${formatNumber(applicantRelationshipManager.nurtureCampaigns)}`,
+            `Follow-ups scheduled: ${formatNumber(applicantRelationshipManager.followUpsScheduled)}`,
+            `Compliance reviews: ${formatNumber(applicantRelationshipManager.complianceReviews)}`,
+          ],
+        },
+      ],
+    },
+    {
+      id: 'analytics-forecasting',
+      title: 'Analytics & planning',
+      description: 'Forecast hiring, identify attrition risks, and stress test scenarios before committing.',
+      features: [
+        {
+          name: 'Forecasting signals',
+          sectionId: 'analytics-forecasting',
+          bulletPoints: [
+            `Projected hires: ${formatNumber(analyticsForecasting.projectedHires)}`,
+            `Estimated backlog: ${formatNumber(analyticsForecasting.backlog)}`,
+            `Time to fill: ${formatNumber(analyticsForecasting.timeToFillDays, { suffix: ' days' })}`,
+            `Projects at risk: ${formatNumber(analyticsForecasting.atRiskProjects)}`,
+          ],
+        },
+        {
+          name: 'Workforce analytics',
+          sectionId: 'workforce-analytics',
+          bulletPoints: [
+            `Attrition risk score: ${formatPercent(workforce.attritionRiskScore)}`,
+            `Flight-risk employees: ${formatNumber(workforce.employeesAtRisk)}`,
+            `Hot skills tracked: ${formatNumber(workforce.hotSkillsTracked)}`,
+            `Mobility readiness: ${formatPercent(mobility.referralConversionRate)}`,
+          ],
+        },
+        {
+          name: 'Scenario planning',
+          sectionId: 'scenario-planning',
+          bulletPoints: [
+            `Draft scenarios: ${formatNumber(scenarioPlanning.total)}`,
+            `Active hiring freezes: ${formatNumber(scenarioPlanning.freezePlans)}`,
+            `Acceleration plans: ${formatNumber(scenarioPlanning.accelerationPlans)}`,
+            scenarioPlanning.nextReviewAt
+              ? `Next review: ${formatAbsolute(scenarioPlanning.nextReviewAt)}`
+              : 'Schedule scenario reviews to align exec decisions.',
+          ],
+        },
+      ],
+    },
+    {
+      id: 'networking-sessions',
+      title: 'Networking & community',
+      description: 'Activate company-hosted networking with end-to-end attendee experience controls.',
+      features: [
+        {
+          name: 'Session operations',
+          sectionId: 'networking-sessions',
+          bulletPoints: [
+            `Active sessions: ${formatNumber(networkingSessions.active)}`,
+            `Upcoming sessions: ${formatNumber(networkingSessions.upcoming)}`,
+            `Join limit: ${formatNumber(networkingSessions.defaultJoinLimit ?? networkingSessions.joinLimit)}`,
+            networkingSessions.rotationDurationMinutes
+              ? `Rotation cadence: ${formatNumber(networkingSessions.rotationDurationMinutes, { suffix: ' min' })}`
+              : 'Configure 2–5 minute rotations to keep meetings balanced.',
+          ],
+        },
+        {
+          name: 'Attendee experience',
+          sectionId: 'networking-attendee-experience',
+          bulletPoints: [
+            `Digital cards created: ${formatNumber(networkingExperience.digitalBusinessCardsCreated)}`,
+            `Average satisfaction: ${formatPercent(networkingExperience.averageSatisfaction)}`,
+            `Saved matches: ${formatNumber(networkingExperience.matchesSaved)}`,
+            `Follow-up nudges sent: ${formatNumber(networkingExperience.followUpsSent)}`,
+          ],
+        },
+        {
+          name: 'Attendance controls',
+          sectionId: 'networking-attendance-controls',
+          bulletPoints: [
+            `No-show rate: ${formatPercent(networkingPenalties.noShowRate)}`,
+            `Active penalties: ${formatNumber(networkingPenalties.activePenalties)}`,
+            `Restricted attendees: ${formatNumber(networkingPenalties.restrictedParticipants)}`,
+            networkingPenalties.cooldownDays
+              ? `Cooldown window: ${formatNumber(networkingPenalties.cooldownDays, { suffix: ' days' })}`
+              : 'Set cooldown windows to auto-manage repeat no-shows.',
+          ],
+        },
+      ],
+    },
+    {
+      id: 'settings-governance',
+      title: 'Governance & operations',
+      description: 'Keep calendars, permissions, and compliance health in lockstep with recruiting velocity.',
+      features: [
+        {
+          name: 'Calendar & comms',
+          sectionId: 'calendar-communications',
+          bulletPoints: [
+            `Events this week: ${formatNumber(calendar.upcoming?.length)}`,
+            calendar.upcoming?.[0]?.startsAt
+              ? `Next event: ${formatAbsolute(calendar.upcoming[0].startsAt)}`
+              : 'Connect recruiting calendars to show upcoming milestones.',
+            `Pending escalations: ${formatNumber(calendar.pendingEscalations)}`,
+            calendar.weeklyDigest?.highlights?.[0] ?? 'Weekly digests summarise pipeline changes for stakeholders.',
+          ],
+        },
+        {
+          name: 'Permissions & governance',
+          sectionId: 'settings-governance',
+          bulletPoints: [
+            `Pending approvals: ${formatNumber(governance.pendingApprovals)}`,
+            `Critical alerts: ${formatNumber(governance.criticalAlerts)}`,
+            governance.timezone ? `Primary timezone: ${governance.timezone}` : 'Set a default timezone for scheduling.',
+            `Workspace active: ${governance.workspaceActive ? 'Yes' : 'No'}`,
+          ],
+        },
+        {
+          name: 'Candidate care',
+          sectionId: 'candidate-care-center',
+          bulletPoints: [
+            `Survey responses: ${formatNumber(candidateExperience.responseCount)}`,
+            `Candidate NPS: ${
+              candidateExperience.nps != null && Number.isFinite(Number(candidateExperience.nps))
+                ? Number(candidateExperience.nps).toFixed(1)
+                : '—'
+            }`,
+            `Open care tickets: ${formatNumber(candidateCare.escalations)}`,
+            `Follow-ups pending: ${formatNumber(candidateCare.followUpsPending)}`,
+          ],
+        },
+      ],
+    },
+    {
+      id: 'offer-onboarding',
+      title: 'Offer bridge & onboarding',
+      description: 'Coordinate approvals, background checks, and day-one readiness with confidence.',
+      features: [
+        {
+          name: 'Offer health',
+          sectionId: 'offer-onboarding',
+          bulletPoints: [
+            `Open offers: ${formatNumber(offer.openOffers)}`,
+            `Acceptance rate: ${formatPercent(offer.acceptanceRate)}`,
+            `Approvals pending: ${formatNumber(offer.approvalsPending)}`,
+            `Average days to start: ${formatNumber(offer.averageDaysToStart, { suffix: ' days' })}`,
+          ],
+        },
+      ],
+    },
+  ];
+}
+
+export default function CompanyDashboardPage() {
+  const { session, isAuthenticated } = useSession();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const workspaceIdParam = searchParams.get('workspaceId');
+  const workspaceSlugParam = searchParams.get('workspaceSlug');
+  const lookbackParam = searchParams.get('lookbackDays');
+  const lookbackDays = lookbackParam ? Math.max(Number.parseInt(lookbackParam, 10) || 30, 7) : 30;
+
+  const isCompanyMember = isAuthenticated && (session?.memberships ?? []).includes('company');
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    if (!isCompanyMember) {
+      const fallback = session?.primaryDashboard ?? session?.memberships?.find((role) => role !== 'company');
+      if (fallback) {
+        navigate(`/dashboard/${fallback}`, { replace: true, state: { from: '/dashboard/company' } });
+      }
+    }
+  }, [isAuthenticated, isCompanyMember, navigate, session?.primaryDashboard, session?.memberships]);
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace state={{ redirectTo: '/dashboard/company' }} />;
+  }
+
+  if (!isCompanyMember) {
+    return (
+      <DashboardLayout
+        currentDashboard="company"
+        title="Company Talent Acquisition Hub"
+        subtitle="Integrated ATS & partnerships"
+        description="Everything hiring teams need to design jobs, run interviews, collaborate with headhunters, and promote a magnetic employer brand on Gigvora."
+        menuSections={menuSections}
+        availableDashboards={availableDashboards}
+      >
+        <AccessDeniedPanel
+          availableDashboards={(session?.memberships ?? []).filter((membership) => membership !== 'company')}
+          onNavigate={(dashboard) => navigate(`/dashboard/${dashboard}`)}
+        />
+      </DashboardLayout>
+    );
+  }
+
+  const {
+    data,
+    error,
+    loading,
+    refresh,
+    fromCache,
+    lastUpdated,
+    summaryCards,
+  } = useCompanyDashboard({
   const employerBrandStudio = data.employerBrandStudio ?? null;
   const employeeJourneys = data.employeeJourneys ?? null;
   const settingsGovernance = data.settingsGovernance ?? null;
+  const pageWorkspace = employerBrandStudio?.pages ?? data.pageWorkspace ?? null;
 
   if (!employerBrandStudio && !employeeJourneys && !settingsGovernance) {
     return null;
@@ -1253,6 +849,32 @@ function BrandAndPeopleSection({ data }) {
     needs_attention: 'bg-orange-50 text-orange-600 border border-orange-200',
     off_track: 'bg-rose-50 text-rose-600 border border-rose-200',
   };
+
+  const pageMetrics = [
+    {
+      label: 'Pages live',
+      value: formatNumber(pageWorkspace?.live ?? pageWorkspace?.published ?? 0),
+      helper: 'Publicly available',
+    },
+    {
+      label: 'Drafts in review',
+      value: formatNumber(pageWorkspace?.inReview ?? pageWorkspace?.drafts ?? 0),
+      helper: 'Awaiting approvals',
+    },
+    {
+      label: 'Avg conversion',
+      value: formatPercent(pageWorkspace?.averageConversionRate ?? pageWorkspace?.conversionRate ?? 0),
+      helper: 'Explorer to lead',
+    },
+    {
+      label: 'Follower reach',
+      value: formatNumber(pageWorkspace?.totalFollowers ?? pageWorkspace?.followers ?? 0),
+      helper: 'Across all pages',
+    },
+  ];
+
+  const upcomingPageLaunches = pageWorkspace?.upcomingLaunches ?? pageWorkspace?.upcoming ?? [];
+  const governanceSignals = pageWorkspace?.governance ?? {};
 
   return (
     <section
@@ -1358,6 +980,90 @@ function BrandAndPeopleSection({ data }) {
                 ))}
               </ul>
             ) : null}
+          </div>
+      </div>
+    </div>
+
+      <div id="brand-pages" className="space-y-4 rounded-3xl border border-indigo-100 bg-indigo-50/40 p-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-xl font-semibold text-indigo-900">Public pages studio</h3>
+            <p className="text-sm text-indigo-700">
+              Publish high-converting company and program destinations with approval workflows and analytics baked in.
+            </p>
+            {pageWorkspace?.lastPublishedAt ? (
+              <p className="mt-1 text-xs text-indigo-600">
+                Last launch {formatRelativeTime(pageWorkspace.lastPublishedAt)}
+              </p>
+            ) : null}
+          </div>
+          <Link
+            to="/pages"
+            className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-white/70 px-4 py-2 text-xs font-semibold text-indigo-700 transition hover:border-indigo-400 hover:text-indigo-900"
+          >
+            Open page studio
+          </Link>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {pageMetrics.map((metric) => (
+            <div key={metric.label} className="rounded-2xl bg-white/80 p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">{metric.label}</p>
+              <p className="mt-2 text-xl font-semibold text-indigo-900">{metric.value}</p>
+              <p className="mt-1 text-xs text-indigo-600">{metric.helper}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="rounded-2xl border border-indigo-100 bg-white/80 p-4">
+            <h4 className="text-sm font-semibold uppercase tracking-wide text-indigo-700">Upcoming launches</h4>
+            <ul className="mt-3 space-y-3 text-sm text-indigo-800">
+              {upcomingPageLaunches.slice(0, 4).map((item, index) => (
+                <li key={item.id ?? item.slug ?? index} className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-3">
+                  <p className="text-sm font-semibold text-indigo-900">{item.title ?? item.name ?? 'Launch'}</p>
+                  <p className="mt-1 text-xs text-indigo-600">
+                    {item.launchDate ? `Launch ${formatAbsolute(item.launchDate)}` : 'Scheduling in progress'}
+                    {item.owner ? ` • Owner ${item.owner}` : ''}
+                  </p>
+                  {item.status ? (
+                    <span className="mt-2 inline-flex rounded-full bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-indigo-700">
+                      {item.status.replace(/_/g, ' ')}
+                    </span>
+                  ) : null}
+                </li>
+              ))}
+              {!upcomingPageLaunches.length ? (
+                <li className="rounded-2xl border border-dashed border-indigo-200 bg-white/70 p-4 text-xs text-indigo-600">
+                  No launches queued—create a page to start capturing demand.
+                </li>
+              ) : null}
+            </ul>
+          </div>
+
+          <div className="rounded-2xl border border-indigo-100 bg-white/80 p-4">
+            <h4 className="text-sm font-semibold uppercase tracking-wide text-indigo-700">Governance guardrails</h4>
+            <ul className="mt-3 space-y-2 text-sm text-indigo-700">
+              <li className="flex gap-2">
+                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                Brand compliance status: {governanceSignals.brand ?? 'Aligned'}
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                Accessibility automation: {governanceSignals.accessibility ?? 'AA contrast checks active'}
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                Privacy reviews pending: {formatNumber(governanceSignals.privacyPending ?? 0)}
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                Approvers assigned: {formatNumber(governanceSignals.approvers ?? governanceSignals.reviewers ?? 0)}
+              </li>
+            </ul>
+            <p className="mt-3 text-xs text-indigo-600">
+              Guardrails sync with Trust Centre policies and automatically enforce on every publish.
+            </p>
           </div>
         </div>
       </div>
@@ -1527,12 +1233,13 @@ export default function CompanyDashboardPage() {
     workspaceId: workspaceIdParam,
     workspaceSlug: workspaceSlugParam,
     lookbackDays,
+    enabled: isCompanyMember,
   });
 
   useEffect(() => {
     if (!workspaceIdParam && data?.meta?.selectedWorkspaceId) {
-      setSearchParams((prev) => {
-        const next = new URLSearchParams(prev);
+      setSearchParams((previous) => {
+        const next = new URLSearchParams(previous);
         next.set('workspaceId', `${data.meta.selectedWorkspaceId}`);
         return next;
       }, { replace: true });
@@ -1543,7 +1250,12 @@ export default function CompanyDashboardPage() {
   const profile = useMemo(() => buildProfile(data, summaryCards), [data, summaryCards]);
   const workspaceOptions = data?.meta?.availableWorkspaces ?? [];
   const memberships = data?.memberships ?? data?.meta?.memberships ?? [];
-  const brandAndPeople = data?.brandAndPeople ?? null;
+  const enrichedSummaryCards = useMemo(() => summaryCards ?? [], [summaryCards]);
+
+  const networkingCta = {
+    href: '/dashboard/company/networking',
+    label: 'Open networking command center',
+  };
 
   const handleWorkspaceChange = (event) => {
     const nextWorkspaceId = event.target.value;
@@ -1579,7 +1291,7 @@ export default function CompanyDashboardPage() {
       availableDashboards={availableDashboards}
     >
       <div className="space-y-10">
-        <div className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-4">
             <label className="text-xs font-semibold uppercase tracking-wide text-slate-400" htmlFor="workspace-select">
               Workspace
@@ -1588,7 +1300,7 @@ export default function CompanyDashboardPage() {
               id="workspace-select"
               value={data?.meta?.selectedWorkspaceId ?? workspaceIdParam ?? ''}
               onChange={handleWorkspaceChange}
-              className="min-w-[180px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              className="min-w-[180px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
             >
               <option value="">Select workspace</option>
               {workspaceOptions.map((workspace) => (
@@ -1607,7 +1319,7 @@ export default function CompanyDashboardPage() {
               id="lookback-select"
               value={lookbackDays}
               onChange={handleLookbackChange}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
             >
               {LOOKBACK_OPTIONS.map((option) => (
                 <option key={option} value={option}>
@@ -1616,63 +1328,30 @@ export default function CompanyDashboardPage() {
               ))}
             </select>
           </div>
+
+          <DataStatus loading={loading} fromCache={fromCache} lastUpdated={lastUpdated} onRefresh={() => refresh({ force: true })} />
         </div>
 
-        <DataStatus loading={loading} fromCache={fromCache} lastUpdated={lastUpdated} onRefresh={() => refresh({ force: true })} />
-
         {error ? (
-          <p className="rounded-3xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
+          <div className="rounded-3xl border border-rose-200 bg-rose-50/70 p-6 text-sm text-rose-700">
             {error.message || 'Unable to load company dashboard data.'}
-          </p>
+          </div>
         ) : null}
 
-        <section className="rounded-3xl border border-blue-100 bg-blue-50/60 p-6 shadow-sm">
-          <div className="flex items-center justify-between gap-4">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-blue-800">Your memberships</h2>
-            <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">Workspace access</span>
-          </div>
-          <div className="mt-4">
-            <MembershipList memberships={memberships} />
-          </div>
-        </section>
+        <SummaryCardGrid cards={enrichedSummaryCards} />
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {summaryCards.map((card, index) => {
-            const Icon = SUMMARY_ICONS[index % SUMMARY_ICONS.length] ?? ClipboardDocumentCheckIcon;
-            return (
-              <div
-                key={card.label}
-                className="flex items-center justify-between rounded-3xl border border-blue-100 bg-white px-4 py-5 shadow-sm"
-              >
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{card.label}</p>
-                  <p className="mt-2 text-2xl font-semibold text-slate-900">{card.value}</p>
-                </div>
-                <div className="rounded-2xl bg-blue-50 p-3 text-blue-600">
-                  <Icon className="h-6 w-6" />
-                </div>
-              </div>
-            );
-          })}
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-slate-900">Workspace memberships</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Cross-functional collaborators gain tailored permissions and dashboards per membership.
+          </p>
+          <div className="mt-4">
+            <MembershipHighlights memberships={memberships} />
+          </div>
         </div>
 
         <PartnershipsSourcingSection data={data?.partnerships} />
-        {sections.map((section) => {
-          const SectionComponent = section.component?.Component ?? null;
-          return (
-            <section
-              key={section.title}
-              id={section.id}
-              className="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_18px_40px_-24px_rgba(30,64,175,0.35)] sm:p-8"
-            >
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">{section.title}</h2>
-                  {section.description ? (
-                    <p className="mt-2 max-w-3xl text-sm text-slate-600">{section.description}</p>
-                  ) : null}
-                </div>
-        <BrandAndPeopleSection data={brandAndPeople} />
+
         {data ? (
           <JobLifecycleSection
             jobLifecycle={data.jobLifecycle}
@@ -1681,24 +1360,84 @@ export default function CompanyDashboardPage() {
           />
         ) : null}
 
+        <section
+          id="interview-excellence"
+          className="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_18px_40px_-24px_rgba(30,64,175,0.35)] sm:p-8"
+        >
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-2xl font-semibold text-slate-900">Interview excellence & candidate experience</h2>
+              <p className="mt-1 max-w-3xl text-sm text-slate-600">
+                Run structured interviews, automate reminders, manage prep portals, and monitor offer and care workflows.
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-600">
+                Interview workspace
+              </span>
+              <a
+                href={networkingCta.href}
+                className="inline-flex items-center gap-2 rounded-full border border-accent/40 px-4 py-2 text-xs font-semibold text-accent transition hover:border-accent hover:bg-accent/5"
+              >
+                {networkingCta.label}
+              </a>
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <InterviewExperienceSection
+              data={data?.interviewExperience}
+              interviewOperations={data?.interviewOperations}
+              candidateExperience={data?.candidateExperience}
+              offerOnboarding={data?.offerOnboarding}
+            />
+          </div>
+        </section>
+
         {sections.map((section) => (
           <section
-            key={section.title}
-            id={section.id ?? slugify(section.title)}
+            key={section.id}
+            id={section.id}
             className="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_18px_40px_-24px_rgba(30,64,175,0.35)] sm:p-8"
           >
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">{section.title}</h2>
-                {section.description ? <p className="mt-2 max-w-3xl text-sm text-slate-600">{section.description}</p> : null}
+                <h2 className="text-2xl font-semibold text-slate-900">{section.title}</h2>
+                {section.description ? (
+                  <p className="mt-2 max-w-3xl text-sm text-slate-600">{section.description}</p>
+                ) : null}
               </div>
-
-              {SectionComponent ? (
-                <div className="mt-6">
-                  <SectionComponent {...section.component.props} />
-                </div>
-              ))}
             </div>
+
+            {section.features?.length ? (
+              <div className={`mt-6 grid gap-4 ${section.features.length > 1 ? 'lg:grid-cols-3' : 'lg:grid-cols-1'}`}>
+                {section.features.map((feature) => (
+                  <div
+                    key={feature.name}
+                    id={feature.sectionId}
+                    className="group flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50 p-5 transition hover:border-accent/40 hover:bg-accent/5"
+                  >
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-900">{feature.name}</h3>
+                      {feature.description ? (
+                        <p className="mt-2 text-sm text-slate-600">{feature.description}</p>
+                      ) : null}
+                      {feature.bulletPoints?.length ? (
+                        <ul className="mt-3 space-y-2 text-sm text-slate-600">
+                          {feature.bulletPoints.map((point, index) => (
+                            <li key={`${feature.name}-${index}`} className="flex gap-2">
+                              <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400" />
+                              <span>{point}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
             {section.details?.length ? (
               <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {section.details.map((detail) => (
@@ -1714,7 +1453,7 @@ export default function CompanyDashboardPage() {
                       {detail.items?.length ? (
                         <ul className="mt-3 space-y-2 text-sm text-slate-600">
                           {detail.items.map((item, index) => (
-                            <li key={`${item}-${index}`} className="flex gap-2">
+                            <li key={`${detail.title}-${index}`} className="flex gap-2">
                               <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400" />
                               <span>{item}</span>
                             </li>
@@ -1728,50 +1467,17 @@ export default function CompanyDashboardPage() {
             ) : null}
           </section>
         ))}
-              ) : null}
-
-              {section.features?.length ? (
-                <div className={`mt-6 grid gap-4 ${section.features.length > 1 ? 'sm:grid-cols-2' : 'sm:grid-cols-1'}`}>
-                  {section.features.map((feature) => (
-                    <div
-                      key={feature.name}
-                      className="group flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50 p-5 transition hover:border-blue-300 hover:bg-blue-50"
-                    >
-                      <div>
-                        <h3 className="text-lg font-semibold text-slate-900">{feature.name}</h3>
-                        {feature.description ? (
-                          <p className="mt-2 text-sm text-slate-600">{feature.description}</p>
-                        ) : null}
-                        {feature.bulletPoints?.length ? (
-                          <ul className="mt-3 space-y-2 text-sm text-slate-600">
-                            {feature.bulletPoints.map((point) => (
-                              <li key={point} className="flex gap-2">
-                                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400" />
-                                <span>{point}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : null}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </section>
-          );
-        })}
 
         <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Partner timeline</h2>
+          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-2xl font-semibold text-slate-900">Partner timeline</h2>
             <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-600">
               Recent activity
             </span>
           </div>
-          <RecentNotes items={data?.recentNotes ?? []} />
+          <ActivityTimeline items={data?.recentNotes ?? []} />
         </section>
       </div>
     </DashboardLayout>
   );
 }
-

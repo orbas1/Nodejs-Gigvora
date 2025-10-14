@@ -981,7 +981,12 @@ function buildProfilePayload({ user, groups, connectionsCount, complianceSnapsho
     return {
       id: plainGroup.id,
       name: plainGroup.name,
+      slug: plainGroup.slug ?? null,
+      avatarColor: plainGroup.avatarColor ?? '#2563eb',
+      visibility: plainGroup.visibility ?? 'public',
       role: membership.role ?? null,
+      status: membership.status ?? null,
+      joinedAt: membership.joinedAt ? new Date(membership.joinedAt).toISOString() : null,
     };
   });
 
