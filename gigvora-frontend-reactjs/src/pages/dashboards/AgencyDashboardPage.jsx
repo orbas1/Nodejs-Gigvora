@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  ArrowPathIcon,
   ArrowTrendingUpIcon,
   BriefcaseIcon,
   BuildingOffice2Icon,
@@ -16,10 +17,14 @@ import {
   UsersIcon,
 } from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import { apiClient } from '../../services/apiClient.js';
 import { fetchAgencyDashboard } from '../../services/agency.js';
 import { formatRelativeTime, formatAbsolute } from '../../utils/date.js';
 
 const DEFAULT_WORKSPACE_SLUG = 'nova-collective';
+const DEFAULT_MEMBERSHIPS = ['agency', 'freelancer', 'company'];
+const DEFAULT_LOOKBACK_DAYS = 120;
+const DASHBOARD_CACHE_TTL_MS = 1000 * 60 * 5; // five minutes
 const DEFAULT_MEMBERSHIPS = ['agency'];
 
 function formatNumber(value) {
@@ -190,28 +195,83 @@ function formatAvailabilityLabel(status) {
 }
 
 export default function AgencyDashboardPage() {
-  const [state, setState] = useState({ data: null, loading: true, error: null });
+  const [state, setState] = useState({
+    data: null,
+    loading: true,
+    error: null,
+    fromCache: false,
+    lastUpdated: null,
+  });
+  const [refreshToken, setRefreshToken] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
-    setState((previous) => ({ ...previous, loading: true, error: null }));
+    const abortController = new AbortController();
+    const cacheKey = `dashboard:agency:${DEFAULT_WORKSPACE_SLUG}:${DEFAULT_LOOKBACK_DAYS}`;
+    const skipCache = refreshToken > 0;
 
-    fetchAgencyDashboard({ workspaceSlug: DEFAULT_WORKSPACE_SLUG, lookbackDays: 120 })
+    if (!skipCache) {
+      const cached = apiClient.readCache(cacheKey);
+      if (cached?.data && isMounted) {
+        setState({
+          data: cached.data,
+          loading: false,
+          error: null,
+          fromCache: true,
+          lastUpdated: cached.timestamp ?? null,
+        });
+      } else {
+        setState((previous) => ({ ...previous, loading: true, error: null }));
+      }
+    } else {
+      setState((previous) => ({ ...previous, loading: true, error: null }));
+    }
+
+    fetchAgencyDashboard(
+      { workspaceSlug: DEFAULT_WORKSPACE_SLUG, lookbackDays: DEFAULT_LOOKBACK_DAYS },
+      { signal: abortController.signal },
+    )
       .then((payload) => {
-        if (isMounted) {
-          setState({ data: payload, loading: false, error: null });
+        if (!isMounted) {
+          return;
         }
+        apiClient.writeCache(cacheKey, payload, DASHBOARD_CACHE_TTL_MS);
+        setState({
+          data: payload,
+          loading: false,
+          error: null,
+          fromCache: false,
+          lastUpdated: new Date(),
+        });
+        setRefreshing(false);
       })
       .catch((error) => {
-        if (isMounted) {
-          setState({ data: null, loading: false, error: error.message ?? 'Unable to load agency dashboard.' });
+        if (!isMounted) {
+          return;
         }
+        if (error.name === 'AbortError') {
+          setRefreshing(false);
+          return;
+        }
+        setState((previous) => ({
+          ...previous,
+          loading: false,
+          error: error.message ?? 'Unable to load agency dashboard.',
+        }));
+        setRefreshing(false);
       });
 
     return () => {
       isMounted = false;
+      abortController.abort();
     };
-  }, []);
+  }, [refreshToken]);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    setRefreshToken((previous) => previous + 1);
+  };
 
   const summary = state.data?.summary ?? null;
   const workspace = state.data?.workspace ?? null;
@@ -386,6 +446,14 @@ export default function AgencyDashboardPage() {
   const fundingSummary = innovationLabData.funding?.summary ?? {};
   const fundingEvents = (innovationLabData.funding?.events ?? []).slice(0, 5);
 
+  const benchMembers = useMemo(
+    () =>
+      members
+        .filter((member) => member.availability?.status === 'available')
+        .slice(0, 4),
+    [members],
+  );
+
   const activeProjectsCount = summary?.projects?.buckets?.active ?? summary?.projects?.total ?? 0;
   const totalProjectsCount = summary?.projects?.total ?? projects.length ?? 0;
   const autoAssignQueueSize = summary?.projects?.autoAssignQueueSize ?? pipeline.statuses?.pending ?? 0;
@@ -459,10 +527,6 @@ export default function AgencyDashboardPage() {
   const clientAdvocacy = leadership.clientAdvocacy ?? {};
   const clientAdvocacySummary = clientAdvocacy.summary ?? {};
   const defaultCurrency = financialSummary.currency ?? 'USD';
-
-  const benchMembers = members
-    .filter((member) => member.availability?.status === 'available')
-    .slice(0, 4);
 
   const operatingIntelligence = state.data?.operatingIntelligence ?? {};
   const portfolioInsights = operatingIntelligence.projectPortfolioMastery ?? {};
@@ -1065,6 +1129,53 @@ export default function AgencyDashboardPage() {
       metrics,
     };
   }, [agencyProfile, workspace, summary, state.data?.scope]);
+
+  const lastUpdatedRelative = state.lastUpdated ? formatRelativeTime(state.lastUpdated) : '';
+  const lastUpdatedAbsolute = state.lastUpdated
+    ? formatAbsolute(state.lastUpdated, { dateStyle: 'medium', timeStyle: 'short' })
+    : '';
+  const lastUpdatedText = state.lastUpdated
+    ? `Last synced ${lastUpdatedRelative} (${lastUpdatedAbsolute}).`
+    : 'Awaiting first sync.';
+  const syncLabelClass = state.fromCache ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700';
+  const syncLabelText = state.fromCache ? 'Cached snapshot' : 'Live sync';
+  const hasSyncedData = Boolean(state.data);
+
+  const renderSyncStatus = hasSyncedData ? (
+    <section className="rounded-3xl border border-slate-200 bg-slate-50/80 p-5 shadow-sm">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${syncLabelClass}`}>
+              <span className="inline-flex h-2 w-2 rounded-full bg-current opacity-70" aria-hidden="true" />
+              {syncLabelText}
+            </span>
+            <span className="text-xs font-medium uppercase tracking-wide text-slate-500">{lastUpdatedText}</span>
+          </div>
+          <p className="text-sm text-slate-600">
+            Workspace <span className="font-semibold text-slate-900">{workspaceSlugValue}</span> · Data window covers the last{' '}
+            {DEFAULT_LOOKBACK_DAYS} days.
+          </p>
+          {state.error ? (
+            <p className="text-sm font-medium text-amber-600">
+              Unable to refresh the latest metrics: {state.error}
+            </p>
+          ) : null}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
+          >
+            <ArrowPathIcon className={`h-4 w-4 ${refreshing ? 'animate-spin text-accent' : 'text-slate-500'}`} />
+            {refreshing ? 'Refreshing…' : 'Refresh data'}
+          </button>
+        </div>
+      </div>
+    </section>
+  ) : null;
 
   const capabilitySections = [];
 
@@ -4588,12 +4699,15 @@ export default function AgencyDashboardPage() {
     </section>
   );
 
-  const renderContent = state.loading
+  const shouldShowError = state.error && !hasSyncedData;
+
+  const renderContent = state.loading && !hasSyncedData
     ? renderLoading
-    : state.error
+    : shouldShowError
       ? renderError
       : (
           <div className="space-y-10">
+            {renderSyncStatus}
             {renderAgencyOverview}
             {renderExecutiveIntelligenceSection}
             {renderAnalyticsWarRoomSection}

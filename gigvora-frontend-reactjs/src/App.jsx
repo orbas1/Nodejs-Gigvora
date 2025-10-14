@@ -42,6 +42,7 @@ import HeadhunterDashboardPage from './pages/dashboards/HeadhunterDashboardPage.
 import CompanyNetworkingHubPage from './pages/networking/CompanyNetworkingHubPage.jsx';
 import MentorDashboardPage from './pages/dashboards/MentorDashboardPage.jsx';
 import LaunchpadOperationsPage from './pages/dashboards/LaunchpadOperationsPage.jsx';
+import ProtectedDashboardRoute from './components/auth/ProtectedDashboardRoute.jsx';
 import RequireMembership from './components/security/RequireMembership.jsx';
 import MembershipGate from './components/auth/MembershipGate.jsx';
 import ProtectedRoute from './components/routing/ProtectedRoute.jsx';
@@ -110,6 +111,12 @@ export default function App() {
         }
       />
       <Route path="dashboard/admin" element={<AdminDashboardPage />} />
+      <Route
+        path="dashboard/agency"
+        element={
+          <ProtectedDashboardRoute role="agency">
+            <AgencyDashboardPage />
+          </ProtectedDashboardRoute>
       <Route path="dashboard/agency" element={<AgencyDashboardPage />} />
       <Route
         path="dashboard/company"
