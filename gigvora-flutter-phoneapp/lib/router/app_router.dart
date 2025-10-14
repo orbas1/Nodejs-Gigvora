@@ -37,6 +37,8 @@ import '../features/connections/presentation/connections_screen.dart';
 import '../features/work_management/presentation/work_management_screen.dart';
 import '../features/integrations/presentation/company_integrations_screen.dart';
 import '../features/user_dashboard/presentation/user_dashboard_screen.dart';
+import '../features/cv/presentation/cv_workspace_screen.dart';
+import '../features/security/presentation/security_operations_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -56,6 +58,12 @@ const _userDashboardRoles = <String>{
   'agency',
   'company',
   'headhunter',
+};
+
+const _securityRoles = <String>{
+  'security',
+  'trust',
+  'admin',
 };
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -122,6 +130,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/connections', builder: (context, state) => const ConnectionsScreen()),
       GoRoute(path: '/operations', builder: (context, state) => const ServiceOperationsScreen()),
       GoRoute(
+        path: '/security/operations',
+        redirect: (context, state) {
+          if (!sessionState.isAuthenticated) {
+            final redirectTo = Uri.encodeComponent(state.uri.toString());
+            return '/login?from=$redirectTo';
+          }
+          final session = sessionState.session;
+          if (session == null ||
+              !session.memberships
+                  .map((role) => role.toLowerCase())
+                  .any(_securityRoles.contains)) {
+            return '/home?notice=security_access_required';
+          }
+          return null;
+        },
+        builder: (context, state) => const SecurityOperationsScreen(),
+      ),
+      GoRoute(
         path: '/dashboard/company/integrations',
         redirect: (context, state) {
           if (!sessionState.isAuthenticated) {
@@ -145,6 +171,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => WorkManagementScreen(
           projectId: int.tryParse(state.uri.queryParameters['projectId'] ?? ''),
         ),
+      ),
+      GoRoute(
         path: '/dashboard/user',
         redirect: (context, state) {
           final session = sessionState.session;
@@ -158,6 +186,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return null;
         },
         builder: (context, state) => const UserDashboardScreen(),
+      ),
+      GoRoute(
+        path: '/dashboard/user/cv-workspace',
+        redirect: (context, state) {
+          final session = sessionState.session;
+          if (session == null) {
+            final target = Uri.encodeComponent(state.uri.toString());
+            return '/login?redirect=$target';
+          }
+          if (!session.memberships.any(_userDashboardRoles.contains)) {
+            return '/home?notice=user_dashboard_locked';
+          }
+          return null;
+        },
+        builder: (context, state) => const CvWorkspaceScreen(),
       ),
       GoRoute(path: '/dashboard/mentor', builder: (context, state) => const MentorshipScreen()),
       GoRoute(

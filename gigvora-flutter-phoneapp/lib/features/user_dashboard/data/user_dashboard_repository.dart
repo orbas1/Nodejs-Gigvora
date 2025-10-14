@@ -152,6 +152,40 @@ class UserDashboardRepository {
       'No SLA breaches detected in the last 7 days across pipeline stages.',
     ];
 
+    final affiliateProgram = AffiliateProgramDigest(
+      enabled: true,
+      currency: 'USD',
+      lifetimeEarnings: jitter(4200, 600).toDouble(),
+      pendingPayouts: jitter(640, 120).toDouble(),
+      conversionRate: (jitterRatio(0.24, 0.05) * 100).clamp(0.0, 100.0),
+      nextPayoutAt: now.add(const Duration(days: 14)),
+      referralWindowDays: 90,
+      twoFactorRequired: true,
+      kycRequired: true,
+      requiredDocuments: const ['W-8BEN', 'Photo ID'],
+      tiers: const [
+        AffiliateTierDigest(name: 'Starter', rate: 8, minValue: 0, maxValue: 999),
+        AffiliateTierDigest(name: 'Growth', rate: 10, minValue: 1000, maxValue: 4999),
+        AffiliateTierDigest(name: 'Elite', rate: 12, minValue: 5000, maxValue: null),
+      ],
+      links: const [
+        AffiliateLinkDigest(
+          label: 'Career Accelerator cohort',
+          code: 'GV-CAREER',
+          estimatedCommission: 860,
+          totalRevenue: 7200,
+          conversions: 12,
+        ),
+        AffiliateLinkDigest(
+          label: 'Team referrals',
+          code: 'GV-TEAM',
+          estimatedCommission: 420,
+          totalRevenue: 3100,
+          conversions: 6,
+        ),
+      ],
+    );
+
     final snapshot = UserDashboardSnapshot(
       generatedAt: now,
       fromCache: false,
@@ -162,6 +196,7 @@ class UserDashboardRepository {
       nextActions: nextActions,
       focusDigest: focusDigest,
       complianceAlerts: complianceAlerts,
+      affiliateProgram: affiliateProgram,
     );
 
     _cached = snapshot;

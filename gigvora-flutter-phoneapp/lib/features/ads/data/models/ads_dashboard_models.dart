@@ -5,12 +5,14 @@ class AdDashboardSnapshot {
     required this.overview,
     required this.surfaces,
     required this.recommendations,
+    this.forecast,
     this.generatedAt,
   });
 
   final AdOverview overview;
   final List<AdSurfaceGroup> surfaces;
   final List<String> recommendations;
+  final AdForecast? forecast;
   final DateTime? generatedAt;
 
   bool get isEmpty => overview.totalPlacements == 0 && surfaces.isEmpty;
@@ -20,6 +22,7 @@ class AdDashboardSnapshot {
       overview: AdOverview.empty(),
       surfaces: const <AdSurfaceGroup>[],
       recommendations: const <String>[],
+      forecast: null,
       generatedAt: null,
     );
   }
@@ -41,6 +44,9 @@ class AdDashboardSnapshot {
               .where((value) => value.isNotEmpty)
               .toList(growable: false) ??
           const <String>[],
+      forecast: json['forecast'] is Map<String, dynamic>
+          ? AdForecast.fromJson(Map<String, dynamic>.from(json['forecast'] as Map))
+          : null,
       generatedAt: json['generatedAt'] != null ? DateTime.tryParse('${json['generatedAt']}') : null,
     );
   }
@@ -201,6 +207,288 @@ class AdTargetingContext {
       'keywordHints': keywordHints,
       'taxonomySlugs': taxonomySlugs,
     };
+  }
+}
+
+class AdForecast {
+  const AdForecast({
+    required this.summary,
+    required this.scenarios,
+    required this.traffic,
+    required this.assumptions,
+    required this.safetyChecks,
+    this.generatedAt,
+  });
+
+  final AdForecastSummary summary;
+  final List<AdForecastScenario> scenarios;
+  final AdForecastTraffic traffic;
+  final List<String> assumptions;
+  final List<AdForecastSafetyCheck> safetyChecks;
+  final DateTime? generatedAt;
+
+  factory AdForecast.fromJson(Map<String, dynamic> json) {
+    return AdForecast(
+      summary: json['summary'] is Map<String, dynamic>
+          ? AdForecastSummary.fromJson(Map<String, dynamic>.from(json['summary'] as Map))
+          : AdForecastSummary.empty(),
+      scenarios: (json['scenarios'] as List?)
+              ?.map((item) => AdForecastScenario.fromJson(Map<String, dynamic>.from(item as Map)))
+              .toList(growable: false) ??
+          const <AdForecastScenario>[],
+      traffic: json['traffic'] is Map<String, dynamic>
+          ? AdForecastTraffic.fromJson(Map<String, dynamic>.from(json['traffic'] as Map))
+          : AdForecastTraffic.empty(),
+      assumptions: (json['assumptions'] as List?)
+              ?.whereType<String>()
+              .map((value) => value.trim())
+              .where((value) => value.isNotEmpty)
+              .toList(growable: false) ??
+          const <String>[],
+      safetyChecks: (json['safetyChecks'] as List?)
+              ?.map((item) => AdForecastSafetyCheck.fromJson(Map<String, dynamic>.from(item as Map)))
+              .toList(growable: false) ??
+          const <AdForecastSafetyCheck>[],
+      generatedAt: json['generatedAt'] != null ? DateTime.tryParse('${json['generatedAt']}') : null,
+    );
+  }
+}
+
+class AdForecastSummary {
+  const AdForecastSummary({
+    required this.horizonDays,
+    required this.projectedSessions,
+    required this.expectedImpressions,
+    required this.expectedClicks,
+    required this.expectedLeads,
+    required this.expectedSpend,
+    required this.expectedRevenue,
+    required this.projectedRoi,
+    required this.coverageScore,
+    required this.activePlacementRatio,
+    required this.couponCoverage,
+    required this.averageScore,
+    required this.ctr,
+    required this.conversionRate,
+    required this.creativeVariants,
+  });
+
+  final int horizonDays;
+  final int projectedSessions;
+  final int expectedImpressions;
+  final int expectedClicks;
+  final int expectedLeads;
+  final double expectedSpend;
+  final double expectedRevenue;
+  final double? projectedRoi;
+  final double coverageScore;
+  final double activePlacementRatio;
+  final double couponCoverage;
+  final double averageScore;
+  final double ctr;
+  final double conversionRate;
+  final int creativeVariants;
+
+  factory AdForecastSummary.empty() {
+    return const AdForecastSummary(
+      horizonDays: 0,
+      projectedSessions: 0,
+      expectedImpressions: 0,
+      expectedClicks: 0,
+      expectedLeads: 0,
+      expectedSpend: 0,
+      expectedRevenue: 0,
+      projectedRoi: null,
+      coverageScore: 0,
+      activePlacementRatio: 0,
+      couponCoverage: 0,
+      averageScore: 0,
+      ctr: 0,
+      conversionRate: 0,
+      creativeVariants: 0,
+    );
+  }
+
+  factory AdForecastSummary.fromJson(Map<String, dynamic> json) {
+    return AdForecastSummary(
+      horizonDays: json['horizonDays'] is num ? (json['horizonDays'] as num).round() : 0,
+      projectedSessions: json['projectedSessions'] is num ? (json['projectedSessions'] as num).round() : 0,
+      expectedImpressions: json['expectedImpressions'] is num ? (json['expectedImpressions'] as num).round() : 0,
+      expectedClicks: json['expectedClicks'] is num ? (json['expectedClicks'] as num).round() : 0,
+      expectedLeads: json['expectedLeads'] is num ? (json['expectedLeads'] as num).round() : 0,
+      expectedSpend: json['expectedSpend'] is num ? (json['expectedSpend'] as num).toDouble() : 0,
+      expectedRevenue: json['expectedRevenue'] is num ? (json['expectedRevenue'] as num).toDouble() : 0,
+      projectedRoi: json['projectedRoi'] is num ? (json['projectedRoi'] as num).toDouble() : null,
+      coverageScore: json['coverageScore'] is num ? (json['coverageScore'] as num).toDouble() : 0,
+      activePlacementRatio:
+          json['activePlacementRatio'] is num ? (json['activePlacementRatio'] as num).toDouble() : 0,
+      couponCoverage: json['couponCoverage'] is num ? (json['couponCoverage'] as num).toDouble() : 0,
+      averageScore: json['averageScore'] is num ? (json['averageScore'] as num).toDouble() : 0,
+      ctr: json['ctr'] is num ? (json['ctr'] as num).toDouble() : 0,
+      conversionRate: json['conversionRate'] is num ? (json['conversionRate'] as num).toDouble() : 0,
+      creativeVariants: json['creativeVariants'] is num ? (json['creativeVariants'] as num).round() : 0,
+    );
+  }
+}
+
+class AdForecastScenario {
+  const AdForecastScenario({
+    required this.label,
+    required this.confidence,
+    required this.impressions,
+    required this.clicks,
+    required this.leads,
+    required this.spend,
+    required this.revenue,
+    this.roi,
+  });
+
+  final String label;
+  final double confidence;
+  final int impressions;
+  final int clicks;
+  final int leads;
+  final double spend;
+  final double revenue;
+  final double? roi;
+
+  factory AdForecastScenario.fromJson(Map<String, dynamic> json) {
+    return AdForecastScenario(
+      label: (json['label'] as String?)?.trim() ?? 'Scenario',
+      confidence: json['confidence'] is num ? (json['confidence'] as num).toDouble() : 0,
+      impressions: json['impressions'] is num ? (json['impressions'] as num).round() : 0,
+      clicks: json['clicks'] is num ? (json['clicks'] as num).round() : 0,
+      leads: json['leads'] is num ? (json['leads'] as num).round() : 0,
+      spend: json['spend'] is num ? (json['spend'] as num).toDouble() : 0,
+      revenue: json['revenue'] is num ? (json['revenue'] as num).toDouble() : 0,
+      roi: json['roi'] is num ? (json['roi'] as num).toDouble() : null,
+    );
+  }
+}
+
+class AdForecastTraffic {
+  const AdForecastTraffic({
+    required this.averageDailySessions,
+    required this.growthRate,
+    required this.returningVisitorRate,
+    required this.mobileShare,
+    required this.conversionRate,
+    required this.ctrBaseline,
+    required this.spendPerClick,
+    required this.revenuePerLead,
+    required this.sourceBreakdown,
+    required this.trend,
+    required this.lookbackDays,
+    required this.usesFallback,
+  });
+
+  final int averageDailySessions;
+  final double growthRate;
+  final double returningVisitorRate;
+  final double mobileShare;
+  final double conversionRate;
+  final double ctrBaseline;
+  final double spendPerClick;
+  final double revenuePerLead;
+  final List<AdForecastTrafficSource> sourceBreakdown;
+  final List<AdForecastTrendPoint> trend;
+  final int lookbackDays;
+  final bool usesFallback;
+
+  factory AdForecastTraffic.empty() {
+    return const AdForecastTraffic(
+      averageDailySessions: 0,
+      growthRate: 0,
+      returningVisitorRate: 0,
+      mobileShare: 0,
+      conversionRate: 0,
+      ctrBaseline: 0,
+      spendPerClick: 0,
+      revenuePerLead: 0,
+      sourceBreakdown: <AdForecastTrafficSource>[],
+      trend: <AdForecastTrendPoint>[],
+      lookbackDays: 0,
+      usesFallback: false,
+    );
+  }
+
+  factory AdForecastTraffic.fromJson(Map<String, dynamic> json) {
+    return AdForecastTraffic(
+      averageDailySessions:
+          json['averageDailySessions'] is num ? (json['averageDailySessions'] as num).round() : 0,
+      growthRate: json['growthRate'] is num ? (json['growthRate'] as num).toDouble() : 0,
+      returningVisitorRate:
+          json['returningVisitorRate'] is num ? (json['returningVisitorRate'] as num).toDouble() : 0,
+      mobileShare: json['mobileShare'] is num ? (json['mobileShare'] as num).toDouble() : 0,
+      conversionRate: json['conversionRate'] is num ? (json['conversionRate'] as num).toDouble() : 0,
+      ctrBaseline: json['ctrBaseline'] is num ? (json['ctrBaseline'] as num).toDouble() : 0,
+      spendPerClick: json['spendPerClick'] is num ? (json['spendPerClick'] as num).toDouble() : 0,
+      revenuePerLead: json['revenuePerLead'] is num ? (json['revenuePerLead'] as num).toDouble() : 0,
+      sourceBreakdown: (json['sourceBreakdown'] as List?)
+              ?.map((item) => AdForecastTrafficSource.fromJson(Map<String, dynamic>.from(item as Map)))
+              .toList(growable: false) ??
+          const <AdForecastTrafficSource>[],
+      trend: (json['trend'] as List?)
+              ?.map((item) => AdForecastTrendPoint.fromJson(Map<String, dynamic>.from(item as Map)))
+              .toList(growable: false) ??
+          const <AdForecastTrendPoint>[],
+      lookbackDays: json['lookbackDays'] is num ? (json['lookbackDays'] as num).round() : 0,
+      usesFallback: json['usesFallback'] == true,
+    );
+  }
+}
+
+class AdForecastTrafficSource {
+  const AdForecastTrafficSource({
+    required this.source,
+    required this.share,
+  });
+
+  final String source;
+  final double share;
+
+  factory AdForecastTrafficSource.fromJson(Map<String, dynamic> json) {
+    return AdForecastTrafficSource(
+      source: (json['source'] as String?)?.trim() ?? 'other',
+      share: json['share'] is num ? (json['share'] as num).toDouble() : 0,
+    );
+  }
+}
+
+class AdForecastTrendPoint {
+  const AdForecastTrendPoint({
+    required this.date,
+    required this.sessions,
+  });
+
+  final DateTime? date;
+  final int sessions;
+
+  factory AdForecastTrendPoint.fromJson(Map<String, dynamic> json) {
+    return AdForecastTrendPoint(
+      date: json['date'] != null ? DateTime.tryParse('${json['date']}') : null,
+      sessions: json['sessions'] is num ? (json['sessions'] as num).round() : 0,
+    );
+  }
+}
+
+class AdForecastSafetyCheck {
+  const AdForecastSafetyCheck({
+    required this.level,
+    required this.message,
+    required this.suggestion,
+  });
+
+  final String level;
+  final String message;
+  final String suggestion;
+
+  factory AdForecastSafetyCheck.fromJson(Map<String, dynamic> json) {
+    return AdForecastSafetyCheck(
+      level: (json['level'] as String?)?.trim() ?? 'info',
+      message: (json['message'] as String?)?.trim() ?? '',
+      suggestion: (json['suggestion'] as String?)?.trim() ?? '',
+    );
   }
 }
 

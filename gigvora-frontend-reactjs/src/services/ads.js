@@ -32,6 +32,8 @@ function serializeSurfaces(surfaces) {
 
 function serialiseContext(context) {
   if (!context || typeof context !== 'object') {
+function serializeSurfaces(surfaces) {
+  if (!Array.isArray(surfaces) || !surfaces.length) {
     return undefined;
   }
 
@@ -77,7 +79,37 @@ export async function listAdsPlacements({ surfaces, status, signal } = {}) {
   });
 }
 
-export default {
+export async function fetchAdPlacements(params = {}) {
+  const { surface, surfaces, status } = params;
+  const resolvedSurfaces = Array.isArray(surfaces)
+    ? surfaces
+    : surface
+    ? [surface]
+    : undefined;
+  const response = await listAdsPlacements({ surfaces: resolvedSurfaces, status });
+  if (Array.isArray(response?.placements)) {
+    return response.placements;
+  }
+  if (Array.isArray(response?.surface?.placements)) {
+    return response.surface.placements;
+  }
+  return Array.isArray(response) ? response : [];
+}
+
+export async function fetchAdDashboard(params = {}) {
+  return apiClient.get('/ads/dashboard', {
+    params,
+    headers: {
+      'x-user-type': 'admin',
+    },
+  });
+}
+
+const adsService = {
+  fetchAdPlacements,
+  fetchAdDashboard,
   getAdsDashboard,
   listAdsPlacements,
 };
+
+export default adsService;

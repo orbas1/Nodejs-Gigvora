@@ -1,72 +1,67 @@
-const momentumStats = [
+const stats = [
+  { value: '98%', label: 'customer joy score' },
+  { value: '4.8/5', label: 'average partner rating' },
+  { value: '35%', label: 'faster project kickoff' },
+];
+
+const journey = [
   {
-    label: 'Projects launched this week',
-    value: '342',
-    insight: 'Product, design, data, and community initiatives going live now.',
+    step: '01',
+    title: 'Share your vision',
+    copy: 'Upload a quick brief or voice note—we translate it into a launch plan instantly.',
   },
   {
-    label: 'Average response window',
-    value: '6 hrs',
-    insight: 'Fast connects thanks to proactive agencies and companies.',
+    step: '02',
+    title: 'Match with the right crew',
+    copy: 'Preview curated specialists with availability that mirrors your timeline.',
   },
   {
-    label: 'Mentors on launchpad',
-    value: '1.2k',
-    insight: 'Leaders across fintech, health, social impact, and more.',
+    step: '03',
+    title: 'Go live together',
+    copy: 'Approve milestones, celebrate wins, and keep every touchpoint secure.',
   },
 ];
 
-const steps = [
-  {
-    title: 'Craft a standout profile',
-    description:
-      'Import your experience, spotlight case studies, and weave in availability signals tailored to the Gigvora community.',
-  },
-  {
-    title: 'Engage with the live feed',
-    description:
-      'Publish updates, join curated groups, and grow your network with meaningful follows and connects.',
-  },
-  {
-    title: 'Activate opportunities',
-    description:
-      'Match into jobs, gigs, and volunteering that align with your goals—and manage it all from a unified workspace.',
-  },
-];
+const journeyImage =
+  'https://images.unsplash.com/photo-1525182008055-f88b95ff7980?auto=format&fit=crop&w=1200&q=80';
 
 export default function MomentumSection() {
   return (
-    <section className="relative overflow-hidden py-20">
-      <div className="absolute inset-0 bg-gradient-to-b from-white via-white to-surfaceMuted" aria-hidden="true" />
-      <div className="absolute -left-32 top-10 h-40 w-40 rounded-full bg-accent/10 blur-3xl" aria-hidden="true" />
-      <div className="absolute -right-24 bottom-10 h-52 w-52 rounded-full bg-accentSoft blur-3xl" aria-hidden="true" />
-      <div className="relative mx-auto flex max-w-6xl flex-col gap-16 px-6">
-        <div className="grid gap-6 md:grid-cols-3">
-          {momentumStats.map((stat) => (
-            <div key={stat.label} className="rounded-3xl border border-slate-200 bg-white/90 p-8 shadow-soft">
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-accentDark">{stat.label}</p>
-              <p className="mt-4 text-4xl font-semibold text-slate-900">{stat.value}</p>
-              <p className="mt-3 text-sm text-slate-600">{stat.insight}</p>
-            </div>
-          ))}
+    <section className="relative overflow-hidden bg-surfaceMuted py-20">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(37,99,235,0.08),_transparent_65%)]" aria-hidden="true" />
+      <div className="relative mx-auto flex max-w-6xl flex-col gap-16 px-6 lg:flex-row lg:items-center lg:gap-20">
+        <div className="relative w-full overflow-hidden rounded-[44px] border border-slate-200 bg-white shadow-soft">
+          <img
+            src={journeyImage}
+            alt="Team celebrating a project launch with confetti"
+            className="h-full w-full object-cover"
+          />
+          <div className="absolute inset-x-6 bottom-6 flex flex-wrap gap-4 rounded-3xl bg-white/90 p-4 backdrop-blur">
+            {stats.map((stat) => (
+              <div key={stat.label} className="flex flex-col">
+                <span className="text-lg font-semibold text-slate-900">{stat.value}</span>
+                <span className="text-xs uppercase tracking-[0.3em] text-slate-400">{stat.label}</span>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="rounded-3xl border border-slate-200 bg-white/95 p-10 shadow-soft">
-          <div className="mb-10 flex flex-col gap-4 text-center md:text-left">
-            <span className="text-xs font-semibold uppercase tracking-[0.35em] text-accentDark">How Gigvora works</span>
-            <h2 className="text-3xl font-semibold text-slate-900 sm:text-4xl">Momentum for every type of builder</h2>
+        <div className="w-full max-w-xl space-y-10">
+          <div className="space-y-4">
+            <span className="text-xs font-semibold uppercase tracking-[0.35em] text-accentDark">Customer journey</span>
+            <h2 className="text-3xl font-semibold text-slate-900 sm:text-4xl">Momentum without the noise</h2>
             <p className="text-base text-slate-600">
-              Whether you&apos;re a freelancer, founder, or talent leader, Gigvora orchestrates the journey from first hello to long-term
-              collaboration.
+              Every step inside Gigvora is designed so customers and creators feel confident. No jargon, no mystery—just clarity on what happens next.
             </p>
           </div>
-          <div className="grid gap-8 md:grid-cols-3">
-            {steps.map((step, index) => (
-              <div key={step.title} className="group relative flex flex-col gap-4 rounded-2xl border border-slate-100 bg-surface p-6">
-                <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-accent/10 text-sm font-semibold text-accent">
-                  {index + 1}
-                </span>
-                <h3 className="text-lg font-semibold text-slate-900 group-hover:text-accentDark">{step.title}</h3>
-                <p className="text-sm text-slate-600">{step.description}</p>
+          <div className="space-y-6">
+            {journey.map((item) => (
+              <div
+                key={item.step}
+                className="flex flex-col gap-2 rounded-3xl border border-slate-200 bg-white/90 px-6 py-5 shadow-sm backdrop-blur transition hover:border-accent/40"
+              >
+                <span className="text-xs font-semibold uppercase tracking-[0.3em] text-accent">{item.step}</span>
+                <h3 className="text-lg font-semibold text-slate-900">{item.title}</h3>
+                <p className="text-sm text-slate-600">{item.copy}</p>
               </div>
             ))}
           </div>

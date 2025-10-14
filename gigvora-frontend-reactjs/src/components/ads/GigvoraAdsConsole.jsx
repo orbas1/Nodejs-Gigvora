@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowPathIcon,
+  ArrowTrendingUpIcon,
+  BanknotesIcon,
   BoltIcon,
+  ChartBarIcon,
   ClockIcon,
+  CursorArrowRaysIcon,
+  ExclamationTriangleIcon,
+  InformationCircleIcon,
   MegaphoneIcon,
   ShieldCheckIcon,
   SparklesIcon,
@@ -10,6 +16,30 @@ import {
 import { getAdsDashboard, listAdsPlacements } from '../../services/ads.js';
 
 const numberFormatter = new Intl.NumberFormat('en-US');
+const compactNumberFormatter = new Intl.NumberFormat('en-US', {
+  notation: 'compact',
+  maximumFractionDigits: 1,
+});
+const currencyFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 0,
+});
+const preciseCurrencyFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 2,
+});
+const percentFormatter = new Intl.NumberFormat('en-US', {
+  style: 'percent',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 1,
+});
+const precisePercentFormatter = new Intl.NumberFormat('en-US', {
+  style: 'percent',
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 2,
+});
 
 function formatNumber(value) {
   const numeric = Number(value ?? 0);
@@ -58,6 +88,65 @@ function formatDateTime(value) {
   }
 }
 
+function formatCompactNumber(value) {
+  const numeric = Number(value ?? 0);
+  if (!Number.isFinite(numeric)) {
+    return '0';
+  }
+  return compactNumberFormatter.format(numeric);
+}
+
+function formatCurrency(value) {
+  const numeric = Number(value ?? 0);
+  if (!Number.isFinite(numeric)) {
+    return '$0';
+  }
+  return currencyFormatter.format(numeric);
+}
+
+function formatCurrencyPrecise(value) {
+  const numeric = Number(value ?? 0);
+  if (!Number.isFinite(numeric)) {
+    return '$0.00';
+  }
+  return preciseCurrencyFormatter.format(numeric);
+}
+
+function formatPercent(value, { fromPercentage = false, precise = false } = {}) {
+  const numeric = Number(value ?? 0);
+  if (!Number.isFinite(numeric)) {
+    return precise ? precisePercentFormatter.format(0) : percentFormatter.format(0);
+  }
+  const ratio = fromPercentage ? numeric / 100 : numeric;
+  return (precise ? precisePercentFormatter : percentFormatter).format(ratio);
+}
+
+function formatLabel(value) {
+  if (!value) {
+    return 'Unknown';
+  }
+  return `${value}`
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function formatDate(value) {
+  if (!value) {
+    return '—';
+  }
+  try {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  } catch (error) {
+    return value;
+  }
+}
+
 function Badge({ children, tone = 'blue' }) {
   const tones = {
     blue: 'bg-blue-50 text-blue-700 border-blue-100',
@@ -97,6 +186,45 @@ function MetricTile({ label, value, caption, icon: Icon, tone = 'blue' }) {
   );
 }
 
+function ForecastSummaryCard({ label, value, caption, icon: Icon, tone = 'blue' }) {
+  const toneStyles = {
+    blue: {
+      container: 'border-blue-100 bg-blue-50/70',
+      icon: 'bg-blue-100 text-blue-600',
+      label: 'text-blue-700',
+    },
+    emerald: {
+      container: 'border-emerald-100 bg-emerald-50/70',
+      icon: 'bg-emerald-100 text-emerald-600',
+      label: 'text-emerald-700',
+    },
+    slate: {
+      container: 'border-slate-200 bg-slate-50',
+      icon: 'bg-slate-200 text-slate-600',
+      label: 'text-slate-600',
+    },
+  };
+
+  const styles = toneStyles[tone] ?? toneStyles.blue;
+
+  return (
+    <div className={`rounded-2xl border ${styles.container} p-4 shadow-sm transition`}> 
+      <div className="flex items-start gap-3">
+        {Icon ? (
+          <span className={`flex h-10 w-10 items-center justify-center rounded-full ${styles.icon}`}>
+            <Icon className="h-5 w-5" />
+          </span>
+        ) : null}
+        <div>
+          <p className={`text-xs font-semibold uppercase tracking-wide ${styles.label}`}>{label}</p>
+          <p className="mt-1 text-lg font-semibold text-slate-900">{value}</p>
+          {caption ? <p className="mt-1 text-xs text-slate-500">{caption}</p> : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function RecommendationCard({ recommendation }) {
   return (
     <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4 text-sm text-blue-800 shadow-sm">
@@ -125,6 +253,266 @@ function TaxonomyPill({ slug, weight }) {
       <span className="capitalize">{slug.replace(/[-_]+/g, ' ')}</span>
       <span className="text-[11px] font-semibold uppercase tracking-wide text-emerald-600">{formatNumber(weight)}</span>
     </span>
+  );
+}
+
+function ForecastSection({ forecast }) {
+  if (!forecast || !forecast.summary) {
+    return null;
+  }
+
+  const summary = forecast.summary ?? {};
+  const traffic = forecast.traffic ?? {};
+  const scenarios = Array.isArray(forecast.scenarios) ? forecast.scenarios : [];
+  const assumptions = Array.isArray(forecast.assumptions) ? forecast.assumptions : [];
+  const safetyChecks = Array.isArray(forecast.safetyChecks) ? forecast.safetyChecks : [];
+  const trend = Array.isArray(traffic.trend) ? traffic.trend.slice(-7) : [];
+
+  return (
+    <div className="mt-8 grid gap-6 xl:grid-cols-3">
+      <div className="space-y-6 xl:col-span-2">
+        <div className="rounded-3xl border border-blue-200 bg-white p-6 shadow-lg shadow-blue-100/50">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-blue-500">Forecast horizon</p>
+              <h3 className="mt-1 text-xl font-semibold text-slate-900">
+                {summary.horizonDays ?? 14}-day performance outlook
+              </h3>
+              <p className="mt-2 max-w-2xl text-sm text-slate-500">
+                Blends live placement scoring, coupon readiness, and traffic momentum to power campaign planning.
+              </p>
+            </div>
+            <span className="inline-flex items-center gap-2 rounded-full border border-blue-300 bg-blue-50 px-4 py-1 text-xs font-semibold uppercase tracking-wide text-blue-700">
+              <ArrowTrendingUpIcon className="h-4 w-4" /> Forecast ready
+            </span>
+          </div>
+          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <ForecastSummaryCard
+              label="Projected sessions"
+              value={formatCompactNumber(summary.projectedSessions)}
+              caption={`Coverage ${summary.coverageScore ?? 0}% • ${summary.creativeVariants ?? 0} variants`}
+              icon={ChartBarIcon}
+              tone="blue"
+            />
+            <ForecastSummaryCard
+              label="Impressions"
+              value={formatCompactNumber(summary.expectedImpressions)}
+              caption={`CTR ${formatPercent(summary.ctr ?? 0, { fromPercentage: true, precise: true })}`}
+              icon={ArrowTrendingUpIcon}
+              tone="blue"
+            />
+            <ForecastSummaryCard
+              label="Clicks"
+              value={formatCompactNumber(summary.expectedClicks)}
+              caption={`Active coverage ${formatPercent(summary.activePlacementRatio ?? 0, { precise: true })}`}
+              icon={CursorArrowRaysIcon}
+              tone="slate"
+            />
+            <ForecastSummaryCard
+              label="Leads"
+              value={formatCompactNumber(summary.expectedLeads)}
+              caption={`Conversion ${formatPercent(summary.conversionRate ?? 0, { fromPercentage: true, precise: true })}`}
+              icon={SparklesIcon}
+              tone="emerald"
+            />
+            <ForecastSummaryCard
+              label="Revenue forecast"
+              value={formatCurrency(summary.expectedRevenue)}
+              caption={`Spend ${formatCurrencyPrecise(summary.expectedSpend)} • ROI ${
+                summary.projectedRoi != null ? formatPercent(summary.projectedRoi, { precise: true }) : '—'
+              }`}
+              icon={BanknotesIcon}
+              tone="emerald"
+            />
+            <ForecastSummaryCard
+              label="Incentive coverage"
+              value={`${summary.couponCoverage ?? 0}% of placements`}
+              caption={`Quality score ${summary.averageScore ?? 0}`}
+              icon={BoltIcon}
+              tone="slate"
+            />
+          </div>
+        </div>
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm font-semibold text-slate-700">Scenario planning</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+              Confidence anchored by live telemetry
+            </p>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            {scenarios.map((scenario) => (
+              <div
+                key={scenario.label}
+                className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 text-sm text-slate-600 shadow-sm"
+              >
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-slate-900">{scenario.label}</p>
+                  <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                    {formatPercent(scenario.confidence ?? 0, { precise: true })}
+                  </span>
+                </div>
+                <div className="mt-3 space-y-2">
+                  <p>
+                    <span className="font-semibold text-slate-900">
+                      {formatCompactNumber(scenario.impressions)}
+                    </span>{' '}
+                    impressions
+                  </p>
+                  <p>
+                    <span className="font-semibold text-slate-900">
+                      {formatCompactNumber(scenario.clicks)}
+                    </span>{' '}
+                    clicks ·{' '}
+                    <span className="font-semibold text-slate-900">
+                      {formatCompactNumber(scenario.leads)}
+                    </span>{' '}
+                    leads
+                  </p>
+                  <p>
+                    {formatCurrencyPrecise(scenario.revenue)} revenue vs {formatCurrencyPrecise(scenario.spend)} spend
+                  </p>
+                  <p>ROI {scenario.roi != null ? formatPercent(scenario.roi, { precise: true }) : '—'}</p>
+                </div>
+              </div>
+            ))}
+            {!scenarios.length ? (
+              <p className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 text-sm text-slate-500">
+                Scenario modelling will unlock after placements generate initial telemetry.
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </div>
+      <div className="space-y-6">
+        <div className="rounded-3xl border border-emerald-200 bg-emerald-50/80 p-6 shadow-md shadow-emerald-100/60">
+          <p className="text-sm font-semibold text-emerald-900">Traffic signals</p>
+          <div className="mt-3 grid gap-3 text-sm text-emerald-800">
+            <div className="flex items-center justify-between">
+              <span>Avg daily sessions</span>
+              <span className="font-semibold text-emerald-900">
+                {formatCompactNumber(traffic.averageDailySessions)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Projected lift</span>
+              <span className="font-semibold text-emerald-900">
+                {formatPercent(traffic.growthRate ?? 0, { precise: true })}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Returning visitors</span>
+              <span className="font-semibold text-emerald-900">
+                {formatPercent(traffic.returningVisitorRate ?? 0, { fromPercentage: true, precise: true })}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Mobile share</span>
+              <span className="font-semibold text-emerald-900">
+                {formatPercent(traffic.mobileShare ?? 0, { fromPercentage: true, precise: true })}
+              </span>
+            </div>
+          </div>
+          <div className="mt-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">Source mix</p>
+            <div className="mt-2 space-y-2 text-xs text-emerald-700">
+              {(traffic.sourceBreakdown ?? []).map((entry) => (
+                <div
+                  key={entry.source}
+                  className="flex items-center justify-between rounded-lg bg-white/70 px-3 py-2 shadow-sm"
+                >
+                  <span className="font-medium text-emerald-800">{formatLabel(entry.source)}</span>
+                  <span className="font-semibold text-emerald-700">
+                    {formatPercent(entry.share ?? 0, { precise: true })}
+                  </span>
+                </div>
+              ))}
+              {!traffic.sourceBreakdown?.length ? (
+                <p className="rounded-lg bg-white/70 px-3 py-2 text-emerald-700">
+                  Source insights will appear once analytics rollups sync traffic origins.
+                </p>
+              ) : null}
+            </div>
+          </div>
+          <div className="mt-5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">
+              Trend (last {Math.min(trend.length, 7) || 7} days)
+            </p>
+            <ul className="mt-2 space-y-1 text-xs text-emerald-700">
+              {trend.length ? (
+                trend.map((point) => (
+                  <li
+                    key={point.date}
+                    className="flex items-center justify-between rounded-lg bg-white/70 px-3 py-1.5"
+                  >
+                    <span>{formatDate(point.date)}</span>
+                    <span className="font-semibold">{formatCompactNumber(point.sessions)}</span>
+                  </li>
+                ))
+              ) : (
+                <li className="rounded-lg bg-white/70 px-3 py-1.5 text-emerald-600">
+                  Trend data will populate after analytics rollups capture sessions.
+                </li>
+              )}
+            </ul>
+          </div>
+        </div>
+        <div className="rounded-3xl border border-blue-200 bg-blue-50/70 p-6 shadow-sm">
+          <p className="text-sm font-semibold text-blue-900">Key assumptions</p>
+          <ul className="mt-3 space-y-2 text-sm text-blue-800">
+            {assumptions.map((assumption, index) => (
+              <li key={`${index}-${assumption}`} className="flex items-start gap-2">
+                <InformationCircleIcon className="mt-0.5 h-5 w-5 flex-none text-blue-500" />
+                <span>{assumption}</span>
+              </li>
+            ))}
+            {!assumptions.length ? (
+              <li className="text-blue-700/80">
+                Forecast assumptions will surface once campaign telemetry stabilises.
+              </li>
+            ) : null}
+          </ul>
+        </div>
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <p className="text-sm font-semibold text-slate-700">Operational guardrails</p>
+          <div className="mt-3 space-y-3 text-sm">
+            {safetyChecks.map((alert, index) => {
+              const toneClass =
+                alert.level === 'warning'
+                  ? 'border-amber-200 bg-amber-50 text-amber-800'
+                  : alert.level === 'critical'
+                  ? 'border-rose-200 bg-rose-50 text-rose-800'
+                  : 'border-blue-200 bg-blue-50 text-blue-800';
+              const Icon =
+                alert.level === 'warning' || alert.level === 'critical'
+                  ? ExclamationTriangleIcon
+                  : InformationCircleIcon;
+              return (
+                <div
+                  key={`${index}-${alert.message}`}
+                  className={`rounded-2xl border ${toneClass} px-4 py-3 shadow-sm`}
+                >
+                  <div className="flex items-start gap-3">
+                    <Icon className="mt-0.5 h-5 w-5 flex-none" />
+                    <div className="space-y-1">
+                      <p className="font-semibold">{alert.message}</p>
+                      {alert.suggestion ? (
+                        <p className="text-xs opacity-80">{alert.suggestion}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            {!safetyChecks.length ? (
+              <p className="rounded-2xl border border-emerald-100 bg-emerald-50/70 px-4 py-3 text-sm text-emerald-800 shadow-sm">
+                No operational risks detected. Keep refreshing creatives to maintain healthy performance.
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -176,6 +564,7 @@ export default function GigvoraAdsConsole({ initialSnapshot, defaultContext }) {
   const overview = state.snapshot?.overview ?? null;
   const keywordHighlights = overview?.keywordHighlights ?? [];
   const taxonomyHighlights = overview?.taxonomyHighlights ?? [];
+  const forecast = state.snapshot?.forecast ?? null;
 
   const handleRefresh = useCallback(
     async (options = {}) => {
@@ -464,6 +853,8 @@ export default function GigvoraAdsConsole({ initialSnapshot, defaultContext }) {
           tone="blue"
         />
       </div>
+
+      {forecast ? <ForecastSection forecast={forecast} /> : null}
 
       <div className="mt-8 grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">

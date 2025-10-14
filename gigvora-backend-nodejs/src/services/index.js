@@ -10,6 +10,7 @@ export { default as trustService } from './trustService.js';
 export { default as searchIndexService } from './searchIndexService.js';
 export { default as searchSubscriptionService } from './searchSubscriptionService.js';
 export { default as autoAssignService } from './autoAssignService.js';
+export { default as aiAutoReplyService } from './aiAutoReplyService.js';
 export { default as projectService } from './projectService.js';
 export { default as launchpadService } from './launchpadService.js';
 export { default as profileService } from './profileService.js';
@@ -31,3 +32,4 @@ export { default as freelancerProfileHubService } from './freelancerProfileHubSe
 export { default as gigManagerService } from './gigManagerService.js';
 export { default as workspaceTemplateService } from './workspaceTemplateService.js';
 export { default as companyDashboardService } from './companyDashboardService.js';
+export { default as careerDocumentService } from './careerDocumentService.js';
