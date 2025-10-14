@@ -6,6 +6,7 @@ import 'package:gigvora_foundation/gigvora_foundation.dart';
 import '../../../core/providers.dart';
 import '../data/feed_repository.dart';
 import '../data/models/feed_post.dart';
+import '../domain/feed_content_moderation.dart';
 
 class FeedController extends StateNotifier<ResourceState<List<FeedPost>>> {
   FeedController(
@@ -118,22 +119,24 @@ class FeedController extends StateNotifier<ResourceState<List<FeedPost>>> {
     required FeedPostType type,
     String? link,
   }) async {
-    final trimmedContent = content.trim();
-    if (trimmedContent.isEmpty) {
-      return;
-    }
+    final evaluation = FeedContentModeration.evaluate(
+      content: content,
+      summary: content,
+      link: link,
+      type: type,
+    );
 
     final post = FeedPost(
       id: 'local-${DateTime.now().millisecondsSinceEpoch}',
-      content: trimmedContent,
+      content: evaluation.content,
       createdAt: DateTime.now(),
       author: const FeedAuthor(
         name: 'You',
         headline: 'Shared via Gigvora',
       ),
       type: type,
-      link: (link ?? '').trim().isEmpty ? null : link?.trim(),
-      summary: trimmedContent,
+      link: evaluation.link,
+      summary: evaluation.content,
       publishedAt: DateTime.now(),
       reactionCount: 0,
       commentCount: 0,
