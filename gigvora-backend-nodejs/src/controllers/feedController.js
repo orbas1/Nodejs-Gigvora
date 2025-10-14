@@ -1,9 +1,23 @@
 import { FeedPost, User, Profile } from '../models/index.js';
 import { ValidationError, AuthorizationError } from '../utils/errors.js';
+import { enforceFeedPostPolicies } from '../services/contentModerationService.js';
 
 const ALLOWED_VISIBILITY = new Set(['public', 'connections']);
 const ALLOWED_TYPES = new Set(['update', 'media', 'job', 'gig', 'project', 'volunteering', 'launchpad', 'news']);
-const AUTHORISED_ROLES = new Set(['member', 'admin', 'moderator', 'agency_admin', 'company_admin', 'community_manager']);
+const AUTHORISED_ROLES = new Set([
+  'member',
+  'user',
+  'freelancer',
+  'agency',
+  'agency_admin',
+  'company',
+  'company_admin',
+  'headhunter',
+  'mentor',
+  'admin',
+  'moderator',
+  'community_manager',
+]);
 
 function resolveRole(req) {
   const role = (req.user?.role || req.headers['x-user-role'] || '').toString().toLowerCase().trim();
@@ -109,24 +123,44 @@ export async function createPost(req, res) {
 
   const resolvedUserId = Number.parseInt(userId, 10);
 
+  const sanitizedLink = sanitizeUrl(link);
+
+  const moderationContext = enforceFeedPostPolicies(
+    {
+      content: trimmedContent || trimmedSummary,
+      summary: trimmedSummary,
+      title: typeof title === 'string' ? title : null,
+      link: sanitizedLink,
+      attachments: Array.isArray(req.body?.mediaAttachments) ? req.body.mediaAttachments : [],
+    },
+    { role },
+  );
+
   const payload = {
     userId: resolvedUserId,
-    content: trimmedContent || trimmedSummary,
+    content: moderationContext.content,
     visibility: visibility?.toLowerCase?.() || 'public',
     type: resolvedType,
-    link: sanitizeUrl(link),
+    link: moderationContext.link,
   };
 
   if (title && typeof title === 'string') {
-    payload.title = title.trim().slice(0, 280);
+    payload.title = moderationContext.title?.slice(0, 280) || title.trim().slice(0, 280);
   }
   if (trimmedSummary) {
-    payload.summary = trimmedSummary;
+    payload.summary = moderationContext.summary || trimmedSummary;
   }
 
   const created = await FeedPost.create(payload);
   const hydrated = await FeedPost.findByPk(created.id, { include: [{ model: User, include: [Profile] }] });
-  res.status(201).json(serialiseFeedPost(hydrated));
+  const responsePayload = serialiseFeedPost(hydrated);
+  if (moderationContext.attachments?.length) {
+    responsePayload.mediaAttachments = moderationContext.attachments.filter((attachment) => attachment.url);
+  }
+  if (moderationContext.signals?.length) {
+    responsePayload.moderation = { signals: moderationContext.signals };
+  }
+  res.status(201).json(responsePayload);
 }
 
 export { serialiseFeedPost };

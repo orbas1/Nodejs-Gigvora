@@ -9,6 +9,7 @@ import '../../../theme/widgets.dart';
 import '../../auth/application/session_controller.dart';
 import '../application/feed_controller.dart';
 import '../data/models/feed_post.dart';
+import '../domain/feed_content_moderation.dart';
 
 const _allowedFeedRoles = <String>{
   'user',
@@ -454,19 +455,46 @@ class _FeedComposerState extends State<_FeedComposer> {
   }
 
   Future<void> _handleSubmit() async {
-    final content = _contentController.text.trim();
-    if (content.isEmpty || _submitting) {
+    if (_submitting) {
       return;
     }
 
-    final link = _linkController.text.trim();
+    FeedModerationResult moderated;
+    try {
+      moderated = FeedContentModeration.evaluate(
+        content: _contentController.text,
+        summary: _contentController.text,
+        link: _linkController.text,
+        type: _selectedType,
+      );
+    } on FeedModerationException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      final buffer = StringBuffer(error.message);
+      if (error.reasons.isNotEmpty) {
+        for (final reason in error.reasons) {
+          buffer.write('\n• $reason');
+        }
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(buffer.toString()),
+          backgroundColor: Theme.of(context).colorScheme.errorContainer,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
+
     setState(() => _submitting = true);
     try {
       await widget.onSubmit(
         _FeedComposerData(
           type: _selectedType,
-          content: content,
-          link: link.isEmpty ? null : link,
+          content: moderated.content,
+          link: moderated.link,
         ),
       );
       if (!mounted) {
@@ -482,15 +510,32 @@ class _FeedComposerState extends State<_FeedComposer> {
           duration: Duration(seconds: 3),
         ),
       );
-    } catch (_) {
+    } catch (error) {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('We couldn\'t share your update. Please try again.'),
-        ),
-      );
+      if (error is FeedModerationException) {
+        final buffer = StringBuffer(error.message);
+        if (error.reasons.isNotEmpty) {
+          for (final reason in error.reasons) {
+            buffer.write('\n• $reason');
+          }
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(buffer.toString()),
+            backgroundColor: Theme.of(context).colorScheme.errorContainer,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('We couldn\'t share your update. Please try again.'),
+          ),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _submitting = false);
