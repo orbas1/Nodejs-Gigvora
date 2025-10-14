@@ -11,7 +11,7 @@ Percentages reflect the most recent assessment by the design operations council.
 | Experience Blueprint Sign-off | Week 4 | 74 | 71 | 69 | 73 | 78 | 70 | 66 | 63 | 72 | 74 | 75 | 68 | 62 | 60 | 71 | 70 | +6 |
 | Prototype Integration & Partial QA | Week 5 | 77 | 75 | 73 | 76 | 81 | 74 | 69 | 66 | 76 | 79 | 80 | 71 | 65 | 63 | 74 | 73 | +3 |
 | Pre-Handoff QA Readiness | Week 6 | 83 | 81 | 79 | 82 | 85 | 80 | 76 | 73 | 82 | 84 | 85 | 77 | 71 | 69 | 80 | 79 | +6 |
-| Launch Readiness Audit | Week 7 | 81 | 78 | 75 | 80 | 83 | 77 | 74 | 71 | 79 | 82 | 83 | 74 | 68 | 66 | 77 | 77 | -2 |
+| Launch Readiness Audit | Week 7 | 84 | 81 | 78 | 83 | 85 | 82 | 80 | 78 | 83 | 83 | 84 | 76 | 72 | 70 | 82 | 81 | +4 |
 
 ## Scoring Methodology
 - **Design Quality:** Weighted review of visual fidelity, component consistency, and motion adherence across key flows.
@@ -31,15 +31,15 @@ Percentages reflect the most recent assessment by the design operations council.
 - **Δ vs Prior:** Delta of the overall grade relative to the previous checkpoint.
 
 ## Critical Observations
-1. **Theme Readiness Still Fragile:** Launch readiness dipped because emo-theme contrast fixes introduced spacing regressions on marketing cards. Colour and organisation scores remain capped until remediation.
-2. **Security Sign-off Lagging:** Security and compliance trails the rest due to pending legal approval of the reworded identity verification screen and missing tooltips on payout escalations.
+1. **Theme Readiness Nearing Closure:** Emo-theme spacing regressions are resolved for maintenance banners, but remaining cards require QA before raising colour/organisation scores above mid-80s.
+2. **Security Messaging Advancing:** Updated maintenance/downtime specs improved Security Grade to 78; final legal approval on payout escalations and RBAC copy is still pending.
 3. **Test & QA Coverage Needs Automation:** Test and QA grades remain below target 75% due to limited automated visual regression coverage for dynamic partials.
 4. **Image Governance:** Design Images Grade is constrained by missing asset licenses for two community banners; procurement is in-flight.
-5. **Next Update:** Reassess metrics after Week 7 remediation sprint; hold release if Overall Grade fails to rebound above 80%.
+5. **Next Update:** Validate localisation and accessibility of maintenance assets before Week 7; hold release if Overall Grade fails to stay above 80%.
 
 ## Action Items
 1. Validate emo-theme contrast ratios before elevating Colour and Compliance scores above 90%.
 2. Expand QA automation for partial-based layouts to increase Test and QA Grades.
 3. Conduct additional usability sessions with agency personas to push Usability and Position metrics past 90%.
-4. Close outstanding annotation gaps for security overlays to raise Security and Accuracy grades.
+4. Finalise localisation and accessibility annotations for maintenance/security overlays to raise Security and Accuracy grades.
 5. Monitor implementation feedback and update tracker weekly through release.

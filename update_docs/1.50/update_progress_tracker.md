@@ -4,7 +4,7 @@ Percentages reflect initial baseline before execution. Update the tracker weekly
 
 | Task ID | Task Name | Security Level % | Completion Level % | Integration Level % | Functionality Level % | Error Free Level % | Production Level % | Overall Level % |
 |---------|-----------|------------------|--------------------|---------------------|-----------------------|--------------------|--------------------|-----------------|
-| 1 | Stabilise service lifecycles and security perimeters | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 1 | Stabilise service lifecycles and security perimeters | 35 | 25 | 20 | 30 | 25 | 25 | 27 |
 | 2 | Modularise domain models and align schemas | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | 3 | Enforce validation, consent, and governance workflows | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | 4 | Complete financial, escrow, and dispute capabilities | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
@@ -31,9 +31,9 @@ Refer to `Design_update_progress_tracker.md` for detailed scoring across design-
 |------------|-------------|------------------|-----------------------|-------------------|---------------------|-----------------------|------------------------|--------------------|------------------|------------------------------|----------------------|------------------------|------------------|-------------|-----------|-------------------------|----------------|-----------|
 | Prototype Integration & Partial QA | Week 5 | 77 | 75 | 73 | 76 | 81 | 74 | 69 | 66 | 76 | 79 | 80 | 71 | 65 | 63 | 74 | 73 | +3 |
 | Pre-Handoff QA Readiness | Week 6 | 83 | 81 | 79 | 82 | 85 | 80 | 76 | 73 | 82 | 84 | 85 | 77 | 71 | 69 | 80 | 79 | +6 |
-| Launch Readiness Audit | Week 7 | 81 | 78 | 75 | 80 | 83 | 77 | 74 | 71 | 79 | 82 | 83 | 74 | 68 | 66 | 77 | 77 | -2 |
+| Launch Readiness Audit | Week 7 | 84 | 81 | 78 | 83 | 85 | 82 | 80 | 78 | 83 | 83 | 84 | 76 | 72 | 70 | 82 | 81 | +4 |
 
 **Key Follow-Ups:**
 - Close remaining design QA gaps on theme permutations before release.
 - Elevate Test and QA Grades by integrating automated visual regression coverage for partial-based pages.
-- Address outstanding security annotations on finance and identity flows to push Security Grade above 80%.
+- Address outstanding security annotations on finance, identity, and maintenance overlays to push Security Grade above 80%.

@@ -2,7 +2,7 @@
 
 Each numbered task maps to the update plan and contains explicit integration coverage so cross-functional teams can execute in parallel while maintaining traceability to Version 1.50 requirements and the pre-update defect catalogue.
 
-## Task 1 — Stabilise service lifecycles and security perimeters (0%)
+## Task 1 — Stabilise service lifecycles and security perimeters (27%)
 - **Backend:** Separate worker lifecycles from Express, add readiness/liveness probes, and repair the global error handler to satisfy Issue List items 1, 4, and 5.
 - **Front-end:** Surface health and rate-limit telemetry in admin dashboards so operators can react to backend degradation (Issues 14–17).
 - **User phone app:** Replace mocked connectivity checks with authenticated health polling and secure session bootstrap (Issue 18).
@@ -11,6 +11,8 @@ Each numbered task maps to the update plan and contains explicit integration cov
 - **API:** Publish updated OpenAPI docs for health/auth endpoints and enforce payload size limits plus abuse detection.
 - **Logic:** Add guard clauses that halt payment/compliance workflows when dependencies fail to avoid cascading outages.
 - **Design:** Provide consistent UX copy, iconography, and localisation for maintenance and security prompts across surfaces.
+
+**Progress Note (Backend • 04 Apr):** Node API now boots through a lifecycle orchestrator with graceful shutdown hooks, readiness/liveness endpoints, structured logging with correlation IDs, and environment-tuned payload/rate controls. Background workers run under a managed supervisor with health instrumentation feeding the new `/health/ready` contract.
 
 ## Task 2 — Modularise domain models and align schemas (0%)
 - **Backend:** Refactor `src/models/index.js` into bounded contexts with domain service layers and feature flags (Issue 4).

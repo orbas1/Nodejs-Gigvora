@@ -6,6 +6,12 @@
 - **Research Inputs:** Combined analysis of `Screens_Update_Plan.md`, `Screens_update_images_and_vectors.md`, `Logic_Flow_map.md`, and web assets documentation produced during Version 1.50 discovery.
 - **Rollout:** Sequenced through design QA gates prior to sprint integration, with staged publication of tokens to engineering repositories (React, Node API docs, Flutter kit).
 
+## 04 Apr 2024 — Maintenance & Security Experience Refresh
+1. **Telemetry Dashboards:** Added operator-facing health widgets and downtime banners to admin dashboards, mapping to the new backend `/health/ready` payload. Specifications captured in `Dashboard Designs.md` and `Screens_Updates_widget_functions.md` include latency trend cards, worker roster chips, and rate-limit notifications.
+2. **Maintenance Messaging System:** Documented copy decks, iconography, and localisation patterns for maintenance mode, partial outages, and security advisories. Assets referenced in `Screen_text.md`, `text.md.md`, and `Screens_update_images_and_vectors.md` now include neutral and emo-theme treatments plus legal-approved escalation language.
+3. **Session Bootstrap UX:** Updated onboarding and re-authentication flows in `Organisation_and_positions.md` and `Settings Dashboard.md` to surface health state, retry timers, and safe-fail guidance across web and mobile personas.
+4. **Design QA Hooks:** Extended `Design_update_progress_tracker.md` scoring notes to incorporate maintenance banner regression tests and accessibility checks for high-contrast downtime modes.
+
 ## Global Design Decisions
 ### Tokens & Foundations
 1. **Colour Tokens:** Revalidated Gigvora Indigo palette with expanded semantic aliases (`surface-muted`, `surface-inverse`, `cta-emo`) to support both neutral and emo-inspired themes requested by marketing. The new alias map is propagated to SCSS/Tailwind builds (`Colours.md`, `colours.md`).

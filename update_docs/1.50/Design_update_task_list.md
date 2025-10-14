@@ -11,7 +11,7 @@
 | 6 | Expand Secondary Web Pages | Content Experience Lead (G. Santos) | 22 Mar | 8 May | In Progress | 26% | Medium | CMS partial dependencies unsettled |
 | 7 | Refresh Authenticated Web Dashboards | Data Visualisation Lead (J. Chen) | 25 Mar | 17 May | In Progress | 24% | Medium | Awaiting analytics instrumentation guidance |
 | 8 | Implement Theme & Partial Infrastructure | Platform Design Ops (A. Ekpo) | 25 Mar | 24 May | In Progress | 20% | High | CMS preview workflow not yet approved by security |
-| 9 | Governance & Security UX Updates | Compliance UX Lead (H. Wells) | 18 Mar | 30 Apr | In Progress | 36% | Medium | Legal review of payout escalation copy |
+| 9 | Governance & Security UX Updates | Compliance UX Lead (H. Wells) | 18 Mar | 30 Apr | In Progress | 52% | Medium | Localisation approvals for maintenance copy |
 | 10 | Handoff, QA, and Documentation | Design Ops PM (T. Dawson) | 1 Apr | 31 May | Planned | 12% | Medium | Dependency on upstream asset readiness |
 
 ---
@@ -152,20 +152,20 @@
 
 ---
 
-### Task 9 — Governance & Security UX Updates (36%)
+### Task 9 — Governance & Security UX Updates (52%)
 **Objective:** Ensure all compliance-critical flows (consent, legal, privacy, payouts) reflect updated language and trust signals.
 - [x] Review consent, legal, and privacy modules for tone and clarity improvements.
-- [ ] Update security-critical flows (identity verification, payouts) with reinforced messaging and contextual help.
-- [ ] Ensure compliance badges, trust signals, and audit prompts follow new design language.
+- [x] Update security-critical flows (identity verification, payouts) with reinforced messaging and contextual help.
+- [x] Ensure compliance badges, trust signals, and audit prompts follow new design language.
 - [ ] Align dark/high-contrast/emo themes with regulatory requirements and disclaimers.
 - [ ] Document required audit artefacts for regulators and enterprise clients.
 - [ ] Coordinate sign-off with legal, security, and compliance steering group.
 
-**Progress Notes:** Legal copy review flagged missing escalation guidance—iterating with compliance counsel this sprint.
+**Progress Notes:** Maintenance mode, rate-limit, and outage messaging kits approved; telemetry widget spec handed to engineering. Remaining work covers emo theme contrast validation and regulator artefact packaging.
 
-**Dependencies:** Needs updated tokens (Task 1) and theme infrastructure (Task 8) to finalise multi-theme compliance screens.
+**Dependencies:** Needs updated tokens (Task 1) and theme infrastructure (Task 8) to finalise multi-theme compliance screens, plus backend maintenance banner schema for final sign-off.
 
-**Risk & Mitigation:** Legal approval risk mitigated via twice-weekly checkpoints with regulatory affairs.
+**Risk & Mitigation:** Localisation approvals remain on the critical path—scheduled rolling reviews with regional leads and prepared fallback English copy if approvals slip.
 
 ---
 

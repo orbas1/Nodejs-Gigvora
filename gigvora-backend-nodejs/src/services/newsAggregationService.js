@@ -11,6 +11,7 @@ const MAX_LOOKBACK_HOURS = 36;
 let workerHandle = null;
 let isRunning = false;
 let latestPublishedAt = null;
+let workerLogger = console;
 
 function decodeHtmlEntities(text = '') {
   return text
@@ -160,16 +161,17 @@ async function runCycle() {
       }
     }
   } catch (error) {
-    console.error('Failed to aggregate Gigvora news', error);
+    workerLogger?.error?.({ err: error }, 'Failed to aggregate Gigvora news');
   } finally {
     isRunning = false;
   }
 }
 
-export async function startNewsAggregationWorker({ intervalMs = FETCH_INTERVAL_MS } = {}) {
+export async function startNewsAggregationWorker({ intervalMs = FETCH_INTERVAL_MS, logger = console } = {}) {
   if (workerHandle) {
     return;
   }
+  workerLogger = logger ?? console;
   await runCycle();
   workerHandle = setInterval(runCycle, intervalMs);
   workerHandle.unref?.();
@@ -180,6 +182,7 @@ export function stopNewsAggregationWorker() {
     clearInterval(workerHandle);
     workerHandle = null;
   }
+  workerLogger = console;
 }
 
 export async function runNewsAggregationOnce() {
