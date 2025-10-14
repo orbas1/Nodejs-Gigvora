@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import '../../../core/providers.dart';
 import '../../../theme/widgets.dart';
 import '../../auth/application/session_controller.dart';
+import '../../marketing/gigvora_ads.dart';
 import '../application/profile_controller.dart';
 import '../application/profile_reputation_controller.dart';
 import '../data/models/profile.dart';
@@ -178,11 +179,14 @@ class ProfileScreen extends ConsumerWidget {
                 onRetry: () => controller.refresh(),
               ),
             if (profile != null) ...[
+              GigvoraAdBanner(data: profileAdBanner),
+              const SizedBox(height: 16),
               _ProfileHeaderCard(profile: profile),
               const SizedBox(height: 16),
-              if (profile.metrics.isNotEmpty)
+              if (profile.metrics.isNotEmpty) ...[
                 _ProfileMetricsCard(metrics: profile.metrics),
-              if (profile.metrics.isNotEmpty) const SizedBox(height: 16),
+                const SizedBox(height: 16),
+              ],
               if (canAccessReputation &&
                   (reputationState.loading ||
                       reputationState.data != null ||
@@ -197,15 +201,23 @@ class ProfileScreen extends ConsumerWidget {
                 _ReputationAccessNotice(message: reputationAccessMessage),
                 const SizedBox(height: 16),
               ],
-              if (profile.skills.isNotEmpty)
+              if (profile.skills.isNotEmpty) ...[
                 _SkillsCard(
                   skills: profile.skills,
                   onSkillTap: controller.recordSkillTap,
                 ),
-              if (profile.skills.isNotEmpty) const SizedBox(height: 16),
+                const SizedBox(height: 16),
+              ],
               _AvailabilityCard(availability: profile.availability, focusAreas: profile.focusAreas),
               const SizedBox(height: 16),
-              if (profile.groups.isNotEmpty)
+              _ReferencesCard(
+                references: profile.references,
+                settings: profile.referenceSettings,
+                onToggleSetting: controller.updateReferenceSettings,
+                onRequestInvite: controller.sendReferenceInvite,
+              ),
+              const SizedBox(height: 16),
+              if (profile.groups.isNotEmpty) ...[
                 _GroupsCard(
                   groups: profile.groups,
                   onGroupTap: (group) async {
@@ -214,33 +226,14 @@ class ProfileScreen extends ConsumerWidget {
                       GoRouter.of(context).push('/groups/${group.id}');
                     }
                   },
-                  onGroupTap: controller.recordGroupTap,
-            if (profile.metrics.isNotEmpty)
-              _ProfileMetricsCard(metrics: profile.metrics),
-            if (profile.metrics.isNotEmpty) const SizedBox(height: 16),
-            if (profile.skills.isNotEmpty)
-              _SkillsCard(
-                skills: profile.skills,
-                onSkillTap: controller.recordSkillTap,
-              ),
-            if (profile.skills.isNotEmpty) const SizedBox(height: 16),
-            _AvailabilityCard(availability: profile.availability, focusAreas: profile.focusAreas),
-            const SizedBox(height: 16),
-            _ReferencesCard(
-              references: profile.references,
-              settings: profile.referenceSettings,
-              onToggleSetting: controller.updateReferenceSettings,
-              onRequestInvite: controller.sendReferenceInvite,
-            ),
-            const SizedBox(height: 16),
-            if (profile.groups.isNotEmpty)
-              _GroupsCard(
-                groups: profile.groups,
-                onGroupTap: controller.recordGroupTap,
                 ),
-              if (profile.groups.isNotEmpty) const SizedBox(height: 16),
-              if (profile.experiences.isNotEmpty)
+                const SizedBox(height: 16),
+              ],
+              if (profile.experiences.isNotEmpty) ...[
                 _ExperienceCard(experiences: profile.experiences),
+                const SizedBox(height: 16),
+              ],
+              GigvoraAdGrid(ads: profileAds, margin: const EdgeInsets.only(top: 8)),
             ],
           ],
         ),

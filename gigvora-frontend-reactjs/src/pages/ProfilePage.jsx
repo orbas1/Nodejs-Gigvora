@@ -5,10 +5,14 @@ import ProfileEditor from '../components/ProfileEditor.jsx';
 import TrustScoreBreakdown from '../components/TrustScoreBreakdown.jsx';
 import UserAvatar from '../components/UserAvatar.jsx';
 import ReputationEngineShowcase from '../components/reputation/ReputationEngineShowcase.jsx';
+import { GigvoraAdBanner, GigvoraAdGrid } from '../components/marketing/GigvoraAds.jsx';
+import {
+  GIGVORA_PROFILE_ADS,
+  GIGVORA_PROFILE_BANNER,
+} from '../constants/marketing.js';
 import { fetchProfile, updateProfile, updateProfileAvailability } from '../services/profile.js';
 import useSession from '../hooks/useSession.js';
 import { fetchFreelancerReputation } from '../services/reputation.js';
-import useSession from '../hooks/useSession.js';
 import { formatAbsolute, formatRelativeTime } from '../utils/date.js';
 
 const AVAILABILITY_OPTIONS = [
@@ -472,11 +476,12 @@ export default function ProfilePage() {
         <div className="absolute -left-16 top-32 h-80 w-80 rounded-full bg-accent/15 blur-3xl" aria-hidden="true" />
         <div className="absolute -right-24 bottom-32 h-72 w-72 rounded-full bg-emerald-200/40 blur-[120px]" aria-hidden="true" />
         <div className="relative mx-auto max-w-6xl space-y-12 px-6">
-        {error ? (
-          <div className="rounded-3xl border border-red-100 bg-red-50/80 p-4 text-sm text-red-700 shadow-sm">
-            {error}
-          </div>
-        ) : null}
+          <GigvoraAdBanner {...GIGVORA_PROFILE_BANNER} />
+          {error ? (
+            <div className="rounded-3xl border border-red-100 bg-red-50/80 p-4 text-sm text-red-700 shadow-sm">
+              {error}
+            </div>
+          ) : null}
         <div className="grid items-start gap-10 rounded-4xl border border-slate-200/70 bg-white/80 p-10 shadow-xl backdrop-blur lg:grid-cols-[auto,1fr]">
           <div className="space-y-4 text-center lg:text-left">
             <UserAvatar name={profile.name} seed={profile.avatarSeed} size="lg" className="mx-auto lg:mx-0" />
@@ -538,6 +543,7 @@ export default function ProfilePage() {
               ))}
             </div>
           </div>
+          <GigvoraAdGrid ads={GIGVORA_PROFILE_ADS} />
         </div>
 
         <div className="grid gap-8 lg:grid-cols-3">

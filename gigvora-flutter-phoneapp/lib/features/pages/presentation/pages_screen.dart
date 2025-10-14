@@ -5,6 +5,7 @@ import 'package:gigvora_foundation/gigvora_foundation.dart';
 import '../../../theme/widgets.dart';
 import '../application/page_studio_controller.dart';
 import '../domain/page_models.dart';
+import '../../marketing/gigvora_ads.dart';
 
 class PagesScreen extends ConsumerWidget {
   const PagesScreen({super.key});
@@ -35,6 +36,7 @@ class PagesScreen extends ConsumerWidget {
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
+            GigvoraAdBanner(data: pagesAdBanner, margin: const EdgeInsets.only(bottom: 16)),
             if (state.errorMessage != null)
               Container(
                 margin: const EdgeInsets.only(bottom: 16),
@@ -192,6 +194,8 @@ class PagesScreen extends ConsumerWidget {
                 ],
               ),
             ),
+            const SizedBox(height: 24),
+            GigvoraAdGrid(ads: pagesAds),
           ],
         ),
       ),

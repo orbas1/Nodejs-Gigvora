@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../theme/widgets.dart';
+import '../../marketing/gigvora_ads.dart';
 import '../application/group_directory_controller.dart';
 import '../application/group_profile_controller.dart';
 import '../data/models/group_models.dart';
@@ -51,6 +52,7 @@ class GroupProfileScreen extends ConsumerWidget {
             if (state.resource.hasError && profile == null)
               _ErrorCard(error: state.resource.error, onRetry: controller.refresh),
             if (profile != null) ...[
+              GigvoraAdBanner(data: groupsAdBanner, margin: const EdgeInsets.only(bottom: 20)),
               _ProfileHero(profile: profile, pending: state.pending, onJoin: controller.join, onLeave: controller.leave),
               const SizedBox(height: 20),
               _StatsSection(stats: profile.stats, insights: profile.insights),
@@ -79,6 +81,8 @@ class GroupProfileScreen extends ConsumerWidget {
                   pending: state.pending,
                   onChanged: controller.updateNotifications,
                 ),
+              const SizedBox(height: 20),
+              GigvoraAdGrid(ads: groupsAds),
             ],
           ],
         ),
