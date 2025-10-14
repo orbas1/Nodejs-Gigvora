@@ -67,6 +67,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     return session.memberships.any(_notificationRoles.contains);
   }
 
+  bool canAccessAgencyDashboard() {
+    final session = sessionState.session;
+    if (session == null) {
+      return false;
+    }
+    return session.memberships
+        .map((role) => role.toLowerCase())
+        .contains('agency');
+  }
+
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
     initialLocation: '/home',
@@ -105,7 +115,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const NotificationsScreen(),
       ),
       GoRoute(path: '/pages', builder: (context, state) => const PagesScreen()),
-      GoRoute(path: '/notifications', builder: (context, state) => const NotificationsScreen()),
       GoRoute(path: '/inbox', builder: (context, state) => const InboxScreen()),
       GoRoute(path: '/finance', builder: (context, state) => const FinanceScreen()),
       GoRoute(path: '/connections', builder: (context, state) => const ConnectionsScreen()),
@@ -130,7 +139,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const UserDashboardScreen(),
       ),
       GoRoute(path: '/dashboard/mentor', builder: (context, state) => const MentorshipScreen()),
-      GoRoute(path: '/dashboard/agency', builder: (context, state) => const AgencyDashboardScreen()),
+      GoRoute(
+        path: '/dashboard/agency',
+        redirect: (context, state) {
+          if (!sessionState.isAuthenticated) {
+            final redirectTo = Uri.encodeComponent(state.uri.toString());
+            return '/login?from=$redirectTo';
+          }
+          if (!canAccessAgencyDashboard()) {
+            return '/home?notice=agency_access_required';
+          }
+          return null;
+        },
+        builder: (context, state) => const AgencyDashboardScreen(),
+      ),
       GoRoute(path: '/networking', builder: (context, state) => const NetworkingScreen()),
       GoRoute(path: '/groups', builder: (context, state) => const GroupsDirectoryScreen()),
       GoRoute(
