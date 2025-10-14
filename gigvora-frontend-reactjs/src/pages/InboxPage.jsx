@@ -14,8 +14,8 @@ import {
   sendMessage,
   createCallSession,
 } from '../services/messaging.js';
+import { resolveActorId } from '../utils/session.js';
 import {
-  resolveActorId,
   buildThreadTitle,
   formatThreadParticipants,
   isThreadUnread,

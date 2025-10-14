@@ -79,6 +79,20 @@ export default function useOpportunityListing(
 
   const resource = useCachedResource(
     cacheKey,
+export default function useOpportunityListing(category, query, { pageSize = 20, enabled = true } = {}) {
+  const trimmedQuery = (query || '').trim();
+  const debouncedQuery = useDebounce(trimmedQuery, 400);
+  const endpoint = endpointByCategory[category];
+
+  if (!endpoint) {
+    throw new Error(`Unsupported opportunity category: ${category}`);
+  }
+
+  const shouldFetch = Boolean(enabled);
+  const cacheKeyQuery = shouldFetch ? debouncedQuery : 'disabled';
+
+  const resource = useCachedResource(
+    `opportunity:${category}:${cacheKeyQuery || 'all'}`,
     ({ signal }) =>
       apiClient.get(endpoint, {
         signal,
@@ -90,6 +104,7 @@ export default function useOpportunityListing(
         headers: requestHeaders,
       }),
     { dependencies: [debouncedQuery, filtersKey, headersKey], ttl: 1000 * 60 * 5, enabled: Boolean(enabled && endpoint) },
+    { dependencies: [debouncedQuery, shouldFetch], ttl: 1000 * 60 * 5, enabled: shouldFetch },
   );
 
   return { ...resource, debouncedQuery };
