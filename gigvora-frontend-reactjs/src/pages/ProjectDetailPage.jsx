@@ -7,6 +7,7 @@ import projectsService from '../services/projects.js';
 import analytics from '../services/analytics.js';
 import { formatRelativeTime } from '../utils/date.js';
 import ProjectOperationsSection from '../components/projects/ProjectOperationsSection.jsx';
+import ProjectWorkspaceSection from '../components/projects/ProjectWorkspaceSection.jsx';
 import { useProjectManagementAccess } from '../hooks/useAuthorization.js';
 import useSession from '../hooks/useSession.js';
 
@@ -589,6 +590,8 @@ export default function ProjectDetailPage() {
                 </p>
               )}
             </div>
+
+            {projectId ? <ProjectWorkspaceSection projectId={projectId} /> : null}
 
             {projectId ? <ProjectOperationsSection projectId={projectId} /> : null}
 

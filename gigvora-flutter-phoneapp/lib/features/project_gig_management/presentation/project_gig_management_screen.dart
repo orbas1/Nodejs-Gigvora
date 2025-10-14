@@ -12,6 +12,7 @@ import '../../../theme/widgets.dart';
 import '../application/project_gig_management_controller.dart';
 import '../data/models/project_gig_management_snapshot.dart';
 import '../../work_management/presentation/work_management_panel.dart';
+import 'project_workspace_card.dart';
 
 enum GigManagementSection { manage, buy, post }
 
@@ -155,15 +156,21 @@ class ProjectGigManagementScreen extends ConsumerWidget {
             if (snapshot != null) ...[
               _SummaryCard(snapshot: snapshot, lastUpdated: state.lastUpdated),
               const SizedBox(height: 16),
-              _ProjectOperationsConsoleCard(
-                snapshot: snapshot,
-                controller: controller,
-                loading: state.loading,
-              ),
-              if (!snapshot.access.canManage)
-                Padding(
-                  padding: const EdgeInsets.only(top: 12, left: 16, right: 16),
-                  child: GigvoraCard(
+            _ProjectOperationsConsoleCard(
+              snapshot: snapshot,
+              controller: controller,
+              loading: state.loading,
+            ),
+            const SizedBox(height: 16),
+            ProjectWorkspaceCard(
+              projects: snapshot.projects,
+              readOnly: !snapshot.access.canManage,
+              accessMessage: snapshot.access.reason,
+            ),
+            if (!snapshot.access.canManage)
+              Padding(
+                padding: const EdgeInsets.only(top: 12, left: 16, right: 16),
+                child: GigvoraCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
