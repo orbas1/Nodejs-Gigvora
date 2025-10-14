@@ -1,8 +1,12 @@
 import { Router } from 'express';
 import asyncHandler from '../utils/asyncHandler.js';
 import pipelineController from '../controllers/pipelineController.js';
+import { authenticate, requireRoles } from '../middleware/authentication.js';
 
 const router = Router();
+
+router.use(authenticate());
+router.use(requireRoles(['freelancer']));
 
 router.get('/dashboard', asyncHandler(pipelineController.dashboard));
 router.post('/deals', asyncHandler(pipelineController.storeDeal));

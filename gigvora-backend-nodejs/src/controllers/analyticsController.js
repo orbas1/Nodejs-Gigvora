@@ -1,5 +1,12 @@
 import { trackEvent, listEvents } from '../services/analyticsService.js';
 
+function toPlainObject(value) {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  return Object.fromEntries(Object.entries(value));
+}
+
 function sanitizeEventPayload(body = {}) {
   const {
     eventName,
@@ -12,15 +19,18 @@ function sanitizeEventPayload(body = {}) {
     occurredAt = null,
   } = body ?? {};
 
+  const safeContext = toPlainObject(context) ?? {};
+  const safeSource = typeof source === 'string' && source.trim().length ? source.trim() : null;
+
   return {
-    eventName,
-    actorType,
+    eventName: typeof eventName === 'string' ? eventName.trim() : eventName,
+    actorType: typeof actorType === 'string' ? actorType.trim() : actorType,
     userId,
-    entityType,
-    entityId,
-    source,
-    context,
-    occurredAt,
+    entityType: typeof entityType === 'string' ? entityType.trim() : entityType,
+    entityId: typeof entityId === 'string' ? entityId.trim() : entityId,
+    source: safeSource,
+    context: safeContext,
+    occurredAt: occurredAt ?? null,
   };
 }
 

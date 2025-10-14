@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../domain/auth_token_store.dart';
 import '../domain/session.dart';
 
 class SessionController extends StateNotifier<SessionState> {
@@ -25,6 +28,7 @@ class SessionController extends StateNotifier<SessionState> {
   }
 
   void logout() {
+    unawaited(AuthTokenStore.clear());
     state = const SessionState.unauthenticated();
   }
 }

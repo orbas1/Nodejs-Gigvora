@@ -1,10 +1,10 @@
 import { apiClient } from './apiClient.js';
 
-function cacheKeyForUser(userId) {
+function buildFinanceOverviewCacheKey(userId) {
   return userId ? `finance:controlTower:${userId}` : 'finance:controlTower:self';
 }
 
-export async function fetchControlTowerOverview({ userId, signal, forceRefresh = false } = {}) {
+async function fetchControlTowerOverview({ userId, signal, forceRefresh = false } = {}) {
   const params = {};
   if (userId) {
     params.userId = userId;
@@ -15,23 +15,27 @@ export async function fetchControlTowerOverview({ userId, signal, forceRefresh =
   return apiClient.get('/finance/control-tower/overview', { params, signal });
 }
 
-export function invalidateFinanceOverviewCache(userId) {
-  apiClient.removeCache(cacheKeyForUser(userId));
+function invalidateFinanceOverviewCache(userId) {
+  apiClient.removeCache(buildFinanceOverviewCacheKey(userId));
 }
 
-export { cacheKeyForUser as buildFinanceOverviewCacheKey };
-
-export default {
-  fetchControlTowerOverview,
-  invalidateFinanceOverviewCache,
-  buildFinanceOverviewCacheKey,
-export async function fetchFreelancerFinanceInsights(freelancerId, { signal } = {}) {
+async function fetchFreelancerFinanceInsights(freelancerId, { signal } = {}) {
   if (!freelancerId) {
     throw new Error('freelancerId is required to fetch finance insights.');
   }
   return apiClient.get(`/finance/freelancers/${freelancerId}/insights`, { signal });
 }
 
+export {
+  buildFinanceOverviewCacheKey,
+  fetchControlTowerOverview,
+  invalidateFinanceOverviewCache,
+  fetchFreelancerFinanceInsights,
+};
+
 export default {
+  buildFinanceOverviewCacheKey,
+  fetchControlTowerOverview,
+  invalidateFinanceOverviewCache,
   fetchFreelancerFinanceInsights,
 };
