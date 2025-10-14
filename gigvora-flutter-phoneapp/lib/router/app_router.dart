@@ -34,6 +34,7 @@ import '../features/services/presentation/service_operations_screen.dart';
 import '../features/finance/presentation/finance_screen.dart';
 import '../features/pages/presentation/pages_screen.dart';
 import '../features/connections/presentation/connections_screen.dart';
+import '../features/work_management/presentation/work_management_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -104,6 +105,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/dashboard/freelancer/pipeline',
         builder: (context, state) => const FreelancerPipelineScreen(),
+      ),
+      GoRoute(
+        path: '/dashboard/freelancer/work-management',
+        builder: (context, state) => WorkManagementScreen(
+          projectId: int.tryParse(state.uri.queryParameters['projectId'] ?? ''),
+        ),
       ),
       GoRoute(path: '/dashboard/mentor', builder: (context, state) => const MentorshipScreen()),
       GoRoute(path: '/dashboard/agency', builder: (context, state) => const AgencyDashboardScreen()),

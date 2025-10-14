@@ -15,6 +15,7 @@ import {
   MegaphoneIcon,
   PhotoIcon,
   RectangleStackIcon,
+  Squares2X2Icon,
   SparklesIcon,
   UserCircleIcon,
   UserGroupIcon,
@@ -42,6 +43,12 @@ export const MENU_GROUPS = [
         name: 'Delivery operations',
         description: 'Jobs, gig orders, and delivery cadences.',
         icon: ClipboardDocumentCheckIcon,
+      },
+      {
+        id: 'task-management',
+        name: 'Task management & delegation',
+        description: 'Sprint planning, backlog health, and governance approvals.',
+        icon: Squares2X2Icon,
       },
       {
         id: 'planning',

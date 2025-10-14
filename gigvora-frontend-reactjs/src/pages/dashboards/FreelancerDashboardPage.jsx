@@ -678,6 +678,7 @@ import {
   ProjectWorkspaceExcellenceSection,
   ReferencesSection,
   SupportSection,
+  TaskManagementSection,
   WorkspaceSettingsSection,
 } from './freelancer/sections/index.js';
 
@@ -688,6 +689,7 @@ const SECTION_RENDERERS = {
   planning: () => <PlanningSection />,
   'project-excellence': () => <ProjectWorkspaceExcellenceSection />,
   'project-lab': () => <ProjectLabSection />,
+  'task-management': () => <TaskManagementSection />,
   'gig-studio': () => <GigStudioSection />,
   'gig-marketplace': () => <GigMarketplaceOperationsSection />,
   automation: () => <AutomationSection />,
