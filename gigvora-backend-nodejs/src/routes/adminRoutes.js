@@ -11,6 +11,8 @@ router.use(requireAdmin);
 router.get('/dashboard', asyncHandler(adminController.dashboard));
 router.get('/platform-settings', asyncHandler(adminController.fetchPlatformSettings));
 router.put('/platform-settings', asyncHandler(adminController.persistPlatformSettings));
+router.get('/affiliate-settings', asyncHandler(adminController.fetchAffiliateSettings));
+router.put('/affiliate-settings', asyncHandler(adminController.persistAffiliateSettings));
 
 router.use('/ads/coupons', adminAdRoutes);
 

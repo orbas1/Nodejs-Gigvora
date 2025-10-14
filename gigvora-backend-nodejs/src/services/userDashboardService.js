@@ -52,6 +52,7 @@ import { ValidationError } from '../utils/errors.js';
 import careerPipelineAutomationService from './careerPipelineAutomationService.js';
 import { getAdDashboardSnapshot } from './adService.js';
 import { initializeWorkspaceForProject } from './projectWorkspaceService.js';
+import affiliateDashboardService from './affiliateDashboardService.js';
 
 const CACHE_NAMESPACE = 'dashboard:user';
 const CACHE_TTL_SECONDS = 60;
@@ -2294,6 +2295,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     brandAssets,
     purchasedGigOrders,
     careerPipelineAutomation,
+    affiliateProgram,
     projectParticipation,
   ] = await Promise.all([
     applicationQuery,
@@ -2316,6 +2318,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     brandAssetsQuery,
     purchasedGigOrdersQuery,
     careerPipelineAutomationService.getCareerPipelineAutomation(userId, { bypassCache }),
+    affiliateDashboardService.getAffiliateDashboard(userId),
     projectParticipationQuery,
   ]);
 
@@ -2543,6 +2546,12 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     connections: profile.connectionsCount ?? profile.metrics?.connectionsCount ?? 0,
   };
 
+  if (affiliateProgram?.overview) {
+    summary.affiliateEarnings = affiliateProgram.overview.lifetimeEarnings ?? 0;
+    summary.affiliatePendingPayouts = affiliateProgram.overview.pendingPayouts ?? 0;
+    summary.affiliateConversionRate = affiliateProgram.overview.conversionRate ?? 0;
+  }
+
   const careerAnalytics = buildCareerAnalyticsInsights(careerSnapshots, peerBenchmarks);
   const calendarInsights = buildCalendarInsights(calendarEvents, focusSessions, calendarIntegrations);
   const advisorInsights = buildAdvisorInsights(collaborations, auditLogs);
@@ -2631,6 +2640,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
       advisorCollaboration: advisorInsights,
       supportDesk,
     },
+    affiliate: affiliateProgram,
     careerPipelineAutomation,
     ads,
   };
