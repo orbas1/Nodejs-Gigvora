@@ -12,8 +12,8 @@ export async function updateProjectAutoAssign(projectId, payload) {
   return apiClient.patch(`/projects/${projectId}/auto-assign`, payload);
 }
 
-export async function fetchProject(projectId) {
-  return apiClient.get(`/projects/${projectId}`);
+export async function fetchProject(projectId, { signal } = {}) {
+  return apiClient.get(`/projects/${projectId}`, { signal });
 }
 
 export async function fetchProjectEvents(projectId, { limit } = {}) {

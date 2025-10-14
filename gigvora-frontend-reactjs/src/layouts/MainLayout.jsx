@@ -2,8 +2,11 @@ import { Outlet } from 'react-router-dom';
 import Header from '../components/Header.jsx';
 import Footer from '../components/Footer.jsx';
 import MessagingDock from '../components/messaging/MessagingDock.jsx';
+import useSession from '../hooks/useSession.js';
 
 export default function MainLayout() {
+  const { isAuthenticated } = useSession();
+
   return (
     <>
       <div className="relative min-h-screen bg-gradient-to-b from-white via-white to-surfaceMuted text-slate-900">
@@ -14,7 +17,7 @@ export default function MainLayout() {
           <main className="flex-1">
             <Outlet />
           </main>
-          <Footer />
+          {!isAuthenticated ? <Footer /> : null}
         </div>
       </div>
       <MessagingDock />
