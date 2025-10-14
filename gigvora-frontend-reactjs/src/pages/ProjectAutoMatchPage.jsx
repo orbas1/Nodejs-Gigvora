@@ -4,12 +4,14 @@ import PageHeader from '../components/PageHeader.jsx';
 import DataStatus from '../components/DataStatus.jsx';
 import UserAvatar from '../components/UserAvatar.jsx';
 import useCachedResource from '../hooks/useCachedResource.js';
-import useSession from '../hooks/useSession.js';
+import useRoleAccess from '../hooks/useRoleAccess.js';
+import AccessRestricted from '../components/AccessRestricted.jsx';
 import { enqueueProjectAssignments, fetchProjectQueue } from '../services/autoAssign.js';
 import projectsService from '../services/projects.js';
 import analytics from '../services/analytics.js';
 import { formatRelativeTime } from '../utils/date.js';
 
+const ALLOWED_MEMBERSHIPS = ['company', 'agency', 'admin'];
 const WEIGHT_PRESET = {
   recency: 24,
   rating: 18,
@@ -18,6 +20,40 @@ const WEIGHT_PRESET = {
   earningsBalance: 12,
   inclusion: 10,
 };
+
+const STATUS_PRESETS = {
+  notified: {
+    label: 'Live invitation',
+    badge: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  },
+  pending: {
+    label: 'Pending rotation',
+    badge: 'border-slate-200 bg-slate-100 text-slate-700',
+  },
+  completed: {
+    label: 'Completed rotation',
+    badge: 'border-blue-200 bg-blue-50 text-blue-700',
+  },
+  expired: {
+    label: 'Invitation expired',
+    badge: 'border-amber-200 bg-amber-50 text-amber-700',
+  },
+  dropped: {
+    label: 'Manually removed',
+    badge: 'border-rose-200 bg-rose-50 text-rose-700',
+  },
+  default: {
+    label: 'Queued',
+    badge: 'border-slate-200 bg-slate-100 text-slate-700',
+  },
+};
+
+function ensureObject(value) {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value;
+  }
+  return {};
+}
 
 function normalizeWeights(weights) {
   const total = Object.values(weights).reduce((sum, value) => sum + Number(value || 0), 0) || 1;
@@ -37,10 +73,11 @@ function formatCurrency(value, currency = 'USD') {
 
 export default function ProjectAutoMatchPage() {
   const { projectId } = useParams();
-  const { session, isAuthenticated } = useSession();
-  const membershipSet = useMemo(() => new Set(session?.memberships ?? []), [session?.memberships]);
-  const canAdminister = membershipSet.has('agency') || membershipSet.has('company') || membershipSet.has('admin');
-  const canView = isAuthenticated && canAdminister && Boolean(projectId);
+  const { session, isAuthenticated, hasAccess } = useRoleAccess(ALLOWED_MEMBERSHIPS, {
+    autoSelectActive: true,
+  });
+  const canAdminister = Boolean(hasAccess);
+  const canView = canAdminister && Boolean(projectId);
 
   const [formState, setFormState] = useState({
     limit: 6,
@@ -84,11 +121,17 @@ export default function ProjectAutoMatchPage() {
 
   const project = projectData ?? null;
   const queueEntries = Array.isArray(queueData) ? queueData : [];
+  const sortedQueueEntries = useMemo(() => {
+    return queueEntries
+      .slice()
+      .sort((a, b) => (a?.position ?? Number.POSITIVE_INFINITY) - (b?.position ?? Number.POSITIVE_INFINITY));
+  }, [queueEntries]);
 
   const statusSummary = useMemo(() => {
     return queueEntries.reduce(
       (acc, entry) => {
-        acc[entry.status] = (acc[entry.status] || 0) + 1;
+        const statusKey = typeof entry?.status === 'string' ? entry.status.toLowerCase() : 'pending';
+        acc[statusKey] = (acc[statusKey] || 0) + 1;
         return acc;
       },
       {},
@@ -159,7 +202,12 @@ export default function ProjectAutoMatchPage() {
 
     return (
       <div className="space-y-4">
-        {queueEntries.map((entry, index) => {
+        {sortedQueueEntries.map((entry, index) => {
+          const statusKey = typeof entry?.status === 'string' ? entry.status.toLowerCase() : 'default';
+          const statusPreset = STATUS_PRESETS[statusKey] ?? STATUS_PRESETS.default;
+          const breakdown = ensureObject(entry?.breakdown);
+          const metadata = ensureObject(entry?.metadata);
+          const fairness = ensureObject(metadata.fairness);
           const projectName = entry.projectName ?? project?.title ?? `Project ${projectId}`;
           return (
             <article
@@ -181,11 +229,13 @@ export default function ProjectAutoMatchPage() {
                     </p>
                   </div>
                 </div>
-                <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                  {entry.status}
+                <span
+                  className={`inline-flex items-center justify-center rounded-full border px-4 py-1 text-xs font-semibold uppercase tracking-wide ${statusPreset.badge}`}
+                >
+                  {statusPreset.label}
                 </span>
               </div>
-              <div className="mt-4 grid gap-4 text-xs text-slate-600 sm:grid-cols-4">
+              <div className="mt-4 grid gap-4 text-xs text-slate-600 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="rounded-2xl border border-slate-200 bg-surfaceMuted/70 px-4 py-3">
                   <p className="font-semibold text-slate-500">Project</p>
                   <p className="mt-1 text-base font-semibold text-slate-900">{projectName}</p>
@@ -199,15 +249,15 @@ export default function ProjectAutoMatchPage() {
                 <div className="rounded-2xl border border-slate-200 bg-surfaceMuted/70 px-4 py-3">
                   <p className="font-semibold text-slate-500">Latest completion</p>
                   <p className="mt-1 text-base font-semibold text-slate-900">
-                    {entry.breakdown?.lastCompletedDays != null
-                      ? `${Math.round(entry.breakdown.lastCompletedDays)} days`
+                    {breakdown.lastCompletedDays != null
+                      ? `${Math.round(breakdown.lastCompletedDays)} days`
                       : 'Awaiting first completion'}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-surfaceMuted/70 px-4 py-3">
                   <p className="font-semibold text-slate-500">Fairness boost</p>
                   <p className="mt-1 text-base font-semibold text-slate-900">
-                    {entry.metadata?.fairness?.ensuredNewcomer ? 'Reserved newcomer slot' : 'Rotation'}
+                    {fairness.ensureNewcomer || fairness.ensuredNewcomer ? 'Reserved newcomer slot' : 'Rotation'}
                   </p>
                 </div>
               </div>
@@ -266,19 +316,31 @@ export default function ProjectAutoMatchPage() {
         />
 
         {!isAuthenticated ? (
-          <div className="rounded-3xl border border-slate-200 bg-white/90 p-8 text-sm text-slate-600 shadow-sm">
-            Please <Link to="/login" className="font-semibold text-accent hover:text-accentDark">sign in</Link> with an operations role to manage auto-match queues.
-          </div>
+          <AccessRestricted
+            tone="sky"
+            badge="Authentication required"
+            title="Sign in to orchestrate auto-match"
+            description="Use an authenticated operations workspace to generate and monitor freelancer rotations for this project."
+            actionLabel="Sign in"
+            actionHref="/login"
+          />
         ) : null}
 
         {isAuthenticated && !canAdminister ? (
-          <div className="rounded-3xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-700">
-            Auto-match controls are reserved for company, agency, or admin workspaces. Switch context from your dashboard to continue.
-          </div>
+          <AccessRestricted
+            tone="amber"
+            badge={`Active role: ${session?.activeMembership ?? 'none'}`}
+            title="Operations access required"
+            description="Auto-match orchestration is limited to company, agency, or admin workspaces. Switch your active membership from the dashboard to continue."
+            actionLabel="Manage memberships"
+            actionHref="/settings"
+          />
         ) : null}
 
         {canView && feedback ? (
           <div
+            role="status"
+            aria-live="polite"
             className={`rounded-3xl border px-4 py-3 text-sm ${
               feedback.type === 'success'
                 ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
@@ -435,8 +497,9 @@ export default function ProjectAutoMatchPage() {
                     type="button"
                     onClick={() => refreshQueue({ force: true })}
                     className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+                    disabled={queueLoading}
                   >
-                    Refresh queue
+                    {queueLoading ? 'Refreshing…' : 'Refresh queue'}
                   </button>
                 </div>
                 <dl className="mt-6 grid gap-4 text-sm text-slate-600 sm:grid-cols-3">

@@ -501,7 +501,10 @@ describe('agencyDashboardService', () => {
   });
 
   it('returns a workspace-scoped dashboard with member, project, and financial insights', async () => {
-    const dashboard = await getAgencyDashboard({ workspaceSlug: workspace.slug, lookbackDays: 120 });
+    const dashboard = await getAgencyDashboard(
+      { workspaceSlug: workspace.slug, lookbackDays: 120 },
+      { actorId: owner.id, actorRole: 'agency' },
+    );
 
     expect(dashboard.workspace.slug).toBe('nova-collective');
     expect(dashboard.scope).toBe('workspace');
@@ -554,7 +557,7 @@ describe('agencyDashboardService', () => {
   });
 
   it('falls back to global data when no workspace filter is provided', async () => {
-    const dashboard = await getAgencyDashboard();
+    const dashboard = await getAgencyDashboard({}, { actorId: owner.id, actorRole: 'agency' });
 
     expect(dashboard.workspace?.slug).toBe('nova-collective');
     expect(dashboard.summary.projects.total).toBeGreaterThanOrEqual(2);
@@ -563,8 +566,18 @@ describe('agencyDashboardService', () => {
 
   it('throws when an unknown workspace identifier is supplied', async () => {
     await expect(
-      getAgencyDashboard({ workspaceSlug: 'unknown-agency' }),
+      getAgencyDashboard({ workspaceSlug: 'unknown-agency' }, { actorId: owner.id, actorRole: 'agency' }),
     ).rejects.toThrow('Agency workspace not found.');
+  });
+
+  it('requires authentication context', async () => {
+    await expect(getAgencyDashboard()).rejects.toThrow('Authentication required');
+  });
+
+  it('prevents access for non-agency memberships', async () => {
+    await expect(
+      getAgencyDashboard({ workspaceSlug: workspace.slug }, { actorId: client.id, actorRole: 'company' }),
+    ).rejects.toThrow('You do not have permission to access the agency dashboard.');
   });
 });
 

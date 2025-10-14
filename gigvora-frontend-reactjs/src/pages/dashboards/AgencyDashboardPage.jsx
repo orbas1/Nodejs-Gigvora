@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowPathIcon,
   ArrowTrendingUpIcon,
@@ -22,10 +22,11 @@ import { fetchAgencyDashboard } from '../../services/agency.js';
 import { formatRelativeTime, formatAbsolute } from '../../utils/date.js';
 
 const DEFAULT_WORKSPACE_SLUG = 'nova-collective';
-const DEFAULT_MEMBERSHIPS = ['agency', 'freelancer', 'company'];
 const DEFAULT_LOOKBACK_DAYS = 120;
 const DASHBOARD_CACHE_TTL_MS = 1000 * 60 * 5; // five minutes
-const DEFAULT_MEMBERSHIPS = ['agency'];
+const AVAILABLE_DASHBOARDS = [
+  { id: 'agency', label: 'Agency Command Studio', href: '/dashboard/agency' },
+];
 
 function formatNumber(value) {
   if (value == null || Number.isNaN(Number(value))) {
@@ -194,6 +195,21 @@ function formatAvailabilityLabel(status) {
   return titleCase(status);
 }
 
+function normaliseWorkspaceSlug(value) {
+  if (!value) {
+    return null;
+  }
+  return value.toString().trim().toLowerCase();
+}
+
+function parseWorkspaceId(value) {
+  if (!value) {
+    return null;
+  }
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
 export default function AgencyDashboardPage() {
   const [state, setState] = useState({
     data: null,
@@ -204,11 +220,34 @@ export default function AgencyDashboardPage() {
   });
   const [refreshToken, setRefreshToken] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchParams] = useSearchParams();
+
+  const workspaceSlugParam = normaliseWorkspaceSlug(
+    searchParams.get('workspace') ?? searchParams.get('workspaceSlug'),
+  );
+  const workspaceIdParam = parseWorkspaceId(searchParams.get('workspaceId'));
+
+  const workspaceRequest = useMemo(() => {
+    const payload = { lookbackDays: DEFAULT_LOOKBACK_DAYS };
+    if (workspaceIdParam) {
+      payload.workspaceId = workspaceIdParam;
+      return payload;
+    }
+    payload.workspaceSlug = workspaceSlugParam ?? DEFAULT_WORKSPACE_SLUG;
+    return payload;
+  }, [workspaceIdParam, workspaceSlugParam]);
+
+  const workspaceCacheKey = useMemo(() => {
+    if (workspaceRequest.workspaceId) {
+      return `dashboard:agency:id:${workspaceRequest.workspaceId}:${workspaceRequest.lookbackDays}`;
+    }
+    return `dashboard:agency:${workspaceRequest.workspaceSlug}:${workspaceRequest.lookbackDays}`;
+  }, [workspaceRequest]);
 
   useEffect(() => {
     let isMounted = true;
     const abortController = new AbortController();
-    const cacheKey = `dashboard:agency:${DEFAULT_WORKSPACE_SLUG}:${DEFAULT_LOOKBACK_DAYS}`;
+    const cacheKey = workspaceCacheKey;
     const skipCache = refreshToken > 0;
 
     if (!skipCache) {
@@ -228,10 +267,9 @@ export default function AgencyDashboardPage() {
       setState((previous) => ({ ...previous, loading: true, error: null }));
     }
 
-    fetchAgencyDashboard(
-      { workspaceSlug: DEFAULT_WORKSPACE_SLUG, lookbackDays: DEFAULT_LOOKBACK_DAYS },
-      { signal: abortController.signal },
-    )
+    const requestPayload = { ...workspaceRequest };
+
+    fetchAgencyDashboard(requestPayload, { signal: abortController.signal })
       .then((payload) => {
         if (!isMounted) {
           return;
@@ -266,7 +304,7 @@ export default function AgencyDashboardPage() {
       isMounted = false;
       abortController.abort();
     };
-  }, [refreshToken]);
+  }, [refreshToken, workspaceCacheKey, workspaceRequest]);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -468,7 +506,10 @@ export default function AgencyDashboardPage() {
   const activeClientsCount = summary?.clients?.active ?? contactNotes.length;
   const releasedAmountText = formatCurrency(financialSummary.released ?? 0, financialSummary.currency);
   const summaryScope = state.data?.scope ?? 'global';
-  const workspaceSlugValue = workspace?.slug ?? 'n/a';
+  const workspaceSlugValue =
+    workspace?.slug ??
+    workspaceRequest.workspaceSlug ??
+    (workspaceRequest.workspaceId ? `workspace-${workspaceRequest.workspaceId}` : 'n/a');
 
   const revenueRunRateText = formatMetricValue(analyticsWarRoomData.summary?.revenueRunRate ?? null);
   const marginText = formatMetricValue(analyticsWarRoomData.summary?.grossMargin ?? null);
@@ -844,20 +885,73 @@ export default function AgencyDashboardPage() {
     jobs,
   };
 
-  const menuSections = useMemo(() => {
-    const activeProjects = summary?.projects?.buckets?.active ?? summary?.projects?.total ?? 0;
-    const utilization = summary?.members?.utilizationRate ?? 0;
-    const pendingInvites = summary?.members?.pendingInvites ?? invites.length;
+  const conversionRate = talentLifecycleSummary?.conversionRate ?? talentCrm?.conversionRate ?? 0;
+  const openInternalOpportunities = talentOpportunityBoard?.summary?.open ?? 0;
+  const averageMatchScore = talentOpportunityBoard?.summary?.averageMatchScore ?? 0;
+  const brandingReach = brandingStudio?.metrics?.totals?.reach ?? 0;
+  const benchCapacityHours = Number.isFinite(Number(capacityPlanning?.benchCapacityHours))
+    ? Math.round(Number(capacityPlanning.benchCapacityHours))
+    : 0;
+  const utilisationRate = capacityPlanning?.utilizationRate ?? utilizationRate ?? operationsUtilization.rate ?? 0;
+  const internalMarketplaceOpportunities =
+    internalMarketplace?.openOpportunities ?? pendingMatchesCount ?? autoAssignQueueSize;
+  const internalMarketplaceBenchReady = internalMarketplace?.benchAvailable ?? benchMembers.length;
+  const paymentsProcessedText = formatCurrencyTotals(
+    paymentsSummary.processedThisQuarter ?? [],
+    paymentsSummary.currency ?? financialSummary.currency ?? 'USD',
+  );
+  const paymentsOutstandingText = formatCurrencyTotals(
+    paymentsSummary.outstandingSplits?.totals ?? [],
+    paymentsSummary.currency ?? financialSummary.currency ?? 'USD',
+  );
+  const marketingPipelineText = formatCurrency(
+    marketingSummary.totalPipelineValue ?? 0,
+    defaultCurrency,
+  );
+  const gigProgramsManagedCount = gigProgramsSummary.managedGigs ?? gigProgramsSummary.totalGigs ?? totalGigsCount;
+  const operationsAlertsCount = operationsAlerts.length;
+  const averageWeeklyCapacityLabel =
+    averageWeeklyCapacity != null && !Number.isNaN(Number(averageWeeklyCapacity))
+      ? `${formatNumber(Math.round(Number(averageWeeklyCapacity)))}h`
+      : 'n/a';
 
-    const sections = [
+  const menuSections = useMemo(() => {
+    const workspaceScopeLabel =
+      summaryScope === 'workspace'
+        ? 'Workspace filtered'
+        : summaryScope === 'global_fallback'
+        ? 'Global metrics fallback'
+        : 'Global view';
+    const pendingInvitesLabel = formatNumber(pendingInvitesCount);
+    const benchSummaryText =
+      benchCapacityHours > 0 ? `${benchCapacityHours} bench hours` : 'Bench insights refreshing';
+    const internalMarketplaceDescription = `${formatNumber(internalMarketplaceOpportunities)} opportunities · ${formatNumber(
+      internalMarketplaceBenchReady,
+    )} bench ready`;
+    const operationsUtilizationRate = operationsUtilization.rate ?? 0;
+    const operationsAlertsCount = operationsAlerts.length;
+    const managedProjects = projectsWorkspaceSummary.totalProjects ?? totalProjectsCount;
+    const managedGigs = gigProgramsSummary.managedGigs ?? gigProgramsSummary.totalGigs ?? totalGigsCount;
+    const gigOnTimeRate = gigProgramsSummary.onTimeRate ?? 0;
     const conversionRate = talentLifecycleSummary?.conversionRate ?? talentCrm?.conversionRate ?? 0;
-    const openInternalOpportunities = talentOpportunityBoard?.summary?.open ?? 0;
+    const wellbeingScore = talentLifecycleSummary?.wellbeingScore ?? peopleOps?.wellbeing?.averageScore ?? 0;
+    const openInternalOpportunities =
+      talentOpportunityBoard?.summary?.open ?? internalMarketplace?.openOpportunities ?? 0;
     const averageMatchScore = talentOpportunityBoard?.summary?.averageMatchScore ?? 0;
     const brandingReach = brandingStudio?.metrics?.totals?.reach ?? 0;
-    const benchCapacityHours = Number.isFinite(Number(capacityPlanning?.benchCapacityHours))
-      ? Math.round(Number(capacityPlanning.benchCapacityHours))
-      : 0;
-    const utilisationRate = capacityPlanning?.utilizationRate ?? utilization;
+    const hrHeadcount = hrManagement?.activeHeadcount ?? totalMembersCount;
+    const hrComplianceOutstanding = hrManagement?.complianceOutstanding ?? 0;
+    const hrBenchMembers = hrManagement?.staffingCapacity?.benchMembers ?? benchCount;
+    const hrUtilization =
+      staffingCapacity?.utilizationRate ?? summary?.members?.utilizationRate ?? operationsUtilizationRate;
+    const benchCapacityHours = Math.round(
+      Number.isFinite(Number(capacityPlanning?.benchCapacityHours))
+        ? Number(capacityPlanning?.benchCapacityHours ?? 0)
+        : Number(staffingCapacity?.benchHours ?? 0),
+    );
+    const marketplaceBenchReady = internalMarketplace?.benchAvailable ?? benchMembers.length ?? 0;
+    const pendingMatches = internalMarketplace?.pendingMatches ?? pendingMatchesCount ?? 0;
+
     return [
       {
         label: 'Executive intelligence & governance',
@@ -870,7 +964,7 @@ export default function AgencyDashboardPage() {
           {
             name: 'Analytics war room',
             sectionId: 'analytics-war-room',
-            description: `${formatNumber(analyticsScorecardCount)} scorecards across ${formatNumber(analyticsCategoryCount)} categories`,
+            description: `${formatNumber(analyticsScorecardCount)} scorecards · ${formatNumber(analyticsCategoryCount)} categories`,
           },
           {
             name: 'Scenario explorer',
@@ -900,17 +994,19 @@ export default function AgencyDashboardPage() {
           {
             name: 'Agency overview',
             sectionId: 'agency-overview',
-            description: `${formatPercent(operationsUtilization.rate)} utilization · ${formatNumber(operationsAlerts.length)} alerts open`,
+            description: `${formatPercent(operationsUtilization.rate)} utilization · ${formatNumber(operationsAlertsCount)} alerts open`,
+            description: `${formatPercent(operationsUtilizationRate)} utilization · ${formatNumber(operationsAlertsCount)} alerts open`,
           },
           {
             name: 'Projects workspace',
             sectionId: 'projects-workspace',
-            description: `${formatNumber(projectsWorkspaceSummary.totalProjects ?? totalProjectsCount)} engagements · Margin ${formatPercent(projectsWorkspaceSummary.avgMargin ?? 0)}`,
+            description: `${formatNumber(managedProjects)} engagements · Margin ${formatPercent(projectsWorkspaceSummary.avgMargin ?? 0)}`,
           },
           {
             name: 'Gig programs',
             sectionId: 'gig-programs',
-            description: `${formatNumber(gigProgramsSummary.managedGigs ?? gigProgramsSummary.totalGigs ?? totalGigsCount)} managed gigs · ${formatPercent(gigProgramsSummary.onTimeRate ?? 0)} on-time`,
+            description: `${formatNumber(gigProgramsManagedCount)} managed gigs · ${formatPercent(gigProgramsSummary.onTimeRate ?? 0)} on-time`,
+            description: `${formatNumber(managedGigs)} managed gigs · ${formatPercent(gigOnTimeRate)} on-time`,
           },
         ],
       },
@@ -918,64 +1014,112 @@ export default function AgencyDashboardPage() {
         label: 'Talent lifecycle & HR excellence',
         items: [
           {
+            name: 'Talent overview',
+            sectionId: 'talent-overview',
+            description: `${formatPercent(conversionRate)} conversion · Wellbeing ${formatScore(wellbeingScore)}`,
+          },
+          {
             name: 'Talent CRM',
-            description: `${formatNumber(talentCrm?.totals?.candidates ?? 0)} candidates • ${formatPercent(conversionRate)} conversion`,
+            sectionId: 'talent-crm',
+            description: `${formatNumber(talentCrm?.totals?.candidates ?? 0)} candidates · ${formatPercent(conversionRate)} conversion`,
             tags: ['talent_crm'],
           },
           {
             name: 'People ops hub',
-            description: `${formatNumber(peopleOps?.policies?.active ?? 0)} active policies • ${formatPercent(peopleOps?.policies?.acknowledgementRate ?? 0)} acknowledgement`,
+            sectionId: 'people-ops',
+            description: `${formatNumber(peopleOps?.policies?.active ?? 0)} active policies · ${formatPercent(peopleOps?.policies?.acknowledgementRate ?? 0)} acknowledgement`,
             tags: ['people_ops'],
           },
           {
             name: 'Internal opportunity board',
-            description: `${formatNumber(openInternalOpportunities)} open opportunities • Avg match ${formatScore(averageMatchScore)}`,
+            sectionId: 'internal-opportunity-board',
+            description: `${formatNumber(openInternalOpportunities)} openings · Avg match ${formatScore(averageMatchScore)}`,
+          },
+          {
+            name: 'Agency member branding',
+            sectionId: 'agency-member-branding',
+            description: `${formatNumber(brandingStudio?.totals?.published ?? 0)} published assets · ${formatNumber(brandingReach)} reach`,
+            description: `${formatNumber(openInternalOpportunities)} open opportunities · Avg match ${formatScore(averageMatchScore)}`,
             tags: ['opportunity_board'],
           },
           {
             name: 'Agency member branding',
-            description: `${formatNumber(brandingStudio?.totals?.published ?? 0)} published assets • ${formatNumber(brandingReach)} reach`,
+            sectionId: 'agency-branding',
+            description: `${formatNumber(brandingStudio?.totals?.published ?? 0)} published assets · ${formatNumber(brandingReach)} reach`,
             tags: ['branding'],
           },
           {
             name: 'HR management',
-            description: `${formatNumber(totalMembersCount)} members · ${formatNumber(benchCount)} on bench · ${formatNumber(pendingInvitesCount)} invites open`,
+            sectionId: 'hr-management',
+            description: `${formatNumber(totalMembersCount)} members · ${formatNumber(benchCount)} on bench · ${pendingInvitesLabel} invites open · Avg weekly capacity ${averageWeeklyCapacityLabel}`,
+            description: `${formatNumber(hrHeadcount)} members · ${formatNumber(hrBenchMembers)} on bench · ${formatNumber(hrComplianceOutstanding)} compliance tasks`,
           },
           {
             name: 'Capacity planning',
-            description: `Average weekly capacity ${averageWeeklyCapacity ? `${averageWeeklyCapacity}h` : 'n/a'}.`,
+            sectionId: 'capacity-planning',
+            description: `${benchSummaryText} · Utilisation ${formatPercent(utilisationRate)}`,
+            description: `${benchCapacityHours} bench hours · Utilisation ${formatPercent(hrUtilization)}`,
           },
           {
             name: 'Internal marketplace',
-            description: `${formatNumber(pendingMatchesCount)} pending matches ready for review.`,
-            tags: ['auto-assign'],
-            description: `${formatNumber(hrManagement?.activeHeadcount ?? summary?.members?.total ?? members.length)} headcount • ${formatNumber(hrManagement?.complianceOutstanding ?? 0)} compliance tasks open`,
-          },
-          {
-            name: 'Capacity planning',
-            description: `${benchCapacityHours} bench hours • Utilisation ${formatPercent(utilisationRate)}`,
-          },
-          {
-            name: 'Internal marketplace',
-            description: `${formatNumber(internalMarketplace?.openOpportunities ?? 0)} open matches • ${formatNumber(internalMarketplace?.benchAvailable ?? benchMembers.length)} bench ready`,
+            sectionId: 'internal-marketplace',
+            description: internalMarketplaceDescription,
+            description: `${formatNumber(pendingMatches || openInternalOpportunities)} opportunities · ${formatNumber(marketplaceBenchReady)} bench ready`,
             tags: ['marketplace'],
           },
         ],
       },
       {
-        label: 'Growth & brand',
+        label: 'Operating intelligence',
         items: [
           {
             name: 'Analytics & insights',
-            description: `${releasedAmountText} released YTD.`,
+            sectionId: 'analytics-insights',
+            description: `${releasedAmountText} released YTD`,
           },
           {
             name: 'Marketing studio',
-            description: `${formatNumber(activeClientsCount)} active client relationships tracked.`,
+            sectionId: 'marketing-studio',
+            description: `${formatNumber(activeClientsCount)} active client relationships`,
           },
           {
             name: 'Settings & governance',
-            description: `Workspace ${workspaceSlugValue} · ${summaryScope === 'workspace' ? 'Workspace filtered' : summaryScope === 'global_fallback' ? 'Global metrics fallback' : 'Global view'}.`,
+            sectionId: 'settings-governance',
+            description: `Workspace ${workspaceSlugValue} · ${workspaceScopeLabel}.`,
+            name: 'Project portfolio mastery',
+            sectionId: 'project-portfolio-mastery',
+            description: `${formatNumber(portfolioSummary.totalProjects ?? 0)} projects · ${formatPercent(portfolioSummary.avgMargin ?? 0)} avg margin`,
+          },
+          {
+            name: 'Workspace orchestrator',
+            sectionId: 'workspace-orchestrator',
+            description: `${formatNumber(orchestratorSummary.totalBlueprints ?? 0)} blueprints · ${formatNumber(orchestratorSummary.automationGuardrails ?? 0)} guardrails`,
+          },
+          {
+            name: 'Resource intelligence',
+            sectionId: 'resource-intelligence',
+            description: `${formatPercent(resourceSummary.averageUtilization ?? 0)} utilisation · ${formatNumber(resourceSummary.totalScenarioPlans ?? 0)} scenarios`,
+          },
+          {
+            name: 'Quality assurance workflow',
+            sectionId: 'quality-assurance',
+            description: `${formatNumber(qualitySummary.completedReviews ?? 0)} reviews · QA ${formatPercent(qualitySummary.averageQaScore ?? 0)}`,
+          },
+          {
+            name: 'Financial oversight',
+            sectionId: 'financial-oversight',
+            description: `${formatNumber(financialOversightSummary.totalEngagements ?? 0)} engagements · ${formatNumber(financialOversightSummary.alerts ?? 0)} alerts`,
+          },
+          {
+            name: 'Payments distribution',
+            sectionId: 'payments-distribution',
+            description: `${formatCurrencyTotals(
+              paymentsSummary.processedThisQuarter ?? [],
+              paymentsSummary.currency ?? financialSummary.currency ?? 'USD',
+            )} processed · ${formatCurrencyTotals(
+              paymentsSummary.outstandingSplits?.totals ?? [],
+              paymentsSummary.currency ?? financialSummary.currency ?? 'USD',
+            )} outstanding`,
           },
         ],
       },
@@ -984,114 +1128,167 @@ export default function AgencyDashboardPage() {
         items: [
           {
             name: 'Agency gig studio',
-            description: `${formatNumber(studioSummary.managedGigs ?? studioSummary.totalGigs ?? 0)} managed gigs · ${formatPercent(
-              studioSummary.onTimeRate ?? 0,
-            )} on-time`,
             sectionId: 'marketplace-gig-leadership',
+            description: `${formatNumber(studioSummary.managedGigs ?? studioSummary.totalGigs ?? 0)} managed gigs · ${formatPercent(studioSummary.onTimeRate ?? 0)} on-time`,
           },
           {
             name: 'Partner & reseller programs',
-            description: `${formatNumber(partnerSummary.activeAlliances ?? 0)} alliances · ${formatPercent(
-              partnerSummary.averageConversionRate ?? 0,
-            )} avg conversion`,
             sectionId: 'partner-programs',
+            description: `${formatNumber(partnerSummary.activeAlliances ?? 0)} alliances · ${formatPercent(partnerSummary.averageConversionRate ?? 0)} avg conversion`,
           },
           {
             name: 'Marketing automation',
-            description: `${formatNumber(marketingSummary.activeCampaigns ?? 0)} live campaigns · ${formatCurrency(
-              marketingSummary.totalPipelineValue ?? 0,
-              defaultCurrency,
-            )} pipeline`,
             sectionId: 'marketing-automation',
+            description: `${formatNumber(marketingSummary.activeCampaigns ?? 0)} live campaigns · ${marketingPipelineText} pipeline`,
+            description: `${formatNumber(marketingSummary.activeCampaigns ?? 0)} live campaigns · ${formatCurrency(marketingSummary.totalPipelineValue ?? 0, defaultCurrency)} pipeline`,
           },
           {
             name: 'Client advocacy',
-            description: `${formatNumber(clientAdvocacySummary.activePlaybooks ?? 0)} playbooks · ${formatPercent(
-              clientAdvocacySummary.reviewResponseRate ?? 0,
-            )} response rate`,
             sectionId: 'client-advocacy',
+            description: `${formatNumber(clientAdvocacySummary.activePlaybooks ?? 0)} playbooks · ${formatPercent(clientAdvocacySummary.reviewResponseRate ?? 0)} response rate`,
+          },
+        ],
+      },
+      {
+        label: 'Operating intelligence',
+        items: [
+          {
+            name: 'Project portfolio mastery',
+            sectionId: 'project-portfolio-mastery',
+            description: `${formatNumber(portfolioSummary.totalProjects ?? 0)} projects · ${formatPercent(portfolioSummary.avgMargin ?? 0)} avg margin`,
+          },
+          {
+            name: 'Workspace orchestrator',
+            sectionId: 'workspace-orchestrator',
+            description: `${formatNumber(orchestratorSummary.totalBlueprints ?? 0)} blueprints · ${formatNumber(orchestratorSummary.automationGuardrails ?? 0)} guardrails`,
+          },
+          {
+            name: 'Resource intelligence',
+            sectionId: 'resource-intelligence',
+            description: `${formatPercent(resourceSummary.averageUtilization ?? 0)} utilization · ${formatNumber(resourceSummary.totalScenarioPlans ?? 0)} scenario plans`,
+          },
+          {
+            name: 'Quality assurance',
+            sectionId: 'quality-assurance',
+            description: `${formatNumber(qualitySummary.completedReviews ?? 0)} reviews · QA ${formatPercent(qualitySummary.averageQaScore ?? 0)}`,
+          },
+          {
+            name: 'Financial oversight',
+            sectionId: 'financial-oversight',
+            description: `${formatNumber(financialOversightSummary.totalEngagements ?? 0)} engagements · ${formatNumber(financialOversightSummary.alerts ?? 0)} alerts`,
+          },
+          {
+            name: 'Payments distribution',
+            sectionId: 'payments-distribution',
+            description: `${paymentsProcessedText} processed · ${paymentsOutstandingText} outstanding`,
+          },
+          {
+            name: 'Auto-assign queue',
+            sectionId: 'auto-assign-queue',
+            description: `${formatNumber(autoAssignQueueSize)} matches awaiting review`,
           },
         ],
       },
     ];
   }, [
-    revenueRunRateText,
+    activeClientsCount,
+    analyticsCategoryCount,
+    analyticsScorecardCount,
+    autoAssignQueueSize,
+    averageMatchScore,
+    averageWeeklyCapacityLabel,
+    benchCapacityHours,
+    benchCount,
+    brandingReach,
+    brandingStudio,
+    clientAdvocacySummary,
+    conversionRate,
+    financialOversightSummary,
+    gigProgramsManagedCount,
+    gigProgramsSummary.onTimeRate,
+    governanceObligationCount,
+    governancePolicyCount,
+    innovationCount,
+    internalMarketplaceBenchReady,
+    internalMarketplaceOpportunities,
+    leadershipDecisionCount,
+    leadershipRitualCount,
     marginText,
+    marketingPipelineText,
+    marketingSummary,
+    operationsAlertsCount,
+    operationsUtilization.rate,
+    partnerSummary,
+    paymentsOutstandingText,
+    paymentsProcessedText,
+    pendingInvitesCount,
+    peopleOps,
+    portfolioSummary,
+    releasedAmountText,
+    resourceSummary,
+    revenueRunRateText,
+    scenarioCount,
+    studioSummary,
+    summaryScope,
+    talentCrm,
+    openInternalOpportunities,
+    totalMembersCount,
+    totalProjectsCount,
+    totalGigsCount,
+    utilisationRate,
+    workspaceSlugValue,
+          },
+        ],
+      },
+    ];
+  }, [
     analyticsScorecardCount,
     analyticsCategoryCount,
-    scenarioCount,
-    governancePolicyCount,
-    governanceObligationCount,
-    leadershipRitualCount,
-    leadershipDecisionCount,
-    innovationCount,
-    utilizationRate,
-    activeProjectsCount,
-    totalProjectsCount,
-    autoAssignQueueSize,
-    totalGigsCount,
-    acceptedAssignmentsCount,
-    totalMembersCount,
-    benchCount,
-    pendingInvitesCount,
-    averageWeeklyCapacity,
-    pendingMatchesCount,
-    releasedAmountText,
-    activeClientsCount,
-    workspaceSlugValue,
-    summaryScope,
-
-    sections.push({
-      label: 'Operating intelligence',
-      items: [
-        {
-          name: 'Project portfolio mastery',
-          description: `${formatNumber(portfolioSummary.totalProjects ?? 0)} projects · ${formatPercent(portfolioSummary.avgMargin ?? 0)} avg margin`,
-          sectionId: 'project-portfolio-mastery',
-        },
-        {
-          name: 'Workspace orchestrator',
-          description: `${formatNumber(orchestratorSummary.totalBlueprints ?? 0)} blueprints · ${formatNumber(orchestratorSummary.automationGuardrails ?? 0)} guardrails`,
-          sectionId: 'workspace-orchestrator',
-        },
-        {
-          name: 'Resource intelligence',
-          description: `${formatPercent(resourceSummary.averageUtilization ?? 0)} utilization · ${formatNumber(resourceSummary.totalScenarioPlans ?? 0)} scenarios`,
-          sectionId: 'resource-intelligence',
-        },
-        {
-          name: 'Quality assurance workflow',
-          description: `${formatNumber(qualitySummary.completedReviews ?? 0)} reviews · QA ${formatPercent(qualitySummary.averageQaScore ?? 0)}`,
-          sectionId: 'quality-assurance',
-        },
-        {
-          name: 'Financial oversight',
-          description: `${formatNumber(financialOversightSummary.totalEngagements ?? 0)} engagements · ${formatNumber(financialOversightSummary.alerts ?? 0)} alerts`,
-          sectionId: 'financial-oversight',
-        },
-        {
-          name: 'Payments distribution',
-          description: `${formatCurrencyTotals(paymentsSummary.processedThisQuarter ?? [], paymentsSummary.currency ?? financialSummary.currency ?? 'USD')} processed · ${formatCurrencyTotals(paymentsSummary.outstandingSplits?.totals ?? [], paymentsSummary.currency ?? financialSummary.currency ?? 'USD')} outstanding`,
-          sectionId: 'payments-distribution',
-        },
-      ],
-    });
-
-    return sections;
-  }, [
-    summary,
-    invites.length,
+    averageMatchScore,
+    benchCapacityHours,
     benchMembers.length,
-    gigs.length,
-    contactNotes.length,
-    workspace?.slug,
-    state.data?.scope,
-    portfolioSummary,
-    orchestratorSummary,
-    resourceSummary,
-    qualitySummary,
+    benchCount,
+    brandingReach,
+    clientAdvocacySummary,
+    conversionRate,
+    defaultCurrency,
     financialOversightSummary,
+    financialSummary.currency,
+    gigProgramsSummary,
+    governanceObligationCount,
+    governancePolicyCount,
+    hrComplianceOutstanding,
+    hrHeadcount,
+    hrBenchMembers,
+    hrUtilization,
+    innovationCount,
+    internalMarketplace,
+    marketingSummary,
+    operationsAlertsCount,
+    operationsUtilizationRate,
+    partnerSummary,
     paymentsSummary,
+    peopleOps,
+    portfolioSummary,
+    projectsWorkspaceSummary,
+    resourceSummary,
+    revenueRunRateText,
+    scenarioCount,
+    summary?.members?.utilizationRate,
+    summaryScope,
+    talentCrm,
+    talentLifecycleSummary,
+    talentOpportunityBoard,
+    totalGigsCount,
+    totalMembersCount,
+    totalProjectsCount,
+    wellbeingScore,
+    workspaceSlugValue,
+    leadershipDecisionCount,
+    leadershipRitualCount,
+    marginText,
+    operationsAlerts,
+    studioSummary,
   ]);
 
   const portfolioSummaryCards = [
@@ -2078,7 +2275,10 @@ export default function AgencyDashboardPage() {
                 <li className="text-sm text-slate-500">No audit exports generated yet.</li>
               )}
   const renderTalentOverview = (
-    <div className="rounded-3xl border border-purple-100 bg-gradient-to-r from-purple-50 via-indigo-50 to-sky-50 p-6">
+    <section
+      id="talent-overview"
+      className="rounded-3xl border border-purple-100 bg-gradient-to-r from-purple-50 via-indigo-50 to-sky-50 p-6"
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-slate-900">Talent lifecycle &amp; HR excellence</h2>
@@ -2134,11 +2334,11 @@ export default function AgencyDashboardPage() {
           </dd>
         </div>
       </dl>
-    </div>
+    </section>
   );
 
   const renderHrManagementSection = (
-    <section className="rounded-3xl border border-purple-100 bg-white p-8 shadow-sm">
+    <section id="hr-management" className="rounded-3xl border border-purple-100 bg-white p-8 shadow-sm">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-purple-600">Workforce intelligence</p>
@@ -2370,7 +2570,7 @@ export default function AgencyDashboardPage() {
   );
 
   const renderTalentCrm = (
-    <div className="rounded-3xl border border-purple-100 bg-white p-6">
+    <section id="talent-crm" className="rounded-3xl border border-purple-100 bg-white p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-slate-900">Talent CRM</h2>
@@ -2451,11 +2651,11 @@ export default function AgencyDashboardPage() {
           </ul>
         </div>
       </div>
-    </div>
+    </section>
   );
 
   const renderPeopleOpsHub = (
-    <div className="rounded-3xl border border-purple-100 bg-white p-6">
+    <section id="people-ops" className="rounded-3xl border border-purple-100 bg-white p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-slate-900">People ops hub</h2>
@@ -2813,11 +3013,11 @@ export default function AgencyDashboardPage() {
         </div>
       </div>
     </section>
-    </div>
+    </section>
   );
 
   const renderTalentOpportunityBoard = (
-    <div className="rounded-3xl border border-purple-100 bg-white p-6">
+    <section id="internal-opportunity-board" className="rounded-3xl border border-purple-100 bg-white p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-slate-900">Internal opportunity board</h2>
@@ -2875,11 +3075,11 @@ export default function AgencyDashboardPage() {
           </ul>
         </div>
       </div>
-    </div>
+    </section>
   );
 
   const renderBrandingStudio = (
-    <div className="rounded-3xl border border-purple-100 bg-white p-6">
+    <section id="agency-branding" className="rounded-3xl border border-purple-100 bg-white p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-slate-900">Agency member branding</h2>
@@ -2945,7 +3145,7 @@ export default function AgencyDashboardPage() {
           </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 
   const renderProjects = (
@@ -5215,7 +5415,7 @@ export default function AgencyDashboardPage() {
       menuSections={menuSections}
       sections={capabilitySections}
       profile={profile}
-      availableDashboards={DEFAULT_MEMBERSHIPS}
+      availableDashboards={AVAILABLE_DASHBOARDS}
     >
       {renderContent}
     </DashboardLayout>

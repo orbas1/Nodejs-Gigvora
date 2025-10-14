@@ -123,6 +123,100 @@ class AgencyDashboardRepository {
         'Warm up the Nova Health lead with a co-marketing playbook.',
         'Launch an internal spotlight on the volunteer design sprint outcomes.',
       ],
+      hr: AgencyHrSnapshot(
+        headcount: 148,
+        contractors: 24,
+        complianceOutstanding: 7,
+        benchHours: 320,
+        benchHealthLabel: 'Balanced',
+        utilizationRate: 0.91,
+        alerts: const [
+          AgencyHrAlert(
+            message: 'Design pod utilisation is at 96% for the third week running.',
+            type: 'Utilisation',
+            severity: AgencyHrAlertSeverity.warning,
+            nextAction: 'Rotate bench brand strategists into the design pod to relieve capacity.',
+          ),
+          AgencyHrAlert(
+            message: 'Policy acknowledgement overdue for data processing addendum.',
+            type: 'Compliance',
+            severity: AgencyHrAlertSeverity.info,
+            nextAction: 'Trigger automated reminder and follow-up with contractor leads.',
+          ),
+          AgencyHrAlert(
+            message: 'Exits pending for two delivery leads without coverage plan.',
+            type: 'Exit management',
+            severity: AgencyHrAlertSeverity.critical,
+            nextAction: 'Schedule succession briefing and assign interim coverage owners.',
+          ),
+        ],
+        policies: [
+          AgencyHrPolicy(
+            title: 'Data processing agreement',
+            outstanding: 3,
+            reviewCycleDays: 180,
+            effectiveDate: now.subtract(const Duration(days: 28)),
+          ),
+          AgencyHrPolicy(
+            title: 'Hybrid working handbook',
+            outstanding: 5,
+            reviewCycleDays: 90,
+            effectiveDate: now.subtract(const Duration(days: 72)),
+          ),
+        ],
+        roleCoverage: const [
+          AgencyHrRoleCoverage(
+            role: 'Product design lead',
+            active: 6,
+            hiring: 2,
+            bench: 1,
+            utilizationRate: 0.94,
+          ),
+          AgencyHrRoleCoverage(
+            role: 'Growth strategist',
+            active: 5,
+            hiring: 1,
+            bench: 2,
+            utilizationRate: 0.72,
+          ),
+          AgencyHrRoleCoverage(
+            role: 'Revenue operations analyst',
+            active: 4,
+            hiring: 2,
+            bench: 0,
+            utilizationRate: 0.98,
+            needsAttention: true,
+          ),
+        ],
+        staffing: const AgencyStaffingSummary(
+          totalCapacityHours: 560,
+          committedHours: 496,
+          benchMembers: 12,
+          benchRate: 0.18,
+          summary: 'Capacity is balanced across pods with reserve coverage available.',
+          recommendedAction: 'Deploy bench storytellers into the growth squad for upcoming campaigns.',
+        ),
+        onboarding: [
+          AgencyHrOnboardingCandidate(
+            name: 'Rachel Kim',
+            role: 'Brand strategist',
+            status: 'in_progress',
+            startDate: now.add(const Duration(days: 5)),
+          ),
+          AgencyHrOnboardingCandidate(
+            name: 'Jonah Patel',
+            role: 'RevOps analyst',
+            status: 'awaiting_it_access',
+            startDate: now.add(const Duration(days: 8)),
+          ),
+          AgencyHrOnboardingCandidate(
+            name: 'Samira Lopez',
+            role: 'UX researcher',
+            status: 'equipment_shipped',
+            startDate: now.add(const Duration(days: 12)),
+          ),
+        ],
+      ),
     );
 
     final random = Random();

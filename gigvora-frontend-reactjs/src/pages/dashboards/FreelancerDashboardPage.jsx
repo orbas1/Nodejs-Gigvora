@@ -1,12 +1,28 @@
 import { useMemo } from 'react';
+import {
+  BellAlertIcon,
+  BoltIcon,
+  ClipboardDocumentCheckIcon,
+  CurrencyDollarIcon,
+  HomeModernIcon,
+  LifebuoyIcon,
+  QueueListIcon,
+} from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import DataStatus from '../../components/DataStatus.jsx';
 import useCachedResource from '../../hooks/useCachedResource.js';
+import RoleGate from '../../components/access/RoleGate.jsx';
+import useRoleAccess from '../../hooks/useRoleAccess.js';
 import { fetchFreelancerDashboard } from '../../services/freelancer.js';
 import { formatRelativeTime } from '../../utils/date.js';
 
 const DEFAULT_FREELANCER_ID = 2;
-const availableDashboards = ['freelancer', 'user', 'agency', 'company'];
+const AVAILABLE_DASHBOARDS = [
+  { id: 'freelancer', label: 'Freelancer', href: '/dashboard/freelancer' },
+  { id: 'freelancer-pipeline', label: 'Pipeline HQ', href: '/dashboard/freelancer/pipeline' },
+  { id: 'agency', label: 'Agency', href: '/dashboard/agency' },
+  { id: 'company', label: 'Company', href: '/dashboard/company' },
+];
 
 function formatNumber(value, { fractionDigits = 0 } = {}) {
   if (value == null || Number.isNaN(Number(value))) {
@@ -56,8 +72,8 @@ function formatStatus(value) {
     .join(' ');
 }
 
-function buildProfileCard(profile, summary) {
-  if (!profile) {
+function buildProfileCard(profile, summary, session) {
+  if (!profile && !session) {
     return {
       name: 'Freelancer',
       role: 'Independent talent',
@@ -68,21 +84,22 @@ function buildProfileCard(profile, summary) {
     };
   }
 
-  const initials = profile.name
-    ? profile.name
-        .split(/\s+/)
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((part) => part[0].toUpperCase())
-        .join('')
-    : 'FR';
+  const displayName = session?.name ?? profile?.name ?? `${profile?.firstName ?? ''} ${profile?.lastName ?? ''}`.trim();
+  const initialsSource = session?.name ?? profile?.name;
+  const initials = (initialsSource ?? displayName ?? 'Freelancer')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('')
+    .trim() || 'FR';
 
-  const availabilityStatus = profile.availability?.status
+  const availabilityStatus = profile?.availability?.status
     ? `Availability: ${formatStatus(profile.availability.status)}`
-    : null;
+    : session?.status ?? null;
 
   const badges = [];
-  if (profile.statusFlags?.length) {
+  if (profile?.statusFlags?.length) {
     badges.push(...profile.statusFlags.slice(0, 2).map(formatStatus));
   }
   if (summary?.activeClients) {
@@ -103,86 +120,110 @@ function buildProfileCard(profile, summary) {
     metricBadges.push({ label: 'Projects', value: formatNumber(summary.activeProjects) });
   }
 
-  const title = profile.freelancerProfile?.title ?? profile.headline ?? 'Independent professional';
+  const title = session?.title
+    ? `Freelance ${session.title}`
+    : profile?.freelancerProfile?.title ?? profile?.headline ?? 'Independent professional';
 
   return {
-    name: profile.name ?? `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.trim(),
+    name: displayName || 'Freelancer',
     role: title,
-    initials: profile.initials ?? (initials || 'FR'),
+    initials,
     status: availabilityStatus ?? 'Operating at scale',
     badges,
     metrics: metricBadges,
+    avatarUrl: session?.avatarSeed
+      ? `https://api.dicebear.com/7.x/thumbs/svg?seed=${encodeURIComponent(session.avatarSeed)}`
+      : profile?.avatarUrl ?? null,
   };
 }
 
-function buildMenuSections(summary, queueMetrics) {
-  const invites = summary?.queuePending ?? 0;
-  const activeProjects = summary?.activeProjects ?? 0;
-  const gigs = summary?.gigEngagements ?? 0;
-  const acceptanceRate = summary?.completionRate != null ? formatPercent(summary.completionRate) : '0%';
+function buildMenuSections({ summary, queueMetrics, opportunities, projects, transactions, supportCases, engagementTasks, notifications }) {
+  const invites = summary?.queuePending ?? opportunities.length ?? 0;
+  const activeProjects = summary?.activeProjects ?? projects.length ?? 0;
+  const monthlyRevenue = summary?.monthlyRevenue ?? 0;
+  const currency = summary?.currency ?? 'USD';
+  const openCases = supportCases.length ?? 0;
+  const pendingTasks = engagementTasks.length ?? 0;
+  const unreadAlerts = notifications.filter((item) => item?.isUnread).length ?? 0;
+  const averageScore = queueMetrics?.averageScore ? queueMetrics.averageScore.toFixed(2) : '0.00';
 
   return [
     {
+      id: 'mission-control',
+      label: 'Mission control',
+      items: [
+        {
+          id: 'overview',
+          sectionId: 'overview',
+          name: 'Mission overview',
+          description: `${formatNumber(activeProjects)} live projects · ${formatNumber(summary?.activeClients ?? 0)} active clients`,
+          icon: HomeModernIcon,
+        },
+      ],
+    },
+    {
+      id: 'service-delivery',
       label: 'Service delivery',
       items: [
         {
-          name: 'Project workspace',
-          description: `${formatNumber(activeProjects)} live projects with ${formatNumber(
-            queueMetrics?.counts?.accepted ?? 0,
-          )} confirmed collaborators.`,
-          tags: ['projects'],
+          id: 'opportunity-pipeline',
+          sectionId: 'opportunity-pipeline',
+          name: 'Opportunity pipeline',
+          description: `${formatNumber(invites)} invites · avg score ${averageScore}`,
+          icon: QueueListIcon,
         },
         {
-          name: 'Gig operations',
-          description: `${formatNumber(gigs)} active gigs · ${formatNumber(
-            summary?.gigRequests ?? 0,
-          )} new requests in queue.`,
-          tags: ['gigs'],
-        },
-        {
-          name: 'Client communications',
-          description: `${formatNumber(summary?.activeClients ?? 0)} active client relationships monitored.`,
-          tags: ['crm'],
+          id: 'active-projects',
+          sectionId: 'active-projects',
+          name: 'Project delivery',
+          description: `${formatNumber(projects.length)} engagements with telemetry`,
+          icon: ClipboardDocumentCheckIcon,
         },
       ],
     },
     {
-      label: 'Pipeline & automation',
+      id: 'commerce-finance',
+      label: 'Commerce & finance',
       items: [
         {
-          name: 'Auto-assign queue',
-          description: `${formatNumber(invites)} invites awaiting response · average score ${
-            queueMetrics?.averageScore ? queueMetrics.averageScore.toFixed(2) : '0.00'
-          }.`,
-          tags: ['auto-assign'],
-        },
-        {
-          name: 'Workflow automations',
-          description: `Completion rate tracking at ${acceptanceRate}. Keep streaks alive with timely responses.`,
-        },
-        {
-          name: 'Support & compliance',
-          description: `${formatNumber(summary?.activeClients ?? 0)} clients monitored · ${formatNumber(
-            summary?.queueAccepted ?? 0,
-          )} active deliverables.`,
+          id: 'financial-overview',
+          sectionId: 'financial-overview',
+          name: 'Finance & escrow',
+          description: `${formatCurrency(monthlyRevenue, currency)} booked in the last 30 days`,
+          icon: CurrencyDollarIcon,
         },
       ],
     },
     {
-      label: 'Growth & insights',
+      id: 'client-success',
+      label: 'Client success',
       items: [
         {
-          name: 'Revenue intelligence',
-          description: `${formatCurrency(summary?.monthlyRevenue ?? 0, summary?.currency ?? 'USD')} booked this month.`,
-          tags: ['revenue'],
+          id: 'client-success',
+          sectionId: 'client-success',
+          name: 'Support desk',
+          description: `${formatNumber(openCases)} active cases`,
+          icon: LifebuoyIcon,
         },
         {
-          name: 'Client advocacy',
-          description: `${formatNumber(summary?.activeClients ?? 0)} accounts with real-time sentiment monitoring.`,
+          id: 'growth-automation',
+          sectionId: 'growth-automation',
+          name: 'Growth & automations',
+          description: `${formatNumber(pendingTasks)} engagement jobs queued`,
+          icon: BoltIcon,
         },
+      ],
+    },
+    {
+      id: 'signals',
+      label: 'Signals',
+      items: [
         {
-          name: 'Learning & assets',
-          description: 'Training nudges and engagement jobs curated for momentum.',
+          id: 'notifications',
+          sectionId: 'notifications',
+          name: 'Signals & alerts',
+          description: `${formatNumber(unreadAlerts)} unread signals`,
+          icon: BellAlertIcon,
         },
       ],
     },
@@ -239,7 +280,7 @@ function buildProjectCards(projects, currency) {
     status: formatStatus(project.status),
     revenue: formatCurrency(project.revenue ?? 0, project.budgetCurrency ?? currency ?? 'USD'),
     outstanding: formatCurrency(project.outstanding ?? 0, project.budgetCurrency ?? currency ?? 'USD'),
-    assignments: project.assignments,
+    assignments: project.assignments ?? { accepted: 0, pending: 0, notified: 0 },
     description: project.description ?? '',
   }));
 }
@@ -278,7 +319,7 @@ function buildEngagementTasks(tasks) {
 }
 
 function buildNotifications(items) {
-  return items.slice(0, 4).map((notification) => ({
+  return items.slice(0, 6).map((notification) => ({
     id: notification.id,
     title: notification.title,
     category: formatStatus(notification.category),
@@ -288,18 +329,15 @@ function buildNotifications(items) {
 }
 
 export default function FreelancerDashboardPage() {
-  const freelancerId = DEFAULT_FREELANCER_ID;
-  const {
-    data,
-    error,
-    loading,
-    fromCache,
-    lastUpdated,
-    refresh,
-  } = useCachedResource(
-    `dashboard:freelancer:${freelancerId}`,
-    ({ signal }) => fetchFreelancerDashboard(freelancerId, { signal }),
-    { ttl: 1000 * 60 },
+  const { session, hasAccess } = useRoleAccess(['freelancer']);
+  const freelancerId = session?.freelancerId ?? session?.id ?? null;
+  const normalizedFreelancerId = freelancerId ?? DEFAULT_FREELANCER_ID;
+  const shouldFetch = hasAccess && freelancerId != null;
+
+  const { data, error, loading, fromCache, lastUpdated, refresh } = useCachedResource(
+    `dashboard:freelancer:${normalizedFreelancerId}`,
+    ({ signal }) => fetchFreelancerDashboard(normalizedFreelancerId, { signal }),
+    { ttl: 1000 * 60, dependencies: [normalizedFreelancerId], enabled: shouldFetch },
   );
 
   const summary = data?.summary ?? {};
@@ -314,11 +352,9 @@ export default function FreelancerDashboardPage() {
   const nextAction = data?.tasks?.nextAction ?? null;
   const notifications = Array.isArray(data?.notifications?.recent) ? data.notifications.recent : [];
 
-  const profileCard = useMemo(() => buildProfileCard(data?.profile, summary), [data?.profile, summary]);
-
-  const menuSections = useMemo(
-    () => buildMenuSections(summary, queueMetrics),
-    [summary, queueMetrics],
+  const profileCard = useMemo(
+    () => buildProfileCard(data?.profile ?? null, summary, session ?? null),
+    [data?.profile, session, summary],
   );
 
   const summaryCards = useMemo(() => buildSummaryCards(summary), [summary]);
@@ -335,320 +371,365 @@ export default function FreelancerDashboardPage() {
   const taskRows = useMemo(() => buildEngagementTasks(engagementTasks), [engagementTasks]);
   const notificationRows = useMemo(() => buildNotifications(notifications), [notifications]);
 
-  const heroTitle = 'Freelancer Operations HQ';
-  const heroSubtitle = 'Service business cockpit';
+  const menuSections = useMemo(
+    () =>
+      buildMenuSections({
+        summary,
+        queueMetrics,
+        opportunities: queueEntries,
+        projects,
+        transactions,
+        supportCases,
+        engagementTasks,
+        notifications: notificationRows,
+      }),
+    [summary, queueMetrics, queueEntries, projects, transactions, supportCases, engagementTasks, notificationRows],
+  );
+
+  const heroTitle = 'Freelancer mission control';
+  const heroSubtitle = 'Operate your Gigvora business with enterprise-grade telemetry.';
   const heroDescription =
-    'Monitor projects, gigs, finances, and client sentiment in a single command center designed for elite independents.';
+    'Monitor projects, gigs, finances, and client sentiment in one cockpit built for elite independents.';
 
   return (
-    <DashboardLayout
-      currentDashboard="freelancer"
-      title={heroTitle}
-      subtitle={heroSubtitle}
-      description={heroDescription}
-      menuSections={menuSections}
-      sections={[]}
-      profile={profileCard}
-      availableDashboards={availableDashboards}
-    >
-      <div className="space-y-10">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <DataStatus loading={loading} fromCache={fromCache} lastUpdated={lastUpdated} onRefresh={() => refresh({ force: true })} />
-          {error ? (
-            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-600">
-              {error.message ?? 'Unable to load freelancer dashboard.'}
-            </div>
-          ) : null}
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {summaryCards.map((card) => (
-            <div
-              key={card.label}
-              className="rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-[0_18px_45px_-25px_rgba(37,99,235,0.25)]"
-            >
-              <p className="text-xs font-semibold uppercase tracking-wide text-accent">{card.label}</p>
-              <p className="mt-2 text-2xl font-semibold text-slate-900">{card.value}</p>
-              <p className="mt-1 text-sm text-slate-500">{card.description}</p>
-            </div>
-          ))}
-        </div>
-
-        <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-soft sm:p-8">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Opportunity pipeline</h2>
-              <p className="mt-2 max-w-2xl text-sm text-slate-600">
-                Auto-assign invites, gig requests, and collaboration slots awaiting your response.
-              </p>
-            </div>
-            {nextAction ? (
-              <div className="rounded-2xl border border-accent/30 bg-accentSoft px-4 py-2 text-xs font-medium uppercase tracking-wide text-accent">
-                {nextAction.dueInHours != null
-                  ? `${nextAction.label} · respond within ${nextAction.dueInHours}h`
-                  : nextAction.label}
+    <RoleGate allowedRoles={['freelancer']} featureName="Freelancer mission control">
+      <DashboardLayout
+        currentDashboard="freelancer"
+        title={heroTitle}
+        subtitle={heroSubtitle}
+        description={heroDescription}
+        menuSections={menuSections}
+        sections={[]}
+        profile={profileCard}
+        availableDashboards={AVAILABLE_DASHBOARDS}
+        activeMenuItem="overview"
+      >
+        <div className="space-y-10">
+          <section id="overview" className="space-y-6">
+            {!shouldFetch ? (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                Link your freelancer workspace to unlock live mission control data. Some telemetry is hidden until your ID is
+                verified.
               </div>
             ) : null}
-          </div>
-
-          <div className="mt-6 overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-100 text-sm">
-              <thead className="bg-slate-50/70 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-4 py-3">Opportunity</th>
-                  <th className="px-4 py-3">Type</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Score</th>
-                  <th className="px-4 py-3">Response window</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {opportunityRows.length ? (
-                  opportunityRows.map((row) => (
-                    <tr key={row.id} className="hover:bg-accentSoft/40">
-                      <td className="px-4 py-3 text-slate-800">
-                        <div className="font-medium">{row.name}</div>
-                        {row.breakdown ? (
-                          <div className="mt-1 flex flex-wrap gap-2 text-[11px] uppercase tracking-wide text-slate-400">
-                            {row.breakdown.expertise != null ? `Expertise ${Math.round(row.breakdown.expertise * 100)}%` : null}
-                            {row.breakdown.fairness != null ? `Fairness ${Math.round(row.breakdown.fairness * 100)}%` : null}
-                          </div>
-                        ) : null}
-                      </td>
-                      <td className="px-4 py-3 text-slate-500">{formatStatus(row.targetType)}</td>
-                      <td className="px-4 py-3 text-slate-600">{row.status}</td>
-                      <td className="px-4 py-3 text-slate-600">{row.score}</td>
-                      <td className="px-4 py-3 text-slate-600">{row.responseDueInHours}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
-                      No live opportunities in the queue. Refresh to capture new invites.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-soft sm:p-8">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Active projects</h2>
-              <p className="mt-2 max-w-2xl text-sm text-slate-600">
-                Delivery health, assignment mix, and revenue exposure across projects you lead.
-              </p>
-            </div>
-            <div className="rounded-full border border-slate-200 px-4 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              {formatNumber(projects.length)} total tracked
-            </div>
-          </div>
-
-          <div className="mt-6 grid gap-4 lg:grid-cols-2">
-            {projectCards.length ? (
-              projectCards.map((project) => (
-                <div key={project.id} className="rounded-2xl border border-slate-200 bg-white/95 p-5 shadow-sm">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h3 className="text-lg font-semibold text-slate-900">{project.title}</h3>
-                      <p className="text-sm text-slate-500">{project.description}</p>
-                    </div>
-                    <span className="rounded-full border border-accent/30 bg-accentSoft px-3 py-1 text-xs font-semibold uppercase tracking-wide text-accent">
-                      {project.status}
-                    </span>
-                  </div>
-                  <dl className="mt-4 grid grid-cols-2 gap-3 text-sm text-slate-600">
-                    <div>
-                      <dt className="text-xs uppercase tracking-wide text-slate-400">Revenue released</dt>
-                      <dd className="mt-1 font-semibold text-slate-900">{project.revenue}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs uppercase tracking-wide text-slate-400">Outstanding</dt>
-                      <dd className="mt-1 font-semibold text-slate-900">{project.outstanding}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs uppercase tracking-wide text-slate-400">Assignments</dt>
-                      <dd className="mt-1 text-slate-600">
-                        {project.assignments.accepted} accepted · {project.assignments.pending} pending ·{' '}
-                        {project.assignments.notified} notified
-                      </dd>
-                    </div>
-                  </dl>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <DataStatus
+                loading={loading}
+                fromCache={fromCache}
+                lastUpdated={lastUpdated}
+                onRefresh={() => refresh({ force: true })}
+              />
+              {error ? (
+                <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-600">
+                  {error.message ?? 'Unable to load freelancer dashboard.'}
                 </div>
-              ))
-            ) : (
-              <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-slate-500">
-                Projects will populate here once you accept an auto-assign invite or launch a gig delivery.
+              ) : null}
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {summaryCards.map((card) => (
+                <div
+                  key={card.label}
+                  className="rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-[0_18px_45px_-25px_rgba(37,99,235,0.25)]"
+                >
+                  <p className="text-xs font-semibold uppercase tracking-wide text-accent">{card.label}</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-900">{card.value}</p>
+                  <p className="mt-1 text-sm text-slate-500">{card.description}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section id="opportunity-pipeline" className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-soft sm:p-8">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Opportunity pipeline</h2>
+                <p className="mt-2 max-w-2xl text-sm text-slate-600">
+                  Auto-assign invites, referrals, and gig leads awaiting your response.
+                </p>
               </div>
-            )}
-          </div>
+              <div className="rounded-full border border-slate-200 px-4 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {formatNumber(queueEntries.length)} in review
+              </div>
+            </div>
 
-          {timeline.length ? (
-            <div className="mt-8">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Recent delivery events</h3>
-              <ul className="mt-3 space-y-3">
-                {timeline.slice(0, 4).map((event) => (
-                  <li key={event.id} className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
-                    <div className="mt-1 h-2 w-2 rounded-full bg-accent" />
-                    <div className="text-sm text-slate-600">
-                      <p className="font-medium text-slate-800">
-                        {formatStatus(event.eventType)} · {event.project?.title ?? `Project #${event.projectId}`}
-                      </p>
-                      {event.createdAt ? (
-                        <p className="text-xs text-slate-400">{formatRelativeTime(event.createdAt)}</p>
-                      ) : null}
+            <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200">
+              <table className="min-w-full divide-y divide-slate-100 text-left text-sm text-slate-600">
+                <thead className="bg-slate-50/80 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3">Opportunity</th>
+                    <th className="px-4 py-3">Type</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Score</th>
+                    <th className="px-4 py-3">Response window</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {opportunityRows.length ? (
+                    opportunityRows.map((row) => (
+                      <tr key={row.id} className="hover:bg-accentSoft/40">
+                        <td className="px-4 py-3 text-slate-800">
+                          <div className="font-medium">{row.name}</div>
+                          {row.breakdown ? (
+                            <div className="mt-1 flex flex-wrap gap-2 text-[11px] uppercase tracking-wide text-slate-400">
+                              {row.breakdown.expertise != null ? `Expertise ${Math.round(row.breakdown.expertise * 100)}%` : null}
+                              {row.breakdown.fairness != null ? `Fairness ${Math.round(row.breakdown.fairness * 100)}%` : null}
+                            </div>
+                          ) : null}
+                        </td>
+                        <td className="px-4 py-3 text-slate-500">{formatStatus(row.targetType)}</td>
+                        <td className="px-4 py-3 text-slate-600">{row.status}</td>
+                        <td className="px-4 py-3 text-slate-600">{row.score}</td>
+                        <td className="px-4 py-3 text-slate-600">{row.responseDueInHours}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
+                        No live opportunities in the queue. Refresh to capture new invites.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section id="active-projects" className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-soft sm:p-8">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Active projects</h2>
+                <p className="mt-2 max-w-2xl text-sm text-slate-600">
+                  Delivery health, assignment mix, and revenue exposure across projects you lead.
+                </p>
+              </div>
+              <div className="rounded-full border border-slate-200 px-4 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {formatNumber(projects.length)} total tracked
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-4 lg:grid-cols-2">
+              {projectCards.length ? (
+                projectCards.map((project) => (
+                  <div key={project.id} className="rounded-2xl border border-slate-200 bg-white/95 p-5 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="text-lg font-semibold text-slate-900">{project.title}</h3>
+                        <p className="text-sm text-slate-500">{project.description}</p>
+                      </div>
+                      <span className="rounded-full border border-accent/30 bg-accentSoft px-3 py-1 text-xs font-semibold uppercase tracking-wide text-accent">
+                        {project.status}
+                      </span>
+                    </div>
+                    <dl className="mt-4 grid grid-cols-2 gap-3 text-sm text-slate-600">
+                      <div>
+                        <dt className="text-xs uppercase tracking-wide text-slate-400">Revenue released</dt>
+                        <dd className="mt-1 font-semibold text-slate-900">{project.revenue}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs uppercase tracking-wide text-slate-400">Outstanding</dt>
+                        <dd className="mt-1 font-semibold text-slate-900">{project.outstanding}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs uppercase tracking-wide text-slate-400">Assignments</dt>
+                        <dd className="mt-1 text-slate-600">
+                          {project.assignments.accepted ?? 0} accepted · {project.assignments.pending ?? 0} pending ·{' '}
+                          {project.assignments.notified ?? 0} notified
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-slate-500">
+                  Projects will populate here once you accept an auto-assign invite or launch a gig delivery.
+                </div>
+              )}
+            </div>
+
+            {timeline.length ? (
+              <div className="mt-8">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Recent delivery events</h3>
+                <ul className="mt-3 space-y-3">
+                  {timeline.slice(0, 4).map((event) => (
+                    <li key={event.id} className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+                      <div className="mt-1 h-2 w-2 rounded-full bg-accent" />
+                      <div className="text-sm text-slate-600">
+                        <p className="font-medium text-slate-800">
+                          {formatStatus(event.eventType)} · {event.project?.title ?? `Project #${event.projectId}`}
+                        </p>
+                        {event.createdAt ? (
+                          <p className="text-xs text-slate-400">{formatRelativeTime(event.createdAt)}</p>
+                        ) : null}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </section>
+
+          <section id="financial-overview" className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-soft sm:p-8">
+            <div className="grid gap-6 lg:grid-cols-2">
+              <div>
+                <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Financial overview</h2>
+                <p className="mt-2 text-sm text-slate-600">
+                  Escrow balances, recent payouts, and forecast visibility.
+                </p>
+                <dl className="mt-6 space-y-3 text-sm text-slate-600">
+                  <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white/95 px-4 py-3">
+                    <dt className="font-medium text-slate-700">Released to date</dt>
+                    <dd className="text-lg font-semibold text-slate-900">
+                      {formatCurrency(ledger.released ?? 0, ledger.currency ?? summary?.currency ?? 'USD')}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white/95 px-4 py-3">
+                    <dt className="font-medium text-slate-700">Outstanding payouts</dt>
+                    <dd className="text-lg font-semibold text-slate-900">
+                      {formatCurrency(ledger.outstanding ?? 0, ledger.currency ?? summary?.currency ?? 'USD')}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white/95 px-4 py-3">
+                    <dt className="font-medium text-slate-700">Average assignment value</dt>
+                    <dd className="text-lg font-semibold text-slate-900">
+                      {ledger.avgAssignedValue != null
+                        ? formatCurrency(ledger.avgAssignedValue, ledger.currency ?? summary?.currency ?? 'USD')
+                        : '—'}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Recent transactions</h3>
+                <ul className="mt-3 space-y-3">
+                  {transactionRows.length ? (
+                    transactionRows.map((row) => (
+                      <li key={row.id} className="rounded-2xl border border-slate-200 bg-white/95 p-4 text-sm text-slate-600">
+                        <div className="flex items-center justify-between text-slate-800">
+                          <span className="font-medium">{row.milestone}</span>
+                          <span className="font-semibold text-slate-900">{row.amount}</span>
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs uppercase tracking-wide text-slate-400">
+                          <span>{row.status}</span>
+                          {row.targetName ? <span>· {row.targetName}</span> : null}
+                          {row.releasedAt ? <span>· {row.releasedAt}</span> : null}
+                        </div>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="rounded-2xl border border-dashed border-slate-200 p-4 text-center text-slate-500">
+                      Transactions will appear as soon as payouts or deposits are recorded.
+                    </li>
+                  )}
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <section id="client-success" className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-soft sm:p-8">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Support & compliance</h2>
+                <p className="mt-2 text-sm text-slate-600">
+                  Track escalations, NDAs, and service-level risks requiring your input.
+                </p>
+              </div>
+              <div className="rounded-full border border-slate-200 px-4 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {formatNumber(supportRows.length)} open cases
+              </div>
+            </div>
+            <ul className="mt-6 space-y-3">
+              {supportRows.length ? (
+                supportRows.map((record) => (
+                  <li key={record.id} className="rounded-2xl border border-slate-200 bg-white/95 p-4 text-sm text-slate-600">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-medium text-slate-800">{record.threadSubject}</span>
+                      <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-600">
+                        {record.priority}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-slate-500">{record.reason}</p>
+                    <div className="mt-2 flex flex-wrap gap-2 text-xs uppercase tracking-wide text-slate-400">
+                      <span>{record.status}</span>
+                      {record.escalatedAt ? <span>· {record.escalatedAt}</span> : null}
                     </div>
                   </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-        </section>
+                ))
+              ) : (
+                <li className="rounded-2xl border border-dashed border-slate-200 p-4 text-center text-slate-500">
+                  No active support cases. You will be notified when compliance items need attention.
+                </li>
+              )}
+            </ul>
+          </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-soft sm:p-8">
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div>
-              <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Financial overview</h2>
-              <p className="mt-2 text-sm text-slate-600">
-                Escrow balances, recent payouts, and forecast visibility.
-              </p>
-              <dl className="mt-6 space-y-3 text-sm text-slate-600">
-                <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white/95 px-4 py-3">
-                  <dt className="font-medium text-slate-700">Released to date</dt>
-                  <dd className="text-lg font-semibold text-slate-900">
-                    {formatCurrency(ledger.released ?? 0, ledger.currency ?? 'USD')}
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white/95 px-4 py-3">
-                  <dt className="font-medium text-slate-700">Outstanding payouts</dt>
-                  <dd className="text-lg font-semibold text-slate-900">
-                    {formatCurrency(ledger.outstanding ?? 0, ledger.currency ?? 'USD')}
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white/95 px-4 py-3">
-                  <dt className="font-medium text-slate-700">Average assignment value</dt>
-                  <dd className="text-lg font-semibold text-slate-900">
-                    {ledger.avgAssignedValue != null
-                      ? formatCurrency(ledger.avgAssignedValue, ledger.currency ?? 'USD')
-                      : '—'}
-                  </dd>
-                </div>
-              </dl>
-            </div>
-
-            <div>
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Recent transactions</h3>
-              <ul className="mt-3 space-y-3">
-                {transactionRows.length ? (
-                  transactionRows.map((row) => (
-                    <li key={row.id} className="rounded-2xl border border-slate-200 bg-white/95 p-4 text-sm text-slate-600">
-                      <div className="flex items-center justify-between text-slate-800">
-                        <span className="font-medium">{row.milestone}</span>
-                        <span className="font-semibold text-slate-900">{row.amount}</span>
-                      </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs uppercase tracking-wide text-slate-400">
-                        <span>{row.status}</span>
-                        {row.targetName ? <span>· {row.targetName}</span> : null}
-                        {row.releasedAt ? <span>· {row.releasedAt}</span> : null}
-                      </div>
-                    </li>
-                  ))
-                ) : (
-                  <li className="rounded-2xl border border-dashed border-slate-200 p-4 text-center text-slate-500">
-                    Transactions will appear as soon as payouts or deposits are recorded.
-                  </li>
-                )}
-              </ul>
-            </div>
-          </div>
-        </section>
-
-        <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-soft sm:p-8">
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div>
-              <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Support & compliance</h2>
-              <p className="mt-2 text-sm text-slate-600">
-                Track escalations, NDAs, and service-level risks requiring your input.
-              </p>
-              <ul className="mt-4 space-y-3">
-                {supportRows.length ? (
-                  supportRows.map((record) => (
-                    <li key={record.id} className="rounded-2xl border border-slate-200 bg-white/95 p-4 text-sm text-slate-600">
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="font-medium text-slate-800">{record.threadSubject}</span>
-                        <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-600">
-                          {record.priority}
+          <section id="growth-automation" className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-soft sm:p-8">
+            <div className="grid gap-6 lg:grid-cols-2">
+              <div>
+                <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Engagement jobs</h2>
+                <p className="mt-2 text-sm text-slate-600">
+                  Automations and nudges that keep clients warm and renewals on track.
+                </p>
+                {nextAction ? (
+                  <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                    <p className="font-semibold">Next action: {nextAction.title ?? nextAction.action}</p>
+                    {nextAction.dueAt ? (
+                      <p className="text-xs">Due {formatRelativeTime(nextAction.dueAt)}</p>
+                    ) : null}
+                  </div>
+                ) : null}
+                <ul className="mt-4 space-y-3 text-sm text-slate-600">
+                  {taskRows.length ? (
+                    taskRows.map((task) => (
+                      <li key={task.id} className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white/95 px-4 py-3">
+                        <div>
+                          <p className="font-medium text-slate-800">{task.action}</p>
+                          <p className="text-xs text-slate-400">
+                            {task.status} ·{' '}
+                            {task.dueInDays != null
+                              ? `${Math.abs(task.dueInDays)} days ${task.dueInDays >= 0 ? 'ago' : 'ahead'}`
+                              : 'Due soon'}
+                          </p>
+                        </div>
+                        <span className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          P{task.priority}
                         </span>
-                      </div>
-                      <p className="mt-1 text-slate-500">{record.reason}</p>
-                      <div className="mt-2 flex flex-wrap gap-2 text-xs uppercase tracking-wide text-slate-400">
-                        <span>{record.status}</span>
-                        {record.escalatedAt ? <span>· {record.escalatedAt}</span> : null}
-                      </div>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="rounded-2xl border border-dashed border-slate-200 p-4 text-center text-slate-500">
+                      No pending engagement automations. New nudges appear here as soon as signals trigger them.
                     </li>
-                  ))
-                ) : (
-                  <li className="rounded-2xl border border-dashed border-slate-200 p-4 text-center text-slate-500">
-                    No active support cases. You will be notified when compliance items need attention.
-                  </li>
-                )}
-              </ul>
-            </div>
+                  )}
+                </ul>
+              </div>
 
-            <div>
-              <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Growth actions</h2>
-              <p className="mt-2 text-sm text-slate-600">
-                Engagement nudges, training prompts, and alerts to keep momentum high.
-              </p>
-              <div className="mt-4 space-y-4">
-                <div className="rounded-2xl border border-slate-200 bg-white/95 p-4">
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Engagement jobs</h3>
-                  <ul className="mt-3 space-y-2 text-sm text-slate-600">
-                    {taskRows.length ? (
-                      taskRows.map((task) => (
-                        <li key={task.id} className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-medium text-slate-800">{task.action}</p>
-                            <p className="text-xs text-slate-400">
-                              {task.status} · {task.dueInDays != null ? `${Math.abs(task.dueInDays)} days ${task.dueInDays >= 0 ? 'ago' : 'ahead'}` : 'Due soon'}
-                            </p>
-                          </div>
-                          <span className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                            P{task.priority}
-                          </span>
-                        </li>
-                      ))
-                    ) : (
-                      <li className="text-center text-slate-500">No pending engagement automations.</li>
-                    )}
-                  </ul>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-white/95 p-4">
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Notifications</h3>
-                  <ul className="mt-3 space-y-2 text-sm text-slate-600">
-                    {notificationRows.length ? (
-                      notificationRows.map((note) => (
-                        <li key={note.id} className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-medium text-slate-800">{note.title}</p>
-                            <p className="text-xs text-slate-400">
-                              {note.category}
-                              {note.deliveredAt ? ` · ${note.deliveredAt}` : ''}
-                            </p>
-                          </div>
-                          {note.isUnread ? (
-                            <span className="mt-1 inline-flex h-2 w-2 rounded-full bg-accent" />
-                          ) : null}
-                        </li>
-                      ))
-                    ) : (
-                      <li className="text-center text-slate-500">No new notifications.</li>
-                    )}
-                  </ul>
-                </div>
+              <div id="notifications">
+                <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Signals & alerts</h2>
+                <p className="mt-2 text-sm text-slate-600">
+                  Real-time updates from gigs, projects, finance, and trust & safety programs.
+                </p>
+                <ul className="mt-4 space-y-3 text-sm text-slate-600">
+                  {notificationRows.length ? (
+                    notificationRows.map((note) => (
+                      <li key={note.id} className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white/95 px-4 py-3">
+                        <div>
+                          <p className="font-medium text-slate-800">{note.title}</p>
+                          <p className="text-xs text-slate-400">
+                            {note.category}
+                            {note.deliveredAt ? ` · ${note.deliveredAt}` : ''}
+                          </p>
+                        </div>
+                        {note.isUnread ? <span className="mt-1 inline-flex h-2 w-2 rounded-full bg-accent" /> : null}
+                      </li>
+                    ))
+                  ) : (
+                    <li className="rounded-2xl border border-dashed border-slate-200 p-4 text-center text-slate-500">
+                      No new notifications. You&rsquo;re fully up to date.
+                    </li>
+                  )}
+                </ul>
               </div>
             </div>
           </div>
@@ -759,8 +840,9 @@ export default function FreelancerDashboardPage() {
         onMenuItemSelect={(itemId) => setActiveSection(itemId)}
       >
         <div className="mx-auto w-full max-w-7xl space-y-12 px-6 py-10">{renderSection}</div>
+          </section>
+        </div>
       </DashboardLayout>
     </RoleGate>
   );
 }
-

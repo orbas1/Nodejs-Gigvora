@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import groupsService from '../../../services/groups.js';
+import { addMember, createGroup, fetchManagedGroups, updateMember } from '../../../services/groups.js';
 
 const DEFAULT_FORM = {
   name: '',
@@ -56,7 +56,7 @@ export default function AdminGroupManagementPanel() {
   const loadGroups = useCallback(async () => {
     setCatalog((previous) => ({ ...previous, loading: true }));
     try {
-      const response = await groupsService.fetchManagedGroups({ includeMembers: true, pageSize: 50 });
+      const response = await fetchManagedGroups({ includeMembers: true, pageSize: 50 });
       setCatalog({ loading: false, error: null, groups: response?.data ?? [] });
     } catch (error) {
       setCatalog({ loading: false, error: error?.message ?? 'Unable to load groups.', groups: [] });
@@ -84,7 +84,7 @@ export default function AdminGroupManagementPanel() {
     }
     setCreateState({ status: 'loading', message: null });
     try {
-      await groupsService.createGroup({ ...form });
+      await createGroup({ ...form });
       setCreateState({ status: 'success', message: 'Group created successfully.' });
       resetForm();
       await loadGroups();
@@ -114,7 +114,7 @@ export default function AdminGroupManagementPanel() {
     }
     setMemberState((previous) => ({ ...previous, [groupId]: { status: 'loading', message: null } }));
     try {
-      await groupsService.addMember(groupId, {
+      await addMember(groupId, {
         userId: Number.parseInt(formState.userId, 10),
         role: formState.role,
         status: formState.status,
@@ -134,7 +134,7 @@ export default function AdminGroupManagementPanel() {
   const handleActivateMember = async (groupId, membershipId) => {
     setMemberState((previous) => ({ ...previous, [`${groupId}:${membershipId}`]: { status: 'loading' } }));
     try {
-      await groupsService.updateMember(groupId, membershipId, { status: 'active' });
+      await updateMember(groupId, membershipId, { status: 'active' });
       setMemberState((previous) => ({ ...previous, [`${groupId}:${membershipId}`]: { status: 'success' } }));
       await loadGroups();
     } catch (error) {
