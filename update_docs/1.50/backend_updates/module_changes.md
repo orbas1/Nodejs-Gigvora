@@ -6,3 +6,4 @@
 - Added `src/domains/` with a reusable `DomainRegistry` plus domain services for auth, marketplace, and platform feature-flag governance, enabling bounded-context ownership and transactional helpers.
 - Introduced `src/domains/schemas/` alongside `scripts/syncDomainSchemas.js` to emit Zod-driven JSON schemas shared across web and mobile clients.
 - Published new models (`UserLoginAudit`, `FeatureFlag`, `FeatureFlagAssignment`) and updated `src/models/index.js` exports to register them inside the domain registry.
+- Extended the domain module with capability descriptors (`describeCapabilities`) and surfaced introspection via `src/services/domainIntrospectionService.js` plus `/api/domains` routing for cross-team visibility.

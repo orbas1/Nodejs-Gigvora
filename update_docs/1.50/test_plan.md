@@ -11,6 +11,7 @@
 - Smoke tests validating start/stop sequences, worker supervisor state changes, and Sequelize connectivity fallbacks.
 - Security tests confirming payload size enforcement, abuse throttling, and structured logging redaction.
 - Domain service tests validating AuthDomainService password hashing, login audit creation, feature flag evaluation, and MarketplaceDomainService workspace synchronisation.
+- Domain introspection tests verifying context/service bindings, schema serialisation, and association exports align with `/api/domains` payloads.
 
 ## Frontend & Admin Testing Strategy
 - Add dashboard integration tests to confirm health telemetry widgets render realtime data and handle degraded states.
@@ -26,3 +27,4 @@
 - Capture structured logs during tests and assert the presence of `requestId` correlation metadata for traceability.
 - Schedule load tests to validate rate-limiter thresholds and worker supervisor resilience under burst traffic.
 - Add a CI step running `npm run schemas:sync` and diffing `shared-contracts/domain` artifacts to ensure schema contracts stay version-controlled.
+- Run `npm run schemas:clients` alongside the schema sync to regenerate TypeScript definitions and block merges on drift.

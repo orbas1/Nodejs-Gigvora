@@ -12,6 +12,7 @@
 - Deliver annotated wireframes for dashboards, studios, finance flows, and settings.
 - Align widget functions, states, and API expectations through `Screens_Updates_widget_functions.md` updates.
 - **Status 05 Apr:** Architecture domain map annotated with auth/marketplace/platform ownership, and feature flag management wireframes drafted for dashboard integration; ERD visual refresh pending stakeholder review.
+- **Status 06 Apr:** Added domain registry observability panels to dashboard specs, linking `/api/domains` metadata to design annotations and TypeScript contract references.
 
 ## Milestone 3 – Web Marketing & Dashboard Refresh (Week 3–5)
 **Objective:** Modernise marketing site, landing hero, and authenticated dashboards with modular partials.

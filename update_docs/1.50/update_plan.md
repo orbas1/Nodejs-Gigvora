@@ -46,6 +46,8 @@ This plan consolidates the Version 1.50 feature mandate with the critical defect
    - **Design:**
      - Update entity relationship diagrams and taxonomy visualisations to help stakeholders navigate the modular architecture.
 
+   - **Status 06 Apr:** Domain registry now powers `/api/domains` discovery endpoints with model/index serialisation, and shared TypeScript definitions are generated alongside JSON schemas so front-end tooling can adopt canonical types.
+
 3. **Enforce validation, consent, and governance workflows – 0%**  
    Implement GDPR tooling, audit trails, and permission guardrails across surfaces.
    - **Backend:**

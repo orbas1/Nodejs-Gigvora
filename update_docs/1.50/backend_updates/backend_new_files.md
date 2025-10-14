@@ -17,3 +17,7 @@
 | `src/domains/schemas/marketplace.js` | Zod definition for project workspace contracts consumed by marketplace clients. |
 | `src/domains/schemas/platform.js` | Zod definition for feature flag metadata shared with front-end management consoles. |
 | `scripts/syncDomainSchemas.js` | CLI utility that renders domain Zod schemas into JSON artifacts within `shared-contracts/domain`. |
+| `scripts/generateDomainClients.js` | CLI companion that compiles generated JSON schemas into TypeScript definitions under `shared-contracts/clients/typescript`. |
+| `src/services/domainIntrospectionService.js` | Service that serialises bounded-context metadata, model definitions, and service bindings for the `/api/domains` endpoints. |
+| `src/routes/domainRoutes.js` | Express router exposing `/api/domains/registry`, context drill-down, and model definition endpoints. |
+| `shared-contracts/clients/typescript/*` | Generated TypeScript declarations mirroring domain schemas for Node and React consumers. |

@@ -9,3 +9,8 @@
 - Enforced configurable JSON/urlencoded body limits via `REQUEST_BODY_LIMIT` to guard against oversized payload attacks.
 - Applied rate limiting across `/api/*` routes using `RATE_LIMIT_WINDOW_MS` and `RATE_LIMIT_MAX_REQUESTS` to mitigate brute-force and scraping behaviours.
 - Standardised correlation headers by echoing `X-Request-Id` on every response, enabling cross-service traceability in logs and monitoring dashboards.
+
+## Domain Introspection API
+- Added `GET /api/domains/registry` returning registered domain contexts, service bindings, and sampled model attributes for operator dashboards.
+- Added `GET /api/domains/:context` exposing full context metadata, including model tables, attributes, indexes, hooks, and associations.
+- Added `GET /api/domains/:context/models/:modelName` returning model-level definitions so tooling can verify schema changes before releasing dependent clients.

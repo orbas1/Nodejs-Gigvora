@@ -58,6 +58,7 @@ export class AuthDomainService {
   constructor({ domainRegistry, logger }) {
     this.registry = domainRegistry;
     this.logger = createLogger(logger);
+    this.contextName = 'auth';
     this.models = domainRegistry.getContextModels('auth');
     this.User = this.models.User;
     if (!this.User) {
@@ -175,6 +176,24 @@ export class AuthDomainService {
     );
     this.logger.debug({ userId, eventType }, 'Recorded login audit event.');
     return record.get({ plain: true });
+  }
+
+  describeCapabilities() {
+    return {
+      key: 'auth',
+      contextName: this.contextName,
+      description: 'Identity, session lifecycle, and authentication guardrails.',
+      operations: [
+        'registerUser',
+        'ensureUniqueEmail',
+        'hashPassword',
+        'comparePassword',
+        'updateLastLogin',
+        'recordLoginAudit',
+        'sanitizeUser',
+      ],
+      models: Object.keys(this.models),
+    };
   }
 }
 

@@ -33,6 +33,7 @@
 1. **Backend Modularisation & Connectivity (Req. 75, 78, 85)**
    - Restructure repository into feature modules with shared libraries for auth, notifications, payments, messaging, automatching.
    - Document API contracts and ensure front-end clients use typed SDKs or services for consistency.
+   - Publish domain introspection endpoints and generated TypeScript clients so downstream services and tooling can validate bounded-context coverage programmatically.
 2. **Configuration Rationalisation (Req. 76, 80)**
    - Inventory all environment variables, retire unnecessary values, and bake safe defaults into code.
    - Publish slim `.env.example` with inline documentation; update setup scripts and CI secrets accordingly.

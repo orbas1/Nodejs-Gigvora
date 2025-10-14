@@ -26,6 +26,8 @@ Each numbered task maps to the update plan and contains explicit integration cov
 
 **Progress Note (Backend • 05 Apr):** Domain registry now partitions the 360-model monolith into audited contexts with dedicated auth, marketplace, and platform services orchestrating login audits, feature flags, and workspace synchronisation. Zod-backed schema generation publishes JSON contracts to `shared-contracts/domain`, enabling web and Flutter teams to consume canonical DTOs while migration rewrites and ERD deliverables move into planning.
 
+**Progress Note (Backend • 06 Apr):** Published an authenticated `/api/domains` discovery surface that serialises bounded-context models, indexes, and associations for operators while exposing service bindings and sampled attributes. Generated TypeScript client definitions via `npm run schemas:clients` so React/Node tooling can ingest the same contracts as the JSON schema consumers.
+
 ## Task 3 — Enforce validation, consent, and governance workflows (0%)
 - **Backend:** Apply Celebrate/Zod validation, wire consent records, SAR tooling, and RBAC middleware logging.
 - **Front-end:** Build consent management hubs, admin overrides, and preference panels per governance requirements.

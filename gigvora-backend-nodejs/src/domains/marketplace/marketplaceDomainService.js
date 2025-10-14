@@ -30,6 +30,7 @@ export class MarketplaceDomainService {
   constructor({ domainRegistry, logger }) {
     this.registry = domainRegistry;
     this.logger = createLogger(logger);
+    this.contextName = 'marketplace';
     this.models = domainRegistry.getContextModels('marketplace');
     this.Project = this.models.Project;
     this.ProjectWorkspace = this.models.ProjectWorkspace;
@@ -121,6 +122,20 @@ export class MarketplaceDomainService {
     await workspace.update(updates, { transaction });
     this.logger.debug({ projectId: projectInstance.id, updates }, 'Updated workspace metrics.');
     return workspace;
+  }
+
+  describeCapabilities() {
+    return {
+      key: 'marketplace',
+      contextName: this.contextName,
+      description: 'Marketplace orchestration, workspaces, and delivery telemetry.',
+      operations: [
+        'deriveWorkspaceStatus',
+        'ensureWorkspaceForProject',
+        'syncWorkspaceMetrics',
+      ],
+      models: Object.keys(this.models),
+    };
   }
 }
 

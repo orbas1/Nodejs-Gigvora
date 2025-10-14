@@ -26,6 +26,7 @@ export class FeatureFlagService {
   constructor({ domainRegistry, logger }) {
     this.registry = domainRegistry;
     this.logger = createLogger(logger);
+    this.contextName = 'platform';
     this.models = domainRegistry.getContextModels('platform');
     this.FeatureFlag = this.models.FeatureFlag;
     this.FeatureFlagAssignment = this.models.FeatureFlagAssignment;
@@ -150,6 +151,16 @@ export class FeatureFlagService {
     }
 
     return false;
+  }
+
+  describeCapabilities() {
+    return {
+      key: 'platform',
+      contextName: this.contextName,
+      description: 'Feature flag orchestration, rollouts, and cohort assignments.',
+      operations: ['upsertFlag', 'evaluateForUser', 'isFlagEnabledForUser'],
+      models: Object.keys(this.models),
+    };
   }
 }
 

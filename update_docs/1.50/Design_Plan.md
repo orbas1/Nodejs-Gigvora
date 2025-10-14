@@ -29,6 +29,7 @@ Detail the holistic design intent for Version 1.50 across application and web ex
 - Harmonise logic flows based on `Logic_Flow_map.md`, `Logic_Flow_update.md`, and `Screens_Update_Logic_Flow_map.md` to ensure navigation consistency.
 - Introduce maintenance telemetry cards, downtime banners, and retry guidance for admin/agency dashboards reflecting `/health/ready` insights; specifications captured in `Dashboard Designs.md` and `Screen_text.md`.
 - Map bounded-context ownership in UI artefacts by updating `Architecture_Domain_Map.md` and in-product ERDs so dashboard widgets reference the new auth/marketplace/platform domains.
+- Design domain registry observability panels that visualise `/api/domains` responses with drill-down tables, schema change alerts, and export actions documented in `Screens_Updates_widget_functions.md` and `Dashboard Designs.md`.
 
 ### 3. Web Application Modernisation
 - Redesign marketing landing pages guided by `Home Page Organisations.md`, `Home page text.md`, and `Home page images.md`.

@@ -6,6 +6,11 @@
 - **Research Inputs:** Combined analysis of `Screens_Update_Plan.md`, `Screens_update_images_and_vectors.md`, `Logic_Flow_map.md`, and web assets documentation produced during Version 1.50 discovery.
 - **Rollout:** Sequenced through design QA gates prior to sprint integration, with staged publication of tokens to engineering repositories (React, Node API docs, Flutter kit).
 
+## 06 Apr 2024 — Domain Observability Surfaces
+1. **Registry Dashboards:** Added admin/operator dashboard panels in `Dashboard Designs.md` and `Screens_Updates_widget_functions.md` that consume the `/api/domains/registry` payload, surfacing bounded-context coverage, service bindings, and schema drift alerts.
+2. **Schema Tooling Hand-off:** Updated `Architecture_Domain_Map.md` and `Design Plan.md` to reference the new TypeScript contract outputs so design-to-code traceability covers both JSON and TS client packages.
+3. **Documentation Nodes:** Extended `Design_update_task_list.md` Task 7 notes and `Design_update_progress_tracker.md` commentary to include observability KPIs and UI affordances for domain drill-down modals.
+
 ## 05 Apr 2024 — Domain Architecture Alignment
 1. **Context Maps:** Documented auth, marketplace, finance, and platform bounded contexts in `Architecture_Domain_Map.md` to align visual ERDs with the new backend domain registry. Provided legend updates in `Design Plan.md` for cross-team traceability.
 2. **Feature Flag UI Hooks:** Added feature flag management wireframes in `Dashboard Designs.md` and `component_functions.md` covering rollout percentages, audience targeting, and audit history surfaces.
