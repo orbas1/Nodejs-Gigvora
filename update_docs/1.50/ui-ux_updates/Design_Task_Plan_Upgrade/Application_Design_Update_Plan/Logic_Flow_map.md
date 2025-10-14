@@ -23,6 +23,20 @@
 5. **Financial Reconciliation**
    - Nodes: Gig completion → Payout queue → Adjustment review → Transfer initiation → Receipt delivery.
    - Decisions for disputes, tax documentation, multi-currency handling.
+6. **Purchase & Subscription Management**
+   - Nodes: Plan comparison → Add-on selection → Checkout steps (billing, payment, compliance) → Confirmation → Activation broadcast.
+   - Decision points include add-on eligibility, payment success/failure, and approval escalations.
+7. **Role-Based Panels**
+   - Nodes: Role selection → Panel loading → Widget interactions (e.g., pipeline updates, analytics filters) → Action dispatch (assign, message, escalate).
+   - Includes branch for agency brand switching, mentorship match approvals, and headhunter candidate progression.
+8. **Community & Creation Studio**
+   - Nodes: Create experience → Template selection → Editor adjustments → Review → Publish → Distribution to Feed/Explore.
+   - Networking loops track session join → rotation cycles → feedback capture; volunteering flow covers application → approval → scheduling → completion logging.
+9. **Recruitment & Interview Lifecycle**
+   - Nodes: Job creation → Publication → Applicant pipeline → Interview scheduling → Interview room session → Evaluation → Offer → Onboarding handoff.
+   - Integrations with ATS, calendar providers, and video platform noted per step.
+10. **Settings & Legal Acknowledgements**
+    - Nodes: Preference change → Validation → API update → Confirmation; legal update flow includes summary display → acknowledgement → timestamp logging.
 
 ## Visualisation Notes
 - Flows use numbering scheme (F1-A, F1-B) to match documentation and acceptance criteria.

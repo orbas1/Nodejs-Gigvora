@@ -4,9 +4,10 @@
 The desktop and responsive web experience received an end-to-end restructuring to align with updated messaging, accessibility targets, and conversion goals. Wireframes detail reorganised navigation, modular content sections, and responsive behaviours for marketing and logged-in experiences.
 
 ## Global Navigation
-- **Top Navigation Bar:** Persistent header with logo, mega-menu triggers (Solutions, Industries, Resources), pricing link, and CTA buttons (Log in, Get Started). Sticky behaviour with shrink animation on scroll.
-- **Utility Strip:** Secondary strip for language selector, contact sales, and status badge (System Status/Updates).
-- **Footer Architecture:** Multi-column layout featuring company, resources, legal, and community links plus newsletter signup.
+- **Pre-Auth Navigation Bar:** Persistent header with logo, mega-menu triggers (Solutions, Industries, Resources), pricing link, and CTA buttons (Log in, Get Started). Sticky behaviour with shrink animation on scroll.
+- **Post-Auth Navigation Bar:** Reordered primary links to **Feed → Explore → Create → Dashboard → Profile**; profile avatar opens expanded drop-down with account, finance, admin, agency, company, mentorship, creation studio, settings, and logout actions.
+- **Utility Strip:** Secondary strip for language selector, contact sales, status badge (System Status/Updates), and contextual alerts.
+- **Footer Architecture:** Multi-column layout featuring company, resources, legal, and community links plus newsletter signup and social proof badges.
 
 ## Landing Page Wireframes
 1. **Hero Section**
@@ -28,15 +29,69 @@ The desktop and responsive web experience received an end-to-end restructuring t
 ## Logged-In Dashboard Wireframes
 - **Overview Banner:** Greeting, current plan status, quick stats, and button to upgrade.
 - **KPI Cards:** Row of four cards with trend charts, tooltips, and quick filters.
-- **Activity Timeline:** Chronological feed of team actions, gig milestones, and alerts.
-- **Tasks Widget:** Task list with checkboxes, due dates, and assign options.
-- **Insights Panel:** Right column showing performance snapshots, recommended actions, and link to analytics.
+- **Activity Timeline:** Chronological feed of team actions, gig milestones, alerts, and community highlights.
+- **Tasks Widget:** Task list with checkboxes, due dates, assign options, and dependency indicators.
+- **Insights Panel:** Right column showing performance snapshots, recommended actions, cross-surface nudges, and link to analytics.
+- **Calendar Snapshot:** Monthly calendar overlaying gigs, interviews, mentoring, volunteering, and events with colour-coded tags.
+- **Inbox Preview:** Compact view of unread conversations and high-priority notifications.
 
 ## Solutions Pages Wireframes
 - Hero with targeted messaging and CTA, accompanied by context image.
 - Sectioned content with alternating image/text blocks, bullet highlights, and testimonials.
 - Sticky vertical navigation for long-form pages to jump to sections (Overview, Benefits, Integrations, Case Studies, FAQs).
 - Embedded case study cards with quotes and metrics.
+
+## Role-Based Panel Wireframes
+### Admin Control Center
+- Multi-tab layout (Users, Permissions, Audit Logs, Security, Billing) with data tables, action drawers, and status banners.
+- Overview widgets summarising active sessions, pending approvals, and compliance alerts.
+
+### User Panel
+- Personalised feed combining bookings, tasks, learning modules, and community invitations.
+- Sidebar quick actions for account preferences, finance settings, and saved items.
+
+### Freelancer Panel
+- Gig pipeline board (Leads, Applied, Interviewing, Active, Completed) with drag-and-drop functionality and analytics overlays.
+- Earnings dashboard summarising payouts, invoices, and projections.
+
+### Company & Agency Panels
+- Company panel emphasises hiring pipeline, workforce analytics, and cross-team collaboration timeline.
+- Agency panel provides multi-brand switcher, HR compliance dashboard, and broadcast announcements module.
+
+### Headhunter & Mentorship Panels
+- Headhunter workspace with candidate sourcing table, interview scheduler, and offer management queue.
+- Mentorship panel featuring match suggestions, session calendar, progress tracking, and resource library access.
+
+### Creation Studio & Experience Launchpad
+- Studio workspace with modular editor, asset library, version history, and publishing controls.
+- Launchpad checklist guiding new experience setup with milestone tracker, mentor assignment, and marketing checklist.
+
+### Networking & Volunteering Hubs
+- Networking lounge with live room tiles, attendee preview, and schedule of upcoming speed networking events.
+- Volunteering marketplace combining map and list views, filter panel, and opportunity detail drawer.
+
+### Project & Gig Management Views
+- Project management view offering kanban, timeline, and workload heatmap modes.
+- Gig management console with searchable list, status filters, and quick action drawer for reschedule, assign, or message.
+
+### Interview & Recruiting Modules
+- Job listing manager with creation wizard summary, performance metrics, and syndication controls.
+- Interview management board merging calendar, candidate stages, interviewer availability, and scorecard access.
+- Interview room layout with video embed, shared notes, evaluation panel, and resource sidebar.
+
+### Finance & Commerce Interfaces
+- Purchase page with plan comparison, add-on selector, ROI calculator, and testimonials.
+- Checkout wizard with progress tracker, billing forms, payment method selection, and compliance acknowledgement step.
+- Budget management dashboard featuring allocation chart, burn-rate trends, variance alerts, and approval workflow.
+- Invoice and payments ledger table with filters, export tools, and bulk action toolbar.
+
+### Messaging, Inbox, & Support
+- Unified communications center showing inbox, notifications, tasks, and knowledge base suggestions.
+- Chat bubble overlay accessible across app with thread search, quick replies, and connection to support escalation flow.
+
+### Static & Legal Pages
+- Profile page with hero summary, metrics, testimonials, timeline, and editing drawer.
+- About Us, Terms & Conditions, Privacy Policy redesigned with hero intro, anchored navigation, and compliance callouts.
 
 ## Resources Hub Wireframes
 - **Filterable Grid:** Search bar, filter chips (Content Type, Industry, Role), and sort options.

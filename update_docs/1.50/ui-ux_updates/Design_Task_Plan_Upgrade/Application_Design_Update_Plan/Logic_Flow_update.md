@@ -10,7 +10,11 @@
 3. Consumer gig creation and booking confirmation
 4. Messaging and negotiation lifecycle
 5. Financial reconciliation and payout management
-6. Settings and security configuration
+6. Purchase, subscription, and budget governance
+7. Role-based panel operations (admin, agency, company, freelancer, headhunter, mentorship)
+8. Creation studio publishing, experience launchpad, networking, and volunteering journeys
+9. Recruitment lifecycle covering job listings, interview management, interview room, and offer processing
+10. Settings, account preferences, finance configuration, and legal acknowledgements
 
 ## Methodology
 - Map existing flows highlighting pain points, decision nodes, and system touchpoints.

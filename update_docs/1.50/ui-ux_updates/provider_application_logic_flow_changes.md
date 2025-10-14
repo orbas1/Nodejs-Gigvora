@@ -60,6 +60,73 @@ The provider portal received comprehensive journey rewiring to remove redundant 
 - **Statement Delivery:** Providers choose digital vs. downloadable statements; flow records delivery preferences and log retention.
 - **Dispute Response:** Branch for dispute prompts evidence upload steps, collaboration with support, and timer resets upon response submission.
 
+### 6. Purchase & Subscription Management
+1. **Plan Selection**
+   - User launches from Dashboard → Upgrade CTA or Finance Settings → Plans tab.
+   - Toggle between Monthly/Annual surfaces savings messaging; selecting plan loads comparison matrix with feature tooltips.
+2. **Add-on Configuration**
+   - Flow surfaces optional modules (Networking Lounge, Mentorship Suite, Advanced Analytics) with requirement badges.
+   - Selecting add-on updates order summary in real time and triggers dependency checks (e.g., Mentorship requires verified mentors).
+3. **Checkout & Compliance**
+   - Stepper collects billing entity, payment method, tax IDs, and compliance attestations; integrates fraud checks and VAT validation.
+   - Users review pro-rated charges; accept terms (links to Terms & Conditions, Privacy Policy) before submission.
+4. **Confirmation & Activation**
+   - Success screen outlines next steps, generates invoice, and schedules follow-up email with receipts; activated modules broadcast to relevant dashboards.
+
+### 7. Project, Task, and Calendar Governance
+1. **Project Creation**
+   - Initiated via Create → Project or from Experience Launchpad recommendations.
+   - Flow requests project goals, timeline, budget, stakeholder roles, and deliverable templates; auto-assigns default tasks based on gig type.
+2. **Task Lifecycle**
+   - Tasks move between Backlog, In Progress, Blocked, Review, Done; transitions trigger notifications and optional automation (e.g., assign QA on Review entry).
+   - Time tracking logs manual entries or integrates with connected timer; budget burndown recalculates upon each update.
+3. **Calendar Coordination**
+   - Calendar sync verifies conflicts across gigs, interviews, mentoring sessions, and volunteering commitments; conflict detection prompts reschedule suggestions.
+   - Accepting suggestion updates relevant participants and sends recap via messaging service.
+
+### 8. Talent & Panel Operations
+1. **Freelancer & Agency Rosters**
+   - Rosters auto-segmented by status (Active, Pending, On Hold); filtering by skill, location, rating.
+   - Bulk actions (message, assign, request update) available with permission gating.
+2. **Company & Headhunter Pipelines**
+   - Kanban pipeline for requisitions; columns represent stage (Intake, Sourcing, Screening, Interviewing, Offer, Closed).
+   - Movement triggers analytics updates, interview scheduling prompts, and compliance checks (e.g., background verification pending).
+3. **Mentorship Programs**
+   - Matching algorithm proposes mentor/mentee pairs based on expertise, goals, and availability; admin approves/overrides matches.
+   - Session scheduling flow logs agenda, location (virtual/in-person), and resources; post-session survey dispatched automatically.
+
+### 9. Community & Growth Experiences
+1. **Networking & Speed Networking**
+   - Hosts create rooms with capacity and duration; participants queue and receive join tokens.
+   - Timer orchestrates rotations; end-of-session prompts participants to save contacts or schedule follow-up.
+2. **Creation Studio**
+   - Template gallery curated by industry; selecting template launches editor with modules for media, copy, pricing, and compliance check.
+   - Publishing pushes to Explore feed and optionally triggers marketing email to subscribed audiences.
+3. **Volunteering & Experience Launchpad**
+   - Volunteer opportunities imported via partner APIs; flow validates background checks before confirming placement.
+   - Launchpad guides new experience creation with milestone tracking, mentor assignment, and go-live checklist.
+
+### 10. Recruitment & Interview Management
+1. **Job Listing Publication**
+   - Compose listing, attach media, set application channels (Gigvora apply, external ATS); preview accessible layout.
+   - Publishing triggers syndication, team notifications, and analytics instrumentation for views/applies.
+2. **Interview Coordination**
+   - Candidate pipeline integrates with calendar; scheduling flow checks interviewer availability and time zones.
+   - Interview room activated with secure token; moderators can start/stop recording, push evaluation prompts, and capture decision.
+3. **Offer & Onboarding**
+   - Post-interview decision board surfaces recommended actions; selecting Offer generates template, collects approvals, and dispatches to candidate.
+   - Accepted offers spawn onboarding task list synced with HR/agency modules.
+
+### 11. Messaging & Support Flows
+- **Unified Inbox:** Prioritises threads by SLA and sentiment; assignment workflow ensures accountability with collision detection.
+- **Chat Bubble Trigger:** Authenticated-only bubble opens mini inbox; interactions log to CRM and push quick-reply suggestions.
+- **Support Escalation:** Conversations flagged as critical route to escalation board with timeline, attachments, and cross-team notes.
+
+### 12. Governance & Compliance Touchpoints
+- **Account Preferences:** Modals enforce validation for security toggles (MFA, session length) and track audit trails.
+- **Finance Settings:** Editing payout accounts triggers verification micro-deposit workflow; finance roles required for approvals.
+- **Legal & Policy Pages:** Accepting updated Terms/Privacy prompts acknowledgement log; deferrals disable publishing until accepted.
+
 ## Cross-Flow Enhancements
 - **Universal Save State:** All long forms support auto-save every 20 seconds, with unsaved changes prompts on navigation.
 - **Guidance Layer:** Inline tooltips, learn more modals, and contextual videos triggered based on user role and stage.

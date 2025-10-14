@@ -38,9 +38,9 @@
 
 ## Component Styling
 ### Navigation
-- Header background transitions from transparent to solid after 80px scroll with drop shadow `0 8px 24px rgba(15,23,42,0.08)`.
+- Header background transitions from transparent to solid after 80px scroll with drop shadow `0 8px 24px rgba(15,23,42,0.08)`; authenticated header emphasises the **Feed → Explore → Create → Dashboard → Profile** order with pill hover states.
 - Mega-menu panels 960px wide with 24px padding, blurred backdrop, and subtle border.
-- Active link underlines use 3px accent line with rounded caps.
+- Active link underlines use 3px accent line with rounded caps; profile avatar drop-down adopts floating glassmorphism panel with segmented links for account, finance, admin, agency, company, mentorship, studio, and logout.
 
 ### Buttons
 - Primary buttons: 48px height, 20px horizontal padding, 12px radius; hover lighten by 6%, focus ring 2px accent with 4px offset.
@@ -71,6 +71,44 @@
 - Chart palette: Indigo, Blue, Teal, Orange, Purple with accessible contrast.
 - Tooltip styling dark background `#1E293B`, white text, 12px radius; drop shadow for depth.
 - Animated line charts use 400ms ease-out draw animations; area charts include gradient fill with 35% opacity.
+
+## Module-Specific Styling
+### Dashboard & Feed
+- **Feed Cards:** Soft shadow, gradient header for priority items, and accent-colour badges for action types (gig, job, mentorship, networking).
+- **Calendar Widget:** Uses pill events with subtle glow, interactive legend for toggling event types, and accessible colour pairings.
+- **Inbox Preview:** Compact cards with avatar ring showing online status, accent border for urgent items, and hover expansion to preview message.
+
+### Commerce & Finance
+- **Purchase Page:** Plan cards employ layered backgrounds with hero illustrations, highlight best value with accent ribbon, and animate ROI calculator with incremental counters.
+- **Checkout Wizard:** Step indicators show numbered circles connected by progress bar; error states shake subtly to reinforce attention.
+- **Budget Dashboards:** Utilise dual-tone stacked bars, variance callouts with red/green tags, and tooltip microcharts for historical context.
+- **Invoice Ledger:** Table rows adopt zebra striping with accent highlight for overdue; action buttons align right with ghost styling.
+
+### Role-Based Panels
+- **Admin Center:** Data tables use muted background with accent headers; audit log entries include icon-coded severity and monospaced timestamp.
+- **Agency/Company Panels:** Multi-panel layout with gradient dividers, avatar group chips, and brand switcher styled as pill segmented control.
+- **Freelancer Panel:** Pipeline cards use gradient progress bars, card corners at 16px, and status icons with drop shadow.
+- **Headhunter & Mentorship Panels:** Candidate cards use avatar stacks, status chips, and timeline connectors; mentorship sessions adopt pastel backgrounds with goal progress donuts.
+
+### Creation Studio & Launchpad
+- **Editor Canvas:** Light grey background grid, floating toolbar with frosted glass effect, and selection outlines using accent glow.
+- **Launchpad Checklist:** Step cards with numbered badges, progress ring for completion, and milestone banners with celebratory animation on completion.
+
+### Networking, Volunteering & Community
+- **Networking Rooms:** Neon accent border with pulsing animation, gradient countdown bar, and overlay showing host controls.
+- **Speed Networking Timer:** Digital clock typography with drop shadow, progress ring wrapping avatar tiles, and gradient state transitions.
+- **Volunteering Cards:** Imagery with gradient overlay, cause badge icon, and CTA button with soft shadow.
+- **Messaging & Inbox:** Docked chat bubble uses circular gradient, while full inbox features tabbed filters with accent indicator.
+
+### Recruitment & Interview Modules
+- **Job Listing Manager:** Card layout with employer logos, key metrics chips, and status indicator lights; create button styled as gradient pill.
+- **Interview Room:** Dark theme with accent outlines, floating participant tiles, and evaluation panel using white surface for readability.
+- **Offer Panels:** Celebratory confetti animation, gradient header, and step tracker showing approval path.
+
+### Governance & Static Pages
+- **Account Preferences:** Cards with soft shadows, segmented toggles, and warning banners for risky changes.
+- **Finance Settings:** Tabs use underline animation, verified items show checkmark badge, and pending verifications highlight with amber tint.
+- **Legal Pages:** Typography emphasises readability, with sticky summary card, accent callouts for major updates, and breadcrumb navigation.
 
 ## Imagery & Iconography
 - Photography guidelines: hero imagery featuring collaborative teams, desaturated backgrounds, overlay gradient for legibility.

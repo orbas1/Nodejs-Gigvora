@@ -77,6 +77,40 @@
 - Provided layout specs for each module across breakpoints, including column count adjustments and typography scaling.
 - Ensured high-density screens use vector assets and 1.5x icon scale to maintain crispness.
 
+## Panel & Module Styling Specifications
+### Purchase & Finance Experiences
+- **Pricing Tiles:** Elevated gradient headers with plan badges, accent border glow, and animated savings pill that pulses subtly on hover.
+- **Checkout Forms:** Stepper header uses progress dots with labelled captions; form cards adopt two-column layout on desktop, stacking on mobile while preserving visual hierarchy via numbered markers.
+- **Finance Settings:** Tabs styled with segmented controls, success states highlighted with green check badge, and compliance alerts using warning banner anchored below header.
+- **Invoice Ledger:** Row backgrounds alternate with soft indigo tint every third row to aid scanning; overdue invoices display red left border and bold due date.
+
+### Project, Task, and Calendar Modules
+- **Kanban Cards:** Rounded corners 12px, top badges for status, color-coded edges by project stage, and drop shadow intensifies when dragged.
+- **Task Details:** Right pane features sectioned metadata panels with subtle separators, emphasis on checklist items via pill bullets and progress rings.
+- **Calendar Views:** Month view uses pill events with icons denoting type (gig, interview, mentoring, volunteering); dark-on-light design ensures readability, and hover reveals quick action toolbar.
+- **Budget Charts:** Combines stacked bars with gradient fills and overlay line for burn rate; threshold breaches trigger accent glow.
+
+### Talent & Panel Dashboards
+- **Roster Tables:** Avatar stack with status dot, hover reveals quick action icons; inactive members greyed with diagonal hatch overlay.
+- **Mentorship Cards:** Soft gradient backgrounds with top-right goal progress donut; session cards include timeline connectors to show progress.
+- **Agency & Company Summaries:** Multi-column stat blocks separated by vertical dividers and anchored call-to-action buttons using secondary color for differentiation.
+
+### Community & Engagement Spaces
+- **Networking Rooms:** Tile design with hero imagery, capacity meter as circular progress, and countdown timer in digital typeface.
+- **Creation Studio Editor:** Toolbar uses floating glassmorphism panel with icons; canvas background uses subtle grid for alignment cues.
+- **Volunteering Listings:** Cards with large imagery, overlay gradient to preserve text contrast, and callout badge for urgency or remote availability.
+- **Messaging & Inbox:** Chat bubbles adopt slight gradient; unread states emphasised via bold text, accent dot, and subtle background highlight.
+
+### Recruitment & Interview Interfaces
+- **Job Listing Builder:** Section headers with iconography, form cards with step badges; preview mode uses device mock to validate layout.
+- **Interview Room:** Dark theme with accent highlights to reduce visual fatigue, participant tiles with rounded corners, and scorecard panel using white surface for clarity.
+- **Offer Summary Panels:** Use celebratory confetti animation on success, gradient button for "Generate Offer", and timeline showing approvals.
+
+### Governance & Static Pages
+- **Account Preferences:** Toggle groups arranged in cards with contrasting backgrounds; destructive options highlighted with border and icon.
+- **Profile Page:** Hero uses blurred background image with overlay gradient, layered stats chips, and CTA stack for share/export actions.
+- **About/Legal Pages:** Typography emphasises readability with wide margins, anchored table of contents, and sticky sidebar for quick navigation.
+
 ## Accessibility & Compliance Styling
 - Focus outlines contrast ratio ≥ 3:1; consistent across keyboard and assistive technology states.
 - Error messaging includes icon, text, and optional link to detailed help docs.

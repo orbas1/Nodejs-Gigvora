@@ -14,6 +14,28 @@
 | Trust Center | Compliance | Wireframe | Draft | Not started | Security certifications pending |
 | Dashboard | Product Design | High fidelity | Final | In development | Linked to provider portal release |
 | Settings | Product Design | High fidelity | Draft | Not started | Dependent on API updates |
+| Purchase & Checkout | Growth PM | Wireframe | Draft | Not started | Requires finance/legal review |
+| Budget Management | Finance PM | Wireframe | Draft | Not started | Needs data visual specs |
+| Invoices & Receipts | Finance PM | Wireframe | Draft | Not started | Connect to billing API |
+| Admin Control Center | Product Design | Wireframe | Draft | Not started | Align with RBAC policy |
+| Agency Management | Product Design | Wireframe | Draft | Not started | Multi-brand requirements |
+| Company Management | Product Design | Wireframe | Draft | Not started | Cross-department analytics |
+| Freelancer Panel | Product Design | Wireframe | Draft | Not started | Pipeline data dependencies |
+| Headhunter Panel | Product Design | Wireframe | Draft | Not started | Interview tooling integration |
+| Mentorship Hub | Community PM | Wireframe | Draft | Not started | Mentor matching algorithm inputs |
+| Creation Studio | Product Design | Wireframe | Draft | Not started | Asset library sourcing |
+| Experience Launchpad | Community PM | Wireframe | Draft | Not started | Mentor onboarding assets |
+| Networking Lounge | Community PM | Wireframe | Draft | Not started | Live event infra alignment |
+| Volunteering Marketplace | Community PM | Wireframe | Draft | Not started | Partner data feed |
+| Project Management | Product Design | Wireframe | Draft | Not started | Task automation scope |
+| Gig Management | Product Design | Wireframe | Draft | Not started | Real-time status updates |
+| Job Listings | Talent PM | Wireframe | Draft | Not started | Syndication requirements |
+| Interview Management | Talent PM | Wireframe | Draft | Not started | Calendar integrations |
+| Interview Room | Talent PM | Wireframe | Draft | Not started | Video vendor evaluation |
+| Messaging Inbox | Product Design | Wireframe | Draft | Not started | Support escalations mapping |
+| Account Preferences | Product Design | Wireframe | Draft | Not started | Requires security review |
+| Finance Settings | Finance PM | Wireframe | Draft | Not started | Payment processor approvals |
+| Legal Hub (Terms/Privacy) | Legal | Wireframe | Draft | Not started | Content updates in progress |
 
 ## Maintenance
 - Update table weekly during project sync.

@@ -2,7 +2,7 @@
 
 ## Strategic Overview
 - **Objective:** Deliver a cohesive multi-platform application experience emphasising speed-to-task, brand consistency, and measurable business outcomes for providers and consumers.
-- **Scope of Work:** Cover dashboards, onboarding, messaging, scheduling, finance, and support modules across native and responsive surfaces.
+- **Scope of Work:** Cover dashboards, onboarding, messaging, scheduling, finance, and support modules across native and responsive surfaces, plus expanded purchase journeys, admin/company/agency/freelancer/headhunter/mentorship panels, creation studio, networking, volunteering, experience launchpad, project & gig management, job listings, interview lifecycle, HR management, budgeting, messaging/inbox, account & finance settings, profile, and legal/marketing pages.
 - **Success Metrics:** Reduce critical workflow completion time by 20%, improve Net Promoter Score by 12 points, and achieve WCAG 2.1 AA compliance for top 10 user journeys.
 
 ## Research & Discovery Inputs
@@ -26,8 +26,8 @@
 
 ## Deliverables & Artefacts
 - Updated Figma component library with provider/user/web variants and documented usage rules.
-- Detailed wireframes (low, mid, high fidelity) for 37 screens across key journeys.
-- Flow diagrams covering onboarding, gig creation, queue management, messaging, payments, and support escalation.
+- Detailed wireframes (low, mid, high fidelity) for 37 core screens plus 80+ supplementary surfaces spanning commerce, governance, recruitment, community, and legal experiences.
+- Flow diagrams covering onboarding, gig creation, queue management, messaging, payments, and support escalation, alongside supplemental logic maps for budget control, networking rotations, mentorship lifecycle, volunteer intake, and interview orchestration.
 - Style guide addendums for typography, color, iconography, motion, and imagery updates.
 - Implementation packages: token JSON, CSS/SCSS partials, React/Flutter component references, accessibility checklists.
 - QA scripts for visual regression, interaction parity, and copy review.

@@ -63,6 +63,30 @@
 - Modals use dimmed overlay (`rgba(15,23,42,0.45)`) and drop shadow `0 20px 40px rgba(15,23,42,0.25)`.
 - Toast notifications appear at top with slide-in animation, icon, and multi-line support.
 
+## Experience-Specific Styling
+### Purchase & Finance Areas
+- **Membership Cards:** Gradient backgrounds blending primary and accent, layered iconography, and subtle animated shimmer on active plan.
+- **Checkout Forms:** Step indicators use pill badges with checkmarks on completion; error states emphasised with red outline and bounce micro-interaction.
+- **Finance Settings:** Accordion headers use chevron icons and badges showing verification status; documents list uses thumbnail previews.
+- **Budget Tracker:** Circular progress uses soft shadow and numeric overlay; alerts appear as accent banners with dismiss icon.
+
+### Career & Opportunity Modules
+- **Job Listing Cards:** Feature employer logo badge, salary chips, remote badge, and gradient apply button; skeleton states mirror layout to reduce layout shift.
+- **Interview Room:** Dark-on-light dual theme with accent-coloured status bar, speaking indicator glow, and tactile button styling for mute/video controls.
+- **Project & Gig Boards:** Cards adopt accent-colour stripes per status, drag handle icon, and micro drop shadow when active.
+- **Mentorship Dashboards:** Soft pastel backgrounds with goal progress arcs and avatar pairs; session cards include accent-coloured timeline dots.
+- **Volunteering Listings:** Warm gradient header, iconography for cause categories, and CTA emphasising commitment length.
+
+### Community & Networking Spaces
+- **Networking Lounge:** Live tiles with neon accent border pulsing gently, background blur on join overlay, and gradient timer bar.
+- **Speed Networking:** Timer widget uses digital font, progress ring around avatar, and celebratory burst on session completion.
+- **Creation Studio:** Editor toolbar uses frosted glass effect, snap guides highlighted with accent lines, and success toast includes share CTA button.
+- **Messaging Bubble:** Compact overlay with rounded corners, drop shadow, and gradient highlight for unread count badge.
+
+### Settings & Legal Pages
+- **Account Preferences:** Toggle groups arranged on raised surfaces with descriptive copy; destructive options flagged with warning icon and background tint.
+- **Legal Documents:** Use typographic hierarchy with drop caps for section titles, sticky summary banner, and accent callout boxes for key updates.
+
 ## Imagery & Illustration
 - Introduced illustration system depicting diverse users in gig scenarios with subtle textures.
 - Photo guidelines emphasise natural lighting, candid moments, and consistent colour grading.

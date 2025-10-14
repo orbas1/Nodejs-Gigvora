@@ -53,6 +53,46 @@ We restructured the consumer app logic to emphasise clarity, personalised recomm
 - **Notification Settings:** Tabbed interface to manage push, email, SMS; includes preview of message types.
 - **Safety Settings:** Users can share emergency contact, enable location sharing for active bookings, and manage blocked providers.
 
+### 6. Membership & Subscription Management
+1. **Plan Discovery**
+   - Accessible from Profile → Membership or upsell banners in Discover; displays current plan, benefits, and expiry.
+   - Tapping "Upgrade" opens comparison modal with real-time pricing adjustments for currency/region.
+2. **Checkout Sequence**
+   - Stepper collects billing info, payment selection, and legal acknowledgement; integrates loyalty credits to offset price.
+   - Failure states provide actionable guidance (update card, contact support) and preserve progress.
+3. **Invoice & History Access**
+   - After purchase, receipts stored in Finance tab; export options for PDF/email and filters for time range.
+   - Cancellation flow requires reason selection, highlights consequences (loss of benefits), and confirms effective date.
+
+### 7. Career Advancement & Opportunity Flows
+1. **Job Discovery to Application**
+   - Search results adapt to persona (freelancer vs. job seeker) with recommended filters.
+   - Application flow collects resume, cover letter, and screening questions; progress indicator ensures clarity, and successful submission triggers schedule prompt to prepare for interviews.
+2. **Interview Lifecycle**
+   - When interview scheduled, timeline syncs with calendar, sends reminders, and surfaces preparation materials.
+   - Joining interview room verifies device readiness, provides virtual background controls, and handles fallback audio dial-in.
+   - Post-interview evaluation request appears immediately, capturing feedback and next-step clarity.
+3. **Project & Gig Management**
+   - Creating personal projects kicks off backlog creation; tasks auto-assigned to user with optional collaborator invites.
+   - Status updates propagate to connected stakeholders and update analytics badges on dashboard.
+4. **Mentorship Programs**
+   - Enrollment flow validates profile completeness, collects goals, and matches with mentors; users can accept/decline suggestions.
+   - Session completion triggers reflection survey and updates progress meter in Mentorship panel.
+5. **Volunteering Engagement**
+   - Application screens verify background requirements; once approved, the app schedules orientation and adds tasks to To-Do list.
+   - Completion prompts impact logging and optional testimonial submission.
+
+### 8. Community & Networking Journeys
+- **Networking Sessions:** RSVP flow ensures capacity limits, collects agenda preferences, and issues join token; post-event flow captures connections made and recommended follow-ups.
+- **Speed Networking:** Timer-driven rotation automatically moves users between rooms; logic enforces cooldown before rejoining same participant to encourage variety.
+- **Creation Studio Publishing:** Draft → Review → Publish pipeline with auto-save, brand compliance checks, and optional peer review invitation.
+- **Messaging Bubble:** Real-time inbox overlay accessible across app; uses prioritisation rules to surface urgent threads and integrates quick action chips for share availability or send proposal.
+
+### 9. Settings, Legal, and Governance
+- **Account Preferences:** Changes to privacy or communication toggles trigger confirmation modals and audit log entries; toggles instantly update backend settings via API with optimistic UI feedback.
+- **Finance Settings:** Editing payout methods prompts verification via micro-deposit and requires biometric confirmation on supported devices.
+- **Legal Documents:** When Terms or Privacy update, forced-read screen summarises changes, provides download links, and logs acceptance timestamp.
+
 ## Automation Touchpoints
 - Event taxonomy updated to track entry, exit, and outcomes for each flow.
 - Push notification cadence refined to avoid fatigue (max 3/day) with quiet hours respect.

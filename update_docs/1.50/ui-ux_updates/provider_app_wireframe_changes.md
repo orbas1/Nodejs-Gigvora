@@ -70,6 +70,48 @@ Version 1.50 introduces a system-wide uplift of the provider operations portal. 
 - **Security Center:** MFA enforcement controls, device history table, session revocation, and audit export.
 - **Integrations:** Marketplace grid with partner logos, categories, integration status chips, and configuration CTA.
 
+## Extended Management Suites
+### Project & Gig Management Hub
+- **Project Overview Canvas:** Kanban board with swimlanes for Discovery, Planning, Execution, QA, and Delivery; cards expose gig tags, owners, budget health, and next milestone.
+- **Gig Lifecycle Tracker:** Timeline view highlighting inquiry, proposal, contract, delivery, review, and renewal checkpoints with automated SLA alerts.
+- **Experience Launchpad:** Guided checklist for launching new offerings with embedded templates, asset upload sections, and mentor assignment slots.
+
+### Talent & Workforce Panels
+- **Freelancer Panel:** Persona-based dashboard surfacing assignment pipeline, credential expirations, utilisation meter, and direct links to schedule adjustments.
+- **Agency Panel:** Multi-brand switcher, aggregated revenue reports, hiring funnel, HR compliance tracker, and agency-wide announcement broadcast card.
+- **Company Panel:** Portfolio summary showing departments, open requisitions, hiring velocity, and cross-team collaboration timeline.
+- **Headhunter Panel:** Candidate pipeline board with status chips, talent pool filters, interview readiness status, and offer management queue.
+- **Mentorship Panel:** Mentor/mentee matching table, session scheduling calendar, goal-tracking progress rings, and feedback submission feed.
+
+### Commerce & Finance Spaces
+- **Purchase Page & Checkout:** Pricing tiles with plan comparison, add-on toggles, savings callouts, and stepper-led checkout collecting billing, payment, and compliance acknowledgements.
+- **Budget Management Console:** Visual budget allocation chart, burn rate trendline, variance alerts, and reallocation workflow with approval gating.
+- **Finance Settings:** Tabs for payout preferences, invoicing formats, tax profiles, and compliance documents with inline validation and digital signature capture.
+- **Invoice & Payments Ledger:** Table of invoices with status filters, bulk download, export options, and quick action drawer for resend or void.
+
+### Engagement & Communication Areas
+- **Networking & Speed Networking Lounges:** Grid of live rooms with capacity indicators, countdown timers, and join buttons; includes attendee queue side panel and conversation prompts overlay.
+- **Mentoring Studio:** Dual-pane layout featuring agenda, shared notes, resource library, and follow-up action items with due dates.
+- **Messaging, Inbox, Chat Bubble:** Unified communications hub with omnichannel filters, collapsible contact list, pinned threads, and contextual insights card powering suggested responses.
+- **Volunteering Marketplace:** Card grid of volunteer opportunities with skill tags, time commitment chips, map integration, and quick apply drawer.
+
+### Interview & HR Modules
+- **Job Listing Composer:** Multi-step builder covering role details, requirements, benefits, employer branding assets, and preview pane.
+- **Interview Management Dashboard:** Calendar timeline with interviewer availability overlay, candidate stage tracker, and quick actions (reschedule, assign panelists, share prep materials).
+- **Interview Room:** Split-screen layout enabling video embed, collaborative notes, scorecard entry, and resource drawer for portfolio review.
+- **Agency HR Management:** Personnel directory with contract status, compliance documents, compensation bands, and renewal reminders.
+- **Agency & Company Management Console:** Hierarchical view of departments/agencies, governance policy checklist, and automation summary for onboarding/offboarding sequences.
+
+### Support & Governance
+- **Account Preferences:** Tabs for notifications, privacy, localisation, accessibility, and experimental features with preview toggles.
+- **Profile Page:** Modular layout with hero summary, KPI badges, verified credentials, testimonials, and timeline of key achievements.
+- **About Us / Legal Pages:** Structured sections with mission statements, leadership bios, timeline infographic, and collapsible Terms & Conditions / Privacy Policy modules linking to compliance downloads.
+
+### Dashboard Enhancements
+- **Calendar System:** Unified calendar with colour-coded event types (gigs, interviews, mentoring, volunteering), drag-to-schedule, and sync indicators for Google/Microsoft integrations.
+- **Task Management:** Multi-view (list, kanban, calendar) with priority flags, dependencies, subtask nesting, and time tracking chips.
+- **Analytics Widgets:** Role-specific metrics for hiring velocity, mentorship hours, volunteer impact, financial health, and community engagement rates.
+
 ## Mobile & Responsive Considerations
 - Collapsible nav rail transforms into bottom sheet menu on ≤1024px widths; persistent quick-create button converts to FAB.
 - Dashboard modules stack vertically with swipeable carousels for KPI tiles.

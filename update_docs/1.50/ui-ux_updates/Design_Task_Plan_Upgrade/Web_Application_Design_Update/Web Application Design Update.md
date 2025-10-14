@@ -16,9 +16,9 @@
 4. **Flexibility:** Create modular sections configurable for campaigns without engineering involvement.
 
 ## Key Deliverables
-- Responsive wireframes and high-fidelity designs for homepage, solutions pages, resource hub, pricing, and logged-in dashboard.
+- Responsive wireframes and high-fidelity designs for homepage, solutions pages, resource hub, pricing, logged-in dashboard, and the expanded post-auth navigation featuring Feed → Explore → Create → Dashboard → Profile.
 - Mega-menu architecture documentation with content templates per column.
-- Component library updates covering hero modules, testimonial sliders, pricing cards, and CTA bars.
+- Component library updates covering hero modules, testimonial sliders, pricing cards, CTA bars, role-based panel widgets (admin, agency, company, freelancer, headhunter, mentorship), creation studio layouts, networking lounges, volunteering marketplace, interview room, job listing manager, budget dashboards, messaging inbox overlays, account/finance settings, and legal pages.
 - Interaction specifications for animations, scroll-triggered elements, and responsive breakpoints.
 - Analytics instrumentation plan mapping key interactions to event taxonomy.
 

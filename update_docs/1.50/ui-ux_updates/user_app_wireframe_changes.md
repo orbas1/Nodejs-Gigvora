@@ -55,6 +55,32 @@
 - **Booking Detail:** Timeline of key events, checklist for preparation, map embed with navigation link, and receipt summary.
 - **Reschedule Flow:** Stepper for selecting new time slot, provider confirmation, and update summary.
 
+## Commerce & Membership Wireframes
+- **Purchase & Subscription Hub:** Card stack showcasing available plans, benefits, and trial countdown; includes CTA for upgrade, manage billing, and view invoices.
+- **Finance Settings:** Accordion layout for payment methods, payout preferences for freelancers, and tax documentation upload with progress states.
+- **Budget Overview:** Visual tracker for personal spending against set goals; includes alerts when approaching thresholds and suggestions for optimising bookings.
+- **Account Preferences:** Tabbed screens for privacy, notification tiers, accessibility options, and experimental features with inline explanations.
+
+## Career & Opportunity Wireframes
+- **Job Listing Explorer:** Search-first layout with filter chips (role, location, salary, remote), card list showing employer info, status badges, and quick apply CTA.
+- **Interview Management:** Dashboard summarising scheduled interviews, preparation tasks, and decision status; integrates countdown timers and quick access to interview room links.
+- **Interview Room:** Mobile-friendly video layout with collapsible notes panel, shared documents carousel, and rating submission after session.
+- **Experience Launchpad:** Guided roadmap for launching services or side projects with progress tracker, mentor recommendations, and resource library.
+- **Project Management View:** Mobile-adapted kanban board with swipe gestures, card expansion for task details, and quick assign functionality.
+- **Gig Management:** List of gigs the user offers with status tags, analytics snapshot, and shortcuts to pause or boost visibility.
+- **Mentorship Panel:** Dual view for mentor/mentee roles featuring session scheduling, goal tracking, and feedback collection forms.
+- **Volunteering Hub:** Map + list hybrid showing volunteering opportunities with filters for cause, duration, and skill fit; quick apply sheet includes availability selection.
+
+## Community & Engagement Wireframes
+- **Networking Lounge:** Live event cards with countdown timers, join buttons, and attendee previews; includes schedule tab for upcoming speed networking rounds.
+- **Creation Studio:** Template gallery for portfolios, service previews, and marketing assets; editing mode supports drag-and-drop modules and preview toggles for mobile/desktop.
+- **Messaging Extensions:** Chat bubble overlay accessible from any screen showing quick replies, pinned threads, and voice note support.
+- **Inbox:** Unified inbox merging bookings, opportunities, and community messages with filtering for unread, actionable, and archived categories.
+
+## Static & Informational Pages
+- **Profile Page:** Extended layout with hero, journey timeline, testimonials, metrics, and share profile CTA.
+- **About Us, Terms, Privacy:** Responsive scroll experiences with sticky table of contents, inline anchors, and callouts summarising key policies; includes quick contact CTA.
+
 ## Profile & Trust Wireframes
 - **Profile Home:** User avatar, verification badge, rating, quick stats (completed gigs, repeat providers, credits).
 - **Personal Info Section:** Expandable cards for contact details, payment methods, addresses with inline edit icons.

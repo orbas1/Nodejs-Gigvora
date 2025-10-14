@@ -8,6 +8,7 @@ The Version 1.50 update rationalises logged-out marketing and logged-in workspac
 - **Conversion Focus:** Demo request and trial signup flows streamlined with reduced form fields and progressive profiling.
 - **Self-Service Enablement:** Logged-in dashboards expose quick actions, contextual help, and data export scheduling.
 - **Governance & Security:** Admin flows integrate audit logs, permission gating, and session management checkpoints.
+- **Unified Authenticated Navigation:** Post-login header now routes Feed → Explore → Create → Dashboard → Profile, with the avatar drop-down gating access to admin, finance, and organisation-specific panels.
 
 ## Marketing Site Flows
 ### 1. Visitor → Demo Request
@@ -57,6 +58,60 @@ The Version 1.50 update rationalises logged-out marketing and logged-in workspac
 - In-app help launcher triggers search overlay; results combine knowledge base, community threads, and contact options.
 - If user initiates chat, context (page, role, account tier) passed to support agent.
 - Feedback submission posts to productboard integration, tagging module and sentiment.
+
+### 6. Purchase & Subscription Flow
+1. **Entry Points**
+   - Upgrade prompts from dashboard hero, Feed banners, or Finance Settings direct to plan comparison page.
+   - System checks user role to tailor messaging (e.g., agencies see multi-brand benefits, freelancers see portfolio boosts).
+2. **Plan Configuration**
+   - Users select plan, toggle add-ons (Networking, Mentorship, Analytics), and view ROI calculator updates in real time.
+   - Add-on dependencies validated; unmet requirements prompt inline guidance.
+3. **Checkout Execution**
+   - Stepper collects billing entity, payment method, tax info, compliance acknowledgements, and optional promo codes.
+   - Payment intent created via API; failure triggers retry with saved methods or contact sales CTA.
+4. **Post-Purchase**
+   - Success screen summarises plan, next billing date, and activated modules; triggers onboarding tasks for newly unlocked panels.
+   - Finance dashboard updates with invoice, while notifications inform stakeholders of changes.
+
+### 7. Role-Based Panel Flows
+1. **Admin Control Center**
+   - Admin selects Admin panel from avatar drop-down; overview fetches user counts, pending approvals, and incident alerts.
+   - User management actions (add, edit, disable) require justification entry and log to audit history; permission changes propagate to access tokens.
+2. **Agency & Company Management**
+   - Agencies switch between brands; each brand loads workforce metrics, HR compliance status, and communication broadcasts.
+   - Company managers manage departments, assign leaders, and review collaboration timeline; changes notify relevant members.
+3. **Freelancer & User Panels**
+   - Freelancers manage pipeline; moving cards triggers notifications to providers/users and updates utilisation analytics.
+   - End users access Feed for personalised updates; Create launches multi-surface composer with autosave and preview states.
+4. **Headhunter & Mentorship Panels**
+   - Headhunters progress candidates through pipeline; scheduling interview auto-generates invites and syncs calendars.
+   - Mentorship panel matches mentors/mentees; acceptance triggers session plan creation and reminder cadence.
+
+### 8. Experience Launchpad & Creation Studio
+- **Launchpad Flow:** Stepper collects concept, target audience, milestones, mentor involvement, and asset checklist; each milestone unlocks tasks and recommended templates.
+- **Creation Studio Publishing:** Editor supports versioning; publishing triggers QA review, marketing notifications, and release schedule to Feed/Explore.
+- **Networking & Speed Networking:** Hosts configure room capacity/duration; participants queue, rotate automatically, and receive summary of connections with follow-up prompts.
+
+### 9. Project, Task, and Resource Management
+- **Project Initiation:** Users define scope, timeline, budget; system generates default tasks and syncs with calendar.
+- **Task Operations:** Drag-and-drop between Kanban stages triggers automation (notifications, dependency checks); board view ties into analytics for throughput and SLA tracking.
+- **Calendar & Resource Sync:** Multi-source calendar overlays gigs, interviews, mentoring, volunteering; conflicts flagged with suggested resolutions.
+- **Budget Oversight:** Budget dashboards compute allocation vs. spend, highlight variance thresholds, and require approvals for reallocation.
+
+### 10. Recruitment & Interview Lifecycle
+- **Job Listing Publication:** Wizard collects role details, requirements, media, and approvals; on publish, job syndicated, analytics events fired, and pipeline initialised.
+- **Interview Coordination:** Candidate stage updates propagate to interviewer availability; interview room handshake ensures secure entry, recording consent, and evaluation capture.
+- **Offer & Onboarding:** Offers require multi-level approval; acceptance initiates onboarding tasks and notifications to HR/agency modules.
+
+### 11. Messaging, Inbox, & Support Escalation
+- **Unified Inbox:** Aggregates communications across gigs, projects, interviews; prioritises by SLA and sentiment. Users can assign, snooze, or escalate threads.
+- **Chat Bubble Access:** Authenticated-only bubble anchored bottom-right; opens mini inbox while retaining page context, offering quick actions and linking to full inbox.
+- **Support Escalation:** Critical threads escalate to triage board with timeline, attachments, role assignments, and resolution tracking.
+
+### 12. Governance, Legal, & Settings
+- **Account Preferences:** Changes update via API with optimistic UI; significant updates require password re-auth and log audit record.
+- **Finance Settings:** Payout updates trigger verification workflow, multi-factor approval, and status badges; invoice downloads logged for compliance.
+- **Legal Acknowledgements:** When Terms/Privacy change, modal forces review, highlights summary, and records timestamp; rejection restricts access until accepted.
 
 ## Automation & Integrations
 - Marketing forms integrate with HubSpot; events include `demo_requested`, `trial_started`, `resource_downloaded`.

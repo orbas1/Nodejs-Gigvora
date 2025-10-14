@@ -1,7 +1,7 @@
 # Web Menu Specifications — Version 1.50
 
 ## Menu Types
-- **Primary Navigation** with mega-menu.
+- **Primary Navigation** with mega-menu (pre-auth) and authenticated layout ordered **Feed → Explore → Create → Dashboard → Profile**.
 - **Secondary Section Navigation** for long-form pages.
 - **Footer Navigation** with quick links.
 - **Utility Menu** for language, contact sales, system status.
@@ -21,6 +21,7 @@
 - Use concise labels (≤3 words) and supporting copy (≤80 characters).
 - Group related links; use dividers for separation.
 - Include icons for high-priority links (demo, pricing).
+- Authenticated profile drop-down includes Account Preferences, Finance Settings, Admin Control Center, Agency Management, Company Management, Freelancer Panel, Headhunter Panel, Mentorship Hub, Creation Studio, and Logout options.
 
 ## Accessibility
 - Menu trigger `aria-expanded` and `aria-controls` referencing menu panel.

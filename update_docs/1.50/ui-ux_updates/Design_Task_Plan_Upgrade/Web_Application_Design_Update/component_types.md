@@ -7,17 +7,23 @@ Document primary UI components for the web marketing and logged-in experience to
 1. **Hero Modules**
    - Split hero, centered hero, checklist hero, video hero.
 2. **Navigation Components**
-   - Top navigation bar, mega-menu, sticky sub-navigation, breadcrumb trail.
+   - Top navigation bar, mega-menu, sticky sub-navigation, breadcrumb trail, authenticated header (Feed/Explore/Create/Dashboard/Profile), profile drop-down menu.
 3. **Content Modules**
    - Value pillar cards, testimonial carousel, case study grid, features list, statistics band.
 4. **Conversion Elements**
-   - CTA bars, lead capture forms, pricing cards, contact sales drawer.
+   - CTA bars, lead capture forms, pricing cards, contact sales drawer, purchase plan selector, checkout stepper, ROI calculator widget.
 5. **Support Modules**
    - FAQ accordion, resource tiles, blog card, event card.
 6. **Footer Elements**
    - Multi-column footer, newsletter signup form, social icon set.
 7. **Dashboard Widgets (Logged-in)**
-   - KPI tiles, recent activity feed, tasks list, insights card, alert banner.
+   - KPI tiles, recent activity feed, tasks list, insights card, alert banner, calendar widget, inbox preview, budget variance card, plan usage meter.
+8. **Role-Based Panels**
+   - Admin tables, permission matrix, agency brand switcher, company portfolio overview, freelancer pipeline board, headhunter candidate cards, mentorship session tracker.
+9. **Community & Creation Components**
+   - Networking room tile, speed networking timer, creation studio canvas modules, experience launchpad checklist, volunteering opportunity card.
+10. **Recruitment & HR Components**
+    - Job listing card, interview scheduler, interview room participant tile, offer approval timeline, HR compliance tracker.
 
 ## Component Metadata
 - Each component defined in design system with props, variants, responsive behaviours, and accessibility notes.
