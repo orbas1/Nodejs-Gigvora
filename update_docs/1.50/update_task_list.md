@@ -1,0 +1,103 @@
+# Version 1.50 Update Task List
+
+Each numbered task maps to the update plan and contains explicit integration coverage so cross-functional teams can execute in parallel while maintaining traceability to Version 1.50 requirements and the pre-update defect catalogue.
+
+## Task 1 — Stabilise service lifecycles and security perimeters (0%)
+- **Backend:** Separate worker lifecycles from Express, add readiness/liveness probes, and repair the global error handler to satisfy Issue List items 1, 4, and 5.
+- **Front-end:** Surface health and rate-limit telemetry in admin dashboards so operators can react to backend degradation (Issues 14–17).
+- **User phone app:** Replace mocked connectivity checks with authenticated health polling and secure session bootstrap (Issue 18).
+- **Provider phone app:** Mirror health polling and deliver maintenance messaging for provider personas to uphold SLA expectations.
+- **Database:** Configure connection pooling, graceful draining, and security auditing triggers tied to shutdown hooks (Fix Suggestion 15).
+- **API:** Publish updated OpenAPI docs for health/auth endpoints and enforce payload size limits plus abuse detection.
+- **Logic:** Add guard clauses that halt payment/compliance workflows when dependencies fail to avoid cascading outages.
+- **Design:** Provide consistent UX copy, iconography, and localisation for maintenance and security prompts across surfaces.
+
+## Task 2 — Modularise domain models and align schemas (0%)
+- **Backend:** Refactor `src/models/index.js` into bounded contexts with domain service layers and feature flags (Issue 4).
+- **Front-end:** Consume generated TypeScript clients and update dashboards to rely on canonical schema packages (Issue 7).
+- **User phone app:** Replace mocked DTOs with generated Dart models and update caches to respect new enums.
+- **Provider phone app:** Align provider flows with shared schema packages to prevent finance/permission mismatches.
+- **Database:** Ship comprehensive migrations, foreign keys, indexes, and seed scripts covering all marketplace entities.
+- **API:** Version OpenAPI/JSON schemas, publish SDKs, and integrate validation middleware referencing shared definitions.
+- **Logic:** Introduce workflow services that enforce state transitions and eliminate placeholder branches (Issue 3).
+- **Design:** Update ERDs, taxonomy diagrams, and stakeholder documentation reflecting the modular architecture.
+
+## Task 3 — Enforce validation, consent, and governance workflows (0%)
+- **Backend:** Apply Celebrate/Zod validation, wire consent records, SAR tooling, and RBAC middleware logging.
+- **Front-end:** Build consent management hubs, admin overrides, and preference panels per governance requirements.
+- **User phone app:** Implement GDPR consent capture, SAR requests, and scam alert toggles using the new APIs.
+- **Provider phone app:** Extend consent and preference interfaces, ensuring dispute/finance permissions respect RBAC.
+- **Database:** Create consent, audit, and retention tables plus automation for anonymisation and archival.
+- **API:** Expose GDPR endpoints with pagination/export sanitisation to prevent PII leakage flagged in the issue report.
+- **Logic:** Embed governance checkpoints throughout creation, finance, messaging, and notification flows.
+- **Design:** Deliver WCAG-compliant modals, policy copy, and localisation assets aligned with legal updates.
+
+## Task 4 — Complete financial, escrow, and dispute capabilities (0%)
+- **Backend:** Implement Stripe/Adyen/PayPal adapters, wallet modelling, and ledger reconciliation jobs (Feature Plan Phase 3).
+- **Front-end:** Ship finance dashboards, dispute workflows, and review insights for every persona.
+- **User phone app:** Provide balance views, dispute initiation, and finance notifications synced with backend states.
+- **Provider phone app:** Add payout scheduling, tax forms, and dispute response flows with offline resilience.
+- **Database:** Create finance, escrow, dispute, payout, and review tables with auditing triggers and retention policies.
+- **API:** Publish signed webhook handlers, finance endpoints, and dispute status transitions with validation.
+- **Logic:** Embed fraud detection hooks, SLA timers, and review aggregation pipelines to safeguard transactions.
+- **Design:** Craft UI journeys for finance summaries, dispute timelines, and review badges reflecting enterprise branding.
+
+## Task 5 — Deliver creation studio and marketplace experiences (0%)
+- **Backend:** Finalise CRUD/workflow services, autosave drafts, scheduling, and collaborator invitations for all entity types.
+- **Front-end:** Build the Creation Studio wizard, explorer enhancements, and dashboard widgets with live data.
+- **User phone app:** Ship creation studio-lite drafts, sync notifications, and transitions to full web workflows.
+- **Provider phone app:** Optimise provider dashboards for campaign management, approvals, and taxonomy exploration.
+- **Database:** Seed taxonomies/templates, add search indexes, and maintain data for live feed ranking accuracy.
+- **API:** Extend endpoints for creation, publishing, explorer queries, and live feed ranking integration.
+- **Logic:** Trigger automatching, invitations, and notifications on state changes while enforcing persona permissions.
+- **Design:** Finalise responsive components, filter patterns, and content layouts for all marketplace personas.
+
+## Task 6 — Modernise frontend architecture and experience foundations (0%)
+- **Backend:** Deliver stable, typed endpoints and feature flags enabling incremental rollout of new clients.
+- **Front-end:** Consolidate route trees, integrate React Query/SWR, add localisation, accessibility, and CMS-driven content.
+- **User phone app:** Consume shared localisation packs, design tokens, and notification preferences for parity.
+- **Provider phone app:** Adopt refreshed design system components and guard states for restricted modules.
+- **Database:** Provide CMS/content tables feeding marketing pages and translation resources.
+- **API:** Offer content, localisation, and feature-flag endpoints used by web/mobile clients.
+- **Logic:** Implement caching, optimistic updates, and secure session refresh logic tied to backend policies.
+- **Design:** Produce component documentation, accessibility guidelines, and responsive breakpoints for enterprise UX.
+
+## Task 7 — Expand integration and AI fabric (0%)
+- **Backend:** Build OAuth connectors, sync pipelines, and AI provider registry with quota management.
+- **Front-end:** Deliver integration consoles, AI-assisted flows, and social login experiences with error recovery.
+- **User phone app:** Enable social login, AI-powered messaging assistance, and integration toggles.
+- **Provider phone app:** Surface CRM sync statuses, AI suggestions, and remediation flows for provider teams.
+- **Database:** Store integration credentials, sync audits, AI usage metrics, and webhook event logs.
+- **API:** Expose integration configuration, webhook ingestion, and AI inference endpoints with throttling.
+- **Logic:** Blend integration signals into automatching, notifications, and live feed ranking algorithms.
+- **Design:** Provide configuration UI patterns, AI transparency messaging, and opt-out controls.
+
+## Task 8 — Achieve mobile parity and runtime resilience (0%)
+- **Backend:** Ensure mobile endpoints deliver pagination, caching headers, and permission checks for parity.
+- **Front-end:** Coordinate responsive design assets and shared copy to minimise divergence from mobile experiences.
+- **User phone app:** Replace demo auth, integrate secure storage, offline caching, push notifications, and analytics.
+- **Provider phone app:** Implement provider workflows, crash reporting, and telemetry sanitisation.
+- **Database:** Optimise queries/indexes for mobile sync deltas and offline reconciliation.
+- **API:** Offer mobile configuration, push token registration, and environment switching services.
+- **Logic:** Refactor navigation guards, state management, and repository patterns for deterministic behaviour.
+- **Design:** Supply mobile layouts, haptic cues, and localisation assets matching the shared design system.
+
+## Task 9 — Institutionalise observability, tooling, and secret hygiene (0%)
+- **Backend:** Deploy logging/metrics/tracing stacks, Dependabot/Renovate, and CI security scanning.
+- **Front-end:** Add telemetry sanitisation, bundle analysis gates, and alerting for regression detection.
+- **User phone app:** Integrate crashlytics, analytics, Fastlane pipelines, and secure configuration gating.
+- **Provider phone app:** Extend CI/CD, secure storage validation, and analytics redaction for provider personas.
+- **Database:** Automate backups, retention policies, and monitoring for replication lag/storage capacity.
+- **API:** Enforce secret scanning, credential rotation, and vault-backed configuration patterns.
+- **Logic:** Establish incident runbooks, self-healing scripts, and escalation workflows.
+- **Design:** Create operational dashboards, runbook templates, and training materials for support staff.
+
+## Task 10 — Execute testing, documentation, and release readiness (0%)
+- **Backend:** Build unit/integration/load tests, publish API docs, and capture security checklist evidence.
+- **Front-end:** Develop Jest/Cypress suites, Storybook visual regression, and accessibility audit pipelines.
+- **User phone app:** Author widget/integration tests, performance monitors, and release QA scripts.
+- **Provider phone app:** Mirror testing harnesses and device coverage for provider-specific journeys.
+- **Database:** Validate migrations on multiple engines, run data quality checks, and log rollback drills.
+- **API:** Execute contract tests with partner sandboxes and maintain versioned changelog entries.
+- **Logic:** Conduct scenario-based QA across marketplace, finance, integrations, and mobile parity flows.
+- **Design:** Update design system docs, marketing collateral, and produce the end-of-update report plus changelog.
