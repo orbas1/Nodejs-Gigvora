@@ -52,3 +52,8 @@
 ## profileAnalyticsService.js (New)
 - Centralises trust score, engagement refresh, and targeting funnel instrumentation, producing normalised snapshots and diff metadata for analytics ingestion.
 - Exposes helpers used by profile and engagement services to record trust delta events, funnel transitions, and queue-driven refresh telemetry while shielding core flows from analytics failures.
+
+## agencyDashboardService.js
+- Added a `buildFinanceControlTower` assembler that merges escrow summaries, finance overview snapshots, and scheduled `FinancePayoutBatch`/`FinancePayoutSplit` data into a single payload covering revenue, expenses, runway reserves, payout distribution, and tax export metadata.
+- API response now includes the finance control tower block, exposing totals, top recipients, role allocation, and upcoming payout batches with deterministic currency handling.
+- Hardened edge cases for empty finance data by normalising values, ensuring scheduled batches without splits still surface, and enriching tax export history with download URLs for the React dashboard.

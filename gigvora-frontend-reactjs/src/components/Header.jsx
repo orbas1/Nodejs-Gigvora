@@ -15,14 +15,30 @@ import UserAvatar from './UserAvatar.jsx';
 import { DASHBOARD_LINKS } from '../constants/dashboardLinks.js';
 import useSession from '../hooks/useSession.js';
 import useNotificationCenter from '../hooks/useNotificationCenter.js';
+import useAuthorization from '../hooks/useAuthorization.js';
 import { formatRelativeTime } from '../utils/date.js';
+import { hasExplorerAccess } from '../utils/accessControl.js';
+
+const AUTHENTICATED_NAV_LINKS = [
+  { id: 'feed', to: '/feed', label: 'Live Feed' },
+  { id: 'explorer', to: '/search', label: 'Explorer' },
+  { id: 'mentors', to: '/mentors', label: 'Mentors' },
+  { id: 'inbox', to: '/inbox', label: 'Inbox' },
+import { hasFinanceOperationsAccess } from '../utils/permissions.js';
 
 const AUTHENTICATED_NAV_LINKS = [
   { to: '/feed', label: 'Live Feed' },
+  { to: '/jobs', label: 'Jobs' },
   { to: '/search', label: 'Explorer' },
+  { to: '/gigs', label: 'Gigs' },
+  { to: '/experience-launchpad', label: 'Launchpad' },
+  { to: '/groups', label: 'Groups' },
+  { to: '/pages', label: 'Pages' },
   { to: '/mentors', label: 'Mentors' },
   { to: '/inbox', label: 'Inbox' },
 ];
+
+const VOLUNTEERING_NAV_LINK = { to: '/volunteering', label: 'Volunteering' };
 
 function NotificationMenu({
   notifications = [],
@@ -202,17 +218,22 @@ function classNames(...classes) {
 export default function Header() {
   const [open, setOpen] = useState(false);
   const { session, isAuthenticated, logout } = useSession();
+  const { canAccess } = useAuthorization();
   const navigate = useNavigate();
+  const notificationCenter = useNotificationCenter(session);
   const {
-    notifications,
-    unreadNotificationCount,
+    notifications: rawNotifications,
+    unreadNotificationCount: rawUnreadNotificationCount,
     markNotificationAsRead,
     markAllNotificationsAsRead,
     messageThreads,
     unreadMessageCount,
     markThreadAsRead,
     markAllThreadsAsRead,
-  } = useNotificationCenter(session);
+  } = notificationCenter;
+  const canAccessNotifications = canAccess('notifications:center');
+  const notifications = canAccessNotifications ? rawNotifications : [];
+  const unreadNotificationCount = canAccessNotifications ? rawUnreadNotificationCount : 0;
 
   const dashboardTarget = useMemo(() => {
     if (!isAuthenticated) {
@@ -248,10 +269,37 @@ export default function Header() {
     return membershipLabels[0] ?? session?.title ?? null;
   }, [isAuthenticated, membershipLabels, session?.title]);
 
+  const profileLink = useMemo(() => {
+    if (session?.profileId || session?.userId) {
+      return '/profile/me';
+    }
+    return null;
+  }, [session?.profileId, session?.userId]);
+
+  const navLinks = useMemo(() => {
+    if (!profileLink) {
+      return AUTHENTICATED_NAV_LINKS;
+    }
+    return [...AUTHENTICATED_NAV_LINKS, { to: profileLink, label: 'Profile' }];
+  }, [profileLink]);
+  const financeAccess = useMemo(() => hasFinanceOperationsAccess(session), [session]);
+
   const navClassName = ({ isActive }) =>
     `relative px-3 py-2 text-sm font-semibold transition-colors ${
       isActive ? 'text-accent' : 'text-slate-500 hover:text-slate-900'
     }`;
+
+  const navLinks = useMemo(() => {
+    const links = [...AUTHENTICATED_NAV_LINKS];
+    if (!isAuthenticated) {
+      return links;
+    }
+    const memberships = (session?.memberships ?? []).map((value) => `${value}`.trim().toLowerCase());
+    if (memberships.some((role) => ['volunteer', 'mentor', 'admin'].includes(role))) {
+      links.push(VOLUNTEERING_NAV_LINK);
+    }
+    return links;
+  }, [isAuthenticated, session?.memberships]);
 
   const closeMobileNav = () => setOpen(false);
 
@@ -285,6 +333,21 @@ export default function Header() {
             <p className="text-sm font-semibold text-slate-800">{session?.name ?? 'Member'}</p>
             {sessionSubtitle ? <p className="text-xs text-slate-500">{sessionSubtitle}</p> : null}
           </div>
+          {profileLink ? (
+            <Menu.Item>
+              {({ active }) => (
+                <Link
+                  to={profileLink}
+                  className={classNames(
+                    'flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium transition',
+                    active ? 'bg-accentSoft text-accent' : 'text-slate-600',
+                  )}
+                >
+                  Profile
+                </Link>
+              )}
+            </Menu.Item>
+          ) : null}
           <Menu.Item>
             {({ active }) => (
               <Link
@@ -298,32 +361,36 @@ export default function Header() {
               </Link>
             )}
           </Menu.Item>
-          <Menu.Item>
-            {({ active }) => (
-              <Link
-                to="/finance"
-                className={classNames(
-                  'flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium transition',
-                  active ? 'bg-accentSoft text-accent' : 'text-slate-600',
+          {financeAccess ? (
+            <>
+              <Menu.Item>
+                {({ active }) => (
+                  <Link
+                    to="/finance"
+                    className={classNames(
+                      'flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium transition',
+                      active ? 'bg-accentSoft text-accent' : 'text-slate-600',
+                    )}
+                  >
+                    Financial hub
+                  </Link>
                 )}
-              >
-                Financial hub
-              </Link>
-            )}
-          </Menu.Item>
-          <Menu.Item>
-            {({ active }) => (
-              <Link
-                to="/trust-center"
-                className={classNames(
-                  'flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium transition',
-                  active ? 'bg-accentSoft text-accent' : 'text-slate-600',
+              </Menu.Item>
+              <Menu.Item>
+                {({ active }) => (
+                  <Link
+                    to="/trust-center"
+                    className={classNames(
+                      'flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium transition',
+                      active ? 'bg-accentSoft text-accent' : 'text-slate-600',
+                    )}
+                  >
+                    Trust centre
+                  </Link>
                 )}
-              >
-                Trust centre
-              </Link>
-            )}
-          </Menu.Item>
+              </Menu.Item>
+            </>
+          ) : null}
           <Menu.Item>
             {({ active }) => (
               <a
@@ -358,6 +425,19 @@ export default function Header() {
     </Menu>
   );
 
+  const explorerAvailable = useMemo(() => hasExplorerAccess(session), [session]);
+  const primaryNavLinks = useMemo(() => {
+    if (!isAuthenticated) {
+      return [];
+    }
+    return AUTHENTICATED_NAV_LINKS.filter((item) => {
+      if (item.id === 'explorer') {
+        return explorerAvailable;
+      }
+      return true;
+    });
+  }, [isAuthenticated, explorerAvailable]);
+
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
@@ -366,7 +446,8 @@ export default function Header() {
         </Link>
         {isAuthenticated ? (
           <nav className="hidden items-center gap-1 md:flex">
-            {AUTHENTICATED_NAV_LINKS.map((item) => (
+            {primaryNavLinks.map((item) => (
+            {navLinks.map((item) => (
               <NavLink key={item.to} to={item.to} className={navClassName}>
                 {({ isActive }) => (
                   <span className="relative inline-flex items-center">
@@ -385,12 +466,14 @@ export default function Header() {
         <div className="hidden items-center gap-4 md:flex">
           {isAuthenticated ? (
             <div className="flex items-center gap-2">
-              <NotificationMenu
-                notifications={notifications}
-                unreadCount={unreadNotificationCount}
-                onMarkAll={markAllNotificationsAsRead}
-                onMarkSingle={markNotificationAsRead}
-              />
+              {canAccessNotifications ? (
+                <NotificationMenu
+                  notifications={notifications}
+                  unreadCount={unreadNotificationCount}
+                  onMarkAll={markAllNotificationsAsRead}
+                  onMarkSingle={markNotificationAsRead}
+                />
+              ) : null}
               <MessageMenu
                 threads={messageThreads}
                 unreadCount={unreadMessageCount}
@@ -445,21 +528,23 @@ export default function Header() {
         <div className="border-t border-slate-200 bg-white px-6 pb-6 md:hidden">
           {isAuthenticated ? (
             <>
-              <div className="flex items-center justify-between gap-3 py-4">
-                <Link
-                  to="/notifications"
-                  onClick={closeMobileNav}
-                  className="flex flex-1 items-center justify-between rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent"
-                >
-                  Notifications
-                  <span className="inline-flex min-h-[1.5rem] min-w-[1.5rem] items-center justify-center rounded-full bg-rose-500 px-2 text-xs font-semibold text-white">
-                    {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
-                  </span>
-                </Link>
+              <div className={`grid gap-3 py-4 ${canAccessNotifications ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                {canAccessNotifications ? (
+                  <Link
+                    to="/notifications"
+                    onClick={closeMobileNav}
+                    className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent"
+                  >
+                    Notifications
+                    <span className="inline-flex min-h-[1.5rem] min-w-[1.5rem] items-center justify-center rounded-full bg-rose-500 px-2 text-xs font-semibold text-white">
+                      {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                    </span>
+                  </Link>
+                ) : null}
                 <Link
                   to="/inbox"
                   onClick={closeMobileNav}
-                  className="flex flex-1 items-center justify-between rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent"
+                  className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent"
                 >
                   Messages
                   <span className="inline-flex min-h-[1.5rem] min-w-[1.5rem] items-center justify-center rounded-full bg-emerald-500 px-2 text-xs font-semibold text-white">
@@ -468,7 +553,8 @@ export default function Header() {
                 </Link>
               </div>
               <nav className="flex flex-col gap-1 py-4 text-sm font-semibold">
-                {AUTHENTICATED_NAV_LINKS.map((item) => (
+                {primaryNavLinks.map((item) => (
+                {navLinks.map((item) => (
                   <NavLink
                     key={item.to}
                     to={item.to}

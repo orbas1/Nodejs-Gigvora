@@ -99,26 +99,40 @@ const POST_TYPE_META = {
     label: 'Experience Launchpad',
     badgeClassName: 'bg-violet-100 text-violet-700',
   },
+  news: {
+    label: 'Gigvora News',
+    badgeClassName: 'bg-sky-100 text-sky-700',
+  },
 };
 
 const ALLOWED_FEED_MEMBERSHIPS = new Set(['user', 'freelancer', 'agency', 'company', 'headhunter', 'mentor', 'admin']);
 
 function resolveAuthor(post) {
+  const directAuthor = post?.author ?? {};
   const user = post?.User ?? post?.user ?? {};
   const profile = user?.Profile ?? user?.profile ?? {};
-  const name = post?.authorName || [user.firstName, user.lastName].filter(Boolean).join(' ');
+  const fallbackName = [user.firstName, user.lastName].filter(Boolean).join(' ');
+  const name =
+    directAuthor.name || post?.authorName || fallbackName || post?.authorTitle || 'Gigvora member';
   const headline =
-    post?.authorHeadline || profile.headline || profile.bio || post?.authorTitle || 'Marketplace community update';
+    directAuthor.headline ||
+    post?.authorHeadline ||
+    profile.headline ||
+    profile.bio ||
+    post?.authorTitle ||
+    'Marketplace community update';
+  const avatarSeed = directAuthor.avatarSeed || post?.authorAvatarSeed || profile.avatarSeed || name;
   return {
-    name: name || 'Gigvora member',
+    name,
     headline,
-    avatarSeed: profile.avatarSeed ?? name ?? 'Gigvora member',
+    avatarSeed,
   };
 }
 
 function resolvePostType(post) {
   const typeKey = (post?.type || post?.category || post?.opportunityType || 'update').toLowerCase();
-  return POST_TYPE_META[typeKey] ?? POST_TYPE_META.update;
+  const meta = POST_TYPE_META[typeKey] ?? POST_TYPE_META.update;
+  return { key: POST_TYPE_META[typeKey] ? typeKey : 'update', ...meta };
 }
 
 function normaliseFeedPost(post, fallbackSession) {
@@ -381,6 +395,11 @@ function FeedComment({ comment }) {
 function FeedPostCard({ post, onShare }) {
   const author = resolveAuthor(post);
   const postType = resolvePostType(post);
+  const isNewsPost = postType.key === 'news';
+  const heading = isNewsPost ? post.title || post.summary || post.content || author.name : author.name;
+  const bodyText = isNewsPost ? post.summary || post.content || '' : post.content || '';
+  const linkLabel = isNewsPost ? 'Read full story' : 'View attached resource';
+  const publishedTimestamp = post.publishedAt || post.createdAt;
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(() => {
     if (typeof post.reactions?.likes === 'number') {
@@ -428,15 +447,35 @@ function FeedPostCard({ post, onShare }) {
           <UserAvatar name={author.name} seed={author.avatarSeed} size="xs" showGlow={false} />
           <span>{author.headline}</span>
         </span>
-        <span>{formatRelativeTime(post.createdAt)}</span>
+        <span>{formatRelativeTime(publishedTimestamp)}</span>
       </div>
       <div className="flex flex-wrap items-center gap-3">
-        <h2 className="text-lg font-semibold text-slate-900">{author.name}</h2>
+        <h2 className="text-lg font-semibold text-slate-900">{heading}</h2>
         <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${postType.badgeClassName}`}>
           {postType.label}
         </span>
+        {isNewsPost && post.source ? (
+          <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[0.7rem] font-semibold uppercase tracking-wide text-slate-600">
+            {post.source}
+          </span>
+        ) : null}
       </div>
-      <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-line">{post.content}</p>
+      {bodyText ? (
+        <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-line">{bodyText}</p>
+      ) : null}
+      {isNewsPost && author.name && heading !== author.name ? (
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{author.name}</p>
+      ) : null}
+      {post.imageUrl ? (
+        <figure className="overflow-hidden rounded-3xl border border-slate-200">
+          <img
+            src={post.imageUrl}
+            alt={heading ? `${heading} – Gigvora news` : 'Gigvora news visual'}
+            className="h-64 w-full object-cover"
+            loading="lazy"
+          />
+        </figure>
+      ) : null}
       {post.link ? (
         <a
           href={post.link}
@@ -445,7 +484,7 @@ function FeedPostCard({ post, onShare }) {
           className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-accent transition hover:border-accent/50 hover:bg-white"
         >
           <ArrowPathIcon className="h-4 w-4" />
-          View attached resource
+          {linkLabel}
         </a>
       ) : null}
       <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
@@ -821,7 +860,16 @@ export default function FeedPage() {
     const optimisticId = `local-${Date.now()}`;
     const optimisticPost = {
       id: optimisticId,
+  const handleComposerCreate = (payload) => {
+    const author = {
+      name: session?.name ?? 'You',
+      headline: session?.title ?? 'Shared via Gigvora',
+      avatarSeed: session?.avatarSeed ?? session?.name ?? 'You',
+    };
+    const newPost = {
+      id: `local-${Date.now()}`,
       content: payload.content,
+      summary: payload.content,
       type: payload.type,
       link: payload.link,
       createdAt: new Date().toISOString(),
@@ -829,6 +877,10 @@ export default function FeedPage() {
       authorHeadline: session?.title,
       reactions: { likes: 0 },
       comments: [],
+      authorName: author.name,
+      authorHeadline: author.headline,
+      authorAvatarSeed: author.avatarSeed,
+      author,
       User: {
         firstName: session?.name,
         lastName: '',

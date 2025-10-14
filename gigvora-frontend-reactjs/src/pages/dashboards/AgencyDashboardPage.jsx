@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
+  ArrowPathIcon,
   ArrowTrendingUpIcon,
   BriefcaseIcon,
   BuildingOffice2Icon,
@@ -15,11 +17,15 @@ import {
   UsersIcon,
 } from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import { apiClient } from '../../services/apiClient.js';
 import { fetchAgencyDashboard } from '../../services/agency.js';
 import { formatRelativeTime, formatAbsolute } from '../../utils/date.js';
 
 const DEFAULT_WORKSPACE_SLUG = 'nova-collective';
 const DEFAULT_MEMBERSHIPS = ['agency', 'freelancer', 'company'];
+const DEFAULT_LOOKBACK_DAYS = 120;
+const DASHBOARD_CACHE_TTL_MS = 1000 * 60 * 5; // five minutes
+const DEFAULT_MEMBERSHIPS = ['agency'];
 
 function formatNumber(value) {
   if (value == null || Number.isNaN(Number(value))) {
@@ -189,28 +195,83 @@ function formatAvailabilityLabel(status) {
 }
 
 export default function AgencyDashboardPage() {
-  const [state, setState] = useState({ data: null, loading: true, error: null });
+  const [state, setState] = useState({
+    data: null,
+    loading: true,
+    error: null,
+    fromCache: false,
+    lastUpdated: null,
+  });
+  const [refreshToken, setRefreshToken] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
-    setState((previous) => ({ ...previous, loading: true, error: null }));
+    const abortController = new AbortController();
+    const cacheKey = `dashboard:agency:${DEFAULT_WORKSPACE_SLUG}:${DEFAULT_LOOKBACK_DAYS}`;
+    const skipCache = refreshToken > 0;
 
-    fetchAgencyDashboard({ workspaceSlug: DEFAULT_WORKSPACE_SLUG, lookbackDays: 120 })
+    if (!skipCache) {
+      const cached = apiClient.readCache(cacheKey);
+      if (cached?.data && isMounted) {
+        setState({
+          data: cached.data,
+          loading: false,
+          error: null,
+          fromCache: true,
+          lastUpdated: cached.timestamp ?? null,
+        });
+      } else {
+        setState((previous) => ({ ...previous, loading: true, error: null }));
+      }
+    } else {
+      setState((previous) => ({ ...previous, loading: true, error: null }));
+    }
+
+    fetchAgencyDashboard(
+      { workspaceSlug: DEFAULT_WORKSPACE_SLUG, lookbackDays: DEFAULT_LOOKBACK_DAYS },
+      { signal: abortController.signal },
+    )
       .then((payload) => {
-        if (isMounted) {
-          setState({ data: payload, loading: false, error: null });
+        if (!isMounted) {
+          return;
         }
+        apiClient.writeCache(cacheKey, payload, DASHBOARD_CACHE_TTL_MS);
+        setState({
+          data: payload,
+          loading: false,
+          error: null,
+          fromCache: false,
+          lastUpdated: new Date(),
+        });
+        setRefreshing(false);
       })
       .catch((error) => {
-        if (isMounted) {
-          setState({ data: null, loading: false, error: error.message ?? 'Unable to load agency dashboard.' });
+        if (!isMounted) {
+          return;
         }
+        if (error.name === 'AbortError') {
+          setRefreshing(false);
+          return;
+        }
+        setState((previous) => ({
+          ...previous,
+          loading: false,
+          error: error.message ?? 'Unable to load agency dashboard.',
+        }));
+        setRefreshing(false);
       });
 
     return () => {
       isMounted = false;
+      abortController.abort();
     };
-  }, []);
+  }, [refreshToken]);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    setRefreshToken((previous) => previous + 1);
+  };
 
   const summary = state.data?.summary ?? null;
   const workspace = state.data?.workspace ?? null;
@@ -385,6 +446,14 @@ export default function AgencyDashboardPage() {
   const fundingSummary = innovationLabData.funding?.summary ?? {};
   const fundingEvents = (innovationLabData.funding?.events ?? []).slice(0, 5);
 
+  const benchMembers = useMemo(
+    () =>
+      members
+        .filter((member) => member.availability?.status === 'available')
+        .slice(0, 4),
+    [members],
+  );
+
   const activeProjectsCount = summary?.projects?.buckets?.active ?? summary?.projects?.total ?? 0;
   const totalProjectsCount = summary?.projects?.total ?? projects.length ?? 0;
   const autoAssignQueueSize = summary?.projects?.autoAssignQueueSize ?? pipeline.statuses?.pending ?? 0;
@@ -425,6 +494,137 @@ export default function AgencyDashboardPage() {
   const hrAttentionRoles = hrManagement.roleAssignments?.attention ?? [];
   const outstandingPolicies = hrManagement.policyAcknowledgements ?? [];
   const onboardingQueue = (hrManagement.onboardingQueue ?? []).slice(0, 5);
+  const financeControlTower = state.data?.financeControlTower ?? {};
+  const financeControlSummary = financeControlTower.summary ?? {};
+  const payoutInsights = financeControlTower.payouts ?? {};
+  const financeExports = financeControlTower.exports ?? {};
+  const financeCurrency = financeControlSummary.currency ?? financialSummary.currency;
+  const monthToDateRevenue = financeControlSummary.monthToDateRevenue ?? null;
+  const trackedExpensesSummary = financeControlSummary.trackedExpenses ?? null;
+  const savingsRunwaySummary = financeControlSummary.savingsRunway ?? null;
+  const taxReadyBalanceSummary = financeControlSummary.taxReadyBalance ?? null;
+  const lastPayout = financeControlSummary.latestPayout ?? payoutInsights.latestBatch ?? null;
+  const topPayoutRecipients = (payoutInsights.topRecipients ?? []).slice(0, 5);
+  const payoutRoleBreakdown = (payoutInsights.roleBreakdown ?? []).slice(0, 4);
+  const upcomingPayouts = (payoutInsights.upcomingBatches ?? []).slice(0, 4);
+  const payoutTotals = payoutInsights.totals ?? {};
+  const financeExportHistory = (financeExports.history ?? []).slice(0, 4);
+  const shareOfReleasedPercent = payoutTotals.shareOfReleased != null ? payoutTotals.shareOfReleased * 100 : 0;
+  const scheduledTotalText = formatCurrency(financeControlSummary.scheduledTotal ?? 0, financeCurrency);
+
+  const financeSummaryCards = useMemo(() => {
+    const resolvedCurrency = financeCurrency ?? defaultCurrency;
+    const cards = [];
+
+    const monthRevenueChange = monthToDateRevenue?.changePercentage ?? null;
+    cards.push({
+      key: 'month-revenue',
+      label: 'Month-to-date revenue',
+      value: monthToDateRevenue
+        ? formatCurrency(monthToDateRevenue.amount ?? 0, monthToDateRevenue.currency ?? resolvedCurrency)
+        : '—',
+      description:
+        monthRevenueChange == null
+          ? 'No recognised revenue captured this month.'
+          : monthRevenueChange === 0
+          ? 'Flat vs previous month'
+          : `${monthRevenueChange > 0 ? '▲' : '▼'} ${formatPercent(Math.abs(monthRevenueChange))} vs previous month`,
+      descriptionClass:
+        monthRevenueChange == null
+          ? 'text-slate-500'
+          : monthRevenueChange > 0
+          ? 'text-emerald-600'
+          : monthRevenueChange < 0
+          ? 'text-rose-600'
+          : 'text-slate-500',
+      secondary:
+        monthToDateRevenue?.previousAmount != null
+          ? `Previous ${formatCurrency(
+              monthToDateRevenue.previousAmount,
+              monthToDateRevenue.currency ?? resolvedCurrency,
+            )}`
+          : null,
+    });
+
+    cards.push({
+      key: 'released-total',
+      label: 'Released to date',
+      value: formatCurrency(
+        financeControlSummary.totalReleased ?? financialSummary.released ?? 0,
+        resolvedCurrency,
+      ),
+      description: payoutTotals.totalAmount
+        ? `Latest batch distributed ${formatCurrency(payoutTotals.totalAmount, payoutTotals.currency ?? resolvedCurrency)}`
+        : 'Awaiting first payout batch.',
+      descriptionClass: 'text-slate-500',
+      secondary:
+        payoutTotals.totalAmount && financeControlSummary.totalReleased
+          ? `${formatPercent(shareOfReleasedPercent)} of total released`
+          : null,
+    });
+
+    cards.push({
+      key: 'escrow-balance',
+      label: 'Held in escrow',
+      value: formatCurrency(
+        financeControlSummary.inEscrow ?? financialSummary.inEscrow ?? 0,
+        resolvedCurrency,
+      ),
+      description:
+        financeControlSummary.outstanding != null
+          ? `${formatCurrency(financeControlSummary.outstanding, resolvedCurrency)} outstanding receivables`
+          : 'Outstanding receivables not captured.',
+      descriptionClass: 'text-slate-500',
+      secondary: null,
+    });
+
+    const upcomingCount = upcomingPayouts.length;
+    cards.push({
+      key: 'scheduled-total',
+      label: 'Scheduled payouts',
+      value: scheduledTotalText,
+      description: financeControlSummary.nextScheduledAt
+        ? `Next ${formatRelativeTime(financeControlSummary.nextScheduledAt)}`
+        : upcomingCount
+        ? 'Awaiting execution window'
+        : 'No batches scheduled',
+      descriptionClass: financeControlSummary.nextScheduledAt ? 'text-blue-600' : 'text-slate-500',
+      secondary:
+        upcomingCount > 0
+          ? `${formatNumber(upcomingCount)} upcoming ${upcomingCount === 1 ? 'batch' : 'batches'}`
+          : null,
+    });
+
+    cards.push({
+      key: 'recipient-count',
+      label: 'Recipients in latest run',
+      value: formatNumber(financeControlSummary.recipientCount ?? payoutTotals.recipients ?? 0),
+      description:
+        payoutTotals.totalAmount
+          ? `${formatCurrency(payoutTotals.totalAmount, payoutTotals.currency ?? resolvedCurrency)} distributed`
+          : 'No payouts completed during this window.',
+      descriptionClass: 'text-slate-500',
+      secondary: lastPayout
+        ? lastPayout.executedAt
+          ? `Executed ${formatRelativeTime(lastPayout.executedAt)}`
+          : lastPayout.scheduledAt
+          ? `Scheduled ${formatRelativeTime(lastPayout.scheduledAt)}`
+          : null
+        : null,
+    });
+
+    return cards;
+  }, [
+    financeControlSummary,
+    financeCurrency,
+    financialSummary,
+    lastPayout,
+    monthToDateRevenue,
+    payoutTotals,
+    scheduledTotalText,
+    shareOfReleasedPercent,
+    upcomingPayouts.length,
+  ]);
   const availabilityBreakdown = staffingCapacity.availabilityBreakdown ?? [];
   const hrHealth = staffingCapacity.health ?? {};
   const capacityPlanning = talentLifecycle.capacityPlanning ?? {};
@@ -437,13 +637,27 @@ export default function AgencyDashboardPage() {
   const partnerSummary = partnerPrograms.summary ?? {};
   const marketingAutomation = leadership.marketingAutomation ?? {};
   const marketingSummary = marketingAutomation.summary ?? {};
+  const pageStudio = marketingAutomation.pageStudio ?? {};
+  const pageStudioStats = [
+    {
+      label: 'Pages live',
+      value: formatNumber(pageStudio.live ?? pageStudio.published ?? 0),
+      helper: 'Published destinations',
+    },
+    {
+      label: 'Drafts in review',
+      value: formatNumber(pageStudio.inReview ?? pageStudio.drafts ?? 0),
+      helper: 'Awaiting approval',
+    },
+    {
+      label: 'Avg conversion',
+      value: formatPercent(pageStudio.averageConversionRate ?? pageStudio.conversionRate ?? 0),
+      helper: 'Explorer to lead',
+    },
+  ];
   const clientAdvocacy = leadership.clientAdvocacy ?? {};
   const clientAdvocacySummary = clientAdvocacy.summary ?? {};
   const defaultCurrency = financialSummary.currency ?? 'USD';
-
-  const benchMembers = members
-    .filter((member) => member.availability?.status === 'available')
-    .slice(0, 4);
 
   const operatingIntelligence = state.data?.operatingIntelligence ?? {};
   const portfolioInsights = operatingIntelligence.projectPortfolioMastery ?? {};
@@ -1046,6 +1260,53 @@ export default function AgencyDashboardPage() {
       metrics,
     };
   }, [agencyProfile, workspace, summary, state.data?.scope]);
+
+  const lastUpdatedRelative = state.lastUpdated ? formatRelativeTime(state.lastUpdated) : '';
+  const lastUpdatedAbsolute = state.lastUpdated
+    ? formatAbsolute(state.lastUpdated, { dateStyle: 'medium', timeStyle: 'short' })
+    : '';
+  const lastUpdatedText = state.lastUpdated
+    ? `Last synced ${lastUpdatedRelative} (${lastUpdatedAbsolute}).`
+    : 'Awaiting first sync.';
+  const syncLabelClass = state.fromCache ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700';
+  const syncLabelText = state.fromCache ? 'Cached snapshot' : 'Live sync';
+  const hasSyncedData = Boolean(state.data);
+
+  const renderSyncStatus = hasSyncedData ? (
+    <section className="rounded-3xl border border-slate-200 bg-slate-50/80 p-5 shadow-sm">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${syncLabelClass}`}>
+              <span className="inline-flex h-2 w-2 rounded-full bg-current opacity-70" aria-hidden="true" />
+              {syncLabelText}
+            </span>
+            <span className="text-xs font-medium uppercase tracking-wide text-slate-500">{lastUpdatedText}</span>
+          </div>
+          <p className="text-sm text-slate-600">
+            Workspace <span className="font-semibold text-slate-900">{workspaceSlugValue}</span> · Data window covers the last{' '}
+            {DEFAULT_LOOKBACK_DAYS} days.
+          </p>
+          {state.error ? (
+            <p className="text-sm font-medium text-amber-600">
+              Unable to refresh the latest metrics: {state.error}
+            </p>
+          ) : null}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
+          >
+            <ArrowPathIcon className={`h-4 w-4 ${refreshing ? 'animate-spin text-accent' : 'text-slate-500'}`} />
+            {refreshing ? 'Refreshing…' : 'Refresh data'}
+          </button>
+        </div>
+      </div>
+    </section>
+  ) : null;
 
   const capabilitySections = [];
 
@@ -2774,35 +3035,375 @@ export default function AgencyDashboardPage() {
   );
 
   const renderFinancials = (
-    <div className="rounded-3xl border border-blue-100 bg-white p-6">
-      <div className="flex items-center gap-3">
-        <CurrencyDollarIcon className="h-6 w-6 text-blue-500" />
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900">Financial snapshot</h2>
-          <p className="text-sm text-slate-500">Escrow and revenue analytics</p>
+    <section id="finance-control-tower" className="rounded-3xl border border-blue-100 bg-white p-6">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-center gap-3">
+          <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+            <CurrencyDollarIcon className="h-5 w-5" />
+          </span>
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Finance control tower</h2>
+            <p className="text-sm text-slate-500">
+              Monitor recognised revenue, upcoming payouts, and compliance exports in real time.
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {financeControlSummary.generatedAt ? (
+            <span className="inline-flex items-center rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-medium uppercase tracking-wide text-blue-700">
+              Updated {formatRelativeTime(financeControlSummary.generatedAt)}
+            </span>
+          ) : null}
+          <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium uppercase tracking-wide text-slate-600">
+            {formatNumber(upcomingPayouts.length)} upcoming {upcomingPayouts.length === 1 ? 'batch' : 'batches'}
+          </span>
         </div>
       </div>
-      <dl className="mt-6 space-y-4">
-        <div className="rounded-2xl border border-slate-200/60 bg-slate-50/60 px-4 py-3">
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">In escrow</dt>
-          <dd className="mt-1 text-xl font-semibold text-slate-900">
-            {formatCurrency(financialSummary.inEscrow ?? 0, financialSummary.currency)}
-          </dd>
+
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        {financeSummaryCards.map((card) => (
+          <div key={card.key} className="rounded-2xl border border-slate-200/60 bg-slate-50/60 p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{card.label}</p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900">{card.value}</p>
+            <p className={`mt-1 text-xs ${card.descriptionClass}`}>{card.description}</p>
+            {card.secondary ? <p className="mt-1 text-[11px] text-slate-500">{card.secondary}</p> : null}
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-8 grid gap-6 xl:grid-cols-3">
+        <div className="space-y-6 xl:col-span-2">
+          <div className="rounded-3xl border border-slate-200/70 bg-slate-50/70 p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-semibold text-slate-900">Cashflow health</h3>
+                <p className="text-xs text-slate-500">Recognised revenue against posted expenses and reserves.</p>
+              </div>
+              <span className="rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                {trackedExpensesSummary?.count
+                  ? `${formatNumber(trackedExpensesSummary.count)} expense ${trackedExpensesSummary.count === 1 ? 'entry' : 'entries'}`
+                  : 'No expenses posted'}
+              </span>
+            </div>
+            <div className="mt-5 grid gap-4 lg:grid-cols-2">
+              <div className="rounded-2xl border border-blue-100 bg-white p-5">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Revenue recognised</p>
+                <p className="mt-2 text-3xl font-semibold text-slate-900">
+                  {monthToDateRevenue
+                    ? formatCurrency(monthToDateRevenue.amount ?? 0, monthToDateRevenue.currency ?? financeCurrency)
+                    : formatCurrency(0, financeCurrency)}
+                </p>
+                <p
+                  className={`mt-2 text-xs ${
+                    monthToDateRevenue?.changePercentage == null
+                      ? 'text-slate-500'
+                      : monthToDateRevenue.changePercentage > 0
+                      ? 'text-emerald-600'
+                      : monthToDateRevenue.changePercentage < 0
+                      ? 'text-rose-600'
+                      : 'text-slate-500'
+                  }`}
+                >
+                  {monthToDateRevenue?.changePercentage == null
+                    ? 'No prior month baseline captured.'
+                    : monthToDateRevenue.changePercentage === 0
+                    ? 'Flat vs previous month'
+                    : `${monthToDateRevenue.changePercentage > 0 ? '▲' : '▼'} ${formatPercent(
+                        Math.abs(monthToDateRevenue.changePercentage),
+                      )} vs previous month`}
+                </p>
+                {monthToDateRevenue?.previousAmount != null ? (
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    Previous {formatCurrency(
+                      monthToDateRevenue.previousAmount,
+                      monthToDateRevenue.currency ?? financeCurrency,
+                    )}
+                  </p>
+                ) : null}
+              </div>
+              <div className="space-y-4 rounded-2xl border border-blue-100 bg-white p-5">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Runway reserve</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-900">
+                    {savingsRunwaySummary
+                      ? formatCurrency(savingsRunwaySummary.reserveAmount ?? 0, savingsRunwaySummary.currency ?? financeCurrency)
+                      : formatCurrency(0, financeCurrency)}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {savingsRunwaySummary?.months != null
+                      ? `${formatDecimal(savingsRunwaySummary.months, 1)} months of runway`
+                      : 'Capture savings goals to project runway.'}
+                  </p>
+                  {savingsRunwaySummary?.monthlyBurn != null ? (
+                    <p className="mt-1 text-[11px] text-slate-500">
+                      Monthly burn {formatCurrency(savingsRunwaySummary.monthlyBurn, savingsRunwaySummary.currency ?? financeCurrency)}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="h-px bg-slate-200/60" />
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tax ready balance</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-900">
+                    {taxReadyBalanceSummary
+                      ? formatCurrency(taxReadyBalanceSummary.amount ?? 0, taxReadyBalanceSummary.currency ?? financeCurrency)
+                      : formatCurrency(0, financeCurrency)}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {taxReadyBalanceSummary?.latestExport?.generatedAt
+                      ? `Latest export ${formatRelativeTime(taxReadyBalanceSummary.latestExport.generatedAt)}`
+                      : 'Generate exports to unlock audit-ready filings.'}
+                  </p>
+                  {taxReadyBalanceSummary?.latestExport?.downloadUrl ? (
+                    <a
+                      href={taxReadyBalanceSummary.latestExport.downloadUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-2 inline-flex items-center text-[11px] font-semibold text-blue-600 hover:text-blue-700"
+                    >
+                      Download {titleCase(taxReadyBalanceSummary.latestExport.exportType ?? 'export')}
+                    </a>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200/70 bg-slate-50/70 p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-semibold text-slate-900">Payout distribution</h3>
+                <p className="text-xs text-slate-500">Track who is getting paid and how upcoming cycles are shaping up.</p>
+              </div>
+              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-600">
+                {formatPercent(shareOfReleasedPercent)} of total released
+              </span>
+            </div>
+
+            <div className="mt-5 grid gap-6 lg:grid-cols-2">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Top recipients</p>
+                <ul className="mt-3 space-y-3">
+                  {topPayoutRecipients.length ? (
+                    topPayoutRecipients.map((recipient) => {
+                      const sharePercent = recipient.shareOfBatch != null ? recipient.shareOfBatch * 100 : 0;
+                      return (
+                        <li key={recipient.id} className="rounded-2xl border border-white bg-white px-4 py-3 shadow-sm">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-slate-900">{recipient.name}</p>
+                              <p className="text-xs text-slate-500">{titleCase(recipient.role ?? 'Contributor')}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-semibold text-slate-900">
+                                {formatCurrency(recipient.amount ?? 0, recipient.currency ?? financeCurrency)}
+                              </p>
+                              <p className="text-xs text-slate-500">{formatPercent(sharePercent)} of batch</p>
+                            </div>
+                          </div>
+                          <div className="mt-2 h-1.5 rounded-full bg-blue-100">
+                            <div
+                              className="h-1.5 rounded-full bg-blue-500"
+                              style={{ width: `${Math.max(0, Math.min(100, Math.round(sharePercent)))}%` }}
+                            />
+                          </div>
+                          {recipient.recipientEmail ? (
+                            <p className="mt-1 text-[11px] text-slate-500">{recipient.recipientEmail}</p>
+                          ) : null}
+                        </li>
+                      );
+                    })
+                  ) : (
+                    <li className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+                      No payout recipients captured for the last run.
+                    </li>
+                  )}
+                </ul>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Role allocation</p>
+                <ul className="mt-3 space-y-3">
+                  {payoutRoleBreakdown.length ? (
+                    payoutRoleBreakdown.map((bucket) => {
+                      const sharePercent = bucket.shareOfBatch != null ? bucket.shareOfBatch * 100 : 0;
+                      return (
+                        <li key={bucket.role} className="rounded-2xl border border-white bg-white px-4 py-3 shadow-sm">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-semibold text-slate-900">{bucket.role}</p>
+                            <p className="text-xs text-slate-500">{formatPercent(sharePercent)} of batch</p>
+                          </div>
+                          <div className="mt-2 h-1.5 rounded-full bg-blue-100">
+                            <div
+                              className="h-1.5 rounded-full bg-blue-500"
+                              style={{ width: `${Math.max(0, Math.min(100, Math.round(sharePercent)))}%` }}
+                            />
+                          </div>
+                          <p className="mt-1 text-[11px] text-slate-500">
+                            {formatCurrency(bucket.amount ?? 0, payoutTotals.currency ?? financeCurrency)} · {formatNumber(
+                              bucket.recipients ?? 0,
+                            )}{' '}
+                            recipients
+                          </p>
+                        </li>
+                      );
+                    })
+                  ) : (
+                    <li className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+                      Capture payout splits to analyse role allocation.
+                    </li>
+                  )}
+                </ul>
+              </div>
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-dashed border-blue-200 bg-white/70 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Upcoming payouts</p>
+              <ul className="mt-3 space-y-3">
+                {upcomingPayouts.length ? (
+                  upcomingPayouts.map((batch) => (
+                    <li key={batch.id} className="rounded-2xl border border-white bg-white px-4 py-3 shadow-sm">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{batch.name}</p>
+                          <p className="text-xs text-slate-500">
+                            {formatCurrency(batch.totalAmount ?? 0, batch.currency ?? financeCurrency)} ·{' '}
+                            {batch.scheduledAt ? formatRelativeTime(batch.scheduledAt) : 'Schedule pending'}
+                          </p>
+                        </div>
+                        <span className="rounded-full border border-blue-100 bg-blue-50 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-blue-700">
+                          {titleCase(batch.status ?? 'scheduled')}
+                        </span>
+                      </div>
+                      {batch.recipientCount ? (
+                        <p className="mt-2 text-[11px] text-slate-500">
+                          {formatNumber(batch.recipientCount)} {batch.recipientCount === 1 ? 'recipient' : 'recipients'} ready
+                        </p>
+                      ) : null}
+                      {batch.splits?.length ? (
+                        <div className="mt-2 space-y-1 text-[11px] text-slate-500">
+                          {batch.splits.map((split) => (
+                            <div key={split.id} className="flex items-center justify-between">
+                              <span className="font-medium text-slate-600">{split.teammateName}</span>
+                              <span>{formatCurrency(split.amount ?? 0, split.currency ?? financeCurrency)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                    </li>
+                  ))
+                ) : (
+                  <li className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+                    No upcoming payout batches scheduled.
+                  </li>
+                )}
+              </ul>
+            </div>
+          </div>
         </div>
-        <div className="rounded-2xl border border-slate-200/60 bg-slate-50/60 px-4 py-3">
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Released</dt>
-          <dd className="mt-1 text-xl font-semibold text-slate-900">
-            {formatCurrency(financialSummary.released ?? 0, financialSummary.currency)}
-          </dd>
+
+        <div className="space-y-6">
+          <div className="rounded-3xl border border-slate-200/70 bg-white p-5 shadow-sm">
+            <h3 className="text-sm font-semibold text-slate-900">Latest payout run</h3>
+            <p className="text-xs text-slate-500">Execution status and coverage for the most recent distribution.</p>
+            {lastPayout ? (
+              <div className="mt-4 space-y-3">
+                <div>
+                  <p className="text-2xl font-semibold text-slate-900">
+                    {formatCurrency(
+                      lastPayout.totalAmount ?? payoutTotals.totalAmount ?? 0,
+                      lastPayout.currency ?? payoutTotals.currency ?? financeCurrency,
+                    )}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {lastPayout.executedAt
+                      ? `Executed ${formatRelativeTime(lastPayout.executedAt)}`
+                      : lastPayout.scheduledAt
+                      ? `Scheduled ${formatRelativeTime(lastPayout.scheduledAt)}`
+                      : 'Execution window pending'}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-wide">
+                  <span className="rounded-full border border-blue-100 bg-blue-50 px-2 py-1 text-blue-700">
+                    {titleCase(lastPayout.status ?? 'completed')}
+                  </span>
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-slate-600">
+                    {formatNumber(financeControlSummary.recipientCount ?? payoutTotals.recipients ?? 0)} recipients
+                  </span>
+                  <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-emerald-600">
+                    {formatPercent(shareOfReleasedPercent)} of total released
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Keep processing upcoming cycles to maintain payroll momentum and coverage for managed teams.
+                </p>
+              </div>
+            ) : (
+              <p className="mt-4 text-sm text-slate-500">
+                No payout batches have been completed yet. Schedule a distribution to unlock coverage analytics.
+              </p>
+            )}
+          </div>
+
+          <div className="rounded-3xl border border-slate-200/70 bg-white p-5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900">Tax & compliance exports</h3>
+                <p className="text-xs text-slate-500">
+                  {taxReadyBalanceSummary
+                    ? `VAT & payroll ready balance for FY${taxReadyBalanceSummary.fiscalYear}`
+                    : 'Generate exports to keep ledgers audit ready.'}
+                </p>
+              </div>
+              {taxReadyBalanceSummary ? (
+                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-600">
+                  {formatCurrency(taxReadyBalanceSummary.amount ?? 0, taxReadyBalanceSummary.currency ?? financeCurrency)}
+                </span>
+              ) : null}
+            </div>
+            <ul className="mt-4 space-y-3">
+              {financeExportHistory.length ? (
+                financeExportHistory.map((record) => (
+                  <li key={record.id} className="rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-semibold text-slate-900">{titleCase(record.exportType ?? 'export')}</p>
+                      <span
+                        className={`rounded-full border px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ${
+                          record.status === 'available'
+                            ? 'border-emerald-200 bg-emerald-50 text-emerald-600'
+                            : record.status === 'processing'
+                            ? 'border-amber-200 bg-amber-50 text-amber-600'
+                            : 'border-slate-200 bg-white text-slate-600'
+                        }`}
+                      >
+                        {titleCase(record.status ?? 'ready')}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {formatCurrency(record.amount ?? 0, record.currency ?? financeCurrency)} ·{' '}
+                      {record.generatedAt ? formatRelativeTime(record.generatedAt) : 'Generated date pending'}
+                    </p>
+                    {record.downloadUrl ? (
+                      <a
+                        href={record.downloadUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2 inline-flex items-center text-[11px] font-semibold text-blue-600 hover:text-blue-700"
+                      >
+                        Open export
+                      </a>
+                    ) : null}
+                  </li>
+                ))
+              ) : (
+                <li className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+                  No exports generated during this period.
+                </li>
+              )}
+            </ul>
+          </div>
         </div>
-        <div className="rounded-2xl border border-slate-200/60 bg-slate-50/60 px-4 py-3">
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Outstanding</dt>
-          <dd className="mt-1 text-xl font-semibold text-slate-900">
-            {formatCurrency(financialSummary.outstanding ?? 0, financialSummary.currency)}
-          </dd>
-        </div>
-      </dl>
-    </div>
+      </div>
+    </section>
   );
 
   const renderBench = (
@@ -3711,6 +4312,53 @@ export default function AgencyDashboardPage() {
               {!marketingAutomation.landingPages?.length ? <p className="text-xs text-slate-500">No landing pages published.</p> : null}
             </ul>
           </div>
+          <div className="rounded-3xl border border-blue-100 bg-blue-50/60 p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-base font-semibold text-slate-900">Brand pages studio</h3>
+                <p className="mt-1 text-xs text-slate-600">
+                  Launch LinkedIn-style pages for anchor clients, agencies, and community initiatives.
+                </p>
+                {pageStudio.lastPublishedAt ? (
+                  <p className="mt-2 text-xs text-slate-500">
+                    Last page published {formatRelativeTime(pageStudio.lastPublishedAt)}
+                  </p>
+                ) : null}
+              </div>
+              <Link
+                to="/pages"
+                className="inline-flex items-center rounded-full border border-blue-200 bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-blue-700 transition hover:border-blue-400 hover:text-blue-900"
+              >
+                Create page
+              </Link>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              {pageStudioStats.map((stat) => (
+                <div key={stat.label} className="rounded-2xl border border-blue-100 bg-white/80 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-blue-600">{stat.label}</p>
+                  <p className="mt-1 text-lg font-semibold text-slate-900">{stat.value}</p>
+                  <p className="text-xs text-slate-500">{stat.helper}</p>
+                </div>
+              ))}
+            </div>
+            <ul className="mt-4 space-y-2 text-xs text-slate-600">
+              {(pageStudio.queue ?? pageStudio.pipeline ?? []).slice(0, 3).map((entry, index) => (
+                <li key={entry.id ?? entry.slug ?? index} className="rounded-2xl border border-blue-100 bg-white/80 px-3 py-2">
+                  <p className="font-semibold text-slate-900">{entry.title ?? entry.name ?? 'Page draft'}</p>
+                  <p className="text-[11px] text-slate-500">
+                    {entry.owner ? `Owner ${entry.owner}` : 'Owner to assign'}
+                    {entry.targetLaunch ? ` • Launch ${formatAbsolute(entry.targetLaunch)}` : ''}
+                    {entry.segment ? ` • Segment ${entry.segment}` : ''}
+                  </p>
+                </li>
+              ))}
+              {!((pageStudio.queue ?? pageStudio.pipeline ?? []).length) ? (
+                <li className="rounded-2xl border border-dashed border-blue-200 bg-white/70 px-3 py-3 text-[11px] text-slate-500">
+                  No drafts queued—spin up a new page to boost Explorer coverage.
+                </li>
+              ) : null}
+            </ul>
+          </div>
         </div>
       </div>
     </section>
@@ -4522,12 +5170,15 @@ export default function AgencyDashboardPage() {
     </section>
   );
 
-  const renderContent = state.loading
+  const shouldShowError = state.error && !hasSyncedData;
+
+  const renderContent = state.loading && !hasSyncedData
     ? renderLoading
-    : state.error
+    : shouldShowError
       ? renderError
       : (
           <div className="space-y-10">
+            {renderSyncStatus}
             {renderAgencyOverview}
             {renderExecutiveIntelligenceSection}
             {renderAnalyticsWarRoomSection}

@@ -25,6 +25,7 @@ import {
 import AgoraCallPanel from './AgoraCallPanel.jsx';
 import ConversationMessage from './ConversationMessage.jsx';
 import { classNames } from '../../utils/classNames.js';
+import { canAccessMessaging } from '../../constants/access.js';
 
 function TabButton({ active, children, onClick }) {
   return (
@@ -82,7 +83,7 @@ function ThreadListItem({ thread, actorId, active, onSelect }) {
 export default function MessagingDock() {
   const { session, isAuthenticated } = useSession();
   const actorId = resolveActorId(session);
-  const canUseMessaging = Boolean(isAuthenticated && actorId);
+  const canUseMessaging = Boolean(isAuthenticated && actorId && canAccessMessaging(session));
 
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState('inbox');

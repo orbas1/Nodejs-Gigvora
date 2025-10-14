@@ -289,6 +289,26 @@ class _FeedAccessCard extends StatelessWidget {
               decoration: BoxDecoration(
                 color: colorScheme.primaryContainer,
                 borderRadius: BorderRadius.circular(16),
+        children: [
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              FilledButton.tonal(
+                onPressed: () => context.push('/operations'),
+                child: const Text('Gig operations'),
+              ),
+              FilledButton.tonal(
+                onPressed: () => context.push('/groups'),
+                child: const Text('Community groups'),
+              ),
+              OutlinedButton(
+                onPressed: () => context.push('/operations?section=buy'),
+                child: const Text('Buy a gig'),
+              ),
+              OutlinedButton(
+                onPressed: () => context.push('/operations?section=post'),
+                child: const Text('Post a gig'),
               ),
               child: Icon(icon, color: colorScheme.onPrimaryContainer),
             ),
@@ -377,6 +397,11 @@ const Map<FeedPostType, _FeedTypeStyle> _feedTypeStyles = {
     background: Color(0xFFEDE9FE),
     foreground: Color(0xFF6D28D9),
     icon: Icons.rocket_launch_outlined,
+  ),
+  FeedPostType.news: _FeedTypeStyle(
+    background: Color(0xFFE0F2FE),
+    foreground: Color(0xFF0369A1),
+    icon: Icons.article_outlined,
   ),
 };
 
@@ -548,7 +573,7 @@ class _FeedComposerState extends State<_FeedComposer> {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: FeedPostType.values.map((type) {
+            children: FeedPostType.values.where((type) => type != FeedPostType.news).map((type) {
               final optionStyle = _feedTypeStyles[type] ?? _feedTypeStyles[FeedPostType.update]!;
               final selected = type == _selectedType;
               return ChoiceChip(
@@ -821,6 +846,22 @@ class _FeedPostCardState extends State<_FeedPostCard> {
     final colorScheme = theme.colorScheme;
     final style = _feedTypeStyles[widget.post.type] ?? _feedTypeStyles[FeedPostType.update]!;
     final commentCount = widget.post.commentCount;
+    final isNews = widget.post.type == FeedPostType.news;
+    final titleCandidate = isNews
+        ? (widget.post.title?.trim().isNotEmpty ?? false)
+            ? widget.post.title!
+            : (widget.post.summary?.trim().isNotEmpty ?? false)
+                ? widget.post.summary!
+                : widget.post.content
+        : widget.post.author.name;
+    final bodyCandidate = isNews ? widget.post.summary ?? widget.post.content : widget.post.content;
+    final bodyText = bodyCandidate.trim();
+    final publishedAt = widget.post.publishedAt ?? widget.post.createdAt;
+    final hasSource = isNews && (widget.post.source?.trim().isNotEmpty ?? false);
+    final linkLabel = isNews ? 'Read full story' : null;
+    final hasByline =
+        isNews && widget.post.author.name.trim().isNotEmpty && widget.post.author.name.trim() != titleCandidate.trim();
+    final imageUrl = widget.post.imageUrl?.trim();
 
     return GigvoraCard(
       child: Column(
@@ -839,14 +880,30 @@ class _FeedPostCardState extends State<_FeedPostCard> {
                       children: [
                         _TypeBadge(style: style, label: widget.post.type.label),
                         if (widget.post.isLocal) const _PendingBadge(),
+                        if (hasSource)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: colorScheme.primary.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              widget.post.source!,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: colorScheme.primary,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.6,
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      widget.post.author.name,
-                      style: theme.textTheme.titleMedium,
+                      titleCandidate,
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                     ),
-                    if (widget.post.author.headline != null)
+                    if (!isNews && widget.post.author.headline != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: Text(
@@ -857,11 +914,33 @@ class _FeedPostCardState extends State<_FeedPostCard> {
                           ),
                         ),
                       ),
+                    if (isNews && widget.post.author.headline != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          widget.post.author.headline!,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    if (hasByline)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          'By ${widget.post.author.name}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
               Text(
-                formatRelativeTime(widget.post.createdAt),
+                formatRelativeTime(publishedAt),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
@@ -875,16 +954,44 @@ class _FeedPostCardState extends State<_FeedPostCard> {
               style: theme.textTheme.bodySmall?.copyWith(color: const Color(0xFF92400E)),
             ),
           ],
-          if (widget.post.content.trim().isNotEmpty) ...[
+          if (bodyText.isNotEmpty) ...[
             const SizedBox(height: 12),
             Text(
-              widget.post.content,
+              bodyText,
               style: theme.textTheme.bodyMedium,
+            ),
+          ],
+          if (imageUrl != null && imageUrl.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(28),
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: colorScheme.outlineVariant),
+                ),
+                child: AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: Image.network(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        color: colorScheme.surfaceVariant,
+                        alignment: Alignment.center,
+                        child: Icon(Icons.broken_image_outlined, color: colorScheme.onSurfaceVariant),
+                      );
+                    },
+                  ),
+                ),
+              ),
             ),
           ],
           if (widget.post.link != null) ...[
             const SizedBox(height: 12),
-            _FeedLinkButton(link: widget.post.link!),
+            _FeedLinkButton(
+              link: widget.post.link!,
+              label: linkLabel,
+            ),
           ],
           if (_reactionCount > 0 || commentCount > 0) ...[
             const SizedBox(height: 12),
@@ -967,9 +1074,10 @@ class _FeedActionButton extends StatelessWidget {
 }
 
 class _FeedLinkButton extends StatelessWidget {
-  const _FeedLinkButton({required this.link});
+  const _FeedLinkButton({required this.link, this.label});
 
   final String link;
+  final String? label;
 
   @override
   Widget build(BuildContext context) {
@@ -986,7 +1094,7 @@ class _FeedLinkButton extends StatelessWidget {
       },
       icon: const Icon(Icons.link),
       label: Text(
-        link,
+        label ?? link,
         overflow: TextOverflow.ellipsis,
       ),
       style: OutlinedButton.styleFrom(

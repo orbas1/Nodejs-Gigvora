@@ -34,26 +34,41 @@ export default function useProjectGigManagement(userId) {
 
   const actions = useMemo(() => ({
     async createProject(payload) {
+      if (data?.access?.canManage === false) {
+        throw new Error('You do not have permission to create project workspaces.');
+      }
       await createProject(userId, payload);
       await load();
     },
     async addAsset(projectId, payload) {
+      if (data?.access?.canManage === false) {
+        throw new Error('You do not have permission to update this project workspace.');
+      }
       await addProjectAsset(userId, projectId, payload);
       await load();
     },
     async updateWorkspace(projectId, payload) {
+      if (data?.access?.canManage === false) {
+        throw new Error('You do not have permission to update this project workspace.');
+      }
       await updateWorkspace(userId, projectId, payload);
       await load();
     },
     async createGigOrder(payload) {
+      if (data?.access?.canManage === false) {
+        throw new Error('You do not have permission to manage gig orders.');
+      }
       await createGigOrder(userId, payload);
       await load();
     },
     async updateGigOrder(orderId, payload) {
+      if (data?.access?.canManage === false) {
+        throw new Error('You do not have permission to manage gig orders.');
+      }
       await updateGigOrder(userId, orderId, payload);
       await load();
     },
-  }), [userId, load]);
+  }), [data?.access?.canManage, userId, load]);
 
   return { data, loading, error, actions, reload: load };
 }
