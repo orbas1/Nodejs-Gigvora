@@ -7,9 +7,11 @@ import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
 import DocumentStudioSection from '../../components/documentStudio/DocumentStudioSection.jsx';
 import ProjectGigManagementContainer from '../../components/projectGigManagement/ProjectGigManagementContainer.jsx';
 import useSession from '../../hooks/useSession.js';
+import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
 
 const DEFAULT_USER_ID = 1;
 const availableDashboards = ['user', 'freelancer', 'agency', 'company', 'headhunter'];
+const allowedDashboardRoles = availableDashboards;
 
 function resolveUserId(session) {
   if (!session) {
@@ -316,27 +318,18 @@ function buildMenuSections(data) {
 }
 
 export default function UserDashboardPage() {
-  const { session } = useSession();
-  const sessionUserId = session?.id ?? session?.userId ?? null;
-  const userId = sessionUserId ?? DEFAULT_USER_ID;
-  const userId = resolveUserId(session);
-  const shouldLoadDashboard = Boolean(session && userId);
+  const { session, isAuthenticated } = useSession();
+  const userId = session ? resolveUserId(session) : null;
+  const shouldLoadDashboard = Boolean(isAuthenticated && userId);
 
-  const {
-    data,
-    error,
-    loading,
-    fromCache,
-    lastUpdated,
-    refresh,
-  } = useCachedResource(`dashboard:user:${userId}`, ({ signal }) => fetchUserDashboard(userId, { signal }), {
-    ttl: 1000 * 60,
-    dependencies: [userId],
-    enabled: Boolean(userId),
-  });
-  } = useCachedResource(
-    `dashboard:user:${userId}`,
-    ({ signal }) => fetchUserDashboard(userId, { signal }),
+  const { data, error, loading, fromCache, lastUpdated, refresh } = useCachedResource(
+    `dashboard:user:${userId ?? 'anonymous'}`,
+    ({ signal }) => {
+      if (!userId) {
+        throw new Error('A valid userId is required to load the dashboard.');
+      }
+      return fetchUserDashboard(userId, { signal });
+    },
     {
       ttl: 1000 * 60,
       dependencies: [userId],
@@ -462,7 +455,7 @@ export default function UserDashboardPage() {
   const heroDescription =
     'Monitor applications, interviews, documents, and collaborations with a single source of truth personalised to your Gigvora profile.';
 
-  return (
+  const dashboardView = (
     <DashboardLayout
       currentDashboard="user"
       title={heroTitle}
@@ -2064,5 +2057,11 @@ export default function UserDashboardPage() {
         </section>
       </div>
     </DashboardLayout>
+  );
+
+  return (
+    <DashboardAccessGuard requiredRoles={allowedDashboardRoles}>
+      {dashboardView}
+    </DashboardAccessGuard>
   );
 }

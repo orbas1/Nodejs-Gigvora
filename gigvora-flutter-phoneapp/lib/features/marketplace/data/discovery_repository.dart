@@ -69,12 +69,26 @@ class DiscoveryRepository {
     final facetToken = includeFacets ? 'facets' : 'no-facets';
     final cacheKey =
         'opportunities:${categoryToPath(category)}:${queryKey.isEmpty ? 'all' : queryKey}:$filterToken:$sortToken:$facetToken:page$page:size$pageSize';
+    final filterToken = _serialiseFilters(filters);
+    final sortToken = sort?.trim().isEmpty ?? true ? 'default' : sort!.trim();
+    final facetToken = includeFacets ? 'facets' : 'no-facets';
+    final cacheKey =
+        'opportunities:${categoryToPath(category)}:${queryKey.isEmpty ? 'all' : queryKey}:$filterToken:$sortToken:$facetToken:$pageSize';
 
     final cached = _cache.read<OpportunityPage>(cacheKey, (raw) {
       if (raw is Map<String, dynamic>) {
         return _mapToOpportunityPage(category, raw);
       }
       return null;
+      return OpportunityPage(
+        category: category,
+        items: const <OpportunitySummary>[],
+        page: 1,
+        pageSize: pageSize,
+        total: 0,
+        totalPages: 1,
+        query: queryKey,
+      );
     });
 
     if (!forceRefresh && cached != null) {
@@ -99,10 +113,22 @@ class DiscoveryRepository {
         endpoint,
         query: params,
         headers: _sanitizeHeaders(headers),
+      final response = await _apiClient.get(
+        endpoint,
+        query: {
+          'q': queryKey.isEmpty ? null : queryKey,
+          'pageSize': pageSize,
+          'filters': filterToken == 'none' ? null : filterToken,
+          'sort': sortToken == 'default' ? null : sortToken,
+          'includeFacets': includeFacets ? 'true' : null,
+        },
+        headers: headers,
       );
+
       if (response is! Map<String, dynamic>) {
         throw Exception('Unexpected response from $endpoint');
       }
+
       await _cache.write(cacheKey, response, ttl: _opportunityTtl);
       final pageData =
           _mapToOpportunityPage(category, response).copyWith(query: queryKey.isEmpty ? null : queryKey);
@@ -221,6 +247,31 @@ class DiscoveryRepository {
     }
   }
 
+  String _serialiseFilters(Map<String, dynamic>? filters) {
+    if (filters == null || filters.isEmpty) {
+      return 'none';
+    }
+
+    dynamic normalise(dynamic value) {
+      if (value is Map) {
+        final sorted = SplayTreeMap<String, dynamic>.fromIterables(
+          value.keys.map((key) => key.toString()),
+          value.values.map(normalise),
+        );
+        return sorted;
+      }
+      if (value is Iterable) {
+        final list = value.map(normalise).toList();
+        list.sort((a, b) => jsonEncode(a).compareTo(jsonEncode(b)));
+        return list;
+      }
+      return value;
+    }
+
+    final normalised = normalise(filters);
+    return jsonEncode(normalised);
+  }
+
   OpportunityPage _mapToOpportunityPage(
     OpportunityCategory category,
     Map<String, dynamic> payload,
@@ -239,5 +290,6 @@ class DiscoveryRepository {
       query: payload['query'] as String?,
       facets: payload['facets'] as Map<String, dynamic>?,
     );
+    return OpportunityPage.fromJson(category, payload);
   }
 }

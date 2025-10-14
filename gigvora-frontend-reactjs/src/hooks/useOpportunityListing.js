@@ -62,12 +62,18 @@ function normaliseFilters(filters) {
       return accumulator;
     }
 
+    const stringValue = `${value}`.trim();
+    if (stringValue.length) {
+      accumulator[key] = value;
+    }
     return accumulator;
   }, {});
 }
 
 function normaliseSort(sort) {
   if (sort == null) {
+function stableSerialise(value) {
+  if (value == null) {
     return null;
   }
   if (typeof sort === 'string') {
@@ -113,6 +119,39 @@ function normaliseHeaders(headers) {
 
 function stableSerialise(value) {
   if (value == null) {
+  const normalise = (input) => {
+    if (Array.isArray(input)) {
+      return input
+        .map((item) => normalise(item))
+        .filter((item) => item !== undefined)
+        .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+    }
+
+    if (input && typeof input === 'object') {
+      return Object.keys(input)
+        .sort()
+        .reduce((accumulator, key) => {
+          const normalisedValue = normalise(input[key]);
+          if (normalisedValue !== undefined && normalisedValue !== null) {
+            accumulator[key] = normalisedValue;
+          }
+          return accumulator;
+        }, {});
+    }
+
+    if (input === undefined || input === '') {
+      return undefined;
+    }
+
+    return input;
+  };
+
+  const normalised = normalise(value);
+  if (normalised == null) {
+    return null;
+  }
+
+  if (typeof normalised === 'object' && !Array.isArray(normalised) && !Object.keys(normalised).length) {
     return null;
   }
 
@@ -178,6 +217,14 @@ export default function useOpportunityListing(
       ].join(':'),
     [category, debouncedQuery, page, pageSize, filtersKey, sortKey, viewportKey, includeFacets, headersKey],
   );
+  const trimmedQuery = (query || '').trim();
+  const debouncedQuery = useDebounce(trimmedQuery, 400);
+
+  const normalisedFilters = useMemo(() => normaliseFilters(filters), [filters]);
+  const filterKey = useMemo(() => stableSerialise(normalisedFilters) ?? 'none', [normalisedFilters]);
+  const sortKey = useMemo(() => stableSerialise(sort) ?? 'default', [sort]);
+  const viewportKey = useMemo(() => stableSerialise(viewport) ?? 'none', [viewport]);
+  const headersKey = useMemo(() => stableSerialise(headers) ?? 'none', [headers]);
 
   const params = useMemo(
     () => ({
@@ -202,6 +249,28 @@ export default function useOpportunityListing(
     [page, pageSize, debouncedQuery, normalisedFilters, normalisedSort, includeFacets, normalisedViewport],
   );
 
+  const requestHeaders = useMemo(() => {
+    if (!headers) {
+      return undefined;
+    }
+
+    return Object.entries(headers).reduce((accumulator, [key, value]) => {
+      if (value == null) {
+        return accumulator;
+      }
+      const stringValue = `${value}`.trim();
+      if (stringValue.length) {
+        accumulator[key] = stringValue;
+      }
+      return accumulator;
+    }, {});
+  }, [headers, headersKey]);
+
+  const cacheKey = useMemo(() => {
+    const queryKey = debouncedQuery || 'all';
+    return `opportunity:${category}:${queryKey}:${filterKey}:${sortKey}:${viewportKey}:${includeFacets ? 'facets' : 'no-facets'}:${pageSize}:${headersKey}`;
+  }, [category, debouncedQuery, filterKey, sortKey, viewportKey, includeFacets, pageSize, headersKey]);
+
   const resource = useCachedResource(
     cacheKey,
     ({ signal }) =>
@@ -212,6 +281,10 @@ export default function useOpportunityListing(
       }),
     {
       dependencies: [cacheKey],
+        headers: requestHeaders,
+      }),
+    {
+      dependencies: [debouncedQuery, filterKey, sortKey, viewportKey, includeFacets, pageSize, headersKey],
       ttl: 1000 * 60 * 5,
       enabled: Boolean(enabled),
     },

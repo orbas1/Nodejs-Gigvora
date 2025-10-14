@@ -57,6 +57,7 @@ class OpportunitySummary {
     this.track,
     this.organization,
     this.isRemote,
+    this.isRemote = false,
     this.taxonomyLabels = const <String>[],
   });
 
@@ -79,6 +80,18 @@ class OpportunitySummary {
     OpportunityCategory category,
     Map<String, dynamic> json,
   ) {
+  final bool isRemote;
+  final List<String> taxonomyLabels;
+
+  factory OpportunitySummary.fromJson(OpportunityCategory category, Map<String, dynamic> json) {
+    String? normaliseString(String? value) {
+      final trimmed = value?.trim();
+      if (trimmed == null || trimmed.isEmpty) {
+        return null;
+      }
+      return trimmed;
+    }
+
     return OpportunitySummary(
       id: '${json['id']}',
       category: category,
@@ -100,6 +113,15 @@ class OpportunitySummary {
           : (json['organization'] as String).trim(),
       isRemote: json['isRemote'] is bool ? json['isRemote'] as bool : null,
       taxonomyLabels: (json['taxonomyLabels'] as List<dynamic>? ?? const <dynamic>[]) 
+      location: normaliseString(json['location'] as String?),
+      employmentType: normaliseString(json['employmentType'] as String?),
+      budget: normaliseString(json['budget'] as String?),
+      duration: normaliseString(json['duration'] as String?),
+      status: normaliseString(json['status'] as String?),
+      track: normaliseString(json['track'] as String?),
+      organization: normaliseString(json['organization'] as String?),
+      isRemote: json['isRemote'] == true,
+      taxonomyLabels: (json['taxonomyLabels'] as List<dynamic>? ?? const <dynamic>[])
           .whereType<String>()
           .map((label) => label.trim())
           .where((label) => label.isNotEmpty)
@@ -147,6 +169,26 @@ class OpportunityPage {
       totalPages: totalPages ?? this.totalPages,
       query: query ?? this.query,
       facets: facets ?? this.facets,
+    );
+  }
+
+  factory OpportunityPage.fromJson(OpportunityCategory category, Map<String, dynamic> json) {
+    final items = (json['items'] as List<dynamic>? ?? const <dynamic>[]) 
+        .whereType<Map<String, dynamic>>()
+        .map((entry) => OpportunitySummary.fromJson(category, entry))
+        .toList(growable: false);
+
+    return OpportunityPage(
+      category: category,
+      items: items,
+      page: (json['page'] as num?)?.toInt() ?? 1,
+      pageSize: (json['pageSize'] as num?)?.toInt() ?? items.length,
+      total: (json['total'] as num?)?.toInt() ?? items.length,
+      totalPages: (json['totalPages'] as num?)?.toInt() ?? 1,
+      query: (json['query'] as String?)?.trim(),
+      facets: json['facets'] is Map<String, dynamic>
+          ? Map<String, dynamic>.from(json['facets'] as Map<String, dynamic>)
+          : null,
     );
   }
 }

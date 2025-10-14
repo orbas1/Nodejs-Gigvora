@@ -11,6 +11,8 @@ import analytics from '../services/analytics.js';
 import { fetchLaunchpadDashboard } from '../services/launchpad.js';
 import { formatRelativeTime } from '../utils/date.js';
 import useSession from '../hooks/useSession.js';
+import AccessRestricted from '../components/AccessRestricted.jsx';
+import { canAccessLaunchpad, getLaunchpadMemberships } from '../constants/access.js';
 
 export default function LaunchpadPage() {
   const [query, setQuery] = useState('');
@@ -21,6 +23,17 @@ export default function LaunchpadPage() {
   );
 
   const { session, isAuthenticated } = useSession();
+  const hasLaunchpadAccess = useMemo(() => canAccessLaunchpad(session), [session]);
+  const launchpadMemberships = useMemo(() => getLaunchpadMemberships(session), [session]);
+  const launchpadAccessLabel = useMemo(() => {
+    if (!launchpadMemberships.length) {
+      return null;
+    }
+    return launchpadMemberships
+      .map((membership) => membership.replace(/_/g, ' '))
+      .map((label) => label.charAt(0).toUpperCase() + label.slice(1))
+      .join(' • ');
+  }, [launchpadMemberships]);
   const membershipSet = useMemo(
     () => new Set(Array.isArray(session?.memberships) ? session.memberships : []),
     [session?.memberships],
@@ -123,9 +136,29 @@ export default function LaunchpadPage() {
     [items, selectedLaunchpadId],
   );
 
+  if (isAuthenticated && !hasLaunchpadAccess) {
+    return (
+      <section className="relative overflow-hidden bg-surfaceMuted py-20">
+        <div className="absolute inset-x-0 top-0 h-60 bg-gradient-to-b from-sky-200/30 via-transparent to-transparent" aria-hidden="true" />
+        <div className="absolute -left-24 top-24 h-64 w-64 rounded-full bg-accent/10 blur-3xl" aria-hidden="true" />
+        <div className="relative mx-auto max-w-4xl px-6">
+          <AccessRestricted
+            tone="sky"
+            badge={launchpadAccessLabel ? `Active: ${launchpadAccessLabel}` : 'Experience Launchpad'}
+            title="Launchpad workspace is safeguarded"
+            description="Only verified fellows, mentors, agencies, and partner companies can collaborate inside Experience Launchpad. This keeps pilot programmes, placement data, and company briefs secure."
+            actionLabel="Request Launchpad access"
+            actionHref="mailto:launchpad@gigvora.com?subject=Launchpad%20access%20request"
+          />
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="relative overflow-hidden py-20">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(191,219,254,0.35),_transparent_65%)]" aria-hidden="true" />
+      <div className="absolute inset-0 bg-gradient-to-br from-sky-50 via-white to-white" aria-hidden="true" />
+      <div className="absolute -top-32 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-accent/10 blur-3xl" aria-hidden="true" />
       <div className="relative mx-auto max-w-5xl px-6">
         <PageHeader
           eyebrow="Experience Launchpad"
@@ -140,6 +173,11 @@ export default function LaunchpadPage() {
             />
           }
         />
+        {launchpadAccessLabel ? (
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-white/80 px-4 py-1 text-xs font-semibold uppercase tracking-wide text-accent">
+            Access granted · {launchpadAccessLabel}
+          </div>
+        ) : null}
         <div className="mb-6 max-w-xl">
           <label className="sr-only" htmlFor="launchpad-search">
             Search cohorts

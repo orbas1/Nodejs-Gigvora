@@ -72,13 +72,13 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
   final Set<String> _selectedOrganizations = <String>{};
   bool _defaultsApplied = false;
 
-  bool get _showVolunteerFilters => widget.category == OpportunityCategory.volunteering;
+  bool get _isVolunteerCategory => widget.category == OpportunityCategory.volunteering;
 
   @override
   void initState() {
     super.initState();
     _searchController = TextEditingController();
-    if (_showVolunteerFilters) {
+    if (_isVolunteerCategory) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_defaultsApplied) {
           return;
@@ -105,6 +105,7 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
     final items = state.data?.items ?? const <OpportunitySummary>[];
 
     final organizationOptions = _showVolunteerFilters
+    final organizationOptions = _isVolunteerCategory
         ? items
             .map((item) => item.organization?.trim())
             .whereType<String>()
@@ -114,7 +115,7 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
           ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()))
         : const <String>[];
 
-    if (_showVolunteerFilters) {
+    if (_isVolunteerCategory) {
       final validSelection = _selectedOrganizations.where(organizationOptions.contains).toSet();
       if (validSelection.length != _selectedOrganizations.length) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -128,28 +129,25 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
       }
     }
 
+    final filtersActive = _remoteOnly || _freshness != '30d' || _selectedOrganizations.isNotEmpty;
     final gigSignals = widget.category == OpportunityCategory.gig ? _deriveGigSignals(items) : null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (_showVolunteerFilters)
+        if (_isVolunteerCategory)
           _VolunteerFilterCard(
             searchController: _searchController,
             searchPlaceholder: widget.searchPlaceholder,
             onQueryChanged: controller.updateQuery,
             remoteOnly: _remoteOnly,
             onRemoteToggle: () {
-              setState(() {
-                _remoteOnly = !_remoteOnly;
-              });
+              setState(() => _remoteOnly = !_remoteOnly);
               _applyFilters(controller);
             },
             freshness: _freshness,
             onFreshnessChanged: (value) {
-              setState(() {
-                _freshness = value;
-              });
+              setState(() => _freshness = value);
               _applyFilters(controller);
             },
             organizationOptions: organizationOptions,
@@ -173,7 +171,7 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
               _applyFilters(controller);
             },
             filtersActive:
-                _remoteOnly || _freshness != '30d' || _selectedOrganizations.isNotEmpty || controller.filters.isNotEmpty,
+                filtersActive || controller.filters.isNotEmpty || _searchController.text.trim().isNotEmpty,
             activeResultCount: items.length,
           )
         else ...[
@@ -194,6 +192,11 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(28),
                 borderSide: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.4)),
+                borderSide: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.3)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(28),
+                borderSide: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.3)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(28),
@@ -203,6 +206,7 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
           ),
           const SizedBox(height: 16),
         ],
+        const SizedBox(height: 8),
         if (state.fromCache && !state.loading)
           const _StatusBanner(
             icon: Icons.offline_bolt,
@@ -273,11 +277,12 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                Wrap(
+                                  alignment: WrapAlignment.spaceBetween,
+                                  runSpacing: 8,
                                   children: [
-                                    Expanded(
-                                      child: Wrap(
+                                    if (meta.isNotEmpty)
+                                      Wrap(
                                         spacing: 8,
                                         runSpacing: 6,
                                         children: meta
@@ -291,12 +296,11 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
                                                 ),
                                                 visualDensity: VisualDensity.compact,
                                                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                label: Text(entry),
                                               ),
                                             )
                                             .toList(),
                                       ),
-                                    ),
-                                    const SizedBox(width: 8),
                                     Text(
                                       'Updated ${formatRelativeTime(item.updatedAt)}',
                                       style: theme.textTheme.bodySmall?.copyWith(
@@ -308,9 +312,7 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
                                 const SizedBox(height: 12),
                                 Text(
                                   item.title,
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
@@ -341,9 +343,7 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
                                   alignment: Alignment.centerLeft,
                                   child: FilledButton(
                                     onPressed: () => controller.recordPrimaryCta(item),
-                                    style: FilledButton.styleFrom(
-                                      shape: const StadiumBorder(),
-                                    ),
+                                    style: FilledButton.styleFrom(shape: const StadiumBorder()),
                                     child: Text(widget.ctaLabel),
                                   ),
                                 ),
@@ -393,6 +393,7 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
         return [
           if ((item.organization ?? '').isNotEmpty) item.organization!,
           if (item.isRemote == true) 'Remote friendly',
+          if (item.isRemote) 'Remote friendly',
           if ((item.location ?? '').isNotEmpty) item.location!,
         ];
     }
@@ -502,10 +503,10 @@ class _VolunteerFilterCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -516,6 +517,7 @@ class _VolunteerFilterCard extends StatelessWidget {
               decoration: InputDecoration(
                 hintText: searchPlaceholder,
                 prefixIcon: Icon(Icons.search, color: colorScheme.onSurfaceVariant),
+                prefixIcon: Icon(Icons.search, color: colorScheme.primary),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(24)),
               ),
             ),
@@ -548,6 +550,9 @@ class _VolunteerFilterCard extends StatelessWidget {
                     onPressed: onRemoteToggle,
                     style: OutlinedButton.styleFrom(
                       backgroundColor: remoteOnly ? colorScheme.primary.withOpacity(0.1) : null,
+                      foregroundColor: remoteOnly ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                      backgroundColor: remoteOnly ? colorScheme.primary.withOpacity(0.08) : null,
+                      shape: const StadiumBorder(),
                     ),
                     icon: Icon(remoteOnly ? Icons.cloud_done : Icons.cloud_queue),
                     label: Text(remoteOnly ? 'Remote only' : 'Remote + onsite'),
