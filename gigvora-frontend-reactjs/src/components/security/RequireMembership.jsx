@@ -12,7 +12,7 @@ export default function RequireMembership({
   allowed,
   children,
   title = 'Access restricted',
-  description = 'This area is limited to approved company operators. Request access or return to your available dashboards.',
+  description = 'Only approved operators can open this area. Request access or head back to your dashboard.',
 }) {
   const { isAuthenticated, session } = useSession();
   const location = useLocation();
@@ -55,6 +55,5 @@ RequireMembership.propTypes = {
 RequireMembership.defaultProps = {
   allowed: [],
   title: 'Access restricted',
-  description:
-    'This area is limited to approved company operators. Request access or return to your available dashboards.',
+  description: 'Only approved operators can open this area. Request access or head back to your dashboard.',
 };

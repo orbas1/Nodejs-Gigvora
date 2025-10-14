@@ -40,11 +40,10 @@ export default function MembershipGate({ allowedMemberships = [], children }) {
               <ShieldCheckIcon className="h-10 w-10" aria-hidden="true" />
               <p className="text-sm font-semibold uppercase tracking-[0.2em]">Secure workspace</p>
             </div>
-            <h1 className="mt-6 text-3xl font-semibold text-slate-900">Sign in to access your Gigvora dashboards</h1>
+            <h1 className="mt-6 text-3xl font-semibold text-slate-900">Sign in to open Gigvora dashboards</h1>
             <p className="mt-4 text-base leading-relaxed text-slate-600">
-              You tried to open <span className="font-semibold text-slate-800">{location.pathname}</span>. This area is protected
-              to keep member data private. Log in with your verified credentials to resume your personalised experience across
-              desktop and the Gigvora mobile app.
+              <span className="font-semibold text-slate-800">{location.pathname}</span> is protected to keep member data private.
+              Use your verified credentials to continue on web or mobile.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-4">
               <Link
@@ -61,7 +60,7 @@ export default function MembershipGate({ allowedMemberships = [], children }) {
               </Link>
             </div>
             <p className="mt-6 text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Tip: Enable two-factor authentication in settings for enterprise-grade protection.
+              Tip: Enable two-factor authentication for enterprise-grade protection.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
@@ -84,11 +83,9 @@ export default function MembershipGate({ allowedMemberships = [], children }) {
               <ShieldExclamationIcon className="h-10 w-10" aria-hidden="true" />
               <p className="text-sm font-semibold uppercase tracking-[0.18em]">Membership upgrade required</p>
             </div>
-            <h1 className="mt-6 text-3xl font-semibold text-slate-900">This dashboard is reserved for specific roles</h1>
-            <p className="mt-4 text-base leading-relaxed text-slate-700">
-              Your current workspace memberships don&apos;t include the permissions needed to view the requested dashboard. Required
-              access:
-            </p>
+            <h1 className="mt-6 text-3xl font-semibold text-slate-900">This dashboard needs extra permissions</h1>
+            <p className="mt-4 text-base leading-relaxed text-slate-700">Your current memberships don&apos;t cover this view.</p>
+            <p className="mt-3 text-sm text-slate-600">Required access:</p>
             <div className="mt-6 flex flex-wrap items-center gap-2">
               {requiredLabels?.map((label) => (
                 <Badge key={label} label={label} tone="positive" />
@@ -110,8 +107,7 @@ export default function MembershipGate({ allowedMemberships = [], children }) {
               <div className="rounded-2xl border border-accent/30 bg-white/95 p-6 shadow-soft">
                 <h2 className="text-sm font-semibold uppercase tracking-wide text-accent">Need access?</h2>
                 <p className="mt-2 text-sm text-slate-600">
-                  Request role activation or speak with your Gigvora success partner. We&apos;ll enable the right controls so the
-                  dashboard appears inside your workspace navigation instantly.
+                  Request role activation or contact your Gigvora success partner to switch it on.
                 </p>
                 <div className="mt-4 flex flex-wrap gap-3">
                   <Link

@@ -24,22 +24,20 @@ function AccessDeniedNotice({ role }) {
                   {normalizedRole} dashboard is limited to approved agency operators
                 </h1>
                 <p className="max-w-2xl text-sm leading-6 text-slate-600">
-                  Your profile is signed in, but it doesn&apos;t carry the necessary agency membership yet. Gigvora protects
-                  sensitive revenue, bench, and alliance data so only verified agency leads can open this control tower.
-                  Switch to a permitted dashboard or request an agency workspace upgrade from your organisation admin.
+                  You&apos;re signed in but missing the agency membership. We protect revenue, bench, and alliance data so only verified leads open this control tower. Switch dashboards or request an upgrade from your organisation admin.
                 </p>
                 <ul className="space-y-2 text-sm text-slate-600">
                   <li className="flex items-start gap-2">
                     <span className="mt-1 inline-flex h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
-                    <span>Role-based gating keeps partner contracts, billings, and rosters secure.</span>
+                    <span>Role gating keeps partner contracts, billing, and rosters secure.</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="mt-1 inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
-                    <span>Request access to unlock full agency insights once your workspace is approved.</span>
+                    <span>Request access to unlock agency insights once your workspace is approved.</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="mt-1 inline-flex h-1.5 w-1.5 rounded-full bg-slate-400" aria-hidden="true" />
-                    <span>In the meantime, you can continue collaborating from your active dashboards.</span>
+                    <span>Until then, keep collaborating from your active dashboards.</span>
                   </li>
                 </ul>
               </div>

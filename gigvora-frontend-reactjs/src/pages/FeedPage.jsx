@@ -1594,7 +1594,7 @@ export default function FeedPage() {
           <div className="mt-10 rounded-3xl border border-slate-200 bg-white/95 p-8 shadow-soft">
             <h2 className="text-base font-semibold text-slate-900">Why access is restricted</h2>
             <p className="mt-3 text-sm text-slate-600">
-              The live feed surfaces opportunities and updates that are tailored to operating roles inside Gigvora. Restricting access keeps sensitive launch information safe and ensures moderation coverage. Switch to an eligible membership above or contact support for an access review.
+              The live feed holds operating updates. Restricting access keeps launches safe. Switch to an eligible membership or contact support for a review.
             </p>
           </div>
         </div>
