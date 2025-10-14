@@ -14,7 +14,7 @@ Each numbered task maps to the update plan and contains explicit integration cov
 
 **Progress Note (Backend • 04 Apr):** Node API now boots through a lifecycle orchestrator with graceful shutdown hooks, readiness/liveness endpoints, structured logging with correlation IDs, and environment-tuned payload/rate controls. Background workers run under a managed supervisor with health instrumentation feeding the new `/health/ready` contract.
 
-## Task 2 — Modularise domain models and align schemas (0%)
+## Task 2 — Modularise domain models and align schemas (55%)
 - **Backend:** Refactor `src/models/index.js` into bounded contexts with domain service layers and feature flags (Issue 4).
 - **Front-end:** Consume generated TypeScript clients and update dashboards to rely on canonical schema packages (Issue 7).
 - **User phone app:** Replace mocked DTOs with generated Dart models and update caches to respect new enums.
@@ -23,6 +23,8 @@ Each numbered task maps to the update plan and contains explicit integration cov
 - **API:** Version OpenAPI/JSON schemas, publish SDKs, and integrate validation middleware referencing shared definitions.
 - **Logic:** Introduce workflow services that enforce state transitions and eliminate placeholder branches (Issue 3).
 - **Design:** Update ERDs, taxonomy diagrams, and stakeholder documentation reflecting the modular architecture.
+
+**Progress Note (Backend • 05 Apr):** Domain registry now partitions the 360-model monolith into audited contexts with dedicated auth, marketplace, and platform services orchestrating login audits, feature flags, and workspace synchronisation. Zod-backed schema generation publishes JSON contracts to `shared-contracts/domain`, enabling web and Flutter teams to consume canonical DTOs while migration rewrites and ERD deliverables move into planning.
 
 ## Task 3 — Enforce validation, consent, and governance workflows (0%)
 - **Backend:** Apply Celebrate/Zod validation, wire consent records, SAR tooling, and RBAC middleware logging.

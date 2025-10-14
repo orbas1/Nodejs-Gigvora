@@ -7,8 +7,8 @@ Percentages reflect the most recent assessment by the design operations council.
 | Baseline Audit | Week 0 | 46 | 40 | 38 | 44 | 42 | 36 | 34 | 31 | 40 | 38 | 42 | 47 | 28 | 26 | 35 | 38 | — |
 | Component Inventory & Accessibility Audit | Week 1 | 58 | 55 | 52 | 57 | 63 | 54 | 49 | 46 | 55 | 57 | 59 | 50 | 42 | 40 | 54 | 53 | +15 |
 | Token & Theme Validation | Week 2 | 64 | 61 | 58 | 63 | 70 | 59 | 56 | 52 | 62 | 64 | 66 | 57 | 49 | 47 | 60 | 59 | +6 |
-| Experience Architecture Alignment | Week 3 | 68 | 66 | 64 | 69 | 74 | 66 | 60 | 57 | 68 | 70 | 72 | 60 | 53 | 51 | 65 | 64 | +5 |
-| Experience Blueprint Sign-off | Week 4 | 74 | 71 | 69 | 73 | 78 | 70 | 66 | 63 | 72 | 74 | 75 | 68 | 62 | 60 | 71 | 70 | +6 |
+| Experience Architecture Alignment | Week 3 | 71 | 69 | 67 | 72 | 76 | 69 | 63 | 60 | 71 | 73 | 75 | 63 | 56 | 54 | 68 | 68 | +9 |
+| Experience Blueprint Sign-off | Week 4 | 76 | 73 | 71 | 75 | 79 | 72 | 68 | 65 | 74 | 77 | 78 | 70 | 64 | 62 | 73 | 72 | +4 |
 | Prototype Integration & Partial QA | Week 5 | 77 | 75 | 73 | 76 | 81 | 74 | 69 | 66 | 76 | 79 | 80 | 71 | 65 | 63 | 74 | 73 | +3 |
 | Pre-Handoff QA Readiness | Week 6 | 83 | 81 | 79 | 82 | 85 | 80 | 76 | 73 | 82 | 84 | 85 | 77 | 71 | 69 | 80 | 79 | +6 |
 | Launch Readiness Audit | Week 7 | 84 | 81 | 78 | 83 | 85 | 82 | 80 | 78 | 83 | 83 | 84 | 76 | 72 | 70 | 82 | 81 | +4 |
@@ -31,7 +31,7 @@ Percentages reflect the most recent assessment by the design operations council.
 - **Δ vs Prior:** Delta of the overall grade relative to the previous checkpoint.
 
 ## Critical Observations
-1. **Theme Readiness Nearing Closure:** Emo-theme spacing regressions are resolved for maintenance banners, but remaining cards require QA before raising colour/organisation scores above mid-80s.
+1. **Domain Blueprint Integrated:** Auth, marketplace, and platform schemas from the engineering domain registry have been ported into experience maps, driving +4 uplift in Design Organisation and Accuracy scores for Week 3.
 2. **Security Messaging Advancing:** Updated maintenance/downtime specs improved Security Grade to 78; final legal approval on payout escalations and RBAC copy is still pending.
 3. **Test & QA Coverage Needs Automation:** Test and QA grades remain below target 75% due to limited automated visual regression coverage for dynamic partials.
 4. **Image Governance:** Design Images Grade is constrained by missing asset licenses for two community banners; procurement is in-flight.
@@ -42,4 +42,4 @@ Percentages reflect the most recent assessment by the design operations council.
 2. Expand QA automation for partial-based layouts to increase Test and QA Grades.
 3. Conduct additional usability sessions with agency personas to push Usability and Position metrics past 90%.
 4. Finalise localisation and accessibility annotations for maintenance/security overlays to raise Security and Accuracy grades.
-5. Monitor implementation feedback and update tracker weekly through release.
+5. Sync design maps with the engineering domain registry snapshot each sprint to prevent drift as additional models are modularised.

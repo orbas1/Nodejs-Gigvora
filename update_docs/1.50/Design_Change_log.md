@@ -6,6 +6,11 @@
 - **Research Inputs:** Combined analysis of `Screens_Update_Plan.md`, `Screens_update_images_and_vectors.md`, `Logic_Flow_map.md`, and web assets documentation produced during Version 1.50 discovery.
 - **Rollout:** Sequenced through design QA gates prior to sprint integration, with staged publication of tokens to engineering repositories (React, Node API docs, Flutter kit).
 
+## 05 Apr 2024 — Domain Architecture Alignment
+1. **Context Maps:** Documented auth, marketplace, finance, and platform bounded contexts in `Architecture_Domain_Map.md` to align visual ERDs with the new backend domain registry. Provided legend updates in `Design Plan.md` for cross-team traceability.
+2. **Feature Flag UI Hooks:** Added feature flag management wireframes in `Dashboard Designs.md` and `component_functions.md` covering rollout percentages, audience targeting, and audit history surfaces.
+3. **Workspace Synchronisation States:** Updated project/workspace diagrams in `Screens_Update_Logic_Flow_map.md` to reflect automated workspace status mirroring, including blocked/completed badge treatments.
+
 ## 04 Apr 2024 — Maintenance & Security Experience Refresh
 1. **Telemetry Dashboards:** Added operator-facing health widgets and downtime banners to admin dashboards, mapping to the new backend `/health/ready` payload. Specifications captured in `Dashboard Designs.md` and `Screens_Updates_widget_functions.md` include latency trend cards, worker roster chips, and rate-limit notifications.
 2. **Maintenance Messaging System:** Documented copy decks, iconography, and localisation patterns for maintenance mode, partial outages, and security advisories. Assets referenced in `Screen_text.md`, `text.md.md`, and `Screens_update_images_and_vectors.md` now include neutral and emo-theme treatments plus legal-approved escalation language.

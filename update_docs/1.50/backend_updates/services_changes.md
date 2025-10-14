@@ -11,3 +11,9 @@
 
 ## `src/services/searchIndexService.js`
 - Consumed by the new worker manager to register Meilisearch bootstrap health status (no internal code changes required).
+
+## `src/services/authService.js`
+- Rebuilt authentication flows to delegate persistence to the new AuthDomainService, record login audits, evaluate feature flags, and emit schema-driven user payloads with shared contracts.
+
+## `src/services/projectService.js`
+- Integrated MarketplaceDomainService to derive workspace status, synchronise project workspaces after status changes, and centralise marketplace-specific business rules.

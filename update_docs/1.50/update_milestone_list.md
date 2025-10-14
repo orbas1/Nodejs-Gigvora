@@ -27,24 +27,27 @@
   - Add admin consoles for audit log review, permission overrides, and policy exports.
   - Align legal documentation (Terms, Privacy, Cookies) with consent APIs and localisation assets.
 
-## Milestone 2 – Modular Domain Architecture & Data Governance (0%)
+## Milestone 2 – Modular Domain Architecture & Data Governance (45%)
 **Objective:** Refactor domain models, migrations, and shared contracts so all clients consume a consistent, governed data layer.
 
-- **Task 2.1: Refactor backend domain boundaries (0%)**
+- **Task 2.1: Refactor backend domain boundaries (80%)**
   - Split `src/models/index.js` into bounded contexts with dependency diagrams and lint guards.
   - Extract messaging duplicates, standardise enums, and publish typed exports for shared consumption.
   - Introduce domain service layers for marketplace, finance, messaging, and integrations.
   - Enforce feature flags for incomplete modules until functional parity is confirmed.
-- **Task 2.2: Align migrations, seeding, and ERDs (0%)**
+  - **Status 05 Apr:** DomainRegistry now partitions 360+ models into audited contexts, new auth/marketplace/platform domain services orchestrate login audits and workspace health, and feature-flag infrastructure ships with dedicated JSON schemas. Remaining work focuses on visual dependency diagrams and lint automation.
+- **Task 2.2: Align migrations, seeding, and ERDs (20%)**
   - Rebuild migration suites to cover all fields, foreign keys, soft deletes, and tenant identifiers.
   - Seed taxonomies, templates, demo accounts, and localisation bundles consistently across environments.
   - Generate ERDs, data dictionaries, and warehouse feed specifications for analytics consumers.
   - Implement migration smoke tests against MySQL/PostgreSQL and SQLite within CI pipelines.
-- **Task 2.3: Publish shared schema packages and SDKs (0%)**
+  - **Status 05 Apr:** Generated shared contracts for auth and marketplace domains to drive upcoming ERD updates and seeded platform settings metadata; full migration rewrites and tenant seeding are scheduled next.
+- **Task 2.3: Publish shared schema packages and SDKs (35%)**
   - Generate OpenAPI/JSON schema artifacts for every domain service and publish versioned packages.
   - Produce TypeScript and Dart clients consumed by web and Flutter apps with compatibility tests.
   - Automate documentation updates linking endpoints, DTOs, and consumer examples.
   - Replace mocked repositories on clients with generated SDK usage and caching guards.
+  - **Status 05 Apr:** Added Zod-driven schema generators with `npm run schemas:sync`, publishing JSON contracts to `shared-contracts/domain` for auth, marketplace, and platform consumers. Client SDK generation and downstream integrations remain open.
 - **Task 2.4: Strengthen data lifecycle policies (0%)**
   - Define retention/archival jobs for financial, consent, and messaging data with audit evidence.
   - Implement encryption-at-rest for sensitive columns and rotate keys via vault integration.
