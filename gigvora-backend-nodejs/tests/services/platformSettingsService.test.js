@@ -26,6 +26,9 @@ describe('platformSettingsService', () => {
   it('returns environment-derived defaults when no override exists', async () => {
     process.env.PLATFORM_COMMISSIONS_ENABLED = 'false';
     process.env.PLATFORM_COMMISSION_RATE = '18.75';
+    process.env.PLATFORM_PROVIDER_CONTROLS_SERVICEMAN_PAY = 'false';
+    process.env.PLATFORM_SERVICEMAN_MINIMUM_RATE = '15.5';
+    process.env.PLATFORM_SERVICEMAN_PAYOUT_NOTES = 'Providers must pay field teams directly.';
     process.env.PLATFORM_SUBSCRIPTION_RESTRICTED_FEATURES = 'premium-support,advanced-analytics';
     process.env.STRIPE_PUBLISHABLE_KEY = 'pk_test_default';
     process.env.CLOUDFLARE_R2_BUCKET = 'gigvora-dev-bucket';
@@ -34,6 +37,9 @@ describe('platformSettingsService', () => {
 
     expect(settings.commissions.enabled).toBe(false);
     expect(settings.commissions.rate).toBe(18.75);
+    expect(settings.commissions.providerControlsServicemanPay).toBe(false);
+    expect(settings.commissions.servicemanMinimumRate).toBe(15.5);
+    expect(settings.commissions.servicemanPayoutNotes).toBe('Providers must pay field teams directly.');
     expect(settings.subscriptions.restrictedFeatures).toEqual([
       'premium-support',
       'advanced-analytics',
@@ -45,7 +51,15 @@ describe('platformSettingsService', () => {
 
   it('normalizes and persists administrative updates', async () => {
     const updated = await updatePlatformSettings({
-      commissions: { enabled: true, rate: '12.5', currency: 'USD', minimumFee: '5' },
+      commissions: {
+        enabled: true,
+        rate: '12.5',
+        currency: 'USD',
+        minimumFee: '5',
+        providerControlsServicemanPay: true,
+        servicemanMinimumRate: '25',
+        servicemanPayoutNotes: 'Providers manage servicemen compensation per engagement.',
+      },
       subscriptions: {
         enabled: false,
         restrictedFeatures: ['advanced-analytics'],
@@ -93,6 +107,11 @@ describe('platformSettingsService', () => {
 
     expect(updated.commissions.rate).toBe(12.5);
     expect(updated.commissions.minimumFee).toBe(5);
+    expect(updated.commissions.servicemanMinimumRate).toBe(25);
+    expect(updated.commissions.providerControlsServicemanPay).toBe(true);
+    expect(updated.commissions.servicemanPayoutNotes).toBe(
+      'Providers manage servicemen compensation per engagement.',
+    );
     expect(updated.subscriptions.enabled).toBe(false);
     expect(updated.subscriptions.plans).toHaveLength(1);
     expect(updated.subscriptions.plans[0].id).toBe('pro-plan');
@@ -109,9 +128,13 @@ describe('platformSettingsService', () => {
     expect(fetched.storage.cloudflare_r2.publicBaseUrl).toBe('https://cdn.gigvora.dev');
   });
 
-  it('throws when commission percentages exceed 100', async () => {
+  it('throws when commission percentages exceed policy boundaries', async () => {
     await expect(
       updatePlatformSettings({ commissions: { rate: 120 } }),
+    ).rejects.toBeInstanceOf(ValidationError);
+
+    await expect(
+      updatePlatformSettings({ commissions: { rate: 80, servicemanMinimumRate: 40 } }),
     ).rejects.toBeInstanceOf(ValidationError);
   });
 });

@@ -79,9 +79,23 @@ function buildDefaultPlatformSettings() {
   return {
     commissions: {
       enabled: coerceBoolean(process.env.PLATFORM_COMMISSIONS_ENABLED, true),
-      rate: coerceNumber(process.env.PLATFORM_COMMISSION_RATE, 10, { min: 0, max: 100, precision: 2 }),
+      rate: coerceNumber(process.env.PLATFORM_COMMISSION_RATE, 2.5, { min: 0, max: 100, precision: 2 }),
       currency: coerceString(process.env.PLATFORM_COMMISSION_CURRENCY, 'USD'),
       minimumFee: coerceNumber(process.env.PLATFORM_COMMISSION_MINIMUM_FEE, 0, { min: 0, precision: 2 }),
+      providerControlsServicemanPay: coerceBoolean(
+        process.env.PLATFORM_PROVIDER_CONTROLS_SERVICEMAN_PAY,
+        true,
+      ),
+      servicemanMinimumRate: coerceNumber(
+        process.env.PLATFORM_SERVICEMAN_MINIMUM_RATE,
+        0,
+        { min: 0, max: 100, precision: 2 },
+      ),
+      servicemanPayoutNotes:
+        coerceOptionalString(
+          process.env.PLATFORM_SERVICEMAN_PAYOUT_NOTES,
+          'Providers remain responsible for compensating their servicemen directly. Gigvora captures a 2.5% platform service fee and does not operate as an FCA-regulated e-money issuer.',
+        ) || '',
     },
     subscriptions: {
       enabled: coerceBoolean(process.env.PLATFORM_SUBSCRIPTIONS_ENABLED, true),
@@ -170,12 +184,48 @@ function normalizeCommissionSettings(input = {}, fallback = {}) {
     }
   }
 
+  if (input.servicemanMinimumRate != null && input.servicemanMinimumRate !== '') {
+    const candidate = Number(input.servicemanMinimumRate);
+    if (!Number.isFinite(candidate)) {
+      throw new ValidationError('serviceman minimum rate must be numeric.');
+    }
+    if (candidate < 0 || candidate > 100) {
+      throw new ValidationError('serviceman minimum rate must be between 0 and 100 percent.');
+    }
+  }
+
+  if (input.servicemanPayoutNotes != null && input.servicemanPayoutNotes !== undefined) {
+    const stringValue = String(input.servicemanPayoutNotes);
+    if (stringValue.length > 1000) {
+      throw new ValidationError('serviceman payout notes must be 1000 characters or fewer.');
+    }
+  }
+
   const normalized = {
     enabled: coerceBoolean(input.enabled, fallback.enabled ?? true),
     rate: coerceNumber(input.rate, fallback.rate ?? 0, { min: 0, max: 100, precision: 2 }),
     currency: coerceString(input.currency, fallback.currency ?? 'USD'),
     minimumFee: coerceNumber(input.minimumFee, fallback.minimumFee ?? 0, { min: 0, precision: 2 }),
+    providerControlsServicemanPay: coerceBoolean(
+      input.providerControlsServicemanPay,
+      fallback.providerControlsServicemanPay ?? true,
+    ),
+    servicemanMinimumRate: coerceNumber(
+      input.servicemanMinimumRate,
+      fallback.servicemanMinimumRate ?? 0,
+      { min: 0, max: 100, precision: 2 },
+    ),
+    servicemanPayoutNotes: coerceOptionalString(
+      input.servicemanPayoutNotes,
+      fallback.servicemanPayoutNotes ?? '',
+    ),
   };
+
+  if (normalized.rate + normalized.servicemanMinimumRate > 100) {
+    throw new ValidationError(
+      'combined platform commission and serviceman minimum rate cannot exceed 100 percent.',
+    );
+  }
 
   return normalized;
 }

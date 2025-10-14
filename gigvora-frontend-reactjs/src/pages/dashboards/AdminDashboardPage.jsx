@@ -326,9 +326,17 @@ function buildSettingsOverview(settings = {}) {
         caption: `${totalToggleCount} total toggles`,
       },
       {
-        label: 'Commission policy',
+        label: 'Platform commission',
         value: `${commissions.rate ?? 0}% ${commissions.currency ?? 'USD'}`,
-        caption: commissions.enabled ? 'Enabled' : 'Disabled',
+        caption: commissions.enabled
+          ? commissions.providerControlsServicemanPay
+            ? `Providers manage serviceman pay${
+                commissions.servicemanMinimumRate
+                  ? ` • ${commissions.servicemanMinimumRate}% minimum`
+                  : ''
+              }`
+            : 'Platform-managed serviceman pay'
+          : 'Disabled',
       },
     ],
     cms: {
@@ -1254,7 +1262,9 @@ export default function AdminDashboardPage() {
             <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-6 shadow-sm">
               <h3 className="text-lg font-semibold text-slate-900">Marketplace monetisation</h3>
               <p className="mt-1 text-sm text-slate-600">
-                Fine-tune commission rates, currency, and minimum fees to align with treasury policy.
+                Fine-tune the default 2.5% platform fee while preserving provider-managed serviceman pay.
+                Closed-loop wallet enforcement keeps Gigvora FCA-exempt and aligned with Apple App Store
+                guideline 3.1.5.
               </p>
               <div className="mt-5 grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
@@ -1301,11 +1311,87 @@ export default function AdminDashboardPage() {
                     className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                   />
                 </div>
+                <div className="sm:col-span-2">
+                  <label className="flex items-start justify-between gap-4 rounded-2xl border border-white bg-white px-4 py-3 shadow-sm">
+                    <span>
+                      <span className="text-sm font-semibold text-slate-800">Provider-managed serviceman pay</span>
+                      <span className="mt-1 block text-xs text-slate-500">
+                        Allow providers to set how much they compensate their teams per engagement.
+                      </span>
+                    </span>
+                    <input
+                      type="checkbox"
+                      className="h-5 w-5 rounded border-slate-300 text-accent focus:ring-accent"
+                      checked={Boolean(
+                        getNestedValue(
+                          settingsDraft,
+                          ['commissions', 'providerControlsServicemanPay'],
+                          settings?.commissions?.providerControlsServicemanPay ?? true,
+                        ),
+                      )}
+                      onChange={handleToggleChange(['commissions', 'providerControlsServicemanPay'])}
+                      disabled={disableSettingsInputs}
+                    />
+                  </label>
+                </div>
+                <div className="space-y-2">
+                  <label
+                    htmlFor="servicemanMinimumRate"
+                    className="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                  >
+                    Serviceman minimum payout (%)
+                  </label>
+                  <input
+                    id="servicemanMinimumRate"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value={getNestedValue(
+                      settingsDraft,
+                      ['commissions', 'servicemanMinimumRate'],
+                      settings?.commissions?.servicemanMinimumRate ?? '',
+                    )}
+                    onChange={handleTextChange(['commissions', 'servicemanMinimumRate'])}
+                    disabled={disableSettingsInputs}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  />
+                </div>
+                <div className="sm:col-span-2 space-y-2">
+                  <label
+                    htmlFor="servicemanPayoutNotes"
+                    className="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                  >
+                    Serviceman payout policy notes
+                  </label>
+                  <textarea
+                    id="servicemanPayoutNotes"
+                    maxLength={1000}
+                    rows={3}
+                    value={getNestedValue(
+                      settingsDraft,
+                      ['commissions', 'servicemanPayoutNotes'],
+                      settings?.commissions?.servicemanPayoutNotes ?? '',
+                    )}
+                    onChange={handleTextChange(['commissions', 'servicemanPayoutNotes'])}
+                    disabled={disableSettingsInputs}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                    placeholder="Providers remain responsible for compensating servicemen directly in line with local labour laws."
+                  />
+                  <p className="text-xs text-slate-500">
+                    Share clear guidance with providers about compensating servicemen. The note is included in payout
+                    confirmations.
+                  </p>
+                </div>
                 <div className="space-y-2">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Policy snapshot</p>
                   <p className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
                     {normalizedSettings.cms.commissions.enabled
-                      ? 'Commission active across gigs and projects.'
+                      ? `Platform retains ${normalizedSettings.cms.commissions.rate ?? 0}% while providers manage serviceman payouts${
+                          normalizedSettings.cms.commissions.servicemanMinimumRate
+                            ? ` (minimum ${normalizedSettings.cms.commissions.servicemanMinimumRate}% share)`
+                            : ''
+                        }. Wallet ledgers remain closed-loop and App Store compliant.`
                       : 'Commission policy currently disabled.'}
                   </p>
                 </div>
