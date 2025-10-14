@@ -8,6 +8,7 @@ import {
   FaceSmileIcon,
   HandRaisedIcon,
   HeartIcon,
+  PaperAirplaneIcon,
   PhotoIcon,
   PresentationChartBarIcon,
   RocketLaunchIcon,
@@ -104,6 +105,8 @@ const POST_TYPE_META = {
   },
 };
 
+const ALLOWED_FEED_MEMBERSHIPS = new Set(['user', 'freelancer', 'agency', 'company', 'headhunter', 'mentor', 'admin']);
+
 function resolveAuthor(post) {
   const directAuthor = post?.author ?? {};
   const user = post?.User ?? post?.user ?? {};
@@ -130,6 +133,52 @@ function resolvePostType(post) {
   const typeKey = (post?.type || post?.category || post?.opportunityType || 'update').toLowerCase();
   const meta = POST_TYPE_META[typeKey] ?? POST_TYPE_META.update;
   return { key: POST_TYPE_META[typeKey] ? typeKey : 'update', ...meta };
+}
+
+function normaliseFeedPost(post, fallbackSession) {
+  if (!post || typeof post !== 'object') {
+    return null;
+  }
+
+  const createdAt = post.createdAt ? new Date(post.createdAt).toISOString() : new Date().toISOString();
+  const normalisedType = (post.type || post.category || post.opportunityType || 'update').toLowerCase();
+
+  const derivedAuthorName =
+    post.authorName ||
+    [post.User?.firstName, post.User?.lastName, post.User?.name].filter(Boolean).join(' ') ||
+    fallbackSession?.name ||
+    'Gigvora member';
+
+  const normalised = {
+    id: post.id ?? `local-${Date.now()}`,
+    content: post.content ?? '',
+    type: normalisedType,
+    link: post.link ?? post.resourceLink ?? null,
+    createdAt,
+    authorName: derivedAuthorName,
+    authorHeadline:
+      post.authorHeadline ||
+      post.authorTitle ||
+      post.User?.Profile?.headline ||
+      post.User?.Profile?.bio ||
+      fallbackSession?.title ||
+      'Marketplace community update',
+    reactions: post.reactions ?? { likes: typeof post.likes === 'number' ? post.likes : 0 },
+    comments: Array.isArray(post.comments) ? post.comments : [],
+    User:
+      post.User ??
+      (fallbackSession
+        ? {
+            firstName: fallbackSession.name,
+            Profile: {
+              avatarSeed: fallbackSession.avatarSeed ?? fallbackSession.name,
+              headline: fallbackSession.title,
+            },
+          }
+        : undefined),
+  };
+
+  return normalised;
 }
 
 function buildMockComments(post) {
@@ -187,11 +236,13 @@ function FeedComposer({ onCreate, session }) {
   const [mode, setMode] = useState('update');
   const [content, setContent] = useState('');
   const [link, setLink] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
   const selectedOption = COMPOSER_OPTIONS.find((option) => option.id === mode) ?? COMPOSER_OPTIONS[0];
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    if (!content.trim()) {
+    if (!content.trim() || submitting) {
       return;
     }
     const payload = {
@@ -199,10 +250,19 @@ function FeedComposer({ onCreate, session }) {
       content: content.trim(),
       link: link.trim() || null,
     };
-    onCreate(payload);
-    setContent('');
-    setLink('');
-    setMode('update');
+    setSubmitting(true);
+    setError(null);
+    try {
+      await Promise.resolve(onCreate(payload));
+      setContent('');
+      setLink('');
+      setMode('update');
+    } catch (composerError) {
+      const message = composerError?.message || 'We could not publish your update. Please try again in a moment.';
+      setError(message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -229,7 +289,12 @@ function FeedComposer({ onCreate, session }) {
                   <button
                     key={option.id}
                     type="button"
-                    onClick={() => setMode(option.id)}
+                    onClick={() => {
+                      if (!submitting) {
+                        setMode(option.id);
+                      }
+                    }}
+                    disabled={submitting}
                     className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition ${
                       isActive
                         ? 'border-accent bg-accent text-white shadow-soft'
@@ -242,12 +307,14 @@ function FeedComposer({ onCreate, session }) {
                 );
               })}
             </div>
+            <p className="text-xs text-slate-500">{selectedOption.description}</p>
             <textarea
               value={content}
               onChange={(event) => setContent(event.target.value)}
               rows={4}
               className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-inner transition focus:border-accent focus:ring-2 focus:ring-accent/20"
               placeholder={`Tell your network about ${selectedOption.label.toLowerCase()}…`}
+              disabled={submitting}
             />
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
@@ -260,6 +327,7 @@ function FeedComposer({ onCreate, session }) {
                   onChange={(event) => setLink(event.target.value)}
                   placeholder="https://"
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  disabled={submitting}
                 />
               </div>
               <div className="space-y-2 text-xs text-slate-500">
@@ -270,13 +338,24 @@ function FeedComposer({ onCreate, session }) {
                 </p>
               </div>
             </div>
+            {error ? (
+              <p className="rounded-2xl bg-rose-50 px-4 py-2 text-sm font-medium text-rose-600" role="alert">
+                {error}
+              </p>
+            ) : null}
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-xs text-slate-500">Your update is routed to followers, connections, and workspace partners.</p>
               <button
                 type="submit"
-                className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
+                disabled={submitting || !content.trim()}
+                className={`inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold text-white shadow-soft transition ${
+                  submitting || !content.trim()
+                    ? 'cursor-not-allowed bg-accent/50'
+                    : 'bg-accent hover:bg-accentDark'
+                }`}
               >
-                <ShareIcon className="h-4 w-4" /> Publish to live feed
+                {submitting ? <ArrowPathIcon className="h-4 w-4 animate-spin" /> : <ShareIcon className="h-4 w-4" />}
+                {submitting ? 'Publishing…' : 'Publish to live feed'}
               </button>
             </div>
           </div>
@@ -485,20 +564,20 @@ function LiveMomentsTicker({ moments = [] }) {
   const activeMoment = moments[activeIndex];
 
   return (
-    <div className="rounded-3xl border border-emerald-200 bg-white/95 p-6 shadow-soft">
+    <div className="rounded-3xl border border-accent/30 bg-white/95 p-6 shadow-soft">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-emerald-700">Live moments</p>
-        <span className="text-xs font-semibold uppercase tracking-wide text-emerald-600">{moments.length} pulsing</span>
+        <p className="text-sm font-semibold text-accent">Live moments</p>
+        <span className="text-xs font-semibold uppercase tracking-wide text-accentDark">{moments.length} pulsing</span>
       </div>
-      <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4">
+      <div className="mt-4 rounded-2xl border border-accent/30 bg-accentSoft px-5 py-4">
         <div className="flex items-center gap-3">
           <span className="text-2xl" aria-hidden="true">
             {activeMoment.icon}
           </span>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">{activeMoment.tag}</p>
-            <p className="mt-1 text-sm font-semibold text-emerald-900">{activeMoment.title}</p>
-            <p className="mt-2 text-xs text-emerald-600">
+            <p className="text-xs font-semibold uppercase tracking-wide text-accentDark">{activeMoment.tag}</p>
+            <p className="mt-1 text-sm font-semibold text-slate-900">{activeMoment.title}</p>
+            <p className="mt-2 text-xs text-slate-500">
               Updated {formatRelativeTime(activeMoment.timestamp)}
             </p>
           </div>
@@ -512,13 +591,14 @@ function LiveMomentsTicker({ moments = [] }) {
             onClick={() => setActiveIndex(index)}
             className={`flex items-center justify-between rounded-2xl border px-4 py-2 text-left text-xs transition ${
               index === activeIndex
-                ? 'border-emerald-400 bg-emerald-50 text-emerald-700 shadow-soft'
-                : 'border-slate-200 text-slate-500 hover:border-emerald-300 hover:text-emerald-600'
+                ? 'border-accent bg-accentSoft text-accent shadow-soft'
+                : 'border-slate-200 text-slate-500 hover:border-accent/60 hover:text-accent'
             }`}
           >
             <span className="flex items-center gap-2">
               <span aria-hidden="true">{moment.icon}</span>
-              {moment.title.slice(0, 60)}{moment.title.length > 60 ? '…' : ''}
+              {(moment.title || 'Live update').slice(0, 60)}
+              {(moment.title || '').length > 60 ? '…' : ''}
             </span>
             <span className="text-[0.65rem] uppercase tracking-wide text-slate-400">
               {formatRelativeTime(moment.timestamp)}
@@ -533,7 +613,7 @@ function LiveMomentsTicker({ moments = [] }) {
 function FeedSidebar({ session, insights }) {
   const { interests = [], connectionSuggestions = [], groupSuggestions = [], liveMoments = [] } = insights ?? {};
   return (
-    <aside className="space-y-6">
+    <aside className="order-2 space-y-6 lg:order-1">
       <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-soft">
         <div className="flex items-center gap-4">
           <UserAvatar name={session?.name ?? 'Member'} seed={session?.avatarSeed ?? session?.name} size="lg" />
@@ -729,10 +809,33 @@ export default function FeedPage() {
 
   const posts = useMemo(() => {
     const fetched = Array.isArray(data) ? data : [];
-    return [...localPosts, ...fetched];
+    const deduped = [];
+    const seen = new Set();
+    [...localPosts, ...fetched].forEach((post) => {
+      if (!post) {
+        return;
+      }
+      const identifier = post.id ?? `${post.createdAt}:${deduped.length}`;
+      if (seen.has(identifier)) {
+        return;
+      }
+      seen.add(identifier);
+      deduped.push(post);
+    });
+    return deduped;
   }, [data, localPosts]);
 
   const engagementSignals = useEngagementSignals({ session, feedPosts: posts });
+
+  const membershipList = useMemo(
+    () => (Array.isArray(session?.memberships) ? session.memberships.filter(Boolean) : []),
+    [session?.memberships],
+  );
+
+  const hasFeedAccess = useMemo(
+    () => membershipList.some((membership) => ALLOWED_FEED_MEMBERSHIPS.has(membership)),
+    [membershipList],
+  );
 
   useEffect(() => {
     if (!analyticsTrackedRef.current && !loading && posts.length) {
@@ -745,6 +848,18 @@ export default function FeedPage() {
     analytics.track('web_feed_share_click', { location: 'feed_page' }, { source: 'web_app' });
   };
 
+  const handleComposerCreate = async (payload) => {
+    if (!hasFeedAccess) {
+      throw new Error('Your current workspace role cannot publish to the live feed. Switch roles to continue.');
+    }
+
+    if (!session?.id) {
+      throw new Error('We could not confirm your account. Please sign in again and retry.');
+    }
+
+    const optimisticId = `local-${Date.now()}`;
+    const optimisticPost = {
+      id: optimisticId,
   const handleComposerCreate = (payload) => {
     const author = {
       name: session?.name ?? 'You',
@@ -758,20 +873,79 @@ export default function FeedPage() {
       type: payload.type,
       link: payload.link,
       createdAt: new Date().toISOString(),
+      authorName: session?.name,
+      authorHeadline: session?.title,
+      reactions: { likes: 0 },
+      comments: [],
       authorName: author.name,
       authorHeadline: author.headline,
       authorAvatarSeed: author.avatarSeed,
       author,
       User: {
         firstName: session?.name,
+        lastName: '',
         Profile: {
           avatarSeed: session?.avatarSeed,
           headline: session?.title,
         },
       },
     };
-    setLocalPosts((previous) => [newPost, ...previous]);
-    analytics.track('web_feed_post_created', { type: payload.type }, { source: 'web_app' });
+
+    setLocalPosts((previous) => [optimisticPost, ...previous]);
+    analytics.track('web_feed_post_created', { type: payload.type, optimistic: true }, { source: 'web_app' });
+
+    try {
+      const response = await apiClient.post(
+        '/feed',
+        {
+          userId: session.id,
+          content: payload.content,
+          visibility: 'public',
+          type: payload.type,
+          link: payload.link,
+        },
+        { headers: { 'X-Feature-Surface': 'web-feed-composer' } },
+      );
+
+      const normalised = normaliseFeedPost(response, session);
+
+      if (normalised) {
+        setLocalPosts((previous) =>
+          previous.map((post) => {
+            if (post.id !== optimisticId) {
+              return post;
+            }
+            return {
+              ...post,
+              ...normalised,
+              id: normalised.id ?? optimisticId,
+              createdAt: normalised.createdAt ?? post.createdAt,
+              User: normalised.User ?? post.User,
+              reactions: normalised.reactions ?? post.reactions,
+            };
+          }),
+        );
+      }
+
+      analytics.track('web_feed_post_synced', { type: payload.type }, { source: 'web_app' });
+      await refresh({ force: true });
+    } catch (error) {
+      setLocalPosts((previous) => previous.filter((post) => post.id !== optimisticId));
+      analytics.track(
+        'web_feed_post_failed',
+        {
+          type: payload.type,
+          status: error instanceof apiClient.ApiError ? error.status ?? 'api_error' : 'unknown_error',
+        },
+        { source: 'web_app' },
+      );
+
+      if (error instanceof apiClient.ApiError) {
+        throw new Error(error.body?.message || 'The live feed service rejected your update. Please try again.');
+      }
+
+      throw new Error('We were unable to reach the live feed service. Check your connection and retry.');
+    }
   };
 
   const renderSkeleton = () => (
@@ -815,6 +989,62 @@ export default function FeedPage() {
     return null;
   }
 
+  if (!hasFeedAccess) {
+    return (
+      <section className="relative overflow-hidden py-16">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(191,219,254,0.35),_transparent_65%)]" aria-hidden="true" />
+        <div className="absolute -right-20 top-24 h-72 w-72 rounded-full bg-accent/15 blur-[140px]" aria-hidden="true" />
+        <div className="absolute -left-16 bottom-10 h-80 w-80 rounded-full bg-indigo-200/20 blur-[140px]" aria-hidden="true" />
+        <div className="relative mx-auto max-w-4xl px-6">
+          <PageHeader
+            eyebrow="Live feed"
+            title="Switch to an eligible workspace"
+            description="Your current role does not grant access to the community feed. Swap to a user, freelancer, agency, mentor, headhunter, or company workspace to engage in real time."
+            actions={
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  to="/settings"
+                  className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
+                >
+                  Manage memberships
+                </Link>
+                <Link
+                  to="/dashboard/user"
+                  className="inline-flex items-center gap-2 rounded-full border border-accent/50 bg-white px-5 py-2 text-sm font-semibold text-accent transition hover:border-accent"
+                >
+                  Open dashboards
+                </Link>
+              </div>
+            }
+            meta={
+              <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {Array.from(ALLOWED_FEED_MEMBERSHIPS).map((role) => {
+                  const readable = role.replace(/_/g, ' ');
+                  const formatted = readable.charAt(0).toUpperCase() + readable.slice(1);
+                  return (
+                    <span
+                      key={role}
+                      className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/90 px-3 py-1 text-slate-500"
+                    >
+                      <span className="h-2 w-2 rounded-full bg-accent" aria-hidden="true" />
+                      {formatted}
+                    </span>
+                  );
+                })}
+              </div>
+            }
+          />
+          <div className="mt-10 rounded-3xl border border-slate-200 bg-white/95 p-8 shadow-soft">
+            <h2 className="text-base font-semibold text-slate-900">Why access is restricted</h2>
+            <p className="mt-3 text-sm text-slate-600">
+              The live feed surfaces opportunities and updates that are tailored to operating roles inside Gigvora. Restricting access keeps sensitive launch information safe and ensures moderation coverage. Switch to an eligible membership above or contact support for an access review.
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="relative overflow-hidden py-16">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(191,219,254,0.35),_transparent_65%)]" aria-hidden="true" />
@@ -845,7 +1075,7 @@ export default function FeedPage() {
         />
         <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(260px,0.75fr),minmax(0,2fr)] lg:items-start">
           <FeedSidebar session={session} insights={engagementSignals} />
-          <div className="space-y-8">
+          <div className="order-1 space-y-8 lg:order-2">
             <FeedComposer onCreate={handleComposerCreate} session={session} />
             {error && !loading ? (
               <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
