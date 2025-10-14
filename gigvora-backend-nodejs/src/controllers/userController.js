@@ -7,6 +7,7 @@ import catalogInsightsService from '../services/catalogInsightsService.js';
 import gigBuilderService from '../services/gigBuilderService.js';
 import gigManagerService from '../services/gigManagerService.js';
 import { getUserOpenAiSettings, updateUserOpenAiSettings } from '../services/aiAutoReplyService.js';
+import affiliateDashboardService from '../services/affiliateDashboardService.js';
 import { normalizeLocationPayload } from '../utils/location.js';
 
 export async function listUsers(req, res) {
@@ -82,6 +83,11 @@ export async function getUserDashboard(req, res) {
   const dashboard = await userDashboardService.getUserDashboard(req.params.id, {
     bypassCache: req.query.fresh === 'true',
   });
+  res.json(dashboard);
+}
+
+export async function getUserAffiliateDashboard(req, res) {
+  const dashboard = await affiliateDashboardService.getAffiliateDashboard(req.params.id);
   res.json(dashboard);
 }
 

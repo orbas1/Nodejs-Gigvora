@@ -1,6 +1,7 @@
 import PropTypes from 'prop-types';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
+import CvCreationFlow from './CvCreationFlow.jsx';
 
 function formatNumber(value) {
   if (value == null || Number.isNaN(Number(value))) {
@@ -153,7 +154,7 @@ SectionHeader.propTypes = {
   action: PropTypes.node,
 };
 
-export default function DocumentStudioSection({ data }) {
+export default function DocumentStudioSection({ data, userId, onRefresh }) {
   const summary = data?.summary ?? {
     totalDocuments: 0,
     cvCount: 0,
@@ -209,6 +210,10 @@ export default function DocumentStudioSection({ data }) {
     }
     return highlights;
   }, [baseline]);
+
+  const handleRefresh = useCallback(() => {
+    onRefresh?.();
+  }, [onRefresh]);
 
   return (
     <section id="document-studio" className="space-y-8">
@@ -314,6 +319,9 @@ export default function DocumentStudioSection({ data }) {
                 Create role-specific variants to compare achievements and export personalised resumes instantly.
               </div>
             )}
+          </div>
+          <div className="pt-4">
+            <CvCreationFlow userId={userId} baseline={baseline} onSuccess={handleRefresh} />
           </div>
         </div>
 
@@ -702,8 +710,11 @@ DocumentStudioSection.propTypes = {
     analytics: PropTypes.object,
     purchasedGigs: PropTypes.object,
   }),
+  userId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  onRefresh: PropTypes.func,
 };
 
 DocumentStudioSection.defaultProps = {
   data: null,
+  onRefresh: undefined,
 };

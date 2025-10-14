@@ -38,6 +38,14 @@ export const LAUNCHPAD_ALLOWED_MEMBERSHIPS = Object.freeze([
 
 const launchpadMembershipSet = createTokenSet(LAUNCHPAD_ALLOWED_MEMBERSHIPS);
 
+export const SECURITY_ALLOWED_MEMBERSHIPS = Object.freeze([
+  'security',
+  'trust',
+  'admin',
+]);
+
+const securityMembershipSet = createTokenSet(SECURITY_ALLOWED_MEMBERSHIPS);
+
 function collectSessionAccessTokens(session) {
   if (!session) {
     return new Set();
@@ -101,4 +109,23 @@ export function canAccessLaunchpad(session) {
 
 export function getLaunchpadMemberships(session) {
   return Array.from(collectSessionAccessTokens(session)).filter((token) => launchpadMembershipSet.has(token));
+}
+
+export function canAccessSecurityOperations(session) {
+  const tokens = collectSessionAccessTokens(session);
+  if (!tokens.size) {
+    return false;
+  }
+
+  for (const token of tokens) {
+    if (securityMembershipSet.has(token)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export function getSecurityMemberships(session) {
+  return Array.from(collectSessionAccessTokens(session)).filter((token) => securityMembershipSet.has(token));
 }

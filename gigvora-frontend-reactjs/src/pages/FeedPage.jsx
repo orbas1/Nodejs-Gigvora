@@ -24,6 +24,11 @@ import analytics from '../services/analytics.js';
 import { formatRelativeTime } from '../utils/date.js';
 import useSession from '../hooks/useSession.js';
 import useEngagementSignals from '../hooks/useEngagementSignals.js';
+import {
+  ContentModerationError,
+  moderateFeedComposerPayload,
+  sanitiseExternalLink,
+} from '../utils/contentModeration.js';
 
 const COMPOSER_OPTIONS = [
   {
@@ -306,26 +311,6 @@ function normaliseComments(post) {
   return buildMockComments(post);
 }
 
-function sanitiseExternalLink(raw) {
-  if (!raw) {
-    return null;
-  }
-  const trimmed = `${raw}`.trim();
-  if (!trimmed) {
-    return null;
-  }
-  const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
-  try {
-    const parsed = new URL(candidate);
-    if (!['http:', 'https:'].includes(parsed.protocol)) {
-      return null;
-    }
-    return parsed.toString();
-  } catch (error) {
-    return null;
-  }
-}
-
 function EmojiPopover({ open, onSelect, onClose, labelledBy }) {
   useEffect(() => {
     if (!open) {
@@ -481,12 +466,13 @@ function FeedComposer({ onCreate, session }) {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (!content.trim() || submitting) {
+    if (submitting) {
       return;
     }
-    const payload = {
+    const draftPayload = {
       type: mode,
-      content: content.trim(),
+      content,
+      summary: content,
       link: sanitiseExternalLink(link),
       mediaAttachments: attachment
         ? [
@@ -499,6 +485,31 @@ function FeedComposer({ onCreate, session }) {
           ]
         : [],
     };
+
+    let moderated;
+    try {
+      moderated = moderateFeedComposerPayload(draftPayload);
+    } catch (moderationError) {
+      if (moderationError instanceof ContentModerationError) {
+        setError({
+          message: moderationError.message,
+          reasons: moderationError.reasons,
+        });
+        return;
+      }
+      setError({
+        message: moderationError?.message || 'We could not publish your update. Please try again in a moment.',
+      });
+      return;
+    }
+
+    const payload = {
+      type: mode,
+      content: moderated.content,
+      link: moderated.link,
+      mediaAttachments: moderated.attachments,
+    };
+
     setSubmitting(true);
     setError(null);
     try {
@@ -509,9 +520,13 @@ function FeedComposer({ onCreate, session }) {
       setAttachmentAlt('');
       setMode('update');
     } catch (composerError) {
-      const message =
-        composerError?.message || 'We could not publish your update. Please try again in a moment.';
-      setError(message);
+      if (composerError instanceof ContentModerationError) {
+        setError({ message: composerError.message, reasons: composerError.reasons });
+      } else {
+        const message =
+          composerError?.message || 'We could not publish your update. Please try again in a moment.';
+        setError({ message });
+      }
     } finally {
       setSubmitting(false);
       setShowEmojiTray(false);
@@ -569,7 +584,10 @@ function FeedComposer({ onCreate, session }) {
               <textarea
                 id={textareaId}
                 value={content}
-                onChange={(event) => setContent(event.target.value.slice(0, MAX_CONTENT_LENGTH))}
+                onChange={(event) => {
+                  setContent(event.target.value.slice(0, MAX_CONTENT_LENGTH));
+                  setError(null);
+                }}
                 rows={4}
                 maxLength={MAX_CONTENT_LENGTH}
                 className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-inner transition focus:border-accent focus:ring-2 focus:ring-accent/20"
@@ -631,7 +649,10 @@ function FeedComposer({ onCreate, session }) {
                 <input
                   id={linkInputId}
                   value={link}
-                  onChange={(event) => setLink(event.target.value)}
+                  onChange={(event) => {
+                    setLink(event.target.value);
+                    setError(null);
+                  }}
                   placeholder="https://"
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                   disabled={submitting}
@@ -668,9 +689,19 @@ function FeedComposer({ onCreate, session }) {
               </div>
             ) : null}
             {error ? (
-              <p className="rounded-2xl bg-rose-50 px-4 py-2 text-sm font-medium text-rose-600" role="alert">
-                {error}
-              </p>
+              <div
+                className="space-y-2 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700 shadow-inner"
+                role="alert"
+              >
+                <p className="font-semibold">{error.message}</p>
+                {Array.isArray(error.reasons) && error.reasons.length ? (
+                  <ul className="list-disc space-y-1 pl-5 text-xs text-rose-600">
+                    {error.reasons.map((reason, index) => (
+                      <li key={index}>{reason}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
             ) : null}
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-xs text-slate-500">
@@ -1444,7 +1475,25 @@ export default function FeedPage() {
           { source: 'web_app' },
         );
 
+        if (composerError instanceof ContentModerationError) {
+          throw composerError;
+        }
+
         if (composerError instanceof apiClient.ApiError) {
+          if (
+            composerError.status === 422 &&
+            Array.isArray(composerError.body?.details?.reasons) &&
+            composerError.body.details.reasons.length
+          ) {
+            throw new ContentModerationError(
+              composerError.body?.message || 'The live feed service rejected your update.',
+              {
+                reasons: composerError.body.details.reasons,
+                signals: composerError.body.details.signals ?? [],
+              },
+            );
+          }
+
           throw new Error(
             composerError.body?.message || 'The live feed service rejected your update. Please try again.',
           );

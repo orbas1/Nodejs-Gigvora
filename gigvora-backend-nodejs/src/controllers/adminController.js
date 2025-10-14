@@ -1,5 +1,6 @@
 import { getAdminDashboardSnapshot } from '../services/adminDashboardService.js';
 import { getPlatformSettings, updatePlatformSettings } from '../services/platformSettingsService.js';
+import { getAffiliateSettings, updateAffiliateSettings } from '../services/affiliateSettingsService.js';
 
 function parseInteger(value, fallback) {
   if (value == null || value === '') {
@@ -28,8 +29,20 @@ export async function persistPlatformSettings(req, res) {
   res.json(settings);
 }
 
+export async function fetchAffiliateSettings(req, res) {
+  const settings = await getAffiliateSettings();
+  res.json(settings);
+}
+
+export async function persistAffiliateSettings(req, res) {
+  const settings = await updateAffiliateSettings(req.body ?? {});
+  res.json(settings);
+}
+
 export default {
   dashboard,
   fetchPlatformSettings,
   persistPlatformSettings,
+  fetchAffiliateSettings,
+  persistAffiliateSettings,
 };
