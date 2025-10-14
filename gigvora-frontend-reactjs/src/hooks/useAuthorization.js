@@ -28,7 +28,7 @@ const RESOURCE_POLICIES = {
 };
 
 const PROJECT_DENIAL_REASON =
-  'Project workspaces are restricted to agency, company, operations, and admin leads. Request access from your workspace administrator.';
+  'Project workspaces are limited to agency, company, operations, or admin leads. Ask your workspace admin for access.';
 
 function normaliseKey(value) {
   if (value == null) {

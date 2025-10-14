@@ -320,7 +320,7 @@ export default function ProjectAutoMatchPage() {
             tone="sky"
             badge="Authentication required"
             title="Sign in to orchestrate auto-match"
-            description="Use an authenticated operations workspace to generate and monitor freelancer rotations for this project."
+            description="Use an authenticated operations workspace to generate and monitor freelancer rotations."
             actionLabel="Sign in"
             actionHref="/login"
           />
@@ -331,7 +331,7 @@ export default function ProjectAutoMatchPage() {
             tone="amber"
             badge={`Active role: ${session?.activeMembership ?? 'none'}`}
             title="Operations access required"
-            description="Auto-match orchestration is limited to company, agency, or admin workspaces. Switch your active membership from the dashboard to continue."
+            description="Only company, agency, or admin workspaces run auto-match. Switch your active membership in settings."
             actionLabel="Manage memberships"
             actionHref="/settings"
           />

@@ -456,7 +456,7 @@ export default function FinanceHubPage() {
           tone="sky"
           badge="Finance workspace"
           title="Sign in to view finance telemetry"
-          description="Authenticate with your Gigvora workspace account to review payments, escrow balances, and dispute health in real time."
+          description="Use your workspace account to review payments, escrow balances, and dispute health."
           actionLabel="Go to login"
           onAction={() => navigate('/login')}
         />
@@ -469,7 +469,7 @@ export default function FinanceHubPage() {
       <div className="mx-auto max-w-4xl px-6 py-20">
         <AccessRestricted
           title="Finance permissions required"
-          description="Your profile does not have access to Gigvora\'s finance operations workspace. Contact your workspace administrator to request finance or company operations membership."
+          description="Your profile lacks finance workspace access. Contact your workspace admin to request finance or company operations membership."
           badge="Restricted"
           actionLabel="Contact support"
           actionHref="mailto:support@gigvora.com?subject=Finance%20access%20request"
@@ -505,7 +505,7 @@ export default function FinanceHubPage() {
         <AccessRestricted
           tone="amber"
           title="Finance overview unavailable"
-          description="We could not load finance telemetry right now and no cached snapshot is available. Try refreshing the page or contact support if the issue persists."
+          description="We could not load finance telemetry and no cached snapshot is available. Refresh the page or contact support if it persists."
           actionLabel="Retry"
           onAction={() => refresh({ force: true })}
         />

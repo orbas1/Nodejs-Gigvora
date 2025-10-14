@@ -6,9 +6,9 @@ function DefaultAccessDenied() {
   return (
     <div className="px-6 py-16">
       <div className="mx-auto max-w-xl rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-soft">
-        <h1 className="text-2xl font-semibold text-slate-900">Community access is restricted</h1>
+        <h1 className="text-2xl font-semibold text-slate-900">Community access locked</h1>
         <p className="mt-3 text-sm text-slate-600">
-          Your current workspace does not include access to this area. Switch to a community-enabled role or contact support for help enabling access.
+          Switch to a community-enabled role or contact support to turn it on.
         </p>
         <a
           href="https://support.gigvora.com"

@@ -140,7 +140,7 @@ export default function TrustCenterPage() {
           tone="sky"
           badge="Trust & compliance"
           title="Sign in to open the trust centre"
-          description="Authenticate with your Gigvora workspace account to manage escrow releases, disputes, and compliance evidence."
+          description="Use your workspace account to manage escrow releases, disputes, and evidence."
           actionLabel="Go to login"
           onAction={() => navigate('/login')}
         />
@@ -153,7 +153,7 @@ export default function TrustCenterPage() {
       <div className="mx-auto max-w-4xl px-6 py-20">
         <AccessRestricted
           title="Finance permissions required"
-          description="This trust centre is limited to finance, company, or agency administrators. Request access from your workspace owner to review escrow releases and dispute workflows."
+          description="Finance, company, or agency admins can review escrow and disputes here. Ask your workspace owner to enable access."
           badge="Restricted"
           actionLabel="Contact support"
           actionHref="mailto:support@gigvora.com?subject=Trust%20centre%20access"
@@ -198,8 +198,7 @@ export default function TrustCenterPage() {
             Operations Control Tower
           </h1>
           <p className="mt-3 max-w-2xl text-base text-slate-600">
-            Monitor escrow health, dispute resolution velocity, and Cloudflare R2 evidence pipelines in one place. All metrics
-            refresh in near real-time to keep finance, compliance, and support aligned.
+            Monitor escrow health, dispute velocity, and evidence pipelines in one place. Metrics refresh near real-time to keep finance, compliance, and support aligned.
           </p>
         </div>
         <div className="flex flex-col items-start gap-3 md:items-end">

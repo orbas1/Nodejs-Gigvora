@@ -344,7 +344,7 @@ export default function SecurityOperationsPage() {
           tone="blue"
           badge="Security operations"
           title="Sign in to open the security console"
-          description="This area is restricted to Gigvora security operations. Authenticate with the correct workspace role to continue."
+          description="Only security operators can open this console. Use the correct workspace role to continue."
         />
       </div>
     );
@@ -357,7 +357,7 @@ export default function SecurityOperationsPage() {
           badge="Restricted"
           tone="amber"
           title="Security clearance required"
-          description="Only members of the security, trust, or admin teams can administer breach prevention controls. Request access from your workspace owner."
+          description="Security, trust, or admin teams manage these controls. Ask your workspace owner for access."
         />
       </div>
     );
@@ -373,8 +373,7 @@ export default function SecurityOperationsPage() {
             Security Operations Control Room
           </h1>
           <p className="max-w-2xl text-sm text-slate-600">
-            Monitor threats, orchestrate responses, and govern enterprise defences across Gigvora infrastructure and endpoint fleets.
-            Every action is audited, multi-factor enforced, and aligned with zero trust controls.
+            Monitor threats, orchestrate responses, and govern defences across Gigvora infrastructure. Every action is audited, multi-factor enforced, and aligned with zero-trust controls.
           </p>
           {posture ? (
             <div className="inline-flex items-center gap-3 rounded-full border border-emerald-200 bg-emerald-50/80 px-4 py-2 text-sm font-semibold text-emerald-700">

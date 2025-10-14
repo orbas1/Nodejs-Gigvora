@@ -146,7 +146,7 @@ export default function LaunchpadPage() {
             tone="sky"
             badge={launchpadAccessLabel ? `Active: ${launchpadAccessLabel}` : 'Experience Launchpad'}
             title="Launchpad workspace is safeguarded"
-            description="Only verified fellows, mentors, agencies, and partner companies can collaborate inside Experience Launchpad. This keeps pilot programmes, placement data, and company briefs secure."
+            description="Only verified fellows, mentors, agencies, and partner companies collaborate here. That keeps pilot programmes, placement data, and briefs secure."
             actionLabel="Request Launchpad access"
             actionHref="mailto:launchpad@gigvora.com?subject=Launchpad%20access%20request"
           />
@@ -163,7 +163,7 @@ export default function LaunchpadPage() {
         <PageHeader
           eyebrow="Experience Launchpad"
           title="Guided programmes to ship portfolio-ready work"
-          description="Join structured cohorts with partner companies, shared rituals, and measurable outcomes for your next leap."
+          description="Join structured cohorts with partner companies, shared rituals, and measurable outcomes."
           meta={
             <DataStatus
               loading={loading}
