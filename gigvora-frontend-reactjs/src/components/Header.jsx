@@ -39,6 +39,20 @@ const NAV_LINKS = [
   { id: 'pages', to: '/pages', label: 'Pages', authOnly: true },
   { id: 'mentors', to: '/mentors', label: 'Mentors', authOnly: true },
   { id: 'inbox', to: '/inbox', label: 'Inbox', authOnly: true },
+import { hasExplorerAccess } from '../utils/accessControl.js';
+import { hasFinanceOperationsAccess } from '../utils/permissions.js';
+import { canAccessLaunchpad } from '../constants/access.js';
+
+const AUTHENTICATED_NAV_LINKS = [
+  { id: 'feed', to: '/feed', label: 'Live Feed' },
+  { id: 'explorer', to: '/search', label: 'Explorer' },
+  { id: 'jobs', to: '/jobs', label: 'Jobs' },
+  { id: 'gigs', to: '/gigs', label: 'Gigs' },
+  { id: 'launchpad', to: '/experience-launchpad', label: 'Launchpad' },
+  { id: 'groups', to: '/groups', label: 'Groups' },
+  { id: 'pages', to: '/pages', label: 'Pages' },
+  { id: 'mentors', to: '/mentors', label: 'Mentors' },
+  { id: 'inbox', to: '/inbox', label: 'Inbox' },
 ];
 
 const EXPLORER_ROLE_LABELS = getExplorerAllowedMemberships().map(
@@ -458,6 +472,71 @@ export default function Header() {
                   className={`absolute -bottom-1 left-0 h-0.5 w-full transform rounded-full transition-all duration-300 ${
                     isActive ? 'scale-100 bg-accent' : 'scale-0 bg-transparent'
                   }`}
+  const explorerAvailable = useMemo(() => hasExplorerAccess(session), [session]);
+  const launchpadAvailable = useMemo(() => (isAuthenticated ? canAccessLaunchpad(session) : false), [
+    isAuthenticated,
+    session,
+  ]);
+  const navigationLinks = useMemo(() => {
+    if (!isAuthenticated) {
+      return [];
+    }
+
+    const baseLinks = AUTHENTICATED_NAV_LINKS.filter((item) => {
+      if (item.id === 'explorer') {
+        return explorerAvailable;
+      }
+      if (item.id === 'launchpad') {
+        return launchpadAvailable;
+      }
+      return true;
+    });
+
+    const memberships = (session?.memberships ?? []).map((value) => `${value}`.trim().toLowerCase());
+    if (memberships.some((role) => ['volunteer', 'mentor', 'admin'].includes(role))) {
+      baseLinks.push({ id: 'volunteering', ...VOLUNTEERING_NAV_LINK });
+    }
+
+    if (profileLink) {
+      baseLinks.push({ id: 'profile', to: profileLink, label: 'Profile' });
+    }
+
+    return baseLinks;
+  }, [explorerAvailable, isAuthenticated, launchpadAvailable, profileLink, session?.memberships]);
+
+  return (
+    <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/95 backdrop-blur">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+        <Link to="/" className="flex items-center">
+          <img src={LOGO_URL} alt="Gigvora" className="h-12 w-auto" />
+        </Link>
+        {isAuthenticated ? (
+          <nav className="hidden items-center gap-1 md:flex">
+            {navigationLinks.map((item) => (
+              <NavLink key={item.to} to={item.to} className={navClassName}>
+                {({ isActive }) => (
+                  <span className="relative inline-flex items-center">
+                    {item.label}
+                    <span
+                      className={`absolute -bottom-1 left-0 h-0.5 w-full transform rounded-full transition-all duration-300 ${
+                        isActive ? 'scale-100 bg-accent' : 'scale-0 bg-transparent'
+                      }`}
+                    />
+                  </span>
+                )}
+              </NavLink>
+            ))}
+          </nav>
+        ) : null}
+        <div className="hidden items-center gap-4 md:flex">
+          {isAuthenticated ? (
+            <div className="flex items-center gap-2">
+              {canAccessNotifications ? (
+                <NotificationMenu
+                  notifications={notifications}
+                  unreadCount={unreadNotificationCount}
+                  onMarkAll={markAllNotificationsAsRead}
+                  onMarkSingle={markNotificationAsRead}
                 />
               </span>
             )}
@@ -676,6 +755,30 @@ export default function Header() {
                   <p className="mt-4 text-xs uppercase tracking-wide text-slate-500">Eligible memberships</p>
                   <p className="text-sm font-medium text-slate-700">{eligibleRoleList}</p>
                   <div className="mt-6 flex flex-wrap gap-3">
+              <nav className="flex flex-col gap-1 py-4 text-sm font-semibold">
+                {navigationLinks.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    onClick={closeMobileNav}
+                    className={({ isActive }) =>
+                      `rounded-2xl px-4 py-2 transition ${
+                        isActive ? 'bg-accentSoft text-accent' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                      }`
+                    }
+                  >
+                    {item.label}
+                  </NavLink>
+                ))}
+              </nav>
+              {dashboardTarget ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-3">
+                    <UserAvatar name={session?.name} seed={session?.avatarSeed ?? session?.name} size="xs" showGlow={false} />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-slate-800">{session?.name}</p>
+                      {sessionSubtitle ? <p className="text-xs text-slate-500">{sessionSubtitle}</p> : null}
+                    </div>
                     <Link
                       to="/settings"
                       onClick={() => setExplorerDialogOpen(false)}
