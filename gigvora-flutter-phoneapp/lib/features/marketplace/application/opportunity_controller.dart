@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,10 +22,11 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
   String _query = '';
   Timer? _debounce;
   bool _viewRecorded = false;
-  Map<String, dynamic> _filters = const {};
+  Map<String, dynamic> _filters = const <String, dynamic>{};
   String? _sort;
   bool _includeFacets = false;
-  Map<String, dynamic> _filters = const <String, dynamic>{};
+
+  Map<String, dynamic> get filters => _filters;
 
   Future<void> load({bool forceRefresh = false}) async {
     state = state.copyWith(loading: true, error: null);
@@ -41,6 +41,7 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
         includeFacets: _includeFacets,
         headers: headers,
       );
+
       state = ResourceState<OpportunityPage>(
         data: result.data,
         loading: false,
@@ -68,7 +69,7 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
           metadata: const {'source': 'mobile_app'},
         );
       }
-    } catch (error) {
+    } catch (error, stackTrace) {
       state = state.copyWith(loading: false, error: error);
       await _analytics.track(
         'mobile_opportunity_sync_failed',
@@ -80,23 +81,33 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
         },
         metadata: const {'source': 'mobile_app'},
       );
+      FlutterError.reportError(FlutterErrorDetails(exception: error, stack: stackTrace));
     }
   }
 
   Future<void> refresh() => load(forceRefresh: true);
 
-  Future<void> updateFilters(Map<String, dynamic> filters) async {
-    _filters = Map<String, dynamic>.from(filters);
-    await load();
-    await _analytics.track(
-      'mobile_opportunity_filters_updated',
-      context: {
-        'category': categoryToPath(category),
-        'query': _query.isEmpty ? null : _query,
-        'filters': _filters,
-      },
-      metadata: const {'source': 'mobile_app'},
-    );
+  void updateFilters(Map<String, dynamic> updates) {
+    final next = Map<String, dynamic>.from(_filters);
+    updates.forEach((key, value) {
+      if (value == null) {
+        next.remove(key);
+      } else if (value is String && value.trim().isEmpty) {
+        next.remove(key);
+      } else if (value is Iterable && value.isEmpty) {
+        next.remove(key);
+      } else {
+        next[key] = value;
+      }
+    });
+
+    if (mapEquals(next, _filters)) {
+      return;
+    }
+
+    _filters = next;
+    _viewRecorded = false;
+    unawaited(_reloadWithFilterAnalytics());
   }
 
   Future<void> updateSort(String? sort) async {
@@ -131,7 +142,7 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
     _debounce = Timer(const Duration(milliseconds: 400), () async {
       await load();
       if (_query.isNotEmpty) {
-        final items = state.data?.items ?? const [];
+        final items = state.data?.items ?? const <OpportunitySummary>[];
         await _analytics.track(
           'mobile_search_performed',
           context: {
@@ -166,34 +177,18 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
     super.dispose();
   }
 
-  void updateFilters(Map<String, dynamic> updates) {
-    final next = Map<String, dynamic>.from(_filters);
-    updates.forEach((key, value) {
-      if (value == null) {
-        next.remove(key);
-        return;
-      }
-      if (value is String && value.trim().isEmpty) {
-        next.remove(key);
-        return;
-      }
-      if (value is Iterable && value.isEmpty) {
-        next.remove(key);
-        return;
-      }
-      next[key] = value;
-    });
-
-    if (mapEquals(next, _filters)) {
-      return;
-    }
-
-    _filters = next;
-    _viewRecorded = false;
-    unawaited(load());
+  Future<void> _reloadWithFilterAnalytics() async {
+    await load();
+    await _analytics.track(
+      'mobile_opportunity_filters_updated',
+      context: {
+        'category': categoryToPath(category),
+        'query': _query.isEmpty ? null : _query,
+        'filters': _filters.isEmpty ? null : _filters,
+      },
+      metadata: const {'source': 'mobile_app'},
+    );
   }
-
-  Map<String, dynamic> get filters => _filters;
 
   Future<void> _emitViewAnalytics(OpportunityPage page, {required bool fromCache}) async {
     final items = page.items;
@@ -224,7 +219,8 @@ final discoveryRepositoryProvider = Provider<DiscoveryRepository>((ref) {
   return DiscoveryRepository(apiClient, cache);
 });
 
-final opportunityControllerProvider = StateNotifierProvider.family<OpportunityController, ResourceState<OpportunityPage>, OpportunityCategory>(
+final opportunityControllerProvider =
+    StateNotifierProvider.family<OpportunityController, ResourceState<OpportunityPage>, OpportunityCategory>(
   (ref, category) {
     final repository = ref.watch(discoveryRepositoryProvider);
     final analytics = ref.watch(analyticsServiceProvider);

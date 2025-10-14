@@ -16,22 +16,6 @@ class DiscoveryRepository {
   static const _snapshotTtl = Duration(minutes: 3);
   static const _searchTtl = Duration(minutes: 4);
 
-  dynamic _normaliseForEncoding(dynamic value) {
-    if (value is Map) {
-      final sorted = SplayTreeMap<String, dynamic>.fromIterables(
-        value.keys.map((key) => key.toString()),
-        value.values.map(_normaliseForEncoding),
-      );
-      return sorted;
-    }
-    if (value is Iterable) {
-      final list = value.map(_normaliseForEncoding).toList();
-      list.sort((a, b) => jsonEncode(a).compareTo(jsonEncode(b)));
-      return list;
-    }
-    return value;
-  }
-
   Future<RepositoryResult<OpportunityPage>> fetchOpportunities(
     OpportunityCategory category, {
     String? query,
@@ -40,24 +24,28 @@ class DiscoveryRepository {
     Map<String, dynamic>? filters,
     String? sort,
     bool includeFacets = false,
-  }) async {
-    final queryKey = (query ?? '').trim().toLowerCase();
-    final filterToken = filters == null || filters.isEmpty ? 'no-filters' : jsonEncode(_normaliseForEncoding(filters));
-    final sortToken = sort?.trim().isEmpty ?? true ? 'default' : sort!.trim();
-    final facetToken = includeFacets ? 'facets' : 'no-facets';
-    final cacheKey =
-        'opportunities:${categoryToPath(category)}:${queryKey.isEmpty ? 'all' : queryKey}:$filterToken:$sortToken:$facetToken';
     Map<String, String>? headers,
   }) async {
     final queryKey = (query ?? '').trim().toLowerCase();
-    final filtersKey = _filtersCacheKey(filters);
+    final filterToken = _serialiseFilters(filters);
+    final sortToken = sort?.trim().isEmpty ?? true ? 'default' : sort!.trim();
+    final facetToken = includeFacets ? 'facets' : 'no-facets';
     final cacheKey =
-        'opportunities:${categoryToPath(category)}:${queryKey.isEmpty ? 'all' : queryKey}:$filtersKey';
+        'opportunities:${categoryToPath(category)}:${queryKey.isEmpty ? 'all' : queryKey}:$filterToken:$sortToken:$facetToken:$pageSize';
+
     final cached = _cache.read<OpportunityPage>(cacheKey, (raw) {
       if (raw is Map) {
         return _mapToOpportunityPage(category, Map<String, dynamic>.from(raw));
       }
-      return OpportunityPage(category: category, items: const [], page: 1, pageSize: pageSize, total: 0, totalPages: 1, query: queryKey);
+      return OpportunityPage(
+        category: category,
+        items: const <OpportunitySummary>[],
+        page: 1,
+        pageSize: pageSize,
+        total: 0,
+        totalPages: 1,
+        query: queryKey,
+      );
     });
 
     if (!forceRefresh && cached != null) {
@@ -70,26 +58,22 @@ class DiscoveryRepository {
 
     try {
       final endpoint = '/discovery/${categoryToPath(category)}';
-      final queryParams = <String, dynamic>{
-        'q': queryKey.isEmpty ? null : queryKey,
-        'pageSize': pageSize,
-        'filters': filters == null || filters.isEmpty ? null : jsonEncode(filters),
-        'sort': sortToken == 'default' ? null : sortToken,
-        'includeFacets': includeFacets ? 'true' : null,
-      };
-      final response = await _apiClient.get(endpoint, query: queryParams);
       final response = await _apiClient.get(
         endpoint,
         query: {
           'q': queryKey.isEmpty ? null : queryKey,
           'pageSize': pageSize,
-          'filters': filtersKey == 'none' ? null : filtersKey,
+          'filters': filterToken == 'none' ? null : filterToken,
+          'sort': sortToken == 'default' ? null : sortToken,
+          'includeFacets': includeFacets ? 'true' : null,
         },
         headers: headers,
       );
+
       if (response is! Map<String, dynamic>) {
         throw Exception('Unexpected response from $endpoint');
       }
+
       await _cache.write(cacheKey, response, ttl: _opportunityTtl);
       final page = _mapToOpportunityPage(category, response).copyWith(query: queryKey);
       return RepositoryResult(
@@ -158,7 +142,7 @@ class DiscoveryRepository {
     bool forceRefresh = false,
   }) async {
     final trimmed = query.trim();
-    final cacheKey = 'search:${trimmed.toLowerCase()}:${limit}';
+    final cacheKey = 'search:${trimmed.toLowerCase()}:$limit';
 
     final cached = trimmed.isEmpty
         ? null
@@ -207,85 +191,35 @@ class DiscoveryRepository {
     }
   }
 
+  String _serialiseFilters(Map<String, dynamic>? filters) {
+    if (filters == null || filters.isEmpty) {
+      return 'none';
+    }
+
+    dynamic normalise(dynamic value) {
+      if (value is Map) {
+        final sorted = SplayTreeMap<String, dynamic>.fromIterables(
+          value.keys.map((key) => key.toString()),
+          value.values.map(normalise),
+        );
+        return sorted;
+      }
+      if (value is Iterable) {
+        final list = value.map(normalise).toList();
+        list.sort((a, b) => jsonEncode(a).compareTo(jsonEncode(b)));
+        return list;
+      }
+      return value;
+    }
+
+    final normalised = normalise(filters);
+    return jsonEncode(normalised);
+  }
+
   OpportunityPage _mapToOpportunityPage(
     OpportunityCategory category,
     Map<String, dynamic> payload,
   ) {
-    final items = (payload['items'] as List<dynamic>? ?? const [])
-        .whereType<Map<String, dynamic>>()
-        .map((item) => OpportunitySummary.fromJson(category, item))
-        .toList(growable: false);
-    return OpportunityPage(
-      category: category,
-      items: items,
-      page: payload['page'] is num ? (payload['page'] as num).toInt() : 1,
-      pageSize: payload['pageSize'] is num ? (payload['pageSize'] as num).toInt() : items.length,
-      total: payload['total'] is num ? (payload['total'] as num).toInt() : items.length,
-      totalPages: payload['totalPages'] is num ? (payload['totalPages'] as num).toInt() : 1,
-      query: payload['query'] as String?,
-      facets: payload['facets'] is Map<String, dynamic>
-          ? Map<String, dynamic>.from(payload['facets'] as Map)
-          : null,
-    );
+    return OpportunityPage.fromJson(category, payload);
   }
-}
-
-String _filtersCacheKey(Map<String, dynamic>? filters) {
-  final normalised = _normaliseFilters(filters);
-  if (normalised == null) {
-    return 'none';
-  }
-  return jsonEncode(normalised);
-}
-
-dynamic _normaliseFilters(dynamic value) {
-  if (value is Map<String, dynamic>) {
-    final sorted = SplayTreeMap<String, dynamic>();
-    value.forEach((key, val) {
-      final normalised = _normaliseFilters(val);
-      if (_isMeaningful(normalised)) {
-        sorted[key] = normalised;
-      }
-    });
-    return sorted.isEmpty ? null : sorted;
-  }
-
-  if (value is Iterable) {
-    final list = value
-        .map(_normaliseFilters)
-        .where(_isMeaningful)
-        .toList(growable: false);
-    return list.isEmpty ? null : list;
-  }
-
-  if (value == null) {
-    return null;
-  }
-
-  if (value is String) {
-    final trimmed = value.trim();
-    return trimmed.isEmpty ? null : trimmed;
-  }
-
-  if (value is bool || value is num) {
-    return value;
-  }
-
-  return '$value';
-}
-
-bool _isMeaningful(dynamic value) {
-  if (value == null) {
-    return false;
-  }
-  if (value is String) {
-    return value.isNotEmpty;
-  }
-  if (value is Iterable) {
-    return value.isNotEmpty;
-  }
-  if (value is Map) {
-    return value.isNotEmpty;
-  }
-  return true;
 }
