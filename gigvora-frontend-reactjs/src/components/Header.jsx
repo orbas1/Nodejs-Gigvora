@@ -18,24 +18,19 @@ import useNotificationCenter from '../hooks/useNotificationCenter.js';
 import useAuthorization from '../hooks/useAuthorization.js';
 import { formatRelativeTime } from '../utils/date.js';
 import { hasExplorerAccess } from '../utils/accessControl.js';
+import { hasFinanceOperationsAccess } from '../utils/permissions.js';
+import { canAccessLaunchpad } from '../constants/access.js';
 
 const AUTHENTICATED_NAV_LINKS = [
   { id: 'feed', to: '/feed', label: 'Live Feed' },
   { id: 'explorer', to: '/search', label: 'Explorer' },
+  { id: 'jobs', to: '/jobs', label: 'Jobs' },
+  { id: 'gigs', to: '/gigs', label: 'Gigs' },
+  { id: 'launchpad', to: '/experience-launchpad', label: 'Launchpad' },
+  { id: 'groups', to: '/groups', label: 'Groups' },
+  { id: 'pages', to: '/pages', label: 'Pages' },
   { id: 'mentors', to: '/mentors', label: 'Mentors' },
   { id: 'inbox', to: '/inbox', label: 'Inbox' },
-import { hasFinanceOperationsAccess } from '../utils/permissions.js';
-
-const AUTHENTICATED_NAV_LINKS = [
-  { to: '/feed', label: 'Live Feed' },
-  { to: '/jobs', label: 'Jobs' },
-  { to: '/search', label: 'Explorer' },
-  { to: '/gigs', label: 'Gigs' },
-  { to: '/experience-launchpad', label: 'Launchpad' },
-  { to: '/groups', label: 'Groups' },
-  { to: '/pages', label: 'Pages' },
-  { to: '/mentors', label: 'Mentors' },
-  { to: '/inbox', label: 'Inbox' },
 ];
 
 const VOLUNTEERING_NAV_LINK = { to: '/volunteering', label: 'Volunteering' };
@@ -276,30 +271,12 @@ export default function Header() {
     return null;
   }, [session?.profileId, session?.userId]);
 
-  const navLinks = useMemo(() => {
-    if (!profileLink) {
-      return AUTHENTICATED_NAV_LINKS;
-    }
-    return [...AUTHENTICATED_NAV_LINKS, { to: profileLink, label: 'Profile' }];
-  }, [profileLink]);
   const financeAccess = useMemo(() => hasFinanceOperationsAccess(session), [session]);
 
   const navClassName = ({ isActive }) =>
     `relative px-3 py-2 text-sm font-semibold transition-colors ${
       isActive ? 'text-accent' : 'text-slate-500 hover:text-slate-900'
     }`;
-
-  const navLinks = useMemo(() => {
-    const links = [...AUTHENTICATED_NAV_LINKS];
-    if (!isAuthenticated) {
-      return links;
-    }
-    const memberships = (session?.memberships ?? []).map((value) => `${value}`.trim().toLowerCase());
-    if (memberships.some((role) => ['volunteer', 'mentor', 'admin'].includes(role))) {
-      links.push(VOLUNTEERING_NAV_LINK);
-    }
-    return links;
-  }, [isAuthenticated, session?.memberships]);
 
   const closeMobileNav = () => setOpen(false);
 
@@ -426,17 +403,36 @@ export default function Header() {
   );
 
   const explorerAvailable = useMemo(() => hasExplorerAccess(session), [session]);
-  const primaryNavLinks = useMemo(() => {
+  const launchpadAvailable = useMemo(() => (isAuthenticated ? canAccessLaunchpad(session) : false), [
+    isAuthenticated,
+    session,
+  ]);
+  const navigationLinks = useMemo(() => {
     if (!isAuthenticated) {
       return [];
     }
-    return AUTHENTICATED_NAV_LINKS.filter((item) => {
+
+    const baseLinks = AUTHENTICATED_NAV_LINKS.filter((item) => {
       if (item.id === 'explorer') {
         return explorerAvailable;
       }
+      if (item.id === 'launchpad') {
+        return launchpadAvailable;
+      }
       return true;
     });
-  }, [isAuthenticated, explorerAvailable]);
+
+    const memberships = (session?.memberships ?? []).map((value) => `${value}`.trim().toLowerCase());
+    if (memberships.some((role) => ['volunteer', 'mentor', 'admin'].includes(role))) {
+      baseLinks.push({ id: 'volunteering', ...VOLUNTEERING_NAV_LINK });
+    }
+
+    if (profileLink) {
+      baseLinks.push({ id: 'profile', to: profileLink, label: 'Profile' });
+    }
+
+    return baseLinks;
+  }, [explorerAvailable, isAuthenticated, launchpadAvailable, profileLink, session?.memberships]);
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/95 backdrop-blur">
@@ -446,8 +442,7 @@ export default function Header() {
         </Link>
         {isAuthenticated ? (
           <nav className="hidden items-center gap-1 md:flex">
-            {primaryNavLinks.map((item) => (
-            {navLinks.map((item) => (
+            {navigationLinks.map((item) => (
               <NavLink key={item.to} to={item.to} className={navClassName}>
                 {({ isActive }) => (
                   <span className="relative inline-flex items-center">
@@ -553,8 +548,7 @@ export default function Header() {
                 </Link>
               </div>
               <nav className="flex flex-col gap-1 py-4 text-sm font-semibold">
-                {primaryNavLinks.map((item) => (
-                {navLinks.map((item) => (
+                {navigationLinks.map((item) => (
                   <NavLink
                     key={item.to}
                     to={item.to}
