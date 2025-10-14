@@ -42,6 +42,7 @@ import HeadhunterDashboardPage from './pages/dashboards/HeadhunterDashboardPage.
 import CompanyNetworkingHubPage from './pages/networking/CompanyNetworkingHubPage.jsx';
 import MentorDashboardPage from './pages/dashboards/MentorDashboardPage.jsx';
 import LaunchpadOperationsPage from './pages/dashboards/LaunchpadOperationsPage.jsx';
+import ProtectedRoute from './components/auth/ProtectedRoute.jsx';
 import ProtectedDashboardRoute from './components/auth/ProtectedDashboardRoute.jsx';
 import RequireMembership from './components/security/RequireMembership.jsx';
 import MembershipGate from './components/auth/MembershipGate.jsx';
@@ -121,6 +122,9 @@ export default function App() {
       <Route
         path="dashboard/company"
         element={(
+          <ProtectedRoute allowedMemberships={["company"]}>
+            <CompanyDashboardPage />
+          </ProtectedRoute>
           <RequireMembership allowed={["company"]} title="Company hub access required">
             <CompanyDashboardPage />
           </RequireMembership>
@@ -129,6 +133,11 @@ export default function App() {
       <Route
         path="dashboard/company/networking"
         element={(
+          <ProtectedRoute allowedMemberships={["company"]}>
+            <CompanyNetworkingHubPage />
+          </ProtectedRoute>
+        )}
+      />
           <RequireMembership allowed={["company"]} title="Company hub access required">
             <CompanyNetworkingHubPage />
           </RequireMembership>

@@ -161,6 +161,8 @@ export default function LoginPage() {
       name: 'Lena Fields',
       title: 'Product Designer',
       avatarSeed: 'Lena Fields',
+      memberships: ['company', 'user', 'freelancer', 'agency'],
+      primaryDashboard: 'company',
       memberships: ['user', 'freelancer', 'agency', 'volunteer'],
       primaryDashboard: 'user',
       activeMembership: 'user',
