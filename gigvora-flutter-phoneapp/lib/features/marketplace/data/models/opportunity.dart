@@ -7,7 +7,7 @@ enum OpportunityCategory {
 }
 
 OpportunityCategory parseOpportunityCategory(String value) {
-  switch (value) {
+  switch (value.toLowerCase()) {
     case 'job':
     case 'jobs':
       return OpportunityCategory.job;
@@ -57,7 +57,6 @@ class OpportunitySummary {
     this.track,
     this.organization,
     this.isRemote,
-    this.isRemote = false,
     this.taxonomyLabels = const <String>[],
   });
 
@@ -74,26 +73,33 @@ class OpportunitySummary {
   final String? track;
   final String? organization;
   final bool? isRemote;
-  final bool isRemote;
   final List<String> taxonomyLabels;
 
-  factory OpportunitySummary.fromJson(OpportunityCategory category, Map<String, dynamic> json) {
+  factory OpportunitySummary.fromJson(
+    OpportunityCategory category,
+    Map<String, dynamic> json,
+  ) {
     return OpportunitySummary(
       id: '${json['id']}',
       category: category,
       title: (json['title'] as String? ?? '').trim(),
       description: (json['description'] as String? ?? '').trim(),
       updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? '') ?? DateTime.now(),
-      location: json['location'] as String?,
-      employmentType: json['employmentType'] as String?,
-      budget: json['budget'] as String?,
-      duration: json['duration'] as String?,
-      status: json['status'] as String?,
-      track: json['track'] as String?,
-      organization: json['organization'] as String?,
-      isRemote: json['isRemote'] as bool?,
-      isRemote: json['isRemote'] == true,
-      taxonomyLabels: (json['taxonomyLabels'] as List<dynamic>? ?? const <dynamic>[])
+      location: (json['location'] as String?)?.trim().isEmpty ?? true
+          ? null
+          : (json['location'] as String).trim(),
+      employmentType: (json['employmentType'] as String?)?.trim().isEmpty ?? true
+          ? null
+          : (json['employmentType'] as String).trim(),
+      budget: (json['budget'] as String?)?.trim().isEmpty ?? true ? null : (json['budget'] as String).trim(),
+      duration: (json['duration'] as String?)?.trim().isEmpty ?? true ? null : (json['duration'] as String).trim(),
+      status: (json['status'] as String?)?.trim().isEmpty ?? true ? null : (json['status'] as String).trim(),
+      track: (json['track'] as String?)?.trim().isEmpty ?? true ? null : (json['track'] as String).trim(),
+      organization: (json['organization'] as String?)?.trim().isEmpty ?? true
+          ? null
+          : (json['organization'] as String).trim(),
+      isRemote: json['isRemote'] is bool ? json['isRemote'] as bool : null,
+      taxonomyLabels: (json['taxonomyLabels'] as List<dynamic>? ?? const <dynamic>[]) 
           .whereType<String>()
           .map((label) => label.trim())
           .where((label) => label.isNotEmpty)

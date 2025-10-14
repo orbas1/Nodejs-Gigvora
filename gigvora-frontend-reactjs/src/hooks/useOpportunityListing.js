@@ -12,25 +12,6 @@ const endpointByCategory = {
   mentors: '/discovery/mentors',
 };
 
-function stableSerialize(value) {
-  if (value == null) {
-    return '';
-  }
-
-  if (Array.isArray(value)) {
-    return `[${value.map((item) => stableSerialize(item)).join(',')}]`;
-  }
-
-  if (typeof value === 'object') {
-    return `{${Object.keys(value)
-      .sort()
-      .map((key) => `${key}:${stableSerialize(value[key])}`)
-      .join(',')}}`;
-  }
-
-  return `${value}`;
-}
-
 function normaliseFilters(filters) {
   if (!filters || typeof filters !== 'object') {
     return null;
@@ -40,13 +21,39 @@ function normaliseFilters(filters) {
     if (value == null) {
       return accumulator;
     }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed.length) {
+        accumulator[key] = trimmed;
+      }
+      return accumulator;
+    }
+
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      accumulator[key] = value;
+      return accumulator;
+    }
+
     if (Array.isArray(value)) {
-      const cleaned = value.map((entry) => `${entry}`.trim()).filter(Boolean);
+      const cleaned = value
+        .map((entry) => {
+          if (entry == null) {
+            return null;
+          }
+          if (typeof entry === 'string') {
+            const trimmed = entry.trim();
+            return trimmed.length ? trimmed : null;
+          }
+          return entry;
+        })
+        .filter((entry) => entry !== null);
       if (cleaned.length) {
         accumulator[key] = cleaned;
       }
       return accumulator;
     }
+
     if (typeof value === 'object') {
       const nested = normaliseFilters(value);
       if (nested && Object.keys(nested).length) {
@@ -54,82 +61,145 @@ function normaliseFilters(filters) {
       }
       return accumulator;
     }
-    if (`${value}`.trim().length) {
-      accumulator[key] = value;
+
+    return accumulator;
+  }, {});
+}
+
+function normaliseSort(sort) {
+  if (sort == null) {
+    return null;
+  }
+  if (typeof sort === 'string') {
+    const trimmed = sort.trim();
+    return trimmed.length ? trimmed : null;
+  }
+  if (typeof sort === 'object') {
+    return normaliseFilters(sort);
+  }
+  return sort;
+}
+
+function normaliseViewport(viewport) {
+  if (viewport == null) {
+    return null;
+  }
+  if (typeof viewport === 'string') {
+    const trimmed = viewport.trim();
+    return trimmed.length ? trimmed : null;
+  }
+  if (typeof viewport === 'object') {
+    return normaliseFilters(viewport);
+  }
+  return viewport;
+}
+
+function normaliseHeaders(headers) {
+  if (!headers || typeof headers !== 'object') {
+    return null;
+  }
+
+  return Object.entries(headers).reduce((accumulator, [key, value]) => {
+    if (value == null) {
+      return accumulator;
+    }
+    const stringValue = `${value}`.trim();
+    if (stringValue.length) {
+      accumulator[key] = stringValue;
     }
     return accumulator;
   }, {});
+}
+
 function stableSerialise(value) {
-  if (!value) {
+  if (value == null) {
     return null;
   }
 
-  const normalise = (input) => {
-    if (Array.isArray(input)) {
-      return input.map((item) => normalise(item)).filter((item) => item !== undefined);
-    }
-    if (input && typeof input === 'object') {
-      return Object.keys(input)
-        .sort()
-        .reduce((acc, key) => {
-          const normalised = normalise(input[key]);
-          if (normalised !== undefined && normalised !== null && `${normalised}`.length > 0) {
-            acc[key] = normalised;
-          }
-          return acc;
-        }, {});
-    }
-    if (input === null || input === undefined) {
-      return undefined;
-    }
-    return input;
-  };
-
-  const normalised = normalise(value);
-  if (normalised && typeof normalised === 'object' && !Array.isArray(normalised) && !Object.keys(normalised).length) {
-    return null;
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => stableSerialise(entry) ?? 'null').join(',')}]`;
   }
 
-  return JSON.stringify(normalised);
+  if (typeof value === 'object') {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${key}:${stableSerialise(value[key]) ?? 'null'}`)
+      .join(',')}}`;
+  }
+
+  return `${value}`;
 }
 
 export default function useOpportunityListing(
   category,
   query,
-  { pageSize = 20, filters = null, sort = null, includeFacets = false, viewport = null, enabled = true } = {},
-  { pageSize = 20, filters = null, headers = null, enabled = true } = {},
+  {
+    page = 1,
+    pageSize = 20,
+    filters = null,
+    sort = null,
+    includeFacets = false,
+    viewport = null,
+    headers = null,
+    enabled = true,
+  } = {},
 ) {
-  const debouncedQuery = useDebounce((query || '').trim(), 400);
+  const trimmedQuery = (query || '').trim();
+  const debouncedQuery = useDebounce(trimmedQuery, 400);
+
   const endpoint = endpointByCategory[category];
+  if (!endpoint) {
+    throw new Error(`Unsupported opportunity category: ${category}`);
+  }
 
   const normalisedFilters = useMemo(() => normaliseFilters(filters), [filters]);
-  const filterKey = useMemo(() => stableSerialize(normalisedFilters), [normalisedFilters]);
-  const sortKey = useMemo(() => stableSerialize(sort), [sort]);
-  const viewportKey = useMemo(() => stableSerialize(viewport), [viewport]);
+  const normalisedSort = useMemo(() => normaliseSort(sort), [sort]);
+  const normalisedViewport = useMemo(() => normaliseViewport(viewport), [viewport]);
+  const normalisedHeaders = useMemo(() => normaliseHeaders(headers), [headers]);
 
-  const cacheKey = useMemo(() => {
-    const parts = [
-      category,
-      debouncedQuery || 'all',
-      filterKey || 'no-filters',
-      sortKey || 'default-sort',
-      includeFacets ? 'facets' : 'no-facets',
-      viewportKey || 'no-viewport',
-      pageSize,
-    ];
-    return `opportunity:${parts.join(':')}`;
-  }, [category, debouncedQuery, filterKey, sortKey, includeFacets, viewportKey, pageSize]);
+  const filtersKey = useMemo(() => stableSerialise(normalisedFilters) ?? 'no-filters', [normalisedFilters]);
+  const sortKey = useMemo(() => stableSerialise(normalisedSort) ?? 'default-sort', [normalisedSort]);
+  const viewportKey = useMemo(() => stableSerialise(normalisedViewport) ?? 'no-viewport', [normalisedViewport]);
+  const headersKey = useMemo(() => stableSerialise(normalisedHeaders) ?? 'default-headers', [normalisedHeaders]);
+
+  const cacheKey = useMemo(
+    () =>
+      [
+        'opportunity',
+        category,
+        debouncedQuery || 'all',
+        `page-${page}`,
+        `size-${pageSize}`,
+        filtersKey,
+        sortKey,
+        viewportKey,
+        includeFacets ? 'facets' : 'no-facets',
+        headersKey,
+      ].join(':'),
+    [category, debouncedQuery, page, pageSize, filtersKey, sortKey, viewportKey, includeFacets, headersKey],
+  );
 
   const params = useMemo(
     () => ({
-      q: debouncedQuery || undefined,
+      page,
       pageSize,
+      q: debouncedQuery || undefined,
       filters: normalisedFilters ? JSON.stringify(normalisedFilters) : undefined,
-      sort: sort ? (typeof sort === 'string' ? sort : JSON.stringify(sort)) : undefined,
+      sort:
+        typeof normalisedSort === 'string'
+          ? normalisedSort
+          : normalisedSort
+          ? JSON.stringify(normalisedSort)
+          : undefined,
       includeFacets: includeFacets ? 'true' : undefined,
-      viewport: viewport ? (typeof viewport === 'string' ? viewport : JSON.stringify(viewport)) : undefined,
+      viewport:
+        typeof normalisedViewport === 'string'
+          ? normalisedViewport
+          : normalisedViewport
+          ? JSON.stringify(normalisedViewport)
+          : undefined,
     }),
-    [debouncedQuery, pageSize, normalisedFilters, sort, includeFacets, viewport],
+    [page, pageSize, debouncedQuery, normalisedFilters, normalisedSort, includeFacets, normalisedViewport],
   );
 
   const resource = useCachedResource(
@@ -138,63 +208,13 @@ export default function useOpportunityListing(
       apiClient.get(endpoint, {
         signal,
         params,
+        headers: normalisedHeaders || undefined,
       }),
     {
-      dependencies: [debouncedQuery, filterKey, sortKey, includeFacets, viewportKey, pageSize],
+      dependencies: [cacheKey],
       ttl: 1000 * 60 * 5,
-      enabled,
+      enabled: Boolean(enabled),
     },
-  const filtersKey = useMemo(() => stableSerialise(filters) ?? 'none', [filters]);
-  const headersKey = useMemo(() => stableSerialise(headers) ?? 'none', [headers]);
-  const paramsFilters = useMemo(() => {
-    const payload = stableSerialise(filters);
-    return payload ? payload : undefined;
-  }, [filtersKey]);
-  const requestHeaders = useMemo(() => {
-    if (!headers) {
-      return undefined;
-    }
-    return Object.entries(headers).reduce((acc, [key, value]) => {
-      if (value != null && `${value}`.length > 0) {
-        acc[key] = `${value}`;
-      }
-      return acc;
-    }, {});
-  }, [headersKey]);
-
-  const cacheKey = useMemo(() => {
-    const queryKey = debouncedQuery || 'all';
-    return `opportunity:${category}:${queryKey}:${filtersKey}:${headersKey}`;
-  }, [category, debouncedQuery, filtersKey, headersKey]);
-
-  const resource = useCachedResource(
-    cacheKey,
-export default function useOpportunityListing(category, query, { pageSize = 20, enabled = true } = {}) {
-  const trimmedQuery = (query || '').trim();
-  const debouncedQuery = useDebounce(trimmedQuery, 400);
-  const endpoint = endpointByCategory[category];
-
-  if (!endpoint) {
-    throw new Error(`Unsupported opportunity category: ${category}`);
-  }
-
-  const shouldFetch = Boolean(enabled);
-  const cacheKeyQuery = shouldFetch ? debouncedQuery : 'disabled';
-
-  const resource = useCachedResource(
-    `opportunity:${category}:${cacheKeyQuery || 'all'}`,
-    ({ signal }) =>
-      apiClient.get(endpoint, {
-        signal,
-        params: {
-          q: debouncedQuery || undefined,
-          pageSize,
-          filters: paramsFilters,
-        },
-        headers: requestHeaders,
-      }),
-    { dependencies: [debouncedQuery, filtersKey, headersKey], ttl: 1000 * 60 * 5, enabled: Boolean(enabled && endpoint) },
-    { dependencies: [debouncedQuery, shouldFetch], ttl: 1000 * 60 * 5, enabled: shouldFetch },
   );
 
   return { ...resource, debouncedQuery };

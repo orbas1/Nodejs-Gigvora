@@ -103,6 +103,7 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
     final state = ref.watch(opportunityControllerProvider(widget.category));
     final controller = ref.read(opportunityControllerProvider(widget.category).notifier);
     final items = state.data?.items ?? const <OpportunitySummary>[];
+
     final organizationOptions = _showVolunteerFilters
         ? items
             .map((item) => item.organization?.trim())
@@ -126,6 +127,7 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
         });
       }
     }
+
     final gigSignals = widget.category == OpportunityCategory.gig ? _deriveGigSignals(items) : null;
 
     return Column(
@@ -178,39 +180,29 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
           TextField(
             controller: _searchController,
             textInputAction: TextInputAction.search,
+            onChanged: controller.updateQuery,
             decoration: InputDecoration(
               hintText: widget.searchPlaceholder,
-              prefixIcon: const Icon(Icons.search),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(28)),
-        TextField(
-          controller: _searchController,
-          textInputAction: TextInputAction.search,
-          onChanged: controller.updateQuery,
-          decoration: InputDecoration(
-            hintText: widget.searchPlaceholder,
-            prefixIcon: const Icon(Icons.search),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(28)),
-            prefixIcon: Icon(Icons.search, color: colorScheme.onSurfaceVariant),
-            filled: true,
-            fillColor: colorScheme.surface,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(28),
-              borderSide: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.4)),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(28),
-              borderSide: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.4)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(28),
-              borderSide: BorderSide(color: colorScheme.primary.withOpacity(0.6)),
+              prefixIcon: Icon(Icons.search, color: colorScheme.onSurfaceVariant),
+              filled: true,
+              fillColor: colorScheme.surface,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(28),
+                borderSide: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.4)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(28),
+                borderSide: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.4)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(28),
+                borderSide: BorderSide(color: colorScheme.primary.withOpacity(0.6)),
+              ),
             ),
           ),
           const SizedBox(height: 16),
         ],
-        ),
-        const SizedBox(height: 16),
         if (state.fromCache && !state.loading)
           const _StatusBanner(
             icon: Icons.offline_bolt,
@@ -230,8 +222,7 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
             padding: const EdgeInsets.only(bottom: 16),
             child: Text(
               'Last updated ${formatRelativeTime(state.lastUpdated!)}',
-              style:
-                  theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
             ),
           ),
         if (gigSignals != null && items.isNotEmpty)
@@ -245,6 +236,7 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
                   _SignalTile(label: 'Live briefs', value: gigSignals.total),
                   _SignalTile(label: 'Published 7d', value: gigSignals.fresh),
                   _SignalTile(label: 'Remote-ready', value: gigSignals.remoteFriendly),
+                  _SignalTile(label: 'With budgets', value: gigSignals.withBudgets),
                 ],
               ),
             ),
@@ -291,20 +283,14 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
                                         children: meta
                                             .map(
                                               (entry) => Chip(
-                                                backgroundColor: Theme.of(context)
-                                                    .colorScheme
-                                                    .primaryContainer
-                                                    .withOpacity(0.3),
+                                                backgroundColor: colorScheme.primary.withOpacity(0.08),
                                                 label: Text(entry),
-                                                backgroundColor:
-                                                    colorScheme.primary.withOpacity(0.08),
                                                 labelStyle: theme.textTheme.labelSmall?.copyWith(
                                                   color: colorScheme.primary,
                                                   fontWeight: FontWeight.w600,
                                                 ),
                                                 visualDensity: VisualDensity.compact,
-                                                materialTapTargetSize:
-                                                    MaterialTapTargetSize.shrinkWrap,
+                                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                               ),
                                             )
                                             .toList(),
@@ -376,9 +362,7 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
     controller.updateFilters({
       'isRemote': _remoteOnly ? true : null,
       'updatedWithin': _freshness == 'all' ? null : _freshness,
-      'organizations': _selectedOrganizations.isEmpty
-          ? null
-          : _selectedOrganizations.toList(growable: false),
+      'organizations': _selectedOrganizations.isEmpty ? null : _selectedOrganizations.toList(growable: false),
     });
   }
 
@@ -386,12 +370,9 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
     switch (widget.category) {
       case OpportunityCategory.job:
         return [
-          item.location,
-          item.employmentType,
-          if (item.isRemote == true) 'Remote',
-        ].whereType<String>().where((value) => value.isNotEmpty).toList();
           if ((item.location ?? '').isNotEmpty) item.location!,
           if ((item.employmentType ?? '').isNotEmpty) item.employmentType!,
+          if (item.isRemote == true) 'Remote',
         ];
       case OpportunityCategory.gig:
         return [
@@ -410,11 +391,8 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
         ];
       case OpportunityCategory.volunteering:
         return [
-          item.organization,
-          if (item.isRemote) 'Remote friendly',
-          item.location,
-        ].whereType<String>().where((value) => value.isNotEmpty).toList();
           if ((item.organization ?? '').isNotEmpty) item.organization!,
+          if (item.isRemote == true) 'Remote friendly',
           if ((item.location ?? '').isNotEmpty) item.location!,
         ];
     }
@@ -422,24 +400,42 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
 
   _GigSignals _deriveGigSignals(List<OpportunitySummary> items) {
     if (items.isEmpty) {
-      return const _GigSignals(total: 0, fresh: 0, remoteFriendly: 0);
+      return const _GigSignals(total: 0, fresh: 0, remoteFriendly: 0, withBudgets: 0);
     }
     final now = DateTime.now();
     var fresh = 0;
     var remoteFriendly = 0;
+    var withBudgets = 0;
 
     for (final item in items) {
       if (now.difference(item.updatedAt).inDays <= 7) {
         fresh += 1;
       }
       final label = '${item.location ?? ''} ${item.status ?? ''}'.toLowerCase();
-      if (label.contains('remote') || label.contains('hybrid')) {
+      if (label.contains('remote') || label.contains('hybrid') || item.isRemote == true) {
         remoteFriendly += 1;
+      }
+      if ((item.budget ?? '').trim().isNotEmpty) {
+        withBudgets += 1;
       }
     }
 
-    return _GigSignals(total: items.length, fresh: fresh, remoteFriendly: remoteFriendly);
+    return _GigSignals(total: items.length, fresh: fresh, remoteFriendly: remoteFriendly, withBudgets: withBudgets);
   }
+}
+
+class _GigSignals {
+  const _GigSignals({
+    required this.total,
+    required this.fresh,
+    required this.remoteFriendly,
+    required this.withBudgets,
+  });
+
+  final int total;
+  final int fresh;
+  final int remoteFriendly;
+  final int withBudgets;
 }
 
 class _SignalTile extends StatelessWidget {
@@ -504,6 +500,7 @@ class _VolunteerFilterCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       elevation: 0,
@@ -515,12 +512,12 @@ class _VolunteerFilterCard extends StatelessWidget {
             TextField(
               controller: searchController,
               textInputAction: TextInputAction.search,
+              onChanged: onQueryChanged,
               decoration: InputDecoration(
                 hintText: searchPlaceholder,
-                prefixIcon: const Icon(Icons.search),
+                prefixIcon: Icon(Icons.search, color: colorScheme.onSurfaceVariant),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(24)),
               ),
-              onChanged: onQueryChanged,
             ),
             const SizedBox(height: 16),
             Row(
@@ -550,7 +547,7 @@ class _VolunteerFilterCard extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: onRemoteToggle,
                     style: OutlinedButton.styleFrom(
-                      backgroundColor: remoteOnly ? const Color(0xFFE0F2F1) : null,
+                      backgroundColor: remoteOnly ? colorScheme.primary.withOpacity(0.1) : null,
                     ),
                     icon: Icon(remoteOnly ? Icons.cloud_done : Icons.cloud_queue),
                     label: Text(remoteOnly ? 'Remote only' : 'Remote + onsite'),
@@ -622,10 +619,7 @@ class _StatusBanner extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: foreground),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: foreground),
             ),
           ),
         ],
@@ -666,22 +660,22 @@ class _OpportunitySkeleton extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 Container(
-                  height: 14,
+                  height: 16,
                   width: MediaQuery.of(context).size.width * 0.7,
                   decoration: BoxDecoration(
                     color: const Color(0xFFE2E8F0),
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 24),
                 Container(
-                  height: 36,
+                  height: 40,
                   width: 140,
                   decoration: BoxDecoration(
                     color: const Color(0xFFE2E8F0),
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.circular(999),
                   ),
                 ),
               ],
@@ -691,16 +685,4 @@ class _OpportunitySkeleton extends StatelessWidget {
       },
     );
   }
-}
-
-class _GigSignals {
-  const _GigSignals({
-    required this.total,
-    required this.fresh,
-    required this.remoteFriendly,
-  });
-
-  final int total;
-  final int fresh;
-  final int remoteFriendly;
 }
