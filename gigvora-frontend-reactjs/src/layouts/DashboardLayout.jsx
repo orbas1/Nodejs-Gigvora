@@ -148,14 +148,6 @@ function persistCustomization(key, { order, hidden }) {
   }
 }
 
-function DefaultAvatar({ initials }) {
-  return (
-    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-100 text-base font-semibold text-blue-700">
-      {initials ?? 'GV'}
-    </div>
-  );
-}
-
 const DEFAULT_AD_SURFACE_BY_DASHBOARD = {
   admin: 'admin_dashboard',
   user: 'user_dashboard',
@@ -172,7 +164,6 @@ export default function DashboardLayout({
   description,
   menuSections,
   sections,
-  profile,
   availableDashboards,
   children,
   activeMenuItem,
@@ -436,16 +427,6 @@ export default function DashboardLayout({
     }
   }, [customizedMenuSections, openDrawers.size]);
 
-  const resolvedProfile = {
-    name: profile?.name ?? 'Member',
-    role: profile?.role ?? 'Gigvora workspace',
-    initials: profile?.initials ?? 'GV',
-    avatarUrl: profile?.avatarUrl ?? null,
-    status: profile?.status,
-    badges: profile?.badges ?? [],
-    metrics: profile?.metrics ?? [],
-  };
-
   const handleDrawerToggle = (sectionId) => {
     setOpenDrawers((previous) => {
       const next = new Set(previous);
@@ -523,53 +504,6 @@ export default function DashboardLayout({
             <XMarkIcon className="h-5 w-5" />
           </button>
         </div>
-      </div>
-
-      <div className={`rounded-3xl border border-slate-200 bg-white p-5 shadow-sm ${sidebarCollapsed ? 'text-center' : ''}`}>
-        <div className={`${sidebarCollapsed ? 'justify-center' : ''} flex items-center gap-3`}>
-          {resolvedProfile.avatarUrl ? (
-            <img
-              src={resolvedProfile.avatarUrl}
-              alt={resolvedProfile.name}
-              className="h-12 w-12 rounded-2xl object-cover"
-            />
-          ) : (
-            <DefaultAvatar initials={resolvedProfile.initials} />
-          )}
-          {!sidebarCollapsed ? (
-            <div>
-              <p className="text-sm font-semibold text-slate-900">{resolvedProfile.name}</p>
-              <p className="text-xs text-slate-500">{resolvedProfile.role}</p>
-              {resolvedProfile.status ? (
-                <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-blue-600">
-                  {resolvedProfile.status}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-        {!sidebarCollapsed && resolvedProfile.badges.length ? (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {resolvedProfile.badges.map((badge) => (
-              <span
-                key={badge}
-                className="inline-flex items-center rounded-full border border-blue-100 bg-blue-50 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-600"
-              >
-                {badge}
-              </span>
-            ))}
-          </div>
-        ) : null}
-        {!sidebarCollapsed && resolvedProfile.metrics.length ? (
-          <dl className="mt-4 grid grid-cols-2 gap-3">
-            {resolvedProfile.metrics.map((metric) => (
-              <div key={metric.label} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
-                <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-500">{metric.label}</dt>
-                <dd className="mt-1 text-sm font-semibold text-slate-900">{metric.value}</dd>
-              </div>
-            ))}
-          </dl>
-        ) : null}
       </div>
 
       {sidebarCollapsed ? (
