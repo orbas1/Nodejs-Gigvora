@@ -2197,6 +2197,8 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
   const knowledgeArticlesQuery = SupportKnowledgeArticle.findAll({
     where: { audience: { [Op.in]: ['freelancer', 'support_team'] } },
     order: [['lastReviewedAt', 'DESC']],
+  });
+
   const documentWorkspaceQuery = CareerDocument.findAll({
     where: { userId },
     include: [
