@@ -13,6 +13,8 @@ import useSession from '../hooks/useSession.js';
 import { useGroupProfile } from '../hooks/useGroups.js';
 import { joinGroup, leaveGroup, updateGroupMembership } from '../services/groups.js';
 import { resolveActorId } from '../utils/session.js';
+import { GigvoraAdBanner, GigvoraAdGrid } from '../components/marketing/GigvoraAds.jsx';
+import { GIGVORA_GROUPS_ADS, GIGVORA_GROUPS_BANNER } from '../constants/marketing.js';
 import { classNames } from '../utils/classNames.js';
 
 function formatPercent(value) {
@@ -313,7 +315,9 @@ export default function GroupProfilePage() {
       </div>
 
       <div className="relative bg-slate-50 pb-24 pt-16">
-        <div className="mx-auto max-w-5xl px-6">
+        <div className="mx-auto max-w-5xl space-y-12 px-6">
+          <GigvoraAdBanner {...GIGVORA_GROUPS_BANNER} />
+
           {membership.status === 'member' ? (
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Notification preferences</p>
@@ -439,6 +443,8 @@ export default function GroupProfilePage() {
               ) : null}
             </div>
           </div>
+
+          <GigvoraAdGrid ads={GIGVORA_GROUPS_ADS} />
         </div>
       </div>
     </section>

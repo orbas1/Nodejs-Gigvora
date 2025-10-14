@@ -9,6 +9,8 @@ import {
 } from '@heroicons/react/24/outline';
 import PageHeader from '../components/PageHeader.jsx';
 import UserAvatar from '../components/UserAvatar.jsx';
+import { GigvoraAdBanner, GigvoraAdGrid } from '../components/marketing/GigvoraAds.jsx';
+import { GIGVORA_PAGES_ADS, GIGVORA_PAGES_BANNER } from '../constants/marketing.js';
 import useSession from '../hooks/useSession.js';
 
 const INITIAL_PAGES = [
@@ -195,7 +197,9 @@ export default function PagesPage() {
         className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.18),_transparent_65%)]"
         aria-hidden="true"
       />
-      <div className="relative mx-auto max-w-6xl px-6">
+      <div className="relative mx-auto max-w-6xl space-y-10 px-6">
+        <GigvoraAdBanner {...GIGVORA_PAGES_BANNER} />
+
         <PageHeader
           eyebrow="Pages"
           title="Launch public pages that feel like a flagship site"
@@ -561,6 +565,8 @@ export default function PagesPage() {
             </div>
           </aside>
         </div>
+
+        <GigvoraAdGrid ads={GIGVORA_PAGES_ADS} className="mt-12" />
       </div>
     </section>
   );
