@@ -82,6 +82,8 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final state = ref.watch(opportunityControllerProvider(widget.category));
     final controller = ref.read(opportunityControllerProvider(widget.category).notifier);
     final items = state.data?.items ?? const <OpportunitySummary>[];
@@ -93,12 +95,28 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
         TextField(
           controller: _searchController,
           textInputAction: TextInputAction.search,
+          onChanged: controller.updateQuery,
           decoration: InputDecoration(
             hintText: widget.searchPlaceholder,
             prefixIcon: const Icon(Icons.search),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(28)),
+            prefixIcon: Icon(Icons.search, color: colorScheme.onSurfaceVariant),
+            filled: true,
+            fillColor: colorScheme.surface,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(28),
+              borderSide: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.4)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(28),
+              borderSide: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.4)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(28),
+              borderSide: BorderSide(color: colorScheme.primary.withOpacity(0.6)),
+            ),
           ),
-          onChanged: controller.updateQuery,
         ),
         const SizedBox(height: 16),
         if (state.fromCache && !state.loading)
@@ -120,10 +138,8 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
             padding: const EdgeInsets.only(bottom: 16),
             child: Text(
               'Last updated ${formatRelativeTime(state.lastUpdated!)}',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+              style:
+                  theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
             ),
           ),
         if (gigSignals != null && items.isNotEmpty)
@@ -156,7 +172,7 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
                               _searchController.text.isEmpty
                                   ? widget.emptyDefaultMessage
                                   : widget.emptySearchMessage,
-                              style: Theme.of(context).textTheme.bodyMedium,
+                              style: theme.textTheme.bodyMedium,
                             ),
                           ),
                         ],
@@ -173,12 +189,12 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Expanded(
                                       child: Wrap(
                                         spacing: 8,
-                                        runSpacing: 4,
+                                        runSpacing: 6,
                                         children: meta
                                             .map(
                                               (entry) => Chip(
@@ -187,6 +203,15 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
                                                     .primaryContainer
                                                     .withOpacity(0.3),
                                                 label: Text(entry),
+                                                backgroundColor:
+                                                    colorScheme.primary.withOpacity(0.08),
+                                                labelStyle: theme.textTheme.labelSmall?.copyWith(
+                                                  color: colorScheme.primary,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                                visualDensity: VisualDensity.compact,
+                                                materialTapTargetSize:
+                                                    MaterialTapTargetSize.shrinkWrap,
                                               ),
                                             )
                                             .toList(),
@@ -195,27 +220,36 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
                                     const SizedBox(width: 8),
                                     Text(
                                       'Updated ${formatRelativeTime(item.updatedAt)}',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        color: colorScheme.onSurfaceVariant,
+                                      ),
                                     ),
                                   ],
                                 ),
                                 const SizedBox(height: 12),
-                                Text(item.title, style: Theme.of(context).textTheme.titleMedium),
+                                Text(
+                                  item.title,
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                                 const SizedBox(height: 8),
                                 Text(
                                   item.description,
                                   maxLines: 4,
                                   overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.bodyMedium,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
                                 ),
                                 const SizedBox(height: 16),
                                 Align(
                                   alignment: Alignment.centerLeft,
-                                  child: ElevatedButton(
+                                  child: FilledButton(
                                     onPressed: () => controller.recordPrimaryCta(item),
+                                    style: FilledButton.styleFrom(
+                                      shape: const StadiumBorder(),
+                                    ),
                                     child: Text(widget.ctaLabel),
                                   ),
                                 ),
@@ -233,15 +267,30 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
   List<String> _buildMeta(OpportunitySummary item) {
     switch (widget.category) {
       case OpportunityCategory.job:
-        return [item.location, item.employmentType].whereType<String>().where((value) => value.isNotEmpty).toList();
+        return [
+          if ((item.location ?? '').isNotEmpty) item.location!,
+          if ((item.employmentType ?? '').isNotEmpty) item.employmentType!,
+        ];
       case OpportunityCategory.gig:
-        return [item.budget, item.duration].whereType<String>().where((value) => value.isNotEmpty).toList();
+        return [
+          if ((item.budget ?? '').isNotEmpty) item.budget!,
+          if ((item.duration ?? '').isNotEmpty) item.duration!,
+        ];
       case OpportunityCategory.project:
-        return [item.status, item.location].whereType<String>().where((value) => value.isNotEmpty).toList();
+        return [
+          if ((item.status ?? '').isNotEmpty) item.status!,
+          if ((item.location ?? '').isNotEmpty) item.location!,
+        ];
       case OpportunityCategory.launchpad:
-        return [item.track].whereType<String>().where((value) => value.isNotEmpty).toList();
+        return [
+          if ((item.track ?? '').isNotEmpty) item.track!,
+          if ((item.organization ?? '').isNotEmpty) item.organization!,
+        ];
       case OpportunityCategory.volunteering:
-        return [item.organization, item.location].whereType<String>().where((value) => value.isNotEmpty).toList();
+        return [
+          if ((item.organization ?? '').isNotEmpty) item.organization!,
+          if ((item.location ?? '').isNotEmpty) item.location!,
+        ];
     }
   }
 

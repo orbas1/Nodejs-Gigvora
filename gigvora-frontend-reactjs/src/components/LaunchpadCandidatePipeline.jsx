@@ -240,6 +240,33 @@ export default function LaunchpadCandidatePipeline({ launchpadId }) {
       setLoading(true);
       setError(null);
       try {
+        const minScoreValue =
+          filters.minScore !== '' && filters.minScore != null ? Number(filters.minScore) : null;
+        const maxScoreValue =
+          filters.maxScore !== '' && filters.maxScore != null ? Number(filters.maxScore) : null;
+
+        if (minScoreValue != null && !Number.isFinite(minScoreValue)) {
+          throw new Error('Minimum readiness must be a number between 0 and 100.');
+        }
+        if (maxScoreValue != null && !Number.isFinite(maxScoreValue)) {
+          throw new Error('Maximum readiness must be a number between 0 and 100.');
+        }
+        if (minScoreValue != null && (minScoreValue < 0 || minScoreValue > 100)) {
+          throw new Error('Minimum readiness must be between 0 and 100.');
+        }
+        if (maxScoreValue != null && (maxScoreValue < 0 || maxScoreValue > 100)) {
+          throw new Error('Maximum readiness must be between 0 and 100.');
+        }
+        if (
+          minScoreValue != null &&
+          maxScoreValue != null &&
+          Number.isFinite(minScoreValue) &&
+          Number.isFinite(maxScoreValue) &&
+          minScoreValue > maxScoreValue
+        ) {
+          throw new Error('Minimum readiness cannot exceed maximum readiness.');
+        }
+
         const payload = {
           launchpadId,
           page: targetPage,
@@ -253,11 +280,11 @@ export default function LaunchpadCandidatePipeline({ launchpadId }) {
         if (debouncedSearch) {
           payload.search = debouncedSearch;
         }
-        if (filters.minScore !== '') {
-          payload.minScore = Number(filters.minScore);
+        if (minScoreValue != null) {
+          payload.minScore = minScoreValue;
         }
-        if (filters.maxScore !== '') {
-          payload.maxScore = Number(filters.maxScore);
+        if (maxScoreValue != null) {
+          payload.maxScore = maxScoreValue;
         }
 
         const response = await fetchLaunchpadApplications(payload);

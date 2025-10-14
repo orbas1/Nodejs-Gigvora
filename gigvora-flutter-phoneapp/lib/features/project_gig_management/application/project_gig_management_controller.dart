@@ -82,6 +82,9 @@ class ProjectGigManagementController
 
   Future<void> createProject(ProjectDraft draft) async {
     try {
+      if (state.data?.access.canManage == false) {
+        throw StateError('Project creation is restricted for your role.');
+      }
       await _repository.createProject(userId, draft);
       await _analytics.track(
         'mobile_gig_project_created',
@@ -110,6 +113,9 @@ class ProjectGigManagementController
 
   Future<void> createGigOrder(GigOrderDraft draft) async {
     try {
+      if (state.data?.access.canManage == false) {
+        throw StateError('Gig purchasing is restricted for your role.');
+      }
       await _repository.createGigOrder(userId, draft);
       await _analytics.track(
         'mobile_gig_order_created',
@@ -140,6 +146,9 @@ class ProjectGigManagementController
 
   Future<void> createGigBlueprint(GigBlueprintDraft draft) async {
     try {
+      if (state.data?.access.canManage == false) {
+        throw StateError('Gig publishing is restricted for your role.');
+      }
       await _repository.createGigBlueprint(userId, draft);
       await _analytics.track(
         'mobile_gig_blueprint_created',
