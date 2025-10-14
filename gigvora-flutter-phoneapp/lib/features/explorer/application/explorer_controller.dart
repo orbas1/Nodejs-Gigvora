@@ -138,6 +138,16 @@ class ExplorerController extends StateNotifier<ExplorerState> {
     );
   }
 
+  Future<void> recordVoiceSearchIntent() {
+    return _analytics.track(
+      'mobile_search_voice_requested',
+      context: {
+        'query': state.query.isEmpty ? null : state.query,
+      },
+      metadata: const {'source': 'mobile_app'},
+    );
+  }
+
   Future<void> _performSearch({bool forceRefresh = false}) async {
     final query = state.query.trim();
     if (query.isEmpty) {
