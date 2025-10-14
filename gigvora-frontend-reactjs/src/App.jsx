@@ -37,6 +37,7 @@ import UserDashboardPage from './pages/dashboards/UserDashboardPage.jsx';
 import FreelancerDashboardPage from './pages/dashboards/FreelancerDashboardPage.jsx';
 import FreelancerPipelinePage from './pages/dashboards/FreelancerPipelinePage.jsx';
 import CompanyDashboardPage from './pages/dashboards/CompanyDashboardPage.jsx';
+import CompanyAtsOperationsPage from './pages/dashboards/CompanyAtsOperationsPage.jsx';
 import CompanyIntegrationsPage from './pages/dashboards/CompanyIntegrationsPage.jsx';
 import CompanyNetworkingHubPage from './pages/networking/CompanyNetworkingHubPage.jsx';
 import AgencyDashboardPage from './pages/dashboards/AgencyDashboardPage.jsx';
@@ -188,7 +189,15 @@ export default function App() {
           <RequireRole allowedRoles={['company']}>
             <CompanyDashboardPage />
           </RequireRole>
-          </RoleProtectedRoute>
+        }
+      />
+
+      <Route
+        path="dashboard/company/ats"
+        element={
+          <RequireRole allowedRoles={['company']}>
+            <CompanyAtsOperationsPage />
+          </RequireRole>
         }
       />
 

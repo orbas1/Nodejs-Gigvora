@@ -229,10 +229,12 @@ class UserSession {
             DashboardAction(
               label: 'Review stage analytics',
               description: 'Spot bottlenecks and rebalance interviewer load before next week.',
+              route: '/dashboard/company/ats',
             ),
             DashboardAction(
               label: 'Sync hiring partners',
               description: 'Share ATS scorecard and upcoming requisitions with agencies and headhunters.',
+              route: '/dashboard/company',
             ),
           ],
         ),
