@@ -13,6 +13,11 @@ const Set<String> _projectManagementRoles = <String>{
   'admin',
 };
 
+const Set<String> _workManagementRoles = <String>{
+  'freelancer',
+  ..._projectManagementRoles,
+};
+
 String _normaliseRole(String? value) {
   if (value == null || value.trim().isEmpty) {
     return '';
@@ -40,12 +45,16 @@ class ProjectAccess {
   const ProjectAccess({
     required this.allowed,
     required this.roles,
-    required this.reason,
-  });
+    this.reason,
+    bool? allowedToManage,
+  }) : _allowedToManage = allowedToManage;
 
   final bool allowed;
   final Set<String> roles;
   final String? reason;
+  final bool? _allowedToManage;
+
+  bool get allowedToManage => _allowedToManage ?? allowed;
 }
 
 ProjectAccess evaluateProjectAccess(UserSession? session) {
@@ -54,5 +63,20 @@ ProjectAccess evaluateProjectAccess(UserSession? session) {
   final reason = allowed
       ? null
       : 'Project workspaces are restricted to agency, company, operations, and admin leads. Request access from your workspace administrator.';
-  return ProjectAccess(allowed: allowed, roles: roles, reason: reason);
+  return ProjectAccess(allowed: allowed, roles: roles, reason: reason, allowedToManage: allowed);
+}
+
+ProjectAccess evaluateWorkManagementAccess(UserSession? session) {
+  final roles = resolveRoles(session);
+  final allowed = roles.any(_workManagementRoles.contains);
+  final reason = allowed
+      ? null
+      : 'Task delegation requires a freelancer, operations, agency, or company workspace with delivery permissions.';
+  final canManage = roles.any(_projectManagementRoles.contains);
+  return ProjectAccess(
+    allowed: allowed,
+    roles: roles,
+    reason: reason,
+    allowedToManage: canManage,
+  );
 }

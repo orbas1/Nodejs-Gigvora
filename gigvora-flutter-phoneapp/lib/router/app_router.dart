@@ -34,6 +34,7 @@ import '../features/services/presentation/service_operations_screen.dart';
 import '../features/finance/presentation/finance_screen.dart';
 import '../features/pages/presentation/pages_screen.dart';
 import '../features/connections/presentation/connections_screen.dart';
+import '../features/work_management/presentation/work_management_screen.dart';
 import '../features/integrations/presentation/company_integrations_screen.dart';
 import '../features/user_dashboard/presentation/user_dashboard_screen.dart';
 
@@ -140,6 +141,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const FreelancerPipelineScreen(),
       ),
       GoRoute(
+        path: '/dashboard/freelancer/work-management',
+        builder: (context, state) => WorkManagementScreen(
+          projectId: int.tryParse(state.uri.queryParameters['projectId'] ?? ''),
+        ),
         path: '/dashboard/user',
         redirect: (context, state) {
           final session = sessionState.session;

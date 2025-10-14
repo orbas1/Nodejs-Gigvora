@@ -11,6 +11,7 @@ import '../../../features/auth/application/session_controller.dart';
 import '../../../theme/widgets.dart';
 import '../application/project_gig_management_controller.dart';
 import '../data/models/project_gig_management_snapshot.dart';
+import '../../work_management/presentation/work_management_panel.dart';
 
 enum GigManagementSection { manage, buy, post }
 
@@ -225,6 +226,26 @@ class ProjectGigManagementScreen extends ConsumerWidget {
                 canManage: snapshot.access.canManage,
                 access: snapshot.access,
               ),
+              ...(() {
+                final projectOptions = snapshot.projects
+                    .where((project) => project.id != null)
+                    .map((project) => ProjectOption(id: project.id!, label: project.title))
+                    .toList(growable: false);
+                final initialWorkProjectId = projectOptions.isNotEmpty
+                    ? projectOptions.first.id
+                    : (snapshot.projects.isNotEmpty && snapshot.projects.first.id != null
+                        ? snapshot.projects.first.id!
+                        : 1);
+                return [
+                  const SizedBox(height: 16),
+                  WorkManagementPanel(
+                    initialProjectId: initialWorkProjectId,
+                    projectOptions: projectOptions,
+                    readOnly: !snapshot.access.canManage,
+                    accessMessage: snapshot.access.canManage ? null : snapshot.access.reason,
+                  ),
+                ];
+              }()),
               const SizedBox(height: 16),
               _OrdersCard(snapshot: snapshot),
               const SizedBox(height: 16),
