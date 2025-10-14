@@ -19,37 +19,57 @@ function getStorage() {
   if (typeof window === 'undefined') {
     return null;
   }
+
   try {
     return window.localStorage;
   } catch (error) {
-    console.warn('Local storage is unavailable, caching disabled.', error);
+    console.warn('Local storage is unavailable, disabling persistent caching.', error);
     return null;
   }
 }
 
 const storage = getStorage();
 
-function persistAuthToken(token) {
+function persistValue(key, value) {
   if (!storage) {
     return;
   }
-  if (!token) {
-    storage.removeItem(AUTH_TOKEN_KEY);
-    return;
+
+  try {
+    if (value == null) {
+      storage.removeItem(key);
+    } else {
+      storage.setItem(key, value);
+    }
+  } catch (error) {
+    console.warn(`Failed to persist value for ${key}`, error);
   }
-  storage.setItem(AUTH_TOKEN_KEY, token);
 }
 
-function readAuthToken() {
+function readValue(key) {
   if (!storage) {
     return null;
   }
-  return storage.getItem(AUTH_TOKEN_KEY);
+
+  try {
+    return storage.getItem(key);
+  } catch (error) {
+    console.warn(`Failed to read value for ${key}`, error);
+    return null;
+  }
+}
+
+function persistAuthToken(token) {
+  persistValue(AUTH_TOKEN_KEY, token ?? null);
+}
+
+function readAuthToken() {
+  return readValue(AUTH_TOKEN_KEY);
 }
 
 function buildUrl(path, params = {}) {
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  const url = new URL(`${API_BASE_URL}${normalizedPath}`);
+  const normalisedPath = path.startsWith('/') ? path : `/${path}`;
+  const url = new URL(`${API_BASE_URL}${normalisedPath}`);
   const query = new URLSearchParams(url.search);
 
   Object.entries(params)
@@ -66,35 +86,31 @@ function readStoredSession() {
   if (!storage) {
     return null;
   }
+
   try {
     const raw = storage.getItem(SESSION_STORAGE_KEY);
     if (!raw) {
       return null;
     }
     const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === 'object') {
-      return parsed;
-    }
+    return parsed && typeof parsed === 'object' ? parsed : null;
   } catch (error) {
     console.warn('Unable to parse stored session payload.', error);
+    return null;
   }
-  return null;
 }
 
 function normaliseRole(value) {
-  if (!value) return null;
+  if (!value) {
+    return null;
+  }
   return `${value}`.trim().toLowerCase().replace(/\s+/g, '-');
 }
 
 function getAuthHeaders() {
-  if (!storage) {
-    return {};
-  }
-  const token = readAuthToken();
-  if (!token) {
-    return {};
   const headers = {};
-  const token = storage.getItem(AUTH_TOKEN_KEY);
+
+  const token = readAuthToken();
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
@@ -103,22 +119,25 @@ function getAuthHeaders() {
   if (session?.id) {
     headers['x-user-id'] = `${session.id}`;
   }
-  if (session?.memberships) {
-    const roles = [];
+
+  if (session?.memberships || session?.accountTypes || session?.primaryDashboard) {
+    const roleCandidates = [];
     if (Array.isArray(session.memberships)) {
-      roles.push(...session.memberships);
+      roleCandidates.push(...session.memberships);
     }
     if (Array.isArray(session.accountTypes)) {
-      roles.push(...session.accountTypes);
+      roleCandidates.push(...session.accountTypes);
     }
     if (session.primaryDashboard) {
-      roles.push(session.primaryDashboard);
+      roleCandidates.push(session.primaryDashboard);
     }
-    const normalised = Array.from(new Set(roles.map(normaliseRole).filter(Boolean)));
-    if (normalised.length > 0) {
+
+    const normalised = Array.from(new Set(roleCandidates.map(normaliseRole).filter(Boolean)));
+    if (normalised.length) {
       headers['x-roles'] = normalised.join(',');
     }
   }
+
   if (session?.userType) {
     headers['x-user-type'] = normaliseRole(session.userType);
   }
@@ -127,74 +146,23 @@ function getAuthHeaders() {
 }
 
 function storeAccessToken(token) {
-  if (!storage) {
-    return;
-  }
-  try {
-    if (!token) {
-      storage.removeItem(AUTH_TOKEN_KEY);
-    } else {
-      storage.setItem(AUTH_TOKEN_KEY, token);
-    }
-  } catch (error) {
-    console.warn('Unable to persist auth token', error);
-  }
+  persistAuthToken(token);
 }
 
 function getAccessToken() {
-  if (!storage) {
-    return null;
-  }
-  try {
-    const token = storage.getItem(AUTH_TOKEN_KEY);
-    return token || null;
-  } catch (error) {
-    console.warn('Unable to read access token from storage', error);
-    return null;
-  }
+  return readAuthToken();
 }
 
 function setAccessToken(token) {
-  if (!storage) {
-    return;
-  }
-  try {
-    if (!token) {
-      storage.removeItem(AUTH_TOKEN_KEY);
-      return;
-    }
-    storage.setItem(AUTH_TOKEN_KEY, token);
-  } catch (error) {
-    console.warn('Unable to persist access token', error);
-  }
+  persistAuthToken(token);
 }
 
 function setRefreshToken(token) {
-  if (!storage) {
-    return;
-  }
-  try {
-    if (!token) {
-      storage.removeItem(REFRESH_TOKEN_KEY);
-      return;
-    }
-    storage.setItem(REFRESH_TOKEN_KEY, token);
-  } catch (error) {
-    console.warn('Unable to persist refresh token', error);
-  }
+  persistValue(REFRESH_TOKEN_KEY, token ?? null);
 }
 
 function getRefreshToken() {
-  if (!storage) {
-    return null;
-  }
-  try {
-    const token = storage.getItem(REFRESH_TOKEN_KEY);
-    return token || null;
-  } catch (error) {
-    console.warn('Unable to read refresh token from storage', error);
-    return null;
-  }
+  return readValue(REFRESH_TOKEN_KEY);
 }
 
 async function request(method, path, { body, params, signal, headers } = {}) {
@@ -238,6 +206,7 @@ function readCache(key) {
   if (!storage) {
     return null;
   }
+
   try {
     const raw = storage.getItem(cacheKey(key));
     if (!raw) {
@@ -262,6 +231,7 @@ function writeCache(key, data, ttl = DEFAULT_CACHE_TTL) {
   if (!storage) {
     return;
   }
+
   try {
     const payload = {
       data,
@@ -278,6 +248,7 @@ function removeCache(key) {
   if (!storage) {
     return;
   }
+
   try {
     storage.removeItem(cacheKey(key));
   } catch (error) {
@@ -286,45 +257,34 @@ function removeCache(key) {
 }
 
 function setAuthTokens({ accessToken, refreshToken, expiresAt } = {}) {
-  if (!storage) {
-    return;
-  }
-  try {
-    if (accessToken) {
-      storage.setItem(AUTH_TOKEN_KEY, accessToken);
-    } else {
-      storage.removeItem(AUTH_TOKEN_KEY);
-    }
-
-    if (refreshToken) {
-      storage.setItem(REFRESH_TOKEN_KEY, refreshToken);
-    } else {
-      storage.removeItem(REFRESH_TOKEN_KEY);
-    }
-
-    if (expiresAt) {
-      storage.setItem(ACCESS_TOKEN_EXPIRY_KEY, expiresAt);
-    } else {
-      storage.removeItem(ACCESS_TOKEN_EXPIRY_KEY);
-    }
-  } catch (error) {
-    console.warn('Failed to persist auth tokens', error);
-  }
+  persistAuthToken(accessToken ?? null);
+  setRefreshToken(refreshToken ?? null);
+  persistValue(ACCESS_TOKEN_EXPIRY_KEY, expiresAt ?? null);
 }
 
 function getAuthTokens() {
   if (!storage) {
     return { accessToken: null, refreshToken: null, expiresAt: null };
   }
+
   return {
-    accessToken: storage.getItem(AUTH_TOKEN_KEY),
-    refreshToken: storage.getItem(REFRESH_TOKEN_KEY),
-    expiresAt: storage.getItem(ACCESS_TOKEN_EXPIRY_KEY),
+    accessToken: readAuthToken(),
+    refreshToken: readValue(REFRESH_TOKEN_KEY),
+    expiresAt: readValue(ACCESS_TOKEN_EXPIRY_KEY),
   };
 }
 
 function clearAuthTokens() {
-  setAuthTokens({});
+  setAuthTokens({ accessToken: null, refreshToken: null, expiresAt: null });
+}
+
+function clearAccessToken() {
+  storeAccessToken(null);
+  setAccessToken(null);
+}
+
+function clearRefreshToken() {
+  setRefreshToken(null);
 }
 
 export const apiClient = {
@@ -340,18 +300,17 @@ export const apiClient = {
   getAuthToken: readAuthToken,
   clearAuthToken: () => persistAuthToken(null),
   storeAccessToken,
-  clearAccessToken: () => storeAccessToken(null),
-  ApiError,
-  API_BASE_URL,
   getAccessToken,
   setAccessToken,
+  clearAccessToken,
   setRefreshToken,
   getRefreshToken,
-  clearAccessToken: () => setAccessToken(null),
-  clearRefreshToken: () => setRefreshToken(null),
+  clearRefreshToken,
   setAuthTokens,
-  clearAuthTokens,
   getAuthTokens,
+  clearAuthTokens,
+  ApiError,
+  API_BASE_URL,
 };
 
 export default apiClient;
