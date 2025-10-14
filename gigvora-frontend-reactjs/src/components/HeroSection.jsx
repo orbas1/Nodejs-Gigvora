@@ -1,15 +1,11 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { LOGO_URL } from '../constants/branding.js';
+import LanguageSelector from './LanguageSelector.jsx';
+import { useLanguage } from '../context/LanguageContext.jsx';
 
 const heroImage =
   'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1600&q=80';
-
-const heroStats = [
-  { label: 'teams scaling global talent', value: '12k+' },
-  { label: 'projects delivered with heart', value: '48k' },
-  { label: 'average onboarding time', value: '24 hrs' },
-];
 
 const highlightMoments = [
   {
@@ -34,6 +30,16 @@ const highlightMoments = [
 
 export default function HeroSection() {
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
+  const { t } = useLanguage();
+
+  const stats = useMemo(
+    () => [
+      { label: t('hero.stats.teams', 'teams scaling global talent'), value: '12k+' },
+      { label: t('hero.stats.projects', 'projects delivered with heart'), value: '48k' },
+      { label: t('hero.stats.onboarding', 'average onboarding time'), value: '24 hrs' },
+    ],
+    [t],
+  );
 
   const handleMouseMove = (event) => {
     const { currentTarget, clientX, clientY } = event;
@@ -61,32 +67,36 @@ export default function HeroSection() {
       <div className="relative mx-auto flex max-w-6xl flex-col gap-16 px-6 pb-24 pt-24 lg:flex-row lg:items-center lg:justify-between">
         <div className="max-w-2xl space-y-10">
           <span className="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-white/70 px-4 py-1 text-xs font-semibold uppercase tracking-[0.35em] text-accentDark backdrop-blur">
-            Gigvora platform
+            {t('hero.tagline', 'Gigvora platform')}
           </span>
           <div className="space-y-6">
             <h1 className="text-4xl font-bold leading-tight tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
-              Hire brilliantly. Collaborate beautifully.
+              {t('hero.heading', 'Hire brilliantly. Collaborate beautifully.')}
             </h1>
             <p className="text-lg text-slate-600">
-              Gigvora pairs curated talent with effortless workflows so your team can launch ideas without the jargon and without the wait.
+              {t(
+                'hero.subheading',
+                'Gigvora pairs curated talent with effortless workflows so your team can launch ideas without the jargon and without the wait.',
+              )}
             </p>
           </div>
-          <div className="flex flex-col gap-4 sm:flex-row">
+          <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center">
             <Link
               to="/register"
               className="rounded-full bg-accent px-8 py-3 text-center text-base font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-accentDark"
             >
-              Start your free profile
+              {t('auth.startProfile', 'Start your free profile')}
             </Link>
             <Link
               to="/about"
               className="rounded-full border border-slate-200 px-8 py-3 text-center text-base font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
             >
-              Watch a 90-second walk-through
+              {t('auth.watchTour', 'Watch a 90-second walk-through')}
             </Link>
+            <LanguageSelector variant="hero" className="sm:ml-2" />
           </div>
           <dl className="grid grid-cols-1 gap-6 text-sm text-slate-500 sm:grid-cols-3">
-            {heroStats.map((stat) => (
+            {stats.map((stat) => (
               <div key={stat.label} className="rounded-2xl border border-white/60 bg-white/70 p-4 backdrop-blur">
                 <dt className="text-[0.7rem] uppercase tracking-[0.3em] text-slate-400">{stat.label}</dt>
                 <dd className="mt-2 text-2xl font-semibold text-slate-900">{stat.value}</dd>
@@ -103,10 +113,14 @@ export default function HeroSection() {
             />
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-accentDark">Live moments</p>
-                <p className="text-sm text-slate-500">Real teams shipping now</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-accentDark">
+                  {t('hero.liveMoments', 'Live moments')}
+                </p>
+                <p className="text-sm text-slate-500">{t('hero.liveMomentsDescription', 'Real teams shipping now')}</p>
               </div>
-              <span className="rounded-full bg-accentSoft px-3 py-1 text-xs font-semibold text-accentDark">In sync</span>
+              <span className="rounded-full bg-accentSoft px-3 py-1 text-xs font-semibold text-accentDark">
+                {t('hero.statusBadge', 'In sync')}
+              </span>
             </div>
             <div className="mt-6 space-y-4">
               {highlightMoments.map((moment) => (
@@ -125,7 +139,7 @@ export default function HeroSection() {
             </div>
             <div className="mt-6 flex items-center gap-3 rounded-2xl border border-slate-100 bg-surfaceMuted/80 px-4 py-3">
               <img src={LOGO_URL} alt="Gigvora" className="h-8 w-auto" />
-              <p className="text-xs text-slate-500">Web and mobile dashboards stay perfectly in step.</p>
+              <p className="text-xs text-slate-500">{t('hero.deckSubtitle', 'Web and mobile dashboards stay perfectly in step.')}</p>
             </div>
           </div>
         </div>

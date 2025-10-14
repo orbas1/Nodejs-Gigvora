@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import {
   Bars3Icon,
@@ -20,6 +20,8 @@ import useAuthorization from '../hooks/useAuthorization.js';
 import { formatRelativeTime } from '../utils/date.js';
 import { getExplorerAllowedMemberships, hasExplorerAccess } from '../utils/accessControl.js';
 import { hasFinanceOperationsAccess, hasSecurityOperationsAccess } from '../utils/permissions.js';
+import { useLanguage } from '../context/LanguageContext.jsx';
+import LanguageSelector from './LanguageSelector.jsx';
 
 const NAV_LINKS = [
   { id: 'feed', to: '/feed', label: 'Live Feed', authOnly: true },
@@ -70,13 +72,14 @@ const EXPLORER_ROLE_LABELS = getExplorerAllowedMemberships().map(
 );
 
 function NotificationMenu({ notifications = [], unreadCount = 0, onMarkAll, onMarkSingle }) {
+  const { t } = useLanguage();
   const topNotifications = notifications.slice(0, 6);
 
   return (
     <Menu as="div" className="relative">
       <Menu.Button
         className="relative flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-accent/60 hover:text-accent"
-        aria-label="Open notifications"
+        aria-label={t('menu.notifications', 'Notifications')}
       >
         <BellIcon className="h-5 w-5" />
         {unreadCount ? (
@@ -96,10 +99,10 @@ function NotificationMenu({ notifications = [], unreadCount = 0, onMarkAll, onMa
       >
         <Menu.Items className="absolute right-0 z-50 mt-3 w-80 origin-top-right rounded-3xl border border-slate-200/70 bg-white p-3 text-sm shadow-2xl focus:outline-none">
           <div className="flex items-center justify-between px-2 py-1">
-            <p className="text-sm font-semibold text-slate-800">Notifications</p>
+            <p className="text-sm font-semibold text-slate-800">{t('menu.notifications', 'Notifications')}</p>
             {unreadCount ? (
               <button type="button" onClick={onMarkAll} className="text-xs font-semibold text-accent hover:text-accentDark">
-                Mark all read
+                {t('menu.markAllRead', 'Mark all read')}
               </button>
             ) : null}
           </div>
@@ -136,7 +139,7 @@ function NotificationMenu({ notifications = [], unreadCount = 0, onMarkAll, onMa
               to="/notifications"
               className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
             >
-              Open notification centre
+              {t('menu.openNotificationCenter', 'Open notification centre')}
             </Link>
           </div>
         </Menu.Items>
@@ -146,13 +149,14 @@ function NotificationMenu({ notifications = [], unreadCount = 0, onMarkAll, onMa
 }
 
 function MessageMenu({ threads = [], unreadCount = 0, onMarkAll, onMarkSingle }) {
+  const { t } = useLanguage();
   const topThreads = threads.slice(0, 5);
 
   return (
     <Menu as="div" className="relative">
       <Menu.Button
         className="relative flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-accent/60 hover:text-accent"
-        aria-label="Open messages"
+        aria-label={t('menu.messages', 'Messages')}
       >
         <ChatBubbleLeftRightIcon className="h-5 w-5" />
         {unreadCount ? (
@@ -172,10 +176,10 @@ function MessageMenu({ threads = [], unreadCount = 0, onMarkAll, onMarkSingle })
       >
         <Menu.Items className="absolute right-0 z-50 mt-3 w-80 origin-top-right rounded-3xl border border-slate-200/70 bg-white p-3 text-sm shadow-2xl focus:outline-none">
           <div className="flex items-center justify-between px-2 py-1">
-            <p className="text-sm font-semibold text-slate-800">Messages</p>
+            <p className="text-sm font-semibold text-slate-800">{t('menu.messages', 'Messages')}</p>
             {unreadCount ? (
               <button type="button" onClick={onMarkAll} className="text-xs font-semibold text-accent hover:text-accentDark">
-                Mark all read
+                {t('menu.markAllRead', 'Mark all read')}
               </button>
             ) : null}
           </div>
@@ -212,7 +216,7 @@ function MessageMenu({ threads = [], unreadCount = 0, onMarkAll, onMarkSingle })
               to="/inbox"
               className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
             >
-              Open inbox
+              {t('menu.openInbox', 'Open inbox')}
             </Link>
           </div>
         </Menu.Items>
@@ -228,6 +232,7 @@ function classNames(...classes) {
 export default function Header() {
   const [open, setOpen] = useState(false);
   const [explorerDialogOpen, setExplorerDialogOpen] = useState(false);
+  const { t } = useLanguage();
   const { session, isAuthenticated, logout } = useSession();
   const { canAccess } = useAuthorization();
   const navigate = useNavigate();
@@ -321,6 +326,8 @@ export default function Header() {
     return navItems;
   }, [isAuthenticated, navItems, profileLink]);
 
+  const getNavLabel = useCallback((item) => t(`navigation.${item.id}`, item.label), [t]);
+
   const navClassName = ({ isActive }) =>
     `relative px-3 py-2 text-sm font-semibold transition-colors ${
       isActive ? 'text-accent' : 'text-slate-500 hover:text-slate-900'
@@ -374,7 +381,7 @@ export default function Header() {
                     active ? 'bg-accentSoft text-accent' : 'text-slate-600',
                   )}
                 >
-                  Profile
+                  {t('menu.profile', 'Profile')}
                 </Link>
               )}
             </Menu.Item>
@@ -403,7 +410,7 @@ export default function Header() {
                       active ? 'bg-accentSoft text-accent' : 'text-slate-600',
                     )}
                   >
-                    Financial hub
+                    {t('menu.financialHub', 'Financial hub')}
                   </Link>
                 )}
               </Menu.Item>
@@ -416,7 +423,7 @@ export default function Header() {
                       active ? 'bg-accentSoft text-accent' : 'text-slate-600',
                     )}
                   >
-                    Trust centre
+                    {t('menu.trustCenter', 'Trust centre')}
                   </Link>
                 )}
               </Menu.Item>
@@ -432,7 +439,7 @@ export default function Header() {
                     active ? 'bg-accentSoft text-accent' : 'text-slate-600',
                   )}
                 >
-                  Security operations
+                  {t('menu.securityOperations', 'Security operations')}
                 </Link>
               )}
             </Menu.Item>
@@ -448,7 +455,7 @@ export default function Header() {
                   active ? 'bg-accentSoft text-accent' : 'text-slate-600',
                 )}
               >
-                <LifebuoyIcon className="h-4 w-4" /> Support centre
+                <LifebuoyIcon className="h-4 w-4" /> {t('menu.supportCenter', 'Support centre')}
               </a>
             )}
           </Menu.Item>
@@ -462,7 +469,7 @@ export default function Header() {
                   active ? 'bg-rose-50 text-rose-600' : 'text-rose-500',
                 )}
               >
-                <PowerIcon className="h-4 w-4" /> Logout
+                <PowerIcon className="h-4 w-4" /> {t('menu.logout', 'Logout')}
               </button>
             )}
           </Menu.Item>
@@ -485,7 +492,7 @@ export default function Header() {
               className="inline-flex items-center gap-1 rounded-full px-3 py-2 text-sm font-semibold text-slate-400 transition hover:text-slate-600"
             >
               <LockClosedIcon className="h-4 w-4" aria-hidden="true" />
-              <span>{item.label}</span>
+              <span>{getNavLabel(item)}</span>
             </button>
           );
         }
@@ -493,7 +500,7 @@ export default function Header() {
           <NavLink key={item.id} to={item.to} className={navClassName}>
             {({ isActive }) => (
               <span className="relative inline-flex items-center">
-                {item.label}
+                {getNavLabel(item)}
                 <span
                   className={`absolute -bottom-1 left-0 h-0.5 w-full transform rounded-full transition-all duration-300 ${
                     isActive ? 'scale-100 bg-accent' : 'scale-0 bg-transparent'
@@ -583,15 +590,15 @@ export default function Header() {
         >
           <span className="inline-flex items-center gap-2">
             <LockClosedIcon className="h-4 w-4" aria-hidden="true" />
-            {item.label}
+            {getNavLabel(item)}
           </span>
-          <span className="text-xs text-slate-400">Request access</span>
+          <span className="text-xs text-slate-400">{t('menu.requestAccess', 'Request access')}</span>
         </button>
       );
     }
     return (
       <NavLink key={item.id} to={item.to} onClick={closeMobileNav} className={mobileNavClassName}>
-        {item.label}
+        {getNavLabel(item)}
       </NavLink>
     );
   };
@@ -606,23 +613,28 @@ export default function Header() {
           {isAuthenticated ? renderDesktopNav() : null}
           <div className="hidden items-center gap-4 lg:flex">
             {isAuthenticated ? (
-              <div className="flex items-center gap-2">
-                {canAccessNotifications ? (
-                  <NotificationMenu
-                    notifications={notifications}
-                    unreadCount={unreadNotificationCount}
-                    onMarkAll={markAllNotificationsAsRead}
-                    onMarkSingle={markNotificationAsRead}
+              <>
+                <div className="flex items-center gap-2">
+                  {canAccessNotifications ? (
+                    <NotificationMenu
+                      notifications={notifications}
+                      unreadCount={unreadNotificationCount}
+                      onMarkAll={markAllNotificationsAsRead}
+                      onMarkSingle={markNotificationAsRead}
+                    />
+                  ) : null}
+                  <MessageMenu
+                    threads={messageThreads}
+                    unreadCount={unreadMessageCount}
+                    onMarkAll={markAllThreadsAsRead}
+                    onMarkSingle={markThreadAsRead}
                   />
-                ) : null}
-                <MessageMenu
-                  threads={messageThreads}
-                  unreadCount={unreadMessageCount}
-                  onMarkAll={markAllThreadsAsRead}
-                  onMarkSingle={markThreadAsRead}
-                />
-              </div>
-            ) : null}
+                </div>
+                <LanguageSelector />
+              </>
+            ) : (
+              <LanguageSelector />
+            )}
             {isAuthenticated && dashboardTarget ? (
               <>
                 <div className="hidden text-right xl:block">
@@ -633,7 +645,7 @@ export default function Header() {
                   to={dashboardTarget.path}
                   className="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
                 >
-                  Dashboard
+                  {t('menu.dashboard', 'Dashboard')}
                 </Link>
                 {renderUserMenu()}
               </>
@@ -643,13 +655,13 @@ export default function Header() {
                   to="/login"
                   className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-accent/60 hover:text-accent"
                 >
-                  Login
+                  {t('auth.login', 'Login')}
                 </Link>
                 <Link
                   to="/register"
                   className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
                 >
-                  Join Now
+                  {t('auth.register', 'Join Now')}
                 </Link>
               </>
             )}
@@ -665,6 +677,9 @@ export default function Header() {
         </div>
         {open ? (
           <div className="border-t border-slate-200 bg-white px-6 pb-6 lg:hidden">
+            <div className="py-4">
+              <LanguageSelector variant="mobile" />
+            </div>
             {isAuthenticated ? (
               <>
                 <div className={`grid gap-3 py-4 ${canAccessNotifications ? 'grid-cols-2' : 'grid-cols-1'}`}>
@@ -674,7 +689,7 @@ export default function Header() {
                       onClick={closeMobileNav}
                       className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent"
                     >
-                      Notifications
+                      {t('menu.notifications', 'Notifications')}
                       <span className="inline-flex min-h-[1.5rem] min-w-[1.5rem] items-center justify-center rounded-full bg-rose-500 px-2 text-xs font-semibold text-white">
                         {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
                       </span>
@@ -685,7 +700,7 @@ export default function Header() {
                     onClick={closeMobileNav}
                     className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent"
                   >
-                    Messages
+                    {t('menu.messages', 'Messages')}
                     <span className="inline-flex min-h-[1.5rem] min-w-[1.5rem] items-center justify-center rounded-full bg-emerald-500 px-2 text-xs font-semibold text-white">
                       {unreadMessageCount > 9 ? '9+' : unreadMessageCount}
                     </span>
@@ -707,7 +722,7 @@ export default function Header() {
                         onClick={closeMobileNav}
                         className="rounded-full bg-accent px-3 py-2 text-xs font-semibold uppercase tracking-wide text-white"
                       >
-                        Dashboard
+                        {t('menu.dashboard', 'Dashboard')}
                       </Link>
                     </div>
                     <button
@@ -715,7 +730,7 @@ export default function Header() {
                       onClick={handleLogout}
                       className="flex w-full items-center justify-center gap-2 rounded-2xl border border-rose-100 px-4 py-2 text-sm font-semibold text-rose-600 transition hover:border-rose-200 hover:bg-rose-50"
                     >
-                      <PowerIcon className="h-4 w-4" /> Logout
+                      <PowerIcon className="h-4 w-4" /> {t('menu.logout', 'Logout')}
                     </button>
                   </div>
                 ) : null}
@@ -727,14 +742,14 @@ export default function Header() {
                   onClick={closeMobileNav}
                   className="flex-1 rounded-full border border-slate-200 px-4 py-2 text-center text-sm font-semibold text-slate-600"
                 >
-                  Login
+                  {t('auth.login', 'Login')}
                 </Link>
                 <Link
                   to="/register"
                   onClick={closeMobileNav}
                   className="flex-1 rounded-full bg-accent px-4 py-2 text-center text-sm font-semibold text-white"
                 >
-                  Join Now
+                  {t('auth.register', 'Join Now')}
                 </Link>
               </div>
             )}
@@ -810,13 +825,13 @@ export default function Header() {
                       onClick={() => setExplorerDialogOpen(false)}
                       className="inline-flex items-center justify-center rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
                     >
-                      Manage memberships
+                      {t('menu.manageMemberships', 'Manage memberships')}
                     </Link>
                     <a
                       href="mailto:support@gigvora.com"
                       className="inline-flex items-center justify-center rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
                     >
-                      Contact support
+                      {t('menu.contactSupport', 'Contact support')}
                     </a>
                   </div>
                 </Dialog.Panel>

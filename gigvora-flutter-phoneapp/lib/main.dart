@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:gigvora_design_system/gigvora_design_system.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import 'core/localization/gigvora_localizations.dart';
+import 'core/localization/language_controller.dart';
 import 'core/providers.dart';
 import 'features/auth/domain/auth_token_store.dart';
 import 'router/app_router.dart';
@@ -12,6 +16,8 @@ Future<void> main() async {
   await ServiceLocator.configure(
     requestInterceptors: [AuthTokenStore.attachToken],
     authTokenResolver: AuthTokenStore.readAccessToken,
+  );
+
   const demoToken =
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MjAxLCJ0eXBlIjoiYWRtaW4iLCJleHAiOjE3NjAzOTg2Mzl9.PoszIfAN5fZ0ah3qfsUJ60OomK7NcdQ5lMXsHT53CX4';
   await ServiceLocator.configure(
@@ -22,6 +28,8 @@ Future<void> main() async {
     ],
     authTokenResolver: () async => demoToken,
   );
+
+  final sharedPreferences = await SharedPreferences.getInstance();
 
   try {
     final loader = GigvoraThemeLoader();
@@ -34,6 +42,7 @@ Future<void> main() async {
         overrides: [
           appThemeProvider.overrideWithValue(AsyncValue.data(themeData)),
           designTokensProvider.overrideWithValue(AsyncValue.data(tokens)),
+          sharedPreferencesProvider.overrideWithValue(sharedPreferences),
         ],
         child: const GigvoraApp(),
       ),
@@ -46,6 +55,7 @@ Future<void> main() async {
         overrides: [
           appThemeProvider.overrideWithValue(AsyncValue.error(error, stackTrace)),
           designTokensProvider.overrideWithValue(AsyncValue.error(error, stackTrace)),
+          sharedPreferencesProvider.overrideWithValue(sharedPreferences),
         ],
         child: const GigvoraApp(),
       ),
@@ -60,6 +70,7 @@ class GigvoraApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = ref.watch(appThemeProvider);
     final router = ref.watch(appRouterProvider);
+    final locale = ref.watch(languageControllerProvider);
     ref.watch(featureFlagsBootstrapProvider);
     ref.watch(pushNotificationBootstrapProvider);
 
@@ -81,10 +92,20 @@ class GigvoraApp extends ConsumerWidget {
       });
     });
 
+    const localizationDelegates = <LocalizationsDelegate<dynamic>>[
+      GigvoraLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ];
+
     return theme.when(
       data: (themeData) => MaterialApp.router(
         title: 'Gigvora',
         theme: themeData,
+        locale: locale,
+        supportedLocales: GigvoraLocalizations.supportedLocales,
+        localizationsDelegates: localizationDelegates,
         routerConfig: router,
       ),
       loading: () => MaterialApp(
@@ -93,6 +114,9 @@ class GigvoraApp extends ConsumerWidget {
           colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2563EB)),
           useMaterial3: true,
         ),
+        locale: locale,
+        supportedLocales: GigvoraLocalizations.supportedLocales,
+        localizationsDelegates: localizationDelegates,
         home: const Scaffold(
           body: Center(child: CircularProgressIndicator()),
         ),
@@ -103,6 +127,9 @@ class GigvoraApp extends ConsumerWidget {
           colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF991B1B)),
           useMaterial3: true,
         ),
+        locale: locale,
+        supportedLocales: GigvoraLocalizations.supportedLocales,
+        localizationsDelegates: localizationDelegates,
         home: Scaffold(
           body: Center(
             child: Padding(

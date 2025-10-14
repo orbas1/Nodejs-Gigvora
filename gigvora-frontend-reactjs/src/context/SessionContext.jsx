@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import apiClient from '../services/apiClient.js';
-import { apiClient } from '../services/apiClient.js';
 
 const STORAGE_KEY = 'gigvora:web:session';
 
@@ -118,7 +117,8 @@ function normalizeSessionPayload(payload) {
   const firstName = user.firstName ?? payload.firstName;
   const lastName = user.lastName ?? payload.lastName;
   const email = user.email ?? payload.email ?? null;
-  const name = user.name ?? [firstName, lastName].filter(Boolean).join(' ').trim() || email || 'Gigvora member';
+    const derivedName = [firstName, lastName].filter(Boolean).join(' ').trim();
+    const name = user.name ?? (derivedName || email || 'Gigvora member');
   const memberships = normalizeMemberships(user.memberships ?? payload.memberships ?? user.userType ?? payload.userType);
   const primaryDashboard = user.primaryDashboard ?? payload.primaryDashboard ?? memberships[0];
   const tokens = payload.tokens ?? (payload.accessToken || payload.refreshToken
@@ -192,12 +192,6 @@ export function SessionProvider({ children }) {
       apiClient.clearRefreshToken();
     }
   }, [session?.accessToken, session?.refreshToken]);
-    if (!session?.accessToken) {
-      apiClient.clearAccessToken();
-    } else {
-      apiClient.storeAccessToken(session.accessToken);
-    }
-  }, [session?.accessToken]);
 
   const value = useMemo(
     () => ({
@@ -223,22 +217,6 @@ export function SessionProvider({ children }) {
           apiClient.clearAuthTokens();
         }
         return normalized;
-        const nextSession =
-          normalizeSessionValue({
-            ...payload,
-            isAuthenticated: true,
-          }) ?? { isAuthenticated: true };
-        const nextSession = {
-          isAuthenticated: true,
-          ...rest,
-          ...(accessToken ? { accessToken } : {}),
-          ...(refreshToken ? { refreshToken } : {}),
-        };
-        if (payload.accessToken) {
-          apiClient.storeAccessToken(payload.accessToken);
-        }
-        setSession(nextSession);
-        return nextSession;
       },
       logout: () => {
         apiClient.clearAccessToken();

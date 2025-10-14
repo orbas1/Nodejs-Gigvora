@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/localization/language_menu_button.dart';
 import '../core/providers.dart';
 
 class GigvoraScaffold extends ConsumerWidget {
@@ -39,7 +40,13 @@ class GigvoraScaffold extends ConsumerWidget {
               ),
           ],
         ),
-        actions: actions,
+        actions: [
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 4),
+            child: LanguageMenuButton(),
+          ),
+          if (actions != null) ...actions!,
+        ],
       ),
       body: SafeArea(
         child: Padding(

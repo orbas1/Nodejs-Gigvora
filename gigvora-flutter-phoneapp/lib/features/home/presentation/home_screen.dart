@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:gigvora_mobile/core/localization/gigvora_localizations.dart';
+import 'package:gigvora_mobile/core/localization/language_menu_button.dart';
+
 import '../../auth/application/session_controller.dart';
 import '../../auth/domain/session.dart';
 import '../../ads/presentation/ad_coupon_strip.dart';
@@ -16,33 +19,49 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final sessionState = ref.watch(sessionControllerProvider);
     final controller = ref.read(sessionControllerProvider.notifier);
+    final l10n = GigvoraLocalizations.of(context);
 
     if (!sessionState.isAuthenticated) {
       return GigvoraScaffold(
-        title: 'Gigvora home',
-        subtitle: 'Sign in to unlock personalised dashboards',
+        title: l10n.translate('home.guestTitle'),
+        subtitle: l10n.translate('home.guestSubtitle'),
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Pick a path to join the network or return to your saved progress.',
+              l10n.translate('home.guestDescription'),
               style: Theme.of(context).textTheme.bodyLarge,
             ),
             const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: () => GoRouter.of(context).go('/login'),
-              icon: const Icon(Icons.lock_open),
-              label: const Text('Sign in to continue'),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: () => GoRouter.of(context).go('/signup'),
-              icon: const Icon(Icons.person_add_alt),
-              label: const Text('Create a Gigvora profile'),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                SizedBox(
+                  width: 280,
+                  child: ElevatedButton.icon(
+                    onPressed: () => GoRouter.of(context).go('/login'),
+                    icon: const Icon(Icons.lock_open),
+                    label: Text(l10n.translate('home.guestLogin')),
+                  ),
+                ),
+                SizedBox(
+                  width: 280,
+                  child: OutlinedButton.icon(
+                    onPressed: () => GoRouter.of(context).go('/signup'),
+                    icon: const Icon(Icons.person_add_alt),
+                    label: Text(l10n.translate('home.guestRegister')),
+                  ),
+                ),
+                const SizedBox(
+                  width: 280,
+                  child: LanguageMenuButton(variant: LanguageMenuVariant.cta),
+                ),
+              ],
             ),
             const SizedBox(height: 24),
             Text(
-              'Not sure where to start? Tap "Create a Gigvora profile" to explore freelancer, company, and agency onboarding.',
+              l10n.translate('home.guestInfo'),
               style: Theme.of(context)
                   .textTheme
                   .bodySmall

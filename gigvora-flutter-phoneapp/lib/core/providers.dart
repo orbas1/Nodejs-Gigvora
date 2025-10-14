@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigvora_design_system/gigvora_design_system.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../features/auth/application/session_controller.dart';
 
@@ -19,6 +20,10 @@ final apiClientProvider = Provider<ApiClient>((ref) {
 
 final analyticsServiceProvider = Provider<AnalyticsService>((ref) {
   return ServiceLocator.read<AnalyticsService>();
+});
+
+final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
+  throw UnimplementedError('SharedPreferences instance has not been provided');
 });
 
 final analyticsBootstrapProvider = FutureProvider<void>((ref) async {
