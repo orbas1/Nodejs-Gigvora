@@ -87,6 +87,7 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
     final state = ref.watch(opportunityControllerProvider(widget.category));
     final controller = ref.read(opportunityControllerProvider(widget.category).notifier);
     final items = state.data?.items ?? const <OpportunitySummary>[];
+    final gigSignals = widget.category == OpportunityCategory.gig ? _deriveGigSignals(items) : null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -97,6 +98,8 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
           onChanged: controller.updateQuery,
           decoration: InputDecoration(
             hintText: widget.searchPlaceholder,
+            prefixIcon: const Icon(Icons.search),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(28)),
             prefixIcon: Icon(Icons.search, color: colorScheme.onSurfaceVariant),
             filled: true,
             fillColor: colorScheme.surface,
@@ -137,6 +140,21 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
               'Last updated ${formatRelativeTime(state.lastUpdated!)}',
               style:
                   theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+            ),
+          ),
+        if (gigSignals != null && items.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: GigvoraCard(
+              child: Wrap(
+                spacing: 24,
+                runSpacing: 16,
+                children: [
+                  _SignalTile(label: 'Live briefs', value: gigSignals.total),
+                  _SignalTile(label: 'Published 7d', value: gigSignals.fresh),
+                  _SignalTile(label: 'Remote-ready', value: gigSignals.remoteFriendly),
+                ],
+              ),
             ),
           ),
         Expanded(
@@ -180,6 +198,10 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
                                         children: meta
                                             .map(
                                               (entry) => Chip(
+                                                backgroundColor: Theme.of(context)
+                                                    .colorScheme
+                                                    .primaryContainer
+                                                    .withOpacity(0.3),
                                                 label: Text(entry),
                                                 backgroundColor:
                                                     colorScheme.primary.withOpacity(0.08),
@@ -270,6 +292,55 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
           if ((item.location ?? '').isNotEmpty) item.location!,
         ];
     }
+  }
+
+  _GigSignals _deriveGigSignals(List<OpportunitySummary> items) {
+    if (items.isEmpty) {
+      return const _GigSignals(total: 0, fresh: 0, remoteFriendly: 0);
+    }
+    final now = DateTime.now();
+    var fresh = 0;
+    var remoteFriendly = 0;
+
+    for (final item in items) {
+      if (now.difference(item.updatedAt).inDays <= 7) {
+        fresh += 1;
+      }
+      final label = '${item.location ?? ''} ${item.status ?? ''}'.toLowerCase();
+      if (label.contains('remote') || label.contains('hybrid')) {
+        remoteFriendly += 1;
+      }
+    }
+
+    return _GigSignals(total: items.length, fresh: fresh, remoteFriendly: remoteFriendly);
+  }
+}
+
+class _SignalTile extends StatelessWidget {
+  const _SignalTile({required this.label, required this.value});
+
+  final String label;
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          value.toString(),
+          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -371,4 +442,16 @@ class _OpportunitySkeleton extends StatelessWidget {
       },
     );
   }
+}
+
+class _GigSignals {
+  const _GigSignals({
+    required this.total,
+    required this.fresh,
+    required this.remoteFriendly,
+  });
+
+  final int total;
+  final int fresh;
+  final int remoteFriendly;
 }

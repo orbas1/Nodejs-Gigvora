@@ -11,12 +11,20 @@ const endpointByCategory = {
   mentors: '/discovery/mentors',
 };
 
-export default function useOpportunityListing(category, query, { pageSize = 20 } = {}) {
-  const debouncedQuery = useDebounce((query || '').trim(), 400);
+export default function useOpportunityListing(category, query, { pageSize = 20, enabled = true } = {}) {
+  const trimmedQuery = (query || '').trim();
+  const debouncedQuery = useDebounce(trimmedQuery, 400);
   const endpoint = endpointByCategory[category];
 
+  if (!endpoint) {
+    throw new Error(`Unsupported opportunity category: ${category}`);
+  }
+
+  const shouldFetch = Boolean(enabled);
+  const cacheKeyQuery = shouldFetch ? debouncedQuery : 'disabled';
+
   const resource = useCachedResource(
-    `opportunity:${category}:${debouncedQuery || 'all'}`,
+    `opportunity:${category}:${cacheKeyQuery || 'all'}`,
     ({ signal }) =>
       apiClient.get(endpoint, {
         signal,
@@ -25,7 +33,7 @@ export default function useOpportunityListing(category, query, { pageSize = 20 }
           pageSize,
         },
       }),
-    { dependencies: [debouncedQuery], ttl: 1000 * 60 * 5 },
+    { dependencies: [debouncedQuery, shouldFetch], ttl: 1000 * 60 * 5, enabled: shouldFetch },
   );
 
   return { ...resource, debouncedQuery };
