@@ -70,6 +70,114 @@ class AgencyPipelineItem {
   final DateTime nextAction;
 }
 
+enum AgencyHrAlertSeverity { critical, warning, info }
+
+class AgencyHrAlert {
+  const AgencyHrAlert({
+    required this.message,
+    this.type,
+    this.nextAction,
+    this.severity = AgencyHrAlertSeverity.warning,
+  });
+
+  final String message;
+  final String? type;
+  final String? nextAction;
+  final AgencyHrAlertSeverity severity;
+}
+
+class AgencyHrPolicy {
+  const AgencyHrPolicy({
+    required this.title,
+    required this.outstanding,
+    this.reviewCycleDays,
+    this.effectiveDate,
+  });
+
+  final String title;
+  final int outstanding;
+  final int? reviewCycleDays;
+  final DateTime? effectiveDate;
+}
+
+class AgencyHrRoleCoverage {
+  const AgencyHrRoleCoverage({
+    required this.role,
+    required this.active,
+    required this.hiring,
+    required this.bench,
+    required this.utilizationRate,
+    this.needsAttention = false,
+  });
+
+  final String role;
+  final int active;
+  final int hiring;
+  final int bench;
+  final double utilizationRate;
+  final bool needsAttention;
+}
+
+class AgencyHrOnboardingCandidate {
+  const AgencyHrOnboardingCandidate({
+    required this.name,
+    required this.role,
+    required this.status,
+    this.startDate,
+  });
+
+  final String name;
+  final String role;
+  final String status;
+  final DateTime? startDate;
+}
+
+class AgencyStaffingSummary {
+  const AgencyStaffingSummary({
+    required this.totalCapacityHours,
+    required this.committedHours,
+    required this.benchMembers,
+    required this.benchRate,
+    required this.summary,
+    this.recommendedAction,
+  });
+
+  final int totalCapacityHours;
+  final int committedHours;
+  final int benchMembers;
+  final double benchRate;
+  final String summary;
+  final String? recommendedAction;
+}
+
+class AgencyHrSnapshot {
+  const AgencyHrSnapshot({
+    required this.headcount,
+    required this.contractors,
+    required this.complianceOutstanding,
+    required this.benchHours,
+    required this.benchHealthLabel,
+    required this.utilizationRate,
+    required this.alerts,
+    required this.policies,
+    required this.roleCoverage,
+    required this.staffing,
+    required this.onboarding,
+  });
+
+  final int headcount;
+  final int contractors;
+  final int complianceOutstanding;
+  final int benchHours;
+  final String benchHealthLabel;
+  final double utilizationRate;
+  final List<AgencyHrAlert> alerts;
+  final List<AgencyHrPolicy> policies;
+  final List<AgencyHrRoleCoverage> roleCoverage;
+  final AgencyStaffingSummary staffing;
+  final List<AgencyHrOnboardingCandidate> onboarding;
+}
+
 class AgencyDashboardSnapshot {
   const AgencyDashboardSnapshot({
     required this.generatedAt,
@@ -80,6 +188,7 @@ class AgencyDashboardSnapshot {
     required this.bench,
     required this.pipeline,
     required this.recommendedActions,
+    required this.hr,
     this.fromCache = false,
   });
 
@@ -91,6 +200,7 @@ class AgencyDashboardSnapshot {
   final List<AgencyBenchMember> bench;
   final List<AgencyPipelineItem> pipeline;
   final List<String> recommendedActions;
+  final AgencyHrSnapshot hr;
   final bool fromCache;
 
   AgencyDashboardSnapshot copyWith({
@@ -102,6 +212,7 @@ class AgencyDashboardSnapshot {
     List<AgencyBenchMember>? bench,
     List<AgencyPipelineItem>? pipeline,
     List<String>? recommendedActions,
+    AgencyHrSnapshot? hr,
   }) {
     return AgencyDashboardSnapshot(
       generatedAt: generatedAt ?? this.generatedAt,
@@ -112,6 +223,7 @@ class AgencyDashboardSnapshot {
       bench: bench ?? this.bench,
       pipeline: pipeline ?? this.pipeline,
       recommendedActions: recommendedActions ?? this.recommendedActions,
+      hr: hr ?? this.hr,
       fromCache: fromCache ?? this.fromCache,
     );
   }
