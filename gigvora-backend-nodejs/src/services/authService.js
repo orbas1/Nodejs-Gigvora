@@ -5,15 +5,12 @@ import { OAuth2Client } from 'google-auth-library';
 import { User, sequelize } from '../models/index.js';
 import { normalizeLocationPayload } from '../utils/location.js';
 import twoFactorService from './twoFactorService.js';
-import { resolveAccessTokenSecret, resolveRefreshTokenSecret } from '../utils/jwtSecrets.js';
 
 const TOKEN_EXPIRY = process.env.JWT_EXPIRES_IN || '1h';
 const JWT_SECRET = process.env.JWT_SECRET || 'development-secret';
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'development-refresh-secret';
 const REFRESH_EXPIRY = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
 const ALLOWED_TWO_FACTOR_METHODS = ['email', 'app', 'sms'];
-const JWT_SECRET = process.env.JWT_SECRET;
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
 
 if (!JWT_SECRET || !JWT_REFRESH_SECRET) {
   console.warn('JWT secrets are not fully configured. Set JWT_SECRET and JWT_REFRESH_SECRET to enable authentication.');
@@ -204,14 +201,8 @@ async function verifyTwoFactor(email, code, tokenId) {
 
   const user = await User.findOne({ where: { email } });
   const payload = { id: user.id, type: user.userType };
-  const accessToken = jwt.sign(payload, resolveAccessTokenSecret(), { expiresIn: TOKEN_EXPIRY });
-  const refreshToken = jwt.sign(payload, resolveRefreshTokenSecret(), { expiresIn: '7d' });
   const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
   const refreshToken = jwt.sign(payload, JWT_REFRESH_SECRET, { expiresIn: '7d' });
-  const secret = process.env.JWT_SECRET || 'dev-secret';
-  const refreshSecret = process.env.JWT_REFRESH_SECRET || 'dev-secret-refresh';
-  const accessToken = jwt.sign(payload, secret, { expiresIn: TOKEN_EXPIRY });
-  const refreshToken = jwt.sign(payload, refreshSecret, { expiresIn: '7d' });
   if (!user) {
     throw buildError('Account not found.', 404);
   }

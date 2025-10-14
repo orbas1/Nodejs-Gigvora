@@ -1,42 +1,34 @@
 import { ValidationError } from '../utils/errors.js';
 
-function normaliseMemberships(input) {
-  if (!input) {
+function normalizeToArray(input) {
+  if (input == null) {
     return [];
   }
   if (Array.isArray(input)) {
-    return input
-      .flatMap((value) => `${value}`.split(','))
-      .map((value) => value.trim().toLowerCase())
-      .filter((value) => value.length > 0);
+    return input;
   }
-  if (typeof input === 'string') {
-    return input
-      .split(',')
-      .map((value) => value.trim().toLowerCase())
-      .filter((value) => value.length > 0);
-  }
-  if (typeof input === 'object') {
-    return Object.values(input)
-      .flatMap((value) => normaliseMemberships(value))
-      .filter((value) => value.length > 0);
-  }
-  return [];
+  return [input];
+}
+
+function normaliseMemberships(input) {
+  return normalizeToArray(input)
+    .flatMap((value) => `${value}`.split(','))
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
 }
 
 export function extractMemberships(req) {
   const header =
-    req.headers['x-gigvora-memberships'] ??
-    req.headers['x-gigvora-membership'] ??
-    req.headers['x-gigvora-roles'];
+    req.headers?.['x-gigvora-memberships'] ??
+    req.headers?.['x-gigvora-membership'] ??
+    req.headers?.['x-gigvora-roles'];
 
   const memberships = normaliseMemberships(header);
-
   if (memberships.length) {
     return memberships;
   }
 
-  if (req.user && Array.isArray(req.user.memberships)) {
+  if (Array.isArray(req.user?.memberships)) {
     return normaliseMemberships(req.user.memberships);
   }
 
@@ -45,7 +37,7 @@ export function extractMemberships(req) {
 
 export function requireMembership(allowed = [], { allowAdmin = true } = {}) {
   if (!Array.isArray(allowed) || allowed.length === 0) {
-    throw new ValidationError('requireMembership middleware requires a non-empty array of allowed roles.');
+    throw new ValidationError('requireMembership middleware requires at least one allowed role.');
   }
 
   const allowedSet = new Set(allowed.map((value) => `${value}`.trim().toLowerCase()).filter(Boolean));
@@ -53,9 +45,9 @@ export function requireMembership(allowed = [], { allowAdmin = true } = {}) {
   return (req, res, next) => {
     const memberships = extractMemberships(req);
 
-    if (!Array.isArray(memberships) || memberships.length === 0) {
+    if (!memberships.length) {
       return res.status(403).json({
-        message: 'Volunteer workspace access requires an authenticated volunteer membership.',
+        message: 'Volunteer workspace access requires an authenticated membership.',
         code: 'volunteer_access_required',
       });
     }
@@ -79,7 +71,6 @@ export function requireMembership(allowed = [], { allowAdmin = true } = {}) {
   };
 }
 
-export default requireMembership;
 const PROJECT_MANAGEMENT_ROLES = new Set([
   'project_manager',
   'project_management',
@@ -93,90 +84,62 @@ const PROJECT_MANAGEMENT_ROLES = new Set([
   'admin',
 ]);
 
-function normaliseRole(role) {
-  if (!role) {
+function normaliseRole(value) {
+  if (value == null) {
     return null;
   }
-
-  if (typeof role !== 'string') {
-    return normaliseRole(String(role));
-  }
-
-  const trimmed = role.trim();
-  if (!trimmed) {
-    return null;
-  }
-
-  return trimmed.toLowerCase().replace(/[^a-z0-9]+/g, '_');
-}
-
-function extractRoles(input) {
-  const roles = new Set();
-
-  if (!input) {
-    return roles;
-  }
-
-  const pushRole = (value) => {
-    const normalised = normaliseRole(value);
-    if (normalised) {
-      roles.add(normalised);
-    }
-  };
-
-  if (Array.isArray(input)) {
-    input.forEach(pushRole);
-    return roles;
-  }
-
-  if (typeof input === 'string') {
-    input
-      .split(/[,\s]+/)
-      .map((part) => part.trim())
-      .filter(Boolean)
-      .forEach(pushRole);
-    return roles;
-  }
-
-  pushRole(input);
-  return roles;
+  const normalised = `${value}`.trim().toLowerCase();
+  return normalised ? normalised.replace(/[^a-z0-9]+/g, '_') : null;
 }
 
 function collectRequestRoles(req) {
   const aggregated = new Set();
-
-  const merge = (values) => {
-    extractRoles(values).forEach((value) => aggregated.add(value));
+  const push = (value) => {
+    const role = normaliseRole(value);
+    if (role) {
+      aggregated.add(role);
+    }
   };
 
-  merge(req?.user?.roles);
-  merge(req?.user?.memberships);
-  merge(req?.user?.role);
-  merge(req?.user?.accountTypes);
-  merge(req?.headers?.['x-roles']);
-  merge(req?.headers?.['x-role']);
-  merge(req?.headers?.['x-workspace-roles']);
-  merge(req?.headers?.['x-memberships']);
-  merge(req?.query?.roles);
-  merge(req?.query?.memberships);
-  merge(req?.body?.roles);
-  merge(req?.body?.memberships);
+  const sources = [
+    req.user?.roles,
+    req.user?.memberships,
+    req.user?.role,
+    req.user?.accountTypes,
+    req.headers?.['x-roles'],
+    req.headers?.['x-role'],
+    req.headers?.['x-workspace-roles'],
+    req.headers?.['x-memberships'],
+    req.query?.roles,
+    req.query?.memberships,
+    req.body?.roles,
+    req.body?.memberships,
+  ];
+
+  for (const source of sources) {
+    normalizeToArray(source).forEach((entry) => {
+      if (typeof entry === 'string') {
+        entry
+          .split(/[,\s]+/)
+          .map((part) => part.trim())
+          .filter(Boolean)
+          .forEach(push);
+      } else {
+        push(entry);
+      }
+    });
+  }
 
   return aggregated;
 }
 
 export function hasProjectManagementAccess(req) {
   const roles = collectRequestRoles(req);
-  if (!roles.size) {
-    return false;
-  }
-
   for (const role of roles) {
     if (PROJECT_MANAGEMENT_ROLES.has(role)) {
       return true;
     }
   }
-
   return false;
 }
 
@@ -191,29 +154,11 @@ export function requireProjectManagementRole(req, res, next) {
   });
 }
 
-export default {
-  hasProjectManagementAccess,
-  requireProjectManagementRole,
-};
-import { ValidationError } from '../utils/errors.js';
-
 function normaliseRoles(input) {
-  if (!input) {
-    return [];
-  }
-  if (Array.isArray(input)) {
-    return input.flatMap((value) => normaliseRoles(value));
-  }
-  if (typeof input === 'string') {
-    return input
-      .split(',')
-      .map((value) => value.trim().toLowerCase())
-      .filter(Boolean);
-  }
-  if (typeof input === 'object') {
-    return normaliseRoles(Object.values(input));
-  }
-  return [`${input}`.trim().toLowerCase()].filter(Boolean);
+  return normalizeToArray(input)
+    .flatMap((value) => `${value}`.split(','))
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
 }
 
 export function requireUserType(allowedUserTypes = [], { allowHeaderFallback = true, raise = true } = {}) {
@@ -237,7 +182,6 @@ export function requireUserType(allowedUserTypes = [], { allowHeaderFallback = t
     sources.push(req.body?.userType, req.query?.userType);
 
     const resolvedRoles = normaliseRoles(sources);
-
     const hasAccess = resolvedRoles.some((role) => allowed.has(role));
 
     if (!hasAccess) {
@@ -253,4 +197,9 @@ export function requireUserType(allowedUserTypes = [], { allowHeaderFallback = t
   };
 }
 
-export default { requireUserType };
+export default {
+  requireMembership,
+  hasProjectManagementAccess,
+  requireProjectManagementRole,
+  requireUserType,
+};
