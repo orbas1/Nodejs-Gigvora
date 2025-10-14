@@ -41,6 +41,7 @@ import '../features/blog/presentation/blog_list_screen.dart';
 import '../features/blog/presentation/blog_detail_screen.dart';
 import '../features/cv/presentation/cv_workspace_screen.dart';
 import '../features/security/presentation/security_operations_screen.dart';
+import '../features/company_analytics/presentation/company_analytics_screen.dart';
 import '../features/company_ats/presentation/company_ats_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -184,6 +185,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return null;
         },
         builder: (context, state) => const CompanyAtsScreen(),
+      ),
+      GoRoute(
+        path: '/dashboard/company/analytics',
+        redirect: (context, state) {
+          if (!sessionState.isAuthenticated) {
+            final redirectTo = Uri.encodeComponent(state.uri.toString());
+            return '/login?from=$redirectTo';
+          }
+          final session = sessionState.session;
+          if (session == null || !session.memberships.contains('company')) {
+            return '/home?notice=company_only';
+          }
+          return null;
+        },
+        builder: (context, state) => const CompanyAnalyticsScreen(),
       ),
       GoRoute(
         path: '/dashboard/freelancer/pipeline',

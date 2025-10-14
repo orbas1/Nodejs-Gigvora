@@ -1,0 +1,153 @@
+const companyAnalyticsSample = {
+  'summary': [
+    {
+      'label': 'Projected hires',
+      'value': '38',
+      'delta': '+6 vs last quarter',
+      'trend': 'up',
+    },
+    {
+      'label': 'Backlog roles',
+      'value': '12',
+      'delta': '-3 week over week',
+      'trend': 'down',
+    },
+    {
+      'label': 'Attrition risk',
+      'value': '5.8',
+      'delta': 'Stable across 90 days',
+      'trend': 'steady',
+    },
+    {
+      'label': 'Offer to hire',
+      'value': '26.4%',
+      'delta': '+1.2pt acceptance',
+      'trend': 'up',
+    },
+  ],
+  'forecast': {
+    'projectedHires': 38,
+    'backlog': 12,
+    'timeToFillDays': 29.4,
+    'atRiskProjects': 3,
+    'confidence': 82,
+    'signals': [
+      'Velocity improved after panel automation rolled out.',
+      'Marketing conversions trending +9% from refreshed landing pages.',
+      'Agency channels forecast shortfall of two hires — mitigate with referrals.',
+    ],
+    'lastSynced': '2024-09-21T08:30:00Z',
+  },
+  'scenarios': [
+    {
+      'name': 'Baseline plan',
+      'hiringPlan': 34,
+      'budgetImpact': 0,
+      'probability': 0.55,
+      'status': 'active',
+      'summary': 'Steady state hiring with focused marketing spend and interview automation.',
+    },
+    {
+      'name': 'Acceleration +Design',
+      'hiringPlan': 42,
+      'budgetImpact': 180000,
+      'probability': 0.25,
+      'status': 'proposed',
+      'summary': 'Adds four design squads with accompanying recruiter headcount and enablement.',
+    },
+    {
+      'name': 'Freeze contingency',
+      'hiringPlan': 18,
+      'budgetImpact': -420000,
+      'probability': 0.2,
+      'status': 'monitoring',
+      'summary': 'Protects core roadmap while pausing agency engagements for 90 days.',
+    },
+  ],
+  'conversion': {
+    'applicationToInterview': 41.6,
+    'interviewToOffer': 33.8,
+    'offerToHire': 26.4,
+    'cycleTimeDays': 28.9,
+    'pipelineVelocity': 4.6,
+    'stages': [
+      {
+        'stage': 'Applied',
+        'conversionRate': 100,
+        'dropOffRate': 0,
+        'medianTimeDays': 1.4,
+      },
+      {
+        'stage': 'Recruiter screen',
+        'conversionRate': 58.0,
+        'dropOffRate': 12.0,
+        'medianTimeDays': 2.6,
+      },
+      {
+        'stage': 'Hiring manager',
+        'conversionRate': 47.2,
+        'dropOffRate': 15.3,
+        'medianTimeDays': 4.8,
+      },
+      {
+        'stage': 'Panel loop',
+        'conversionRate': 38.4,
+        'dropOffRate': 20.6,
+        'medianTimeDays': 8.4,
+      },
+      {
+        'stage': 'Offer',
+        'conversionRate': 72.6,
+        'dropOffRate': 6.4,
+        'medianTimeDays': 3.8,
+      },
+    ],
+  },
+  'workforce': {
+    'attritionRisk': 5.8,
+    'mobilityOpportunities': 19,
+    'skillGapAlerts': 7,
+    'planAlignment': {
+      'headcountPlan': 312,
+      'headcountActual': 305,
+      'variance': -7,
+      'budgetPlan': 12600000,
+      'budgetActual': 12380000,
+    },
+    'signals': [
+      'Sales engineering attrition stabilised after mentorship rotation.',
+      'Analytics guild nearing full capacity — flag succession planning needs.',
+      'Leadership bench strength above target after promotion calibrations.',
+    ],
+    'cohortHighlights': [
+      'EMEA GTM: retention 92%, performance index 4.3/5.',
+      'North America R&D: promotion velocity +12% YoY.',
+      'Early talent program: 68 apprentices with 84% conversion.',
+    ],
+  },
+  'alerting': {
+    'openAlerts': 5,
+    'criticalAlerts': 1,
+    'dataFreshnessMinutes': 34,
+    'recent': [
+      {
+        'title': 'DEI reporting lag detected',
+        'severity': 'high',
+        'detectedAt': '2024-09-21T07:40:00Z',
+        'owner': 'People analytics',
+      },
+      {
+        'title': 'Agency invoice pending approval',
+        'severity': 'medium',
+        'detectedAt': '2024-09-20T17:10:00Z',
+        'owner': 'Finance partner',
+      },
+      {
+        'title': 'Mobility application surge',
+        'severity': 'info',
+        'detectedAt': '2024-09-19T22:15:00Z',
+        'owner': 'Internal mobility',
+      },
+    ],
+  },
+};
