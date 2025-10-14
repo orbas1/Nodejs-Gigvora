@@ -86,6 +86,15 @@ import {
   HEADHUNTER_PIPELINE_NOTE_VISIBILITIES, HEADHUNTER_INTERVIEW_TYPES, HEADHUNTER_INTERVIEW_STATUSES, HEADHUNTER_PASS_ON_TARGET_TYPES,
   HEADHUNTER_PASS_ON_STATUSES, HEADHUNTER_CONSENT_STATUSES,
 } from './constants/index.js';
+import {
+  BlogCategory,
+  BlogMedia,
+  BlogPost,
+  BlogPostMedia,
+  BlogPostTag,
+  BlogTag,
+  registerBlogAssociations,
+} from './blogModels.js';
 
 
 export { sequelize } from './sequelizeClient.js';
@@ -94,6 +103,7 @@ const dialect = sequelize.getDialect();
 const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB : DataTypes.JSON;
 
 export * from './constants/index.js';
+export { BlogCategory, BlogMedia, BlogPost, BlogPostMedia, BlogPostTag, BlogTag } from './blogModels.js';
 
 const PIPELINE_OWNER_TYPES = ['freelancer', 'agency', 'company'];
 const TWO_FACTOR_METHODS = ['email', 'app', 'sms'];
@@ -16302,4 +16312,12 @@ export default {
   NetworkingSessionSignup,
   NetworkingBusinessCard,
   MemberBrandingMetric,
+  BlogCategory,
+  BlogTag,
+  BlogMedia,
+  BlogPost,
+  BlogPostTag,
+  BlogPostMedia,
 };
+
+registerBlogAssociations({ User });

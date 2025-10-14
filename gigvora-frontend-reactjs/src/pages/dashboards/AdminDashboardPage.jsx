@@ -2146,6 +2146,39 @@ export default function AdminDashboardPage() {
       <AdCouponManager />
       <AdminGroupManagementPanel />
 
+      <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Blog operations</h2>
+            <p className="mt-1 max-w-2xl text-sm text-slate-600">
+              Launch and govern Gigvora stories, release notes, and playbooks directly from the control tower. Published posts
+              appear instantly across the public blog, member dashboards, and the mobile app.
+            </p>
+          </div>
+          <Link
+            to="/dashboard/admin/blog"
+            className="inline-flex items-center justify-center rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
+          >
+            Open blog studio
+          </Link>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-600">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Enterprise workflow</p>
+            <p className="mt-2">
+              Draft, schedule, and publish articles with tag management, hero imagery, and SEO-ready slugs in a single secured
+              workspace.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-600">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Cross-platform parity</p>
+            <p className="mt-2">
+              Blog highlights surface automatically inside the user dashboard spotlight and the Gigvora mobile experience.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* Summary cards */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {summaryCards.map((card) => (

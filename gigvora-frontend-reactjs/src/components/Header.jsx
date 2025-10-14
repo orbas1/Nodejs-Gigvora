@@ -28,6 +28,7 @@ const NAV_LINKS = [
   { id: 'gigs', to: '/gigs', label: 'Gigs', authOnly: true },
   { id: 'projects', to: '/projects', label: 'Projects', authOnly: true },
   { id: 'launchpad', to: '/experience-launchpad', label: 'Launchpad', authOnly: true },
+  { id: 'blog', to: '/blog', label: 'Blog', authOnly: false },
   {
     id: 'volunteering',
     to: '/volunteering',
@@ -60,6 +61,7 @@ const AUTHENTICATED_NAV_LINKS = [
   { id: 'pages', to: '/pages', label: 'Pages' },
   { id: 'mentors', to: '/mentors', label: 'Mentors' },
   { id: 'inbox', to: '/inbox', label: 'Inbox' },
+  { id: 'blog', to: '/blog', label: 'Blog' },
   { id: 'security-operations', to: '/security-operations', label: 'Security Ops' },
 ];
 

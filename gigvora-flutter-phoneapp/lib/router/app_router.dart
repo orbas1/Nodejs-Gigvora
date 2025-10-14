@@ -37,6 +37,8 @@ import '../features/connections/presentation/connections_screen.dart';
 import '../features/work_management/presentation/work_management_screen.dart';
 import '../features/integrations/presentation/company_integrations_screen.dart';
 import '../features/user_dashboard/presentation/user_dashboard_screen.dart';
+import '../features/blog/presentation/blog_list_screen.dart';
+import '../features/blog/presentation/blog_detail_screen.dart';
 import '../features/cv/presentation/cv_workspace_screen.dart';
 import '../features/security/presentation/security_operations_screen.dart';
 
@@ -107,6 +109,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => ProjectAutoMatchScreen(
           projectId: int.tryParse(state.pathParameters['id'] ?? ''),
         ),
+      ),
+      GoRoute(path: '/blog', builder: (context, state) => const BlogListScreen()),
+      GoRoute(
+        path: '/blog/:slug',
+        builder: (context, state) => BlogDetailScreen(slug: state.pathParameters['slug'] ?? ''),
       ),
       GoRoute(path: '/launchpad', builder: (context, state) => const LaunchpadScreen()),
       GoRoute(path: '/volunteering', builder: (context, state) => const VolunteeringScreen()),

@@ -8,6 +8,7 @@ import DocumentStudioSection from '../../components/documentStudio/DocumentStudi
 import ProjectGigManagementContainer from '../../components/projectGigManagement/ProjectGigManagementContainer.jsx';
 import useSession from '../../hooks/useSession.js';
 import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
+import DashboardBlogSpotlight from '../../components/blog/DashboardBlogSpotlight.jsx';
 import AffiliateProgramSection from '../../components/affiliate/AffiliateProgramSection.jsx';
 
 const DEFAULT_USER_ID = 1;
@@ -507,6 +508,8 @@ export default function UserDashboardPage() {
             onRetry={refresh}
           />
         </div>
+
+        <DashboardBlogSpotlight />
 
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {summaryCards.map((card) => (
