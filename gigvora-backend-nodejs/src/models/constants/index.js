@@ -214,6 +214,8 @@ export const AD_SURFACE_TYPES = [
 export const AD_POSITION_TYPES = ['hero', 'sidebar', 'inline', 'footer'];
 export const AD_KEYWORD_INTENTS = ['awareness', 'consideration', 'conversion', 'retention'];
 export const AD_OPPORTUNITY_TYPES = ['awareness', 'acquisition', 'retention', 'upsell'];
+export const AD_COUPON_STATUSES = ['draft', 'scheduled', 'active', 'paused', 'expired', 'archived'];
+export const AD_COUPON_DISCOUNT_TYPES = ['percentage', 'fixed_amount'];
 export const GIG_ORDER_PIPELINE_STATUSES = [
   'inquiry',
   'qualification',

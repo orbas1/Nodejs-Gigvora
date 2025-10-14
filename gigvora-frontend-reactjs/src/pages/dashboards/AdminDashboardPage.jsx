@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowPathIcon, CurrencyDollarIcon, LifebuoyIcon, ShieldCheckIcon, UsersIcon } from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import { fetchAdminDashboard } from '../../services/admin.js';
+import AdCouponManager from '../../components/admin/AdCouponManager.jsx';
 
 const MENU_SECTIONS = [
   {
@@ -372,6 +373,7 @@ export default function AdminDashboardPage() {
 
   const renderDashboardSections = data ? (
     <div className="space-y-10">
+      <AdCouponManager />
       {/* Summary cards */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {summaryCards.map((card) => (

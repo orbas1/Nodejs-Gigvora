@@ -5195,6 +5195,128 @@ AdPlacement.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+export const AdCoupon = sequelize.define(
+  'AdCoupon',
+  {
+    code: { type: DataTypes.STRING(60), allowNull: false, unique: true },
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    discountType: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'percentage',
+      validate: { isIn: [AD_COUPON_DISCOUNT_TYPES] },
+    },
+    discountValue: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
+    status: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [AD_COUPON_STATUSES] },
+    },
+    startAt: { type: DataTypes.DATE, allowNull: true },
+    endAt: { type: DataTypes.DATE, allowNull: true },
+    maxRedemptions: { type: DataTypes.INTEGER, allowNull: true },
+    perUserLimit: { type: DataTypes.INTEGER, allowNull: true },
+    totalRedemptions: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    metadata: { type: jsonType, allowNull: true },
+    surfaceTargets: { type: jsonType, allowNull: true },
+    termsUrl: { type: DataTypes.STRING(500), allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  { tableName: 'ad_coupons' },
+);
+
+AdCoupon.prototype.toPublicObject = function toPublicObject({ now = new Date() } = {}) {
+  const plain = this.get({ plain: true });
+  const nowTs = now.getTime();
+  const startTs = plain.startAt ? new Date(plain.startAt).getTime() : null;
+  const endTs = plain.endAt ? new Date(plain.endAt).getTime() : null;
+
+  let lifecycleStatus = plain.status;
+  if (plain.status === 'archived') {
+    lifecycleStatus = 'archived';
+  } else if (plain.status === 'paused') {
+    lifecycleStatus = 'paused';
+  } else if (endTs != null && endTs < nowTs) {
+    lifecycleStatus = 'expired';
+  } else if (startTs != null && startTs > nowTs) {
+    lifecycleStatus = 'scheduled';
+  } else if (plain.status === 'draft') {
+    lifecycleStatus = 'draft';
+  } else {
+    lifecycleStatus = 'active';
+  }
+
+  const remainingRedemptions =
+    plain.maxRedemptions == null
+      ? null
+      : Math.max(0, Number(plain.maxRedemptions) - Number(plain.totalRedemptions ?? 0));
+
+  return {
+    id: plain.id,
+    code: plain.code,
+    name: plain.name,
+    description: plain.description ?? null,
+    discountType: plain.discountType,
+    discountValue: Number(plain.discountValue ?? 0),
+    status: plain.status,
+    lifecycleStatus,
+    isActive: lifecycleStatus === 'active',
+    startAt: plain.startAt ?? null,
+    endAt: plain.endAt ?? null,
+    maxRedemptions: plain.maxRedemptions == null ? null : Number(plain.maxRedemptions),
+    perUserLimit: plain.perUserLimit == null ? null : Number(plain.perUserLimit),
+    totalRedemptions: Number(plain.totalRedemptions ?? 0),
+    remainingRedemptions,
+    surfaceTargets: Array.isArray(plain.surfaceTargets) ? plain.surfaceTargets : [],
+    metadata: plain.metadata ?? null,
+    termsUrl: plain.termsUrl ?? null,
+    createdById: plain.createdById ?? null,
+    updatedById: plain.updatedById ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const AdPlacementCoupon = sequelize.define(
+  'AdPlacementCoupon',
+  {
+    couponId: { type: DataTypes.INTEGER, allowNull: false },
+    placementId: { type: DataTypes.INTEGER, allowNull: false },
+    priority: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'ad_placement_coupons' },
+);
+
+AdPlacementCoupon.prototype.toPublicObject = function toPublicObject({ now = new Date() } = {}) {
+  const plain = this.get({ plain: true });
+  const couponPlain = plain.coupon
+    ? typeof plain.coupon.get === 'function'
+      ? plain.coupon.get({ plain: true })
+      : plain.coupon
+    : null;
+  const placementPlain = plain.placement
+    ? typeof plain.placement.get === 'function'
+      ? plain.placement.get({ plain: true })
+      : plain.placement
+    : null;
+
+  return {
+    id: plain.id,
+    couponId: plain.couponId,
+    placementId: plain.placementId,
+    priority: Number(plain.priority ?? 0),
+    metadata: plain.metadata ?? null,
+    coupon: couponPlain ? AdCoupon.build(couponPlain).toPublicObject({ now }) : null,
+    placement: placementPlain ? AdPlacement.build(placementPlain).toPublicObject() : null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 export const Group = sequelize.define(
   'Group',
   {
@@ -12545,6 +12667,22 @@ AdKeyword.belongsToMany(AdCreative, {
 });
 AdCreative.hasMany(AdPlacement, { foreignKey: 'creativeId', as: 'placements', onDelete: 'CASCADE' });
 AdPlacement.belongsTo(AdCreative, { foreignKey: 'creativeId', as: 'creative' });
+AdCoupon.belongsToMany(AdPlacement, {
+  through: AdPlacementCoupon,
+  foreignKey: 'couponId',
+  otherKey: 'placementId',
+  as: 'placements',
+});
+AdPlacement.belongsToMany(AdCoupon, {
+  through: AdPlacementCoupon,
+  foreignKey: 'placementId',
+  otherKey: 'couponId',
+  as: 'coupons',
+});
+AdCoupon.hasMany(AdPlacementCoupon, { foreignKey: 'couponId', as: 'placementLinks', onDelete: 'CASCADE' });
+AdPlacementCoupon.belongsTo(AdCoupon, { foreignKey: 'couponId', as: 'coupon' });
+AdPlacement.hasMany(AdPlacementCoupon, { foreignKey: 'placementId', as: 'couponLinks', onDelete: 'CASCADE' });
+AdPlacementCoupon.belongsTo(AdPlacement, { foreignKey: 'placementId', as: 'placement' });
 
 export const FinanceRevenueEntry = sequelize.define(
   'FinanceRevenueEntry',
@@ -16111,6 +16249,8 @@ export default {
   AdCampaign,
   AdCreative,
   AdPlacement,
+  AdCoupon,
+  AdPlacementCoupon,
   AdKeyword,
   AdKeywordAssignment,
   Group,
