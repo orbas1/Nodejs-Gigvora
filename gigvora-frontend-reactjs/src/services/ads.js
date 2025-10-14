@@ -1,28 +1,72 @@
 import { apiClient } from './apiClient.js';
 
+function normaliseSurface(value) {
+  if (!value) {
+    return null;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length ? trimmed : null;
+  }
+  if (typeof value === 'object' && value.surface) {
+    return normaliseSurface(value.surface);
+  }
+  return null;
+}
+
+function serializeSurfaces(surfaces) {
+  if (!Array.isArray(surfaces)) {
+    return undefined;
+  }
+
+  const normalised = surfaces
+    .map(normaliseSurface)
+    .filter(Boolean);
+
+  if (!normalised.length) {
+    return undefined;
+  }
+
+  return Array.from(new Set(normalised)).join(',');
+}
+
+function serialiseContext(context) {
+  if (!context || typeof context !== 'object') {
 function serializeSurfaces(surfaces) {
   if (!Array.isArray(surfaces) || !surfaces.length) {
     return undefined;
   }
-  return surfaces.join(',');
+
+  try {
+    return JSON.stringify(context);
+  } catch (error) {
+    console.warn('Unable to serialise ads context payload.');
+    return undefined;
+  }
 }
 
-export async function getAdsDashboard({ surfaces, context, bypassCache = false } = {}) {
+function buildAdminHeaders(additionalHeaders = {}) {
+  return {
+    'x-user-type': 'admin',
+    ...additionalHeaders,
+  };
+}
+
+export async function getAdsDashboard({ surfaces, context, bypassCache = false, signal } = {}) {
   const params = {
     surfaces: serializeSurfaces(surfaces),
     bypassCache: bypassCache ? 'true' : undefined,
-    context: context ? JSON.stringify(context) : undefined,
+    context: serialiseContext(context),
   };
 
   return apiClient.get('/ads/dashboard', {
     params,
-    headers: {
-      'x-user-type': 'admin',
-    },
+    signal,
+    headers: buildAdminHeaders(),
   });
 }
 
-export async function listAdsPlacements({ surfaces, status } = {}) {
+export async function listAdsPlacements({ surfaces, status, signal } = {}) {
   const params = {
     surfaces: serializeSurfaces(surfaces),
     status,
@@ -30,9 +74,8 @@ export async function listAdsPlacements({ surfaces, status } = {}) {
 
   return apiClient.get('/ads/placements', {
     params,
-    headers: {
-      'x-user-type': 'admin',
-    },
+    signal,
+    headers: buildAdminHeaders(),
   });
 }
 

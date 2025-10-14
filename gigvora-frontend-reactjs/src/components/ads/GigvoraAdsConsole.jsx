@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowPathIcon,
   ArrowTrendingUpIcon,
@@ -530,7 +530,15 @@ export default function GigvoraAdsConsole({ initialSnapshot, defaultContext }) {
     lastUpdated: initialSnapshot?.generatedAt ? new Date(initialSnapshot.generatedAt) : null,
   }));
   const [selectedSurface, setSelectedSurface] = useState(() => initialSnapshot?.surfaces?.[0]?.surface ?? null);
-  const [placementsState, setPlacementsState] = useState({ cache: new Map(), loading: false, error: null });
+  const [placementsState, setPlacementsState] = useState({
+    cache: new Map(),
+    loading: false,
+    error: null,
+    activeSurface: null,
+  });
+  const [activeRefreshMode, setActiveRefreshMode] = useState(null);
+  const dashboardRequestRef = useRef(null);
+  const placementRequestControllers = useRef(new Map());
 
   const contextPayload = useMemo(() => {
     if (defaultContext && typeof defaultContext === 'object') {
@@ -552,7 +560,7 @@ export default function GigvoraAdsConsole({ initialSnapshot, defaultContext }) {
     setSelectedSurface((previous) => previous ?? initialSnapshot.surfaces?.[0]?.surface ?? null);
   }, [initialSnapshot]);
 
-  const surfaces = state.snapshot?.surfaces ?? [];
+  const surfaces = useMemo(() => state.snapshot?.surfaces ?? [], [state.snapshot]);
   const overview = state.snapshot?.overview ?? null;
   const keywordHighlights = overview?.keywordHighlights ?? [];
   const taxonomyHighlights = overview?.taxonomyHighlights ?? [];
@@ -560,13 +568,27 @@ export default function GigvoraAdsConsole({ initialSnapshot, defaultContext }) {
 
   const handleRefresh = useCallback(
     async (options = {}) => {
+      const { bypassCache = true } = options;
+
+      if (dashboardRequestRef.current) {
+        dashboardRequestRef.current.abort();
+      }
+
+      const controller = new AbortController();
+      dashboardRequestRef.current = controller;
+
+      setActiveRefreshMode(bypassCache ? 'force' : 'standard');
       setState((previous) => ({ ...previous, loading: true, error: null }));
+
       try {
+        const surfaceKeys = surfaces.length ? surfaces.map((surface) => surface.surface) : undefined;
         const snapshot = await getAdsDashboard({
-          surfaces: surfaces.length ? surfaces.map((surface) => surface.surface) : undefined,
+          surfaces: surfaceKeys,
           context: contextPayload,
-          bypassCache: options.bypassCache ?? true,
+          bypassCache,
+          signal: controller.signal,
         });
+
         setState({
           snapshot,
           loading: false,
@@ -574,29 +596,85 @@ export default function GigvoraAdsConsole({ initialSnapshot, defaultContext }) {
           lastUpdated: snapshot.generatedAt ? new Date(snapshot.generatedAt) : new Date(),
         });
         setSelectedSurface(snapshot?.surfaces?.[0]?.surface ?? null);
-        setPlacementsState({ cache: new Map(), loading: false, error: null });
+        setPlacementsState({ cache: new Map(), loading: false, error: null, activeSurface: null });
       } catch (error) {
+        if (error.name === 'AbortError') {
+          return;
+        }
         setState((previous) => ({ ...previous, loading: false, error }));
+      } finally {
+        if (dashboardRequestRef.current === controller) {
+          dashboardRequestRef.current = null;
+          setActiveRefreshMode(null);
+        }
       }
     },
     [contextPayload, surfaces],
   );
 
+  useEffect(() => {
+    if (!initialSnapshot && !state.snapshot && !state.loading) {
+      handleRefresh({ bypassCache: true });
+    }
+  }, [handleRefresh, initialSnapshot, state.loading, state.snapshot]);
+
+  useEffect(() => {
+    return () => {
+      if (dashboardRequestRef.current) {
+        dashboardRequestRef.current.abort();
+      }
+      placementRequestControllers.current.forEach((controller) => controller.abort());
+      placementRequestControllers.current.clear();
+    };
+  }, []);
+
   const loadPlacementsForSurface = useCallback(async (surface) => {
     if (!surface) {
       return;
     }
-    setPlacementsState((previous) => ({ ...previous, loading: true, error: null }));
+    const existingController = placementRequestControllers.current.get(surface);
+    if (existingController) {
+      existingController.abort();
+    }
+
+    const controller = new AbortController();
+    placementRequestControllers.current.set(surface, controller);
+
+    setPlacementsState((previous) => ({
+      ...previous,
+      loading: true,
+      error: null,
+      activeSurface: surface,
+    }));
+
     try {
-      const response = await listAdsPlacements({ surfaces: [surface] });
+      const response = await listAdsPlacements({ surfaces: [surface], signal: controller.signal });
       const placements = response.placements ?? response.surface?.placements ?? [];
       setPlacementsState((previous) => {
         const nextCache = new Map(previous.cache);
         nextCache.set(surface, placements);
-        return { cache: nextCache, loading: false, error: null };
+        return {
+          cache: nextCache,
+          loading: false,
+          error: null,
+          activeSurface: previous.activeSurface === surface ? null : previous.activeSurface,
+        };
       });
     } catch (error) {
-      setPlacementsState((previous) => ({ ...previous, loading: false, error }));
+      if (error.name === 'AbortError') {
+        return;
+      }
+      setPlacementsState((previous) => ({
+        ...previous,
+        loading: false,
+        error,
+        activeSurface: previous.activeSurface === surface ? null : previous.activeSurface,
+      }));
+    } finally {
+      const activeController = placementRequestControllers.current.get(surface);
+      if (activeController === controller) {
+        placementRequestControllers.current.delete(surface);
+      }
     }
   }, []);
 
@@ -659,26 +737,38 @@ export default function GigvoraAdsConsole({ initialSnapshot, defaultContext }) {
 
   const renderSurfaceButton = (surface) => {
     const isActive = surface.surface === selectedSurface;
+    const isLoadingSurface =
+      placementsState.loading && placementsState.activeSurface === surface.surface;
     return (
       <button
         key={surface.surface}
         type="button"
         onClick={() => setSelectedSurface(surface.surface)}
+        disabled={state.loading}
+        aria-pressed={isActive}
         className={`rounded-full border px-4 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
           isActive
             ? 'border-blue-500 bg-blue-100 text-blue-800 shadow-sm'
             : 'border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:text-blue-600'
-        }`}
+        } disabled:cursor-not-allowed disabled:opacity-60`}
       >
-        <span className="block text-left">
-          <span className="font-semibold">{surface.label}</span>
-          <span className="ml-2 text-xs text-slate-500">
+        <span className="flex flex-col text-left">
+          <span className="flex items-center gap-2">
+            <span className="font-semibold">{surface.label}</span>
+            {isLoadingSurface ? (
+              <ArrowPathIcon className="h-4 w-4 animate-spin text-blue-500" aria-hidden="true" />
+            ) : null}
+          </span>
+          <span className="text-xs text-slate-500">
             {formatNumber(surface.totalPlacements)} placements
           </span>
         </span>
       </button>
     );
   };
+
+  const isRefreshing = state.loading && activeRefreshMode === 'standard';
+  const isForceSyncing = state.loading && activeRefreshMode === 'force';
 
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-lg shadow-blue-100/40">
@@ -698,18 +788,27 @@ export default function GigvoraAdsConsole({ initialSnapshot, defaultContext }) {
             <button
               type="button"
               onClick={() => handleRefresh({ bypassCache: false })}
-              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-blue-200 hover:text-blue-600"
+              disabled={state.loading}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-blue-200 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <ArrowPathIcon className="h-4 w-4" />
-              Refresh
+              <ArrowPathIcon
+                className={`h-4 w-4 ${isRefreshing ? 'animate-spin text-blue-500' : 'text-slate-500'}`}
+                aria-hidden="true"
+              />
+              <span>Refresh</span>
             </button>
             <button
               type="button"
               onClick={() => handleRefresh({ bypassCache: true })}
-              className="inline-flex items-center gap-2 rounded-full border border-blue-500 bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500"
+              disabled={state.loading}
+              className="inline-flex items-center gap-2 rounded-full border border-blue-500 bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-70"
             >
-              <SparklesIcon className="h-4 w-4" />
-              Force sync
+              {isForceSyncing ? (
+                <ArrowPathIcon className="h-4 w-4 animate-spin text-white" aria-hidden="true" />
+              ) : (
+                <SparklesIcon className="h-4 w-4" aria-hidden="true" />
+              )}
+              <span>Force sync</span>
             </button>
           </div>
         </div>
