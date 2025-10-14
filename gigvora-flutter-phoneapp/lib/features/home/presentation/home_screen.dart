@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../auth/application/session_controller.dart';
 import '../../auth/domain/session.dart';
+import '../../ads/presentation/ad_coupon_strip.dart';
 import '../../finance/domain/finance_access_policy.dart';
 import '../../../theme/widgets.dart';
 
@@ -109,6 +110,8 @@ class HomeScreen extends ConsumerWidget {
               const SizedBox(height: 8),
               _DashboardActions(actions: activeDashboard.actions),
             ],
+            const SizedBox(height: 24),
+            AdCouponStrip(surface: _surfaceForRole(activeRole)),
             const SizedBox(height: 16),
             const _NetworkCtaCard(),
             const SizedBox(height: 12),
@@ -324,6 +327,23 @@ class _HeroPill extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+String _surfaceForRole(String role) {
+  switch (role) {
+    case 'admin':
+      return 'admin_dashboard';
+    case 'freelancer':
+      return 'freelancer_dashboard';
+    case 'company':
+      return 'company_dashboard';
+    case 'agency':
+      return 'agency_dashboard';
+    case 'headhunter':
+      return 'headhunter_dashboard';
+    default:
+      return 'user_dashboard';
   }
 }
 

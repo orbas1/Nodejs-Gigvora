@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowPathIcon, CurrencyDollarIcon, LifebuoyIcon, ShieldCheckIcon, UsersIcon } from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import { fetchAdminDashboard } from '../../services/admin.js';
+import AdCouponManager from '../../components/admin/AdCouponManager.jsx';
 import useSession from '../../hooks/useSession.js';
 import { Link } from 'react-router-dom';
 import { ArrowPathIcon, CurrencyDollarIcon, LifebuoyIcon, ShieldCheckIcon, UsersIcon } from '@heroicons/react/24/outline';
@@ -1471,6 +1472,7 @@ export default function AdminDashboardPage() {
 
   const renderDashboardSections = data ? (
     <div className="space-y-10">
+      <AdCouponManager />
       <AdminGroupManagementPanel />
 
       {/* Summary cards */}

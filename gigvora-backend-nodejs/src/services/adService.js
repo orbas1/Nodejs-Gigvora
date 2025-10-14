@@ -3,6 +3,8 @@ import {
   AdCampaign,
   AdCreative,
   AdPlacement,
+  AdCoupon,
+  AdPlacementCoupon,
   AdKeyword,
   AdKeywordAssignment,
   OpportunityTaxonomy,
@@ -150,6 +152,74 @@ function collectPlacementTaxonomies(placement) {
     .filter(Boolean);
 }
 
+function collectPlacementCoupons(placement, now) {
+  const links = Array.isArray(placement.couponLinks) ? placement.couponLinks : [];
+  return links
+    .map((link) => {
+      const couponRecord = link.coupon ?? link;
+      if (!couponRecord) {
+        return null;
+      }
+      const coupon =
+        typeof couponRecord.get === 'function' ? couponRecord.get({ plain: true }) : couponRecord;
+      const startTs = coupon.startAt ? new Date(coupon.startAt).getTime() : null;
+      const endTs = coupon.endAt ? new Date(coupon.endAt).getTime() : null;
+      const nowTs = now.getTime();
+
+      let lifecycleStatus = coupon.lifecycleStatus ?? coupon.status ?? 'draft';
+      if (coupon.status === 'archived') {
+        lifecycleStatus = 'archived';
+      } else if (coupon.status === 'paused') {
+        lifecycleStatus = 'paused';
+      } else if (endTs != null && endTs < nowTs) {
+        lifecycleStatus = 'expired';
+      } else if (startTs != null && startTs > nowTs) {
+        lifecycleStatus = 'scheduled';
+      } else if (coupon.status === 'draft') {
+        lifecycleStatus = 'draft';
+      } else {
+        lifecycleStatus = 'active';
+      }
+
+      const remainingRedemptions =
+        coupon.maxRedemptions == null
+          ? null
+          : Math.max(0, Number(coupon.maxRedemptions) - Number(coupon.totalRedemptions ?? 0));
+
+      return {
+        id: coupon.id,
+        code: coupon.code,
+        name: coupon.name,
+        description: coupon.description ?? null,
+        discountType: coupon.discountType,
+        discountValue: Number(coupon.discountValue ?? 0),
+        status: coupon.status,
+        lifecycleStatus,
+        isActive: lifecycleStatus === 'active',
+        startAt: coupon.startAt ?? null,
+        endAt: coupon.endAt ?? null,
+        maxRedemptions: coupon.maxRedemptions == null ? null : Number(coupon.maxRedemptions),
+        perUserLimit: coupon.perUserLimit == null ? null : Number(coupon.perUserLimit),
+        totalRedemptions: Number(coupon.totalRedemptions ?? 0),
+        remainingRedemptions,
+        surfaceTargets: Array.isArray(coupon.surfaceTargets) ? coupon.surfaceTargets : [],
+        metadata: coupon.metadata ?? null,
+        termsUrl: coupon.termsUrl ?? null,
+        priority: Number(link.priority ?? 0),
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => {
+      if (a.isActive !== b.isActive) {
+        return a.isActive ? -1 : 1;
+      }
+      if (a.priority !== b.priority) {
+        return a.priority - b.priority;
+      }
+      return a.code.localeCompare(b.code);
+    });
+}
+
 function scorePlacement(placement, contextSets, now) {
   const { keywordSet, taxonomySet } = contextSets;
   const keywords = collectPlacementKeywords(placement);
@@ -179,6 +249,7 @@ function decoratePlacement(placement, contextSets, now) {
   const score = scorePlacement(plain, contextSets, now);
   const keywords = collectPlacementKeywords(plain);
   const taxonomies = collectPlacementTaxonomies(plain);
+  const coupons = collectPlacementCoupons(plain, now);
   const { timeUntilStartMinutes, timeUntilEndMinutes } = computeTimeMetrics(
     plain.startAt,
     plain.endAt,
@@ -239,6 +310,7 @@ function decoratePlacement(placement, contextSets, now) {
     creative,
     keywords,
     taxonomies,
+    coupons,
   };
 }
 
@@ -265,6 +337,11 @@ async function loadPlacementRecords({ surfaces, status, now }) {
           ],
         },
       ],
+    },
+    {
+      model: AdPlacementCoupon,
+      as: 'couponLinks',
+      include: [{ model: AdCoupon, as: 'coupon' }],
     },
   ];
 
@@ -332,6 +409,9 @@ function buildOverview({
   const surfaceSummaries = new Map();
   const keywordWeights = new Map();
   const taxonomyWeights = new Map();
+  let totalCoupons = 0;
+  let totalActiveCoupons = 0;
+  let placementsWithCoupons = 0;
 
   placements.forEach((placement) => {
     const creative = placement.creative ?? {};
@@ -365,6 +445,13 @@ function buildOverview({
     placement.taxonomies.forEach((entry) => {
       taxonomyWeights.set(entry.slug, (taxonomyWeights.get(entry.slug) ?? 0) + (entry.weight ?? 1));
     });
+
+    const couponCount = placement.coupons?.length ?? 0;
+    if (couponCount > 0) {
+      placementsWithCoupons += 1;
+      totalCoupons += couponCount;
+      totalActiveCoupons += placement.coupons.filter((coupon) => coupon.isActive).length;
+    }
   });
 
   const surfaceSummariesArray = Array.from(surfaceSummaries.values()).map((summary) => ({
@@ -394,6 +481,9 @@ function buildOverview({
     surfaces: surfaceSummariesArray,
     keywordHighlights,
     taxonomyHighlights,
+    totalCoupons,
+    activeCoupons: totalActiveCoupons,
+    placementsWithCoupons,
     context,
     generatedAt: now.toISOString(),
   };
@@ -436,6 +526,14 @@ function buildRecommendations({ placements, overview, context }) {
     recommendations.push(
       `Review ${upcomingSoon.length} placement${upcomingSoon.length === 1 ? '' : 's'} scheduled to go live within the next hour to confirm creative approvals.`,
     );
+  }
+
+  if (overview.placementsWithCoupons === 0) {
+    recommendations.push(
+      'Attach at least one coupon to high-visibility placements so members see current incentives alongside ads.',
+    );
+  } else if (overview.activeCoupons === 0) {
+    recommendations.push('Enable at least one active coupon to unlock conversion-ready calls to action in ad spaces.');
   }
 
   if (!recommendations.length) {

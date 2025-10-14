@@ -10,6 +10,7 @@ import {
 } from '@heroicons/react/24/outline';
 import gigvoraWordmark from '../../images/Gigvora Logo.png';
 import MessagingDock from '../components/messaging/MessagingDock.jsx';
+import AdPlacementRail from '../components/ads/AdPlacementRail.jsx';
 
 function slugify(value) {
   if (!value) {
@@ -108,6 +109,15 @@ function DefaultAvatar({ initials }) {
   );
 }
 
+const DEFAULT_AD_SURFACE_BY_DASHBOARD = {
+  admin: 'admin_dashboard',
+  user: 'user_dashboard',
+  freelancer: 'freelancer_dashboard',
+  company: 'company_dashboard',
+  agency: 'agency_dashboard',
+  headhunter: 'headhunter_dashboard',
+};
+
 export default function DashboardLayout({
   currentDashboard,
   title,
@@ -120,6 +130,7 @@ export default function DashboardLayout({
   children,
   activeMenuItem,
   onMenuItemSelect,
+  adSurface,
 }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -365,8 +376,10 @@ export default function DashboardLayout({
     </div>
   );
 
+  const resolvedAdSurface = adSurface ?? DEFAULT_AD_SURFACE_BY_DASHBOARD[currentDashboard] ?? 'global_dashboard';
+
   return (
-    <div className="relative flex min-h-screen bg-slate-50 text-slate-900">
+    <div className="relative flex min-h-screen flex-col bg-slate-50 text-slate-900 lg:flex-row">
       <aside
         className={`fixed inset-y-0 left-0 z-30 transform border-r border-slate-200 bg-white/95 shadow-lg transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
@@ -396,6 +409,7 @@ export default function DashboardLayout({
 
         <main className="flex-1 bg-slate-50/60">{children}</main>
       </div>
+      {resolvedAdSurface ? <AdPlacementRail surface={resolvedAdSurface} /> : null}
       <MessagingDock />
     </div>
   );

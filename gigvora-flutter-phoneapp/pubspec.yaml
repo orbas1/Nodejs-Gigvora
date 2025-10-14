@@ -16,6 +16,7 @@ dependencies:
     path: packages/gigvora_foundation
   gigvora_design_system:
     path: packages/gigvora_design_system
+  url_launcher: ^6.2.5
   google_sign_in: ^6.2.1
 
 dev_dependencies:
