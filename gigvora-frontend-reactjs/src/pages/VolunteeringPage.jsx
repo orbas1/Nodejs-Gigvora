@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
 import DataStatus from '../components/DataStatus.jsx';
@@ -104,16 +104,71 @@ export default function VolunteeringPage() {
     [remoteOnly, freshness, selectedOrganizations.length, debouncedQuery],
   );
 
+  const filterTelemetry = useMemo(
+    () => ({
+      query: debouncedQuery || null,
+      filters: filtersActive ? activeFilters : null,
+    }),
+    [debouncedQuery, filtersActive, activeFilters],
+  );
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      analytics.track('web_volunteer_access_prompt', { state: 'auth_required' }, { source: 'web_app' });
+      return;
+    }
+
+    if (!hasVolunteerAccess) {
+      analytics.track(
+        'web_volunteer_access_prompt',
+        {
+          state: 'membership_required',
+          memberships: Array.from(membershipSet),
+        },
+        { source: 'web_app' },
+      );
+    }
+  }, [isAuthenticated, hasVolunteerAccess, membershipSet]);
+
+  const listingViewSignatureRef = useRef(null);
+  useEffect(() => {
+    if (!hasVolunteerAccess || !items.length || loading) {
+      return;
+    }
+
+    const signature = JSON.stringify({
+      query: debouncedQuery || null,
+      filters: filtersActive ? activeFilters : null,
+      resultCount: items.length,
+    });
+
+    if (listingViewSignatureRef.current === signature) {
+      return;
+    }
+
+    listingViewSignatureRef.current = signature;
+
+    analytics.track(
+      'web_volunteer_listing_viewed',
+      {
+        query: debouncedQuery || null,
+        resultCount: items.length,
+        filters: filtersActive ? activeFilters : null,
+        fromCache: fromCache || false,
+      },
+      { source: 'web_app' },
+    );
+  }, [hasVolunteerAccess, items.length, filtersActive, activeFilters, debouncedQuery, loading, fromCache]);
+
   const handleVolunteer = (role) => {
-    const filterContext = Object.keys(activeFilters).length ? activeFilters : null;
     analytics.track(
       'web_volunteer_cta',
       {
         id: role.id,
         title: role.title,
         organization: role.organization,
-        query: debouncedQuery || null,
-        filters: filterContext,
+        query: filterTelemetry.query,
+        filters: filterTelemetry.filters,
       },
       { source: 'web_app' },
     );

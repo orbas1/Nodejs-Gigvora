@@ -1,6 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   BriefcaseIcon,
   UsersIcon,
@@ -380,7 +379,8 @@ function ActivityTimeline({ items }) {
   return (
     <div className="space-y-4">
       {items.map((item) => (
-        <div key={item.id ?? `${item.note}-${item.createdAt}`}
+        <div
+          key={item.id ?? `${item.note}-${item.createdAt}`}
           className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
         >
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -469,7 +469,9 @@ function buildSections(data) {
     : ['Capture voluntary demographic surveys to unlock representation insights.'];
 
   const alertItems = Array.isArray(alerts.items) && alerts.items.length
-    ? alerts.items.slice(0, 4).map((item) => `${item.title ?? item.type ?? 'Alert'} • ${formatRelativeTime(item.detectedAt)}`)
+    ? alerts.items
+        .slice(0, 4)
+        .map((item) => `${item.title ?? item.type ?? 'Alert'} • ${formatRelativeTime(item.detectedAt)}`)
     : ['No active alerts detected in this window.'];
 
   const networkingSessions = networking.sessions ?? {};
@@ -531,7 +533,9 @@ function buildSections(data) {
         {
           title: 'Recommended actions',
           subtitle: 'Automation & guardrails',
-          items: recommendedActions.length ? recommendedActions : ['Keep activity flowing to surface playbook suggestions.'],
+          items: recommendedActions.length
+            ? recommendedActions
+            : ['Keep activity flowing to surface playbook suggestions.'],
         },
       ],
     },
@@ -715,66 +719,11 @@ function buildSections(data) {
   ];
 }
 
-export default function CompanyDashboardPage() {
-  const { session, isAuthenticated } = useSession();
-  const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-
-  const workspaceIdParam = searchParams.get('workspaceId');
-  const workspaceSlugParam = searchParams.get('workspaceSlug');
-  const lookbackParam = searchParams.get('lookbackDays');
-  const lookbackDays = lookbackParam ? Math.max(Number.parseInt(lookbackParam, 10) || 30, 7) : 30;
-
-  const isCompanyMember = isAuthenticated && (session?.memberships ?? []).includes('company');
-
-  useEffect(() => {
-    if (!isAuthenticated) {
-      return;
-    }
-
-    if (!isCompanyMember) {
-      const fallback = session?.primaryDashboard ?? session?.memberships?.find((role) => role !== 'company');
-      if (fallback) {
-        navigate(`/dashboard/${fallback}`, { replace: true, state: { from: '/dashboard/company' } });
-      }
-    }
-  }, [isAuthenticated, isCompanyMember, navigate, session?.primaryDashboard, session?.memberships]);
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace state={{ redirectTo: '/dashboard/company' }} />;
-  }
-
-  if (!isCompanyMember) {
-    return (
-      <DashboardLayout
-        currentDashboard="company"
-        title="Company Talent Acquisition Hub"
-        subtitle="Integrated ATS & partnerships"
-        description="Everything hiring teams need to design jobs, run interviews, collaborate with headhunters, and promote a magnetic employer brand on Gigvora."
-        menuSections={menuSections}
-        availableDashboards={availableDashboards}
-      >
-        <AccessDeniedPanel
-          availableDashboards={(session?.memberships ?? []).filter((membership) => membership !== 'company')}
-          onNavigate={(dashboard) => navigate(`/dashboard/${dashboard}`)}
-        />
-      </DashboardLayout>
-    );
-  }
-
-  const {
-    data,
-    error,
-    loading,
-    refresh,
-    fromCache,
-    lastUpdated,
-    summaryCards,
-  } = useCompanyDashboard({
-  const employerBrandStudio = data.employerBrandStudio ?? null;
-  const employeeJourneys = data.employeeJourneys ?? null;
-  const settingsGovernance = data.settingsGovernance ?? null;
-  const pageWorkspace = employerBrandStudio?.pages ?? data.pageWorkspace ?? null;
+function BrandAndPeopleSection({ data }) {
+  const employerBrandStudio = data?.employerBrandStudio ?? null;
+  const employeeJourneys = data?.employeeJourneys ?? null;
+  const settingsGovernance = data?.settingsGovernance ?? null;
+  const pageWorkspace = employerBrandStudio?.pages ?? data?.pageWorkspace ?? null;
 
   if (!employerBrandStudio && !employeeJourneys && !settingsGovernance) {
     return null;
@@ -918,45 +867,13 @@ export default function CompanyDashboardPage() {
               <ul className="mt-3 space-y-3">
                 {employerBrandStudio.stories.topStories.map((story) => (
                   <li key={story.id} className="rounded-xl border border-blue-100 bg-blue-50/60 p-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-semibold text-blue-900">{story.title}</p>
-                      {story.engagementScore != null ? (
-                        <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-700">
-                          {formatNumber(story.engagementScore)}
-                        </span>
-                      ) : null}
-                    </div>
-                    <p className="mt-1 text-xs text-blue-700">
-                      {story.authorName ? `By ${story.authorName}` : 'Team submission'} •{' '}
-                      {story.publishedAt ? formatRelativeTime(story.publishedAt) : 'Unscheduled'}
-                    </p>
-                    {story.summary ? <p className="mt-2 text-sm text-blue-800">{story.summary}</p> : null}
+                    <p className="text-sm font-semibold text-blue-900">{story.title}</p>
+                    <p className="text-xs text-blue-700">{story.tagline ?? story.category ?? 'Story'}</p>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="mt-2 text-sm text-blue-700">
-                Share your first culture story to engage candidates and employees.
-              </p>
-            )}
-          </div>
-
-          <div className="rounded-2xl border border-blue-100 bg-white/80 p-4">
-            <h4 className="text-sm font-semibold uppercase tracking-wide text-blue-700">Benefits spotlight</h4>
-            {employerBrandStudio?.benefits?.categories?.length ? (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {employerBrandStudio.benefits.categories.map((category) => (
-                  <span
-                    key={category.category}
-                    className="inline-flex items-center gap-1 rounded-full bg-blue-100/80 px-3 py-1 text-xs font-semibold text-blue-800"
-                  >
-                    <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                    {category.category} · {formatNumber(category.count)}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <p className="mt-2 text-sm text-blue-700">Document benefits to share with candidates and employees.</p>
+              <p className="mt-2 text-sm text-blue-700">Publish stories to showcase culture moments across teams.</p>
             )}
 
             {employerBrandStudio?.benefits?.featured?.length ? (
@@ -981,89 +898,92 @@ export default function CompanyDashboardPage() {
               </ul>
             ) : null}
           </div>
-      </div>
-    </div>
 
-      <div id="brand-pages" className="space-y-4 rounded-3xl border border-indigo-100 bg-indigo-50/40 p-5">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h3 className="text-xl font-semibold text-indigo-900">Public pages studio</h3>
-            <p className="text-sm text-indigo-700">
-              Publish high-converting company and program destinations with approval workflows and analytics baked in.
-            </p>
-            {pageWorkspace?.lastPublishedAt ? (
-              <p className="mt-1 text-xs text-indigo-600">
-                Last launch {formatRelativeTime(pageWorkspace.lastPublishedAt)}
-              </p>
-            ) : null}
-          </div>
-          <Link
-            to="/pages"
-            className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-white/70 px-4 py-2 text-xs font-semibold text-indigo-700 transition hover:border-indigo-400 hover:text-indigo-900"
-          >
-            Open page studio
-          </Link>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {pageMetrics.map((metric) => (
-            <div key={metric.label} className="rounded-2xl bg-white/80 p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">{metric.label}</p>
-              <p className="mt-2 text-xl font-semibold text-indigo-900">{metric.value}</p>
-              <p className="mt-1 text-xs text-indigo-600">{metric.helper}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="rounded-2xl border border-indigo-100 bg-white/80 p-4">
-            <h4 className="text-sm font-semibold uppercase tracking-wide text-indigo-700">Upcoming launches</h4>
-            <ul className="mt-3 space-y-3 text-sm text-indigo-800">
-              {upcomingPageLaunches.slice(0, 4).map((item, index) => (
-                <li key={item.id ?? item.slug ?? index} className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-3">
-                  <p className="text-sm font-semibold text-indigo-900">{item.title ?? item.name ?? 'Launch'}</p>
+          <div id="brand-pages" className="space-y-4 rounded-3xl border border-indigo-100 bg-indigo-50/40 p-5">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="text-xl font-semibold text-indigo-900">Public pages studio</h3>
+                <p className="text-sm text-indigo-700">
+                  Publish high-converting company and program destinations with approval workflows and analytics baked in.
+                </p>
+                {pageWorkspace?.lastPublishedAt ? (
                   <p className="mt-1 text-xs text-indigo-600">
-                    {item.launchDate ? `Launch ${formatAbsolute(item.launchDate)}` : 'Scheduling in progress'}
-                    {item.owner ? ` • Owner ${item.owner}` : ''}
+                    Last launch {formatRelativeTime(pageWorkspace.lastPublishedAt)}
                   </p>
-                  {item.status ? (
-                    <span className="mt-2 inline-flex rounded-full bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-indigo-700">
-                      {item.status.replace(/_/g, ' ')}
-                    </span>
-                  ) : null}
-                </li>
-              ))}
-              {!upcomingPageLaunches.length ? (
-                <li className="rounded-2xl border border-dashed border-indigo-200 bg-white/70 p-4 text-xs text-indigo-600">
-                  No launches queued—create a page to start capturing demand.
-                </li>
-              ) : null}
-            </ul>
-          </div>
+                ) : null}
+              </div>
+              <Link
+                to="/pages"
+                className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-white/70 px-4 py-2 text-xs font-semibold text-indigo-700 transition hover:border-indigo-400 hover:text-indigo-900"
+              >
+                Open page studio
+              </Link>
+            </div>
 
-          <div className="rounded-2xl border border-indigo-100 bg-white/80 p-4">
-            <h4 className="text-sm font-semibold uppercase tracking-wide text-indigo-700">Governance guardrails</h4>
-            <ul className="mt-3 space-y-2 text-sm text-indigo-700">
-              <li className="flex gap-2">
-                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-500" />
-                Brand compliance status: {governanceSignals.brand ?? 'Aligned'}
-              </li>
-              <li className="flex gap-2">
-                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-500" />
-                Accessibility automation: {governanceSignals.accessibility ?? 'AA contrast checks active'}
-              </li>
-              <li className="flex gap-2">
-                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-500" />
-                Privacy reviews pending: {formatNumber(governanceSignals.privacyPending ?? 0)}
-              </li>
-              <li className="flex gap-2">
-                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-500" />
-                Approvers assigned: {formatNumber(governanceSignals.approvers ?? governanceSignals.reviewers ?? 0)}
-              </li>
-            </ul>
-            <p className="mt-3 text-xs text-indigo-600">
-              Guardrails sync with Trust Centre policies and automatically enforce on every publish.
-            </p>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {pageMetrics.map((metric) => (
+                <div key={metric.label} className="rounded-2xl bg-white/80 p-4 shadow-sm">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">{metric.label}</p>
+                  <p className="mt-2 text-xl font-semibold text-indigo-900">{metric.value}</p>
+                  <p className="mt-1 text-xs text-indigo-600">{metric.helper}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="rounded-2xl border border-indigo-100 bg-white/80 p-4">
+                <h4 className="text-sm font-semibold uppercase tracking-wide text-indigo-700">Upcoming launches</h4>
+                <ul className="mt-3 space-y-3 text-sm text-indigo-800">
+                  {upcomingPageLaunches.slice(0, 4).map((item, index) => (
+                    <li
+                      key={item.id ?? item.slug ?? index}
+                      className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-3"
+                    >
+                      <p className="text-sm font-semibold text-indigo-900">{item.title ?? item.name ?? 'Launch'}</p>
+                      <p className="mt-1 text-xs text-indigo-600">
+                        {item.launchDate ? `Launch ${formatAbsolute(item.launchDate)}` : 'Scheduling in progress'}
+                        {item.owner ? ` • Owner ${item.owner}` : ''}
+                      </p>
+                      {item.status ? (
+                        <span className="mt-2 inline-flex rounded-full bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-indigo-700">
+                          {item.status.replace(/_/g, ' ')}
+                        </span>
+                      ) : null}
+                    </li>
+                  ))}
+                  {!upcomingPageLaunches.length ? (
+                    <li className="rounded-2xl border border-dashed border-indigo-200 bg-white/70 p-4 text-xs text-indigo-600">
+                      No launches queued—create a page to start capturing demand.
+                    </li>
+                  ) : null}
+                </ul>
+              </div>
+
+              <div className="rounded-2xl border border-indigo-100 bg-white/80 p-4">
+                <h4 className="text-sm font-semibold uppercase tracking-wide text-indigo-700">Governance guardrails</h4>
+                <ul className="mt-3 space-y-2 text-sm text-indigo-700">
+                  <li className="flex gap-2">
+                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                    Brand compliance status: {governanceSignals.brand ?? 'Aligned'}
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                    Accessibility automation: {governanceSignals.accessibility ?? 'AA contrast checks active'}
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                    Privacy reviews pending: {formatNumber(governanceSignals.privacyPending ?? 0)}
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                    Approvers assigned: {formatNumber(governanceSignals.approvers ?? governanceSignals.reviewers ?? 0)}
+                  </li>
+                </ul>
+                <p className="mt-3 text-xs text-indigo-600">
+                  Guardrails sync with Trust Centre policies and automatically enforce on every publish.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1173,7 +1093,10 @@ export default function CompanyDashboardPage() {
             {settingsGovernance?.calendar?.primaryCalendars?.length ? (
               <ul className="mt-3 space-y-2 text-sm text-slate-700">
                 {settingsGovernance.calendar.primaryCalendars.map((calendar) => (
-                  <li key={`${calendar.providerKey}-${calendar.primaryCalendar}`} className="flex flex-col rounded-xl bg-slate-50 p-3">
+                  <li
+                    key={`${calendar.providerKey}-${calendar.primaryCalendar}`}
+                    className="flex flex-col rounded-xl bg-slate-50 p-3"
+                  >
                     <span className="font-semibold">{calendar.primaryCalendar}</span>
                     <span className="text-xs uppercase tracking-wide text-slate-500">{calendar.providerKey}</span>
                     <span className="mt-1 text-xs text-slate-500">Status: {calendar.status}</span>
@@ -1221,19 +1144,37 @@ export default function CompanyDashboardPage() {
     </section>
   );
 }
-
 export default function CompanyDashboardPage() {
+  const { session, isAuthenticated } = useSession();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+
   const workspaceIdParam = searchParams.get('workspaceId');
   const workspaceSlugParam = searchParams.get('workspaceSlug');
   const lookbackParam = searchParams.get('lookbackDays');
   const lookbackDays = lookbackParam ? Math.max(Number.parseInt(lookbackParam, 10) || 30, 7) : 30;
 
+  const membershipsList = session?.memberships ?? [];
+  const isCompanyMember = isAuthenticated && membershipsList.includes('company');
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    if (!isCompanyMember) {
+      const fallback = session?.primaryDashboard ?? membershipsList.find((role) => role !== 'company');
+      if (fallback) {
+        navigate(`/dashboard/${fallback}`, { replace: true, state: { from: '/dashboard/company' } });
+      }
+    }
+  }, [isAuthenticated, isCompanyMember, navigate, session?.primaryDashboard, membershipsList]);
+
   const { data, error, loading, refresh, fromCache, lastUpdated, summaryCards } = useCompanyDashboard({
     workspaceId: workspaceIdParam,
     workspaceSlug: workspaceSlugParam,
     lookbackDays,
-    enabled: isCompanyMember,
+    enabled: isAuthenticated && isCompanyMember,
   });
 
   useEffect(() => {
@@ -1249,7 +1190,7 @@ export default function CompanyDashboardPage() {
   const sections = useMemo(() => buildSections(data), [data]);
   const profile = useMemo(() => buildProfile(data, summaryCards), [data, summaryCards]);
   const workspaceOptions = data?.meta?.availableWorkspaces ?? [];
-  const memberships = data?.memberships ?? data?.meta?.memberships ?? [];
+  const memberships = data?.memberships ?? data?.meta?.memberships ?? membershipsList;
   const enrichedSummaryCards = useMemo(() => summaryCards ?? [], [summaryCards]);
 
   const networkingCta = {
@@ -1279,6 +1220,28 @@ export default function CompanyDashboardPage() {
     }
     setSearchParams(next);
   };
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace state={{ redirectTo: '/dashboard/company' }} />;
+  }
+
+  if (!isCompanyMember) {
+    return (
+      <DashboardLayout
+        currentDashboard="company"
+        title="Company Talent Acquisition Hub"
+        subtitle="Integrated ATS & partnerships"
+        description="Everything hiring teams need to design jobs, run interviews, collaborate with headhunters, and promote a magnetic employer brand on Gigvora."
+        menuSections={menuSections}
+        availableDashboards={availableDashboards}
+      >
+        <AccessDeniedPanel
+          availableDashboards={membershipsList.filter((membership) => membership !== 'company')}
+          onNavigate={(dashboard) => navigate(`/dashboard/${dashboard}`)}
+        />
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout
@@ -1329,7 +1292,12 @@ export default function CompanyDashboardPage() {
             </select>
           </div>
 
-          <DataStatus loading={loading} fromCache={fromCache} lastUpdated={lastUpdated} onRefresh={() => refresh({ force: true })} />
+          <DataStatus
+            loading={loading}
+            fromCache={fromCache}
+            lastUpdated={lastUpdated}
+            onRefresh={() => refresh({ force: true })}
+          />
         </div>
 
         {error ? (
@@ -1393,6 +1361,8 @@ export default function CompanyDashboardPage() {
             />
           </div>
         </section>
+
+        <BrandAndPeopleSection data={data} />
 
         {sections.map((section) => (
           <section

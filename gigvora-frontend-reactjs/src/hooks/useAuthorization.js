@@ -1,7 +1,7 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import useSession from './useSession.js';
 
-const PROJECT_MANAGEMENT_ROLES = new Set([
+const PROJECT_MANAGEMENT_ROLES = [
   'project_manager',
   'project_management',
   'operations_lead',
@@ -12,27 +12,56 @@ const PROJECT_MANAGEMENT_ROLES = new Set([
   'company_admin',
   'workspace_admin',
   'admin',
-]);
+];
 
-function normaliseRole(value) {
-  if (!value) {
+const RESOURCE_POLICIES = {
+  'notifications:center': {
+    roles: ['user', 'freelancer', 'agency', 'company', 'headhunter', 'mentor', 'admin'],
+    permissionsAny: ['notifications:read', 'notifications:manage'],
+    requireAuthentication: true,
+  },
+  'notifications:push': {
+    roles: ['user', 'freelancer', 'agency', 'company', 'headhunter', 'mentor', 'admin'],
+    permissionsAny: ['notifications:manage', 'notifications:push:register'],
+    requireAuthentication: true,
+  },
+};
+
+const PROJECT_DENIAL_REASON =
+  'Project workspaces are restricted to agency, company, operations, and admin leads. Request access from your workspace administrator.';
+
+function normaliseKey(value) {
+  if (value == null) {
     return null;
   }
+
+  if (typeof value === 'object') {
+    if (typeof value.key !== 'undefined') {
+      return normaliseKey(value.key);
+    }
+    if (typeof value.role !== 'undefined') {
+      return normaliseKey(value.role);
+    }
+  }
+
   const stringified = typeof value === 'string' ? value : String(value);
-  const trimmed = stringified.trim();
+  const trimmed = stringified.trim().toLowerCase();
+
   if (!trimmed) {
     return null;
   }
-  return trimmed.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+
+  return trimmed.replace(/[^a-z0-9]+/g, '_');
 }
 
-function mergeRoles(target, candidates) {
-  if (!candidates) {
+function mergeValues(target, candidate) {
+  if (!candidate) {
     return;
   }
-  if (Array.isArray(candidates)) {
-    candidates.forEach((candidate) => {
-      const normalised = normaliseRole(candidate);
+
+  if (Array.isArray(candidate) || candidate instanceof Set) {
+    candidate.forEach((item) => {
+      const normalised = normaliseKey(item);
       if (normalised) {
         target.add(normalised);
       }
@@ -40,137 +69,40 @@ function mergeRoles(target, candidates) {
     return;
   }
 
-  const normalised = normaliseRole(candidates);
+  const normalised = normaliseKey(candidate);
   if (normalised) {
     target.add(normalised);
   }
 }
 
 export default function useAuthorization() {
-  const { session } = useSession();
-
-  const roles = useMemo(() => {
-    const collected = new Set();
-    mergeRoles(collected, session?.memberships);
-    mergeRoles(collected, session?.primaryDashboard);
-    mergeRoles(collected, session?.accountTypes);
-    mergeRoles(collected, session?.roles);
-    mergeRoles(collected, session?.activeMembership);
-    return collected;
-  }, [session?.accountTypes, session?.activeMembership, session?.memberships, session?.primaryDashboard, session?.roles]);
-
-  const canManageProjects = useMemo(() => {
-    if (!roles.size) {
-      return false;
-    }
-    for (const role of roles) {
-      if (PROJECT_MANAGEMENT_ROLES.has(role)) {
-        return true;
-      }
-    }
-    return false;
-  }, [roles]);
-
-  const denialReason = canManageProjects
-    ? null
-    : 'Project workspaces are restricted to agency, company, operations, and admin leads. Request access from your workspace administrator.';
-
-  return {
-    roles: Array.from(roles),
-    canManageProjects,
-    denialReason,
-    session,
-  };
-}
-
-export function useProjectManagementAccess() {
-  const authorization = useAuthorization();
-  return authorization;
-}
-import { useCallback, useMemo } from 'react';
-import useSession from './useSession.js';
-
-const NOTIFICATION_ROLES = [
-  'user',
-  'freelancer',
-  'agency',
-  'company',
-  'headhunter',
-  'mentor',
-  'admin',
-];
-
-const RESOURCE_POLICIES = {
-  'notifications:center': {
-    roles: NOTIFICATION_ROLES,
-    permissionsAny: ['notifications:read', 'notifications:manage'],
-    requireAuthentication: true,
-  },
-  'notifications:push': {
-    roles: NOTIFICATION_ROLES,
-    permissionsAny: ['notifications:manage', 'notifications:push:register'],
-    requireAuthentication: true,
-  },
-};
-
-function createStringSet(values = []) {
-  const set = new Set();
-  values.forEach((value) => {
-    if (typeof value !== 'string') {
-      return;
-    }
-    const trimmed = value.trim();
-    if (!trimmed) {
-      return;
-    }
-    set.add(trimmed);
-  });
-  return set;
-}
-
-export default function useAuthorization() {
   const { session, isAuthenticated } = useSession();
 
   const roleSet = useMemo(() => {
-    if (!session) {
-      return new Set();
-    }
-    const roles = [];
-    if (Array.isArray(session.memberships)) {
-      roles.push(...session.memberships);
-    }
-    if (Array.isArray(session.roles)) {
-      roles.push(...session.roles);
-    }
-    if (typeof session.activeMembership === 'string') {
-      roles.push(session.activeMembership);
-    }
-    if (typeof session.primaryDashboard === 'string') {
-      roles.push(session.primaryDashboard);
-    }
-    return createStringSet(roles);
-  }, [session]);
+    const values = new Set();
+    mergeValues(values, session?.memberships);
+    mergeValues(values, session?.roles);
+    mergeValues(values, session?.accountTypes);
+    mergeValues(values, session?.primaryDashboard);
+    mergeValues(values, session?.activeMembership);
+    return values;
+  }, [session?.accountTypes, session?.activeMembership, session?.memberships, session?.primaryDashboard, session?.roles]);
 
   const permissionSet = useMemo(() => {
-    if (!session) {
-      return new Set();
-    }
-    const permissions = [];
-    if (Array.isArray(session.permissions)) {
-      permissions.push(...session.permissions);
-    }
-    if (Array.isArray(session.capabilities)) {
-      permissions.push(...session.capabilities);
-    }
-    if (Array.isArray(session.grants)) {
-      permissions.push(...session.grants);
-    }
-    return createStringSet(permissions);
-  }, [session]);
+    const values = new Set();
+    mergeValues(values, session?.permissions);
+    mergeValues(values, session?.capabilities);
+    mergeValues(values, session?.grants);
+    mergeValues(values, session?.scopes);
+    return values;
+  }, [session?.capabilities, session?.grants, session?.permissions, session?.scopes]);
 
-  const hasRole = useCallback((role) => roleSet.has(role), [roleSet]);
+  const hasRole = useCallback((role) => roleSet.has(normaliseKey(role)), [roleSet]);
 
-  const hasPermission = useCallback((permission) => permissionSet.has(permission), [permissionSet]);
+  const hasPermission = useCallback(
+    (permission) => permissionSet.has(normaliseKey(permission)),
+    [permissionSet],
+  );
 
   const canAccess = useCallback(
     (resource, { requireAuthentication = true } = {}) => {
@@ -178,37 +110,63 @@ export default function useAuthorization() {
       if (!policy) {
         return requireAuthentication ? Boolean(isAuthenticated) : true;
       }
+
       if (policy.requireAuthentication !== false && !isAuthenticated) {
         return false;
       }
-      if (Array.isArray(policy.roles) && policy.roles.length && !policy.roles.some(hasRole)) {
-        return false;
+
+      if (Array.isArray(policy.roles) && policy.roles.length) {
+        const allowed = policy.roles.some((role) => hasRole(role));
+        if (!allowed) {
+          return false;
+        }
       }
+
       if (Array.isArray(policy.permissionsAll) && policy.permissionsAll.length) {
-        const hasAll = policy.permissionsAll.every(hasPermission);
+        const hasAll = policy.permissionsAll.every((permission) => hasPermission(permission));
         if (!hasAll) {
           return false;
         }
       }
+
       if (Array.isArray(policy.permissionsAny) && policy.permissionsAny.length) {
-        const hasAny = policy.permissionsAny.some(hasPermission);
+        const hasAny = policy.permissionsAny.some((permission) => hasPermission(permission));
         if (!hasAny) {
           return false;
         }
       }
+
       if (typeof policy.condition === 'function') {
         return policy.condition({ session, isAuthenticated, hasPermission, hasRole });
       }
+
       return true;
     },
     [hasPermission, hasRole, isAuthenticated, session],
   );
 
+  const canManageProjects = useMemo(() => {
+    if (!roleSet.size) {
+      return false;
+    }
+    return PROJECT_MANAGEMENT_ROLES.some((role) => hasRole(role));
+  }, [hasRole, roleSet]);
+
+  const denialReason = canManageProjects ? null : PROJECT_DENIAL_REASON;
+
   return {
+    session,
+    isAuthenticated,
     canAccess,
     hasRole,
     hasPermission,
-    roles: roleSet,
-    permissions: permissionSet,
+    roles: Array.from(roleSet),
+    permissions: Array.from(permissionSet),
+    canManageProjects,
+    denialReason,
   };
+}
+
+export function useProjectManagementAccess() {
+  return useAuthorization();
 }

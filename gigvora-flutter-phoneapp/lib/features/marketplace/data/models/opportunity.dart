@@ -9,7 +9,7 @@ enum OpportunityCategory {
 }
 
 OpportunityCategory parseOpportunityCategory(String value) {
-  switch (value) {
+  switch (value.toLowerCase()) {
     case 'job':
     case 'jobs':
       return OpportunityCategory.job;
@@ -103,6 +103,13 @@ class OpportunitySummary {
   final String? status;
   final String? track;
   final String? organization;
+  final bool? isRemote;
+  final List<String> taxonomyLabels;
+
+  factory OpportunitySummary.fromJson(
+    OpportunityCategory category,
+    Map<String, dynamic> json,
+  ) {
   final bool isRemote;
   final List<String> taxonomyLabels;
   final List<String> taxonomySlugs;
@@ -132,6 +139,13 @@ class OpportunitySummary {
           .map((slug) => slug.trim())
           .where((slug) => slug.isNotEmpty))
       ..addAll(rawTaxonomies.map((tag) => tag.slug).where((slug) => slug.isNotEmpty));
+    String? normaliseString(String? value) {
+      final trimmed = value?.trim();
+      if (trimmed == null || trimmed.isEmpty) {
+        return null;
+      }
+      return trimmed;
+    }
 
     return OpportunitySummary(
       id: '${json['id']}',
@@ -146,6 +160,28 @@ class OpportunitySummary {
       status: json['status'] as String?,
       track: json['track'] as String?,
       organization: json['organization'] as String?,
+      location: (json['location'] as String?)?.trim().isEmpty ?? true
+          ? null
+          : (json['location'] as String).trim(),
+      employmentType: (json['employmentType'] as String?)?.trim().isEmpty ?? true
+          ? null
+          : (json['employmentType'] as String).trim(),
+      budget: (json['budget'] as String?)?.trim().isEmpty ?? true ? null : (json['budget'] as String).trim(),
+      duration: (json['duration'] as String?)?.trim().isEmpty ?? true ? null : (json['duration'] as String).trim(),
+      status: (json['status'] as String?)?.trim().isEmpty ?? true ? null : (json['status'] as String).trim(),
+      track: (json['track'] as String?)?.trim().isEmpty ?? true ? null : (json['track'] as String).trim(),
+      organization: (json['organization'] as String?)?.trim().isEmpty ?? true
+          ? null
+          : (json['organization'] as String).trim(),
+      isRemote: json['isRemote'] is bool ? json['isRemote'] as bool : null,
+      taxonomyLabels: (json['taxonomyLabels'] as List<dynamic>? ?? const <dynamic>[]) 
+      location: normaliseString(json['location'] as String?),
+      employmentType: normaliseString(json['employmentType'] as String?),
+      budget: normaliseString(json['budget'] as String?),
+      duration: normaliseString(json['duration'] as String?),
+      status: normaliseString(json['status'] as String?),
+      track: normaliseString(json['track'] as String?),
+      organization: normaliseString(json['organization'] as String?),
       isRemote: json['isRemote'] == true,
       taxonomyLabels: List<String>.unmodifiable(labelSet),
       taxonomySlugs: List<String>.unmodifiable(slugSet),
@@ -193,6 +229,26 @@ class OpportunityPage {
       totalPages: totalPages ?? this.totalPages,
       query: query ?? this.query,
       facets: facets ?? this.facets,
+    );
+  }
+
+  factory OpportunityPage.fromJson(OpportunityCategory category, Map<String, dynamic> json) {
+    final items = (json['items'] as List<dynamic>? ?? const <dynamic>[]) 
+        .whereType<Map<String, dynamic>>()
+        .map((entry) => OpportunitySummary.fromJson(category, entry))
+        .toList(growable: false);
+
+    return OpportunityPage(
+      category: category,
+      items: items,
+      page: (json['page'] as num?)?.toInt() ?? 1,
+      pageSize: (json['pageSize'] as num?)?.toInt() ?? items.length,
+      total: (json['total'] as num?)?.toInt() ?? items.length,
+      totalPages: (json['totalPages'] as num?)?.toInt() ?? 1,
+      query: (json['query'] as String?)?.trim(),
+      facets: json['facets'] is Map<String, dynamic>
+          ? Map<String, dynamic>.from(json['facets'] as Map<String, dynamic>)
+          : null,
     );
   }
 }

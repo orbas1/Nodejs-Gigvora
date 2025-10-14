@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowPathIcon,
@@ -106,6 +106,40 @@ const POST_TYPE_META = {
 };
 
 const ALLOWED_FEED_MEMBERSHIPS = new Set(['user', 'freelancer', 'agency', 'company', 'headhunter', 'mentor', 'admin']);
+const QUICK_EMOJIS = ['🚀', '🎉', '👏', '🤝', '🔥', '💡', '✅', '🙌', '🌍', '💬'];
+const QUICK_REPLY_SUGGESTIONS = [
+  'This is a fantastic milestone – congratulations! 👏',
+  'Looping the team so we can amplify this right away.',
+  'Let’s sync offline about how we can support the rollout.',
+  'Added this into the launch tracker so nothing slips.',
+];
+const GIF_LIBRARY = [
+  {
+    id: 'celebration',
+    label: 'Celebration',
+    url: 'https://media.giphy.com/media/5GoVLqeAOo6PK/giphy.gif',
+    tone: 'Celebrating big wins',
+  },
+  {
+    id: 'team-high-five',
+    label: 'Team high-five',
+    url: 'https://media.giphy.com/media/111ebonMs90YLu/giphy.gif',
+    tone: 'Recognising collaboration',
+  },
+  {
+    id: 'product-launch',
+    label: 'Product launch',
+    url: 'https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif',
+    tone: 'Shipping moments & go-lives',
+  },
+  {
+    id: 'inspiration',
+    label: 'Inspiration',
+    url: 'https://media.giphy.com/media/l0HUpt2s9Pclgt9Vm/giphy.gif',
+    tone: 'Ideas, creativity, momentum',
+  },
+];
+const MAX_CONTENT_LENGTH = 2200;
 
 function resolveAuthor(post) {
   const directAuthor = post?.author ?? {};
@@ -135,6 +169,37 @@ function resolvePostType(post) {
   return { key: POST_TYPE_META[typeKey] ? typeKey : 'update', ...meta };
 }
 
+function extractMediaAttachments(post) {
+  const attachments = [];
+  if (Array.isArray(post?.mediaAttachments)) {
+    post.mediaAttachments
+      .filter(Boolean)
+      .forEach((attachment, index) => {
+        if (!attachment?.url && !attachment?.src) {
+          return;
+        }
+        attachments.push({
+          id: attachment.id ?? `${post.id ?? 'media'}-${index + 1}`,
+          type: attachment.type ?? (attachment.url?.endsWith('.gif') ? 'gif' : 'image'),
+          url: attachment.url ?? attachment.src,
+          alt: attachment.alt ?? attachment.caption ?? post.title ?? 'Feed media attachment',
+        });
+      });
+  }
+
+  const legacyUrl = post?.imageUrl || post?.mediaUrl || post?.coverImage;
+  if (legacyUrl) {
+    attachments.push({
+      id: `${post?.id ?? 'media'}-legacy`,
+      type: legacyUrl.endsWith('.gif') ? 'gif' : 'image',
+      url: legacyUrl,
+      alt: post?.imageAlt || post?.title || 'Feed media attachment',
+    });
+  }
+
+  return attachments;
+}
+
 function normaliseFeedPost(post, fallbackSession) {
   if (!post || typeof post !== 'object') {
     return null;
@@ -152,6 +217,7 @@ function normaliseFeedPost(post, fallbackSession) {
   const normalised = {
     id: post.id ?? `local-${Date.now()}`,
     content: post.content ?? '',
+    summary: post.summary ?? post.content ?? '',
     type: normalisedType,
     link: post.link ?? post.resourceLink ?? null,
     createdAt,
@@ -165,6 +231,7 @@ function normaliseFeedPost(post, fallbackSession) {
       'Marketplace community update',
     reactions: post.reactions ?? { likes: typeof post.likes === 'number' ? post.likes : 0 },
     comments: Array.isArray(post.comments) ? post.comments : [],
+    mediaAttachments: extractMediaAttachments(post),
     User:
       post.User ??
       (fallbackSession
@@ -177,6 +244,13 @@ function normaliseFeedPost(post, fallbackSession) {
           }
         : undefined),
   };
+
+  if (post.title) {
+    normalised.title = post.title;
+  }
+  if (post.source) {
+    normalised.source = post.source;
+  }
 
   return normalised;
 }
@@ -232,13 +306,178 @@ function normaliseComments(post) {
   return buildMockComments(post);
 }
 
+function sanitiseExternalLink(raw) {
+  if (!raw) {
+    return null;
+  }
+  const trimmed = `${raw}`.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    const parsed = new URL(candidate);
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return null;
+    }
+    return parsed.toString();
+  } catch (error) {
+    return null;
+  }
+}
+
+function EmojiPopover({ open, onSelect, onClose, labelledBy }) {
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        onClose?.();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [open, onClose]);
+
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby={labelledBy}
+      className="absolute z-30 mt-2 w-48 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl"
+    >
+      <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-slate-500">Quick emoji</p>
+      <div className="mt-2 grid grid-cols-6 gap-2">
+        {QUICK_EMOJIS.map((emoji) => (
+          <button
+            key={emoji}
+            type="button"
+            onClick={() => {
+              onSelect?.(emoji);
+              onClose?.();
+            }}
+            className="flex items-center justify-center rounded-full bg-slate-50 p-2 text-xl transition hover:bg-accentSoft"
+          >
+            <span aria-hidden="true">{emoji}</span>
+            <span className="sr-only">Insert emoji {emoji}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function GifSuggestionTray({ open, onSelect, onClose, labelledBy }) {
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        onClose?.();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [open, onClose]);
+
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby={labelledBy}
+      className="absolute z-30 mt-2 w-full max-w-md rounded-3xl border border-slate-200 bg-white p-4 shadow-xl"
+    >
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Trending GIFs</p>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-xs font-semibold text-slate-400 transition hover:text-accent"
+        >
+          Close
+        </button>
+      </div>
+      <p className="mt-2 text-[0.65rem] text-slate-500">
+        Curated for enterprise-safe celebrations, launches, and collaboration moments.
+      </p>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        {GIF_LIBRARY.map((gif) => (
+          <button
+            key={gif.id}
+            type="button"
+            onClick={() => {
+              onSelect?.(gif);
+              onClose?.();
+            }}
+            className="overflow-hidden rounded-2xl border border-slate-200 text-left transition hover:border-accent"
+          >
+            <img src={gif.url} alt={gif.label} className="h-32 w-full object-cover" loading="lazy" />
+            <div className="px-3 py-2">
+              <p className="text-sm font-semibold text-slate-800">{gif.label}</p>
+              <p className="text-[0.65rem] uppercase tracking-wide text-slate-400">{gif.tone}</p>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MediaAttachmentPreview({ attachment, onRemove }) {
+  if (!attachment) {
+    return null;
+  }
+
+  return (
+    <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white/90 shadow-inner">
+      <div className="relative">
+        <img
+          src={attachment.url}
+          alt={attachment.alt || 'Feed media attachment'}
+          className="h-48 w-full object-cover"
+          loading="lazy"
+        />
+        <button
+          type="button"
+          onClick={onRemove}
+          className="absolute right-4 top-4 inline-flex items-center rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-white"
+        >
+          Remove media
+        </button>
+      </div>
+      {attachment.alt ? (
+        <p className="border-t border-slate-200 px-4 py-2 text-xs text-slate-500">{attachment.alt}</p>
+      ) : null}
+    </div>
+  );
+}
+
 function FeedComposer({ onCreate, session }) {
   const [mode, setMode] = useState('update');
   const [content, setContent] = useState('');
   const [link, setLink] = useState('');
+  const [attachment, setAttachment] = useState(null);
+  const [attachmentAlt, setAttachmentAlt] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  const [showEmojiTray, setShowEmojiTray] = useState(false);
+  const [showGifTray, setShowGifTray] = useState(false);
+  const textareaId = useId();
+  const linkInputId = useId();
+  const mediaAltId = useId();
+
   const selectedOption = COMPOSER_OPTIONS.find((option) => option.id === mode) ?? COMPOSER_OPTIONS[0];
+  const remainingCharacters = MAX_CONTENT_LENGTH - content.length;
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -248,7 +487,17 @@ function FeedComposer({ onCreate, session }) {
     const payload = {
       type: mode,
       content: content.trim(),
-      link: link.trim() || null,
+      link: sanitiseExternalLink(link),
+      mediaAttachments: attachment
+        ? [
+            {
+              id: attachment.id,
+              type: attachment.type,
+              url: attachment.url,
+              alt: attachmentAlt?.trim() || attachment.alt,
+            },
+          ]
+        : [],
     };
     setSubmitting(true);
     setError(null);
@@ -256,18 +505,23 @@ function FeedComposer({ onCreate, session }) {
       await Promise.resolve(onCreate(payload));
       setContent('');
       setLink('');
+      setAttachment(null);
+      setAttachmentAlt('');
       setMode('update');
     } catch (composerError) {
-      const message = composerError?.message || 'We could not publish your update. Please try again in a moment.';
+      const message =
+        composerError?.message || 'We could not publish your update. Please try again in a moment.';
       setError(message);
     } finally {
       setSubmitting(false);
+      setShowEmojiTray(false);
+      setShowGifTray(false);
     }
   };
 
   return (
     <div className="rounded-3xl border border-slate-200 bg-white/95 shadow-soft">
-      <div className="flex items-center justify-between border-b border-slate-200/70 px-6 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/70 px-6 py-4">
         <div>
           <p className="text-sm font-semibold text-slate-800">Share with your network</p>
           <p className="text-xs text-slate-500">Updates appear instantly across teams you collaborate with.</p>
@@ -277,7 +531,7 @@ function FeedComposer({ onCreate, session }) {
           Live
         </span>
       </div>
-      <form onSubmit={handleSubmit} className="px-6 py-5">
+      <form onSubmit={handleSubmit} className="relative px-6 py-5">
         <div className="flex items-start gap-4">
           <UserAvatar name={session?.name} seed={session?.avatarSeed ?? session?.name} size="md" />
           <div className="flex-1 space-y-4">
@@ -308,21 +562,74 @@ function FeedComposer({ onCreate, session }) {
               })}
             </div>
             <p className="text-xs text-slate-500">{selectedOption.description}</p>
-            <textarea
-              value={content}
-              onChange={(event) => setContent(event.target.value)}
-              rows={4}
-              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-inner transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-              placeholder={`Tell your network about ${selectedOption.label.toLowerCase()}…`}
-              disabled={submitting}
-            />
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="relative">
+              <label htmlFor={textareaId} className="sr-only">
+                Compose live feed update
+              </label>
+              <textarea
+                id={textareaId}
+                value={content}
+                onChange={(event) => setContent(event.target.value.slice(0, MAX_CONTENT_LENGTH))}
+                rows={4}
+                maxLength={MAX_CONTENT_LENGTH}
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-inner transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                placeholder={`Tell your network about ${selectedOption.label.toLowerCase()}…`}
+                disabled={submitting}
+              />
+              <div className="pointer-events-none absolute bottom-3 right-4 text-[0.65rem] font-semibold uppercase tracking-wide text-slate-400">
+                {remainingCharacters}
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowGifTray(false);
+                    setShowEmojiTray((previous) => !previous);
+                  }}
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-2 font-semibold text-slate-600 transition hover:border-accent/60 hover:text-accent"
+                >
+                  <FaceSmileIcon className="h-4 w-4" />
+                  Emoji
+                </button>
+                <EmojiPopover
+                  open={showEmojiTray}
+                  onClose={() => setShowEmojiTray(false)}
+                  onSelect={(emoji) => setContent((previous) => `${previous}${emoji}`)}
+                  labelledBy="composer-emoji-trigger"
+                />
+              </div>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEmojiTray(false);
+                    setShowGifTray((previous) => !previous);
+                  }}
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-2 font-semibold text-slate-600 transition hover:border-accent/60 hover:text-accent"
+                >
+                  <PhotoIcon className="h-4 w-4" />
+                  GIF & media
+                </button>
+                <GifSuggestionTray
+                  open={showGifTray}
+                  onClose={() => setShowGifTray(false)}
+                  onSelect={(gif) => {
+                    setAttachment({ id: gif.id, type: 'gif', url: gif.url, alt: gif.tone });
+                    setAttachmentAlt(gif.tone);
+                  }}
+                  labelledBy="composer-gif-trigger"
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr),minmax(0,1fr)]">
               <div className="space-y-2">
-                <label htmlFor="feed-share-link" className="text-xs font-medium text-slate-600">
+                <label htmlFor={linkInputId} className="text-xs font-medium text-slate-600">
                   Attach a resource (deck, doc, or listing URL)
                 </label>
                 <input
-                  id="feed-share-link"
+                  id={linkInputId}
                   value={link}
                   onChange={(event) => setLink(event.target.value)}
                   placeholder="https://"
@@ -338,13 +645,37 @@ function FeedComposer({ onCreate, session }) {
                 </p>
               </div>
             </div>
+            {attachment ? (
+              <div className="space-y-2">
+                <label htmlFor={mediaAltId} className="text-xs font-medium text-slate-600">
+                  Media alt text
+                </label>
+                <input
+                  id={mediaAltId}
+                  value={attachmentAlt}
+                  onChange={(event) => setAttachmentAlt(event.target.value)}
+                  maxLength={120}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-900 shadow-inner focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  placeholder="Describe the media for improved accessibility"
+                />
+                <MediaAttachmentPreview
+                  attachment={{ ...attachment, alt: attachmentAlt }}
+                  onRemove={() => {
+                    setAttachment(null);
+                    setAttachmentAlt('');
+                  }}
+                />
+              </div>
+            ) : null}
             {error ? (
               <p className="rounded-2xl bg-rose-50 px-4 py-2 text-sm font-medium text-rose-600" role="alert">
                 {error}
               </p>
             ) : null}
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-xs text-slate-500">Your update is routed to followers, connections, and workspace partners.</p>
+              <p className="text-xs text-slate-500">
+                Your update is routed to followers, connections, and workspace partners.
+              </p>
               <button
                 type="submit"
                 disabled={submitting || !content.trim()}
@@ -365,29 +696,150 @@ function FeedComposer({ onCreate, session }) {
   );
 }
 
-function FeedComment({ comment }) {
+function FeedCommentThread({ comment, onReply }) {
+  const [replying, setReplying] = useState(false);
+  const [replyDraft, setReplyDraft] = useState('');
+  const [showEmojiTray, setShowEmojiTray] = useState(false);
+  const replyTextareaId = useId();
+
+  const totalReplies = Array.isArray(comment.replies) ? comment.replies.length : 0;
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    if (!replyDraft.trim()) {
+      return;
+    }
+    onReply?.(comment.id, replyDraft.trim());
+    setReplyDraft('');
+    setShowEmojiTray(false);
+    setReplying(false);
+  };
+
   return (
     <div className="rounded-2xl border border-slate-200/70 bg-slate-50/70 p-4 text-sm text-slate-700">
-      <div className="flex items-center justify-between gap-3 text-xs text-slate-400">
+      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
         <span className="font-semibold text-slate-700">{comment.author}</span>
         <span>{formatRelativeTime(comment.createdAt)}</span>
       </div>
       <p className="mt-1 text-xs font-medium uppercase tracking-wide text-slate-500">{comment.headline}</p>
-      <p className="mt-3 text-sm text-slate-700">{comment.message}</p>
+      <p className="mt-3 whitespace-pre-line text-sm text-slate-700">{comment.message}</p>
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+        <button
+          type="button"
+          onClick={() => {
+            setReplying(true);
+          }}
+          className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 transition hover:border-accent/60 hover:text-accent"
+        >
+          <ChatBubbleOvalLeftIcon className="h-4 w-4" /> Reply
+        </button>
+        {totalReplies ? (
+          <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-slate-400">
+            {totalReplies} {totalReplies === 1 ? 'reply' : 'replies'}
+          </span>
+        ) : null}
+      </div>
       {Array.isArray(comment.replies) && comment.replies.length ? (
         <div className="mt-3 space-y-2 border-l-2 border-accent/30 pl-4">
           {comment.replies.map((reply) => (
             <div key={reply.id} className="rounded-2xl bg-white/90 p-3 text-sm text-slate-700">
-              <div className="flex items-center justify-between gap-3 text-xs text-slate-400">
+              <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
                 <span className="font-semibold text-slate-700">{reply.author}</span>
                 <span>{formatRelativeTime(reply.createdAt)}</span>
               </div>
               <p className="mt-1 text-xs font-medium uppercase tracking-wide text-slate-500">{reply.headline}</p>
-              <p className="mt-2 text-sm text-slate-700">{reply.message}</p>
+              <p className="mt-2 whitespace-pre-line text-sm text-slate-700">{reply.message}</p>
             </div>
           ))}
         </div>
       ) : null}
+      {replying ? (
+        <form onSubmit={handleSubmit} className="relative mt-4 rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-soft">
+          <label htmlFor={replyTextareaId} className="sr-only">
+            Reply to comment
+          </label>
+          <textarea
+            id={replyTextareaId}
+            value={replyDraft}
+            onChange={(event) => setReplyDraft(event.target.value)}
+            rows={3}
+            className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-inner focus:border-accent focus:ring-2 focus:ring-accent/20"
+            placeholder="Compose a thoughtful reply…"
+          />
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowEmojiTray((previous) => !previous)}
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-accent/60 hover:text-accent"
+              >
+                <FaceSmileIcon className="h-4 w-4" />
+                Emoji
+              </button>
+              <EmojiPopover
+                open={showEmojiTray}
+                onClose={() => setShowEmojiTray(false)}
+                onSelect={(emoji) => setReplyDraft((previous) => `${previous}${emoji}`)}
+                labelledBy="comment-emoji-trigger"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              {QUICK_REPLY_SUGGESTIONS.map((suggestion) => (
+                <button
+                  key={suggestion}
+                  type="button"
+                  onClick={() => {
+                    setReplying(true);
+                    setReplyDraft((previous) => (previous ? `${previous}\n${suggestion}` : suggestion));
+                  }}
+                  className="hidden rounded-full border border-slate-200 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-slate-500 transition hover:border-accent/60 hover:text-accent lg:inline-flex"
+                >
+                  {suggestion.slice(0, 14)}…
+                </button>
+              ))}
+              <button
+                type="submit"
+                disabled={!replyDraft.trim()}
+                className={`inline-flex items-center gap-2 rounded-full px-4 py-1 text-xs font-semibold text-white transition ${
+                  replyDraft.trim() ? 'bg-accent hover:bg-accentDark' : 'cursor-not-allowed bg-accent/40'
+                }`}
+              >
+                <PaperAirplaneIcon className="h-4 w-4" />
+                Reply
+              </button>
+            </div>
+          </div>
+        </form>
+      ) : null}
+    </div>
+  );
+}
+
+function MediaAttachmentGrid({ attachments }) {
+  if (!attachments?.length) {
+    return null;
+  }
+  const columns = attachments.length === 1 ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2';
+  return (
+    <div className={`grid gap-4 ${columns}`}>
+      {attachments.map((attachment) => (
+        <figure
+          key={attachment.id}
+          className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-50 shadow-inner"
+        >
+          <img
+            src={attachment.url}
+            alt={attachment.alt || 'Feed media attachment'}
+            className="h-64 w-full object-cover"
+            loading="lazy"
+          />
+          {attachment.alt ? (
+            <figcaption className="border-t border-slate-200 px-4 py-2 text-xs text-slate-500">
+              {attachment.alt}
+            </figcaption>
+          ) : null}
+        </figure>
+      ))}
     </div>
   );
 }
@@ -413,11 +865,24 @@ function FeedPostCard({ post, onShare }) {
   const [comments, setComments] = useState(() => normaliseComments(post));
   const [commentDraft, setCommentDraft] = useState('');
 
+  const totalConversationCount = useMemo(
+    () =>
+      comments.reduce(
+        (total, comment) => total + 1 + (Array.isArray(comment.replies) ? comment.replies.length : 0),
+        0,
+      ),
+    [comments],
+  );
+
   const handleLike = () => {
     setLiked((previous) => {
       const nextLiked = !previous;
       setLikeCount((current) => current + (nextLiked ? 1 : -1));
-      analytics.track('web_feed_reaction_click', { postId: post.id, action: 'like', like: nextLiked }, { source: 'web_app' });
+      analytics.track(
+        'web_feed_reaction_click',
+        { postId: post.id, action: 'like', like: nextLiked },
+        { source: 'web_app' },
+      );
       return nextLiked;
     });
   };
@@ -440,9 +905,31 @@ function FeedPostCard({ post, onShare }) {
     analytics.track('web_feed_comment_submit', { postId: post.id }, { source: 'web_app' });
   };
 
+  const handleAddReply = (commentId, replyMessage) => {
+    setComments((previous) =>
+      previous.map((existing) => {
+        if (existing.id !== commentId) {
+          return existing;
+        }
+        const reply = {
+          id: `${commentId}-reply-${Date.now()}`,
+          author: 'You',
+          headline: 'Shared via Gigvora',
+          message: replyMessage,
+          createdAt: new Date().toISOString(),
+        };
+        return {
+          ...existing,
+          replies: [reply, ...(existing.replies ?? [])],
+        };
+      }),
+    );
+    analytics.track('web_feed_reply_submit', { postId: post.id, commentId }, { source: 'web_app' });
+  };
+
   return (
-    <article className="space-y-5 rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-soft">
-      <div className="flex items-center justify-between text-xs text-slate-400">
+    <article className="space-y-6 rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-soft">
+      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
         <span className="inline-flex items-center gap-2">
           <UserAvatar name={author.name} seed={author.avatarSeed} size="xs" showGlow={false} />
           <span>{author.headline}</span>
@@ -461,26 +948,17 @@ function FeedPostCard({ post, onShare }) {
         ) : null}
       </div>
       {bodyText ? (
-        <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-line">{bodyText}</p>
+        <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">{bodyText}</p>
       ) : null}
       {isNewsPost && author.name && heading !== author.name ? (
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{author.name}</p>
       ) : null}
-      {post.imageUrl ? (
-        <figure className="overflow-hidden rounded-3xl border border-slate-200">
-          <img
-            src={post.imageUrl}
-            alt={heading ? `${heading} – Gigvora news` : 'Gigvora news visual'}
-            className="h-64 w-full object-cover"
-            loading="lazy"
-          />
-        </figure>
-      ) : null}
+      <MediaAttachmentGrid attachments={post.mediaAttachments} />
       {post.link ? (
         <a
           href={post.link}
           target="_blank"
-          rel="noreferrer"
+          rel="noreferrer noopener"
           className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-accent transition hover:border-accent/50 hover:bg-white"
         >
           <ArrowPathIcon className="h-4 w-4" />
@@ -499,7 +977,8 @@ function FeedPostCard({ post, onShare }) {
           {liked ? 'Liked' : 'Like'} · {likeCount}
         </button>
         <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-slate-500">
-          <ChatBubbleOvalLeftIcon className="h-4 w-4" /> {comments.length} comments
+          <ChatBubbleOvalLeftIcon className="h-4 w-4" /> {totalConversationCount}{' '}
+          {totalConversationCount === 1 ? 'comment' : 'conversations'}
         </span>
         <button
           type="button"
@@ -516,28 +995,44 @@ function FeedPostCard({ post, onShare }) {
       </div>
       <form onSubmit={handleCommentSubmit} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
         <label htmlFor={`comment-${post.id}`} className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Add a comment
+          Join the conversation
         </label>
         <textarea
           id={`comment-${post.id}`}
           value={commentDraft}
           onChange={(event) => setCommentDraft(event.target.value)}
-          rows={2}
-          className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-900 transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-          placeholder="Offer feedback, drop a resource link, or shout out collaborators"
+          rows={3}
+          className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-inner focus:border-accent focus:ring-2 focus:ring-accent/20"
+          placeholder="Offer context, signal interest, or tag a collaborator…"
         />
-        <div className="mt-3 flex items-center justify-end">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-2 text-[0.65rem] uppercase tracking-wide text-slate-400">
+            {QUICK_REPLY_SUGGESTIONS.slice(0, 2).map((suggestion) => (
+              <button
+                key={suggestion}
+                type="button"
+                onClick={() => setCommentDraft((previous) => (previous ? `${previous}\n${suggestion}` : suggestion))}
+                className="rounded-full border border-slate-200 px-3 py-1 font-semibold transition hover:border-accent/60 hover:text-accent"
+              >
+                {suggestion.slice(0, 22)}…
+              </button>
+            ))}
+          </div>
           <button
             type="submit"
-            className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white transition hover:bg-accentDark"
+            disabled={!commentDraft.trim()}
+            className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold text-white transition ${
+              commentDraft.trim() ? 'bg-accent hover:bg-accentDark' : 'cursor-not-allowed bg-accent/40'
+            }`}
           >
-            <PaperAirplaneIcon className="h-4 w-4" /> Post comment
+            <PaperAirplaneIcon className="h-4 w-4" />
+            Comment
           </button>
         </div>
       </form>
       <div className="space-y-3">
         {comments.map((comment) => (
-          <FeedComment key={comment.id} comment={comment} />
+          <FeedCommentThread key={comment.id} comment={comment} onReply={handleAddReply} />
         ))}
       </div>
     </article>
@@ -548,13 +1043,13 @@ function LiveMomentsTicker({ moments = [] }) {
   const [activeIndex, setActiveIndex] = useState(0);
 
   useEffect(() => {
-    if (!moments.length || typeof window === 'undefined') {
+    if (!moments.length) {
       return undefined;
     }
-    const interval = window.setInterval(() => {
+    const interval = setInterval(() => {
       setActiveIndex((previous) => (previous + 1) % moments.length);
     }, 6000);
-    return () => window.clearInterval(interval);
+    return () => clearInterval(interval);
   }, [moments]);
 
   if (!moments.length) {
@@ -577,9 +1072,7 @@ function LiveMomentsTicker({ moments = [] }) {
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-accentDark">{activeMoment.tag}</p>
             <p className="mt-1 text-sm font-semibold text-slate-900">{activeMoment.title}</p>
-            <p className="mt-2 text-xs text-slate-500">
-              Updated {formatRelativeTime(activeMoment.timestamp)}
-            </p>
+            <p className="mt-2 text-xs text-slate-500">Updated {formatRelativeTime(activeMoment.timestamp)}</p>
           </div>
         </div>
       </div>
@@ -708,10 +1201,7 @@ function FeedSidebar({ session, insights }) {
         <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-soft">
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold text-slate-900">Suggested connections</p>
-            <Link
-              to="/connections"
-              className="text-xs font-semibold text-accent transition hover:text-accentDark"
-            >
+            <Link to="/connections" className="text-xs font-semibold text-accent transition hover:text-accentDark">
               View all
             </Link>
           </div>
@@ -745,10 +1235,7 @@ function FeedSidebar({ session, insights }) {
         <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-soft">
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold text-slate-900">Groups to join</p>
-            <Link
-              to="/groups"
-              className="text-xs font-semibold text-accent transition hover:text-accentDark"
-            >
+            <Link to="/groups" className="text-xs font-semibold text-accent transition hover:text-accentDark">
               Explore groups
             </Link>
           </div>
@@ -809,9 +1296,13 @@ export default function FeedPage() {
 
   const posts = useMemo(() => {
     const fetched = Array.isArray(data) ? data : [];
+    const normalisedFetched = fetched
+      .map((post) => normaliseFeedPost(post, session))
+      .filter(Boolean);
+    const merged = [...localPosts, ...normalisedFetched];
     const deduped = [];
     const seen = new Set();
-    [...localPosts, ...fetched].forEach((post) => {
+    merged.forEach((post) => {
       if (!post) {
         return;
       }
@@ -823,17 +1314,32 @@ export default function FeedPage() {
       deduped.push(post);
     });
     return deduped;
-  }, [data, localPosts]);
+  }, [data, localPosts, session]);
 
   const engagementSignals = useEngagementSignals({ session, feedPosts: posts });
 
-  const membershipList = useMemo(
-    () => (Array.isArray(session?.memberships) ? session.memberships.filter(Boolean) : []),
-    [session?.memberships],
-  );
+  const membershipList = useMemo(() => {
+    const memberships = new Set();
+    if (Array.isArray(session?.memberships)) {
+      session.memberships.filter(Boolean).forEach((membership) => memberships.add(membership));
+    }
+    if (Array.isArray(session?.accountTypes)) {
+      session.accountTypes.filter(Boolean).forEach((membership) => memberships.add(membership));
+    }
+    if (session?.primaryMembership) {
+      memberships.add(session.primaryMembership);
+    }
+    if (session?.primaryDashboard) {
+      memberships.add(session.primaryDashboard);
+    }
+    if (session?.userType) {
+      memberships.add(session.userType);
+    }
+    return Array.from(memberships);
+  }, [session]);
 
   const hasFeedAccess = useMemo(
-    () => membershipList.some((membership) => ALLOWED_FEED_MEMBERSHIPS.has(membership)),
+    () => membershipList.some((membership) => ALLOWED_FEED_MEMBERSHIPS.has(`${membership}`.toLowerCase())),
     [membershipList],
   );
 
@@ -844,109 +1350,111 @@ export default function FeedPage() {
     }
   }, [loading, posts, fromCache]);
 
-  const handleShareClick = () => {
+  const handleShareClick = useCallback(() => {
     analytics.track('web_feed_share_click', { location: 'feed_page' }, { source: 'web_app' });
-  };
+  }, []);
 
-  const handleComposerCreate = async (payload) => {
-    if (!hasFeedAccess) {
-      throw new Error('Your current workspace role cannot publish to the live feed. Switch roles to continue.');
-    }
+  const handleComposerCreate = useCallback(
+    async (payload) => {
+      if (!hasFeedAccess) {
+        throw new Error('Your current workspace role cannot publish to the live feed. Switch roles to continue.');
+      }
 
-    if (!session?.id) {
-      throw new Error('We could not confirm your account. Please sign in again and retry.');
-    }
+      if (!session?.id) {
+        throw new Error('We could not confirm your account. Please sign in again and retry.');
+      }
 
-    const optimisticId = `local-${Date.now()}`;
-    const optimisticPost = {
-      id: optimisticId,
-  const handleComposerCreate = (payload) => {
-    const author = {
-      name: session?.name ?? 'You',
-      headline: session?.title ?? 'Shared via Gigvora',
-      avatarSeed: session?.avatarSeed ?? session?.name ?? 'You',
-    };
-    const newPost = {
-      id: `local-${Date.now()}`,
-      content: payload.content,
-      summary: payload.content,
-      type: payload.type,
-      link: payload.link,
-      createdAt: new Date().toISOString(),
-      authorName: session?.name,
-      authorHeadline: session?.title,
-      reactions: { likes: 0 },
-      comments: [],
-      authorName: author.name,
-      authorHeadline: author.headline,
-      authorAvatarSeed: author.avatarSeed,
-      author,
-      User: {
-        firstName: session?.name,
-        lastName: '',
-        Profile: {
-          avatarSeed: session?.avatarSeed,
-          headline: session?.title,
+      const optimisticId = `local-${Date.now()}`;
+      const author = {
+        name: session?.name ?? 'You',
+        headline: session?.title ?? 'Shared via Gigvora',
+        avatarSeed: session?.avatarSeed ?? session?.name ?? 'You',
+      };
+      const optimisticPost = {
+        id: optimisticId,
+        content: payload.content,
+        summary: payload.content,
+        type: payload.type,
+        link: payload.link,
+        createdAt: new Date().toISOString(),
+        authorName: author.name,
+        authorHeadline: author.headline,
+        reactions: { likes: 0 },
+        comments: [],
+        mediaAttachments: payload.mediaAttachments ?? [],
+        User: {
+          firstName: session?.name,
+          Profile: {
+            avatarSeed: session?.avatarSeed,
+            headline: session?.title,
+          },
         },
-      },
-    };
+      };
 
-    setLocalPosts((previous) => [optimisticPost, ...previous]);
-    analytics.track('web_feed_post_created', { type: payload.type, optimistic: true }, { source: 'web_app' });
+      setLocalPosts((previous) => [optimisticPost, ...previous]);
+      analytics.track('web_feed_post_created', { type: payload.type, optimistic: true }, { source: 'web_app' });
 
-    try {
-      const response = await apiClient.post(
-        '/feed',
-        {
-          userId: session.id,
-          content: payload.content,
-          visibility: 'public',
-          type: payload.type,
-          link: payload.link,
-        },
-        { headers: { 'X-Feature-Surface': 'web-feed-composer' } },
-      );
-
-      const normalised = normaliseFeedPost(response, session);
-
-      if (normalised) {
-        setLocalPosts((previous) =>
-          previous.map((post) => {
-            if (post.id !== optimisticId) {
-              return post;
-            }
-            return {
-              ...post,
-              ...normalised,
-              id: normalised.id ?? optimisticId,
-              createdAt: normalised.createdAt ?? post.createdAt,
-              User: normalised.User ?? post.User,
-              reactions: normalised.reactions ?? post.reactions,
-            };
-          }),
+      try {
+        const response = await apiClient.post(
+          '/feed',
+          {
+            userId: session.id,
+            content: payload.content,
+            visibility: 'public',
+            type: payload.type,
+            link: payload.link,
+            mediaAttachments: payload.mediaAttachments,
+          },
+          { headers: { 'X-Feature-Surface': 'web-feed-composer' } },
         );
+
+        const normalised = normaliseFeedPost(response?.data ?? response, session);
+
+        if (normalised) {
+          setLocalPosts((previous) =>
+            previous.map((post) => {
+              if (post.id !== optimisticId) {
+                return post;
+              }
+              return {
+                ...post,
+                ...normalised,
+                id: normalised.id ?? optimisticId,
+                createdAt: normalised.createdAt ?? post.createdAt,
+                mediaAttachments: normalised.mediaAttachments?.length
+                  ? normalised.mediaAttachments
+                  : post.mediaAttachments,
+                reactions: normalised.reactions ?? post.reactions,
+              };
+            }),
+          );
+        }
+
+        analytics.track('web_feed_post_synced', { type: payload.type }, { source: 'web_app' });
+        await refresh({ force: true });
+      } catch (composerError) {
+        setLocalPosts((previous) => previous.filter((post) => post.id !== optimisticId));
+        analytics.track(
+          'web_feed_post_failed',
+          {
+            type: payload.type,
+            status:
+              composerError instanceof apiClient.ApiError ? composerError.status ?? 'api_error' : 'unknown_error',
+          },
+          { source: 'web_app' },
+        );
+
+        if (composerError instanceof apiClient.ApiError) {
+          throw new Error(
+            composerError.body?.message || 'The live feed service rejected your update. Please try again.',
+          );
+        }
+
+        throw new Error('We were unable to reach the live feed service. Check your connection and retry.');
       }
-
-      analytics.track('web_feed_post_synced', { type: payload.type }, { source: 'web_app' });
-      await refresh({ force: true });
-    } catch (error) {
-      setLocalPosts((previous) => previous.filter((post) => post.id !== optimisticId));
-      analytics.track(
-        'web_feed_post_failed',
-        {
-          type: payload.type,
-          status: error instanceof apiClient.ApiError ? error.status ?? 'api_error' : 'unknown_error',
-        },
-        { source: 'web_app' },
-      );
-
-      if (error instanceof apiClient.ApiError) {
-        throw new Error(error.body?.message || 'The live feed service rejected your update. Please try again.');
-      }
-
-      throw new Error('We were unable to reach the live feed service. Check your connection and retry.');
-    }
-  };
+    },
+    [hasFeedAccess, session, refresh],
+  );
 
   const renderSkeleton = () => (
     <div className="space-y-6">

@@ -12,6 +12,14 @@ import '../data/models/project_gig_management_snapshot.dart';
 
 enum GigManagementSection { manage, buy, post }
 
+const List<String> _projectManagementRoleLabels = <String>[
+  'Agency lead',
+  'Operations lead',
+  'Company operator',
+  'Workspace admin',
+  'Platform admin',
+];
+
 GigManagementSection? sectionFromQuery(String? value) {
   switch (value?.toLowerCase()) {
     case 'manage':
@@ -270,6 +278,7 @@ class _AccessDeniedCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
@@ -277,26 +286,79 @@ class _AccessDeniedCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Workspace access required',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                reason ??
-                    'Project operations are restricted to agency, company, operations, and admin leads. Request access from your workspace administrator to continue.',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    height: 44,
+                    width: 44,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.secondaryContainer.withOpacity(0.6),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Icon(Icons.lock_outline, color: theme.colorScheme.onSecondaryContainer),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Workspace access required',
+                          style: theme.textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          reason ??
+                              'Project operations are restricted to agency, company, operations, and admin leads. Request access from your workspace administrator to continue.',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 20),
-              Row(
-                children: const [
-                  Icon(Icons.mail_outline, size: 18),
-                  SizedBox(width: 8),
-                  SelectableText('operations@gigvora.com'),
-                ],
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: _projectManagementRoleLabels
+                    .map(
+                      (label) => Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.secondaryContainer.withOpacity(0.35),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(color: theme.colorScheme.secondaryContainer),
+                        ),
+                        child: Text(
+                          label,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSecondaryContainer,
+                            letterSpacing: 0.4,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  children: const [
+                    Icon(Icons.mail_outline, size: 18),
+                    SizedBox(width: 8),
+                    SelectableText('operations@gigvora.com'),
+                  ],
+                ),
               ),
             ],
           ),

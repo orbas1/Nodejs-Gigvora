@@ -32,9 +32,31 @@ class DiscoveryRepository {
     return value;
   }
 
+  String _filtersCacheKey(Map<String, dynamic>? filters) {
+    if (filters == null || filters.isEmpty) {
+      return 'no-filters';
+    }
+    return jsonEncode(_normaliseForEncoding(filters));
+  }
+
+  Map<String, String>? _sanitizeHeaders(Map<String, String>? headers) {
+    if (headers == null || headers.isEmpty) {
+      return null;
+    }
+    final sanitized = <String, String>{};
+    headers.forEach((key, value) {
+      if (value.trim().isNotEmpty) {
+        sanitized[key] = value.trim();
+      }
+    });
+    return sanitized.isEmpty ? null : sanitized;
+  }
+
   Future<RepositoryResult<OpportunityPage>> fetchOpportunities(
     OpportunityCategory category, {
     String? query,
+    bool forceRefresh = false,
+    int page = 1,
     int pageSize = 20,
     Map<String, dynamic>? filters,
     String? sort,
@@ -55,11 +77,38 @@ class DiscoveryRepository {
         return _mapToOpportunityPage(category, raw).copyWith(query: queryKey.isEmpty ? null : queryKey);
       }
       return null;
+  }) async {
+    final queryKey = (query ?? '').trim().toLowerCase();
+    final filterToken = _filtersCacheKey(filters);
+    final sortToken = (sort ?? '').trim().isEmpty ? 'default' : (sort ?? '').trim();
+    final facetToken = includeFacets ? 'facets' : 'no-facets';
+    final cacheKey =
+        'opportunities:${categoryToPath(category)}:${queryKey.isEmpty ? 'all' : queryKey}:$filterToken:$sortToken:$facetToken:page$page:size$pageSize';
+    final filterToken = _serialiseFilters(filters);
+    final sortToken = sort?.trim().isEmpty ?? true ? 'default' : sort!.trim();
+    final facetToken = includeFacets ? 'facets' : 'no-facets';
+    final cacheKey =
+        'opportunities:${categoryToPath(category)}:${queryKey.isEmpty ? 'all' : queryKey}:$filterToken:$sortToken:$facetToken:$pageSize';
+
+    final cached = _cache.read<OpportunityPage>(cacheKey, (raw) {
+      if (raw is Map<String, dynamic>) {
+        return _mapToOpportunityPage(category, raw);
+      }
+      return null;
+      return OpportunityPage(
+        category: category,
+        items: const <OpportunitySummary>[],
+        page: 1,
+        pageSize: pageSize,
+        total: 0,
+        totalPages: 1,
+        query: queryKey,
+      );
     });
 
     if (!forceRefresh && cached != null) {
       return RepositoryResult(
-        data: cached.value,
+        data: cached.value.copyWith(query: queryKey.isEmpty ? null : queryKey),
         fromCache: true,
         lastUpdated: cached.storedAt,
       );
@@ -67,6 +116,18 @@ class DiscoveryRepository {
 
     try {
       final endpoint = '/discovery/${categoryToPath(category)}';
+      final params = <String, dynamic>{
+        'page': page,
+        'pageSize': pageSize,
+        'q': queryKey.isEmpty ? null : queryKey,
+        'filters': filters == null || filters.isEmpty ? null : jsonEncode(filters),
+        'sort': sortToken == 'default' ? null : sortToken,
+        'includeFacets': includeFacets ? 'true' : null,
+      };
+      final response = await _apiClient.get(
+        endpoint,
+        query: params,
+        headers: _sanitizeHeaders(headers),
       final response = await _apiClient.get(
         endpoint,
         query: {
@@ -74,24 +135,30 @@ class DiscoveryRepository {
           'pageSize': pageSize,
           'filters': filtersKey == 'none' ? null : filtersKey,
           'sort': sortKey == 'default' ? null : sortKey,
+          'filters': filterToken == 'none' ? null : filterToken,
+          'sort': sortToken == 'default' ? null : sortToken,
           'includeFacets': includeFacets ? 'true' : null,
         },
         headers: headers,
       );
+
       if (response is! Map<String, dynamic>) {
         throw Exception('Unexpected response from $endpoint');
       }
+
       await _cache.write(cacheKey, response, ttl: _opportunityTtl);
       final page = _mapToOpportunityPage(category, response).copyWith(query: queryKey.isEmpty ? null : queryKey);
+      final pageData =
+          _mapToOpportunityPage(category, response).copyWith(query: queryKey.isEmpty ? null : queryKey);
       return RepositoryResult(
-        data: page,
+        data: pageData,
         fromCache: false,
         lastUpdated: DateTime.now(),
       );
     } catch (error) {
       if (cached != null) {
         return RepositoryResult(
-          data: cached.value,
+          data: cached.value.copyWith(query: queryKey.isEmpty ? null : queryKey),
           fromCache: true,
           lastUpdated: cached.storedAt,
           error: error,
@@ -104,10 +171,10 @@ class DiscoveryRepository {
   Future<RepositoryResult<DiscoverySnapshot>> fetchSnapshot({int limit = 8, bool forceRefresh = false}) async {
     final cacheKey = 'discovery:snapshot:$limit';
     final cached = _cache.read<DiscoverySnapshot>(cacheKey, (raw) {
-      if (raw is Map) {
+      if (raw is Map<String, dynamic>) {
         return DiscoverySnapshot.fromJson(Map<String, dynamic>.from(raw));
       }
-      return DiscoverySnapshot.empty();
+      return null;
     });
 
     if (!forceRefresh && cached != null) {
@@ -149,15 +216,15 @@ class DiscoveryRepository {
     bool forceRefresh = false,
   }) async {
     final trimmed = query.trim();
-    final cacheKey = 'search:${trimmed.toLowerCase()}:${limit}';
+    final cacheKey = 'search:${trimmed.toLowerCase()}:$limit';
 
     final cached = trimmed.isEmpty
         ? null
         : _cache.read<GlobalSearchResult>(cacheKey, (raw) {
-            if (raw is Map) {
+            if (raw is Map<String, dynamic>) {
               return GlobalSearchResult.fromJson(Map<String, dynamic>.from(raw));
             }
-            return GlobalSearchResult.empty();
+            return null;
           });
 
     if (!forceRefresh && cached != null) {
@@ -198,6 +265,31 @@ class DiscoveryRepository {
     }
   }
 
+  String _serialiseFilters(Map<String, dynamic>? filters) {
+    if (filters == null || filters.isEmpty) {
+      return 'none';
+    }
+
+    dynamic normalise(dynamic value) {
+      if (value is Map) {
+        final sorted = SplayTreeMap<String, dynamic>.fromIterables(
+          value.keys.map((key) => key.toString()),
+          value.values.map(normalise),
+        );
+        return sorted;
+      }
+      if (value is Iterable) {
+        final list = value.map(normalise).toList();
+        list.sort((a, b) => jsonEncode(a).compareTo(jsonEncode(b)));
+        return list;
+      }
+      return value;
+    }
+
+    final normalised = normalise(filters);
+    return jsonEncode(normalised);
+  }
+
   OpportunityPage _mapToOpportunityPage(
     OpportunityCategory category,
     Map<String, dynamic> payload,
@@ -209,74 +301,13 @@ class DiscoveryRepository {
     return OpportunityPage(
       category: category,
       items: items,
-      page: payload['page'] is num ? (payload['page'] as num).toInt() : 1,
-      pageSize: payload['pageSize'] is num ? (payload['pageSize'] as num).toInt() : items.length,
-      total: payload['total'] is num ? (payload['total'] as num).toInt() : items.length,
-      totalPages: payload['totalPages'] is num ? (payload['totalPages'] as num).toInt() : 1,
+      page: (payload['page'] as num?)?.toInt() ?? 1,
+      pageSize: (payload['pageSize'] as num?)?.toInt() ?? items.length,
+      total: (payload['total'] as num?)?.toInt() ?? items.length,
+      totalPages: (payload['totalPages'] as num?)?.toInt() ?? 1,
       query: payload['query'] as String?,
-      facets: payload['facets'] is Map<String, dynamic>
-          ? Map<String, dynamic>.from(payload['facets'] as Map)
-          : null,
+      facets: payload['facets'] as Map<String, dynamic>?,
     );
+    return OpportunityPage.fromJson(category, payload);
   }
-}
-
-String _filtersCacheKey(Map<String, dynamic>? filters) {
-  final normalised = _normaliseFilters(filters);
-  if (normalised == null) {
-    return 'none';
-  }
-  return jsonEncode(normalised);
-}
-
-dynamic _normaliseFilters(dynamic value) {
-  if (value is Map<String, dynamic>) {
-    final sorted = SplayTreeMap<String, dynamic>();
-    value.forEach((key, val) {
-      final normalised = _normaliseFilters(val);
-      if (_isMeaningful(normalised)) {
-        sorted[key] = normalised;
-      }
-    });
-    return sorted.isEmpty ? null : sorted;
-  }
-
-  if (value is Iterable) {
-    final list = value
-        .map(_normaliseFilters)
-        .where(_isMeaningful)
-        .toList(growable: false);
-    return list.isEmpty ? null : list;
-  }
-
-  if (value == null) {
-    return null;
-  }
-
-  if (value is String) {
-    final trimmed = value.trim();
-    return trimmed.isEmpty ? null : trimmed;
-  }
-
-  if (value is bool || value is num) {
-    return value;
-  }
-
-  return '$value';
-}
-
-bool _isMeaningful(dynamic value) {
-  if (value == null) {
-    return false;
-  }
-  if (value is String) {
-    return value.isNotEmpty;
-  }
-  if (value is Iterable) {
-    return value.isNotEmpty;
-  }
-  if (value is Map) {
-    return value.isNotEmpty;
-  }
-  return true;
 }
