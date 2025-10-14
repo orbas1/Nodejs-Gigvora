@@ -4,9 +4,12 @@ import {
   Project,
   AutoAssignQueueEntry,
   ProjectAssignmentEvent,
+  WORKSPACE_STATUSES,
 } from '../models/index.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
+import { normalizeLocationPayload, areGeoLocationsEqual } from '../utils/location.js';
 import { buildAssignmentQueue, getProjectQueue } from './autoAssignService.js';
+import { initializeWorkspaceForProject } from './projectWorkspaceService.js';
 
 const DEFAULT_AUTO_ASSIGN_LIMIT = 12;
 
@@ -43,6 +46,29 @@ function normalizeCurrency(input) {
     throw new ValidationError('budgetCurrency must be a 3-letter ISO code.');
   }
   return trimmed;
+}
+
+function deriveWorkspaceStatus(projectStatus) {
+  if (!projectStatus) {
+    return null;
+  }
+  const normalized = projectStatus.toString().toLowerCase();
+  if (normalized.includes('block')) {
+    return 'blocked';
+  }
+  if (normalized.includes('complete') || normalized.includes('launch') || normalized.includes('closed')) {
+    return 'completed';
+  }
+  if (
+    normalized.includes('active') ||
+    normalized.includes('delivery') ||
+    normalized.includes('execution') ||
+    normalized.includes('progress') ||
+    normalized.includes('live')
+  ) {
+    return 'active';
+  }
+  return WORKSPACE_STATUSES.includes('briefing') ? 'briefing' : WORKSPACE_STATUSES[0];
 }
 
 function normaliseWeights(weights = {}) {
@@ -236,8 +262,12 @@ export async function createProject(payload = {}, { actorId } = {}) {
   }
 
   const status = payload.status?.trim() || 'draft';
-  const location = payload.location?.trim() || null;
-  const geoLocation = payload.geoLocation ?? null;
+  const locationPayload = normalizeLocationPayload({
+    location: payload.location,
+    geoLocation: payload.geoLocation,
+  });
+  const location = locationPayload.location;
+  const geoLocation = locationPayload.geoLocation;
   const budgetAmount = normalizeBudgetAmount(payload.budgetAmount);
   const budgetCurrency = normalizeCurrency(payload.budgetCurrency);
   const autoAssignInput = payload.autoAssign ?? {};
@@ -260,6 +290,8 @@ export async function createProject(payload = {}, { actorId } = {}) {
       },
       { transaction },
     );
+
+    await initializeWorkspaceForProject(project, { transaction, actorId });
 
     const eventsToPersist = [];
     queueProjectEvent(eventsToPersist, project.id, actorId, 'created', {
@@ -394,6 +426,7 @@ export async function updateProjectDetails(projectId, payload = {}, { actorId } 
     const previousState = project.get({ plain: true });
     const updates = {};
     const changes = [];
+    let workspaceStatusUpdate = null;
 
     if (payload.title !== undefined) {
       const title = payload.title?.trim();
@@ -426,23 +459,40 @@ export async function updateProjectDetails(projectId, payload = {}, { actorId } 
         updates.status = status;
         changes.push({ field: 'status', previous: project.status, current: status });
       }
+      workspaceStatusUpdate = deriveWorkspaceStatus(status);
     }
 
-    if (payload.location !== undefined) {
-      const location = payload.location?.trim() || null;
-      if (location !== project.location) {
-        updates.location = location;
-        changes.push({ field: 'location', previous: project.location, current: location });
+    const hasLocation = Object.prototype.hasOwnProperty.call(payload, 'location');
+    const hasGeoLocation = Object.prototype.hasOwnProperty.call(payload, 'geoLocation');
+    if (hasLocation || hasGeoLocation) {
+      const normalized = normalizeLocationPayload({
+        location: hasLocation ? payload.location : project.location,
+        geoLocation: hasGeoLocation ? payload.geoLocation : undefined,
+      });
+
+      if (hasLocation) {
+        const nextLocation = normalized.location;
+        const previousLocation = project.location ?? null;
+        if (nextLocation !== previousLocation) {
+          updates.location = nextLocation;
+          changes.push({ field: 'location', previous: previousLocation, current: nextLocation });
+        }
+        if (nextLocation == null && !hasGeoLocation && project.geoLocation != null) {
+          updates.geoLocation = null;
+          changes.push({ field: 'geoLocation', previous: project.geoLocation ?? null, current: null });
+        }
+      } else if (hasGeoLocation && normalized.location !== (project.location ?? null)) {
+        updates.location = normalized.location;
+        changes.push({ field: 'location', previous: project.location ?? null, current: normalized.location });
       }
-    }
 
-    if (payload.geoLocation !== undefined) {
-      const geoLocation = payload.geoLocation ?? null;
-      const current = project.geoLocation ?? null;
-      const changed = JSON.stringify(geoLocation) !== JSON.stringify(current);
-      if (changed) {
-        updates.geoLocation = geoLocation;
-        changes.push({ field: 'geoLocation', previous: current, current: geoLocation });
+      if (hasGeoLocation) {
+        const previousGeo = project.geoLocation ?? null;
+        const nextGeo = normalized.geoLocation;
+        if (!areGeoLocationsEqual(previousGeo, nextGeo)) {
+          updates.geoLocation = nextGeo;
+          changes.push({ field: 'geoLocation', previous: previousGeo, current: nextGeo });
+        }
       }
     }
 
@@ -469,6 +519,20 @@ export async function updateProjectDetails(projectId, payload = {}, { actorId } 
 
     if (Object.keys(updates).length) {
       await project.update(updates, { transaction });
+    }
+
+    if (workspaceStatusUpdate) {
+      const workspace = await initializeWorkspaceForProject(project, { transaction, actorId });
+      if (workspace.status !== workspaceStatusUpdate) {
+        await workspace.update(
+          {
+            status: workspaceStatusUpdate,
+            lastActivityAt: new Date(),
+            updatedById: actorId ?? null,
+          },
+          { transaction },
+        );
+      }
     }
 
     if (changes.length) {

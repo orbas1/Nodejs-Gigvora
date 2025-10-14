@@ -1,37 +1,477 @@
 import 'package:flutter/material.dart';
-import '../../../theme/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class CompanyRegisterScreen extends StatelessWidget {
+import '../../../theme/widgets.dart';
+import '../application/session_controller.dart';
+import '../domain/session.dart';
+import '../data/auth_repository.dart';
+
+class CompanyRegisterScreen extends ConsumerStatefulWidget {
   const CompanyRegisterScreen({super.key});
 
   @override
+  ConsumerState<CompanyRegisterScreen> createState() => _CompanyRegisterScreenState();
+}
+
+class _CompanyRegisterScreenState extends ConsumerState<CompanyRegisterScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _companyController = TextEditingController();
+  final _websiteController = TextEditingController();
+  final _focusController = TextEditingController();
+  final _contactNameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _teamSizeController = TextEditingController();
+  final _locationController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+
+  String _type = 'company';
+  bool _twoFactorEnabled = true;
+  bool _loading = false;
+  String? _error;
+  String? _info;
+
+  static const List<String> _pillars = [
+    'Publish roles, gigs, and launchpad challenges with beautiful employer branding.',
+    'Manage inbound talent pipelines with collaborative scoring and tags.',
+    'Co-create private groups and showcase company culture to the Gigvora community.',
+  ];
+
+  @override
+  void dispose() {
+    _companyController.dispose();
+    _websiteController.dispose();
+    _focusController.dispose();
+    _contactNameController.dispose();
+    _emailController.dispose();
+    _teamSizeController.dispose();
+    _locationController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  RoleDashboard _buildCompanyDashboard(String workspaceName) {
+    final organisation = workspaceName.isEmpty ? 'your company' : workspaceName;
+    return RoleDashboard(
+      role: 'company',
+      heroTitle: 'Company talent acquisition hub',
+      heroSubtitle: 'Design roles, orchestrate interviews, and scale partnerships for $organisation.',
+      metrics: const [
+        DashboardMetric(label: 'Active roles', value: '12', trend: '▲ 3 new this week'),
+        DashboardMetric(label: 'Interview SLAs', value: '96%', trend: '↑ On target'),
+        DashboardMetric(label: 'Talent pool health', value: '18', trend: 'Priority intros queued'),
+        DashboardMetric(label: 'Partner NPS', value: '4.9/5', trend: 'Clients delighted'),
+      ],
+      sections: [
+        DashboardSection(
+          title: 'Hiring pipeline intelligence',
+          subtitle: 'Signal-based analytics keep offers, interviews, and approvals in sync.',
+          highlights: const [
+            'ATS and hiring manager sync automates candidate scorecards.',
+            'Diversity and velocity guardrails flagged 2 roles for review.',
+            'Offer desk automation prepped compensation scenarios.',
+          ],
+          icon: Icons.analytics_outlined,
+          accentColor: const Color(0xFF2563EB),
+        ),
+        DashboardSection(
+          title: 'Employer brand studio',
+          subtitle: 'Showcase culture stories, benefits, and launch campaigns in minutes.',
+          highlights: const [
+            'Storytelling modules ready for onboarding and candidate nurture.',
+            'Live career site blocks prepared for social amplification.',
+            'Video spotlights curated with comms and people partners.',
+          ],
+          icon: Icons.campaign_outlined,
+          accentColor: const Color(0xFF7C3AED),
+        ),
+        DashboardSection(
+          title: 'Partnership command centre',
+          subtitle: 'Collaborate with agencies, headhunters, and community leads securely.',
+          highlights: const [
+            'Shared briefs with SLA monitoring and compliance signals.',
+            'Partner scorecards refreshed with 24h performance data.',
+            'Networking hub requests synced to security approvals.',
+          ],
+          icon: Icons.groups_2_outlined,
+          accentColor: const Color(0xFF059669),
+        ),
+      ],
+      actions: const [
+        DashboardAction(
+          label: 'Review hiring pipeline health',
+          description: 'Align recruiters and interview panels around upcoming decision gates.',
+        ),
+        DashboardAction(
+          label: 'Launch brand storytelling sprint',
+          description: 'Publish refreshed benefits and EVP assets across company touchpoints.',
+        ),
+      ],
+    );
+  }
+
+  void _submit() {
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+
+    final isCompany = _type == 'company';
+    final membershipLabel = isCompany ? 'Company' : 'Agency';
+    final workspaceName = _companyController.text.trim().isEmpty
+        ? '$membershipLabel workspace'
+        : _companyController.text.trim();
+    final contactName = _contactNameController.text.trim().isEmpty
+        ? 'Gigvora partner lead'
+        : _contactNameController.text.trim();
+    final email = _emailController.text.trim();
+    final location = _locationController.text.trim();
+
+    final controller = ref.read(sessionControllerProvider.notifier);
+    final sessionState = ref.read(sessionControllerProvider);
+    final currentSession = sessionState.session;
+
+    final membershipSet = <String>{...(currentSession?.memberships ?? const <String>[])};
+    membershipSet.add(isCompany ? 'company' : 'agency');
+
+    if (currentSession != null) {
+      final updatedDashboards = Map<String, RoleDashboard>.from(currentSession.dashboards);
+      if (isCompany) {
+        updatedDashboards['company'] = _buildCompanyDashboard(workspaceName);
+      } else if (!updatedDashboards.containsKey('agency')) {
+        final agencyDashboard = currentSession.dashboardFor('agency') ?? UserSession.demo().dashboardFor('agency');
+        if (agencyDashboard != null) {
+          updatedDashboards['agency'] = agencyDashboard;
+        }
+      }
+
+      final updatedCompanies = <String>{
+        ...currentSession.companies,
+        if (isCompany) workspaceName,
+      }.toList();
+
+      final updatedAgencies = <String>{
+        ...currentSession.agencies,
+        if (!isCompany) workspaceName,
+      }.toList();
+
+      controller.login(
+        currentSession.copyWith(
+          memberships: membershipSet.toList(),
+          activeMembership: isCompany ? 'company' : currentSession.activeMembership,
+          dashboards: updatedDashboards,
+          companies: updatedCompanies,
+          agencies: updatedAgencies,
+          title: currentSession.title.isEmpty ? 'Talent Acquisition Lead' : currentSession.title,
+          location: location.isEmpty ? currentSession.location : location,
+          email: email.isEmpty ? currentSession.email : email,
+          avatarSeed: contactName,
+        ),
+      );
+    } else {
+      final dashboards = <String, RoleDashboard>{};
+      if (isCompany) {
+        dashboards['company'] = _buildCompanyDashboard(workspaceName);
+      } else {
+        final agencyDashboard = UserSession.demo().dashboardFor('agency');
+        if (agencyDashboard != null) {
+          dashboards['agency'] = agencyDashboard;
+        }
+      }
+
+      controller.login(
+        UserSession(
+          name: contactName,
+          title: 'Talent Acquisition Lead',
+          email: email.isEmpty ? 'partnerships@gigvora.com' : email,
+          location: location.isEmpty ? 'Global' : location,
+          avatarSeed: contactName,
+          memberships: membershipSet.toList(),
+          activeMembership: isCompany ? 'company' : 'agency',
+          dashboards: dashboards,
+          connections: 0,
+          followers: 0,
+          companies: isCompany ? [workspaceName] : const <String>[],
+          agencies: isCompany ? const <String>[] : [workspaceName],
+        ),
+      );
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$membershipLabel registration submitted. Our partnerships team will be in touch shortly.'),
+      ),
+    );
+    _formKey.currentState?.reset();
+    _companyController.clear();
+    _websiteController.clear();
+    _focusController.clear();
+    _contactNameController.clear();
+    _emailController.clear();
+    _teamSizeController.clear();
+    _locationController.clear();
+  Future<void> _submit() async {
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+    if (_passwordController.text != _confirmPasswordController.text) {
+      setState(() {
+        _error = 'Passwords do not match.';
+      });
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _error = null;
+      _info = null;
+    });
+
+    final parts = _contactNameController.text.trim().split(' ');
+    final firstName = parts.isNotEmpty ? parts.first : _contactNameController.text.trim();
+    final lastName = parts.length > 1 ? parts.sublist(1).join(' ') : 'Operations';
+
+    final repository = ref.read(authRepositoryProvider);
+    final future = _type == 'company'
+        ? repository.registerCompanyAccount(
+            companyName: _companyController.text.trim(),
+            firstName: firstName,
+            lastName: lastName,
+            email: _emailController.text.trim(),
+            password: _passwordController.text,
+            website: _websiteController.text.trim(),
+            focusArea: _focusController.text.trim(),
+            location: _locationController.text.trim(),
+            twoFactorEnabled: _twoFactorEnabled,
+          )
+        : repository.registerAgencyAccount(
+            agencyName: _companyController.text.trim(),
+            firstName: firstName,
+            lastName: lastName,
+            email: _emailController.text.trim(),
+            password: _passwordController.text,
+            website: _websiteController.text.trim(),
+            focusArea: _focusController.text.trim(),
+            location: _locationController.text.trim(),
+            twoFactorEnabled: _twoFactorEnabled,
+          );
+
+    future.then((_) {
+      final label = _type == 'company' ? 'Company' : 'Agency';
+      setState(() {
+        _info = '$label hub created. Check your inbox to complete onboarding.';
+      });
+      _formKey.currentState?.reset();
+      _companyController.clear();
+      _websiteController.clear();
+      _focusController.clear();
+      _contactNameController.clear();
+      _emailController.clear();
+      _teamSizeController.clear();
+      _locationController.clear();
+      _passwordController.clear();
+      _confirmPasswordController.clear();
+      _twoFactorEnabled = true;
+    }).catchError((error) {
+      setState(() {
+        _error = error.toString();
+      });
+    }).whenComplete(() {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final typeLabel = _type == 'company' ? 'Company' : 'Agency';
     return GigvoraScaffold(
-      title: 'Company & Agency onboarding',
-      subtitle: 'Launch your talent hub',
-      body: ListView(
-        children: [
-          TextFormField(decoration: const InputDecoration(labelText: 'Organization name')),
-          const SizedBox(height: 16),
-          TextFormField(decoration: const InputDecoration(labelText: 'Website URL')),
-          const SizedBox(height: 16),
-          TextFormField(decoration: const InputDecoration(labelText: 'Focus area / mission'), maxLines: 3),
-          const SizedBox(height: 16),
-          TextFormField(decoration: const InputDecoration(labelText: 'Primary contact name')),
-          const SizedBox(height: 16),
-          TextFormField(decoration: const InputDecoration(labelText: 'Contact email')),
-          const SizedBox(height: 16),
-          TextFormField(decoration: const InputDecoration(labelText: 'Team size')),
-          const SizedBox(height: 16),
-          TextFormField(decoration: const InputDecoration(labelText: 'HQ location')),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Hub submitted. We will reach out soon.')),
+      title: 'Partner with Gigvora',
+      subtitle: 'Build your $typeLabel hub',
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            GigvoraCard(
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Organisation details',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        SegmentedButton<String>(
+                          segments: const [
+                            ButtonSegment(value: 'company', label: Text('Company')),
+                            ButtonSegment(value: 'agency', label: Text('Agency')),
+                          ],
+                          selected: <String>{_type},
+                          onSelectionChanged: (value) {
+                            setState(() {
+                              _type = value.first;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _companyController,
+                      decoration: InputDecoration(labelText: '$typeLabel name'),
+                      textCapitalization: TextCapitalization.words,
+                      validator: (value) => value == null || value.trim().isEmpty ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _websiteController,
+                      decoration: const InputDecoration(labelText: 'Website', hintText: 'https://'),
+                      keyboardType: TextInputType.url,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _focusController,
+                      decoration: const InputDecoration(labelText: 'Focus area / mission'),
+                      maxLines: 3,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _contactNameController,
+                      decoration: const InputDecoration(labelText: 'Primary contact'),
+                      textCapitalization: TextCapitalization.words,
+                      validator: (value) => value == null || value.trim().isEmpty ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _emailController,
+                      decoration: const InputDecoration(labelText: 'Contact email'),
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (value) =>
+                          value != null && value.contains('@') ? null : 'Enter a valid email address',
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _teamSizeController,
+                      decoration: const InputDecoration(labelText: 'Team size'),
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _locationController,
+                      decoration: const InputDecoration(labelText: 'HQ location'),
+                      textCapitalization: TextCapitalization.words,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _passwordController,
+                      decoration: const InputDecoration(labelText: 'Admin password'),
+                      obscureText: true,
+                      validator: (value) => value != null && value.length >= 12
+                          ? null
+                          : 'Use at least 12 characters',
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _confirmPasswordController,
+                      decoration: const InputDecoration(labelText: 'Confirm password'),
+                      obscureText: true,
+                      validator: (value) => value == _passwordController.text
+                          ? null
+                          : 'Passwords must match',
+                    ),
+                    const SizedBox(height: 16),
+                    SwitchListTile(
+                      title: const Text('Require 2FA for admin access'),
+                      subtitle: const Text('Security parity across web and mobile dashboards.'),
+                      value: _twoFactorEnabled,
+                      onChanged: (value) {
+                        setState(() {
+                          _twoFactorEnabled = value;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                    if (_error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Text(
+                          _error!,
+                          style: const TextStyle(color: Color(0xFFB91C1C)),
+                        ),
+                      ),
+                    if (_info != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Text(
+                          _info!,
+                          style: const TextStyle(color: Color(0xFF047857)),
+                        ),
+                      ),
+                    FilledButton(
+                      onPressed: _loading ? null : _submit,
+                      child: _loading
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text('Launch $typeLabel hub'),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            child: const Text('Submit application'),
-          ),
-        ],
+            const SizedBox(height: 16),
+            GigvoraCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Why partners love Gigvora',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 16),
+                  ..._pillars.map(
+                    (item) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.bolt, color: Color(0xFF2563EB), size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              item,
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text(
+                      'Our concierge crew helps craft your first listings, migrate applicants, and launch branded campaigns that mirror the Gigvora aesthetic.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

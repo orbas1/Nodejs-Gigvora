@@ -1,6 +1,12 @@
 import { User } from '../models/index.js';
 import profileService from '../services/profileService.js';
 import userDashboardService from '../services/userDashboardService.js';
+import freelancerAllianceService from '../services/freelancerAllianceService.js';
+import supportDeskService from '../services/supportDeskService.js';
+import catalogInsightsService from '../services/catalogInsightsService.js';
+import gigBuilderService from '../services/gigBuilderService.js';
+import gigManagerService from '../services/gigManagerService.js';
+import { normalizeLocationPayload } from '../utils/location.js';
 
 export async function listUsers(req, res) {
   const limitParam = Number.parseInt(req.query.limit ?? '20', 10);
@@ -42,7 +48,27 @@ export async function updateUser(req, res) {
   if (!user) {
     return res.status(404).json({ message: 'User not found' });
   }
-  await user.update(req.body);
+  const updates = { ...req.body };
+  const hasLocation = Object.prototype.hasOwnProperty.call(req.body, 'location');
+  const hasGeoLocation = Object.prototype.hasOwnProperty.call(req.body, 'geoLocation');
+  if (hasLocation || hasGeoLocation) {
+    const normalized = normalizeLocationPayload({
+      location: hasLocation ? req.body.location : user.location,
+      geoLocation: hasGeoLocation ? req.body.geoLocation : undefined,
+    });
+    if (hasLocation) {
+      updates.location = normalized.location;
+      if (!hasGeoLocation && normalized.location == null) {
+        updates.geoLocation = null;
+      }
+    } else if (hasGeoLocation) {
+      updates.location = normalized.location;
+    }
+    if (hasGeoLocation) {
+      updates.geoLocation = normalized.geoLocation;
+    }
+  }
+  await user.update(updates);
   res.json(user);
 }
 
@@ -56,4 +82,29 @@ export async function getUserDashboard(req, res) {
     bypassCache: req.query.fresh === 'true',
   });
   res.json(dashboard);
+}
+
+export async function getFreelancerAlliances(req, res) {
+  const alliances = await freelancerAllianceService.getFreelancerAllianceDashboard(req.params.id, {
+    bypassCache: req.query.fresh === 'true',
+  });
+  res.json(alliances);
+export async function getSupportDesk(req, res) {
+  const snapshot = await supportDeskService.getFreelancerSupportDesk(req.params.id, {
+export async function getFreelancerCatalogInsights(req, res) {
+  const insights = await catalogInsightsService.getFreelancerCatalogInsights(req.params.id, {
+    bypassCache: req.query.fresh === 'true',
+  });
+  res.json(insights);
+export async function getFreelancerGigBuilder(req, res) {
+  const payload = await gigBuilderService.getFreelancerGigBuilder({
+    freelancerId: req.params.id,
+    gigId: req.query.gigId,
+  });
+  res.json(payload);
+export async function getGigManagerSnapshot(req, res) {
+  const snapshot = await gigManagerService.getGigManagerSnapshot(req.params.id, {
+    bypassCache: req.query.fresh === 'true',
+  });
+  res.json(snapshot);
 }

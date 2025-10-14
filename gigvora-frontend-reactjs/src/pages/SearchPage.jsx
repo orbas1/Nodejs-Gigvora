@@ -5,21 +5,27 @@ import {
   BellIcon,
   BookmarkIcon,
   ExclamationCircleIcon,
+  LockClosedIcon,
   ListBulletIcon,
   MapIcon,
   PlusIcon,
 } from '@heroicons/react/24/outline';
+import { Link, useLocation } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
 import DataStatus from '../components/DataStatus.jsx';
 import ExplorerMap from '../components/explorer/ExplorerMap.jsx';
 import ExplorerFilterDrawer from '../components/explorer/ExplorerFilterDrawer.jsx';
 import SavedSearchList from '../components/explorer/SavedSearchList.jsx';
+import UserAvatar from '../components/UserAvatar.jsx';
 import useCachedResource from '../hooks/useCachedResource.js';
 import useDebounce from '../hooks/useDebounce.js';
 import useSavedSearches from '../hooks/useSavedSearches.js';
 import { apiClient } from '../services/apiClient.js';
 import analytics from '../services/analytics.js';
 import { formatAbsolute, formatRelativeTime } from '../utils/date.js';
+import useSession from '../hooks/useSession.js';
+import useEngagementSignals from '../hooks/useEngagementSignals.js';
+import { getExplorerAllowedMemberships, hasExplorerAccess } from '../utils/accessControl.js';
 
 const DEFAULT_CATEGORY = 'job';
 
@@ -49,10 +55,58 @@ const CATEGORIES = [
     placeholder: 'Search tracks or launchpad cohorts',
   },
   {
+    id: 'mentor',
+    label: 'Mentors',
+    tagline: 'Book mentorship sessions, clinics, and packages with industry leaders.',
+    placeholder: 'Search mentors, focus areas, or outcomes',
+  },
+  {
     id: 'volunteering',
     label: 'Volunteering',
     tagline: 'Purpose-led missions from nonprofits and community partners.',
     placeholder: 'Search missions or causes',
+  },
+  {
+    id: 'talent',
+    label: 'Freelancers',
+    tagline: 'Curated independent talent ready to collaborate.',
+    placeholder: 'Search skills, disciplines, or locations',
+  },
+  {
+    id: 'companies',
+    label: 'Companies',
+    tagline: 'Hiring teams and organisations across the Gigvora ecosystem.',
+    placeholder: 'Search company names, sectors, or geographies',
+  },
+  {
+    id: 'people',
+    label: 'People',
+    tagline: 'Find people in your wider network to connect with.',
+    placeholder: 'Search names, specialties, or keywords',
+  },
+  {
+    id: 'groups',
+    label: 'Groups',
+    tagline: 'Communities and collectives hosting specialised discussions.',
+    placeholder: 'Search groups or focus areas',
+  },
+  {
+    id: 'pages',
+    label: 'Pages',
+    tagline: 'Company and agency destinations curated for Explorer.',
+    placeholder: 'Search company, agency, or initiative pages',
+  },
+  {
+    id: 'headhunter',
+    label: 'Headhunters',
+    tagline: 'Specialist partners for executive and niche searches.',
+    placeholder: 'Search headhunter firms or expertise areas',
+  },
+  {
+    id: 'agency',
+    label: 'Agencies',
+    tagline: 'Agency partners and collectives to co-deliver programmes.',
+    placeholder: 'Search agency names, services, or regions',
   },
 ];
 
@@ -76,9 +130,48 @@ const SORT_OPTIONS = {
     { id: 'default', label: 'Relevance' },
     { id: 'alphabetical', label: 'A–Z' },
   ],
+  mentor: [
+    { id: 'default', label: 'Match score' },
+    { id: 'rating', label: 'Rating' },
+    { id: 'price_low_high', label: 'Price (low → high)' },
+  ],
   volunteering: [
     { id: 'default', label: 'Relevance' },
     { id: 'alphabetical', label: 'A–Z' },
+  ],
+  talent: [
+    { id: 'default', label: 'Match score' },
+    { id: 'availability', label: 'Availability' },
+    { id: 'alphabetical', label: 'A–Z' },
+  ],
+  companies: [
+    { id: 'default', label: 'Relevance' },
+    { id: 'alphabetical', label: 'A–Z' },
+    { id: 'activity', label: 'Recent activity' },
+  ],
+  people: [
+    { id: 'default', label: 'Relevance' },
+    { id: 'alphabetical', label: 'A–Z' },
+    { id: 'recent', label: 'Recently active' },
+  ],
+  groups: [
+    { id: 'default', label: 'Relevance' },
+    { id: 'members', label: 'Member count' },
+    { id: 'recent', label: 'Recently active' },
+  ],
+  pages: [
+    { id: 'default', label: 'Relevance' },
+    { id: 'followers', label: 'Follower count' },
+    { id: 'recent', label: 'Recently updated' },
+  ],
+  headhunter: [
+    { id: 'default', label: 'Relevance' },
+    { id: 'alphabetical', label: 'A–Z' },
+  ],
+  agency: [
+    { id: 'default', label: 'Relevance' },
+    { id: 'alphabetical', label: 'A–Z' },
+    { id: 'impact', label: 'Programme impact' },
   ],
 };
 
@@ -104,6 +197,33 @@ const FRESHNESS_LABELS = {
   '30d': 'Last 30 days',
   '90d': 'Last 90 days',
 };
+
+const FALLBACK_PAGE_SPOTLIGHTS = [
+  {
+    id: 'gigvora-labs',
+    title: 'Gigvora Labs',
+    summary: 'Product innovation studio powering launchpad ventures.',
+    followers: 12840,
+    engagementScore: 86,
+    updatedAt: '2024-08-28T09:00:00Z',
+    location: 'Global',
+    category: 'pages',
+    categoryLabel: 'Pages',
+    tags: ['Future of work', 'Product innovation', 'Launchpads'],
+  },
+  {
+    id: 'northshore-creative',
+    title: 'Northshore Creative',
+    summary: 'Story-driven agency partnering with venture-backed teams.',
+    followers: 6210,
+    engagementScore: 74,
+    updatedAt: '2024-08-26T15:30:00Z',
+    location: 'Remote-first',
+    category: 'pages',
+    categoryLabel: 'Pages',
+    tags: ['Brand', 'Storytelling', 'Campaigns'],
+  },
+];
 
 function normaliseFilters(state = {}) {
   return { ...DEFAULT_FILTERS, ...state };
@@ -178,6 +298,53 @@ function toResultMeta(item) {
 
 const PAGE_SIZE = 20;
 
+function resolveResultUrl(item) {
+  if (!item || typeof item !== 'object') {
+    return null;
+  }
+
+  const candidates = [
+    item.detailUrl,
+    item.url,
+    item.href,
+    item.link,
+    item.permalink,
+    item.profileUrl,
+    item.externalUrl,
+    item.website,
+    item.applicationUrl,
+  ];
+
+  const candidate = candidates.find((value) => typeof value === 'string' && value.trim().length);
+  if (!candidate) {
+    return null;
+  }
+
+  const trimmed = candidate.trim();
+
+  if (typeof window === 'undefined') {
+    return trimmed;
+  }
+
+  try {
+    const url = new URL(trimmed, trimmed.startsWith('http') ? undefined : window.location.origin);
+    if (['http:', 'https:'].includes(url.protocol)) {
+      return url.toString();
+    }
+    return null;
+  } catch (error) {
+    console.warn('Invalid explorer destination URL', error);
+    return null;
+  }
+}
+
+function openExternalLink(url) {
+  if (typeof window === 'undefined' || !url) {
+    return;
+  }
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+
 function resolveSuggestedName({ category, query }) {
   const categoryLabel = getCategoryById(category).label;
   if (query) {
@@ -187,6 +354,8 @@ function resolveSuggestedName({ category, query }) {
 }
 
 export default function SearchPage() {
+  const location = useLocation();
+  const { session, isAuthenticated } = useSession();
   const [selectedCategory, setSelectedCategory] = useState(DEFAULT_CATEGORY);
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
@@ -199,11 +368,15 @@ export default function SearchPage() {
   const [activeSavedSearchId, setActiveSavedSearchId] = useState(null);
   const [saveError, setSaveError] = useState(null);
   const [isSubmittingSavedSearch, setIsSubmittingSavedSearch] = useState(false);
+  const [resultDialogState, setResultDialogState] = useState({ open: false, item: null, externalUrl: null });
   const debouncedQuery = useDebounce(query.trim(), 400);
   const lastTrackedQueryRef = useRef(null);
 
+  const explorerAccessEnabled = isAuthenticated && hasExplorerAccess(session);
+
   const { items: savedSearches, loading: savedSearchesLoading, createSavedSearch, updateSavedSearch, deleteSavedSearch, canUseServer } =
-    useSavedSearches({ enabled: true });
+    useSavedSearches({ enabled: explorerAccessEnabled });
+  const engagementSignals = useEngagementSignals({ session, limit: 6 });
   const activeSavedSearch = useMemo(
     () => savedSearches.find((search) => search.id === activeSavedSearchId) ?? null,
     [savedSearches, activeSavedSearchId],
@@ -268,13 +441,14 @@ export default function SearchPage() {
     {
       dependencies: [selectedCategory, debouncedQuery, page, sort, filtersParam, viewportParam],
       ttl: 60_000,
+      enabled: explorerAccessEnabled,
     },
   );
 
   const snapshotState = useCachedResource(
     'discovery:snapshot:v2',
     ({ signal }) => apiClient.get('/discovery/snapshot', { signal, params: { limit: 6 } }),
-    { ttl: 120_000 },
+    { ttl: 120_000, enabled: explorerAccessEnabled },
   );
 
   useEffect(() => {
@@ -306,12 +480,38 @@ export default function SearchPage() {
   const facets = searchState.data?.facets ?? null;
   const metrics = searchState.data?.metrics ?? null;
 
-  const trendingAcrossCategories = useMemo(() => {
-    if (!snapshotState.data) {
-      return [];
+  const activeResultId = resultDialogState.item?.id;
+
+  useEffect(() => {
+    if (!explorerAccessEnabled) {
+      setResultDialogState({ open: false, item: null, externalUrl: null });
+      return;
     }
+    if (!activeResultId) {
+      return;
+    }
+    const stillExists = results.some((item) => item.id === activeResultId);
+    if (!stillExists) {
+      setResultDialogState({ open: false, item: null, externalUrl: null });
+    }
+  }, [explorerAccessEnabled, results, activeResultId]);
+  const resolveSnapshotItems = useCallback(
+    (categoryId) => {
+      const dataset = snapshotState.data?.[`${categoryId}s`] ?? snapshotState.data?.[categoryId];
+      if (dataset?.items?.length) {
+        return dataset;
+      }
+      if (categoryId === 'pages') {
+        return { items: FALLBACK_PAGE_SPOTLIGHTS };
+      }
+      return dataset ?? null;
+    },
+    [snapshotState.data],
+  );
+
+  const trendingAcrossCategories = useMemo(() => {
     return CATEGORIES.flatMap((category) => {
-      const items = snapshotState.data?.[`${category.id}s`] ?? snapshotState.data?.[category.id];
+      const items = resolveSnapshotItems(category.id);
       if (!items?.items?.length) {
         return [];
       }
@@ -321,7 +521,7 @@ export default function SearchPage() {
         categoryLabel: category.label,
       }));
     });
-  }, [snapshotState.data]);
+  }, [resolveSnapshotItems]);
 
   const handleCategoryChange = useCallback((categoryId) => {
     analytics.track('web_explorer_category_selected', { category: categoryId }, { source: 'web_app' });
@@ -438,9 +638,35 @@ export default function SearchPage() {
         },
         { source: 'web_app' },
       );
+
+      setResultDialogState({
+        open: true,
+        item,
+        externalUrl: resolveResultUrl(item),
+      });
     },
     [debouncedQuery, cleanedFilters],
   );
+
+  const handleCloseResultDialog = useCallback(() => {
+    setResultDialogState({ open: false, item: null, externalUrl: null });
+  }, []);
+
+  const handleOpenResultExternal = useCallback(() => {
+    if (!resultDialogState.externalUrl || !resultDialogState.item) {
+      return;
+    }
+    openExternalLink(resultDialogState.externalUrl);
+    analytics.track(
+      'web_explorer_result_external_opened',
+      {
+        id: resultDialogState.item.id,
+        category: resultDialogState.item.category,
+        url: resultDialogState.externalUrl,
+      },
+      { source: 'web_app' },
+    );
+  }, [resultDialogState]);
 
   const handleViewportChange = useCallback((bounds) => {
     setViewportBounds(bounds);
@@ -562,6 +788,88 @@ export default function SearchPage() {
 
   const currentCategory = getCategoryById(selectedCategory);
 
+  if (!isAuthenticated) {
+    const loginState = { from: `${location.pathname}${location.search}` };
+    return (
+      <section className="relative overflow-hidden py-20">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom,_rgba(191,219,254,0.35),_transparent_65%)]" aria-hidden="true" />
+        <div className="relative mx-auto max-w-3xl px-6">
+          <PageHeader
+            eyebrow="Explorer"
+            title="Sign in to unlock Explorer"
+            description="Explorer consolidates roles, gigs, launchpads, and volunteering missions into a single enterprise-grade search experience. Sign in to access personalised filters and saved alerts."
+          />
+
+          <div className="mt-10 rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-soft">
+            <p className="text-sm text-slate-600">
+              Use your Gigvora credentials to access multi-channel search, saved filters, and proactive opportunity alerts across the network.
+            </p>
+            <div className="mt-6 flex flex-wrap justify-center gap-3">
+              <Link
+                to="/login"
+                state={loginState}
+                className="inline-flex items-center justify-center rounded-full bg-accent px-6 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
+              >
+                Sign in
+              </Link>
+              <Link
+                to="/register"
+                className="inline-flex items-center justify-center rounded-full border border-slate-200 px-6 py-2 text-sm font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+              >
+                Create an account
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (!explorerAccessEnabled) {
+    const eligibleRoles = getExplorerAllowedMemberships()
+      .map((role) => role.charAt(0).toUpperCase() + role.slice(1))
+      .join(', ');
+
+    return (
+      <section className="relative overflow-hidden py-20">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom,_rgba(191,219,254,0.35),_transparent_65%)]" aria-hidden="true" />
+        <div className="relative mx-auto max-w-4xl px-6">
+          <PageHeader
+            eyebrow="Explorer"
+            title="Explorer access requires activation"
+            description="Your current workspace membership does not include Explorer search. Switch to an eligible role or request activation from your administrator."
+          />
+
+          <div className="mt-10 rounded-3xl border border-slate-200 bg-white p-10 shadow-soft">
+            <div className="flex flex-col items-center text-center">
+              <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-accent/10 text-accent">
+                <LockClosedIcon className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <h2 className="mt-4 text-lg font-semibold text-slate-900">Explorer is limited to eligible memberships</h2>
+              <p className="mt-2 max-w-2xl text-sm text-slate-600">
+                Explorer surfaces cross-channel intelligence for sensitive hiring pipelines. Eligible roles include: {eligibleRoles}. Switch roles from your dashboard or contact support to request onboarding.
+              </p>
+              <div className="mt-6 flex flex-wrap justify-center gap-3">
+                <Link
+                  to="/settings"
+                  className="inline-flex items-center justify-center rounded-full border border-slate-200 px-6 py-2 text-sm font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+                >
+                  Manage memberships
+                </Link>
+                <a
+                  href="mailto:support@gigvora.com"
+                  className="inline-flex items-center justify-center rounded-full bg-accent px-6 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
+                >
+                  Contact support
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="relative overflow-hidden py-20">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom,_rgba(191,219,254,0.35),_transparent_65%)]" aria-hidden="true" />
@@ -612,6 +920,54 @@ export default function SearchPage() {
                   activeSearchId={activeSavedSearchId}
                   canManageServerSearches={canUseServer}
                 />
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
+              <p className="text-sm font-semibold text-slate-900">Suggested connections</p>
+              <p className="mt-1 text-xs text-slate-500">
+                Based on your interest signals: {engagementSignals.interests.slice(0, 4).join(' • ') || 'community builders'}
+              </p>
+              <ul className="mt-4 space-y-3 text-sm">
+                {engagementSignals.connectionSuggestions.slice(0, 3).map((connection) => (
+                  <li key={connection.id} className="rounded-2xl border border-slate-200 px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <UserAvatar name={connection.name} seed={connection.name} size="xs" showGlow={false} />
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">{connection.name}</p>
+                        <p className="text-xs text-slate-500">{connection.headline}</p>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-xs text-slate-500">{connection.reason}</p>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-4 flex items-center justify-between text-xs text-slate-500">
+                <Link to="/connections" className="font-semibold text-accent hover:text-accentDark">
+                  Open network centre
+                </Link>
+                <span>{engagementSignals.connectionSuggestions.length} tailored matches</span>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
+              <p className="text-sm font-semibold text-slate-900">Groups to explore</p>
+              <p className="mt-1 text-xs text-slate-500">
+                Curated from your causes and teams you collaborate with.
+              </p>
+              <ul className="mt-4 space-y-3 text-sm">
+                {engagementSignals.groupSuggestions.slice(0, 3).map((group) => (
+                  <li key={group.id} className="rounded-2xl border border-slate-200 px-4 py-3">
+                    <p className="text-sm font-semibold text-slate-900">{group.name}</p>
+                    <p className="mt-1 text-xs text-slate-500">{group.description}</p>
+                    <p className="mt-2 text-xs text-slate-400">{group.members} members · {group.focus.slice(0, 2).join(' • ')}</p>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-4 text-right text-xs text-accent">
+                <Link to="/groups" className="font-semibold hover:text-accentDark">
+                  View all groups
+                </Link>
               </div>
             </div>
 
@@ -1051,6 +1407,114 @@ export default function SearchPage() {
                       {isSubmittingSavedSearch ? 'Saving…' : 'Save search'}
                     </button>
                   </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition.Root>
+
+      <Transition.Root show={resultDialogState.open} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={handleCloseResultDialog}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-slate-900/50" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 z-50 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="translate-y-4 opacity-0 sm:translate-y-0 sm:scale-95"
+                enterTo="translate-y-0 opacity-100 sm:scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="translate-y-0 opacity-100 sm:scale-100"
+                leaveTo="translate-y-4 opacity-0 sm:translate-y-0 sm:scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-3xl bg-white p-6 shadow-xl transition-all">
+                  {resultDialogState.item ? (
+                    <>
+                      <Dialog.Title className="text-lg font-semibold text-slate-900">
+                        {resultDialogState.item.title || 'Explorer result'}
+                      </Dialog.Title>
+                      <p className="mt-1 text-xs font-semibold uppercase tracking-[0.35em] text-accentDark">
+                        {getCategoryById(resultDialogState.item.category).label}
+                      </p>
+                      <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-500">
+                        {toResultMeta(resultDialogState.item).map((meta) => (
+                          <span key={meta} className="rounded-full border border-slate-200 px-3 py-1">
+                            {meta}
+                          </span>
+                        ))}
+                      </div>
+                      <p className="mt-4 whitespace-pre-line text-sm text-slate-600">
+                        {resultDialogState.item.longDescription || resultDialogState.item.description || 'Detailed information will be available shortly.'}
+                      </p>
+                      <div className="mt-4 grid gap-3 text-xs text-slate-500 sm:grid-cols-2">
+                        {resultDialogState.item.organization ? (
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                            <p className="font-semibold text-slate-900">Organisation</p>
+                            <p className="mt-1">{resultDialogState.item.organization}</p>
+                          </div>
+                        ) : null}
+                        {resultDialogState.item.location ? (
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                            <p className="font-semibold text-slate-900">Primary location</p>
+                            <p className="mt-1">{resultDialogState.item.location}</p>
+                          </div>
+                        ) : null}
+                        {resultDialogState.item.employmentType ? (
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                            <p className="font-semibold text-slate-900">Engagement type</p>
+                            <p className="mt-1">{resultDialogState.item.employmentType}</p>
+                          </div>
+                        ) : null}
+                        {resultDialogState.item.updatedAt ? (
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                            <p className="font-semibold text-slate-900">Last updated</p>
+                            <p className="mt-1 text-slate-500">{formatRelativeTime(resultDialogState.item.updatedAt)}</p>
+                          </div>
+                        ) : null}
+                      </div>
+
+                      <div className="mt-6 flex flex-wrap justify-between gap-3">
+                        <button
+                          type="button"
+                          onClick={handleCloseResultDialog}
+                          className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+                        >
+                          Close
+                        </button>
+                        <div className="flex flex-wrap gap-3">
+                          <button
+                            type="button"
+                            onClick={handleOpenResultExternal}
+                            disabled={!resultDialogState.externalUrl}
+                            className={`inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold transition ${
+                              resultDialogState.externalUrl
+                                ? 'bg-accent text-white shadow-soft hover:bg-accentDark'
+                                : 'cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400'
+                            }`}
+                          >
+                            Open full details
+                          </button>
+                        </div>
+                      </div>
+                      {!resultDialogState.externalUrl ? (
+                        <p className="mt-4 text-xs text-slate-400">
+                          This record does not yet include an external destination. We will notify you once the publisher completes synchronisation.
+                        </p>
+                      ) : null}
+                    </>
+                  ) : null}
                 </Dialog.Panel>
               </Transition.Child>
             </div>

@@ -11,11 +11,77 @@ import {
   AgencyProfile,
   Profile,
   Gig,
+  GigPackage,
+  GigAddon,
+  GigMediaAsset,
+  GigPerformanceSnapshot,
+  GigOrder,
+  GigBundle,
+  GigBundleItem,
+  GigUpsell,
+  AgencyAlliance,
+  AgencyAllianceMember,
+  AgencyAllianceRateCard,
+  AgencyAllianceRevenueSplit,
+  PartnerEngagement,
+  PipelineCampaign,
+  PipelineDeal,
+  PipelineFollowUp,
+  PipelineProposal,
+  RecruitingCalendarEvent,
+  EmployerBrandAsset,
+  ClientSuccessPlaybook,
+  ClientSuccessEnrollment,
+  ClientSuccessEvent,
+  ClientSuccessReferral,
+  ClientSuccessReviewNudge,
+  ClientSuccessAffiliateLink,
   Job,
   User,
+  ExecutiveIntelligenceMetric,
+  ExecutiveScenarioPlan,
+  ExecutiveScenarioBreakdown,
+  GovernanceRiskRegister,
+  GovernanceAuditExport,
+  LeadershipRitual,
+  LeadershipOkr,
+  LeadershipDecision,
+  LeadershipBriefingPack,
+  LeadershipStrategicBet,
+  InnovationInitiative,
+  InnovationFundingEvent,
+  CollaborationSpace,
+  ComplianceDocument,
+  ComplianceObligation,
+  ComplianceReminder,
+  ProjectOperationalSnapshot,
+  ProjectDependencyLink,
+  WorkspaceOperatingBlueprint,
+  ResourceCapacitySnapshot,
+  ResourceScenarioPlan,
+  QualityReviewRun,
+  FinancialEngagementSummary,
+  FinancePayoutBatch,
+  FinancePayoutSplit,
+  FinanceTaxExport,
+  TalentCandidate,
+  TalentInterview,
+  TalentOffer,
+  TalentPipelineMetric,
+  PeopleOpsPolicy,
+  PeopleOpsPerformanceReview,
+  PeopleOpsSkillMatrixEntry,
+  PeopleOpsWellbeingSnapshot,
+  InternalOpportunity,
+  InternalOpportunityMatch,
+  MemberBrandingAsset,
+  MemberBrandingApproval,
+  MemberBrandingMetric,
 } from '../models/index.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
 import { NotFoundError } from '../utils/errors.js';
+import { getAdDashboardSnapshot } from './adService.js';
+import { getFinanceControlTowerOverview } from './financeService.js';
 
 const ACTIVE_MEMBER_STATUSES = ['active'];
 const PROJECT_STATUS_BUCKETS = {
@@ -24,6 +90,52 @@ const PROJECT_STATUS_BUCKETS = {
   atRisk: ['delayed', 'blocked', 'on_hold', 'at_risk'],
   completed: ['completed', 'closed', 'archived'],
 };
+
+const AVAILABILITY_STATUS_WEIGHTS = {
+  available: 0,
+  limited: 0.55,
+  unavailable: 1,
+  on_leave: 0.2,
+  unknown: 0.6,
+};
+
+const AVAILABILITY_LABELS = {
+  available: 'Available',
+  limited: 'Partially allocated',
+  unavailable: 'Fully allocated',
+  on_leave: 'On leave',
+  unknown: 'Unknown',
+};
+
+const AVAILABILITY_ORDER = {
+  available: 0,
+  limited: 1,
+  unavailable: 2,
+  on_leave: 3,
+  unknown: 4,
+};
+
+const CANDIDATE_IN_FLIGHT_STATUSES = new Set([
+  'prospect',
+  'sourced',
+  'screening',
+  'application',
+  'applied',
+  'interview',
+  'interviewing',
+  'loop',
+  'offer',
+  'offer_made',
+  'offer_extended',
+  'hired',
+  'onboarding',
+  'internal_transfer',
+]);
+
+const CANDIDATE_ARCHIVED_STATUSES = new Set(['rejected', 'withdrawn', 'archived', 'declined', 'closed']);
+
+const EXIT_STATUSES_REQUIRING_ATTENTION = new Set(['preparing', 'in_progress']);
+const ONBOARDING_STATUSES = new Set(['in_progress']);
 
 function sanitizeWorkspaceRecord(workspace) {
   if (!workspace) return null;
@@ -78,6 +190,105 @@ function bucketiseProjectStatus(status) {
     }
   }
   return normalised;
+}
+
+function normaliseRoleDescriptor(value) {
+  if (!value || !String(value).trim()) {
+    return { key: 'unassigned', label: 'Unassigned' };
+  }
+
+  const trimmed = String(value).trim();
+  const key =
+    trimmed
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '') || 'unassigned';
+  const label = trimmed
+    .replace(/[_-]+/g, ' ')
+    .split(' ')
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(' ');
+
+  return { key, label: label || 'Unassigned' };
+}
+
+function extractCandidateRole(candidate = {}) {
+  if (!candidate) return 'Generalist';
+  const metadata = candidate.metadata ?? {};
+  const tagValue = Array.isArray(candidate.tags) ? candidate.tags[0] : null;
+  const potentialRole =
+    metadata.targetRole ??
+    metadata.role ??
+    metadata.roleTitle ??
+    metadata.position ??
+    metadata.jobTitle ??
+    candidate.department ??
+    candidate.preferredEngagement ??
+    tagValue ??
+    candidate.pipelineStage ??
+    candidate.status;
+
+  return potentialRole ?? 'Generalist';
+}
+
+function classifyCandidateStage(candidate = {}) {
+  const status = (candidate.status ?? '').toLowerCase();
+  const stage = (candidate.pipelineStage ?? '').toLowerCase();
+  const onboardingStatus = (candidate.onboardingStatus ?? '').toLowerCase();
+
+  if (ONBOARDING_STATUSES.has(onboardingStatus)) {
+    return 'onboarding';
+  }
+
+  if (status === 'hired') {
+    return 'hired';
+  }
+
+  const stageTokens = stage.split(/[^a-z0-9]+/g).filter(Boolean);
+  const hasStageToken = (tokens) => stageTokens.some((token) => tokens.includes(token));
+
+  if (hasStageToken(['offer', 'offer_made', 'offer_extended', 'offer_signed'])) {
+    return 'offer';
+  }
+
+  if (hasStageToken(['interview', 'onsite', 'assessment', 'loop'])) {
+    return 'interview';
+  }
+
+  if (hasStageToken(['screen', 'screening', 'application', 'applied', 'prospect', 'sourced'])) {
+    return 'sourcing';
+  }
+
+  if (CANDIDATE_IN_FLIGHT_STATUSES.has(status)) {
+    return 'sourcing';
+  }
+
+  return 'archived';
+}
+
+function parseCandidateStartDate(metadata = {}) {
+  const dateKeys = [
+    'startDate',
+    'start_date',
+    'expectedStartDate',
+    'expected_start_date',
+    'start',
+    'expectedStart',
+    'joiningDate',
+    'joining_date',
+  ];
+
+  for (const key of dateKeys) {
+    const value = metadata[key];
+    if (!value) continue;
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.valueOf())) {
+      return parsed;
+    }
+  }
+
+  return null;
 }
 
 function formatMember(member, profileMap) {
@@ -252,6 +463,2165 @@ function aggregateFinancials(transactions) {
   };
 }
 
+function slugifyKey(value) {
+  if (!value) return '';
+  return value
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+function mapExecutiveMetric(metric) {
+  const plain = toPlain(metric) ?? {};
+  const metadata = typeof plain.metadata === 'object' && plain.metadata !== null ? plain.metadata : {};
+  const metricKey = metadata.metricKey ?? slugifyKey(plain.name ?? plain.id ?? 'metric');
+
+  return {
+    id: plain.id,
+    metricKey,
+    name: plain.name,
+    category: plain.category,
+    description: plain.description,
+    value: normaliseNumber(plain.value, 0),
+    unit: plain.unit ?? 'count',
+    changeValue: plain.changeValue == null ? null : normaliseNumber(plain.changeValue, 0),
+    changeUnit: plain.changeUnit ?? plain.unit ?? 'count',
+    trend: plain.trend ?? 'steady',
+    comparisonPeriod: plain.comparisonPeriod ?? null,
+    reportedAt: plain.reportedAt ?? null,
+    metadata,
+  };
+}
+
+function buildAnalyticsWarRoom(metrics = []) {
+  const scorecards = metrics.map((metric) => mapExecutiveMetric(metric));
+  const summaryKeys = [
+    'revenue_run_rate',
+    'gross_margin',
+    'utilization_rate',
+    'pipeline_velocity',
+    'client_satisfaction',
+    'policy_adherence',
+  ];
+  const metricsByKey = new Map(scorecards.map((item) => [item.metricKey, item]));
+  const grouped = scorecards.reduce((accumulator, metric) => {
+    const key = metric.category ?? 'other';
+    if (!accumulator[key]) {
+      accumulator[key] = [];
+    }
+    accumulator[key].push(metric);
+    return accumulator;
+  }, {});
+
+  const summary = {
+    revenueRunRate: metricsByKey.get('revenue_run_rate') ?? null,
+    grossMargin: metricsByKey.get('gross_margin') ?? null,
+    utilization: metricsByKey.get('utilization_rate') ?? null,
+    pipelineVelocity: metricsByKey.get('pipeline_velocity') ?? null,
+    clientSatisfaction: metricsByKey.get('client_satisfaction') ?? null,
+    policyAdherence: metricsByKey.get('policy_adherence') ?? null,
+  };
+
+  return {
+    summary,
+    scorecards,
+    grouped,
+    availableKeys: summaryKeys.filter((key) => metricsByKey.has(key)),
+  };
+}
+
+function buildScenarioExplorer(plans = [], breakdowns = []) {
+  const planItems = plans.map((plan) => toPlain(plan));
+  const scenarioById = new Map(planItems.map((plan) => [plan.id, plan.scenarioType]));
+  const scenarios = {};
+
+  planItems.forEach((plan) => {
+    scenarios[plan.scenarioType ?? `scenario_${plan.id}`] = {
+      id: plan.id,
+      label: plan.label,
+      timeframeStart: plan.timeframeStart,
+      timeframeEnd: plan.timeframeEnd,
+      metrics: {
+        revenue: normaliseNumber(plan.revenue, 0),
+        grossMargin: normaliseNumber(plan.grossMargin, 0),
+        utilization: normaliseNumber(plan.utilization, 0),
+        pipelineVelocity: normaliseNumber(plan.pipelineVelocity, 0),
+        clientSatisfaction: normaliseNumber(plan.clientSatisfaction, 0),
+        netRetention: plan.netRetention == null ? null : normaliseNumber(plan.netRetention, 0),
+      },
+      notes: plan.notes ?? null,
+      assumptions: plan.assumptions ?? null,
+    };
+  });
+
+  const buckets = {
+    clients: [],
+    serviceLines: [],
+    squads: [],
+    individuals: [],
+  };
+
+  breakdowns.forEach((entry) => {
+    const plain = toPlain(entry);
+    const scenarioType = scenarioById.get(plain.scenarioId) ?? 'base';
+    const bucketKey =
+      plain.dimensionType === 'service_line'
+        ? 'serviceLines'
+        : `${plain.dimensionType ?? 'other'}${plain.dimensionType && plain.dimensionType.endsWith('s') ? '' : 's'}`;
+
+    if (!buckets[bucketKey]) {
+      buckets[bucketKey] = [];
+    }
+
+    buckets[bucketKey].push({
+      scenarioType,
+      dimensionKey: plain.dimensionKey,
+      label: plain.dimensionLabel,
+      metrics: {
+        revenue: normaliseNumber(plain.revenue, 0),
+        grossMargin: normaliseNumber(plain.grossMargin, 0),
+        utilization: normaliseNumber(plain.utilization, 0),
+        pipelineVelocity: normaliseNumber(plain.pipelineVelocity, 0),
+        clientSatisfaction: normaliseNumber(plain.clientSatisfaction, 0),
+      },
+      owner: plain.owner ?? null,
+      highlight: plain.highlight ?? null,
+      narrative: plain.narrative ?? null,
+      variance: plain.variance == null ? null : normaliseNumber(plain.variance, 0),
+    });
+  });
+
+  const availableScenarios = Object.keys(scenarios);
+  const scenarioOrdering = new Map(
+    planItems
+      .slice()
+      .sort((a, b) => {
+        const aStart = parseDate(a.timeframeStart);
+        const bStart = parseDate(b.timeframeStart);
+        if (aStart && bStart) {
+          return aStart - bStart;
+        }
+        if (aStart) return -1;
+        if (bStart) return 1;
+        return String(a.label ?? a.id).localeCompare(String(b.label ?? b.id));
+      })
+      .map((plan, index) => [plan.scenarioType ?? `scenario_${plan.id}`, index])
+  );
+
+  const orderedScenarios = availableScenarios
+    .slice()
+    .sort((a, b) => {
+      const aIndex = scenarioOrdering.get(a) ?? Number.MAX_SAFE_INTEGER;
+      const bIndex = scenarioOrdering.get(b) ?? Number.MAX_SAFE_INTEGER;
+      if (aIndex !== bIndex) {
+        return aIndex - bIndex;
+      }
+      return a.localeCompare(b);
+    })
+    .map((key) => scenarios[key]);
+
+  return {
+    scenarios: orderedScenarios,
+    scenarioMap: scenarios,
+    breakdowns: buckets,
+    availableScenarios,
+  };
+}
+
+function buildProjectPortfolioInsights({ projects, snapshots, dependencies, events }) {
+  const projectMap = new Map((projects ?? []).map((project) => [project.id, project]));
+
+  const latestSnapshots = new Map();
+  (snapshots ?? []).forEach((snapshot) => {
+    if (!snapshot || snapshot.projectId == null) return;
+    const existing = latestSnapshots.get(snapshot.projectId) ?? null;
+    const existingDate = existing ? parseDate(existing.reportingDate ?? existing.createdAt) : null;
+    const snapshotDate = parseDate(snapshot.reportingDate ?? snapshot.createdAt);
+    if (!existing || (snapshotDate && (!existingDate || snapshotDate > existingDate))) {
+      latestSnapshots.set(snapshot.projectId, snapshot);
+    }
+  });
+
+  const statusCounts = { on_track: 0, at_risk: 0, critical: 0, other: 0 };
+  let marginSum = 0;
+  let marginCount = 0;
+  let qualitySum = 0;
+  let qualityCount = 0;
+  let automationSum = 0;
+  let automationCount = 0;
+
+  latestSnapshots.forEach((snapshot) => {
+    const scope = String(snapshot.scopeHealth ?? 'other').toLowerCase();
+    if (statusCounts[scope] != null) {
+      statusCounts[scope] += 1;
+    } else {
+      statusCounts.other += 1;
+    }
+
+    if (snapshot.marginPercent != null) {
+      marginSum += normaliseNumber(snapshot.marginPercent, 0);
+      marginCount += 1;
+    }
+    if (snapshot.qualityScore != null) {
+      qualitySum += normaliseNumber(snapshot.qualityScore, 0);
+      qualityCount += 1;
+    }
+    if (snapshot.automationCoverage != null) {
+      automationSum += normaliseNumber(snapshot.automationCoverage, 0);
+      automationCount += 1;
+    }
+  });
+
+  const projectSummaries = (projects ?? []).map((project) => {
+    const snapshot = latestSnapshots.get(project.id) ?? null;
+    return {
+      id: project.id,
+      title: project.title,
+      status: project.status,
+      scopeHealth: snapshot?.scopeHealth ?? 'unknown',
+      staffingStatus: snapshot?.staffingStatus ?? 'unknown',
+      profitabilityStatus: snapshot?.profitabilityStatus ?? 'unknown',
+      marginPercent: snapshot?.marginPercent ?? null,
+      qualityScore: snapshot?.qualityScore ?? null,
+      qaStatus: snapshot?.qaStatus ?? 'in_control',
+      automationCoverage: snapshot?.automationCoverage ?? null,
+      riskLevel: snapshot?.riskLevel ?? 'low',
+      issuesOpen: snapshot?.issuesOpen ?? 0,
+      reportingDate: snapshot?.reportingDate ?? snapshot?.createdAt ?? project.updatedAt,
+    };
+  });
+
+  const dependencySummaries = (dependencies ?? []).map((dependency) => {
+    const project = projectMap.get(dependency.projectId);
+    const dependent = projectMap.get(dependency.dependentProjectId) ?? dependency.dependentProject ?? null;
+    return {
+      id: dependency.id,
+      projectId: dependency.projectId,
+      projectTitle: project?.title ?? `Project ${dependency.projectId}`,
+      dependentProjectId: dependency.dependentProjectId,
+      dependentProjectTitle: dependent?.title ?? (dependency.dependentProjectId ? `Project ${dependency.dependentProjectId}` : 'External dependency'),
+      dependencyType: dependency.dependencyType,
+      status: dependency.status,
+      riskLevel: dependency.riskLevel,
+      leadTimeDays: dependency.leadTimeDays,
+      isCritical: dependency.isCritical,
+      notes: dependency.notes ?? null,
+    };
+  });
+
+  const calendarEntries = (events ?? [])
+    .slice(0, 40)
+    .map((event) => ({
+      id: event.id,
+      projectId: event.projectId,
+      projectTitle: projectMap.get(event.projectId)?.title ?? `Project ${event.projectId}`,
+      eventType: event.eventType,
+      occurredAt: event.createdAt,
+      description: event.payload?.milestone ?? event.payload?.note ?? null,
+    }));
+
+  return {
+    summary: {
+      totalProjects: projects?.length ?? 0,
+      onTrack: statusCounts.on_track,
+      atRisk: statusCounts.at_risk,
+      critical: statusCounts.critical,
+      avgMargin: marginCount ? marginSum / marginCount : 0,
+      avgQualityScore: qualityCount ? qualitySum / qualityCount : 0,
+      avgAutomationCoverage: automationCount ? automationSum / automationCount : 0,
+    },
+    projects: projectSummaries,
+    dependencies: dependencySummaries,
+    calendar: calendarEntries,
+  };
+}
+
+function normaliseGuardrails(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value;
+  }
+  if (typeof value === 'object') {
+    return Object.values(value).filter(Boolean);
+  }
+  return [];
+}
+
+function normalizeChecklist(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value.items)) return value.items;
+  return [];
+}
+
+function buildWorkspaceOrchestratorInsights({ blueprints, projects, contactNotes }) {
+  const blueprintCards = (blueprints ?? []).map((blueprint) => {
+    const guardrails = normaliseGuardrails(blueprint.automationGuardrails);
+    const checklist = normalizeChecklist(blueprint.kickoffChecklist);
+    const cadenceDays = blueprint.cadenceCycleDays == null ? null : Number(blueprint.cadenceCycleDays);
+    const lastRun = parseDate(blueprint.lastRunAt);
+    let nextRunAt = null;
+    if (lastRun && cadenceDays) {
+      const nextRun = new Date(lastRun.getTime());
+      nextRun.setDate(nextRun.getDate() + cadenceDays);
+      nextRunAt = nextRun.toISOString();
+    }
+
+    return {
+      id: blueprint.id,
+      name: blueprint.blueprintName,
+      clientName: blueprint.clientName ?? null,
+      status: blueprint.status,
+      sowUrl: blueprint.sowUrl ?? null,
+      deliveryCadence: blueprint.deliveryCadence ?? null,
+      cadenceCycleDays: cadenceDays,
+      guardrailCount: guardrails.length,
+      guardrails,
+      checklistCount: checklist.length,
+      checklist,
+      lastRunAt: blueprint.lastRunAt ?? null,
+      nextRunAt,
+      metadata: blueprint.metadata ?? null,
+    };
+  });
+
+  const activeBlueprints = blueprintCards.filter((blueprint) => blueprint.status === 'active').length;
+  const cadenceValues = blueprintCards
+    .map((blueprint) => blueprint.cadenceCycleDays)
+    .filter((value) => Number.isFinite(value) && value > 0);
+  const averageCadence = cadenceValues.length ? average(cadenceValues) : 0;
+  const automationGuardrailsTotal = blueprintCards.reduce((total, blueprint) => total + blueprint.guardrailCount, 0);
+
+  const sortedNotes = [...(contactNotes ?? [])].sort((a, b) => {
+    const dateA = parseDate(a.createdAt) ?? new Date(0);
+    const dateB = parseDate(b.createdAt) ?? new Date(0);
+    return dateB - dateA;
+  });
+
+  const clientDashboards = blueprintCards.map((blueprint) => {
+    const relatedNote = sortedNotes.find((note) => {
+      if (!blueprint.clientName || !note?.note) return false;
+      return note.note.toLowerCase().includes(blueprint.clientName.toLowerCase());
+    }) ?? sortedNotes[0] ?? null;
+
+    return {
+      blueprintId: blueprint.id,
+      clientName: blueprint.clientName ?? blueprint.name,
+      status: blueprint.status,
+      experienceSummary: relatedNote?.note ?? null,
+      lastTouchpointAt: relatedNote?.createdAt ?? null,
+      nextRunAt: blueprint.nextRunAt,
+      sowUrl: blueprint.sowUrl,
+      brandTheme: blueprint.metadata?.brandTheme ?? null,
+    };
+  });
+
+  const cadences = blueprintCards
+    .filter((blueprint) => blueprint.deliveryCadence || blueprint.cadenceCycleDays)
+    .map((blueprint) => ({
+      blueprintId: blueprint.id,
+      blueprintName: blueprint.name,
+      cadence:
+        blueprint.deliveryCadence ??
+        (blueprint.cadenceCycleDays ? `${blueprint.cadenceCycleDays}-day cadence` : 'Custom cadence'),
+      nextRunAt: blueprint.nextRunAt,
+    }))
+    .slice(0, 10);
+
+  return {
+    summary: {
+      totalBlueprints: blueprintCards.length,
+      activeBlueprints,
+      averageCadenceDays: averageCadence,
+      automationGuardrails: automationGuardrailsTotal,
+    },
+    blueprints: blueprintCards,
+    cadences,
+    automationGuardrails: blueprintCards
+      .filter((blueprint) => blueprint.guardrailCount)
+      .map((blueprint) => ({
+        blueprintId: blueprint.id,
+        blueprintName: blueprint.name,
+        guardrails: blueprint.guardrails,
+      })),
+    clientDashboards,
+    latestNotes: sortedNotes.slice(0, 10).map((note) => ({
+      id: note.id,
+      note: note.note,
+      createdAt: note.createdAt,
+      subjectUserId: note.subjectUserId,
+    })),
+  };
+}
+
+function buildResourceIntelligenceInsights({ capacitySnapshots, scenarioPlans, members }) {
+  const latestBySkill = new Map();
+  (capacitySnapshots ?? []).forEach((snapshot) => {
+    if (!snapshot || !snapshot.skillGroup) return;
+    const key = snapshot.skillGroup.toLowerCase();
+    const existing = latestBySkill.get(key);
+    const existingDate = existing ? parseDate(existing.reportingDate ?? existing.createdAt) : null;
+    const snapshotDate = parseDate(snapshot.reportingDate ?? snapshot.createdAt);
+    if (!existing || (snapshotDate && (!existingDate || snapshotDate > existingDate))) {
+      latestBySkill.set(key, snapshot);
+    }
+  });
+
+  const heatmap = Array.from(latestBySkill.values()).map((snapshot) => {
+    const availableHours = normaliseNumber(snapshot.availableHours, 0);
+    const assignedHours = normaliseNumber(snapshot.assignedHours, 0);
+    const utilisation = snapshot.utilizationRate != null
+      ? normaliseNumber(snapshot.utilizationRate, null)
+      : availableHours
+        ? Math.round(((assignedHours / availableHours) * 100 + Number.EPSILON) * 10) / 10
+        : null;
+
+    return {
+      skillGroup: snapshot.skillGroup,
+      reportingDate: snapshot.reportingDate ?? snapshot.createdAt ?? null,
+      availableHours,
+      assignedHours,
+      utilizationRate: utilisation,
+      burnoutRisk: snapshot.burnoutRisk,
+      benchHours: normaliseNumber(snapshot.benchHours, 0),
+      billableRate: snapshot.billableRate == null ? null : Number(snapshot.billableRate),
+      costRate: snapshot.costRate == null ? null : Number(snapshot.costRate),
+      notes: snapshot.notes ?? null,
+    };
+  });
+
+  const utilisationValues = heatmap
+    .map((entry) => (entry.utilizationRate != null ? Number(entry.utilizationRate) : null))
+    .filter((value) => value != null);
+
+  const summary = {
+    totalSkillGroups: heatmap.length,
+    averageUtilization: utilisationValues.length ? average(utilisationValues) : 0,
+    benchHours: heatmap.reduce((total, entry) => total + normaliseNumber(entry.benchHours, 0), 0),
+    atRiskSkills: heatmap
+      .filter((entry) => ['high', 'critical'].includes(String(entry.burnoutRisk).toLowerCase()))
+      .map((entry) => entry.skillGroup),
+    totalScenarioPlans: scenarioPlans?.length ?? 0,
+    totalMembers: members?.length ?? 0,
+  };
+
+  const assignmentMatches = heatmap.slice(0, 10).map((entry) => ({
+    skillGroup: entry.skillGroup,
+    availableHours: entry.availableHours,
+    assignedHours: entry.assignedHours,
+    utilizationRate: entry.utilizationRate,
+    burnoutRisk: entry.burnoutRisk,
+    benchHours: entry.benchHours,
+    recommendation:
+      entry.utilizationRate != null && entry.utilizationRate > 110
+        ? 'Rebalance workload'
+        : entry.utilizationRate != null && entry.utilizationRate < 70
+          ? 'Allocate additional engagements'
+          : 'Maintain cadence',
+  }));
+
+  const formattedScenarioPlans = (scenarioPlans ?? []).map((plan) => ({
+    id: plan.id,
+    title: plan.title,
+    scenarioType: plan.scenarioType,
+    status: plan.status,
+    window: { startDate: plan.startDate, endDate: plan.endDate },
+    projectedRevenue: plan.projectedRevenue,
+    projectedCost: plan.projectedCost,
+    projectedMargin: plan.projectedMargin,
+    staffingPlan: plan.staffingPlan ?? null,
+    notes: plan.notes ?? null,
+  }));
+
+  return {
+    summary,
+    heatmap,
+    assignmentMatches,
+    scenarioPlans: formattedScenarioPlans,
+  };
+}
+
+function buildQualityWorkflowInsights({ qualityReviews, projects }) {
+  const projectMap = new Map((projects ?? []).map((project) => [project.id, project]));
+  const reviews = qualityReviews ?? [];
+  const completed = reviews.filter((review) => String(review.status ?? '').toLowerCase() === 'completed');
+  const qaValues = completed
+    .map((review) => (review.qaScore != null ? normaliseNumber(review.qaScore, null) : null))
+    .filter((value) => value != null);
+  const csatValues = completed
+    .map((review) => (review.clientSatisfaction != null ? normaliseNumber(review.clientSatisfaction, null) : null))
+    .filter((value) => value != null);
+
+  const upcomingStatuses = new Set(['scheduled', 'in_review', 'pending', 'planned']);
+
+  const upcoming = reviews
+    .filter((review) => upcomingStatuses.has(String(review.status ?? '').toLowerCase()))
+    .map((review) => ({
+      id: review.id,
+      projectId: review.projectId,
+      projectTitle: projectMap.get(review.projectId)?.title ?? `Project ${review.projectId}`,
+      reviewType: review.reviewType,
+      status: review.status,
+      reviewDate: review.reviewDate,
+      automationCoverage: review.automationCoverage,
+      reviewer: review.reviewer ?? null,
+    }))
+    .slice(0, 10);
+
+  const scorecards = reviews.slice(0, 20).map((review) => ({
+    id: review.id,
+    projectId: review.projectId,
+    projectTitle: projectMap.get(review.projectId)?.title ?? `Project ${review.projectId}`,
+    reviewType: review.reviewType,
+    status: review.status,
+    qaScore: review.qaScore,
+    clientSatisfaction: review.clientSatisfaction,
+    lessonsLearnedCount: Array.isArray(review.lessonsLearned)
+      ? review.lessonsLearned.length
+      : review.lessonsLearned && typeof review.lessonsLearned === 'object'
+        ? Object.keys(review.lessonsLearned).length
+        : 0,
+    followUpActionsCount: Array.isArray(review.followUpActions)
+      ? review.followUpActions.length
+      : review.followUpActions && typeof review.followUpActions === 'object'
+        ? Object.keys(review.followUpActions).length
+        : 0,
+  }));
+
+  const lessons = [];
+  reviews.forEach((review) => {
+    const lessonEntries = Array.isArray(review.lessonsLearned)
+      ? review.lessonsLearned
+      : review.lessonsLearned && typeof review.lessonsLearned === 'object'
+        ? Object.values(review.lessonsLearned)
+        : [];
+    lessonEntries.forEach((entry) => {
+      if (!entry) return;
+      if (typeof entry === 'string') {
+        lessons.push({
+          reviewId: review.id,
+          projectId: review.projectId,
+          projectTitle: projectMap.get(review.projectId)?.title ?? `Project ${review.projectId}`,
+          lesson: entry,
+          category: null,
+        });
+      } else if (typeof entry === 'object') {
+        lessons.push({
+          reviewId: review.id,
+          projectId: review.projectId,
+          projectTitle: projectMap.get(review.projectId)?.title ?? `Project ${review.projectId}`,
+          lesson: entry.summary ?? entry.title ?? null,
+          category: entry.category ?? entry.type ?? null,
+        });
+      }
+    });
+  });
+
+  const incentives = [];
+  reviews.forEach((review) => {
+    const actions = Array.isArray(review.followUpActions)
+      ? review.followUpActions
+      : review.followUpActions && typeof review.followUpActions === 'object'
+        ? Object.values(review.followUpActions)
+        : [];
+    actions.forEach((action) => {
+      if (!action || typeof action !== 'object') return;
+      if (String(action.category ?? '').toLowerCase() === 'incentive') {
+        incentives.push({
+          reviewId: review.id,
+          title: action.title ?? 'Incentive action',
+          dueDate: action.dueDate ?? null,
+          owner: action.owner ?? null,
+        });
+      }
+    });
+  });
+
+  return {
+    scenarios,
+    breakdowns: buckets,
+  };
+}
+
+function buildGovernanceDesk(documents = [], obligations = [], reminders = [], risks = [], audits = []) {
+  const policyItems = documents.map((document) => toPlain(document));
+  const policyById = new Map(policyItems.map((policy) => [policy.id, policy]));
+
+  const obligationItems = obligations.map((obligation) => {
+    const plain = toPlain(obligation);
+    const policy = policyById.get(plain.documentId) ?? null;
+    return {
+      id: plain.id,
+      documentId: plain.documentId,
+      clauseReference: plain.clauseReference,
+      description: plain.description,
+      status: plain.status,
+      dueAt: plain.dueAt,
+      priority: plain.priority ?? null,
+      metadata: plain.metadata ?? null,
+      document: policy
+        ? {
+            id: policy.id,
+            title: policy.title,
+            status: policy.status,
+            documentType: policy.documentType,
+            expiryDate: policy.expiryDate,
+          }
+        : null,
+    };
+  });
+
+  const reminderItems = reminders.map((reminder) => {
+    const plain = toPlain(reminder);
+    const policy = policyById.get(plain.documentId) ?? null;
+    return {
+      id: plain.id,
+      documentId: plain.documentId,
+      reminderType: plain.reminderType,
+      status: plain.status,
+      sendAt: plain.sendAt,
+      payload: plain.payload ?? null,
+      metadata: plain.metadata ?? null,
+      document: policy ? { id: policy.id, title: policy.title, documentType: policy.documentType } : null,
+    };
+  });
+
+  const policySummaries = policyItems.map((policy) => {
+    const relatedObligations = obligationItems.filter((obligation) => obligation.documentId === policy.id);
+    return {
+      id: policy.id,
+      title: policy.title,
+      documentType: policy.documentType,
+      status: policy.status,
+      effectiveDate: policy.effectiveDate,
+      expiryDate: policy.expiryDate,
+      renewalTerms: policy.renewalTerms,
+      counterpartyName: policy.counterpartyName,
+      tags: Array.isArray(policy.tags) ? policy.tags : [],
+      nextReviewAt: relatedObligations
+        .map((obligation) => obligation.dueAt)
+        .filter(Boolean)
+        .sort()[0] ?? null,
+    };
+  });
+
+  return {
+    policies: policySummaries,
+    obligations: obligationItems,
+    reminders: reminderItems,
+    risks: risks.map((risk) => toPlain(risk)),
+    audits: audits.map((audit) => toPlain(audit)),
+  };
+}
+
+function buildLeadershipHub({ rituals = [], okrs = [], decisions = [], briefings = [], bets = [], rooms = [], projects = [] }) {
+  const projectLookup = new Map(projects.map((project) => [project.id, project]));
+  const collaborationRooms = rooms
+    .map((room) => toPlain(room))
+    .filter((room) => {
+      if (!room) return false;
+      const metadata = typeof room.metadata === 'object' && room.metadata !== null ? room.metadata : {};
+      if (metadata.useCase && String(metadata.useCase).includes('leadership')) {
+        return true;
+      }
+      return /leadership|governance|compliance/i.test(room.name ?? '') || /command/i.test(room.summary ?? '');
+    })
+    .map((room) => ({
+      id: room.id,
+      name: room.name,
+      summary: room.summary,
+      status: room.status,
+      meetingCadence: room.meetingCadence,
+      metadata: room.metadata ?? null,
+      updatedAt: room.updatedAt ?? null,
+    }));
+
+  const strategicBets = bets.map((bet) => {
+    const plain = toPlain(bet);
+    const project = plain.projectId ? projectLookup.get(plain.projectId) ?? null : null;
+    return {
+      ...plain,
+      project,
+    };
+  });
+
+  return {
+    rituals: rituals.map((ritual) => toPlain(ritual)),
+    okrs: okrs.map((okr) => toPlain(okr)),
+    decisions: decisions.map((decision) => toPlain(decision)),
+    briefings: briefings.map((briefing) => toPlain(briefing)),
+    strategicBets,
+    collaborationRooms,
+  };
+}
+
+function buildInnovationLab({ initiatives = [], fundingEvents = [] }) {
+  const initiativeItems = initiatives.map((initiative) => toPlain(initiative));
+  const fundingItems = fundingEvents.map((event) => toPlain(event));
+
+  const totals = fundingItems.reduce(
+    (accumulator, event) => {
+      const type = event.eventType ?? 'allocation';
+      const amount = normaliseNumber(event.amount, 0);
+      accumulator[type] = (accumulator[type] ?? 0) + amount;
+      return accumulator;
+    },
+    { allocation: 0, burn: 0, return: 0 },
+  );
+
+  return {
+    initiatives: initiativeItems,
+    funding: {
+      summary: {
+        allocated: totals.allocation ?? 0,
+        spent: totals.burn ?? 0,
+        returned: totals.return ?? 0,
+        balance: (totals.allocation ?? 0) - (totals.burn ?? 0),
+      },
+      events: fundingItems,
+    },
+    summary: {
+      totalReviews: reviews.length,
+      completedReviews: completed.length,
+      averageQaScore: qaValues.length ? average(qaValues) : 0,
+      averageClientSatisfaction: csatValues.length ? average(csatValues) : 0,
+    },
+    upcoming,
+    scorecards,
+    lessonsLearned: lessons.slice(0, 25),
+    incentives: incentives.slice(0, 15),
+  };
+}
+
+function buildFinancialOversightInsights({ financialSummaries, escrowTransactions }) {
+  const byCurrency = new Map();
+
+  const engagements = (financialSummaries ?? []).map((summary) => {
+    const currency = summary.billingCurrency ?? 'USD';
+    if (!byCurrency.has(currency)) {
+      byCurrency.set(currency, {
+        budgetAmount: 0,
+        actualSpend: 0,
+        invoicedAmount: 0,
+        outstandingAmount: 0,
+        changeOrders: 0,
+        engagements: 0,
+      });
+    }
+
+    const bucket = byCurrency.get(currency);
+    bucket.budgetAmount += normaliseNumber(summary.budgetAmount, 0);
+    bucket.actualSpend += normaliseNumber(summary.actualSpend, 0);
+    bucket.invoicedAmount += normaliseNumber(summary.invoicedAmount, 0);
+    bucket.outstandingAmount += normaliseNumber(summary.outstandingAmount, 0);
+    bucket.changeOrders += Number(summary.changeOrdersCount ?? 0);
+    bucket.engagements += 1;
+
+    return {
+      id: summary.id,
+      projectId: summary.projectId,
+      clientName: summary.clientName ?? 'Client engagement',
+      policyName: summary.policyName ?? 'Financial policy',
+      billingCurrency: currency,
+      budgetAmount: summary.budgetAmount ?? 0,
+      actualSpend: summary.actualSpend ?? 0,
+      invoicedAmount: summary.invoicedAmount ?? 0,
+      outstandingAmount: summary.outstandingAmount ?? 0,
+      changeOrdersCount: Number(summary.changeOrdersCount ?? 0),
+      profitabilityScore: summary.profitabilityScore == null ? null : Number(summary.profitabilityScore),
+      marginPercent: summary.marginPercent == null ? null : Number(summary.marginPercent),
+      lastInvoiceDate: summary.lastInvoiceDate ?? null,
+      nextInvoiceDate: summary.nextInvoiceDate ?? null,
+      complianceStatus: summary.complianceStatus ?? 'on_track',
+      lastComplianceExportAt: summary.lastComplianceExportAt ?? null,
+      metadata: summary.metadata ?? null,
+    };
+  });
+
+  const alerts = [];
+  engagements.forEach((engagement) => {
+    if (engagement.marginPercent != null && engagement.marginPercent < 20) {
+      alerts.push({
+        type: 'margin',
+        severity: engagement.marginPercent < 10 ? 'critical' : 'warning',
+        message: `Margin below target for ${engagement.clientName}`,
+        engagementId: engagement.id,
+      });
+    }
+    if (engagement.outstandingAmount != null && engagement.outstandingAmount > 0) {
+      alerts.push({
+        type: 'outstanding_invoice',
+        severity: engagement.outstandingAmount > 10000 ? 'critical' : 'warning',
+        message: `Outstanding invoices of ${engagement.outstandingAmount} ${engagement.billingCurrency} for ${engagement.clientName}`,
+        engagementId: engagement.id,
+      });
+    }
+    if (String(engagement.complianceStatus ?? '').toLowerCase() === 'overdue') {
+      alerts.push({
+        type: 'compliance',
+        severity: 'critical',
+        message: `Compliance policy overdue for ${engagement.clientName}`,
+        engagementId: engagement.id,
+      });
+    }
+  });
+
+  const currencySummaries = Array.from(byCurrency.entries()).map(([currency, totals]) => ({
+    currency,
+    budgetAmount: Math.round(totals.budgetAmount * 100) / 100,
+    actualSpend: Math.round(totals.actualSpend * 100) / 100,
+    invoicedAmount: Math.round(totals.invoicedAmount * 100) / 100,
+    outstandingAmount: Math.round(totals.outstandingAmount * 100) / 100,
+    changeOrders: totals.changeOrders,
+    engagements: totals.engagements,
+  }));
+
+  const escrowTotals = (escrowTransactions ?? []).reduce(
+    (acc, transaction) => {
+      const currency = transaction.currencyCode ?? 'USD';
+      if (!acc.byCurrency.has(currency)) {
+        acc.byCurrency.set(currency, { inEscrow: 0, released: 0 });
+      }
+      const bucket = acc.byCurrency.get(currency);
+      if (transaction.status === 'released') {
+        bucket.released += normaliseNumber(transaction.amount, 0);
+      } else if (['in_escrow', 'funded', 'initiated'].includes(String(transaction.status ?? '').toLowerCase())) {
+        bucket.inEscrow += normaliseNumber(transaction.amount, 0);
+      }
+      acc.count += 1;
+      return acc;
+    },
+    { byCurrency: new Map(), count: 0 },
+  );
+
+  const escrow = Array.from(escrowTotals.byCurrency.entries()).map(([currency, totals]) => ({
+    currency,
+    inEscrow: Math.round(totals.inEscrow * 100) / 100,
+    released: Math.round(totals.released * 100) / 100,
+  }));
+
+  return {
+    summary: {
+      totalEngagements: engagements.length,
+      currencies: currencySummaries,
+      escrow,
+      alerts: alerts.length,
+    },
+    engagements,
+    alerts,
+    escrow,
+  };
+}
+
+function buildFinanceControlTower({ financialSummary = {}, financeOverview = null, upcomingBatches = [], upcomingSplits = [] }) {
+  const defaultCurrency = financialSummary.currency ?? 'USD';
+
+  if (!financeOverview) {
+    return {
+      summary: {
+        currency: defaultCurrency,
+        totalReleased: normaliseNumber(financialSummary.released ?? 0),
+        inEscrow: normaliseNumber(financialSummary.inEscrow ?? 0),
+        outstanding: normaliseNumber(financialSummary.outstanding ?? 0),
+        monthToDateRevenue: null,
+        trackedExpenses: null,
+        savingsRunway: null,
+        taxReadyBalance: null,
+        latestPayout: null,
+        recipientCount: 0,
+        shareOfReleased: 0,
+        scheduledTotal: 0,
+        nextScheduledAt: null,
+        generatedAt: new Date().toISOString(),
+      },
+      payouts: {
+        latestBatch: null,
+        totals: { totalAmount: 0, recipients: 0, shareOfReleased: 0, currency: defaultCurrency },
+        topRecipients: [],
+        roleBreakdown: [],
+        upcomingBatches: upcomingBatches.map((batch) => ({
+          id: batch.id,
+          name: batch.name,
+          status: batch.status,
+          scheduledAt: batch.scheduledAt ?? null,
+          executedAt: batch.executedAt ?? null,
+          currency: batch.currencyCode ?? defaultCurrency,
+          totalAmount: normaliseNumber(batch.totalAmount ?? 0),
+          recipientCount: 0,
+          splits: [],
+        })),
+      },
+      exports: { latest: null, history: [] },
+    };
+  }
+
+  const monthRevenue = financeOverview.summary?.monthToDateRevenue ?? null;
+  const trackedExpenses = financeOverview.summary?.trackedExpenses ?? null;
+  const savingsRunway = financeOverview.summary?.savingsRunway ?? null;
+  const taxReadyBalance = financeOverview.summary?.taxReadyBalance ?? null;
+  const currency =
+    monthRevenue?.currency ??
+    trackedExpenses?.currency ??
+    savingsRunway?.currency ??
+    taxReadyBalance?.currency ??
+    defaultCurrency;
+
+  const payoutBatch = financeOverview.payoutSplits?.batch ?? null;
+  const payoutEntries = Array.isArray(financeOverview.payoutSplits?.entries)
+    ? financeOverview.payoutSplits.entries
+    : [];
+
+  const payoutTotalAmount = Math.round(sumNumbers(payoutEntries.map((entry) => normaliseNumber(entry.amount, 0))) * 100) / 100;
+  const payoutRecipientCount = payoutEntries.length;
+  const shareOfReleased =
+    payoutTotalAmount > 0 && normaliseNumber(financialSummary.released ?? 0) > 0
+      ? payoutTotalAmount / normaliseNumber(financialSummary.released ?? 0)
+      : 0;
+
+  const topRecipients = payoutEntries
+    .map((entry) => ({
+      id: entry.id,
+      name: entry.teammateName ?? 'Recipient',
+      role: entry.teammateRole ?? 'Contributor',
+      amount: Math.round(normaliseNumber(entry.amount, 0) * 100) / 100,
+      sharePercentage: entry.sharePercentage == null ? null : normaliseNumber(entry.sharePercentage, 0),
+      shareOfBatch:
+        payoutTotalAmount > 0 ? normaliseNumber(entry.amount, 0) / payoutTotalAmount : 0,
+      status: entry.status ?? 'completed',
+      currency: entry.currency ?? entry.currencyCode ?? currency,
+      recipientEmail: entry.recipientEmail ?? null,
+    }))
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 6);
+
+  const roleBuckets = new Map();
+  payoutEntries.forEach((entry) => {
+    const descriptor = normaliseRoleDescriptor(entry.teammateRole ?? 'Contributor');
+    if (!roleBuckets.has(descriptor.key)) {
+      roleBuckets.set(descriptor.key, {
+        role: descriptor.label,
+        amount: 0,
+        recipients: 0,
+      });
+    }
+    const bucket = roleBuckets.get(descriptor.key);
+    bucket.amount += normaliseNumber(entry.amount, 0);
+    bucket.recipients += 1;
+  });
+
+  const roleBreakdown = Array.from(roleBuckets.values())
+    .map((bucket) => ({
+      role: bucket.role,
+      amount: Math.round(bucket.amount * 100) / 100,
+      recipients: bucket.recipients,
+      shareOfBatch: payoutTotalAmount > 0 ? bucket.amount / payoutTotalAmount : 0,
+    }))
+    .sort((a, b) => b.amount - a.amount);
+
+  const splitsByBatch = upcomingSplits.reduce((accumulator, split) => {
+    const list = accumulator.get(split.batchId) ?? [];
+    list.push({
+      id: split.id,
+      teammateName: split.teammateName,
+      teammateRole: split.teammateRole,
+      sharePercentage: split.sharePercentage == null ? null : normaliseNumber(split.sharePercentage, 0),
+      amount: Math.round(normaliseNumber(split.amount, 0) * 100) / 100,
+      currency: split.currencyCode ?? currency,
+      status: split.status ?? 'scheduled',
+      recipientEmail: split.recipientEmail ?? null,
+    });
+    accumulator.set(split.batchId, list);
+    return accumulator;
+  }, new Map());
+
+  const upcoming = upcomingBatches
+    .map((batch) => {
+      const splits = splitsByBatch.get(batch.id) ?? [];
+      return {
+        id: batch.id,
+        name: batch.name,
+        status: batch.status,
+        scheduledAt: batch.scheduledAt ?? null,
+        executedAt: batch.executedAt ?? null,
+        currency: batch.currencyCode ?? currency,
+        totalAmount: Math.round(normaliseNumber(batch.totalAmount ?? 0) * 100) / 100,
+        recipientCount: splits.length,
+        splits: splits.slice(0, 5),
+      };
+    })
+    .sort((a, b) => {
+      const first = a.scheduledAt ? new Date(a.scheduledAt).getTime() : Number.MAX_SAFE_INTEGER;
+      const second = b.scheduledAt ? new Date(b.scheduledAt).getTime() : Number.MAX_SAFE_INTEGER;
+      return first - second;
+    });
+
+  const scheduledTotal = Math.round(sumNumbers(upcoming.map((item) => item.totalAmount)) * 100) / 100;
+
+  const latestPayout = payoutBatch
+    ? {
+        id: payoutBatch.id,
+        name: payoutBatch.name,
+        status: payoutBatch.status,
+        totalAmount: Math.round(normaliseNumber(payoutBatch.totalAmount ?? payoutTotalAmount) * 100) / 100,
+        currency: payoutBatch.currency ?? payoutBatch.currencyCode ?? currency,
+        executedAt: payoutBatch.executedAt ?? null,
+        scheduledAt: payoutBatch.scheduledAt ?? null,
+      }
+    : null;
+
+  const monthToDateRevenue = monthRevenue
+    ? {
+        amount: Math.round(normaliseNumber(monthRevenue.amount, 0) * 100) / 100,
+        previousAmount: Math.round(normaliseNumber(monthRevenue.previousAmount, 0) * 100) / 100,
+        changePercentage:
+          monthRevenue.changePercentage == null
+            ? null
+            : normaliseNumber(monthRevenue.changePercentage, 0),
+        currency: monthRevenue.currency ?? currency,
+      }
+    : null;
+
+  const trackedExpensesSummary = trackedExpenses
+    ? {
+        amount: Math.round(normaliseNumber(trackedExpenses.amount, 0) * 100) / 100,
+        count: normaliseNumber(trackedExpenses.count, 0),
+        currency: trackedExpenses.currency ?? currency,
+      }
+    : null;
+
+  const savingsRunwaySummary = savingsRunway
+    ? {
+        months: savingsRunway.months == null ? null : normaliseNumber(savingsRunway.months, 0),
+        reserveAmount: Math.round(normaliseNumber(savingsRunway.reserveAmount, 0) * 100) / 100,
+        monthlyBurn: savingsRunway.monthlyBurn == null ? null : normaliseNumber(savingsRunway.monthlyBurn, 0),
+        currency: savingsRunway.currency ?? currency,
+      }
+    : null;
+
+  const latestTaxExportRaw = taxReadyBalance?.latestExport ?? null;
+  const latestTaxExport = latestTaxExportRaw
+    ? {
+        id: latestTaxExportRaw.id,
+        exportType: latestTaxExportRaw.exportType,
+        status: latestTaxExportRaw.status,
+        amount: Math.round(normaliseNumber(latestTaxExportRaw.amount, 0) * 100) / 100,
+        currency: latestTaxExportRaw.currency ?? latestTaxExportRaw.currencyCode ?? currency,
+        generatedAt: latestTaxExportRaw.generatedAt ?? null,
+        downloadUrl: latestTaxExportRaw.downloadUrl ?? null,
+      }
+    : null;
+
+  const taxReadyBalanceSummary = taxReadyBalance
+    ? {
+        amount: Math.round(normaliseNumber(taxReadyBalance.amount, 0) * 100) / 100,
+        currency: taxReadyBalance.currency ?? currency,
+        fiscalYear: taxReadyBalance.fiscalYear ?? new Date().getFullYear(),
+        latestExport: latestTaxExport,
+      }
+    : null;
+
+  const exportHistory = (financeOverview.taxExports ?? []).map((record) => ({
+    id: record.id,
+    exportType: record.exportType,
+    status: record.status,
+    periodStart: record.periodStart ?? null,
+    periodEnd: record.periodEnd ?? null,
+    amount: Math.round(normaliseNumber(record.amount, 0) * 100) / 100,
+    currency: record.currency ?? record.currencyCode ?? currency,
+    downloadUrl: record.downloadUrl ?? null,
+    generatedAt: record.generatedAt ?? null,
+  }));
+
+  return {
+    summary: {
+      currency,
+      totalReleased: normaliseNumber(financialSummary.released ?? 0),
+      inEscrow: normaliseNumber(financialSummary.inEscrow ?? 0),
+      outstanding: normaliseNumber(financialSummary.outstanding ?? 0),
+      monthToDateRevenue,
+      trackedExpenses: trackedExpensesSummary,
+      savingsRunway: savingsRunwaySummary,
+      taxReadyBalance: taxReadyBalanceSummary,
+      latestPayout,
+      recipientCount: payoutRecipientCount,
+      shareOfReleased,
+      scheduledTotal,
+      nextScheduledAt: upcoming[0]?.scheduledAt ?? null,
+      generatedAt: financeOverview.generatedAt ?? new Date().toISOString(),
+    },
+    payouts: {
+      latestBatch: latestPayout,
+      totals: {
+        totalAmount: payoutTotalAmount,
+        recipients: payoutRecipientCount,
+        shareOfReleased,
+        currency,
+      },
+      topRecipients,
+      roleBreakdown,
+      upcomingBatches: upcoming,
+    },
+    exports: {
+      latest: latestTaxExport,
+      history: exportHistory,
+    },
+  };
+function startOfQuarter(date) {
+  const reference = parseDate(date) ?? new Date();
+  const quarterStartMonth = Math.floor(reference.getMonth() / 3) * 3;
+  const start = new Date(reference);
+  start.setMonth(quarterStartMonth, 1);
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
+function addCurrencyTotal(map, currencyCode, amount) {
+  const numeric = normaliseNumber(amount, 0);
+  if (!Number.isFinite(numeric) || numeric === 0) {
+    return;
+  }
+  const currency = (currencyCode || 'USD').toUpperCase();
+  map.set(currency, (map.get(currency) ?? 0) + numeric);
+}
+
+function currencyTotalsToArray(map) {
+  return Array.from(map.entries()).map(([currency, total]) => ({
+    currency,
+    amount: Math.round(total * 100) / 100,
+  }));
+}
+
+function findDominantCurrency(...maps) {
+  const aggregate = new Map();
+  maps.forEach((map) => {
+    if (!map || typeof map.forEach !== 'function') {
+      return;
+    }
+    map.forEach((value, currency) => {
+      aggregate.set(currency, (aggregate.get(currency) ?? 0) + value);
+    });
+  });
+  if (!aggregate.size) {
+    return 'USD';
+  }
+  const [topCurrency] = Array.from(aggregate.entries()).sort((a, b) => b[1] - a[1])[0];
+  return topCurrency;
+}
+
+function formatIso(value) {
+  const parsed = parseDate(value);
+  return parsed ? parsed.toISOString() : null;
+}
+
+function ensureArray(value) {
+  if (!value) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
+function buildPaymentsDistributionInsights({
+  batches = [],
+  splits = [],
+  exports: exportRecords = [],
+  financialSummaries = [],
+  now = new Date(),
+} = {}) {
+  const normalizedBatches = ensureArray(batches);
+  const normalizedSplits = ensureArray(splits);
+  const normalizedExports = ensureArray(exportRecords);
+  const normalizedFinancials = ensureArray(financialSummaries);
+
+  const nowDate = parseDate(now) ?? new Date();
+  const quarterStart = startOfQuarter(nowDate);
+
+  const quarterTotals = new Map();
+  const scheduledTotals = new Map();
+  const outstandingTotals = new Map();
+  const failedTotals = new Map();
+  const invoiceOutstandingTotals = new Map();
+  const splitStatusBreakdown = {};
+
+  const splitsByBatch = groupByKey(normalizedSplits, 'batchId');
+  const batchMap = new Map();
+  normalizedBatches.forEach((batch) => {
+    if (batch?.id != null) {
+      batchMap.set(batch.id, batch);
+    }
+  });
+
+  let outstandingCount = 0;
+  let failedCount = 0;
+  let processingDurationTotal = 0;
+  let processingDurationCount = 0;
+
+  const upcomingBatches = [];
+
+  const detailedBatches = normalizedBatches
+    .slice()
+    .sort((a, b) => {
+      const aTime = parseDate(a?.executedAt ?? a?.scheduledAt ?? a?.createdAt)?.getTime() ?? 0;
+      const bTime = parseDate(b?.executedAt ?? b?.scheduledAt ?? b?.createdAt)?.getTime() ?? 0;
+      return bTime - aTime;
+    })
+    .map((batch) => {
+      if (!batch) return null;
+      const currency = (batch.currencyCode || 'USD').toUpperCase();
+      const executedAt = parseDate(batch.executedAt);
+      const scheduledAt = parseDate(batch.scheduledAt);
+      const createdAt = parseDate(batch.createdAt);
+      const totalAmount = normaliseNumber(batch.totalAmount, 0);
+
+      if (executedAt && executedAt >= quarterStart) {
+        addCurrencyTotal(quarterTotals, currency, totalAmount);
+      }
+
+      const batchSplits = splitsByBatch.get(batch.id) ?? [];
+      const completedSplits = [];
+      const failedSplits = [];
+      const inFlightSplits = [];
+
+      const splitSummaries = batchSplits
+        .map((split) => {
+          if (!split) return null;
+          const splitCurrency = (split.currencyCode || currency).toUpperCase();
+          const splitAmount = normaliseNumber(split.amount, 0);
+          const status = String(split.status ?? 'unknown').toLowerCase();
+          splitStatusBreakdown[status] = (splitStatusBreakdown[status] ?? 0) + 1;
+
+          if (status === 'completed') {
+            completedSplits.push(split);
+          } else if (status === 'failed') {
+            failedSplits.push(split);
+            addCurrencyTotal(failedTotals, splitCurrency, splitAmount);
+          } else {
+            inFlightSplits.push(split);
+            addCurrencyTotal(outstandingTotals, splitCurrency, splitAmount);
+          }
+
+          return {
+            id: split.id,
+            teammateName: split.teammateName,
+            teammateRole: split.teammateRole ?? null,
+            status,
+            amount: Math.round(splitAmount * 100) / 100,
+            currency: splitCurrency,
+            sharePercentage: split.sharePercentage == null ? null : Number(split.sharePercentage),
+            recipientEmail: split.recipientEmail ?? null,
+          };
+        })
+        .filter(Boolean);
+
+      outstandingCount += inFlightSplits.length;
+      failedCount += failedSplits.length;
+
+      if ((!executedAt || batch.status !== 'completed') && scheduledAt && scheduledAt >= nowDate) {
+        addCurrencyTotal(scheduledTotals, currency, totalAmount);
+        upcomingBatches.push({
+          id: batch.id,
+          name: batch.name,
+          scheduledAt: scheduledAt.toISOString(),
+          totalAmount: Math.round(totalAmount * 100) / 100,
+          currency,
+          outstandingSplits: inFlightSplits.length,
+        });
+      }
+
+      if (executedAt && (scheduledAt || createdAt)) {
+        const baseline = scheduledAt ?? createdAt;
+        const durationDays = Math.max(0, (executedAt.getTime() - baseline.getTime()) / (1000 * 60 * 60 * 24));
+        processingDurationTotal += durationDays;
+        processingDurationCount += 1;
+      }
+
+      return {
+        id: batch.id,
+        name: batch.name,
+        status: batch.status,
+        currency,
+        totalAmount: Math.round(totalAmount * 100) / 100,
+        executedAt: executedAt ? executedAt.toISOString() : null,
+        scheduledAt: scheduledAt ? scheduledAt.toISOString() : null,
+        completionRate: batchSplits.length ? completedSplits.length / batchSplits.length : null,
+        outstandingSplits: inFlightSplits.length,
+        failedSplits: failedSplits.length,
+        splits: splitSummaries,
+        metadata: batch.metadata ?? null,
+      };
+    })
+    .filter(Boolean);
+
+  normalizedFinancials.forEach((summary) => {
+    if (!summary) return;
+    const currency = (summary.billingCurrency || 'USD').toUpperCase();
+    const outstanding = normaliseNumber(summary.outstandingAmount, 0);
+    if (outstanding > 0) {
+      addCurrencyTotal(invoiceOutstandingTotals, currency, outstanding);
+    }
+  });
+
+  const invoiceOutstandingCount = normalizedFinancials.filter(
+    (summary) => normaliseNumber(summary?.outstandingAmount, 0) > 0,
+  ).length;
+
+  const teammateMap = new Map();
+  normalizedSplits.forEach((split) => {
+    if (!split) return;
+    const batch = batchMap.get(split.batchId);
+    const currency = (split.currencyCode || batch?.currencyCode || 'USD').toUpperCase();
+    const amount = normaliseNumber(split.amount, 0);
+    const key = `${split.teammateName ?? 'Team member'}|${split.recipientEmail ?? ''}|${split.teammateRole ?? ''}`;
+    if (!teammateMap.has(key)) {
+      teammateMap.set(key, {
+        teammateName: split.teammateName ?? 'Team member',
+        teammateRole: split.teammateRole ?? null,
+        recipientEmail: split.recipientEmail ?? null,
+        totalAmount: 0,
+        currencyBreakdown: new Map(),
+        shareSum: 0,
+        shareCount: 0,
+        statusBreakdown: {},
+        lastPaidAt: null,
+      });
+    }
+    const entry = teammateMap.get(key);
+    entry.totalAmount += amount;
+    entry.currencyBreakdown.set(currency, (entry.currencyBreakdown.get(currency) ?? 0) + amount);
+    if (split.sharePercentage != null && Number.isFinite(Number(split.sharePercentage))) {
+      entry.shareSum += Number(split.sharePercentage);
+      entry.shareCount += 1;
+    }
+    const status = String(split.status ?? 'unknown').toLowerCase();
+    entry.statusBreakdown[status] = (entry.statusBreakdown[status] ?? 0) + 1;
+    const executedAt = parseDate(batch?.executedAt);
+    if (executedAt && (!entry.lastPaidAt || executedAt > entry.lastPaidAt)) {
+      entry.lastPaidAt = executedAt;
+    }
+  });
+
+  const teammates = Array.from(teammateMap.values())
+    .map((entry) => {
+      const currencyRanking = Array.from(entry.currencyBreakdown.entries()).sort((a, b) => b[1] - a[1]);
+      const primaryCurrency = currencyRanking[0]?.[0] ?? 'USD';
+      return {
+        teammateName: entry.teammateName,
+        teammateRole: entry.teammateRole,
+        recipientEmail: entry.recipientEmail,
+        totalAmount: Math.round(entry.totalAmount * 100) / 100,
+        currency: primaryCurrency,
+        currencyBreakdown: currencyRanking.map(([currency, total]) => ({
+          currency,
+          amount: Math.round(total * 100) / 100,
+        })),
+        averageSharePercentage:
+          entry.shareCount > 0 ? Math.round((entry.shareSum / entry.shareCount) * 100) / 100 : null,
+        statusBreakdown: entry.statusBreakdown,
+        lastPaidAt: entry.lastPaidAt ? entry.lastPaidAt.toISOString() : null,
+      };
+    })
+    .sort((a, b) => b.totalAmount - a.totalAmount)
+    .slice(0, 20);
+
+  const sanitizedExports = normalizedExports
+    .slice()
+    .sort((a, b) => {
+      const aTime = parseDate(a?.generatedAt ?? a?.createdAt)?.getTime() ?? 0;
+      const bTime = parseDate(b?.generatedAt ?? b?.createdAt)?.getTime() ?? 0;
+      return bTime - aTime;
+    })
+    .map((record) => ({
+      id: record.id,
+      exportType: record.exportType,
+      status: String(record.status ?? 'unknown').toLowerCase(),
+      amount: Math.round(normaliseNumber(record.amount, 0) * 100) / 100,
+      currency: (record.currencyCode || 'USD').toUpperCase(),
+      periodStart: formatIso(record.periodStart),
+      periodEnd: formatIso(record.periodEnd),
+      generatedAt: formatIso(record.generatedAt ?? record.createdAt),
+      downloadUrl: record.downloadUrl ?? null,
+      metadata: record.metadata ?? null,
+    }));
+
+  const availableExports = sanitizedExports.filter((record) => record.status === 'available');
+  const generatingExports = sanitizedExports.filter((record) => record.status === 'generating');
+  const failedExports = sanitizedExports.filter((record) => record.status === 'failed');
+  const archivedExports = sanitizedExports.filter((record) => record.status === 'archived');
+  const latestExport = availableExports[0] ?? sanitizedExports[0] ?? null;
+
+  const averageProcessingTimeDays =
+    processingDurationCount > 0 ? Math.round((processingDurationTotal / processingDurationCount) * 10) / 10 : null;
+
+  const recommendedActions = [];
+  if (outstandingCount > 0) {
+    recommendedActions.push({
+      type: 'outstanding_splits',
+      severity: outstandingCount > 5 ? 'warning' : 'info',
+      message: `Review ${outstandingCount} in-flight payout split${outstandingCount === 1 ? '' : 's'} awaiting approval.`,
+    });
+  }
+  if (failedCount > 0) {
+    recommendedActions.push({
+      type: 'failed_splits',
+      severity: 'critical',
+      message: `Retry ${failedCount} failed payout split${failedCount === 1 ? '' : 's'} before the next payment cycle.`,
+    });
+  }
+  if (!availableExports.length) {
+    recommendedActions.push({
+      type: 'export_schedule',
+      severity: 'warning',
+      message: 'Schedule a finance export to keep ledger reconciliations up to date.',
+    });
+  } else if (latestExport?.generatedAt) {
+    const latestExportDate = parseDate(latestExport.generatedAt);
+    const daysSinceLatest =
+      latestExportDate != null ? Math.floor((nowDate.getTime() - latestExportDate.getTime()) / (1000 * 60 * 60 * 24)) : null;
+    if (daysSinceLatest != null && daysSinceLatest > 30) {
+      recommendedActions.push({
+        type: 'export_refresh',
+        severity: 'info',
+        message: 'Last finance export is older than 30 days. Generate a fresh export for audit readiness.',
+      });
+    }
+  }
+  if (invoiceOutstandingCount > 0) {
+    recommendedActions.push({
+      type: 'invoice_collection',
+      severity: invoiceOutstandingCount > 3 ? 'warning' : 'info',
+      message: `Follow up on ${invoiceOutstandingCount} engagement${invoiceOutstandingCount === 1 ? '' : 's'} with outstanding invoices.`,
+    });
+  }
+
+  const dominantCurrency = findDominantCurrency(
+    quarterTotals,
+    scheduledTotals,
+    outstandingTotals,
+    invoiceOutstandingTotals,
+  );
+
+  const sortedUpcoming = upcomingBatches
+    .slice()
+    .sort((a, b) => (parseDate(a.scheduledAt)?.getTime() ?? 0) - (parseDate(b.scheduledAt)?.getTime() ?? 0));
+
+  return {
+    summary: {
+      totalBatches: normalizedBatches.length,
+      totalSplits: normalizedSplits.length,
+      processedThisQuarter: currencyTotalsToArray(quarterTotals),
+      upcomingBatches: {
+        count: sortedUpcoming.length,
+        totals: currencyTotalsToArray(scheduledTotals),
+        nextScheduledAt: sortedUpcoming[0]?.scheduledAt ?? null,
+      },
+      outstandingSplits: {
+        count: outstandingCount,
+        totals: currencyTotalsToArray(outstandingTotals),
+      },
+      failedSplits: {
+        count: failedCount,
+        totals: currencyTotalsToArray(failedTotals),
+      },
+      averageProcessingTimeDays,
+      invoiceOutstanding: currencyTotalsToArray(invoiceOutstandingTotals),
+      invoiceOutstandingCount,
+      splitStatusBreakdown,
+      currency: dominantCurrency,
+    },
+    batches: detailedBatches.slice(0, 20),
+    upcomingBatches: sortedUpcoming.slice(0, 10),
+    teammates,
+    exports: {
+      summary: {
+        total: sanitizedExports.length,
+        available: availableExports.length,
+        generating: generatingExports.length,
+        failed: failedExports.length,
+        archived: archivedExports.length,
+      },
+      latest: latestExport,
+      available: availableExports.slice(0, 10),
+      generating: generatingExports.slice(0, 10),
+      failed: failedExports.slice(0, 10),
+      archived: archivedExports.slice(0, 10),
+    },
+    insights: {
+      invoiceOutstanding: currencyTotalsToArray(invoiceOutstandingTotals),
+      invoiceOutstandingCount,
+      splitStatus: splitStatusBreakdown,
+      recommendedActions,
+    },
+  };
+}
+
+function calculateDaysBetween(start, end) {
+  if (!start || !end) return null;
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  if (Number.isNaN(startDate.valueOf()) || Number.isNaN(endDate.valueOf())) {
+    return null;
+  }
+  const diffMs = endDate.getTime() - startDate.getTime();
+  return diffMs > 0 ? diffMs / (1000 * 60 * 60 * 24) : 0;
+}
+
+function formatRate(part, total) {
+  if (!total) return 0;
+  return Math.round((part / total) * 1000) / 10;
+}
+
+function buildTalentCrmSummary(candidates, interviews, offers, metrics) {
+  const now = new Date();
+  const stageCounts = {};
+  const typeCounts = {};
+  const diversityCounts = {};
+  let signedOffers = 0;
+  let sentOffers = 0;
+  let scheduledInterviews = 0;
+  let totalTimeToFill = 0;
+  let timeToFillSamples = 0;
+
+  const candidateList = candidates
+    .map((candidate) => candidate.toPublicObject())
+    .sort((a, b) => new Date(b.updatedAt ?? b.createdAt ?? 0) - new Date(a.updatedAt ?? a.createdAt ?? 0));
+
+  candidateList.forEach((candidate) => {
+    stageCounts[candidate.pipelineStage ?? 'unknown'] = (stageCounts[candidate.pipelineStage ?? 'unknown'] ?? 0) + 1;
+    typeCounts[candidate.candidateType ?? 'unspecified'] = (typeCounts[candidate.candidateType ?? 'unspecified'] ?? 0) + 1;
+
+    ensureArray(candidate.diversityTags).forEach((tag) => {
+      diversityCounts[tag] = (diversityCounts[tag] ?? 0) + 1;
+    });
+
+    if (candidate.hiredAt) {
+      const days = candidate.timeToFillDays ?? calculateDaysBetween(candidate.createdAt, candidate.hiredAt);
+      if (Number.isFinite(days)) {
+        totalTimeToFill += Number(days);
+        timeToFillSamples += 1;
+      }
+    }
+  });
+
+  const interviewList = interviews
+    .map((interview) => interview.toPublicObject())
+    .sort((a, b) => new Date(a.scheduledAt ?? 0) - new Date(b.scheduledAt ?? 0));
+
+  const upcomingInterviews = interviewList
+    .filter((interview) => {
+      if (interview.status !== 'scheduled' && interview.status !== 'feedback_pending') return false;
+      const scheduledAt = new Date(interview.scheduledAt ?? 0);
+      return !Number.isNaN(scheduledAt.valueOf()) && scheduledAt >= now;
+    })
+    .slice(0, 6);
+
+  const recentInterviews = interviewList.slice(-6).reverse();
+
+  const offerList = offers
+    .map((offer) => offer.toPublicObject())
+    .sort((a, b) => new Date(b.sentAt ?? b.createdAt ?? 0) - new Date(a.sentAt ?? a.createdAt ?? 0));
+
+  offerList.forEach((offer) => {
+    if (offer.status === 'sent' || offer.status === 'signed') {
+      sentOffers += 1;
+    }
+    if (offer.status === 'signed') {
+      signedOffers += 1;
+    }
+  });
+
+  interviewList.forEach((interview) => {
+    if (interview.status === 'scheduled' || interview.status === 'feedback_pending') {
+      scheduledInterviews += 1;
+    }
+  });
+
+  const metricList = metrics
+    .map((metric) => metric.toPublicObject())
+    .sort((a, b) => new Date(b.periodEndDate ?? 0) - new Date(a.periodEndDate ?? 0));
+
+  const latestMetric = metricList[0] ?? null;
+
+  return {
+    totals: {
+      candidates: candidateList.length,
+      interviewsScheduled: scheduledInterviews,
+      offersSent: sentOffers,
+      offersSigned: signedOffers,
+    },
+    stageCounts,
+    typeCounts,
+    diversityBreakdown: diversityCounts,
+    averageTimeToFillDays: timeToFillSamples ? totalTimeToFill / timeToFillSamples : 0,
+    conversionRate: formatRate(signedOffers, candidateList.length || 0),
+    recentCandidates: candidateList.slice(0, 6),
+    upcomingInterviews,
+    recentInterviews,
+    offerWorkflows: offerList.slice(0, 6),
+    pipelineAnalytics: {
+      latest: latestMetric,
+      history: metricList.slice(0, 6),
+    },
+  };
+}
+
+function buildPeopleOpsSummary(policies, reviews, skills, wellbeing) {
+  const policyList = policies
+    .map((policy) => policy.toPublicObject())
+    .sort((a, b) => new Date(b.updatedAt ?? 0) - new Date(a.updatedAt ?? 0));
+
+  const reviewList = reviews
+    .map((review) => review.toPublicObject())
+    .sort((a, b) => new Date(b.dueAt ?? b.updatedAt ?? 0) - new Date(a.dueAt ?? a.updatedAt ?? 0));
+
+  const skillList = skills
+    .map((entry) => entry.toPublicObject())
+    .sort((a, b) => new Date(b.updatedAt ?? 0) - new Date(a.updatedAt ?? 0));
+
+  const wellbeingList = wellbeing
+    .map((snapshot) => snapshot.toPublicObject())
+    .sort((a, b) => new Date(b.capturedAt ?? 0) - new Date(a.capturedAt ?? 0));
+
+  const activePolicies = policyList.filter((policy) => policy.status === 'active');
+  const acknowledgementRate = policyList.length
+    ? formatRate(
+        policyList.reduce((total, policy) => total + Math.min(policy.acknowledgedCount ?? 0, policy.audienceCount ?? 0), 0),
+        policyList.reduce((total, policy) => total + (policy.audienceCount ?? 0), 0) || 0,
+      )
+    : 0;
+
+  const outstandingReviews = reviewList.filter((review) => !['completed', 'closed'].includes(review.status));
+  const completedReviews = reviewList.filter((review) => ['completed', 'closed'].includes(review.status));
+
+  const skillsCoverage = {};
+  const skillGaps = [];
+  skillList.forEach((entry) => {
+    const category = entry.skillCategory ?? 'General';
+    if (!skillsCoverage[category]) {
+      skillsCoverage[category] = { total: 0, ready: 0, needsGrowth: 0 };
+    }
+    skillsCoverage[category].total += 1;
+    if (entry.targetLevel && entry.proficiencyLevel != null && entry.proficiencyLevel < entry.targetLevel) {
+      skillsCoverage[category].needsGrowth += 1;
+      skillGaps.push(entry);
+    } else {
+      skillsCoverage[category].ready += 1;
+    }
+  });
+
+  const wellbeingScores = wellbeingList.map((entry) => Number(entry.wellbeingScore) || 0);
+  const wellbeingAverage = wellbeingScores.length
+    ? Math.round((wellbeingScores.reduce((sum, score) => sum + score, 0) / wellbeingScores.length) * 10) / 10
+    : 0;
+  const wellbeingRiskCounts = wellbeingList.reduce(
+    (acc, entry) => {
+      const key = entry.riskLevel ?? 'low';
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    },
+    { low: 0, medium: 0, high: 0, critical: 0 },
+  );
+  const wellbeingAtRisk = (wellbeingRiskCounts.high ?? 0) + (wellbeingRiskCounts.critical ?? 0);
+
+  return {
+    policies: {
+      list: policyList.slice(0, 6),
+      total: policyList.length,
+      active: activePolicies.length,
+      acknowledgementRate,
+    },
+    performance: {
+      outstanding: outstandingReviews.length,
+      completed: completedReviews.length,
+      reviews: reviewList.slice(0, 6),
+    },
+    skills: {
+      entries: skillList.slice(0, 10),
+      coverage: skillsCoverage,
+      gaps: skillGaps.slice(0, 6),
+    },
+    wellbeing: {
+      averageScore: wellbeingAverage,
+      riskCounts: wellbeingRiskCounts,
+      atRisk: wellbeingAtRisk,
+      snapshots: wellbeingList.slice(0, 6),
+    },
+  };
+}
+
+function buildOpportunityBoardSummary(opportunities, matches) {
+  const opportunityList = opportunities
+    .map((opportunity) => opportunity.toPublicObject())
+    .sort((a, b) => new Date(a.startDate ?? 0) - new Date(b.startDate ?? 0));
+
+  const matchList = matches
+    .map((match) => match.toPublicObject())
+    .sort((a, b) => new Date(b.notifiedAt ?? b.createdAt ?? 0) - new Date(a.notifiedAt ?? a.createdAt ?? 0));
+
+  const open = opportunityList.filter((opportunity) => ['open', 'matched'].includes(opportunity.status)).length;
+  const filled = opportunityList.filter((opportunity) => opportunity.status === 'filled').length;
+  const averageMatchScore = matchList.length
+    ? Math.round(
+        (matchList.reduce((total, match) => total + (Number(match.matchScore) || 0), 0) / matchList.length) * 10,
+      ) / 10
+    : 0;
+  const mobileAlerts = matchList.filter((match) => match.isMobileAlert).length;
+  const acceptedMatches = matchList.filter((match) => match.status === 'accepted').length;
+
+  const upcoming = opportunityList
+    .filter((opportunity) => ['open', 'matched'].includes(opportunity.status))
+    .slice(0, 6);
+
+  return {
+    summary: {
+      open,
+      filled,
+      averageMatchScore,
+      mobileAlerts,
+      acceptedMatches,
+    },
+    opportunities: upcoming,
+    matches: matchList.slice(0, 6),
+  };
+}
+
+function buildBrandingSummary(assets, approvals, metrics) {
+  const assetList = assets
+    .map((asset) => asset.toPublicObject())
+    .sort((a, b) => new Date(b.updatedAt ?? b.createdAt ?? 0) - new Date(a.updatedAt ?? a.createdAt ?? 0));
+
+  const approvalList = approvals
+    .map((approval) => approval.toPublicObject())
+    .sort((a, b) => new Date(b.requestedAt ?? 0) - new Date(a.requestedAt ?? 0));
+
+  const metricList = metrics
+    .map((metric) => metric.toPublicObject())
+    .sort((a, b) => new Date(b.metricDate ?? 0) - new Date(a.metricDate ?? 0));
+
+  const pendingApprovals = approvalList.filter((approval) => approval.status === 'pending');
+  const publishedAssets = assetList.filter((asset) => asset.status === 'published');
+
+  const totals = metricList.reduce(
+    (acc, metric) => {
+      acc.reach += Number(metric.reach) || 0;
+      acc.engagements += Number(metric.engagements) || 0;
+      acc.clicks += Number(metric.clicks) || 0;
+      acc.leadsAttributed += Number(metric.leadsAttributed) || 0;
+      return acc;
+    },
+    { reach: 0, engagements: 0, clicks: 0, leadsAttributed: 0 },
+  );
+
+  return {
+    assets: assetList.slice(0, 6),
+    totals: {
+      assets: assetList.length,
+      published: publishedAssets.length,
+    },
+    approvals: {
+      pending: pendingApprovals.length,
+      queue: pendingApprovals.slice(0, 6),
+    },
+    metrics: {
+      totals,
+      recent: metricList.slice(0, 6),
+    },
+  };
+}
+
+function buildHrManagementSummary(members, candidates, policies) {
+  const memberList = Array.isArray(members) ? members : [];
+  const candidateList = Array.isArray(candidates) ? candidates : [];
+  const policyList = Array.isArray(policies) ? policies : [];
+
+  const activeHeadcount = memberList.filter((member) => ACTIVE_MEMBER_STATUSES.includes(member.status)).length;
+  const contractors = memberList.filter((member) => (member.role ?? '').toLowerCase().includes('contract')).length;
+  const benchMembers = memberList.filter(
+    (member) => (member.availability?.status ?? '').toLowerCase() === 'available',
+  ).length;
+
+  const roleCoverageMap = new Map();
+  const pipelineMap = new Map();
+  const availabilityCounts = { ...AVAILABILITY_ORDER };
+  Object.keys(availabilityCounts).forEach((status) => {
+    availabilityCounts[status] = 0;
+  });
+
+  const ensureRoleEntry = (key, label) => {
+    if (!roleCoverageMap.has(key)) {
+      roleCoverageMap.set(key, {
+        role: label,
+        roleKey: key,
+        total: 0,
+        active: 0,
+        bench: 0,
+        contractors: 0,
+        capacityHours: 0,
+        utilizedHours: 0,
+        availability: {
+          available: 0,
+          limited: 0,
+          unavailable: 0,
+          on_leave: 0,
+          unknown: 0,
+        },
+      });
+    }
+    return roleCoverageMap.get(key);
+  };
+
+  let totalCapacityHours = 0;
+  let utilisedHours = 0;
+
+  memberList.forEach((member) => {
+    const { key, label } = normaliseRoleDescriptor(member.role);
+    const entry = ensureRoleEntry(key, label);
+    entry.total += 1;
+
+    const status = (member.status ?? '').toLowerCase();
+    const isActive = ACTIVE_MEMBER_STATUSES.includes(status);
+    if (isActive) {
+      entry.active += 1;
+    }
+
+    if ((member.role ?? '').toLowerCase().includes('contract')) {
+      entry.contractors += 1;
+    }
+
+    const availabilityStatusRaw = (member.availability?.status ?? 'unknown').toLowerCase();
+    const availabilityStatus = Object.prototype.hasOwnProperty.call(AVAILABILITY_STATUS_WEIGHTS, availabilityStatusRaw)
+      ? availabilityStatusRaw
+      : 'unknown';
+
+    entry.availability[availabilityStatus] = (entry.availability[availabilityStatus] ?? 0) + 1;
+    availabilityCounts[availabilityStatus] = (availabilityCounts[availabilityStatus] ?? 0) + 1;
+
+    if (availabilityStatus === 'available') {
+      entry.bench += 1;
+    }
+
+    const availableHours = normaliseNumber(member.availability?.availableHoursPerWeek, 0);
+    const weight = AVAILABILITY_STATUS_WEIGHTS[availabilityStatus] ?? AVAILABILITY_STATUS_WEIGHTS.unknown;
+
+    if (isActive && availableHours > 0) {
+      entry.capacityHours += availableHours;
+      const utilised = availableHours * Math.max(0, Math.min(weight, 1));
+      entry.utilizedHours += utilised;
+      totalCapacityHours += availableHours;
+      utilisedHours += utilised;
+    }
+  });
+
+  const unassignedMembers = memberList.filter((member) => !member.role || !String(member.role).trim()).length;
+
+  const ensurePipelineEntry = (key, label) => {
+    if (!pipelineMap.has(key)) {
+      pipelineMap.set(key, { role: label, sourcing: 0, interviewing: 0, offers: 0, onboarding: 0, hiring: 0 });
+    }
+    return pipelineMap.get(key);
+  };
+
+  let exitsInProgress = 0;
+  const onboardingQueue = [];
+
+  candidateList.forEach((candidate) => {
+    const status = (candidate.status ?? '').toLowerCase();
+    if (CANDIDATE_ARCHIVED_STATUSES.has(status)) {
+      return;
+    }
+
+    const exitStatus = (candidate.exitWorkflowStatus ?? '').toLowerCase();
+    if (EXIT_STATUSES_REQUIRING_ATTENTION.has(exitStatus)) {
+      exitsInProgress += 1;
+    }
+
+    const { key, label } = normaliseRoleDescriptor(extractCandidateRole(candidate));
+    ensureRoleEntry(key, label);
+    const pipelineEntry = ensurePipelineEntry(key, label);
+
+    const stage = classifyCandidateStage(candidate);
+    const onboardingStatus = (candidate.onboardingStatus ?? '').toLowerCase();
+    const isOnboardingPending = ['completed', 'not_applicable'].includes(onboardingStatus) === false;
+
+    switch (stage) {
+      case 'onboarding':
+      case 'hired': {
+        pipelineEntry.onboarding += 1;
+        pipelineEntry.hiring += 1;
+        if (isOnboardingPending) {
+          onboardingQueue.push({
+            id: candidate.id ?? candidate.email ?? `${key}-${candidate.fullName ?? 'candidate'}`,
+            name: candidate.fullName ?? 'Candidate',
+            role: label,
+            startDate: (() => {
+              const parsed = parseCandidateStartDate(candidate.metadata ?? {});
+              return parsed ? parsed.toISOString() : null;
+            })(),
+            status: candidate.onboardingStatus ?? 'in_progress',
+          });
+        }
+        break;
+      }
+      case 'offer':
+        pipelineEntry.offers += 1;
+        pipelineEntry.hiring += 1;
+        break;
+      case 'interview':
+        pipelineEntry.interviewing += 1;
+        pipelineEntry.hiring += 1;
+        break;
+      case 'sourcing':
+        pipelineEntry.sourcing += 1;
+        pipelineEntry.hiring += 1;
+        break;
+      default:
+        break;
+    }
+  });
+
+  const onboarding = onboardingQueue.length;
+
+  const roleCoverage = Array.from(roleCoverageMap.values())
+    .map((entry) => {
+      const pipeline = pipelineMap.get(entry.roleKey) ?? { sourcing: 0, interviewing: 0, offers: 0, onboarding: 0, hiring: 0 };
+      const benchHours = Math.max(entry.capacityHours - entry.utilizedHours, 0);
+      const utilisationRate = entry.capacityHours
+        ? Math.round(((entry.utilizedHours / entry.capacityHours) * 1000 + Number.EPSILON) / 10)
+        : null;
+
+      return {
+        role: entry.role,
+        roleKey: entry.roleKey,
+        total: entry.total,
+        active: entry.active,
+        bench: entry.bench,
+        contractors: entry.contractors,
+        capacityHours: Math.round(entry.capacityHours ?? 0),
+        benchHours: Math.round(benchHours),
+        utilizationRate,
+        availability: Object.entries(entry.availability).map(([status, count]) => ({
+          status,
+          label: AVAILABILITY_LABELS[status] ?? normaliseRoleDescriptor(status).label,
+          count,
+        })),
+        pipeline: {
+          sourcing: pipeline.sourcing ?? 0,
+          interviewing: pipeline.interviewing ?? 0,
+          offers: pipeline.offers ?? 0,
+          onboarding: pipeline.onboarding ?? 0,
+        },
+        hiring: pipeline.hiring ??
+          (pipeline.sourcing ?? 0) + (pipeline.interviewing ?? 0) + (pipeline.offers ?? 0) + (pipeline.onboarding ?? 0),
+        needsAttention:
+          entry.active === 0 && (pipeline.interviewing ?? 0) + (pipeline.offers ?? 0) + (pipeline.sourcing ?? 0) > 0,
+      };
+    })
+    .sort((a, b) => {
+      if (b.total === a.total) {
+        return a.role.localeCompare(b.role);
+      }
+      return b.total - a.total;
+    });
+
+  const policyAcknowledgements = policyList
+    .map((policy) => ({
+      id: policy.id ?? policy.title,
+      title: policy.title ?? 'Policy',
+      status: policy.status ?? 'draft',
+      effectiveDate: policy.effectiveDate ?? null,
+      reviewCycleDays: policy.reviewCycleDays ?? null,
+      outstanding: Math.max(Number(policy.audienceCount ?? 0) - Number(policy.acknowledgedCount ?? 0), 0),
+    }))
+    .filter((policy) => policy.outstanding > 0)
+    .sort((a, b) => b.outstanding - a.outstanding)
+    .slice(0, 5);
+
+  const complianceOutstanding = policyAcknowledgements.reduce((total, policy) => total + policy.outstanding, 0);
+
+  const availabilityBreakdown = Object.entries(availabilityCounts)
+    .map(([status, count]) => ({
+      status,
+      label: AVAILABILITY_LABELS[status] ?? normaliseRoleDescriptor(status).label,
+      count,
+      order: AVAILABILITY_ORDER[status] ?? AVAILABILITY_ORDER.unknown,
+    }))
+    .sort((a, b) => a.order - b.order)
+    .map(({ order, ...rest }) => rest);
+
+  const totalCapacity = Math.max(Math.round(totalCapacityHours), 0);
+  const committedHours = Math.max(Math.round(utilisedHours), 0);
+  const benchHours = Math.max(totalCapacity - committedHours, 0);
+  const utilizationRate = totalCapacity
+    ? Math.round(((committedHours / totalCapacity) * 1000 + Number.EPSILON) / 10)
+    : 0;
+  const benchRate = totalCapacity
+    ? Math.round(((benchHours / totalCapacity) * 1000 + Number.EPSILON) / 10)
+    : 0;
+
+  let healthLevel = 'balanced';
+  let healthSummary = 'Capacity is balanced across the team.';
+  let recommendedAction = 'Monitor utilisation and keep hiring plans aligned to delivery commitments.';
+
+  if (!totalCapacity) {
+    healthLevel = 'unknown';
+    healthSummary = 'Availability data is missing for this workspace.';
+    recommendedAction = 'Capture availability hours on member profiles to unlock staffing insights.';
+  } else if (utilizationRate >= 92) {
+    healthLevel = 'overcommitted';
+    healthSummary = 'Utilisation is exceeding the safe threshold for sustainable delivery.';
+    recommendedAction = 'Rebalance assignments or accelerate hiring for critical pods.';
+  } else if (benchRate >= 30) {
+    healthLevel = 'underutilised';
+    healthSummary = 'Bench hours are trending high across the roster.';
+    recommendedAction = 'Activate internal initiatives or fast-track assignment matching to reduce idle time.';
+  }
+
+  const staffingCapacity = {
+    totalCapacityHours: totalCapacity,
+    committedHours,
+    benchHours,
+    benchRate,
+    utilizationRate,
+    activeMembers: activeHeadcount,
+    benchMembers,
+    totalMembers: memberList.length,
+    availabilityBreakdown,
+    health: {
+      level: healthLevel,
+      summary: healthSummary,
+      recommendedAction,
+    },
+  };
+
+  const alerts = [];
+
+  if (complianceOutstanding > 0) {
+    alerts.push({
+      id: 'compliance-gap',
+      type: 'compliance',
+      severity: complianceOutstanding > 10 ? 'high' : 'medium',
+      message: `${complianceOutstanding} outstanding policy acknowledgements`,
+      recommendedAction: 'Trigger acknowledgement reminders and follow-up with managers.',
+    });
+  }
+
+  if (healthLevel === 'overcommitted') {
+    alerts.push({
+      id: 'capacity-overload',
+      type: 'capacity',
+      severity: 'high',
+      message: 'Utilisation is running above safe thresholds for active members.',
+      recommendedAction: 'Shift demand or approve short-term contractors to protect delivery.',
+    });
+  } else if (healthLevel === 'underutilised') {
+    alerts.push({
+      id: 'bench-spike',
+      type: 'capacity',
+      severity: 'medium',
+      message: `Bench hours now represent ${benchRate.toFixed(1)}% of weekly capacity`,
+      recommendedAction: 'Pair bench members with shadow engagements or rotate them into delivery pods.',
+    });
+  }
+
+  if (exitsInProgress > 0) {
+    alerts.push({
+      id: 'exit-workflows',
+      type: 'people_ops',
+      severity: exitsInProgress > 1 ? 'high' : 'medium',
+      message: `${exitsInProgress} exit workflows require attention`,
+      recommendedAction: 'Schedule exit interviews and redistribute responsibilities.',
+    });
+  }
+
+  roleCoverage
+    .filter((role) => role.needsAttention)
+    .slice(0, 3)
+    .forEach((role) => {
+      alerts.push({
+        id: `coverage-${role.roleKey}`,
+        type: 'coverage',
+        severity: 'high',
+        message: `${role.role} has no active assignees while ${
+          (role.pipeline.interviewing ?? 0) + (role.pipeline.offers ?? 0)
+        } candidates are in flight`,
+        recommendedAction: 'Accelerate the hiring pipeline or reassign talent from neighbouring pods.',
+      });
+    });
+
+  const roleAssignmentTotals = roleCoverage.reduce(
+    (acc, role) => {
+      acc.hiring += role.hiring ?? 0;
+      acc.offers += role.pipeline.offers ?? 0;
+      acc.interviewing += role.pipeline.interviewing ?? 0;
+      acc.onboarding += role.pipeline.onboarding ?? 0;
+      return acc;
+    },
+    { roles: roleCoverage.length, hiring: 0, offers: 0, interviewing: 0, onboarding: 0, unassignedMembers },
+  );
+
+  onboardingQueue.sort((a, b) => {
+    if (a.startDate && b.startDate) {
+      return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+    }
+    if (a.startDate) return -1;
+    if (b.startDate) return 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  return {
+    activeHeadcount,
+    contractors,
+    onboarding,
+    exitsInProgress,
+    complianceOutstanding,
+    roleAssignments: {
+      coverage: roleCoverage,
+      totals: roleAssignmentTotals,
+      attention: roleCoverage.filter((role) => role.needsAttention),
+    },
+    staffingCapacity,
+    policyAcknowledgements,
+    onboardingQueue: onboardingQueue.slice(0, 10),
+    alerts,
+  };
+}
+
+function buildCapacityPlanningSummary(membersSummary, metrics, opportunities) {
+  const latestMetric = metrics[0] ?? null;
+  const openRoles = latestMetric?.openRoles ?? 0;
+  const benchCapacityHours = latestMetric?.benchCapacityHours ?? membersSummary.averageWeeklyCapacity * (membersSummary.bench ?? 0);
+  const hiringVelocity = latestMetric?.hiringVelocity ?? 0;
+  const utilizationRate = membersSummary.utilizationRate ?? 0;
+  const upcomingStarts = opportunities.filter((opportunity) => {
+    if (!opportunity.startDate) return false;
+    const startDate = new Date(opportunity.startDate);
+    if (Number.isNaN(startDate.valueOf())) return false;
+    const now = new Date();
+    const diff = (startDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+    return diff >= 0 && diff <= 30;
+  }).length;
+
+  return {
+    openRoles,
+    benchCapacityHours,
+    hiringVelocity,
+    utilizationRate,
+    upcomingStarts,
+  };
+}
+
+function buildInternalMarketplaceSummary(members, opportunities, matches) {
+  const benchAvailable = members.filter((member) => member.availability?.status === 'available').length;
+  const openOpportunities = opportunities.filter((opportunity) => ['open', 'matched'].includes(opportunity.status)).length;
+  const activeMatches = matches.filter((match) => ['new', 'contacted', 'accepted'].includes(match.status)).length;
+  const acceptedMatches = matches.filter((match) => match.status === 'accepted').length;
+
+  return {
+    benchAvailable,
+    openOpportunities,
+    activeMatches,
+    acceptedMatches,
+  };
+}
+
 function filterProjectsForWorkspace(projects, workspace) {
   if (!workspace) {
     return { projects, scope: 'global' };
@@ -279,6 +2649,391 @@ function filterProjectsForWorkspace(projects, workspace) {
   }
 
   return { projects, scope: 'global_fallback' };
+}
+
+function toPlainValue(record) {
+  if (!record) {
+    return null;
+  }
+  if (typeof record.toPublicObject === 'function') {
+    return record.toPublicObject();
+  }
+  if (typeof record.toBuilderObject === 'function') {
+    return record.toBuilderObject();
+  }
+  if (typeof record.get === 'function') {
+    return record.get({ plain: true });
+  }
+  return { ...record };
+}
+
+function parseDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function daysBetween(start, end) {
+  const from = parseDate(start);
+  const to = parseDate(end);
+  if (!from || !to) return null;
+  const diff = to.getTime() - from.getTime();
+  return Math.round(diff / (1000 * 60 * 60 * 24));
+}
+
+function groupByKey(items, key) {
+  const map = new Map();
+  items.forEach((item) => {
+    if (!item || item[key] == null) {
+      return;
+    }
+    const groupKey = item[key];
+    if (!map.has(groupKey)) {
+      map.set(groupKey, []);
+    }
+    map.get(groupKey).push(item);
+  });
+  return map;
+}
+
+function centsToAmount(value) {
+  if (value == null) {
+    return 0;
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return 0;
+  }
+  return Math.round((numeric / 100) * 100) / 100;
+}
+
+function safePercentage(numerator, denominator) {
+  if (!denominator) return 0;
+  const rate = (numerator / denominator) * 100;
+  return Math.round((rate + Number.EPSILON) * 10) / 10;
+}
+
+function collectAllianceMembersByAlliance(members) {
+  const grouped = new Map();
+  members.forEach((member) => {
+    if (!member || member.allianceId == null) return;
+    if (!grouped.has(member.allianceId)) {
+      grouped.set(member.allianceId, []);
+    }
+    grouped.get(member.allianceId).push(member);
+  });
+  return grouped;
+}
+
+function buildGigStudioInsights({
+  gigs,
+  packages,
+  addons,
+  mediaAssets,
+  performanceSnapshots,
+  orders,
+  bundles,
+  bundleItems,
+  upsells,
+  alliances,
+  allianceMembers,
+}) {
+  const packagesByGig = groupByKey(packages, 'gigId');
+  const addonsByGig = groupByKey(addons, 'gigId');
+  const ordersByGig = groupByKey(orders, 'gigId');
+  const bundleItemsByBundle = groupByKey(bundleItems, 'bundleId');
+
+  const heroAssetByGig = new Map();
+  mediaAssets.forEach((asset) => {
+    if (asset.gigId == null || heroAssetByGig.has(asset.gigId)) {
+      return;
+    }
+    heroAssetByGig.set(asset.gigId, asset);
+  });
+
+  const performanceByGig = new Map();
+  performanceSnapshots.forEach((snapshot) => {
+    if (snapshot.gigId == null) return;
+    if (!performanceByGig.has(snapshot.gigId)) {
+      performanceByGig.set(snapshot.gigId, snapshot);
+    }
+  });
+
+  const formattedGigs = gigs.map((gig) => {
+    const gigOrders = ordersByGig.get(gig.id) ?? [];
+    const openOrders = gigOrders.filter((order) => !['completed', 'cancelled'].includes(order.status));
+    return {
+      ...gig,
+      packages: packagesByGig.get(gig.id) ?? [],
+      addons: addonsByGig.get(gig.id) ?? [],
+      heroAsset: heroAssetByGig.get(gig.id) ?? null,
+      latestPerformance: performanceByGig.get(gig.id) ?? null,
+      orders: {
+        total: gigOrders.length,
+        open: openOrders.length,
+      },
+    };
+  });
+
+  const bundleSummaries = bundles.map((bundle) => ({
+    ...bundle,
+    priceAmount: centsToAmount(bundle.priceCents),
+    items: (bundleItemsByBundle.get(bundle.id) ?? []).sort((a, b) => a.orderIndex - b.orderIndex),
+  }));
+
+  const upsellSummaries = upsells.map((upsell) => ({
+    ...upsell,
+    estimatedValueAmount: centsToAmount(upsell.estimatedValueCents),
+  }));
+
+  const totalOrders = orders.length;
+  const completedWithDue = orders.filter((order) => order.completedAt && order.dueAt);
+  const onTime = completedWithDue.filter((order) => {
+    const completed = parseDate(order.completedAt);
+    const due = parseDate(order.dueAt);
+    return completed && due && completed.getTime() <= due.getTime();
+  });
+  const deliveryDurations = completedWithDue
+    .map((order) => daysBetween(order.submittedAt ?? order.createdAt, order.completedAt))
+    .filter((value) => Number.isFinite(value) && value != null);
+
+  const backlog = orders.filter((order) => !['completed', 'cancelled'].includes(order.status));
+  const breaches = orders.filter((order) => {
+    const due = parseDate(order.dueAt);
+    if (!due) return false;
+    if (['completed', 'cancelled'].includes(order.status)) {
+      const completed = parseDate(order.completedAt);
+      return completed && completed.getTime() > due.getTime();
+    }
+    const now = new Date();
+    return now.getTime() > due.getTime();
+  });
+
+  const alliancesById = new Map(alliances.map((alliance) => [alliance.id, alliance]));
+  const membersByAlliance = collectAllianceMembersByAlliance(allianceMembers);
+  const rosterAlliances = alliances.filter((alliance) =>
+    ['delivery_pod', 'managed_service'].includes(alliance.allianceType ?? ''),
+  );
+
+  const rosters = rosterAlliances.map((alliance) => {
+    const members = (membersByAlliance.get(alliance.id) ?? []).map((member) => ({
+      id: member.id,
+      role: member.role,
+      status: member.status,
+      commitmentHours: member.commitmentHours,
+      revenueSharePercent: member.revenueSharePercent,
+      user: member.user
+        ? {
+            id: member.user.id,
+            firstName: member.user.firstName,
+            lastName: member.user.lastName,
+          }
+        : null,
+    }));
+    return {
+      id: alliance.id,
+      name: alliance.name,
+      status: alliance.status,
+      allianceType: alliance.allianceType,
+      focusAreas: alliance.focusAreas ?? [],
+      members,
+    };
+  });
+
+  const summary = {
+    managedGigs: formattedGigs.filter((gig) => gig.status === 'active' || gig.status === 'in_delivery').length,
+    totalGigs: formattedGigs.length,
+    packages: packages.length,
+    addons: addons.length,
+    hybridBundles: bundleSummaries.filter((bundle) => bundle.status === 'live').length,
+    upsellPrograms: upsellSummaries.filter((upsell) => upsell.status === 'running' || upsell.status === 'pilot').length,
+    activeOrders: backlog.length,
+    onTimeRate: safePercentage(onTime.length, completedWithDue.length || totalOrders || 0),
+    averageDeliveryDays: deliveryDurations.length ? Math.round((average(deliveryDurations) + Number.EPSILON) * 10) / 10 : 0,
+    breaches: breaches.length,
+  };
+
+  const deliverables = {
+    totalDeliverables: bundleItems.length,
+    backlog: backlog.length,
+    breaches: breaches.length,
+    activeContracts: completedWithDue.length + backlog.length,
+    upcomingDue: orders.filter((order) => {
+      const due = parseDate(order.dueAt);
+      if (!due) return false;
+      if (['completed', 'cancelled'].includes(order.status)) return false;
+      const now = new Date();
+      const diffDays = Math.round((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      return diffDays >= 0 && diffDays <= 7;
+    }).length,
+  };
+
+  return {
+    summary,
+    gigs: formattedGigs,
+    bundles: bundleSummaries,
+    upsells: upsellSummaries,
+    deliverables,
+    rosters,
+    alliances: Array.from(alliancesById.values()),
+  };
+}
+
+function buildPartnerProgramInsights({ alliances, allianceMembers, rateCards, revenueSplits, partnerEngagements }) {
+  const membersByAlliance = collectAllianceMembersByAlliance(allianceMembers);
+  const allianceSummaries = alliances.map((alliance) => {
+    const members = membersByAlliance.get(alliance.id) ?? [];
+    return {
+      ...alliance,
+      memberCount: members.length,
+      leadCount: members.filter((member) => member.role === 'lead').length,
+    };
+  });
+
+  const engagementsByType = {};
+  partnerEngagements.forEach((engagement) => {
+    const key = engagement.partnerType ?? 'unspecified';
+    if (!engagementsByType[key]) {
+      engagementsByType[key] = { count: 0, touchpoints: 0, conversionRateSamples: [] };
+    }
+    engagementsByType[key].count += 1;
+    engagementsByType[key].touchpoints += normaliseNumber(engagement.touchpoints, 0);
+    if (engagement.conversionRate != null) {
+      engagementsByType[key].conversionRateSamples.push(Number(engagement.conversionRate));
+    }
+  });
+
+  const engagements = Object.entries(engagementsByType).map(([partnerType, details]) => ({
+    partnerType,
+    count: details.count,
+    touchpoints: details.touchpoints,
+    averageConversionRate: details.conversionRateSamples.length
+      ? Math.round((average(details.conversionRateSamples) + Number.EPSILON) * 10) / 10
+      : 0,
+  }));
+
+  const summary = {
+    alliances: alliances.length,
+    activeAlliances: allianceSummaries.filter((alliance) => alliance.status === 'active').length,
+    partnerEngagements: partnerEngagements.length,
+    averageConversionRate:
+      partnerEngagements.length
+        ? Math.round(
+            (average(
+              partnerEngagements
+                .map((item) => (item.conversionRate != null ? Number(item.conversionRate) : null))
+                .filter((value) => value != null),
+            ) || 0 + Number.EPSILON) * 10,
+          ) / 10
+        : 0,
+    pendingRateCards: rateCards.filter((card) => card.status === 'draft' || card.status === 'in_review').length,
+    activeRateCards: rateCards.filter((card) => card.status === 'active').length,
+    activeRevenueSplits: revenueSplits.filter((split) => split.status === 'active').length,
+  };
+
+  return {
+    summary,
+    alliances: allianceSummaries,
+    engagements,
+    rateCards,
+    revenueSplits,
+  };
+}
+
+function buildMarketingAutomationInsights({ campaigns, deals, followUps, proposals, events, landingPages }) {
+  const openDeals = deals.filter((deal) => deal.status === 'open');
+  const wonDeals = deals.filter((deal) => deal.status === 'won');
+  const totalPipelineValue = deals.reduce((total, deal) => total + normaliseNumber(deal.pipelineValue, 0), 0);
+  const winProbabilitySamples = deals
+    .map((deal) => (deal.winProbability != null ? Number(deal.winProbability) : null))
+    .filter((value) => value != null);
+  const followUpsDueSoon = followUps.filter((followUp) => {
+    if (followUp.status === 'completed' || followUp.status === 'cancelled') return false;
+    const due = parseDate(followUp.dueAt);
+    if (!due) return false;
+    const now = new Date();
+    const diffDays = Math.round((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    return diffDays >= 0 && diffDays <= 14;
+  });
+
+  const webinarEvents = events.filter((event) =>
+    (event.eventType ?? '').toLowerCase().includes('webinar') || (event.metadata?.format ?? '') === 'webinar',
+  );
+
+  const summary = {
+    activeCampaigns: campaigns.filter((campaign) => campaign.status === 'active').length,
+    totalCampaigns: campaigns.length,
+    openDeals: openDeals.length,
+    wonDeals: wonDeals.length,
+    totalPipelineValue,
+    averageWinProbability: winProbabilitySamples.length
+      ? Math.round((average(winProbabilitySamples) + Number.EPSILON) * 10) / 10
+      : 0,
+    followUpsDueSoon: followUpsDueSoon.length,
+    liveLandingPages: landingPages.filter((asset) => asset.status === 'published').length,
+  };
+
+  return {
+    summary,
+    campaigns,
+    deals,
+    followUps,
+    proposals,
+    events,
+    landingPages,
+    webinars: webinarEvents,
+  };
+}
+
+function buildClientAdvocacyInsights({
+  playbooks,
+  enrollments,
+  events,
+  referrals,
+  reviewNudges,
+  affiliateLinks,
+  gigs,
+}) {
+  const activePlaybooks = playbooks.filter((playbook) => playbook.isActive !== false);
+  const activeEnrollments = enrollments.filter((enrollment) => enrollment.status === 'in_progress' || enrollment.status === 'pending');
+  const completedEnrollments = enrollments.filter((enrollment) => enrollment.status === 'completed');
+
+  const nudgesResponded = reviewNudges.filter((nudge) => nudge.responseAt);
+  const rewardValue = referrals.reduce((total, referral) => total + normaliseNumber(referral.rewardValueAmount, 0), 0);
+  const affiliateConversions = affiliateLinks.reduce((total, link) => total + normaliseNumber(link.totalConversions, 0), 0);
+
+  const summary = {
+    activePlaybooks: activePlaybooks.length,
+    totalPlaybooks: playbooks.length,
+    enrollmentsInFlight: activeEnrollments.length,
+    enrollmentsCompleted: completedEnrollments.length,
+    reviewResponseRate: safePercentage(nudgesResponded.length, reviewNudges.length),
+    referralCount: referrals.length,
+    referralRewardValue: rewardValue,
+    affiliatePrograms: affiliateLinks.length,
+    affiliateConversions,
+  };
+
+  const storytellingKits = gigs
+    .filter((gig) => gig.csatScore != null)
+    .map((gig) => ({
+      id: gig.id,
+      title: gig.title,
+      csatScore: gig.csatScore,
+      csatResponseCount: gig.csatResponseCount,
+      clientName: gig.clientName,
+    }));
+
+  return {
+    summary,
+    playbooks,
+    enrollments,
+    events,
+    referrals,
+    reviewNudges,
+    affiliateLinks,
+    storytellingKits,
+  };
 }
 
 export async function getAgencyDashboard({ workspaceId, workspaceSlug, lookbackDays = 90 } = {}) {
@@ -309,10 +3064,24 @@ export async function getAgencyDashboard({ workspaceId, workspaceSlug, lookbackD
     const lookbackDate = new Date(now.getTime() - parsedLookback * 24 * 60 * 60 * 1000);
 
     const workspaceIdFilter = workspace ? workspace.id : null;
+    const workspaceOwnerId = workspace ? workspace.ownerId : null;
 
     let memberRows = [];
     let inviteRows = [];
     let noteRows = [];
+    let talentCandidateRows = [];
+    let talentInterviewRows = [];
+    let talentOfferRows = [];
+    let talentPipelineMetricRows = [];
+    let peopleOpsPolicyRows = [];
+    let peopleOpsReviewRows = [];
+    let peopleOpsSkillRows = [];
+    let peopleOpsWellbeingRows = [];
+    let internalOpportunityRows = [];
+    let internalMatchRows = [];
+    let brandingAssetRows = [];
+    let brandingApprovalRows = [];
+    let brandingMetricRows = [];
 
     if (workspaceIdFilter) {
       [memberRows, inviteRows, noteRows] = await Promise.all([
@@ -333,6 +3102,94 @@ export async function getAgencyDashboard({ workspaceId, workspaceSlug, lookbackD
           ],
           order: [['createdAt', 'DESC']],
           limit: 10,
+        }),
+      ]);
+
+      [
+        talentCandidateRows,
+        talentInterviewRows,
+        talentOfferRows,
+        talentPipelineMetricRows,
+        peopleOpsPolicyRows,
+        peopleOpsReviewRows,
+        peopleOpsSkillRows,
+        peopleOpsWellbeingRows,
+        internalOpportunityRows,
+        internalMatchRows,
+        brandingAssetRows,
+        brandingApprovalRows,
+        brandingMetricRows,
+      ] = await Promise.all([
+        TalentCandidate.findAll({
+          where: { workspaceId: workspaceIdFilter },
+          order: [['updatedAt', 'DESC']],
+          limit: 200,
+        }),
+        TalentInterview.findAll({
+          where: { workspaceId: workspaceIdFilter },
+          order: [['scheduledAt', 'ASC']],
+          limit: 120,
+        }),
+        TalentOffer.findAll({
+          where: { workspaceId: workspaceIdFilter },
+          order: [['updatedAt', 'DESC']],
+          limit: 120,
+        }),
+        TalentPipelineMetric.findAll({
+          where: { workspaceId: workspaceIdFilter },
+          order: [['periodEndDate', 'DESC']],
+          limit: 12,
+        }),
+        PeopleOpsPolicy.findAll({
+          where: { workspaceId: workspaceIdFilter },
+          order: [['updatedAt', 'DESC']],
+          limit: 60,
+        }),
+        PeopleOpsPerformanceReview.findAll({
+          where: { workspaceId: workspaceIdFilter },
+          order: [['dueAt', 'DESC']],
+          limit: 100,
+        }),
+        PeopleOpsSkillMatrixEntry.findAll({
+          where: { workspaceId: workspaceIdFilter },
+          order: [['updatedAt', 'DESC']],
+          limit: 200,
+        }),
+        PeopleOpsWellbeingSnapshot.findAll({
+          where: { workspaceId: workspaceIdFilter },
+          order: [['capturedAt', 'DESC']],
+          limit: 120,
+        }),
+        InternalOpportunity.findAll({
+          where: { workspaceId: workspaceIdFilter },
+          order: [['createdAt', 'DESC']],
+          limit: 120,
+        }),
+        InternalOpportunityMatch.findAll({
+          where: { workspaceId: workspaceIdFilter },
+          order: [['notifiedAt', 'DESC']],
+          limit: 200,
+        }),
+        MemberBrandingAsset.findAll({
+          where: { workspaceId: workspaceIdFilter },
+          order: [['updatedAt', 'DESC']],
+          limit: 120,
+        }),
+        MemberBrandingApproval.findAll({
+          include: [{ model: MemberBrandingAsset, as: 'asset' }],
+          where: {
+            '$asset.workspaceId$': workspaceIdFilter,
+          },
+          order: [['requestedAt', 'DESC']],
+          limit: 120,
+        }),
+        MemberBrandingMetric.findAll({
+          include: [{ model: MemberBrandingAsset, as: 'asset' }],
+          where: {
+            '$asset.workspaceId$': workspaceIdFilter,
+          },
+          order: [['metricDate', 'DESC']],
+          limit: 120,
         }),
       ]);
     }
@@ -361,7 +3218,19 @@ export async function getAgencyDashboard({ workspaceId, workspaceSlug, lookbackD
 
     const projectIds = scopedProjects.map((project) => project.id);
 
-    const [queueRows, eventRows, escrowRows, gigTransactions] = await Promise.all([
+    const [
+      queueRows,
+      eventRows,
+      escrowRows,
+      gigTransactions,
+      snapshotRows,
+      dependencyRows,
+      blueprintRows,
+      capacityRows,
+      scenarioRows,
+      qualityReviewRows,
+      financialSummaryRows,
+    ] = await Promise.all([
       projectIds.length
         ? AutoAssignQueueEntry.findAll({
             where: {
@@ -399,6 +3268,60 @@ export async function getAgencyDashboard({ workspaceId, workspaceSlug, lookbackD
             limit: 20,
           })
         : [],
+      projectIds.length
+        ? ProjectOperationalSnapshot.findAll({
+            where: { projectId: { [Op.in]: projectIds } },
+            order: [
+              ['reportingDate', 'DESC'],
+              ['createdAt', 'DESC'],
+            ],
+            limit: 200,
+          })
+        : [],
+      projectIds.length
+        ? ProjectDependencyLink.findAll({
+            where: { projectId: { [Op.in]: projectIds } },
+            include: [{ model: Project, as: 'dependentProject', attributes: ['id', 'title'] }],
+            order: [['updatedAt', 'DESC']],
+          })
+        : [],
+      workspaceIdFilter
+        ? WorkspaceOperatingBlueprint.findAll({
+            where: { workspaceId: workspaceIdFilter },
+            order: [['updatedAt', 'DESC']],
+          })
+        : [],
+      workspaceIdFilter
+        ? ResourceCapacitySnapshot.findAll({
+            where: { workspaceId: workspaceIdFilter },
+            order: [['reportingDate', 'DESC']],
+            limit: 60,
+          })
+        : [],
+      workspaceIdFilter
+        ? ResourceScenarioPlan.findAll({
+            where: { workspaceId: workspaceIdFilter },
+            order: [['updatedAt', 'DESC']],
+            limit: 20,
+          })
+        : [],
+      projectIds.length
+        ? QualityReviewRun.findAll({
+            where: { projectId: { [Op.in]: projectIds } },
+            include: [{ model: User, as: 'reviewer', attributes: ['id', 'firstName', 'lastName'] }],
+            order: [['reviewDate', 'DESC']],
+            limit: 40,
+          })
+        : [],
+      workspaceIdFilter || projectIds.length
+        ? FinancialEngagementSummary.findAll({
+            where: workspaceIdFilter
+              ? { workspaceId: workspaceIdFilter }
+              : { projectId: { [Op.in]: projectIds } },
+            order: [['updatedAt', 'DESC']],
+            limit: 40,
+          })
+        : [],
     ]);
 
     const freelancerIds = [...new Set(queueRows.map((entry) => entry.freelancerId))];
@@ -412,7 +3335,71 @@ export async function getAgencyDashboard({ workspaceId, workspaceSlug, lookbackD
 
     const projectSummary = aggregateProjects(scopedProjects);
     const membersSummary = buildMembersSummary(formattedMembers, formattedInvites);
-    const financialSummary = aggregateFinancials(escrowRows.map((row) => row.toPublicObject()));
+
+    const escrowTransactions = escrowRows.map((row) => row.toPublicObject());
+    const financialSummary = aggregateFinancials(escrowTransactions);
+
+    const operationalSnapshots = snapshotRows.map((row) => row.toPublicObject());
+    const dependencyPlain = dependencyRows.map((row) => {
+      const plain = row.toPublicObject();
+      const dependent = row.dependentProject ? row.dependentProject.get({ plain: true }) : null;
+      return {
+        ...plain,
+        dependentProject: dependent ? { id: dependent.id, title: dependent.title } : null,
+      };
+    });
+    const blueprintPlain = blueprintRows.map((row) => row.toPublicObject());
+    const capacityPlain = capacityRows.map((row) => row.toPublicObject());
+    const scenarioPlain = scenarioRows.map((row) => row.toPublicObject());
+    const qualityPlain = qualityReviewRows.map((row) => {
+      const plain = row.toPublicObject();
+      const reviewer = row.reviewer ? row.reviewer.get({ plain: true }) : null;
+      return {
+        ...plain,
+        reviewer: reviewer
+          ? { id: reviewer.id, firstName: reviewer.firstName, lastName: reviewer.lastName }
+          : null,
+      };
+    });
+    const financialSummaries = financialSummaryRows.map((row) => row.toPublicObject());
+    const payoutBatches = payoutBatchRows.map((row) => row.toPublicObject());
+    const payoutSplits = payoutSplitRows.map((row) => row.toPublicObject());
+    const financeExports = financeExportRows.map((row) => row.toPublicObject());
+
+    let financeOverview = null;
+    let upcomingPayoutBatchRows = [];
+    let upcomingPayoutSplitRows = [];
+
+    if (workspaceOwnerId) {
+      [financeOverview, upcomingPayoutBatchRows] = await Promise.all([
+        getFinanceControlTowerOverview(workspaceOwnerId, { forceRefresh: true }),
+        FinancePayoutBatch.findAll({
+          where: {
+            userId: workspaceOwnerId,
+            status: { [Op.in]: ['scheduled', 'processing'] },
+            scheduledAt: {
+              [Op.gte]: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000),
+            },
+          },
+          order: [
+            ['scheduledAt', 'ASC'],
+            ['createdAt', 'DESC'],
+          ],
+          limit: 6,
+        }),
+      ]);
+
+      const upcomingBatchIds = upcomingPayoutBatchRows.map((batch) => batch.id).filter((id) => Number.isInteger(id));
+      upcomingPayoutSplitRows = upcomingBatchIds.length
+        ? await FinancePayoutSplit.findAll({
+            where: { batchId: { [Op.in]: upcomingBatchIds } },
+            order: [
+              ['batchId', 'ASC'],
+              ['amount', 'DESC'],
+            ],
+          })
+        : [];
+    }
 
     const agencyProfilePlain = agencyProfile ? agencyProfile.get({ plain: true }) : null;
 
@@ -446,7 +3433,720 @@ export async function getAgencyDashboard({ workspaceId, workspaceSlug, lookbackD
     const gigSummaries = gigRows.map((gig) => toPlain(gig));
     const jobSummaries = jobRows.map((job) => toPlain(job));
 
+    const gigIds = gigSummaries.map((gig) => gig.id).filter((id) => Number.isInteger(id));
+
+    let payoutBatchRows = [];
+    let payoutSplitRows = [];
+    let financeExportRows = [];
+
+    if (workspaceOwnerId) {
+      [payoutBatchRows, financeExportRows] = await Promise.all([
+        FinancePayoutBatch.findAll({
+          where: { userId: workspaceOwnerId },
+          order: [
+            ['executedAt', 'DESC'],
+            ['scheduledAt', 'DESC'],
+          ],
+          limit: 24,
+        }),
+        FinanceTaxExport.findAll({
+          where: { userId: workspaceOwnerId },
+          order: [['generatedAt', 'DESC']],
+          limit: 20,
+        }),
+      ]);
+    }
+
+    const payoutBatchIds = payoutBatchRows.map((batch) => batch.id).filter((id) => Number.isInteger(id));
+    if (payoutBatchIds.length) {
+      payoutSplitRows = await FinancePayoutSplit.findAll({
+        where: { batchId: { [Op.in]: payoutBatchIds } },
+        order: [
+          ['batchId', 'ASC'],
+          ['createdAt', 'ASC'],
+        ],
+      });
+    }
+
+    let gigPackageRows = [];
+    let gigAddonRows = [];
+    let gigMediaRows = [];
+    let gigPerformanceRows = [];
+    let gigOrderRows = [];
+
+    if (gigIds.length) {
+      [gigPackageRows, gigAddonRows, gigMediaRows, gigPerformanceRows, gigOrderRows] = await Promise.all([
+        GigPackage.findAll({
+          where: { gigId: { [Op.in]: gigIds } },
+          order: [
+            ['gigId', 'ASC'],
+            ['priceAmount', 'ASC'],
+          ],
+        }),
+        GigAddon.findAll({
+          where: { gigId: { [Op.in]: gigIds } },
+          order: [
+            ['gigId', 'ASC'],
+            ['priceAmount', 'ASC'],
+          ],
+        }),
+        GigMediaAsset.findAll({
+          where: { gigId: { [Op.in]: gigIds } },
+          order: [['displayOrder', 'ASC']],
+        }),
+        GigPerformanceSnapshot.findAll({
+          where: { gigId: { [Op.in]: gigIds } },
+          order: [['snapshotDate', 'DESC']],
+        }),
+        GigOrder.findAll({
+          where: {
+            gigId: { [Op.in]: gigIds },
+            createdAt: { [Op.gte]: lookbackDate },
+          },
+          order: [['createdAt', 'DESC']],
+        }),
+      ]);
+    }
+
+    const gigBundleRows = workspaceOwnerId
+      ? await GigBundle.findAll({ where: { freelancerId: workspaceOwnerId }, order: [['createdAt', 'DESC']] })
+      : [];
+    const bundleIds = gigBundleRows.map((bundle) => bundle.id).filter((id) => Number.isInteger(id));
+    const gigBundleItemRows = bundleIds.length
+      ? await GigBundleItem.findAll({
+          where: { bundleId: { [Op.in]: bundleIds } },
+          order: [['orderIndex', 'ASC']],
+        })
+      : [];
+    const gigUpsellRows = workspaceOwnerId
+      ? await GigUpsell.findAll({ where: { freelancerId: workspaceOwnerId }, order: [['createdAt', 'DESC']] })
+      : [];
+
+    const alliances = workspaceIdFilter
+      ? await AgencyAlliance.findAll({
+          where: { workspaceId: workspaceIdFilter },
+          order: [['createdAt', 'DESC']],
+        })
+      : [];
+    const allianceIds = alliances.map((alliance) => alliance.id).filter((id) => Number.isInteger(id));
+    const allianceMemberRows = allianceIds.length
+      ? await AgencyAllianceMember.findAll({
+          where: { allianceId: { [Op.in]: allianceIds } },
+          include: [{ model: User, as: 'user', attributes: ['id', 'firstName', 'lastName'] }],
+        })
+      : [];
+    const allianceRateCardRows = allianceIds.length
+      ? await AgencyAllianceRateCard.findAll({
+          where: { allianceId: { [Op.in]: allianceIds } },
+          order: [['version', 'DESC']],
+        })
+      : [];
+    const allianceRevenueSplitRows = allianceIds.length
+      ? await AgencyAllianceRevenueSplit.findAll({
+          where: { allianceId: { [Op.in]: allianceIds } },
+          order: [['createdAt', 'DESC']],
+        })
+      : [];
+    const partnerEngagementRows = workspaceIdFilter
+      ? await PartnerEngagement.findAll({
+          where: { workspaceId: workspaceIdFilter },
+          order: [['lastInteractionAt', 'DESC']],
+        })
+      : [];
+
+    const pipelineOwnerId = workspace ? workspace.id : null;
+    let campaignRows = [];
+    let dealRows = [];
+    let followUpRows = [];
+    if (pipelineOwnerId) {
+      [campaignRows, dealRows, followUpRows] = await Promise.all([
+        PipelineCampaign.findAll({
+          where: { ownerId: pipelineOwnerId, ownerType: 'agency' },
+          order: [['createdAt', 'DESC']],
+          limit: 50,
+        }),
+        PipelineDeal.findAll({
+          where: { ownerId: pipelineOwnerId, ownerType: 'agency' },
+          order: [['createdAt', 'DESC']],
+          limit: 100,
+        }),
+        PipelineFollowUp.findAll({
+          where: { ownerId: pipelineOwnerId, ownerType: 'agency' },
+          order: [['dueAt', 'ASC']],
+          limit: 100,
+        }),
+      ]);
+    }
+    const dealIds = dealRows.map((deal) => deal.id).filter((id) => Number.isInteger(id));
+    const proposalRows = dealIds.length
+      ? await PipelineProposal.findAll({ where: { dealId: { [Op.in]: dealIds } }, order: [['createdAt', 'DESC']] })
+      : [];
+
+    const eventRowsMarketing = workspaceIdFilter
+      ? await RecruitingCalendarEvent.findAll({
+          where: { workspaceId: workspaceIdFilter },
+          order: [['startsAt', 'ASC']],
+          limit: 50,
+        })
+      : [];
+    const landingPageRows = workspaceIdFilter
+      ? await EmployerBrandAsset.findAll({
+          where: { workspaceId: workspaceIdFilter },
+          order: [['createdAt', 'DESC']],
+          limit: 50,
+        })
+      : [];
+
+    let playbookRows = [];
+    let enrollmentRows = [];
+    let clientEventRows = [];
+    let referralRows = [];
+    let reviewNudgeRows = [];
+    let affiliateLinkRows = [];
+    if (workspaceOwnerId) {
+      [playbookRows, enrollmentRows, clientEventRows, referralRows, reviewNudgeRows, affiliateLinkRows] = await Promise.all([
+        ClientSuccessPlaybook.findAll({ where: { freelancerId: workspaceOwnerId }, order: [['createdAt', 'DESC']] }),
+        ClientSuccessEnrollment.findAll({ where: { freelancerId: workspaceOwnerId }, order: [['createdAt', 'DESC']] }),
+        ClientSuccessEvent.findAll({ where: { freelancerId: workspaceOwnerId }, order: [['createdAt', 'DESC']], limit: 100 }),
+        ClientSuccessReferral.findAll({ where: { freelancerId: workspaceOwnerId }, order: [['createdAt', 'DESC']], limit: 100 }),
+        ClientSuccessReviewNudge.findAll({ where: { freelancerId: workspaceOwnerId }, order: [['createdAt', 'DESC']], limit: 100 }),
+        ClientSuccessAffiliateLink.findAll({ where: { freelancerId: workspaceOwnerId }, order: [['createdAt', 'DESC']], limit: 100 }),
+      ]);
+    }
+
+    const gigPackages = gigPackageRows.map((row) => row.toBuilderObject());
+    const gigAddons = gigAddonRows.map((row) => row.toBuilderObject());
+    const gigMediaAssets = gigMediaRows.map((row) => row.toBuilderObject());
+    const gigPerformanceSnapshots = gigPerformanceRows.map((row) => row.toBuilderObject());
+    const gigOrders = gigOrderRows.map((row) => row.toPublicObject());
+    const gigBundles = gigBundleRows.map((row) => row.toPublicObject());
+    const gigBundleItems = gigBundleItemRows.map((row) => row.toPublicObject());
+    const gigUpsells = gigUpsellRows.map((row) => row.toPublicObject());
+
+    const allianceRecords = alliances.map((alliance) => alliance.toPublicObject());
+    const allianceMemberRecords = allianceMemberRows.map((member) => {
+      const plain = member.get({ plain: true });
+      return {
+        ...plain,
+        commitmentHours: plain.commitmentHours != null ? Number.parseFloat(plain.commitmentHours) : null,
+        revenueSharePercent: plain.revenueSharePercent != null ? Number.parseFloat(plain.revenueSharePercent) : null,
+      };
+    });
+    const allianceRateCards = allianceRateCardRows.map((row) => row.toPublicObject());
+    const allianceRevenueSplits = allianceRevenueSplitRows.map((row) => row.toPublicObject());
+    const partnerEngagements = partnerEngagementRows.map((row) => {
+      const plain = toPlainValue(row);
+      return {
+        ...plain,
+        conversionRate: plain?.conversionRate != null ? Number(plain.conversionRate) : null,
+        touchpoints: normaliseNumber(plain?.touchpoints, 0),
+      };
+    });
+
+    const campaigns = campaignRows.map((row) => row.toPublicObject());
+    const deals = dealRows.map((row) => row.toPublicObject());
+    const followUps = followUpRows.map((row) => row.toPublicObject());
+    const proposals = proposalRows.map((row) => row.toPublicObject());
+    const marketingEvents = eventRowsMarketing.map((row) => toPlainValue(row));
+    const landingPages = landingPageRows.map((row) => {
+      const plain = toPlainValue(row);
+      return {
+        ...plain,
+        engagementScore: plain?.engagementScore != null ? Number(plain.engagementScore) : null,
+      };
+    });
+
+    const playbooks = playbookRows.map((row) => row.toPublicObject());
+    const enrollments = enrollmentRows.map((row) => row.toPublicObject());
+    const clientEvents = clientEventRows.map((row) => row.toPublicObject());
+    const referrals = referralRows.map((row) => {
+      const plain = row.toPublicObject();
+      return {
+        ...plain,
+        rewardValueAmount: plain.rewardValueCents != null ? centsToAmount(plain.rewardValueCents) : 0,
+      };
+    });
+    const reviewNudges = reviewNudgeRows.map((row) => row.toPublicObject());
+    const affiliateLinks = affiliateLinkRows.map((row) => row.toPublicObject());
+
+    const studioInsights = buildGigStudioInsights({
+      gigs: gigSummaries,
+      packages: gigPackages,
+      addons: gigAddons,
+      mediaAssets: gigMediaAssets,
+      performanceSnapshots: gigPerformanceSnapshots,
+      orders: gigOrders,
+      bundles: gigBundles,
+      bundleItems: gigBundleItems,
+      upsells: gigUpsells,
+      alliances: allianceRecords,
+      allianceMembers: allianceMemberRecords,
+    });
+
+    const partnerProgramInsights = buildPartnerProgramInsights({
+      alliances: allianceRecords,
+      allianceMembers: allianceMemberRecords,
+      rateCards: allianceRateCards,
+      revenueSplits: allianceRevenueSplits,
+      partnerEngagements,
+    });
+
+    const marketingAutomationInsights = buildMarketingAutomationInsights({
+      campaigns,
+      deals,
+      followUps,
+      proposals,
+      events: marketingEvents,
+      landingPages,
+    });
+
+    const clientAdvocacyInsights = buildClientAdvocacyInsights({
+      playbooks,
+      enrollments,
+      events: clientEvents,
+      referrals,
+      reviewNudges,
+      affiliateLinks,
+      gigs: gigSummaries,
+    });
+
     const totalClients = new Set(formattedNotes.map((note) => note.subjectUserId)).size;
+
+    const targetWorkspaceId = workspace ? workspace.id : null;
+
+    let executiveMetricsPlain = [];
+    let scenarioPlansPlain = [];
+    let scenarioBreakdownsPlain = [];
+    let governanceRisksPlain = [];
+    let governanceAuditsPlain = [];
+    let leadershipRitualsPlain = [];
+    let leadershipOkrsPlain = [];
+    let leadershipDecisionsPlain = [];
+    let leadershipBriefingsPlain = [];
+    let leadershipBetsPlain = [];
+    let innovationInitiativesPlain = [];
+    let innovationFundingPlain = [];
+    let leadershipRoomsPlain = [];
+    let complianceDocumentsPlain = [];
+    let complianceObligationsPlain = [];
+    let complianceRemindersPlain = [];
+
+    if (targetWorkspaceId) {
+      const [
+        executiveMetricRows,
+        scenarioPlanRows,
+        governanceRiskRows,
+        auditRows,
+        leadershipRitualRows,
+        leadershipOkrRows,
+        leadershipDecisionRows,
+        leadershipBriefingRows,
+        leadershipBetRows,
+        innovationInitiativeRows,
+        innovationFundingRows,
+        leadershipRooms,
+        complianceDocRows,
+      ] = await Promise.all([
+        ExecutiveIntelligenceMetric.findAll({
+          where: { workspaceId: targetWorkspaceId },
+          order: [['reportedAt', 'DESC']],
+          limit: 32,
+        }),
+        ExecutiveScenarioPlan.findAll({
+          where: { workspaceId: targetWorkspaceId },
+          order: [['timeframeEnd', 'DESC']],
+        }),
+        GovernanceRiskRegister.findAll({
+          where: { workspaceId: targetWorkspaceId },
+          order: [['impactScore', 'DESC']],
+          limit: 20,
+        }),
+        GovernanceAuditExport.findAll({
+          where: { workspaceId: targetWorkspaceId },
+          order: [['generatedAt', 'DESC']],
+          limit: 10,
+        }),
+        LeadershipRitual.findAll({
+          where: { workspaceId: targetWorkspaceId },
+          order: [['nextSessionAt', 'ASC']],
+          limit: 12,
+        }),
+        LeadershipOkr.findAll({
+          where: { workspaceId: targetWorkspaceId },
+          order: [['targetDate', 'ASC']],
+          limit: 12,
+        }),
+        LeadershipDecision.findAll({
+          where: { workspaceId: targetWorkspaceId },
+          order: [['decidedAt', 'DESC']],
+          limit: 15,
+        }),
+        LeadershipBriefingPack.findAll({
+          where: { workspaceId: targetWorkspaceId },
+          order: [['distributionDate', 'DESC']],
+          limit: 10,
+        }),
+        LeadershipStrategicBet.findAll({
+          where: { workspaceId: targetWorkspaceId },
+          order: [['lastReviewedAt', 'DESC']],
+          limit: 12,
+        }),
+        InnovationInitiative.findAll({
+          where: { workspaceId: targetWorkspaceId },
+          order: [['priorityScore', 'DESC']],
+          limit: 15,
+        }),
+        InnovationFundingEvent.findAll({
+          where: { workspaceId: targetWorkspaceId },
+          order: [['recordedAt', 'DESC']],
+          limit: 20,
+        }),
+        CollaborationSpace.findAll({
+          where: { ownerId: workspace.ownerId },
+          order: [['updatedAt', 'DESC']],
+          limit: 8,
+        }),
+        ComplianceDocument.findAll({
+          where: { workspaceId: targetWorkspaceId },
+          order: [
+            ['status', 'ASC'],
+            ['expiryDate', 'ASC'],
+          ],
+          limit: 20,
+        }),
+      ]);
+
+      const scenarioIds = scenarioPlanRows.map((plan) => plan.id);
+      const docIds = complianceDocRows.map((doc) => doc.id);
+
+      const [scenarioBreakdownRows, obligationsRows, reminderRows] = await Promise.all([
+        scenarioIds.length
+          ? ExecutiveScenarioBreakdown.findAll({
+              where: { scenarioId: { [Op.in]: scenarioIds } },
+              order: [
+                ['dimensionType', 'ASC'],
+                ['revenue', 'DESC'],
+              ],
+              limit: 60,
+            })
+          : [],
+        docIds.length
+          ? ComplianceObligation.findAll({
+              where: { documentId: { [Op.in]: docIds } },
+              order: [['dueAt', 'ASC']],
+            })
+          : [],
+        docIds.length
+          ? ComplianceReminder.findAll({
+              where: { documentId: { [Op.in]: docIds } },
+              order: [['sendAt', 'ASC']],
+            })
+          : [],
+      ]);
+
+      executiveMetricsPlain = executiveMetricRows.map((row) => toPlain(row));
+      scenarioPlansPlain = scenarioPlanRows.map((row) => toPlain(row));
+      scenarioBreakdownsPlain = scenarioBreakdownRows.map((row) => toPlain(row));
+      governanceRisksPlain = governanceRiskRows.map((row) => toPlain(row));
+      governanceAuditsPlain = auditRows.map((row) => toPlain(row));
+      leadershipRitualsPlain = leadershipRitualRows.map((row) => toPlain(row));
+      leadershipOkrsPlain = leadershipOkrRows.map((row) => toPlain(row));
+      leadershipDecisionsPlain = leadershipDecisionRows.map((row) => toPlain(row));
+      leadershipBriefingsPlain = leadershipBriefingRows.map((row) => toPlain(row));
+      leadershipBetsPlain = leadershipBetRows.map((row) => toPlain(row));
+      innovationInitiativesPlain = innovationInitiativeRows.map((row) => toPlain(row));
+      innovationFundingPlain = innovationFundingRows.map((row) => toPlain(row));
+      leadershipRoomsPlain = leadershipRooms.map((row) => toPlain(row));
+      complianceDocumentsPlain = complianceDocRows.map((row) => toPlain(row));
+      complianceObligationsPlain = obligationsRows.map((row) => toPlain(row));
+      complianceRemindersPlain = reminderRows.map((row) => toPlain(row));
+    }
+
+    const analyticsWarRoom = buildAnalyticsWarRoom(executiveMetricsPlain);
+    const scenarioExplorer = buildScenarioExplorer(scenarioPlansPlain, scenarioBreakdownsPlain);
+    const governanceDesk = buildGovernanceDesk(
+      complianceDocumentsPlain,
+      complianceObligationsPlain,
+      complianceRemindersPlain,
+      governanceRisksPlain,
+      governanceAuditsPlain,
+    );
+    const leadershipHub = buildLeadershipHub({
+      rituals: leadershipRitualsPlain,
+      okrs: leadershipOkrsPlain,
+      decisions: leadershipDecisionsPlain,
+      briefings: leadershipBriefingsPlain,
+      bets: leadershipBetsPlain,
+      rooms: leadershipRoomsPlain,
+      projects: formattedProjects,
+    });
+    const innovationLab = buildInnovationLab({ initiatives: innovationInitiativesPlain, fundingEvents: innovationFundingPlain });
+
+    const executive = {
+      intelligence: {
+        metrics: analyticsWarRoom.scorecards,
+        focusMetrics: analyticsWarRoom.summary,
+        compliancePolicies: governanceDesk.policies.slice(0, 6),
+        upcomingObligations: governanceDesk.obligations.slice(0, 6),
+        collaborationRooms: leadershipHub.collaborationRooms.slice(0, 4),
+      },
+      analyticsWarRoom,
+      scenarioExplorer,
+      governance: governanceDesk,
+      leadership: leadershipHub,
+      innovation: innovationLab,
+    };
+
+    const projectPortfolioInsights = buildProjectPortfolioInsights({
+      projects: formattedProjects,
+      snapshots: operationalSnapshots,
+      dependencies: dependencyPlain,
+      events: formattedEvents,
+    });
+
+    const workspaceOrchestratorInsights = buildWorkspaceOrchestratorInsights({
+      blueprints: blueprintPlain,
+      projects: formattedProjects,
+      contactNotes: formattedNotes,
+    });
+
+    const resourceIntelligenceInsights = buildResourceIntelligenceInsights({
+      capacitySnapshots: capacityPlain,
+      scenarioPlans: scenarioPlain,
+      members: formattedMembers,
+    });
+
+    const qualityWorkflowInsights = buildQualityWorkflowInsights({
+      qualityReviews: qualityPlain,
+      projects: formattedProjects,
+    });
+
+    const financialOversightInsights = buildFinancialOversightInsights({
+      financialSummaries,
+      escrowTransactions,
+    });
+    const paymentsDistribution = buildPaymentsDistributionInsights({
+      batches: payoutBatches,
+      splits: payoutSplits,
+      exports: financeExports,
+      financialSummaries,
+      now,
+    });
+    const talentCrm = buildTalentCrmSummary(
+      talentCandidateRows,
+      talentInterviewRows,
+      talentOfferRows,
+      talentPipelineMetricRows,
+    );
+    const peopleOps = buildPeopleOpsSummary(
+      peopleOpsPolicyRows,
+      peopleOpsReviewRows,
+      peopleOpsSkillRows,
+      peopleOpsWellbeingRows,
+    );
+    const opportunityBoard = buildOpportunityBoardSummary(internalOpportunityRows, internalMatchRows);
+    const branding = buildBrandingSummary(brandingAssetRows, brandingApprovalRows, brandingMetricRows);
+
+    const talentCandidatePlain = talentCandidateRows.map((candidate) => candidate.toPublicObject());
+    const peopleOpsPolicyPlain = peopleOpsPolicyRows.map((policy) => policy.toPublicObject());
+
+    const hrManagement = buildHrManagementSummary(formattedMembers, talentCandidatePlain, peopleOpsPolicyPlain);
+    const capacityPlanning = buildCapacityPlanningSummary(
+      membersSummary,
+      talentCrm.pipelineAnalytics.history,
+      opportunityBoard.opportunities ?? [],
+    );
+    const internalMarketplace = buildInternalMarketplaceSummary(
+      formattedMembers,
+      opportunityBoard.opportunities ?? [],
+      opportunityBoard.matches ?? [],
+    );
+
+    const talentLifecycleSummary = {
+      totalCandidates: talentCrm.totals.candidates,
+      conversionRate: talentCrm.conversionRate,
+      wellbeingScore: peopleOps.wellbeing.averageScore,
+      atRisk: peopleOps.wellbeing.atRisk,
+      openInternalOpportunities: opportunityBoard.summary.open,
+      brandingReach: branding.metrics.totals.reach,
+    };
+
+    const adKeywordHints = [
+      ...gigSummaries.map((gig) => gig.title).filter(Boolean),
+      ...jobSummaries.map((job) => job.title).filter(Boolean),
+      agencyProfilePlain?.specialties?.primary ?? null,
+      workspace?.industryFocus ?? null,
+    ].filter(Boolean);
+
+    const adGigIds = gigSummaries
+      .map((gig) => (Number.isInteger(Number(gig.id)) ? Number(gig.id) : null))
+      .filter((value) => value != null);
+
+    const adJobIds = jobSummaries
+      .map((job) => (Number.isInteger(Number(job.id)) ? Number(job.id) : null))
+      .filter((value) => value != null);
+
+    const ads = await getAdDashboardSnapshot({
+      surfaces: ['agency_dashboard', 'global_dashboard'],
+      context: {
+        keywordHints: adKeywordHints,
+        opportunityTargets: [
+          ...(adGigIds.length ? [{ targetType: 'gig', ids: adGigIds }] : []),
+          ...(adJobIds.length ? [{ targetType: 'job', ids: adJobIds }] : []),
+        ],
+      },
+    });
+
+    const financeControlTower = buildFinanceControlTower({
+      financialSummary,
+      financeOverview,
+      upcomingBatches: upcomingPayoutBatchRows.map((row) => row.toPublicObject()),
+      upcomingSplits: upcomingPayoutSplitRows.map((row) => row.toPublicObject()),
+    });
+
+    const operationsAlerts = [];
+
+    (projectPortfolioInsights.projects ?? []).forEach((project) => {
+      const scopeHealth = String(project.scopeHealth ?? '').toLowerCase();
+      const riskLevel = String(project.riskLevel ?? '').toLowerCase();
+      if (['at_risk', 'critical'].includes(scopeHealth) || ['high', 'critical'].includes(riskLevel)) {
+        operationsAlerts.push({
+          type: 'project',
+          severity: scopeHealth === 'critical' || riskLevel === 'critical' ? 'critical' : 'warning',
+          title: project.title ?? `Project ${project.id}`,
+          message:
+            scopeHealth === 'critical'
+              ? 'Project flagged as critical. Immediate intervention required.'
+              : 'Project marked at risk. Review mitigation plan.',
+          referenceId: project.id,
+        });
+      }
+      if (project.issuesOpen != null && Number(project.issuesOpen) > 0) {
+        operationsAlerts.push({
+          type: 'quality',
+          severity: 'warning',
+          title: project.title ?? `Project ${project.id}`,
+          message: `${project.issuesOpen} open delivery issues`,
+          referenceId: project.id,
+        });
+      }
+    });
+
+    (financialOversightInsights.alerts ?? []).forEach((alert) => {
+      operationsAlerts.push({
+        type: alert.type ?? 'financial',
+        severity: alert.severity ?? 'warning',
+        title: 'Financial alert',
+        message: alert.message,
+        referenceId: alert.engagementId ?? null,
+      });
+    });
+
+    (resourceIntelligenceInsights.summary?.atRiskSkills ?? []).forEach((skill) => {
+      operationsAlerts.push({
+        type: 'capacity',
+        severity: 'warning',
+        title: 'Capacity pressure',
+        message: `Burnout risk detected in ${skill}`,
+        referenceId: skill,
+      });
+    });
+
+    if (
+      qualityWorkflowInsights.summary?.averageClientSatisfaction != null &&
+      Number(qualityWorkflowInsights.summary.averageClientSatisfaction) < 4
+    ) {
+      operationsAlerts.push({
+        type: 'client_experience',
+        severity: 'warning',
+        title: 'Client satisfaction dip',
+        message: `Average CSAT ${Number(
+          qualityWorkflowInsights.summary.averageClientSatisfaction,
+        ).toFixed(1)} below 4.0 benchmark`,
+      });
+    }
+
+    const operationsScorecards = [
+      {
+        key: 'utilization',
+        label: 'Utilization rate',
+        value: membersSummary.utilizationRate ?? resourceIntelligenceInsights.summary?.averageUtilization ?? 0,
+        unit: 'percentage',
+        description: `${membersSummary.bench ?? 0} on bench`,
+      },
+      {
+        key: 'projects',
+        label: 'On-track engagements',
+        value: projectPortfolioInsights.summary?.onTrack ?? projectSummary.buckets?.active ?? 0,
+        unit: 'count',
+        description: `${(projectPortfolioInsights.summary?.atRisk ?? 0) + (projectPortfolioInsights.summary?.critical ?? 0)} flagged`,
+      },
+      {
+        key: 'financial',
+        label: 'Revenue released',
+        value: financialSummary.released ?? 0,
+        unit: 'currency',
+        currency: financialSummary.currency ?? 'USD',
+        description: `${financialSummary.inEscrow ?? 0} ${financialSummary.currency ?? 'USD'} in escrow`,
+      },
+      {
+        key: 'client_satisfaction',
+        label: 'Client satisfaction',
+        value: qualityWorkflowInsights.summary?.averageClientSatisfaction ?? 0,
+        unit: 'score',
+        decimals: 1,
+        description: `${summary?.clients?.active ?? totalClients} active clients`,
+      },
+    ];
+
+    const operationsOverview = {
+      scorecards: operationsScorecards,
+      utilization: {
+        rate: membersSummary.utilizationRate ?? resourceIntelligenceInsights.summary?.averageUtilization ?? 0,
+        benchCount: membersSummary.bench ?? 0,
+        benchHours: resourceIntelligenceInsights.summary?.benchHours ?? 0,
+        averageWeeklyCapacity: membersSummary.averageWeeklyCapacity ?? null,
+        atRiskSkills: resourceIntelligenceInsights.summary?.atRiskSkills ?? [],
+        assignments: resourceIntelligenceInsights.assignmentMatches ?? [],
+      },
+      clientHealth: {
+        activeClients: summary?.clients?.active ?? totalClients,
+        csatScore: qualityWorkflowInsights.summary?.averageClientSatisfaction ?? null,
+        qaScore: qualityWorkflowInsights.summary?.averageQaScore ?? null,
+        atRiskEngagements:
+          (projectPortfolioInsights.summary?.atRisk ?? 0) + (projectPortfolioInsights.summary?.critical ?? 0),
+        recentNotes: formattedNotes.slice(0, 6),
+      },
+      alerts: operationsAlerts.slice(0, 25),
+    };
+
+    const operations = {
+      overview: operationsOverview,
+      projectsWorkspace: {
+        summary: projectPortfolioInsights.summary,
+        projects: projectPortfolioInsights.projects,
+        dependencies: projectPortfolioInsights.dependencies,
+        calendar: projectPortfolioInsights.calendar,
+        queue: queueSummary,
+        workspaceOrchestrator: workspaceOrchestratorInsights,
+        resourceIntelligence: resourceIntelligenceInsights,
+        quality: qualityWorkflowInsights,
+        financialOversight: financialOversightInsights,
+        financials: financialSummary,
+      },
+      gigPrograms: {
+        studio: studioInsights,
+        partnerPrograms: partnerProgramInsights,
+        marketing: marketingAutomationInsights,
+        advocacy: clientAdvocacyInsights,
+        marketplacePipeline: {
+          gigs: gigSummaries,
+          jobs: jobSummaries,
+        },
+      },
+      finance: financeControlTower,
+      paymentsDistribution,
+    };
 
     return {
       workspace: workspace ? sanitizeWorkspaceRecord(workspace) : null,
@@ -467,7 +4167,14 @@ export async function getAgencyDashboard({ workspaceId, workspaceSlug, lookbackD
         jobs: {
           total: jobSummaries.length,
         },
+        portfolio: projectPortfolioInsights.summary,
+        workspaceOrchestrator: workspaceOrchestratorInsights.summary,
+        resourceIntelligence: resourceIntelligenceInsights.summary,
+        quality: qualityWorkflowInsights.summary,
+        financialOversight: financialOversightInsights.summary,
+        paymentsDistribution: paymentsDistribution.summary,
       },
+      executive,
       members: {
         list: formattedMembers,
         invites: formattedInvites,
@@ -479,8 +4186,35 @@ export async function getAgencyDashboard({ workspaceId, workspaceSlug, lookbackD
       contactNotes: formattedNotes,
       gigs: gigSummaries,
       jobs: jobSummaries,
-      financials: escrowRows.map((row) => row.toPublicObject()),
+      financials: escrowTransactions,
       gigFinancials: gigTransactions.map((row) => row.toPublicObject()),
+      operatingIntelligence: {
+        projectPortfolioMastery: projectPortfolioInsights,
+        workspaceOrchestrator: workspaceOrchestratorInsights,
+        resourceIntelligence: resourceIntelligenceInsights,
+        qualityAssurance: qualityWorkflowInsights,
+        financialOversight: financialOversightInsights,
+      },
+      financeControlTower,
+      talentLifecycle: {
+        summary: talentLifecycleSummary,
+        crm: talentCrm,
+        peopleOps,
+        opportunityBoard,
+        branding,
+        hrManagement,
+        capacityPlanning,
+        internalMarketplace,
+      },
+      operations,
+      marketplaceLeadership: {
+        studio: studioInsights,
+        partnerPrograms: partnerProgramInsights,
+        marketingAutomation: marketingAutomationInsights,
+        clientAdvocacy: clientAdvocacyInsights,
+      },
+      ads,
+      paymentsDistribution,
       refreshedAt: new Date().toISOString(),
     };
   });

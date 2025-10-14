@@ -6,10 +6,12 @@ Gigvora operates in regulated markets, requiring rigorous handling of personal d
 - **Role-based guards:** Service methods enforce business roles (owner, admin, staff) via transactional checks before mutating workspace membership or invitations.【F:gigvora-backend-nodejs/src/services/providerWorkspaceService.js†L241-L320】
 - **Audit trails:** Metadata columns such as `lastStatusReason`, `archivedBy`, and `lastUpdatedBy` persist actor IDs for every application state transition, ensuring traceable hiring decisions.【F:gigvora-backend-nodejs/src/services/applicationService.js†L221-L307】
 - **Cache eviction discipline:** In-memory caches flush on every mutation, preventing stale or unauthorised data from being served after privilege changes.【F:gigvora-backend-nodejs/src/services/messagingService.js†L90-L117】【F:gigvora-backend-nodejs/src/services/notificationService.js†L34-L47】
+- **Freelancer pipeline gatekeeping:** Order lifecycle mutations validate stage transitions, enforce enum constraints, and persist actor-annotated timestamps so fulfilment history remains auditable.【F:gigvora-backend-nodejs/src/services/freelancerOrderPipelineService.js†L159-L618】
 
 ## Retention Windows
 | Dataset | Retention | Enforcement |
 | --- | --- | --- |
+| Gig Orders & Pipeline Records | 7 years from completion or cancellation to satisfy financial and dispute obligations. | `freelancerOrderPipelineService` stamps `deliveredAt`, release metadata, and CSAT, enabling archival exports; scheduled jobs must purge or anonymise records after the retention window. |
 | Applications & Reviews | 7 years post engagement for compliance. | Archival metadata captured by `archiveApplication`; scheduled jobs export closed records for cold storage (to be executed via ops automation). |
 | Messaging Threads | 24 months of history; system messages pruned after 90 days. | `Message` model uses `paranoid` soft-deletes and scheduled purge tasks filter by `deletedAt`. |
 | Notifications | 180 days for delivered events, 30 days for pending/dismissed. | `queueNotification` populates `expiresAt`; background workers must purge expired rows nightly. |
@@ -18,6 +20,7 @@ Gigvora operates in regulated markets, requiring rigorous handling of personal d
 ## Data Quality & Masking
 - **Sanitised public objects:** Model helper methods strip internal keys before serialisation, ensuring UI layers and public APIs expose only approved fields.【F:gigvora-backend-nodejs/src/models/index.js†L120-L186】【F:gigvora-backend-nodejs/src/services/messagingService.js†L35-L84】
 - **Sensitive attachment handling:** Upload metadata enforces MIME validation and size limits before persistence; storage keys always reference signed URL buckets controlled by infrastructure policies.【F:gigvora-backend-nodejs/src/services/messagingService.js†L217-L238】【F:gigvora-backend-nodejs/src/services/applicationService.js†L78-L109】
+- **Escrow milestone hygiene:** Escrow checkpoints normalise currency/amount inputs, restrict statuses to approved enums, and capture release actors to avoid payout tampering.【F:gigvora-backend-nodejs/src/services/freelancerOrderPipelineService.js†L420-L618】
 - **Seed data hygiene:** Demo data uses non-routable email domains and bcrypt-hashed passwords, preventing accidental outbound communication from test environments.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L6-L160】
 
 ## Monitoring & Testing

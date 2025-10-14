@@ -10,12 +10,24 @@ import {
   AutoAssignQueueEntry,
   EscrowTransaction,
   EscrowAccount,
+  FinancialEngagementSummary,
+  FinancePayoutBatch,
+  FinancePayoutSplit,
+  FinanceTaxExport,
   AgencyProfile,
   Profile,
   Gig,
   Job,
   User,
   ProjectAssignmentEvent,
+  TalentCandidate,
+  PeopleOpsPolicy,
+  FinanceRevenueEntry,
+  FinanceExpenseEntry,
+  FinanceSavingsGoal,
+  FinancePayoutBatch,
+  FinancePayoutSplit,
+  FinanceTaxExport,
 } from '../src/models/index.js';
 import { getAgencyDashboard } from '../src/services/agencyDashboardService.js';
 import { createUser } from './helpers/factories.js';
@@ -101,6 +113,16 @@ describe('agencyDashboardService', () => {
         availableHoursPerWeek: 32,
       },
     ]);
+
+    await PeopleOpsPolicy.create({
+      workspaceId: workspace.id,
+      title: 'Data Handling Policy',
+      status: 'active',
+      effectiveDate: new Date(),
+      reviewCycleDays: 180,
+      acknowledgedCount: 1,
+      audienceCount: 3,
+    });
 
     await ProviderContactNote.create({
       workspaceId: workspace.id,
@@ -206,6 +228,100 @@ describe('agencyDashboardService', () => {
       releasedAt: new Date(),
     });
 
+    await FinancialEngagementSummary.create({
+      workspaceId: workspace.id,
+      projectId: activeProject.id,
+      clientName: 'Commerce Revamp',
+      billingCurrency: 'USD',
+      budgetAmount: 120000,
+      actualSpend: 54000,
+      invoicedAmount: 42000,
+      outstandingAmount: 8000,
+      changeOrdersCount: 1,
+      marginPercent: 24.5,
+      profitabilityScore: 72.4,
+      complianceStatus: 'on_track',
+      lastInvoiceDate: buildDateOffset(12),
+      nextInvoiceDate: buildDateOffset(-3),
+    });
+
+    const completedBatch = await FinancePayoutBatch.create({
+      userId: owner.id,
+      name: 'April payroll',
+      status: 'completed',
+      totalAmount: 25000,
+      currencyCode: 'USD',
+      scheduledAt: buildDateOffset(10),
+      executedAt: buildDateOffset(8),
+    });
+
+    await FinancePayoutSplit.bulkCreate([
+      {
+        batchId: completedBatch.id,
+        teammateName: 'Nova Lead',
+        teammateRole: 'Owner',
+        status: 'completed',
+        sharePercentage: 60,
+        amount: 15000,
+        currencyCode: 'USD',
+        recipientEmail: 'owner@nova.test',
+      },
+      {
+        batchId: completedBatch.id,
+        teammateName: 'Mira Strategist',
+        teammateRole: 'Manager',
+        status: 'completed',
+        sharePercentage: 40,
+        amount: 10000,
+        currencyCode: 'USD',
+        recipientEmail: 'strategist@nova.test',
+      },
+    ]);
+
+    const upcomingBatch = await FinancePayoutBatch.create({
+      userId: owner.id,
+      name: 'May distribution',
+      status: 'scheduled',
+      totalAmount: 18000,
+      currencyCode: 'USD',
+      scheduledAt: buildDateOffset(-3),
+    });
+
+    await FinancePayoutSplit.bulkCreate([
+      {
+        batchId: upcomingBatch.id,
+        teammateName: 'Kai Designer',
+        teammateRole: 'Staff',
+        status: 'processing',
+        sharePercentage: 50,
+        amount: 9000,
+        currencyCode: 'USD',
+        recipientEmail: 'designer@nova.test',
+      },
+      {
+        batchId: upcomingBatch.id,
+        teammateName: 'Jordan Rivers',
+        teammateRole: 'Contractor',
+        status: 'failed',
+        sharePercentage: 50,
+        amount: 9000,
+        currencyCode: 'USD',
+        recipientEmail: 'contract@nova.test',
+      },
+    ]);
+
+    await FinanceTaxExport.create({
+      userId: owner.id,
+      exportType: 'quarterly_revenue',
+      status: 'available',
+      periodStart: buildDateOffset(90),
+      periodEnd: new Date(),
+      amount: 42000,
+      currencyCode: 'USD',
+      generatedAt: buildDateOffset(2),
+      downloadUrl: 'https://downloads.gigvora.test/exports/quarterly.csv',
+    });
+
     await Gig.create({
       title: 'Retainer: Design System Ops',
       description: 'Monthly governance for enterprise design system.',
@@ -217,6 +333,170 @@ describe('agencyDashboardService', () => {
       title: 'Fractional Product Strategist',
       description: 'Lead experimentation roadmaps for fintech client.',
       employmentType: 'Contract',
+    });
+
+    await TalentCandidate.bulkCreate([
+      {
+        workspaceId: workspace.id,
+        fullName: 'Avery Grey',
+        status: 'hired',
+        pipelineStage: 'offer',
+        onboardingStatus: 'in_progress',
+        exitWorkflowStatus: 'not_applicable',
+        metadata: {
+          targetRole: 'Manager',
+          startDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+      },
+      {
+        workspaceId: workspace.id,
+        fullName: 'Jordan Rivers',
+        status: 'hired',
+        pipelineStage: 'exit',
+        onboardingStatus: 'completed',
+        exitWorkflowStatus: 'in_progress',
+        metadata: {
+          targetRole: 'Staff',
+        },
+      },
+    ]);
+
+    const now = new Date();
+    const previousMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 15);
+    const previousQuarterStart = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+    const previousMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+
+    await FinanceRevenueEntry.bulkCreate([
+      {
+        userId: owner.id,
+        revenueType: 'retainer',
+        status: 'recognized',
+        amount: 75000,
+        currencyCode: 'USD',
+        taxWithholdingAmount: 7500,
+        recognizedAt: now,
+        clientName: 'Atlas Retail',
+      },
+      {
+        userId: owner.id,
+        revenueType: 'retainer',
+        status: 'recognized',
+        amount: 62000,
+        currencyCode: 'USD',
+        taxWithholdingAmount: 6200,
+        recognizedAt: previousMonthDate,
+        clientName: 'Lumen Bank',
+      },
+    ]);
+
+    await FinanceExpenseEntry.create({
+      userId: owner.id,
+      category: 'Software',
+      vendorName: 'SaaS Suite',
+      cadence: 'monthly',
+      amount: 2500,
+      currencyCode: 'USD',
+      occurredAt: now,
+      status: 'posted',
+      notes: 'Design tooling and analytics bundle',
+    });
+
+    await FinanceSavingsGoal.create({
+      userId: owner.id,
+      name: 'Runway reserve',
+      status: 'active',
+      targetAmount: 90000,
+      currentAmount: 45000,
+      currencyCode: 'USD',
+      isRunwayReserve: true,
+      lastContributionAt: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
+    });
+
+    const completedBatch = await FinancePayoutBatch.create({
+      userId: owner.id,
+      name: 'April Delivery Payroll',
+      status: 'completed',
+      totalAmount: 42000,
+      currencyCode: 'USD',
+      scheduledAt: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000),
+      executedAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000),
+    });
+
+    await FinancePayoutSplit.bulkCreate([
+      {
+        batchId: completedBatch.id,
+        teammateName: 'Mira Strategist',
+        teammateRole: 'Manager',
+        recipientEmail: 'strategist@nova.test',
+        sharePercentage: 60,
+        amount: 25200,
+        currencyCode: 'USD',
+        status: 'completed',
+      },
+      {
+        batchId: completedBatch.id,
+        teammateName: 'Kai Designer',
+        teammateRole: 'Designer',
+        recipientEmail: 'designer@nova.test',
+        sharePercentage: 40,
+        amount: 16800,
+        currencyCode: 'USD',
+        status: 'completed',
+      },
+    ]);
+
+    const scheduledBatch = await FinancePayoutBatch.create({
+      userId: owner.id,
+      name: 'Launchpad Bonus Cycle',
+      status: 'scheduled',
+      totalAmount: 15000,
+      currencyCode: 'USD',
+      scheduledAt: new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000),
+    });
+
+    await FinancePayoutSplit.bulkCreate([
+      {
+        batchId: scheduledBatch.id,
+        teammateName: 'Nova Lead',
+        teammateRole: 'Director',
+        recipientEmail: 'owner@nova.test',
+        sharePercentage: 50,
+        amount: 7500,
+        currencyCode: 'USD',
+        status: 'scheduled',
+      },
+      {
+        batchId: scheduledBatch.id,
+        teammateName: 'Jordan Rivers',
+        teammateRole: 'Analyst',
+        recipientEmail: 'analyst@nova.test',
+        sharePercentage: 30,
+        amount: 4500,
+        currencyCode: 'USD',
+        status: 'scheduled',
+      },
+      {
+        batchId: scheduledBatch.id,
+        teammateName: 'Avery Grey',
+        teammateRole: 'Manager',
+        recipientEmail: 'avery@nova.test',
+        sharePercentage: 20,
+        amount: 3000,
+        currencyCode: 'USD',
+        status: 'scheduled',
+      },
+    ]);
+
+    await FinanceTaxExport.create({
+      userId: owner.id,
+      exportType: 'quarterly_vat',
+      status: 'available',
+      periodStart: previousQuarterStart,
+      periodEnd: previousMonthEnd,
+      amount: 18000,
+      currencyCode: 'USD',
+      downloadUrl: 'https://example.com/exports/vat-q1.csv',
+      generatedAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000),
     });
   });
 
@@ -236,6 +516,41 @@ describe('agencyDashboardService', () => {
     expect(dashboard.projects.list.map((project) => project.title)).toContain('Commerce Revamp');
     expect(dashboard.projects.events).toHaveLength(1);
     expect(dashboard.contactNotes[0].note).toMatch(/renewal/);
+
+    const hr = dashboard.talentLifecycle.hrManagement;
+    expect(hr.activeHeadcount).toBe(3);
+    expect(hr.exitsInProgress).toBe(1);
+    expect(hr.staffingCapacity.totalCapacityHours).toBeGreaterThan(0);
+    expect(hr.staffingCapacity.health.level).toBeDefined();
+    expect(hr.staffingCapacity.benchMembers).toBeGreaterThan(0);
+    expect(hr.roleAssignments.coverage.length).toBeGreaterThan(0);
+    const managerCoverage = hr.roleAssignments.coverage.find((role) => role.roleKey === 'manager');
+    expect(managerCoverage?.pipeline.onboarding ?? 0).toBeGreaterThanOrEqual(1);
+    expect(hr.policyAcknowledgements[0].outstanding).toBe(2);
+    expect(hr.onboardingQueue.length).toBeGreaterThan(0);
+    expect(hr.alerts.some((alert) => alert.type === 'compliance')).toBe(true);
+
+    const financeTower = dashboard.financeControlTower;
+    expect(financeTower.summary.totalReleased).toBeCloseTo(20000, 2);
+    expect(financeTower.summary.monthToDateRevenue?.amount).toBe(75000);
+    expect(financeTower.summary.trackedExpenses?.amount).toBe(2500);
+    expect(financeTower.summary.scheduledTotal).toBe(15000);
+    expect(financeTower.payouts.topRecipients[0].name).toBe('Mira Strategist');
+    expect(financeTower.payouts.topRecipients[0].amount).toBe(25200);
+    expect(financeTower.payouts.totals.shareOfReleased).toBeGreaterThan(0.9);
+    expect(financeTower.payouts.upcomingBatches.length).toBeGreaterThan(0);
+    expect(financeTower.exports.history[0].exportType).toBe('quarterly_vat');
+    const payments = dashboard.paymentsDistribution;
+    expect(payments.summary.totalBatches).toBeGreaterThanOrEqual(2);
+    expect(payments.summary.outstandingSplits.count).toBe(1);
+    expect(payments.summary.failedSplits.count).toBe(1);
+    expect(payments.summary.processedThisQuarter.some((entry) => entry.amount > 0)).toBe(true);
+    expect(payments.upcomingBatches.some((batch) => batch.name === 'May distribution')).toBe(true);
+    expect(payments.teammates.find((member) => member.teammateName === 'Nova Lead')?.totalAmount ?? 0).toBeGreaterThan(0);
+    expect(payments.exports.summary.available).toBe(1);
+    expect(payments.insights.recommendedActions.length).toBeGreaterThan(0);
+    expect(dashboard.summary.paymentsDistribution.outstandingSplits.count).toBe(1);
+    expect(dashboard.operations.paymentsDistribution.summary.totalBatches).toBe(payments.summary.totalBatches);
   });
 
   it('falls back to global data when no workspace filter is provided', async () => {

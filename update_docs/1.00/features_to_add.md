@@ -68,9 +68,11 @@
 - **Phone App Integration**: Dispute overview screen, stage progression, evidence capture via camera/gallery, push alerts.
 
 ### 3.3 Project Management Module
-- **Core Modules**: Budgets, milestones, timeline/Gantt, tasks (with dependencies), objectives/OKRs, hourly tracking (timer & manual logs), progress analytics, in-project chat, group/agency projects.
-- **Data Model Additions**: `projects`, `project_members`, `project_roles`, `project_tasks`, `task_dependencies`, `milestones`, `time_logs`, `project_objectives`, `project_chat_threads` tables.
-- **Integrations**: Escrow milestones, auto-assign engine, notifications, analytics dashboards, export to CSV/PDF.
+- **Core Modules**: Budgets, milestones, interactive timeline/Gantt creation (with templates and scenario planning) for freelancers and agencies, tasks (with dependencies), objectives/OKRs, hourly tracking (timer & manual logs), progress analytics, in-project chat, group/agency projects, workload views.
+- **Agency Collaboration**: Task delegation queues, project handoff flows, and workload forecasting dashboards for agency owners to assign or reassign deliverables to specific staff members; allow multiple agency contributors to be attached to a single project with visibility controls.
+- **Compensation Management**: Pay split configuration per project/milestone with contributor percentages, approval workflows, and payout sync to escrow milestones.
+- **Data Model Additions**: `projects`, `project_members`, `project_roles`, `project_tasks`, `task_dependencies`, `milestones`, `time_logs`, `project_objectives`, `project_chat_threads`, `agency_project_members`, `agency_task_assignments`, `project_contributor_splits`, `project_gantt_snapshots` tables.
+- **Integrations**: Escrow milestones, auto-assign engine, notifications, analytics dashboards, export to CSV/PDF, agency roster and utilisation services.
 
 ---
 
@@ -105,14 +107,15 @@
 - **Backend Enhancements**: Schema extensions, trust score algorithm, verification logs, GraphQL fragments, privacy controls.
 
 ### 5.2 Agency User Type
-- **Dashboard Modules**: Human resources roster, utilisation analytics, payments distribution (split invoicing), project/gig pipeline, resource planning, graduate-to-agency conversions.
-- **APIs & Permissions**: Role-based access, bulk invites/imports, payment rules, integration with project management and auto-assign.
-- **Mobile Support**: Agency overview, team assignments, approvals, notifications.
+- **Dashboard Modules**: Human resources roster, utilisation analytics, payments distribution (split invoicing), project/gig pipeline, resource planning, graduate-to-agency conversions, dedicated project management workspace with Kanban, Gantt, and workload dashboards.
+- **Task & Project Operations**: Create and manage task backlogs, delegate tasks to agency members, pass entire projects or milestones between staff, and monitor completion status with alerts when workloads exceed capacity.
+- **APIs & Permissions**: Role-based access, bulk invites/imports, payment rules, integration with project management and auto-assign, enforcement of task delegation rights, project reassignment audit trails, and pay split governance for contributors.
+- **Mobile Support**: Agency overview, team assignments, approvals, notifications, and mobile task acceptance/delegation flows.
 
 ### 5.3 Company User Type
 - **Functions**: Headhunter management, job listing builder, project oversight, vendor management.
-- **ATS Integration**: Interview scheduling (Google/Microsoft calendar integration), approvals workflow, candidate scoring dashboards.
-- **Mobile Screens**: Hiring overview, candidate pipeline, interview calendar, notifications.
+- **ATS & Interview Integration**: Interview scheduling (Google/Microsoft calendar integration) backed by the platform's native full-HD video service, collaborative interview checklists/scorecards that allow multiple company members to join and score in real time, Kanban-style stage boards for the full interview pipeline, and automated recording/notes capture.
+- **Mobile Screens**: Hiring overview, candidate pipeline, interview calendar with join video actions, notifications, and real-time interview collaboration alerts.
 
 ### 5.4 Employment / Jobs Board Expansion
 - **Job Lifecycle**: Job creation wizard, screener questions setup, stage-based ATS pipeline, dashboard for recruiters, admin moderation tools.
@@ -156,6 +159,12 @@
 | `escrow_transactions` | Ledger for FCA compliance | `transaction_id`, `project_id`, `state`, `amount`, `fee`, `released_at`, `disputed_at` |
 | `disputes` | Multi-stage dispute records | `dispute_id`, `project_id`, `stage`, `timer_end`, `fee_due`, `mediator_id`, `resolution` |
 | `project_tasks` | Project management tasks | `task_id`, `project_id`, `assignee_id`, `status`, `due_date`, `dependency_ids` |
+| `agency_project_members` | Manage multi-staff participation on agency projects | `agency_project_member_id`, `project_id`, `agency_user_id`, `role`, `permissions`, `workload_capacity` |
+| `agency_task_assignments` | Track delegated agency tasks | `assignment_id`, `task_id`, `assigned_by`, `assigned_to`, `delegated_at`, `status` |
+| `project_contributor_splits` | Configure and track pay splits | `split_id`, `project_id`, `milestone_id`, `user_id`, `percentage`, `effective_from`, `approved_by` |
+| `project_gantt_snapshots` | Store Gantt chart planning states | `snapshot_id`, `project_id`, `created_by`, `timeline`, `workload_allocation`, `scenario_label` |
+| `interview_video_sessions` | Manage native interview video rooms | `session_id`, `interview_schedule_id`, `workspace_id`, `resolution`, `recording_url`, `participant_ids` |
+| `interview_checklists` | Collaborative interview criteria | `checklist_id`, `workspace_id`, `stage`, `criteria`, `scoring_method`, `shared_with` |
 | `search_indices` | Meilisearch config metadata | `index_type`, `primary_key`, `synonyms`, `ranking_rules`, `last_indexed_at` |
 
 ### Core Functions/APIs

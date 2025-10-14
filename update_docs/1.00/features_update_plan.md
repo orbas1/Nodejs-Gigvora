@@ -47,8 +47,9 @@
 3. Implement floating chat bubble, live feed components, volunteer/launchpad entry points, job board dashboards, ads management console.
 4. Refactor profile page into component-based architecture; add new sections (agency/company type, qualifications, experience timeline, references, trust score, likes/follows, availability toggles, areas served) with editable blocks.
 5. Enhance explorer/search interface with advanced filters, saved searches, real-time counts, and map view.
-6. Integrate ATS dashboards, interview scheduler, CV builder, volunteer hub, and ads campaign creation flows.
-7. Ensure responsive behaviour across breakpoints, performance budgets (LCP ≤2.5s), and PWA enhancements where applicable.
+6. Integrate ATS dashboards, interview scheduler, CV builder, volunteer hub, ads campaign creation flows, and native full-HD interview rooms with collaborative checklists and Kanban stage management.
+7. Extend project management interface with interactive Gantt builders, agency task delegation controls, multi-contributor pay split configuration, and workload visualisations.
+8. Ensure responsive behaviour across breakpoints, performance budgets (LCP ≤2.5s), and PWA enhancements where applicable.
 
 ### 4. Backend & Platform Services
 1. **Escrow & Payments**
@@ -59,28 +60,32 @@
    - Model dispute stages with SLA timers, fee structures, evidence storage in Cloudflare R2, and mediator assignments.
    - Build admin UI APIs for mediation/arbitration, messaging hooks, and outcome enforcement.
 3. **Project Management Module**
-   - Extend project schema for budgets, tasks, milestones, objectives, time tracking, group chat threads.
-   - Build timeline/Gantt services, progress metrics, integration with auto-assign and escrow milestones.
-4. **Search & Matching**
+   - Extend project schema for budgets, tasks, milestones, objectives, time tracking, group chat threads, and pay split configurations.
+   - Build interactive Gantt services, workload forecasting, task delegation APIs, project handoff mechanics for agencies, and progress metrics integrated with auto-assign and escrow milestones.
+4. **Interview Collaboration & Video Service**
+   - Deliver native video room service with full-HD streaming, recording storage, and secure participant management tied to interview schedules.
+   - Support multi-member interview checklists, shared scoring APIs, Kanban stage updates, and notifications for additional company participants.
+5. **Search & Matching**
    - Deploy Meilisearch cluster; configure indexes for profiles, projects, gigs, jobs, volunteers, ads.
    - Create ingestion pipelines, ranking rules, synonyms, segmentation filters, and analytics logging.
    - Build auto-assign matching service with retry logic, acceptance windows, notifications, and admin controls.
-5. **User Archetype Modules**
-   - Implement agency/company account types, permissions, HR dashboards, payment distribution workflows, and gig/project pipelines.
-   - Deliver employment board endpoints (job postings, applications, screener questions, interview scheduling, ATS stages) and CV storage.
-6. **Volunteer & Launchpad Services**
+6. **User Archetype Modules**
+   - Implement agency/company account types, permissions, HR dashboards, payment distribution workflows, gig/project pipelines, and collaborative project workspaces with multi-member assignments.
+   - Deliver employment board endpoints (job postings, applications, screener questions, interview scheduling, ATS stages) and CV storage, alongside company-facing interview Kanban APIs, integrated video session management, and shared evaluation checklists.
+   - Provide agency task delegation endpoints, project reassignment logs, and contributor pay split reconciliation services.
+7. **Volunteer & Launchpad Services**
    - Create volunteer registry, availability schedules, invite flows, acceptance tracking, and integration with project/job assignments.
    - Implement launchpad matching algorithms, onboarding criteria management, and performance metrics.
-7. **Gigvora Ads**
+8. **Gigvora Ads**
    - Build campaign entities, budget pacing engine, bidding models, targeting segments, creative storage, conversion tracking, and billing integrations.
-8. **Infrastructure & DevOps**
+9. **Infrastructure & DevOps**
    - Provision Cloudflare R2 buckets, signed URL microservice, CDN configuration, and backup strategy.
    - Enhance observability (Datadog/New Relic dashboards, alerting for latency/errors, escrow transaction health), configure infrastructure-as-code updates, and security scanning pipelines.
 
 ### 5. Data, Migration & Analytics
-1. Draft migration scripts for profile enhancements, trust score calculation, likes/follows, volunteer flags, launchpad status.
+1. Draft migration scripts for profile enhancements, trust score calculation, likes/follows, volunteer flags, launchpad status, new agency delegation tables, pay split entities, and interview video/checklist schemas.
 2. Create backfill jobs and data validation scripts; plan phased rollouts to minimise downtime.
-3. Implement analytics taxonomy for new events (feed interactions, auto-assign outcomes, ads conversions, volunteer invites).
+3. Implement analytics taxonomy for new events (feed interactions, auto-assign outcomes, ads conversions, volunteer invites, interview video session engagement, project delegation and pay split adjustments).
 4. Update data warehouse models and dashboards (Looker/Tableau) to report on new KPIs.
 5. Ensure GDPR-compliant data retention, deletion workflows, and consent logging across new modules.
 
@@ -112,7 +117,7 @@
 1. **Week 2:** Vendor selections finalised; design tokens approved; infrastructure provisioning kicked off.
 2. **Week 4:** UX/UI signed off; API contracts published; compliance checklist baseline completed.
 3. **Week 8:** Flutter foundational modules, live feed backend, and escrow MVP in sandbox; homepage redesign in staging.
-4. **Week 12:** Profile overhaul, search/auto-assign, project management, ads, volunteer/launchpad features feature-complete across web/mobile; Cloudflare R2 live.
+4. **Week 12:** Profile overhaul, search/auto-assign, project management (including Gantt builders, delegation, and pay splits), native interview video collaboration, ads, volunteer/launchpad features feature-complete across web/mobile; Cloudflare R2 live.
 5. **Week 14:** End-to-end integration tests passing; dispute workflow validated; analytics dashboards online.
 6. **Week 16:** FCA sign-off received; app store builds submitted; training and documentation ready.
 7. **Week 18:** General availability release executed; hypercare metrics within target ranges.

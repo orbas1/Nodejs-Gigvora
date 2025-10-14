@@ -1,4 +1,5 @@
 import { CompanyProfile, AgencyProfile } from '../models/index.js';
+import { normalizeLocationPayload } from '../utils/location.js';
 import authService from '../services/authService.js';
 
 export async function registerUser(req, res) {
@@ -8,40 +9,67 @@ export async function registerUser(req, res) {
 
 export async function registerCompany(req, res) {
   const user = await authService.register({ ...req.body, userType: 'company' });
+  const locationPayload = normalizeLocationPayload({
+    location: req.body.location,
+    geoLocation: req.body.geoLocation,
+  });
   await CompanyProfile.create({
     userId: user.id,
     companyName: req.body.companyName,
     description: req.body.description || '',
     website: req.body.website || '',
+    location: locationPayload.location,
+    geoLocation: locationPayload.geoLocation,
   });
   res.status(201).json(user);
 }
 
 export async function registerAgency(req, res) {
   const user = await authService.register({ ...req.body, userType: 'agency' });
+  const locationPayload = normalizeLocationPayload({
+    location: req.body.location,
+    geoLocation: req.body.geoLocation,
+  });
   await AgencyProfile.create({
     userId: user.id,
     agencyName: req.body.agencyName,
     focusArea: req.body.focusArea || '',
     website: req.body.website || '',
+    location: locationPayload.location,
+    geoLocation: locationPayload.geoLocation,
   });
   res.status(201).json(user);
 }
 
 export async function login(req, res) {
   const { email, password } = req.body;
-  const response = await authService.login(email, password);
+  const response = await authService.login(email, password, { context: { ipAddress: req.ip } });
   res.json(response);
 }
 
 export async function adminLogin(req, res) {
   const { email, password } = req.body;
-  const response = await authService.login(email, password, { requireAdmin: true });
+  const response = await authService.login(email, password, {
+    requireAdmin: true,
+    context: { ipAddress: req.ip },
+  });
   res.json(response);
 }
 
 export async function verifyTwoFactor(req, res) {
-  const { email, code } = req.body;
-  const response = await authService.verifyTwoFactor(email, code);
+  const { email, code, tokenId } = req.body;
+  const response = await authService.verifyTwoFactor(email, code, tokenId);
+  res.json(response);
+}
+
+export async function resendTwoFactor(req, res) {
+  const { tokenId } = req.body;
+  const challenge = await authService.resendTwoFactor(tokenId);
+  res.json(challenge);
+}
+
+export async function googleLogin(req, res) {
+  const { idToken } = req.body;
+  const response = await authService.loginWithGoogle(idToken);
   res.json(response);
 }

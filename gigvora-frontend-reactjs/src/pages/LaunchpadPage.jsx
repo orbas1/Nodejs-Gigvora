@@ -1,13 +1,16 @@
 import { useMemo, useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
 import DataStatus from '../components/DataStatus.jsx';
 import LaunchpadTalentApplicationForm from '../components/LaunchpadTalentApplicationForm.jsx';
 import LaunchpadEmployerRequestForm from '../components/LaunchpadEmployerRequestForm.jsx';
 import LaunchpadPlacementsInsights from '../components/LaunchpadPlacementsInsights.jsx';
+import LaunchpadCandidatePipeline from '../components/LaunchpadCandidatePipeline.jsx';
 import useOpportunityListing from '../hooks/useOpportunityListing.js';
 import analytics from '../services/analytics.js';
 import { fetchLaunchpadDashboard } from '../services/launchpad.js';
 import { formatRelativeTime } from '../utils/date.js';
+import useSession from '../hooks/useSession.js';
 
 export default function LaunchpadPage() {
   const [query, setQuery] = useState('');
@@ -15,6 +18,24 @@ export default function LaunchpadPage() {
     'launchpads',
     query,
     { pageSize: 25 },
+  );
+
+  const { session, isAuthenticated } = useSession();
+  const membershipSet = useMemo(
+    () => new Set(Array.isArray(session?.memberships) ? session.memberships : []),
+    [session?.memberships],
+  );
+  const canViewOperations = useMemo(
+    () => membershipSet.has('mentor') || membershipSet.has('admin') || membershipSet.has('company'),
+    [membershipSet],
+  );
+  const canApplyAsTalent = useMemo(
+    () => membershipSet.has('freelancer') || membershipSet.has('mentor'),
+    [membershipSet],
+  );
+  const canSubmitEmployer = useMemo(
+    () => membershipSet.has('company') || membershipSet.has('agency') || membershipSet.has('admin'),
+    [membershipSet],
   );
 
   const listing = data ?? {};
@@ -52,10 +73,16 @@ export default function LaunchpadPage() {
   );
 
   useEffect(() => {
+    if (!canViewOperations) {
+      setDashboard(null);
+      setDashboardError(null);
+      setDashboardLoading(false);
+      return;
+    }
     if (selectedLaunchpadId) {
       loadDashboard(selectedLaunchpadId);
     }
-  }, [selectedLaunchpadId, loadDashboard]);
+  }, [selectedLaunchpadId, loadDashboard, canViewOperations]);
 
   const handleFocusApplicationForm = useCallback(
     (cohort) => {
@@ -73,19 +100,23 @@ export default function LaunchpadPage() {
   );
 
   const handleDashboardRefresh = useCallback(() => {
-    if (selectedLaunchpadId) {
+    if (canViewOperations && selectedLaunchpadId) {
       loadDashboard(selectedLaunchpadId);
     }
-  }, [selectedLaunchpadId, loadDashboard]);
+  }, [canViewOperations, selectedLaunchpadId, loadDashboard]);
 
   const handleApplicationSubmitted = useCallback(() => {
     refresh({ force: true });
-    handleDashboardRefresh();
-  }, [refresh, handleDashboardRefresh]);
+    if (canViewOperations) {
+      handleDashboardRefresh();
+    }
+  }, [refresh, handleDashboardRefresh, canViewOperations]);
 
   const handleEmployerSubmitted = useCallback(() => {
-    handleDashboardRefresh();
-  }, [handleDashboardRefresh]);
+    if (canViewOperations) {
+      handleDashboardRefresh();
+    }
+  }, [handleDashboardRefresh, canViewOperations]);
 
   const selectedLaunchpad = useMemo(
     () => items.find((cohort) => cohort.id === selectedLaunchpadId) ?? null,
@@ -99,7 +130,7 @@ export default function LaunchpadPage() {
         <PageHeader
           eyebrow="Experience Launchpad"
           title="Guided programmes to ship portfolio-ready work"
-          description="Co-create alongside mentors and companies with structured sprints, feedback rituals, and community support."
+          description="Join structured cohorts with partner companies, shared rituals, and measurable outcomes for your next leap."
           meta={
             <DataStatus
               loading={loading}
@@ -118,7 +149,7 @@ export default function LaunchpadPage() {
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search by track, mentor, or cohort focus"
+            placeholder="Search by track, cohort focus, or partner company"
             className="w-full rounded-full border border-slate-200 bg-white px-5 py-3 text-sm shadow-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
           />
         </div>
@@ -199,16 +230,94 @@ export default function LaunchpadPage() {
           })}
         </div>
         <div className="mt-12 space-y-8">
-          <LaunchpadPlacementsInsights
-            dashboard={dashboard}
-            loading={dashboardLoading}
-            error={dashboardError}
-            onRefresh={handleDashboardRefresh}
-            launchpad={selectedLaunchpad}
-          />
+          {canViewOperations ? (
+            <>
+              <LaunchpadPlacementsInsights
+                dashboard={dashboard}
+                loading={dashboardLoading}
+                error={dashboardError}
+                onRefresh={handleDashboardRefresh}
+                launchpad={selectedLaunchpad}
+              />
+              {selectedLaunchpadId ? <LaunchpadCandidatePipeline launchpadId={selectedLaunchpadId} /> : null}
+            </>
+          ) : (
+            <section className="rounded-3xl border border-dashed border-slate-300 bg-white/90 p-8 text-center shadow-soft">
+              <h3 className="text-lg font-semibold text-slate-900">Launchpad mission control access required</h3>
+              <p className="mt-2 text-sm text-slate-600">
+                Detailed pipeline telemetry is limited to Launchpad mentors, company programme leads, and administrators. Request
+                access to collaborate on cohort orchestration.
+              </p>
+              <div className="mt-4 flex flex-wrap justify-center gap-3">
+                <Link
+                  to="/dashboard/launchpad"
+                  className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-xs font-semibold text-white shadow-soft transition hover:bg-accentDark"
+                >
+                  Open operations workspace
+                </Link>
+                <a
+                  href="mailto:launchpad@gigvora.com"
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-300 px-5 py-2 text-xs font-semibold text-slate-700 transition hover:border-accent hover:text-accent"
+                >
+                  Request access
+                </a>
+              </div>
+            </section>
+          )}
           <div id="launchpad-apply-form" className="grid gap-6 lg:grid-cols-2">
-            <LaunchpadTalentApplicationForm launchpads={items} onSubmitted={handleApplicationSubmitted} />
-            <LaunchpadEmployerRequestForm launchpads={items} onSubmitted={handleEmployerSubmitted} />
+            {canApplyAsTalent ? (
+              <LaunchpadTalentApplicationForm launchpads={items} onSubmitted={handleApplicationSubmitted} />
+            ) : (
+              <article className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-soft">
+                <h3 className="text-lg font-semibold text-slate-900">Activate your freelancer profile</h3>
+                <p className="mt-2 text-sm text-slate-600">
+                  Experience Launchpad applications are reserved for approved freelancer and mentor memberships. Sign in to your
+                  account or complete your onboarding to share your portfolio.
+                </p>
+                <div className="mt-4 flex flex-wrap justify-center gap-3">
+                  {isAuthenticated ? null : (
+                    <Link
+                      to="/login"
+                      className="inline-flex items-center gap-2 rounded-full border border-slate-300 px-5 py-2 text-xs font-semibold text-slate-700 transition hover:border-accent hover:text-accent"
+                    >
+                      Sign in
+                    </Link>
+                  )}
+                  <Link
+                    to="/register"
+                    className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-xs font-semibold text-white shadow-soft transition hover:bg-accentDark"
+                  >
+                    Complete freelancer onboarding
+                  </Link>
+                </div>
+              </article>
+            )}
+            {canSubmitEmployer ? (
+              <LaunchpadEmployerRequestForm launchpads={items} onSubmitted={handleEmployerSubmitted} />
+            ) : (
+              <article className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
+                <h3 className="text-lg font-semibold text-slate-900">Partner with the Launchpad</h3>
+                <p className="mt-2 text-sm text-slate-600">
+                  Sign in with a company or agency membership to submit employer briefs and align mentor pods to your briefs.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  {isAuthenticated ? null : (
+                    <Link
+                      to="/login"
+                      className="inline-flex items-center gap-2 rounded-full border border-slate-300 px-5 py-2 text-xs font-semibold text-slate-700 transition hover:border-accent hover:text-accent"
+                    >
+                      Sign in
+                    </Link>
+                  )}
+                  <Link
+                    to="/register/company"
+                    className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-xs font-semibold text-white shadow-soft transition hover:bg-accentDark"
+                  >
+                    Create company workspace
+                  </Link>
+                </div>
+              </article>
+            )}
           </div>
         </div>
       </div>

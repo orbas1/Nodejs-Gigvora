@@ -32,13 +32,16 @@ Deliver a cohesive, themeable Gigvora experience that makes talent discovery, bo
 - **Navigation**: Mega-menu featuring creator categories, Experience Launchpad, Volunteers, Agencies, and Monetisation; persistent search and account controls.
 - **Booking & Checkout**: Single-page configurator with step indicators, sticky summary, inline error states, and compliance tooltips.
 - **Knowledge & Support Pages**: New structured templates for FAQs, compliance disclosures, and help centre content using the same partial library.
-- **Provider Dashboards**: Table, card, and chart patterns aligned with mobile experiences, including theme-safe density and iconography. Volunteer staffing board introduces allocation matrix (talent, mission, hours), safeguarding compliance alerts, and export controls that mirror the new backend reporting endpoints.
+- **Provider Dashboards**: Table, card, and chart patterns aligned with mobile experiences, including theme-safe density and iconography. Volunteer staffing board introduces allocation matrix (talent, mission, hours), safeguarding compliance alerts, and export controls that mirror the new backend reporting endpoints. The agency HR command centre adds staffing capacity tiles, role coverage bars, compliance alert banners, and onboarding queue chips wired to the refreshed dashboard service so providers receive actionable workforce telemetry. The finance control tower layers revenue stat tiles, payout distribution charts, runway/tax readiness panels, and export history badges on top of the finance payload to give operations teams a production-quality command centre.
 - **Trust Center**: Operations-grade dashboard presenting escrow KPIs, release queues, dispute workload, and evidence health messaging with accessibility-first typography and audit copy.
 
 ### Provider Tools (Web & Mobile)
-- **Agency Dashboards**: Pipeline overview, financial health, and volunteer staffing views using new data visualisation tokens.
+- **Agency Dashboards**: Pipeline overview, finance control tower, and volunteer staffing views using new data visualisation tokens, ensuring revenue, payout, runway, and compliance widgets share the same grammar as HR and pipeline analytics.
+- **Agency Dashboards**: Pipeline overview, financial health, payments distribution, and volunteer staffing views using new data visualisation tokens with export and payout status states.
 - **Company Dashboards**: ATS timeline, interview scheduler, and Launchpad readiness cards with contextual actions and theme-specific badges.
 - **Settings & Administration**: Unified preference pages for theme selection, security controls, and compliance documents.
+
+The payments distribution workspace introduces dedicated payout scorecards, outstanding split chips, teammate distribution tables, and export download controls so finance teams receive parity-ready specifications alongside the existing HR command centre assets.
 
 ## Design System & Theming
 - **Token Architecture**: Root tokens for colour, type scale, radius, elevation, opacity, and motion. Theme-specific tokens cascade to components and are exported to Flutter (JSON) and React (TypeScript). Theme switch toggles available to marketing for homepage/landing pages and to agencies for white-labelling.

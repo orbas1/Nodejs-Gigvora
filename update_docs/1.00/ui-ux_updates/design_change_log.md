@@ -23,6 +23,7 @@
 - **Volunteers Hub (Aug 27):** Introduced invitation manager table, commitment timeline, impact insights (hours logged, beneficiaries reached), safeguarding checklist, and recommendation carousel wired to the new volunteer service payloads. UI covers accept/decline/waive flows with compliance prompts (DBS, liability waivers), offline hour logging support, and analytics emitters for participation, all mirrored across React, Flutter, and provider artefacts.
 - **Trust Center:** Introduced operations dashboard layout featuring escrow KPI tiles, release queue table, dispute cards, and Cloudflare R2 evidence messaging aligned to the blue design system.
 - **Trust Center (Aug 09):** Finalised KPI thresholds, operations copy, and evidence health messaging to mirror the signed-off runbook, ensuring design artefacts match the shipped React implementation.
+- **Agency finance distribution (Sep 25):** Added payments dashboard blueprint with payout batch hero cards, outstanding split status chips, teammate allocation donut, export readiness checklist, and ledger export CTA patterns tied to the new agency finance payloads. Copy emphasises audit trails, export retention, and compliance triggers while accessibility notes cover keyboard reordering, focus management, and screen reader descriptions for currency deltas.
 - **Auth & Admin:** Registration split between individual/company, each using stepped forms with helper text; admin login emphasises secure entry with accent callouts and audit reminders.
 - **Documentation suite:** Version 1.00 now includes detailed component, styling, page, and data specifications under `Web Application Design Update/Version 1.00 update/` for engineering hand-off.
 - **Auto-Assign (Aug 24):** Introduced queue page, scorecard drawer, and eligibility banners. Designs consume backend scoring payloads (skills, availability, launchpad) and surface countdown-aware actions with accessibility annotations, unlocking React implementation of the new auto-assign engine.
@@ -46,6 +47,7 @@
 - Analytics overlays include ads performance, launchpad throughput, and volunteer impact cards with sparkline visualisations, all using shared accent palettes.
 - Auto-assign hub now mapped with queue table, override modal, KPI cards, and decline-feedback loop to power recruiter decisioning. Designs specify SLA breach states, manual promotion triggers, and audit logging copy that align with the newly merged Node.js endpoints.
 - Volunteers staffing console mirrors the web Volunteer Hub, exposing allocation matrix, safeguarding alerts, impact exports, and invite escalation workflows so agencies can triage non-responses and hour variance breaches using the same analytics definitions as operations dashboards.
+- Finance control tower module pairs revenue stat tiles, payout distribution charts, runway reserve gauges, and tax/export badges with upcoming batch previews to give provider finance teams a command centre aligned with the new finance payload and React implementation.
 
 ## Accessibility & Quality
 - Web: focus outlines preserved on nav, buttons, chips; large-touch variants for cards; ARIA labelling on CTA groups.

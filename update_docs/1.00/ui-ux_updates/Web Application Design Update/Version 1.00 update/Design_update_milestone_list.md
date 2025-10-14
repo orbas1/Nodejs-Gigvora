@@ -11,5 +11,6 @@
 - M2 deliverables extended to include floating chat bubble overlay specs and engagement feed cards; approved by engineering and QA.
 - M3 usability study executed for engagement flows with 92% task success; booking wallet refinements planned next cycle.
 - Trust Center operations dashboard packaged with M3 artefacts, aligning escrow KPI visuals and dispute cards with engineering contracts.
-- Operations runbook alignment completed with KPI thresholds and evidence messaging signed off for the web Trust Center experience.
-- M4 audit prep includes overlay focus-trap scripts and localisation copy for support escalation.
+- Finance distribution dashboard blueprint (payout hero, batch table, split tracker, export checklist, teammate distribution) now attached to M3 artefacts with parity notes for React and analytics instrumentation.
+- Operations runbook alignment completed with KPI thresholds, evidence messaging, and finance export retention copy signed off for the web Trust Center and agency finance experiences.
+- M4 audit prep includes overlay focus-trap scripts and localisation copy for support escalation plus finance export consent prompts.
