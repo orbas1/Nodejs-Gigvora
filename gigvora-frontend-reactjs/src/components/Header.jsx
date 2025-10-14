@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import {
   Bars3Icon,
@@ -6,10 +6,11 @@ import {
   ChatBubbleLeftRightIcon,
   ChevronDownIcon,
   LifebuoyIcon,
+  LockClosedIcon,
   PowerIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
-import { Menu, Transition } from '@headlessui/react';
+import { Dialog, Menu, Transition } from '@headlessui/react';
 import { LOGO_URL } from '../constants/branding.js';
 import UserAvatar from './UserAvatar.jsx';
 import { DASHBOARD_LINKS } from '../constants/dashboardLinks.js';
@@ -17,35 +18,34 @@ import useSession from '../hooks/useSession.js';
 import useNotificationCenter from '../hooks/useNotificationCenter.js';
 import useAuthorization from '../hooks/useAuthorization.js';
 import { formatRelativeTime } from '../utils/date.js';
-import { hasExplorerAccess } from '../utils/accessControl.js';
-
-const AUTHENTICATED_NAV_LINKS = [
-  { id: 'feed', to: '/feed', label: 'Live Feed' },
-  { id: 'explorer', to: '/search', label: 'Explorer' },
-  { id: 'mentors', to: '/mentors', label: 'Mentors' },
-  { id: 'inbox', to: '/inbox', label: 'Inbox' },
+import { getExplorerAllowedMemberships, hasExplorerAccess } from '../utils/accessControl.js';
 import { hasFinanceOperationsAccess } from '../utils/permissions.js';
 
-const AUTHENTICATED_NAV_LINKS = [
-  { to: '/feed', label: 'Live Feed' },
-  { to: '/jobs', label: 'Jobs' },
-  { to: '/search', label: 'Explorer' },
-  { to: '/gigs', label: 'Gigs' },
-  { to: '/experience-launchpad', label: 'Launchpad' },
-  { to: '/groups', label: 'Groups' },
-  { to: '/pages', label: 'Pages' },
-  { to: '/mentors', label: 'Mentors' },
-  { to: '/inbox', label: 'Inbox' },
+const NAV_LINKS = [
+  { id: 'feed', to: '/feed', label: 'Live Feed', authOnly: true },
+  { id: 'explorer', to: '/search', label: 'Explorer', authOnly: true, requiresExplorer: true },
+  { id: 'jobs', to: '/jobs', label: 'Jobs', authOnly: true },
+  { id: 'gigs', to: '/gigs', label: 'Gigs', authOnly: true },
+  { id: 'projects', to: '/projects', label: 'Projects', authOnly: true },
+  { id: 'launchpad', to: '/experience-launchpad', label: 'Launchpad', authOnly: true },
+  {
+    id: 'volunteering',
+    to: '/volunteering',
+    label: 'Volunteering',
+    authOnly: true,
+    requiredMemberships: ['volunteer', 'mentor', 'admin'],
+  },
+  { id: 'groups', to: '/groups', label: 'Groups', authOnly: true },
+  { id: 'pages', to: '/pages', label: 'Pages', authOnly: true },
+  { id: 'mentors', to: '/mentors', label: 'Mentors', authOnly: true },
+  { id: 'inbox', to: '/inbox', label: 'Inbox', authOnly: true },
 ];
 
-const VOLUNTEERING_NAV_LINK = { to: '/volunteering', label: 'Volunteering' };
+const EXPLORER_ROLE_LABELS = getExplorerAllowedMemberships().map(
+  (role) => role.charAt(0).toUpperCase() + role.slice(1),
+);
 
-function NotificationMenu({
-  notifications = [],
-  unreadCount = 0,
-  onMarkAll,
-  onMarkSingle,
-}) {
+function NotificationMenu({ notifications = [], unreadCount = 0, onMarkAll, onMarkSingle }) {
   const topNotifications = notifications.slice(0, 6);
 
   return (
@@ -74,11 +74,7 @@ function NotificationMenu({
           <div className="flex items-center justify-between px-2 py-1">
             <p className="text-sm font-semibold text-slate-800">Notifications</p>
             {unreadCount ? (
-              <button
-                type="button"
-                onClick={onMarkAll}
-                className="text-xs font-semibold text-accent hover:text-accentDark"
-              >
+              <button type="button" onClick={onMarkAll} className="text-xs font-semibold text-accent hover:text-accentDark">
                 Mark all read
               </button>
             ) : null}
@@ -100,9 +96,7 @@ function NotificationMenu({
                         active ? 'border-accent/40 bg-accentSoft text-slate-800' : 'border-slate-200 text-slate-600'
                       } ${notification.read ? '' : 'border-accent/40 bg-accentSoft text-slate-800'}`}
                     >
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        {notification.type}
-                      </p>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{notification.type}</p>
                       <p className="mt-1 text-sm font-semibold text-slate-900">{notification.title}</p>
                       <p className="mt-1 text-xs text-slate-500">{formatRelativeTime(notification.timestamp)}</p>
                     </button>
@@ -110,9 +104,7 @@ function NotificationMenu({
                 </Menu.Item>
               ))
             ) : (
-              <li className="rounded-2xl border border-dashed border-slate-200 p-4 text-xs text-slate-500">
-                You’re all caught up.
-              </li>
+              <li className="rounded-2xl border border-dashed border-slate-200 p-4 text-xs text-slate-500">You’re all caught up.</li>
             )}
           </ul>
           <div className="mt-3 flex justify-center">
@@ -158,11 +150,7 @@ function MessageMenu({ threads = [], unreadCount = 0, onMarkAll, onMarkSingle })
           <div className="flex items-center justify-between px-2 py-1">
             <p className="text-sm font-semibold text-slate-800">Messages</p>
             {unreadCount ? (
-              <button
-                type="button"
-                onClick={onMarkAll}
-                className="text-xs font-semibold text-accent hover:text-accentDark"
-              >
+              <button type="button" onClick={onMarkAll} className="text-xs font-semibold text-accent hover:text-accentDark">
                 Mark all read
               </button>
             ) : null}
@@ -192,9 +180,7 @@ function MessageMenu({ threads = [], unreadCount = 0, onMarkAll, onMarkSingle })
                 </Menu.Item>
               ))
             ) : (
-              <li className="rounded-2xl border border-dashed border-slate-200 p-4 text-xs text-slate-500">
-                Inbox is clear.
-              </li>
+              <li className="rounded-2xl border border-dashed border-slate-200 p-4 text-xs text-slate-500">Inbox is clear.</li>
             )}
           </ul>
           <div className="mt-3 flex justify-center">
@@ -217,6 +203,7 @@ function classNames(...classes) {
 
 export default function Header() {
   const [open, setOpen] = useState(false);
+  const [explorerDialogOpen, setExplorerDialogOpen] = useState(false);
   const { session, isAuthenticated, logout } = useSession();
   const { canAccess } = useAuthorization();
   const navigate = useNavigate();
@@ -243,7 +230,6 @@ export default function Header() {
     if (primaryKey && DASHBOARD_LINKS[primaryKey]) {
       return DASHBOARD_LINKS[primaryKey];
     }
-
     return DASHBOARD_LINKS.user;
   }, [isAuthenticated, session?.memberships, session?.primaryDashboard]);
 
@@ -251,7 +237,6 @@ export default function Header() {
     if (!isAuthenticated) {
       return [];
     }
-
     return (session?.memberships ?? [])
       .map((key) => DASHBOARD_LINKS[key]?.label)
       .filter(Boolean);
@@ -261,11 +246,9 @@ export default function Header() {
     if (!isAuthenticated) {
       return null;
     }
-
     if (membershipLabels.length > 1) {
       return membershipLabels.join(' • ');
     }
-
     return membershipLabels[0] ?? session?.title ?? null;
   }, [isAuthenticated, membershipLabels, session?.title]);
 
@@ -276,35 +259,58 @@ export default function Header() {
     return null;
   }, [session?.profileId, session?.userId]);
 
-  const navLinks = useMemo(() => {
-    if (!profileLink) {
-      return AUTHENTICATED_NAV_LINKS;
+  const normalisedMemberships = useMemo(
+    () =>
+      (session?.memberships ?? [])
+        .map((value) => `${value}`.trim().toLowerCase())
+        .filter((value) => value.length),
+    [session?.memberships],
+  );
+
+  const membershipSet = useMemo(() => new Set(normalisedMemberships), [normalisedMemberships]);
+  const explorerAvailable = useMemo(() => hasExplorerAccess(session), [session]);
+  useEffect(() => {
+    if (explorerAvailable) {
+      setExplorerDialogOpen(false);
     }
-    return [...AUTHENTICATED_NAV_LINKS, { to: profileLink, label: 'Profile' }];
-  }, [profileLink]);
+  }, [explorerAvailable]);
+
   const financeAccess = useMemo(() => hasFinanceOperationsAccess(session), [session]);
+
+  const navItems = useMemo(() => {
+    return NAV_LINKS.filter((item) => {
+      if (item.authOnly && !isAuthenticated) {
+        return false;
+      }
+      if (item.requiredMemberships && item.requiredMemberships.length) {
+        return item.requiredMemberships.some((role) => membershipSet.has(role));
+      }
+      return true;
+    });
+  }, [isAuthenticated, membershipSet]);
+
+  const navItemsWithProfile = useMemo(() => {
+    if (isAuthenticated && profileLink) {
+      return [...navItems, { id: 'profile', to: profileLink, label: 'Profile', authOnly: true }];
+    }
+    return navItems;
+  }, [isAuthenticated, navItems, profileLink]);
 
   const navClassName = ({ isActive }) =>
     `relative px-3 py-2 text-sm font-semibold transition-colors ${
       isActive ? 'text-accent' : 'text-slate-500 hover:text-slate-900'
     }`;
 
-  const navLinks = useMemo(() => {
-    const links = [...AUTHENTICATED_NAV_LINKS];
-    if (!isAuthenticated) {
-      return links;
-    }
-    const memberships = (session?.memberships ?? []).map((value) => `${value}`.trim().toLowerCase());
-    if (memberships.some((role) => ['volunteer', 'mentor', 'admin'].includes(role))) {
-      links.push(VOLUNTEERING_NAV_LINK);
-    }
-    return links;
-  }, [isAuthenticated, session?.memberships]);
+  const mobileNavClassName = ({ isActive }) =>
+    `rounded-2xl px-4 py-2 transition ${
+      isActive ? 'bg-accentSoft text-accent' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+    }`;
 
   const closeMobileNav = () => setOpen(false);
 
   const handleLogout = () => {
     logout();
+    setOpen(false);
     navigate('/', { replace: true });
   };
 
@@ -425,199 +431,271 @@ export default function Header() {
     </Menu>
   );
 
-  const explorerAvailable = useMemo(() => hasExplorerAccess(session), [session]);
-  const primaryNavLinks = useMemo(() => {
-    if (!isAuthenticated) {
-      return [];
+  const eligibleRoleList = EXPLORER_ROLE_LABELS.join(', ');
+
+  const renderDesktopNav = () => (
+    <nav className="hidden items-center gap-1 lg:flex">
+      {navItemsWithProfile.map((item) => {
+        if (item.requiresExplorer && !explorerAvailable) {
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setExplorerDialogOpen(true)}
+              className="inline-flex items-center gap-1 rounded-full px-3 py-2 text-sm font-semibold text-slate-400 transition hover:text-slate-600"
+            >
+              <LockClosedIcon className="h-4 w-4" aria-hidden="true" />
+              <span>{item.label}</span>
+            </button>
+          );
+        }
+        return (
+          <NavLink key={item.id} to={item.to} className={navClassName}>
+            {({ isActive }) => (
+              <span className="relative inline-flex items-center">
+                {item.label}
+                <span
+                  className={`absolute -bottom-1 left-0 h-0.5 w-full transform rounded-full transition-all duration-300 ${
+                    isActive ? 'scale-100 bg-accent' : 'scale-0 bg-transparent'
+                  }`}
+                />
+              </span>
+            )}
+          </NavLink>
+        );
+      })}
+    </nav>
+  );
+
+  const renderMobileNavItem = (item) => {
+    if (item.requiresExplorer && !explorerAvailable) {
+      return (
+        <button
+          key={item.id}
+          type="button"
+          onClick={() => setExplorerDialogOpen(true)}
+          className="flex items-center justify-between rounded-2xl border border-dashed border-slate-300 px-4 py-2 text-sm font-semibold text-slate-500"
+        >
+          <span className="inline-flex items-center gap-2">
+            <LockClosedIcon className="h-4 w-4" aria-hidden="true" />
+            {item.label}
+          </span>
+          <span className="text-xs text-slate-400">Request access</span>
+        </button>
+      );
     }
-    return AUTHENTICATED_NAV_LINKS.filter((item) => {
-      if (item.id === 'explorer') {
-        return explorerAvailable;
-      }
-      return true;
-    });
-  }, [isAuthenticated, explorerAvailable]);
+    return (
+      <NavLink key={item.id} to={item.to} onClick={closeMobileNav} className={mobileNavClassName}>
+        {item.label}
+      </NavLink>
+    );
+  };
 
   return (
-    <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-        <Link to="/" className="flex items-center">
-          <img src={LOGO_URL} alt="Gigvora" className="h-12 w-auto" />
-        </Link>
-        {isAuthenticated ? (
-          <nav className="hidden items-center gap-1 md:flex">
-            {primaryNavLinks.map((item) => (
-            {navLinks.map((item) => (
-              <NavLink key={item.to} to={item.to} className={navClassName}>
-                {({ isActive }) => (
-                  <span className="relative inline-flex items-center">
-                    {item.label}
-                    <span
-                      className={`absolute -bottom-1 left-0 h-0.5 w-full transform rounded-full transition-all duration-300 ${
-                        isActive ? 'scale-100 bg-accent' : 'scale-0 bg-transparent'
-                      }`}
-                    />
-                  </span>
-                )}
-              </NavLink>
-            ))}
-          </nav>
-        ) : null}
-        <div className="hidden items-center gap-4 md:flex">
-          {isAuthenticated ? (
-            <div className="flex items-center gap-2">
-              {canAccessNotifications ? (
-                <NotificationMenu
-                  notifications={notifications}
-                  unreadCount={unreadNotificationCount}
-                  onMarkAll={markAllNotificationsAsRead}
-                  onMarkSingle={markNotificationAsRead}
-                />
-              ) : null}
-              <MessageMenu
-                threads={messageThreads}
-                unreadCount={unreadMessageCount}
-                onMarkAll={markAllThreadsAsRead}
-                onMarkSingle={markThreadAsRead}
-              />
-            </div>
-          ) : null}
-          {isAuthenticated && dashboardTarget ? (
-            <>
-              <div className="hidden text-right lg:block">
-                <p className="text-sm font-semibold text-slate-700">{session.name}</p>
-                {sessionSubtitle ? (
-                  <p className="text-xs text-slate-500">{sessionSubtitle}</p>
-                ) : null}
-              </div>
-              <Link
-                to={dashboardTarget.path}
-                className="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
-              >
-                Dashboard
-              </Link>
-              {renderUserMenu()}
-            </>
-          ) : (
-            <>
-              <Link
-                to="/login"
-                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-accent/60 hover:text-accent"
-              >
-                Login
-              </Link>
-              <Link
-                to="/register"
-                className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
-              >
-                Join Now
-              </Link>
-            </>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={() => setOpen((prev) => !prev)}
-          className="rounded-full border border-slate-200 p-2 text-slate-600 md:hidden"
-          aria-label="Toggle navigation"
-        >
-          {open ? <XMarkIcon className="h-6 w-6" /> : <Bars3Icon className="h-6 w-6" />}
-        </button>
-      </div>
-      {open && (
-        <div className="border-t border-slate-200 bg-white px-6 pb-6 md:hidden">
-          {isAuthenticated ? (
-            <>
-              <div className={`grid gap-3 py-4 ${canAccessNotifications ? 'grid-cols-2' : 'grid-cols-1'}`}>
+    <>
+      <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+          <Link to="/" className="flex items-center">
+            <img src={LOGO_URL} alt="Gigvora" className="h-12 w-auto" />
+          </Link>
+          {isAuthenticated ? renderDesktopNav() : null}
+          <div className="hidden items-center gap-4 lg:flex">
+            {isAuthenticated ? (
+              <div className="flex items-center gap-2">
                 {canAccessNotifications ? (
+                  <NotificationMenu
+                    notifications={notifications}
+                    unreadCount={unreadNotificationCount}
+                    onMarkAll={markAllNotificationsAsRead}
+                    onMarkSingle={markNotificationAsRead}
+                  />
+                ) : null}
+                <MessageMenu
+                  threads={messageThreads}
+                  unreadCount={unreadMessageCount}
+                  onMarkAll={markAllThreadsAsRead}
+                  onMarkSingle={markThreadAsRead}
+                />
+              </div>
+            ) : null}
+            {isAuthenticated && dashboardTarget ? (
+              <>
+                <div className="hidden text-right xl:block">
+                  <p className="text-sm font-semibold text-slate-700">{session?.name}</p>
+                  {sessionSubtitle ? <p className="text-xs text-slate-500">{sessionSubtitle}</p> : null}
+                </div>
+                <Link
+                  to={dashboardTarget.path}
+                  className="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
+                >
+                  Dashboard
+                </Link>
+                {renderUserMenu()}
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-accent/60 hover:text-accent"
+                >
+                  Login
+                </Link>
+                <Link
+                  to="/register"
+                  className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
+                >
+                  Join Now
+                </Link>
+              </>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setOpen((prev) => !prev)}
+            className="rounded-full border border-slate-200 p-2 text-slate-600 lg:hidden"
+            aria-label="Toggle navigation"
+          >
+            {open ? <XMarkIcon className="h-6 w-6" /> : <Bars3Icon className="h-6 w-6" />}
+          </button>
+        </div>
+        {open ? (
+          <div className="border-t border-slate-200 bg-white px-6 pb-6 lg:hidden">
+            {isAuthenticated ? (
+              <>
+                <div className={`grid gap-3 py-4 ${canAccessNotifications ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                  {canAccessNotifications ? (
+                    <Link
+                      to="/notifications"
+                      onClick={closeMobileNav}
+                      className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent"
+                    >
+                      Notifications
+                      <span className="inline-flex min-h-[1.5rem] min-w-[1.5rem] items-center justify-center rounded-full bg-rose-500 px-2 text-xs font-semibold text-white">
+                        {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                      </span>
+                    </Link>
+                  ) : null}
                   <Link
-                    to="/notifications"
+                    to="/inbox"
                     onClick={closeMobileNav}
                     className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent"
                   >
-                    Notifications
-                    <span className="inline-flex min-h-[1.5rem] min-w-[1.5rem] items-center justify-center rounded-full bg-rose-500 px-2 text-xs font-semibold text-white">
-                      {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                    Messages
+                    <span className="inline-flex min-h-[1.5rem] min-w-[1.5rem] items-center justify-center rounded-full bg-emerald-500 px-2 text-xs font-semibold text-white">
+                      {unreadMessageCount > 9 ? '9+' : unreadMessageCount}
                     </span>
                   </Link>
+                </div>
+                <nav className="flex flex-col gap-2 py-4 text-sm font-semibold">
+                  {navItemsWithProfile.map((item) => renderMobileNavItem(item))}
+                </nav>
+                {dashboardTarget ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3 rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-3">
+                      <UserAvatar name={session?.name} seed={session?.avatarSeed ?? session?.name} size="xs" showGlow={false} />
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-slate-800">{session?.name}</p>
+                        {sessionSubtitle ? <p className="text-xs text-slate-500">{sessionSubtitle}</p> : null}
+                      </div>
+                      <Link
+                        to={dashboardTarget.path}
+                        onClick={closeMobileNav}
+                        className="rounded-full bg-accent px-3 py-2 text-xs font-semibold uppercase tracking-wide text-white"
+                      >
+                        Dashboard
+                      </Link>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl border border-rose-100 px-4 py-2 text-sm font-semibold text-rose-600 transition hover:border-rose-200 hover:bg-rose-50"
+                    >
+                      <PowerIcon className="h-4 w-4" /> Logout
+                    </button>
+                  </div>
                 ) : null}
+              </>
+            ) : (
+              <div className="flex gap-3 py-4">
                 <Link
-                  to="/inbox"
+                  to="/login"
                   onClick={closeMobileNav}
-                  className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent"
+                  className="flex-1 rounded-full border border-slate-200 px-4 py-2 text-center text-sm font-semibold text-slate-600"
                 >
-                  Messages
-                  <span className="inline-flex min-h-[1.5rem] min-w-[1.5rem] items-center justify-center rounded-full bg-emerald-500 px-2 text-xs font-semibold text-white">
-                    {unreadMessageCount > 9 ? '9+' : unreadMessageCount}
-                  </span>
+                  Login
+                </Link>
+                <Link
+                  to="/register"
+                  onClick={closeMobileNav}
+                  className="flex-1 rounded-full bg-accent px-4 py-2 text-center text-sm font-semibold text-white"
+                >
+                  Join Now
                 </Link>
               </div>
-              <nav className="flex flex-col gap-1 py-4 text-sm font-semibold">
-                {primaryNavLinks.map((item) => (
-                {navLinks.map((item) => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    onClick={closeMobileNav}
-                    className={({ isActive }) =>
-                      `rounded-2xl px-4 py-2 transition ${
-                        isActive ? 'bg-accentSoft text-accent' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                      }`
-                    }
-                  >
-                    {item.label}
-                  </NavLink>
-                ))}
-              </nav>
-              {dashboardTarget ? (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3 rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-3">
-                    <UserAvatar name={session?.name} seed={session?.avatarSeed ?? session?.name} size="xs" showGlow={false} />
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-slate-800">{session?.name}</p>
-                      {sessionSubtitle ? <p className="text-xs text-slate-500">{sessionSubtitle}</p> : null}
-                    </div>
-                    <Link
-                      to={dashboardTarget.path}
-                      onClick={closeMobileNav}
-                      className="rounded-full bg-accent px-3 py-2 text-xs font-semibold uppercase tracking-wide text-white"
-                    >
-                      Dashboard
-                    </Link>
+            )}
+          </div>
+        ) : null}
+      </header>
+
+      <Transition appear show={explorerDialogOpen} as={Fragment}>
+        <Dialog as="div" className="relative z-[60]" onClose={setExplorerDialogOpen}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-200"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-150"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-6">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-200"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-150"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-3xl border border-slate-200/70 bg-white p-6 text-left align-middle shadow-2xl">
+                  <div className="flex items-center gap-3">
+                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-accent/10 text-accent">
+                      <LockClosedIcon className="h-5 w-5" aria-hidden="true" />
+                    </span>
+                    <Dialog.Title className="text-lg font-semibold text-slate-900">Explorer access is limited</Dialog.Title>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      closeMobileNav();
-                      handleLogout();
-                    }}
-                    className="flex w-full items-center justify-center gap-2 rounded-2xl border border-rose-100 px-4 py-2 text-sm font-semibold text-rose-600 transition hover:border-rose-200 hover:bg-rose-50"
-                  >
-                    <PowerIcon className="h-4 w-4" /> Logout
-                  </button>
-                </div>
-              ) : null}
-            </>
-          ) : (
-            <div className="flex gap-3 py-4">
-              <Link
-                to="/login"
-                onClick={closeMobileNav}
-                className="flex-1 rounded-full border border-slate-200 px-4 py-2 text-center text-sm font-semibold text-slate-600"
-              >
-                Login
-              </Link>
-              <Link
-                to="/register"
-                onClick={closeMobileNav}
-                className="flex-1 rounded-full bg-accent px-4 py-2 text-center text-sm font-semibold text-white"
-              >
-                Join Now
-              </Link>
+                  <Dialog.Description className="mt-4 text-sm text-slate-600">
+                    Explorer search is reserved for eligible workspaces. Switch to a membership that includes Explorer or request
+                    an upgrade from your Gigvora administrator.
+                  </Dialog.Description>
+                  <p className="mt-4 text-xs uppercase tracking-wide text-slate-500">Eligible memberships</p>
+                  <p className="text-sm font-medium text-slate-700">{eligibleRoleList}</p>
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    <Link
+                      to="/settings"
+                      onClick={() => setExplorerDialogOpen(false)}
+                      className="inline-flex items-center justify-center rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+                    >
+                      Manage memberships
+                    </Link>
+                    <a
+                      href="mailto:support@gigvora.com"
+                      className="inline-flex items-center justify-center rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
+                    >
+                      Contact support
+                    </a>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
             </div>
-          )}
-        </div>
-      )}
-    </header>
+          </div>
+        </Dialog>
+      </Transition>
+    </>
   );
 }
