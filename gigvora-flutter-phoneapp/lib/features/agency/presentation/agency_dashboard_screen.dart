@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
+import 'package:intl/intl.dart';
 
 import '../../auth/application/session_controller.dart';
 import '../../auth/domain/session.dart';
@@ -534,6 +535,9 @@ class _AgencyHrSection extends StatelessWidget {
         caption: 'Target 88%',
       ),
     ];
+    final delegation = hr.delegation;
+    final milestones = hr.milestones;
+    final paymentSplits = hr.paymentSplits;
 
     return GigvoraCard(
       child: Column(
@@ -608,6 +612,12 @@ class _AgencyHrSection extends StatelessWidget {
                   ),
                 )
                 .toList(),
+          ),
+          const SizedBox(height: 20),
+          _HrControlRow(
+            delegation: delegation,
+            milestones: milestones,
+            paymentSplits: paymentSplits,
           ),
           const SizedBox(height: 20),
           Text('Priority alerts', style: theme.textTheme.titleMedium),
@@ -820,6 +830,307 @@ class _AgencyHrSection extends StatelessWidget {
                   )
                   .toList(),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HrControlRow extends StatelessWidget {
+  const _HrControlRow({
+    required this.delegation,
+    required this.milestones,
+    required this.paymentSplits,
+  });
+
+  final AgencyDelegationSummary delegation;
+  final AgencyMilestoneSummary milestones;
+  final AgencyPaymentSplitSummary paymentSplits;
+
+  String _formatPercent(double value) {
+    final percent = (value * 100).clamp(0, 100);
+    return percent % 1 == 0 ? '${percent.toStringAsFixed(0)}%' : '${percent.toStringAsFixed(1)}%';
+  }
+
+  String _formatHours(double? value) => '${(value ?? 0).toStringAsFixed(0)}h';
+
+  String _formatCurrencyLabel(double? value, String? currency) {
+    if (value == null) {
+      return 'Awaiting schedule';
+    }
+    return NumberFormat.simpleCurrency(name: currency ?? 'USD').format(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final assignments = delegation.assignments.take(3).toList();
+    final nextMilestone = milestones.next;
+    final nextPayoutLabel = paymentSplits.nextPayoutDate != null
+        ? formatRelativeTime(paymentSplits.nextPayoutDate!)
+        : 'Awaiting schedule';
+    final payoutAmountLabel =
+        _formatCurrencyLabel(paymentSplits.nextPayoutAmount, paymentSplits.nextPayoutCurrency);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 720;
+        final itemWidth = isWide ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth;
+
+        return Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            SizedBox(
+              width: itemWidth,
+              child: _HrControlCard(
+                title: 'Delegation control',
+                subtitle: '${delegation.activeAssignments} active pods',
+                badgeLabel: _formatPercent(delegation.utilisation),
+                description:
+                    '${delegation.backlogCount} backlog • ${delegation.atRiskCount} at risk',
+                background: const Color(0xFFF5F3FF),
+                borderColor: const Color(0xFFDDD6FE),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final assignment in assignments)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFEDE9FE)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              assignment.memberName,
+                              style: theme.textTheme.bodyMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${assignment.role} • ${_formatHours(assignment.allocatedHours)} of ${_formatHours(assignment.capacityHours)}',
+                              style: theme.textTheme.bodySmall
+                                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (assignments.isEmpty)
+                      Text(
+                        'No delegated pods captured.',
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: () => context.push('/projects'),
+                      icon: const Icon(Icons.open_in_new, size: 16),
+                      label: const Text('Open projects workspace'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SizedBox(
+              width: itemWidth,
+              child: _HrControlCard(
+                title: 'Milestone assurance',
+                subtitle:
+                    '${milestones.completed} completed • ${milestones.overdue} overdue',
+                description: '${milestones.upcoming} upcoming checkpoints',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _HrChip(label: 'Completed', value: milestones.completed.toString()),
+                        _HrChip(label: 'Upcoming', value: milestones.upcoming.toString()),
+                        _HrChip(label: 'Overdue', value: milestones.overdue.toString()),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    if (nextMilestone != null)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(16),
+                          border:
+                              Border.all(color: theme.colorScheme.primary.withOpacity(0.2)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              nextMilestone.title,
+                              style: theme.textTheme.bodyMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${nextMilestone.project ?? 'Delivery'} • ${nextMilestone.dueDate != null ? formatRelativeTime(nextMilestone.dueDate!) : (nextMilestone.status ?? 'scheduled')}',
+                              style: theme.textTheme.bodySmall
+                                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      Text(
+                        'All milestones are on track.',
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: () => context.push('/projects'),
+                      icon: const Icon(Icons.calendar_today_outlined, size: 16),
+                      label: const Text('View delivery timeline'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SizedBox(
+              width: itemWidth,
+              child: _HrControlCard(
+                title: 'Payment orchestration',
+                subtitle:
+                    '${paymentSplits.approvedSplits} approved • ${paymentSplits.pendingSplits} pending',
+                badgeLabel: _formatPercent(paymentSplits.coverage),
+                description: '${paymentSplits.failedSplits} flagged for review',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _HrChip(
+                          label: 'Total splits',
+                          value: paymentSplits.totalSplits.toString(),
+                        ),
+                        _HrChip(
+                          label: 'Failed',
+                          value: paymentSplits.failedSplits.toString(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Next batch $nextPayoutLabel',
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      payoutAmountLabel,
+                      style:
+                          theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: () => context.push('/finance'),
+                      icon: const Icon(Icons.payments_outlined, size: 16),
+                      label: const Text('Review payout centre'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _HrControlCard extends StatelessWidget {
+  const _HrControlCard({
+    required this.title,
+    required this.subtitle,
+    required this.description,
+    required this.child,
+    this.badgeLabel,
+    this.background,
+    this.borderColor,
+  });
+
+  final String title;
+  final String subtitle;
+  final String description;
+  final Widget child;
+  final String? badgeLabel;
+  final Color? background;
+  final Color? borderColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: background ?? colorScheme.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: borderColor ?? colorScheme.outlineVariant.withOpacity(0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: colorScheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+              if (badgeLabel != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: borderColor ?? colorScheme.primary.withOpacity(0.25),
+                    ),
+                  ),
+                  child: Text(
+                    badgeLabel!,
+                    style: theme.textTheme.labelMedium
+                        ?.copyWith(color: colorScheme.primary, fontWeight: FontWeight.w600),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            description,
+            style:
+                theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 12),
+          child,
         ],
       ),
     );

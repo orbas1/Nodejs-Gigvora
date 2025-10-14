@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowPathIcon,
+  ArrowRightIcon,
   ArrowTrendingUpIcon,
   BriefcaseIcon,
   BuildingOffice2Icon,
@@ -78,6 +79,20 @@ function formatDecimal(value, fractionDigits = 1) {
     return Number(0).toFixed(fractionDigits);
   }
   return Number(value).toFixed(fractionDigits);
+}
+
+function countEntries(value) {
+  if (Array.isArray(value)) {
+    return value.length;
+  }
+  if (value && typeof value === 'object') {
+    return Object.values(value).reduce((total, entry) => {
+      const numeric = Number(entry);
+      return Number.isFinite(numeric) ? total + numeric : total;
+    }, 0);
+  }
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : 0;
 }
 
 function formatScorecardValue(card, defaultCurrency = 'USD') {
@@ -318,6 +333,13 @@ export default function AgencyDashboardPage() {
   const invites = state.data?.members?.invites ?? [];
   const projects = state.data?.projects?.list ?? [];
   const projectEvents = state.data?.projects?.events ?? [];
+  const projectAssignments = useMemo(
+    () =>
+      (projects || []).flatMap((project) =>
+        Array.isArray(project?.assignments) ? project.assignments : [],
+      ),
+    [projects],
+  );
   const contactNotes = state.data?.contactNotes ?? [];
   const gigs = state.data?.gigs ?? [];
   const jobs = state.data?.jobs ?? [];
@@ -668,6 +690,198 @@ export default function AgencyDashboardPage() {
   ]);
   const availabilityBreakdown = staffingCapacity.availabilityBreakdown ?? [];
   const hrHealth = staffingCapacity.health ?? {};
+  const hrDelegationSource = hrManagement.delegation ?? state.data?.projects?.delegation ?? {};
+  const hrDelegationAssignments =
+    Array.isArray(hrDelegationSource.assignments) && hrDelegationSource.assignments.length
+      ? hrDelegationSource.assignments
+      : projectAssignments;
+  const hrDelegationBacklogRaw =
+    hrDelegationSource.backlog ??
+    hrDelegationSource.queue ??
+    hrManagement.assignmentBacklog ??
+    [];
+  const hrDelegationBacklogCount = countEntries(hrDelegationBacklogRaw);
+  const hrDelegationCapacityHours = hrDelegationAssignments.reduce(
+    (total, assignment) =>
+      total +
+      (Number(
+        assignment?.capacityHours ??
+          assignment?.capacity ??
+          assignment?.totalCapacityHours ??
+          assignment?.capacityHoursWeekly ??
+          0,
+      ) || 0),
+    0,
+  );
+  const hrDelegationAllocatedHours = hrDelegationAssignments.reduce(
+    (total, assignment) =>
+      total +
+      (Number(
+        assignment?.allocatedHours ??
+          assignment?.allocationHours ??
+          assignment?.currentHours ??
+          assignment?.hoursAllocated ??
+          assignment?.loadHours ??
+          0,
+      ) || 0),
+    0,
+  );
+  const hrDelegationUtilizationPercent =
+    hrDelegationCapacityHours > 0
+      ? Math.min(100, Math.max(0, (hrDelegationAllocatedHours / hrDelegationCapacityHours) * 100))
+      : 0;
+  const hrDelegationAtRiskCount = hrDelegationAssignments.reduce((total, assignment) => {
+    const status = `${assignment?.status ?? assignment?.health ?? ''}`.toLowerCase();
+    return status.includes('risk') || status.includes('blocked') || status.includes('overallocated')
+      ? total + 1
+      : total;
+  }, 0);
+  const hrDelegationSpotlight = hrDelegationAssignments.slice(0, 3);
+
+  const hrMilestoneSource = hrManagement.milestones ?? state.data?.projects?.milestones ?? {};
+  const fallbackMilestoneEvents = useMemo(
+    () =>
+      projectEvents.filter((event) => {
+        const type = (event?.eventType ?? '').toString().toLowerCase();
+        return type.includes('milestone');
+      }),
+    [projectEvents],
+  );
+  const fallbackUpcomingMilestones = useMemo(
+    () =>
+      fallbackMilestoneEvents.filter((event) => {
+        const type = (event?.eventType ?? '').toString().toLowerCase();
+        const status = (event?.payload?.status ?? '').toString().toLowerCase();
+        return (
+          type.includes('upcoming') ||
+          type.includes('scheduled') ||
+          status.includes('upcoming') ||
+          status.includes('scheduled')
+        );
+      }),
+    [fallbackMilestoneEvents],
+  );
+  const fallbackOverdueMilestones = useMemo(
+    () =>
+      fallbackMilestoneEvents.filter((event) => {
+        const type = (event?.eventType ?? '').toString().toLowerCase();
+        const status = (event?.payload?.status ?? '').toString().toLowerCase();
+        return (
+          type.includes('overdue') ||
+          type.includes('late') ||
+          status.includes('overdue') ||
+          status.includes('late')
+        );
+      }),
+    [fallbackMilestoneEvents],
+  );
+  const hrMilestoneUpcomingEntries =
+    Array.isArray(hrMilestoneSource.upcoming) && hrMilestoneSource.upcoming.length
+      ? hrMilestoneSource.upcoming
+      : fallbackUpcomingMilestones;
+  const hrMilestoneOverdueEntries =
+    Array.isArray(hrMilestoneSource.overdue) && hrMilestoneSource.overdue.length
+      ? hrMilestoneSource.overdue
+      : fallbackOverdueMilestones;
+  const hrMilestoneUpcomingCount = Array.isArray(hrMilestoneUpcomingEntries)
+    ? hrMilestoneUpcomingEntries.length
+    : countEntries(hrMilestoneUpcomingEntries);
+  const hrMilestoneOverdueCount = Array.isArray(hrMilestoneOverdueEntries)
+    ? hrMilestoneOverdueEntries.length
+    : countEntries(hrMilestoneOverdueEntries);
+  const hrMilestoneCompletedCount = countEntries(
+    hrMilestoneSource.completed ?? hrMilestoneSource.completedCount ?? hrMilestoneSource.done,
+  );
+  const hrMilestoneNext =
+    hrMilestoneSource.next ??
+    (Array.isArray(hrMilestoneSource.upcoming) && hrMilestoneSource.upcoming.length
+      ? hrMilestoneSource.upcoming[0]
+      : hrMilestoneUpcomingEntries[0] ?? fallbackMilestoneEvents[0] ?? null);
+  const hrMilestoneNextTitle = hrMilestoneNext
+    ? hrMilestoneNext.title ??
+      hrMilestoneNext.name ??
+      hrMilestoneNext.milestone ??
+      hrMilestoneNext.payload?.milestone ??
+      'Next milestone'
+    : null;
+  const hrMilestoneNextProject =
+    hrMilestoneNext?.projectTitle ??
+    hrMilestoneNext?.project?.title ??
+    hrMilestoneNext?.project ??
+    hrMilestoneNext?.payload?.project ??
+    null;
+  const hrMilestoneNextDueAt =
+    hrMilestoneNext?.dueAt ??
+    hrMilestoneNext?.dueDate ??
+    hrMilestoneNext?.expectedAt ??
+    hrMilestoneNext?.occursAt ??
+    hrMilestoneNext?.scheduledAt ??
+    hrMilestoneNext?.payload?.dueAt ??
+    hrMilestoneNext?.payload?.dueDate ??
+    hrMilestoneNext?.createdAt ??
+    null;
+
+  const hrPaymentSplitSource = hrManagement.paymentSplits ?? paymentsDistribution.hrSummary ?? {};
+  const hrPaymentTotalSplits =
+    Number(
+      hrPaymentSplitSource.totalSplits ??
+        hrPaymentSplitSource.count ??
+        countEntries(paymentsSplitStatus) ??
+        0,
+    ) || 0;
+  const hrPaymentApprovedSplits =
+    Number(hrPaymentSplitSource.approvedSplits ?? paymentsSplitStatus.approved ?? 0) || 0;
+  const hrPaymentPendingSplits =
+    Number(
+      hrPaymentSplitSource.pendingSplits ??
+        paymentsSummary.outstandingSplits?.count ??
+        paymentsSplitStatus.pending ??
+        0,
+    ) || 0;
+  const hrPaymentFailedSplits =
+    Number(
+      hrPaymentSplitSource.failedSplits ??
+        paymentsSummary.failedSplits?.count ??
+        paymentsSplitStatus.failed ??
+        countEntries(paymentsFailedTotals),
+    ) || 0;
+  const hrPaymentCoveragePercent =
+    hrPaymentTotalSplits > 0
+      ? Math.min(100, Math.max(0, (hrPaymentApprovedSplits / hrPaymentTotalSplits) * 100))
+      : 0;
+  const hrPaymentNextPayoutAt =
+    hrPaymentSplitSource.nextPayoutAt ??
+    hrPaymentSplitSource.nextPayoutDate ??
+    paymentsSummary.upcomingBatches?.nextScheduledAt ??
+    paymentsUpcoming?.[0]?.scheduledFor ??
+    paymentsUpcoming?.[0]?.runAt ??
+    null;
+  const hrPaymentNextAmount =
+    hrPaymentSplitSource.nextPayoutAmount ??
+    paymentsSummary.upcomingBatches?.totals?.[0]?.amount ??
+    paymentsUpcoming?.[0]?.totalAmount ??
+    null;
+  const hrPaymentNextCurrency =
+    hrPaymentSplitSource.nextPayoutCurrency ??
+    paymentsSummary.upcomingBatches?.totals?.[0]?.currency ??
+    paymentsUpcoming?.[0]?.currency ??
+    paymentsCurrency;
+  const hrPaymentNextAmountText =
+    hrPaymentNextAmount != null
+      ? formatCurrency(hrPaymentNextAmount, hrPaymentNextCurrency ?? paymentsCurrency)
+      : 'Awaiting schedule';
+  const hrPaymentSpotlight = (Array.isArray(hrPaymentSplitSource.focus) && hrPaymentSplitSource.focus.length
+    ? hrPaymentSplitSource.focus
+    : paymentsTeammates
+  ).slice(0, 3);
+  const hrPaymentPendingAmountText = formatCurrencyTotals(
+    paymentsOutstandingTotals,
+    hrPaymentNextCurrency ?? paymentsCurrency,
+  );
+  const hrPaymentProcessedAmountText = formatCurrencyTotals(
+    paymentsSummary.processedThisQuarter ?? [],
+    hrPaymentNextCurrency ?? paymentsCurrency,
+  );
   const capacityPlanning = talentLifecycle.capacityPlanning ?? {};
   const internalMarketplace = talentLifecycle.internalMarketplace ?? {};
   const leadership = state.data?.marketplaceLeadership ?? {};
@@ -2387,6 +2601,161 @@ export default function AgencyDashboardPage() {
           </dd>
         </div>
       </dl>
+
+      <div className="mt-6 grid gap-4 lg:grid-cols-3">
+        <div className="rounded-2xl border border-purple-200 bg-purple-50/70 p-5 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-purple-600">Delegation control</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">
+                {formatNumber(hrDelegationAssignments.length)} active pods
+              </p>
+            </div>
+            <span className="rounded-full border border-purple-200 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-purple-700">
+              {formatPercent(hrDelegationUtilizationPercent)}
+            </span>
+          </div>
+          <p className="mt-2 text-xs text-slate-500">
+            {formatNumber(hrDelegationBacklogCount)} backlog · {formatNumber(hrDelegationAtRiskCount)} at risk
+          </p>
+          <ul className="mt-4 space-y-3">
+            {hrDelegationSpotlight.length ? (
+              hrDelegationSpotlight.map((assignment) => (
+                <li
+                  key={assignment.id ?? assignment.memberId ?? assignment.memberName ?? assignment.role ?? 'assignment'}
+                  className="rounded-xl border border-white/60 bg-white/80 px-3 py-2 shadow-sm"
+                >
+                  <p className="text-sm font-semibold text-slate-900 truncate">
+                    {assignment.memberName ?? assignment.member ?? 'Assigned member'}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {titleCase(assignment.role ?? assignment.title ?? 'Contributor')} · Load{' '}
+                    {formatNumber(
+                      assignment.allocatedHours ??
+                        assignment.allocationHours ??
+                        assignment.currentHours ??
+                        assignment.hoursAllocated ??
+                        assignment.loadHours ??
+                        0,
+                    )}
+                    h /{' '}
+                    {formatNumber(
+                      assignment.capacityHours ??
+                        assignment.capacity ??
+                        assignment.totalCapacityHours ??
+                        assignment.capacityHoursWeekly ??
+                        0,
+                    )}
+                    h
+                  </p>
+                </li>
+              ))
+            ) : (
+              <li className="text-xs text-slate-500">No delegated pods captured.</li>
+            )}
+          </ul>
+          <a
+            href="#projects-workspace"
+            className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-purple-600 hover:text-purple-700"
+          >
+            Manage delegation
+            <ArrowRightIcon className="h-3.5 w-3.5" />
+          </a>
+        </div>
+
+        <div className="rounded-2xl border border-purple-200 bg-white/85 p-5 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-purple-600">Milestone assurance</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">
+                {formatNumber(hrMilestoneCompletedCount)} completed
+              </p>
+            </div>
+            <span className="rounded-full border border-purple-200 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-purple-700">
+              {formatNumber(hrMilestoneUpcomingCount)} upcoming
+            </span>
+          </div>
+          <p className="mt-2 text-xs text-slate-500">
+            {formatNumber(hrMilestoneOverdueCount)} overdue checkpoints
+          </p>
+          {hrMilestoneNext ? (
+            <div className="mt-4 rounded-xl border border-purple-100 bg-purple-50/60 px-3 py-2">
+              <p className="text-sm font-semibold text-slate-900">
+                {hrMilestoneNextTitle}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                {hrMilestoneNextProject ?? 'Delivery'}
+                {hrMilestoneNextDueAt ? ` • ${formatRelativeTime(hrMilestoneNextDueAt)}` : ''}
+              </p>
+            </div>
+          ) : (
+            <p className="mt-4 text-xs text-slate-500">All milestones are on track.</p>
+          )}
+          <a
+            href="#projects-workspace"
+            className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-purple-600 hover:text-purple-700"
+          >
+            Open delivery timeline
+            <ArrowRightIcon className="h-3.5 w-3.5" />
+          </a>
+        </div>
+
+        <div className="rounded-2xl border border-purple-200 bg-white/90 p-5 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-purple-600">Payment orchestration</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">
+                {formatNumber(hrPaymentApprovedSplits)} approved splits
+              </p>
+            </div>
+            <span className="rounded-full border border-purple-200 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-purple-700">
+              {formatPercent(hrPaymentCoveragePercent)}
+            </span>
+          </div>
+          <p className="mt-2 text-xs text-slate-500">
+            {formatNumber(hrPaymentPendingSplits)} pending · {formatNumber(hrPaymentFailedSplits)} flagged
+          </p>
+          <div className="mt-4 space-y-2 text-xs text-slate-500">
+            <p>
+              Processed {hrPaymentProcessedAmountText} · Outstanding {hrPaymentPendingAmountText}
+            </p>
+            <p>
+              Next batch {hrPaymentNextPayoutAt ? formatRelativeTime(hrPaymentNextPayoutAt) : 'awaiting schedule'} ·{' '}
+              {hrPaymentNextAmountText}
+            </p>
+          </div>
+          <ul className="mt-4 space-y-3">
+            {hrPaymentSpotlight.length ? (
+              hrPaymentSpotlight.map((member) => (
+                <li
+                  key={member.id ?? member.memberId ?? member.name ?? member.contributorName ?? 'payment-member'}
+                  className="rounded-xl border border-white/60 bg-white/80 px-3 py-2 shadow-sm"
+                >
+                  <p className="text-sm font-semibold text-slate-900">
+                    {member.name ?? member.memberName ?? member.contributorName ?? 'Contributor'}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {titleCase(member.role ?? member.contributorType ?? 'Member')} ·{' '}
+                    {formatCurrency(
+                      member.totalAmount ?? member.amount ?? member.value ?? 0,
+                      member.currency ?? hrPaymentNextCurrency ?? paymentsCurrency,
+                    )}
+                  </p>
+                </li>
+              ))
+            ) : (
+              <li className="text-xs text-slate-500">No payout recipients captured for this period.</li>
+            )}
+          </ul>
+          <a
+            href="#payments-distribution"
+            className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-purple-600 hover:text-purple-700"
+          >
+            Review payouts
+            <ArrowRightIcon className="h-3.5 w-3.5" />
+          </a>
+        </div>
+      </div>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-2">
         <div className="space-y-4">
