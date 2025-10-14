@@ -10,5 +10,7 @@ router.post('/register/agency', asyncHandler(authController.registerAgency));
 router.post('/login', asyncHandler(authController.login));
 router.post('/admin/login', asyncHandler(authController.adminLogin));
 router.post('/verify-2fa', asyncHandler(authController.verifyTwoFactor));
+router.post('/two-factor/resend', asyncHandler(authController.resendTwoFactor));
+router.post('/login/google', asyncHandler(authController.googleLogin));
 
 export default router;

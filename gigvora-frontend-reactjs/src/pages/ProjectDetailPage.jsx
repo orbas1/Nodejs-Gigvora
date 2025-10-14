@@ -7,6 +7,8 @@ import projectsService from '../services/projects.js';
 import analytics from '../services/analytics.js';
 import { formatRelativeTime } from '../utils/date.js';
 import ProjectOperationsSection from '../components/projects/ProjectOperationsSection.jsx';
+import { useProjectManagementAccess } from '../hooks/useAuthorization.js';
+import useSession from '../hooks/useSession.js';
 
 const DEFAULT_WEIGHTS = {
   recency: 0.25,
@@ -42,6 +44,8 @@ function formatQueueStatus(status) {
 export default function ProjectDetailPage() {
   const { projectId } = useParams();
   const navigate = useNavigate();
+  const { canManageProjects, denialReason } = useProjectManagementAccess();
+  const { session } = useSession();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -74,7 +78,10 @@ export default function ProjectDetailPage() {
   }, [project?.autoAssignLastRunAt]);
 
   const loadData = useCallback(async () => {
-    if (!projectId) return;
+    if (!projectId || !canManageProjects) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -108,11 +115,49 @@ export default function ProjectDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [projectId]);
+  }, [projectId, canManageProjects]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  if (!canManageProjects) {
+    return (
+      <section className="relative overflow-hidden py-20">
+        <div
+          className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(191,219,254,0.3),_transparent_65%)]"
+          aria-hidden="true"
+        />
+        <div className="relative mx-auto max-w-4xl space-y-8 px-6">
+          <PageHeader
+            eyebrow="Projects"
+            title="Project workspace locked"
+            description="You need an operations, agency, or admin role to view this workspace."
+          />
+          <div className="rounded-4xl border border-amber-200 bg-amber-50/70 p-8 text-sm text-amber-900 shadow-sm">
+            <p className="text-base font-semibold text-amber-900">Access required</p>
+            <p className="mt-3 leading-relaxed">{denialReason}</p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <a
+                href="mailto:operations@gigvora.com?subject=Project workspace access request"
+                className="inline-flex items-center gap-2 rounded-full border border-amber-300 bg-white px-5 py-2 text-sm font-semibold text-amber-900 transition hover:border-amber-400"
+              >
+                Email operations team
+                <span aria-hidden="true">→</span>
+              </a>
+              <button
+                type="button"
+                onClick={() => navigate('/projects')}
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300"
+              >
+                Return to projects
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   const handleFieldChange = (field) => (event) => {
     const value = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
@@ -162,7 +207,7 @@ export default function ProjectDetailPage() {
               },
             }
           : { enabled: false },
-        actorId: 1,
+        actorId: session?.userId ?? session?.id ?? session?.profileId ?? undefined,
       };
 
       await projectsService.updateProject(projectId, payload);
@@ -202,7 +247,7 @@ export default function ProjectDetailPage() {
             weights: normalizedWeights,
           },
         },
-        actorId: 1,
+        actorId: session?.userId ?? session?.id ?? session?.profileId ?? undefined,
       });
       analytics.track(
         'web_project_queue_regenerated',
@@ -240,13 +285,24 @@ export default function ProjectDetailPage() {
         />
 
         <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300"
-          >
-            ← Back
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300"
+            >
+              ← Back
+            </button>
+            {project ? (
+              <Link
+                to={`/projects/${project.id}/auto-match`}
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+              >
+                Auto-match workspace
+                <span aria-hidden="true">→</span>
+              </Link>
+            ) : null}
+          </div>
           {project ? (
             <div className="inline-flex flex-wrap items-center gap-3 rounded-full border border-accent/20 bg-white/80 px-4 py-2 text-xs font-semibold text-slate-600 shadow-soft">
               <span>Auto-assign {project.autoAssignEnabled ? 'enabled' : 'disabled'}</span>

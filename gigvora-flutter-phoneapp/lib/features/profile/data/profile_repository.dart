@@ -46,6 +46,26 @@ class ProfileRepository {
           name
           description
         }
+        references {
+          id
+          client
+          relationship
+          company
+          quote
+          rating
+          status
+          verified
+          lastInteractionAt
+          private
+          weight
+        }
+        referenceSettings {
+          allowPrivate
+          showBadges
+          autoShareToFeed
+          autoRequest
+          escalateConcerns
+        }
         experiences {
           id
           title
@@ -139,5 +159,38 @@ class ProfileRepository {
     }
 
     throw StateError('Profile $profileId could not be loaded');
+  }
+
+  Future<void> requestReferenceInvite(
+    String profileId, {
+    required String clientName,
+    String? email,
+    String? relationship,
+    String? message,
+  }) async {
+    final payload = <String, dynamic>{
+      'clientName': clientName.trim(),
+      if (email != null && email.trim().isNotEmpty) 'email': email.trim(),
+      if (relationship != null && relationship.trim().isNotEmpty) 'relationship': relationship.trim(),
+      if (message != null && message.trim().isNotEmpty) 'message': message.trim(),
+    };
+
+    await _apiClient.post('/profiles/$profileId/references/requests', payload);
+  }
+
+  Future<ProfileReferenceSettings> updateReferenceSettings(
+    String profileId,
+    ProfileReferenceSettings settings,
+  ) async {
+    final response = await _apiClient.put(
+      '/profiles/$profileId/references/settings',
+      settings.toJson(),
+    );
+
+    if (response is Map<String, dynamic>) {
+      return ProfileReferenceSettings.fromJson(response);
+    }
+
+    return settings;
   }
 }

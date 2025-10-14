@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import app from './app.js';
 import { bootstrapOpportunitySearch } from './services/searchIndexService.js';
 import { startProfileEngagementWorker } from './services/profileEngagementService.js';
+import { startNewsAggregationWorker } from './services/newsAggregationService.js';
 
 dotenv.config();
 
@@ -12,6 +13,9 @@ if (process.env.NODE_ENV !== 'test') {
     console.error('Failed to bootstrap Meilisearch indexes', error);
   });
   startProfileEngagementWorker();
+  startNewsAggregationWorker().catch((error) => {
+    console.error('Failed to start Gigvora news aggregation worker', error);
+  });
 }
 
 app.listen(PORT, () => {
