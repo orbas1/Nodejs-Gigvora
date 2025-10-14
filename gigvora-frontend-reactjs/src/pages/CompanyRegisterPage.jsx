@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
 import useSession from '../hooks/useSession.js';
+import { registerCompany, registerAgency } from '../services/auth.js';
+import apiClient from '../services/apiClient.js';
 
 const initialState = {
   companyName: '',
@@ -11,6 +13,9 @@ const initialState = {
   email: '',
   teamSize: '',
   location: '',
+  password: '',
+  confirmPassword: '',
+  twoFactorEnabled: true,
 };
 
 const partnershipPillars = [
@@ -24,6 +29,9 @@ export default function CompanyRegisterPage() {
   const [type, setType] = useState('company');
   const [confirmation, setConfirmation] = useState(null);
   const { isAuthenticated, session, login, updateSession } = useSession();
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -90,6 +98,56 @@ export default function CompanyRegisterPage() {
 
     setConfirmation({ name: resolvedName, type });
     setForm(initialState);
+  const handleToggleTwoFactor = () => {
+    setForm((prev) => ({ ...prev, twoFactorEnabled: !prev.twoFactorEnabled }));
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (form.password !== form.confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+    setStatus('submitting');
+    setError(null);
+    setSuccess(null);
+    try {
+      const [firstName = '', ...restName] = form.contactName.split(' ');
+      const lastName = restName.join(' ');
+      const payload = {
+        email: form.email,
+        password: form.password,
+        firstName: firstName || form.contactName,
+        lastName: lastName || 'Operations',
+        address: form.location,
+        location: form.location,
+        twoFactorEnabled: form.twoFactorEnabled,
+        userType: type,
+        website: form.website,
+        focusArea: form.focusArea,
+      };
+      if (type === 'company') {
+        await registerCompany({
+          ...payload,
+          companyName: form.companyName,
+        });
+      } else {
+        await registerAgency({
+          ...payload,
+          agencyName: form.companyName,
+        });
+      }
+      setSuccess('Thanks! Your workspace is provisioned. Check your inbox for the first sign-in link and 2FA code.');
+      setForm(initialState);
+    } catch (submissionError) {
+      if (submissionError instanceof apiClient.ApiError) {
+        setError(submissionError.body?.message || submissionError.message);
+      } else {
+        setError(submissionError.message || 'Unable to create your workspace.');
+      }
+    } finally {
+      setStatus('idle');
+    }
   };
 
   return (
@@ -246,12 +304,68 @@ export default function CompanyRegisterPage() {
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                 />
               </div>
+              <div className="space-y-2">
+                <label htmlFor="password" className="text-sm font-medium text-slate-700">
+                  Admin password
+                </label>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  value={form.password}
+                  onChange={handleChange}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  placeholder="Create a strong password"
+                  required
+                  minLength={12}
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="confirmPassword" className="text-sm font-medium text-slate-700">
+                  Confirm password
+                </label>
+                <input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  value={form.confirmPassword}
+                  onChange={handleChange}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  placeholder="Repeat password"
+                  required
+                />
+              </div>
             </div>
+            <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-800">Enforce 2FA for administrators</p>
+                <p className="text-xs text-slate-500">Security policies mirror the web and mobile dashboards.</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleToggleTwoFactor}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
+                  form.twoFactorEnabled ? 'bg-accent' : 'bg-slate-300'
+                }`}
+                aria-pressed={form.twoFactorEnabled}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${
+                    form.twoFactorEnabled ? 'translate-x-5' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+            {error ? <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">{error}</p> : null}
+            {success ? <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-600">{success}</p> : null}
             <button
               type="submit"
-              className="w-full rounded-full bg-accent px-8 py-3 text-base font-semibold text-white shadow-soft transition hover:bg-accentDark"
+              className="w-full rounded-full bg-accent px-8 py-3 text-base font-semibold text-white shadow-soft transition hover:bg-accentDark disabled:cursor-not-allowed disabled:bg-accent/60"
+              disabled={status !== 'idle'}
             >
-              Launch {type === 'company' ? 'company' : 'agency'} hub
+              {status === 'submitting'
+                ? 'Provisioning secure workspace…'
+                : `Launch ${type === 'company' ? 'company' : 'agency'} hub`}
             </button>
           </form>
           <aside className="space-y-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
