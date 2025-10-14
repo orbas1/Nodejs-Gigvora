@@ -272,7 +272,7 @@ export async function getApplicationById(id) {
 export async function updateApplicationStatus(id, nextStatus, { actorId, reason } = {}) {
   ensureStatusIsValid(nextStatus);
 
-  const result = await sequelize.transaction(async (trx) => {
+  await sequelize.transaction(async (trx) => {
     const application = await Application.findByPk(id, { transaction: trx, lock: trx.LOCK.UPDATE });
 
     if (!application) {
@@ -298,7 +298,6 @@ export async function updateApplicationStatus(id, nextStatus, { actorId, reason 
 
     await application.save({ transaction: trx });
 
-    return application;
   });
 
   invalidateApplicationCache(id);

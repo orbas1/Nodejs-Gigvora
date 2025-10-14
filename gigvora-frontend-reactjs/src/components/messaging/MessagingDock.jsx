@@ -85,6 +85,10 @@ export default function MessagingDock() {
   const actorId = resolveActorId(session);
   const canUseMessaging = Boolean(isAuthenticated && actorId && canAccessMessaging(session));
 
+  if (!isAuthenticated) {
+    return null;
+  }
+
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState('inbox');
   const [threads, setThreads] = useState([]);
@@ -454,10 +458,11 @@ export default function MessagingDock() {
       <button
         type="button"
         onClick={() => setOpen((previous) => !previous)}
-        className="flex items-center gap-3 rounded-full bg-accent px-5 py-3 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
+        className="flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-soft transition hover:bg-accentDark"
+        aria-label={open ? 'Hide messages' : 'Show messages'}
+        title={open ? 'Hide messages' : 'Show messages'}
       >
-        <ChatBubbleLeftRightIcon className="h-5 w-5" />
-        Messages
+        <ChatBubbleLeftRightIcon className="h-6 w-6" />
       </button>
     </div>
   );

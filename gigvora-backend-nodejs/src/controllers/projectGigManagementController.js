@@ -13,7 +13,7 @@ import {
   resolveRequestUserRole,
 } from '../utils/requestContext.js';
 
-const PROJECT_GIG_ALLOWED_ROLES = [
+const PROJECT_GIG_ALLOWED_ROLES = new Set([
   'client',
   'client_admin',
   'client_lead',
@@ -24,7 +24,7 @@ const PROJECT_GIG_ALLOWED_ROLES = [
   'project_operator',
   'talent_lead',
   'admin',
-];
+]);
 
 function normalizeRole(role) {
   return role?.toString().trim().toLowerCase().replace(/[^a-z0-9]+/g, '_') ?? null;
@@ -44,29 +44,36 @@ function resolveOwnerId(req) {
 function resolveAccess(req, ownerId) {
   const actorId = resolveRequestUserId(req);
   const actorRoleRaw = resolveRequestUserRole(req);
-  const permissions = resolveRequestPermissions(req);
+  const permissions = resolveRequestPermissions(req) ?? [];
   const normalizedRole = normalizeRole(actorRoleRaw);
 
   const permissionList = Array.isArray(permissions) ? permissions : [];
 
   const isOwner = actorId != null && ownerId === actorId;
-  const hasManagePermission = permissionList
+  const permissionFlags = permissions
     .map((permission) => permission.toString().toLowerCase())
-    .some((permission) => permission === 'project-gig-management:manage');
-  const hasReadPermission =
-    hasManagePermission ||
-    permissionList
-      .map((permission) => permission.toString().toLowerCase())
-      .some((permission) => permission === 'project-gig-management:read');
+    .reduce(
+      (acc, permission) => {
+        if (permission === 'project-gig-management:manage') {
+          acc.manage = true;
+        }
+        if (permission === 'project-gig-management:read' || permission === 'project-gig-management:manage') {
+          acc.read = true;
+        }
+        return acc;
+      },
+      { read: false, manage: false },
+    );
 
-  const isAllowedRole = normalizedRole
-    ? PROJECT_GIG_ALLOWED_ROLES.some(
+  const hasRoleAccess = normalizedRole
+    ? Array.from(PROJECT_GIG_ALLOWED_ROLES).some(
         (role) => normalizedRole === role || normalizedRole.endsWith(role) || normalizedRole.includes(role),
       )
     : false;
 
-  const canManage = Boolean(isOwner || hasManagePermission || isAllowedRole);
-  const canView = Boolean(canManage || hasReadPermission);
+  const canManage = Boolean(isOwner || permissionFlags.manage || hasRoleAccess);
+  const canView = Boolean(canManage || permissionFlags.read);
+
   const reason = canManage
     ? null
     : actorRoleRaw
@@ -78,12 +85,12 @@ function resolveAccess(req, ownerId) {
     canView,
     actorId,
     actorRole: normalizedRole,
-    allowedRoles: PROJECT_GIG_ALLOWED_ROLES,
+    allowedRoles: Array.from(PROJECT_GIG_ALLOWED_ROLES),
     reason,
   };
 }
 
-function assertCanView(req, ownerId) {
+function ensureViewAccess(req, ownerId) {
   const access = resolveAccess(req, ownerId);
   if (!access.canView) {
     throw new AuthorizationError('You do not have permission to view gig operations for this member.');
@@ -91,59 +98,84 @@ function assertCanView(req, ownerId) {
   return access;
 }
 
-function assertCanManage(req, ownerId) {
-  const access = assertCanView(req, ownerId);
+function ensureManageAccess(req, ownerId) {
+  const access = ensureViewAccess(req, ownerId);
   if (!access.canManage) {
     throw new AuthorizationError('You do not have permission to manage gig operations for this member.');
   }
   return access;
 }
 
+function parseOwnerId(req) {
+  const candidates = [req.params?.userId, req.params?.id, req.user?.id];
+  for (const candidate of candidates) {
+    const parsed = Number.parseInt(candidate, 10);
+    if (Number.isInteger(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+  const fallback = resolveRequestUserId(req);
+  if (fallback != null) {
+    return fallback;
+  }
+  return null;
+}
+
 export async function overview(req, res) {
-  const ownerId = resolveOwnerId(req);
-  const access = assertCanView(req, ownerId);
+  const ownerId = parseOwnerId(req);
+  const access = ensureViewAccess(req, ownerId);
   const snapshot = await getProjectGigManagementOverview(ownerId);
   res.json({ ...snapshot, access });
 }
 
-export async function storeProject(req, res) {
-  const ownerId = resolveOwnerId(req);
-  const access = assertCanManage(req, ownerId);
-  const project = await createProject(ownerId, req.body);
+async function withDashboardRefresh(ownerId, access, resolver) {
+  const result = await resolver();
   const snapshot = await getProjectGigManagementOverview(ownerId);
-  res.status(201).json({ project, dashboard: { ...snapshot, access } });
+  return { result, snapshot: { ...snapshot, access } };
+}
+
+export async function storeProject(req, res) {
+  const ownerId = parseOwnerId(req);
+  const access = ensureManageAccess(req, ownerId);
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () => createProject(ownerId, req.body));
+  res.status(201).json({ project: result, dashboard: snapshot });
 }
 
 export async function storeAsset(req, res) {
-  const ownerId = resolveOwnerId(req);
-  const access = assertCanManage(req, ownerId);
-  const asset = await addProjectAsset(ownerId, req.params.projectId, req.body);
-  const snapshot = await getProjectGigManagementOverview(ownerId);
-  res.status(201).json({ asset, dashboard: { ...snapshot, access } });
+  const ownerId = parseOwnerId(req);
+  const access = ensureManageAccess(req, ownerId);
+  const projectId = Number.parseInt(req.params?.projectId, 10);
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
+    addProjectAsset(ownerId, projectId, req.body),
+  );
+  res.status(201).json({ asset: result, dashboard: snapshot });
 }
 
 export async function patchWorkspace(req, res) {
-  const ownerId = resolveOwnerId(req);
-  const access = assertCanManage(req, ownerId);
-  const workspace = await updateProjectWorkspace(ownerId, req.params.projectId, req.body);
-  const snapshot = await getProjectGigManagementOverview(ownerId);
-  res.json({ workspace, dashboard: { ...snapshot, access } });
+  const ownerId = parseOwnerId(req);
+  const access = ensureManageAccess(req, ownerId);
+  const projectId = Number.parseInt(req.params?.projectId, 10);
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
+    updateProjectWorkspace(ownerId, projectId, req.body),
+  );
+  res.json({ workspace: result, dashboard: snapshot });
 }
 
 export async function storeGigOrder(req, res) {
-  const ownerId = resolveOwnerId(req);
-  const access = assertCanManage(req, ownerId);
-  const order = await createGigOrder(ownerId, req.body);
-  const snapshot = await getProjectGigManagementOverview(ownerId);
-  res.status(201).json({ order, dashboard: { ...snapshot, access } });
+  const ownerId = parseOwnerId(req);
+  const access = ensureManageAccess(req, ownerId);
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () => createGigOrder(ownerId, req.body));
+  res.status(201).json({ order: result, dashboard: snapshot });
 }
 
 export async function patchGigOrder(req, res) {
-  const ownerId = resolveOwnerId(req);
-  const access = assertCanManage(req, ownerId);
-  const order = await updateGigOrder(ownerId, req.params.orderId, req.body);
-  const snapshot = await getProjectGigManagementOverview(ownerId);
-  res.json({ order, dashboard: { ...snapshot, access } });
+  const ownerId = parseOwnerId(req);
+  const access = ensureManageAccess(req, ownerId);
+  const orderId = Number.parseInt(req.params?.orderId, 10);
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
+    updateGigOrder(ownerId, orderId, req.body),
+  );
+  res.json({ order: result, dashboard: snapshot });
 }
 
 export default {

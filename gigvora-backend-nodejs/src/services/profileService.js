@@ -21,7 +21,7 @@ import {
   recordTrustScoreChange,
   recordTargetingSnapshotChange,
 } from './profileAnalyticsService.js';
-import { normalizeLocationString, normalizeLocationPayload, buildLocationDetails } from '../utils/location.js';
+import { normalizeLocationPayload, buildLocationDetails } from '../utils/location.js';
 import {
   ensureProfileWallets,
   getProfileComplianceSnapshot,
@@ -62,7 +62,7 @@ function isValidEmail(email) {
   if (!email) {
     return true;
   }
-  const emailRegex = /^(?:[A-Za-z0-9_'^&+{}=\-]+(?:\.[A-Za-z0-9_'^&+{}=\-]+)*)@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}$/u;
+  const emailRegex = /^(?:[A-Za-z0-9_'^&+{}=-]+(?:\.[A-Za-z0-9_'^&+{}=-]+)*)@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}$/u;
   return emailRegex.test(email);
 }
 
@@ -70,20 +70,8 @@ function isValidPhone(phone) {
   if (!phone) {
     return true;
   }
-  const phoneRegex = /^[+]?([0-9()[\]\-\s]{5,25})$/u;
+  const phoneRegex = /^[+]?([0-9()[\]\s-]{5,25})$/u;
   return phoneRegex.test(phone);
-}
-
-function isValidUrl(value) {
-  if (!value) {
-    return true;
-  }
-  try {
-    const url = new URL(value);
-    return Boolean(url.protocol && url.host);
-  } catch (error) {
-    return false;
-  }
 }
 
 function limitArray(items, max) {
@@ -302,23 +290,6 @@ function sanitizeQualifications(value) {
     .filter((item) => item.title || item.authority || item.credentialId || item.credentialUrl);
 }
 
-function sanitizePortfolioLinks(value) {
-  const links = limitArray(coerceLinkArray(value), 15)
-    .map((entry) => ({
-      label: sanitizeString(entry.label, { maxLength: 120 }),
-      url: sanitizeString(entry.url, { maxLength: 500 }),
-      description: sanitizeString(entry.description, { maxLength: 240 }),
-    }))
-    .filter((entry) => entry.label || entry.url);
-
-  links.forEach((entry) => {
-    if (entry.url && !isValidUrl(entry.url)) {
-      throw ensureHttpStatus(new ValidationError(`Invalid portfolio URL: ${entry.url}`));
-    }
-  });
-
-  return links;
-}
 
 function sanitizeCollaborationRoster(value) {
   const raw = Array.isArray(value) ? value : coerceObjectArray(value);
@@ -698,7 +669,7 @@ function calculateTrustScore({
     if (!highlight || highlight.value == null) {
       return false;
     }
-    const numeric = Number.parseFloat(`${highlight.value}`.replace(/[^0-9.\-]/g, ''));
+    const numeric = Number.parseFloat(`${highlight.value}`.replace(/[^0-9.-]/g, ''));
     return Number.isFinite(numeric) && numeric > 0;
   }).length;
   const highlightSignal = clamp01(

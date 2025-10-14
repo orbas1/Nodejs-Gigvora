@@ -316,7 +316,11 @@ export function generateConnectionSuggestions({ session, feedPosts = [], limit =
     .filter((connection, index, array) => array.findIndex((item) => item.id === connection.id) === index)
     .sort((a, b) => (b.score || 0) - (a.score || 0));
 
-  return combined.slice(0, limit).map(({ score, ...rest }) => rest);
+  return combined.slice(0, limit).map((connection) => {
+    const { score, ...rest } = connection;
+    void score;
+    return rest;
+  });
 }
 
 export function generateGroupSuggestions({ session, limit = 4 } = {}) {
@@ -332,10 +336,14 @@ export function generateGroupSuggestions({ session, limit = 4 } = {}) {
   return scored
     .sort((a, b) => (b.score || 0) - (a.score || 0))
     .slice(0, limit)
-    .map(({ score, ...rest }) => rest);
+    .map((group) => {
+      const { score, ...rest } = group;
+      void score;
+      return rest;
+    });
 }
 
-export function generateLiveMoments({ session, feedPosts = [], limit = 5 } = {}) {
+export function generateLiveMoments({ feedPosts = [], limit = 5 } = {}) {
   const baseMoments = LIVE_MOMENT_LIBRARY.map((moment) => ({
     ...moment,
     timestamp: moment.timestamp(),
@@ -397,7 +405,7 @@ export function generateNotificationStream({ session, feedPosts = [] } = {}) {
   return combined;
 }
 
-export function generateMessageAlerts(session) {
+export function generateMessageAlerts() {
   return MESSAGE_THREAD_LIBRARY.map((thread, index) => ({
     ...thread,
     timestamp: thread.timestamp(),

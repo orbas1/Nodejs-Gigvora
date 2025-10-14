@@ -353,7 +353,7 @@ export async function buildAssignmentQueue({
     );
 
     await Promise.all(
-      finalSelection.map(async ({ freelancer, metrics }) => {
+      finalSelection.map(async ({ metrics }) => {
         const previousTotalAssigned = safeNumber(metrics.totalAssigned, 0);
         const newTotalAssigned = previousTotalAssigned + 1;
         const currentAvg = safeNumber(metrics.avgAssignedValue, 0);

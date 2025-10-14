@@ -19,12 +19,19 @@ import {
 const DEFAULT_ALLOWED_USER_TYPES = ['user', 'freelancer', 'agency', 'company', 'mentor', 'headhunter', 'admin'];
 const DEFAULT_JOIN_POLICY = 'moderated';
 
-function slugify(name) {
-  return name
+function slugify(value, fallback = 'group') {
+  if (!value) {
+    return fallback;
+  }
+
+  return value
+    .toString()
+    .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
-    .replace(/--+/g, '-');
+    .replace(/--+/g, '-')
+    .slice(0, 80) || fallback;
 }
 
 function unique(array = []) {
@@ -526,90 +533,6 @@ function mapGroupRecord(group, { memberCount, membership, blueprint }) {
   };
 }
 
-export async function listMemberGroups({
-  actorId,
-  limit = 12,
-  offset = 0,
-  focus,
-  query,
-  includeEmpty = false,
-} = {}) {
-  const numericLimit = Math.max(1, Math.min(50, toNumber(limit, 12)));
-  const numericOffset = Math.max(0, toNumber(offset, 0));
-
-  const normalizedActorId = toNumber(actorId, null);
-  if (!normalizedActorId) {
-    throw new AuthorizationError('Authentication is required to access community groups.');
-  }
-  await assertActor(normalizedActorId);
-
-  await sequelize.transaction(async (transaction) => ensureBlueprintGroups(transaction));
-
-  const where = {};
-  if (query) {
-    const pattern = `%${query.trim()}%`;
-    where[Op.or] = [
-      { name: { [Op.iLike ?? Op.like]: pattern } },
-      { description: { [Op.iLike ?? Op.like]: pattern } },
-    ];
-  }
-
-  const groups = await Group.findAll({
-    where,
-    order: [['name', 'ASC']],
-    offset: numericOffset,
-    limit: numericLimit,
-  });
-
-  const groupIds = groups.map((group) => group.id);
-  const [memberCounts, actorMemberships] = await Promise.all([
-    fetchMemberCounts(groupIds),
-    fetchActorMemberships(normalizedActorId, groupIds),
-  ]);
-
-  const enriched = groups
-    .map((group) => {
-      const blueprint = resolveBlueprint(group);
-      const membership = actorMemberships.get(group.id);
-      const memberCount = memberCounts.get(group.id);
-      return mapGroupRecord(group, { memberCount, membership, blueprint });
-    })
-    .filter((item) => includeEmpty || item.stats.memberCount > 0 || item.membership.status === 'member');
-
-  const filtered = enriched.filter((item) => {
-    if (!focus) {
-      return true;
-    }
-    const normalized = `${focus}`.toLowerCase();
-    return item.focusAreas.some((area) => area.toLowerCase().includes(normalized));
-  });
-
-  const refined = filtered.filter((item) => {
-    if (!query) {
-      return true;
-    }
-    const haystack = [item.name, item.summary, ...(item.focusAreas || [])]
-      .join(' ')
-      .toLowerCase();
-    return haystack.includes(query.trim().toLowerCase());
-  });
-
-  const total = await Group.count({ where });
-
-  return {
-    items: refined,
-    pagination: {
-      total,
-      limit: numericLimit,
-      offset: numericOffset,
-    },
-    metadata: {
-      featured: refined.slice(0, 3).map((item) => item.slug),
-      generatedAt: new Date().toISOString(),
-    },
-  };
-}
-
 export async function getGroupProfile(groupIdOrSlug, { actorId } = {}) {
   if (!groupIdOrSlug) {
     throw new ValidationError('A group identifier is required.');
@@ -765,21 +688,9 @@ export async function updateMembershipSettings(groupIdOrSlug, { actorId, role, n
   await membership.save();
 
   return getGroupProfile(profile.slug, { actorId: user.id });
+}
 
 const GROUP_MANAGER_ROLES = new Set(['admin', 'agency']);
-
-function slugify(value, fallback = 'group') {
-  if (!value) {
-    return fallback;
-  }
-  return value
-    .toString()
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 80) || fallback;
-}
 
 function normalizeColour(value) {
   if (!value) {

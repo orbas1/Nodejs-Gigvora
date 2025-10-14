@@ -1,7 +1,7 @@
 import {
   getFreelancerAutomationOverview,
   createPlaybook,
-  updatePlaybook,
+  updatePlaybook as updatePlaybookService,
   enrollClientInPlaybook,
   recordReferral,
   createAffiliateLink,
@@ -24,9 +24,9 @@ export async function storePlaybook(req, res) {
   res.status(201).json(playbook);
 }
 
-export async function updatePlaybookController(req, res) {
+export async function updatePlaybook(req, res) {
   const { freelancerId, playbookId } = req.params;
-  const updated = await updatePlaybook(toNumber(playbookId), toNumber(freelancerId), req.body ?? {});
+  const updated = await updatePlaybookService(toNumber(playbookId), toNumber(freelancerId), req.body ?? {});
   res.json(updated);
 }
 
@@ -57,7 +57,7 @@ export async function storeAffiliateLink(req, res) {
 export default {
   overview,
   storePlaybook,
-  updatePlaybook: updatePlaybookController,
+  updatePlaybook,
   enroll,
   storeReferral,
   storeAffiliateLink,

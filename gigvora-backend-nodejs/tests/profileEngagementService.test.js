@@ -26,11 +26,10 @@ async function bootstrapProfile() {
 }
 
 describe('profileEngagementService', () => {
-  let owner;
   let profile;
 
   beforeEach(async () => {
-    ({ owner, profile } = await bootstrapProfile());
+    ({ profile } = await bootstrapProfile());
   });
 
   it('recalculates engagement metrics from appreciation and followers', async () => {

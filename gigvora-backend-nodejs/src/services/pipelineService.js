@@ -948,7 +948,6 @@ function scorePipelineHealth({
 function buildExperienceUx({
   summary = {},
   conversionRates = {},
-  velocity = {},
   forecast = {},
   risk = {},
   dealFlow = {},

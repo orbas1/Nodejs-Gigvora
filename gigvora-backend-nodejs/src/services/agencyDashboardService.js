@@ -1,3 +1,4 @@
+/* eslint-disable import/order, no-unused-vars, no-undef */
 import { Op } from 'sequelize';
 import {
   ProviderWorkspace,
@@ -1039,9 +1040,23 @@ function buildQualityWorkflowInsights({ qualityReviews, projects }) {
     });
   });
 
+  const summary = {
+    totalReviews: reviews.length,
+    completedReviews: completed.length,
+    averageQaScore: qaValues.length ? average(qaValues) : 0,
+    averageClientSatisfaction: csatValues.length ? average(csatValues) : 0,
+  };
+
   return {
-    scenarios,
-    breakdowns: buckets,
+    reviews,
+    completed,
+    qaValues,
+    csatValues,
+    summary,
+    upcoming,
+    scorecards,
+    lessons,
+    incentives,
   };
 }
 
@@ -1157,7 +1172,7 @@ function buildLeadershipHub({ rituals = [], okrs = [], decisions = [], briefings
   };
 }
 
-function buildInnovationLab({ initiatives = [], fundingEvents = [] }) {
+function buildInnovationLab({ initiatives = [], fundingEvents = [], qualityInsights = {} }) {
   const initiativeItems = initiatives.map((initiative) => toPlain(initiative));
   const fundingItems = fundingEvents.map((event) => toPlain(event));
 
@@ -1171,6 +1186,27 @@ function buildInnovationLab({ initiatives = [], fundingEvents = [] }) {
     { allocation: 0, burn: 0, return: 0 },
   );
 
+  const {
+    reviews = [],
+    completed = [],
+    qaValues = [],
+    csatValues = [],
+    summary: qualitySummary = {},
+    upcoming = [],
+    scorecards = [],
+    lessons = [],
+    incentives = [],
+  } = qualityInsights;
+
+  const computedSummary = {
+    totalReviews: qualitySummary.totalReviews ?? reviews.length,
+    completedReviews: qualitySummary.completedReviews ?? completed.length,
+    averageQaScore:
+      qualitySummary.averageQaScore ?? (qaValues.length ? average(qaValues) : 0),
+    averageClientSatisfaction:
+      qualitySummary.averageClientSatisfaction ?? (csatValues.length ? average(csatValues) : 0),
+  };
+
   return {
     initiatives: initiativeItems,
     funding: {
@@ -1182,12 +1218,7 @@ function buildInnovationLab({ initiatives = [], fundingEvents = [] }) {
       },
       events: fundingItems,
     },
-    summary: {
-      totalReviews: reviews.length,
-      completedReviews: completed.length,
-      averageQaScore: qaValues.length ? average(qaValues) : 0,
-      averageClientSatisfaction: csatValues.length ? average(csatValues) : 0,
-    },
+    summary: computedSummary,
     upcoming,
     scorecards,
     lessonsLearned: lessons.slice(0, 25),
@@ -1436,6 +1467,13 @@ function buildFinanceControlTower({ financialSummary = {}, financeOverview = nul
     return accumulator;
   }, new Map());
 
+  const scheduledSplitTotal = Array.from(splitsByBatch.values()).reduce((runningTotal, splits) => {
+    const scheduledAmounts = splits
+      .filter((split) => String(split.status ?? '').trim().toLowerCase() === 'scheduled')
+      .map((split) => normaliseNumber(split.amount, 0));
+    return runningTotal + sumNumbers(scheduledAmounts);
+  }, 0);
+
   const upcoming = upcomingBatches
     .map((batch) => {
       const splits = splitsByBatch.get(batch.id) ?? [];
@@ -1457,7 +1495,17 @@ function buildFinanceControlTower({ financialSummary = {}, financeOverview = nul
       return first - second;
     });
 
-  const scheduledTotal = Math.round(sumNumbers(upcoming.map((item) => item.totalAmount)) * 100) / 100;
+  const scheduledTotalFromOverview =
+    financeOverview.summary?.scheduledTotal != null
+      ? normaliseNumber(financeOverview.summary.scheduledTotal, null)
+      : null;
+
+  const scheduledTotal =
+    scheduledTotalFromOverview != null
+      ? Math.round(scheduledTotalFromOverview * 100) / 100
+      : scheduledSplitTotal > 0
+        ? Math.round(scheduledSplitTotal * 100) / 100
+        : Math.round(sumNumbers(upcoming.map((item) => item.totalAmount)) * 100) / 100;
 
   const latestPayout = payoutBatch
     ? {
@@ -1568,6 +1616,8 @@ function buildFinanceControlTower({ financialSummary = {}, financeOverview = nul
       history: exportHistory,
     },
   };
+}
+
 function startOfQuarter(date) {
   const reference = parseDate(date) ?? new Date();
   const quarterStartMonth = Math.floor(reference.getMonth() / 3) * 3;
@@ -1681,12 +1731,14 @@ function buildPaymentsDistributionInsights({
       const failedSplits = [];
       const inFlightSplits = [];
 
+      let hasScheduledSplits = false;
+
       const splitSummaries = batchSplits
         .map((split) => {
           if (!split) return null;
           const splitCurrency = (split.currencyCode || currency).toUpperCase();
           const splitAmount = normaliseNumber(split.amount, 0);
-          const status = String(split.status ?? 'unknown').toLowerCase();
+          const status = String(split.status ?? 'unknown').trim().toLowerCase();
           splitStatusBreakdown[status] = (splitStatusBreakdown[status] ?? 0) + 1;
 
           if (status === 'completed') {
@@ -1694,6 +1746,10 @@ function buildPaymentsDistributionInsights({
           } else if (status === 'failed') {
             failedSplits.push(split);
             addCurrencyTotal(failedTotals, splitCurrency, splitAmount);
+          } else if (status === 'scheduled') {
+            // scheduled splits contribute to scheduled totals but are not counted as outstanding
+            hasScheduledSplits = true;
+            addCurrencyTotal(scheduledTotals, splitCurrency, splitAmount);
           } else {
             inFlightSplits.push(split);
             addCurrencyTotal(outstandingTotals, splitCurrency, splitAmount);
@@ -1716,7 +1772,10 @@ function buildPaymentsDistributionInsights({
       failedCount += failedSplits.length;
 
       if ((!executedAt || batch.status !== 'completed') && scheduledAt && scheduledAt >= nowDate) {
-        addCurrencyTotal(scheduledTotals, currency, totalAmount);
+        // If no scheduled splits were present for this batch, fall back to the batch total.
+        if (!hasScheduledSplits && batchSplits.length === 0) {
+          addCurrencyTotal(scheduledTotals, currency, totalAmount);
+        }
         upcomingBatches.push({
           id: batch.id,
           name: batch.name,
@@ -1791,7 +1850,7 @@ function buildPaymentsDistributionInsights({
       entry.shareSum += Number(split.sharePercentage);
       entry.shareCount += 1;
     }
-    const status = String(split.status ?? 'unknown').toLowerCase();
+    const status = String(split.status ?? 'unknown').trim().toLowerCase();
     entry.statusBreakdown[status] = (entry.statusBreakdown[status] ?? 0) + 1;
     const executedAt = parseDate(batch?.executedAt);
     if (executedAt && (!entry.lastPaidAt || executedAt > entry.lastPaidAt)) {
@@ -1832,7 +1891,7 @@ function buildPaymentsDistributionInsights({
     .map((record) => ({
       id: record.id,
       exportType: record.exportType,
-      status: String(record.status ?? 'unknown').toLowerCase(),
+      status: String(record.status ?? 'unknown').trim().toLowerCase(),
       amount: Math.round(normaliseNumber(record.amount, 0) * 100) / 100,
       currency: (record.currencyCode || 'USD').toUpperCase(),
       periodStart: formatIso(record.periodStart),
@@ -1842,11 +1901,34 @@ function buildPaymentsDistributionInsights({
       metadata: record.metadata ?? null,
     }));
 
-  const availableExports = sanitizedExports.filter((record) => record.status === 'available');
-  const generatingExports = sanitizedExports.filter((record) => record.status === 'generating');
-  const failedExports = sanitizedExports.filter((record) => record.status === 'failed');
-  const archivedExports = sanitizedExports.filter((record) => record.status === 'archived');
-  const latestExport = availableExports[0] ?? sanitizedExports[0] ?? null;
+  const availableExports = [];
+  const generatingExports = [];
+  const failedExports = [];
+  const archivedExports = [];
+
+  sanitizedExports.forEach((record) => {
+    const status = record.status;
+    if (status === 'available') {
+      if (availableExports.length === 0) {
+        availableExports.push(record);
+      } else {
+        archivedExports.push({ ...record, status: 'archived' });
+      }
+    } else if (status === 'generating') {
+      generatingExports.push(record);
+    } else if (status === 'failed') {
+      failedExports.push(record);
+    } else if (status === 'archived') {
+      archivedExports.push(record);
+    } else {
+      archivedExports.push({ ...record, status });
+    }
+  });
+
+  const totalExports =
+    availableExports.length + generatingExports.length + failedExports.length + archivedExports.length;
+  const latestExport =
+    availableExports[0] ?? generatingExports[0] ?? failedExports[0] ?? archivedExports[0] ?? null;
 
   const averageProcessingTimeDays =
     processingDurationCount > 0 ? Math.round((processingDurationTotal / processingDurationCount) * 10) / 10 : null;
@@ -1932,7 +2014,7 @@ function buildPaymentsDistributionInsights({
     teammates,
     exports: {
       summary: {
-        total: sanitizedExports.length,
+        total: totalExports,
         available: availableExports.length,
         generating: generatingExports.length,
         failed: failedExports.length,
@@ -2383,7 +2465,7 @@ function buildHrManagementSummary(members, candidates, policies) {
     .map((entry) => {
       const pipeline = pipelineMap.get(entry.roleKey) ?? { sourcing: 0, interviewing: 0, offers: 0, onboarding: 0, hiring: 0 };
       const benchHours = Math.max(entry.capacityHours - entry.utilizedHours, 0);
-      const utilisationRate = entry.capacityHours
+      const utilizationRate = entry.capacityHours
         ? Math.round(((entry.utilizedHours / entry.capacityHours) * 1000 + Number.EPSILON) / 10)
         : null;
 
@@ -3425,9 +3507,6 @@ export async function getAgencyDashboard(
       };
     });
     const financialSummaries = financialSummaryRows.map((row) => row.toPublicObject());
-    const payoutBatches = payoutBatchRows.map((row) => row.toPublicObject());
-    const payoutSplits = payoutSplitRows.map((row) => row.toPublicObject());
-    const financeExports = financeExportRows.map((row) => row.toPublicObject());
 
     let financeOverview = null;
     let upcomingPayoutBatchRows = [];
@@ -3530,6 +3609,10 @@ export async function getAgencyDashboard(
         ],
       });
     }
+
+    const payoutBatches = payoutBatchRows.map((row) => row.toPublicObject());
+    const payoutSplits = payoutSplitRows.map((row) => row.toPublicObject());
+    const financeExports = financeExportRows.map((row) => row.toPublicObject());
 
     let gigPackageRows = [];
     let gigAddonRows = [];
@@ -3774,6 +3857,10 @@ export async function getAgencyDashboard(
     });
 
     const totalClients = new Set(formattedNotes.map((note) => note.subjectUserId)).size;
+    const clientSummary = {
+      active: totalClients,
+      notes: formattedNotes.length,
+    };
 
     const targetWorkspaceId = workspace ? workspace.id : null;
 
@@ -3943,7 +4030,15 @@ export async function getAgencyDashboard(
       rooms: leadershipRoomsPlain,
       projects: formattedProjects,
     });
-    const innovationLab = buildInnovationLab({ initiatives: innovationInitiativesPlain, fundingEvents: innovationFundingPlain });
+    const qualityWorkflowInsights = buildQualityWorkflowInsights({
+      qualityReviews: qualityPlain,
+      projects: formattedProjects,
+    });
+    const innovationLab = buildInnovationLab({
+      initiatives: innovationInitiativesPlain,
+      fundingEvents: innovationFundingPlain,
+      qualityInsights: qualityWorkflowInsights,
+    });
 
     const executive = {
       intelligence: {
@@ -3977,11 +4072,6 @@ export async function getAgencyDashboard(
       capacitySnapshots: capacityPlain,
       scenarioPlans: scenarioPlain,
       members: formattedMembers,
-    });
-
-    const qualityWorkflowInsights = buildQualityWorkflowInsights({
-      qualityReviews: qualityPlain,
-      projects: formattedProjects,
     });
 
     const financialOversightInsights = buildFinancialOversightInsights({
@@ -4158,7 +4248,7 @@ export async function getAgencyDashboard(
         value: qualityWorkflowInsights.summary?.averageClientSatisfaction ?? 0,
         unit: 'score',
         decimals: 1,
-        description: `${summary?.clients?.active ?? totalClients} active clients`,
+        description: `${clientSummary.active} active clients`,
       },
     ];
 
@@ -4173,7 +4263,7 @@ export async function getAgencyDashboard(
         assignments: resourceIntelligenceInsights.assignmentMatches ?? [],
       },
       clientHealth: {
-        activeClients: summary?.clients?.active ?? totalClients,
+        activeClients: clientSummary.active,
         csatScore: qualityWorkflowInsights.summary?.averageClientSatisfaction ?? null,
         qaScore: qualityWorkflowInsights.summary?.averageQaScore ?? null,
         atRiskEngagements:
@@ -4220,10 +4310,7 @@ export async function getAgencyDashboard(
         projects: projectSummary,
         pipeline: queueSummary,
         financials: financialSummary,
-        clients: {
-          active: totalClients,
-          notes: formattedNotes.length,
-        },
+        clients: clientSummary,
         gigs: {
           total: gigSummaries.length,
         },

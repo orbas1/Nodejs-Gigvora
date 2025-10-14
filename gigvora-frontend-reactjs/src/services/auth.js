@@ -1,11 +1,25 @@
 import { apiClient } from './apiClient.js';
 
-export function requestAdminTwoFactor({ email, password }) {
+function normaliseCredentials(credentials = {}) {
+  if (typeof credentials === 'object' && credentials !== null) {
+    return credentials;
+  }
+  throw new Error('Authentication credentials must be provided as an object.');
+}
+
+export async function requestAdminTwoFactor({ email, password }) {
+  if (!email || !password) {
+    throw new Error('Email and password are required for the admin sign-in challenge.');
+  }
   return apiClient.post('/auth/admin/login', { email, password });
 }
 
-export function verifyTwoFactorCode({ email, code }) {
-import apiClient from './apiClient.js';
+export async function verifyTwoFactorCode({ email, code }) {
+  if (!email || !code) {
+    throw new Error('Email and verification code are required.');
+  }
+  return apiClient.post('/auth/verify-2fa', { email, code });
+}
 
 export async function registerUser(payload) {
   return apiClient.post('/auth/register', payload);
@@ -20,49 +34,50 @@ export async function registerAgency(payload) {
 }
 
 export async function loginWithPassword({ email, password, scope } = {}) {
+  if (!email || !password) {
+    throw new Error('Email and password are required to sign in.');
+  }
   const endpoint = scope === 'admin' ? '/auth/admin/login' : '/auth/login';
   return apiClient.post(endpoint, { email, password });
 }
 
+export async function adminLogin(credentials) {
+  const normalised = normaliseCredentials(credentials);
+  return loginWithPassword({ ...normalised, scope: 'admin' });
+}
+
 export async function verifyTwoFactor({ email, code, tokenId }) {
+  if (!email || !code) {
+    throw new Error('Email and verification code are required.');
+  }
   return apiClient.post('/auth/verify-2fa', { email, code, tokenId });
 }
 
 export async function resendTwoFactor(tokenId) {
+  if (!tokenId) {
+    throw new Error('tokenId is required to resend the two-factor code.');
+  }
   return apiClient.post('/auth/two-factor/resend', { tokenId });
 }
 
 export async function loginWithGoogle(idToken) {
+  if (!idToken) {
+    throw new Error('A Google ID token is required to continue.');
+  }
   return apiClient.post('/auth/login/google', { idToken });
 }
 
-export default {
+const authService = {
+  requestAdminTwoFactor,
+  verifyTwoFactorCode,
   registerUser,
   registerCompany,
   registerAgency,
   loginWithPassword,
+  adminLogin,
   verifyTwoFactor,
   resendTwoFactor,
   loginWithGoogle,
-import { apiClient } from './apiClient.js';
-
-export async function adminLogin({ email, password }) {
-  if (!email || !password) {
-    throw new Error('Email and password are required.');
-  }
-  return apiClient.post('/auth/admin/login', { email, password });
-}
-
-export async function verifyTwoFactor({ email, code }) {
-  if (!email || !code) {
-    throw new Error('Email and verification code are required.');
-  }
-  return apiClient.post('/auth/verify-2fa', { email, code });
-}
-
-export default {
-  requestAdminTwoFactor,
-  verifyTwoFactorCode,
-  adminLogin,
-  verifyTwoFactor,
 };
+
+export default authService;

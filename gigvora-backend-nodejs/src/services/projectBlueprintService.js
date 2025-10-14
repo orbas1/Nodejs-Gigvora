@@ -419,7 +419,7 @@ export async function getProjectBlueprint(projectId) {
   return buildBlueprintResponse(project, blueprint);
 }
 
-export async function upsertProjectBlueprint(projectId, payload, { actorId } = {}) {
+export async function upsertProjectBlueprint(projectId, payload) {
   const normalizedId = normalizeId(projectId);
   if (!normalizedId) {
     throw new ValidationError('A valid project identifier is required.');

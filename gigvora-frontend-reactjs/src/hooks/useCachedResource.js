@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiClient } from '../services/apiClient.js';
 
 export function useCachedResource(
@@ -8,6 +8,7 @@ export function useCachedResource(
 ) {
   const abortRef = useRef();
   const mountedRef = useRef(true);
+  const dependencySnapshotRef = useRef({ values: [], initialised: false });
   const [state, setState] = useState({
     data: null,
     error: null,
@@ -78,16 +79,42 @@ export function useCachedResource(
 
   useEffect(() => {
     mountedRef.current = true;
+    dependencySnapshotRef.current = { values: dependencies, initialised: true };
     if (enabled) {
       refresh();
     }
     return () => {
       mountedRef.current = false;
       abortRef.current?.abort();
+      dependencySnapshotRef.current = { values: [], initialised: false };
     };
-  }, [enabled, refresh, ...dependencies]);
+  }, [dependencies, enabled, refresh]);
 
-  return { ...state, refresh };
+  useEffect(() => {
+    if (!enabled) {
+      dependencySnapshotRef.current = { values: [], initialised: false };
+      return;
+    }
+
+    const snapshot = dependencySnapshotRef.current;
+    const hasChanged =
+      snapshot.values.length !== dependencies.length ||
+      dependencies.some((value, index) => value !== snapshot.values[index]);
+
+    if (!snapshot.initialised) {
+      dependencySnapshotRef.current = { values: dependencies, initialised: true };
+      return;
+    }
+
+    if (hasChanged) {
+      dependencySnapshotRef.current = { values: dependencies, initialised: true };
+      refresh();
+    }
+  }, [dependencies, enabled, refresh]);
+
+  const stateWithRefresh = useMemo(() => ({ ...state, refresh }), [refresh, state]);
+
+  return stateWithRefresh;
 }
 
 export default useCachedResource;

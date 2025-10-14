@@ -151,45 +151,9 @@ export default function LoginPage() {
   };
 
   const handleGoogleError = () => {
+    setStatus('idle');
     setError('Google sign-in was cancelled. Please try again.');
-    login({
-      id: 42,
-      userId: 101,
-      profileId: 101,
-      id: 1,
-      userId: 2,
-      id: 101,
-      id: 1,
-      userId: 1,
-      name: 'Lena Fields',
-      title: 'Product Designer',
-      avatarSeed: 'Lena Fields',
-      memberships: ['company', 'user', 'freelancer', 'agency'],
-      primaryDashboard: 'company',
-      memberships: ['user', 'freelancer', 'agency', 'volunteer'],
-      primaryDashboard: 'user',
-      activeMembership: 'user',
-      userType: 'freelancer',
-      memberships: ['user', 'freelancer', 'agency'],
-      activeMembership: 'freelancer',
-      primaryDashboard: 'user',
-      userType: 'freelancer',
-      followers: 1280,
-      connections: 324,
-      companies: ['Gigvora Labs', 'Atlas Studios'],
-      agencies: ['Northshore Creative'],
-      accountTypes: ['Freelancer', 'Agency', 'Talent Lead', 'Volunteer'],
-      freelancerId: 88421,
-      accountTypes: ['Freelancer', 'Agency', 'Talent Lead'],
-      isAuthenticated: true,
-    });
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(
-        'gigvora:web:auth:accessToken',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MjAxLCJ0eXBlIjoiYWRtaW4iLCJleHAiOjE3NjAzOTg2Mzl9.PoszIfAN5fZ0ah3qfsUJ60OomK7NcdQ5lMXsHT53CX4',
-      );
-    }
-    navigate('/feed');
+    setInfo('You can continue with your email and password or try Google again in a moment.');
   };
 
   return (

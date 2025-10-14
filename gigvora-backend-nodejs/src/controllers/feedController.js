@@ -1,10 +1,10 @@
 import { FeedPost, User, Profile } from '../models/index.js';
-import { ValidationError, AuthorizationError } from '../utils/errors.js';
 import { enforceFeedPostPolicies } from '../services/contentModerationService.js';
+import { ValidationError, AuthorizationError } from '../utils/errors.js';
 
 const ALLOWED_VISIBILITY = new Set(['public', 'connections']);
 const ALLOWED_TYPES = new Set(['update', 'media', 'job', 'gig', 'project', 'volunteering', 'launchpad', 'news']);
-const AUTHORISED_ROLES = new Set([
+const AUTHORIZED_ROLES = new Set([
   'member',
   'user',
   'freelancer',
@@ -97,7 +97,7 @@ export async function listFeed(req, res) {
 
 export async function createPost(req, res) {
   const role = resolveRole(req);
-  if (role && !AUTHORISISED_ROLES.has(role)) {
+  if (role && !AUTHORIZED_ROLES.has(role)) {
     throw new AuthorizationError('You do not have permission to publish to the live feed.');
   }
 

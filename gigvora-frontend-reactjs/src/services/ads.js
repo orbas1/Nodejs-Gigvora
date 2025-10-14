@@ -14,15 +14,12 @@ function normaliseSurface(value) {
   return null;
 }
 
-function serializeSurfaces(surfaces) {
+function serialiseSurfaces(surfaces) {
   if (!Array.isArray(surfaces)) {
     return undefined;
   }
 
-  const normalised = surfaces
-    .map(normaliseSurface)
-    .filter(Boolean);
-
+  const normalised = surfaces.map(normaliseSurface).filter(Boolean);
   if (!normalised.length) {
     return undefined;
   }
@@ -32,15 +29,13 @@ function serializeSurfaces(surfaces) {
 
 function serialiseContext(context) {
   if (!context || typeof context !== 'object') {
-function serializeSurfaces(surfaces) {
-  if (!Array.isArray(surfaces) || !surfaces.length) {
     return undefined;
   }
 
   try {
     return JSON.stringify(context);
   } catch (error) {
-    console.warn('Unable to serialise ads context payload.');
+    console.warn('Unable to serialise ads context payload.', error);
     return undefined;
   }
 }
@@ -54,7 +49,7 @@ function buildAdminHeaders(additionalHeaders = {}) {
 
 export async function getAdsDashboard({ surfaces, context, bypassCache = false, signal } = {}) {
   const params = {
-    surfaces: serializeSurfaces(surfaces),
+    surfaces: serialiseSurfaces(surfaces),
     bypassCache: bypassCache ? 'true' : undefined,
     context: serialiseContext(context),
   };
@@ -68,7 +63,7 @@ export async function getAdsDashboard({ surfaces, context, bypassCache = false, 
 
 export async function listAdsPlacements({ surfaces, status, signal } = {}) {
   const params = {
-    surfaces: serializeSurfaces(surfaces),
+    surfaces: serialiseSurfaces(surfaces),
     status,
   };
 
@@ -79,14 +74,14 @@ export async function listAdsPlacements({ surfaces, status, signal } = {}) {
   });
 }
 
-export async function fetchAdPlacements(params = {}) {
-  const { surface, surfaces, status } = params;
+export async function fetchAdPlacements({ surface, surfaces, status, signal } = {}) {
   const resolvedSurfaces = Array.isArray(surfaces)
     ? surfaces
     : surface
     ? [surface]
     : undefined;
-  const response = await listAdsPlacements({ surfaces: resolvedSurfaces, status });
+
+  const response = await listAdsPlacements({ surfaces: resolvedSurfaces, status, signal });
   if (Array.isArray(response?.placements)) {
     return response.placements;
   }
@@ -99,9 +94,7 @@ export async function fetchAdPlacements(params = {}) {
 export async function fetchAdDashboard(params = {}) {
   return apiClient.get('/ads/dashboard', {
     params,
-    headers: {
-      'x-user-type': 'admin',
-    },
+    headers: buildAdminHeaders(),
   });
 }
 

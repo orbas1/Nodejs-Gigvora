@@ -1,5 +1,4 @@
 import PropTypes from 'prop-types';
-import { format } from 'date-fns';
 
 function formatCurrency(amount, currency) {
   try {
@@ -25,7 +24,15 @@ function formatDateTime(value) {
     return 'Scheduled by policy';
   }
   try {
-    return format(new Date(value), 'MMM dd, yyyy – HH:mm');
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    return formatter.format(new Date(value));
   } catch (error) {
     return value;
   }

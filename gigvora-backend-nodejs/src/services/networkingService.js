@@ -7,7 +7,6 @@ import {
   NetworkingSessionSignup,
   NetworkingBusinessCard,
   ProviderWorkspace,
-  User,
   NETWORKING_SESSION_STATUSES,
   NETWORKING_SESSION_ACCESS_TYPES,
   NETWORKING_SESSION_VISIBILITIES,
@@ -820,7 +819,7 @@ export async function regenerateNetworkingRotations(sessionId, payload = {}, { a
   });
 }
 
-export async function registerForNetworkingSession(sessionId, payload = {}, { actorId } = {}) {
+export async function registerForNetworkingSession(sessionId, payload = {}) {
   const session = await NetworkingSession.findByPk(sessionId, {
     include: [{ model: NetworkingSessionSignup, as: 'signups' }],
   });

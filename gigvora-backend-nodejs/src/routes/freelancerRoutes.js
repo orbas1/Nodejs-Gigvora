@@ -1,125 +1,104 @@
 import { Router } from 'express';
-import asyncHandler from '../utils/asyncHandler.js';
-import { communitySpotlight } from '../controllers/freelancerController.js';
 
-const router = Router();
-
-router.get('/:freelancerId/community-spotlight', asyncHandler(communitySpotlight));
-import clientSuccessController from '../controllers/clientSuccessController.js';
-
-const router = Router({ mergeParams: true });
-
-router.get(
-  '/:freelancerId/client-success/overview',
-  asyncHandler(clientSuccessController.overview),
-);
-
-router.post(
-  '/:freelancerId/client-success/playbooks',
-  asyncHandler(clientSuccessController.storePlaybook),
-);
-
-router.put(
-  '/:freelancerId/client-success/playbooks/:playbookId',
-  asyncHandler(clientSuccessController.updatePlaybook),
-);
-
-router.post(
-  '/:freelancerId/client-success/playbooks/:playbookId/enrollments',
-  asyncHandler(clientSuccessController.enroll),
-);
-
-router.post(
-  '/:freelancerId/client-success/gigs/:gigId/referrals',
-  asyncHandler(clientSuccessController.storeReferral),
-);
-
-router.post(
-  '/:freelancerId/client-success/gigs/:gigId/affiliate-links',
-  asyncHandler(clientSuccessController.storeAffiliateLink),
-);
 import {
-  orderPipeline,
+  enroll as enrollClient,
+  overview as clientSuccessOverview,
+  storeAffiliateLink,
+  storePlaybook,
+  storeReferral,
+  updatePlaybook,
+} from '../controllers/clientSuccessController.js';
+import { collaborationsOverview } from '../controllers/freelancerAgencyController.js';
+import {
+  communitySpotlight,
+  createGig,
   createOrder,
-  updateOrder,
-  createOrderRequirement,
-  updateOrderRequirement,
-  createOrderRevision,
-  updateOrderRevision,
   createOrderEscrowCheckpoint,
+  createOrderRequirement,
+  createOrderRevision,
+  dashboard,
+  getPurchasedGigWorkspace,
+  orderPipeline,
+  publish,
+  show,
+  updateGig,
+  updateOrder,
   updateOrderEscrowCheckpoint,
+  updateOrderRequirement,
+  updateOrderRevision,
 } from '../controllers/freelancerController.js';
+import {
+  getProfileHub,
+  updateExpertiseAreas,
+  updateHeroBanners,
+  updateProfileHub,
+  updateSuccessMetrics,
+  updateTestimonials,
+} from '../controllers/freelancerProfileController.js';
+import asyncHandler from '../utils/asyncHandler.js';
 
 const router = Router();
 
-router.get('/order-pipeline', orderPipeline);
-router.post('/order-pipeline/orders', createOrder);
-router.patch('/order-pipeline/orders/:orderId', updateOrder);
-router.post('/order-pipeline/orders/:orderId/requirement-forms', createOrderRequirement);
-router.patch('/order-pipeline/orders/:orderId/requirement-forms/:formId', updateOrderRequirement);
-router.post('/order-pipeline/orders/:orderId/revisions', createOrderRevision);
-router.patch('/order-pipeline/orders/:orderId/revisions/:revisionId', updateOrderRevision);
-router.post('/order-pipeline/orders/:orderId/escrow-checkpoints', createOrderEscrowCheckpoint);
+router.get('/dashboard', asyncHandler(dashboard));
+router.get('/gigs/:gigId', asyncHandler(show));
+router.post('/gigs', asyncHandler(createGig));
+router.put('/gigs/:gigId', asyncHandler(updateGig));
+router.post('/gigs/:gigId/publish', asyncHandler(publish));
+
+router.get('/order-pipeline', asyncHandler(orderPipeline));
+router.post('/order-pipeline/orders', asyncHandler(createOrder));
+router.patch('/order-pipeline/orders/:orderId', asyncHandler(updateOrder));
+router.post('/order-pipeline/orders/:orderId/requirement-forms', asyncHandler(createOrderRequirement));
+router.patch(
+  '/order-pipeline/orders/:orderId/requirement-forms/:formId',
+  asyncHandler(updateOrderRequirement),
+);
+router.post('/order-pipeline/orders/:orderId/revisions', asyncHandler(createOrderRevision));
+router.patch(
+  '/order-pipeline/orders/:orderId/revisions/:revisionId',
+  asyncHandler(updateOrderRevision),
+);
+router.post(
+  '/order-pipeline/orders/:orderId/escrow-checkpoints',
+  asyncHandler(createOrderEscrowCheckpoint),
+);
 router.patch(
   '/order-pipeline/orders/:orderId/escrow-checkpoints/:checkpointId',
-  updateOrderEscrowCheckpoint,
+  asyncHandler(updateOrderEscrowCheckpoint),
 );
 
-export default router;
-import * as freelancerAgencyController from '../controllers/freelancerAgencyController.js';
-import asyncHandler from '../utils/asyncHandler.js';
-import asyncHandler from '../utils/asyncHandler.js';
-import * as freelancerProfileController from '../controllers/freelancerProfileController.js';
-
-const router = Router();
+router.get('/:freelancerId/community-spotlight', asyncHandler(communitySpotlight));
+router.get('/:freelancerId/client-success/overview', asyncHandler(clientSuccessOverview));
+router.post('/:freelancerId/client-success/playbooks', asyncHandler(storePlaybook));
+router.put(
+  '/:freelancerId/client-success/playbooks/:playbookId',
+  asyncHandler(updatePlaybook),
+);
+router.post(
+  '/:freelancerId/client-success/playbooks/:playbookId/enrollments',
+  asyncHandler(enrollClient),
+);
+router.post(
+  '/:freelancerId/client-success/gigs/:gigId/referrals',
+  asyncHandler(storeReferral),
+);
+router.post(
+  '/:freelancerId/client-success/gigs/:gigId/affiliate-links',
+  asyncHandler(storeAffiliateLink),
+);
 
 router.get(
   '/:freelancerId/agency-collaborations',
-  asyncHandler(freelancerAgencyController.collaborationsOverview),
+  asyncHandler(collaborationsOverview),
 );
 
-export default router;
+router.get('/:userId/profile-hub', asyncHandler(getProfileHub));
+router.put('/:userId/profile-hub', asyncHandler(updateProfileHub));
+router.put('/:userId/expertise-areas', asyncHandler(updateExpertiseAreas));
+router.put('/:userId/success-metrics', asyncHandler(updateSuccessMetrics));
+router.put('/:userId/testimonials', asyncHandler(updateTestimonials));
+router.put('/:userId/hero-banners', asyncHandler(updateHeroBanners));
 
-  '/:userId/profile-hub',
-  asyncHandler(freelancerProfileController.getProfileHub),
-);
-router.put(
-  '/:userId/profile-hub',
-  asyncHandler(freelancerProfileController.updateProfileHub),
-);
-router.put(
-  '/:userId/expertise-areas',
-  asyncHandler(freelancerProfileController.updateExpertiseAreas),
-);
-router.put(
-  '/:userId/success-metrics',
-  asyncHandler(freelancerProfileController.updateSuccessMetrics),
-);
-router.put(
-  '/:userId/testimonials',
-  asyncHandler(freelancerProfileController.updateTestimonials),
-);
-router.put(
-  '/:userId/hero-banners',
-  asyncHandler(freelancerProfileController.updateHeroBanners),
-);
-import freelancerController from '../controllers/freelancerController.js';
-
-const router = Router();
-
-router.get('/dashboard', asyncHandler(freelancerController.dashboard));
-
-export default router;
-
-router.post('/gigs', asyncHandler(freelancerController.createGig));
-router.put('/gigs/:gigId', asyncHandler(freelancerController.updateGig));
-router.post('/gigs/:gigId/publish', asyncHandler(freelancerController.publish));
-router.get('/gigs/:gigId', asyncHandler(freelancerController.show));
-import * as freelancerController from '../controllers/freelancerController.js';
-import asyncHandler from '../utils/asyncHandler.js';
-
-const router = Router();
-
-router.get('/:id/purchased-gigs', asyncHandler(freelancerController.getPurchasedGigWorkspace));
+router.get('/:id/purchased-gigs', asyncHandler(getPurchasedGigWorkspace));
 
 export default router;

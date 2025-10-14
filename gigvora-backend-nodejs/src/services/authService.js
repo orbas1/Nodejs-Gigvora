@@ -7,14 +7,8 @@ import { normalizeLocationPayload } from '../utils/location.js';
 import twoFactorService from './twoFactorService.js';
 
 const TOKEN_EXPIRY = process.env.JWT_EXPIRES_IN || '1h';
-const JWT_SECRET = process.env.JWT_SECRET || 'development-secret';
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'development-refresh-secret';
 const REFRESH_EXPIRY = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
 const ALLOWED_TWO_FACTOR_METHODS = ['email', 'app', 'sms'];
-
-if (!JWT_SECRET || !JWT_REFRESH_SECRET) {
-  console.warn('JWT secrets are not fully configured. Set JWT_SECRET and JWT_REFRESH_SECRET to enable authentication.');
-}
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 let oauthClient = null;
@@ -78,14 +72,18 @@ function decodeExpiry(token) {
   return new Date(decoded.exp * 1000).toISOString();
 }
 
-async function issueSession(user) {
-  if (!JWT_SECRET || !JWT_REFRESH_SECRET) {
-    throw buildError('Authentication service misconfigured', 500);
-  }
+function resolveSecrets() {
+  return {
+    access: resolveAccessTokenSecret(),
+    refresh: resolveRefreshTokenSecret(),
+  };
+}
 
+async function issueSession(user) {
+  const secrets = resolveSecrets();
   const payload = { id: user.id, type: user.userType };
-  const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
-  const refreshToken = jwt.sign(payload, JWT_REFRESH_SECRET, { expiresIn: REFRESH_EXPIRY });
+  const accessToken = jwt.sign(payload, secrets.access, { expiresIn: TOKEN_EXPIRY });
+  const refreshToken = jwt.sign(payload, secrets.refresh, { expiresIn: REFRESH_EXPIRY });
   const sanitized = sanitizeUser(user);
 
   await user.update({ lastLoginAt: new Date() });
@@ -200,9 +198,6 @@ async function verifyTwoFactor(email, code, tokenId) {
   }
 
   const user = await User.findOne({ where: { email } });
-  const payload = { id: user.id, type: user.userType };
-  const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
-  const refreshToken = jwt.sign(payload, JWT_REFRESH_SECRET, { expiresIn: '7d' });
   if (!user) {
     throw buildError('Account not found.', 404);
   }

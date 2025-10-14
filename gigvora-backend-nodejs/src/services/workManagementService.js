@@ -329,7 +329,6 @@ function buildSprintSnapshot(instance) {
       }
       return sum;
     }, 0);
-  const totalPoints = usesStoryPoints ? totalPointsRaw : tasks.length;
   const kanban = buildKanban(tasks);
   const timeline = buildTimeline(tasks, sprint);
   const burndown = buildBurndown(sprint, tasks);

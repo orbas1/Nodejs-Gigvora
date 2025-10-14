@@ -1,5 +1,9 @@
 import { Op } from 'sequelize';
-import {
+import * as models from '../models/index.js';
+import { appCache, buildCacheKey } from '../utils/cache.js';
+import { ValidationError } from '../utils/errors.js';
+
+const {
   AdCampaign,
   AdCreative,
   AdPlacement,
@@ -10,9 +14,7 @@ import {
   OpportunityTaxonomy,
   OpportunityTaxonomyAssignment,
   AnalyticsDailyRollup,
-} from '../models/index.js';
-import { appCache, buildCacheKey } from '../utils/cache.js';
-import { ValidationError } from '../utils/errors.js';
+} = models;
 
 const DEFAULT_SURFACES = ['global_dashboard'];
 const DASHBOARD_CACHE_TTL_SECONDS = 45;
@@ -107,12 +109,14 @@ async function loadTrafficSignals({ lookbackDays = TRAFFIC_LOOKBACK_DAYS, now = 
   const since = new Date(now);
   since.setDate(since.getDate() - Math.max(7, lookbackDays));
 
-  const rollups = await AnalyticsDailyRollup.findAll({
-    where: {
-      date: { [Op.between]: [since, now] },
-    },
-    order: [['date', 'ASC']],
-  });
+  const rollups = AnalyticsDailyRollup?.findAll
+    ? await AnalyticsDailyRollup.findAll({
+        where: {
+          date: { [Op.between]: [since, now] },
+        },
+        order: [['date', 'ASC']],
+      })
+    : [];
 
   let totalSessions = 0;
   let mobileSessions = 0;
@@ -709,7 +713,11 @@ function decoratePlacement(placement, contextSets, now) {
   };
 }
 
-async function loadPlacementRecords({ surfaces, status, now }) {
+async function loadPlacementRecords({ surfaces, status }) {
+  if (!AdPlacement?.findAll) {
+    return [];
+  }
+
   const where = {};
   if (Array.isArray(surfaces) && surfaces.length) {
     where.surface = { [Op.in]: surfaces };
@@ -717,28 +725,33 @@ async function loadPlacementRecords({ surfaces, status, now }) {
   if (status) {
     where.status = status;
   }
-  const include = [
-    {
+  const include = [];
+  if (AdCreative) {
+    include.push({
       model: AdCreative,
       as: 'creative',
       include: [
-        { model: AdCampaign, as: 'campaign' },
-        {
-          model: AdKeywordAssignment,
-          as: 'keywordAssignments',
-          include: [
-            { model: AdKeyword, as: 'keyword' },
-            { model: OpportunityTaxonomy, as: 'taxonomy' },
-          ],
-        },
-      ],
-    },
-    {
+        AdCampaign ? { model: AdCampaign, as: 'campaign' } : null,
+        AdKeywordAssignment
+          ? {
+              model: AdKeywordAssignment,
+              as: 'keywordAssignments',
+              include: [
+                AdKeyword ? { model: AdKeyword, as: 'keyword' } : null,
+                OpportunityTaxonomy ? { model: OpportunityTaxonomy, as: 'taxonomy' } : null,
+              ].filter(Boolean),
+            }
+          : null,
+      ].filter(Boolean),
+    });
+  }
+  if (AdPlacementCoupon) {
+    include.push({
       model: AdPlacementCoupon,
       as: 'couponLinks',
-      include: [{ model: AdCoupon, as: 'coupon' }],
-    },
-  ];
+      include: AdCoupon ? [{ model: AdCoupon, as: 'coupon' }] : [],
+    });
+  }
 
   const placements = await AdPlacement.findAll({
     where,
@@ -794,12 +807,7 @@ function buildContextSets(context) {
   return { keywordSet, taxonomySet };
 }
 
-function buildOverview({
-  placements,
-  surfaces,
-  now,
-  context,
-}) {
+function buildOverview({ placements, surfaces, now, context }) {
   const campaigns = new Set();
   const surfaceSummaries = new Map();
   const keywordWeights = new Map();
@@ -807,6 +815,21 @@ function buildOverview({
   let totalCoupons = 0;
   let totalActiveCoupons = 0;
   let placementsWithCoupons = 0;
+
+  if (Array.isArray(surfaces)) {
+    surfaces.forEach((surface) => {
+      if (!surfaceSummaries.has(surface)) {
+        surfaceSummaries.set(surface, {
+          surface,
+          label: SURFACE_LABELS[surface] ?? surface,
+          total: 0,
+          active: 0,
+          upcoming: 0,
+          types: new Map(),
+        });
+      }
+    });
+  }
 
   placements.forEach((placement) => {
     const creative = placement.creative ?? {};
@@ -941,8 +964,7 @@ function buildRecommendations({ placements, overview, context }) {
 export async function listPlacements({ surfaces, status, now = new Date() } = {}) {
   const normalizedSurfaces = normaliseSurfaceList(surfaces);
   const resolvedSurfaces = normalizedSurfaces.length ? normalizedSurfaces : DEFAULT_SURFACES;
-  const placements = await loadPlacementRecords({ surfaces: resolvedSurfaces, status, now });
-  const sanitizedContext = sanitizeContext({});
+  const placements = await loadPlacementRecords({ surfaces: resolvedSurfaces, status });
   const contextSets = buildContextSets({ keywordHints: [], taxonomySlugs: [] });
 
   return placements.map((placement) => decoratePlacement(placement, contextSets, now));
@@ -963,7 +985,7 @@ export async function getAdDashboardSnapshot({
     context: JSON.stringify(sanitizedContext),
   });
 
-  if (!bypassCache) {
+  if (!bypassCache && typeof appCache?.get === 'function') {
     const cached = appCache.get(cacheKey);
     if (cached) {
       return cached;
@@ -978,7 +1000,7 @@ export async function getAdDashboardSnapshot({
   });
 
   const [placements, trafficSignals] = await Promise.all([
-    loadPlacementRecords({ surfaces: resolvedSurfaces, now }),
+    loadPlacementRecords({ surfaces: resolvedSurfaces }),
     loadTrafficSignals({ now }),
   ]);
   const decoratedPlacements = placements.map((placement) => decoratePlacement(placement, contextSets, now));
@@ -1040,7 +1062,9 @@ export async function getAdDashboardSnapshot({
     generatedAt: now.toISOString(),
   };
 
-  appCache.set(cacheKey, result, DASHBOARD_CACHE_TTL_SECONDS);
+  if (typeof appCache?.set === 'function') {
+    appCache.set(cacheKey, result, DASHBOARD_CACHE_TTL_SECONDS);
+  }
   return result;
 }
 

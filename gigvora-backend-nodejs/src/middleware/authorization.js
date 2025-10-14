@@ -5,16 +5,20 @@ function normalizeToArray(input) {
     return [];
   }
   if (Array.isArray(input)) {
-    return input;
+    return input
+      .flatMap((value) => normaliseMemberships(value))
+      .filter((value) => value.length > 0);
   }
-  return [input];
-}
-
-function normaliseMemberships(input) {
-  return normalizeToArray(input)
-    .flatMap((value) => `${value}`.split(','))
-    .map((value) => value.trim().toLowerCase())
-    .filter(Boolean);
+  if (typeof input === 'string') {
+    return input
+      .split(',')
+      .map((value) => value.trim().toLowerCase())
+      .filter((value) => value.length > 0);
+  }
+  if (typeof input === 'object') {
+    return normaliseMemberships(Object.values(input));
+  }
+  return [`${input}`.trim().toLowerCase()].filter((value) => value.length > 0);
 }
 
 export function extractMemberships(req) {
@@ -36,15 +40,14 @@ export function extractMemberships(req) {
 }
 
 export function requireMembership(allowed = [], { allowAdmin = true } = {}) {
-  if (!Array.isArray(allowed) || allowed.length === 0) {
-    throw new ValidationError('requireMembership middleware requires at least one allowed role.');
+  const allowedValues = normaliseMemberships(allowed);
+  if (!allowedValues.length) {
+    throw new ValidationError('requireMembership middleware requires a non-empty array of allowed roles.');
   }
-
-  const allowedSet = new Set(allowed.map((value) => `${value}`.trim().toLowerCase()).filter(Boolean));
+  const allowedSet = new Set(allowedValues);
 
   return (req, res, next) => {
     const memberships = extractMemberships(req);
-
     if (!memberships.length) {
       return res.status(403).json({
         message: 'Volunteer workspace access requires an authenticated membership.',
@@ -84,21 +87,52 @@ const PROJECT_MANAGEMENT_ROLES = new Set([
   'admin',
 ]);
 
-function normaliseRole(value) {
-  if (value == null) {
+function normaliseRole(role) {
+  if (!role) {
     return null;
   }
-  const normalised = `${value}`.trim().toLowerCase();
-  return normalised ? normalised.replace(/[^a-z0-9]+/g, '_') : null;
+  if (typeof role !== 'string') {
+    return normaliseRole(String(role));
+  }
+  const trimmed = role.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return trimmed.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+}
+
+function extractRoles(input) {
+  const roles = new Set();
+  const pushRole = (value) => {
+    const normalised = normaliseRole(value);
+    if (normalised) {
+      roles.add(normalised);
+    }
+  };
+
+  if (!input) {
+    return roles;
+  }
+  if (Array.isArray(input)) {
+    input.forEach((value) => extractRoles(value).forEach((item) => roles.add(item)));
+    return roles;
+  }
+  if (typeof input === 'string') {
+    input
+      .split(/[,\s]+/)
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .forEach(pushRole);
+    return roles;
+  }
+  pushRole(input);
+  return roles;
 }
 
 function collectRequestRoles(req) {
   const aggregated = new Set();
-  const push = (value) => {
-    const role = normaliseRole(value);
-    if (role) {
-      aggregated.add(role);
-    }
+  const merge = (values) => {
+    extractRoles(values).forEach((value) => aggregated.add(value));
   };
 
   const sources = [
@@ -135,6 +169,9 @@ function collectRequestRoles(req) {
 
 export function hasProjectManagementAccess(req) {
   const roles = collectRequestRoles(req);
+  if (!roles.size) {
+    return false;
+  }
   for (const role of roles) {
     if (PROJECT_MANAGEMENT_ROLES.has(role)) {
       return true;
@@ -147,10 +184,8 @@ export function requireProjectManagementRole(req, res, next) {
   if (hasProjectManagementAccess(req)) {
     return next();
   }
-
   return res.status(403).json({
-    message:
-      'You do not have permission to manage projects. Contact an operations lead to obtain the correct workspace role.',
+    message: 'You do not have permission to manage projects. Contact an operations lead to obtain the correct workspace role.',
   });
 }
 
@@ -197,8 +232,14 @@ export function requireUserType(allowedUserTypes = [], { allowHeaderFallback = t
   };
 }
 
+export function requireRoles(roles, options) {
+  return requireMembership(roles, options);
+}
+
 export default {
+  extractMemberships,
   requireMembership,
+  requireRoles,
   hasProjectManagementAccess,
   requireProjectManagementRole,
   requireUserType,
