@@ -86,4 +86,22 @@ class ProjectGigManagementRepository {
       body: draft.toJson(userId),
     );
   }
+
+  Future<void> createProjectTask(ProjectTaskDraft draft) {
+    return _apiClient.post(
+      '/projects/${draft.projectId}/operations/tasks',
+      body: draft.toJson(),
+    );
+  }
+
+  Future<void> updateProjectTask(int projectId, String taskId, ProjectTaskMutation mutation) {
+    return _apiClient.patch(
+      '/projects/$projectId/operations/tasks/$taskId',
+      body: mutation.toJson(),
+    );
+  }
+
+  Future<void> deleteProjectTask(int projectId, String taskId) {
+    return _apiClient.delete('/projects/$projectId/operations/tasks/$taskId');
+  }
 }
