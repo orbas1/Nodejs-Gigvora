@@ -51,6 +51,7 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
         metadata: {
           ...state.metadata,
           'filters': _filters,
+          'sort': _sort ?? 'default',
         },
       );
 
@@ -65,6 +66,7 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
             'reason': '${result.error}',
             'fromCache': result.fromCache,
             'filters': _filters.isEmpty ? null : _filters,
+            'sort': _sort ?? 'default',
           },
           metadata: const {'source': 'mobile_app'},
         );
@@ -78,6 +80,7 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
           'query': _query.isEmpty ? null : _query,
           'reason': '$error',
           'filters': _filters.isEmpty ? null : _filters,
+          'sort': _sort ?? 'default',
         },
         metadata: const {'source': 'mobile_app'},
       );
@@ -87,11 +90,41 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
 
   Future<void> refresh() => load(forceRefresh: true);
 
+  Future<void> updateFilters(Map<String, dynamic> updates) async {
   void updateFilters(Map<String, dynamic> updates) {
     final next = Map<String, dynamic>.from(_filters);
     updates.forEach((key, value) {
       if (value == null) {
         next.remove(key);
+        return;
+      }
+      if (value is String) {
+        final trimmed = value.trim();
+        if (trimmed.isEmpty) {
+          next.remove(key);
+          return;
+        }
+        next[key] = trimmed;
+        return;
+      }
+      if (value is Iterable) {
+        final cleaned = value.where((element) {
+          if (element == null) {
+            return false;
+          }
+          if (element is String) {
+            return element.trim().isNotEmpty;
+          }
+          return true;
+        }).toList(growable: false);
+        if (cleaned.isEmpty) {
+          next.remove(key);
+          return;
+        }
+        next[key] = cleaned;
+        return;
+      }
+      next[key] = value;
       } else if (value is String && value.trim().isEmpty) {
         next.remove(key);
       } else if (value is Iterable && value.isEmpty) {
@@ -107,15 +140,26 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
 
     _filters = next;
     _viewRecorded = false;
+    await load();
+    await _analytics.track(
+      'mobile_opportunity_filters_updated',
+      context: {
+        'category': categoryToPath(category),
+        'query': _query.isEmpty ? null : _query,
+        'filters': _filters,
+      },
+      metadata: const {'source': 'mobile_app'},
+    );
     unawaited(_reloadWithFilterAnalytics());
   }
 
   Future<void> updateSort(String? sort) async {
     final normalised = sort?.trim();
-    if (_sort == normalised) {
+    if ((_sort ?? '').trim() == (normalised ?? '')) {
       return;
     }
     _sort = normalised?.isEmpty ?? true ? null : normalised;
+    _viewRecorded = false;
     await load();
     await _analytics.track(
       'mobile_opportunity_sort_updated',
@@ -123,13 +167,19 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
         'category': categoryToPath(category),
         'query': _query.isEmpty ? null : _query,
         'sort': _sort ?? 'default',
+        'filters': _filters.isEmpty ? null : _filters,
       },
       metadata: const {'source': 'mobile_app'},
     );
   }
 
   void setIncludeFacets(bool value) {
+    if (_includeFacets == value) {
+      return;
+    }
     _includeFacets = value;
+    _viewRecorded = false;
+    unawaited(load());
   }
 
   void updateQuery(String value) {
@@ -171,6 +221,8 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
     );
   }
 
+  Map<String, dynamic> get filters => Map.unmodifiable(_filters);
+
   @override
   void dispose() {
     _debounce?.cancel();
@@ -205,6 +257,7 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
           'fromCache': fromCache,
           'query': _query.isEmpty ? null : _query,
           'filters': _filters.isEmpty ? null : _filters,
+          'sort': _sort ?? 'default',
         },
         metadata: const {'source': 'mobile_app'},
       );

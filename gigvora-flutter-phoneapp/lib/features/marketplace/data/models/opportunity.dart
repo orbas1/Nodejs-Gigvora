@@ -56,6 +56,7 @@ class OpportunitySummary {
     this.status,
     this.track,
     this.organization,
+    this.isRemote,
     this.isRemote = false,
     this.taxonomyLabels = const <String>[],
   });
@@ -72,6 +73,13 @@ class OpportunitySummary {
   final String? status;
   final String? track;
   final String? organization;
+  final bool? isRemote;
+  final List<String> taxonomyLabels;
+
+  factory OpportunitySummary.fromJson(
+    OpportunityCategory category,
+    Map<String, dynamic> json,
+  ) {
   final bool isRemote;
   final List<String> taxonomyLabels;
 
@@ -90,6 +98,21 @@ class OpportunitySummary {
       title: (json['title'] as String? ?? '').trim(),
       description: (json['description'] as String? ?? '').trim(),
       updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? '') ?? DateTime.now(),
+      location: (json['location'] as String?)?.trim().isEmpty ?? true
+          ? null
+          : (json['location'] as String).trim(),
+      employmentType: (json['employmentType'] as String?)?.trim().isEmpty ?? true
+          ? null
+          : (json['employmentType'] as String).trim(),
+      budget: (json['budget'] as String?)?.trim().isEmpty ?? true ? null : (json['budget'] as String).trim(),
+      duration: (json['duration'] as String?)?.trim().isEmpty ?? true ? null : (json['duration'] as String).trim(),
+      status: (json['status'] as String?)?.trim().isEmpty ?? true ? null : (json['status'] as String).trim(),
+      track: (json['track'] as String?)?.trim().isEmpty ?? true ? null : (json['track'] as String).trim(),
+      organization: (json['organization'] as String?)?.trim().isEmpty ?? true
+          ? null
+          : (json['organization'] as String).trim(),
+      isRemote: json['isRemote'] is bool ? json['isRemote'] as bool : null,
+      taxonomyLabels: (json['taxonomyLabels'] as List<dynamic>? ?? const <dynamic>[]) 
       location: normaliseString(json['location'] as String?),
       employmentType: normaliseString(json['employmentType'] as String?),
       budget: normaliseString(json['budget'] as String?),

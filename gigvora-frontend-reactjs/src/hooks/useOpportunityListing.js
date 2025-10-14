@@ -22,8 +22,32 @@ function normaliseFilters(filters) {
       return accumulator;
     }
 
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed.length) {
+        accumulator[key] = trimmed;
+      }
+      return accumulator;
+    }
+
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      accumulator[key] = value;
+      return accumulator;
+    }
+
     if (Array.isArray(value)) {
-      const cleaned = value.map((entry) => `${entry}`.trim()).filter(Boolean);
+      const cleaned = value
+        .map((entry) => {
+          if (entry == null) {
+            return null;
+          }
+          if (typeof entry === 'string') {
+            const trimmed = entry.trim();
+            return trimmed.length ? trimmed : null;
+          }
+          return entry;
+        })
+        .filter((entry) => entry !== null);
       if (cleaned.length) {
         accumulator[key] = cleaned;
       }
@@ -46,11 +70,55 @@ function normaliseFilters(filters) {
   }, {});
 }
 
+function normaliseSort(sort) {
+  if (sort == null) {
 function stableSerialise(value) {
   if (value == null) {
     return null;
   }
+  if (typeof sort === 'string') {
+    const trimmed = sort.trim();
+    return trimmed.length ? trimmed : null;
+  }
+  if (typeof sort === 'object') {
+    return normaliseFilters(sort);
+  }
+  return sort;
+}
 
+function normaliseViewport(viewport) {
+  if (viewport == null) {
+    return null;
+  }
+  if (typeof viewport === 'string') {
+    const trimmed = viewport.trim();
+    return trimmed.length ? trimmed : null;
+  }
+  if (typeof viewport === 'object') {
+    return normaliseFilters(viewport);
+  }
+  return viewport;
+}
+
+function normaliseHeaders(headers) {
+  if (!headers || typeof headers !== 'object') {
+    return null;
+  }
+
+  return Object.entries(headers).reduce((accumulator, [key, value]) => {
+    if (value == null) {
+      return accumulator;
+    }
+    const stringValue = `${value}`.trim();
+    if (stringValue.length) {
+      accumulator[key] = stringValue;
+    }
+    return accumulator;
+  }, {});
+}
+
+function stableSerialise(value) {
+  if (value == null) {
   const normalise = (input) => {
     if (Array.isArray(input)) {
       return input
@@ -87,13 +155,25 @@ function stableSerialise(value) {
     return null;
   }
 
-  return JSON.stringify(normalised);
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => stableSerialise(entry) ?? 'null').join(',')}]`;
+  }
+
+  if (typeof value === 'object') {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${key}:${stableSerialise(value[key]) ?? 'null'}`)
+      .join(',')}}`;
+  }
+
+  return `${value}`;
 }
 
 export default function useOpportunityListing(
   category,
   query,
   {
+    page = 1,
     pageSize = 20,
     filters = null,
     sort = null,
@@ -103,11 +183,40 @@ export default function useOpportunityListing(
     enabled = true,
   } = {},
 ) {
+  const trimmedQuery = (query || '').trim();
+  const debouncedQuery = useDebounce(trimmedQuery, 400);
+
   const endpoint = endpointByCategory[category];
   if (!endpoint) {
     throw new Error(`Unsupported opportunity category: ${category}`);
   }
 
+  const normalisedFilters = useMemo(() => normaliseFilters(filters), [filters]);
+  const normalisedSort = useMemo(() => normaliseSort(sort), [sort]);
+  const normalisedViewport = useMemo(() => normaliseViewport(viewport), [viewport]);
+  const normalisedHeaders = useMemo(() => normaliseHeaders(headers), [headers]);
+
+  const filtersKey = useMemo(() => stableSerialise(normalisedFilters) ?? 'no-filters', [normalisedFilters]);
+  const sortKey = useMemo(() => stableSerialise(normalisedSort) ?? 'default-sort', [normalisedSort]);
+  const viewportKey = useMemo(() => stableSerialise(normalisedViewport) ?? 'no-viewport', [normalisedViewport]);
+  const headersKey = useMemo(() => stableSerialise(normalisedHeaders) ?? 'default-headers', [normalisedHeaders]);
+
+  const cacheKey = useMemo(
+    () =>
+      [
+        'opportunity',
+        category,
+        debouncedQuery || 'all',
+        `page-${page}`,
+        `size-${pageSize}`,
+        filtersKey,
+        sortKey,
+        viewportKey,
+        includeFacets ? 'facets' : 'no-facets',
+        headersKey,
+      ].join(':'),
+    [category, debouncedQuery, page, pageSize, filtersKey, sortKey, viewportKey, includeFacets, headersKey],
+  );
   const trimmedQuery = (query || '').trim();
   const debouncedQuery = useDebounce(trimmedQuery, 400);
 
@@ -119,14 +228,25 @@ export default function useOpportunityListing(
 
   const params = useMemo(
     () => ({
-      q: debouncedQuery || undefined,
+      page,
       pageSize,
+      q: debouncedQuery || undefined,
       filters: normalisedFilters ? JSON.stringify(normalisedFilters) : undefined,
-      sort: sort ? (typeof sort === 'string' ? sort : JSON.stringify(sort)) : undefined,
+      sort:
+        typeof normalisedSort === 'string'
+          ? normalisedSort
+          : normalisedSort
+          ? JSON.stringify(normalisedSort)
+          : undefined,
       includeFacets: includeFacets ? 'true' : undefined,
-      viewport: viewport ? (typeof viewport === 'string' ? viewport : JSON.stringify(viewport)) : undefined,
+      viewport:
+        typeof normalisedViewport === 'string'
+          ? normalisedViewport
+          : normalisedViewport
+          ? JSON.stringify(normalisedViewport)
+          : undefined,
     }),
-    [debouncedQuery, pageSize, normalisedFilters, sort, includeFacets, viewport],
+    [page, pageSize, debouncedQuery, normalisedFilters, normalisedSort, includeFacets, normalisedViewport],
   );
 
   const requestHeaders = useMemo(() => {
@@ -157,6 +277,10 @@ export default function useOpportunityListing(
       apiClient.get(endpoint, {
         signal,
         params,
+        headers: normalisedHeaders || undefined,
+      }),
+    {
+      dependencies: [cacheKey],
         headers: requestHeaders,
       }),
     {
