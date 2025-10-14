@@ -108,6 +108,9 @@ import freelancerController from '../controllers/freelancerController.js';
 const router = Router();
 
 router.get('/dashboard', asyncHandler(freelancerController.dashboard));
+
+export default router;
+
 router.post('/gigs', asyncHandler(freelancerController.createGig));
 router.put('/gigs/:gigId', asyncHandler(freelancerController.updateGig));
 router.post('/gigs/:gigId/publish', asyncHandler(freelancerController.publish));
