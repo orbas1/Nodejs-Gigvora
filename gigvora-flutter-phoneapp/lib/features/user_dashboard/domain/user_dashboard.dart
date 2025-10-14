@@ -11,6 +11,7 @@ class UserDashboardSnapshot {
     required this.nextActions,
     required this.focusDigest,
     required this.complianceAlerts,
+    required this.affiliateProgram,
   });
 
   final DateTime generatedAt;
@@ -22,6 +23,7 @@ class UserDashboardSnapshot {
   final List<UserDashboardAction> nextActions;
   final FocusDigest focusDigest;
   final List<String> complianceAlerts;
+  final AffiliateProgramDigest affiliateProgram;
 
   UserDashboardSnapshot copyWith({
     DateTime? generatedAt,
@@ -33,6 +35,7 @@ class UserDashboardSnapshot {
     List<UserDashboardAction>? nextActions,
     FocusDigest? focusDigest,
     List<String>? complianceAlerts,
+    AffiliateProgramDigest? affiliateProgram,
   }) {
     return UserDashboardSnapshot(
       generatedAt: generatedAt ?? this.generatedAt,
@@ -44,6 +47,7 @@ class UserDashboardSnapshot {
       nextActions: nextActions ?? this.nextActions,
       focusDigest: focusDigest ?? this.focusDigest,
       complianceAlerts: complianceAlerts ?? this.complianceAlerts,
+      affiliateProgram: affiliateProgram ?? this.affiliateProgram,
     );
   }
 }
@@ -172,4 +176,64 @@ class FocusDigest {
   final String focusArea;
   final int minutesReserved;
   final List<String> highlights;
+}
+
+class AffiliateProgramDigest {
+  const AffiliateProgramDigest({
+    required this.enabled,
+    required this.currency,
+    required this.lifetimeEarnings,
+    required this.pendingPayouts,
+    required this.conversionRate,
+    required this.nextPayoutAt,
+    required this.referralWindowDays,
+    required this.twoFactorRequired,
+    required this.kycRequired,
+    required this.requiredDocuments,
+    required this.tiers,
+    required this.links,
+  });
+
+  final bool enabled;
+  final String currency;
+  final double lifetimeEarnings;
+  final double pendingPayouts;
+  final double conversionRate;
+  final DateTime nextPayoutAt;
+  final int referralWindowDays;
+  final bool twoFactorRequired;
+  final bool kycRequired;
+  final List<String> requiredDocuments;
+  final List<AffiliateTierDigest> tiers;
+  final List<AffiliateLinkDigest> links;
+}
+
+class AffiliateTierDigest {
+  const AffiliateTierDigest({
+    required this.name,
+    required this.rate,
+    required this.minValue,
+    this.maxValue,
+  });
+
+  final String name;
+  final double rate;
+  final double minValue;
+  final double? maxValue;
+}
+
+class AffiliateLinkDigest {
+  const AffiliateLinkDigest({
+    required this.label,
+    required this.code,
+    required this.estimatedCommission,
+    required this.totalRevenue,
+    required this.conversions,
+  });
+
+  final String label;
+  final String code;
+  final double estimatedCommission;
+  final double totalRevenue;
+  final int conversions;
 }

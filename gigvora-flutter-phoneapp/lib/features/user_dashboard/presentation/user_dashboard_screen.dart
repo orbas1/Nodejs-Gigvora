@@ -204,7 +204,7 @@ class _UserDashboardBody extends StatelessWidget {
         children: [
           _DashboardMeta(snapshot: snapshot),
           const SizedBox(height: 20),
-          _SummaryMetricsGrid(summary: snapshot.summary),
+          _SummaryMetricsGrid(summary: snapshot.summary, affiliate: snapshot.affiliateProgram),
           const SizedBox(height: 20),
           _PipelineAutomationCard(pipeline: snapshot.pipeline),
           const SizedBox(height: 20),
@@ -213,6 +213,8 @@ class _UserDashboardBody extends StatelessWidget {
           _InterviewsCard(interviews: snapshot.upcomingInterviews),
           const SizedBox(height: 20),
           _DocumentStudioCard(digest: snapshot.documentStudio),
+          const SizedBox(height: 20),
+          _AffiliateProgramCard(affiliate: snapshot.affiliateProgram),
           const SizedBox(height: 20),
           _FocusDigestCard(digest: snapshot.focusDigest),
           const SizedBox(height: 20),
@@ -274,12 +276,15 @@ class _DashboardMeta extends StatelessWidget {
 }
 
 class _SummaryMetricsGrid extends StatelessWidget {
-  const _SummaryMetricsGrid({required this.summary});
+  const _SummaryMetricsGrid({required this.summary, required this.affiliate});
 
   final UserDashboardSummary summary;
+  final AffiliateProgramDigest affiliate;
 
   @override
   Widget build(BuildContext context) {
+    final currency = NumberFormat.simpleCurrency(name: affiliate.currency);
+
     final metrics = [
       _SummaryMetric('Total applications', summary.totalApplications.toString(), 'Opportunities tracked across markets.'),
       _SummaryMetric('Active pipeline', summary.activeApplications.toString(), 'Live opportunities needing touchpoints.'),
@@ -287,6 +292,11 @@ class _SummaryMetricsGrid extends StatelessWidget {
       _SummaryMetric('Documents uploaded', summary.documentsUploaded.toString(), 'CVs, case studies, and transcripts.'),
       _SummaryMetric('Offers in play', summary.offersNegotiating.toString(), 'Negotiations running this week.'),
       _SummaryMetric('Connections', summary.connections.toString(), 'Warm introductions and advocates.'),
+      _SummaryMetric(
+        'Affiliate earnings',
+        currency.format(affiliate.lifetimeEarnings),
+        'Pending ${currency.format(affiliate.pendingPayouts)} · ${affiliate.conversionRate.toStringAsFixed(1)}% conversion',
+      ),
     ];
 
     return LayoutBuilder(
@@ -692,6 +702,142 @@ class _DocumentStudioCard extends StatelessWidget {
               icon: const Icon(Icons.launch),
               label: const Text('Open CV workspace'),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AffiliateProgramCard extends StatelessWidget {
+  const _AffiliateProgramCard({required this.affiliate});
+
+  final AffiliateProgramDigest affiliate;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final currency = NumberFormat.simpleCurrency(name: affiliate.currency);
+    final dateFormatter = DateFormat('EEE dd MMM');
+
+    return GigvoraCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Affiliate & referrals', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 8),
+          Text(
+            'Partner revenue, payouts, and compliance controls mirrored from the web console.',
+            style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              _MetaChip(label: 'Lifetime earnings', value: currency.format(affiliate.lifetimeEarnings), icon: Icons.payments),
+              _MetaChip(
+                label: 'Pending payout',
+                value: currency.format(affiliate.pendingPayouts),
+                icon: Icons.account_balance_wallet_outlined,
+              ),
+              _MetaChip(
+                label: 'Conversion rate',
+                value: '${affiliate.conversionRate.toStringAsFixed(1)}%',
+                icon: Icons.trending_up,
+              ),
+              _MetaChip(
+                label: 'Next payout',
+                value: dateFormatter.format(affiliate.nextPayoutAt),
+                icon: Icons.event_available,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text('Commission tiers', style: theme.textTheme.labelLarge),
+          const SizedBox(height: 8),
+          ...affiliate.tiers.map(
+            (tier) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      tier.name,
+                      style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  Text(
+                    '${tier.rate.toStringAsFixed(1)}% · ${currency.format(tier.minValue)}'
+                    '${tier.maxValue != null ? ' – ${currency.format(tier.maxValue!)}' : '+'}',
+                    style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text('Top performing links', style: theme.textTheme.labelLarge),
+          const SizedBox(height: 8),
+          ...affiliate.links.map(
+            (link) => Container(
+              margin: const EdgeInsets.symmetric(vertical: 6),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colorScheme.primary.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(link.label, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                        Text(link.code, style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(currency.format(link.estimatedCommission),
+                          style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                      Text(
+                        '${currency.format(link.totalRevenue)} · ${link.conversions} conversions',
+                        style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text('Compliance posture', style: theme.textTheme.labelLarge),
+          const SizedBox(height: 6),
+          Text(
+            affiliate.requiredDocuments.isEmpty
+                ? 'No documents required before payout.'
+                : 'Required documents: ${affiliate.requiredDocuments.join(', ')}',
+            style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            affiliate.twoFactorRequired
+                ? 'Two-factor authentication enforced for partner logins.'
+                : 'Two-factor authentication optional for partners.',
+            style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            affiliate.kycRequired
+                ? 'KYC verification required before releasing payouts.'
+                : 'KYC checks handled during manual review.',
+            style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
           ),
         ],
       ),

@@ -1,46 +1,62 @@
 const features = [
   {
-    title: 'Mentor marketplace',
-    description: 'Book 1:1 sessions, clinics, and growth packages with operators across leadership, product, and revenue.',
+    title: 'Launch ready crews',
+    blurb: 'Spin up vetted designers, engineers and strategists the same day you share a brief.',
+    image:
+      'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1000&q=80',
   },
   {
-    title: 'Experience Launchpad',
-    description: 'Structured cohort programmes focused on shipping portfolio-ready work with partner companies.',
+    title: 'Client-grade collaboration',
+    blurb: 'Chat, files and milestones live in one elegant view your stakeholders understand instantly.',
+    image:
+      'https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?auto=format&fit=crop&w=1000&q=80',
   },
   {
-    title: 'Jobs & Projects',
-    description: 'Full-time roles, contract gigs, and mission-driven initiatives with transparent scopes and budgets.',
-  },
-  {
-    title: 'Live Feed & Groups',
-    description: 'Share wins, join industry groups, and grow with follows, connects, and collaborative circles.',
-  },
-  {
-    title: 'Agency & Company Hubs',
-    description: 'Dedicated spaces for agencies and companies to showcase teams and manage talent pipelines.',
+    title: 'Payments without paperwork',
+    blurb: 'Secure contracts, payouts and renewals in a couple taps—no spreadsheets or back-and-forth.',
+    image:
+      'https://images.unsplash.com/photo-1556740749-887f6717d7e4?auto=format&fit=crop&w=1000&q=80',
   },
 ];
 
 export default function FeatureGrid() {
   return (
-    <section className="border-y border-slate-200/70 bg-white py-20">
-      <div className="mx-auto max-w-6xl px-6">
-        <div className="mb-14 max-w-2xl space-y-4">
-          <h2 className="text-3xl font-semibold text-slate-900 sm:text-4xl">Everything you need to launch, hire, and grow</h2>
-          <p className="text-base text-slate-600">
-            Gigvora fuses marketplace capabilities with a professional community so freelancers, companies, agencies, and career seekers each have a tailored home base.
+    <section className="relative overflow-hidden bg-white py-20">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(219,234,254,0.35),_transparent_70%)]" aria-hidden="true" />
+      <div className="relative mx-auto max-w-6xl px-6">
+        <header className="mx-auto max-w-3xl text-center">
+          <span className="text-xs font-semibold uppercase tracking-[0.35em] text-accentDark">For modern teams</span>
+          <h2 className="mt-4 text-3xl font-semibold text-slate-900 sm:text-4xl">Everything customers love in one home</h2>
+          <p className="mt-4 text-base text-slate-600">
+            Less jargon, more flow. Gigvora delivers an experience that feels personal on web and on the go.
           </p>
-        </div>
-        <div className="grid gap-6 md:grid-cols-2">
+        </header>
+        <div className="mt-12 grid gap-6 md:grid-cols-3">
           {features.map((feature) => (
-            <div
+            <article
               key={feature.title}
-              className="group relative overflow-hidden rounded-3xl border border-slate-200 bg-surface p-8 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-accent/60 hover:shadow-soft"
+              className="group flex h-full flex-col overflow-hidden rounded-3xl border border-slate-200/70 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:border-accent/50 hover:shadow-soft"
             >
-              <div className="absolute -top-10 -right-8 h-24 w-24 rounded-full bg-accentSoft blur-2xl transition duration-300 group-hover:bg-accent/30" aria-hidden="true" />
-              <h3 className="text-xl font-semibold text-slate-900">{feature.title}</h3>
-              <p className="mt-3 text-sm text-slate-600">{feature.description}</p>
-            </div>
+              <div className="relative h-48 overflow-hidden">
+                <img
+                  src={feature.image}
+                  alt={feature.title}
+                  className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-slate-900/10 to-transparent" />
+                <div className="absolute bottom-4 left-4 rounded-full bg-white/90 px-4 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-slate-700">
+                  Seamless
+                </div>
+              </div>
+              <div className="flex flex-1 flex-col gap-4 px-6 pb-6 pt-6">
+                <h3 className="text-xl font-semibold text-slate-900">{feature.title}</h3>
+                <p className="text-sm text-slate-600">{feature.blurb}</p>
+                <div className="mt-auto flex items-center gap-2 text-sm font-semibold text-accent">
+                  See how it works
+                  <span aria-hidden="true">→</span>
+                </div>
+              </div>
+            </article>
           ))}
         </div>
       </div>
