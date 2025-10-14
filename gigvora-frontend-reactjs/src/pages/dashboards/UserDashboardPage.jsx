@@ -9,6 +9,7 @@ import ProjectGigManagementContainer from '../../components/projectGigManagement
 import useSession from '../../hooks/useSession.js';
 import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
 import DashboardBlogSpotlight from '../../components/blog/DashboardBlogSpotlight.jsx';
+import AffiliateProgramSection from '../../components/affiliate/AffiliateProgramSection.jsx';
 
 const DEFAULT_USER_ID = 1;
 const availableDashboards = ['user', 'freelancer', 'agency', 'company', 'headhunter'];
@@ -315,6 +316,22 @@ function buildMenuSections(data) {
         },
       ],
     },
+    {
+      label: 'Affiliate & referrals',
+      items: [
+        {
+          name: 'Affiliate revenue cockpit',
+          description: 'Track referral links, tiered commissions, and payout readiness in real time.',
+          tags: ['growth', 'monetisation'],
+          sectionId: 'affiliate-program',
+        },
+        {
+          name: 'Referral compliance',
+          description: 'Monitor KYC, payout thresholds, and activity guardrails for each partner.',
+          tags: ['compliance'],
+        },
+      ],
+    },
   ];
 }
 
@@ -390,6 +407,8 @@ export default function UserDashboardPage() {
   const notifications = Array.isArray(data?.notifications?.recent) ? data.notifications.recent : [];
   const projectActivity = Array.isArray(data?.projectActivity?.recent) ? data.projectActivity.recent : [];
   const launchpadApplications = Array.isArray(data?.launchpad?.applications) ? data.launchpad.applications : [];
+  const affiliateProgram = data?.affiliate ?? null;
+  const affiliateOverview = affiliateProgram?.overview ?? {};
 
   const insights = data?.insights ?? {};
   const careerAnalytics = insights.careerAnalytics ?? {};
@@ -449,6 +468,18 @@ export default function UserDashboardPage() {
       value: summary.documentsUploaded,
       description: 'Tailored CVs, cover letters, and supporting evidence.',
     },
+    {
+      label: 'Affiliate earnings',
+      value: Number(affiliateOverview?.lifetimeEarnings ?? 0),
+      displayValue:
+        affiliateOverview?.lifetimeEarnings != null
+          ? formatCurrency(affiliateOverview.lifetimeEarnings, affiliateOverview.currency ?? 'USD')
+          : '—',
+      description: `Pending ${formatCurrency(
+        affiliateOverview?.pendingPayouts ?? 0,
+        affiliateOverview?.currency ?? 'USD',
+      )} with ${(affiliateOverview?.conversionRate ?? 0).toFixed(1)}% conversion velocity.`,
+    },
   ];
 
   const heroTitle = 'User & Job Seeker Command Center';
@@ -487,7 +518,9 @@ export default function UserDashboardPage() {
               className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm transition hover:border-accent/40 hover:shadow-soft"
             >
               <p className="text-sm font-medium text-slate-500">{card.label}</p>
-              <p className="mt-3 text-3xl font-semibold text-slate-900">{formatNumber(card.value)}</p>
+              <p className="mt-3 text-3xl font-semibold text-slate-900">
+                {card.displayValue ?? formatNumber(card.value)}
+              </p>
               <p className="mt-2 text-sm text-slate-500">{card.description}</p>
             </div>
           ))}
@@ -1443,7 +1476,13 @@ export default function UserDashboardPage() {
         </section>
 
         <ProjectGigManagementContainer userId={userId} />
-        {documentStudio ? <DocumentStudioSection data={documentStudio} /> : null}
+        {documentStudio ? (
+          <DocumentStudioSection
+            data={documentStudio}
+            userId={userId}
+            onRefresh={() => refresh({ force: true })}
+          />
+        ) : null}
 
         <section className="grid gap-6 lg:grid-cols-2">
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -2031,6 +2070,10 @@ export default function UserDashboardPage() {
               </div>
             </div>
           </div>
+        </section>
+
+        <section id="affiliate-program" className="rounded-3xl border border-slate-200 bg-white p-0 shadow-sm">
+          <AffiliateProgramSection data={affiliateProgram} />
         </section>
 
         <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">

@@ -19,7 +19,7 @@ import useNotificationCenter from '../hooks/useNotificationCenter.js';
 import useAuthorization from '../hooks/useAuthorization.js';
 import { formatRelativeTime } from '../utils/date.js';
 import { getExplorerAllowedMemberships, hasExplorerAccess } from '../utils/accessControl.js';
-import { hasFinanceOperationsAccess } from '../utils/permissions.js';
+import { hasFinanceOperationsAccess, hasSecurityOperationsAccess } from '../utils/permissions.js';
 
 const NAV_LINKS = [
   { id: 'feed', to: '/feed', label: 'Live Feed', authOnly: true },
@@ -40,6 +40,13 @@ const NAV_LINKS = [
   { id: 'pages', to: '/pages', label: 'Pages', authOnly: true },
   { id: 'mentors', to: '/mentors', label: 'Mentors', authOnly: true },
   { id: 'inbox', to: '/inbox', label: 'Inbox', authOnly: true },
+  {
+    id: 'security-operations',
+    to: '/security-operations',
+    label: 'Security Ops',
+    authOnly: true,
+    requiredMemberships: ['security', 'trust', 'admin'],
+  },
 import { hasExplorerAccess } from '../utils/accessControl.js';
 import { hasFinanceOperationsAccess } from '../utils/permissions.js';
 import { canAccessLaunchpad } from '../constants/access.js';
@@ -55,6 +62,7 @@ const AUTHENTICATED_NAV_LINKS = [
   { id: 'mentors', to: '/mentors', label: 'Mentors' },
   { id: 'inbox', to: '/inbox', label: 'Inbox' },
   { id: 'blog', to: '/blog', label: 'Blog' },
+  { id: 'security-operations', to: '/security-operations', label: 'Security Ops' },
 ];
 
 const EXPLORER_ROLE_LABELS = getExplorerAllowedMemberships().map(
@@ -292,6 +300,7 @@ export default function Header() {
   }, [explorerAvailable]);
 
   const financeAccess = useMemo(() => hasFinanceOperationsAccess(session), [session]);
+  const securityAccess = useMemo(() => hasSecurityOperationsAccess(session), [session]);
 
   const navItems = useMemo(() => {
     return NAV_LINKS.filter((item) => {
@@ -412,6 +421,21 @@ export default function Header() {
                 )}
               </Menu.Item>
             </>
+          ) : null}
+          {securityAccess ? (
+            <Menu.Item>
+              {({ active }) => (
+                <Link
+                  to="/security-operations"
+                  className={classNames(
+                    'flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium transition',
+                    active ? 'bg-accentSoft text-accent' : 'text-slate-600',
+                  )}
+                >
+                  Security operations
+                </Link>
+              )}
+            </Menu.Item>
           ) : null}
           <Menu.Item>
             {({ active }) => (

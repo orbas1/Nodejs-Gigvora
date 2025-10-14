@@ -19,6 +19,7 @@ dependencies:
     path: packages/gigvora_design_system
   url_launcher: ^6.2.5
   google_sign_in: ^6.2.1
+  file_picker: ^6.1.1
 
 dev_dependencies:
   flutter_test:

@@ -15,6 +15,13 @@ export class ValidationError extends ApplicationError {
   }
 }
 
+export class ModerationError extends ValidationError {
+  constructor(message, details = {}) {
+    super(message, details);
+    this.name = 'ModerationError';
+  }
+}
+
 export class NotFoundError extends ApplicationError {
   constructor(message, details = {}) {
     super(message, 404, details);
@@ -42,6 +49,7 @@ export class AuthenticationError extends ApplicationError {
 export default {
   ApplicationError,
   ValidationError,
+  ModerationError,
   NotFoundError,
   ConflictError,
   AuthorizationError,
