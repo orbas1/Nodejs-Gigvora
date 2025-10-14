@@ -269,6 +269,19 @@ export default function Header() {
     return membershipLabels[0] ?? session?.title ?? null;
   }, [isAuthenticated, membershipLabels, session?.title]);
 
+  const profileLink = useMemo(() => {
+    if (session?.profileId || session?.userId) {
+      return '/profile/me';
+    }
+    return null;
+  }, [session?.profileId, session?.userId]);
+
+  const navLinks = useMemo(() => {
+    if (!profileLink) {
+      return AUTHENTICATED_NAV_LINKS;
+    }
+    return [...AUTHENTICATED_NAV_LINKS, { to: profileLink, label: 'Profile' }];
+  }, [profileLink]);
   const financeAccess = useMemo(() => hasFinanceOperationsAccess(session), [session]);
 
   const navClassName = ({ isActive }) =>
@@ -320,6 +333,21 @@ export default function Header() {
             <p className="text-sm font-semibold text-slate-800">{session?.name ?? 'Member'}</p>
             {sessionSubtitle ? <p className="text-xs text-slate-500">{sessionSubtitle}</p> : null}
           </div>
+          {profileLink ? (
+            <Menu.Item>
+              {({ active }) => (
+                <Link
+                  to={profileLink}
+                  className={classNames(
+                    'flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium transition',
+                    active ? 'bg-accentSoft text-accent' : 'text-slate-600',
+                  )}
+                >
+                  Profile
+                </Link>
+              )}
+            </Menu.Item>
+          ) : null}
           <Menu.Item>
             {({ active }) => (
               <Link

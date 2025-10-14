@@ -25,6 +25,7 @@ class UserSession {
     required this.title,
     required this.email,
     required this.location,
+    required this.profileId,
     required this.memberships,
     required this.activeMembership,
     required this.dashboards,
@@ -46,6 +47,7 @@ class UserSession {
   final String email;
   final String location;
   final String? avatarSeed;
+  final String profileId;
   final int? id;
   final int? userId;
   final int? memberId;
@@ -134,6 +136,7 @@ class UserSession {
       title: title,
       email: email,
       location: location,
+      profileId: profileId,
       userType: userType,
       avatarSeed: avatarSeed,
       memberships: nextMemberships,
@@ -160,6 +163,7 @@ class UserSession {
       title: 'Product Designer',
       email: 'lena.fields@gigvora.com',
       location: 'Berlin, Germany',
+      profileId: 'usr_demo',
       avatarSeed: 'Lena Fields',
       memberships: const ['company', 'user', 'freelancer', 'agency'],
       activeMembership: 'company',

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
 import ProfileEditor from '../components/ProfileEditor.jsx';
 import TrustScoreBreakdown from '../components/TrustScoreBreakdown.jsx';
 import UserAvatar from '../components/UserAvatar.jsx';
 import ReputationEngineShowcase from '../components/reputation/ReputationEngineShowcase.jsx';
 import { fetchProfile, updateProfile, updateProfileAvailability } from '../services/profile.js';
+import useSession from '../hooks/useSession.js';
 import { fetchFreelancerReputation } from '../services/reputation.js';
 import useSession from '../hooks/useSession.js';
 import { formatAbsolute, formatRelativeTime } from '../utils/date.js';
@@ -70,12 +71,61 @@ export default function ProfilePage() {
   });
   const [reputationReloadToken, setReputationReloadToken] = useState(0);
 
+  const membershipSet = useMemo(
+    () => new Set(Array.isArray(session?.memberships) ? session.memberships : []),
+    [session?.memberships],
+  );
+  const isAdmin = membershipSet.has('admin');
+  const canAccessProfile = useMemo(
+    () => ['freelancer', 'agency', 'admin'].some((role) => membershipSet.has(role)),
+    [membershipSet],
+  );
+  const resolvedProfileId = useMemo(() => {
+    if (id === 'me') {
+      return session?.profileId ?? session?.userId ?? null;
+    }
+    return id;
+  }, [id, session?.profileId, session?.userId]);
+  const canManageProfile = useMemo(() => {
+    if (!canAccessProfile || !resolvedProfileId) {
+      return false;
+    }
+    if (isAdmin) {
+      return true;
+    }
+    if (session?.profileId) {
+      return String(session.profileId) === String(resolvedProfileId);
+    }
+    return true;
+  }, [canAccessProfile, isAdmin, resolvedProfileId, session?.profileId]);
+
   useEffect(() => {
     const controller = new AbortController();
+    if (!isAuthenticated) {
+      setLoading(false);
+      setProfile(null);
+      setError(null);
+      return () => controller.abort();
+    }
+    if (!canAccessProfile) {
+      setLoading(false);
+      setProfile(null);
+      setError(
+        'You need an active freelancer or agency membership to manage this profile. Contact support if this seems incorrect.',
+      );
+      return () => controller.abort();
+    }
+    if (!resolvedProfileId) {
+      setLoading(false);
+      setProfile(null);
+      setError('We could not determine which profile to open for your account.');
+      return () => controller.abort();
+    }
+
     setLoading(true);
     setError(null);
 
-    fetchProfile(id, { force: reloadToken > 0, signal: controller.signal })
+    fetchProfile(resolvedProfileId, { force: reloadToken > 0, signal: controller.signal })
       .then((data) => {
         setProfile(data);
         setAvailabilityDraft(buildAvailabilityDraft(data.availability));
@@ -89,7 +139,7 @@ export default function ProfilePage() {
       });
 
     return () => controller.abort();
-  }, [id, reloadToken]);
+  }, [canAccessProfile, id, isAuthenticated, reloadToken, resolvedProfileId]);
 
   const metrics = profile?.metrics ?? {};
   const availability = useMemo(() => profile?.availability ?? {}, [profile]);
@@ -154,7 +204,7 @@ export default function ProfilePage() {
 
   const handleAvailabilityChange = useCallback(
     async (changes) => {
-      if (!profile) return;
+      if (!profile || !canManageProfile || !resolvedProfileId) return;
       setSavingAvailability(true);
       setError(null);
       try {
@@ -162,7 +212,7 @@ export default function ProfilePage() {
         if (payload.focusAreas) {
           payload.focusAreas = Array.isArray(payload.focusAreas) ? payload.focusAreas : [];
         }
-        const updated = await updateProfileAvailability(id, payload);
+        const updated = await updateProfileAvailability(resolvedProfileId, payload);
         setProfile(updated);
         setAvailabilityDraft(buildAvailabilityDraft(updated.availability));
       } catch (err) {
@@ -171,16 +221,16 @@ export default function ProfilePage() {
         setSavingAvailability(false);
       }
     },
-    [id, profile],
+    [canManageProfile, profile, resolvedProfileId],
   );
 
   const handleStatusSelect = useCallback(
     (status) => {
-      if (status === availabilityDraft.status) return;
+      if (!canManageProfile || status === availabilityDraft.status) return;
       handleAvailabilityChange({ availabilityStatus: status });
       setAvailabilityDraft((draft) => ({ ...draft, status }));
     },
-    [availabilityDraft.status, handleAvailabilityChange],
+    [availabilityDraft.status, canManageProfile, handleAvailabilityChange],
   );
 
   const handleHoursChange = useCallback((event) => {
@@ -189,18 +239,20 @@ export default function ProfilePage() {
   }, []);
 
   const handleHoursBlur = useCallback(() => {
+    if (!canManageProfile) return;
     const normalized = Math.min(Math.max(Number(availabilityDraft.hoursPerWeek) || 0, 0), 168);
     setAvailabilityDraft((draft) => ({ ...draft, hoursPerWeek: normalized }));
     handleAvailabilityChange({ availableHoursPerWeek: normalized });
-  }, [availabilityDraft.hoursPerWeek, handleAvailabilityChange]);
+  }, [availabilityDraft.hoursPerWeek, canManageProfile, handleAvailabilityChange]);
 
   const handleRemoteToggle = useCallback(
     (event) => {
+      if (!canManageProfile) return;
       const openToRemote = event.target.checked;
       setAvailabilityDraft((draft) => ({ ...draft, openToRemote }));
       handleAvailabilityChange({ openToRemote });
     },
-    [handleAvailabilityChange],
+    [canManageProfile, handleAvailabilityChange],
   );
 
   const handleFocusAreasChange = useCallback((event) => {
@@ -213,8 +265,9 @@ export default function ProfilePage() {
   }, []);
 
   const handleFocusAreasBlur = useCallback(() => {
+    if (!canManageProfile) return;
     handleAvailabilityChange({ focusAreas: availabilityDraft.focusAreas });
-  }, [availabilityDraft.focusAreas, handleAvailabilityChange]);
+  }, [availabilityDraft.focusAreas, canManageProfile, handleAvailabilityChange]);
 
   const handleReputationRefresh = useCallback(() => {
     if (!canAccessReputation) {
@@ -226,9 +279,12 @@ export default function ProfilePage() {
 
   const handleProfileSave = useCallback(
     async (changes) => {
+      if (!canManageProfile || !resolvedProfileId) {
+        throw new Error('You do not have permission to update this profile.');
+      }
       setSavingProfile(true);
       try {
-        const updated = await updateProfile(id, changes);
+        const updated = await updateProfile(resolvedProfileId, changes);
         setProfile(updated);
         setAvailabilityDraft(buildAvailabilityDraft(updated.availability));
         setEditorOpen(false);
@@ -239,9 +295,71 @@ export default function ProfilePage() {
         setSavingProfile(false);
       }
     },
-    [id, setAvailabilityDraft, setEditorOpen, setProfile],
+    [canManageProfile, resolvedProfileId, setAvailabilityDraft, setEditorOpen, setProfile],
   );
 
+  const availabilityInputsDisabled = savingAvailability || !canManageProfile;
+
+  if (!isAuthenticated) {
+    return (
+      <section className="flex min-h-[60vh] items-center justify-center bg-surfaceMuted px-6">
+        <div className="max-w-lg rounded-4xl border border-slate-200 bg-white/90 p-10 text-center shadow-soft">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-accent/70">Secure profile area</p>
+          <h1 className="mt-4 text-2xl font-bold text-slate-900">Sign in to access your profile</h1>
+          <p className="mt-3 text-sm text-slate-600">
+            Profiles contain availability, credential, and roster data. Authenticate with your Gigvora account to continue.
+          </p>
+          <Link
+            to="/login"
+            className="mt-6 inline-flex items-center justify-center rounded-full bg-accent px-6 py-2.5 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
+          >
+            Go to secure login
+          </Link>
+        </div>
+      </section>
+    );
+  }
+
+  if (!canAccessProfile) {
+    return (
+      <section className="flex min-h-[60vh] items-center justify-center bg-gradient-to-b from-white via-white to-surfaceMuted px-6">
+        <div className="max-w-xl rounded-4xl border border-amber-200/80 bg-amber-50/90 p-10 text-center shadow-soft">
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-amber-600">Access restricted</p>
+          <h1 className="mt-3 text-2xl font-bold text-amber-900">Profile workspace required</h1>
+          <p className="mt-3 text-sm text-amber-800">
+            Only freelancer, agency, or admin workspaces can open the profile cockpit. Switch roles or request access from your organisation admin.
+          </p>
+          <div className="mt-6 flex flex-wrap justify-center gap-3 text-sm font-semibold">
+            <Link
+              to="/dashboard/user"
+              className="inline-flex items-center justify-center rounded-full border border-amber-300 bg-white px-5 py-2 text-amber-700 transition hover:border-amber-400"
+            >
+              Return to user dashboard
+            </Link>
+            <a
+              href="mailto:support@gigvora.com"
+              className="inline-flex items-center justify-center rounded-full bg-amber-600 px-5 py-2 text-white shadow-sm transition hover:bg-amber-700"
+            >
+              Contact support
+            </a>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (!resolvedProfileId) {
+    return (
+      <section className="flex min-h-[60vh] items-center justify-center">
+        <div className="max-w-lg rounded-3xl border border-slate-200 bg-white/90 p-8 text-center shadow-soft">
+          <h1 className="text-lg font-semibold text-slate-900">No profile connected</h1>
+          <p className="mt-2 text-sm text-slate-600">
+            We couldn’t locate a profile tied to this account. Ask your workspace admin to provision one or reach out to support.
+          </p>
+        </div>
+      </section>
+    );
+  }
   useEffect(() => {
     if (!canAccessReputation) {
       setReputationState({
@@ -389,16 +507,18 @@ export default function ProfilePage() {
                 ))}
               </div>
             ) : null}
-            <div className="flex justify-center lg:justify-start">
-              <button
-                type="button"
-                onClick={() => setEditorOpen(true)}
-                disabled={savingAvailability || savingProfile}
-                className="mt-2 inline-flex items-center justify-center rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:cursor-not-allowed disabled:bg-slate-300"
-              >
-                Edit profile
-              </button>
-            </div>
+            {canManageProfile ? (
+              <div className="flex justify-center lg:justify-start">
+                <button
+                  type="button"
+                  onClick={() => setEditorOpen(true)}
+                  disabled={savingAvailability || savingProfile}
+                  className="mt-2 inline-flex items-center justify-center rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  Edit profile
+                </button>
+              </div>
+            ) : null}
           </div>
           <div className="grid gap-6 lg:grid-cols-2">
             <article className="rounded-3xl border border-slate-200/80 bg-surfaceMuted/70 p-6">
@@ -633,8 +753,8 @@ export default function ProfilePage() {
                       key={option.value}
                       type="button"
                       onClick={() => handleStatusSelect(option.value)}
-                      disabled={savingAvailability}
-                      className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+                      disabled={availabilityInputsDisabled}
+                      className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
                         isActive
                           ? 'border-accent bg-accent/10 text-slate-900'
                           : 'border-slate-200 bg-surfaceMuted/60 text-slate-600 hover:border-accent/40'
@@ -661,8 +781,8 @@ export default function ProfilePage() {
                     value={availabilityDraft.hoursPerWeek}
                     onChange={handleHoursChange}
                     onBlur={handleHoursBlur}
-                    disabled={savingAvailability}
-                    className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-inner focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
+                    disabled={availabilityInputsDisabled}
+                    className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-inner focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30 disabled:cursor-not-allowed disabled:bg-slate-100"
                   />
                 </label>
                 <label className="flex items-center gap-3 text-sm text-slate-600">
@@ -670,8 +790,8 @@ export default function ProfilePage() {
                     type="checkbox"
                     checked={availabilityDraft.openToRemote}
                     onChange={handleRemoteToggle}
-                    disabled={savingAvailability}
-                    className="h-4 w-4 rounded border-slate-300 text-accent focus:ring-accent"
+                    disabled={availabilityInputsDisabled}
+                    className="h-4 w-4 rounded border-slate-300 text-accent focus:ring-accent disabled:cursor-not-allowed"
                   />
                   Open to remote-friendly engagements
                 </label>
@@ -682,9 +802,9 @@ export default function ProfilePage() {
                     value={availabilityDraft.focusAreas.join(', ')}
                     onChange={handleFocusAreasChange}
                     onBlur={handleFocusAreasBlur}
-                    disabled={savingAvailability}
+                    disabled={availabilityInputsDisabled}
                     placeholder="e.g. Discovery sprints, Launchpad mentorship"
-                    className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-inner focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
+                    className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-inner focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30 disabled:cursor-not-allowed disabled:bg-slate-100"
                   />
                 </label>
                 <p className="text-xs text-slate-400">
@@ -794,13 +914,15 @@ export default function ProfilePage() {
         </div>
       </div>
       </section>
-      <ProfileEditor
-        open={isEditorOpen}
-        profile={profile}
-        saving={savingProfile}
-        onClose={() => setEditorOpen(false)}
-        onSave={handleProfileSave}
-      />
+      {canManageProfile ? (
+        <ProfileEditor
+          open={isEditorOpen}
+          profile={profile}
+          saving={savingProfile}
+          onClose={() => setEditorOpen(false)}
+          onSave={handleProfileSave}
+        />
+      ) : null}
     </>
   );
 }

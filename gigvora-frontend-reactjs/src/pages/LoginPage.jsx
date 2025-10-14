@@ -153,6 +153,8 @@ export default function LoginPage() {
   const handleGoogleError = () => {
     setError('Google sign-in was cancelled. Please try again.');
     login({
+      userId: 101,
+      profileId: 101,
       id: 1,
       userId: 2,
       id: 101,
