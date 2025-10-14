@@ -2,7 +2,7 @@
 
 Each numbered task maps to the update plan and contains explicit integration coverage so cross-functional teams can execute in parallel while maintaining traceability to Version 1.50 requirements and the pre-update defect catalogue.
 
-## Task 1 — Stabilise service lifecycles and security perimeters (0%)
+## Task 1 — Stabilise service lifecycles and security perimeters (27%)
 - **Backend:** Separate worker lifecycles from Express, add readiness/liveness probes, and repair the global error handler to satisfy Issue List items 1, 4, and 5.
 - **Front-end:** Surface health and rate-limit telemetry in admin dashboards so operators can react to backend degradation (Issues 14–17).
 - **User phone app:** Replace mocked connectivity checks with authenticated health polling and secure session bootstrap (Issue 18).
@@ -12,7 +12,9 @@ Each numbered task maps to the update plan and contains explicit integration cov
 - **Logic:** Add guard clauses that halt payment/compliance workflows when dependencies fail to avoid cascading outages.
 - **Design:** Provide consistent UX copy, iconography, and localisation for maintenance and security prompts across surfaces.
 
-## Task 2 — Modularise domain models and align schemas (0%)
+**Progress Note (Backend • 04 Apr):** Node API now boots through a lifecycle orchestrator with graceful shutdown hooks, readiness/liveness endpoints, structured logging with correlation IDs, and environment-tuned payload/rate controls. Background workers run under a managed supervisor with health instrumentation feeding the new `/health/ready` contract.
+
+## Task 2 — Modularise domain models and align schemas (55%)
 - **Backend:** Refactor `src/models/index.js` into bounded contexts with domain service layers and feature flags (Issue 4).
 - **Front-end:** Consume generated TypeScript clients and update dashboards to rely on canonical schema packages (Issue 7).
 - **User phone app:** Replace mocked DTOs with generated Dart models and update caches to respect new enums.
@@ -21,6 +23,10 @@ Each numbered task maps to the update plan and contains explicit integration cov
 - **API:** Version OpenAPI/JSON schemas, publish SDKs, and integrate validation middleware referencing shared definitions.
 - **Logic:** Introduce workflow services that enforce state transitions and eliminate placeholder branches (Issue 3).
 - **Design:** Update ERDs, taxonomy diagrams, and stakeholder documentation reflecting the modular architecture.
+
+**Progress Note (Backend • 05 Apr):** Domain registry now partitions the 360-model monolith into audited contexts with dedicated auth, marketplace, and platform services orchestrating login audits, feature flags, and workspace synchronisation. Zod-backed schema generation publishes JSON contracts to `shared-contracts/domain`, enabling web and Flutter teams to consume canonical DTOs while migration rewrites and ERD deliverables move into planning.
+
+**Progress Note (Backend • 06 Apr):** Published an authenticated `/api/domains` discovery surface that serialises bounded-context models, indexes, and associations for operators while exposing service bindings and sampled attributes. Generated TypeScript client definitions via `npm run schemas:clients` so React/Node tooling can ingest the same contracts as the JSON schema consumers.
 
 ## Task 3 — Enforce validation, consent, and governance workflows (0%)
 - **Backend:** Apply Celebrate/Zod validation, wire consent records, SAR tooling, and RBAC middleware logging.

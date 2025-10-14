@@ -1,47 +1,53 @@
 # Version 1.50 Milestone Breakdown
 
-## Milestone 1 – Harden Core Services & Security Perimeter (0%)
+## Milestone 1 – Harden Core Services & Security Perimeter (25%)
 **Objective:** Resolve startup coupling, middleware defects, and security weaknesses identified across the issue list while delivering compliance scaffolding.
 
-- **Task 1.1: Decouple service lifecycles and introduce health orchestration (0%)**
+- **Task 1.1: Decouple service lifecycles and introduce health orchestration (60%)**
   - Establish independent worker containers with supervisor restarts and readiness probes for background jobs.
   - Implement graceful shutdown hooks that drain queues, close Sequelize pools, and flush logs.
   - Publish service health telemetry to structured logging and monitoring dashboards for observability.
   - Document failure scenarios and recovery runbooks for incident responders.
-- **Task 1.2: Repair middleware, validation, and error handling (0%)**
+  - **Status 04 Apr:** Lifecycle orchestrator now supervises background workers, exposes `/health/live` and `/health/ready` endpoints, and records structured logs with correlation IDs. Remaining scope includes extending telemetry export to the monitoring stack and drafting incident runbooks.
+- **Task 1.2: Repair middleware, validation, and error handling (35%)**
   - Correct Express error-handler signatures and add fallback JSON serializers for unknown failures.
   - Enforce Celebrate/Zod schemas on every route, including pagination, filters, and payload limits.
   - Configure security middleware (Helmet, CORS whitelists, compression, body-size limits) with automated regression tests.
   - Update API documentation and SDK generation pipelines to match the validated contracts.
-- **Task 1.3: Implement security posture enhancements (0%)**
+  - **Status 04 Apr:** Error handler upgraded with correlation-aware logging, payload limits and rate limiter configured, and `/health` documentation drafted. Schema validation rollout remains pending.
+- **Task 1.3: Implement security posture enhancements (20%)**
   - Hash OTP/reset tokens, enforce rate limiting, and add abuse detection backed by Redis.
   - Integrate WAF, malware scans, phishing detection, and audit log sinks with alert thresholds.
   - Create maintenance banner endpoints surfaced to web and mobile clients during incidents.
   - Deliver UX guidelines, copy, and iconography for security prompts and downtime messaging.
+  - **Status 04 Apr:** Rate limiter and body-size controls enabled on API gateway while maintenance telemetry endpoints land. Maintenance banner API and UX assets remain outstanding.
 - **Task 1.4: Bootstrap consent, RBAC, and audit foundations (0%)**
   - Produce persona-level RBAC matrices linked to backend policy definitions and front-end guards.
   - Build consent record tables, SAR tooling, retention schedulers, and anonymisation jobs.
   - Add admin consoles for audit log review, permission overrides, and policy exports.
   - Align legal documentation (Terms, Privacy, Cookies) with consent APIs and localisation assets.
 
-## Milestone 2 – Modular Domain Architecture & Data Governance (0%)
+## Milestone 2 – Modular Domain Architecture & Data Governance (45%)
 **Objective:** Refactor domain models, migrations, and shared contracts so all clients consume a consistent, governed data layer.
 
-- **Task 2.1: Refactor backend domain boundaries (0%)**
+- **Task 2.1: Refactor backend domain boundaries (80%)**
   - Split `src/models/index.js` into bounded contexts with dependency diagrams and lint guards.
   - Extract messaging duplicates, standardise enums, and publish typed exports for shared consumption.
   - Introduce domain service layers for marketplace, finance, messaging, and integrations.
   - Enforce feature flags for incomplete modules until functional parity is confirmed.
-- **Task 2.2: Align migrations, seeding, and ERDs (0%)**
+  - **Status 05 Apr:** DomainRegistry now partitions 360+ models into audited contexts, new auth/marketplace/platform domain services orchestrate login audits and workspace health, and feature-flag infrastructure ships with dedicated JSON schemas. Remaining work focuses on visual dependency diagrams and lint automation.
+- **Task 2.2: Align migrations, seeding, and ERDs (20%)**
   - Rebuild migration suites to cover all fields, foreign keys, soft deletes, and tenant identifiers.
   - Seed taxonomies, templates, demo accounts, and localisation bundles consistently across environments.
   - Generate ERDs, data dictionaries, and warehouse feed specifications for analytics consumers.
   - Implement migration smoke tests against MySQL/PostgreSQL and SQLite within CI pipelines.
-- **Task 2.3: Publish shared schema packages and SDKs (0%)**
+  - **Status 05 Apr:** Generated shared contracts for auth and marketplace domains to drive upcoming ERD updates and seeded platform settings metadata; full migration rewrites and tenant seeding are scheduled next.
+- **Task 2.3: Publish shared schema packages and SDKs (35%)**
   - Generate OpenAPI/JSON schema artifacts for every domain service and publish versioned packages.
   - Produce TypeScript and Dart clients consumed by web and Flutter apps with compatibility tests.
   - Automate documentation updates linking endpoints, DTOs, and consumer examples.
   - Replace mocked repositories on clients with generated SDK usage and caching guards.
+  - **Status 05 Apr:** Added Zod-driven schema generators with `npm run schemas:sync`, publishing JSON contracts to `shared-contracts/domain` for auth, marketplace, and platform consumers. Client SDK generation and downstream integrations remain open.
 - **Task 2.4: Strengthen data lifecycle policies (0%)**
   - Define retention/archival jobs for financial, consent, and messaging data with audit evidence.
   - Implement encryption-at-rest for sensitive columns and rotate keys via vault integration.

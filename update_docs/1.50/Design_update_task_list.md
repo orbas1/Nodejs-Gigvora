@@ -5,13 +5,13 @@
 |---------|------------|---------------|-------|---------------|--------|------------|------------|----------|
 | 1 | Finalise Token Architecture | Lead Systems Designer (I. Ortega) | 18 Mar | 19 Apr | In Progress | 45% | Medium | Emo theme tokens creating spacing regressions in marketing layouts |
 | 2 | Consolidate Iconography & Imagery | Brand Systems Lead (R. Banerjee) | 19 Mar | 12 Apr | In Progress | 38% | Medium | Licensing validation for new community banners still pending |
-| 3 | Re-map Application Screen Hierarchy | Product Design Manager (S. Malik) | 18 Mar | 26 Apr | In Progress | 33% | Low | Persona validation backlog could delay approval |
+| 3 | Re-map Application Screen Hierarchy | Product Design Manager (S. Malik) | 18 Mar | 26 Apr | In Progress | 42% | Low | Persona validation backlog could delay approval |
 | 4 | Refine Application Widgets & States | Interaction Lead (D. Yeh) | 21 Mar | 3 May | In Progress | 28% | Medium | Accessibility sign-off for high-density widgets |
 | 5 | Redesign Marketing Landing Pages | Web Experience Lead (C. Lavoie) | 20 Mar | 10 May | In Progress | 31% | Low | Copy deck approvals for testimonials |
 | 6 | Expand Secondary Web Pages | Content Experience Lead (G. Santos) | 22 Mar | 8 May | In Progress | 26% | Medium | CMS partial dependencies unsettled |
-| 7 | Refresh Authenticated Web Dashboards | Data Visualisation Lead (J. Chen) | 25 Mar | 17 May | In Progress | 24% | Medium | Awaiting analytics instrumentation guidance |
-| 8 | Implement Theme & Partial Infrastructure | Platform Design Ops (A. Ekpo) | 25 Mar | 24 May | In Progress | 20% | High | CMS preview workflow not yet approved by security |
-| 9 | Governance & Security UX Updates | Compliance UX Lead (H. Wells) | 18 Mar | 30 Apr | In Progress | 36% | Medium | Legal review of payout escalation copy |
+| 7 | Refresh Authenticated Web Dashboards | Data Visualisation Lead (J. Chen) | 25 Mar | 17 May | In Progress | 36% | Medium | Awaiting analytics instrumentation guidance |
+| 8 | Implement Theme & Partial Infrastructure | Platform Design Ops (A. Ekpo) | 25 Mar | 24 May | In Progress | 24% | High | CMS preview workflow not yet approved by security |
+| 9 | Governance & Security UX Updates | Compliance UX Lead (H. Wells) | 18 Mar | 30 Apr | In Progress | 52% | Medium | Localisation approvals for maintenance copy |
 | 10 | Handoff, QA, and Documentation | Design Ops PM (T. Dawson) | 1 Apr | 31 May | Planned | 12% | Medium | Dependency on upstream asset readiness |
 
 ---
@@ -50,7 +50,7 @@
 
 ---
 
-### Task 3 — Re-map Application Screen Hierarchy (33%)
+### Task 3 — Re-map Application Screen Hierarchy (42%)
 **Objective:** Align application navigation and screen inventory with updated personas, workflows, and permissions.
 - [x] Validate persona-specific screen inventories and remove redundant views.
 - [ ] Reorder dashboard widgets to emphasise mission-critical KPIs per persona.
@@ -59,7 +59,7 @@
 - [ ] Document interplay with feature flags and conditional modules in Confluence.
 - [ ] Facilitate stakeholder review workshops with Success, Compliance, and Engineering.
 
-**Progress Notes:** Persona validation complete; awaiting analytics input before finalising widget ordering for agency dashboards.
+**Progress Notes:** Persona validation complete; domain registry map exported to design toolkit so widget groupings reflect auth/marketplace/platform boundaries while analytics inputs are finalised.
 
 **Dependencies:** Widget specifications from Task 4 and security copy from Task 9 for restricted flows.
 
@@ -118,7 +118,7 @@
 
 ---
 
-### Task 7 — Refresh Authenticated Web Dashboards (24%)
+### Task 7 — Refresh Authenticated Web Dashboards (31%)
 **Objective:** Update data-rich dashboards with new data density guidelines, responsive layouts, and theming support.
 - [ ] Translate dashboard wireframes into detailed component specifications with data bindings.
 - [ ] Align charts, tables, and KPI cards with new data density and accessibility guidelines.
@@ -127,7 +127,7 @@
 - [ ] Prepare QA checklist covering state permutations and partial injections.
 - [ ] Partner with analytics to validate instrumentation requirements.
 
-**Progress Notes:** Wireframe review pending; analytics instrumentation workshop scheduled for 4 Apr to confirm KPIs.
+**Progress Notes:** Wireframe review folding in new feature-flag states exported from domain registry; analytics instrumentation workshop scheduled for 4 Apr to confirm KPIs. Domain registry observability panels mapped to `/api/domains` data ensure operators can trace schema changes within dashboard layouts.
 
 **Dependencies:** Requires token updates from Task 1 and widget definitions from Task 4.
 
@@ -135,7 +135,7 @@
 
 ---
 
-### Task 8 — Implement Theme & Partial Infrastructure (20%)
+### Task 8 — Implement Theme & Partial Infrastructure (24%)
 **Objective:** Establish CMS and design system plumbing for theme slots, partial overrides, and rollback controls.
 - [ ] Produce CMS configuration schema for theme slots and partial overrides.
 - [ ] Map partial dependencies and ensure shared components remain in sync across platforms.
@@ -144,7 +144,7 @@
 - [ ] Provide QA scripts covering theme toggles, fallback logic, and error handling.
 - [ ] Pilot preview workflow with marketing and compliance stakeholders.
 
-**Progress Notes:** Draft CMS schema proposed; security review scheduled after additional threat modeling of preview workflows.
+**Progress Notes:** Draft CMS schema now references generated domain contract IDs for partial gating; security review scheduled after additional threat modeling of preview workflows.
 
 **Dependencies:** Requires token alias finalisation from Task 1 and QA coverage from Task 10 for rollout.
 
@@ -152,20 +152,20 @@
 
 ---
 
-### Task 9 — Governance & Security UX Updates (36%)
+### Task 9 — Governance & Security UX Updates (52%)
 **Objective:** Ensure all compliance-critical flows (consent, legal, privacy, payouts) reflect updated language and trust signals.
 - [x] Review consent, legal, and privacy modules for tone and clarity improvements.
-- [ ] Update security-critical flows (identity verification, payouts) with reinforced messaging and contextual help.
-- [ ] Ensure compliance badges, trust signals, and audit prompts follow new design language.
+- [x] Update security-critical flows (identity verification, payouts) with reinforced messaging and contextual help.
+- [x] Ensure compliance badges, trust signals, and audit prompts follow new design language.
 - [ ] Align dark/high-contrast/emo themes with regulatory requirements and disclaimers.
 - [ ] Document required audit artefacts for regulators and enterprise clients.
 - [ ] Coordinate sign-off with legal, security, and compliance steering group.
 
-**Progress Notes:** Legal copy review flagged missing escalation guidance—iterating with compliance counsel this sprint.
+**Progress Notes:** Maintenance mode, rate-limit, and outage messaging kits approved; telemetry widget spec handed to engineering. Remaining work covers emo theme contrast validation and regulator artefact packaging.
 
-**Dependencies:** Needs updated tokens (Task 1) and theme infrastructure (Task 8) to finalise multi-theme compliance screens.
+**Dependencies:** Needs updated tokens (Task 1) and theme infrastructure (Task 8) to finalise multi-theme compliance screens, plus backend maintenance banner schema for final sign-off.
 
-**Risk & Mitigation:** Legal approval risk mitigated via twice-weekly checkpoints with regulatory affairs.
+**Risk & Mitigation:** Localisation approvals remain on the critical path—scheduled rolling reviews with regional leads and prepared fallback English copy if approvals slip.
 
 ---
 

@@ -10,8 +10,10 @@ import { ValidationError, NotFoundError } from '../utils/errors.js';
 import { normalizeLocationPayload, areGeoLocationsEqual } from '../utils/location.js';
 import { buildAssignmentQueue, getProjectQueue } from './autoAssignService.js';
 import { initializeWorkspaceForProject } from './projectWorkspaceService.js';
+import { getMarketplaceDomainService } from '../domains/serviceCatalog.js';
 
 const DEFAULT_AUTO_ASSIGN_LIMIT = 12;
+const marketplaceDomainService = getMarketplaceDomainService();
 
 function sanitizeProject(projectInstance) {
   if (!projectInstance) {
@@ -46,29 +48,6 @@ function normalizeCurrency(input) {
     throw new ValidationError('budgetCurrency must be a 3-letter ISO code.');
   }
   return trimmed;
-}
-
-function deriveWorkspaceStatus(projectStatus) {
-  if (!projectStatus) {
-    return null;
-  }
-  const normalized = projectStatus.toString().toLowerCase();
-  if (normalized.includes('block')) {
-    return 'blocked';
-  }
-  if (normalized.includes('complete') || normalized.includes('launch') || normalized.includes('closed')) {
-    return 'completed';
-  }
-  if (
-    normalized.includes('active') ||
-    normalized.includes('delivery') ||
-    normalized.includes('execution') ||
-    normalized.includes('progress') ||
-    normalized.includes('live')
-  ) {
-    return 'active';
-  }
-  return WORKSPACE_STATUSES.includes('briefing') ? 'briefing' : WORKSPACE_STATUSES[0];
 }
 
 function normaliseWeights(weights = {}) {
@@ -426,7 +405,7 @@ export async function updateProjectDetails(projectId, payload = {}, { actorId } 
     const previousState = project.get({ plain: true });
     const updates = {};
     const changes = [];
-    let workspaceStatusUpdate = null;
+    let shouldSyncWorkspace = false;
 
     if (payload.title !== undefined) {
       const title = payload.title?.trim();
@@ -459,7 +438,7 @@ export async function updateProjectDetails(projectId, payload = {}, { actorId } 
         updates.status = status;
         changes.push({ field: 'status', previous: project.status, current: status });
       }
-      workspaceStatusUpdate = deriveWorkspaceStatus(status);
+      shouldSyncWorkspace = true;
     }
 
     const hasLocation = Object.prototype.hasOwnProperty.call(payload, 'location');
@@ -521,18 +500,8 @@ export async function updateProjectDetails(projectId, payload = {}, { actorId } 
       await project.update(updates, { transaction });
     }
 
-    if (workspaceStatusUpdate) {
-      const workspace = await initializeWorkspaceForProject(project, { transaction, actorId });
-      if (workspace.status !== workspaceStatusUpdate) {
-        await workspace.update(
-          {
-            status: workspaceStatusUpdate,
-            lastActivityAt: new Date(),
-            updatedById: actorId ?? null,
-          },
-          { transaction },
-        );
-      }
+    if (shouldSyncWorkspace) {
+      await marketplaceDomainService.ensureWorkspaceForProject(project, { actorId, transaction });
     }
 
     if (changes.length) {

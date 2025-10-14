@@ -1,4 +1,7 @@
 import { DataTypes, Op } from 'sequelize';
+import DomainRegistry from '../domains/domainRegistry.js';
+import logger from '../utils/logger.js';
+import { PlatformSetting } from './platformSetting.js';
 
 import { buildLocationDetails } from '../utils/location.js';
 
@@ -112,6 +115,9 @@ const PIPELINE_OWNER_TYPES = ['freelancer', 'agency', 'company'];
 const TWO_FACTOR_METHODS = ['email', 'app', 'sms'];
 const GIG_MEDIA_TYPES = ['image', 'video', 'embed', 'document'];
 const GIG_PREVIEW_DEVICE_TYPES = ['desktop', 'tablet', 'mobile'];
+const FEATURE_FLAG_ROLLOUT_TYPES = ['global', 'percentage', 'cohort'];
+const FEATURE_FLAG_STATUSES = ['draft', 'active', 'disabled'];
+const FEATURE_FLAG_AUDIENCE_TYPES = ['user', 'workspace', 'membership', 'domain'];
 
 export const User = sequelize.define(
   'User',
@@ -160,6 +166,38 @@ User.searchByTerm = async function searchByTerm(term) {
     limit: 20,
     order: [['lastName', 'ASC']],
   });
+};
+
+export const UserLoginAudit = sequelize.define(
+  'UserLoginAudit',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    eventType: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'login' },
+    ipAddress: { type: DataTypes.STRING(120), allowNull: true },
+    userAgent: { type: DataTypes.STRING(500), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'user_login_audits',
+    indexes: [
+      { fields: ['userId'] },
+      { fields: ['eventType'] },
+      { fields: ['createdAt'] },
+    ],
+  },
+);
+
+UserLoginAudit.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    eventType: plain.eventType,
+    ipAddress: plain.ipAddress,
+    userAgent: plain.userAgent,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+  };
 };
 
 export const Profile = sequelize.define(
@@ -799,6 +837,98 @@ export const CommunitySpotlightNewsletterFeature = sequelize.define(
   },
   { tableName: 'community_spotlight_newsletter_features' },
 );
+
+export const FeatureFlag = sequelize.define(
+  'FeatureFlag',
+  {
+    key: { type: DataTypes.STRING(120), allowNull: false, unique: true },
+    name: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...FEATURE_FLAG_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [FEATURE_FLAG_STATUSES] },
+    },
+    rolloutType: {
+      type: DataTypes.ENUM(...FEATURE_FLAG_ROLLOUT_TYPES),
+      allowNull: false,
+      defaultValue: 'global',
+      validate: { isIn: [FEATURE_FLAG_ROLLOUT_TYPES] },
+    },
+    rolloutPercentage: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  {
+    tableName: 'feature_flags',
+    indexes: [
+      { unique: true, fields: ['key'] },
+      { fields: ['status'] },
+      { fields: ['rolloutType'] },
+    ],
+  },
+);
+
+FeatureFlag.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    key: plain.key,
+    name: plain.name,
+    description: plain.description ?? '',
+    status: plain.status,
+    rolloutType: plain.rolloutType,
+    rolloutPercentage: plain.rolloutPercentage == null ? null : Number(plain.rolloutPercentage),
+    metadata: plain.metadata ?? {},
+    createdById: plain.createdById,
+    updatedById: plain.updatedById,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const FeatureFlagAssignment = sequelize.define(
+  'FeatureFlagAssignment',
+  {
+    flagId: { type: DataTypes.INTEGER, allowNull: false },
+    audienceType: {
+      type: DataTypes.ENUM(...FEATURE_FLAG_AUDIENCE_TYPES),
+      allowNull: false,
+      defaultValue: 'user',
+      validate: { isIn: [FEATURE_FLAG_AUDIENCE_TYPES] },
+    },
+    audienceValue: { type: DataTypes.STRING(255), allowNull: false },
+    rolloutPercentage: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    conditions: { type: jsonType, allowNull: true },
+    expiresAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'feature_flag_assignments',
+    indexes: [
+      { fields: ['flagId'] },
+      { fields: ['audienceType'] },
+      { fields: ['audienceValue'] },
+      { fields: ['expiresAt'] },
+    ],
+  },
+);
+
+FeatureFlagAssignment.prototype.toAssignmentConfig = function toAssignmentConfig() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    flagId: plain.flagId,
+    audienceType: plain.audienceType,
+    audienceValue: plain.audienceValue,
+    rolloutPercentage: plain.rolloutPercentage == null ? null : Number(plain.rolloutPercentage),
+    conditions: plain.conditions ?? null,
+    expiresAt: plain.expiresAt,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
 
 export const ReputationTestimonial = sequelize.define(
   'ReputationTestimonial',
@@ -13976,6 +14106,19 @@ CorporateVerification.belongsTo(User, { foreignKey: 'reviewerId', as: 'reviewer'
 User.hasMany(CorporateVerification, { foreignKey: 'userId', as: 'corporateVerifications' });
 User.hasMany(CorporateVerification, { foreignKey: 'reviewerId', as: 'reviewedCorporateVerifications' });
 
+User.hasMany(UserLoginAudit, { foreignKey: 'userId', as: 'loginAudits', onDelete: 'CASCADE' });
+UserLoginAudit.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+FeatureFlag.hasMany(FeatureFlagAssignment, {
+  foreignKey: 'flagId',
+  as: 'assignments',
+  onDelete: 'CASCADE',
+  hooks: true,
+});
+FeatureFlagAssignment.belongsTo(FeatureFlag, { foreignKey: 'flagId', as: 'flag' });
+FeatureFlag.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+FeatureFlag.belongsTo(User, { foreignKey: 'updatedById', as: 'updatedBy' });
+
 Profile.hasMany(CommunitySpotlight, { foreignKey: 'profileId', as: 'communitySpotlights', onDelete: 'CASCADE' });
 CommunitySpotlight.belongsTo(Profile, { foreignKey: 'profileId', as: 'profile' });
 CommunitySpotlight.hasMany(CommunitySpotlightHighlight, {
@@ -16261,6 +16404,10 @@ export default {
   CommunitySpotlightHighlight,
   CommunitySpotlightAsset,
   CommunitySpotlightNewsletterFeature,
+  FeatureFlag,
+  FeatureFlagAssignment,
+  PlatformSetting,
+  UserLoginAudit,
   CareerDocument,
   CareerDocumentVersion,
   CareerDocumentCollaborator,
@@ -16321,3 +16468,117 @@ export default {
 };
 
 registerBlogAssociations({ User });
+
+const domainRegistry = new DomainRegistry({
+  sequelize,
+  logger: logger.child({ module: 'DomainRegistry' }),
+});
+
+domainRegistry.registerContext({
+  name: 'auth',
+  displayName: 'Identity & Access',
+  description: 'User accounts, verification records, and multifactor credentials.',
+  include: [
+    (modelName) =>
+      /^User/.test(modelName) ||
+      /^Identity/.test(modelName) ||
+      /^Corporate/.test(modelName) ||
+      /^TwoFactor/.test(modelName) ||
+      /^AccountRecovery/.test(modelName) ||
+      /^UserLogin/.test(modelName),
+  ],
+});
+
+domainRegistry.registerContext({
+  name: 'talent',
+  displayName: 'Talent Graph',
+  description: 'Profiles, experience artefacts, reputation, and mentorship records.',
+  include: [
+    (modelName) =>
+      /^Profile/.test(modelName) ||
+      /^Freelancer/.test(modelName) ||
+      /^Career/.test(modelName) ||
+      /^Launchpad/.test(modelName) ||
+      /^Mentor/.test(modelName) ||
+      /^CommunitySpotlight/.test(modelName),
+  ],
+});
+
+domainRegistry.registerContext({
+  name: 'marketplace',
+  displayName: 'Marketplace & Delivery',
+  description: 'Projects, gigs, workspaces, automation queues, and collaboration artefacts.',
+  include: [
+    (modelName) =>
+      /^Project/.test(modelName) ||
+      /^Gig/.test(modelName) ||
+      /^Workspace/.test(modelName) ||
+      /^AutoAssign/.test(modelName) ||
+      /^Collaboration/.test(modelName) ||
+      /^Deliverable/.test(modelName),
+  ],
+});
+
+domainRegistry.registerContext({
+  name: 'finance',
+  displayName: 'Finance & Trust',
+  description: 'Wallets, escrow, payouts, tax exports, and dispute artefacts.',
+  include: [
+    (modelName) =>
+      /^Finance/.test(modelName) ||
+      /^Wallet/.test(modelName) ||
+      /^Escrow/.test(modelName) ||
+      /^Dispute/.test(modelName) ||
+      /^Revenue/.test(modelName) ||
+      /^Expense/.test(modelName) ||
+      /^Tax/.test(modelName) ||
+      /^AgencyBilling/.test(modelName),
+  ],
+});
+
+domainRegistry.registerContext({
+  name: 'communications',
+  displayName: 'Messaging & Support',
+  description: 'Messages, notifications, support desks, analytics, and engagement artefacts.',
+  include: [
+    (modelName) =>
+      /^Message/.test(modelName) ||
+      /^Notification/.test(modelName) ||
+      /^Support/.test(modelName) ||
+      /^Analytics/.test(modelName),
+  ],
+});
+
+domainRegistry.registerContext({
+  name: 'governance',
+  displayName: 'Governance & Compliance',
+  description: 'Policies, audits, leadership rituals, governance risks, and executive insights.',
+  include: [
+    (modelName) =>
+      /^Compliance/.test(modelName) ||
+      /^Governance/.test(modelName) ||
+      /^Leadership/.test(modelName) ||
+      /^Executive/.test(modelName) ||
+      /^Accessibility/.test(modelName) ||
+      /^Policy/.test(modelName),
+  ],
+});
+
+domainRegistry.registerContext({
+  name: 'platform',
+  displayName: 'Platform Controls',
+  description: 'Platform-wide configuration including feature flags and platform settings.',
+  models: ['FeatureFlag', 'FeatureFlagAssignment', 'PlatformSetting'],
+});
+
+const unassignedModels = domainRegistry.getUnassignedModelNames();
+if (unassignedModels.length) {
+  domainRegistry.registerContext({
+    name: 'shared',
+    displayName: 'Shared & Legacy',
+    description: 'Models pending bounded-context assignment or shared across domains.',
+    models: unassignedModels,
+  });
+}
+
+export { domainRegistry };

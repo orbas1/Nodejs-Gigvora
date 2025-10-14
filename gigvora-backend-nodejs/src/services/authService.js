@@ -1,14 +1,14 @@
 import crypto from 'crypto';
-import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
-import { User, sequelize } from '../models/index.js';
-import { normalizeLocationPayload } from '../utils/location.js';
 import twoFactorService from './twoFactorService.js';
+import { getAuthDomainService, getFeatureFlagService } from '../domains/serviceCatalog.js';
 
 const TOKEN_EXPIRY = process.env.JWT_EXPIRES_IN || '1h';
 const REFRESH_EXPIRY = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
-const ALLOWED_TWO_FACTOR_METHODS = ['email', 'app', 'sms'];
+
+const authDomainService = getAuthDomainService();
+const featureFlagService = getFeatureFlagService();
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 let oauthClient = null;
@@ -27,41 +27,8 @@ function buildError(message, status = 400) {
   return Object.assign(new Error(message), { status });
 }
 
-function deriveMemberships(user) {
-  const memberships = new Set();
-  if (Array.isArray(user.memberships)) {
-    user.memberships.filter(Boolean).forEach((item) => memberships.add(item));
-  }
-  if (user.userType) {
-    memberships.add(user.userType);
-  }
-  if (memberships.size === 0) {
-    memberships.add('user');
-  }
-  return Array.from(memberships);
-}
-
 function sanitizeUser(userInstance) {
-  const plain = typeof userInstance.get === 'function' ? userInstance.get({ plain: true }) : userInstance;
-  const fullName = [plain.firstName, plain.lastName].filter(Boolean).join(' ').trim() || plain.email;
-  return {
-    id: plain.id,
-    email: plain.email,
-    firstName: plain.firstName,
-    lastName: plain.lastName,
-    name: fullName,
-    address: plain.address,
-    location: plain.location,
-    geoLocation: plain.geoLocation,
-    age: plain.age,
-    userType: plain.userType,
-    twoFactorEnabled: plain.twoFactorEnabled !== false,
-    twoFactorMethod: plain.twoFactorMethod || 'email',
-    lastLoginAt: plain.lastLoginAt || null,
-    googleId: plain.googleId || null,
-    memberships: deriveMemberships(plain),
-    primaryDashboard: plain.primaryDashboard || plain.userType || 'user',
-  };
+  return authDomainService.sanitizeUser(userInstance);
 }
 
 function decodeExpiry(token) {
@@ -70,6 +37,22 @@ function decodeExpiry(token) {
     return null;
   }
   return new Date(decoded.exp * 1000).toISOString();
+}
+
+function resolveAccessTokenSecret() {
+  const secret = process.env.JWT_SECRET || process.env.JWT_ACCESS_SECRET;
+  if (!secret) {
+    throw buildError('JWT access token secret is not configured.', 500);
+  }
+  return secret;
+}
+
+function resolveRefreshTokenSecret() {
+  const secret = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET;
+  if (!secret) {
+    throw buildError('JWT refresh token secret is not configured.', 500);
+  }
+  return secret;
 }
 
 function resolveSecrets() {
@@ -84,9 +67,8 @@ async function issueSession(user) {
   const payload = { id: user.id, type: user.userType };
   const accessToken = jwt.sign(payload, secrets.access, { expiresIn: TOKEN_EXPIRY });
   const refreshToken = jwt.sign(payload, secrets.refresh, { expiresIn: REFRESH_EXPIRY });
+  await authDomainService.updateLastLogin(user.id);
   const sanitized = sanitizeUser(user);
-
-  await user.update({ lastLoginAt: new Date() });
 
   return {
     user: { ...sanitized, lastLoginAt: new Date().toISOString() },
@@ -94,15 +76,6 @@ async function issueSession(user) {
     refreshToken,
     expiresAt: decodeExpiry(accessToken),
   };
-}
-
-function normalizeTwoFactorPreference(data = {}) {
-  const enabled = data.twoFactorEnabled !== false;
-  const preferredMethod = typeof data.twoFactorMethod === 'string' ? data.twoFactorMethod.toLowerCase() : undefined;
-  const method = enabled && preferredMethod && ALLOWED_TWO_FACTOR_METHODS.includes(preferredMethod)
-    ? preferredMethod
-    : 'email';
-  return { twoFactorEnabled: enabled, twoFactorMethod: method };
 }
 
 function ensurePasswordStrength(password) {
@@ -117,45 +90,18 @@ async function register(data) {
   }
   ensurePasswordStrength(data.password);
 
-  const existing = await User.findOne({ where: { email: data.email } });
-  if (existing) {
-    throw buildError('An account with this email already exists.', 409);
-  }
-
-  const hashedPassword = await bcrypt.hash(data.password, 10);
-  const { twoFactorEnabled, twoFactorMethod } = normalizeTwoFactorPreference(data);
-
-  const user = await sequelize.transaction(async (trx) => {
-    const locationPayload = normalizeLocationPayload({
-      location: data.location ?? data.address,
-      geoLocation: data.geoLocation,
-    });
-    return User.create(
-      {
-        email: data.email,
-        password: hashedPassword,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        address: data.address,
-        location: locationPayload.location,
-        geoLocation: locationPayload.geoLocation,
-        age: data.age,
-        userType: data.userType || 'user',
-        twoFactorEnabled,
-        twoFactorMethod,
-      },
-      { transaction: trx },
-    );
+  const sanitizedUser = await authDomainService.registerUser(data);
+  const featureFlags = await featureFlagService.evaluateForUser(sanitizedUser, {
+    traits: { signupChannel: data.signupChannel || 'api', persona: sanitizedUser.userType },
   });
-
-  return sanitizeUser(user);
+  return { ...sanitizedUser, featureFlags };
 }
 
 async function login(email, password, options = {}) {
   if (!email || !password) {
     throw buildError('Email and password are required.', 422);
   }
-  const user = await User.findOne({ where: { email } });
+  const user = await authDomainService.findUserByEmail(email);
   if (!user || !user.password) {
     throw buildError('Invalid credentials', 401);
   }
@@ -164,31 +110,52 @@ async function login(email, password, options = {}) {
     throw buildError('Admin access required', 403);
   }
 
-  const valid = await bcrypt.compare(password, user.password);
+  const valid = await authDomainService.comparePassword(user, password);
   if (!valid) {
     throw buildError('Invalid credentials', 401);
   }
 
+  const sanitizedUser = sanitizeUser(user);
+
   if (user.twoFactorEnabled !== false) {
     const challenge = await twoFactorService.sendToken(user.email, {
-      deliveryMethod: user.twoFactorMethod || 'email',
+      deliveryMethod: sanitizedUser.twoFactorMethod,
       context: options.context,
+    });
+    const featureFlags = await featureFlagService.evaluateForUser(sanitizedUser, {
+      traits: { loginContext: 'two_factor_pending' },
     });
     return {
       requiresTwoFactor: true,
       challenge,
-      user: sanitizeUser(user),
+      user: { ...sanitizedUser, featureFlags },
     };
   }
 
   const session = await issueSession(user);
+  const featureFlags = await featureFlagService.evaluateForUser(session.user, {
+    workspaceIds: options.workspaceIds ?? [],
+    traits: { loginContext: options.context?.ipAddress ? 'ip_tracked' : 'standard' },
+  });
+  session.featureFlags = featureFlags;
+  session.user.featureFlags = featureFlags;
+  await authDomainService.recordLoginAudit(
+    user.id,
+    {
+      eventType: 'login',
+      ipAddress: options.context?.ipAddress,
+      userAgent: options.context?.userAgent,
+      metadata: { strategy: 'password' },
+    },
+    {},
+  );
   return {
     requiresTwoFactor: false,
     session,
   };
 }
 
-async function verifyTwoFactor(email, code, tokenId) {
+async function verifyTwoFactor(email, code, tokenId, options = {}) {
   if (!email || !code) {
     throw buildError('Email and code are required.', 422);
   }
@@ -197,12 +164,29 @@ async function verifyTwoFactor(email, code, tokenId) {
     throw buildError('Invalid or expired code', 401);
   }
 
-  const user = await User.findOne({ where: { email } });
+  const user = await authDomainService.findUserByEmail(email);
   if (!user) {
     throw buildError('Account not found.', 404);
   }
 
+  await authDomainService.recordLoginAudit(
+    user.id,
+    {
+      eventType: 'two_factor_verified',
+      ipAddress: options.context?.ipAddress,
+      userAgent: options.context?.userAgent,
+      metadata: { strategy: 'password' },
+    },
+    {},
+  );
+
   const session = await issueSession(user);
+  const featureFlags = await featureFlagService.evaluateForUser(session.user, {
+    workspaceIds: options.workspaceIds ?? [],
+    traits: { loginContext: 'two_factor_completed' },
+  });
+  session.featureFlags = featureFlags;
+  session.user.featureFlags = featureFlags;
   return { session };
 }
 
@@ -213,7 +197,7 @@ async function resendTwoFactor(tokenId) {
   return twoFactorService.resendToken(tokenId);
 }
 
-async function loginWithGoogle(idToken) {
+async function loginWithGoogle(idToken, options = {}) {
   if (!idToken) {
     throw buildError('Google ID token is required.', 422);
   }
@@ -233,13 +217,13 @@ async function loginWithGoogle(idToken) {
 
   const email = payload.email.toLowerCase();
   const googleId = payload.sub;
-  let user = await User.findOne({ where: { email } });
+  let user = await authDomainService.findUserByEmail(email);
 
   if (!user) {
     const randomPassword = crypto.randomBytes(32).toString('hex');
-    user = await User.create({
+    await authDomainService.registerUser({
       email,
-      password: await bcrypt.hash(randomPassword, 10),
+      password: randomPassword,
       firstName: payload.given_name || 'Google',
       lastName: payload.family_name || 'User',
       userType: 'user',
@@ -247,11 +231,27 @@ async function loginWithGoogle(idToken) {
       twoFactorMethod: 'app',
       googleId,
     });
+    user = await authDomainService.findUserByEmail(email);
   } else if (!user.googleId || user.googleId !== googleId) {
     await user.update({ googleId, twoFactorEnabled: false });
   }
 
   const session = await issueSession(user);
+  const featureFlags = await featureFlagService.evaluateForUser(session.user, {
+    traits: { loginContext: 'google_oauth' },
+  });
+  session.featureFlags = featureFlags;
+  session.user.featureFlags = featureFlags;
+  await authDomainService.recordLoginAudit(
+    user.id,
+    {
+      eventType: 'login',
+      ipAddress: options.context?.ipAddress,
+      userAgent: options.context?.userAgent,
+      metadata: { strategy: 'google_oauth' },
+    },
+    {},
+  );
   return { session };
 }
 

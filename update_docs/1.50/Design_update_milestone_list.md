@@ -11,6 +11,8 @@
 - Finalise screen inventories (`Screens_list.md`) and priority zones per persona.
 - Deliver annotated wireframes for dashboards, studios, finance flows, and settings.
 - Align widget functions, states, and API expectations through `Screens_Updates_widget_functions.md` updates.
+- **Status 05 Apr:** Architecture domain map annotated with auth/marketplace/platform ownership, and feature flag management wireframes drafted for dashboard integration; ERD visual refresh pending stakeholder review.
+- **Status 06 Apr:** Added domain registry observability panels to dashboard specs, linking `/api/domains` metadata to design annotations and TypeScript contract references.
 
 ## Milestone 3 – Web Marketing & Dashboard Refresh (Week 3–5)
 **Objective:** Modernise marketing site, landing hero, and authenticated dashboards with modular partials.
@@ -29,6 +31,7 @@
 - Audit consent, legal, and security flows to confirm overlays, banners, and copy updates.
 - Run accessibility sweeps (WCAG AA) on redesigned screens, documenting remediation steps.
 - Provide security-sensitive UI patterns for finance, identity verification, and audit trails.
+- **Status 04 Apr:** Maintenance-mode messaging, health telemetry widgets, and rate-limit callouts are specced with localisation guidance; pending review includes integrating the assets into emo theme variations and validating screen-reader announcements.
 
 ## Milestone 6 – Handoff, QA, and Implementation Support (Week 6–7)
 **Objective:** Equip engineering and QA teams with detailed documentation, assets, and review rituals.

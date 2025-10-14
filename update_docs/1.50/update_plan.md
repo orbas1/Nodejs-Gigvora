@@ -9,7 +9,8 @@ This plan consolidates the Version 1.50 feature mandate with the critical defect
    - **Backend:**
      - Split background workers from the Express lifecycle with independent supervisors, readiness probes, and graceful shutdown hooks aligned to Fix Suggestions 1 & 4.
      - Correct the Express error-handler signature, enforce structured logging with correlation IDs, and instrument health checks for each module highlighted in Issue Report §Backend Platform.
-     - Apply strict body parsers, payload size limits, and rate limiting to address Issue List items 1, 2, and 6.
+   - Apply strict body parsers, payload size limits, and rate limiting to address Issue List items 1, 2, and 6.
+    - **Status 04 Apr:** Lifecycle orchestrator, structured logging, request limiting, and health endpoints are live in the Node API; pending work covers automated schema validation and external telemetry exports.
    - **Front-end:**
      - Update admin panels to surface service health, rate limit feedback, and error states so UI reflects backend readiness (Issues 14–17).
    - **User phone app:**
@@ -44,6 +45,8 @@ This plan consolidates the Version 1.50 feature mandate with the critical defect
      - Add domain service layers to encapsulate workflows and enforce state transitions for marketplace entities (Issue 3).
    - **Design:**
      - Update entity relationship diagrams and taxonomy visualisations to help stakeholders navigate the modular architecture.
+
+   - **Status 06 Apr:** Domain registry now powers `/api/domains` discovery endpoints with model/index serialisation, and shared TypeScript definitions are generated alongside JSON schemas so front-end tooling can adopt canonical types.
 
 3. **Enforce validation, consent, and governance workflows – 0%**  
    Implement GDPR tooling, audit trails, and permission guardrails across surfaces.

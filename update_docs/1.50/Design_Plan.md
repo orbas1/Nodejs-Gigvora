@@ -27,17 +27,22 @@ Detail the holistic design intent for Version 1.50 across application and web ex
 - Refresh widget interactions per `Screens_Updates_widget_functions.md`, `Screens__Update_widget_types.md`, and `Screen_buttons.md`.
 - Align forms with validation patterns and progressive disclosure (`Forms.md`, `Dummy_Data_Requirements.md`).
 - Harmonise logic flows based on `Logic_Flow_map.md`, `Logic_Flow_update.md`, and `Screens_Update_Logic_Flow_map.md` to ensure navigation consistency.
+- Introduce maintenance telemetry cards, downtime banners, and retry guidance for admin/agency dashboards reflecting `/health/ready` insights; specifications captured in `Dashboard Designs.md` and `Screen_text.md`.
+- Map bounded-context ownership in UI artefacts by updating `Architecture_Domain_Map.md` and in-product ERDs so dashboard widgets reference the new auth/marketplace/platform domains.
+- Design domain registry observability panels that visualise `/api/domains` responses with drill-down tables, schema change alerts, and export actions documented in `Screens_Updates_widget_functions.md` and `Dashboard Designs.md`.
 
 ### 3. Web Application Modernisation
 - Redesign marketing landing pages guided by `Home Page Organisations.md`, `Home page text.md`, and `Home page images.md`.
 - Expand secondary pages (Community, Compliance, Careers) using the modular structures described in `pages.md` and `Pages_list.md`.
 - Standardise dashboards (`Dashboard Designs.md`) and profile/settings experiences (`Profile Look.md`, `Settings Dashboard.md`) with theme-aware backgrounds.
 - Define reusable component functions and placements referencing `component_functions.md` and `Placement.md`.
+- Document maintenance and security messaging modules (status badges, rate-limit callouts, downtime toasts) for marketing and authenticated shells, ensuring localisation packs include required strings and icons.
 
 ### 4. Theme & Partial Infrastructure
 - Implement theme toggles surfaced in settings and landing experience, referencing the alias map and partial documentation.
 - Audit partial-based page assembly to ensure theme compatibility, referencing `Home page components.md` and `component_types.md`.
 - Introduce event-driven emo theme kits with curated imagery, copy tone adjustments, and security/compliance validation.
+- Ensure maintenance banners inherit theme tokens (neutral, high-contrast, emo) with accessibility validation and publish QA scripts covering downtime permutations.
 
 ### 5. Governance, QA, and Handoff
 - Produce QA checklists mapping to each screen and theme combination, including screenshot diff runs and accessibility audits.
