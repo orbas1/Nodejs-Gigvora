@@ -155,6 +155,20 @@ function sanitizeMessage(message) {
   };
 }
 
+function scheduleAutoReplies(threadId, message, senderId) {
+  if (!message || !message.id) return;
+  if (message.messageType !== 'text') return;
+  const body = typeof message.body === 'string' ? message.body.trim() : '';
+  if (!body) return;
+  if (message.metadata && typeof message.metadata === 'object' && message.metadata.autoReply) return;
+
+  import('./aiAutoReplyService.js')
+    .then((module) =>
+      module.enqueueAutoReplies?.({ threadId, messageId: message.id, senderId }),
+    )
+    .catch(() => {});
+}
+
 function sanitizeSupportCase(supportCase) {
   if (!supportCase) return null;
   const plain = supportCase.get ? supportCase.get({ plain: true }) : supportCase;
@@ -560,7 +574,9 @@ export async function appendMessage(threadId, senderId, { messageType = 'text', 
     participants.map((participant) => participant.userId),
   );
 
-  return sanitizeMessage(hydrated ?? message);
+  const sanitized = sanitizeMessage(hydrated ?? message);
+  scheduleAutoReplies(threadId, sanitized, senderId);
+  return sanitized;
 }
 
 export async function startOrJoinCall(

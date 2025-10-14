@@ -10,6 +10,7 @@ export { default as trustService } from './trustService.js';
 export { default as searchIndexService } from './searchIndexService.js';
 export { default as searchSubscriptionService } from './searchSubscriptionService.js';
 export { default as autoAssignService } from './autoAssignService.js';
+export { default as aiAutoReplyService } from './aiAutoReplyService.js';
 export { default as projectService } from './projectService.js';
 export { default as launchpadService } from './launchpadService.js';
 export { default as profileService } from './profileService.js';

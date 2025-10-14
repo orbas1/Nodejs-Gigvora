@@ -6,6 +6,7 @@ import supportDeskService from '../services/supportDeskService.js';
 import catalogInsightsService from '../services/catalogInsightsService.js';
 import gigBuilderService from '../services/gigBuilderService.js';
 import gigManagerService from '../services/gigManagerService.js';
+import { getUserOpenAiSettings, updateUserOpenAiSettings } from '../services/aiAutoReplyService.js';
 import affiliateDashboardService from '../services/affiliateDashboardService.js';
 import { normalizeLocationPayload } from '../utils/location.js';
 
@@ -95,22 +96,43 @@ export async function getFreelancerAlliances(req, res) {
     bypassCache: req.query.fresh === 'true',
   });
   res.json(alliances);
+}
+
 export async function getSupportDesk(req, res) {
   const snapshot = await supportDeskService.getFreelancerSupportDesk(req.params.id, {
+    bypassCache: req.query.fresh === 'true',
+  });
+  res.json(snapshot);
+}
+
 export async function getFreelancerCatalogInsights(req, res) {
   const insights = await catalogInsightsService.getFreelancerCatalogInsights(req.params.id, {
     bypassCache: req.query.fresh === 'true',
   });
   res.json(insights);
+}
+
 export async function getFreelancerGigBuilder(req, res) {
   const payload = await gigBuilderService.getFreelancerGigBuilder({
     freelancerId: req.params.id,
     gigId: req.query.gigId,
   });
   res.json(payload);
+}
+
 export async function getGigManagerSnapshot(req, res) {
   const snapshot = await gigManagerService.getGigManagerSnapshot(req.params.id, {
     bypassCache: req.query.fresh === 'true',
   });
   res.json(snapshot);
+}
+
+export async function getUserAiSettings(req, res) {
+  const settings = await getUserOpenAiSettings(req.params.id);
+  res.json(settings);
+}
+
+export async function updateUserAiSettings(req, res) {
+  const settings = await updateUserOpenAiSettings(req.params.id, req.body ?? {});
+  res.json(settings);
 }
