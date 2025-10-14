@@ -43,18 +43,33 @@ export async function registerAgency(req, res) {
 
 export async function login(req, res) {
   const { email, password } = req.body;
-  const response = await authService.login(email, password);
+  const response = await authService.login(email, password, { context: { ipAddress: req.ip } });
   res.json(response);
 }
 
 export async function adminLogin(req, res) {
   const { email, password } = req.body;
-  const response = await authService.login(email, password, { requireAdmin: true });
+  const response = await authService.login(email, password, {
+    requireAdmin: true,
+    context: { ipAddress: req.ip },
+  });
   res.json(response);
 }
 
 export async function verifyTwoFactor(req, res) {
-  const { email, code } = req.body;
-  const response = await authService.verifyTwoFactor(email, code);
+  const { email, code, tokenId } = req.body;
+  const response = await authService.verifyTwoFactor(email, code, tokenId);
+  res.json(response);
+}
+
+export async function resendTwoFactor(req, res) {
+  const { tokenId } = req.body;
+  const challenge = await authService.resendTwoFactor(tokenId);
+  res.json(challenge);
+}
+
+export async function googleLogin(req, res) {
+  const { idToken } = req.body;
+  const response = await authService.loginWithGoogle(idToken);
   res.json(response);
 }

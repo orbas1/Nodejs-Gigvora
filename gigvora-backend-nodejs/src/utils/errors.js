@@ -35,6 +35,7 @@ export class AuthorizationError extends ApplicationError {
 
 export class AuthenticationError extends ApplicationError {
   constructor(message, details = {}) {
+  constructor(message = 'Authentication required', details = {}) {
     super(message, 401, details);
   }
 }

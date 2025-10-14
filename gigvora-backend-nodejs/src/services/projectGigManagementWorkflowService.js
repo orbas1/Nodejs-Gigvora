@@ -27,6 +27,31 @@ function normalizeNumber(value, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function ensureNumber(value, { label, allowNegative = false, allowZero = true } = {}) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    throw new ValidationError(`${label ?? 'Value'} must be a valid number.`);
+  }
+  if (!allowNegative && parsed < 0) {
+    throw new ValidationError(`${label ?? 'Value'} cannot be negative.`);
+  }
+  if (!allowZero && parsed === 0) {
+    throw new ValidationError(`${label ?? 'Value'} must be greater than zero.`);
+  }
+  return parsed;
+}
+
+function ensureDate(value, { label } = {}) {
+  if (value == null) {
+    return null;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new ValidationError(`${label ?? 'Date'} is not valid.`);
+  }
+  return date;
+}
+
 function computeBudgetSnapshot(project) {
   const allocated = normalizeNumber(project.budgetAllocated);
   const spent = normalizeNumber(project.budgetSpent);
@@ -358,6 +383,32 @@ export async function createProject(ownerId, payload) {
     throw new ValidationError('Title and description are required.');
   }
 
+  if (payload.status && !PROJECT_STATUSES.includes(payload.status)) {
+    throw new ValidationError('Invalid project status provided.');
+  }
+
+  if (payload.workspace?.riskLevel && !PROJECT_RISK_LEVELS.includes(payload.workspace.riskLevel)) {
+    throw new ValidationError('Invalid project risk level provided.');
+  }
+
+  if (payload.workspace?.status && !PROJECT_STATUSES.includes(payload.workspace.status)) {
+    throw new ValidationError('Invalid workspace status provided.');
+  }
+
+  const budgetAllocated = ensureNumber(payload.budgetAllocated ?? 0, {
+    label: 'Budget allocated',
+  });
+  const budgetSpent = ensureNumber(payload.budgetSpent ?? 0, { label: 'Budget spent' });
+  if (budgetSpent > budgetAllocated) {
+    throw new ValidationError('Budget spent cannot exceed the allocated amount.');
+  }
+
+  const startDate = ensureDate(payload.startDate, { label: 'Start date' });
+  const dueDate = ensureDate(payload.dueDate, { label: 'Due date' });
+  if (startDate && dueDate && dueDate.getTime() < startDate.getTime()) {
+    throw new ValidationError('Due date cannot be earlier than the project start date.');
+  }
+
   return projectGigManagementSequelize.transaction(async (transaction) => {
     const project = await Project.create(
       {
@@ -365,11 +416,11 @@ export async function createProject(ownerId, payload) {
         title: payload.title,
         description: payload.description,
         status: payload.status ?? 'planning',
-        startDate: payload.startDate ?? null,
-        dueDate: payload.dueDate ?? null,
+        startDate: startDate ?? null,
+        dueDate: dueDate ?? null,
         budgetCurrency: payload.budgetCurrency ?? 'USD',
-        budgetAllocated: payload.budgetAllocated ?? 0,
-        budgetSpent: payload.budgetSpent ?? 0,
+        budgetAllocated,
+        budgetSpent,
         metadata: payload.metadata ?? {},
       },
       { transaction },
@@ -380,9 +431,13 @@ export async function createProject(ownerId, payload) {
         projectId: project.id,
         status: payload.workspace?.status ?? project.status,
         progressPercent: payload.workspace?.progressPercent ?? 5,
-        riskLevel: payload.workspace?.riskLevel ?? 'low',
+        riskLevel: payload.workspace?.riskLevel && PROJECT_RISK_LEVELS.includes(payload.workspace.riskLevel)
+          ? payload.workspace.riskLevel
+          : 'low',
         nextMilestone: payload.workspace?.nextMilestone ?? null,
-        nextMilestoneDueAt: payload.workspace?.nextMilestoneDueAt ?? payload.dueDate ?? null,
+        nextMilestoneDueAt: ensureDate(payload.workspace?.nextMilestoneDueAt ?? payload.dueDate, {
+          label: 'Next milestone due date',
+        }),
         notes: payload.workspace?.notes ?? null,
         metrics: payload.workspace?.metrics ?? {},
       },
@@ -395,7 +450,7 @@ export async function createProject(ownerId, payload) {
         title: milestone.title,
         description: milestone.description ?? null,
         ordinal: milestone.ordinal ?? index,
-        dueDate: milestone.dueDate ?? null,
+        dueDate: ensureDate(milestone.dueDate, { label: 'Milestone due date' }),
         status: milestone.status ?? 'planned',
         budget: milestone.budget ?? 0,
       }));
@@ -461,13 +516,27 @@ export async function updateProjectWorkspace(ownerId, projectId, payload) {
     throw new NotFoundError('Workspace not initialized for project.');
   }
 
+  if (payload.status && !PROJECT_STATUSES.includes(payload.status)) {
+    throw new ValidationError('Invalid workspace status provided.');
+  }
+  if (payload.riskLevel && !PROJECT_RISK_LEVELS.includes(payload.riskLevel)) {
+    throw new ValidationError('Invalid workspace risk level provided.');
+  }
+  if (payload.progressPercent != null) {
+    const parsed = ensureNumber(payload.progressPercent, { label: 'Progress percent', allowNegative: false });
+    if (parsed > 100) {
+      throw new ValidationError('Progress percent cannot exceed 100%.');
+    }
+  }
+  const nextDueAt = ensureDate(payload.nextMilestoneDueAt, { label: 'Next milestone due date' });
+
   await project.workspace.update({
     status: payload.status ?? project.workspace.status,
     progressPercent:
       payload.progressPercent != null ? Number(payload.progressPercent) : project.workspace.progressPercent,
     riskLevel: payload.riskLevel ?? project.workspace.riskLevel,
     nextMilestone: payload.nextMilestone ?? project.workspace.nextMilestone,
-    nextMilestoneDueAt: payload.nextMilestoneDueAt ?? project.workspace.nextMilestoneDueAt,
+    nextMilestoneDueAt: nextDueAt ?? project.workspace.nextMilestoneDueAt,
     notes: payload.notes ?? project.workspace.notes,
     metrics: payload.metrics ?? project.workspace.metrics,
   });
@@ -481,6 +550,17 @@ export async function createGigOrder(ownerId, payload) {
     throw new ValidationError('vendorName and serviceName are required');
   }
 
+  if (payload.status && !GIG_ORDER_STATUSES.includes(payload.status)) {
+    throw new ValidationError('Invalid gig order status provided.');
+  }
+
+  const amount = ensureNumber(payload.amount ?? 0, { label: 'Order amount' });
+  const kickoffAt = ensureDate(payload.kickoffAt ?? new Date(), { label: 'Kickoff date' }) ?? new Date();
+  const dueAt = ensureDate(payload.dueAt, { label: 'Delivery due date' });
+  if (dueAt && dueAt.getTime() < kickoffAt.getTime()) {
+    throw new ValidationError('Delivery due date cannot be earlier than the kickoff date.');
+  }
+
   return projectGigManagementSequelize.transaction(async (transaction) => {
     const order = await GigOrder.create(
       {
@@ -490,10 +570,10 @@ export async function createGigOrder(ownerId, payload) {
         serviceName: payload.serviceName,
         status: payload.status ?? 'requirements',
         progressPercent: payload.progressPercent ?? 0,
-        amount: payload.amount ?? 0,
+        amount,
         currency: payload.currency ?? 'USD',
-        kickoffAt: payload.kickoffAt ?? new Date(),
-        dueAt: payload.dueAt ?? null,
+        kickoffAt,
+        dueAt,
         metadata: payload.metadata ?? {},
       },
       { transaction },
@@ -505,7 +585,7 @@ export async function createGigOrder(ownerId, payload) {
           orderId: order.id,
           title: requirement.title,
           status: requirement.status ?? 'pending',
-          dueAt: requirement.dueAt ?? null,
+          dueAt: ensureDate(requirement.dueAt, { label: 'Requirement due date' }),
           notes: requirement.notes ?? null,
         })),
         { transaction },
@@ -541,11 +621,22 @@ export async function updateGigOrder(ownerId, orderId, payload) {
   });
   assertOwnership(order, ownerId, 'Gig order not found');
 
+  if (payload.status && !GIG_ORDER_STATUSES.includes(payload.status)) {
+    throw new ValidationError('Invalid gig order status provided.');
+  }
+  if (payload.progressPercent != null) {
+    const progress = ensureNumber(payload.progressPercent, { label: 'Progress percent', allowNegative: false });
+    if (progress > 100) {
+      throw new ValidationError('Progress percent cannot exceed 100%.');
+    }
+  }
+  const dueAt = ensureDate(payload.dueAt, { label: 'Delivery due date' });
+
   await order.update({
     status: payload.status ?? order.status,
     progressPercent:
       payload.progressPercent != null ? Number(payload.progressPercent) : order.progressPercent,
-    dueAt: payload.dueAt ?? order.dueAt,
+    dueAt: dueAt ?? order.dueAt,
     metadata: payload.metadata ?? order.metadata,
   });
 

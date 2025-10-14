@@ -4,10 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
 
 import '../../core/providers.dart';
+import '../../auth/application/session_controller.dart';
 import '../data/messaging_repository.dart';
 import '../data/models/message_thread.dart';
 import '../data/models/thread_message.dart';
 import '../utils/messaging_formatters.dart';
+import '../utils/messaging_access.dart';
 import 'messaging_state.dart';
 
 class MessagingController extends StateNotifier<MessagingState> {
@@ -119,6 +121,17 @@ class MessagingController extends StateNotifier<MessagingState> {
     try {
       final result = await _repository.fetchThreadMessages(threadId, forceRefresh: forceRefresh);
       final messages = sortMessagesByTimestamp(result.data);
+      final now = DateTime.now();
+      final updatedThreads = state.threads
+          .map(
+            (thread) => thread.id == threadId
+                ? thread.copyWith(
+                    unreadCount: 0,
+                    viewerState: ThreadViewerState(lastReadAt: now),
+                  )
+                : thread,
+          )
+          .toList(growable: false);
       final conversationState = ResourceState<List<ThreadMessage>>(
         data: messages,
         loading: false,
@@ -130,6 +143,7 @@ class MessagingController extends StateNotifier<MessagingState> {
       state = state.copyWith(
         conversation: conversationState,
         selectedThreadId: threadId,
+        inbox: state.inbox.copyWith(data: updatedThreads),
       );
 
       unawaited(_repository.markThreadRead(threadId, userId: actorId));
@@ -265,7 +279,11 @@ final messagingControllerProvider = StateNotifierProvider.autoDispose<MessagingC
   final repository = ref.watch(messagingRepositoryProvider);
   final analytics = ref.watch(analyticsServiceProvider);
   final config = ref.watch(appConfigProvider);
-  final actorId = int.tryParse(config.featureFlags['demoActorId']?.toString() ?? '');
+  final sessionState = ref.watch(sessionControllerProvider);
+  final session = sessionState.session;
+  final hasAccess = canAccessMessaging(session);
+  final configuredActorId = int.tryParse(config.featureFlags['demoActorId']?.toString() ?? '');
+  final actorId = hasAccess ? configuredActorId : null;
   final controller = MessagingController(repository, analytics, actorId: actorId);
   ref.onDispose(() {
     controller.dispose();

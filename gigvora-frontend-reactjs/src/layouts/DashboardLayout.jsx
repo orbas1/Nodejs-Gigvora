@@ -53,6 +53,54 @@ function normalizeMenuSections(sections) {
   });
 }
 
+function titleCase(value) {
+  if (!value) {
+    return '';
+  }
+  return value
+    .toString()
+    .replace(/[-_]/g, ' ')
+    .replace(/(^|\s)([a-z])/g, (match, boundary, letter) => `${boundary}${letter.toUpperCase()}`)
+    .trim();
+}
+
+function normalizeAvailableDashboards(items) {
+  if (!Array.isArray(items)) {
+    return [];
+  }
+
+  return items
+    .map((item, index) => {
+      if (!item) {
+        return null;
+      }
+
+      if (typeof item === 'string') {
+        const slug = slugify(item);
+        return {
+          id: slug || `dashboard-${index + 1}`,
+          label: titleCase(item),
+          href: slug ? `/dashboard/${slug}` : '/dashboard',
+        };
+      }
+
+      if (typeof item === 'object') {
+        const hrefSegment = typeof item.href === 'string' ? item.href.split('/').filter(Boolean).pop() : null;
+        const slug = slugify(item.id ?? item.slug ?? hrefSegment ?? `dashboard-${index + 1}`);
+        const label = item.label ?? titleCase(item.name ?? slug ?? `Dashboard ${index + 1}`);
+        const href = item.href ?? (slug ? `/dashboard/${slug}` : '/dashboard');
+        return {
+          id: slug || `dashboard-${index + 1}`,
+          label,
+          href,
+        };
+      }
+
+      return null;
+    })
+    .filter(Boolean);
+}
+
 function DefaultAvatar({ initials }) {
   return (
     <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-100 text-base font-semibold text-blue-700">
@@ -144,7 +192,7 @@ export default function DashboardLayout({
   };
 
   const activeItemId = activeMenuItem ?? null;
-  const dashboards = Array.isArray(availableDashboards) && availableDashboards.length > 0 ? availableDashboards : [];
+  const dashboards = normalizeAvailableDashboards(availableDashboards);
 
   const sidebarContent = (
     <div className="flex h-full flex-col gap-6 overflow-y-auto px-6 py-6">
@@ -305,20 +353,23 @@ export default function DashboardLayout({
         <div className="mt-auto space-y-3 rounded-3xl border border-slate-200 bg-white/80 p-4 text-sm text-slate-600">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Switch dashboard</p>
           <div className="flex flex-wrap gap-2">
-            {dashboards.map((dashboard) => (
+            {dashboards.map((dashboard) => {
+              const isActive = currentDashboard && dashboard.id === slugify(currentDashboard);
+              return (
               <Link
-                key={dashboard}
-                to={`/dashboards/${dashboard}`}
+                key={dashboard.id}
+                to={dashboard.href}
                 className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                  dashboard === currentDashboard
+                  isActive
                     ? 'border-blue-400 bg-blue-50 text-blue-700'
                     : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-600'
                 }`}
               >
                 <ArrowLeftOnRectangleIcon className="h-4 w-4" />
-                {dashboard.charAt(0).toUpperCase() + dashboard.slice(1)}
+                {dashboard.label}
               </Link>
-            ))}
+            );
+            })}
           </div>
         </div>
       ) : null}

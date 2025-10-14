@@ -77,6 +77,8 @@ function formatStatusLabel(status) {
 function readinessStatusToTone(status) {
   if (status === 'at_risk') return 'alert';
   if (status === 'watch') return 'caution';
+  if (status === 'healthy') return 'positive';
+  if (status === 'unknown') return 'neutral';
   return 'default';
 }
 
@@ -426,7 +428,7 @@ function ReadinessAreaCard({ title, icon: Icon, tone = 'bg-indigo-100 text-indig
           <span className={`inline-flex h-9 w-9 items-center justify-center rounded-full ${tone}`}>
             <Icon className="h-4 w-4" />
           </span>
-          <p className="text-sm font-semibold text-slate-900">{title}</p>
+          <p className="text-sm font-semibold text-slate-900 text-pretty">{title}</p>
         </div>
         <ReadinessStatusBadge status={status} />
       </div>
@@ -434,8 +436,8 @@ function ReadinessAreaCard({ title, icon: Icon, tone = 'bg-indigo-100 text-indig
         {metrics.map((metric) => (
           <div key={metric.label}>
             <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{metric.label}</dt>
-            <dd className="mt-1 text-sm font-semibold text-slate-900">{metric.value}</dd>
-            {metric.caption ? <p className="text-xs text-slate-500">{metric.caption}</p> : null}
+            <dd className="mt-1 text-sm font-semibold text-slate-900 break-words">{metric.value}</dd>
+            {metric.caption ? <p className="text-xs text-slate-500 text-pretty">{metric.caption}</p> : null}
           </div>
         ))}
       </dl>
@@ -891,7 +893,11 @@ export default function JobLifecycleSection({ jobLifecycle, recommendations = []
               ? 'border-rose-200 bg-rose-50 text-rose-700'
               : metric.tone === 'caution'
                 ? 'border-amber-200 bg-amber-50 text-amber-700'
-              : 'border-blue-100 bg-blue-50 text-blue-700';
+                : metric.tone === 'positive'
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                  : metric.tone === 'neutral'
+                    ? 'border-slate-200 bg-slate-100 text-slate-600'
+                    : 'border-blue-100 bg-blue-50 text-blue-700';
           return (
             <div
               key={metric.label}
@@ -904,8 +910,8 @@ export default function JobLifecycleSection({ jobLifecycle, recommendations = []
                   Insight
                 </span>
               </div>
-              <p className="mt-3 text-2xl font-semibold text-slate-900">{metric.value}</p>
-              <p className="mt-2 text-xs text-slate-500">{metric.caption}</p>
+              <p className="mt-3 text-2xl font-semibold text-slate-900 break-words text-balance">{metric.value}</p>
+              <p className="mt-2 text-xs text-slate-500 text-pretty">{metric.caption}</p>
             </div>
           );
         })}

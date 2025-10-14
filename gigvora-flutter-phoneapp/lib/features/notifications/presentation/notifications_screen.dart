@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
 
 import '../../../theme/widgets.dart';
@@ -182,8 +183,11 @@ class _NotificationTimeline extends ConsumerWidget {
     final state = ref.watch(pushNotificationControllerProvider);
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
+    final notifications = _buildDemoNotifications()
+      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
     return ListView(
+      padding: const EdgeInsets.only(bottom: 48),
       children: [
         if (state.lastUpdated != null)
           Padding(
@@ -193,31 +197,200 @@ class _NotificationTimeline extends ConsumerWidget {
               style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
             ),
           ),
-        Container(
+        if (notifications.isEmpty)
+          Container(
+            decoration: BoxDecoration(
+              color: colorScheme.surface,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: colorScheme.outlineVariant.withOpacity(0.5)),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.inbox_outlined,
+                  size: 40,
+                  color: colorScheme.onSurfaceVariant.withOpacity(0.6),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'You’re all caught up. New activity will land here first.',
+                  style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          )
+        else
+          ...notifications.map((entry) => Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: _NotificationCard(entry: entry),
+              )),
+      ],
+    );
+  }
+}
+
+class _NotificationEntry {
+  const _NotificationEntry({
+    required this.id,
+    required this.type,
+    required this.title,
+    required this.body,
+    required this.timestamp,
+    this.actionLabel,
+    this.actionRoute,
+    this.isUnread = true,
+  });
+
+  final String id;
+  final String type;
+  final String title;
+  final String body;
+  final DateTime timestamp;
+  final String? actionLabel;
+  final String? actionRoute;
+  final bool isUnread;
+}
+
+List<_NotificationEntry> _buildDemoNotifications() {
+  final now = DateTime.now();
+  return [
+    _NotificationEntry(
+      id: 'notif-mentorship-request',
+      type: 'Mentorship',
+      title: 'Nova Steele requested a design systems deep dive',
+      body: 'Prep your availability for next Tuesday — the session syncs to your mentorship dashboard once confirmed.',
+      timestamp: now.subtract(const Duration(minutes: 6)),
+      actionLabel: 'Review request',
+      actionRoute: '/dashboard/mentor',
+      isUnread: true,
+    ),
+    _NotificationEntry(
+      id: 'notif-project-invite',
+      type: 'Launchpad',
+      title: 'Horizon Labs invited you to lead an Experience Sprint',
+      body: 'Kick-off is slated for Monday with a cross-functional squad. Confirm scoping to unlock the onboarding workspace.',
+      timestamp: now.subtract(const Duration(minutes: 22)),
+      actionLabel: 'Open launchpad',
+      actionRoute: '/launchpad',
+      isUnread: true,
+    ),
+    _NotificationEntry(
+      id: 'notif-network',
+      type: 'Network',
+      title: 'Amir Rahman shared a new product strategy recap with you',
+      body: 'Keep the momentum going — the async doc captures key outcomes from yesterday’s stakeholder sync.',
+      timestamp: now.subtract(const Duration(hours: 1, minutes: 5)),
+      actionLabel: 'Open inbox',
+      actionRoute: '/inbox',
+      isUnread: false,
+    ),
+  ];
+}
+
+class _NotificationCard extends StatelessWidget {
+  const _NotificationCard({required this.entry});
+
+  final _NotificationEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isUnread = entry.isUnread;
+    final background = isUnread ? colorScheme.primary.withOpacity(0.08) : colorScheme.surface;
+    final borderColor = isUnread ? colorScheme.primary.withOpacity(0.3) : colorScheme.outlineVariant.withOpacity(0.5);
+
+    void handleTap() {
+      if (entry.actionRoute != null) {
+        GoRouter.of(context).go(entry.actionRoute!);
+      }
+    }
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: entry.actionRoute != null ? handleTap : null,
+        borderRadius: BorderRadius.circular(24),
+        child: Ink(
           decoration: BoxDecoration(
-            color: colorScheme.surface,
+            color: background,
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: colorScheme.outlineVariant.withOpacity(0.5)),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.inbox_outlined,
-                size: 40,
-                color: colorScheme.onSurfaceVariant.withOpacity(0.6),
+            border: Border.all(color: borderColor),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
               ),
-              const SizedBox(height: 12),
+            ],
+          ),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      entry.type.toUpperCase(),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.6,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (isUnread)
+                    Container(
+                      height: 10,
+                      width: 10,
+                      decoration: BoxDecoration(
+                        color: colorScheme.primary,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
               Text(
-                'You’re all caught up. New activity will land here first.',
-                style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
-                textAlign: TextAlign.center,
+                entry.title,
+                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                entry.body,
+                style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    formatRelativeTime(entry.timestamp),
+                    style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                  ),
+                  if (entry.actionLabel != null)
+                    OutlinedButton(
+                      onPressed: entry.actionRoute != null ? handleTap : null,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: colorScheme.primary,
+                        side: BorderSide(color: colorScheme.primary.withOpacity(0.4)),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        textStyle: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                      child: Text(entry.actionLabel!),
+                    ),
+                ],
               ),
             ],
           ),
         ),
-      ],
+      ),
     );
   }
 }

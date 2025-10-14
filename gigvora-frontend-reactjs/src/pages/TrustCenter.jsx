@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   fetchTrustOverview,
   releaseEscrow,
 } from '../services/trust.js';
+import useSession from '../hooks/useSession.js';
+import AccessRestricted from '../components/AccessRestricted.jsx';
+import { hasFinanceOperationsAccess } from '../utils/permissions.js';
 
 function formatCurrency(amount = 0, currency = 'USD') {
   try {
@@ -44,6 +48,9 @@ const bucketCopy = {
 };
 
 export default function TrustCenterPage() {
+  const navigate = useNavigate();
+  const { session, isAuthenticated } = useSession();
+  const financeAccess = hasFinanceOperationsAccess(session);
   const [overview, setOverview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -62,6 +69,11 @@ export default function TrustCenterPage() {
     const controller = new AbortController();
 
     async function loadOverview() {
+      if (!financeAccess) {
+        setOverview(null);
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       setError(null);
       try {
@@ -86,9 +98,12 @@ export default function TrustCenterPage() {
       isMounted = false;
       controller.abort();
     };
-  }, []);
+  }, [financeAccess]);
 
   async function refreshOverview() {
+    if (!financeAccess) {
+      return;
+    }
     try {
       const response = await fetchTrustOverview();
       setOverview(response);
@@ -98,6 +113,9 @@ export default function TrustCenterPage() {
   }
 
   async function handleRelease(transaction) {
+    if (!financeAccess) {
+      return;
+    }
     setReleaseProcessing((prev) => ({ ...prev, [transaction.id]: true }));
     setError(null);
     setSuccessBanner('');
@@ -113,6 +131,35 @@ export default function TrustCenterPage() {
     } finally {
       setReleaseProcessing((prev) => ({ ...prev, [transaction.id]: false }));
     }
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="mx-auto max-w-4xl px-6 py-20">
+        <AccessRestricted
+          tone="sky"
+          badge="Trust & compliance"
+          title="Sign in to open the trust centre"
+          description="Authenticate with your Gigvora workspace account to manage escrow releases, disputes, and compliance evidence."
+          actionLabel="Go to login"
+          onAction={() => navigate('/login')}
+        />
+      </div>
+    );
+  }
+
+  if (!financeAccess) {
+    return (
+      <div className="mx-auto max-w-4xl px-6 py-20">
+        <AccessRestricted
+          title="Finance permissions required"
+          description="This trust centre is limited to finance, company, or agency administrators. Request access from your workspace owner to review escrow releases and dispute workflows."
+          badge="Restricted"
+          actionLabel="Contact support"
+          actionHref="mailto:support@gigvora.com?subject=Trust%20centre%20access"
+        />
+      </div>
+    );
   }
 
   if (loading) {

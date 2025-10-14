@@ -39,6 +39,7 @@
 - Unified settings pages for profile, notifications, payment methods, and security controls.
 - Embedded help centre widgets with search, quick articles, and live support escalation; floating chat bubble persists across routes providing instant support escalation.
 - Trust Center operations dashboard showcasing escrow KPIs, release queues, dispute workload, and evidence health messaging for finance/compliance teams.
+- Finance control tower blueprint layering revenue stat tiles, payout distribution panels, runway/tax readiness gauges, upcoming batch previews, and export history badges to align provider dashboards with the hardened finance payload.
 
 ## Design System Integration
 - Token-driven theming (colour, typography, spacing, border radius, shadows) shared with mobile design library.

@@ -5,16 +5,32 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
-import 'package:go_router/go_router.dart';
 import '../../../theme/widgets.dart';
+import '../../auth/application/session_controller.dart';
 import '../application/feed_controller.dart';
 import '../data/models/feed_post.dart';
+
+const _allowedFeedRoles = <String>{
+  'user',
+  'freelancer',
+  'agency',
+  'company',
+  'headhunter',
+  'mentor',
+  'admin',
+};
 
 class FeedScreen extends ConsumerWidget {
   const FeedScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final sessionState = ref.watch(sessionControllerProvider);
+    final session = sessionState.session;
+    final isAuthenticated = sessionState.isAuthenticated;
+    final hasFeedAccess =
+        session != null && session.memberships.any(_allowedFeedRoles.contains);
+
     final state = ref.watch(feedControllerProvider);
     final controller = ref.read(feedControllerProvider.notifier);
     final posts = state.data ?? const <FeedPost>[];
@@ -22,6 +38,200 @@ class FeedScreen extends ConsumerWidget {
     final realtimeConnected = state.metadata['realtimeConnected'] == true;
     final pendingLocalPosts = state.metadata['localPostCount'] as int? ?? 0;
     final isLoading = state.loading && posts.isEmpty;
+
+    if (!isAuthenticated) {
+      return GigvoraScaffold(
+        title: 'Live Feed',
+        subtitle: 'Stories from the Gigvora community',
+        body: Center(
+          child: _FeedAccessCard(
+            icon: Icons.lock_outline,
+            title: 'Sign in to engage with the live feed',
+            message:
+                'Use your Gigvora credentials to view community updates, share wins, and react in real time.',
+            primaryLabel: 'Sign in',
+            onPrimary: () => context.go('/login'),
+            secondaryLabel: 'Create account',
+            onSecondary: () => context.go('/signup'),
+          ),
+        ),
+      );
+    }
+
+    if (!hasFeedAccess) {
+      return GigvoraScaffold(
+        title: 'Live Feed',
+        subtitle: 'Stories from the Gigvora community',
+        body: Center(
+          child: _FeedAccessCard(
+            icon: Icons.verified_user_outlined,
+            title: 'Switch to an eligible workspace',
+            message:
+                'Live feed access is reserved for user, freelancer, agency, company, mentor, headhunter, or admin workspaces. Switch roles or request an upgrade to continue.',
+            primaryLabel: 'Manage memberships',
+            onPrimary: () => context.go('/home'),
+            secondaryLabel: 'View dashboards',
+            onSecondary: () => context.go('/home'),
+            chips: _allowedFeedRoles.toList(),
+          ),
+        ),
+      );
+    }
+
+    final columnChildren = <Widget>[
+      Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        children: [
+          FilledButton.tonal(
+            onPressed: () => context.push('/operations'),
+            child: const Text('Gig operations'),
+          ),
+          OutlinedButton(
+            onPressed: () => context.push('/operations?section=buy'),
+            child: const Text('Buy a gig'),
+          ),
+          OutlinedButton(
+            onPressed: () => context.push('/operations?section=post'),
+            child: const Text('Post a gig'),
+          ),
+        ],
+      ),
+      const SizedBox(height: 16),
+    ];
+
+    if (state.fromCache && !state.loading) {
+      columnChildren.add(
+        _StatusBanner(
+          icon: Icons.offline_bolt,
+          background: const Color(0xFFFEF3C7),
+          foreground: const Color(0xFF92400E),
+          message: 'You are viewing cached updates while we reconnect.',
+        ),
+      );
+      columnChildren.add(const SizedBox(height: 12));
+    }
+
+    if (realtimeEnabled && realtimeConnected) {
+      columnChildren.add(
+        const _StatusBanner(
+          icon: Icons.bolt,
+          background: Color(0xFFE0F2FE),
+          foreground: Color(0xFF0369A1),
+          message: 'Live updates are streaming in real-time from the community.',
+        ),
+      );
+      columnChildren.add(const SizedBox(height: 12));
+    } else if (realtimeEnabled && !realtimeConnected && !state.fromCache) {
+      columnChildren.add(
+        const _StatusBanner(
+          icon: Icons.sync,
+          background: Color(0xFFF3E8FF),
+          foreground: Color(0xFF6B21A8),
+          message: 'Reconnecting to the live feed stream…',
+        ),
+      );
+      columnChildren.add(const SizedBox(height: 12));
+    }
+
+    if (state.hasError && !state.loading) {
+      columnChildren.add(
+        _StatusBanner(
+          icon: Icons.error_outline,
+          background: const Color(0xFFFEE2E2),
+          foreground: const Color(0xFFB91C1C),
+          message: 'We couldn\'t sync the latest posts. Pull to refresh to try again.',
+        ),
+      );
+      columnChildren.add(const SizedBox(height: 12));
+    }
+
+    if (state.lastUpdated != null) {
+      columnChildren.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Text(
+            'Last updated ${formatRelativeTime(state.lastUpdated!)}',
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+          ),
+        ),
+      );
+    }
+
+    final listChildren = <Widget>[
+      _FeedComposer(
+        pendingCount: pendingLocalPosts,
+        onSubmit: (payload) => controller.createLocalPost(
+          content: payload.content,
+          type: payload.type,
+          link: payload.link,
+        ),
+      ),
+      const SizedBox(height: 16),
+      _ExplorerPromoCard(
+        onOpenExplorer: () {
+          controller.recordExplorerShortcut();
+          context.go('/explorer');
+        },
+      ),
+      const SizedBox(height: 16),
+    ];
+
+    if (isLoading && posts.isEmpty) {
+      listChildren.add(const _FeedSkeleton());
+    } else if (posts.isEmpty) {
+      listChildren.add(const _EmptyFeedState());
+    } else {
+      for (var i = 0; i < posts.length; i++) {
+        final post = posts[i];
+        listChildren.add(
+          _FeedPostCard(
+            post: post,
+            onReact: (target, liked) => controller.recordReaction(
+              target,
+              liked ? 'like' : 'unlike',
+            ),
+            onComment: (target) {
+              unawaited(controller.recordCommentIntent(target));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Commenting from mobile is coming soon.'),
+                  duration: Duration(seconds: 3),
+                ),
+              );
+            },
+            onShare: (target) {
+              unawaited(controller.recordShareIntent(target));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Share integrations are coming soon.'),
+                  duration: Duration(seconds: 3),
+                ),
+              );
+            },
+          ),
+        );
+        if (i != posts.length - 1) {
+          listChildren.add(const SizedBox(height: 16));
+        }
+      }
+    }
+
+    columnChildren.add(
+      Expanded(
+        child: RefreshIndicator(
+          onRefresh: () => controller.refresh(),
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.only(bottom: 32),
+            children: listChildren,
+          ),
+        ),
+      ),
+    );
 
     return GigvoraScaffold(
       title: 'Live Feed',
@@ -35,6 +245,50 @@ class FeedScreen extends ConsumerWidget {
       ],
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        children: columnChildren,
+      ),
+    );
+  }
+}
+
+class _FeedAccessCard extends StatelessWidget {
+  const _FeedAccessCard({
+    required this.icon,
+    required this.title,
+    required this.message,
+    required this.primaryLabel,
+    required this.onPrimary,
+    this.secondaryLabel,
+    this.onSecondary,
+    this.chips,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+  final String primaryLabel;
+  final VoidCallback onPrimary;
+  final String? secondaryLabel;
+  final VoidCallback? onSecondary;
+  final List<String>? chips;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final uniqueChips = (chips ?? const <String>[]).toSet().toList()..sort();
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 520),
+      child: GigvoraCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(16),
         children: [
           Wrap(
             spacing: 12,
@@ -44,6 +298,10 @@ class FeedScreen extends ConsumerWidget {
                 onPressed: () => context.push('/operations'),
                 child: const Text('Gig operations'),
               ),
+              FilledButton.tonal(
+                onPressed: () => context.push('/groups'),
+                child: const Text('Community groups'),
+              ),
               OutlinedButton(
                 onPressed: () => context.push('/operations?section=buy'),
                 child: const Text('Buy a gig'),
@@ -52,130 +310,53 @@ class FeedScreen extends ConsumerWidget {
                 onPressed: () => context.push('/operations?section=post'),
                 child: const Text('Post a gig'),
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          if (state.fromCache && !state.loading)
-            _StatusBanner(
-              icon: Icons.offline_bolt,
-              background: const Color(0xFFFEF3C7),
-              foreground: const Color(0xFF92400E),
-              message: 'You are viewing cached updates while we reconnect.',
+              child: Icon(icon, color: colorScheme.onPrimaryContainer),
             ),
-          if (realtimeEnabled && realtimeConnected)
-            const _StatusBanner(
-              icon: Icons.bolt,
-              background: Color(0xFFE0F2FE),
-              foreground: Color(0xFF0369A1),
-              message: 'Live updates are streaming in real-time from the community.',
-            )
-          else if (realtimeEnabled && !realtimeConnected && !state.fromCache)
-            const _StatusBanner(
-              icon: Icons.sync,
-              background: Color(0xFFF3E8FF),
-              foreground: Color(0xFF6B21A8),
-              message: 'Reconnecting to the live feed stream…',
-            ),
-          if (state.hasError && !state.loading)
-            _StatusBanner(
-              icon: Icons.error_outline,
-              background: const Color(0xFFFEE2E2),
-              foreground: const Color(0xFFB91C1C),
-              message: 'We couldn\'t sync the latest posts. Pull to refresh to try again.',
-            ),
-          if (state.lastUpdated != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: Text(
-                'Last updated ${formatRelativeTime(state.lastUpdated!)}',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+            const SizedBox(height: 16),
+            Text(title, style: theme.textTheme.titleMedium),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
               ),
             ),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: () => controller.refresh(),
-              child: posts.isEmpty && state.loading
-                  ? const _FeedSkeleton()
-                  : ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      children: [
-                        _ExplorerPromoCard(
-                          onOpenExplorer: () {
-                            controller.recordExplorerShortcut();
-                            context.go('/explorer');
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        if (posts.isEmpty)
-                          const _EmptyFeedState()
-                        else
-                          ...[for (var i = 0; i < posts.length; i++) ...[
-                            _FeedPostCard(
-                              post: posts[i],
-                              onReact: () => controller.recordReaction(posts[i], 'react'),
-                              onComment: () => controller.recordCommentIntent(posts[i]),
-                              onShare: () => controller.recordShareIntent(posts[i]),
-                            ),
-                            if (i != posts.length - 1) const SizedBox(height: 16),
-                          ]],
-                      ],
-              child: isLoading
-                  ? const _FeedSkeleton()
-                  : ListView.separated(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.only(bottom: 32),
-                      itemCount: posts.isEmpty ? 2 : posts.length + 1,
-                      separatorBuilder: (_, __) => const SizedBox(height: 16),
-                      itemBuilder: (context, index) {
-                        if (index == 0) {
-                          return _FeedComposer(
-                            pendingCount: pendingLocalPosts,
-                            onSubmit: (payload) => controller.createLocalPost(
-                              content: payload.content,
-                              type: payload.type,
-                              link: payload.link,
-                            ),
-                          );
-                        }
-
-                        if (posts.isEmpty) {
-                          return const _EmptyFeedState();
-                        }
-
-                        final post = posts[index - 1];
-                        return _FeedPostCard(
-                          post: post,
-                          onReact: (target, liked) => controller.recordReaction(
-                            target,
-                            liked ? 'like' : 'unlike',
-                          ),
-                          onComment: (target) {
-                            unawaited(controller.recordCommentIntent(target));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Commenting from mobile is coming soon.'),
-                                duration: Duration(seconds: 3),
-                              ),
-                            );
-                          },
-                          onShare: (target) {
-                            unawaited(controller.recordShareIntent(target));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Share integrations are coming soon.'),
-                                duration: Duration(seconds: 3),
-                              ),
-                            );
-                          },
-                        );
+            if (uniqueChips.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: uniqueChips
+                    .map(
+                      (role) {
+                        final normalised = role.replaceAll('_', ' ');
+                        final formatted = normalised.isNotEmpty
+                            ? normalised[0].toUpperCase() + normalised.substring(1)
+                            : normalised;
+                        return Chip(label: Text(formatted));
                       },
-                    ),
+                    )
+                    .toList(growable: false),
+              ),
+            ],
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                FilledButton(
+                  onPressed: onPrimary,
+                  child: Text(primaryLabel),
+                ),
+                if (secondaryLabel != null && onSecondary != null) ...[
+                  const SizedBox(width: 12),
+                  OutlinedButton(
+                    onPressed: onSecondary,
+                    child: Text(secondaryLabel!),
+                  ),
+                ],
+              ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -216,6 +397,11 @@ const Map<FeedPostType, _FeedTypeStyle> _feedTypeStyles = {
     background: Color(0xFFEDE9FE),
     foreground: Color(0xFF6D28D9),
     icon: Icons.rocket_launch_outlined,
+  ),
+  FeedPostType.news: _FeedTypeStyle(
+    background: Color(0xFFE0F2FE),
+    foreground: Color(0xFF0369A1),
+    icon: Icons.article_outlined,
   ),
 };
 
@@ -387,7 +573,7 @@ class _FeedComposerState extends State<_FeedComposer> {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: FeedPostType.values.map((type) {
+            children: FeedPostType.values.where((type) => type != FeedPostType.news).map((type) {
               final optionStyle = _feedTypeStyles[type] ?? _feedTypeStyles[FeedPostType.update]!;
               final selected = type == _selectedType;
               return ChoiceChip(
@@ -660,6 +846,22 @@ class _FeedPostCardState extends State<_FeedPostCard> {
     final colorScheme = theme.colorScheme;
     final style = _feedTypeStyles[widget.post.type] ?? _feedTypeStyles[FeedPostType.update]!;
     final commentCount = widget.post.commentCount;
+    final isNews = widget.post.type == FeedPostType.news;
+    final titleCandidate = isNews
+        ? (widget.post.title?.trim().isNotEmpty ?? false)
+            ? widget.post.title!
+            : (widget.post.summary?.trim().isNotEmpty ?? false)
+                ? widget.post.summary!
+                : widget.post.content
+        : widget.post.author.name;
+    final bodyCandidate = isNews ? widget.post.summary ?? widget.post.content : widget.post.content;
+    final bodyText = bodyCandidate.trim();
+    final publishedAt = widget.post.publishedAt ?? widget.post.createdAt;
+    final hasSource = isNews && (widget.post.source?.trim().isNotEmpty ?? false);
+    final linkLabel = isNews ? 'Read full story' : null;
+    final hasByline =
+        isNews && widget.post.author.name.trim().isNotEmpty && widget.post.author.name.trim() != titleCandidate.trim();
+    final imageUrl = widget.post.imageUrl?.trim();
 
     return GigvoraCard(
       child: Column(
@@ -678,14 +880,30 @@ class _FeedPostCardState extends State<_FeedPostCard> {
                       children: [
                         _TypeBadge(style: style, label: widget.post.type.label),
                         if (widget.post.isLocal) const _PendingBadge(),
+                        if (hasSource)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: colorScheme.primary.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              widget.post.source!,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: colorScheme.primary,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.6,
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      widget.post.author.name,
-                      style: theme.textTheme.titleMedium,
+                      titleCandidate,
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                     ),
-                    if (widget.post.author.headline != null)
+                    if (!isNews && widget.post.author.headline != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: Text(
@@ -696,11 +914,33 @@ class _FeedPostCardState extends State<_FeedPostCard> {
                           ),
                         ),
                       ),
+                    if (isNews && widget.post.author.headline != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          widget.post.author.headline!,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    if (hasByline)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          'By ${widget.post.author.name}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
               Text(
-                formatRelativeTime(widget.post.createdAt),
+                formatRelativeTime(publishedAt),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
@@ -714,16 +954,44 @@ class _FeedPostCardState extends State<_FeedPostCard> {
               style: theme.textTheme.bodySmall?.copyWith(color: const Color(0xFF92400E)),
             ),
           ],
-          if (widget.post.content.trim().isNotEmpty) ...[
+          if (bodyText.isNotEmpty) ...[
             const SizedBox(height: 12),
             Text(
-              widget.post.content,
+              bodyText,
               style: theme.textTheme.bodyMedium,
+            ),
+          ],
+          if (imageUrl != null && imageUrl.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(28),
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: colorScheme.outlineVariant),
+                ),
+                child: AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: Image.network(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        color: colorScheme.surfaceVariant,
+                        alignment: Alignment.center,
+                        child: Icon(Icons.broken_image_outlined, color: colorScheme.onSurfaceVariant),
+                      );
+                    },
+                  ),
+                ),
+              ),
             ),
           ],
           if (widget.post.link != null) ...[
             const SizedBox(height: 12),
-            _FeedLinkButton(link: widget.post.link!),
+            _FeedLinkButton(
+              link: widget.post.link!,
+              label: linkLabel,
+            ),
           ],
           if (_reactionCount > 0 || commentCount > 0) ...[
             const SizedBox(height: 12),
@@ -806,9 +1074,10 @@ class _FeedActionButton extends StatelessWidget {
 }
 
 class _FeedLinkButton extends StatelessWidget {
-  const _FeedLinkButton({required this.link});
+  const _FeedLinkButton({required this.link, this.label});
 
   final String link;
+  final String? label;
 
   @override
   Widget build(BuildContext context) {
@@ -825,7 +1094,7 @@ class _FeedLinkButton extends StatelessWidget {
       },
       icon: const Icon(Icons.link),
       label: Text(
-        link,
+        label ?? link,
         overflow: TextOverflow.ellipsis,
       ),
       style: OutlinedButton.styleFrom(
