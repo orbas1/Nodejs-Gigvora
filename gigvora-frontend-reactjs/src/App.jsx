@@ -38,6 +38,7 @@ import FreelancerDashboardPage from './pages/dashboards/FreelancerDashboardPage.
 import FreelancerPipelinePage from './pages/dashboards/FreelancerPipelinePage.jsx';
 import CompanyDashboardPage from './pages/dashboards/CompanyDashboardPage.jsx';
 import CompanyAtsOperationsPage from './pages/dashboards/CompanyAtsOperationsPage.jsx';
+import CompanyAnalyticsPage from './pages/dashboards/CompanyAnalyticsPage.jsx';
 import CompanyIntegrationsPage from './pages/dashboards/CompanyIntegrationsPage.jsx';
 import CompanyNetworkingHubPage from './pages/networking/CompanyNetworkingHubPage.jsx';
 import AgencyDashboardPage from './pages/dashboards/AgencyDashboardPage.jsx';
@@ -50,12 +51,6 @@ import ProtectedRoute from './components/routing/ProtectedRoute.jsx';
 import RoleProtectedRoute from './components/auth/RoleProtectedRoute.jsx';
 import MembershipGate from './components/auth/MembershipGate.jsx';
 import RequireRole from './components/routing/RequireRole.jsx';
-import { LAUNCHPAD_ALLOWED_MEMBERSHIPS } from './constants/access.js';
-
-const COMMUNITY_ACCESS_MEMBERSHIPS = ['user', 'freelancer', 'agency', 'company', 'mentor', 'headhunter', 'admin'];
-const VOLUNTEER_ACCESS_MEMBERSHIPS = ['volunteer', 'mentor', 'admin'];
-import RequireRole from './components/routing/RequireRole.jsx';
-import MembershipGate from './components/auth/MembershipGate.jsx';
 import { LAUNCHPAD_ALLOWED_MEMBERSHIPS, SECURITY_ALLOWED_MEMBERSHIPS } from './constants/access.js';
 
 const COMMUNITY_ACCESS_MEMBERSHIPS = Object.freeze([
@@ -66,6 +61,7 @@ const COMMUNITY_ACCESS_MEMBERSHIPS = Object.freeze([
   'mentor',
   'headhunter',
 ]);
+const VOLUNTEER_ACCESS_MEMBERSHIPS = Object.freeze(['volunteer', 'mentor', 'admin']);
 
 export default function App() {
   return (
@@ -157,11 +153,6 @@ export default function App() {
               <UserDashboardPage />
             </MembershipGate>
           </RoleProtectedRoute>
-          <RequireRole allowedRoles={['user']}>
-            <MembershipGate allowedMemberships={['user']}>
-              <UserDashboardPage />
-            </MembershipGate>
-          </RequireRole>
         }
       />
 
@@ -193,6 +184,15 @@ export default function App() {
       />
 
       <Route
+        path="dashboard/company/analytics"
+        element={
+          <RequireRole allowedRoles={['company']}>
+            <CompanyAnalyticsPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/company/ats"
         element={
           <RequireRole allowedRoles={['company']}>
@@ -207,7 +207,6 @@ export default function App() {
           <RequireRole allowedRoles={['company']}>
             <CompanyIntegrationsPage />
           </RequireRole>
-          </RoleProtectedRoute>
         }
       />
 
@@ -217,9 +216,6 @@ export default function App() {
           <RequireRole allowedRoles={['company']}>
             <CompanyNetworkingHubPage />
           </RequireRole>
-          <RoleProtectedRoute allowedRoles={['company']}>
-            <CompanyNetworkingHubPage />
-          </RoleProtectedRoute>
         }
       />
 
@@ -229,7 +225,6 @@ export default function App() {
           <RequireRole allowedRoles={['agency']}>
             <AgencyDashboardPage />
           </RequireRole>
-          </RoleProtectedRoute>
         }
       />
 

@@ -227,6 +227,11 @@ class UserSession {
           ],
           actions: [
             DashboardAction(
+              label: 'Open analytics control room',
+              description: 'Forecast hiring capacity and monitor workforce signals in one secure view.',
+              route: '/dashboard/company/analytics',
+            ),
+            DashboardAction(
               label: 'Review stage analytics',
               description: 'Spot bottlenecks and rebalance interviewer load before next week.',
               route: '/dashboard/company/ats',
