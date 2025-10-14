@@ -141,6 +141,62 @@ function storeAccessToken(token) {
   }
 }
 
+function getAccessToken() {
+  if (!storage) {
+    return null;
+  }
+  try {
+    const token = storage.getItem(AUTH_TOKEN_KEY);
+    return token || null;
+  } catch (error) {
+    console.warn('Unable to read access token from storage', error);
+    return null;
+  }
+}
+
+function setAccessToken(token) {
+  if (!storage) {
+    return;
+  }
+  try {
+    if (!token) {
+      storage.removeItem(AUTH_TOKEN_KEY);
+      return;
+    }
+    storage.setItem(AUTH_TOKEN_KEY, token);
+  } catch (error) {
+    console.warn('Unable to persist access token', error);
+  }
+}
+
+function setRefreshToken(token) {
+  if (!storage) {
+    return;
+  }
+  try {
+    if (!token) {
+      storage.removeItem(REFRESH_TOKEN_KEY);
+      return;
+    }
+    storage.setItem(REFRESH_TOKEN_KEY, token);
+  } catch (error) {
+    console.warn('Unable to persist refresh token', error);
+  }
+}
+
+function getRefreshToken() {
+  if (!storage) {
+    return null;
+  }
+  try {
+    const token = storage.getItem(REFRESH_TOKEN_KEY);
+    return token || null;
+  } catch (error) {
+    console.warn('Unable to read refresh token from storage', error);
+    return null;
+  }
+}
+
 async function request(method, path, { body, params, signal, headers } = {}) {
   const url = buildUrl(path, params);
   const requestHeaders = {
@@ -287,6 +343,12 @@ export const apiClient = {
   clearAccessToken: () => storeAccessToken(null),
   ApiError,
   API_BASE_URL,
+  getAccessToken,
+  setAccessToken,
+  setRefreshToken,
+  getRefreshToken,
+  clearAccessToken: () => setAccessToken(null),
+  clearRefreshToken: () => setRefreshToken(null),
   setAuthTokens,
   clearAuthTokens,
   getAuthTokens,

@@ -178,6 +178,20 @@ export function SessionProvider({ children }) {
   }, [session]);
 
   useEffect(() => {
+    const accessToken = session?.accessToken ?? null;
+    if (accessToken) {
+      apiClient.setAccessToken(accessToken);
+    } else {
+      apiClient.clearAccessToken();
+    }
+
+    const refreshToken = session?.refreshToken ?? null;
+    if (refreshToken) {
+      apiClient.setRefreshToken(refreshToken);
+    } else {
+      apiClient.clearRefreshToken();
+    }
+  }, [session?.accessToken, session?.refreshToken]);
     if (!session?.accessToken) {
       apiClient.clearAccessToken();
     } else {
@@ -190,6 +204,14 @@ export function SessionProvider({ children }) {
       session,
       isAuthenticated: Boolean(session?.isAuthenticated),
       login: (payload = {}) => {
+        const { accessToken, refreshToken, ...rest } = payload;
+        if (accessToken) {
+          apiClient.setAccessToken(accessToken);
+        }
+        if (refreshToken) {
+          apiClient.setRefreshToken(refreshToken);
+        }
+
         const normalized = normalizeSessionPayload(payload);
         if (!normalized) {
           return null;
@@ -208,7 +230,9 @@ export function SessionProvider({ children }) {
           }) ?? { isAuthenticated: true };
         const nextSession = {
           isAuthenticated: true,
-          ...payload,
+          ...rest,
+          ...(accessToken ? { accessToken } : {}),
+          ...(refreshToken ? { refreshToken } : {}),
         };
         if (payload.accessToken) {
           apiClient.storeAccessToken(payload.accessToken);
@@ -217,6 +241,8 @@ export function SessionProvider({ children }) {
         return nextSession;
       },
       logout: () => {
+        apiClient.clearAccessToken();
+        apiClient.clearRefreshToken();
         apiClient.clearAuthTokens();
         setSession(null);
         if (typeof window !== 'undefined') {
@@ -226,6 +252,29 @@ export function SessionProvider({ children }) {
       },
       updateSession: (updates = {}) => {
         setSession((previous) => {
+          const next = previous ? { ...previous } : { isAuthenticated: true };
+
+          if (Object.prototype.hasOwnProperty.call(updates, 'accessToken')) {
+            const nextAccess = updates.accessToken;
+            if (nextAccess) {
+              apiClient.setAccessToken(nextAccess);
+            } else {
+              apiClient.clearAccessToken();
+            }
+            next.accessToken = nextAccess;
+          }
+
+          if (Object.prototype.hasOwnProperty.call(updates, 'refreshToken')) {
+            const nextRefresh = updates.refreshToken;
+            if (nextRefresh) {
+              apiClient.setRefreshToken(nextRefresh);
+            } else {
+              apiClient.clearRefreshToken();
+            }
+            next.refreshToken = nextRefresh;
+          }
+
+          return { ...next, ...updates };
           const base = previous ?? { isAuthenticated: true };
           const merged = normalizeSessionPayload({ ...base, ...updates });
           if (merged?.tokens) {

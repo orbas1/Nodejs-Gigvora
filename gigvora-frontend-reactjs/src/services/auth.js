@@ -1,3 +1,10 @@
+import { apiClient } from './apiClient.js';
+
+export function requestAdminTwoFactor({ email, password }) {
+  return apiClient.post('/auth/admin/login', { email, password });
+}
+
+export function verifyTwoFactorCode({ email, code }) {
 import apiClient from './apiClient.js';
 
 export async function registerUser(payload) {
@@ -54,6 +61,8 @@ export async function verifyTwoFactor({ email, code }) {
 }
 
 export default {
+  requestAdminTwoFactor,
+  verifyTwoFactorCode,
   adminLogin,
   verifyTwoFactor,
 };
