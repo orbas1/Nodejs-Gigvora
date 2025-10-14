@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
 import MainLayout from './layouts/MainLayout.jsx';
 import HomePage from './pages/HomePage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
@@ -29,6 +29,20 @@ import PrivacyPage from './pages/PrivacyPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
 import FinanceHubPage from './pages/FinanceHubPage.jsx';
 import AboutPage from './pages/AboutPage.jsx';
+import AdminLoginPage from './pages/AdminLoginPage.jsx';
+import UserDashboardPage from './pages/dashboards/UserDashboardPage.jsx';
+import FreelancerDashboardPage from './pages/dashboards/FreelancerDashboardPage.jsx';
+import FreelancerPipelinePage from './pages/dashboards/FreelancerPipelinePage.jsx';
+import CompanyDashboardPage from './pages/dashboards/CompanyDashboardPage.jsx';
+import CompanyIntegrationsPage from './pages/dashboards/CompanyIntegrationsPage.jsx';
+import CompanyNetworkingHubPage from './pages/networking/CompanyNetworkingHubPage.jsx';
+import AgencyDashboardPage from './pages/dashboards/AgencyDashboardPage.jsx';
+import HeadhunterDashboardPage from './pages/dashboards/HeadhunterDashboardPage.jsx';
+import MentorDashboardPage from './pages/dashboards/MentorDashboardPage.jsx';
+import LaunchpadOperationsPage from './pages/dashboards/LaunchpadOperationsPage.jsx';
+import AdminDashboardPage from './pages/dashboards/AdminDashboardPage.jsx';
+import ProtectedRoute from './components/routing/ProtectedRoute.jsx';
+import RoleProtectedRoute from './components/auth/RoleProtectedRoute.jsx';
 import NotificationsPage from './pages/NotificationsPage.jsx';
 import UserDashboardPage from './pages/dashboards/UserDashboardPage.jsx';
 import FreelancerDashboardPage from './pages/dashboards/FreelancerDashboardPage.jsx';
@@ -76,6 +90,7 @@ export default function App() {
         </Route>
         <Route path="mentors" element={<MentorsPage />} />
         <Route path="volunteering" element={<VolunteeringPage />} />
+        <Route element={<ProtectedRoute requiredMemberships={COMMUNITY_ACCESS_MEMBERSHIPS} />}> 
         <Route element={<ProtectedRouteOutlet requiredMemberships={COMMUNITY_ACCESS_MEMBERSHIPS} />}>
           <Route path="groups" element={<GroupsPage />} />
           <Route path="groups/:groupId" element={<GroupProfilePage />} />
@@ -88,9 +103,9 @@ export default function App() {
         <Route path="inbox" element={<InboxPage />} />
         <Route path="terms" element={<TermsPage />} />
         <Route path="privacy" element={<PrivacyPage />} />
-        <Route path="about" element={<AboutPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="finance" element={<FinanceHubPage />} />
+        <Route path="about" element={<AboutPage />} />
 
         <Route element={<ProtectedRoute requiredMemberships={COMMUNITY_ACCESS_MEMBERSHIPS} />}> 
           <Route path="groups" element={<GroupsPage />} />
@@ -101,6 +116,7 @@ export default function App() {
       <Route
         path="dashboard/user"
         element={
+          <RoleProtectedRoute allowedRoles={['user']}>
           <RequireRole allowedRoles={['user']}>
             <UserDashboardPage />
           </RequireRole>
@@ -126,32 +142,44 @@ export default function App() {
         }
       />
       <Route
-        path="dashboard/admin"
+        path="dashboard/company"
         element={
+          <RoleProtectedRoute allowedRoles={['company']}>
+            <CompanyDashboardPage />
+          </RoleProtectedRoute>
           <RequireRole allowedRoles={['admin']}>
             <AdminDashboardPage />
           </RequireRole>
         }
       />
       <Route
-        path="dashboard/agency"
+        path="dashboard/company/integrations"
         element={
+          <RoleProtectedRoute allowedRoles={['company']}>
+            <CompanyIntegrationsPage />
+          </RoleProtectedRoute>
           <RequireRole allowedRoles={['agency']}>
             <AgencyDashboardPage />
           </RequireRole>
         }
       />
       <Route
-        path="dashboard/company"
+        path="dashboard/company/networking"
         element={
+          <RoleProtectedRoute allowedRoles={['company']}>
+            <CompanyNetworkingHubPage />
+          </RoleProtectedRoute>
           <RequireRole allowedRoles={['company']}>
             <CompanyDashboardPage />
           </RequireRole>
         }
       />
       <Route
-        path="dashboard/company/networking"
+        path="dashboard/agency"
         element={
+          <RoleProtectedRoute allowedRoles={['agency']}>
+            <AgencyDashboardPage />
+          </RoleProtectedRoute>
           <RequireRole allowedRoles={['company']}>
             <CompanyNetworkingHubPage />
           </RequireRole>
@@ -189,6 +217,15 @@ export default function App() {
           </RoleProtectedRoute>
         }
       />
+      <Route
+        path="dashboard/admin"
+        element={
+          <RoleProtectedRoute allowedRoles={['admin']}>
+            <AdminDashboardPage />
+          </RoleProtectedRoute>
+        }
+      />
+
       <Route path="admin" element={<AdminLoginPage />} />
     </Routes>
   );

@@ -34,6 +34,7 @@ import '../features/services/presentation/service_operations_screen.dart';
 import '../features/finance/presentation/finance_screen.dart';
 import '../features/pages/presentation/pages_screen.dart';
 import '../features/connections/presentation/connections_screen.dart';
+import '../features/integrations/presentation/company_integrations_screen.dart';
 import '../features/user_dashboard/presentation/user_dashboard_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -119,6 +120,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/finance', builder: (context, state) => const FinanceScreen()),
       GoRoute(path: '/connections', builder: (context, state) => const ConnectionsScreen()),
       GoRoute(path: '/operations', builder: (context, state) => const ServiceOperationsScreen()),
+      GoRoute(
+        path: '/dashboard/company/integrations',
+        redirect: (context, state) {
+          if (!sessionState.isAuthenticated) {
+            final redirectTo = Uri.encodeComponent(state.uri.toString());
+            return '/login?from=$redirectTo';
+          }
+          final session = sessionState.session;
+          if (session == null || !session.memberships.contains('company')) {
+            return '/home?notice=company_only';
+          }
+          return null;
+        },
+        builder: (context, state) => const CompanyIntegrationsScreen(),
+      ),
       GoRoute(
         path: '/dashboard/freelancer/pipeline',
         builder: (context, state) => const FreelancerPipelineScreen(),

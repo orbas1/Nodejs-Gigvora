@@ -182,6 +182,14 @@ const menuSections = [
         sectionId: 'settings-governance',
       },
       {
+        name: 'Integration command center',
+        description:
+          'Dedicated console for Salesforce, monday.com, Slack, HubSpot, Google Drive, and BYOK AI connectors.',
+        sectionId: 'settings-governance',
+        href: '/dashboard/company/integrations',
+        tags: ['integrations'],
+      },
+      {
         name: 'Governance & compliance',
         description: 'Maintain GDPR/CCPA compliance, accessibility standards, and equitable hiring policies.',
         sectionId: 'governance-compliance',
@@ -1065,13 +1073,19 @@ function BrandAndPeopleSection({ data }) {
       </div>
 
       <div id="settings-governance" className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50 p-5">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="text-xl font-semibold text-slate-900">Settings &amp; governance</h3>
             <p className="text-sm text-slate-600">
               Keep integrations healthy, calendar syncs current, and permissions aligned with policy.
             </p>
           </div>
+          <Link
+            to="/dashboard/company/integrations"
+            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent"
+          >
+            Open integration command center
+          </Link>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

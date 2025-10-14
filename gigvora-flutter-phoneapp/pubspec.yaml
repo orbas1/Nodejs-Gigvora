@@ -12,6 +12,7 @@ dependencies:
   collection: ^1.18.0
   intl: ^0.18.1
   intl: ^0.19.0
+  crypto: ^3.0.3
   gigvora_foundation:
     path: packages/gigvora_foundation
   gigvora_design_system:
