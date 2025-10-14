@@ -1,5 +1,4 @@
 import { Op, fn, col } from 'sequelize';
-import { Op } from 'sequelize';
 import {
   Group,
   GroupMembership,
@@ -527,7 +526,7 @@ function mapGroupRecord(group, { memberCount, membership, blueprint }) {
   };
 }
 
-export async function listGroups({
+export async function listMemberGroups({
   actorId,
   limit = 12,
   offset = 0,
@@ -766,9 +765,6 @@ export async function updateMembershipSettings(groupIdOrSlug, { actorId, role, n
   await membership.save();
 
   return getGroupProfile(profile.slug, { actorId: user.id });
-  AuthorizationError,
-  ConflictError,
-} from '../utils/errors.js';
 
 const GROUP_MANAGER_ROLES = new Set(['admin', 'agency']);
 
@@ -1405,6 +1401,7 @@ export async function requestMembership(groupId, { actor, message } = {}) {
 }
 
 export default {
+  listMemberGroups,
   listGroups,
   getGroupProfile,
   joinGroup,

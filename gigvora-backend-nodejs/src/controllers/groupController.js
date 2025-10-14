@@ -1,9 +1,18 @@
 import {
-  listGroups,
+  listMemberGroups,
+  listGroups as listManagedGroups,
   getGroupProfile,
   joinGroup,
   leaveGroup,
   updateMembershipSettings,
+  discoverGroups,
+  getGroup,
+  createGroup,
+  updateGroup as updateGroupRecord,
+  addMember as addGroupMember,
+  updateMember as updateGroupMember,
+  removeMember as removeGroupMember,
+  requestMembership as requestGroupMembership,
 } from '../services/groupService.js';
 
 function toNumber(value, fallback = null) {
@@ -14,14 +23,14 @@ function toNumber(value, fallback = null) {
   return Number.isFinite(numeric) ? numeric : fallback;
 }
 
-function toBoolean(value, fallback = false) {
+function parseBoolean(value, fallback = false) {
   if (value == null) {
     return fallback;
   }
   if (typeof value === 'boolean') {
     return value;
   }
-  const normalized = `${value}`.toLowerCase();
+  const normalized = `${value}`.trim().toLowerCase();
   if (['1', 'true', 'yes', 'on'].includes(normalized)) {
     return true;
   }
@@ -40,48 +49,23 @@ function resolveActorId(req) {
   );
 }
 
-export async function index(req, res) {
-  const actorId = resolveActorId(req);
-  const { limit, offset, focus, q, query, includeEmpty } = req.query ?? {};
-  const result = await listGroups({
-    actorId,
-    limit: toNumber(limit, 12),
-    offset: toNumber(offset, 0),
-    focus: focus ?? undefined,
-    query: q ?? query ?? undefined,
-    includeEmpty: toBoolean(includeEmpty, false),
-import groupService from '../services/groupService.js';
-
-function parseId(value, fallback = null) {
-  const parsed = Number.parseInt(value, 10);
-  return Number.isNaN(parsed) ? fallback : parsed;
-}
-
-function parseBoolean(value) {
-  if (typeof value === 'boolean') return value;
-  if (typeof value === 'string') {
-    const normalized = value.trim().toLowerCase();
-    return normalized === 'true' || normalized === '1' || normalized === 'yes';
-  }
-  return false;
-}
-
 export async function discover(req, res) {
   const { limit, search } = req.query ?? {};
   const actorId = req.user?.id ?? null;
-  const result = await groupService.discoverGroups({ limit, search, actorId });
+  const result = await discoverGroups({ limit, search, actorId });
   res.json(result);
 }
 
 export async function index(req, res) {
-  const { page, pageSize, search, visibility, includeMembers } = req.query ?? {};
-  const result = await groupService.listGroups({
-    page,
-    pageSize,
-    search,
-    visibility,
-    includeMembers: parseBoolean(includeMembers),
-    actor: req.user,
+  const actorId = resolveActorId(req);
+  const { limit, offset, focus, q, query, includeEmpty } = req.query ?? {};
+  const result = await listMemberGroups({
+    actorId,
+    limit,
+    offset,
+    focus,
+    query: q ?? query,
+    includeEmpty: parseBoolean(includeEmpty, false),
   });
   res.json(result);
 }
@@ -116,38 +100,56 @@ export async function updateMembership(req, res) {
   res.json(result);
 }
 
-export default {
-  index,
-  show,
-  join,
-  leave,
-  updateMembership,
+export async function requestMembership(req, res) {
+  const groupId = toNumber(req.params?.groupId);
+  const { message } = req.body ?? {};
+  const result = await requestGroupMembership(groupId, {
+    actor: req.user,
+    message,
+  });
+  res.status(202).json(result);
+}
+
+export async function listManaged(req, res) {
+  const { page, pageSize, search, visibility, includeMembers } = req.query ?? {};
+  const result = await listManagedGroups({
+    page,
+    pageSize,
+    search,
+    visibility,
+    includeMembers: parseBoolean(includeMembers, false),
+    actor: req.user,
+  });
+  res.json(result);
+}
+
 export async function create(req, res) {
   const payload = req.body ?? {};
-  const result = await groupService.createGroup(payload, { actor: req.user });
+  const result = await createGroup(payload, { actor: req.user });
   res.status(201).json(result);
 }
 
-export async function show(req, res) {
-  const groupId = parseId(req.params.groupId);
-  const group = await groupService.getGroup(groupId, { includeMembers: true, actor: req.user });
-  res.json(group);
+export async function getManaged(req, res) {
+  const groupId = toNumber(req.params?.groupId);
+  const includeMembers = parseBoolean(req.query?.includeMembers, true);
+  const result = await getGroup(groupId, { includeMembers, actor: req.user });
+  res.json(result);
 }
 
 export async function update(req, res) {
-  const groupId = parseId(req.params.groupId);
+  const groupId = toNumber(req.params?.groupId);
   const payload = req.body ?? {};
-  const result = await groupService.updateGroup(groupId, payload, { actor: req.user });
+  const result = await updateGroupRecord(groupId, payload, { actor: req.user });
   res.json(result);
 }
 
 export async function addMember(req, res) {
-  const groupId = parseId(req.params.groupId);
+  const groupId = toNumber(req.params?.groupId);
   const payload = req.body ?? {};
-  const result = await groupService.addMember(
+  const result = await addGroupMember(
     {
       groupId,
-      userId: parseId(payload.userId),
+      userId: toNumber(payload.userId),
       role: payload.role,
       status: payload.status,
       notes: payload.notes,
@@ -158,38 +160,33 @@ export async function addMember(req, res) {
 }
 
 export async function updateMember(req, res) {
-  const groupId = parseId(req.params.groupId);
-  const membershipId = parseId(req.params.membershipId);
+  const groupId = toNumber(req.params?.groupId);
+  const membershipId = toNumber(req.params?.membershipId);
   const payload = req.body ?? {};
-  const result = await groupService.updateMember(groupId, membershipId, payload, { actor: req.user });
+  const result = await updateGroupMember(groupId, membershipId, payload, { actor: req.user });
   res.json(result);
 }
 
 export async function removeMember(req, res) {
-  const groupId = parseId(req.params.groupId);
-  const membershipId = parseId(req.params.membershipId);
-  await groupService.removeMember(groupId, membershipId, { actor: req.user });
+  const groupId = toNumber(req.params?.groupId);
+  const membershipId = toNumber(req.params?.membershipId);
+  await removeGroupMember(groupId, membershipId, { actor: req.user });
   res.status(204).end();
-}
-
-export async function requestMembership(req, res) {
-  const groupId = parseId(req.params.groupId);
-  const payload = req.body ?? {};
-  const result = await groupService.requestMembership(groupId, {
-    actor: req.user,
-    message: payload.message,
-  });
-  res.status(202).json(result);
 }
 
 export default {
   discover,
   index,
-  create,
   show,
+  join,
+  leave,
+  updateMembership,
+  requestMembership,
+  listManaged,
+  create,
+  getManaged,
   update,
   addMember,
   updateMember,
   removeMember,
-  requestMembership,
 };

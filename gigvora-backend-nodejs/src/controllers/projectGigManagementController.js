@@ -30,19 +30,34 @@ function normalizeRole(role) {
   return role?.toString().trim().toLowerCase().replace(/[^a-z0-9]+/g, '_') ?? null;
 }
 
+function resolveOwnerId(req) {
+  const candidates = [req.params?.userId, req.params?.id, req.user?.id, resolveRequestUserId(req)];
+  for (const candidate of candidates) {
+    const parsed = Number.parseInt(candidate, 10);
+    if (Number.isInteger(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
 function resolveAccess(req, ownerId) {
   const actorId = resolveRequestUserId(req);
   const actorRoleRaw = resolveRequestUserRole(req);
   const permissions = resolveRequestPermissions(req);
   const normalizedRole = normalizeRole(actorRoleRaw);
 
+  const permissionList = Array.isArray(permissions) ? permissions : [];
+
   const isOwner = actorId != null && ownerId === actorId;
-  const hasManagePermission = permissions
+  const hasManagePermission = permissionList
     .map((permission) => permission.toString().toLowerCase())
     .some((permission) => permission === 'project-gig-management:manage');
-  const hasReadPermission = hasManagePermission || permissions
-    .map((permission) => permission.toString().toLowerCase())
-    .some((permission) => permission === 'project-gig-management:read');
+  const hasReadPermission =
+    hasManagePermission ||
+    permissionList
+      .map((permission) => permission.toString().toLowerCase())
+      .some((permission) => permission === 'project-gig-management:read');
 
   const isAllowedRole = normalizedRole
     ? PROJECT_GIG_ALLOWED_ROLES.some(
@@ -83,60 +98,49 @@ function assertCanManage(req, ownerId) {
   }
   return access;
 }
-import { resolveRequestUserId } from '../utils/requestContext.js';
 
 export async function overview(req, res) {
-  const ownerId = Number.parseInt(req.params.userId ?? req.params.id ?? req.user?.id, 10);
+  const ownerId = resolveOwnerId(req);
   const access = assertCanView(req, ownerId);
   const snapshot = await getProjectGigManagementOverview(ownerId);
   res.json({ ...snapshot, access });
 }
 
 export async function storeProject(req, res) {
-  const ownerId = Number.parseInt(req.params.userId ?? req.params.id ?? req.user?.id, 10);
+  const ownerId = resolveOwnerId(req);
   const access = assertCanManage(req, ownerId);
-  const ownerId =
-    Number.parseInt(req.params.userId ?? req.params.id ?? req.user?.id ?? resolveRequestUserId(req), 10) || null;
   const project = await createProject(ownerId, req.body);
   const snapshot = await getProjectGigManagementOverview(ownerId);
   res.status(201).json({ project, dashboard: { ...snapshot, access } });
 }
 
 export async function storeAsset(req, res) {
-  const ownerId = Number.parseInt(req.params.userId ?? req.params.id ?? req.user?.id, 10);
+  const ownerId = resolveOwnerId(req);
   const access = assertCanManage(req, ownerId);
-  const ownerId =
-    Number.parseInt(req.params.userId ?? req.params.id ?? req.user?.id ?? resolveRequestUserId(req), 10) || null;
   const asset = await addProjectAsset(ownerId, req.params.projectId, req.body);
   const snapshot = await getProjectGigManagementOverview(ownerId);
   res.status(201).json({ asset, dashboard: { ...snapshot, access } });
 }
 
 export async function patchWorkspace(req, res) {
-  const ownerId = Number.parseInt(req.params.userId ?? req.params.id ?? req.user?.id, 10);
+  const ownerId = resolveOwnerId(req);
   const access = assertCanManage(req, ownerId);
-  const ownerId =
-    Number.parseInt(req.params.userId ?? req.params.id ?? req.user?.id ?? resolveRequestUserId(req), 10) || null;
   const workspace = await updateProjectWorkspace(ownerId, req.params.projectId, req.body);
   const snapshot = await getProjectGigManagementOverview(ownerId);
   res.json({ workspace, dashboard: { ...snapshot, access } });
 }
 
 export async function storeGigOrder(req, res) {
-  const ownerId = Number.parseInt(req.params.userId ?? req.params.id ?? req.user?.id, 10);
+  const ownerId = resolveOwnerId(req);
   const access = assertCanManage(req, ownerId);
-  const ownerId =
-    Number.parseInt(req.params.userId ?? req.params.id ?? req.user?.id ?? resolveRequestUserId(req), 10) || null;
   const order = await createGigOrder(ownerId, req.body);
   const snapshot = await getProjectGigManagementOverview(ownerId);
   res.status(201).json({ order, dashboard: { ...snapshot, access } });
 }
 
 export async function patchGigOrder(req, res) {
-  const ownerId = Number.parseInt(req.params.userId ?? req.params.id ?? req.user?.id, 10);
+  const ownerId = resolveOwnerId(req);
   const access = assertCanManage(req, ownerId);
-  const ownerId =
-    Number.parseInt(req.params.userId ?? req.params.id ?? req.user?.id ?? resolveRequestUserId(req), 10) || null;
   const order = await updateGigOrder(ownerId, req.params.orderId, req.body);
   const snapshot = await getProjectGigManagementOverview(ownerId);
   res.json({ order, dashboard: { ...snapshot, access } });
