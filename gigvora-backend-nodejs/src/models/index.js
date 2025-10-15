@@ -2,6 +2,7 @@ import { DataTypes, Op } from 'sequelize';
 import DomainRegistry from '../domains/domainRegistry.js';
 import logger from '../utils/logger.js';
 import { PlatformSetting } from './platformSetting.js';
+import { RuntimeSecurityAuditEvent } from './runtimeSecurityAuditEvent.js';
 
 import { buildLocationDetails } from '../utils/location.js';
 
@@ -16407,6 +16408,7 @@ export default {
   FeatureFlag,
   FeatureFlagAssignment,
   PlatformSetting,
+  RuntimeSecurityAuditEvent,
   UserLoginAudit,
   CareerDocument,
   CareerDocumentVersion,
@@ -16568,7 +16570,7 @@ domainRegistry.registerContext({
   name: 'platform',
   displayName: 'Platform Controls',
   description: 'Platform-wide configuration including feature flags and platform settings.',
-  models: ['FeatureFlag', 'FeatureFlagAssignment', 'PlatformSetting'],
+  models: ['FeatureFlag', 'FeatureFlagAssignment', 'PlatformSetting', 'RuntimeSecurityAuditEvent'],
 });
 
 const unassignedModels = domainRegistry.getUnassignedModelNames();

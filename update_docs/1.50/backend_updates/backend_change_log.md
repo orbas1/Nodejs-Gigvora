@@ -1,5 +1,25 @@
 # Backend Change Log — Version 1.50 Update
 
+## 12 Apr 2024
+- Added `src/config/httpSecurity.js` to centralise helmet, trust-proxy, compression, and CORS enforcement, blocking untrusted
+  origins with audited responses and feeding perimeter telemetry into runtime observability.
+- Introduced `src/observability/perimeterMetrics.js` and wired it into `/api/admin/runtime/health` so operators can inspect
+  blocked origin counts, last-seen timestamps, and affected routes in real time.
+- Persisted perimeter incidents via `securityAuditService.recordRuntimeSecurityEvent` to extend the runtime security audit
+  stream with origin abuse data.
+- Installed the `compression` dependency and updated server bootstrap to apply the new HTTP security middleware ahead of
+  correlation/logging so payload limits, trust proxies, and rate limiting execute against sanitised requests.
+
+## 11 Apr 2024
+- Added a dedicated database lifecycle manager that authenticates pools on startup, feeds `/health/ready` cache entries, drains
+  connections during shutdown, and records runtime security audits for every start/stop sequence.
+- Persisted runtime security audits in the new `runtime_security_audit_events` table with helper services so operators and
+  dashboards surface the last ten incidents alongside dependency posture.
+- Exposed `/auth/refresh` guarded by token validation so native clients can renew access tokens without re-authentication while
+  maintaining login audit trails.
+- Extended `/api/admin/runtime/health` to deliver maintenance schedules and recent security events for the admin runtime panel
+  and mobile bootstrap logic.
+
 ## 10 Apr 2024
 - Synced platform settings with a new dependency health module so Stripe/Escrow readiness and compliance toggles mark
   `paymentsCore`/`complianceProviders` status before the API accepts traffic, and re-evaluate immediately after admin updates.

@@ -4,6 +4,7 @@
 |------|-------------|
 | `src/lifecycle/runtimeHealth.js` | Centralised runtime health state tracker capturing HTTP status, worker readiness, and dependency availability for consumption by health endpoints and operators. |
 | `src/lifecycle/workerManager.js` | Supervisor responsible for starting/stopping search bootstrap, profile engagement, and news aggregation workers with health reporting hooks. |
+| `src/config/httpSecurity.js` | Consolidated HTTP security middleware applying helmet, trust proxy, compression, and audited CORS enforcement while emitting perimeter telemetry. |
 | `src/middleware/correlationId.js` | Express middleware that enforces correlation IDs for every request, echoing them back to clients and structured logs. |
 | `src/routes/health.js` | Express router serving `/health/live` and `/health/ready` endpoints backed by runtime health telemetry. |
 | `src/services/healthService.js` | Service layer that authenticates database connectivity, synthesises readiness reports, and determines HTTP status codes. |
@@ -22,16 +23,22 @@
 | `src/routes/domainRoutes.js` | Express router exposing `/api/domains/registry`, context drill-down, and model definition endpoints. |
 | `shared-contracts/clients/typescript/*` | Generated TypeScript declarations mirroring domain schemas for Node and React consumers. |
 | `src/observability/rateLimitMetrics.js` | Instrumented metrics store that tracks per-key request attempts, blocks, utilisation history, and top consumers for the API rate limiter. |
+| `src/observability/perimeterMetrics.js` | Metrics store capturing blocked origin attempts, last-seen timestamps, and affected routes for runtime perimeter reporting. |
 | `src/middleware/rateLimiter.js` | Wrapper around `express-rate-limit` that records telemetry, applies admin-aware keys, and exposes metrics to the observability service. |
 | `src/middleware/validateRequest.js` | Zod-backed middleware that validates and normalises Express request bodies, queries, params, headers, and cookies before controller execution. |
 | `src/services/runtimeObservabilityService.js` | Aggregates readiness, dependency, environment, and rate-limit data for `/api/admin/runtime/health`. |
 | `src/validation/primitives.js` | Shared Zod helper utilities for trimming strings, coercing numbers/booleans, and normalising geo-location payloads. |
 | `src/validation/schemas/authSchemas.js` | Auth route schema catalogue enforcing login/registration payload contracts. |
+| `src/lifecycle/databaseLifecycle.js` | Coordinates database bootstrap/shutdown, feeds runtime health cache updates, and records security audits. |
+| `src/services/securityAuditService.js` | Persists runtime perimeter events to `runtime_security_audit_events` and exposes query helpers for observability. |
+| `src/models/runtimeSecurityAuditEvent.js` | Sequelize model backing runtime security audit logs, including event type, level, requestId, and metadata. |
+| `database/migrations/20241015103000-runtime-security-audit.cjs` | Migration creating the `runtime_security_audit_events` table with indexed event type/level/timestamps. |
 | `src/validation/schemas/adminSchemas.js` | Admin dashboard/settings schema catalogue guarding query parameters and nested configuration payloads. |
 | `src/validation/schemas/searchSchemas.js` | Validation catalogue covering discovery queries, saved-search subscriptions, and category/viewport sanitisation. |
 | `src/validation/schemas/projectSchemas.js` | Project payload schema enforcing titles, geo/budget coercion, and auto-assign configuration sanitisation. |
 | `src/validation/schemas/financeSchemas.js` | Finance schema enforcing numeric identifiers, ISO date filters, and refresh toggles for control tower endpoints. |
 | `tests/observability/rateLimitMetrics.test.js` | Unit coverage for the metrics store ensuring window rollovers, blocked ratios, and history snapshots remain accurate. |
+| `tests/config/httpSecurity.test.js` | Jest coverage validating allowed origin parsing, wildcard handling, perimeter telemetry, and audit hooks for the HTTP security middleware. |
 | `tests/services/runtimeObservabilityService.test.js` | Integration test validating runtime snapshots include readiness, liveness, and rate-limit data. |
 | `tests/adminRuntimeRoutes.test.js` | Route test covering admin authentication requirements and response shape for `/api/admin/runtime/health`. |
 | `tests/routes/authRoutes.validation.test.js` | Supertest coverage ensuring authentication endpoints emit `422` with structured issues for invalid payloads and sanitise valid requests. |

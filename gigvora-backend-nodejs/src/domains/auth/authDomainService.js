@@ -145,6 +145,13 @@ export class AuthDomainService {
     return user ?? null;
   }
 
+  async findUserById(userId, { transaction } = {}) {
+    if (!Number.isInteger(Number(userId))) {
+      return null;
+    }
+    return this.User.findByPk(userId, { transaction });
+  }
+
   sanitizeUser(userInstance) {
     return sanitizeUser(userInstance);
   }

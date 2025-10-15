@@ -6,3 +6,5 @@
 - Logging pipelines must ingest structured JSON output from Pino; ensure log shippers parse the `requestId` and `worker` fields for correlation dashboards.
 - Add `npm run schemas:sync` to CI to regenerate `shared-contracts/domain` artifacts whenever domain schemas evolve; distribute generated JSON to front-end and Flutter package registries as part of release automation.
 - Introduce a companion CI step `npm run schemas:clients` so TypeScript definitions in `shared-contracts/clients/typescript` stay aligned with the JSON schema source of truth.
+- Install the `compression` package for the Node API and ensure container images include the dependency so the new HTTP security middleware can emit compressed responses by default.
+- Surface `TRUST_PROXY` configuration in deployment manifests (e.g., `loopback`, numeric hop counts) so Express recognises upstream load balancers when resolving client IPs and enforcing secure cookies.

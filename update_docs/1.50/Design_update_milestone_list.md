@@ -35,6 +35,8 @@
 - **Status 04 Apr:** Maintenance-mode messaging, health telemetry widgets, and rate-limit callouts are specced with localisation guidance; pending review includes integrating the assets into emo theme variations and validating screen-reader announcements.
 - **Status 07 Apr:** Operations playbook overlays incorporate runtime telemetry alerts, and compliance approved the admin dashboard copy deck; remaining scope focuses on emo theme permutations and security sign-off for provider maintenance workflows.
 - **Status 10 Apr:** Custodial outage messaging, disabled CTA states, and Flutter wallet overlays were documented for finance/compliance journeys, aligning UI responses with the new backend dependency guards and feeding the admin runtime panel escalation copy.
+- **Status 11 Apr:** Harmonised refresh-token error copy and maintenance banners across web admin and Flutter splash/login flows, with updated artefacts in `Screen_text.md`, `App_screens_drawings.md`, and `Dashboard Designs.md` so the runtime telemetry redesign and mobile bootstrapper share consistent UX.
+- **Status 12 Apr:** Added API perimeter analytics card specifications, maintenance contact chips, and perimeter audit annotations to `Dashboard Designs.md`, `Design Plan.md`, and Flutter screen artefacts so abuse telemetry and escalation copy align across surfaces.
 
 ## Milestone 6 – Handoff, QA, and Implementation Support (Week 6–7)
 **Objective:** Equip engineering and QA teams with detailed documentation, assets, and review rituals.

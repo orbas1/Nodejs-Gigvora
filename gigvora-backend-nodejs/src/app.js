@@ -1,6 +1,4 @@
 import express from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
 import pinoHttp from 'pino-http';
 import routes from './routes/index.js';
 import correlationId from './middleware/correlationId.js';
@@ -8,12 +6,12 @@ import errorHandler from './middleware/errorHandler.js';
 import healthRouter from './routes/health.js';
 import logger from './utils/logger.js';
 import createInstrumentedRateLimiter from './middleware/rateLimiter.js';
+import { applyHttpSecurity } from './config/httpSecurity.js';
 
 const app = express();
 
 app.disable('x-powered-by');
-app.use(helmet());
-app.use(cors({ origin: process.env.CLIENT_URL?.split(',') || '*', credentials: true }));
+applyHttpSecurity(app, { logger });
 
 app.use(correlationId());
 

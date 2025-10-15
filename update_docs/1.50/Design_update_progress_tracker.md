@@ -9,7 +9,7 @@ Percentages reflect the most recent assessment by the design operations council.
 | Token & Theme Validation | Week 2 | 64 | 61 | 58 | 63 | 70 | 59 | 56 | 52 | 62 | 64 | 66 | 57 | 49 | 47 | 60 | 59 | +6 |
 | Experience Architecture Alignment | Week 3 | 71 | 69 | 67 | 72 | 76 | 69 | 63 | 60 | 71 | 73 | 75 | 63 | 56 | 54 | 68 | 68 | +9 |
 | Experience Blueprint Sign-off | Week 4 | 76 | 73 | 71 | 75 | 79 | 72 | 68 | 65 | 74 | 77 | 78 | 70 | 64 | 62 | 73 | 72 | +4 |
-| Prototype Integration & Partial QA | Week 5 | 78 | 76 | 74 | 79 | 82 | 75 | 73 | 70 | 77 | 80 | 81 | 72 | 67 | 65 | 76 | 75 | +5 |
+| Prototype Integration & Partial QA | Week 5 | 78 | 76 | 74 | 79 | 82 | 75 | 73 | 74 | 77 | 80 | 81 | 72 | 67 | 65 | 76 | 76 | +6 |
 | Pre-Handoff QA Readiness | Week 6 | 83 | 81 | 79 | 82 | 85 | 80 | 76 | 73 | 82 | 84 | 85 | 77 | 71 | 69 | 80 | 79 | +6 |
 | Launch Readiness Audit | Week 7 | 84 | 81 | 78 | 83 | 85 | 82 | 80 | 79 | 83 | 83 | 84 | 76 | 72 | 70 | 82 | 81 | +4 |
 
@@ -32,7 +32,7 @@ Percentages reflect the most recent assessment by the design operations council.
 
 ## Critical Observations
 1. **Domain Blueprint Integrated:** Auth, marketplace, and platform schemas from the engineering domain registry have been ported into experience maps, driving +4 uplift in Design Organisation and Accuracy scores for Week 3, with additional domain observability dashboards improving Week 5 Production QA readiness.
-2. **Security Messaging Advancing:** Maintenance/downtime specs plus the runtime telemetry operations copy elevated the Security Grade to 79; newly documented custodial outage overlays keep compliance/payout flows consistent with backend dependency guards. Final legal approval on payout escalations and RBAC copy is still pending alongside icon updates for WAF event states.
+2. **Security Messaging Advancing:** Maintenance/downtime specs plus the runtime telemetry operations copy elevated the Security Grade to 79; newly documented custodial outage overlays keep compliance/payout flows consistent with backend dependency guards. 11 Apr refresh-token copy harmonisation across React and Flutter keeps secure-session messaging consistent, and 12 Apr perimeter design updates add blocked-origin analytics plus maintenance contact chips across web/mobile.
 3. **Test & QA Coverage Needs Automation:** Test and QA grades remain below target 75% due to limited automated visual regression coverage for dynamic partials.
 4. **Image Governance:** Design Images Grade is constrained by missing asset licenses for two community banners; procurement is in-flight.
 5. **Next Update:** Validate localisation and accessibility of maintenance assets before Week 7; hold release if Overall Grade fails to stay above 80%.
