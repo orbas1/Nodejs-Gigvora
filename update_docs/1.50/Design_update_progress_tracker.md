@@ -32,7 +32,7 @@ Percentages reflect the most recent assessment by the design operations council.
 
 ## Critical Observations
 1. **Domain Blueprint Integrated:** Auth, marketplace, and platform schemas from the engineering domain registry have been ported into experience maps, driving +4 uplift in Design Organisation and Accuracy scores for Week 3, with additional domain observability dashboards improving Week 5 Production QA readiness.
-2. **Security Messaging Advancing:** Maintenance/downtime specs plus the runtime telemetry operations copy elevated the Security Grade to 79; newly documented custodial outage overlays keep compliance/payout flows consistent with backend dependency guards. Final legal approval on payout escalations and RBAC copy is still pending alongside icon updates for WAF event states.
+2. **Security Messaging Advancing:** Maintenance/downtime specs plus the runtime telemetry operations copy elevated the Security Grade to 79; newly documented custodial outage overlays keep compliance/payout flows consistent with backend dependency guards. 11 Apr refresh-token copy harmonisation across React and Flutter keeps secure-session messaging consistent while we wait for legal approval on payout escalations and icon updates for WAF event states.
 3. **Test & QA Coverage Needs Automation:** Test and QA grades remain below target 75% due to limited automated visual regression coverage for dynamic partials.
 4. **Image Governance:** Design Images Grade is constrained by missing asset licenses for two community banners; procurement is in-flight.
 5. **Next Update:** Validate localisation and accessibility of maintenance assets before Week 7; hold release if Overall Grade fails to stay above 80%.

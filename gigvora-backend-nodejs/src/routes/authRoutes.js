@@ -10,6 +10,7 @@ import {
   registerCompanySchema,
   registerUserSchema,
   resendTwoFactorSchema,
+  refreshSessionSchema,
   verifyTwoFactorSchema,
 } from '../validation/schemas/authSchemas.js';
 
@@ -39,5 +40,6 @@ router.post(
   asyncHandler(authController.resendTwoFactor),
 );
 router.post('/login/google', validateRequest({ body: googleLoginSchema }), asyncHandler(authController.googleLogin));
+router.post('/refresh', validateRequest({ body: refreshSessionSchema }), asyncHandler(authController.refreshSession));
 
 export default router;

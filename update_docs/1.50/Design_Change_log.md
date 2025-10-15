@@ -1,5 +1,16 @@
 # Version 1.50 Design Change Log (Enterprise Detail)
 
+## 11 Apr 2024 — Runtime Security & Mobile Bootstrap Alignment
+1. **Mobile Maintenance Overlays:** Updated `App_screens_drawings.md`, `Screens_Update_Plan.md`, and `Screen_text.md` with the
+   Flutter maintenance banner, session restore indicator, and secure session expiry copy so mobile mirrors the admin runtime
+   dashboard experience. Added localisation tokens for English, French, and Spanish variants.
+2. **Refresh Workflow Copy Harmonisation:** Documented shared copy blocks for refresh success/error states in `Screen_text.md`
+   and `text.md.md`, ensuring React, Flutter, and admin experiences surface identical messaging when `/auth/refresh` succeeds or
+   fails.
+3. **Runtime Telemetry Panel Enhancements:** Recorded the new audit event timeline, maintenance scheduling badges, and
+   dependency severity chips in `Dashboard Designs.md` and `Screens_Updates_widget_functions.md`, aligning design specs with the
+   React implementation that now ingests runtime security audit events.
+
 ## 10 Apr 2024 — Compliance Guard Rails & Operations Messaging
 1. **Custodial Downtime Patterns:** Documented new 503 guard rails for payouts and verification flows in `Dashboard Designs.md`
    and `component_functions.md`, including banner copy, iconography, and CTA disablement states triggered by the backend

@@ -14,6 +14,8 @@
 ## `src/services/platformSettingsService.js`
 - After persisting administrative changes, re-evaluates critical dependency health using the new observability module and logs
   results via the platform settings logger.
+- Normalises maintenance window payloads (`maintenance.windows`, support contacts, status page URLs) so runtime telemetry and
+  clients receive curated downtime schedules with validated ISO timestamps.
 
 ## `src/services/complianceService.js`
 - Adds dependency guard clauses across wallet provisioning, ledger writes, identity/corporate verification, and qualification
@@ -25,6 +27,18 @@
 
 ## `src/services/healthService.js`
 - New service verifying Sequelize connectivity on a throttled cadence, calculating dependency latency, and synthesising readiness/liveness reports for API consumers.
+- Exposes `setDatabaseStatus` so lifecycle hooks can immediately update cached readiness after graceful shutdowns or startup
+  authentication events.
+
+## `src/lifecycle/databaseLifecycle.js`
+- New lifecycle coordinator that authenticates Sequelize connections on startup, feeds dependency health telemetry, drains
+  pools during shutdown, and records runtime security audits for post-incident analysis.
+
+## `src/services/securityAuditService.js`
+- Persists runtime security audit events (start, stop, shutdown failure) in `runtime_security_audit_events` and exposes helpers
+  for querying the latest incidents.
+- Provides a single entry point for services to log maintenance, dependency, and runtime perimeter changes in a structured way
+  consumable by dashboards and compliance.
 
 ## `src/services/newsAggregationService.js`
 - Added logger injection for worker cycles, upgraded error handling to structured logs, and ensured the worker resets its logger on shutdown to avoid leaking stale references.
@@ -37,6 +51,8 @@
 
 ## `src/services/authService.js`
 - Rebuilt authentication flows to delegate persistence to the new AuthDomainService, record login audits, evaluate feature flags, and emit schema-driven user payloads with shared contracts.
+- Added refresh-token validation and session renewal so `/auth/refresh` can issue new access tokens without re-prompting for
+  credentials.
 
 ## `src/services/projectService.js`
 - Integrated MarketplaceDomainService to derive workspace status, synchronise project workspaces after status changes, and centralise marketplace-specific business rules.
@@ -48,3 +64,5 @@
 ## `src/services/runtimeObservabilityService.js`
 - Aggregates readiness, liveness, dependency health, process telemetry, and rate-limit metrics into a single operational snapshot consumed by `/api/admin/runtime/health`.
 - Normalises environment metadata (release identifiers, regions, memory/cpu usage) so dashboards and automation hooks can surface actionable runtime indicators without duplicating process logic.
+- Enriches snapshots with maintenance schedules and recent security audit events so operators have contextual downtime insights
+  alongside dependency posture.

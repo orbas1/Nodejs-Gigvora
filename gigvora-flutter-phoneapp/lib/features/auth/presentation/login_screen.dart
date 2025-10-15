@@ -5,6 +5,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../auth/application/session_controller.dart';
 import '../data/auth_repository.dart';
+import '../domain/auth_token_store.dart';
 import '../../../theme/widgets.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -57,6 +58,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
 
       if (result.session != null) {
+        await AuthTokenStore.persist(
+          accessToken: result.session!.accessToken,
+          refreshToken: result.session!.refreshToken,
+        );
         ref.read(sessionControllerProvider.notifier).login(result.session!.userSession);
         if (mounted) {
           GoRouter.of(context).go('/home');
@@ -95,6 +100,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         email: _emailController.text.trim(),
         code: _codeController.text.trim(),
         tokenId: _challenge!.tokenId,
+      );
+      await AuthTokenStore.persist(
+        accessToken: session.accessToken,
+        refreshToken: session.refreshToken,
       );
       ref.read(sessionControllerProvider.notifier).login(session.userSession);
       if (mounted) {
@@ -159,6 +168,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
       final repository = ref.read(authRepositoryProvider);
       final session = await repository.loginWithGoogle(idToken);
+      await AuthTokenStore.persist(
+        accessToken: session.accessToken,
+        refreshToken: session.refreshToken,
+      );
       ref.read(sessionControllerProvider.notifier).login(session.userSession);
       if (mounted) {
         GoRouter.of(context).go('/home');

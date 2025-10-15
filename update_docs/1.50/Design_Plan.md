@@ -28,6 +28,9 @@ Detail the holistic design intent for Version 1.50 across application and web ex
 - Align forms with validation patterns and progressive disclosure (`Forms.md`, `Dummy_Data_Requirements.md`).
 - Harmonise logic flows based on `Logic_Flow_map.md`, `Logic_Flow_update.md`, and `Screens_Update_Logic_Flow_map.md` to ensure navigation consistency.
 - Introduce maintenance telemetry cards, downtime banners, and retry guidance for admin/agency dashboards reflecting `/health/ready` insights; specifications captured in `Dashboard Designs.md` and `Screen_text.md`.
+- Mirror the maintenance telemetry and refresh guidance on Flutter splash/login flows so mobile users receive the same runtime
+  status messaging documented for web/admin surfaces. Updates recorded in `App_screens_drawings.md`, `Screens_Update_Plan.md`,
+  and `Screen_text.md`.
 - Capture custodial dependency outage states for finance, payout, and verification modules so the new backend guards render consistent 503 banners, disabled CTAs, and recovery messaging; annotate behaviour in `Dashboard Designs.md`, `component_functions.md`, and `App_screens_drawings.md` for Flutter parity.
 - Map bounded-context ownership in UI artefacts by updating `Architecture_Domain_Map.md` and in-product ERDs so dashboard widgets reference the new auth/marketplace/platform domains.
 - Design domain registry observability panels that visualise `/api/domains` responses with drill-down tables, schema change alerts, and export actions documented in `Screens_Updates_widget_functions.md` and `Dashboard Designs.md`.

@@ -136,6 +136,16 @@ class AuthRepository {
     return TwoFactorChallenge.fromJson(response);
   }
 
+  Future<AuthenticatedSession> refreshSession(String refreshToken) async {
+    final response = await _client.post(
+      '/auth/refresh',
+      body: {'refreshToken': refreshToken},
+    ) as Map<String, dynamic>;
+    return AuthenticatedSession.fromJson(
+      Map<String, dynamic>.from(response['session'] as Map<String, dynamic>),
+    );
+  }
+
   Future<AuthenticatedSession> loginWithGoogle(String idToken) async {
     final response = await _client.post(
       '/auth/login/google',

@@ -3,7 +3,9 @@ import {
   BoltIcon,
   ExclamationTriangleIcon,
   ShieldCheckIcon,
+  ShieldExclamationIcon,
   SignalIcon,
+  WrenchScrewdriverIcon,
 } from '@heroicons/react/24/outline';
 import classNames from '../../utils/classNames.js';
 
@@ -237,6 +239,14 @@ export default function RuntimeTelemetryPanel({ snapshot, loading, refreshing, e
   const rateLimit = snapshot?.rateLimit ?? {};
   const currentWindow = rateLimit.currentWindow ?? {};
   const environment = snapshot?.environment ?? {};
+  const maintenance = snapshot?.maintenance ?? {};
+  const maintenanceActive = Array.isArray(maintenance.active) ? maintenance.active : [];
+  const maintenanceUpcoming = Array.isArray(maintenance.upcoming) ? maintenance.upcoming : [];
+  const security = snapshot?.security ?? {};
+  const securityEvents = Array.isArray(security.events) ? security.events : [];
+  const securityLevel = security.level ?? 'normal';
+  const lastIncidentAt = security.lastIncidentAt ?? null;
+  const latestSecurityEvent = security.latest ?? null;
 
   const dependencyEntries = Object.entries(readiness.dependencies ?? {}).map(([name, meta]) => ({
     name,
@@ -335,6 +345,97 @@ export default function RuntimeTelemetryPanel({ snapshot, loading, refreshing, e
                     </dd>
                   </div>
                 </dl>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 shadow-sm">
+                <p className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                  <WrenchScrewdriverIcon className="h-4 w-4" /> Maintenance windows
+                </p>
+                {maintenanceActive.length ? (
+                  <div className="mt-3 space-y-2 text-xs text-amber-800">
+                    {maintenanceActive.map((window) => (
+                      <div key={window.id} className="rounded-xl border border-amber-200 bg-amber-50/80 p-3">
+                        <p className="font-semibold">{window.summary}</p>
+                        <p className="mt-1 text-[11px] text-amber-700">
+                          Active until {formatTimestamp(window.endAt)} ({window.timezone})
+                        </p>
+                        <p className="mt-1 text-[11px] text-amber-700">
+                          Impact: {window.impact?.toUpperCase() ?? 'NOTICE'}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs text-slate-500">
+                    No active maintenance.{' '}
+                    {maintenanceUpcoming[0]
+                      ? `Next window ${formatTimestamp(maintenanceUpcoming[0].startAt)} (${maintenanceUpcoming[0].timezone}).`
+                      : 'Operations running normally.'}
+                  </p>
+                )}
+                {maintenanceUpcoming.length ? (
+                  <div className="mt-3 space-y-2 text-xs text-slate-600">
+                    <p className="font-semibold text-slate-700">Scheduled</p>
+                    <ul className="space-y-2">
+                      {maintenanceUpcoming.slice(0, 2).map((window) => (
+                        <li key={window.id} className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                          <p className="font-semibold text-slate-700">{window.summary}</p>
+                          <p className="mt-1 text-[11px] text-slate-500">
+                            {formatTimestamp(window.startAt)} → {formatTimestamp(window.endAt)} ({window.timezone})
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                <div className="mt-3 flex items-center justify-between text-[11px] text-slate-500">
+                  <span>Contact: {maintenance.supportContact ?? 'support@gigvora.com'}</span>
+                  {maintenance.statusPageUrl ? (
+                    <a
+                      href={maintenance.statusPageUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-semibold text-slate-700 hover:text-slate-900"
+                    >
+                      View status page
+                    </a>
+                  ) : null}
+                </div>
+              </div>
+              <div
+                className={classNames(
+                  'rounded-2xl border p-4 shadow-sm',
+                  securityLevel === 'attention'
+                    ? 'border-red-200 bg-red-50/80'
+                    : 'border-emerald-200 bg-emerald-50/80',
+                )}
+              >
+                <p className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                  <ShieldExclamationIcon className="h-4 w-4" /> Security telemetry
+                </p>
+                <p className="mt-1 text-xs text-slate-600">
+                  {securityLevel === 'attention'
+                    ? `Review incidents logged ${lastIncidentAt ? formatRelative(lastIncidentAt) : 'recently'}.`
+                    : 'No critical incidents detected in the last polling window.'}
+                </p>
+                {latestSecurityEvent ? (
+                  <div className="mt-3 rounded-xl border border-slate-200 bg-white/70 p-3 text-xs text-slate-700">
+                    <p className="font-semibold">
+                      {latestSecurityEvent.eventType}{' '}
+                      <span className="text-[11px] text-slate-500">{formatRelative(latestSecurityEvent.createdAt)}</span>
+                    </p>
+                    <p className="mt-1 text-[11px] text-slate-500">{latestSecurityEvent.message}</p>
+                  </div>
+                ) : null}
+                {securityEvents.length ? (
+                  <ul className="mt-3 space-y-1 text-[11px] text-slate-600">
+                    {securityEvents.slice(0, 4).map((event) => (
+                      <li key={event.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                        <span className="font-semibold text-slate-700">{event.eventType}</span>
+                        <span className="text-slate-500">{formatRelative(event.createdAt)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </div>
               <DependencyList title="Dependencies" items={dependencyEntries} />
               <DependencyList title="Workers" items={workerEntries} />

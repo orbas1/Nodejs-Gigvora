@@ -1,5 +1,19 @@
 # Version 1.50 Update Change Log
 
+## 11 Apr 2024
+- Implemented audited database lifecycle orchestration that authenticates pools on startup, updates readiness caches, drains
+  connections on shutdown, and records security events for `/health/ready` and admin observability surfaces.
+- Persisted runtime security audit events and surfaced them, alongside scheduled maintenance windows, through
+  `/api/admin/runtime/health` so operators, admin dashboards, and mobile bootstrap logic share a unified downtime view.
+- Shipped `/auth/refresh` plus mobile/web session bootstrap flows leveraging refresh tokens, enabling Flutter and React clients
+  to restore authenticated sessions securely while respecting login audit trails.
+- Upgraded the Flutter app with authenticated health polling, secure token storage, and maintenance-aware messaging to replace
+  demo connectivity checks and align with production resilience requirements.
+- Added backend Jest coverage for `/api/auth/refresh` alongside lifecycle shutdown auditing plus Flutter widget/unit tests for
+  the session bootstrapper and runtime health repository, locking in the refresh workflow across platforms.
+- Recorded cross-surface maintenance messaging, refresh copy, and telemetry design updates in the Version 1.50 design trackers
+  and user phone app documentation so engineering hand-offs stay aligned with the implemented behaviour.
+
 ## 10 Apr 2024
 - Introduced runtime dependency gating for finance and compliance services so payout, wallet, and verification workflows halt
   with clear 503 messaging when Stripe/Escrow configurations or maintenance flags render custodial providers unsafe.
