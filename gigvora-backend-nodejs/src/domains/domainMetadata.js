@@ -309,6 +309,21 @@ export const domainMetadata = {
         retention: 'Policy lifecycle + 10 years',
         justification: 'Audit evidence for regulatory inspections.',
       },
+      ConsentPolicy: {
+        fields: ['title', 'description', 'legalBasis', 'required', 'revocable', 'retentionPeriodDays', 'metadata'],
+        retention: 'Policy lifecycle + 10 years',
+        justification: 'Policy metadata required for regulatory attestation and audit trails.',
+      },
+      UserConsent: {
+        fields: ['status', 'grantedAt', 'withdrawnAt', 'source', 'ipAddress', 'userAgent', 'metadata'],
+        retention: 'User lifecycle + 2 years after withdrawal',
+        justification: 'Consent evidence required for GDPR compliance and incident investigations.',
+      },
+      ConsentAuditEvent: {
+        fields: ['actorId', 'actorType', 'action', 'reason', 'metadata'],
+        retention: 'Policy lifecycle + 10 years',
+        justification: 'Maintains non-repudiation for policy maintenance actions and consent overrides.',
+      },
       GovernanceRiskRegister: {
         fields: ['ownerEmail', 'mitigationPlan'],
         retention: 'Risk lifecycle + 7 years',
@@ -323,6 +338,12 @@ export const domainMetadata = {
     fieldDescriptions: {
       DomainGovernanceReview: {
         reviewStatus: 'Workflow status indicating whether remediation actions are complete.',
+      },
+      UserConsent: {
+        status:
+          'Represents the latest consent decision recorded for the user. Grants are timestamped for proof-of-consent and withdrawals capture revocation moments for compliance analytics.',
+        metadata:
+          'Structured payload storing locale, session identifiers, or device context that substantiates the consent capture channel.',
       },
     },
   },

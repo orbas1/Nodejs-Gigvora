@@ -1,5 +1,20 @@
 # Services Changes — Version 1.50 Update
 
+## `src/services/consentService.js`
+- New governance service orchestrating consent policy lifecycle, including draft
+  creation, version activation, supersession, and historical retention aligned
+  with GDPR Article 7 requirements. Enforces monotonic version sequencing,
+  revocable policy flags, jurisdiction scoping, and actor metadata for audit
+  trails.
+- Provides helper queries for admin dashboards (`listPolicies`,
+  `getPolicyVersion`, `getUserConsentTimeline`) with pagination, filtering, and
+  SAR-ready export mappers that redact internal identifiers while preserving
+  legal evidence.
+- Emits `ConsentAuditEvent` records on policy publication, user acceptance,
+  withdrawal, and admin overrides; integrates with transaction helpers so
+  downstream workflows can join consent state within business flows without
+  duplicating logic.
+
 ## `src/services/groupService.js`
 - Implemented `listMemberGroups` to return authenticated users' group memberships with pagination, status filters, optional
   member detail hydration, search, and membership metric breakdowns so admin tooling and mobile clients can request curated

@@ -1,5 +1,20 @@
 # Admin Dashboard Updates — Version 1.50 Update
 
+## Consent Governance Console (27 Apr 2024)
+- **Policy inventory table:** Added `ConsentGovernancePanel` with pinned summary
+  bar showing active/inactive counts, migration backlog, and breach alerts.
+  Table supports jurisdiction, channel, and status filters plus CSV export
+  triggers mirroring legal operations requirements from
+  `ui-ux_updates/web_app_wireframe_changes.md`.
+- **Version drill-down drawer:** Drawer surfaces locale manifests, version
+  changelog, rollout readiness, and outstanding backfill counts using the shared
+  consent schemas. Inline activation and retire actions respect RBAC and display
+  audit context per `Screen_text.md` copy.
+- **Actionable alerts:** Panel raises inline toasts/snackbars when policies lack
+  translations or require forced migration, with quick links to the Settings
+  privacy console. Analytics hooks log export/activation interactions for
+  compliance telemetry.
+
 ## Domain Governance Registry (23 Apr 2024)
 - **New governance card:** Added `DomainGovernanceSummaryCard` presenting each
   bounded context’s classification, steward, review status, outstanding

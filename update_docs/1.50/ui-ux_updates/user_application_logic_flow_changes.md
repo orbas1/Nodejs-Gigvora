@@ -79,16 +79,27 @@ We restructured the consumer app logic to emphasise clarity, personalised recomm
    - Enrollment flow validates profile completeness, collects goals, and matches with mentors; users can accept/decline suggestions.
    - Session completion triggers reflection survey and updates progress meter in Mentorship panel.
 
-### 8. Admin Operations & Governance Oversight (23 Apr)
+### 8. Admin Operations & Governance Oversight (23 & 27 Apr)
 1. **Governance Snapshot Entry**
    - Admin persona opens home screen; runtime telemetry poll triggers governance
      repository fetch. Summary card groups contexts by status, calculates overdue
      reviews, and emits analytics event when rendered.
-2. **Remediation Drill-Down**
+2. **Consent Ledger Snapshot**
+   - New `UserConsentCard` requests `/api/users/:id/consents` and displays
+     outstanding mandatory policies, last acceptance timestamp, and breach alerts.
+     Card badges map to legal basis and highlight withdrawal locks when
+     `revocable=false`.
+3. **Remediation Drill-Down**
    - Selecting a remediation item opens governance detail drawer. Flow loads
      latest review, outstanding tasks, and steward contacts; toggling checklist
      items queues follow-up tasks and logs audit trail event.
-3. **Escalation & Export**
+4. **Consent Detail Drawer & Actions**
+   - Tapping consent card opens detail sheet showing policy summary, active
+     version, acceptance history, and outstanding required policies. Buttons allow
+     view policy PDF, accept (if pending), or request withdrawal (if allowed).
+     Withdrawal prompts confirmation modal with reason selection; success updates
+     card state and logs analytics event.
+5. **Escalation & Export**
    - "Escalate" CTA launches mailto/supported communication channel prefilled with
      steward contact info and remediation summary; "Export report" invokes PDF/
      CSV export using shared schema definitions. Flow enforces offline fallback by

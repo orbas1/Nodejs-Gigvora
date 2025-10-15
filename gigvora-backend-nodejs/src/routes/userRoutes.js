@@ -3,6 +3,7 @@ import * as userController from '../controllers/userController.js';
 import * as careerDocumentController from '../controllers/careerDocumentController.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import authenticate from '../middleware/authenticate.js';
+import userConsentRoutes from './userConsentRoutes.js';
 
 const router = Router();
 
@@ -53,5 +54,7 @@ router.post(
   authenticate({ roles: DOCUMENT_ROLES, matchParam: 'id' }),
   asyncHandler(careerDocumentController.uploadVersion),
 );
+
+router.use('/:id/consents', userConsentRoutes);
 
 export default router;

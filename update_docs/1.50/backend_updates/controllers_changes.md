@@ -27,3 +27,28 @@
 - Propagates request logging context and correlation IDs into compliance locker service calls so dependency guard failures are traceable in operational logs.
 - Returns `503 Service Unavailable` responses with request IDs when compliance storage maintenance or credential gaps block document creation, versioning, or reminder acknowledgement flows.
 - Relies on upstream Zod validation to reject malformed bodies with `422` responses, ensuring controller branches always receive sanitised payloads before delegating to the locker service.
+
+## `src/controllers/consentController.js`
+- New admin controller providing consent policy CRUD, version management, and
+  activation workflows. Validates payloads via shared schemas, enforces RBAC
+  guards, and serialises responses with pagination/export metadata for the
+  React admin governance console.
+- Emits structured audit events for every administrative action (policy create,
+  version publish, activation, override), ensuring compliance teams can trace
+  decisions back to actor identity and change reason codes.
+- Returns jurisdiction-aware policy payloads that include localisation manifests
+  and outstanding backfill counts, giving operators visibility into rollout
+  readiness before activating new terms.
+
+## `src/controllers/userConsentController.js`
+- New user-facing controller exposing consent snapshots, acceptance, and
+  withdrawal endpoints for GDPR parity across clients. Guards access by ensuring
+  requesters can only act on their own user ID or delegated accounts with audit
+  justification.
+- Normalises locale/channel metadata before delegating to `consentService`,
+  guaranteeing mobile and web clients capture consistent audit trails regardless
+  of source surface.
+- Handles non-revocable withdrawals by returning `409 Conflict` with guidance,
+  while successful acceptance/withdrawal responses include updated outstanding
+  requirements so downstream UIs can refresh eligibility states without extra
+  queries.

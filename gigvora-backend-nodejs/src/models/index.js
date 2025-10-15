@@ -5,6 +5,12 @@ import logger from '../utils/logger.js';
 import { PlatformSetting } from './platformSetting.js';
 import { RuntimeSecurityAuditEvent } from './runtimeSecurityAuditEvent.js';
 import { RuntimeAnnouncement } from './runtimeAnnouncement.js';
+import {
+  ConsentPolicy,
+  ConsentPolicyVersion,
+  UserConsent,
+  ConsentAuditEvent,
+} from './consentModels.js';
 
 import { buildLocationDetails } from '../utils/location.js';
 
@@ -113,6 +119,7 @@ const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB 
 
 export * from './constants/index.js';
 export { BlogCategory, BlogMedia, BlogPost, BlogPostMedia, BlogPostTag, BlogTag } from './blogModels.js';
+export { ConsentPolicy, ConsentPolicyVersion, UserConsent, ConsentAuditEvent } from './consentModels.js';
 
 const PIPELINE_OWNER_TYPES = ['freelancer', 'agency', 'company'];
 const TWO_FACTOR_METHODS = ['email', 'app', 'sms'];
@@ -14153,6 +14160,8 @@ User.hasMany(CorporateVerification, { foreignKey: 'userId', as: 'corporateVerifi
 User.hasMany(CorporateVerification, { foreignKey: 'reviewerId', as: 'reviewedCorporateVerifications' });
 
 User.hasMany(UserLoginAudit, { foreignKey: 'userId', as: 'loginAudits', onDelete: 'CASCADE' });
+User.hasMany(UserConsent, { foreignKey: 'userId', as: 'consents', onDelete: 'CASCADE' });
+UserConsent.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 UserLoginAudit.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 FeatureFlag.hasMany(FeatureFlagAssignment, {
@@ -16610,6 +16619,7 @@ domainRegistry.registerContext({
   include: [
     (modelName) =>
       /^Compliance/.test(modelName) ||
+      /^Consent/.test(modelName) ||
       /^Governance/.test(modelName) ||
       /^Leadership/.test(modelName) ||
       /^Executive/.test(modelName) ||

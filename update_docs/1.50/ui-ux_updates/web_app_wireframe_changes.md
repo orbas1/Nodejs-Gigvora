@@ -58,6 +58,18 @@ The desktop and responsive web experience received an end-to-end restructuring t
 - Includes "Open runbook" secondary CTA revealing incident steps; tooltip communicates scraper cadence and caching guidance.
 - Warning/error states swap background palette, trigger inline alert banner with copy from `Screen_text.md`, and add manual refresh button.
 
+#### Consent Governance Panel (Added 27 Apr)
+- Full-width table module listing consent policies with columns for jurisdiction
+  coverage, legal basis, status, active version, next review due, and migration
+  backlog. Filters for jurisdiction, channel, status, and effective window sit
+  above the table with sticky summary chips showing outstanding actions.
+- Row actions open a right-side drawer revealing version changelog, locale
+  manifests, activation checklist, and breach notes. Drawer includes activation
+  buttons, translation status, SAR export CTA, and audit log timeline.
+- Inline alerts appear when translations missing or migration backlog exceeds
+  threshold; export dropdown includes CSV and ICS (reminder) options aligned with
+  legal workflow needs documented in `Screen_text.md`.
+
 ### User Panel
 - Personalised feed combining bookings, tasks, learning modules, and community invitations.
 - Sidebar quick actions for account preferences, finance settings, and saved items.

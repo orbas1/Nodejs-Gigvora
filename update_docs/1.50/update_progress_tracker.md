@@ -8,7 +8,7 @@ Percentages reflect initial baseline before execution. Update the tracker weekly
 |---------|-----------|------------------|--------------------|---------------------|-----------------------|--------------------|--------------------|-----------------|
 | 1 | Stabilise service lifecycles and security perimeters | 95 | 92 | 90 | 89 | 88 | 93 | 91 |
 | 2 | Modularise domain models and align schemas | 72 | 93 | 90 | 92 | 90 | 90 | 88 |
-| 3 | Enforce validation, consent, and governance workflows | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 3 | Enforce validation, consent, and governance workflows | 82 | 75 | 73 | 78 | 65 | 68 | 73 |
 | 4 | Complete financial, escrow, and dispute capabilities | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | 5 | Deliver creation studio and marketplace experiences | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | 6 | Modernise frontend architecture and experience foundations | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
@@ -34,6 +34,11 @@ Flutter SDK so the new suite can run automatically.
 **Progress Note (Backend • 26 Apr):** Implemented authenticated `listMemberGroups` filtering, guarded repeatable Sequelize
 associations, and normalised domain registry errors so governance HTTP routes return structured 404s and the Supertest harness
 now passes end-to-end. Task 2 error-free and production readiness scores increased with the regression suite executing cleanly.
+**Progress Note (Cross-Stack • 27 Apr):** Consent governance stack landed across Node (migration, models, service, admin/user
+controllers), React admin (ConsentGovernancePanel + settings privacy console), and Flutter (UserConsentCard repository/provider).
+Documentation, change logs, and design artefacts updated; backend Jest suite `npm test -- consentService` passes while consent
+route Supertests are queued next sprint. Task 3 security/completion/functionality scores rose with SAR/export readiness logged in
+trackers.
 
 **Progress Note (Cross-Stack • 10 Apr):** Runtime maintenance registry delivered with CRUD APIs, observability integration, and Flutter client consumption. Security raised via audience targeting/severity enforcement, completion/integration scores improved by cross-surface delivery, and production readiness increased through migration plus test automation.
 

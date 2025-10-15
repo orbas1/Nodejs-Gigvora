@@ -1,5 +1,24 @@
 # Version 1.50 Update Change Log
 
+## 27 Apr 2024
+- Deployed a full GDPR consent governance stack: Sequelize consent tables/migration,
+  `consentService`, admin/user controllers, and RBAC-protected routes now power policy
+  publishing, versioning, and immutable user consent trails. Admin operators can publish
+  and retire policies, force backfills, and audit withdrawals with retention-safe
+  pagination and CSV exports.
+- Delivered the React admin `ConsentGovernancePanel` with queueable policy rollout,
+  breach alerts, and consent drill-down drawers mapped to wireframes in
+  `ui-ux_updates/web_app_wireframe_changes.md`. The Settings privacy console now exposes
+  granular toggles, audit badges, and SAR entry points aligned with
+  `Application_Design_Update_Plan/Settings Dashboard.md` copy.
+- Added Flutter consent repository/provider, domain models, and `UserConsentCard` so
+  mobile admins surface consent gaps, policy expirations, and withdrawal blockers in
+  parity with the web dashboard, backed by updated flows in
+  `ui-ux_updates/user_app_wireframe_changes.md` and `App_screens_drawings.md`.
+- Logged the consent system across backend/database/front-end/mobile change logs,
+  refreshed the progress trackers, and recorded `npm test -- consentService` results in
+  the backend test log to maintain auditability for Task 3 completion evidence.
+
 ## 25 Apr 2024
 - Delivered a production governance dossier experience in the React admin dashboard, introducing a slide-over detail drawer,
   cached detail hook, and accessibility/touch affordances so operators can drill into PII inventories, scorecards, and steward

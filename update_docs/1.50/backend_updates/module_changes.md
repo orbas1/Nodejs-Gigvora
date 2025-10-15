@@ -3,6 +3,13 @@
 - Added `tests/stubs/promClientStub.js` with a Jest module alias so Prometheus metrics dependencies are decoupled from the test
   harness, alongside `src/utils/errors.js` cleanup that removed duplicate `ServiceUnavailableError` exports to keep telemetry
   modules importable under Babel.
+- Introduced consent governance module assets: `src/models/consentModels.js`
+  (registering `ConsentPolicy`, `ConsentPolicyVersion`, `UserConsent`,
+  `ConsentAuditEvent`), migration
+  `database/migrations/20240920090000-governance-consent-tables.cjs`, admin/user
+  controllers, routes, and validation schemas. Module exports enforce scoped
+  associations, cascading deletes for drafts, and transaction-aware helpers so
+  consent state stays consistent across services.
 - Re-exported `RuntimeSecurityAuditEvent` and `RuntimeAnnouncement` from `src/models/index.js` to align runtime audit services
   with the domain registry and ensure security audit persistence stays accessible to governance tooling and HTTP tests.
 - Hardened `src/models/careerDocumentModels.js` to register associations idempotently, preventing duplicate alias errors during

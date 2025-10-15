@@ -63,3 +63,33 @@
   coverage, last review notes, remediation checklists, and next-review cadence.
   Contracts are versioned under `shared-contracts/domain/governance` and consumed
   by generated TypeScript clients plus the Flutter governance repository.
+
+## Consent & Privacy Governance API
+- Added `GET /api/admin/governance/consents` returning paginated consent policy
+  catalogs with filters for jurisdiction, delivery channel, status, legal basis,
+  and upcoming activation windows. Responses hydrate active version metadata,
+  outstanding migration counts, and export URLs for legal fulfilment.
+- Added `POST /api/admin/governance/consents` to create consent policies with
+  initial draft versions, enforcing unique slugs, GDPR legal basis validation,
+  jurisdiction scoping, and preview copy for localisation teams.
+- Added `POST /api/admin/governance/consents/:policyId/versions` to publish new
+  policy versions including locale manifests, channel targeting, attachment
+  references, and effective dates. Activation requires an explicit `POST
+  /:policyId/activate` call to prevent accidental rollouts.
+- Added `PATCH /api/admin/governance/consents/:policyId` for metadata updates
+  (title, summary, defaults) while policies remain in draft; the endpoint blocks
+  edits once a policy has active versions to preserve audit history.
+- Added `POST /api/admin/governance/consents/:policyId/activate` that activates
+  a specific version globally or for targeted jurisdictions, kicking off
+  transactional user backfills and producing audit events for compliance.
+- Added `GET /api/users/:userId/consents` exposing a user’s consent ledger,
+  outstanding required policies, and audit timeline with pagination and SAR
+  export toggles. Supports impersonation guard rails plus locale hints for web
+  and mobile clients.
+- Added `POST /api/users/:userId/consents/:policyId/accept` to record acceptance
+  with locale, channel, and actor metadata while validating policy availability
+  and revocability requirements.
+- Added `POST /api/users/:userId/consents/:policyId/withdraw` to process
+  revocable policy withdrawals, capturing reason codes, supporting documents, and
+  disabling dependent experiences while rejecting non-revocable requests with
+  `409 Conflict` responses.

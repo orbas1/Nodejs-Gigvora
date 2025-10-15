@@ -22,6 +22,7 @@ export { default as communitySpotlightService } from './communitySpotlightServic
 export { default as freelancerAllianceService } from './freelancerAllianceService.js';
 export { default as reputationService } from './reputationService.js';
 export { default as complianceLockerService } from './complianceLockerService.js';
+export { default as consentService } from './consentService.js';
 export { default as catalogInsightsService } from './catalogInsightsService.js';
 export { default as clientSuccessService } from './clientSuccessService.js';
 export { default as freelancerOrderPipelineService } from './freelancerOrderPipelineService.js';

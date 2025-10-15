@@ -41,6 +41,19 @@ Detail the holistic design intent for Version 1.50 across application and web ex
   `Screen_text.md` with severity colour ramps, empty states, and analytics hooks
   so engineering can ship the new admin dashboard widgets without additional
   copy/design passes.
+- Specify consent governance console layouts, policy activation workflows,
+  breach alerts, and export affordances referencing
+  `Application_Design_Update_Plan/Dashboard Designs.md`,
+  `Screens_Updates_widget_functions.md`, and
+  `Screens_update_images_and_vectors.md` so the React admin console mirrors legal
+  requirements documented in `Consent Governance Copy.md`.
+- Refresh Settings privacy console artefacts in `Settings Dashboard.md`,
+  `Screen_text.md`, and `Screen_buttons.md` to cover granular consent toggles,
+  audit timelines, SAR entry points, and accessibility annotations aligned with
+  backend consent schemas.
+- Update Flutter artefacts (`App_screens_drawings.md`, `Screens_Update_Plan.md`,
+  `user_app_wireframe_changes.md`) with consent card, withdrawal confirmation,
+  and offline fallback states to keep mobile parity with the web privacy console.
 - Extend admin operations specs with runtime health telemetry sourced from `/api/admin/runtime/health`, including dependency badges, rate-limit utilisation bars, and manual refresh behaviours recorded in `Dashboard Designs.md`, `component_functions.md`, and `Screen_text.md`.
 - Document API perimeter analytics (blocked origins, attempt counts, escalation copy) alongside runtime health specs so admin dashboards and mobile experiences surface consistent abuse-mitigation messaging.
 - Specify WAF telemetry card states (quiet, elevated, incident) with rule leaderboard, source attempts, last-block copy, and auto-block summaries (active quarantines, countdown timers) so admin dashboards and Flutter snackbars mirror the enriched security payloads.

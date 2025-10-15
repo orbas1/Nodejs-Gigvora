@@ -1,3 +1,30 @@
+# Frontend Page Updates — 27 Apr 2024
+
+## Admin Consent Governance Console
+- Introduced consent governance page section on the admin dashboard per
+  `ConsentGovernancePanel`, providing policy inventory table, breach alerts, and
+  drill-down drawer consistent with updated wireframes. Filters, pagination, and
+  export CTA copy align with legal ops notes recorded in
+  `Application_Design_Update_Plan/Dashboard Designs.md`.
+- Documented activation workflow microcopy, activation confirmation modal, and
+  translation gap toasts in `Screen_text.md` so QA validates RBAC/responses across
+  locales.
+- Added analytics instrumentation hooks capturing export, activation, and
+  migration queue interactions with event taxonomy updates in
+  `Screens_Updates_widget_functions.md`.
+
+## Settings Privacy Console Refresh
+- Settings privacy page now surfaces granular consent toggles, audit badges, and
+  SAR request entrypoint referencing updated logic diagrams in
+  `Application_Design_Update_Plan/Settings Dashboard.md`. Copy guides users
+  through legal basis and revocability rules.
+- Consent history timeline integrates with `consentService` responses to display
+  latest acceptance, withdrawal, and policy versions. Loading/empty/error states
+  documented for QA and accessibility review.
+- Added inline links to download policies, raise SAR, and escalate breaches,
+  ensuring parity with Flutter user consent card. Analytics events updated to
+  capture toggles and SAR submissions.
+
 # Frontend Page Updates — 23 Apr 2024
 
 ## Admin Governance Overview

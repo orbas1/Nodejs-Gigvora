@@ -116,6 +116,15 @@
 - **Account Preferences:** Cards with soft shadows, segmented toggles, and warning banners for risky changes.
 - **Finance Settings:** Tabs use underline animation, verified items show checkmark badge, and pending verifications highlight with amber tint.
 - **Legal Pages:** Typography emphasises readability, with sticky summary card, accent callouts for major updates, and breadcrumb navigation.
+- **Consent Governance Console (27 Apr):** Policy table uses zebra rows, sticky
+  filter bar, and badge tokens mapping legal basis (Legitimate Interest,
+  Contractual, Consent) to accessible colour ramps. Drawer footers pin primary
+  actions with gradient background; alerts surface translation gaps or migration
+  backlog using warning palette.
+- **Privacy Console (27 Apr):** Settings toggles styled as pill switches with
+  audit badge chips; SAR request modal uses bordered card sections and accent CTA
+  with icon. Timeline entries display inline tags for acceptance/withdrawal with
+  timestamp typography and accessible contrast.
 
 ## Imagery & Iconography
 - Photography guidelines: hero imagery featuring collaborative teams, desaturated backgrounds, overlay gradient for legibility.
