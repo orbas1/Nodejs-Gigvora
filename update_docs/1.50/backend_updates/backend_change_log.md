@@ -30,6 +30,13 @@
   most recent active window, upcoming schedule, and relevant metadata alongside dependency telemetry.
 - Expanded Jest infrastructure with module mappers for optional logging/rate-limit dependencies and added unit/route coverage to
   lock maintenance filtering, lifecycle transitions, and validation outcomes.
+## 10 Apr 2024
+- Synced platform settings with a new dependency health module so Stripe/Escrow readiness and compliance toggles mark
+  `paymentsCore`/`complianceProviders` status before the API accepts traffic, and re-evaluate immediately after admin updates.
+- Added `utils/dependencyGate.js` and service guard clauses to short-circuit finance/compliance workflows with a 503 when
+  database or custodial dependencies degrade, preventing cascading ledger corruption.
+- Extended server bootstrap to hydrate dependency health snapshots during startup and updated Jest coverage to assert the guard
+  behaviour around wallet ledger writes.
 
 ## 09 Apr 2024
 - Added validation schemas for search discovery queries, saved-search subscription payloads, project management bodies, and

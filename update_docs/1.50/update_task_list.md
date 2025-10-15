@@ -27,6 +27,7 @@ Each numbered task maps to the update plan and contains explicit integration cov
 **Progress Note (Backend • 12 Apr):** Added supertest suites that hit `/api/compliance/documents` and `/api/users/:id`, confirming dependency guard verdicts surface as `503` responses with request IDs when secure storage or payment providers degrade. Hardened membership middleware to remove undefined helpers discovered during test execution.
 
 **Progress Note (Backend • 13 Apr):** Database lifecycle orchestration now warms Sequelize pools before the HTTP server listens, drains connections after traffic stops, and emits audit events plus pool telemetry so operations staff can confirm graceful shutdowns during maintenance windows.
+**Progress Note (Backend • 10 Apr):** Introduced runtime dependency guards around finance/compliance services so wallet, payout, and verification workflows return consistent 503 responses during Stripe/Escrow outages, with platform settings updates automatically resynchronising dependency health for admin telemetry surfaces.
 
 ## Task 2 — Modularise domain models and align schemas (55%)
 - **Backend:** Refactor `src/models/index.js` into bounded contexts with domain service layers and feature flags (Issue 4).

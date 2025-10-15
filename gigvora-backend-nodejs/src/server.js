@@ -14,6 +14,8 @@ import {
   warmDatabaseConnections,
   drainDatabaseConnections,
 } from './services/databaseLifecycleService.js';
+import { getPlatformSettings } from './services/platformSettingsService.js';
+import { syncCriticalDependencies } from './observability/dependencyHealth.js';
 
 dotenv.config();
 
@@ -28,6 +30,12 @@ export async function start({ port = DEFAULT_PORT } = {}) {
 
   markHttpServerStarting();
   await warmDatabaseConnections({ logger });
+  try {
+    const settings = await getPlatformSettings();
+    syncCriticalDependencies(settings, { logger: logger.child({ component: 'server' }) });
+  } catch (error) {
+    logger.warn({ err: error }, 'Failed to synchronise critical dependencies before startup');
+  }
   await startBackgroundWorkers({ logger });
   await warmRuntimeDependencyHealth({ logger, forceRefresh: true });
 

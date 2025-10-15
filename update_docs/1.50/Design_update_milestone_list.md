@@ -38,6 +38,7 @@
 - **Status 07 Apr:** Operations playbook overlays incorporate runtime telemetry alerts, and compliance approved the admin dashboard copy deck; remaining scope focuses on emo theme permutations and security sign-off for provider maintenance workflows.
 - **Status 10 Apr:** Maintenance announcement localisation packs, accessibility annotations, and incident analytics hooks delivered to engineering; pending actions limited to regulator artefact bundling.
 - **Status 11 Apr:** Payments and compliance guard downtime states specced for finance dashboards and compliance locker workflows, including request ID surfacing and legal escalation copy; awaiting localisation sign-off for translated guard messaging.
+- **Status 10 Apr:** Custodial outage messaging, disabled CTA states, and Flutter wallet overlays were documented for finance/compliance journeys, aligning UI responses with the new backend dependency guards and feeding the admin runtime panel escalation copy.
 
 ## Milestone 6 – Handoff, QA, and Implementation Support (Week 6–7)
 **Objective:** Equip engineering and QA teams with detailed documentation, assets, and review rituals.

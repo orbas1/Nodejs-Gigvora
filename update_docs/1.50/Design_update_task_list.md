@@ -162,6 +162,7 @@
 - [ ] Coordinate sign-off with legal, security, and compliance steering group.
 
 **Progress Notes:** Maintenance mode, rate-limit, and outage messaging kits approved; telemetry widget spec handed to engineering. Admin maintenance registry flows, mobile downtime drawer copy, and localisation notes shipped for engineering review. Added payments/compliance guard downtime banners with request ID surfacing and legal escalation copy. Newly documented shutdown audit overlays and pool warning copy align with lifecycle telemetry updates. Remaining work covers emo theme contrast validation and regulator artefact packaging.
+**Progress Notes:** Maintenance mode, rate-limit, and outage messaging kits approved; telemetry widget spec handed to engineering. Custodial dependency outage overlays and disabled CTA states were added to finance/compliance journeys (web + Flutter) so the new backend guards surface clear 503 copy, while remaining work covers emo theme contrast validation and regulator artefact packaging.
 
 **Dependencies:** Needs updated tokens (Task 1) and theme infrastructure (Task 8) to finalise multi-theme compliance screens, plus backend maintenance banner schema for final sign-off.
 

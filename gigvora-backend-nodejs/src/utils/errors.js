@@ -52,6 +52,12 @@ export class AuthenticationError extends ApplicationError {
   }
 }
 
+export class ServiceUnavailableError extends ApplicationError {
+  constructor(message = 'Service temporarily unavailable', details = {}) {
+    super(message, 503, details);
+  }
+}
+
 export default {
   ApplicationError,
   ValidationError,
@@ -61,4 +67,5 @@ export default {
   ServiceUnavailableError,
   AuthorizationError,
   AuthenticationError,
+  ServiceUnavailableError,
 };
