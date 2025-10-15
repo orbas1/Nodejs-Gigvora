@@ -9,6 +9,11 @@ import {
   markHttpServerClosing,
   markHttpServerStopped,
 } from './lifecycle/runtimeHealth.js';
+import { warmRuntimeDependencyHealth } from './services/runtimeDependencyGuard.js';
+import {
+  warmDatabaseConnections,
+  drainDatabaseConnections,
+} from './services/databaseLifecycleService.js';
 
 dotenv.config();
 
@@ -22,7 +27,9 @@ export async function start({ port = DEFAULT_PORT } = {}) {
   }
 
   markHttpServerStarting();
+  await warmDatabaseConnections({ logger });
   await startBackgroundWorkers({ logger });
+  await warmRuntimeDependencyHealth({ logger, forceRefresh: true });
 
   httpServer = http.createServer(app);
 
@@ -60,6 +67,7 @@ export async function stop({ reason = 'shutdown' } = {}) {
   markHttpServerClosing({ reason });
 
   let workerShutdownError = null;
+  let databaseShutdownError = null;
   try {
     await stopBackgroundWorkers({ logger });
   } catch (error) {
@@ -81,8 +89,17 @@ export async function stop({ reason = 'shutdown' } = {}) {
     });
   });
 
+  try {
+    await drainDatabaseConnections({ logger, reason });
+  } catch (error) {
+    databaseShutdownError = error;
+  }
+
   if (workerShutdownError) {
     throw workerShutdownError;
+  }
+  if (databaseShutdownError) {
+    throw databaseShutdownError;
   }
 }
 

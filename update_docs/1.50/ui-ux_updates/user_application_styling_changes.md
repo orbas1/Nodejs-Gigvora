@@ -112,3 +112,11 @@
 - Expand widget states for upcoming dark mode release.
 - Explore seasonal themes with limited-time colour overlays.
 - Evaluate dynamic island/live activities styling for iOS 17 features.
+
+## Maintenance Drawer & Banner Styling (10 Apr 2024)
+- **Drawer Layout:** Full-width overlay with 24px corner radius, gradient header using `#312E81` to `#1E3A8A`, and sticky action bar containing "Notify me" and "Back to dashboard" buttons. Drawer height 80% viewport with scrollable body.
+- **Banner Mini-State:** Compact banner above bottom navigation using severity colour tokens (`maintenance.*`) with 12px radius and progress spinner when countdown <15 minutes.
+- **Typography:** Title `Space Grotesk` 20px/26px, message `Inter` 16px/24px, metadata chips `Inter` 12px uppercase.
+- **Iconography:** Animated lottie for incident/security states; static vector for info/maintenance. Icons align left with 16px padding.
+- **Interactions:** Swipe-down gesture to dismiss allowed only when announcement dismissible; otherwise CTA directs to support article. Offline state shows grey banner with cached message and "Last checked" timestamp.
+- **Accessibility:** VoiceOver/ TalkBack announce severity first, followed by timeframe. Drawer focus trap includes manual close button labelled with severity. CTA order respects left-to-right reading and haptic feedback uses medium impact.

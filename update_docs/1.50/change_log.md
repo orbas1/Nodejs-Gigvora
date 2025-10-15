@@ -1,5 +1,37 @@
 # Version 1.50 Update Change Log
 
+## 13 Apr 2024
+- Implemented a dedicated database lifecycle service that warms Sequelize pools before startup, drains connections during shutdown, and records auditable `database_audit_events` so operations teams can validate graceful maintenance windows.
+- Added database pool telemetry to readiness and runtime observability responses, exposing max/borrowed/available counts for admin dashboards and health probes.
+- Introduced Jest coverage verifying startup/shutdown auditing and pool snapshot exports, ensuring lifecycle orchestration remains regression-safe.
+
+## 12 Apr 2024
+- Added end-to-end supertest coverage for payments and compliance dependency guards so `/api/users/:id` and `/api/compliance/documents` reliably emit `503` with dependency metadata whenever downstream providers degrade.
+- Backfilled the authorization middleware with a production-ready `normaliseMemberships` helper, preventing undefined function errors and keeping membership deduplication consistent across Express routes.
+- Extended Jest configuration with a `zod` stub to unblock schema-heavy route tests in environments that omit the optional dependency, keeping guard regression suites runnable in CI.
+
+## 11 Apr 2024
+- Implemented dependency guards for payments and compliance services so wallet creation, ledger mutations, and compliance locker
+  writes automatically return `503` responses when provider credentials are missing or maintenance incidents are active.
+- Added runtime dependency warm-up during server boot and exposed guard state to health telemetry, keeping admin dashboards and
+  `/health/ready` responses in sync with payments/compliance readiness.
+- Authored Jest coverage validating guard behaviour across missing credentials, healthy configurations, and maintenance blocks
+  to prevent regression in future releases.
+
+## 10 Apr 2024
+- Delivered runtime maintenance registry across Node API and Flutter clients, introducing CRUD-capable admin endpoints, public
+  maintenance announcements, and observability exports that surface downtime windows alongside existing health telemetry.
+- Added Sequelize `RuntimeAnnouncement` model, migration, validation schemas, service layer, and controllers powering
+  `/api/runtime/maintenance` plus authenticated `/api/admin/runtime/maintenance` management routes with production-ready
+  sanitisation, scheduling enforcement, and metadata support.
+- Implemented Jest coverage for runtime maintenance services and routes with dependency stubs so announcement lifecycle edge
+  cases (chronology, dismissal, filtering) remain locked and regressions surface through CI; documented partial test blockers
+  caused by optional dependencies.
+- Updated Flutter security repository to replace mock maintenance responses with authenticated polling of the runtime health and
+  maintenance APIs, ensuring mobile clients receive real announcements, upcoming maintenance windows, and secure session gating.
+- Extended documentation, design trackers, and progress metrics to reflect the new maintenance UX, admin workflows, and mobile
+  parity guarantees for downtime messaging.
+
 ## 09 Apr 2024
 - Extended schema-backed validation across search, project, and finance APIs so high-volume discovery, execution, and revenue
   endpoints reject unsafe payloads and coerce filters, pagination, and configuration objects before hitting services.
@@ -10,13 +42,13 @@
 
 ## 08 Apr 2024
 - Added schema-backed request validation across authentication and admin APIs, introducing a reusable middleware that trims and
-  coerces inputs, rejects malformed payloads with structured issue metadata, and protects nested configuration objects from prot
-  otype pollution.
-- Hardened `/api/auth/*` flows by enforcing email casing, password length, boolean coercion, and optional geo-location sanitisa
-  tion before domain services execute registration or login logic.
-- Guarded admin dashboard and settings endpoints with deep validation that normalises lookback filters, commission rates, paymen
-  t provider credentials, and affiliate tier configurations, preventing invalid operator input from persisting to platform settin
-  gs.
+  coerces inputs, rejects malformed payloads with structured issue metadata, and protects nested configuration objects from
+  prototype pollution.
+- Hardened `/api/auth/*` flows by enforcing email casing, password length, boolean coercion, and optional geo-location
+  sanitisation before domain services execute registration or login logic.
+- Guarded admin dashboard and settings endpoints with deep validation that normalises lookback filters, commission rates,
+  payment provider credentials, and affiliate tier configurations, preventing invalid operator input from persisting to platform
+  settings.
 
 ## 07 Apr 2024
 - Shipped an instrumented rate-limiter stack (`src/middleware/rateLimiter.js`, `src/observability/rateLimitMetrics.js`) that records per-window utilisation, top consumers, and abuse signals while feeding Redis-free in-memory analytics to operators.

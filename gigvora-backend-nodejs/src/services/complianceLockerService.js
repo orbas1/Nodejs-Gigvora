@@ -9,6 +9,7 @@ import {
   ComplianceLocalization,
 } from '../models/index.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
+import { assertComplianceInfrastructureOperational } from './runtimeDependencyGuard.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
 
 const CACHE_NAMESPACE = 'compliance:locker';
@@ -391,11 +392,18 @@ function computeReminderSummary(reminders) {
   };
 }
 
-async function persistDocument(payload, { actorId } = {}) {
+async function persistDocument(payload, { actorId, logger, requestId, forceRefresh = false } = {}) {
   const normalized = ensureDocumentPayload(payload);
   if (!normalized.ownerId) {
     throw new ValidationError('ownerId is required.');
   }
+
+  await assertComplianceInfrastructureOperational({
+    feature: 'compliance_document:create',
+    logger,
+    requestId,
+    forceRefresh,
+  });
 
   return sequelize.transaction(async (transaction) => {
     const document = await ComplianceDocument.create(
@@ -626,12 +634,23 @@ export async function createComplianceDocument(payload, options = {}) {
   return document.toPublicObject();
 }
 
-export async function addComplianceDocumentVersion(documentId, payload = {}, { actorId } = {}) {
+export async function addComplianceDocumentVersion(
+  documentId,
+  payload = {},
+  { actorId, logger, requestId, forceRefresh = false } = {},
+) {
   const normalizedDocumentId = normalizePositiveInteger(documentId, 'documentId');
   const document = await ComplianceDocument.findByPk(normalizedDocumentId);
   if (!document) {
     throw new NotFoundError('Compliance document not found.');
   }
+
+  await assertComplianceInfrastructureOperational({
+    feature: 'compliance_document:version',
+    logger,
+    requestId,
+    forceRefresh,
+  });
 
   return sequelize.transaction(async (transaction) => {
     const currentMaxVersion = await ComplianceDocumentVersion.max('versionNumber', {
@@ -683,7 +702,11 @@ export async function addComplianceDocumentVersion(documentId, payload = {}, { a
   });
 }
 
-export async function acknowledgeComplianceReminder(reminderId, status = 'acknowledged', { actorId } = {}) {
+export async function acknowledgeComplianceReminder(
+  reminderId,
+  status = 'acknowledged',
+  { actorId, logger, requestId, forceRefresh = false } = {},
+) {
   const normalizedReminderId = normalizePositiveInteger(reminderId, 'reminderId');
   const reminder = await ComplianceReminder.findByPk(normalizedReminderId, {
     include: [{ model: ComplianceDocument, as: 'document' }],
@@ -691,6 +714,13 @@ export async function acknowledgeComplianceReminder(reminderId, status = 'acknow
   if (!reminder) {
     throw new NotFoundError('Reminder not found.');
   }
+
+  await assertComplianceInfrastructureOperational({
+    feature: 'compliance_document:reminder',
+    logger,
+    requestId,
+    forceRefresh,
+  });
 
   const validStatuses = new Set(['scheduled', 'sent', 'acknowledged', 'dismissed', 'cancelled']);
   if (!validStatuses.has(status)) {
