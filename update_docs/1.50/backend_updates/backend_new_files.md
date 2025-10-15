@@ -27,6 +27,10 @@
 | `src/services/runtimeObservabilityService.js` | Aggregates readiness, dependency, environment, and rate-limit data for `/api/admin/runtime/health`. |
 | `src/validation/primitives.js` | Shared Zod helper utilities for trimming strings, coercing numbers/booleans, and normalising geo-location payloads. |
 | `src/validation/schemas/authSchemas.js` | Auth route schema catalogue enforcing login/registration payload contracts. |
+| `src/lifecycle/databaseLifecycle.js` | Coordinates database bootstrap/shutdown, feeds runtime health cache updates, and records security audits. |
+| `src/services/securityAuditService.js` | Persists runtime perimeter events to `runtime_security_audit_events` and exposes query helpers for observability. |
+| `src/models/runtimeSecurityAuditEvent.js` | Sequelize model backing runtime security audit logs, including event type, level, requestId, and metadata. |
+| `database/migrations/20241015103000-runtime-security-audit.cjs` | Migration creating the `runtime_security_audit_events` table with indexed event type/level/timestamps. |
 | `src/validation/schemas/adminSchemas.js` | Admin dashboard/settings schema catalogue guarding query parameters and nested configuration payloads. |
 | `src/validation/schemas/searchSchemas.js` | Validation catalogue covering discovery queries, saved-search subscriptions, and category/viewport sanitisation. |
 | `src/validation/schemas/projectSchemas.js` | Project payload schema enforcing titles, geo/budget coercion, and auto-assign configuration sanitisation. |

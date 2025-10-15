@@ -5,6 +5,10 @@
 - Added `GET /health/ready` returning dependency-aware readiness reports, including database latency metrics and worker states. Responses emit `503` when dependencies degrade.
 - Maintained `GET /health` as an alias of the readiness endpoint for backwards compatibility with existing load balancer checks.
 - Added `GET /api/admin/runtime/health` delivering combined readiness, liveness, dependency, environment, and rate-limit telemetry for operator tooling and the admin dashboard; powered by `runtimeObservabilityService` and the instrumented rate-limiter metrics store.
+- Extended `GET /api/admin/runtime/health` with `maintenance` and `security` sections so dashboards and mobile clients can surface scheduled downtime, active maintenance, and the latest audit events alongside dependency posture.
+
+## Authentication Lifecycle
+- Added `POST /auth/refresh` accepting a refresh token and returning a refreshed `session` payload (access and refresh tokens plus sanitised user details) to support secure mobile/web session bootstrap without a full login flow.
 
 ## Request Governance
 - Enforced configurable JSON/urlencoded body limits via `REQUEST_BODY_LIMIT` to guard against oversized payload attacks.

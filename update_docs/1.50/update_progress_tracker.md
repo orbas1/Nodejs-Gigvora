@@ -4,7 +4,7 @@ Percentages reflect initial baseline before execution. Update the tracker weekly
 
 | Task ID | Task Name | Security Level % | Completion Level % | Integration Level % | Functionality Level % | Error Free Level % | Production Level % | Overall Level % |
 |---------|-----------|------------------|--------------------|---------------------|-----------------------|--------------------|--------------------|-----------------|
-| 1 | Stabilise service lifecycles and security perimeters | 71 | 66 | 63 | 64 | 62 | 65 | 65 |
+| 1 | Stabilise service lifecycles and security perimeters | 74 | 70 | 67 | 69 | 67 | 68 | 69 |
 | 2 | Modularise domain models and align schemas | 52 | 70 | 68 | 75 | 55 | 63 | 64 |
 | 3 | Enforce validation, consent, and governance workflows | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | 4 | Complete financial, escrow, and dispute capabilities | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
@@ -26,6 +26,8 @@ Task 1 security, completion, integration, and production scores rose according
 **Progress Note (Backend • 09 Apr):** Validation now covers search discovery, saved-search subscriptions, project creation/update, and finance control tower routes, canonicalising categories, geo viewports, numeric limits, and ISO dates while new Jest suites document the sanitised contracts.
 
 **Progress Note (Backend • 10 Apr):** Finance and compliance services now gate requests on critical dependency telemetry (`paymentsCore`, `complianceProviders`, and database health) with new runtime guards, preventing ledger corruption during Stripe/Escrow outages. Platform settings updates immediately resynchronise dependency health so `/health/ready` and admin dashboards surface custodial readiness without manual intervention.
+
+**Progress Note (Cross-Stack • 11 Apr):** Backend regression tests now cover `/api/auth/refresh` and the lifecycle shutdown path while Flutter widget/unit suites validate session bootstrap and runtime health fallbacks. Design, documentation, and admin UI updates ensure maintenance messaging, audit logging, and refresh-token prompts stay consistent across web and mobile clients.
 
 ## Update Guidance
 - **Security Level:** Reflects penetration, governance, and compliance hardening progress.

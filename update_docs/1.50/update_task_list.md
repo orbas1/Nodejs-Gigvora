@@ -2,7 +2,7 @@
 
 Each numbered task maps to the update plan and contains explicit integration coverage so cross-functional teams can execute in parallel while maintaining traceability to Version 1.50 requirements and the pre-update defect catalogue.
 
-## Task 1 — Stabilise service lifecycles and security perimeters (55%)
+## Task 1 — Stabilise service lifecycles and security perimeters (62%)
 - **Backend:** Separate worker lifecycles from Express, add readiness/liveness probes, and repair the global error handler to satisfy Issue List items 1, 4, and 5.
 - **Front-end:** Surface health and rate-limit telemetry in admin dashboards so operators can react to backend degradation (Issues 14–17).
 - **User phone app:** Replace mocked connectivity checks with authenticated health polling and secure session bootstrap (Issue 18).
@@ -21,6 +21,11 @@ Each numbered task maps to the update plan and contains explicit integration cov
 **Progress Note (Backend • 09 Apr):** Validation now protects search discovery, saved-search subscriptions, project creation/update flows, and finance control tower endpoints by canonicalising categories, coercing numerics and dates, parsing geo viewports, and shipping Jest coverage to lock in the behaviour.
 
 **Progress Note (Backend • 10 Apr):** Introduced runtime dependency guards around finance/compliance services so wallet, payout, and verification workflows return consistent 503 responses during Stripe/Escrow outages, with platform settings updates automatically resynchronising dependency health for admin telemetry surfaces.
+
+**Progress Note (Cross-Stack • 11 Apr):** Added audited shutdown coverage and `/auth/refresh` regression tests in Node while
+  introducing Flutter widget/unit tests for the session bootstrapper and runtime health repository. Updated admin dashboard,
+  Flutter splash/login copy, and design trackers so maintenance messaging and secure-session prompts remain consistent across
+  surfaces.
 
 ## Task 2 — Modularise domain models and align schemas (55%)
 - **Backend:** Refactor `src/models/index.js` into bounded contexts with domain service layers and feature flags (Issue 4).

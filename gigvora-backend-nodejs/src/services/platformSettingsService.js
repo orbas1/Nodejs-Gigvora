@@ -162,6 +162,14 @@ function buildDefaultPlatformSettings() {
       subscriptions: coerceBoolean(process.env.FEATURE_SUBSCRIPTIONS_ENABLED, true),
       commissions: coerceBoolean(process.env.FEATURE_COMMISSIONS_ENABLED, true),
     },
+    maintenance: {
+      windows: [],
+      statusPageUrl: coerceOptionalString(process.env.MAINTENANCE_STATUS_URL),
+      supportContact: coerceOptionalString(
+        process.env.MAINTENANCE_SUPPORT_CONTACT ?? process.env.SUPPORT_EMAIL,
+        'support@gigvora.com',
+      ),
+    },
   };
 }
 
@@ -381,6 +389,68 @@ function normalizeFeatureToggles(input = {}, fallback = {}) {
   };
 }
 
+function parseIsoDate(value) {
+  if (!value) {
+    return null;
+  }
+  const candidate = new Date(value);
+  if (Number.isNaN(candidate.getTime())) {
+    return null;
+  }
+  return candidate.toISOString();
+}
+
+function normalizeMaintenanceSettings(input = {}, fallback = {}) {
+  const fallbackWindows = Array.isArray(fallback.windows) ? fallback.windows : [];
+  const rawWindows = Array.isArray(input.windows) ? input.windows : fallbackWindows;
+
+  const windows = rawWindows
+    .map((window, index) => {
+      if (!window || typeof window !== 'object') {
+        return null;
+      }
+      const startAt = parseIsoDate(window.startAt ?? window.start ?? window.beginAt);
+      const endAt = parseIsoDate(window.endAt ?? window.end ?? window.completeAt);
+      if (!startAt || !endAt || new Date(startAt).getTime() >= new Date(endAt).getTime()) {
+        return null;
+      }
+      const impactRaw = coerceOptionalString(window.impact ?? window.state ?? '', 'notice').toLowerCase();
+      const impact = ['maintenance', 'degraded', 'down', 'notice'].includes(impactRaw)
+        ? impactRaw
+        : 'notice';
+
+      return {
+        id:
+          coerceOptionalString(window.id ?? window.windowId ?? window.slug, '') ||
+          `maintenance-${startAt}-${index}`,
+        summary:
+          coerceOptionalString(window.summary ?? window.title, '') ||
+          `Scheduled maintenance starting ${startAt}`,
+        impact,
+        startAt,
+        endAt,
+        timezone: coerceOptionalString(window.timezone, fallback.timezone ?? 'UTC'),
+        contact:
+          coerceOptionalString(
+            window.contact ?? window.supportContact,
+            fallback.supportContact ?? 'support@gigvora.com',
+          ) || 'support@gigvora.com',
+        publishedAt: parseIsoDate(window.publishedAt),
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
+
+  return {
+    windows,
+    statusPageUrl: coerceOptionalString(input.statusPageUrl, fallback.statusPageUrl ?? ''),
+    supportContact: coerceOptionalString(
+      input.supportContact,
+      fallback.supportContact ?? 'support@gigvora.com',
+    ),
+  };
+}
+
 function normalizeSettings(payload = {}, baseline = {}) {
   return {
     commissions: normalizeCommissionSettings(payload.commissions, baseline.commissions),
@@ -391,6 +461,7 @@ function normalizeSettings(payload = {}, baseline = {}) {
     app: normalizeAppSettings(payload.app, baseline.app),
     database: normalizeDatabaseSettings(payload.database, baseline.database),
     featureToggles: normalizeFeatureToggles(payload.featureToggles, baseline.featureToggles),
+    maintenance: normalizeMaintenanceSettings(payload.maintenance, baseline.maintenance),
   };
 }
 
@@ -435,6 +506,7 @@ function mergeDefaults(defaults, stored) {
     app: { ...defaults.app, ...(stored.app ?? {}) },
     database: { ...defaults.database, ...(stored.database ?? {}) },
     featureToggles: { ...defaults.featureToggles, ...(stored.featureToggles ?? {}) },
+    maintenance: normalizeMaintenanceSettings(stored.maintenance, defaults.maintenance),
   };
 }
 

@@ -8,7 +8,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core/localization/gigvora_localizations.dart';
 import 'core/localization/language_controller.dart';
 import 'core/providers.dart';
+import 'features/auth/application/session_bootstrapper.dart';
 import 'features/auth/domain/auth_token_store.dart';
+import 'features/runtime_health/application/runtime_health_provider.dart';
+import 'features/runtime_health/domain/runtime_health_snapshot.dart';
 import 'router/app_router.dart';
 
 Future<void> main() async {
@@ -16,17 +19,6 @@ Future<void> main() async {
   await ServiceLocator.configure(
     requestInterceptors: [AuthTokenStore.attachToken],
     authTokenResolver: AuthTokenStore.readAccessToken,
-  );
-
-  const demoToken =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MjAxLCJ0eXBlIjoiYWRtaW4iLCJleHAiOjE3NjAzOTg2Mzl9.PoszIfAN5fZ0ah3qfsUJ60OomK7NcdQ5lMXsHT53CX4';
-  await ServiceLocator.configure(
-    requestInterceptors: [
-      (context) async {
-        context.headers.putIfAbsent('Authorization', () => 'Bearer $demoToken');
-      },
-    ],
-    authTokenResolver: () async => demoToken,
   );
 
   final sharedPreferences = await SharedPreferences.getInstance();
@@ -71,12 +63,61 @@ class GigvoraApp extends ConsumerWidget {
     final theme = ref.watch(appThemeProvider);
     final router = ref.watch(appRouterProvider);
     final locale = ref.watch(languageControllerProvider);
+    ref.watch(sessionBootstrapProvider);
+    ref.watch(runtimeHealthStreamProvider);
     ref.watch(featureFlagsBootstrapProvider);
     ref.watch(pushNotificationBootstrapProvider);
 
     ref.listen<AsyncValue<void>>(analyticsBootstrapProvider, (_, next) {
       next.whenOrNull(error: (error, stackTrace) {
         debugPrint('Analytics bootstrap failed: $error');
+      });
+    });
+
+    ref.listen<AsyncValue<SessionBootstrapResult>>(sessionBootstrapProvider, (_, next) {
+      next.whenOrNull(
+        data: (result) {
+          if (result.message != null && result.message!.isNotEmpty) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              final messenger = ScaffoldMessenger.maybeOf(context);
+              if (messenger != null) {
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(result.message!),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              } else {
+                debugPrint(result.message);
+              }
+            });
+          }
+        },
+        error: (error, stackTrace) {
+          debugPrint('Session bootstrap failed: $error');
+        },
+      );
+    });
+
+    ref.listen<AsyncValue<RuntimeHealthSnapshot>>(runtimeHealthStreamProvider, (_, next) {
+      next.whenOrNull(data: (snapshot) {
+        if (!snapshot.healthy) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            final messenger = ScaffoldMessenger.maybeOf(context);
+            final message = 'Platform maintenance window active. Some features may be temporarily unavailable.';
+            if (messenger != null) {
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Text(message),
+                  behavior: SnackBarBehavior.floating,
+                  backgroundColor: const Color(0xFFB45309),
+                ),
+              );
+            } else {
+              debugPrint(message);
+            }
+          });
+        }
       });
     });
 
