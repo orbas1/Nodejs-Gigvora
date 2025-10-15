@@ -24,6 +24,17 @@ function getDialect() {
   }
 }
 
+export function setDatabaseStatus({ status, vendor, latencyMs = null, error = null } = {}) {
+  cachedDatabaseStatus = {
+    status: status ?? 'unknown',
+    vendor: vendor ?? getDialect(),
+    latencyMs: latencyMs ?? null,
+    checkedAt: new Date().toISOString(),
+    error,
+  };
+  lastDatabaseCheckAt = now();
+}
+
 export async function verifyDatabaseConnectivity() {
   const timestamp = now();
   const age = timestamp - lastDatabaseCheckAt;
@@ -39,12 +50,12 @@ export async function verifyDatabaseConnectivity() {
     await sequelize.authenticate({ logging: false });
     const finished = process.hrtime.bigint();
     const latencyMs = Number(finished - started) / 1_000_000;
-    cachedDatabaseStatus = {
+    setDatabaseStatus({
       status: 'ok',
       vendor,
       latencyMs: Number(latencyMs.toFixed(2)),
-      checkedAt: new Date().toISOString(),
       error: null,
+    });
       pool: getDatabasePoolSnapshot(),
     };
     markDependencyHealthy('database', {
@@ -53,21 +64,20 @@ export async function verifyDatabaseConnectivity() {
       pool: cachedDatabaseStatus.pool,
     });
   } catch (error) {
-    cachedDatabaseStatus = {
+    setDatabaseStatus({
       status: 'error',
       vendor,
-      latencyMs: null,
-      checkedAt: new Date().toISOString(),
       error: {
         message: error.message || 'Database connectivity failure',
         code: error.code ?? null,
       },
+    });
+    markDependencyUnavailable('database', error, { vendor });
       pool: getDatabasePoolSnapshot(),
     };
     markDependencyUnavailable('database', error, { vendor, pool: cachedDatabaseStatus.pool });
   }
 
-  lastDatabaseCheckAt = timestamp;
   return cachedDatabaseStatus;
 }
 

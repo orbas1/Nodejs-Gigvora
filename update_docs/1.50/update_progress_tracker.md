@@ -6,7 +6,7 @@ Percentages reflect initial baseline before execution. Update the tracker weekly
 |---------|-----------|------------------|--------------------|---------------------|-----------------------|--------------------|---------------------|-----------------|
 | 1 | Stabilise service lifecycles and security perimeters | 82 | 77 | 76 | 76 | 74 | 79 | 77 |
 |---------|-----------|------------------|--------------------|---------------------|-----------------------|--------------------|--------------------|-----------------|
-| 1 | Stabilise service lifecycles and security perimeters | 71 | 66 | 63 | 64 | 62 | 65 | 65 |
+| 1 | Stabilise service lifecycles and security perimeters | 78 | 72 | 69 | 71 | 70 | 71 | 72 |
 | 2 | Modularise domain models and align schemas | 52 | 70 | 68 | 75 | 55 | 63 | 64 |
 | 3 | Enforce validation, consent, and governance workflows | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | 4 | Complete financial, escrow, and dispute capabilities | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
@@ -29,6 +29,10 @@ Percentages reflect initial baseline before execution. Update the tracker weekly
 
 **Progress Note (Backend • 13 Apr):** Database pools now publish metrics into readiness/observability responses, shutdown hooks persist `database_audit_events`, and HTTP stop sequences drain Sequelize connections before exiting. Task 1 production and integration maturity rose as maintenance playbooks can confirm graceful draining.
 **Progress Note (Backend • 10 Apr):** Finance and compliance services now gate requests on critical dependency telemetry (`paymentsCore`, `complianceProviders`, and database health) with new runtime guards, preventing ledger corruption during Stripe/Escrow outages. Platform settings updates immediately resynchronise dependency health so `/health/ready` and admin dashboards surface custodial readiness without manual intervention.
+
+**Progress Note (Cross-Stack • 11 Apr):** Backend regression tests now cover `/api/auth/refresh` and the lifecycle shutdown path while Flutter widget/unit suites validate session bootstrap and runtime health fallbacks. Design, documentation, and admin UI updates ensure maintenance messaging, audit logging, and refresh-token prompts stay consistent across web and mobile clients.
+
+**Progress Note (Cross-Stack • 12 Apr):** Delivered perimeter-aware HTTP security middleware, added compressed/audited CORS responses, exposed blocked-origin telemetry via `/api/admin/runtime/health`, refreshed the admin runtime panel with perimeter analytics, and aligned Flutter maintenance messaging with backend support contacts to keep users informed during downtime.
 
 ## Update Guidance
 - **Security Level:** Reflects penetration, governance, and compliance hardening progress.

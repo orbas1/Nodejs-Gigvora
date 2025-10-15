@@ -9,8 +9,16 @@ const loginMock = jest.fn().mockResolvedValue({ session: { accessToken: 'token',
 const verifyTwoFactorMock = jest.fn().mockResolvedValue({ session: { accessToken: 'token' } });
 const resendTwoFactorMock = jest.fn().mockResolvedValue({ tokenId: 'resent-token' });
 const googleLoginMock = jest.fn().mockResolvedValue({ session: { accessToken: 'google-token' } });
+const refreshSessionMock = jest.fn().mockResolvedValue({
+  session: {
+    accessToken: 'new-access',
+    refreshToken: 'new-refresh',
+    user: { id: 1 },
+  },
+});
 
 const authServiceModuleUrl = new URL('../../src/services/authService.js', import.meta.url);
+const loggerModuleUrl = new URL('../../src/utils/logger.js', import.meta.url);
 
 jest.unstable_mockModule(authServiceModuleUrl.pathname, () => ({
   default: {
@@ -19,6 +27,17 @@ jest.unstable_mockModule(authServiceModuleUrl.pathname, () => ({
     verifyTwoFactor: verifyTwoFactorMock,
     resendTwoFactor: resendTwoFactorMock,
     loginWithGoogle: googleLoginMock,
+    refreshSession: refreshSessionMock,
+  },
+}));
+
+jest.unstable_mockModule(loggerModuleUrl.pathname, () => ({
+  default: {
+    child: () => ({ info: jest.fn(), error: jest.fn(), debug: jest.fn(), warn: jest.fn() }),
+    info: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+    warn: jest.fn(),
   },
 }));
 
@@ -43,6 +62,7 @@ beforeEach(() => {
   verifyTwoFactorMock.mockClear();
   resendTwoFactorMock.mockClear();
   googleLoginMock.mockClear();
+  refreshSessionMock.mockClear();
 });
 
 describe('POST /api/auth/register', () => {
@@ -108,5 +128,39 @@ describe('POST /api/auth/two-factor/resend', () => {
 
     expect(response.status).toBe(422);
     expect(resendTwoFactorMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /api/auth/refresh', () => {
+  it('requires a refresh token', async () => {
+    const response = await request(app).post('/api/auth/refresh').send({});
+
+    expect(response.status).toBe(422);
+    expect(refreshSessionMock).not.toHaveBeenCalled();
+  });
+
+  it('normalises the refresh token and forwards context metadata', async () => {
+    const response = await request(app)
+      .post('/api/auth/refresh')
+      .set('User-Agent', 'jest-test')
+      .send({ refreshToken: '   valid-token   ' });
+
+    expect(response.status).toBe(200);
+    expect(refreshSessionMock).toHaveBeenCalledWith(
+      'valid-token',
+      expect.objectContaining({
+        context: expect.objectContaining({
+          ipAddress: expect.any(String),
+          userAgent: 'jest-test',
+        }),
+      }),
+    );
+    expect(response.body).toEqual({
+      session: {
+        accessToken: 'new-access',
+        refreshToken: 'new-refresh',
+        user: { id: 1 },
+      },
+    });
   });
 });

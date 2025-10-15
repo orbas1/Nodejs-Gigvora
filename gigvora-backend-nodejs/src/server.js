@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import app from './app.js';
 import logger from './utils/logger.js';
 import { startBackgroundWorkers, stopBackgroundWorkers } from './lifecycle/workerManager.js';
+import { bootstrapDatabase, shutdownDatabase } from './lifecycle/databaseLifecycle.js';
 import {
   markHttpServerStarting,
   markHttpServerReady,
@@ -16,6 +17,7 @@ import {
 } from './services/databaseLifecycleService.js';
 import { getPlatformSettings } from './services/platformSettingsService.js';
 import { syncCriticalDependencies } from './observability/dependencyHealth.js';
+import { recordRuntimeSecurityEvent } from './services/securityAuditService.js';
 
 dotenv.config();
 
@@ -39,31 +41,55 @@ export async function start({ port = DEFAULT_PORT } = {}) {
   await startBackgroundWorkers({ logger });
   await warmRuntimeDependencyHealth({ logger, forceRefresh: true });
 
-  httpServer = http.createServer(app);
+  try {
+    await bootstrapDatabase({ logger });
+    await startBackgroundWorkers({ logger });
 
-  const normalizedPort = Number.parseInt(port, 10);
-  const listenPort = Number.isNaN(normalizedPort) ? DEFAULT_PORT : normalizedPort;
+    httpServer = http.createServer(app);
 
-  await new Promise((resolve, reject) => {
-    const onError = (error) => {
-      httpServer = null;
-      logger.error({ err: error }, 'HTTP server failed to start');
-      reject(error);
-    };
-    httpServer.once('error', onError);
-    httpServer.listen(listenPort, () => {
-      httpServer.off('error', onError);
-      markHttpServerReady({ port: listenPort });
-      logger.info({ port: listenPort }, 'Gigvora API running');
-      resolve();
+    const normalizedPort = Number.parseInt(port, 10);
+    const listenPort = Number.isNaN(normalizedPort) ? DEFAULT_PORT : normalizedPort;
+
+    await new Promise((resolve, reject) => {
+      const onError = (error) => {
+        httpServer = null;
+        logger.error({ err: error }, 'HTTP server failed to start');
+        reject(error);
+      };
+      httpServer.once('error', onError);
+      httpServer.listen(listenPort, () => {
+        httpServer.off('error', onError);
+        markHttpServerReady({ port: listenPort });
+        logger.info({ port: listenPort }, 'Gigvora API running');
+        recordRuntimeSecurityEvent(
+          {
+            eventType: 'runtime.http.started',
+            level: 'notice',
+            message: 'HTTP server accepted connections after readiness probes passed.',
+            metadata: { port: listenPort },
+          },
+          { logger },
+        ).catch((error) => {
+          logger.warn({ err: error }, 'Failed to record runtime startup security audit');
+        });
+        resolve();
+      });
     });
-  });
 
-  httpServer.on('close', () => {
-    markHttpServerStopped({ reason: 'closed' });
-  });
+    httpServer.on('close', () => {
+      markHttpServerStopped({ reason: 'closed' });
+    });
 
-  return httpServer;
+    return httpServer;
+  } catch (error) {
+    try {
+      await shutdownDatabase({ reason: 'startup-failed', logger });
+    } catch (shutdownError) {
+      logger.warn({ err: shutdownError }, 'Database shutdown after startup failure encountered errors');
+    }
+    markHttpServerStopped({ reason: 'failed' });
+    throw error;
+  }
 }
 
 export async function stop({ reason = 'shutdown' } = {}) {
@@ -98,6 +124,29 @@ export async function stop({ reason = 'shutdown' } = {}) {
   });
 
   try {
+    await shutdownDatabase({ reason, logger });
+  } catch (error) {
+    logger.error({ err: error }, 'Database shutdown encountered errors');
+    if (!workerShutdownError) {
+      workerShutdownError = error;
+    }
+  }
+
+  recordRuntimeSecurityEvent(
+    {
+      eventType: 'runtime.http.stopped',
+      level: workerShutdownError ? 'warn' : 'info',
+      message: 'HTTP server shutdown sequence completed.',
+      metadata: {
+        reason,
+        workerShutdownError: workerShutdownError ? workerShutdownError.message : null,
+      },
+    },
+    { logger },
+  ).catch((error) => {
+    logger.warn({ err: error }, 'Failed to record runtime shutdown audit');
+  });
+
     await drainDatabaseConnections({ logger, reason });
   } catch (error) {
     databaseShutdownError = error;

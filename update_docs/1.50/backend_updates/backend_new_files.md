@@ -23,6 +23,7 @@
 |------|-------------|
 | `src/lifecycle/runtimeHealth.js` | Centralised runtime health state tracker capturing HTTP status, worker readiness, and dependency availability for consumption by health endpoints and operators. |
 | `src/lifecycle/workerManager.js` | Supervisor responsible for starting/stopping search bootstrap, profile engagement, and news aggregation workers with health reporting hooks. |
+| `src/config/httpSecurity.js` | Consolidated HTTP security middleware applying helmet, trust proxy, compression, and audited CORS enforcement while emitting perimeter telemetry. |
 | `src/middleware/correlationId.js` | Express middleware that enforces correlation IDs for every request, echoing them back to clients and structured logs. |
 | `src/routes/health.js` | Express router serving `/health/live` and `/health/ready` endpoints backed by runtime health telemetry. |
 | `src/services/healthService.js` | Service layer that authenticates database connectivity, synthesises readiness reports, and determines HTTP status codes. |
@@ -48,11 +49,16 @@
 | `src/services/runtimeDependencyGuard.js` | Evaluates payment and compliance infrastructure health, caches dependency snapshots, and throws typed errors to halt workflows during outages. |
 | `src/validation/primitives.js` | Shared Zod helper utilities for trimming strings, coercing numbers/booleans, and normalising geo-location payloads. |
 | `src/validation/schemas/authSchemas.js` | Auth route schema catalogue enforcing login/registration payload contracts. |
+| `src/lifecycle/databaseLifecycle.js` | Coordinates database bootstrap/shutdown, feeds runtime health cache updates, and records security audits. |
+| `src/services/securityAuditService.js` | Persists runtime perimeter events to `runtime_security_audit_events` and exposes query helpers for observability. |
+| `src/models/runtimeSecurityAuditEvent.js` | Sequelize model backing runtime security audit logs, including event type, level, requestId, and metadata. |
+| `database/migrations/20241015103000-runtime-security-audit.cjs` | Migration creating the `runtime_security_audit_events` table with indexed event type/level/timestamps. |
 | `src/validation/schemas/adminSchemas.js` | Admin dashboard/settings schema catalogue guarding query parameters and nested configuration payloads. |
 | `src/validation/schemas/searchSchemas.js` | Validation catalogue covering discovery queries, saved-search subscriptions, and category/viewport sanitisation. |
 | `src/validation/schemas/projectSchemas.js` | Project payload schema enforcing titles, geo/budget coercion, and auto-assign configuration sanitisation. |
 | `src/validation/schemas/financeSchemas.js` | Finance schema enforcing numeric identifiers, ISO date filters, and refresh toggles for control tower endpoints. |
 | `tests/observability/rateLimitMetrics.test.js` | Unit coverage for the metrics store ensuring window rollovers, blocked ratios, and history snapshots remain accurate. |
+| `tests/config/httpSecurity.test.js` | Jest coverage validating allowed origin parsing, wildcard handling, perimeter telemetry, and audit hooks for the HTTP security middleware. |
 | `tests/services/runtimeObservabilityService.test.js` | Integration test validating runtime snapshots include readiness, liveness, and rate-limit data. |
 | `tests/services/runtimeDependencyGuard.test.js` | Jest suite covering credential gaps, maintenance degradations, and healthy states for payments and compliance dependency guards. |
 | `tests/services/databaseLifecycleService.test.js` | Jest coverage verifying startup/shutdown auditing, pool telemetry snapshots, and graceful drain behaviour for the database lifecycle service. |

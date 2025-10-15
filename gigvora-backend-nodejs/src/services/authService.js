@@ -62,6 +62,21 @@ function resolveSecrets() {
   };
 }
 
+function verifyRefreshToken(refreshToken) {
+  if (!refreshToken) {
+    throw buildError('Refresh token is required.', 422);
+  }
+  const secrets = resolveSecrets();
+  try {
+    return jwt.verify(refreshToken, secrets.refresh);
+  } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      throw buildError('Refresh token has expired.', 401);
+    }
+    throw buildError('Invalid refresh token.', 401);
+  }
+}
+
 async function issueSession(user) {
   const secrets = resolveSecrets();
   const payload = { id: user.id, type: user.userType };
@@ -255,10 +270,40 @@ async function loginWithGoogle(idToken, options = {}) {
   return { session };
 }
 
+async function refreshSession(refreshToken, options = {}) {
+  const payload = verifyRefreshToken(refreshToken);
+  const user = await authDomainService.findUserById(payload.id);
+  if (!user) {
+    throw buildError('Account not found.', 404);
+  }
+
+  const session = await issueSession(user);
+  const featureFlags = await featureFlagService.evaluateForUser(session.user, {
+    traits: { loginContext: 'refresh_token' },
+    workspaceIds: options.workspaceIds ?? [],
+  });
+  session.featureFlags = featureFlags;
+  session.user.featureFlags = featureFlags;
+
+  await authDomainService.recordLoginAudit(
+    user.id,
+    {
+      eventType: 'refresh_token_issued',
+      ipAddress: options.context?.ipAddress,
+      userAgent: options.context?.userAgent,
+      metadata: { strategy: 'refresh_token' },
+    },
+    {},
+  );
+
+  return { session };
+}
+
 export default {
   register,
   login,
   verifyTwoFactor,
   resendTwoFactor,
   loginWithGoogle,
+  refreshSession,
 };

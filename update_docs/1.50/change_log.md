@@ -1,5 +1,33 @@
 # Version 1.50 Update Change Log
 
+## 12 Apr 2024
+- Hardened the HTTP perimeter with a dedicated security configuration that enforces trust-proxy settings, helmet policies, and
+  a CORS guard that blocks untrusted origins, records audit events, and compresses responses without impacting health probes or
+  worker bootstraps.
+- Captured perimeter metrics for admin operators by aggregating blocked origins and exposing them through
+  `/api/admin/runtime/health`, enabling the runtime telemetry panel to surface real-time abuse activity alongside dependency
+  and maintenance data.
+- Updated the admin runtime telemetry UI to display API perimeter activity, including top blocked origins and incident timing,
+  so operations teams can triage origin abuse without leaving the dashboard.
+- Propagated maintenance support contact details and perimeter signals to the Flutter bootstrapper and runtime health listener,
+  ensuring mobile experiences surface actionable maintenance messaging when the platform is in a degraded state.
+- Added Jest coverage for the HTTP security middleware and refreshed Flutter runtime health tests to lock in the new perimeter
+  metrics, maintenance contact handling, and fallback behaviour for unauthorised admin health polling.
+
+## 11 Apr 2024
+- Implemented audited database lifecycle orchestration that authenticates pools on startup, updates readiness caches, drains
+  connections on shutdown, and records security events for `/health/ready` and admin observability surfaces.
+- Persisted runtime security audit events and surfaced them, alongside scheduled maintenance windows, through
+  `/api/admin/runtime/health` so operators, admin dashboards, and mobile bootstrap logic share a unified downtime view.
+- Shipped `/auth/refresh` plus mobile/web session bootstrap flows leveraging refresh tokens, enabling Flutter and React clients
+  to restore authenticated sessions securely while respecting login audit trails.
+- Upgraded the Flutter app with authenticated health polling, secure token storage, and maintenance-aware messaging to replace
+  demo connectivity checks and align with production resilience requirements.
+- Added backend Jest coverage for `/api/auth/refresh` alongside lifecycle shutdown auditing plus Flutter widget/unit tests for
+  the session bootstrapper and runtime health repository, locking in the refresh workflow across platforms.
+- Recorded cross-surface maintenance messaging, refresh copy, and telemetry design updates in the Version 1.50 design trackers
+  and user phone app documentation so engineering hand-offs stay aligned with the implemented behaviour.
+
 ## 13 Apr 2024
 - Implemented a dedicated database lifecycle service that warms Sequelize pools before startup, drains connections during shutdown, and records auditable `database_audit_events` so operations teams can validate graceful maintenance windows.
 - Added database pool telemetry to readiness and runtime observability responses, exposing max/borrowed/available counts for admin dashboards and health probes.

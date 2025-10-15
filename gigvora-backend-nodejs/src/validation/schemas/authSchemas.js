@@ -120,3 +120,9 @@ export const googleLoginSchema = z
   })
   .strip();
 
+export const refreshSessionSchema = z
+  .object({
+    refreshToken: requiredTrimmedString({ max: 4096 }),
+  })
+  .strip();
+

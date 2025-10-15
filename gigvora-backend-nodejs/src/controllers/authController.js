@@ -73,3 +73,11 @@ export async function googleLogin(req, res) {
   const response = await authService.loginWithGoogle(idToken);
   res.json(response);
 }
+
+export async function refreshSession(req, res) {
+  const { refreshToken } = req.body;
+  const response = await authService.refreshSession(refreshToken, {
+    context: { ipAddress: req.ip, userAgent: req.get('user-agent') },
+  });
+  res.json(response);
+}

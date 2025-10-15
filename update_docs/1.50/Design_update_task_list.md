@@ -11,6 +11,8 @@
 | 6 | Expand Secondary Web Pages | Content Experience Lead (G. Santos) | 22 Mar | 8 May | In Progress | 26% | Medium | CMS partial dependencies unsettled |
 | 7 | Refresh Authenticated Web Dashboards | Data Visualisation Lead (J. Chen) | 25 Mar | 17 May | In Progress | 56% | Medium | Awaiting analytics instrumentation guidance |
 | 8 | Implement Theme & Partial Infrastructure | Platform Design Ops (A. Ekpo) | 25 Mar | 24 May | In Progress | 24% | High | CMS preview workflow not yet approved by security |
+| 9 | Governance & Security UX Updates | Compliance UX Lead (H. Wells) | 18 Mar | 30 Apr | In Progress | 58% | Medium | Localisation approvals for maintenance copy |
+| 10 | Handoff, QA, and Documentation | Design Ops PM (T. Dawson) | 1 Apr | 31 May | Planned | 12% | Medium | Dependency on upstream asset readiness |
 | 9 | Governance & Security UX Updates | Compliance UX Lead (H. Wells) | 18 Mar | 30 Apr | In Progress | 68% | Medium | Localisation approvals for maintenance copy |
 | 10 | Handoff, QA, and Documentation | Design Ops PM (T. Dawson) | 1 Apr | 31 May | Planned | 18% | Medium | Dependency on upstream asset readiness |
 
@@ -127,6 +129,7 @@
 - [ ] Prepare QA checklist covering state permutations and partial injections.
 - [ ] Partner with analytics to validate instrumentation requirements.
 
+**Progress Notes:** Wireframe review folding in new feature-flag states exported from domain registry; analytics instrumentation workshop scheduled for 4 Apr to confirm KPIs. Domain registry observability panels mapped to `/api/domains` data ensure operators can trace schema changes within dashboard layouts. Runtime health panel specs now cover `/api/admin/runtime/health`, rate-limit utilisation, dependency chips, localisation-ready operations copy, 11 Apr audit timeline/maintenance badge updates, and the 12 Apr API perimeter analytics card displaying blocked origins/attempt counts so React and Flutter surfaces share consistent telemetry treatments.
 **Progress Notes:** Wireframe review folding in new feature-flag states exported from domain registry; analytics instrumentation workshop scheduled for 4 Apr to confirm KPIs. Domain registry observability panels mapped to `/api/domains` data ensure operators can trace schema changes within dashboard layouts. Runtime health panel specs now cover `/api/admin/runtime/health`, rate-limit utilisation, dependency chips, localisation-ready operations copy, the newly added maintenance announcement chips sourced from `/api/runtime/maintenance`, and fresh connection pool gauges referencing `databaseLifecycleService` telemetry.
 
 **Dependencies:** Requires token updates from Task 1 and widget definitions from Task 4.
@@ -161,6 +164,7 @@
 - [ ] Document required audit artefacts for regulators and enterprise clients.
 - [ ] Coordinate sign-off with legal, security, and compliance steering group.
 
+**Progress Notes:** Maintenance mode, rate-limit, and outage messaging kits approved; telemetry widget spec handed to engineering. Custodial dependency outage overlays and disabled CTA states were added to finance/compliance journeys (web + Flutter) so the new backend guards surface clear 503 copy. 11 Apr updates aligned Flutter splash/login maintenance messaging with admin dashboards, harmonised refresh token error copy across React/Flutter, and logged localisation identifiers for three launch languages. 12 Apr perimeter alignment captured maintenance contact chips and blocked-origin escalation copy for both web and mobile telemetry widgets. Remaining work covers emo theme contrast validation and regulator artefact packaging.
 **Progress Notes:** Maintenance mode, rate-limit, and outage messaging kits approved; telemetry widget spec handed to engineering. Admin maintenance registry flows, mobile downtime drawer copy, and localisation notes shipped for engineering review. Added payments/compliance guard downtime banners with request ID surfacing and legal escalation copy. Newly documented shutdown audit overlays and pool warning copy align with lifecycle telemetry updates. Remaining work covers emo theme contrast validation and regulator artefact packaging.
 **Progress Notes:** Maintenance mode, rate-limit, and outage messaging kits approved; telemetry widget spec handed to engineering. Custodial dependency outage overlays and disabled CTA states were added to finance/compliance journeys (web + Flutter) so the new backend guards surface clear 503 copy, while remaining work covers emo theme contrast validation and regulator artefact packaging.
 
