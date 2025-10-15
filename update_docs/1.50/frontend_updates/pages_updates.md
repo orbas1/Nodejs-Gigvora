@@ -1,3 +1,17 @@
+# Frontend Page Updates — 23 Apr 2024
+
+## Admin Governance Overview
+- Added governance overview section to the admin dashboard hero region,
+  highlighting contexts requiring remediation, overdue reviews, and steward
+  ownership at-a-glance. The card consumes `useDomainGovernanceSummaries`, pulls
+  schema-generated types, and shares manual refresh hooks with runtime telemetry.
+- Documented loading skeletons, empty states (“No governance reviews recorded yet”)
+  and remediation callouts so QA can validate accessibility, localisation, and
+  analytics instrumentation for operations follow-up clicks.
+- Updated `Dashboard Designs.md`, `Screens_Updates_widget_functions.md`, and
+  `Screen_text.md` to align copy, iconography, and colour ramps with the shared
+  governance schema definitions and enterprise compliance guidance.
+
 # Frontend Page Updates — 11 Apr 2024
 
 ## Admin Runtime Telemetry Panel

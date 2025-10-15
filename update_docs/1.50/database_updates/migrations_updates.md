@@ -1,5 +1,14 @@
 # Migrations Updates — Version 1.50 Update
 
+## `20241010104500-create-domain-governance-reviews.cjs`
+- Creates `domain_governance_reviews` with steward team, data steward contact,
+  review status enum (`in_progress`, `approved`, `remediation_required`), review
+  timestamps, next-review cadence, JSON scorecard payload, and audit notes.
+- Adds indexes on `contextName`, `reviewStatus`, and `nextReviewDueAt` so
+  dashboards can surface overdue contexts and filter by remediation state without
+  full table scans. Down migration removes indexes, drops the table, and cleans up
+  the enum type in Postgres environments.
+
 ## `20241015121500-runtime-maintenance-announcements.cjs`
 - Creates `runtime_announcements` table with auto-incrementing primary key, unique `slug`, required `title`/`message`, enum-like
   `severity`/`status`, JSON(B) `audiences` and `channels`, optional `startsAt`/`endsAt`, boolean `dismissible`, audit fields

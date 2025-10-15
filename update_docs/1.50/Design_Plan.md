@@ -34,6 +34,13 @@ Detail the holistic design intent for Version 1.50 across application and web ex
 - Capture custodial dependency outage states for finance, payout, and verification modules so the new backend guards render consistent 503 banners, disabled CTAs, and recovery messaging; annotate behaviour in `Dashboard Designs.md`, `component_functions.md`, and `App_screens_drawings.md` for Flutter parity.
 - Map bounded-context ownership in UI artefacts by updating `Architecture_Domain_Map.md` and in-product ERDs so dashboard widgets reference the new auth/marketplace/platform domains.
 - Design domain registry observability panels that visualise `/api/domains` responses with drill-down tables, schema change alerts, and export actions documented in `Screens_Updates_widget_functions.md` and `Dashboard Designs.md`.
+- Document governance registry card and drill-down drawer consuming
+  `/api/domains/governance` to surface stewardship contacts, review cadences,
+  PII classifications, and remediation backlog chips. Update
+  `Dashboard Designs.md`, `Screens_Updates_widget_functions.md`, and
+  `Screen_text.md` with severity colour ramps, empty states, and analytics hooks
+  so engineering can ship the new admin dashboard widgets without additional
+  copy/design passes.
 - Extend admin operations specs with runtime health telemetry sourced from `/api/admin/runtime/health`, including dependency badges, rate-limit utilisation bars, and manual refresh behaviours recorded in `Dashboard Designs.md`, `component_functions.md`, and `Screen_text.md`.
 - Document API perimeter analytics (blocked origins, attempt counts, escalation copy) alongside runtime health specs so admin dashboards and mobile experiences surface consistent abuse-mitigation messaging.
 - Specify WAF telemetry card states (quiet, elevated, incident) with rule leaderboard, source attempts, last-block copy, and auto-block summaries (active quarantines, countdown timers) so admin dashboards and Flutter snackbars mirror the enriched security payloads.

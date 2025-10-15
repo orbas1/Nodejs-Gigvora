@@ -78,6 +78,21 @@ We restructured the consumer app logic to emphasise clarity, personalised recomm
 4. **Mentorship Programs**
    - Enrollment flow validates profile completeness, collects goals, and matches with mentors; users can accept/decline suggestions.
    - Session completion triggers reflection survey and updates progress meter in Mentorship panel.
+
+### 8. Admin Operations & Governance Oversight (23 Apr)
+1. **Governance Snapshot Entry**
+   - Admin persona opens home screen; runtime telemetry poll triggers governance
+     repository fetch. Summary card groups contexts by status, calculates overdue
+     reviews, and emits analytics event when rendered.
+2. **Remediation Drill-Down**
+   - Selecting a remediation item opens governance detail drawer. Flow loads
+     latest review, outstanding tasks, and steward contacts; toggling checklist
+     items queues follow-up tasks and logs audit trail event.
+3. **Escalation & Export**
+   - "Escalate" CTA launches mailto/supported communication channel prefilled with
+     steward contact info and remediation summary; "Export report" invokes PDF/
+     CSV export using shared schema definitions. Flow enforces offline fallback by
+     presenting cached data with timestamp when API unavailable.
 5. **Volunteering Engagement**
    - Application screens verify background requirements; once approved, the app schedules orientation and adds tasks to To-Do list.
    - Completion prompts impact logging and optional testimonial submission.

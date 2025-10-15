@@ -9,11 +9,11 @@
 | 4 | Refine Application Widgets & States | Interaction Lead (D. Yeh) | 21 Mar | 3 May | In Progress | 35% | Medium | Accessibility sign-off for high-density widgets |
 | 5 | Redesign Marketing Landing Pages | Web Experience Lead (C. Lavoie) | 20 Mar | 10 May | In Progress | 31% | Low | Copy deck approvals for testimonials |
 | 6 | Expand Secondary Web Pages | Content Experience Lead (G. Santos) | 22 Mar | 8 May | In Progress | 26% | Medium | CMS partial dependencies unsettled |
-| 7 | Refresh Authenticated Web Dashboards | Data Visualisation Lead (J. Chen) | 25 Mar | 17 May | In Progress | 60% | Medium | Awaiting analytics instrumentation guidance |
+| 7 | Refresh Authenticated Web Dashboards | Data Visualisation Lead (J. Chen) | 25 Mar | 17 May | In Progress | 72% | Medium | Awaiting analytics instrumentation guidance |
 | 8 | Implement Theme & Partial Infrastructure | Platform Design Ops (A. Ekpo) | 25 Mar | 24 May | In Progress | 24% | High | CMS preview workflow not yet approved by security |
-| 9 | Governance & Security UX Updates | Compliance UX Lead (H. Wells) | 18 Mar | 30 Apr | In Progress | 62% | Medium | Localisation approvals for maintenance copy |
+| 9 | Governance & Security UX Updates | Compliance UX Lead (H. Wells) | 18 Mar | 30 Apr | In Progress | 78% | Medium | Localisation approvals for maintenance copy |
 | 10 | Handoff, QA, and Documentation | Design Ops PM (T. Dawson) | 1 Apr | 31 May | Planned | 18% | Medium | Dependency on upstream asset readiness |
-| 9 | Governance & Security UX Updates | Compliance UX Lead (H. Wells) | 18 Mar | 30 Apr | In Progress | 72% | Medium | Localisation approvals for maintenance copy |
+| 9 | Governance & Security UX Updates | Compliance UX Lead (H. Wells) | 18 Mar | 30 Apr | In Progress | 78% | Medium | Localisation approvals for maintenance copy |
 | 10 | Handoff, QA, and Documentation | Design Ops PM (T. Dawson) | 1 Apr | 31 May | Planned | 18% | Medium | Dependency on upstream asset readiness |
 
 ---
@@ -120,7 +120,7 @@
 
 ---
 
-### Task 7 — Refresh Authenticated Web Dashboards (31%)
+### Task 7 — Refresh Authenticated Web Dashboards (72%)
 **Objective:** Update data-rich dashboards with new data density guidelines, responsive layouts, and theming support.
 - [ ] Translate dashboard wireframes into detailed component specifications with data bindings.
 - [ ] Align charts, tables, and KPI cards with new data density and accessibility guidelines.
@@ -130,7 +130,7 @@
 - [ ] Partner with analytics to validate instrumentation requirements.
 
 **Progress Notes:** Wireframe review folding in new feature-flag states exported from domain registry; analytics instrumentation workshop scheduled for 4 Apr to confirm KPIs. Domain registry observability panels mapped to `/api/domains` data ensure operators can trace schema changes within dashboard layouts. Runtime health panel specs now cover `/api/admin/runtime/health`, rate-limit utilisation, dependency chips, localisation-ready operations copy, 11 Apr audit timeline/maintenance badge updates, the 12 Apr API perimeter analytics card displaying blocked origins/attempt counts, the 15 Apr WAF insights block (rule leaderboard, top sources, security escalation copy), and the 14 Apr documentation CTA linking to `/api/docs/runtime-security` with tooltip/empty/error states so React and Flutter surfaces share consistent telemetry treatments. Runtime telemetry notes updated 17 Apr to capture the new WAF metrics (blocked totals, top rules, flagged IPs) and mobile snackbar localisation tokens so engineering can wire `/api/admin/runtime/health.waf` without design follow-ups. 18 Apr pass aligned the designs with automated auto-block telemetry (active quarantine list, countdown chips, escalation copy) and Flutter snackbar variants, unblocking engineering on the new `waf.autoBlock` schema. 19 Apr update adds Prometheus exporter freshness tiles, scrape failure alerts, and runbook CTA placement so `/health/metrics` visibility stays consistent across admin dashboards and Flutter runtime notifications.
-**Progress Notes:** Wireframe review folding in new feature-flag states exported from domain registry; analytics instrumentation workshop scheduled for 4 Apr to confirm KPIs. Domain registry observability panels mapped to `/api/domains` data ensure operators can trace schema changes within dashboard layouts. Runtime health panel specs now cover `/api/admin/runtime/health`, rate-limit utilisation, dependency chips, localisation-ready operations copy, the newly added maintenance announcement chips sourced from `/api/runtime/maintenance`, and fresh connection pool gauges referencing `databaseLifecycleService` telemetry.
+**Progress Notes:** Wireframe review folding in new feature-flag states exported from domain registry; analytics instrumentation workshop scheduled for 4 Apr to confirm KPIs. Domain registry observability panels mapped to `/api/domains` data ensure operators can trace schema changes within dashboard layouts. Runtime health panel specs now cover `/api/admin/runtime/health`, rate-limit utilisation, dependency chips, localisation-ready operations copy, the newly added maintenance announcement chips sourced from `/api/runtime/maintenance`, and fresh connection pool gauges referencing `databaseLifecycleService` telemetry. 23 Apr update captured the governance registry card and drill-down drawer, mapping `/api/domains/governance` payloads to remediation badges, steward contact chips, and analytics hooks across web and Flutter artefacts.
 
 **Dependencies:** Requires token updates from Task 1 and widget definitions from Task 4.
 
@@ -155,7 +155,7 @@
 
 ---
 
-### Task 9 — Governance & Security UX Updates (66%)
+### Task 9 — Governance & Security UX Updates (78%)
 **Objective:** Ensure all compliance-critical flows (consent, legal, privacy, payouts) reflect updated language and trust signals.
 - [x] Review consent, legal, and privacy modules for tone and clarity improvements.
 - [x] Document WAF auto-block escalation copy and badge treatments for admin dashboards, mobile snackbars, and maintenance playbooks.
@@ -165,7 +165,7 @@
 - [ ] Document required audit artefacts for regulators and enterprise clients.
 - [ ] Coordinate sign-off with legal, security, and compliance steering group.
 
-**Progress Notes:** Maintenance mode, rate-limit, and outage messaging kits approved; telemetry widget spec handed to engineering. Custodial dependency outage overlays and disabled CTA states were added to finance/compliance journeys (web + Flutter) so the new backend guards surface clear 503 copy. 11 Apr updates aligned Flutter splash/login maintenance messaging with admin dashboards, harmonised refresh token error copy across React/Flutter, and logged localisation identifiers for three launch languages. 12 Apr perimeter alignment captured maintenance contact chips and blocked-origin escalation copy for both web and mobile telemetry widgets. 16 Apr shutdown telemetry refresh added drain verdict chips and runbook copy so admin dashboards and Flutter snackbars reflect backend drain failures during maintenance windows. 19 Apr copy sweep introduced Prometheus exporter alert messaging, runbook CTA labels, and localisation tokens so stale scrape escalations stay consistent across admin and Flutter surfaces. Remaining work covers emo theme contrast validation and regulator artefact packaging.
+**Progress Notes:** Maintenance mode, rate-limit, and outage messaging kits approved; telemetry widget spec handed to engineering. Custodial dependency outage overlays and disabled CTA states were added to finance/compliance journeys (web + Flutter) so the new backend guards surface clear 503 copy. 11 Apr updates aligned Flutter splash/login maintenance messaging with admin dashboards, harmonised refresh token error copy across React/Flutter, and logged localisation identifiers for three launch languages. 12 Apr perimeter alignment captured maintenance contact chips and blocked-origin escalation copy for both web and mobile telemetry widgets. 16 Apr shutdown telemetry refresh added drain verdict chips and runbook copy so admin dashboards and Flutter snackbars reflect backend drain failures during maintenance windows. 19 Apr copy sweep introduced Prometheus exporter alert messaging, runbook CTA labels, and localisation tokens so stale scrape escalations stay consistent across admin and Flutter surfaces. 23 Apr governance pass added stewardship lexicon, remediation CTA copy, empty-state guidance, and accessibility annotations so the new governance dashboards stay compliant across languages; remaining work covers emo theme contrast validation and regulator artefact packaging.
 **Progress Notes:** Maintenance mode, rate-limit, and outage messaging kits approved; telemetry widget spec handed to engineering. Admin maintenance registry flows, mobile downtime drawer copy, and localisation notes shipped for engineering review. Added payments/compliance guard downtime banners with request ID surfacing and legal escalation copy. Newly documented shutdown audit overlays and pool warning copy align with lifecycle telemetry updates. Remaining work covers emo theme contrast validation and regulator artefact packaging.
 **Progress Notes:** Maintenance mode, rate-limit, and outage messaging kits approved; telemetry widget spec handed to engineering. Custodial dependency outage overlays and disabled CTA states were added to finance/compliance journeys (web + Flutter) so the new backend guards surface clear 503 copy, while remaining work covers emo theme contrast validation and regulator artefact packaging.
 

@@ -1,5 +1,60 @@
 # Backend Change Log — Version 1.50 Update
 
+## 26 Apr 2024
+- Added a production-ready `listMemberGroups` implementation to `src/services/groupService.js` that filters by membership
+  status, supports search/sorting, calculates join/retention metrics, and powers legacy default exports without raising
+  `ReferenceError` during route bootstrap.
+- Hardened `src/models/careerDocumentModels.js` association wiring with idempotent guards so repeated model bootstraps in Jest
+  no longer re-register identical aliases, keeping governance route tests and other suites free of
+  `SequelizeAssociationError` crashes.
+- Updated `src/domains/domainRegistry.js` to raise `NotFoundError` instances when contexts are missing, ensuring the API and
+  Supertest suites return structured 404 responses for unknown governance detail requests instead of generic 500 errors.
+
+## 25 Apr 2024
+- Added a Jest stub for `prom-client` and re-exported runtime audit models so governance HTTP route tests can execute without
+  optional telemetry dependencies, while fixing the duplicated `ServiceUnavailableError` definition in `src/utils/errors.js`
+  that previously caused Babel parse failures.
+- Updated `src/models/index.js` to expose `RuntimeSecurityAuditEvent` and `RuntimeAnnouncement` as named exports, unblocking the
+  security audit service imports and improving parity between runtime modules and generated governance dossiers.
+
+## 24 Apr 2024
+- Added Supertest coverage (`tests/routes/domainRoutes.governance.test.js`) for
+  the governance routes, asserting `/api/domains/governance` returns merged
+  stewardship metadata, review scorecards, and remediation counts while
+  `/api/domains/:context/governance` exposes PII inventories and structured
+  `404` responses for unknown contexts.
+- Seeded test fixtures through `DomainGovernanceReview` to exercise review
+  cadence merging and ensure summaries honour persisted automation coverage,
+  remediation item counts, and steward contacts across contexts.
+- Updated backend documentation to reflect the new regression coverage, closing
+  the follow-up item from 23 Apr that required HTTP-level verification of the
+  governance surfaces.
+
+## 23 Apr 2024
+- Centralised bounded-context governance metadata in `src/domains/domainMetadata.js`,
+  enriching each context with ownership contacts, retention windows, classification,
+  and PII field inventories. The metadata feeds the existing domain registry and the
+  new governance endpoints so downstream tools can evaluate stewardship gaps
+  programmatically.
+- Introduced the `DomainGovernanceReview` Sequelize model plus migration and seed to
+  persist audit scores, remediation statuses, and next-review cadences for every
+  domain. Service helpers aggregate the data for dashboards while enforcing a
+  unique context constraint so each bounded context exposes a single active
+  governance record per environment.
+- Expanded `domainIntrospectionService` with governance resolvers that merge metadata,
+  review aggregates, and outstanding remediation tasks. Added Jest coverage to lock
+  the new summaries and to ensure contexts without historic reviews still return
+  default remediation targets for the UI.
+- Extended `/api/domains` routing with `GET /api/domains/governance` and
+  `GET /api/domains/:context/governance`, returning summary totals, review trends,
+  and audit backlogs for admin dashboards and automated policy agents. Responses
+  reuse the generated JSON schemas published under `shared-contracts/domain/governance`
+  so React, Flutter, and Node clients ingest typed payloads.
+- Regenerated schema clients (`npm run schemas:sync && npm run schemas:clients`) to
+  publish governance DTOs alongside the existing registry contracts. Updated
+  TypeScript definitions now include governance types, enums, and helper factories for
+  integrations consuming the shared packages.
+
 ## 19 Apr 2024
 - Added a Prometheus metrics exporter (`src/observability/metricsRegistry.js`) and exposed `/health/metrics`, wiring startup
   priming in `src/server.js` and surfacing exporter status through `runtimeObservabilityService`. Admin dashboards and partner

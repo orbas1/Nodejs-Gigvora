@@ -1,5 +1,45 @@
 # Version 1.50 Update Change Log
 
+## 25 Apr 2024
+- Delivered a production governance dossier experience in the React admin dashboard, introducing a slide-over detail drawer,
+  cached detail hook, and accessibility/touch affordances so operators can drill into PII inventories, scorecards, and steward
+  contacts without leaving the registry panel.
+- Added a Flutter modal detail sheet powered by a new Riverpod family provider so mobile admins can inspect governance reviews,
+  retention policies, and quality checks from the governance card, mirroring the web experience with Riverpod overrides for
+  widget tests.
+- Hardened backend observability scaffolding by stubbing `prom-client` for Jest, re-exporting runtime audit models, and
+  removing the duplicated `ServiceUnavailableError` definition so governance route tests can execute without module parsing
+  failures; documented the remaining legacy blocker in the backend test results log.
+- Implemented `groupService.listMemberGroups`, guarded repeated Sequelize association wiring, and updated domain registry error
+  handling so the governance HTTP suite now seeds fixtures, returns structured 404s, and passes `npm test --
+  routes/domainRoutes.governance` without manual intervention.
+
+## 24 Apr 2024
+- Added supertest coverage for `/api/domains/governance` and
+  `/api/domains/:context/governance`, validating summary/detail responses merge
+  stewardship metadata with persisted `DomainGovernanceReview` records and that
+  unknown contexts return structured `404` errors with audit-friendly payloads.
+- Documented the new backend coverage and updated the domain governance routes
+  table so operators know HTTP contracts now carry integration tests across
+  metadata merges, review state counts, and remediation totals.
+- Authored Flutter widget tests for `DomainGovernanceSummaryCard`, covering
+  loading, error, and remediation-heavy states with Riverpod overrides so
+  mobile operators see parity with the React admin dashboards; documented the
+  coverage in the mobile test plan while noting CI still lacks the Flutter SDK.
+
+## 23 Apr 2024
+- Introduced auditable domain governance metadata across the Node API by centralising bounded-context ownership, retention, and
+  PII field definitions in `src/domains/domainMetadata.js`, persisting review cadences via the new `DomainGovernanceReview`
+  model, and exposing aggregated telemetry through `/api/domains/governance` plus `/api/domains/:context/governance`.
+- Seeded governance review history for every bounded context and added a dedicated migration so database environments replicate
+  ownership, audit scores, and remediation countdowns alongside the existing runtime maintenance tables.
+- Extended the React admin dashboard with a data governance registry card that surfaces classification, PII coverage, review
+  status, and next audit windows per context while wiring refresh + error states into the runtime operations panel.
+- Generated new governance JSON schemas and TypeScript clients so downstream services consume the enriched metadata, updated the
+  registry snapshot, and refreshed Jest coverage for `DomainIntrospectionService` to lock in the governance endpoints.
+- Delivered a Flutter admin governance snapshot card powered by a Riverpod repository/summary provider so mobile operators see
+  the same remediation priorities, counts, and audit timestamps surfaced on web.
+
 ## 18 Apr 2024
 - Advanced the web application firewall with automated quarantine thresholds and offender tracking so repeat attackers are blocked without manual rule updates, complete with telemetry surfaced via `/api/admin/runtime/health`.
 - Updated the React admin runtime panel and Flutter runtime health domain models to visualise active auto-blocks, last escalations, and zero-data states, ensuring operators across surfaces understand perimeter posture.

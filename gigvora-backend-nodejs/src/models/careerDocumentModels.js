@@ -163,13 +163,27 @@ export const CareerDocumentExport = ensureModel('CareerDocumentExport', () =>
   ),
 );
 
-CareerDocument.hasMany(CareerDocumentVersion, { foreignKey: 'documentId', as: 'versions' });
-CareerDocumentVersion.belongsTo(CareerDocument, { foreignKey: 'documentId', as: 'document' });
-CareerDocument.hasMany(CareerDocumentCollaborator, { foreignKey: 'documentId', as: 'collaborators' });
-CareerDocumentCollaborator.belongsTo(CareerDocument, { foreignKey: 'documentId', as: 'document' });
-CareerDocument.hasMany(CareerDocumentExport, { foreignKey: 'documentId', as: 'exports' });
-CareerDocumentExport.belongsTo(CareerDocument, { foreignKey: 'documentId', as: 'document' });
-CareerDocumentExport.belongsTo(CareerDocumentVersion, { foreignKey: 'versionId', as: 'version' });
+if (!CareerDocument.associations?.versions) {
+  CareerDocument.hasMany(CareerDocumentVersion, { foreignKey: 'documentId', as: 'versions' });
+}
+if (!CareerDocumentVersion.associations?.document) {
+  CareerDocumentVersion.belongsTo(CareerDocument, { foreignKey: 'documentId', as: 'document' });
+}
+if (!CareerDocument.associations?.collaborators) {
+  CareerDocument.hasMany(CareerDocumentCollaborator, { foreignKey: 'documentId', as: 'collaborators' });
+}
+if (!CareerDocumentCollaborator.associations?.document) {
+  CareerDocumentCollaborator.belongsTo(CareerDocument, { foreignKey: 'documentId', as: 'document' });
+}
+if (!CareerDocument.associations?.exports) {
+  CareerDocument.hasMany(CareerDocumentExport, { foreignKey: 'documentId', as: 'exports' });
+}
+if (!CareerDocumentExport.associations?.document) {
+  CareerDocumentExport.belongsTo(CareerDocument, { foreignKey: 'documentId', as: 'document' });
+}
+if (!CareerDocumentExport.associations?.version) {
+  CareerDocumentExport.belongsTo(CareerDocumentVersion, { foreignKey: 'versionId', as: 'version' });
+}
 
 export { sequelize };
 

@@ -1,5 +1,15 @@
 # Module Changes — Version 1.50 Update
 
+- Added `tests/stubs/promClientStub.js` with a Jest module alias so Prometheus metrics dependencies are decoupled from the test
+  harness, alongside `src/utils/errors.js` cleanup that removed duplicate `ServiceUnavailableError` exports to keep telemetry
+  modules importable under Babel.
+- Re-exported `RuntimeSecurityAuditEvent` and `RuntimeAnnouncement` from `src/models/index.js` to align runtime audit services
+  with the domain registry and ensure security audit persistence stays accessible to governance tooling and HTTP tests.
+- Hardened `src/models/careerDocumentModels.js` to register associations idempotently, preventing duplicate alias errors during
+  repeated Sequelize bootstraps in Jest governance suites.
+- Updated `src/domains/domainRegistry.js` to throw `NotFoundError` instances when contexts are missing so `/api/domains/*`
+  routes surface consistent 404 telemetry for operators and automated tests.
+
 - Introduced `src/models/runtimeAnnouncement.js`, `src/controllers/runtimeController.js`, and `src/controllers/adminRuntimeController.js` with companion routes/services to manage maintenance announcements across public and admin surfaces. Added
   `src/routes/runtimeRoutes.js`, `src/routes/adminRuntimeRoutes.js`, and validation schemas under `src/validation/schemas/runtimeSchemas.js` wired into the shared `validateRequest` middleware.
 - Added `src/models/databaseAuditEvent.js` alongside `src/services/databaseLifecycleService.js` so lifecycle hooks capture auditable startup/shutdown metadata, drain Sequelize pools gracefully, and expose pool telemetry to health/observability modules.
@@ -19,6 +29,11 @@
 - Added `src/domains/` with a reusable `DomainRegistry` plus domain services for auth, marketplace, and platform feature-flag governance, enabling bounded-context ownership and transactional helpers.
 - Introduced `src/domains/schemas/` alongside `scripts/syncDomainSchemas.js` to emit Zod-driven JSON schemas shared across web and mobile clients.
 - Published new models (`UserLoginAudit`, `FeatureFlag`, `FeatureFlagAssignment`) and updated `src/models/index.js` exports to register them inside the domain registry.
+- Added `src/domains/domainMetadata.js` to provide context-level governance descriptors (stewards, data retention targets, PII
+  inventories, review cadences) consumed by the domain registry, `/api/domains` endpoints, and generated schema clients.
+- Added a `DomainGovernanceReview` model definition inside `src/models/index.js` with
+  companion migration/seed so governance reviews, audit scores, and remediation
+  countdowns persist alongside core domain models.
 - Added `models/runtimeSecurityAuditEvent.js` with accompanying migration so runtime perimeter events persist to the platform
   context and can be consumed by security tooling.
 - Extended the domain module with capability descriptors (`describeCapabilities`) and surfaced introspection via `src/services/domainIntrospectionService.js` plus `/api/domains` routing for cross-team visibility.

@@ -1,3 +1,29 @@
+# User Phone App Change Log — 24 Apr 2024
+
+1. **Governance Widget Automation:** Added widget tests covering loading, error,
+   and remediation-focused states for `DomainGovernanceSummaryCard`, asserting
+   severity ordering, steward copy, and snapshot timestamps so the mobile
+   experience remains aligned with React telemetry surfaces.
+2. **Testing Infrastructure:** Introduced reusable design tokens and wired tests
+   to the shared `TestApiClient` stub, preventing asset loads or network calls
+   while keeping widget assertions faithful to production spacing/colour tokens.
+3. **Documentation Sync:** Updated widget/test result logs to record the new
+   coverage and flagged the pending CI action to install the Flutter SDK before
+   the suite can be executed automatically.
+
+# User Phone App Change Log — 23 Apr 2024
+
+1. **Domain Governance Snapshot:** Added a governance summary card to the admin
+   home experience consuming the new `/api/domains/governance` endpoint via the
+   shared schema client. Displays contexts by remediation status, overdue review
+   countdowns, and steward contacts with tappable escalation actions.
+2. **Repository Enhancements:** Introduced governance repository/provider wiring
+   to hydrate Flutter widgets with summaries/detail payloads while sharing error,
+   retry, and cache policies with the runtime health layer.
+3. **Design & Analytics Sync:** Updated `App_screens_drawings.md` and
+   `Screens_Update_Plan.md` with governance states (loading, empty, approved,
+   remediation required) and instrumented analytics events for follow-up taps.
+
 # User Phone App Change Log — 19 Apr 2024
 
 1. **Prometheus Exporter Alerts:** Runtime health snapshot now exposes exporter status (primed flag, last scrape timestamp, failure streak) so Flutter surfaces raise stale scrape warnings alongside maintenance copy.

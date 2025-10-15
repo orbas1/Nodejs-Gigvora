@@ -1,5 +1,17 @@
 # Backend Integration Updates — User App
 
+## 23 Apr 2024
+- **Governance Repository:** Added `DomainGovernanceRepository` backed by the
+  shared governance schema client to fetch summaries/detail payloads, merge
+  domain metadata with review records, and expose memoised providers for widgets.
+- **Caching & Retry Policies:** Reused runtime health caching primitives so
+  governance summaries refresh every 10 minutes with exponential backoff and
+  offline-safe fallbacks, ensuring the admin home card always renders the latest
+  remediation backlog without over-polling the API.
+- **Analytics Hooks:** Emitted `governance_summary_viewed` and
+  `governance_context_opened` events to monitor operator engagement and help data
+  governance teams prioritise enablement.
+
 ## 19 Apr 2024
 - **Prometheus Exporter Snapshot:** Runtime health repository now maps the `metricsExporter` payload (primed flag, last scrape timestamp, failure streak) so Flutter alerts display live exporter freshness.
 - **Runbook Deep Link:** Configured exporter alerts to launch the runtime incident guide in-app when failure streak exceeds thresholds, ensuring mobile operators follow the same remediation steps as web.

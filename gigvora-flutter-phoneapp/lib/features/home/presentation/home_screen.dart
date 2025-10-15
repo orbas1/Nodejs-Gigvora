@@ -11,6 +11,7 @@ import '../../ads/presentation/ad_coupon_strip.dart';
 import '../../finance/domain/finance_access_policy.dart';
 import '../../../theme/widgets.dart';
 import '../../blog/presentation/blog_spotlight_card.dart';
+import '../../governance/presentation/domain_governance_summary_card.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -126,6 +127,8 @@ class HomeScreen extends ConsumerWidget {
                 .toList(),
             if (activeDashboard.role == 'admin') ...[
               const SizedBox(height: 24),
+              const DomainGovernanceSummaryCard(),
+              const SizedBox(height: 16),
               const _AdminAdsCallout(),
             ],
             if (activeDashboard.actions.isNotEmpty) ...[

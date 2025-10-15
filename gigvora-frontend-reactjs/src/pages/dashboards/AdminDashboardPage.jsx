@@ -8,6 +8,7 @@ import GigvoraAdsConsole from '../../components/ads/GigvoraAdsConsole.jsx';
 import AdminGroupManagementPanel from './admin/AdminGroupManagementPanel.jsx';
 import useSession from '../../hooks/useSession.js';
 import useRuntimeHealthSnapshot from '../../hooks/useRuntimeHealthSnapshot.js';
+import useDomainGovernanceSummaries from '../../hooks/useDomainGovernanceSummaries.js';
 import { fetchAdminDashboard } from '../../services/admin.js';
 import { fetchPlatformSettings, updatePlatformSettings } from '../../services/platformSettings.js';
 import { fetchAffiliateSettings, updateAffiliateSettings } from '../../services/affiliateSettings.js';
@@ -21,6 +22,12 @@ const MENU_SECTIONS = [
         description: 'Service readiness, dependency posture, and rate-limit utilisation for the API perimeter.',
         tags: ['ops', 'security'],
         sectionId: 'admin-runtime-health',
+      },
+      {
+        name: 'Data governance',
+        description: 'PII inventory, retention policies, and audit cadence across bounded contexts.',
+        tags: ['compliance', 'data'],
+        sectionId: 'admin-domain-governance',
       },
       {
         name: 'Member health',
@@ -110,6 +117,25 @@ const MENU_SECTIONS = [
     ],
   },
 ];
+
+const GOVERNANCE_STATUS_STYLES = {
+  approved: {
+    label: 'Approved',
+    className: 'bg-emerald-100 text-emerald-700',
+  },
+  remediation_required: {
+    label: 'Remediation required',
+    className: 'bg-amber-100 text-amber-700',
+  },
+  in_progress: {
+    label: 'In progress',
+    className: 'bg-sky-100 text-sky-700',
+  },
+  unknown: {
+    label: 'Unknown',
+    className: 'bg-slate-100 text-slate-600',
+  },
+};
 
 const USER_TYPE_LABELS = {
   user: 'Members',
@@ -528,6 +554,7 @@ export default function AdminDashboardPage() {
     lastUpdated: runtimeUpdatedAt,
     refresh: refreshRuntime,
   } = useRuntimeHealthSnapshot();
+  const domainGovernance = useDomainGovernanceSummaries({ refreshIntervalMs: 1000 * 60 * 10 });
   const normalizedMemberships = useMemo(() => normalizeToLowercaseArray(session?.memberships), [session?.memberships]);
   const normalizedRoles = useMemo(() => normalizeToLowercaseArray(session?.roles), [session?.roles]);
   const normalizedPermissions = useMemo(
@@ -599,6 +626,24 @@ export default function AdminDashboardPage() {
   const [affiliateLastSavedAt, setAffiliateLastSavedAt] = useState(null);
   const [lastSavedAt, setLastSavedAt] = useState(null);
   const [restrictedFeaturesInput, setRestrictedFeaturesInput] = useState('');
+
+  const governanceRows = useMemo(
+    () =>
+      domainGovernance.contexts.map((context) => ({
+        key: context.contextName,
+        displayName: context.displayName ?? context.contextName,
+        description: context.description ?? '',
+        classification: context.dataClassification ?? '—',
+        ownerTeam: context.ownerTeam ?? '—',
+        dataSteward: context.dataSteward ?? '—',
+        piiModelCount: context.piiModelCount ?? 0,
+        piiFieldCount: context.piiFieldCount ?? 0,
+        reviewStatus: context.reviewStatus ?? 'unknown',
+        nextReviewDueAt: context.nextReviewDueAt ?? null,
+        remediationItems: context.remediationItems ?? 0,
+      })),
+    [domainGovernance.contexts],
+  );
 
   const canAccessDashboard = isAuthenticated && hasAdminSeat;
 
@@ -1595,6 +1640,107 @@ export default function AdminDashboardPage() {
                     DB password • {maskSecret(getNestedValue(settingsDraft, ['database', 'password'], settings?.database?.password ?? ''))}
                   </div>
                 </div>
+              </div>
+            </div>
+            <div
+              id="admin-domain-governance"
+              className="rounded-2xl border border-slate-200 bg-slate-50/80 p-6 shadow-sm xl:col-span-2"
+            >
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900">Data governance registry</h3>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Monitor PII coverage, retention policies, and audit cadence across bounded contexts.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => domainGovernance.refresh({ force: true })}
+                  disabled={domainGovernance.loading && domainGovernance.contexts.length === 0}
+                  className="inline-flex items-center gap-2 self-start rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-400 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <ArrowPathIcon
+                    className={`h-4 w-4 ${
+                      domainGovernance.refreshing || (domainGovernance.loading && domainGovernance.contexts.length === 0)
+                        ? 'animate-spin'
+                        : ''
+                    }`}
+                  />
+                  Refresh
+                </button>
+              </div>
+              {domainGovernance.error ? (
+                <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                  {domainGovernance.error.message || 'Unable to load governance registry. Try refreshing or check API access.'}
+                </div>
+              ) : null}
+              {domainGovernance.loading && domainGovernance.contexts.length === 0 ? (
+                <div className="mt-5 animate-pulse rounded-xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
+                  Loading data governance catalogue…
+                </div>
+              ) : (
+                <div className="mt-5 overflow-x-auto">
+                  <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+                    <thead className="bg-slate-100/60">
+                      <tr>
+                        <th scope="col" className="px-4 py-3 font-semibold text-slate-600">Context</th>
+                        <th scope="col" className="px-4 py-3 font-semibold text-slate-600">Classification</th>
+                        <th scope="col" className="px-4 py-3 font-semibold text-slate-600">Owner</th>
+                        <th scope="col" className="px-4 py-3 font-semibold text-slate-600">PII coverage</th>
+                        <th scope="col" className="px-4 py-3 font-semibold text-slate-600">Review status</th>
+                        <th scope="col" className="px-4 py-3 font-semibold text-slate-600">Next review</th>
+                        <th scope="col" className="px-4 py-3 font-semibold text-slate-600">Remediation items</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 bg-white">
+                      {governanceRows.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="px-4 py-6 text-center text-sm text-slate-500">
+                            No governance records available. Confirm the backend has generated the domain registry snapshot.
+                          </td>
+                        </tr>
+                      ) : (
+                        governanceRows.map((row) => (
+                          <tr key={row.key} className="align-top">
+                            <td className="px-4 py-4 text-slate-900">
+                              <div className="font-semibold">{row.displayName}</div>
+                              {row.description ? (
+                                <p className="mt-1 text-xs text-slate-500">{row.description}</p>
+                              ) : null}
+                            </td>
+                            <td className="px-4 py-4 text-slate-700">{row.classification}</td>
+                            <td className="px-4 py-4 text-slate-700">
+                              <div>{row.ownerTeam}</div>
+                              <div className="text-xs text-slate-500">Steward: {row.dataSteward}</div>
+                            </td>
+                            <td className="px-4 py-4 text-slate-700">
+                              <div className="font-semibold text-slate-900">{row.piiModelCount} models</div>
+                              <div className="text-xs text-slate-500">{row.piiFieldCount} tagged fields</div>
+                            </td>
+                            <td className="px-4 py-4">
+                              <GovernanceStatusBadge status={row.reviewStatus} />
+                            </td>
+                            <td className="px-4 py-4 text-slate-700">
+                              {row.nextReviewDueAt ? formatDateTime(row.nextReviewDueAt) : '—'}
+                            </td>
+                            <td className="px-4 py-4 text-slate-700">{row.remediationItems ?? 0}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <div className="mt-4 flex flex-col gap-1 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+                <span>
+                  Last generated{' '}
+                  {domainGovernance.generatedAt ? formatDateTime(domainGovernance.generatedAt) : '—'}
+                </span>
+                {domainGovernance.refreshing && domainGovernance.contexts.length > 0 ? (
+                  <span className="flex items-center gap-2 text-slate-500">
+                    <ArrowPathIcon className="h-4 w-4 animate-spin" /> Refreshing data…
+                  </span>
+                ) : null}
               </div>
             </div>
           </div>
@@ -2773,5 +2919,19 @@ export default function AdminDashboardPage() {
     >
       {renderContent}
     </DashboardLayout>
+  );
+}
+
+function GovernanceStatusBadge({ status }) {
+  const normalized = typeof status === 'string' ? status.toLowerCase() : 'unknown';
+  const config = GOVERNANCE_STATUS_STYLES[normalized] ?? GOVERNANCE_STATUS_STYLES.unknown;
+
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${config.className}`}
+      aria-label={`Review status: ${config.label}`}
+    >
+      {config.label}
+    </span>
   );
 }

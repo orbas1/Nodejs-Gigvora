@@ -7,7 +7,7 @@ Percentages reflect initial baseline before execution. Update the tracker weekly
 | 1 | Stabilise service lifecycles and security perimeters | 89 | 85 | 84 | 83 | 80 | 87 | 85 |
 |---------|-----------|------------------|--------------------|---------------------|-----------------------|--------------------|--------------------|-----------------|
 | 1 | Stabilise service lifecycles and security perimeters | 95 | 92 | 90 | 89 | 88 | 93 | 91 |
-| 2 | Modularise domain models and align schemas | 52 | 70 | 68 | 75 | 55 | 63 | 64 |
+| 2 | Modularise domain models and align schemas | 72 | 93 | 90 | 92 | 90 | 90 | 88 |
 | 3 | Enforce validation, consent, and governance workflows | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | 4 | Complete financial, escrow, and dispute capabilities | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | 5 | Deliver creation studio and marketplace experiences | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
@@ -20,6 +20,20 @@ Percentages reflect initial baseline before execution. Update the tracker weekly
 **Progress Note (Cross-Stack • 19 Apr):** Prometheus exporter now serves `/health/metrics`, admin dashboards surface exporter health, and the new runtime incident runbook documents scrape recovery and perimeter triage. Compliance locker endpoints are covered by Zod validation with dedicated Supertest coverage, and Flutter clients raise telemetry alerts when scrapes are stale. Task 1 security, integration, and production maturity increased through unified monitoring and guardrail enforcement.
 
 **Progress Note (Cross-Stack • 20 Apr):** Backend/API documentation, route inventories, and design trackers now reference the metrics exporter, `/health/metrics` contract, and compliance locker validation. Progress trackers updated to reflect operational readiness uplift, and new test suites plus runbook entries are queued for execution to keep Task 1 telemetry changes auditable end-to-end.
+
+**Progress Note (Cross-Stack • 23 Apr):** Domain governance metadata landed end-to-end—Node API exposes governance summaries and
+context drill-downs, React admin dashboards surface remediation counts and steward
+contacts, Flutter home screen mirrors the backlog, and shared contracts published
+typed clients. Documentation, design artefacts, and progress trackers updated; remaining
+work focuses on HTTP integration tests and React/Flutter widget coverage for the new views.
+
+**Progress Note (Cross-Stack • 24 Apr):** Supertest coverage now exercises the governance HTTP routes while Flutter widget tests
+verify loading, error, and remediation-heavy states. Backend and mobile test logs updated; CI follow-up is to install the
+Flutter SDK so the new suite can run automatically.
+
+**Progress Note (Backend • 26 Apr):** Implemented authenticated `listMemberGroups` filtering, guarded repeatable Sequelize
+associations, and normalised domain registry errors so governance HTTP routes return structured 404s and the Supertest harness
+now passes end-to-end. Task 2 error-free and production readiness scores increased with the regression suite executing cleanly.
 
 **Progress Note (Cross-Stack • 10 Apr):** Runtime maintenance registry delivered with CRUD APIs, observability integration, and Flutter client consumption. Security raised via audience targeting/severity enforcement, completion/integration scores improved by cross-surface delivery, and production readiness increased through migration plus test automation.
 

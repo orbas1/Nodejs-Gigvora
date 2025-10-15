@@ -144,3 +144,21 @@ The Version 1.50 update rationalises logged-out marketing and logged-in workspac
    - "Acknowledge" available for admin/prov roles only; triggers confirmation dialog and PATCH `/status` endpoint.
 4. **Error Handling:** If API returns error, show fallback toast with retry; log to telemetry with error code.
 5. **Analytics:** Fire events for impressions, acknowledgements, CTA interactions, and manual refresh; include `audience`, `channel`, `slug`, `status`.
+
+## Domain Governance Registry Flow (23 Apr 2024)
+1. **Fetch:** Dashboard bootstrap calls `/api/domains/governance` plus
+   `/api/domains/:context/governance` lazily when a context is expanded. Responses
+   hydrate Redux/React Query cache keyed by `contextName` with TTL 10 minutes.
+2. **Render Logic:** Summary card aggregates contexts by review status, computes
+   remediation backlog, and highlights overdue countdowns. Zero-data state prompts
+   scheduling first audit; healthy state celebrates with positive messaging while
+   still showing next review cadence.
+3. **User Actions:** Selecting context opens drawer showing steward contacts,
+   classification, retention targets, latest review notes, and remediation checklist.
+   "Escalate" triggers mailto/Slack deep link; "Export" downloads CSV using shared
+   schema. Checklist interactions dispatch analytics + update review backlog.
+4. **Error Handling:** Network errors show inline retry with fallback to cached
+   snapshot; 403 triggers permission banner instructing admin to adjust roles.
+5. **Analytics:** Track `governance_summary_viewed`, `governance_context_opened`,
+   `governance_export_clicked`, `governance_escalate_clicked` with payloads capturing
+   context key, remediation severity, and time since last review.

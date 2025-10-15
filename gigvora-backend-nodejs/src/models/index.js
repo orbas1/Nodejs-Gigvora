@@ -1,5 +1,6 @@
 import { DataTypes, Op } from 'sequelize';
 import DomainRegistry from '../domains/domainRegistry.js';
+import { domainMetadata } from '../domains/domainMetadata.js';
 import logger from '../utils/logger.js';
 import { PlatformSetting } from './platformSetting.js';
 import { RuntimeSecurityAuditEvent } from './runtimeSecurityAuditEvent.js';
@@ -11920,6 +11921,49 @@ ComplianceLocalization.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+export const DomainGovernanceReview = sequelize.define(
+  'DomainGovernanceReview',
+  {
+    contextName: { type: DataTypes.STRING(80), allowNull: false },
+    ownerTeam: { type: DataTypes.STRING(120), allowNull: false },
+    dataSteward: { type: DataTypes.STRING(120), allowNull: false },
+    reviewStatus: {
+      type: DataTypes.ENUM('in_progress', 'approved', 'remediation_required'),
+      allowNull: false,
+      defaultValue: 'in_progress',
+    },
+    reviewedAt: { type: DataTypes.DATE, allowNull: true },
+    nextReviewDueAt: { type: DataTypes.DATE, allowNull: true },
+    scorecard: { type: jsonType, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  {
+    tableName: 'domain_governance_reviews',
+    indexes: [
+      { unique: true, fields: ['contextName'] },
+      { fields: ['reviewStatus'] },
+      { fields: ['nextReviewDueAt'] },
+    ],
+  },
+);
+
+DomainGovernanceReview.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    contextName: plain.contextName,
+    ownerTeam: plain.ownerTeam,
+    dataSteward: plain.dataSteward,
+    reviewStatus: plain.reviewStatus,
+    reviewedAt: plain.reviewedAt,
+    nextReviewDueAt: plain.nextReviewDueAt,
+    scorecard: plain.scorecard ?? null,
+    notes: plain.notes ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 export const CollaborationParticipant = sequelize.define(
   'CollaborationParticipant',
   {
@@ -16491,6 +16535,7 @@ domainRegistry.registerContext({
       /^AccountRecovery/.test(modelName) ||
       /^UserLogin/.test(modelName),
   ],
+  metadata: domainMetadata.auth,
 });
 
 domainRegistry.registerContext({
@@ -16504,8 +16549,10 @@ domainRegistry.registerContext({
       /^Career/.test(modelName) ||
       /^Launchpad/.test(modelName) ||
       /^Mentor/.test(modelName) ||
-      /^CommunitySpotlight/.test(modelName),
+      /^CommunitySpotlight/.test(modelName) ||
+      /^PeerMentoring/.test(modelName),
   ],
+  metadata: domainMetadata.talent,
 });
 
 domainRegistry.registerContext({
@@ -16521,6 +16568,7 @@ domainRegistry.registerContext({
       /^Collaboration/.test(modelName) ||
       /^Deliverable/.test(modelName),
   ],
+  metadata: domainMetadata.marketplace,
 });
 
 domainRegistry.registerContext({
@@ -16538,6 +16586,7 @@ domainRegistry.registerContext({
       /^Tax/.test(modelName) ||
       /^AgencyBilling/.test(modelName),
   ],
+  metadata: domainMetadata.finance,
 });
 
 domainRegistry.registerContext({
@@ -16551,6 +16600,7 @@ domainRegistry.registerContext({
       /^Support/.test(modelName) ||
       /^Analytics/.test(modelName),
   ],
+  metadata: domainMetadata.communications,
 });
 
 domainRegistry.registerContext({
@@ -16564,16 +16614,18 @@ domainRegistry.registerContext({
       /^Leadership/.test(modelName) ||
       /^Executive/.test(modelName) ||
       /^Accessibility/.test(modelName) ||
-      /^Policy/.test(modelName),
+      /^Policy/.test(modelName) ||
+      /^DomainGovernance/.test(modelName),
   ],
+  metadata: domainMetadata.governance,
 });
 
 domainRegistry.registerContext({
   name: 'platform',
   displayName: 'Platform Controls',
   description: 'Platform-wide configuration including feature flags and platform settings.',
-  models: ['FeatureFlag', 'FeatureFlagAssignment', 'PlatformSetting', 'RuntimeSecurityAuditEvent'],
-  models: ['FeatureFlag', 'FeatureFlagAssignment', 'PlatformSetting', 'RuntimeAnnouncement'],
+  models: ['FeatureFlag', 'FeatureFlagAssignment', 'PlatformSetting', 'RuntimeSecurityAuditEvent', 'RuntimeAnnouncement'],
+  metadata: domainMetadata.platform,
 });
 
 const unassignedModels = domainRegistry.getUnassignedModelNames();

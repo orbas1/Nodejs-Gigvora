@@ -3,6 +3,8 @@
 | File | Description |
 |------|-------------|
 | `database/migrations/20241015121500-runtime-maintenance-announcements.cjs` | Migration creating `runtime_announcements` table with indexed status/start/end columns plus JSONB audiences/channels metadata. |
+| `database/migrations/20241010104500-create-domain-governance-reviews.cjs` | Migration creating `domain_governance_reviews` with steward/contact metadata, governance status enum, next-review cadence indexes, and JSON scorecards compatible with Postgres/SQLite. |
+| `database/seeders/20241010105500-domain-governance-reviews-seed.cjs` | Seeder populating baseline governance reviews per bounded context so staging/test environments surface meaningful remediation data out of the box. |
 | `database/migrations/20241015123000-database-connection-audit.cjs` | Migration provisioning `database_audit_events` with typed event metadata, audit timestamps, and JSON payloads capturing pool snapshots for shutdown reviews. |
 | `src/models/runtimeAnnouncement.js` | Sequelize model defining runtime maintenance announcements with severity/status enums, JSON audience/channel lists, metadata, and helper methods for filtering/scheduling. |
 | `src/models/databaseAuditEvent.js` | Sequelize model persisting auditable database lifecycle events with event type, reason, initiator, and JSON metadata storing pool telemetry. |
@@ -11,6 +13,7 @@
 | `src/routes/runtimeRoutes.js` | Express router registering `/api/runtime/maintenance` with validation and caching headers. |
 | `src/routes/adminRuntimeRoutes.js` | Express router wiring admin maintenance CRUD + status endpoints behind authentication and validation middleware. |
 | `src/services/runtimeMaintenanceService.js` | Service encapsulating announcement creation, updates, lifecycle transitions, filtering, and serialization for controllers. |
+| `src/domains/domainMetadata.js` | Centralised catalogue describing each bounded context’s steward contacts, data classifications, retention targets, and PII inventories used by governance endpoints and schema generation. |
 | `src/routes/docsRoutes.js` | Express router that serves cached OpenAPI documents with hashed ETags for partner tooling and automation. |
 | `src/validation/schemas/runtimeSchemas.js` | Zod schema catalogue covering public/admin query params, create/update payloads, status transitions, and identifier params. |
 | `tests/services/runtimeMaintenanceService.test.js` | Unit coverage exercising sanitisation, chronology enforcement, lifecycle transitions, and filtering branches for the service. |
@@ -51,6 +54,8 @@
 | `src/services/domainIntrospectionService.js` | Service that serialises bounded-context metadata, model definitions, and service bindings for the `/api/domains` endpoints. |
 | `src/routes/domainRoutes.js` | Express router exposing `/api/domains/registry`, context drill-down, and model definition endpoints. |
 | `shared-contracts/clients/typescript/*` | Generated TypeScript declarations mirroring domain schemas for Node and React consumers. |
+| `shared-contracts/domain/governance/*.json` | Versioned governance JSON schemas (summaries, detail payloads, enums) published for backend, React, and Flutter clients. |
+| `shared-contracts/clients/typescript/governance/*` | Generated TypeScript clients corresponding to the governance schemas, providing typed helpers for dashboards and tooling integrations. |
 | `src/observability/rateLimitMetrics.js` | Instrumented metrics store that tracks per-key request attempts, blocked responses, and history snapshots. |
 | `src/observability/metricsRegistry.js` | Prometheus exporter registry initialising process/runtime gauges, scrape counters, and helper accessors consumed by `/health/metrics` and observability services. |
 | `src/middleware/rateLimiter.js` | Wrapper around `express-rate-limit` that records telemetry, applies admin-aware keys, and exposes metrics to the observability service. |

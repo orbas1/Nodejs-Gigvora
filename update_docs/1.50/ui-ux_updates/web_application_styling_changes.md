@@ -78,6 +78,12 @@
 - **Feed Cards:** Soft shadow, gradient header for priority items, and accent-colour badges for action types (gig, job, mentorship, networking).
 - **Calendar Widget:** Uses pill events with subtle glow, interactive legend for toggling event types, and accessible colour pairings.
 - **Inbox Preview:** Compact cards with avatar ring showing online status, accent border for urgent items, and hover expansion to preview message.
+- **Governance Registry Card (23 Apr):** Card height 360px with two-column layout
+  (summary metrics left, remediation list right). Status badges use semantic
+  indigo/amber/green ramps mapped to governance enums; steward avatar stack uses
+  32px circles with 4px white border to preserve contrast on gradient header.
+  Detail CTA styled as tertiary button with inline chevron icon and tooltip
+  clarifying that clicking opens the governance modal.
 
 ### Commerce & Finance
 - **Purchase Page:** Plan cards employ layered backgrounds with hero illustrations, highlight best value with accent ribbon, and animate ROI calculator with incremental counters.

@@ -17,7 +17,13 @@
 4. **Support & Safety**
    - Icons for safety tips, trust center, help contact options.
    - Prometheus exporter pulse glyph, failure streak badge, and runbook CTA icon variants sized 32px/48px for admin dashboards and Flutter alerts.
-5. **Marketing Assets**
+5. **Governance & Compliance (Added 23 Apr)**
+   - Governance summary badge set (approved, monitoring, remediation) for admin
+     dashboards and Flutter cards.
+   - Steward avatar overlays with compliance shield icon; retention policy
+     illustration for healthy state and clipboard reminder for empty state.
+   - Drawer header banner art combining data catalog motif with audit trail icon.
+6. **Marketing Assets**
    - Testimonial imagery, industry-specific backgrounds, certification badges.
 
 ## Style Guidelines

@@ -6,6 +6,18 @@
 - **Research Inputs:** 42 moderated usability sessions, 318 in-product survey responses, telemetry from 1.2M sessions, and accessibility audits conducted with two external consultants.
 - **Success Metrics:** +12% increase in successful gig bookings, -18% reduction in provider onboarding abandonment, WCAG 2.1 AA compliance across high-traffic flows, and 95th percentile page load below 3.2s on mid-tier hardware.
 
+## 23 Apr 2024 — Domain Governance Registry
+- Documented admin governance summary card and detail modal states in
+  `Dashboard Designs.md`, `Screens_Updates_widget_functions.md`, and
+  `Screens_update_images_and_vectors.md`, covering remediation badges, steward
+  contact chips, and overdue review callouts powered by the new governance API.
+- Added governance copy blocks, localisation keys, and accessibility notes to
+  `Screen_text.md`, `text.md.md`, and `Screen_buttons.md` so operations messaging
+  aligns with compliance terminology across web and Flutter surfaces.
+- Updated `user_app_wireframe_changes.md`, `web_application_styling_changes.md`,
+  and `user_application_styling_changes.md` with governance card styling, empty
+  states, and celebratory treatments when all contexts are approved.
+
 ## 14 Apr 2024 — Runtime Documentation CTA
 - Added a spec download action to the admin runtime panel blueprint referencing `/api/docs/runtime-security`, including tooltip messaging, empty/error states, and localisation keys recorded in `Screen_text.md`.
 - Updated `Dashboard Designs.md` and `component_functions.md` so the documentation CTA appears alongside connection pool gauges and perimeter analytics, ensuring operators can export the contract without leaving the dashboard.

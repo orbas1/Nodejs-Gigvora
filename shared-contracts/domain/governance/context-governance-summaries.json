@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ContextGovernanceSummaries",
+  "type": "object",
+  "required": ["contexts", "generatedAt"],
+  "properties": {
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "contexts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "contextName",
+          "displayName",
+          "ownerTeam",
+          "dataSteward",
+          "dataClassification",
+          "piiModelCount",
+          "piiFieldCount",
+          "reviewStatus"
+        ],
+        "properties": {
+          "contextName": { "type": "string" },
+          "displayName": { "type": "string" },
+          "description": { "type": ["string", "null"] },
+          "ownerTeam": { "type": ["string", "null"] },
+          "dataSteward": { "type": ["string", "null"] },
+          "dataClassification": { "type": ["string", "null"] },
+          "businessCriticality": { "type": ["string", "null"] },
+          "defaultRetention": { "type": ["string", "null"] },
+          "regulatoryFrameworks": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "piiModelCount": { "type": "integer", "minimum": 0 },
+          "piiFieldCount": { "type": "integer", "minimum": 0 },
+          "reviewStatus": { "type": "string" },
+          "reviewedAt": { "type": ["string", "null"], "format": "date-time" },
+          "nextReviewDueAt": { "type": ["string", "null"], "format": "date-time" },
+          "automationCoverage": { "type": ["number", "null"] },
+          "remediationItems": { "type": ["integer", "null"], "minimum": 0 }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
