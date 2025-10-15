@@ -3,6 +3,12 @@ export default {
   verbose: false,
   clearMocks: true,
   setupFilesAfterEnv: ['<rootDir>/tests/setupTestEnv.js'],
+  moduleNameMapper: {
+    '^pino-http$': '<rootDir>/tests/stubs/pinoHttpStub.js',
+    '^pino$': '<rootDir>/tests/stubs/pinoStub.js',
+    '^express-rate-limit$': '<rootDir>/tests/stubs/expressRateLimitStub.js',
+    '^zod$': '<rootDir>/tests/stubs/zodStub.js',
+  },
   moduleFileExtensions: ['js', 'json'],
   collectCoverageFrom: [
     'src/**/*.js',

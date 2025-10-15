@@ -9,6 +9,7 @@ import {
   markHttpServerClosing,
   markHttpServerStopped,
 } from './lifecycle/runtimeHealth.js';
+import { warmRuntimeDependencyHealth } from './services/runtimeDependencyGuard.js';
 
 dotenv.config();
 
@@ -23,6 +24,7 @@ export async function start({ port = DEFAULT_PORT } = {}) {
 
   markHttpServerStarting();
   await startBackgroundWorkers({ logger });
+  await warmRuntimeDependencyHealth({ logger, forceRefresh: true });
 
   httpServer = http.createServer(app);
 

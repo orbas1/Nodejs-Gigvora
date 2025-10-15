@@ -117,3 +117,14 @@ We restructured the consumer app logic to emphasise clarity, personalised recomm
 - Integrate AI-powered summarisation in messaging to surface key negotiation points.
 - Expand loyalty rewards flow with tiered benefits and progress tracking.
 - Explore contextual nudges encouraging reviews post-completion while respecting user fatigue.
+
+## Maintenance Polling & Escalation Flow (10 Apr 2024)
+1. **Polling:** Security repository triggers health poll every 90s. When maintenance response returns `status=active` for user audience, dispatch `SHOW_MAINTENANCE_DRAWER` event.
+2. **Drawer Decision:**
+   - If `dismissible=false`, disable swipe-to-close and show "Contact Support" primary CTA.
+   - If `dismissedAt` stored and announcement unchanged, suppress drawer but keep mini-banner visible.
+3. **CTA Outcomes:**
+   - "Notify me" stores preference and triggers push subscription endpoint.
+   - "View timeline" deep links to support article within webview with context params (slug, severity).
+4. **Post-Resolution:** When status transitions to `resolved`, show confirmation toast and archive announcement in history list. Analytics event `maintenance_resolved_viewed` fires once per user.
+5. **Offline Handling:** If poll fails, show offline badge with last successful timestamp; retry button triggers immediate poll and logs `maintenance_manual_refresh`.

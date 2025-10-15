@@ -9,6 +9,7 @@ import {
   affiliateSettingsBodySchema,
   platformSettingsBodySchema,
 } from '../validation/schemas/adminSchemas.js';
+import adminRuntimeRoutes from './adminRuntimeRoutes.js';
 
 const router = Router();
 
@@ -34,5 +35,6 @@ router.put(
 );
 
 router.use('/ads/coupons', adminAdRoutes);
+router.use('/runtime', adminRuntimeRoutes);
 
 export default router;

@@ -153,3 +153,10 @@ The provider portal received comprehensive journey rewiring to remove redundant 
 - Evaluate AI-assisted queue triage to further automate assignment recommendations.
 - Expand compliance resolution to incorporate machine-learning severity predictions.
 - Explore in-flow chat support for onboarding to reduce support tickets.
+
+## Maintenance Acknowledgement Flow (10 Apr 2024)
+1. Provider logs into command center; upon fetching runtime maintenance feed, active announcements render in strip.
+2. Selecting "Acknowledge" triggers modal requiring optional note. Confirmation calls admin PATCH status endpoint with actor metadata and logs analytics event.
+3. Acknowledged announcements collapse but remain accessible via "View history" drawer containing filterable list (status, team, time window).
+4. If severity=`incident` or `security`, block sensitive workflows (payout approval, onboarding) until acknowledged; surface toast explaining lockout and linking to status details.
+5. Escalation: If announcement unresolved after 30 minutes, escalate to operations Slack webhook with summary data and outstanding teams.

@@ -102,7 +102,8 @@ class SecurityController extends StateNotifier<ResourceState<SecurityTelemetry>>
 
 final securityRepositoryProvider = Provider<SecurityRepository>((ref) {
   final cache = ref.watch(offlineCacheProvider);
-  return SecurityRepository(cache);
+  final apiClient = ref.watch(apiClientProvider);
+  return SecurityRepository(cache, apiClient);
 });
 
 final securityControllerProvider =

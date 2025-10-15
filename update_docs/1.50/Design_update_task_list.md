@@ -6,13 +6,13 @@
 | 1 | Finalise Token Architecture | Lead Systems Designer (I. Ortega) | 18 Mar | 19 Apr | In Progress | 45% | Medium | Emo theme tokens creating spacing regressions in marketing layouts |
 | 2 | Consolidate Iconography & Imagery | Brand Systems Lead (R. Banerjee) | 19 Mar | 12 Apr | In Progress | 38% | Medium | Licensing validation for new community banners still pending |
 | 3 | Re-map Application Screen Hierarchy | Product Design Manager (S. Malik) | 18 Mar | 26 Apr | In Progress | 42% | Low | Persona validation backlog could delay approval |
-| 4 | Refine Application Widgets & States | Interaction Lead (D. Yeh) | 21 Mar | 3 May | In Progress | 28% | Medium | Accessibility sign-off for high-density widgets |
+| 4 | Refine Application Widgets & States | Interaction Lead (D. Yeh) | 21 Mar | 3 May | In Progress | 35% | Medium | Accessibility sign-off for high-density widgets |
 | 5 | Redesign Marketing Landing Pages | Web Experience Lead (C. Lavoie) | 20 Mar | 10 May | In Progress | 31% | Low | Copy deck approvals for testimonials |
 | 6 | Expand Secondary Web Pages | Content Experience Lead (G. Santos) | 22 Mar | 8 May | In Progress | 26% | Medium | CMS partial dependencies unsettled |
-| 7 | Refresh Authenticated Web Dashboards | Data Visualisation Lead (J. Chen) | 25 Mar | 17 May | In Progress | 44% | Medium | Awaiting analytics instrumentation guidance |
+| 7 | Refresh Authenticated Web Dashboards | Data Visualisation Lead (J. Chen) | 25 Mar | 17 May | In Progress | 52% | Medium | Awaiting analytics instrumentation guidance |
 | 8 | Implement Theme & Partial Infrastructure | Platform Design Ops (A. Ekpo) | 25 Mar | 24 May | In Progress | 24% | High | CMS preview workflow not yet approved by security |
-| 9 | Governance & Security UX Updates | Compliance UX Lead (H. Wells) | 18 Mar | 30 Apr | In Progress | 52% | Medium | Localisation approvals for maintenance copy |
-| 10 | Handoff, QA, and Documentation | Design Ops PM (T. Dawson) | 1 Apr | 31 May | Planned | 12% | Medium | Dependency on upstream asset readiness |
+| 9 | Governance & Security UX Updates | Compliance UX Lead (H. Wells) | 18 Mar | 30 Apr | In Progress | 66% | Medium | Localisation approvals for maintenance copy |
+| 10 | Handoff, QA, and Documentation | Design Ops PM (T. Dawson) | 1 Apr | 31 May | Planned | 18% | Medium | Dependency on upstream asset readiness |
 
 ---
 
@@ -76,7 +76,7 @@
 - [ ] Validate accessibility requirements (keyboard, focus, ARIA) per widget family.
 - [ ] Prototype high-risk widgets (finance reconciliation, dispute triage) for engineering feasibility testing.
 
-**Progress Notes:** Interaction pattern review kicked off; accessibility audit scheduled for 9 Apr to confirm compliance coverage.
+**Progress Notes:** Interaction pattern review kicked off; maintenance banner states, downtime drawer behaviours, and lifecycle toasts added to widget specifications. Accessibility audit scheduled for 12 Apr to validate aria-live and keyboard focus across the new maintenance components.
 
 **Dependencies:** Dependent on Task 3 hierarchy outcomes and Task 7 data density guidelines.
 
@@ -127,7 +127,7 @@
 - [ ] Prepare QA checklist covering state permutations and partial injections.
 - [ ] Partner with analytics to validate instrumentation requirements.
 
-**Progress Notes:** Wireframe review folding in new feature-flag states exported from domain registry; analytics instrumentation workshop scheduled for 4 Apr to confirm KPIs. Domain registry observability panels mapped to `/api/domains` data ensure operators can trace schema changes within dashboard layouts. Runtime health panel specs now cover `/api/admin/runtime/health`, rate-limit utilisation, dependency chips, and localisation-ready operations copy, unblocking engineering implementation.
+**Progress Notes:** Wireframe review folding in new feature-flag states exported from domain registry; analytics instrumentation workshop scheduled for 4 Apr to confirm KPIs. Domain registry observability panels mapped to `/api/domains` data ensure operators can trace schema changes within dashboard layouts. Runtime health panel specs now cover `/api/admin/runtime/health`, rate-limit utilisation, dependency chips, localisation-ready operations copy, and the newly added maintenance announcement chips sourced from `/api/runtime/maintenance`.
 
 **Dependencies:** Requires token updates from Task 1 and widget definitions from Task 4.
 
@@ -152,7 +152,7 @@
 
 ---
 
-### Task 9 — Governance & Security UX Updates (52%)
+### Task 9 — Governance & Security UX Updates (66%)
 **Objective:** Ensure all compliance-critical flows (consent, legal, privacy, payouts) reflect updated language and trust signals.
 - [x] Review consent, legal, and privacy modules for tone and clarity improvements.
 - [x] Update security-critical flows (identity verification, payouts) with reinforced messaging and contextual help.
@@ -161,7 +161,7 @@
 - [ ] Document required audit artefacts for regulators and enterprise clients.
 - [ ] Coordinate sign-off with legal, security, and compliance steering group.
 
-**Progress Notes:** Maintenance mode, rate-limit, and outage messaging kits approved; telemetry widget spec handed to engineering. Remaining work covers emo theme contrast validation and regulator artefact packaging.
+**Progress Notes:** Maintenance mode, rate-limit, and outage messaging kits approved; telemetry widget spec handed to engineering. Admin maintenance registry flows, mobile downtime drawer copy, and localisation notes shipped for engineering review. Added payments/compliance guard downtime banners with request ID surfacing and legal escalation copy. Remaining work covers emo theme contrast validation and regulator artefact packaging.
 
 **Dependencies:** Needs updated tokens (Task 1) and theme infrastructure (Task 8) to finalise multi-theme compliance screens, plus backend maintenance banner schema for final sign-off.
 
@@ -178,7 +178,7 @@
 - [ ] Archive final artefacts in shared drive with versioned access logs and retention plan.
 - [ ] Publish release readiness report summarising outstanding design risks.
 
-**Progress Notes:** Repository structure drafted; awaiting upstream deliverables before compiling final documentation packages.
+**Progress Notes:** Repository structure drafted; runtime maintenance change logs, banner specs, and progress tracker updates published to align with engineering delivery. Awaiting final localisation artefacts before compiling the complete documentation package.
 
 **Dependencies:** Cannot complete until Tasks 1–9 deliver final assets and approvals.
 

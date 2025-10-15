@@ -1,5 +1,39 @@
 # Services Changes — Version 1.50 Update
 
+## `src/services/runtimeMaintenanceService.js`
+- New service providing CRUD operations for runtime maintenance announcements with sanitisation of copy, slug deduplication,
+  channel/audience targeting, and strict scheduling/chronology enforcement.
+- Supplies filtering helpers for public and admin listings (audience, channel, status, time window) plus lifecycle transitions
+  that automatically stamp `startsAt`/`endsAt` when statuses change to `active` or `resolved`.
+- Normalises actor metadata for auditability and emits plain objects for controllers, enabling consistent serialization across
+  admin dashboards, public banners, and mobile clients.
+
+## `src/services/runtimeObservabilityService.js`
+- Aggregates readiness, liveness, dependency health, process telemetry, rate-limit metrics, and now maintenance announcement
+  summaries into a single operational snapshot consumed by `/api/admin/runtime/health` and admin dashboards.
+- Resolves the highest priority active or upcoming maintenance window via `runtimeMaintenanceService` so operations can view
+  downtime context from the standard observability endpoint without additional calls.
+
+## `src/services/runtimeDependencyGuard.js`
+- New dependency orchestration layer that inspects platform settings, runtime maintenance announcements, and cached telemetry
+  to determine whether payments and compliance services are healthy, degraded (maintenance), or unavailable.
+- Normalises guard results into structured snapshots, updates runtime health state for observability, and throws
+  `ServiceUnavailableError` instances with detailed metadata when downstream workflows must halt.
+- Provides warm-up helpers so the server precomputes dependency state during boot, enabling `/health/ready` and admin
+  dashboards to surface accurate statuses immediately.
+
+## `src/services/complianceService.js`
+- Wrapped wallet provisioning and ledger mutation helpers with the payment dependency guard so new accounts and ledger entries
+  are blocked when the configured custody provider credentials are missing or maintenance is in progress.
+- Propagates request logging context into guard calls to improve traceability when wallet creation or ledger posts are paused
+  due to degraded dependencies.
+
+## `src/services/complianceLockerService.js`
+- Added compliance dependency guard enforcement to document creation, versioning, and reminder acknowledgement flows so secure
+  storage outages trigger immediate `503` responses instead of partial writes.
+- Extended service options to carry request logging metadata into guard checks, ensuring operational logs capture which actor
+  attempted to mutate the locker during a maintenance window.
+
 ## `src/services/healthService.js`
 - New service verifying Sequelize connectivity on a throttled cadence, calculating dependency latency, and synthesising readiness/liveness reports for API consumers.
 
@@ -21,7 +55,3 @@
 ## `src/services/domainIntrospectionService.js`
 - New service that serialises bounded-context metadata, Sequelize models, indexes, hooks, and associations to power `/api/domains` diagnostics and registry exports.
 - Resolves attached domain services via capability descriptors, enabling tooling to understand which contexts provide authentication, marketplace, or platform workflows.
-
-## `src/services/runtimeObservabilityService.js`
-- Aggregates readiness, liveness, dependency health, process telemetry, and rate-limit metrics into a single operational snapshot consumed by `/api/admin/runtime/health`.
-- Normalises environment metadata (release identifiers, regions, memory/cpu usage) so dashboards and automation hooks can surface actionable runtime indicators without duplicating process logic.

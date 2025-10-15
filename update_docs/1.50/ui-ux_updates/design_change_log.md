@@ -6,6 +6,12 @@
 - **Research Inputs:** 42 moderated usability sessions, 318 in-product survey responses, telemetry from 1.2M sessions, and accessibility audits conducted with two external consultants.
 - **Success Metrics:** +12% increase in successful gig bookings, -18% reduction in provider onboarding abandonment, WCAG 2.1 AA compliance across high-traffic flows, and 95th percentile page load below 3.2s on mid-tier hardware.
 
+## 10 Apr 2024 — Maintenance Communications Rollout
+- Finalised cross-surface maintenance banner treatments (web top-of-shell, mobile drawer, provider command center strip) with severity-driven color tokens, iconography, and dismissal logic. Specifications captured in `web_application_styling_changes.md`, `user_application_styling_changes.md`, and `provider_application_styling_changes.md` now align with the runtime maintenance API contract.
+- Added admin maintenance registry table, modal editor, and lifecycle toast guidance to `web_app_wireframe_changes.md` and `component_functions.md`, including form validation messaging, actor audit chips, and schedule conflict warnings.
+- Documented mobile maintenance polling cadence, offline fallback copy, and CTA behaviours in `user_app_wireframe_changes.md` and `user_application_logic_flow_changes.md` so Flutter teams can mirror backend lifecycles.
+- Logged accessibility requirements (aria-live alerts, focus traps, keyboard shortcuts) and analytics events for maintenance interactions in `web_application_logic_flow_changes.md` and `Design_update_task_list.md` Task 9 commentary, ensuring QA scripts cover downtime drills.
+
 ## Global Design Foundations
 ### Visual Language
 1. **Token Refresh:** Migrated to the Gigvora Indigo palette (primary `#3730A3`, accent `#F97316`, success `#16A34A`, warning `#F59E0B`, error `#EF4444`) with semantic aliasing for backgrounds, surfaces, and outlines.

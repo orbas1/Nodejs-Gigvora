@@ -14,6 +14,7 @@ import {
   ESCROW_INTEGRATION_PROVIDERS,
 } from '../models/index.js';
 import { ValidationError, NotFoundError, ConflictError } from '../utils/errors.js';
+import { assertPaymentInfrastructureOperational } from './runtimeDependencyGuard.js';
 
 const CLOSED_LOOP_CLASSIFICATION = 'closed_loop_non_cash';
 
@@ -118,11 +119,21 @@ export async function ensureWalletAccount({
   custodyProvider,
   currencyCode = 'USD',
   transaction,
+  logger,
+  requestId,
+  forceRefresh = false,
 } = {}) {
   const numericUserId = normalizeId(userId, 'userId');
   const numericProfileId = normalizeId(profileId, 'profileId');
   const normalizedType = assertInEnum(accountType, WALLET_ACCOUNT_TYPES, 'accountType');
   const provider = resolveCustodyProvider(normalizedType, custodyProvider);
+
+  await assertPaymentInfrastructureOperational({
+    feature: `wallet_account:${normalizedType}`,
+    logger,
+    requestId,
+    forceRefresh,
+  });
 
   const [account] = await WalletAccount.findOrCreate({
     where: { userId: numericUserId, profileId: numericProfileId, accountType: normalizedType },
@@ -155,7 +166,7 @@ export async function ensureWalletAccount({
   return account;
 }
 
-export async function ensureProfileWallets(user, { transaction } = {}) {
+export async function ensureProfileWallets(user, { transaction, logger, requestId, forceRefresh = false } = {}) {
   if (!user || !user.Profile) {
     return;
   }
@@ -167,6 +178,9 @@ export async function ensureProfileWallets(user, { transaction } = {}) {
       profileId: baseProfile.id,
       accountType: 'user',
       transaction,
+      logger,
+      requestId,
+      forceRefresh,
     }),
   ];
 
@@ -177,6 +191,8 @@ export async function ensureProfileWallets(user, { transaction } = {}) {
         profileId: baseProfile.id,
         accountType: 'freelancer',
         transaction,
+        logger,
+        requestId,
       }),
     );
   }
@@ -188,6 +204,8 @@ export async function ensureProfileWallets(user, { transaction } = {}) {
         profileId: baseProfile.id,
         accountType: 'company',
         transaction,
+        logger,
+        requestId,
       }),
     );
   }
@@ -199,6 +217,8 @@ export async function ensureProfileWallets(user, { transaction } = {}) {
         profileId: baseProfile.id,
         accountType: 'agency',
         transaction,
+        logger,
+        requestId,
       }),
     );
   }
@@ -419,7 +439,11 @@ export async function recordQualificationCredential(userId, payload = {}, { tran
   return record;
 }
 
-export async function recordWalletLedgerEntry(walletAccountId, payload = {}, { transaction } = {}) {
+export async function recordWalletLedgerEntry(
+  walletAccountId,
+  payload = {},
+  { transaction, logger, requestId, forceRefresh = false } = {},
+) {
   const account = await WalletAccount.findByPk(walletAccountId, {
     transaction,
     lock: transaction ? transaction.LOCK.UPDATE : undefined,
@@ -434,6 +458,13 @@ export async function recordWalletLedgerEntry(walletAccountId, payload = {}, { t
     WALLET_LEDGER_ENTRY_TYPES,
     'entryType',
   );
+
+  await assertPaymentInfrastructureOperational({
+    feature: `wallet_ledger:${entryType}`,
+    logger,
+    requestId,
+    forceRefresh,
+  });
 
   const rawAmount = safeNumber(payload.amount);
   const amount = Math.round(rawAmount * 10000) / 10000;
