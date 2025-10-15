@@ -1,5 +1,10 @@
 # Widget Updates — User App
 
+## 19 Apr 2024
+- **Exporter Snackbar Widget:** Added Prometheus exporter snackbar variant with warning/error palettes, runbook CTA, and analytics hooks; integrates with runtime health repository exporter snapshot.
+- **Telemetry Drawer Module:** Introduced expandable drawer showing exporter uptime gauge, scrape history sparkline, and failure streak list; supports manual refresh action and runbook link.
+- **Success Toast:** After recovery the snackbar transitions to success toast variant with confetti micro-interaction and auto-dismiss timer to confirm metrics restored.
+
 ## 12 Apr 2024
 - **Maintenance Contact Chip:** Runtime health banner now appends the backend support contact as a tappable chip so operators
   have immediate escalation details when maintenance is active.

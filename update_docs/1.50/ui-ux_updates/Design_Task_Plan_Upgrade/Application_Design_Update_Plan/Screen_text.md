@@ -45,3 +45,9 @@
 ## Future Enhancements
 - Implement personalised tips based on user behaviour.
 - Integrate microcopy testing via feature flags to optimise conversion.
+
+## Runtime Telemetry Copy
+- **Prometheus Exporter Healthy:** "Exporter online — last scrape {{relativeTime}}"; keep tone neutral, no CTA.
+- **Prometheus Exporter Warning:** "Exporter stale — last scrape {{relativeTime}}. Retry or open runbook." Provide runbook CTA label `View exporter runbook`.
+- **Prometheus Exporter Error:** "Exporter unresponsive for {{failureMinutes}}. Follow incident steps to restore metrics." CTA `Open runtime runbook` and secondary text `Scrapes will resume automatically after resolution.`
+- **Mobile Snackbar:** Shorten to "Metrics exporter stale — last scrape {{relativeTime}}" with action `View telemetry` and optional secondary action `Runbook` when failure streak ≥ 3.

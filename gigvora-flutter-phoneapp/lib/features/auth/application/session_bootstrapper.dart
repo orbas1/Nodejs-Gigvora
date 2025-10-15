@@ -45,7 +45,9 @@ final sessionBootstrapProvider = FutureProvider<SessionBootstrapResult>((ref) as
       backendHealthy: healthSnapshot.healthy,
       authenticated: false,
       message: healthSnapshot.healthy
-          ? null
+          ? (healthSnapshot.metricsStale
+              ? 'Runtime monitoring telemetry is delayed. Our operations team has been notified to investigate.'
+              : null)
           : healthSnapshot.supportContact != null
               ? 'Platform maintenance detected. Contact ${healthSnapshot.supportContact} for assistance.'
               : 'Platform maintenance detected. Live data will resume once systems recover.',

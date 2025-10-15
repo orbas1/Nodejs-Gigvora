@@ -9,11 +9,17 @@
   admin dashboards, public banners, and mobile clients.
 
 ## `src/services/runtimeObservabilityService.js`
-- Aggregates readiness, liveness, dependency health, process telemetry, rate-limit metrics, perimeter incidents, security audits, and database pool utilisation into a single operational snapshot consumed by `/api/admin/runtime/health` and admin dashboards.
+- Aggregates readiness, liveness, dependency health, process telemetry, rate-limit metrics, perimeter incidents, security audits, database pool utilisation, and Prometheus exporter status into a single operational snapshot consumed by `/api/admin/runtime/health` and admin dashboards.
 - Normalises runtime maintenance announcements into a `maintenance` feed plus a `scheduledMaintenance` summary sourced from platform settings so operators can compare live incidents with planned downtime without additional calls.
 - Resolves the highest priority active or upcoming maintenance window via `runtimeMaintenanceService` while surfacing max/min/borrowed counts from the pool snapshot so operations can validate graceful shutdowns from the same telemetry payload.
 - Incorporates web application firewall metrics, exposing top rules, top sources, and recent block timestamps so operators can correlate abuse detection with rate-limit telemetry from one payload.
 - Surfaces auto-block telemetry (active quarantines, thresholds, and last escalation metadata) so admin dashboards, mobile clients, and partner tooling can reason about automated perimeter decisions without tailing logs.
+- Publishes exporter freshness (last successful scrape, failure streak, primed state) sourced from `metricsRegistry` so operators can detect stale Prometheus scrapes directly from runtime telemetry and trigger runbook steps before alerts fire.
+
+## `src/observability/metricsRegistry.js`
+- New Prometheus metrics catalogue registering process, HTTP, rate-limiting, WAF, and database pool gauges with namespaced labels and histogram buckets aligned to SRE standards.
+- Exposes `primeMetrics()` so server bootstrap can pre-populate expensive gauges (database pool counts, exporter heartbeat) before the first scrape, preventing cold-start gaps in Grafana dashboards.
+- Provides helper accessors (`getMetrics`, `incrementScrapeTotal`, `recordExporterFailure`) used by `/health/metrics` route handlers and runtime observability services to keep exporter health, scrape counts, and error tallies consistent across code paths.
 
 ## `src/security/webApplicationFirewall.js`
 - Centralises threat signatures, request surface normalisation, and environment-driven allow/block lists for the web application firewall.

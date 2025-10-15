@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { getLivenessReport, getReadinessReport } from '../services/healthService.js';
+import { collectMetrics, getMetricsContentType } from '../observability/metricsRegistry.js';
 
 const router = Router();
 
@@ -22,6 +23,16 @@ router.get('/', async (req, res, next) => {
   try {
     const report = await getReadinessReport();
     res.status(report.httpStatus).json(report);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/metrics', async (req, res, next) => {
+  try {
+    const metrics = await collectMetrics();
+    res.setHeader('Content-Type', getMetricsContentType());
+    res.send(metrics);
   } catch (error) {
     next(error);
   }

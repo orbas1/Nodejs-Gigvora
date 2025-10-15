@@ -119,6 +119,23 @@ class GigvoraApp extends ConsumerWidget {
               debugPrint(message);
             }
           });
+        } else if (snapshot.metricsStale) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            final messenger = ScaffoldMessenger.maybeOf(context);
+            const message =
+                'Runtime monitoring telemetry is delayed. Operations has been alerted to investigate Prometheus scrapes.';
+            if (messenger != null) {
+              messenger.showSnackBar(
+                SnackBar(
+                  content: const Text(message),
+                  behavior: SnackBarBehavior.floating,
+                  backgroundColor: const Color(0xFF2563EB),
+                ),
+              );
+            } else {
+              debugPrint(message);
+            }
+          });
         }
       });
     });

@@ -1,12 +1,13 @@
 import {
   ArrowPathIcon,
+  ArrowTopRightOnSquareIcon,
   BoltIcon,
   ExclamationTriangleIcon,
+  GlobeAltIcon,
   ShieldCheckIcon,
   ShieldExclamationIcon,
   SignalIcon,
   WrenchScrewdriverIcon,
-  GlobeAltIcon,
 } from '@heroicons/react/24/outline';
 import classNames from '../../utils/classNames.js';
 
@@ -263,6 +264,22 @@ export default function RuntimeTelemetryPanel({ snapshot, loading, refreshing, e
   const wafAutoActive = Array.isArray(wafAutoBlock.active) ? wafAutoBlock.active : [];
   const wafAutoTotal = Number(wafAutoBlock.totalTriggered ?? 0);
   const wafAutoLast = wafAutoBlock.lastTriggered ?? null;
+  const metrics = snapshot?.metrics ?? {};
+  const metricsExporter = metrics.exporter ?? 'prometheus';
+  const metricsEndpoint = metrics.endpoint ?? '/health/metrics';
+  const metricsScrapes = Number(metrics.scrapes ?? 0);
+  const metricsLastScrapeAt = metrics.lastScrapeAt ?? null;
+  const metricsStale = Boolean(metrics.stale);
+  const metricsSecondsSince = Number.isFinite(Number(metrics.secondsSinceLastScrape))
+    ? Number(metrics.secondsSinceLastScrape)
+    : null;
+  const metricsThresholdSeconds = Number.isFinite(Number(metrics.staleThresholdSeconds))
+    ? Number(metrics.staleThresholdSeconds)
+    : 0;
+  const metricsRateLimitLifetime = metrics.rateLimit ?? {};
+  const metricsWafSummary = metrics.waf ?? {};
+  const metricsPerimeterSummary = metrics.perimeter ?? {};
+  const metricsDatabaseSummary = metrics.database ?? {};
 
   const dependencyEntries = Object.entries(readiness.dependencies ?? {}).map(([name, meta]) => ({
     name,
@@ -548,6 +565,56 @@ export default function RuntimeTelemetryPanel({ snapshot, loading, refreshing, e
                       ) : null}
                     </div>
                   ) : null}
+                </div>
+                <div className="mt-3 rounded-xl border border-slate-200 bg-white/70 p-3">
+                  <p className="flex items-center gap-2 text-xs font-semibold text-slate-800">
+                    <WrenchScrewdriverIcon className="h-4 w-4" /> Monitoring exporter
+                  </p>
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    {metricsScrapes
+                      ? `Served ${formatNumber(metricsScrapes)} scrape${metricsScrapes === 1 ? '' : 's'} via ${metricsExporter}.`
+                      : `Awaiting first ${metricsExporter} scrape.`}
+                    {metricsLastScrapeAt ? ` Last scrape ${formatRelative(metricsLastScrapeAt)}.` : ''}
+                  </p>
+                  {metricsStale ? (
+                    <div className="mt-2 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
+                      <ExclamationTriangleIcon className="mt-0.5 h-4 w-4" />
+                      <p>
+                        Prometheus has not collected metrics for{' '}
+                        {metricsSecondsSince != null
+                          ? formatDuration(metricsSecondsSince)
+                          : formatDuration(metricsThresholdSeconds + 60)}
+                        . Verify the collector job or network allow list.
+                      </p>
+                    </div>
+                  ) : null}
+                  <ul className="mt-2 space-y-1 text-[11px] text-slate-600">
+                    <li>
+                      Rate limit lifetime: {formatNumber(metricsRateLimitLifetime.hits ?? 0)} hits ·{' '}
+                      {formatNumber(metricsRateLimitLifetime.blocked ?? 0)} blocked
+                    </li>
+                    <li>
+                      WAF lifetime: {formatNumber(metricsWafSummary.blockedRequests ?? 0)} blocked ·{' '}
+                      {formatNumber(metricsWafSummary.autoBlockEvents ?? 0)} auto-blocks
+                    </li>
+                    <li>
+                      Perimeter lifetime: {formatNumber(metricsPerimeterSummary.totalBlocked ?? 0)} perimeter blocks
+                    </li>
+                    <li>
+                      DB pool snapshot: {formatNumber(metricsDatabaseSummary.size ?? 0)} size ·{' '}
+                      {formatNumber(metricsDatabaseSummary.borrowed ?? 0)} borrowed ·{' '}
+                      {formatNumber(metricsDatabaseSummary.available ?? 0)} idle
+                    </li>
+                  </ul>
+                  <a
+                    href={metricsEndpoint}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-500"
+                  >
+                    View metrics feed
+                    <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
+                  </a>
                 </div>
               </div>
               <DependencyList title="Dependencies" items={dependencyEntries} />

@@ -16,6 +16,7 @@
    - Step-by-step icons for identity verification, document upload, schedule setup.
 4. **Support & Safety**
    - Icons for safety tips, trust center, help contact options.
+   - Prometheus exporter pulse glyph, failure streak badge, and runbook CTA icon variants sized 32px/48px for admin dashboards and Flutter alerts.
 5. **Marketing Assets**
    - Testimonial imagery, industry-specific backgrounds, certification badges.
 

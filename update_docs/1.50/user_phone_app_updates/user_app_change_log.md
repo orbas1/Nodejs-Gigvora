@@ -1,3 +1,9 @@
+# User Phone App Change Log — 19 Apr 2024
+
+1. **Prometheus Exporter Alerts:** Runtime health snapshot now exposes exporter status (primed flag, last scrape timestamp, failure streak) so Flutter surfaces raise stale scrape warnings alongside maintenance copy.
+2. **Runbook CTA Wiring:** Added repository hooks powering "Runbook" deep link and telemetry events; mobile operators can jump directly to the runtime incident guide when exporter failures persist.
+3. **Design Artefact Sync:** Updated `App_screens_drawings.md` and `user_app_wireframe_changes.md` with exporter snackbar/drawer layouts, ensuring parity with admin telemetry specs and localisation tokens.
+
 # User Phone App Change Log — 18 Apr 2024
 
 1. **Auto-Block Snapshot Support:** Extended `RuntimeHealthSnapshot` and repository to parse the new `waf.autoBlock` payload (active quarantines, threshold, TTL, last escalation) so the app can raise escalated alerts when automated quarantines trigger.

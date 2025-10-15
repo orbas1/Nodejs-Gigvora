@@ -8,6 +8,7 @@ import { getDatabasePoolSnapshot } from './databaseLifecycleService.js';
 import { getRateLimitSnapshot } from '../observability/rateLimitMetrics.js';
 import { getPerimeterSnapshot } from '../observability/perimeterMetrics.js';
 import { getWebApplicationFirewallSnapshot } from '../security/webApplicationFirewall.js';
+import { getMetricsStatus } from '../observability/metricsRegistry.js';
 
 const SEVERITY_RANKING = {
   security: 4,
@@ -187,6 +188,7 @@ export async function getRuntimeOperationalSnapshot() {
     perimeter: getPerimeterSnapshot(),
     waf: getWebApplicationFirewallSnapshot(),
     databasePool: getDatabasePoolSnapshot(),
+    metrics: getMetricsStatus(),
     maintenance: buildAnnouncementSummary(maintenanceAnnouncements),
     scheduledMaintenance: buildScheduledMaintenanceSnapshot(settings),
     security: buildSecuritySnapshot(securityEvents),

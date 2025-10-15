@@ -76,6 +76,42 @@ void main() {
           'perimeter': {
             'totalBlocked': 4,
           },
+          'metrics': {
+            'exporter': 'prometheus',
+            'endpoint': '/health/metrics',
+            'scrapes': 3,
+            'stale': false,
+            'secondsSinceLastScrape': 12,
+            'staleThresholdSeconds': 180,
+            'rateLimit': {
+              'hits': 1200,
+              'allowed': 1196,
+              'blocked': 4,
+              'blockedRatio': 0.0033,
+              'activeKeys': 12,
+              'requestsPerSecond': 42.5,
+            },
+            'waf': {
+              'blockedRequests': 3,
+              'evaluatedRequests': 30,
+              'autoBlockEvents': 1,
+              'activeAutoBlocks': 0,
+              'lastBlockedAt': '2024-04-11T10:58:00.000Z',
+            },
+            'perimeter': {
+              'totalBlocked': 7,
+              'activeOrigins': 2,
+              'lastBlockedAt': '2024-04-11T10:57:00.000Z',
+            },
+            'database': {
+              'vendor': 'mysql',
+              'size': 15,
+              'available': 10,
+              'borrowed': 3,
+              'pending': 2,
+              'updatedAt': '2024-04-11T10:55:00.000Z',
+            },
+          },
         };
       }),
     );
@@ -87,5 +123,14 @@ void main() {
     expect(snapshot.dependencies['paymentsCore']['status'], 'degraded');
     expect(snapshot.supportContact, 'status@gigvora.com');
     expect(snapshot.totalPerimeterBlocks, 4);
+    expect(snapshot.metrics, isNotNull);
+    expect(snapshot.metrics!.exporter, 'prometheus');
+    expect(snapshot.metrics!.hasScraped, isTrue);
+    expect(snapshot.metrics!.rateLimit?.hits, 1200);
+    expect(snapshot.metrics!.rateLimit?.blocked, 4);
+    expect(snapshot.metrics!.waf?.blockedRequests, 3);
+    expect(snapshot.metrics!.perimeter?.totalBlocked, 7);
+    expect(snapshot.metrics!.database?.vendor, 'mysql');
+    expect(snapshot.metricsStale, isFalse);
   });
 }

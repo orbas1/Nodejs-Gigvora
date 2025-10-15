@@ -15,6 +15,8 @@
 | `src/validation/schemas/runtimeSchemas.js` | Zod schema catalogue covering public/admin query params, create/update payloads, status transitions, and identifier params. |
 | `tests/services/runtimeMaintenanceService.test.js` | Unit coverage exercising sanitisation, chronology enforcement, lifecycle transitions, and filtering branches for the service. |
 | `tests/routes/runtimeRoutes.test.js` | Supertest coverage validating public maintenance endpoint filtering, caching headers, and validation behaviour using stubs. |
+| `tests/routes/healthRoutes.metrics.test.js` | Supertest suite asserting `/health/metrics` streams Prometheus output, exporter priming responds immediately after boot, and scrape counters increment on demand. |
+| `tests/routes/complianceRoutes.validation.test.js` | Supertest coverage confirming compliance locker routes emit `422` with structured issues for malformed payloads and pass sanitised bodies to the controller. |
 | `tests/routes/docsRoutes.test.js` | Supertest coverage asserting the documentation endpoint returns hashed OpenAPI payloads and honours conditional requests. |
 | `tests/routes/dependencyGuardRoutes.test.js` | Supertest coverage exercising payments/compliance guard propagation so API endpoints emit `503` with dependency metadata when infrastructure degrades. |
 | `tests/stubs/pinoStub.js` | Jest stub for `pino` to unblock maintenance route/service tests without requiring the binary dependency. |
@@ -50,6 +52,7 @@
 | `src/routes/domainRoutes.js` | Express router exposing `/api/domains/registry`, context drill-down, and model definition endpoints. |
 | `shared-contracts/clients/typescript/*` | Generated TypeScript declarations mirroring domain schemas for Node and React consumers. |
 | `src/observability/rateLimitMetrics.js` | Instrumented metrics store that tracks per-key request attempts, blocked responses, and history snapshots. |
+| `src/observability/metricsRegistry.js` | Prometheus exporter registry initialising process/runtime gauges, scrape counters, and helper accessors consumed by `/health/metrics` and observability services. |
 | `src/middleware/rateLimiter.js` | Wrapper around `express-rate-limit` that records telemetry, applies admin-aware keys, and exposes metrics to the observability service. |
 | `src/middleware/validateRequest.js` | Zod-backed middleware that validates and normalises Express request bodies, queries, params, headers, and cookies before controller execution. |
 | `src/services/runtimeObservabilityService.js` | Aggregates readiness, liveness, dependency, environment, and rate-limit data for `/api/admin/runtime/health`. |
@@ -73,6 +76,7 @@
 | `tests/adminRuntimeRoutes.test.js` | Route test covering admin authentication requirements and response shape for `/api/admin/runtime/health`. |
 | `tests/routes/authRoutes.validation.test.js` | Supertest coverage ensuring authentication endpoints emit `422` with structured issues for invalid payloads and sanitise valid requests. |
 | `tests/routes/adminRoutes.validation.test.js` | Supertest coverage asserting admin dashboard and settings endpoints coerce and validate inputs before hitting services. |
+| `docs/runbooks/runtime-incident.md` | Operations runbook outlining Prometheus scrape recovery, rate-limit/WAF triage, and escalation workflows tied to the new runtime telemetry surfaces. |
 | `tests/routes/searchRoutes.validation.test.js` | Supertest coverage confirming discovery queries, saved-search subscriptions, and category filters are validated and sanitised. |
 | `tests/routes/projectRoutes.validation.test.js` | Supertest coverage verifying project create/update/auto-assign endpoints enforce canonical payloads and numeric identifiers. |
 | `tests/routes/financeRoutes.validation.test.js` | Supertest coverage validating finance overview and freelancer insight endpoints coerce IDs and ISO date ranges. |

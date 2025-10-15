@@ -19,6 +19,7 @@ import { getPlatformSettings } from './services/platformSettingsService.js';
 import { syncCriticalDependencies } from './observability/dependencyHealth.js';
 import { recordRuntimeSecurityEvent } from './services/securityAuditService.js';
 import orchestrateHttpShutdown from './lifecycle/httpShutdown.js';
+import { getMetricsStatus } from './observability/metricsRegistry.js';
 
 dotenv.config();
 
@@ -41,6 +42,11 @@ export async function start({ port = DEFAULT_PORT } = {}) {
   }
   await startBackgroundWorkers({ logger });
   await warmRuntimeDependencyHealth({ logger, forceRefresh: true });
+  try {
+    getMetricsStatus();
+  } catch (error) {
+    logger.warn({ err: error }, 'Failed to prime metrics exporter status during startup');
+  }
 
   try {
     await bootstrapDatabase({ logger });

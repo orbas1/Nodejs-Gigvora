@@ -1,5 +1,16 @@
 # Backend Change Log — Version 1.50 Update
 
+## 19 Apr 2024
+- Added a Prometheus metrics exporter (`src/observability/metricsRegistry.js`) and exposed `/health/metrics`, wiring startup
+  priming in `src/server.js` and surfacing exporter status through `runtimeObservabilityService`. Admin dashboards and partner
+  tooling now consume scrape counts, rate-limit/WAF lifetime totals, and database pool gauges from a common source.
+- Hardened the compliance locker API by introducing Zod schemas for `/api/compliance/*` routes and updating
+  `complianceLockerController` to rely on sanitised input. New Supertest coverage ensures invalid payloads return `422`
+  responses while valid submissions propagate trimmed and coerced fields to the service layer.
+- Authored `docs/runbooks/runtime-incident.md` so on-call staff have scripted recovery steps for stalled scrapes, rate-limit or
+  WAF spikes, and shutdown orchestration anomalies. The runbook aligns with the new admin monitoring card and Flutter telemetry
+  alerts shipped this sprint.
+
 ## 18 Apr 2024
 - Enabled automated perimeter quarantining by extending `src/security/webApplicationFirewall.js` with threshold-based
   auto-blocking, dynamic blocklists, and offender tracking so repeated attackers are isolated without manual intervention.

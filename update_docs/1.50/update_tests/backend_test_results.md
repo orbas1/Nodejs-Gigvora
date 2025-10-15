@@ -2,6 +2,8 @@
 
 | Date | Command | Result | Notes |
 |------|---------|--------|-------|
+| 19 Apr 2024 | `npm test -- routes/healthRoutes.metrics` | ⚠️ Pending | New Prometheus exporter suite added; execute after documentation sync so `/health/metrics` responses reflect primed exporter state before capturing artefacts. |
+| 19 Apr 2024 | `npm test -- routes/complianceRoutes.validation` | ⚠️ Pending | Validation coverage introduced for compliance locker routes; run queued once schema updates propagate across CI to avoid false negatives from cached mocks. |
 | 16 Apr 2024 | `npm test -- lifecycle/serverLifecycle` | ✅ Pass | Verified the shutdown orchestrator stops workers, logs audits, drains pools, and propagates drain failures with structured logging. 【25d083†L1-L9】 |
 | 17 Apr 2024 | `npm test -- middleware/webApplicationFirewall` | ✅ Pass | Verified benign requests pass, SQL injection payloads are blocked, WAF metrics capture rule/IP stats, and security audits/logging fire. 【202903†L1-L9】 |
 | 18 Apr 2024 | `npm test -- routes/securityPerimeter` | ✅ Pass | Exercised Express stack with auto-block enabled, confirming WAF runs before routing, admin JWT enforcement holds, and runtime telemetry surfaces active quarantines. 【182989†L1-L8】 |
