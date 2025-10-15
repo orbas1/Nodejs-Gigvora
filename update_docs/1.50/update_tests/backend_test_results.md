@@ -2,6 +2,7 @@
 
 | Date | Command | Result | Notes |
 |------|---------|--------|-------|
+| 24 Apr 2024 | `npm test -- routes/domainRoutes.governance` | ❌ Fail | Suite aborts because Jest cannot resolve the optional `prom-client` dependency required by `metricsRegistry.js`; the missing module surfaces before the new Supertest assertions execute. 【e7061d†L1-L86】 |
 | 23 Apr 2024 | `npm test` | ❌ Fail | Test run aborted by duplicate `ServiceUnavailableError` export in `src/utils/errors.js`; Jest cannot parse modules and halts before executing suites. Needs cleanup of legacy duplicate class before re-running. 【d126dc†L1-L120】 |
 | 23 Apr 2024 | `npm run lint` | ❌ Fail | ESLint surfaces parse errors for the same duplicate `ServiceUnavailableError` export plus existing import-order warnings across legacy files. Requires consolidating error definitions before lint can complete. 【7c52fd†L1-L120】 |
 | 19 Apr 2024 | `npm test -- routes/healthRoutes.metrics` | ⚠️ Pending | New Prometheus exporter suite added; execute after documentation sync so `/health/metrics` responses reflect primed exporter state before capturing artefacts. |

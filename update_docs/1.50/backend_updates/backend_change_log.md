@@ -1,5 +1,18 @@
 # Backend Change Log — Version 1.50 Update
 
+## 24 Apr 2024
+- Added Supertest coverage (`tests/routes/domainRoutes.governance.test.js`) for
+  the governance routes, asserting `/api/domains/governance` returns merged
+  stewardship metadata, review scorecards, and remediation counts while
+  `/api/domains/:context/governance` exposes PII inventories and structured
+  `404` responses for unknown contexts.
+- Seeded test fixtures through `DomainGovernanceReview` to exercise review
+  cadence merging and ensure summaries honour persisted automation coverage,
+  remediation item counts, and steward contacts across contexts.
+- Updated backend documentation to reflect the new regression coverage, closing
+  the follow-up item from 23 Apr that required HTTP-level verification of the
+  governance surfaces.
+
 ## 23 Apr 2024
 - Centralised bounded-context governance metadata in `src/domains/domainMetadata.js`,
   enriching each context with ownership contacts, retention windows, classification,

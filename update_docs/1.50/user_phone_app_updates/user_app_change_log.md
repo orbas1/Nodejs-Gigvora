@@ -1,3 +1,16 @@
+# User Phone App Change Log — 24 Apr 2024
+
+1. **Governance Widget Automation:** Added widget tests covering loading, error,
+   and remediation-focused states for `DomainGovernanceSummaryCard`, asserting
+   severity ordering, steward copy, and snapshot timestamps so the mobile
+   experience remains aligned with React telemetry surfaces.
+2. **Testing Infrastructure:** Introduced reusable design tokens and wired tests
+   to the shared `TestApiClient` stub, preventing asset loads or network calls
+   while keeping widget assertions faithful to production spacing/colour tokens.
+3. **Documentation Sync:** Updated widget/test result logs to record the new
+   coverage and flagged the pending CI action to install the Flutter SDK before
+   the suite can be executed automatically.
+
 # User Phone App Change Log — 23 Apr 2024
 
 1. **Domain Governance Snapshot:** Added a governance summary card to the admin

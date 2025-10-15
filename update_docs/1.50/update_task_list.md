@@ -63,6 +63,8 @@ Each numbered task maps to the update plan and contains explicit integration cov
 
 **Progress Note (Cross-Stack • 23 Apr):** Delivered governance metadata across backend, React, and Flutter: `/api/domains/governance` + context detail endpoints aggregate steward contacts, retention policies, and review cadences; React admin dashboard renders remediation badges and review countdowns; Flutter admin card mirrors summaries with Riverpod providers; JSON schemas and TS clients regenerated; docs/design/test plans updated. Follow-up work: backend HTTP integration tests and UI widget tests to extend automation coverage.
 
+**Progress Note (Cross-Stack • 24 Apr):** Closed the governance follow-up by shipping Supertest coverage for `/api/domains/governance`/`/:context/governance` plus Flutter widget tests covering loading, error, and remediation-heavy states. Documentation, task trackers, and test result logs updated; remaining CI action is provisioning the Flutter SDK so the new widget suite can execute automatically.
+
 ## Task 3 — Enforce validation, consent, and governance workflows (0%)
 - **Backend:** Apply Celebrate/Zod validation, wire consent records, SAR tooling, and RBAC middleware logging.
 - **Front-end:** Build consent management hubs, admin overrides, and preference panels per governance requirements.

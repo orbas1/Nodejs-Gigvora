@@ -1,5 +1,18 @@
 # Widget Updates — User App
 
+## 24 Apr 2024
+- **Governance Card Widget Tests:** Authored widget coverage for loading, error,
+  and remediation-heavy states using Riverpod overrides and fixture summaries so
+  the governance card renders consistent copy, chip ordering, and metadata on
+  mobile. Tests validate severity ordering, steward copy, and snapshot labelling
+  ahead of enabling CI.
+- **Design Token Overrides:** Added dedicated test tokens mirroring production
+  spacing, radius, and colour palettes to keep widget assertions stable without
+  loading bundled assets during unit tests.
+- **Provider Overrides:** Reused the shared `TestApiClient` stub to satisfy
+  repository dependencies without booting the ServiceLocator, keeping widget
+  tests deterministic and network-free while exercising the generated models.
+
 ## 23 Apr 2024
 - **Domain Governance Card:** Introduced governance summary card for the admin
   home surface showing remediation-required contexts, steward avatars, scorecard

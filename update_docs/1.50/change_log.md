@@ -1,5 +1,18 @@
 # Version 1.50 Update Change Log
 
+## 24 Apr 2024
+- Added supertest coverage for `/api/domains/governance` and
+  `/api/domains/:context/governance`, validating summary/detail responses merge
+  stewardship metadata with persisted `DomainGovernanceReview` records and that
+  unknown contexts return structured `404` errors with audit-friendly payloads.
+- Documented the new backend coverage and updated the domain governance routes
+  table so operators know HTTP contracts now carry integration tests across
+  metadata merges, review state counts, and remediation totals.
+- Authored Flutter widget tests for `DomainGovernanceSummaryCard`, covering
+  loading, error, and remediation-heavy states with Riverpod overrides so
+  mobile operators see parity with the React admin dashboards; documented the
+  coverage in the mobile test plan while noting CI still lacks the Flutter SDK.
+
 ## 23 Apr 2024
 - Introduced auditable domain governance metadata across the Node API by centralising bounded-context ownership, retention, and
   PII field definitions in `src/domains/domainMetadata.js`, persisting review cadences via the new `DomainGovernanceReview`
