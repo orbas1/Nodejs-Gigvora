@@ -45,6 +45,7 @@
 ### Buttons
 - Primary buttons: 48px height, 20px horizontal padding, 12px radius; hover lighten by 6%, focus ring 2px accent with 4px offset.
 - Secondary buttons: outline style with 2px border and transparent fill; pressed state darkens border.
+- Runtime documentation CTA: secondary button with download icon (20px) preceding label, tooltip "Download runtime spec" on hover/focus, and disabled state shown when `/api/docs/runtime-security` is unreachable.
 - Ghost buttons: transparent background, text `web.text.primary` at 80% opacity, underline on hover.
 
 ### Cards

@@ -1,3 +1,15 @@
+# User Phone App Change Log — 16 Apr 2024
+
+1. **Shutdown Drain Messaging:** Updated runtime health snackbars to surface drain failure guidance and request IDs when the backend shutdown orchestrator reports a non-graceful drain, ensuring users see actionable copy during maintenance windows.
+2. **Audit Telemetry Integration:** Wired the maintenance repository to the new shutdown verdict field so Flutter can differentiate between planned maintenance, graceful shutdowns, and drain errors before attempting session refresh.
+3. **Test Additions:** Added repository tests covering drain verdict parsing to keep mobile telemetry aligned with the backend shutdown orchestrator payloads.
+
+# User Phone App Change Log — 15 Apr 2024
+
+1. **WAF Telemetry Consumption:** Extended the runtime health snapshot to parse the new `waf` payload (total blocks, top rules, last block) and surface concise security alerts when fresh incidents occur.
+2. **Security Snackbars:** Introduced localisation-ready snackbars highlighting blocked attacks with escalation messaging and support contact links, matching the admin runtime design.
+3. **Regression Coverage:** Added repository tests covering WAF parsing and ensured stale incidents older than 15 minutes do not trigger alerts, maintaining signal-to-noise.
+
 # User Phone App Change Log — 12 Apr 2024
 
 1. **Maintenance Contact Surfacing:** Updated the runtime health snapshot and bootstrapper to consume support contact details

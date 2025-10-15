@@ -6,11 +6,16 @@
 - Maintained `GET /health` as an alias of the readiness endpoint for backwards compatibility with existing load balancer checks.
 - Added `GET /api/admin/runtime/health` delivering combined readiness, liveness, dependency, environment, and rate-limit telemetry for operator tooling and the admin dashboard; powered by `runtimeObservabilityService` and the instrumented rate-limiter metrics store.
 - Extended `GET /api/admin/runtime/health` with `maintenance`, `security`, and `perimeter` sections so dashboards and mobile clients can surface scheduled downtime, recent audit events, and blocked origin telemetry alongside dependency posture.
+- `GET /health/ready` now returns database pool snapshots (max/available/borrowed counts) and vendor metadata sourced from `databaseLifecycleService` so readiness telemetry matches the admin runtime panel.
 
 ## Authentication Lifecycle
 - Added `POST /auth/refresh` accepting a refresh token and returning a refreshed `session` payload (access and refresh tokens plus sanitised user details) to support secure mobile/web session bootstrap without a full login flow.
 - Added `GET /api/admin/runtime/health` delivering combined readiness, liveness, dependency, environment, rate-limit telemetry, and now database pool utilisation (max/available/borrowed counts plus last pool event) for operator tooling and the admin dashboard; powered by `runtimeObservabilityService` and the instrumented rate-limiter metrics store.
 - Runtime observability snapshots now embed the highest priority maintenance announcement (active or scheduled) so operators can view downtime context without calling a second endpoint.
+
+## API Documentation
+- Added `GET /api/docs/runtime-security` serving the OpenAPI 3.0 document covering health and authentication flows with five-minute cache headers and hashed ETags for contract validation.
+- Documented the spec under `docs/openapi/runtime-security.json` so partner tooling and SDK generators can ingest an audited schema without traversing controller code.
 
 ## Runtime Maintenance Announcements
 - Added `GET /api/runtime/maintenance` exposing public maintenance announcements filtered by `audience`, `channel`, `windowMinutes`, `includeResolved`, and `limit` query params. Returns active and upcoming windows with ISO timestamps, severity, metadata, and cache hints for clients.

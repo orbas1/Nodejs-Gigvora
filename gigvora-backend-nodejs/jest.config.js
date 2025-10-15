@@ -8,6 +8,7 @@ export default {
     '^pino$': '<rootDir>/tests/stubs/pinoStub.js',
     '^express-rate-limit$': '<rootDir>/tests/stubs/expressRateLimitStub.js',
     '^zod$': '<rootDir>/tests/stubs/zodStub.js',
+    '^compression$': '<rootDir>/tests/stubs/compressionStub.js',
   },
   moduleFileExtensions: ['js', 'json'],
   collectCoverageFrom: [

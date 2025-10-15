@@ -2,6 +2,9 @@
 
 | Date | Command | Result | Notes |
 |------|---------|--------|-------|
+| 16 Apr 2024 | `npm test -- lifecycle/serverLifecycle` | ✅ Pass | Verified the shutdown orchestrator stops workers, logs audits, drains pools, and propagates drain failures with structured logging. 【25d083†L1-L9】 |
+| 15 Apr 2024 | `npm test -- webApplicationFirewall` | ✅ Pass | Verified benign requests pass, SQL injection payloads are blocked, metrics capture rule/source stats, and security audits/logging fire. 【45b3da†L1-L9】 |
+| 14 Apr 2024 | `npm test -- docsRoutes` | ✅ Pass | Exercised the documentation endpoint; confirms OpenAPI payload caching and conditional requests, with Jest emitting post-teardown warnings while exiting 0. 【aa2da0†L1-L74】 |
 | 13 Apr 2024 | `npm test -- databaseLifecycleService` | ✅ Pass | Exercised database lifecycle warm/drain orchestration, confirming audit events and pool telemetry snapshots are emitted as expected. 【0fd77f†L1-L9】 |
 | 12 Apr 2024 | `npm test -- dependencyGuardRoutes` | ✅ Pass | Verified payments/compliance guard propagation for `/api/users/:id` and `/api/compliance/documents`; SQLite emitted the expected TEXT warning during forced sync. 【628fa1†L1-L24】 |
 | 11 Apr 2024 | `npm test -- runtimeDependencyGuard` | ✅ Pass | Exercised payments/compliance dependency guards across credential gaps, maintenance degradations, and healthy states using SQLite-backed models. 【359896†L1-L9】 |

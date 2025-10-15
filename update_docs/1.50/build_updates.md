@@ -10,3 +10,5 @@
 - Surface `TRUST_PROXY` configuration in deployment manifests (e.g., `loopback`, numeric hop counts) so Express recognises upstream load balancers when resolving client IPs and enforcing secure cookies.
 - Apply `npx sequelize-cli db:migrate` during deployment to create `runtime_announcements`; missing table will cause new maintenance endpoints to fail with `500`.
 - Update CI pipelines to run `npm test -- services/runtimeMaintenanceService` once optional dependencies (`zod`) are installed or stubbed to cover new lifecycle logic.
+- Ship `docs/openapi/runtime-security.json` with backend release artifacts (e.g., attach to Docker image or publish to CDN) so client generators and partner tooling can pull the documented contract; cache headers expect a five-minute TTL with ETag validation.
+- Add `npm test -- lifecycle/serverLifecycle` to CI smoke suites to verify the shutdown orchestrator continues draining pools and emitting audits after dependency changes.

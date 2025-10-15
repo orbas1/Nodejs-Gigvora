@@ -1,5 +1,25 @@
 # Version 1.50 Update Change Log
 
+## 16 Apr 2024
+- Refactored the Node shutdown sequence into a dedicated lifecycle orchestrator that stops workers, closes the HTTP listener,
+  drains Sequelize pools, and records runtime security audits with guaranteed error logging so operations teams capture actionable
+  evidence for maintenance windows and incident reviews.
+- Added focused Jest coverage for the new shutdown orchestrator to verify worker stop order, audit emission, and drain failure
+  propagation, raising confidence that graceful shutdowns and drain issues surface consistently in runtime telemetry.
+- Updated admin/runtime runbook documentation and mobile parity notes to reflect the new shutdown audit messaging so operators and
+  Flutter bootstrap flows can surface drain failures alongside existing maintenance and security alerts.
+
+## 15 Apr 2024
+- Delivered a production web application firewall across the Node API, blocking SQLi/XSS/SSRF/command-injection payloads, logging correlation-aware security events, and exporting rule/source metrics to runtime observability.
+- Extended `/api/admin/runtime/health` and the React admin runtime panel with a dedicated WAF card showing total blocks, top rules, top sources, and most recent incidents so operators can triage abuse directly from the dashboard.
+- Updated the Flutter runtime health repository and UI bootstrap logic to consume the new `waf` snapshot, surfacing security snackbars when fresh blocks occur and preventing silent degradation on mobile clients.
+
+## 14 Apr 2024
+- Published the hashed OpenAPI specification for health and authentication flows, exposed it through `/api/docs/runtime-security` with cache-aware headers, and documented the contract for downstream clients and partner tooling.
+- Refactored `runtimeObservabilityService` to reconcile readiness snapshots with scheduled maintenance windows, security audit history, perimeter telemetry, and database pool utilisation so admin dashboards render a single source of operational truth.
+- Hardened `healthService` by capturing Sequelize pool snapshots and vendor metadata for every readiness check, ensuring `/health/ready` mirrors the telemetry exported to admin dashboards and runtime audits.
+- Added Jest module mapping for `compression` plus targeted route coverage for the documentation endpoint so CI environments without optional packages can exercise the new contract.
+
 ## 12 Apr 2024
 - Hardened the HTTP perimeter with a dedicated security configuration that enforces trust-proxy settings, helmet policies, and
   a CORS guard that blocks untrusted origins, records audit events, and compresses responses without impacting health probes or

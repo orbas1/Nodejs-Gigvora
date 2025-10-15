@@ -10,7 +10,13 @@ import { getDatabasePoolSnapshot } from './databaseLifecycleService.js';
 const DATABASE_CHECK_INTERVAL_MS = 30_000;
 
 let lastDatabaseCheckAt = 0;
-let cachedDatabaseStatus = { status: 'unknown', vendor: null, latencyMs: null, error: null };
+let cachedDatabaseStatus = {
+  status: 'unknown',
+  vendor: null,
+  latencyMs: null,
+  error: null,
+  pool: null,
+};
 
 function now() {
   return Date.now();
@@ -24,13 +30,14 @@ function getDialect() {
   }
 }
 
-export function setDatabaseStatus({ status, vendor, latencyMs = null, error = null } = {}) {
+export function setDatabaseStatus({ status, vendor, latencyMs = null, error = null, pool = null } = {}) {
   cachedDatabaseStatus = {
     status: status ?? 'unknown',
     vendor: vendor ?? getDialect(),
     latencyMs: latencyMs ?? null,
     checkedAt: new Date().toISOString(),
     error,
+    pool,
   };
   lastDatabaseCheckAt = now();
 }
@@ -50,20 +57,21 @@ export async function verifyDatabaseConnectivity() {
     await sequelize.authenticate({ logging: false });
     const finished = process.hrtime.bigint();
     const latencyMs = Number(finished - started) / 1_000_000;
+    const pool = getDatabasePoolSnapshot();
     setDatabaseStatus({
       status: 'ok',
       vendor,
       latencyMs: Number(latencyMs.toFixed(2)),
       error: null,
+      pool,
     });
-      pool: getDatabasePoolSnapshot(),
-    };
     markDependencyHealthy('database', {
       vendor,
       latencyMs: cachedDatabaseStatus.latencyMs,
-      pool: cachedDatabaseStatus.pool,
+      pool,
     });
   } catch (error) {
+    const pool = getDatabasePoolSnapshot();
     setDatabaseStatus({
       status: 'error',
       vendor,
@@ -71,11 +79,9 @@ export async function verifyDatabaseConnectivity() {
         message: error.message || 'Database connectivity failure',
         code: error.code ?? null,
       },
+      pool,
     });
-    markDependencyUnavailable('database', error, { vendor });
-      pool: getDatabasePoolSnapshot(),
-    };
-    markDependencyUnavailable('database', error, { vendor, pool: cachedDatabaseStatus.pool });
+    markDependencyUnavailable('database', error, { vendor, pool });
   }
 
   return cachedDatabaseStatus;

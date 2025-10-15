@@ -1,4 +1,5 @@
 import os from 'node:os';
+
 import { getReadinessReport, getLivenessReport } from './healthService.js';
 import { getPlatformSettings } from './platformSettingsService.js';
 import { getRecentRuntimeSecurityEvents } from './securityAuditService.js';
@@ -6,6 +7,13 @@ import { getVisibleAnnouncements } from './runtimeMaintenanceService.js';
 import { getDatabasePoolSnapshot } from './databaseLifecycleService.js';
 import { getRateLimitSnapshot } from '../observability/rateLimitMetrics.js';
 import { getPerimeterSnapshot } from '../observability/perimeterMetrics.js';
+
+const SEVERITY_RANKING = {
+  security: 4,
+  incident: 3,
+  maintenance: 2,
+  info: 1,
+};
 
 function getEnvironmentSnapshot() {
   const memory = process.memoryUsage();
@@ -34,7 +42,29 @@ function getEnvironmentSnapshot() {
   };
 }
 
-function buildMaintenanceSnapshot(settings = {}) {
+function buildSecuritySnapshot(events = []) {
+  if (!Array.isArray(events)) {
+    return {
+      events: [],
+      level: 'normal',
+      latest: null,
+      lastIncidentAt: null,
+    };
+  }
+
+  const hasCritical = events.some((event) => ['error', 'critical'].includes(event.level));
+  const latest = events[0] ?? null;
+  const lastIncident = events.find((event) => ['error', 'critical'].includes(event.level)) ?? null;
+
+  return {
+    events,
+    level: hasCritical ? 'attention' : 'normal',
+    latest,
+    lastIncidentAt: lastIncident?.createdAt ?? null,
+  };
+}
+
+function buildScheduledMaintenanceSnapshot(settings = {}) {
   const maintenance = settings.maintenance ?? {};
   const windows = Array.isArray(maintenance.windows) ? maintenance.windows : [];
   const now = Date.now();
@@ -78,28 +108,11 @@ function buildMaintenanceSnapshot(settings = {}) {
   };
 }
 
-function buildSecuritySnapshot(events = []) {
-  const hasCritical = events.some((event) => ['error', 'critical'].includes(event.level));
-  const latest = events[0] ?? null;
-  const lastIncident = events.find((event) => ['error', 'critical'].includes(event.level));
-
-  return {
-    events,
-    level: hasCritical ? 'attention' : 'normal',
-    latest,
-    lastIncidentAt: lastIncident?.createdAt ?? null,
-const SEVERITY_RANKING = {
-  security: 4,
-  incident: 3,
-  maintenance: 2,
-  info: 1,
-};
-
-function buildMaintenanceSnapshot(raw = {}) {
+function buildAnnouncementSummary(raw = {}) {
   const announcements = Array.isArray(raw.announcements) ? raw.announcements : [];
   const counts = announcements.reduce(
     (accumulator, announcement) => {
-      const status = `${announcement.status ?? ''}`.toLowerCase();
+      const status = `${announcement?.status ?? ''}`.toLowerCase();
       accumulator.total += 1;
       if (status === 'active') {
         accumulator.active += 1;
@@ -113,26 +126,26 @@ function buildMaintenanceSnapshot(raw = {}) {
     { total: 0, active: 0, scheduled: 0, resolved: 0 },
   );
 
-  const highest = announcements.reduce(
-    (current, announcement) => {
-      const severity = `${announcement.severity ?? ''}`.toLowerCase();
-      const rank = SEVERITY_RANKING[severity] ?? 0;
-      if (!current || rank > current.rank) {
+  const highest = announcements.reduce((current, announcement) => {
+    if (!announcement) {
+      return current;
+    }
+    const severity = `${announcement.severity ?? ''}`.toLowerCase();
+    const rank = SEVERITY_RANKING[severity] ?? 0;
+    if (!current || rank > current.rank) {
+      return { rank, severity, announcement };
+    }
+    if (current.rank === rank) {
+      const candidateStart = announcement.startsAt ? Date.parse(announcement.startsAt) : Number.POSITIVE_INFINITY;
+      const currentStart = current.announcement?.startsAt
+        ? Date.parse(current.announcement.startsAt)
+        : Number.POSITIVE_INFINITY;
+      if (candidateStart < currentStart) {
         return { rank, severity, announcement };
       }
-      if (current.rank === rank) {
-        const candidateStart = announcement.startsAt ? Date.parse(announcement.startsAt) : Number.POSITIVE_INFINITY;
-        const currentStart = current.announcement?.startsAt
-          ? Date.parse(current.announcement.startsAt)
-          : Number.POSITIVE_INFINITY;
-        if (candidateStart < currentStart) {
-          return { rank, severity, announcement };
-        }
-      }
-      return current;
-    },
-    null,
-  );
+    }
+    return current;
+  }, null);
 
   return {
     generatedAt: raw.generatedAt ?? new Date().toISOString(),
@@ -150,12 +163,7 @@ function buildMaintenanceSnapshot(raw = {}) {
 }
 
 export async function getRuntimeOperationalSnapshot() {
-  const [readiness, liveness, settings, securityEvents] = await Promise.all([
-    getReadinessReport(),
-    Promise.resolve(getLivenessReport()),
-    getPlatformSettings(),
-    getRecentRuntimeSecurityEvents({ limit: 12 }),
-  const [readiness, liveness, maintenance] = await Promise.all([
+  const [readiness, liveness, maintenanceAnnouncements, settings, securityEvents] = await Promise.all([
     getReadinessReport(),
     Promise.resolve(getLivenessReport()),
     getVisibleAnnouncements({
@@ -165,6 +173,8 @@ export async function getRuntimeOperationalSnapshot() {
       windowMinutes: 24 * 60,
       limit: 50,
     }),
+    getPlatformSettings(),
+    getRecentRuntimeSecurityEvents({ limit: 12 }),
   ]);
 
   return {
@@ -173,15 +183,14 @@ export async function getRuntimeOperationalSnapshot() {
     readiness,
     liveness,
     rateLimit: getRateLimitSnapshot(),
-    maintenance: buildMaintenanceSnapshot(settings),
-    security: buildSecuritySnapshot(securityEvents),
     perimeter: getPerimeterSnapshot(),
     databasePool: getDatabasePoolSnapshot(),
-    maintenance: buildMaintenanceSnapshot(maintenance),
+    maintenance: buildAnnouncementSummary(maintenanceAnnouncements),
+    scheduledMaintenance: buildScheduledMaintenanceSnapshot(settings),
+    security: buildSecuritySnapshot(securityEvents),
   };
 }
 
 export default {
   getRuntimeOperationalSnapshot,
 };
-

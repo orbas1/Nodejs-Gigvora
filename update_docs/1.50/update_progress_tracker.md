@@ -4,9 +4,9 @@ Percentages reflect initial baseline before execution. Update the tracker weekly
 
 | Task ID | Task Name | Security Level % | Completion Level % | Integration Level % | Functionality Level % | Error Free Level % | Production Level % | Overall Level % |
 |---------|-----------|------------------|--------------------|---------------------|-----------------------|--------------------|---------------------|-----------------|
-| 1 | Stabilise service lifecycles and security perimeters | 82 | 77 | 76 | 76 | 74 | 79 | 77 |
+| 1 | Stabilise service lifecycles and security perimeters | 89 | 85 | 84 | 83 | 80 | 87 | 85 |
 |---------|-----------|------------------|--------------------|---------------------|-----------------------|--------------------|--------------------|-----------------|
-| 1 | Stabilise service lifecycles and security perimeters | 78 | 72 | 69 | 71 | 70 | 71 | 72 |
+| 1 | Stabilise service lifecycles and security perimeters | 87 | 81 | 80 | 81 | 77 | 83 | 82 |
 | 2 | Modularise domain models and align schemas | 52 | 70 | 68 | 75 | 55 | 63 | 64 |
 | 3 | Enforce validation, consent, and governance workflows | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | 4 | Complete financial, escrow, and dispute capabilities | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
@@ -33,6 +33,12 @@ Percentages reflect initial baseline before execution. Update the tracker weekly
 **Progress Note (Cross-Stack • 11 Apr):** Backend regression tests now cover `/api/auth/refresh` and the lifecycle shutdown path while Flutter widget/unit suites validate session bootstrap and runtime health fallbacks. Design, documentation, and admin UI updates ensure maintenance messaging, audit logging, and refresh-token prompts stay consistent across web and mobile clients.
 
 **Progress Note (Cross-Stack • 12 Apr):** Delivered perimeter-aware HTTP security middleware, added compressed/audited CORS responses, exposed blocked-origin telemetry via `/api/admin/runtime/health`, refreshed the admin runtime panel with perimeter analytics, and aligned Flutter maintenance messaging with backend support contacts to keep users informed during downtime.
+
+**Progress Note (Backend • 14 Apr):** Published the hashed `/api/docs/runtime-security` OpenAPI contract, normalised readiness telemetry to include pooled connection snapshots, and refactored runtime observability to summarise scheduled maintenance and security events. Task 1 security, integration, and production scores rose as operators and client teams now share a single documented contract for health/auth flows with automated caching guidance.
+
+**Progress Note (Cross-Stack • 15 Apr):** Deployed the in-process web application firewall, surfaced WAF telemetry in `/api/admin/runtime/health`, updated the admin runtime panel with rule/source analytics, and wired Flutter runtime polling to raise security alerts when new blocks occur. Task 1 security, functionality, integration, and production metrics increased thanks to unified abuse detection across backend, web, and mobile.
+
+**Progress Note (Backend • 16 Apr):** Consolidated shutdown sequencing into a dedicated orchestrator that logs worker, HTTP, and database drain verdicts while guaranteeing connection draining executes even when upstream steps fail. New Jest coverage validates drain failure propagation and audit logging, lifting Task 1 security, completion, and error-free confidence scores.
 
 ## Update Guidance
 - **Security Level:** Reflects penetration, governance, and compliance hardening progress.

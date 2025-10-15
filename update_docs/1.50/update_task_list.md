@@ -27,6 +27,7 @@ Each numbered task maps to the update plan and contains explicit integration cov
 **Progress Note (Backend • 12 Apr):** Added supertest suites that hit `/api/compliance/documents` and `/api/users/:id`, confirming dependency guard verdicts surface as `503` responses with request IDs when secure storage or payment providers degrade. Hardened membership middleware to remove undefined helpers discovered during test execution.
 
 **Progress Note (Backend • 13 Apr):** Database lifecycle orchestration now warms Sequelize pools before the HTTP server listens, drains connections after traffic stops, and emits audit events plus pool telemetry so operations staff can confirm graceful shutdowns during maintenance windows.
+**Progress Note (Backend • 14 Apr):** Published the hashed runtime OpenAPI specification, exposed it through `/api/docs/runtime-security` with cache-aware headers, and refactored observability services to surface scheduled maintenance summaries alongside readiness pool metrics. API clients now share a single documented contract for health/auth flows, lifting Task 1 integration and production confidence.
 **Progress Note (Backend • 10 Apr):** Introduced runtime dependency guards around finance/compliance services so wallet, payout, and verification workflows return consistent 503 responses during Stripe/Escrow outages, with platform settings updates automatically resynchronising dependency health for admin telemetry surfaces.
 
 **Progress Note (Cross-Stack • 11 Apr):** Added audited shutdown coverage and `/auth/refresh` regression tests in Node while
@@ -35,6 +36,10 @@ Each numbered task maps to the update plan and contains explicit integration cov
   surfaces.
 
 **Progress Note (Cross-Stack • 12 Apr):** Hardened HTTP perimeter controls (helmet, trust proxy, compression, audited CORS), piped blocked-origin telemetry into `/api/admin/runtime/health`, extended the admin runtime panel with an API perimeter card, and updated Flutter maintenance messaging with backend support contacts to keep mobile alerts actionable.
+
+**Progress Note (Cross-Stack • 15 Apr):** Activated the web application firewall, exporting WAF metrics to `/api/admin/runtime/health`, refreshing the admin runtime telemetry panel with rule/source analytics, and teaching Flutter runtime polling to raise security snackbars whenever new blocks occur. Task 1.3 security posture enhancements moved to production-ready status while integration and production scores improved through shared telemetry.
+
+**Progress Note (Backend • 16 Apr):** Refactored shutdown orchestration into a dedicated lifecycle helper that logs worker/database drain outcomes, updates runtime security audits, and guarantees connection draining executes even after upstream failures. Added targeted Jest coverage so graceful shutdown remains regression-safe and telemetry surfaces drain incidents for operations and mobile clients.
 
 ## Task 2 — Modularise domain models and align schemas (55%)
 - **Backend:** Refactor `src/models/index.js` into bounded contexts with domain service layers and feature flags (Issue 4).

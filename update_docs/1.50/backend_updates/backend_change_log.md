@@ -1,5 +1,22 @@
 # Backend Change Log — Version 1.50 Update
 
+## 16 Apr 2024
+- Extracted the HTTP shutdown sequence into `src/lifecycle/httpShutdown.js`, centralising worker stop, HTTP close, database shutdown,
+  and drain telemetry so graceful shutdowns emit consistent audits and error logs for operations tooling.
+- Updated `src/server.js` to delegate to the new orchestrator, guaranteeing Sequelize drains execute even when previous shutdown
+  steps fail and ensuring `recordRuntimeSecurityEvent` metadata includes drain verdicts.
+- Authored Jest coverage (`tests/lifecycle/serverLifecycle.test.js`) for the orchestrator to confirm worker shutdown ordering,
+  audit level selection, and drain error propagation without booting the full Express stack.
+
+## 15 Apr 2024
+- Implemented a stateful web application firewall pipeline that inspects requests for SQL injection, command execution, SSRF,
+  and XSS signatures before they reach Express controllers, recording security audits and blocking malicious traffic with
+  request-scoped correlation IDs.
+- Added in-memory WAF metrics (`src/observability/wafMetrics.js`) and wired them into runtime observability so operations teams
+  can review top attack rules, sources, and the most recent blocks alongside rate-limit and perimeter telemetry.
+- Exposed new WAF fields on `/api/admin/runtime/health`, updated admin controllers, and extended the runtime security audit
+  service to persist `security.waf.blocked_request` events for downstream incident tooling.
+
 ## 12 Apr 2024
 - Added `src/config/httpSecurity.js` to centralise helmet, trust-proxy, compression, and CORS enforcement, blocking untrusted
   origins with audited responses and feeding perimeter telemetry into runtime observability.
@@ -9,6 +26,12 @@
   stream with origin abuse data.
 - Installed the `compression` dependency and updated server bootstrap to apply the new HTTP security middleware ahead of
   correlation/logging so payload limits, trust proxies, and rate limiting execute against sanitised requests.
+
+## 14 Apr 2024
+- Published `/api/docs/runtime-security` with hashed ETag headers and five-minute caching so operators, client engineers, and partners can download the documented health/auth contract without hitting source control.
+- Normalised `runtimeObservabilityService` output to include scheduled maintenance summaries, recent security audits, perimeter metrics, and live pool utilisation, keeping admin dashboards aligned with readiness telemetry.
+- Extended `healthService` to persist Sequelize pool snapshots and vendor metadata on every probe, ensuring `/health/ready` mirrors the observability data powering admin dashboards.
+- Added Jest module mapping for `compression` plus focused route coverage so the documentation endpoint remains testable in CI environments lacking optional native dependencies.
 
 ## 11 Apr 2024
 - Added a dedicated database lifecycle manager that authenticates pools on startup, feeds `/health/ready` cache entries, drains

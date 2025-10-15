@@ -9,10 +9,15 @@
   admin dashboards, public banners, and mobile clients.
 
 ## `src/services/runtimeObservabilityService.js`
-- Aggregates readiness, liveness, dependency health, process telemetry, rate-limit metrics, maintenance announcements, and
-  database pool utilisation into a single operational snapshot consumed by `/api/admin/runtime/health` and admin dashboards.
-- Resolves the highest priority active or upcoming maintenance window via `runtimeMaintenanceService` while surfacing
-  max/min/borrowed counts from the pool snapshot so operations can validate graceful shutdowns from the same telemetry payload.
+- Aggregates readiness, liveness, dependency health, process telemetry, rate-limit metrics, perimeter incidents, security audits, and database pool utilisation into a single operational snapshot consumed by `/api/admin/runtime/health` and admin dashboards.
+- Normalises runtime maintenance announcements into a `maintenance` feed plus a `scheduledMaintenance` summary sourced from platform settings so operators can compare live incidents with planned downtime without additional calls.
+- Resolves the highest priority active or upcoming maintenance window via `runtimeMaintenanceService` while surfacing max/min/borrowed counts from the pool snapshot so operations can validate graceful shutdowns from the same telemetry payload.
+- Incorporates web application firewall metrics, exposing top rules, top sources, and recent block timestamps so operators can correlate abuse detection with rate-limit telemetry from one payload.
+
+## `src/services/webApplicationFirewallService.js`
+- New inspection service that normalises incoming requests, evaluates them against curated threat signatures, and returns scored matches used by the WAF middleware to determine whether to block traffic.
+- Calculates aggregate scores across rule hits, surfaces highest-severity matches, and exposes helpers for logging/audit metadata without leaking raw payloads.
+- Allows configurable block thresholds via `WAF_BLOCK_THRESHOLD`, enabling environment-specific tuning of false-positive tolerance.
 
 ## `src/services/runtimeDependencyGuard.js`
 - New dependency orchestration layer that inspects platform settings, runtime maintenance announcements, and cached telemetry
@@ -59,13 +64,20 @@
   the database or payment provider telemetry indicates an outage.
 
 ## `src/services/healthService.js`
-- New service verifying Sequelize connectivity on a throttled cadence, calculating dependency latency, and synthesising readiness/liveness reports for API consumers.
-- Exposes `setDatabaseStatus` so lifecycle hooks can immediately update cached readiness after graceful shutdowns or startup
-  authentication events.
+- New service verifying Sequelize connectivity on a throttled cadence, calculating dependency latency, persisting pool snapshots, and synthesising readiness/liveness reports for API consumers.
+- Exposes `setDatabaseStatus` so lifecycle hooks can immediately update cached readiness after graceful shutdowns or startup authentication events, keeping `/health/ready` aligned with admin observability payloads.
 
 ## `src/lifecycle/databaseLifecycle.js`
 - New lifecycle coordinator that authenticates Sequelize connections on startup, feeds dependency health telemetry, drains
   pools during shutdown, and records runtime security audits for post-incident analysis.
+
+## `src/lifecycle/httpShutdown.js`
+- New orchestration helper responsible for stopping background workers, closing the HTTP server, logging runtime security audits,
+  and draining database connections with consistent error handling.
+- Emits structured logging for worker/database/drain failures so operations dashboards and log pipelines surface actionable
+  metadata whenever shutdown deviates from the happy path.
+- Provides a testable seam for server shutdown logic, enabling targeted Jest coverage without bootstrapping Express or touching
+  Sequelize connections during unit tests.
 
 ## `src/services/securityAuditService.js`
 - Persists runtime security audit events (start, stop, shutdown failure) in `runtime_security_audit_events` and exposes helpers
@@ -111,3 +123,8 @@
 ## `src/observability/perimeterMetrics.js`
 - Tracks blocked origin attempts, last-seen timestamps, and affected routes to power runtime observability snapshots and perimeter reporting.
 - Provides reset-friendly helpers used by tests and scheduled jobs to rotate perimeter metrics without restarting the process.
+
+## `src/observability/wafMetrics.js`
+- Maintains aggregate WAF statistics (total blocks, top rules, top sources, recent samples) for display on runtime observability surfaces.
+- Records each blocked request with timestamps and user agent snippets so operations can triage attack campaigns without tailing logs.
+- Provides reset helpers for tests and scheduled scrubs to rotate in-memory metrics safely during long-running processes.
