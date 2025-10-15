@@ -20,6 +20,8 @@ Each numbered task maps to the update plan and contains explicit integration cov
 
 **Progress Note (Backend • 09 Apr):** Validation now protects search discovery, saved-search subscriptions, project creation/update flows, and finance control tower endpoints by canonicalising categories, coercing numerics and dates, parsing geo viewports, and shipping Jest coverage to lock in the behaviour.
 
+**Progress Note (Backend • 10 Apr):** Introduced runtime dependency guards around finance/compliance services so wallet, payout, and verification workflows return consistent 503 responses during Stripe/Escrow outages, with platform settings updates automatically resynchronising dependency health for admin telemetry surfaces.
+
 ## Task 2 — Modularise domain models and align schemas (55%)
 - **Backend:** Refactor `src/models/index.js` into bounded contexts with domain service layers and feature flags (Issue 4).
 - **Front-end:** Consume generated TypeScript clients and update dashboards to rely on canonical schema packages (Issue 7).

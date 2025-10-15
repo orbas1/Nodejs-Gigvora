@@ -5,15 +5,22 @@ import {
   Profile,
   WalletAccount,
   WalletLedgerEntry,
+  sequelize,
 } from '../../src/models/index.js';
 import { recordWalletLedgerEntry } from '../../src/services/complianceService.js';
-import { ValidationError } from '../../src/utils/errors.js';
+import { ValidationError, ServiceUnavailableError } from '../../src/utils/errors.js';
+import {
+  markDependencyHealthy,
+  markDependencyUnavailable,
+} from '../../src/lifecycle/runtimeHealth.js';
 
 let user;
 let profile;
 let walletAccount;
 
 beforeEach(async () => {
+  await sequelize.sync({ force: true });
+
   user = await User.create({
     firstName: 'Ledger',
     lastName: 'Tester',
@@ -35,6 +42,10 @@ beforeEach(async () => {
     availableBalance: 0,
     pendingHoldBalance: 0,
   });
+
+  markDependencyHealthy('database', { vendor: 'sqlite', configured: true });
+  markDependencyHealthy('paymentsCore', { provider: 'stripe', configured: true });
+  markDependencyHealthy('complianceProviders', { custodyProvider: 'stripe', escrowEnabled: true });
 });
 
 describe('recordWalletLedgerEntry compliance guards', () => {
@@ -78,5 +89,17 @@ describe('recordWalletLedgerEntry compliance guards', () => {
         metadata: { iosIapCompliant: false },
       }),
     ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it('halts ledger recordings when a critical dependency is unavailable', async () => {
+    markDependencyUnavailable('paymentsCore', new Error('Stripe outage'));
+
+    await expect(
+      recordWalletLedgerEntry(walletAccount.id, {
+        entryType: 'credit',
+        amount: 10,
+        description: 'Test credit',
+      }),
+    ).rejects.toBeInstanceOf(ServiceUnavailableError);
   });
 });

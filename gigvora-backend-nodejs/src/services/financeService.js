@@ -11,9 +11,15 @@ import {
   FINANCE_REVENUE_TYPES,
 } from '../models/index.js';
 import { ValidationError } from '../utils/errors.js';
+import { assertDependenciesHealthy } from '../utils/dependencyGate.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
 
 const OVERVIEW_CACHE_TTL_SECONDS = 60;
+const FINANCE_DEPENDENCIES = ['database', 'paymentsCore'];
+
+function guardFinance(feature) {
+  assertDependenciesHealthy(FINANCE_DEPENDENCIES, { feature });
+}
 
 function coalesceNumber(value, fallback = 0) {
   if (value == null) {
@@ -427,6 +433,8 @@ export async function getFinanceControlTowerOverview(userId, options = {}) {
   const dateFrom = parseDate(options.dateFrom);
   const dateTo = parseDate(options.dateTo);
   const forceRefresh = Boolean(options.forceRefresh);
+
+  guardFinance('Finance control tower overview');
 
   if (forceRefresh) {
     const result = await computeOverview(resolvedUserId, { dateFrom, dateTo });

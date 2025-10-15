@@ -1,6 +1,8 @@
 import { PlatformSetting } from '../models/platformSetting.js';
 import { ESCROW_INTEGRATION_PROVIDERS } from '../models/constants/index.js';
 import { ValidationError } from '../utils/errors.js';
+import { syncCriticalDependencies } from '../observability/dependencyHealth.js';
+import logger from '../utils/logger.js';
 
 const PLATFORM_SETTINGS_KEY = 'platform';
 const PAYMENT_PROVIDERS = new Set(ESCROW_INTEGRATION_PROVIDERS);
@@ -454,7 +456,9 @@ export async function updatePlatformSettings(payload = {}) {
     await PlatformSetting.create({ key: PLATFORM_SETTINGS_KEY, value: normalized });
   }
 
-  return mergeDefaults(defaults, normalized);
+  const snapshot = mergeDefaults(defaults, normalized);
+  syncCriticalDependencies(snapshot, { logger: logger.child({ component: 'platform-settings' }) });
+  return snapshot;
 }
 
 export default {
