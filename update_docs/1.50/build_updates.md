@@ -6,3 +6,5 @@
 - Logging pipelines must ingest structured JSON output from Pino; ensure log shippers parse the `requestId` and `worker` fields for correlation dashboards.
 - Add `npm run schemas:sync` to CI to regenerate `shared-contracts/domain` artifacts whenever domain schemas evolve; distribute generated JSON to front-end and Flutter package registries as part of release automation.
 - Introduce a companion CI step `npm run schemas:clients` so TypeScript definitions in `shared-contracts/clients/typescript` stay aligned with the JSON schema source of truth.
+- Apply `npx sequelize-cli db:migrate` during deployment to create `runtime_announcements`; missing table will cause new maintenance endpoints to fail with `500`.
+- Update CI pipelines to run `npm test -- services/runtimeMaintenanceService` once optional dependencies (`zod`) are installed or stubbed to cover new lifecycle logic.

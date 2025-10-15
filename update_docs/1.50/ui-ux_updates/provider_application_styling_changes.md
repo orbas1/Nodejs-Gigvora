@@ -125,3 +125,10 @@
 - Prepare responsive typography clamp values for upcoming fluid type adoption.
 - Explore dynamic theming for white-label providers using same base tokens with overrides.
 - Prototype dark mode interactions to validate contrast and motion guidelines under inverse scheme.
+
+## Operations Maintenance Strip (10 Apr 2024)
+- **Placement:** 56px strip below provider command center breadcrumb. Uses severity tokens matching admin web but with denser layout for SLA-focused teams.
+- **Content:** Left-aligned severity icon + label, central message truncated at 2 lines with ellipsis, right-aligned actions ("View details", "Acknowledge"). Acknowledgement toggles to show audit timestamp and actor initials badge.
+- **Colour & Contrast:** Ensure 4.5:1 contrast ratio; security incidents use animated border glow `0 0 12px rgba(220,38,38,0.45)`.
+- **Interactions:** Inline dropdown reveals impacted services checklist. Selecting "Acknowledge" prompts confirmation modal with optional note field. When multiple announcements exist, stack vertically with 8px gap and collapse older resolved items.
+- **Telemetry:** Fire events `provider_maintenance_ack` and `provider_maintenance_expand` with attributes `slug`, `team`, `shift`, and `audience` for operations analytics.

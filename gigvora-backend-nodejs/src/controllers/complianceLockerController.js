@@ -56,7 +56,11 @@ export async function overview(req, res) {
 export async function storeDocument(req, res) {
   const payload = req.body ?? {};
   const actorId = parsePositiveInteger(payload.actorId, 'actorId');
-  const document = await createComplianceDocument(payload, { actorId });
+  const document = await createComplianceDocument(payload, {
+    actorId,
+    logger: req.log,
+    requestId: req.id,
+  });
   res.status(201).json(document);
 }
 
@@ -64,7 +68,11 @@ export async function addVersion(req, res) {
   const { documentId } = req.params ?? {};
   const payload = req.body ?? {};
   const actorId = parsePositiveInteger(payload.actorId, 'actorId');
-  const result = await addComplianceDocumentVersion(documentId, payload, { actorId });
+  const result = await addComplianceDocumentVersion(documentId, payload, {
+    actorId,
+    logger: req.log,
+    requestId: req.id,
+  });
   res.status(201).json(result);
 }
 
@@ -73,7 +81,11 @@ export async function acknowledgeReminder(req, res) {
   const payload = req.body ?? {};
   const actorId = parsePositiveInteger(payload.actorId, 'actorId');
   const status = payload.status ? String(payload.status).trim() : 'acknowledged';
-  const reminder = await acknowledgeComplianceReminder(reminderId, status, { actorId });
+  const reminder = await acknowledgeComplianceReminder(reminderId, status, {
+    actorId,
+    logger: req.log,
+    requestId: req.id,
+  });
   res.json(reminder);
 }
 

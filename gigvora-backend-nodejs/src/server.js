@@ -9,6 +9,11 @@ import {
   markHttpServerClosing,
   markHttpServerStopped,
 } from './lifecycle/runtimeHealth.js';
+import { warmRuntimeDependencyHealth } from './services/runtimeDependencyGuard.js';
+import {
+  warmDatabaseConnections,
+  drainDatabaseConnections,
+} from './services/databaseLifecycleService.js';
 import { getPlatformSettings } from './services/platformSettingsService.js';
 import { syncCriticalDependencies } from './observability/dependencyHealth.js';
 
@@ -24,6 +29,7 @@ export async function start({ port = DEFAULT_PORT } = {}) {
   }
 
   markHttpServerStarting();
+  await warmDatabaseConnections({ logger });
   try {
     const settings = await getPlatformSettings();
     syncCriticalDependencies(settings, { logger: logger.child({ component: 'server' }) });
@@ -31,6 +37,7 @@ export async function start({ port = DEFAULT_PORT } = {}) {
     logger.warn({ err: error }, 'Failed to synchronise critical dependencies before startup');
   }
   await startBackgroundWorkers({ logger });
+  await warmRuntimeDependencyHealth({ logger, forceRefresh: true });
 
   httpServer = http.createServer(app);
 
@@ -68,6 +75,7 @@ export async function stop({ reason = 'shutdown' } = {}) {
   markHttpServerClosing({ reason });
 
   let workerShutdownError = null;
+  let databaseShutdownError = null;
   try {
     await stopBackgroundWorkers({ logger });
   } catch (error) {
@@ -89,8 +97,17 @@ export async function stop({ reason = 'shutdown' } = {}) {
     });
   });
 
+  try {
+    await drainDatabaseConnections({ logger, reason });
+  } catch (error) {
+    databaseShutdownError = error;
+  }
+
   if (workerShutdownError) {
     throw workerShutdownError;
+  }
+  if (databaseShutdownError) {
+    throw databaseShutdownError;
   }
 }
 

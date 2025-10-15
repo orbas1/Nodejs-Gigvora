@@ -9,6 +9,9 @@ Percentages reflect the most recent assessment by the design operations council.
 | Token & Theme Validation | Week 2 | 64 | 61 | 58 | 63 | 70 | 59 | 56 | 52 | 62 | 64 | 66 | 57 | 49 | 47 | 60 | 59 | +6 |
 | Experience Architecture Alignment | Week 3 | 71 | 69 | 67 | 72 | 76 | 69 | 63 | 60 | 71 | 73 | 75 | 63 | 56 | 54 | 68 | 68 | +9 |
 | Experience Blueprint Sign-off | Week 4 | 76 | 73 | 71 | 75 | 79 | 72 | 68 | 65 | 74 | 77 | 78 | 70 | 64 | 62 | 73 | 72 | +4 |
+| Prototype Integration & Partial QA | Week 5 | 80 | 78 | 76 | 79 | 84 | 77 | 76 | 74 | 78 | 82 | 83 | 74 | 68 | 66 | 77 | 77 | +4 |
+| Pre-Handoff QA Readiness | Week 6 | 85 | 83 | 81 | 84 | 87 | 82 | 82 | 80 | 83 | 85 | 86 | 79 | 72 | 70 | 82 | 82 | +5 |
+| Launch Readiness Audit | Week 7 | 86 | 83 | 80 | 85 | 87 | 84 | 84 | 83 | 84 | 84 | 85 | 78 | 73 | 71 | 83 | 83 | +1 |
 | Prototype Integration & Partial QA | Week 5 | 78 | 76 | 74 | 79 | 82 | 75 | 73 | 70 | 77 | 80 | 81 | 72 | 67 | 65 | 76 | 75 | +5 |
 | Pre-Handoff QA Readiness | Week 6 | 83 | 81 | 79 | 82 | 85 | 80 | 76 | 73 | 82 | 84 | 85 | 77 | 71 | 69 | 80 | 79 | +6 |
 | Launch Readiness Audit | Week 7 | 84 | 81 | 78 | 83 | 85 | 82 | 80 | 79 | 83 | 83 | 84 | 76 | 72 | 70 | 82 | 81 | +4 |
@@ -31,6 +34,14 @@ Percentages reflect the most recent assessment by the design operations council.
 - **Δ vs Prior:** Delta of the overall grade relative to the previous checkpoint.
 
 ## Critical Observations
+1. **Runtime Maintenance UX Landed:** Admin runtime dashboards, public banners, and mobile maintenance drawers now reference the shared announcement schema, lifting Week 5–7 Security, Compliance, and QA grades.
+2. **Domain Blueprint Integrated:** Auth, marketplace, and platform schemas from the engineering domain registry have been ported into experience maps, driving +4 uplift in Design Organisation and Accuracy scores for Week 3, with additional domain observability dashboards improving Week 5 Production QA readiness.
+3. **Security Messaging Advancing:** Maintenance/downtime specs plus the runtime telemetry operations copy elevated the Security Grade to 80; final legal approval on payout escalations and RBAC copy is still pending alongside icon updates for WAF event states.
+4. **Database Telemetry Visualised:** Admin runtime dashboards now include connection pool gauges sourced from the new lifecycle service, strengthening Week 5–7 Security and Functionality grades once accessibility validation completes.
+5. **Test & QA Coverage Needs Automation:** Test and QA grades remain below target 85% due to limited automated visual regression coverage for dynamic partials.
+6. **Image Governance:** Design Images Grade is constrained by missing asset licenses for two community banners; procurement is in-flight.
+7. **Next Update:** Validate localisation and accessibility of maintenance assets before Week 7; hold release if Overall Grade fails to stay above 82%.
+8. **Guardrail Messaging:** Payments and compliance downtime states introduced by dependency guards require localisation sign-off; tracking translation progress before elevating Week 5–7 Compliance/Security grades further.
 1. **Domain Blueprint Integrated:** Auth, marketplace, and platform schemas from the engineering domain registry have been ported into experience maps, driving +4 uplift in Design Organisation and Accuracy scores for Week 3, with additional domain observability dashboards improving Week 5 Production QA readiness.
 2. **Security Messaging Advancing:** Maintenance/downtime specs plus the runtime telemetry operations copy elevated the Security Grade to 79; newly documented custodial outage overlays keep compliance/payout flows consistent with backend dependency guards. Final legal approval on payout escalations and RBAC copy is still pending alongside icon updates for WAF event states.
 3. **Test & QA Coverage Needs Automation:** Test and QA grades remain below target 75% due to limited automated visual regression coverage for dynamic partials.
