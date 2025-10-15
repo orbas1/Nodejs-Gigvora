@@ -2,6 +2,10 @@ import { beforeAll, afterAll, beforeEach, jest } from '@jest/globals';
 import { sequelize } from '../src/models/messagingModels.js';
 import { appCache } from '../src/utils/cache.js';
 
+if (typeof process.env.SKIP_SEQUELIZE_BOOTSTRAP === 'undefined') {
+  process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'true';
+}
+
 let coreModelsLoaded = false;
 
 async function loadCoreModels() {

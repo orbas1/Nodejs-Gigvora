@@ -2,7 +2,7 @@
 
 Each numbered task maps to the update plan and contains explicit integration coverage so cross-functional teams can execute in parallel while maintaining traceability to Version 1.50 requirements and the pre-update defect catalogue.
 
-## Task 1 — Stabilise service lifecycles and security perimeters (27%)
+## Task 1 — Stabilise service lifecycles and security perimeters (55%)
 - **Backend:** Separate worker lifecycles from Express, add readiness/liveness probes, and repair the global error handler to satisfy Issue List items 1, 4, and 5.
 - **Front-end:** Surface health and rate-limit telemetry in admin dashboards so operators can react to backend degradation (Issues 14–17).
 - **User phone app:** Replace mocked connectivity checks with authenticated health polling and secure session bootstrap (Issue 18).
@@ -13,6 +13,12 @@ Each numbered task maps to the update plan and contains explicit integration cov
 - **Design:** Provide consistent UX copy, iconography, and localisation for maintenance and security prompts across surfaces.
 
 **Progress Note (Backend • 04 Apr):** Node API now boots through a lifecycle orchestrator with graceful shutdown hooks, readiness/liveness endpoints, structured logging with correlation IDs, and environment-tuned payload/rate controls. Background workers run under a managed supervisor with health instrumentation feeding the new `/health/ready` contract.
+
+**Progress Note (Cross-Stack • 07 Apr):** Replaced the legacy express-rate-limit wrapper with an in-process telemetry-aware rate limiter, exposed `/api/admin/runtime/health` via `runtimeObservabilityService`, and delivered an admin dashboard runtime panel with localisation-ready operations copy. Operators now have real-time visibility into dependency state, rate-limit utilisation, and recent block events without leaving the dashboard.
+
+**Progress Note (Backend • 08 Apr):** Rolled out Zod-backed validation middleware across `/api/auth/*` and critical admin routes, coercing and trimming payloads before controller execution. Invalid registration/login requests now return structured `422` responses, while admin dashboard/settings writes reject malformed configuration objects and unsafe query parameters.
+
+**Progress Note (Backend • 09 Apr):** Validation now protects search discovery, saved-search subscriptions, project creation/update flows, and finance control tower endpoints by canonicalising categories, coercing numerics and dates, parsing geo viewports, and shipping Jest coverage to lock in the behaviour.
 
 ## Task 2 — Modularise domain models and align schemas (55%)
 - **Backend:** Refactor `src/models/index.js` into bounded contexts with domain service layers and feature flags (Issue 4).

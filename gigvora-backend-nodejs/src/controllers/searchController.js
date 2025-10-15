@@ -72,15 +72,14 @@ const categoryHandlers = {
 };
 
 export async function searchOpportunities(req, res) {
-  const categoryParam = req.query.category?.toString().toLowerCase();
-  const category = categoryMap[categoryParam] ?? 'job';
+  const category = categoryMap[req.query.category] ?? 'job';
   const handler = categoryHandlers[category];
 
   if (!handler) {
-    throw new ValidationError(`Unsupported opportunity category "${categoryParam ?? 'unknown'}".`);
+    throw new ValidationError(`Unsupported opportunity category "${req.query.category ?? 'unknown'}".`);
   }
 
-  const includeFacets = req.query.includeFacets !== 'false';
+  const includeFacets = req.query.includeFacets ?? true;
   const result = await handler({
     query: req.query.q,
     page: req.query.page,

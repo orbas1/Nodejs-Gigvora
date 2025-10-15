@@ -6,6 +6,11 @@
 - **Research Inputs:** Combined analysis of `Screens_Update_Plan.md`, `Screens_update_images_and_vectors.md`, `Logic_Flow_map.md`, and web assets documentation produced during Version 1.50 discovery.
 - **Rollout:** Sequenced through design QA gates prior to sprint integration, with staged publication of tokens to engineering repositories (React, Node API docs, Flutter kit).
 
+## 07 Apr 2024 — Runtime Health Operations Suite
+1. **Admin Runtime Panel:** Documented the new runtime health section in `Dashboard Designs.md` and `Screens_Updates_widget_functions.md`, covering readiness badges, dependency chips, rate-limit utilisation bars, and history cards tied to `/api/admin/runtime/health`.
+2. **Telemetry Copy & Localisation:** Finalised operations copy decks and localisation strings for rate-limit alerts and refresh messaging in `Screen_text.md` and `text.md.md`, aligning with Compliance UX (Task 9) requirements.
+3. **Polling Patterns:** Added interaction notes to `component_functions.md` describing manual refresh affordances, background polling cadence, and accessibility expectations (status messages, focus management) for telemetry widgets.
+
 ## 06 Apr 2024 — Domain Observability Surfaces
 1. **Registry Dashboards:** Added admin/operator dashboard panels in `Dashboard Designs.md` and `Screens_Updates_widget_functions.md` that consume the `/api/domains/registry` payload, surfacing bounded-context coverage, service bindings, and schema drift alerts.
 2. **Schema Tooling Hand-off:** Updated `Architecture_Domain_Map.md` and `Design Plan.md` to reference the new TypeScript contract outputs so design-to-code traceability covers both JSON and TS client packages.

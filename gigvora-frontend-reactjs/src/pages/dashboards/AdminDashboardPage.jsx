@@ -3,9 +3,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowPathIcon, CurrencyDollarIcon, LifebuoyIcon, ShieldCheckIcon, UsersIcon } from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import AdCouponManager from '../../components/admin/AdCouponManager.jsx';
+import RuntimeTelemetryPanel from '../../components/admin/RuntimeTelemetryPanel.jsx';
 import GigvoraAdsConsole from '../../components/ads/GigvoraAdsConsole.jsx';
 import AdminGroupManagementPanel from './admin/AdminGroupManagementPanel.jsx';
 import useSession from '../../hooks/useSession.js';
+import useRuntimeHealthSnapshot from '../../hooks/useRuntimeHealthSnapshot.js';
 import { fetchAdminDashboard } from '../../services/admin.js';
 import { fetchPlatformSettings, updatePlatformSettings } from '../../services/platformSettings.js';
 import { fetchAffiliateSettings, updateAffiliateSettings } from '../../services/affiliateSettings.js';
@@ -14,6 +16,12 @@ const MENU_SECTIONS = [
   {
     label: 'Command modules',
     items: [
+      {
+        name: 'Runtime health',
+        description: 'Service readiness, dependency posture, and rate-limit utilisation for the API perimeter.',
+        tags: ['ops', 'security'],
+        sectionId: 'admin-runtime-health',
+      },
       {
         name: 'Member health',
         description: 'Growth, activation, and readiness scores across the Gigvora network.',
@@ -512,6 +520,14 @@ function RecentList({ title, rows, columns, emptyLabel }) {
 export default function AdminDashboardPage() {
   const navigate = useNavigate();
   const { session, isAuthenticated } = useSession();
+  const {
+    data: runtimeSnapshot,
+    loading: runtimeLoading,
+    refreshing: runtimeRefreshing,
+    error: runtimeError,
+    lastUpdated: runtimeUpdatedAt,
+    refresh: refreshRuntime,
+  } = useRuntimeHealthSnapshot();
   const normalizedMemberships = useMemo(() => normalizeToLowercaseArray(session?.memberships), [session?.memberships]);
   const normalizedRoles = useMemo(() => normalizeToLowercaseArray(session?.roles), [session?.roles]);
   const normalizedPermissions = useMemo(
@@ -2229,6 +2245,14 @@ export default function AdminDashboardPage() {
 
   const renderDashboardSections = data ? (
     <div className="space-y-10">
+      <RuntimeTelemetryPanel
+        snapshot={runtimeSnapshot}
+        loading={runtimeLoading}
+        refreshing={runtimeRefreshing}
+        error={runtimeError}
+        onRefresh={refreshRuntime}
+        lastUpdated={runtimeUpdatedAt}
+      />
       <AdCouponManager />
       <AdminGroupManagementPanel />
 

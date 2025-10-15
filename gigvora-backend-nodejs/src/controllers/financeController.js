@@ -26,23 +26,14 @@ export async function controlTowerOverview(req, res) {
   const overview = await getFinanceControlTowerOverview(userId, {
     dateFrom,
     dateTo,
-    forceRefresh: String(refresh ?? '').toLowerCase() === 'true',
+    forceRefresh: Boolean(refresh),
   });
   res.json(overview);
 }
 
-function parseFreelancerId(value) {
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new ValidationError('freelancerId must be a positive integer.');
-  }
-  return parsed;
-}
-
 export async function showFreelancerInsights(req, res) {
   const { freelancerId } = req.params ?? {};
-  const normalizedId = parseFreelancerId(freelancerId);
-  const insights = await getFreelancerFinanceInsights(normalizedId);
+  const insights = await getFreelancerFinanceInsights(freelancerId);
   res.json(insights);
 }
 

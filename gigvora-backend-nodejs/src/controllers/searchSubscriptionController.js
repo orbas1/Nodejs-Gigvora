@@ -33,12 +33,7 @@ export async function updateSubscription(req, res) {
     throw new ValidationError('An authenticated userId is required to update a saved search.');
   }
 
-  const subscriptionId = Number.parseInt(req.params.id, 10);
-  if (Number.isNaN(subscriptionId)) {
-    throw new ValidationError('Subscription id must be a number.');
-  }
-
-  const subscription = await updateSubscriptionService(subscriptionId, userId, req.body ?? {});
+  const subscription = await updateSubscriptionService(req.params.id, userId, req.body ?? {});
   res.json(subscription);
 }
 
@@ -48,12 +43,7 @@ export async function deleteSubscription(req, res) {
     throw new ValidationError('An authenticated userId is required to delete a saved search.');
   }
 
-  const subscriptionId = Number.parseInt(req.params.id, 10);
-  if (Number.isNaN(subscriptionId)) {
-    throw new ValidationError('Subscription id must be a number.');
-  }
-
-  const result = await deleteSubscriptionService(subscriptionId, userId);
+  const result = await deleteSubscriptionService(req.params.id, userId);
   res.json(result);
 }
 

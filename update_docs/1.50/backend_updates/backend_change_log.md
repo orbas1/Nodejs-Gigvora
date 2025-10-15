@@ -1,5 +1,28 @@
 # Backend Change Log — Version 1.50 Update
 
+## 09 Apr 2024
+- Added validation schemas for search discovery queries, saved-search subscription payloads, project management bodies, and
+  finance overview parameters to enforce canonical categories, numeric coercion, viewport parsing, and nested configuration
+  sanitisation before controllers execute.
+- Applied the `validateRequest` middleware to `/api/search/*`, `/api/projects/*`, and `/api/finance/*` endpoints so discovery,
+  project automation, and finance telemetry routes normalise payloads and emit structured validation errors for unsafe input.
+- Introduced targeted Jest supertest suites covering search, project, and finance validation flows to guard against regression
+  and document expected sanitisation behaviour for cross-functional teams.
+
+## 08 Apr 2024
+- Added a reusable Zod-powered `validateRequest` middleware and schema catalogue covering authentication and admin routes so req
+  uests are normalised, coerced, and rejected before hitting controllers.
+- Hardened `/api/auth/*` registration, login, two-factor, and Google OAuth flows with strict body validation that trims names,
+  lowercases emails, coerces booleans, and rejects malformed payloads prior to domain service execution.
+- Secured `/api/admin/dashboard`, `/api/admin/platform-settings`, and `/api/admin/affiliate-settings` by sanitising query/body
+  inputs, coercing booleans/numbers, and ensuring nested settings objects cannot introduce prototype pollution or invalid confi
+  guration shapes.
+
+## 07 Apr 2024
+- Introduced an observability-focused rate limiter wrapper and metrics store that track per-window utilisation, top offenders, and blocked ratios without external persistence.
+- Added `runtimeObservabilityService` and `/api/admin/runtime/health` so operators can inspect readiness, dependency health, environment metadata, and rate-limit pressure programmatically.
+- Expanded admin controller/routes to expose runtime telemetry while honouring admin authentication.
+
 ## 06 Apr 2024
 - Delivered `/api/domains/*` routes backed by a new DomainIntrospectionService that serialises bounded contexts, Sequelize metadata, and service bindings for operational tooling.
 - Added capability descriptors to auth, marketplace, and platform domain services so diagnostics expose available workflows alongside context membership.

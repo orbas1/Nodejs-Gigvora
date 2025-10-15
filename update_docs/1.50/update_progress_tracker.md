@@ -4,7 +4,7 @@ Percentages reflect initial baseline before execution. Update the tracker weekly
 
 | Task ID | Task Name | Security Level % | Completion Level % | Integration Level % | Functionality Level % | Error Free Level % | Production Level % | Overall Level % |
 |---------|-----------|------------------|--------------------|---------------------|-----------------------|--------------------|--------------------|-----------------|
-| 1 | Stabilise service lifecycles and security perimeters | 35 | 25 | 20 | 30 | 25 | 25 | 27 |
+| 1 | Stabilise service lifecycles and security perimeters | 65 | 62 | 58 | 60 | 57 | 59 | 60 |
 | 2 | Modularise domain models and align schemas | 52 | 70 | 68 | 75 | 55 | 63 | 64 |
 | 3 | Enforce validation, consent, and governance workflows | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | 4 | Complete financial, escrow, and dispute capabilities | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
@@ -14,6 +14,16 @@ Percentages reflect initial baseline before execution. Update the tracker weekly
 | 8 | Achieve mobile parity and runtime resilience | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | 9 | Institutionalise observability, tooling, and secret hygiene | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | 10 | Execute testing, documentation, and release readiness | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+**Progress Note (Cross-Stack • 07 Apr):** Runtime telemetry is now captured end-to-end via the in-process rate limiter metrics,
+`/api/admin/runtime/health` aggregation service, and the admin dashboard runtime panel. Operators can trace dependency degradati
+on, rate-limit saturation, and historical spikes from a single surface, lifting Task 1 production readiness.
+
+**Progress Note (Backend • 08 Apr):** Shared Zod schemas now protect authentication and admin settings routes via the new `vali
+dateRequest` middleware, normalising inputs, emitting structured validation errors, and blocking unsafe configuration payloads.
+Task 1 security, completion, integration, and production scores rose accordingly.
+
+**Progress Note (Backend • 09 Apr):** Validation now covers search discovery, saved-search subscriptions, project creation/update, and finance control tower routes, canonicalising categories, geo viewports, numeric limits, and ISO dates while new Jest suites document the sanitised contracts.
 
 ## Update Guidance
 - **Security Level:** Reflects penetration, governance, and compliance hardening progress.
