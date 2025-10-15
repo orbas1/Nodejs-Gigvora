@@ -1,5 +1,20 @@
 # Front-end Change Log — Version 1.50 Update
 
+## 27 Apr 2024
+- Launched the admin `ConsentGovernancePanel` with paginated policy tables,
+  breach indicators, and policy drill-down drawer aligned with
+  `ui-ux_updates/web_app_wireframe_changes.md`. The panel consumes the new
+  `/api/admin/governance/consents` API via a dedicated service, surfaces version
+  activation health, and queues notifications when policies require migration.
+- Refreshed Settings privacy console to expose granular consent toggles, audit
+  badges, SAR request entry point, and policy history timeline. UI ties into
+  consent schemas and reuses copy documented in
+  `Application_Design_Update_Plan/Settings Dashboard.md` while persisting changes
+  with optimistic updates and rollback on server rejection.
+- Added a shared consent service module with error mapping, toast messaging, and
+  React Query integration so admin dashboards and settings share caching and
+  retry logic without duplicating request plumbing.
+
 ## 23 Apr 2024
 - Added a data governance registry card to the admin dashboard surfacing bounded
   context classification, steward contacts, PII coverage, review status, and

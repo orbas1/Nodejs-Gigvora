@@ -1,5 +1,30 @@
 # Backend Change Log — Version 1.50 Update
 
+## 27 Apr 2024
+- Introduced GDPR-ready consent persistence via the new `ConsentPolicy`,
+  `ConsentPolicyVersion`, `UserConsent`, and `ConsentAuditEvent` models with
+  referential integrity, version sequencing guards, and auto-populated audit
+  metadata. Hooked migrations enforce partial indexes for active policies and
+  unique user-policy pairs while remaining dialect-compatible.
+- Delivered `consentService` orchestration covering policy publishing,
+  version activation, withdrawal handling, and SAR exports. Added defensive
+  validation that prevents revocation of `revocable=false` policies, enforces
+  dependency on active policy versions, and emits structured audit events for
+  compliance review.
+- Shipped RBAC-aware admin (`consentController`) and user (`userConsentController`)
+  endpoints that paginate consent snapshots, expose audit timelines, and support
+  admin overrides with immutable event logging. Routes sit behind the existing
+  `validateRequest` middleware and reuse shared schema coercion to reject unsafe
+  payloads.
+- Updated `src/utils/errors.js` to expose purpose-built error types used by the
+  consent stack, normalised domain metadata with consent classifications, and
+  extended the service index to register the new consent layer for downstream
+  dependency injection.
+- Authored Jest coverage (`tests/services/consentService.test.js`) validating
+  policy lifecycle orchestration, withdrawal guardrails, and audit emission,
+  ensuring regression visibility before we wire Supertest coverage to the new
+  admin/user routes.
+
 ## 26 Apr 2024
 - Added a production-ready `listMemberGroups` implementation to `src/services/groupService.js` that filters by membership
   status, supports search/sorting, calculates join/retention metrics, and powers legacy default exports without raising

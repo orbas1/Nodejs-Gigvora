@@ -101,6 +101,12 @@
   “Schedule first review”; healthy view uses celebratory ribbon around shield
   icon and copy reinforcing next review cadence with accent-coloured countdown
   chip.
+- **Consent Card (27 Apr):** Consent ledger tile adopts elevated surface with
+  gradient header `linear-gradient(135deg, #2563EB, #1E40AF)`, badge chips for
+  outstanding policies, and inline breach banner in warning palette. Detail sheet
+  inherits bottom sheet styling with segmented sections (Policy summary, History,
+  Actions) and sticky action bar; withdrawal CTA uses destructive theme while
+  disabled state presents tooltip copy referencing legal basis.
 
 ### Settings & Legal Pages
 - **Account Preferences:** Toggle groups arranged on raised surfaces with descriptive copy; destructive options flagged with warning icon and background tint.

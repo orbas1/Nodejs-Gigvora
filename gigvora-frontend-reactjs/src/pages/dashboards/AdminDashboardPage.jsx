@@ -4,6 +4,7 @@ import { ArrowPathIcon, CurrencyDollarIcon, LifebuoyIcon, ShieldCheckIcon, Users
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import AdCouponManager from '../../components/admin/AdCouponManager.jsx';
 import RuntimeTelemetryPanel from '../../components/admin/RuntimeTelemetryPanel.jsx';
+import ConsentGovernancePanel from '../../components/admin/ConsentGovernancePanel.jsx';
 import GigvoraAdsConsole from '../../components/ads/GigvoraAdsConsole.jsx';
 import AdminGroupManagementPanel from './admin/AdminGroupManagementPanel.jsx';
 import useSession from '../../hooks/useSession.js';
@@ -2401,6 +2402,7 @@ export default function AdminDashboardPage() {
       />
       <AdCouponManager />
       <AdminGroupManagementPanel />
+      <ConsentGovernancePanel />
 
       <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

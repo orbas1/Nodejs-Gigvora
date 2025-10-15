@@ -113,6 +113,22 @@ The Version 1.50 update rationalises logged-out marketing and logged-in workspac
 - **Finance Settings:** Payout updates trigger verification workflow, multi-factor approval, and status badges; invoice downloads logged for compliance.
 - **Legal Acknowledgements:** When Terms/Privacy change, modal forces review, highlights summary, and records timestamp; rejection restricts access until accepted.
 
+### 13. Consent Governance & SAR (27 Apr)
+- **Policy Management:** Admin selects Governance → Consent. Panel fetches
+  paginated policies with filters; selecting a row opens detail drawer with
+  version history, locale manifests, and breach log. Activation action validates
+  prerequisites (translations, effective date, migration backlog) before calling
+  `/api/admin/governance/consents/:policyId/activate`.
+- **Exports & Notifications:** Export CTA triggers CSV download for legal teams
+  and raises analytics event. Breach alerts expose escalation CTA linking to
+  incident runbook; dismissal logs actor/time for audit.
+- **Settings Privacy Console:** Authenticated users navigate to Settings →
+  Privacy. Toggle interactions call `/api/users/:id/consents/:policyId/accept`
+  with optimistic UI; revoking triggers confirmation modal, checks
+  `revocable=true`, and displays gating copy if withdraw blocked. SAR request
+  button opens modal capturing reason, optional attachments, and acknowledgement;
+  submission queues legal workflow and logs audit event.
+
 ## Automation & Integrations
 - Marketing forms integrate with HubSpot; events include `demo_requested`, `trial_started`, `resource_downloaded`.
 - Product telemetry flows into Segment; dashboards built in Looker monitor conversion funnel.

@@ -1,5 +1,16 @@
 # Database Change Log — Version 1.50 Update
 
+## 27 Apr 2024
+- Added consent governance tables: `consent_policies`, `consent_policy_versions`,
+  `user_consents`, and `consent_audit_events`. Schema enforces sequential version
+  numbers per policy, composite unique constraints on user/policy/version
+  combinations, soft-delete toggles for drafts, and timezone-aware timestamps to
+  support GDPR retention evidence.
+- Applied partial indexes for active policy lookups and audit event pagination so
+  admin exports remain performant even as consent histories grow. Down migration
+  removes tables and indexes while preserving existing maintenance/runtime
+  artefacts.
+
 ## 23 Apr 2024
 - Created `domain_governance_reviews` table to persist governance audit outcomes,
   remediation notes, steward contacts, and next-review cadences for every bounded

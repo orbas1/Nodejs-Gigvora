@@ -1,3 +1,18 @@
+# User Phone App Change Log — 27 Apr 2024
+
+1. **Consent Governance Card:** Added `UserConsentCard` to the admin home
+   timeline showing outstanding required policies, active policy count, and
+   breach alerts. Card links to SAR entry points and surfaces withdrawal blocks
+   consistent with design annotations in `App_screens_drawings.md` and
+   `user_app_wireframe_changes.md`.
+2. **Repository & Provider:** Introduced `UserConsentRepository` and
+   `UserConsentProvider` wiring to call `/api/users/:id/consents`, cache results,
+   and expose Riverpod selectors for outstanding required consents and latest
+   acceptance metadata. Offline handling replays cached timeline with timestamp.
+3. **Copy & Analytics:** Updated consent messaging tokens, audit badges, and
+   analytics taxonomy in `Screens_Update_Plan.md` to track acceptance/withdrawal
+   actions initiated from mobile. Logged localisation requirements for EN/ES/FR.
+
 # User Phone App Change Log — 24 Apr 2024
 
 1. **Governance Widget Automation:** Added widget tests covering loading, error,

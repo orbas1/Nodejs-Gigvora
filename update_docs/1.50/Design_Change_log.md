@@ -1,5 +1,23 @@
 # Version 1.50 Design Change Log (Enterprise Detail)
 
+## 27 Apr 2024 — Consent Governance Console & Privacy Console
+1. **Admin Consent Panel:** Updated `Dashboard Designs.md`,
+   `Screens_Updates_widget_functions.md`, and
+   `Screens_update_images_and_vectors.md` with consent policy table layouts,
+   breach alert badges, activation modals, and localisation cues aligned with the
+   new `/api/admin/governance/consents` payloads. Added analytics annotations in
+   `Application_Design_Update_Plan/Dashboard Designs.md` for export/activation
+   tracking.
+2. **Settings Privacy Console:** Refreshed `Settings Dashboard.md`,
+   `Screen_text.md`, and `Application_Design_Update_Plan/Screen_buttons.md` to
+   detail consent toggle hierarchy, SAR entry points, audit badges, and timeline
+   treatments; documented accessibility states, focus order, and ARIA labels for
+   every control.
+3. **Mobile Parity:** Extended `App_screens_drawings.md`,
+   `Screens_Update_Plan.md`, and `user_app_wireframe_changes.md` with the Flutter
+   consent card, withdrawal confirmation sheet, and offline banner states,
+   ensuring Riverpod provider flows align with backend audit requirements.
+
 ## 23 Apr 2024 — Domain Governance Registry Experience
 1. **Admin Governance Card:** Updated `Dashboard Designs.md`,
    `Screens_Updates_widget_functions.md`, and `Screens_update_images_and_vectors.md`

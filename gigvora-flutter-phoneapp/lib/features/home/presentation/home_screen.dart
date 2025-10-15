@@ -12,6 +12,7 @@ import '../../finance/domain/finance_access_policy.dart';
 import '../../../theme/widgets.dart';
 import '../../blog/presentation/blog_spotlight_card.dart';
 import '../../governance/presentation/domain_governance_summary_card.dart';
+import '../../governance/presentation/user_consent_card.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -114,6 +115,8 @@ class HomeScreen extends ConsumerWidget {
             _MetricsWrap(metrics: activeDashboard.metrics),
             const SizedBox(height: 24),
             const BlogSpotlightCard(),
+            const SizedBox(height: 24),
+            const UserConsentCard(),
             if (FinanceAccessPolicy.hasAccess(session)) ...[
               const SizedBox(height: 24),
               _FinanceCallout(onTap: () => GoRouter.of(context).go('/finance')),

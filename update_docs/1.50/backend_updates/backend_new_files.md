@@ -6,16 +6,24 @@
 | `database/migrations/20241010104500-create-domain-governance-reviews.cjs` | Migration creating `domain_governance_reviews` with steward/contact metadata, governance status enum, next-review cadence indexes, and JSON scorecards compatible with Postgres/SQLite. |
 | `database/seeders/20241010105500-domain-governance-reviews-seed.cjs` | Seeder populating baseline governance reviews per bounded context so staging/test environments surface meaningful remediation data out of the box. |
 | `database/migrations/20241015123000-database-connection-audit.cjs` | Migration provisioning `database_audit_events` with typed event metadata, audit timestamps, and JSON payloads capturing pool snapshots for shutdown reviews. |
+| `database/migrations/20240920090000-governance-consent-tables.cjs` | Migration creating `consent_policies`, `consent_policy_versions`, `user_consents`, and `consent_audit_events` with composite indexes, activation windows, and audit metadata compatible with Postgres and SQLite. |
 | `src/models/runtimeAnnouncement.js` | Sequelize model defining runtime maintenance announcements with severity/status enums, JSON audience/channel lists, metadata, and helper methods for filtering/scheduling. |
 | `src/models/databaseAuditEvent.js` | Sequelize model persisting auditable database lifecycle events with event type, reason, initiator, and JSON metadata storing pool telemetry. |
+| `src/models/consentModels.js` | Registers `ConsentPolicy`, `ConsentPolicyVersion`, `UserConsent`, and `ConsentAuditEvent` models with scoped associations, cascading draft cleanup, and actor metadata hooks. |
 | `src/controllers/runtimeController.js` | Public controller serving filtered maintenance announcements to unauthenticated clients with caching hints and validation. |
 | `src/controllers/adminRuntimeController.js` | Admin controller providing paginated list, create/update, and lifecycle actions for maintenance announcements with audit metadata. |
+| `src/controllers/consentController.js` | Admin controller delivering consent policy CRUD, version activation, and export endpoints with RBAC enforcement and structured audits. |
+| `src/controllers/userConsentController.js` | User-focused controller serving consent snapshot, acceptance, and withdrawal flows with SAR-ready responses and conflict handling. |
 | `src/routes/runtimeRoutes.js` | Express router registering `/api/runtime/maintenance` with validation and caching headers. |
 | `src/routes/adminRuntimeRoutes.js` | Express router wiring admin maintenance CRUD + status endpoints behind authentication and validation middleware. |
+| `src/routes/adminConsentRoutes.js` | Router exposing admin consent governance endpoints with validation middleware and audit logging. |
+| `src/routes/userConsentRoutes.js` | Router exposing user consent ledger, acceptance, and withdrawal endpoints protected by RBAC. |
 | `src/services/runtimeMaintenanceService.js` | Service encapsulating announcement creation, updates, lifecycle transitions, filtering, and serialization for controllers. |
+| `src/services/consentService.js` | Service orchestrating policy lifecycle, user ledger retrieval, SAR exports, and audit event emission with transactional safety. |
 | `src/domains/domainMetadata.js` | Centralised catalogue describing each bounded context’s steward contacts, data classifications, retention targets, and PII inventories used by governance endpoints and schema generation. |
 | `src/routes/docsRoutes.js` | Express router that serves cached OpenAPI documents with hashed ETags for partner tooling and automation. |
 | `src/validation/schemas/runtimeSchemas.js` | Zod schema catalogue covering public/admin query params, create/update payloads, status transitions, and identifier params. |
+| `src/validation/schemas/consentSchemas.js` | Zod schema catalogue validating consent policy payloads, version publication, activation requests, and user accept/withdraw commands. |
 | `tests/services/runtimeMaintenanceService.test.js` | Unit coverage exercising sanitisation, chronology enforcement, lifecycle transitions, and filtering branches for the service. |
 | `tests/routes/runtimeRoutes.test.js` | Supertest coverage validating public maintenance endpoint filtering, caching headers, and validation behaviour using stubs. |
 | `tests/routes/healthRoutes.metrics.test.js` | Supertest suite asserting `/health/metrics` streams Prometheus output, exporter priming responds immediately after boot, and scrape counters increment on demand. |
@@ -88,3 +96,4 @@
 | `tests/stubs/zodStub.js` | Lightweight Jest stub implementing the `z` factory and `ZodError` contract so schema-heavy modules load without shipping the real dependency in CI. |
 | `tests/stubs/compressionStub.js` | Jest stub mimicking the `compression` middleware signature so HTTP security and documentation routes execute during tests without the native dependency. |
 | `docs/openapi/runtime-security.json` | Versioned OpenAPI contract describing health, runtime observability, and authentication endpoints for partner tooling. |
+| `tests/services/consentService.test.js` | Jest coverage validating consent policy lifecycle management, withdrawal guard rails, and audit emission across happy-path and conflict scenarios. |

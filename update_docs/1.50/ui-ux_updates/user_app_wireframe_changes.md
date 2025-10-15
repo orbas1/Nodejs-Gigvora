@@ -119,6 +119,16 @@
 - Offline mode displays cached announcement plus retry button; includes banner reminding users to stay subscribed for updates.
 - Wireframes show responsive adjustments for small devices with collapsed metadata stack.
 
+## Consent Governance Card & Detail Sheet (Added 27 Apr)
+- Home deck includes consent ledger card showing outstanding required policies,
+  acceptance timestamp, and breach badge. Tap areas cover entire card; analytics
+  event fires on view/interaction.
+- Detail sheet presents policy summary, acceptance history timeline, SAR CTA,
+  and actions to accept/withdraw when allowed. Withdrawal confirmation step
+  requires reason selection and displays warnings when policy is non-revocable.
+- Wireframes include offline fallback with cached timestamp notice, as well as
+  skeleton state demonstrating shimmer placeholders for data fetching.
+
 ## Domain Governance Card & Drawer (Added 23 Apr)
 - Home screen card surfaces contexts grouped by status (Approved, Monitoring,
   Remediation Required) with steward avatar stacks, scorecard progress bars, and

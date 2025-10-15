@@ -65,7 +65,7 @@ Each numbered task maps to the update plan and contains explicit integration cov
 
 **Progress Note (Cross-Stack • 24 Apr):** Closed the governance follow-up by shipping Supertest coverage for `/api/domains/governance`/`/:context/governance` plus Flutter widget tests covering loading, error, and remediation-heavy states. Documentation, task trackers, and test result logs updated; remaining CI action is provisioning the Flutter SDK so the new widget suite can execute automatically.
 
-## Task 3 — Enforce validation, consent, and governance workflows (0%)
+## Task 3 — Enforce validation, consent, and governance workflows (73%)
 - **Backend:** Apply Celebrate/Zod validation, wire consent records, SAR tooling, and RBAC middleware logging.
 - **Front-end:** Build consent management hubs, admin overrides, and preference panels per governance requirements.
 - **User phone app:** Implement GDPR consent capture, SAR requests, and scam alert toggles using the new APIs.
@@ -74,6 +74,8 @@ Each numbered task maps to the update plan and contains explicit integration cov
 - **API:** Expose GDPR endpoints with pagination/export sanitisation to prevent PII leakage flagged in the issue report.
 - **Logic:** Embed governance checkpoints throughout creation, finance, messaging, and notification flows.
 - **Design:** Deliver WCAG-compliant consent modals, policy copy, and localisation assets aligned with legal updates.
+
+**Progress Note (Cross-Stack • 27 Apr):** Consent migration, models, services, and admin/user controllers shipped with RBAC and audit hooks; React admin dashboard now includes `ConsentGovernancePanel` plus Settings privacy console upgrades, and Flutter home screen surfaces consent ledger via `UserConsentCard`. Backend Jest suite `npm test -- consentService` passes, documentation/design trackers updated, and consent route Supertests scheduled next to close out Task 3 testing.
 
 ## Task 4 — Complete financial, escrow, and dispute capabilities (0%)
 - **Backend:** Implement Stripe/Adyen/PayPal adapters, wallet modelling, and ledger reconciliation jobs (Feature Plan Phase 3).

@@ -26,6 +26,18 @@
 - Down migration drops the audit table and indexes; export audit rows before rollback if compliance teams require historical
   evidence.
 
+## `20240920090000-governance-consent-tables.cjs`
+- Provisions `consent_policies`, `consent_policy_versions`, `user_consents`, and
+  `consent_audit_events` tables with foreign keys, cascading delete rules for
+  draft versions, and timezone-aware timestamps for legal evidence.
+- Adds composite indexes (`policyId`, `versionNumber`, `status`) plus partial
+  indexes on `active=true` policies and `revokedAt IS NULL` user consents to keep
+  admin/API queries responsive. Enforces uniqueness on `userId` + `policyVersion`
+  to prevent duplicate acceptances.
+- Down migration drops the consent tables and associated indexes; retention teams
+  should export audit trails before rolling back to comply with GDPR storage
+  requirements.
+
 ## Operational Guidance
 - Run `npx sequelize-cli db:migrate` after pulling the update. Admin dashboards and mobile clients rely on the table to return
   maintenance banners; absence will surface 500 responses on the new endpoints.

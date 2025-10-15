@@ -1,5 +1,19 @@
 # Version 1.50 UI/UX Design Change Log
 
+## 27 Apr 2024 — Consent Governance & Privacy Console
+- Documented admin consent governance panel wireframes in
+  `web_app_wireframe_changes.md` and `web_application_logic_flow_changes.md`,
+  detailing policy table layout, drill-down drawer, activation modals, and export
+  controls aligned with `/api/admin/governance/consents` payloads.
+- Updated privacy console styling, copy, and logic in
+  `web_application_styling_changes.md`, `web_application_logic_flow_changes.md`,
+  and `Application_Design_Update_Plan/Settings Dashboard.md` to surface consent
+  toggles, audit badges, SAR entry points, and error handling states.
+- Refreshed mobile artefacts (`user_app_wireframe_changes.md`,
+  `user_application_styling_changes.md`, `App_screens_drawings.md`) with the new
+  Flutter consent card, withdrawal confirmation sheet, and offline fallback
+  guidance, ensuring parity with React UX and backend audit requirements.
+
 ## Release Context
 - **Release Window:** 18 April – 27 May 2024 with progressive rollouts to staging, pilot customers, and general availability.
 - **Design Drivers:** Align the provider command center, consumer discovery experiences, and public marketing site around a unified design language while removing friction identified in Q1 journey-mapping workshops.

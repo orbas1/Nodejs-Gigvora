@@ -10,6 +10,7 @@ import {
   platformSettingsBodySchema,
 } from '../validation/schemas/adminSchemas.js';
 import adminRuntimeRoutes from './adminRuntimeRoutes.js';
+import adminConsentRoutes from './adminConsentRoutes.js';
 
 const router = Router();
 
@@ -36,5 +37,6 @@ router.put(
 
 router.use('/ads/coupons', adminAdRoutes);
 router.use('/runtime', adminRuntimeRoutes);
+router.use('/governance/consents', adminConsentRoutes);
 
 export default router;
