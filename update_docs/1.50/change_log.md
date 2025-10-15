@@ -1,5 +1,19 @@
 # Version 1.50 Update Change Log
 
+## 25 Apr 2024
+- Delivered a production governance dossier experience in the React admin dashboard, introducing a slide-over detail drawer,
+  cached detail hook, and accessibility/touch affordances so operators can drill into PII inventories, scorecards, and steward
+  contacts without leaving the registry panel.
+- Added a Flutter modal detail sheet powered by a new Riverpod family provider so mobile admins can inspect governance reviews,
+  retention policies, and quality checks from the governance card, mirroring the web experience with Riverpod overrides for
+  widget tests.
+- Hardened backend observability scaffolding by stubbing `prom-client` for Jest, re-exporting runtime audit models, and
+  removing the duplicated `ServiceUnavailableError` definition so governance route tests can execute without module parsing
+  failures; documented the remaining legacy blocker in the backend test results log.
+- Implemented `groupService.listMemberGroups`, guarded repeated Sequelize association wiring, and updated domain registry error
+  handling so the governance HTTP suite now seeds fixtures, returns structured 404s, and passes `npm test --
+  routes/domainRoutes.governance` without manual intervention.
+
 ## 24 Apr 2024
 - Added supertest coverage for `/api/domains/governance` and
   `/api/domains/:context/governance`, validating summary/detail responses merge

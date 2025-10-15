@@ -17,6 +17,11 @@ describe('domain governance routes', () => {
     notes: 'Fixture to assert HTTP governance responses.',
   };
 
+  beforeEach(async () => {
+    await DomainGovernanceReview.sync();
+    await DomainGovernanceReview.destroy({ where: {} });
+  });
+
   it('returns governance summaries merged with review metadata', async () => {
     await DomainGovernanceReview.create(seededReview);
 
@@ -37,7 +42,7 @@ describe('domain governance routes', () => {
       reviewStatus: 'remediation_required',
       remediationItems: 2,
     });
-    expect(typeof authSummary.generatedAt).toBeUndefined();
+    expect(authSummary.generatedAt).toBeUndefined();
     expect(typeof response.body.generatedAt).toBe('string');
   });
 
@@ -66,9 +71,8 @@ describe('domain governance routes', () => {
 
     expect(response.status).toBe(404);
     expect(response.body).toMatchObject({
-      error: expect.objectContaining({
-        code: 'NOT_FOUND',
-      }),
+      message: expect.stringContaining('No domain context registered as'),
+      requestId: expect.any(String),
     });
   });
 });

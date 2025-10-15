@@ -947,6 +947,165 @@ export async function listGroups({
   };
 }
 
+function normaliseMembershipStatuses(statuses) {
+  if (statuses == null) {
+    return ['active'];
+  }
+
+  const rawArray = Array.isArray(statuses) ? statuses : [statuses];
+  const uniqueStatuses = unique(
+    rawArray
+      .map((status) => status?.toString().trim().toLowerCase())
+      .filter((status) => status && status.length > 0),
+  );
+
+  if (!uniqueStatuses.length) {
+    return null;
+  }
+
+  return uniqueStatuses.map((status) => {
+    if (!GROUP_MEMBERSHIP_STATUSES.includes(status)) {
+      throw new ValidationError(`Unsupported membership status filter: ${status}`);
+    }
+    return status;
+  });
+}
+
+function buildMembershipStatusWhere(statuses) {
+  if (!statuses || !statuses.length) {
+    return undefined;
+  }
+  if (statuses.length === 1) {
+    return statuses[0];
+  }
+  return { [Op.in]: statuses };
+}
+
+export async function listMemberGroups({
+  actorId,
+  statuses,
+  search,
+  includeMembers = false,
+  page = 1,
+  pageSize = 20,
+  sort = 'recent',
+} = {}) {
+  if (!actorId) {
+    throw new AuthorizationError('Authentication required to list member groups.');
+  }
+
+  const normalisedStatuses = normaliseMembershipStatuses(statuses);
+  const parsedPageSize = Math.min(50, Math.max(1, Number.parseInt(pageSize, 10) || 20));
+  const parsedPage = Math.max(1, Number.parseInt(page, 10) || 1);
+  const offset = (parsedPage - 1) * parsedPageSize;
+  const trimmedSearch = search?.toString().trim();
+
+  const membershipWhere = { userId: actorId };
+  const membershipStatusWhere = buildMembershipStatusWhere(normalisedStatuses);
+  if (membershipStatusWhere) {
+    membershipWhere.status = membershipStatusWhere;
+  }
+
+  const groupWhere = {};
+  if (trimmedSearch) {
+    const like = `%${trimmedSearch}%`;
+    groupWhere[Op.or] = [
+      { name: { [Op.iLike ?? Op.like]: like } },
+      { description: { [Op.iLike ?? Op.like]: like } },
+      { slug: { [Op.iLike ?? Op.like]: like } },
+    ];
+  }
+
+  const groupMembershipInclude = {
+    model: GroupMembership,
+    as: 'memberships',
+    required: false,
+    attributes: ['id', 'userId', 'role', 'status', 'joinedAt', 'invitedById', 'notes'],
+    include: includeMembers
+      ? [
+          { model: User, as: 'member', attributes: ['id', 'firstName', 'lastName', 'email', 'userType'] },
+          { model: User, as: 'invitedBy', attributes: ['id', 'firstName', 'lastName', 'email', 'userType'] },
+        ]
+      : [],
+  };
+
+  const groupInclude = [
+    groupMembershipInclude,
+    { model: User, as: 'createdBy', attributes: ['id', 'firstName', 'lastName', 'email', 'userType'] },
+    { model: User, as: 'updatedBy', attributes: ['id', 'firstName', 'lastName', 'email', 'userType'] },
+  ];
+
+  const orderClauses = [];
+  const normalisedSort = sort?.toString().trim().toLowerCase();
+  if (normalisedSort === 'alpha') {
+    orderClauses.push([{ model: Group, as: 'group' }, 'name', 'ASC']);
+  } else if (normalisedSort === 'activity') {
+    orderClauses.push([{ model: Group, as: 'group' }, 'updatedAt', 'DESC']);
+  } else {
+    orderClauses.push(['joinedAt', 'DESC']);
+  }
+
+  const [membershipsResult, statusBreakdown] = await Promise.all([
+    GroupMembership.findAndCountAll({
+      where: membershipWhere,
+      include: [
+        { model: Group, as: 'group', required: true, where: groupWhere, include: groupInclude },
+        { model: User, as: 'member', attributes: ['id', 'firstName', 'lastName', 'email', 'userType'] },
+        { model: User, as: 'invitedBy', attributes: ['id', 'firstName', 'lastName', 'email', 'userType'] },
+      ],
+      distinct: true,
+      order: orderClauses,
+      limit: parsedPageSize,
+      offset,
+    }),
+    GroupMembership.findAll({
+      attributes: ['status', [fn('COUNT', col('status')), 'count']],
+      where: { userId: actorId },
+      group: ['status'],
+    }),
+  ]);
+
+  const statusTotals = GROUP_MEMBERSHIP_STATUSES.reduce((acc, status) => {
+    acc[status] = 0;
+    return acc;
+  }, {});
+
+  for (const row of statusBreakdown) {
+    const plain = row.get ? row.get({ plain: true }) : row;
+    if (plain.status && typeof plain.count !== 'undefined') {
+      statusTotals[plain.status] = Number(plain.count) || 0;
+    }
+  }
+
+  const total = typeof membershipsResult.count === 'number' ? membershipsResult.count : membershipsResult.count.length;
+  const totalPages = Math.max(1, Math.ceil(total / parsedPageSize));
+
+  const data = membershipsResult.rows.map((membership) => ({
+    membership: sanitizeMembership(membership),
+    group: sanitizeGroup(membership.group, { includeMembers }),
+    joinedAt: membership.joinedAt ? new Date(membership.joinedAt).toISOString() : null,
+    lastActivityAt: membership.group?.updatedAt ? new Date(membership.group.updatedAt).toISOString() : null,
+  }));
+
+  return {
+    data,
+    meta: {
+      total,
+      page: parsedPage,
+      pageSize: parsedPageSize,
+      totalPages,
+      sort: normalisedSort === 'alpha' || normalisedSort === 'activity' ? normalisedSort : 'recent',
+    },
+    filters: {
+      statuses: normalisedStatuses ?? null,
+      search: trimmedSearch || null,
+    },
+    breakdown: {
+      statuses: statusTotals,
+    },
+  };
+}
+
 export async function discoverGroups({ limit = 12, search, actorId } = {}) {
   const parsedLimit = Math.min(50, Math.max(1, Number.parseInt(limit, 10) || 12));
   const baseWhere = {

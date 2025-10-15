@@ -7,7 +7,7 @@ Percentages reflect initial baseline before execution. Update the tracker weekly
 | 1 | Stabilise service lifecycles and security perimeters | 89 | 85 | 84 | 83 | 80 | 87 | 85 |
 |---------|-----------|------------------|--------------------|---------------------|-----------------------|--------------------|--------------------|-----------------|
 | 1 | Stabilise service lifecycles and security perimeters | 95 | 92 | 90 | 89 | 88 | 93 | 91 |
-| 2 | Modularise domain models and align schemas | 72 | 93 | 90 | 92 | 82 | 88 | 86 |
+| 2 | Modularise domain models and align schemas | 72 | 93 | 90 | 92 | 90 | 90 | 88 |
 | 3 | Enforce validation, consent, and governance workflows | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | 4 | Complete financial, escrow, and dispute capabilities | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | 5 | Deliver creation studio and marketplace experiences | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
@@ -30,6 +30,10 @@ work focuses on HTTP integration tests and React/Flutter widget coverage for the
 **Progress Note (Cross-Stack • 24 Apr):** Supertest coverage now exercises the governance HTTP routes while Flutter widget tests
 verify loading, error, and remediation-heavy states. Backend and mobile test logs updated; CI follow-up is to install the
 Flutter SDK so the new suite can run automatically.
+
+**Progress Note (Backend • 26 Apr):** Implemented authenticated `listMemberGroups` filtering, guarded repeatable Sequelize
+associations, and normalised domain registry errors so governance HTTP routes return structured 404s and the Supertest harness
+now passes end-to-end. Task 2 error-free and production readiness scores increased with the regression suite executing cleanly.
 
 **Progress Note (Cross-Stack • 10 Apr):** Runtime maintenance registry delivered with CRUD APIs, observability integration, and Flutter client consumption. Security raised via audience targeting/severity enforcement, completion/integration scores improved by cross-surface delivery, and production readiness increased through migration plus test automation.
 

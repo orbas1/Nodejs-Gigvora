@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 
+import { NotFoundError } from '../utils/errors.js';
+
 /**
  * Lightweight registry that maps Sequelize models into bounded contexts so downstream services can
  * reason about domain ownership without coupling themselves to the monolithic `models/index.js` export.
@@ -105,11 +107,11 @@ export class DomainRegistry {
 
   getContext(name) {
     if (!name) {
-      throw new Error('A context name must be provided.');
+      throw new NotFoundError('A domain context name must be provided.');
     }
     const context = this.contexts.get(name.toLowerCase());
     if (!context) {
-      throw new Error(`No domain context registered as "${name}".`);
+      throw new NotFoundError(`No domain context registered as "${name}".`);
     }
     return context;
   }

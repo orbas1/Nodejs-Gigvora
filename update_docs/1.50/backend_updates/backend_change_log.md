@@ -1,5 +1,22 @@
 # Backend Change Log — Version 1.50 Update
 
+## 26 Apr 2024
+- Added a production-ready `listMemberGroups` implementation to `src/services/groupService.js` that filters by membership
+  status, supports search/sorting, calculates join/retention metrics, and powers legacy default exports without raising
+  `ReferenceError` during route bootstrap.
+- Hardened `src/models/careerDocumentModels.js` association wiring with idempotent guards so repeated model bootstraps in Jest
+  no longer re-register identical aliases, keeping governance route tests and other suites free of
+  `SequelizeAssociationError` crashes.
+- Updated `src/domains/domainRegistry.js` to raise `NotFoundError` instances when contexts are missing, ensuring the API and
+  Supertest suites return structured 404 responses for unknown governance detail requests instead of generic 500 errors.
+
+## 25 Apr 2024
+- Added a Jest stub for `prom-client` and re-exported runtime audit models so governance HTTP route tests can execute without
+  optional telemetry dependencies, while fixing the duplicated `ServiceUnavailableError` definition in `src/utils/errors.js`
+  that previously caused Babel parse failures.
+- Updated `src/models/index.js` to expose `RuntimeSecurityAuditEvent` and `RuntimeAnnouncement` as named exports, unblocking the
+  security audit service imports and improving parity between runtime modules and generated governance dossiers.
+
 ## 24 Apr 2024
 - Added Supertest coverage (`tests/routes/domainRoutes.governance.test.js`) for
   the governance routes, asserting `/api/domains/governance` returns merged

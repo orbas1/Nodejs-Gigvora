@@ -1,5 +1,10 @@
 # Services Changes — Version 1.50 Update
 
+## `src/services/groupService.js`
+- Implemented `listMemberGroups` to return authenticated users' group memberships with pagination, status filters, optional
+  member detail hydration, search, and membership metric breakdowns so admin tooling and mobile clients can request curated
+  membership catalogues without triggering undefined default exports.
+
 ## `src/services/runtimeMaintenanceService.js`
 - New service providing CRUD operations for runtime maintenance announcements with sanitisation of copy, slug deduplication,
   channel/audience targeting, and strict scheduling/chronology enforcement.
