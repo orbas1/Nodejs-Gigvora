@@ -9,8 +9,8 @@ Percentages reflect the most recent assessment by the design operations council.
 | Token & Theme Validation | Week 2 | 64 | 61 | 58 | 63 | 70 | 59 | 56 | 52 | 62 | 64 | 66 | 57 | 49 | 47 | 60 | 59 | +6 |
 | Experience Architecture Alignment | Week 3 | 71 | 69 | 67 | 72 | 76 | 69 | 63 | 60 | 71 | 73 | 75 | 63 | 56 | 54 | 68 | 68 | +9 |
 | Experience Blueprint Sign-off | Week 4 | 76 | 73 | 71 | 75 | 79 | 72 | 68 | 65 | 74 | 77 | 78 | 70 | 64 | 62 | 73 | 72 | +4 |
-| Prototype Integration & Partial QA | Week 5 | 78 | 76 | 74 | 79 | 82 | 75 | 73 | 74 | 77 | 80 | 81 | 72 | 67 | 65 | 76 | 76 | +6 |
-| Prototype Integration & Partial QA | Week 5 | 80 | 78 | 76 | 79 | 84 | 77 | 76 | 74 | 78 | 82 | 83 | 74 | 68 | 66 | 77 | 77 | +4 |
+| Prototype Integration & Partial QA | Week 5 | 78 | 76 | 74 | 79 | 82 | 75 | 73 | 76 | 77 | 80 | 81 | 72 | 67 | 65 | 76 | 77 | +7 |
+| Prototype Integration & Partial QA | Week 5 | 80 | 78 | 76 | 79 | 84 | 77 | 78 | 78 | 78 | 82 | 83 | 74 | 68 | 66 | 78 | 79 | +7 |
 | Pre-Handoff QA Readiness | Week 6 | 85 | 83 | 81 | 84 | 87 | 82 | 82 | 80 | 83 | 85 | 86 | 79 | 72 | 70 | 82 | 82 | +5 |
 | Launch Readiness Audit | Week 7 | 86 | 83 | 80 | 85 | 87 | 84 | 84 | 83 | 84 | 84 | 85 | 78 | 73 | 71 | 83 | 83 | +1 |
 | Prototype Integration & Partial QA | Week 5 | 78 | 76 | 74 | 79 | 82 | 75 | 73 | 70 | 77 | 80 | 81 | 72 | 67 | 65 | 76 | 75 | +5 |
@@ -37,7 +37,7 @@ Percentages reflect the most recent assessment by the design operations council.
 ## Critical Observations
 1. **Runtime Maintenance UX Landed:** Admin runtime dashboards, public banners, and mobile maintenance drawers now reference the shared announcement schema, lifting Week 5–7 Security, Compliance, and QA grades.
 2. **Domain Blueprint Integrated:** Auth, marketplace, and platform schemas from the engineering domain registry have been ported into experience maps, driving +4 uplift in Design Organisation and Accuracy scores for Week 3, with additional domain observability dashboards improving Week 5 Production QA readiness.
-3. **Security Messaging Advancing:** Maintenance/downtime specs plus the runtime telemetry operations copy elevated the Security Grade to 80; WAF insights card treatments (rule leaderboard, top sources, escalation copy) are locked for web/mobile while payout escalation copy still awaits legal sign-off.
+3. **Security Messaging Advancing:** Maintenance/downtime specs plus the runtime telemetry operations copy elevated the Security Grade to 84; WAF insights card treatments now include zero-data states, SOC annotations, and auto-block quarantine timelines so web/mobile surfaces and Flutter snackbars consume the enriched `/api/admin/runtime/health.waf` payload without additional design cycles.
 4. **Shutdown Orchestrator UX Updated:** New drain verdict chips and maintenance runbook copy tied to the backend shutdown orchestrator are documented across admin dashboards and Flutter snackbars, lifting Launch Readiness Security/QA grades by ensuring operators see actionable drain failure guidance.
 5. **Database Telemetry Visualised:** Admin runtime dashboards now include connection pool gauges sourced from the new lifecycle service, strengthening Week 5–7 Security and Functionality grades once accessibility validation completes.
 5. **Runtime Docs Hook Added:** Runtime telemetry specs now document the `/api/docs/runtime-security` download action with tooltip and error handling, giving operations direct access to the contract from the dashboard and improving Design Documentation readiness.

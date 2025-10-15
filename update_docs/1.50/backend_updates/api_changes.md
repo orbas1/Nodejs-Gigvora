@@ -6,6 +6,8 @@
 - Maintained `GET /health` as an alias of the readiness endpoint for backwards compatibility with existing load balancer checks.
 - Added `GET /api/admin/runtime/health` delivering combined readiness, liveness, dependency, environment, and rate-limit telemetry for operator tooling and the admin dashboard; powered by `runtimeObservabilityService` and the instrumented rate-limiter metrics store.
 - Extended `GET /api/admin/runtime/health` with `maintenance`, `security`, and `perimeter` sections so dashboards and mobile clients can surface scheduled downtime, recent audit events, and blocked origin telemetry alongside dependency posture.
+- Runtime observability payloads now expose a `waf` object (blocked totals, top rules, flagged IPs, recent events) so operators, admin dashboards, and mobile clients can investigate abuse without querying logs.
+- The `waf.autoBlock` payload now reports active quarantines, thresholds, TTLs, and last escalation metadata so admin tooling, mobile clients, and partner integrations can react to automated perimeter blocks programmatically.
 - `GET /health/ready` now returns database pool snapshots (max/available/borrowed counts) and vendor metadata sourced from `databaseLifecycleService` so readiness telemetry matches the admin runtime panel.
 
 ## Authentication Lifecycle
@@ -31,6 +33,7 @@
 - Standardised correlation headers by echoing `X-Request-Id` on every response, enabling cross-service traceability in logs and monitoring dashboards.
 - Introduced schema-backed request validation for authentication and admin APIs, returning `422` with structured issue metadata when payloads fail to meet contract requirements.
 - Hardened CORS enforcement by rejecting disallowed origins with `403` responses while recording perimeter audits, keeping maintenance probes and authenticated clients unaffected.
+- Added an inline web application firewall that evaluates SQLi/XSS/command injection patterns before controllers run, returning `403` with reference IDs and recording structured security audits for investigations.
 - Expanded schema-backed validation to search, project management, and finance endpoints so discovery filters, auto-assign
   updates, and control-tower reports consume canonicalised payloads with enforced numeric/date bounds.
 - Expanded schema-backed validation to search, project management, finance, and runtime maintenance endpoints so discovery filters, auto-assign updates, control-tower reports, and downtime messaging consume canonicalised payloads with enforced numeric/date bounds.

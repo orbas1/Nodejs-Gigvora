@@ -1,5 +1,10 @@
 # Version 1.50 Update Change Log
 
+## 18 Apr 2024
+- Advanced the web application firewall with automated quarantine thresholds and offender tracking so repeat attackers are blocked without manual rule updates, complete with telemetry surfaced via `/api/admin/runtime/health`.
+- Updated the React admin runtime panel and Flutter runtime health domain models to visualise active auto-blocks, last escalations, and zero-data states, ensuring operators across surfaces understand perimeter posture.
+- Added integration-grade Jest coverage hitting the Express stack to verify WAF ordering, admin JWT enforcement, and runtime telemetry remain intact when auto-blocks are enabled in staging.
+
 ## 16 Apr 2024
 - Refactored the Node shutdown sequence into a dedicated lifecycle orchestrator that stops workers, closes the HTTP listener,
   drains Sequelize pools, and records runtime security audits with guaranteed error logging so operations teams capture actionable
@@ -9,10 +14,10 @@
 - Updated admin/runtime runbook documentation and mobile parity notes to reflect the new shutdown audit messaging so operators and
   Flutter bootstrap flows can surface drain failures alongside existing maintenance and security alerts.
 
-## 15 Apr 2024
-- Delivered a production web application firewall across the Node API, blocking SQLi/XSS/SSRF/command-injection payloads, logging correlation-aware security events, and exporting rule/source metrics to runtime observability.
-- Extended `/api/admin/runtime/health` and the React admin runtime panel with a dedicated WAF card showing total blocks, top rules, top sources, and most recent incidents so operators can triage abuse directly from the dashboard.
-- Updated the Flutter runtime health repository and UI bootstrap logic to consume the new `waf` snapshot, surfacing security snackbars when fresh blocks occur and preventing silent degradation on mobile clients.
+## 17 Apr 2024
+- Hardened the Node API with an environment-driven web application firewall (`src/security/webApplicationFirewall.js` + middleware) that blocks SQLi/XSS/command-injection payloads, records structured audits, and captures per-rule/IP metrics for runtime observability.
+- Expanded `/api/admin/runtime/health` and the React admin runtime panel with a dedicated WAF card so operators can review block totals, top rules, flagged IPs, and the last incident without leaving the dashboard.
+- Updated the Flutter runtime health repository to hydrate the new `waf` snapshot fields, allowing the mobile bootstrapper to surface security banners whenever fresh blocks or spikes occur.
 
 ## 14 Apr 2024
 - Published the hashed OpenAPI specification for health and authentication flows, exposed it through `/api/docs/runtime-security` with cache-aware headers, and documented the contract for downstream clients and partner tooling.

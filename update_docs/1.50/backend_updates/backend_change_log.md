@@ -1,5 +1,21 @@
 # Backend Change Log — Version 1.50 Update
 
+## 18 Apr 2024
+- Enabled automated perimeter quarantining by extending `src/security/webApplicationFirewall.js` with threshold-based
+  auto-blocking, dynamic blocklists, and offender tracking so repeated attackers are isolated without manual intervention.
+- Upgraded the WAF middleware and `runtimeObservabilityService` to emit auto-block metadata, severity-adjusted audits,
+  and enriched `/api/admin/runtime/health` payloads powering admin dashboards, mobile snapshots, and partner tooling.
+- Added route-level integration tests (`tests/routes/securityPerimeter.test.js`) to verify the middleware order, admin
+  health telemetry, and JWT-protected access patterns remain intact under automated quarantines.
+
+## 17 Apr 2024
+- Introduced an environment-driven web application firewall engine (`src/security/webApplicationFirewall.js`) that loads
+  threat signatures, configurable blocklists, and maintains per-rule/IP metrics for runtime observability.
+- Registered the WAF middleware in `src/app.js`, ensuring malicious payloads are blocked before hitting controllers while
+  emitting structured audits through `recordRuntimeSecurityEvent` and updating perimeter metrics.
+- Extended `runtimeObservabilityService` and the runtime OpenAPI specification to expose WAF metrics so admin dashboards,
+  partner tooling, and mobile clients can reason about the latest blocked requests and offending rules.
+
 ## 16 Apr 2024
 - Extracted the HTTP shutdown sequence into `src/lifecycle/httpShutdown.js`, centralising worker stop, HTTP close, database shutdown,
   and drain telemetry so graceful shutdowns emit consistent audits and error logs for operations tooling.
@@ -9,13 +25,10 @@
   audit level selection, and drain error propagation without booting the full Express stack.
 
 ## 15 Apr 2024
-- Implemented a stateful web application firewall pipeline that inspects requests for SQL injection, command execution, SSRF,
-  and XSS signatures before they reach Express controllers, recording security audits and blocking malicious traffic with
-  request-scoped correlation IDs.
-- Added in-memory WAF metrics (`src/observability/wafMetrics.js`) and wired them into runtime observability so operations teams
-  can review top attack rules, sources, and the most recent blocks alongside rate-limit and perimeter telemetry.
-- Exposed new WAF fields on `/api/admin/runtime/health`, updated admin controllers, and extended the runtime security audit
-  service to persist `security.waf.blocked_request` events for downstream incident tooling.
+- Expanded runtime security auditing so perimeter guardrails, rate limiting, and authentication flows emit structured
+  `securityAuditService` events for downstream incident tooling.
+- Extended `/api/admin/runtime/health` with perimeter summaries, maintenance announcements, and rate-limit analytics to
+  prepare the admin dashboards and mobile bootstrapper for the upcoming WAF rollout.
 
 ## 12 Apr 2024
 - Added `src/config/httpSecurity.js` to centralise helmet, trust-proxy, compression, and CORS enforcement, blocking untrusted

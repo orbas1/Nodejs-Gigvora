@@ -11,6 +11,16 @@
 - Updated `Dashboard Designs.md` and `component_functions.md` so the documentation CTA appears alongside connection pool gauges and perimeter analytics, ensuring operators can export the contract without leaving the dashboard.
 - Logged QA scenarios for the documentation CTA (success, 404, stale cache) in `Design_update_task_list.md` and `Design_update_progress_tracker.md` to align with engineering test plans.
 
+## 18 Apr 2024 — WAF Auto-Block Telemetry
+- Extended admin runtime panel specs with auto-quarantine list states, countdown badges, and review guidance in `Dashboard Designs.md`, `Screens_Updates_widget_functions.md`, and `Screens_update_images_and_vectors.md` so operators understand when the system blocks repeat offenders automatically.
+- Updated `Screen_text.md` and localisation worksheets with escalation copy, support prompts, and SOC annotations tied to the new `waf.autoBlock` schema, ensuring messaging aligns across web, Flutter, and incident runbooks.
+- Added Flutter snackbar visuals and interaction notes in `App_screens_drawings.md` detailing auto-block alert tone, action buttons, and accessible announcements for mobile operators.
+
+## 17 Apr 2024 — Web Application Firewall Telemetry
+- Finalised admin runtime panel specs for the WAF card, documenting zero-data, elevated, and incident states with bindings to `/api/admin/runtime/health.waf` metrics in `Dashboard Designs.md` and `Screens_Updates_widget_functions.md`.
+- Added SOC-focused copy, icon treatments, and reference links to `Screen_text.md` and `Design Plan.md` so operations teams can escalate suspicious activity from the UI.
+- Updated Flutter bootstrap illustrations and snackbar notes in `App_screens_drawings.md` to reflect the new security telemetry and localisation tokens.
+
 ## 10 Apr 2024 — Maintenance Communications Rollout
 - Finalised cross-surface maintenance banner treatments (web top-of-shell, mobile drawer, provider command center strip) with severity-driven color tokens, iconography, and dismissal logic. Specifications captured in `web_application_styling_changes.md`, `user_application_styling_changes.md`, and `provider_application_styling_changes.md` now align with the runtime maintenance API contract.
 - Added admin maintenance registry table, modal editor, and lifecycle toast guidance to `web_app_wireframe_changes.md` and `component_functions.md`, including form validation messaging, actor audit chips, and schedule conflict warnings.

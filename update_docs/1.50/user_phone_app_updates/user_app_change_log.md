@@ -1,3 +1,15 @@
+# User Phone App Change Log — 18 Apr 2024
+
+1. **Auto-Block Snapshot Support:** Extended `RuntimeHealthSnapshot` and repository to parse the new `waf.autoBlock` payload (active quarantines, threshold, TTL, last escalation) so the app can raise escalated alerts when automated quarantines trigger.
+2. **Snackbar Enhancements:** Documented auto-block badge treatments, escalation copy, and accessibility announcements in `App_screens_drawings.md`, ensuring Flutter surfaces highlight countdown timers and review guidance.
+3. **QA Scenarios:** Added test plan notes covering zero-data, first escalation, and expired quarantine states so QA validates the new schema without requiring backend log inspection.
+
+# User Phone App Change Log — 17 Apr 2024
+
+1. **Dynamic WAF Snapshot:** Extended `RuntimeHealthSnapshot` to capture blocked request totals, evaluation counts, top rules, and last-block timestamp so Flutter can display accurate security context without extra API calls.
+2. **Repository Wiring:** Updated `RuntimeHealthRepository` to pass the new `waf` payload through to domain models, preserving backwards compatibility for unauthenticated polling while enabling authenticated admin users to see security alerts.
+3. **QA Guidance:** Documented zero-data and elevated-security snackbar copy plus localisation tokens in `App_screens_drawings.md`, ensuring QA validates alerts for both new incidents and quiet periods.
+
 # User Phone App Change Log — 16 Apr 2024
 
 1. **Shutdown Drain Messaging:** Updated runtime health snackbars to surface drain failure guidance and request IDs when the backend shutdown orchestrator reports a non-graceful drain, ensuring users see actionable copy during maintenance windows.

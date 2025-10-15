@@ -493,6 +493,7 @@
           "databasePool",
           "maintenance",
           "scheduledMaintenance",
+          "waf",
           "security"
         ],
         "properties": {
@@ -505,6 +506,7 @@
           "databasePool": { "$ref": "#/components/schemas/DatabasePoolSnapshot" },
           "maintenance": { "$ref": "#/components/schemas/MaintenanceSummary" },
           "scheduledMaintenance": { "$ref": "#/components/schemas/ScheduledMaintenance" },
+          "waf": { "$ref": "#/components/schemas/WebApplicationFirewallSnapshot" },
           "security": { "$ref": "#/components/schemas/SecuritySnapshot" }
         }
       },
@@ -642,6 +644,110 @@
           "blockedOrigins": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/BlockedOrigin" }
+          }
+        }
+      },
+      "WebApplicationFirewallSnapshot": {
+        "type": "object",
+        "required": ["evaluatedRequests", "blockedRequests", "recentBlocks"],
+        "properties": {
+          "evaluatedRequests": { "type": "integer", "format": "int64" },
+          "blockedRequests": { "type": "integer", "format": "int64" },
+          "lastBlockedAt": { "type": ["string", "null"], "format": "date-time" },
+          "blockedByRule": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/WafRuleBlockCount" }
+          },
+          "blockedIps": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/WafIpBlockCount" }
+          },
+          "blockedAgents": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/WafAgentBlockCount" }
+          },
+          "recentBlocks": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/WafBlockEvent" }
+          },
+          "autoBlock": { "$ref": "#/components/schemas/WafAutoBlockTelemetry" }
+        }
+      },
+      "WafRuleBlockCount": {
+        "type": "object",
+        "properties": {
+          "ruleId": { "type": "string" },
+          "count": { "type": "integer", "format": "int32" }
+        }
+      },
+      "WafIpBlockCount": {
+        "type": "object",
+        "properties": {
+          "ip": { "type": "string" },
+          "count": { "type": "integer", "format": "int32" }
+        }
+      },
+      "WafAgentBlockCount": {
+        "type": "object",
+        "properties": {
+          "agent": { "type": "string" },
+          "count": { "type": "integer", "format": "int32" }
+        }
+      },
+      "WafBlockEvent": {
+        "type": "object",
+        "properties": {
+          "referenceId": { "type": "string" },
+          "ip": { "type": ["string", "null"] },
+          "origin": { "type": ["string", "null"] },
+          "path": { "type": "string" },
+          "method": { "type": "string" },
+          "reason": { "type": "string" },
+          "matchedRules": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/WafMatchedRule" }
+          },
+          "detectedAt": { "type": "string", "format": "date-time" },
+          "userAgent": { "type": ["string", "null"] }
+        }
+      },
+      "WafMatchedRule": {
+        "type": "object",
+        "properties": {
+          "id": { "type": ["string", "null"] },
+          "description": { "type": ["string", "null"] }
+        }
+      },
+      "WafAutoBlockTelemetry": {
+        "type": "object",
+        "properties": {
+          "enabled": { "type": "boolean" },
+          "threshold": { "type": ["integer", "null"], "format": "int32" },
+          "windowSeconds": { "type": ["integer", "null"], "format": "int32" },
+          "ttlSeconds": { "type": ["integer", "null"], "format": "int32" },
+          "totalTriggered": { "type": "integer", "format": "int32" },
+          "active": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/WafAutoBlockRecord" }
+          },
+          "lastTriggered": {
+            "anyOf": [
+              { "$ref": "#/components/schemas/WafAutoBlockRecord" },
+              { "type": "null" }
+            ]
+          }
+        }
+      },
+      "WafAutoBlockRecord": {
+        "type": "object",
+        "properties": {
+          "ip": { "type": "string" },
+          "blockedAt": { "type": ["string", "null"], "format": "date-time" },
+          "expiresAt": { "type": ["string", "null"], "format": "date-time" },
+          "hits": { "type": "integer", "format": "int32" },
+          "matchedRules": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/WafMatchedRule" }
           }
         }
       },

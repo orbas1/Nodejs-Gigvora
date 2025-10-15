@@ -39,6 +39,8 @@ Each numbered task maps to the update plan and contains explicit integration cov
 
 **Progress Note (Cross-Stack • 15 Apr):** Activated the web application firewall, exporting WAF metrics to `/api/admin/runtime/health`, refreshing the admin runtime telemetry panel with rule/source analytics, and teaching Flutter runtime polling to raise security snackbars whenever new blocks occur. Task 1.3 security posture enhancements moved to production-ready status while integration and production scores improved through shared telemetry.
 
+**Progress Note (Cross-Stack • 18 Apr):** Auto-block telemetry and UX shipped across backend, admin React, and Flutter, complete with integration tests validating middleware order and JWT enforcement. Task 1 security, completion, and production metrics climbed as automated quarantines now surface actionable countdowns and review guidance without manual log scraping.
+
 **Progress Note (Backend • 16 Apr):** Refactored shutdown orchestration into a dedicated lifecycle helper that logs worker/database drain outcomes, updates runtime security audits, and guarantees connection draining executes even after upstream failures. Added targeted Jest coverage so graceful shutdown remains regression-safe and telemetry surfaces drain incidents for operations and mobile clients.
 
 ## Task 2 — Modularise domain models and align schemas (55%)

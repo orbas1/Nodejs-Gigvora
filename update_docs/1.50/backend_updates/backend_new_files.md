@@ -20,11 +20,10 @@
 | `tests/stubs/pinoStub.js` | Jest stub for `pino` to unblock maintenance route/service tests without requiring the binary dependency. |
 | `tests/stubs/pinoHttpStub.js` | Jest stub for `pino-http` supporting middleware instrumentation within route tests. |
 | `tests/stubs/expressRateLimitStub.js` | Jest stub that mimics `express-rate-limit` handler signatures for isolated route coverage. |
-| `src/security/threatSignatures.js` | Curated catalogue of WAF threat signatures used to score requests for SQLi, XSS, SSRF, and command injection patterns. |
+| `src/security/webApplicationFirewall.js` | Threat signature catalogue, request evaluation, and metrics aggregation powering the web application firewall middleware. |
 | `src/middleware/webApplicationFirewall.js` | Express middleware enforcing the new WAF, blocking high-risk payloads and recording audits/metrics. |
-| `src/services/webApplicationFirewallService.js` | Service helper that normalises requests, evaluates threat signatures, and returns scored matches for the WAF. |
-| `src/observability/wafMetrics.js` | In-memory metrics store tracking WAF rule hits, top sources, and recent samples for runtime telemetry. |
 | `tests/middleware/webApplicationFirewall.test.js` | Jest coverage verifying benign requests pass, malicious payloads are blocked, and metrics/audits are recorded. |
+| `tests/routes/securityPerimeter.test.js` | Supertest coverage validating WAF ordering, automated quarantines, and admin runtime telemetry under JWT-protected access. |
 | `src/lifecycle/httpShutdown.js` | Lifecycle orchestrator coordinating worker stop, HTTP close, runtime security auditing, and database drain telemetry during shutdown. |
 | `tests/lifecycle/serverLifecycle.test.js` | Unit coverage exercising the shutdown orchestrator, validating worker stop ordering, audit emission, and drain failure propagation. |
 

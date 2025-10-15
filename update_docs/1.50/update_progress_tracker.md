@@ -6,7 +6,7 @@ Percentages reflect initial baseline before execution. Update the tracker weekly
 |---------|-----------|------------------|--------------------|---------------------|-----------------------|--------------------|---------------------|-----------------|
 | 1 | Stabilise service lifecycles and security perimeters | 89 | 85 | 84 | 83 | 80 | 87 | 85 |
 |---------|-----------|------------------|--------------------|---------------------|-----------------------|--------------------|--------------------|-----------------|
-| 1 | Stabilise service lifecycles and security perimeters | 87 | 81 | 80 | 81 | 77 | 83 | 82 |
+| 1 | Stabilise service lifecycles and security perimeters | 92 | 85 | 84 | 85 | 83 | 89 | 86 |
 | 2 | Modularise domain models and align schemas | 52 | 70 | 68 | 75 | 55 | 63 | 64 |
 | 3 | Enforce validation, consent, and governance workflows | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | 4 | Complete financial, escrow, and dispute capabilities | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
@@ -37,6 +37,10 @@ Percentages reflect initial baseline before execution. Update the tracker weekly
 **Progress Note (Backend • 14 Apr):** Published the hashed `/api/docs/runtime-security` OpenAPI contract, normalised readiness telemetry to include pooled connection snapshots, and refactored runtime observability to summarise scheduled maintenance and security events. Task 1 security, integration, and production scores rose as operators and client teams now share a single documented contract for health/auth flows with automated caching guidance.
 
 **Progress Note (Cross-Stack • 15 Apr):** Deployed the in-process web application firewall, surfaced WAF telemetry in `/api/admin/runtime/health`, updated the admin runtime panel with rule/source analytics, and wired Flutter runtime polling to raise security alerts when new blocks occur. Task 1 security, functionality, integration, and production metrics increased thanks to unified abuse detection across backend, web, and mobile.
+
+**Progress Note (Cross-Stack • 17 Apr):** Web application firewall now enforces threat signatures before controllers, exports metrics into `/api/admin/runtime/health`, and updates web/mobile clients with abuse telemetry so operators can investigate blocks without tailing logs.
+
+**Progress Note (Cross-Stack • 18 Apr):** Automated WAF quarantines landed with configurable thresholds/TTLs, enriched telemetry in `/api/admin/runtime/health.waf.autoBlock`, admin UI updates showing countdowns, and Flutter snackbar variants—lifting Task 1 security/completion metrics and aligning SOC runbooks with the new schema.
 
 **Progress Note (Backend • 16 Apr):** Consolidated shutdown sequencing into a dedicated orchestrator that logs worker, HTTP, and database drain verdicts while guaranteeing connection draining executes even when upstream steps fail. New Jest coverage validates drain failure propagation and audit logging, lifting Task 1 security, completion, and error-free confidence scores.
 
