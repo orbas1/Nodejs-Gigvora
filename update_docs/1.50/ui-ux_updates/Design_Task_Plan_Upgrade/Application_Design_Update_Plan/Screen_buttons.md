@@ -30,6 +30,7 @@
 - Place primary actions at end of flow or bottom-right for desktop, bottom for mobile.
 - Use destructive variant for irreversible actions with confirmation prompts.
 - Provide ghost or tertiary variants within dense card footers.
+- Prometheus exporter runbook CTA uses secondary button style with inline download icon; on warning/error states upgrade to primary styling with amber focus ring to emphasise escalation.
 
 ## Icon Buttons
 - Standard size 40px desktop, 36px mobile; use for actions like edit, delete, more.

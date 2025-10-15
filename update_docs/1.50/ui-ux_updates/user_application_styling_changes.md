@@ -83,6 +83,11 @@
 - **Creation Studio:** Editor toolbar uses frosted glass effect, snap guides highlighted with accent lines, and success toast includes share CTA button.
 - **Messaging Bubble:** Compact overlay with rounded corners, drop shadow, and gradient highlight for unread count badge.
 
+### Runtime Health Alerts
+- **Exporter Freshness Snackbar:** Uses warning amber background when scrapes are stale, displays pulse glyph icon, and includes "View telemetry" secondary action linking to runtime panel; copy strings pulled from `Screen_text.md` exporter section with localisation tokens.
+- **Runbook CTA:** When exporter error streak > 3, snackbar expands with bordered action row styled as tertiary button linking to runtime incident runbook; ensures contrast ratio ≥ 4.5:1 for text on amber background.
+- **Success Reset State:** On recovery, snackbar transitions to success palette with subtle scale animation and resets countdown chip to display last scrape timestamp.
+
 ### Settings & Legal Pages
 - **Account Preferences:** Toggle groups arranged on raised surfaces with descriptive copy; destructive options flagged with warning icon and background tint.
 - **Legal Documents:** Use typographic hierarchy with drop caps for section titles, sticky summary banner, and accent callout boxes for key updates.

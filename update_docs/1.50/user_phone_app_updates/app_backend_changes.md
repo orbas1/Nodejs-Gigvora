@@ -1,5 +1,10 @@
 # Backend Integration Updates — User App
 
+## 19 Apr 2024
+- **Prometheus Exporter Snapshot:** Runtime health repository now maps the `metricsExporter` payload (primed flag, last scrape timestamp, failure streak) so Flutter alerts display live exporter freshness.
+- **Runbook Deep Link:** Configured exporter alerts to launch the runtime incident guide in-app when failure streak exceeds thresholds, ensuring mobile operators follow the same remediation steps as web.
+- **Telemetry Analytics:** Added instrumentation (`runtime_exporter_snackbar_viewed`, `runtime_exporter_runbook_clicked`) to monitor engagement with exporter alerts and feed SRE dashboards.
+
 ## 12 Apr 2024
 - **Maintenance Contact Propagation:** Runtime health parsing now captures `maintenance.supportContact`, ensuring degraded
   state messaging points mobile users to the correct operations contact when maintenance windows activate.

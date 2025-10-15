@@ -21,6 +21,7 @@
 
 - **Status 17 Apr:** Finalised WAF telemetry handoffs with environment-driven rule notes, admin card data bindings, and Flutter snackbar localisation tokens so engineering can wire the new `/api/admin/runtime/health.waf` payload without additional design rounds.
 - **Status 18 Apr:** Documented auto-block telemetry states (active quarantines, countdown timers, escalation copy) across admin dashboards and Flutter snackbars, completing the design package for the `waf.autoBlock` schema and unblocking implementation reviews.
+- **Status 19 Apr:** Prometheus exporter telemetry card, scrape freshness indicators, and runbook CTAs documented for admin dashboards and Flutter alerts, ensuring `/health/metrics` coverage and localisation tokens are ready for implementation handoff.
 
 ## Milestone 3 – Web Marketing & Dashboard Refresh (Week 3–5)
 **Objective:** Modernise marketing site, landing hero, and authenticated dashboards with modular partials.

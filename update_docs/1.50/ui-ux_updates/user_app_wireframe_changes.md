@@ -118,3 +118,8 @@
 - Drawer includes countdown pill, impacted services list with icons, CTA buttons (Contact Support, View Timeline), and link to status history.
 - Offline mode displays cached announcement plus retry button; includes banner reminding users to stay subscribed for updates.
 - Wireframes show responsive adjustments for small devices with collapsed metadata stack.
+
+## Runtime Telemetry Alerts (Added 19 Apr)
+- **Exporter Alert Snackbar:** Appears above bottom navigation when Prometheus scrape freshness exceeds threshold; includes pulse icon, last-scrape timestamp chip, and actions `View telemetry` and `Runbook`.
+- **Telemetry Detail Drawer:** Triggered from snackbar; shows exporter uptime gauge, scrape history sparkline, failure streak list, and CTA to open admin runbook in in-app webview; includes accessibility annotations for screen readers.
+- **Success Dismissal:** After exporter recovers, drawer displays success badge with "Metrics restored" copy, optional "Share incident summary" button for operators, and auto-dismiss timer with manual close control.

@@ -42,6 +42,13 @@ Define the behaviour, inputs, outputs, and state management for each widget used
 - **Help Drawer:** Fetch contextual content, allow feedback submission; emit `help_article_viewed`, `help_feedback_submitted`.
 - **Coach Marks:** Step-based onboarding overlay with progress tracker and skip option.
 
+## Observability Widgets
+- **Prometheus Exporter Tile:**
+  - **Inputs:** Exporter uptime %, last scrape timestamp, failure streak count, primed flag, runbook URL.
+  - **Behaviour:** Display pulse glyph, uptime badge, relative "last scraped" chip, failure streak meter; expose "Open runbook" secondary CTA when streak ≥ 1.
+  - **States:** Healthy (indigo background, neutral copy), Warning (amber background, animated pulse), Error (red background, runbook CTA elevated), Loading skeleton, Paused (greyed out with tooltip).
+  - **Events:** `exporter_tile_runbook_clicked`, `exporter_tile_refresh_requested`, `exporter_tile_tooltip_opened`.
+
 ## State Management Guidance
 - Widgets consume data from central store (Redux/MobX) or React Query caches; avoid duplicated state.
 - Error states propagate to global error handler for logging.

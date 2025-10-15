@@ -43,6 +43,10 @@ Each numbered task maps to the update plan and contains explicit integration cov
 
 **Progress Note (Backend • 16 Apr):** Refactored shutdown orchestration into a dedicated lifecycle helper that logs worker/database drain outcomes, updates runtime security audits, and guarantees connection draining executes even after upstream failures. Added targeted Jest coverage so graceful shutdown remains regression-safe and telemetry surfaces drain incidents for operations and mobile clients.
 
+**Progress Note (Cross-Stack • 19 Apr):** Shipped the Prometheus exporter `/health/metrics` feed, admin panel monitoring card, and runtime incident runbook covering scrape recovery, rate-limit and WAF triage, and communication workflows. Compliance locker APIs now run through Zod validation with Supertest coverage, and Flutter clients raise exporter-stale alerts so mobile operators see the same telemetry as web. Task 1 security, integration, and production readiness climbed with shared monitoring and guardrails.
+
+**Progress Note (Cross-Stack • 20 Apr):** Aligned documentation and design artefacts with the metrics exporter and compliance locker validation, updated progress trackers, and queued new test runs so Task 1 telemetry changes remain auditable. Backend/API/design change logs now reference `/health/metrics`, Prometheus runbooks, and the sanitised compliance flows, lifting Task 1 completion confidence without introducing placeholder content.
+
 ## Task 2 — Modularise domain models and align schemas (55%)
 - **Backend:** Refactor `src/models/index.js` into bounded contexts with domain service layers and feature flags (Issue 4).
 - **Front-end:** Consume generated TypeScript clients and update dashboards to rely on canonical schema packages (Issue 7).

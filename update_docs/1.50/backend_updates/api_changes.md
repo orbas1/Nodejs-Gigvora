@@ -4,9 +4,11 @@
 - Added `GET /health/live` returning lightweight process and HTTP runtime status for container orchestrators.
 - Added `GET /health/ready` returning dependency-aware readiness reports, including database latency metrics and worker states. Responses emit `503` when dependencies degrade.
 - Maintained `GET /health` as an alias of the readiness endpoint for backwards compatibility with existing load balancer checks.
+- Added `GET /health/metrics` streaming Prometheus gauges and counters (exporter heartbeat, scrape totals, rate-limit/WAF stats, database pool utilisation) with cache disabled so SRE tooling can scrape without intermediary proxies.
 - Added `GET /api/admin/runtime/health` delivering combined readiness, liveness, dependency, environment, and rate-limit telemetry for operator tooling and the admin dashboard; powered by `runtimeObservabilityService` and the instrumented rate-limiter metrics store.
 - Extended `GET /api/admin/runtime/health` with `maintenance`, `security`, and `perimeter` sections so dashboards and mobile clients can surface scheduled downtime, recent audit events, and blocked origin telemetry alongside dependency posture.
 - Runtime observability payloads now expose a `waf` object (blocked totals, top rules, flagged IPs, recent events) so operators, admin dashboards, and mobile clients can investigate abuse without querying logs.
+- Runtime observability payloads now include a `metricsExporter` object (primed flag, last successful scrape timestamp, failure streak) so operators can detect stale Prometheus scrapes from the admin dashboard and mobile telemetry surfaces.
 - The `waf.autoBlock` payload now reports active quarantines, thresholds, TTLs, and last escalation metadata so admin tooling, mobile clients, and partner integrations can react to automated perimeter blocks programmatically.
 - `GET /health/ready` now returns database pool snapshots (max/available/borrowed counts) and vendor metadata sourced from `databaseLifecycleService` so readiness telemetry matches the admin runtime panel.
 
@@ -42,6 +44,7 @@
 - Wallet provisioning (`ensureProfileWallets`, `ensureWalletAccount`) now responds with `503 Service Unavailable` when the configured payments provider credentials are missing or a maintenance window blocks write operations.
 - Compliance locker endpoints (`POST /api/compliance/documents`, `POST /api/compliance/documents/:documentId/versions`, `PATCH /api/compliance/reminders/:reminderId`) emit dependency-aware `503` responses carrying `requestId` metadata when secure storage is degraded, protecting document integrity during outages.
 - Added end-to-end guard coverage confirming `/api/compliance/documents` returns `503` with dependency metadata whenever the compliance vault is offline, ensuring the behaviour stays locked for future releases.
+- Compliance locker endpoints (`POST /api/compliance/documents`, versioning, reminders) now apply schema validation that returns `422 Unprocessable Entity` with actionable issue lists when payloads are malformed, preventing unsanitised documents from reaching the service layer.
 - User profile reads (`GET /api/users/:id`) now propagate payments guard failures so wallet provisioning pauses surface as `503` responses alongside correlation IDs, guarding dashboards against stale balance snapshots.
 
 ## Domain Introspection API

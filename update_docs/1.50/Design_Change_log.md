@@ -1,5 +1,10 @@
 # Version 1.50 Design Change Log (Enterprise Detail)
 
+## 19 Apr 2024 — Prometheus Metrics Exporter UX Alignment
+1. **Admin Telemetry Card:** Updated `Dashboard Designs.md`, `Screens_Updates_widget_functions.md`, and `Screens_update_images_and_vectors.md` to add the Prometheus exporter tile showing scrape freshness, exporter uptime, and alert thresholds so operators can triage `/health/metrics` status without leaving the runtime panel.
+2. **Operations Copy:** Documented exporter-stale guidance and escalation copy in `Design Plan.md`, `Screen_text.md`, and `Screen_buttons.md`, including localisation tokens for English, French, and Spanish to keep messaging aligned with the new runbook.
+3. **Flutter Alert States:** Refreshed `App_screens_drawings.md` and `Screens_Update_Plan.md` with exporter alert banners/snackbars, ensuring mobile operators see the same scrape freshness indicators and call-to-action patterns described in the runtime incident runbook.
+
 ## 18 Apr 2024 — WAF Auto-Block Quarantine UX
 1. **Admin Auto-Block Tiles:** Extended `Dashboard Designs.md`, `Screens_Updates_widget_functions.md`, and `Screens_update_images_and_vectors.md` with auto-quarantine states (active list, countdown chips, zero-data messaging) so operators understand when IPs are dynamically blocked and when TTLs expire.
 2. **Security Copy & Localisation:** Added auto-block escalation copy, glossary entries, and localisation tokens to `Design Plan.md`, `Screen_text.md`, and `text.md.md`, clarifying review cadence and unblock guidance surfaced in web/mobile alerts.

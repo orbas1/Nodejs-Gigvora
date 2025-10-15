@@ -34,6 +34,7 @@
 - Notification framework to support new messaging alerts before sprint 4.
 - Content strategy ready with updated copy guidelines by design lock.
 - Availability of engineering bandwidth for pair design reviews.
+- Prometheus exporter `/health/metrics` endpoint delivering scrape freshness and uptime fields prior to admin/mobile telemetry card build so UI states remain accurate.
 
 ## Risk Mitigation
 - Maintain backlog of stretch goals to de-scope if resource constraints arise.

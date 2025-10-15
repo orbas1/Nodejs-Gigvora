@@ -11,6 +11,11 @@
 - Updated `Dashboard Designs.md` and `component_functions.md` so the documentation CTA appears alongside connection pool gauges and perimeter analytics, ensuring operators can export the contract without leaving the dashboard.
 - Logged QA scenarios for the documentation CTA (success, 404, stale cache) in `Design_update_task_list.md` and `Design_update_progress_tracker.md` to align with engineering test plans.
 
+## 19 Apr 2024 — Prometheus Exporter Visibility
+- Documented a new runtime telemetry card in `Dashboard Designs.md`, `component_functions.md`, and `Screens_update_images_and_vectors.md` showing exporter uptime, last scrape timestamp, and failure streak chips so admin operators can evaluate `/health/metrics` health at a glance.
+- Added exporter-stale snackbar copy, escalation CTA labelling, and localisation tokens to `Screen_text.md`, `App_screens_drawings.md`, and `user_app_wireframe_changes.md`, aligning Flutter alerts with the backend runbook triggers.
+- Updated `web_application_styling_changes.md` and `user_application_styling_changes.md` with Prometheus iconography, accent states, and alert colour ramps to maintain accessibility across neutral and emo themes.
+
 ## 18 Apr 2024 — WAF Auto-Block Telemetry
 - Extended admin runtime panel specs with auto-quarantine list states, countdown badges, and review guidance in `Dashboard Designs.md`, `Screens_Updates_widget_functions.md`, and `Screens_update_images_and_vectors.md` so operators understand when the system blocks repeat offenders automatically.
 - Updated `Screen_text.md` and localisation worksheets with escalation copy, support prompts, and SOC annotations tied to the new `waf.autoBlock` schema, ensuring messaging aligns across web, Flutter, and incident runbooks.

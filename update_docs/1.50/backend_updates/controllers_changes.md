@@ -26,3 +26,4 @@
 ## `src/controllers/complianceLockerController.js`
 - Propagates request logging context and correlation IDs into compliance locker service calls so dependency guard failures are traceable in operational logs.
 - Returns `503 Service Unavailable` responses with request IDs when compliance storage maintenance or credential gaps block document creation, versioning, or reminder acknowledgement flows.
+- Relies on upstream Zod validation to reject malformed bodies with `422` responses, ensuring controller branches always receive sanitised payloads before delegating to the locker service.

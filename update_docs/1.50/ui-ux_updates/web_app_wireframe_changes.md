@@ -53,6 +53,11 @@ The desktop and responsive web experience received an end-to-end restructuring t
 - Create/Edit modal includes datetime pickers with inline validation, channel/audience multi-select chips, and severity preview swatch.
 - History tab surfaces resolved announcements with filters (status, audience, channel) and export to CSV button.
 
+#### Prometheus Metrics Card (Added 19 Apr)
+- Tile displays exporter uptime gauge, last scrape timestamp, failure streak chips, and rate-limit/WAF integration hints.
+- Includes "Open runbook" secondary CTA revealing incident steps; tooltip communicates scraper cadence and caching guidance.
+- Warning/error states swap background palette, trigger inline alert banner with copy from `Screen_text.md`, and add manual refresh button.
+
 ### User Panel
 - Personalised feed combining bookings, tasks, learning modules, and community invitations.
 - Sidebar quick actions for account preferences, finance settings, and saved items.

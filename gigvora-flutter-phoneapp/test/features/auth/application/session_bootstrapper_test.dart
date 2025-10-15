@@ -121,6 +121,48 @@ void main() {
     expect(controller.lastSession, isNull);
   });
 
+  test('surfaces telemetry alert when metrics exporter is stale', () async {
+    final runtimeRepository = buildRuntimeRepository(
+      onGet: (path) async {
+        expect(path, '/health/ready');
+        return {
+          'status': 'ok',
+          'httpStatus': 200,
+          'timestamp': DateTime.now().toIso8601String(),
+          'dependencies': const <String, dynamic>{},
+          'metrics': {
+            'stale': true,
+            'scrapes': 4,
+            'secondsSinceLastScrape': 480,
+            'staleThresholdSeconds': 180,
+          },
+        };
+      },
+    );
+
+    final authRepository = buildAuthRepository(
+      onPost: (path, body) async {
+        fail('Auth refresh should not execute when metrics alert is raised without a refresh token.');
+      },
+    );
+
+    final controller = TestSessionController();
+    final container = buildContainer(
+      runtimeRepository: runtimeRepository,
+      authRepository: authRepository,
+      controller: controller,
+    );
+
+    final result = await container.read(sessionBootstrapProvider.future);
+
+    expect(result.backendHealthy, isTrue);
+    expect(result.authenticated, isFalse);
+    expect(
+      result.message,
+      'Runtime monitoring telemetry is delayed. Our operations team has been notified to investigate.',
+    );
+  });
+
   test('surfaces maintenance messaging when health polling fails', () async {
     final runtimeRepository = buildRuntimeRepository(
       onGet: (path) async {
