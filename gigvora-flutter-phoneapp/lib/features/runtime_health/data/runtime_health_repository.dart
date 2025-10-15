@@ -20,6 +20,7 @@ class RuntimeHealthRepository {
           readiness,
           maintenance: Map<String, dynamic>.from(response['maintenance'] as Map? ?? const <String, dynamic>{}),
           perimeter: Map<String, dynamic>.from(response['perimeter'] as Map? ?? const <String, dynamic>{}),
+          waf: Map<String, dynamic>.from(response['waf'] as Map? ?? const <String, dynamic>{}),
         );
       }
       return RuntimeHealthSnapshot.fromJson(response);

@@ -16,6 +16,11 @@
 - **Status 07 Apr:** Runtime telemetry panel designs now capture `/api/admin/runtime/health` outputs with dependency badges, rate-limit trend bars, and localisation-ready incident copy. Accessibility notes cover screen-reader announcements and focus management for manual refresh interactions.
 - **Status 10 Apr:** Admin maintenance registry and cross-platform downtime banners specced, including lifecycle toasts, dismissal controls, and mobile drawer guidance tied to the new runtime maintenance APIs. QA checklist updated with aria-live and localisation scenarios.
 - **Status 13 Apr:** Admin runtime dashboards now include database pool gauges and shutdown confirmation overlays aligned with the new lifecycle service; accessibility annotations capture ARIA labels for connection metrics and audit toasts.
+- **Status 14 Apr:** Added the runtime specification download CTA to dashboard specs with tooltip/empty-state behaviour mapped to `/api/docs/runtime-security`, and logged localisation requirements for the new action across English, French, and Spanish.
+- **Status 15 Apr:** Documented the WAF insights card (rule leaderboard, top sources, security badge states) and Flutter security snackbar triggered by runtime WAF blocks, completing the runtime telemetry spec set for admin dashboards and mobile bootstrap flows.
+
+- **Status 17 Apr:** Finalised WAF telemetry handoffs with environment-driven rule notes, admin card data bindings, and Flutter snackbar localisation tokens so engineering can wire the new `/api/admin/runtime/health.waf` payload without additional design rounds.
+- **Status 18 Apr:** Documented auto-block telemetry states (active quarantines, countdown timers, escalation copy) across admin dashboards and Flutter snackbars, completing the design package for the `waf.autoBlock` schema and unblocking implementation reviews.
 
 ## Milestone 3 – Web Marketing & Dashboard Refresh (Week 3–5)
 **Objective:** Modernise marketing site, landing hero, and authenticated dashboards with modular partials.
@@ -41,6 +46,10 @@
 - **Status 10 Apr:** Custodial outage messaging, disabled CTA states, and Flutter wallet overlays were documented for finance/compliance journeys, aligning UI responses with the new backend dependency guards and feeding the admin runtime panel escalation copy.
 - **Status 11 Apr:** Harmonised refresh-token error copy and maintenance banners across web admin and Flutter splash/login flows, with updated artefacts in `Screen_text.md`, `App_screens_drawings.md`, and `Dashboard Designs.md` so the runtime telemetry redesign and mobile bootstrapper share consistent UX.
 - **Status 12 Apr:** Added API perimeter analytics card specifications, maintenance contact chips, and perimeter audit annotations to `Dashboard Designs.md`, `Design Plan.md`, and Flutter screen artefacts so abuse telemetry and escalation copy align across surfaces.
+- **Status 15 Apr:** Finalised security alert visuals for WAF incidents, including localisation-ready copy, shield iconography, and accessibility notes for snackbar/toast announcements across web and Flutter surfaces.
+- **Status 17 Apr:** Added SOC-focused annotations describing how WAF metrics feed alerting dashboards and documented fallback copy when block volume is zero, ensuring QA checks include low/no-data states.
+- **Status 18 Apr:** Captured auto-block escalation workflows, review guidance, and localisation notes so compliance, SOC, and support teams have consistent copy when automated quarantines trigger; QA scripts updated to verify countdown timers and accessible announcements.
+- **Status 16 Apr:** Logged shutdown/drain verdict chips and runbook copy updates tied to the new backend orchestrator so operators and Flutter maintenance drawers surface drain failure guidance during planned outages.
 
 ## Milestone 6 – Handoff, QA, and Implementation Support (Week 6–7)
 **Objective:** Equip engineering and QA teams with detailed documentation, assets, and review rituals.

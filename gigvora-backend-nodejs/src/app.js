@@ -7,6 +7,7 @@ import healthRouter from './routes/health.js';
 import logger from './utils/logger.js';
 import createInstrumentedRateLimiter from './middleware/rateLimiter.js';
 import { applyHttpSecurity } from './config/httpSecurity.js';
+import createWebApplicationFirewall from './middleware/webApplicationFirewall.js';
 
 const app = express();
 
@@ -14,6 +15,12 @@ app.disable('x-powered-by');
 applyHttpSecurity(app, { logger });
 
 app.use(correlationId());
+
+app.use(
+  createWebApplicationFirewall({
+    logger: logger.child({ component: 'app' }),
+  }),
+);
 
 app.use(
   pinoHttp({

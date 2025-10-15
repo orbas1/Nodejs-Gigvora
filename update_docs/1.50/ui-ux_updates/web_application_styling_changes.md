@@ -45,6 +45,7 @@
 ### Buttons
 - Primary buttons: 48px height, 20px horizontal padding, 12px radius; hover lighten by 6%, focus ring 2px accent with 4px offset.
 - Secondary buttons: outline style with 2px border and transparent fill; pressed state darkens border.
+- Runtime documentation CTA: secondary button with download icon (20px) preceding label, tooltip "Download runtime spec" on hover/focus, and disabled state shown when `/api/docs/runtime-security` is unreachable.
 - Ghost buttons: transparent background, text `web.text.primary` at 80% opacity, underline on hover.
 
 ### Cards
@@ -85,7 +86,7 @@
 - **Invoice Ledger:** Table rows adopt zebra striping with accent highlight for overdue; action buttons align right with ghost styling.
 
 ### Role-Based Panels
-- **Admin Center:** Data tables use muted background with accent headers; audit log entries include icon-coded severity and monospaced timestamp.
+- **Admin Center:** Data tables use muted background with accent headers; audit log entries include icon-coded severity and monospaced timestamp. Web application firewall card adopts layered indigo background, shield icon badge, block stats grid with subtle separators, and new auto-block panel featuring countdown chips, reviewer prompts, and subdued neutral state when no quarantines exist; zero-data state shows neutral copy while incident state highlights warning amber chip.
 - **Agency/Company Panels:** Multi-panel layout with gradient dividers, avatar group chips, and brand switcher styled as pill segmented control.
 - **Freelancer Panel:** Pipeline cards use gradient progress bars, card corners at 16px, and status icons with drop shadow.
 - **Headhunter & Mentorship Panels:** Candidate cards use avatar stacks, status chips, and timeline connectors; mentorship sessions adopt pastel backgrounds with goal progress donuts.

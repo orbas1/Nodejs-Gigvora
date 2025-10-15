@@ -252,6 +252,17 @@ export default function RuntimeTelemetryPanel({ snapshot, loading, refreshing, e
   const blockedOrigins = Array.isArray(perimeter.blockedOrigins) ? perimeter.blockedOrigins : [];
   const totalPerimeterBlocked = Number(perimeter.totalBlocked ?? 0);
   const lastPerimeterBlockAt = perimeter.lastBlockedAt ?? null;
+  const waf = snapshot?.waf ?? {};
+  const wafBlockedRequests = Number(waf.blockedRequests ?? 0);
+  const wafEvaluated = Number(waf.evaluatedRequests ?? 0);
+  const wafLastBlockedAt = waf.lastBlockedAt ?? null;
+  const wafRecentBlocks = Array.isArray(waf.recentBlocks) ? waf.recentBlocks : [];
+  const wafTopRules = Array.isArray(waf.blockedByRule) ? waf.blockedByRule : [];
+  const wafTopIps = Array.isArray(waf.blockedIps) ? waf.blockedIps : [];
+  const wafAutoBlock = waf.autoBlock ?? {};
+  const wafAutoActive = Array.isArray(wafAutoBlock.active) ? wafAutoBlock.active : [];
+  const wafAutoTotal = Number(wafAutoBlock.totalTriggered ?? 0);
+  const wafAutoLast = wafAutoBlock.lastTriggered ?? null;
 
   const dependencyEntries = Object.entries(readiness.dependencies ?? {}).map(([name, meta]) => ({
     name,
@@ -466,6 +477,77 @@ export default function RuntimeTelemetryPanel({ snapshot, loading, refreshing, e
                   ) : (
                     <p className="mt-1 text-[11px] text-slate-500">No perimeter blocks recorded this window.</p>
                   )}
+                </div>
+                <div className="mt-3 rounded-xl border border-slate-200 bg-white/70 p-3">
+                  <p className="flex items-center gap-2 text-xs font-semibold text-slate-800">
+                    <ShieldCheckIcon className="h-4 w-4" /> Web application firewall
+                  </p>
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    {wafBlockedRequests
+                      ? `${formatNumber(wafBlockedRequests)} blocked of ${formatNumber(wafEvaluated)} inspected requests.`
+                      : 'No malicious payloads detected this window.'}
+                    {wafLastBlockedAt ? ` Last block ${formatRelative(wafLastBlockedAt)}.` : ''}
+                  </p>
+                  {wafRecentBlocks.length ? (
+                    <div className="mt-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] text-slate-600">
+                      <p className="font-semibold text-slate-700">Last event</p>
+                      <p className="mt-1 truncate text-[11px] text-slate-500">
+                        {wafRecentBlocks[0].method} {wafRecentBlocks[0].path} · {wafRecentBlocks[0].reason}
+                      </p>
+                      <p className="mt-1 text-[11px] text-slate-500">{formatRelative(wafRecentBlocks[0].detectedAt)}</p>
+                    </div>
+                  ) : null}
+                  {wafTopRules.length ? (
+                    <div className="mt-2 text-[11px] text-slate-600">
+                      <p className="font-semibold text-slate-700">Top rules</p>
+                      <ul className="mt-1 space-y-1">
+                        {wafTopRules.slice(0, 3).map((rule) => (
+                          <li key={rule.ruleId} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                            <span className="truncate font-semibold text-slate-700">{rule.ruleId}</span>
+                            <span className="text-slate-500">{formatNumber(rule.count)} hits</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                  {wafTopIps.length ? (
+                    <div className="mt-2 text-[11px] text-slate-600">
+                      <p className="font-semibold text-slate-700">Flagged IPs</p>
+                      <ul className="mt-1 space-y-1">
+                        {wafTopIps.slice(0, 3).map((entry) => (
+                          <li key={entry.ip} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                            <span className="truncate font-semibold text-slate-700">{entry.ip}</span>
+                            <span className="text-slate-500">{formatNumber(entry.count)} blocks</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                  {wafAutoBlock.enabled ? (
+                    <div className="mt-2 text-[11px] text-slate-600">
+                      <p className="font-semibold text-slate-700">Auto quarantine</p>
+                      <p className="mt-1 text-[11px] text-slate-500">
+                        {wafAutoTotal
+                          ? `Escalated ${formatNumber(wafAutoTotal)} time${wafAutoTotal === 1 ? '' : 's'} this window.`
+                          : 'No IPs escalated to auto quarantine during this window.'}
+                        {wafAutoLast?.blockedAt
+                          ? ` Last escalation ${formatRelative(wafAutoLast.blockedAt)}.`
+                          : ''}
+                      </p>
+                      {wafAutoActive.length ? (
+                        <ul className="mt-2 space-y-1">
+                          {wafAutoActive.slice(0, 3).map((entry) => (
+                            <li key={entry.ip} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                              <span className="truncate font-semibold text-slate-700">{entry.ip}</span>
+                              <span className="text-slate-500">
+                                until {formatRelative(entry.expiresAt)} · {formatNumber(entry.hits)} hits
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               </div>
               <DependencyList title="Dependencies" items={dependencyEntries} />

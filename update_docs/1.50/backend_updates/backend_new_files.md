@@ -11,13 +11,21 @@
 | `src/routes/runtimeRoutes.js` | Express router registering `/api/runtime/maintenance` with validation and caching headers. |
 | `src/routes/adminRuntimeRoutes.js` | Express router wiring admin maintenance CRUD + status endpoints behind authentication and validation middleware. |
 | `src/services/runtimeMaintenanceService.js` | Service encapsulating announcement creation, updates, lifecycle transitions, filtering, and serialization for controllers. |
+| `src/routes/docsRoutes.js` | Express router that serves cached OpenAPI documents with hashed ETags for partner tooling and automation. |
 | `src/validation/schemas/runtimeSchemas.js` | Zod schema catalogue covering public/admin query params, create/update payloads, status transitions, and identifier params. |
 | `tests/services/runtimeMaintenanceService.test.js` | Unit coverage exercising sanitisation, chronology enforcement, lifecycle transitions, and filtering branches for the service. |
 | `tests/routes/runtimeRoutes.test.js` | Supertest coverage validating public maintenance endpoint filtering, caching headers, and validation behaviour using stubs. |
+| `tests/routes/docsRoutes.test.js` | Supertest coverage asserting the documentation endpoint returns hashed OpenAPI payloads and honours conditional requests. |
 | `tests/routes/dependencyGuardRoutes.test.js` | Supertest coverage exercising payments/compliance guard propagation so API endpoints emit `503` with dependency metadata when infrastructure degrades. |
 | `tests/stubs/pinoStub.js` | Jest stub for `pino` to unblock maintenance route/service tests without requiring the binary dependency. |
 | `tests/stubs/pinoHttpStub.js` | Jest stub for `pino-http` supporting middleware instrumentation within route tests. |
 | `tests/stubs/expressRateLimitStub.js` | Jest stub that mimics `express-rate-limit` handler signatures for isolated route coverage. |
+| `src/security/webApplicationFirewall.js` | Threat signature catalogue, request evaluation, and metrics aggregation powering the web application firewall middleware. |
+| `src/middleware/webApplicationFirewall.js` | Express middleware enforcing the new WAF, blocking high-risk payloads and recording audits/metrics. |
+| `tests/middleware/webApplicationFirewall.test.js` | Jest coverage verifying benign requests pass, malicious payloads are blocked, and metrics/audits are recorded. |
+| `tests/routes/securityPerimeter.test.js` | Supertest coverage validating WAF ordering, automated quarantines, and admin runtime telemetry under JWT-protected access. |
+| `src/lifecycle/httpShutdown.js` | Lifecycle orchestrator coordinating worker stop, HTTP close, runtime security auditing, and database drain telemetry during shutdown. |
+| `tests/lifecycle/serverLifecycle.test.js` | Unit coverage exercising the shutdown orchestrator, validating worker stop ordering, audit emission, and drain failure propagation. |
 
 | File | Description |
 |------|-------------|
@@ -69,3 +77,5 @@
 | `tests/routes/projectRoutes.validation.test.js` | Supertest coverage verifying project create/update/auto-assign endpoints enforce canonical payloads and numeric identifiers. |
 | `tests/routes/financeRoutes.validation.test.js` | Supertest coverage validating finance overview and freelancer insight endpoints coerce IDs and ISO date ranges. |
 | `tests/stubs/zodStub.js` | Lightweight Jest stub implementing the `z` factory and `ZodError` contract so schema-heavy modules load without shipping the real dependency in CI. |
+| `tests/stubs/compressionStub.js` | Jest stub mimicking the `compression` middleware signature so HTTP security and documentation routes execute during tests without the native dependency. |
+| `docs/openapi/runtime-security.json` | Versioned OpenAPI contract describing health, runtime observability, and authentication endpoints for partner tooling. |

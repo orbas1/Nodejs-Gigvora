@@ -1,5 +1,30 @@
 # Version 1.50 Update Change Log
 
+## 18 Apr 2024
+- Advanced the web application firewall with automated quarantine thresholds and offender tracking so repeat attackers are blocked without manual rule updates, complete with telemetry surfaced via `/api/admin/runtime/health`.
+- Updated the React admin runtime panel and Flutter runtime health domain models to visualise active auto-blocks, last escalations, and zero-data states, ensuring operators across surfaces understand perimeter posture.
+- Added integration-grade Jest coverage hitting the Express stack to verify WAF ordering, admin JWT enforcement, and runtime telemetry remain intact when auto-blocks are enabled in staging.
+
+## 16 Apr 2024
+- Refactored the Node shutdown sequence into a dedicated lifecycle orchestrator that stops workers, closes the HTTP listener,
+  drains Sequelize pools, and records runtime security audits with guaranteed error logging so operations teams capture actionable
+  evidence for maintenance windows and incident reviews.
+- Added focused Jest coverage for the new shutdown orchestrator to verify worker stop order, audit emission, and drain failure
+  propagation, raising confidence that graceful shutdowns and drain issues surface consistently in runtime telemetry.
+- Updated admin/runtime runbook documentation and mobile parity notes to reflect the new shutdown audit messaging so operators and
+  Flutter bootstrap flows can surface drain failures alongside existing maintenance and security alerts.
+
+## 17 Apr 2024
+- Hardened the Node API with an environment-driven web application firewall (`src/security/webApplicationFirewall.js` + middleware) that blocks SQLi/XSS/command-injection payloads, records structured audits, and captures per-rule/IP metrics for runtime observability.
+- Expanded `/api/admin/runtime/health` and the React admin runtime panel with a dedicated WAF card so operators can review block totals, top rules, flagged IPs, and the last incident without leaving the dashboard.
+- Updated the Flutter runtime health repository to hydrate the new `waf` snapshot fields, allowing the mobile bootstrapper to surface security banners whenever fresh blocks or spikes occur.
+
+## 14 Apr 2024
+- Published the hashed OpenAPI specification for health and authentication flows, exposed it through `/api/docs/runtime-security` with cache-aware headers, and documented the contract for downstream clients and partner tooling.
+- Refactored `runtimeObservabilityService` to reconcile readiness snapshots with scheduled maintenance windows, security audit history, perimeter telemetry, and database pool utilisation so admin dashboards render a single source of operational truth.
+- Hardened `healthService` by capturing Sequelize pool snapshots and vendor metadata for every readiness check, ensuring `/health/ready` mirrors the telemetry exported to admin dashboards and runtime audits.
+- Added Jest module mapping for `compression` plus targeted route coverage for the documentation endpoint so CI environments without optional packages can exercise the new contract.
+
 ## 12 Apr 2024
 - Hardened the HTTP perimeter with a dedicated security configuration that enforces trust-proxy settings, helmet policies, and
   a CORS guard that blocks untrusted origins, records audit events, and compresses responses without impacting health probes or

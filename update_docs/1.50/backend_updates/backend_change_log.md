@@ -1,5 +1,35 @@
 # Backend Change Log — Version 1.50 Update
 
+## 18 Apr 2024
+- Enabled automated perimeter quarantining by extending `src/security/webApplicationFirewall.js` with threshold-based
+  auto-blocking, dynamic blocklists, and offender tracking so repeated attackers are isolated without manual intervention.
+- Upgraded the WAF middleware and `runtimeObservabilityService` to emit auto-block metadata, severity-adjusted audits,
+  and enriched `/api/admin/runtime/health` payloads powering admin dashboards, mobile snapshots, and partner tooling.
+- Added route-level integration tests (`tests/routes/securityPerimeter.test.js`) to verify the middleware order, admin
+  health telemetry, and JWT-protected access patterns remain intact under automated quarantines.
+
+## 17 Apr 2024
+- Introduced an environment-driven web application firewall engine (`src/security/webApplicationFirewall.js`) that loads
+  threat signatures, configurable blocklists, and maintains per-rule/IP metrics for runtime observability.
+- Registered the WAF middleware in `src/app.js`, ensuring malicious payloads are blocked before hitting controllers while
+  emitting structured audits through `recordRuntimeSecurityEvent` and updating perimeter metrics.
+- Extended `runtimeObservabilityService` and the runtime OpenAPI specification to expose WAF metrics so admin dashboards,
+  partner tooling, and mobile clients can reason about the latest blocked requests and offending rules.
+
+## 16 Apr 2024
+- Extracted the HTTP shutdown sequence into `src/lifecycle/httpShutdown.js`, centralising worker stop, HTTP close, database shutdown,
+  and drain telemetry so graceful shutdowns emit consistent audits and error logs for operations tooling.
+- Updated `src/server.js` to delegate to the new orchestrator, guaranteeing Sequelize drains execute even when previous shutdown
+  steps fail and ensuring `recordRuntimeSecurityEvent` metadata includes drain verdicts.
+- Authored Jest coverage (`tests/lifecycle/serverLifecycle.test.js`) for the orchestrator to confirm worker shutdown ordering,
+  audit level selection, and drain error propagation without booting the full Express stack.
+
+## 15 Apr 2024
+- Expanded runtime security auditing so perimeter guardrails, rate limiting, and authentication flows emit structured
+  `securityAuditService` events for downstream incident tooling.
+- Extended `/api/admin/runtime/health` with perimeter summaries, maintenance announcements, and rate-limit analytics to
+  prepare the admin dashboards and mobile bootstrapper for the upcoming WAF rollout.
+
 ## 12 Apr 2024
 - Added `src/config/httpSecurity.js` to centralise helmet, trust-proxy, compression, and CORS enforcement, blocking untrusted
   origins with audited responses and feeding perimeter telemetry into runtime observability.
@@ -9,6 +39,12 @@
   stream with origin abuse data.
 - Installed the `compression` dependency and updated server bootstrap to apply the new HTTP security middleware ahead of
   correlation/logging so payload limits, trust proxies, and rate limiting execute against sanitised requests.
+
+## 14 Apr 2024
+- Published `/api/docs/runtime-security` with hashed ETag headers and five-minute caching so operators, client engineers, and partners can download the documented health/auth contract without hitting source control.
+- Normalised `runtimeObservabilityService` output to include scheduled maintenance summaries, recent security audits, perimeter metrics, and live pool utilisation, keeping admin dashboards aligned with readiness telemetry.
+- Extended `healthService` to persist Sequelize pool snapshots and vendor metadata on every probe, ensuring `/health/ready` mirrors the observability data powering admin dashboards.
+- Added Jest module mapping for `compression` plus focused route coverage so the documentation endpoint remains testable in CI environments lacking optional native dependencies.
 
 ## 11 Apr 2024
 - Added a dedicated database lifecycle manager that authenticates pools on startup, feeds `/health/ready` cache entries, drains

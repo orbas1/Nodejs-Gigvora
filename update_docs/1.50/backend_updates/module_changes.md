@@ -6,10 +6,15 @@
 - Added Jest module mappers and stubs (`tests/stubs/pino*.js`, `tests/stubs/expressRateLimitStub.js`) so optional dependencies no longer block maintenance route coverage.
 - Created a new `lifecycle/` module that centralises runtime health tracking (`runtimeHealth.js`) and worker supervision (`workerManager.js`). This module exposes start/stop primitives for the HTTP server to call during boot/shutdown.
 - Added `src/config/httpSecurity.js` to encapsulate helmet policies, trust proxy detection, compression, and CORS enforcement so perimeter controls stay consistent across environments and are easily testable.
+- Created `src/security/webApplicationFirewall.js` alongside the `src/middleware/webApplicationFirewall.js` guard so the Express runtime evaluates threat signatures, honours environment-driven blocklists, records metrics/audits before reaching controllers, and now auto-quarantines repeat offenders via configurable thresholds/TTL windows.
 - Extended the lifecycle module with `databaseLifecycle.js` to manage Sequelize bootstrap/shutdown, update readiness caches, and
   emit runtime security audits.
 - Updated `src/server.js` to consume the lifecycle module, export `start`/`stop` helpers for testing, and register signal handlers for graceful termination.
 - Updated `src/server.js` to consume the lifecycle module, warm database connections before listening, drain pools after HTTP shutdown, export `start`/`stop` helpers for testing, and register signal handlers for graceful termination.
+- Added `src/routes/docsRoutes.js` to serve OpenAPI documents with hashed ETags so tooling can retrieve contracts without invoking controller code.
+- Added `src/lifecycle/httpShutdown.js` as a dedicated orchestrator coordinating worker stop, HTTP close, database shutdown, audit logging,
+  and drain telemetry so the server module can execute graceful shutdowns with consistent logging across environments.
+- Recorded the runtime OpenAPI schema under `docs/openapi/runtime-security.json`, versioning the documented contract alongside source for audit trails.
 - Refactored background workers (profile engagement, news aggregation, search bootstrap) to register with the lifecycle supervisor and report health status.
 - Added `src/domains/` with a reusable `DomainRegistry` plus domain services for auth, marketplace, and platform feature-flag governance, enabling bounded-context ownership and transactional helpers.
 - Introduced `src/domains/schemas/` alongside `scripts/syncDomainSchemas.js` to emit Zod-driven JSON schemas shared across web and mobile clients.
@@ -20,3 +25,5 @@
 - Introduced `src/observability/dependencyHealth.js` and `src/utils/dependencyGate.js` to register critical dependency health
   and enforce runtime guards across finance/compliance workflows when custodial providers or databases degrade.
 - Created `src/observability/perimeterMetrics.js` to track blocked origin telemetry alongside dependency and worker state, feeding admin dashboards and audit streams.
+- Extended `runtimeObservabilityService` to source WAF rule counts, blocked IPs, recent blocks, and automated quarantine telemetry from the security module so `/api/admin/runtime/health` exposes actionable perimeter insights.
+- Added `tests/stubs/compressionStub.js` and mapped it via Jest configuration so documentation routes remain testable in CI environments missing native compression binaries.

@@ -1,5 +1,25 @@
 # Version 1.50 Design Change Log (Enterprise Detail)
 
+## 18 Apr 2024 — WAF Auto-Block Quarantine UX
+1. **Admin Auto-Block Tiles:** Extended `Dashboard Designs.md`, `Screens_Updates_widget_functions.md`, and `Screens_update_images_and_vectors.md` with auto-quarantine states (active list, countdown chips, zero-data messaging) so operators understand when IPs are dynamically blocked and when TTLs expire.
+2. **Security Copy & Localisation:** Added auto-block escalation copy, glossary entries, and localisation tokens to `Design Plan.md`, `Screen_text.md`, and `text.md.md`, clarifying review cadence and unblock guidance surfaced in web/mobile alerts.
+3. **Flutter Snackbar Enhancements:** Updated `App_screens_drawings.md`, `Screens_Update_Plan.md`, and `user_app_wireframe_changes.md` to show the new auto-block badge, escalated tone, and accessible announcements triggered by the enriched `waf.autoBlock` payload.
+
+## 16 Apr 2024 — Shutdown Telemetry & Runbook Alignment
+1. **Lifecycle Status Chips:** Documented the new shutdown/drain verdict chips in `Dashboard Designs.md`, `component_functions.md`, and `Screen_text.md` so admin operators can distinguish successful drains from blocked sequences triggered by the backend orchestrator.
+2. **Maintenance Runbook Copy:** Updated `Design Plan.md`, `Screens_Updates_widget_functions.md`, and `App_screens_drawings.md` with refreshed copy that surfaces drain failure guidance and request IDs inside downtime drawers/snackbars for web and Flutter.
+3. **Operations QA Checklist:** Added shutdown regression steps to `Design_update_task_list.md` Task 10 and annotated `Design_update_progress_tracker.md` commentary with the new audit logging states to keep design QA aligned with the enhanced backend telemetry.
+
+## 17 Apr 2024 — WAF Telemetry & Security Alerts
+1. **Admin Runtime WAF Card:** Documented the new WAF insights block (rule leaderboard, source attempts, most recent block chip) in `Dashboard Designs.md`, `Screens_Updates_widget_functions.md`, and `Screens_update_images_and_vectors.md` with state specs for zero-data, elevated, and incident modes.
+2. **Security Copy & Iconography:** Added high-severity badge copy, tone guidance, and shield icon treatments for WAF alerts in `Design Plan.md`, `Screen_text.md`, and `Design_update_task_list.md` Task 9 so operations messaging aligns with backend audits.
+3. **Flutter Security Snackbars:** Updated `App_screens_drawings.md`, `Screens_Update_Plan.md`, and `user_app_wireframe_changes.md` to show the mobile security snackbar triggered by runtime WAF blocks, including localisation tokens and accessibility callouts.
+
+## 14 Apr 2024 — Runtime Documentation Access & Schema Mapping
+1. **Admin Download CTA:** Added a "Download runtime spec" secondary action to the runtime telemetry panel specs (`Dashboard Designs.md`, `Screens_Updates_widget_functions.md`), ensuring operators can retrieve the `/api/docs/runtime-security` artifact directly from the dashboard with tooltip copy covering cache refresh behaviour.
+2. **Schema-to-UI Mapping:** Updated `Design Plan.md`, `component_functions.md`, and `Screen_text.md` to map maintenance/severity badges, support contact labels, and database pool metrics to the documented OpenAPI fields so designers and engineers reference a single contract when adding new badges.
+3. **Documentation States:** Recorded empty/error states for the documentation CTA in `App_screens_drawings.md` and `Design_update_task_list.md` Task 1, outlining messaging when the spec endpoint is unreachable and reinforcing WCAG-compliant focus management for download modals.
+
 ## 12 Apr 2024 — API Perimeter & Maintenance Contact Alignment
 1. **Perimeter Telemetry UI:** Documented the new API perimeter card (blocked origins list, attempt counts, last-seen timestamps) in `Dashboard Designs.md` and `Screens_Updates_widget_functions.md` so the admin runtime panel reflects perimeter metrics delivered by the backend.
 2. **Maintenance Contact Messaging:** Updated `Screen_text.md`, `App_screens_drawings.md`, and `Screen_buttons.md` with contact-aware maintenance copy for both web and Flutter banners/snackbars.
