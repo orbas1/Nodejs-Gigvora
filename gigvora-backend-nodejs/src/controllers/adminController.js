@@ -1,6 +1,7 @@
 import { getAdminDashboardSnapshot } from '../services/adminDashboardService.js';
 import { getPlatformSettings, updatePlatformSettings } from '../services/platformSettingsService.js';
 import { getAffiliateSettings, updateAffiliateSettings } from '../services/affiliateSettingsService.js';
+import { getRuntimeOperationalSnapshot } from '../services/runtimeObservabilityService.js';
 
 function parseInteger(value, fallback) {
   if (value == null || value === '') {
@@ -39,10 +40,16 @@ export async function persistAffiliateSettings(req, res) {
   res.json(settings);
 }
 
+export async function runtimeHealth(req, res) {
+  const snapshot = await getRuntimeOperationalSnapshot();
+  res.json(snapshot);
+}
+
 export default {
   dashboard,
   fetchPlatformSettings,
   persistPlatformSettings,
   fetchAffiliateSettings,
   persistAffiliateSettings,
+  runtimeHealth,
 };

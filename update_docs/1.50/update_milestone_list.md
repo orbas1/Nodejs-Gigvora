@@ -1,26 +1,29 @@
 # Version 1.50 Milestone Breakdown
 
-## Milestone 1 – Harden Core Services & Security Perimeter (25%)
+## Milestone 1 – Harden Core Services & Security Perimeter (32%)
 **Objective:** Resolve startup coupling, middleware defects, and security weaknesses identified across the issue list while delivering compliance scaffolding.
 
-- **Task 1.1: Decouple service lifecycles and introduce health orchestration (60%)**
+- **Task 1.1: Decouple service lifecycles and introduce health orchestration (72%)**
   - Establish independent worker containers with supervisor restarts and readiness probes for background jobs.
   - Implement graceful shutdown hooks that drain queues, close Sequelize pools, and flush logs.
   - Publish service health telemetry to structured logging and monitoring dashboards for observability.
   - Document failure scenarios and recovery runbooks for incident responders.
   - **Status 04 Apr:** Lifecycle orchestrator now supervises background workers, exposes `/health/live` and `/health/ready` endpoints, and records structured logs with correlation IDs. Remaining scope includes extending telemetry export to the monitoring stack and drafting incident runbooks.
-- **Task 1.2: Repair middleware, validation, and error handling (35%)**
+  - **Status 07 Apr:** Runtime observability service now aggregates readiness, dependency probes, and rate-limit metrics into `/api/admin/runtime/health`, unlocking dashboard integrations and incident responder workflows. Next steps cover publishing Grafana/Prometheus exporters and codifying the on-call runbook package.
+- **Task 1.2: Repair middleware, validation, and error handling (72%)**
   - Correct Express error-handler signatures and add fallback JSON serializers for unknown failures.
   - Enforce Celebrate/Zod schemas on every route, including pagination, filters, and payload limits.
   - Configure security middleware (Helmet, CORS whitelists, compression, body-size limits) with automated regression tests.
   - Update API documentation and SDK generation pipelines to match the validated contracts.
   - **Status 04 Apr:** Error handler upgraded with correlation-aware logging, payload limits and rate limiter configured, and `/health` documentation drafted. Schema validation rollout remains pending.
-- **Task 1.3: Implement security posture enhancements (20%)**
+  - **Status 08 Apr:** Zod-backed validation middleware now protects `/api/auth/*` and admin dashboard/settings routes, coercing numbers/booleans, trimming strings, and returning structured `422` issue payloads. Remaining scope covers extending schemas to secondary routers and documenting the contracts in API references.
+- **Task 1.3: Implement security posture enhancements (32%)**
   - Hash OTP/reset tokens, enforce rate limiting, and add abuse detection backed by Redis.
   - Integrate WAF, malware scans, phishing detection, and audit log sinks with alert thresholds.
   - Create maintenance banner endpoints surfaced to web and mobile clients during incidents.
   - Deliver UX guidelines, copy, and iconography for security prompts and downtime messaging.
   - **Status 04 Apr:** Rate limiter and body-size controls enabled on API gateway while maintenance telemetry endpoints land. Maintenance banner API and UX assets remain outstanding.
+  - **Status 07 Apr:** Telemetry-aware rate limiter now tracks hits, blocks, and top consumers per window and surfaces abuse signals to the admin dashboard. Compliance-reviewed copy/localisation assets for runtime health alerts are approved; Redis-backed persistence and WAF integration remain in scope.
 - **Task 1.4: Bootstrap consent, RBAC, and audit foundations (0%)**
   - Produce persona-level RBAC matrices linked to backend policy definitions and front-end guards.
   - Build consent record tables, SAR tooling, retention schedulers, and anonymisation jobs.

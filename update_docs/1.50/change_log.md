@@ -1,5 +1,28 @@
 # Version 1.50 Update Change Log
 
+## 09 Apr 2024
+- Extended schema-backed validation across search, project, and finance APIs so high-volume discovery, execution, and revenue
+  endpoints reject unsafe payloads and coerce filters, pagination, and configuration objects before hitting services.
+- Added dedicated Jest route coverage for search, project management, and finance controllers to confirm sanitised payloads
+  reach the mocked services and invalid requests fail with structured `422` responses.
+- Published validation schemas for marketplace projects, saved search subscriptions, and finance overview parameters, ensuring
+  canonical category aliases, numeric coercion, and viewport parsing are enforced consistently across the platform.
+
+## 08 Apr 2024
+- Added schema-backed request validation across authentication and admin APIs, introducing a reusable middleware that trims and
+  coerces inputs, rejects malformed payloads with structured issue metadata, and protects nested configuration objects from prot
+  otype pollution.
+- Hardened `/api/auth/*` flows by enforcing email casing, password length, boolean coercion, and optional geo-location sanitisa
+  tion before domain services execute registration or login logic.
+- Guarded admin dashboard and settings endpoints with deep validation that normalises lookback filters, commission rates, paymen
+  t provider credentials, and affiliate tier configurations, preventing invalid operator input from persisting to platform settin
+  gs.
+
+## 07 Apr 2024
+- Shipped an instrumented rate-limiter stack (`src/middleware/rateLimiter.js`, `src/observability/rateLimitMetrics.js`) that records per-window utilisation, top consumers, and abuse signals while feeding Redis-free in-memory analytics to operators.
+- Exposed `GET /api/admin/runtime/health` which aggregates readiness/liveness data, dependency telemetry, and rate-limit metrics via the new `runtimeObservabilityService`, enabling admin dashboards and tooling to respond to degradation in real time.
+- Updated the admin web dashboard with a production-ready Runtime Health panel wired to live telemetry, including auto-refresh, dependency status chips, rate-limit utilisation, and history views aligned with compliance copy and localisation guidance.
+
 ## 06 Apr 2024
 - Released `/api/domains/registry` and context/model drill-down endpoints that expose bounded-context metadata, index coverage, and service bindings for operators and tooling clients.
 - Generated TypeScript client definitions in `shared-contracts/clients/typescript` via `npm run schemas:clients`, ensuring Node/React consumers ingest the same contracts as JSON schema clients.
