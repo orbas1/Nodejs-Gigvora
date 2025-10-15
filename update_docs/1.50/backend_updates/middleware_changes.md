@@ -21,5 +21,8 @@
 ## `src/middleware/validateRequest.js`
 - New request-validation middleware that accepts Zod schemas for body, query, params, headers, and cookies, replacing ad-hoc checks across controllers.
 - Normalises input by reassigning parsed payloads back to the Express `req` object and converts Zod issues into structured `ValidationError` responses for the global error handler.
-- Extended coverage to search discovery, project management, and finance routes to canonicalise categories, coerce pagination,
-  sanitise auto-assign payloads, and ensure finance reports receive valid identifiers and ISO dates.
+- Extended coverage to search discovery, project management, finance, and runtime maintenance endpoints to canonicalise categories, coerce pagination, sanitise auto-assign payloads, and ensure downtime messaging respects severity/status schedules.
+
+## `src/middleware/authorization.js`
+- Added a dedicated `normaliseMemberships` helper so membership and role middleware deduplicate nested arrays/objects before evaluating access rules.
+- Resolves the previously undefined helper reference that could surface runtime errors when the module loaded under tests.

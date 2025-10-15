@@ -20,6 +20,36 @@
 - Extended `/api/admin/runtime/health` to deliver maintenance schedules and recent security events for the admin runtime panel
   and mobile bootstrap logic.
 
+## 13 Apr 2024
+- Added `databaseLifecycleService` to warm Sequelize pools during startup, drain them during shutdown, and persist `database_audit_events` so runtime health and compliance teams receive auditable maintenance trails.
+- Extended readiness and runtime observability services to expose pool utilisation metrics, enabling admin dashboards and health probes to visualise max/available/borrowed connection counts in real time.
+- Updated database configuration to support eviction tuning and added Jest coverage to verify startup/shutdown auditing and telemetry exports.
+
+## 12 Apr 2024
+- Added supertest coverage for payments and compliance dependency guards, ensuring `/api/users/:id` and `/api/compliance/documents` return `503` responses with dependency metadata whenever infrastructure is degraded.
+- Patched `middleware/authorization` with a robust `normaliseMemberships` helper so membership and role middleware deduplicate values without relying on undefined globals.
+- Extended Jest configuration with a `zod` stub so schema-heavy modules load during tests without pulling optional dependencies, keeping guard suites runnable in minimal CI images.
+
+## 11 Apr 2024
+- Introduced `runtimeDependencyGuard` service to continuously evaluate payments and compliance storage credentials, flag
+  maintenance blocks, and update runtime health telemetry so sensitive workflows can be halted before cascading failures.
+- Wrapped wallet provisioning and ledger mutation paths in the payments guard, returning typed `503` responses when the
+  payments provider is unavailable or under maintenance to protect balances from inconsistent writes.
+- Hardened compliance locker write paths with dependency checks that pause document creation, versioning, and reminder
+  acknowledgements whenever secure storage or legal maintenance windows are active.
+- Bootstrapped dependency health during server start and added targeted Jest coverage for guard behaviour across missing
+  credentials, healthy states, and maintenance degradations.
+
+## 10 Apr 2024
+- Added runtime maintenance registry backed by the new `RuntimeAnnouncement` Sequelize model, CRUD controllers, and
+  `runtimeMaintenanceService` so the platform can publish downtime/incident messaging for targeted audiences and channels.
+- Registered `/api/runtime/maintenance` public endpoint that serves active/upcoming announcements with caching hints and
+  filtering, plus admin-only `/api/admin/runtime/maintenance/*` routes for listing, creating, updating, scheduling, resolving,
+  and patching maintenance windows with guardrails enforcing chronology and severity.
+- Integrated runtime maintenance announcements into the runtime observability snapshot so `/api/admin/runtime/health` exposes the
+  most recent active window, upcoming schedule, and relevant metadata alongside dependency telemetry.
+- Expanded Jest infrastructure with module mappers for optional logging/rate-limit dependencies and added unit/route coverage to
+  lock maintenance filtering, lifecycle transitions, and validation outcomes.
 ## 10 Apr 2024
 - Synced platform settings with a new dependency health module so Stripe/Escrow readiness and compliance toggles mark
   `paymentsCore`/`complianceProviders` status before the API accepts traffic, and re-evaluate immediately after admin updates.
@@ -38,13 +68,9 @@
   and document expected sanitisation behaviour for cross-functional teams.
 
 ## 08 Apr 2024
-- Added a reusable Zod-powered `validateRequest` middleware and schema catalogue covering authentication and admin routes so req
-  uests are normalised, coerced, and rejected before hitting controllers.
-- Hardened `/api/auth/*` registration, login, two-factor, and Google OAuth flows with strict body validation that trims names,
-  lowercases emails, coerces booleans, and rejects malformed payloads prior to domain service execution.
-- Secured `/api/admin/dashboard`, `/api/admin/platform-settings`, and `/api/admin/affiliate-settings` by sanitising query/body
-  inputs, coercing booleans/numbers, and ensuring nested settings objects cannot introduce prototype pollution or invalid confi
-  guration shapes.
+- Added a reusable Zod-powered `validateRequest` middleware and schema catalogue covering authentication and admin routes so requests are normalised, coerced, and rejected before hitting controllers.
+- Hardened `/api/auth/*` registration, login, two-factor, and Google OAuth flows with strict body validation that trims names, lowercases emails, coerces booleans, and rejects malformed payloads prior to domain service execution.
+- Secured `/api/admin/dashboard`, `/api/admin/platform-settings`, and `/api/admin/affiliate-settings` by sanitising query/body inputs, coercing booleans/numbers, and ensuring nested settings objects cannot introduce prototype pollution or invalid configuration shapes.
 
 ## 07 Apr 2024
 - Introduced an observability-focused rate limiter wrapper and metrics store that track per-window utilisation, top offenders, and blocked ratios without external persistence.

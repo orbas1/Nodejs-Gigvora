@@ -15,6 +15,7 @@ const baseConfig = {
     min: Number.parseInt(process.env.DB_POOL_MIN ?? '0', 10),
     idle: Number.parseInt(process.env.DB_POOL_IDLE ?? '10000', 10),
     acquire: Number.parseInt(process.env.DB_POOL_ACQUIRE ?? '30000', 10),
+    evict: Number.parseInt(process.env.DB_POOL_EVICT ?? '60000', 10),
   },
   define: {
     underscored: false,
@@ -40,6 +41,7 @@ if (dialect === 'sqlite') {
     min: 0,
     idle: Number.parseInt(process.env.DB_POOL_IDLE ?? '10000', 10),
     acquire: Number.parseInt(process.env.DB_POOL_ACQUIRE ?? '30000', 10),
+    evict: Number.parseInt(process.env.DB_POOL_EVICT ?? '60000', 10),
   };
   baseConfig.dialectOptions = {
     ...(baseConfig.dialectOptions ?? {}),

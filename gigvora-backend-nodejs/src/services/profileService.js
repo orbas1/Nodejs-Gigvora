@@ -1092,7 +1092,11 @@ function buildProfilePayload({ user, groups, connectionsCount, complianceSnapsho
 }
 
 async function composeProfileOverview(context, { transaction } = {}) {
-  await ensureProfileWallets(context.user, { transaction });
+  await ensureProfileWallets(context.user, {
+    transaction,
+    logger: context.logger,
+    requestId: context.requestId,
+  });
   const complianceSnapshot = await getProfileComplianceSnapshot(context.user, { transaction });
   return buildProfilePayload({ ...context, complianceSnapshot });
 }

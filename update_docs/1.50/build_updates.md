@@ -8,3 +8,5 @@
 - Introduce a companion CI step `npm run schemas:clients` so TypeScript definitions in `shared-contracts/clients/typescript` stay aligned with the JSON schema source of truth.
 - Install the `compression` package for the Node API and ensure container images include the dependency so the new HTTP security middleware can emit compressed responses by default.
 - Surface `TRUST_PROXY` configuration in deployment manifests (e.g., `loopback`, numeric hop counts) so Express recognises upstream load balancers when resolving client IPs and enforcing secure cookies.
+- Apply `npx sequelize-cli db:migrate` during deployment to create `runtime_announcements`; missing table will cause new maintenance endpoints to fail with `500`.
+- Update CI pipelines to run `npm test -- services/runtimeMaintenanceService` once optional dependencies (`zod`) are installed or stubbed to cover new lifecycle logic.

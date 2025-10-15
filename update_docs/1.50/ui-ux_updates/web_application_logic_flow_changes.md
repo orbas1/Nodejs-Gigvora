@@ -133,3 +133,14 @@ The Version 1.50 update rationalises logged-out marketing and logged-in workspac
 - Integrate guided tour builder to let admins customise onboarding sequences for their teams.
 - Expand billing flow with self-serve invoice reconciliation and tax profile management.
 - Launch trust center microsite with dynamic status updates and certifications.
+
+## Maintenance Announcement Flow (10 Apr 2024)
+1. **Fetch:** Admin dashboards load maintenance registry via `/api/admin/runtime/maintenance` with filters persisted in query params; public shell fetches `/api/runtime/maintenance` on boot and caches for 60s.
+2. **Render Logic:**
+   - Prioritise `status=active` announcements sorted by severity > soonest `startsAt`.
+   - If no active announcements, show upcoming scheduled items within next 24h; else collapse banner.
+3. **User Actions:**
+   - "View details" opens modal with markdown body, impacted services list, and metadata. Modal includes copy-to-clipboard slug and export JSON button for ops tooling.
+   - "Acknowledge" available for admin/prov roles only; triggers confirmation dialog and PATCH `/status` endpoint.
+4. **Error Handling:** If API returns error, show fallback toast with retry; log to telemetry with error code.
+5. **Analytics:** Fire events for impressions, acknowledgements, CTA interactions, and manual refresh; include `audience`, `channel`, `slug`, `status`.

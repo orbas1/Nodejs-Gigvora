@@ -34,6 +34,12 @@ export class ConflictError extends ApplicationError {
   }
 }
 
+export class ServiceUnavailableError extends ApplicationError {
+  constructor(message = 'Service temporarily unavailable', details = {}) {
+    super(message, 503, details);
+  }
+}
+
 export class AuthorizationError extends ApplicationError {
   constructor(message, details = {}) {
     super(message, 403, details);
@@ -58,6 +64,7 @@ export default {
   ModerationError,
   NotFoundError,
   ConflictError,
+  ServiceUnavailableError,
   AuthorizationError,
   AuthenticationError,
   ServiceUnavailableError,

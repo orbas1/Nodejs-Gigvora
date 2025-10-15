@@ -135,3 +135,18 @@
 - Develop dark mode theme leveraging existing tonal pairs.
 - Create industry-specific colour accents for targeted landing pages.
 - Introduce 3D hero illustration variants for upcoming campaigns.
+
+## Maintenance Announcement Styling (10 Apr 2024)
+- **Banner Placement:** Persistent top-of-shell banner sits beneath global navigation with 64px height on desktop, 56px on tablet, and 48px on mobile. When multiple announcements are active, rotate via auto-advancing carousel with 8s interval and manual previous/next controls.
+- **Severity Tokens:**
+  - `maintenance.info`: background `#E0E7FF`, text `#312E81`, icon `information-circle`.
+  - `maintenance.maintenance`: background `#FEF3C7`, text `#92400E`, icon `wrench-screwdriver`.
+  - `maintenance.incident`: background `#FEE2E2`, text `#991B1B`, icon `exclamation-triangle`.
+  - `maintenance.security`: background `#FDE68A`, text `#92400E`, icon `shield-exclamation` with animated pulse.
+- **Typography:** Title uses `Space Grotesk` 18px/24px bold; body text `Inter` 15px/22px. Links styled as underline accent with focus outline.
+- **Interactions:**
+  - Dismiss button uses tertiary ghost treatment with `aria-controls` linking to collapse region; persists in local storage per slug for 24h unless status transitions to `active`.
+  - Keyboard shortcuts: `Alt+Shift+M` toggles focus to banner, `Esc` dismisses when allowed.
+  - Screen-reader announcements triggered via `aria-live="assertive"` on high severity (incident/security) and `polite` on info/maintenance.
+- **Responsive Behaviour:** Mobile view swaps to stacked layout: title and message on first line, CTA/dismiss aligned bottom-right. Banner collapses into pill when resolved, exposing "View history" link to admin runtime panel.
+- **Analytics Hooks:** Track impressions (`maintenance_banner_impression`), dismiss events (`maintenance_banner_dismiss`), CTA clicks (`maintenance_banner_cta_click`), and manual refresh (`maintenance_banner_refresh`). Attributes include `slug`, `severity`, `status`, and `audience`.

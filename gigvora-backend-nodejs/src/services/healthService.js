@@ -5,6 +5,7 @@ import {
   markDependencyHealthy,
   markDependencyUnavailable,
 } from '../lifecycle/runtimeHealth.js';
+import { getDatabasePoolSnapshot } from './databaseLifecycleService.js';
 
 const DATABASE_CHECK_INTERVAL_MS = 30_000;
 
@@ -55,9 +56,12 @@ export async function verifyDatabaseConnectivity() {
       latencyMs: Number(latencyMs.toFixed(2)),
       error: null,
     });
+      pool: getDatabasePoolSnapshot(),
+    };
     markDependencyHealthy('database', {
       vendor,
       latencyMs: cachedDatabaseStatus.latencyMs,
+      pool: cachedDatabaseStatus.pool,
     });
   } catch (error) {
     setDatabaseStatus({
@@ -69,6 +73,9 @@ export async function verifyDatabaseConnectivity() {
       },
     });
     markDependencyUnavailable('database', error, { vendor });
+      pool: getDatabasePoolSnapshot(),
+    };
+    markDependencyUnavailable('database', error, { vendor, pool: cachedDatabaseStatus.pool });
   }
 
   return cachedDatabaseStatus;

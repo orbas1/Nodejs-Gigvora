@@ -1,5 +1,33 @@
 import { ValidationError } from '../utils/errors.js';
 
+function normaliseMemberships(input) {
+  if (input == null) {
+    return [];
+  }
+  if (Array.isArray(input)) {
+    const aggregated = [];
+    input.forEach((value) => {
+      normaliseMemberships(value).forEach((entry) => {
+        if (entry && !aggregated.includes(entry)) {
+          aggregated.push(entry);
+        }
+      });
+    });
+    return aggregated;
+  }
+  if (typeof input === 'string') {
+    return input
+      .split(/[,\s]+/)
+      .map((value) => value.trim().toLowerCase())
+      .filter((value, index, array) => value.length > 0 && array.indexOf(value) === index);
+  }
+  if (typeof input === 'object') {
+    return normaliseMemberships(Object.values(input));
+  }
+  const normalised = `${input}`.trim().toLowerCase();
+  return normalised ? [normalised] : [];
+}
+
 function normalizeToArray(input) {
   if (input == null) {
     return [];

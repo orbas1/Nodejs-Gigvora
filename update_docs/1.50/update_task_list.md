@@ -20,6 +20,13 @@ Each numbered task maps to the update plan and contains explicit integration cov
 
 **Progress Note (Backend • 09 Apr):** Validation now protects search discovery, saved-search subscriptions, project creation/update flows, and finance control tower endpoints by canonicalising categories, coercing numerics and dates, parsing geo viewports, and shipping Jest coverage to lock in the behaviour.
 
+**Progress Note (Cross-Stack • 10 Apr):** Launched runtime maintenance registry across backend, admin tooling, and Flutter clients. `/api/runtime/maintenance` provides audience-aware downtime banners, admin CRUD endpoints enforce chronology/severity guardrails, observability snapshots surface active windows, and the mobile security repository now consumes live maintenance/health payloads instead of mocks.
+
+**Progress Note (Backend • 11 Apr):** Dependency guard now inspects payments/compliance credentials and active maintenance windows before allowing wallet provisioning, ledger writes, or compliance locker mutations. Guard verdicts update runtime health telemetry, API flows return request-scoped `503` responses when dependencies degrade, and new Jest coverage verifies credential gaps, maintenance-induced read-only states, and healthy configurations.
+
+**Progress Note (Backend • 12 Apr):** Added supertest suites that hit `/api/compliance/documents` and `/api/users/:id`, confirming dependency guard verdicts surface as `503` responses with request IDs when secure storage or payment providers degrade. Hardened membership middleware to remove undefined helpers discovered during test execution.
+
+**Progress Note (Backend • 13 Apr):** Database lifecycle orchestration now warms Sequelize pools before the HTTP server listens, drains connections after traffic stops, and emits audit events plus pool telemetry so operations staff can confirm graceful shutdowns during maintenance windows.
 **Progress Note (Backend • 10 Apr):** Introduced runtime dependency guards around finance/compliance services so wallet, payout, and verification workflows return consistent 503 responses during Stripe/Escrow outages, with platform settings updates automatically resynchronising dependency health for admin telemetry surfaces.
 
 **Progress Note (Cross-Stack • 11 Apr):** Added audited shutdown coverage and `/auth/refresh` regression tests in Node while
@@ -51,7 +58,7 @@ Each numbered task maps to the update plan and contains explicit integration cov
 - **Database:** Create consent, audit, and retention tables plus automation for anonymisation and archival.
 - **API:** Expose GDPR endpoints with pagination/export sanitisation to prevent PII leakage flagged in the issue report.
 - **Logic:** Embed governance checkpoints throughout creation, finance, messaging, and notification flows.
-- **Design:** Deliver WCAG-compliant modals, policy copy, and localisation assets aligned with legal updates.
+- **Design:** Deliver WCAG-compliant consent modals, policy copy, and localisation assets aligned with legal updates.
 
 ## Task 4 — Complete financial, escrow, and dispute capabilities (0%)
 - **Backend:** Implement Stripe/Adyen/PayPal adapters, wallet modelling, and ledger reconciliation jobs (Feature Plan Phase 3).
@@ -61,15 +68,15 @@ Each numbered task maps to the update plan and contains explicit integration cov
 - **Database:** Create finance, escrow, dispute, payout, and review tables with auditing triggers and retention policies.
 - **API:** Publish signed webhook handlers, finance endpoints, and dispute status transitions with validation.
 - **Logic:** Embed fraud detection hooks, SLA timers, and review aggregation pipelines to safeguard transactions.
-- **Design:** Craft UI journeys for finance summaries, dispute timelines, and review badges reflecting enterprise branding.
+- **Design:** Provide UI flows for finance summaries, dispute timelines, and review badges reflecting enterprise branding.
 
 ## Task 5 — Deliver creation studio and marketplace experiences (0%)
-- **Backend:** Finalise CRUD/workflow services, autosave drafts, scheduling, and collaborator invitations for all entity types.
+- **Backend:** Finalise CRUD services, autosave drafts, scheduling, and collaborator invitations for all entity types.
 - **Front-end:** Build the Creation Studio wizard, explorer enhancements, and dashboard widgets with live data.
 - **User phone app:** Ship creation studio-lite drafts, sync notifications, and transitions to full web workflows.
 - **Provider phone app:** Optimise provider dashboards for campaign management, approvals, and taxonomy exploration.
-- **Database:** Seed taxonomies/templates, add search indexes, and maintain data for live feed ranking accuracy.
-- **API:** Extend endpoints for creation, publishing, explorer queries, and live feed ranking integration.
+- **Database:** Seed taxonomies, templates, and default assets; add search indexes for explorer and live feed ranking (Fix 13, 16).
+- **API:** Extend endpoints for entity creation, publish scheduling, explorer queries, and live feed ranking integration.
 - **Logic:** Trigger automatching, invitations, and notifications on state changes while enforcing persona permissions.
 - **Design:** Finalise responsive components, filter patterns, and content layouts for all marketplace personas.
 
