@@ -119,6 +119,18 @@
 - Offline mode displays cached announcement plus retry button; includes banner reminding users to stay subscribed for updates.
 - Wireframes show responsive adjustments for small devices with collapsed metadata stack.
 
+## Domain Governance Card & Drawer (Added 23 Apr)
+- Home screen card surfaces contexts grouped by status (Approved, Monitoring,
+  Remediation Required) with steward avatar stacks, scorecard progress bars, and
+  overdue badges that open the governance drawer when tapped.
+- Governance drawer presents context summary, classification, retention policy,
+  latest audit notes, remediation checklist, and action buttons (Escalate,
+  View Runbook). Includes inline analytics hooks and state persistence on
+  rotation.
+- Empty state encourages operators to schedule first governance review via CTA;
+  healthy state uses celebratory illustration while still offering export and
+  policy links for annual attestation prep.
+
 ## Runtime Telemetry Alerts (Added 19 Apr)
 - **Exporter Alert Snackbar:** Appears above bottom navigation when Prometheus scrape freshness exceeds threshold; includes pulse icon, last-scrape timestamp chip, and actions `View telemetry` and `Runbook`.
 - **Telemetry Detail Drawer:** Triggered from snackbar; shows exporter uptime gauge, scrape history sparkline, failure streak list, and CTA to open admin runbook in in-app webview; includes accessibility annotations for screen readers.

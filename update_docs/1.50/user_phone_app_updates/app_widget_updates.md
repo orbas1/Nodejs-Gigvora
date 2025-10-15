@@ -1,5 +1,18 @@
 # Widget Updates — User App
 
+## 23 Apr 2024
+- **Domain Governance Card:** Introduced governance summary card for the admin
+  home surface showing remediation-required contexts, steward avatars, scorecard
+  percentages, and CTA buttons to open detail drawers. Supports shimmer skeletons
+  during fetch and accessible status chips aligned with shared tokens.
+- **Detail Bottom Sheet:** Added drill-down bottom sheet presenting audit notes,
+  remediation checklist, next review due date, and quick actions to escalate or
+  mark resolved (stubbed until workflow lands). Includes analytics instrumentation
+  and state restoration after device rotation.
+- **Empty/Healthy States:** Documented visual treatment when all contexts are
+  approved (celebratory illustration) and when no reviews exist yet (setup prompt)
+  so QA validates copy, icons, and focus behaviour.
+
 ## 19 Apr 2024
 - **Exporter Snackbar Widget:** Added Prometheus exporter snackbar variant with warning/error palettes, runbook CTA, and analytics hooks; integrates with runtime health repository exporter snapshot.
 - **Telemetry Drawer Module:** Introduced expandable drawer showing exporter uptime gauge, scrape history sparkline, and failure streak list; supports manual refresh action and runbook link.

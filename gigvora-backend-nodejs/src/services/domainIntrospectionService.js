@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { domainRegistry } from '../models/index.js';
+import { DomainGovernanceReview, domainRegistry } from '../models/index.js';
 import logger from '../utils/logger.js';
 import services from '../domains/serviceCatalog.js';
 import { NotFoundError } from '../utils/errors.js';
@@ -102,10 +102,11 @@ function serialiseModel(modelName, model) {
 }
 
 class DomainIntrospectionService {
-  constructor({ domainRegistry: registry, logger: rootLogger, serviceCatalog }) {
+  constructor({ domainRegistry: registry, logger: rootLogger, serviceCatalog, governanceReviewModel }) {
     this.registry = registry;
     this.logger = (rootLogger || logger).child({ service: 'DomainIntrospectionService' });
     this.serviceCatalog = serviceCatalog;
+    this.governanceReviewModel = governanceReviewModel;
   }
 
   getRegistrySnapshot() {
@@ -160,8 +161,104 @@ class DomainIntrospectionService {
         ...context,
         services: this.resolveServicesForContext(context.name, contextModels),
         sampledModels: this.sampleModelAttributes(context.name),
+        metadata: context.metadata,
       };
     });
+  }
+
+  buildModelGovernanceSnapshot(model, metadata = {}) {
+    const piiModels = metadata.piiModels ?? {};
+    const fieldDescriptions = metadata.fieldDescriptions ?? {};
+    const modelGovernance = piiModels[model.name] ?? {};
+    const flaggedFields = new Set(Array.isArray(modelGovernance.fields) ? modelGovernance.fields : []);
+    const retention = modelGovernance.retention ?? metadata.defaultRetention ?? null;
+    const fieldNotes = fieldDescriptions[model.name] ?? {};
+
+    return {
+      name: model.name,
+      tableName: model.tableName,
+      retention,
+      classification: flaggedFields.size > 0 ? metadata.dataClassification ?? null : null,
+      piiFields: Array.from(flaggedFields),
+      attributes: model.attributes.map((attribute) => ({
+        name: attribute.name,
+        type: attribute.type,
+        allowNull: attribute.allowNull,
+        pii: flaggedFields.has(attribute.name),
+        retention,
+        description: fieldNotes[attribute.name] ?? null,
+      })),
+    };
+  }
+
+  async listGovernanceSummaries() {
+    const contexts = this.registry.listContexts();
+    let reviews = [];
+    if (this.governanceReviewModel) {
+      reviews = await this.governanceReviewModel.findAll({ order: [['contextName', 'ASC']] });
+    }
+    const reviewMap = new Map(
+      reviews.map((review) => [review.contextName.toLowerCase(), review.toPublicObject?.() ?? review.get({ plain: true })]),
+    );
+
+    return contexts.map((context) => {
+      const metadata = context.metadata ?? {};
+      const review = reviewMap.get(context.name.toLowerCase()) ?? null;
+      const piiModels = metadata.piiModels ?? {};
+      const piiFieldCount = Object.values(piiModels).reduce((acc, entry) => {
+        const count = Array.isArray(entry.fields) ? entry.fields.length : 0;
+        return acc + count;
+      }, 0);
+
+      return {
+        contextName: context.name,
+        displayName: context.displayName,
+        description: context.description,
+        ownerTeam: review?.ownerTeam ?? metadata.ownerTeam ?? null,
+        dataSteward: review?.dataSteward ?? metadata.dataSteward ?? null,
+        dataClassification: metadata.dataClassification ?? null,
+        businessCriticality: metadata.businessCriticality ?? null,
+        defaultRetention: metadata.defaultRetention ?? null,
+        regulatoryFrameworks: metadata.regulatoryFrameworks ?? [],
+        piiModelCount: Object.keys(piiModels).length,
+        piiFieldCount,
+        reviewStatus: review?.reviewStatus ?? 'unknown',
+        reviewedAt: review?.reviewedAt ?? null,
+        nextReviewDueAt: review?.nextReviewDueAt ?? null,
+        automationCoverage: review?.scorecard?.automationCoverage ?? null,
+        remediationItems: review?.scorecard?.remediationItems ?? null,
+      };
+    });
+  }
+
+  async getContextGovernance(contextName) {
+    const detail = this.getContextDetail(contextName);
+    const metadata = detail.context.metadata ?? {};
+    const models = detail.models.map((model) => this.buildModelGovernanceSnapshot(model, metadata));
+
+    let review = null;
+    if (this.governanceReviewModel) {
+      const record = await this.governanceReviewModel.findOne({ where: { contextName: detail.context.name } });
+      review = record?.toPublicObject?.() ?? record?.get?.({ plain: true }) ?? null;
+    }
+
+    const piiFieldCount = models.reduce((acc, model) => acc + model.piiFields.length, 0);
+
+    return {
+      context: detail.context,
+      ownerTeam: review?.ownerTeam ?? metadata.ownerTeam ?? null,
+      dataSteward: review?.dataSteward ?? metadata.dataSteward ?? null,
+      dataClassification: metadata.dataClassification ?? null,
+      businessCriticality: metadata.businessCriticality ?? null,
+      defaultRetention: metadata.defaultRetention ?? null,
+      dataResidency: metadata.dataResidency ?? null,
+      regulatoryFrameworks: metadata.regulatoryFrameworks ?? [],
+      qualityChecks: metadata.qualityChecks ?? [],
+      piiModelCount: models.filter((model) => model.piiFields.length > 0).length,
+      piiFieldCount,
+      review,
+      models,
+    };
   }
 
   getContextDetail(contextName) {
@@ -207,6 +304,7 @@ const domainIntrospectionService = new DomainIntrospectionService({
   domainRegistry,
   logger,
   serviceCatalog: services,
+  governanceReviewModel: DomainGovernanceReview,
 });
 
 export { DomainIntrospectionService };

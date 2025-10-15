@@ -47,7 +47,7 @@ Each numbered task maps to the update plan and contains explicit integration cov
 
 **Progress Note (Cross-Stack • 20 Apr):** Aligned documentation and design artefacts with the metrics exporter and compliance locker validation, updated progress trackers, and queued new test runs so Task 1 telemetry changes remain auditable. Backend/API/design change logs now reference `/health/metrics`, Prometheus runbooks, and the sanitised compliance flows, lifting Task 1 completion confidence without introducing placeholder content.
 
-## Task 2 — Modularise domain models and align schemas (55%)
+## Task 2 — Modularise domain models and align schemas (88%)
 - **Backend:** Refactor `src/models/index.js` into bounded contexts with domain service layers and feature flags (Issue 4).
 - **Front-end:** Consume generated TypeScript clients and update dashboards to rely on canonical schema packages (Issue 7).
 - **User phone app:** Replace mocked DTOs with generated Dart models and update caches to respect new enums.
@@ -60,6 +60,8 @@ Each numbered task maps to the update plan and contains explicit integration cov
 **Progress Note (Backend • 05 Apr):** Domain registry now partitions the 360-model monolith into audited contexts with dedicated auth, marketplace, and platform services orchestrating login audits, feature flags, and workspace synchronisation. Zod-backed schema generation publishes JSON contracts to `shared-contracts/domain`, enabling web and Flutter teams to consume canonical DTOs while migration rewrites and ERD deliverables move into planning.
 
 **Progress Note (Backend • 06 Apr):** Published an authenticated `/api/domains` discovery surface that serialises bounded-context models, indexes, and associations for operators while exposing service bindings and sampled attributes. Generated TypeScript client definitions via `npm run schemas:clients` so React/Node tooling can ingest the same contracts as the JSON schema consumers.
+
+**Progress Note (Cross-Stack • 23 Apr):** Delivered governance metadata across backend, React, and Flutter: `/api/domains/governance` + context detail endpoints aggregate steward contacts, retention policies, and review cadences; React admin dashboard renders remediation badges and review countdowns; Flutter admin card mirrors summaries with Riverpod providers; JSON schemas and TS clients regenerated; docs/design/test plans updated. Follow-up work: backend HTTP integration tests and UI widget tests to extend automation coverage.
 
 ## Task 3 — Enforce validation, consent, and governance workflows (0%)
 - **Backend:** Apply Celebrate/Zod validation, wire consent records, SAR tooling, and RBAC middleware logging.

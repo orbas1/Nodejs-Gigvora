@@ -49,6 +49,28 @@ Define the behaviour, inputs, outputs, and state management for each widget used
   - **States:** Healthy (indigo background, neutral copy), Warning (amber background, animated pulse), Error (red background, runbook CTA elevated), Loading skeleton, Paused (greyed out with tooltip).
   - **Events:** `exporter_tile_runbook_clicked`, `exporter_tile_refresh_requested`, `exporter_tile_tooltip_opened`.
 
+## Governance Widgets (23 Apr)
+- **Governance Summary Card:**
+  - **Inputs:** Context list, review status enum, remediation tasks array, next
+    review due date, steward contact info, PII coverage summary.
+  - **Behaviour:** Aggregate totals (Approved, Monitoring, Remediation Required),
+    render list of top remediation items with CTA to open detail view, expose
+    manual refresh + last-updated timestamp, and display steward avatar stack.
+  - **States:** Loading skeleton, Empty (prompt to schedule first review), Healthy
+    (celebratory illustration), Remediation (badge tone escalated), Error (retry
+    CTA with telemetry logging).
+  - **Events:** `governance_summary_refreshed`, `governance_context_opened`,
+    `governance_escalate_clicked`, analytics payload includes context key and
+    remediation severity.
+- **Governance Detail Drawer:**
+  - **Inputs:** Context metadata, review notes, remediation checklist, retention
+    target, classification, steward contact list.
+  - **Behaviour:** Present timeline of reviews, highlight overdue tasks, allow
+    export actions, include copy block referencing compliance policy.
+  - **States:** Loading, Loaded, Offline (cached data), Error (fallback copy).
+  - **Events:** `governance_detail_export_clicked`, `governance_remediation_checked`,
+    `governance_contact_initiated`.
+
 ## State Management Guidance
 - Widgets consume data from central store (Redux/MobX) or React Query caches; avoid duplicated state.
 - Error states propagate to global error handler for logging.

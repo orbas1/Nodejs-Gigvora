@@ -1,5 +1,14 @@
 # Database Change Log — Version 1.50 Update
 
+## 23 Apr 2024
+- Created `domain_governance_reviews` table to persist governance audit outcomes,
+  remediation notes, steward contacts, and next-review cadences for every bounded
+  context. Indexed `contextName`, `reviewStatus`, and `nextReviewDueAt` to power
+  dashboard filters and overdue review alerts.
+- Seeded baseline governance reviews so staging/test environments surface
+  realistic remediation backlogs and audit history when the new governance
+  endpoints are consumed by dashboards or policy automation.
+
 ## 13 Apr 2024
 - Added `database_audit_events` table capturing lifecycle events (`startup`, `shutdown_initiated`, `shutdown_failed`) with initiator, reason, and JSON metadata storing pool telemetry for compliance review.
 

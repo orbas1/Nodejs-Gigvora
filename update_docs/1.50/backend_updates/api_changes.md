@@ -51,3 +51,15 @@
 - Added `GET /api/domains/registry` returning registered domain contexts, service bindings, and sampled model attributes for operator dashboards.
 - Added `GET /api/domains/:context` exposing full context metadata, including model tables, attributes, indexes, hooks, and associations.
 - Added `GET /api/domains/:context/models/:modelName` returning model-level definitions so tooling can verify schema changes before releasing dependent clients.
+
+## Domain Governance API
+- Added `GET /api/domains/governance` exposing aggregated governance summaries
+  (contexts by review status, remediation backlog, next review due dates) merged
+  from domain metadata and persisted governance review records. Responses include
+  totals, remediation counts, and audit backlog arrays so admin tooling can
+  prioritise follow-up work.
+- Added `GET /api/domains/:context/governance` delivering detailed payloads per
+  context, including steward contacts, classification, retention targets, PII
+  coverage, last review notes, remediation checklists, and next-review cadence.
+  Contracts are versioned under `shared-contracts/domain/governance` and consumed
+  by generated TypeScript clients plus the Flutter governance repository.

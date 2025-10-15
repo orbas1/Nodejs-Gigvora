@@ -1,5 +1,18 @@
 # Version 1.50 Update Change Log
 
+## 23 Apr 2024
+- Introduced auditable domain governance metadata across the Node API by centralising bounded-context ownership, retention, and
+  PII field definitions in `src/domains/domainMetadata.js`, persisting review cadences via the new `DomainGovernanceReview`
+  model, and exposing aggregated telemetry through `/api/domains/governance` plus `/api/domains/:context/governance`.
+- Seeded governance review history for every bounded context and added a dedicated migration so database environments replicate
+  ownership, audit scores, and remediation countdowns alongside the existing runtime maintenance tables.
+- Extended the React admin dashboard with a data governance registry card that surfaces classification, PII coverage, review
+  status, and next audit windows per context while wiring refresh + error states into the runtime operations panel.
+- Generated new governance JSON schemas and TypeScript clients so downstream services consume the enriched metadata, updated the
+  registry snapshot, and refreshed Jest coverage for `DomainIntrospectionService` to lock in the governance endpoints.
+- Delivered a Flutter admin governance snapshot card powered by a Riverpod repository/summary provider so mobile operators see
+  the same remediation priorities, counts, and audit timestamps surfaced on web.
+
 ## 18 Apr 2024
 - Advanced the web application firewall with automated quarantine thresholds and offender tracking so repeat attackers are blocked without manual rule updates, complete with telemetry surfaced via `/api/admin/runtime/health`.
 - Updated the React admin runtime panel and Flutter runtime health domain models to visualise active auto-blocks, last escalations, and zero-data states, ensuring operators across surfaces understand perimeter posture.

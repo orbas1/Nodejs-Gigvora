@@ -35,6 +35,9 @@
 - Content strategy ready with updated copy guidelines by design lock.
 - Availability of engineering bandwidth for pair design reviews.
 - Prometheus exporter `/health/metrics` endpoint delivering scrape freshness and uptime fields prior to admin/mobile telemetry card build so UI states remain accurate.
+- `/api/domains/governance` summaries and detail endpoints shipping by Week 5 so
+  governance dashboard card/drawer designs have final payloads for copy and data
+  bindings.
 
 ## Risk Mitigation
 - Maintain backlog of stretch goals to de-scope if resource constraints arise.
@@ -59,6 +62,8 @@
 - 20% reduction in average time to assign gig via queue management.
 - 15% increase in completion rate for consumer gig creation flow.
 - Zero critical accessibility or compliance issues post-launch.
+- Governance dashboards reduce overdue review backlog by 30% within two sprints
+  of launch (tracked via analytics events).
 
 ## Documentation & Handoff
 - Maintain central Confluence hub linking to design specs, component documentation, and testing results.

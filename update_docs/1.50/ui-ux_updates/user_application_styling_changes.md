@@ -88,6 +88,20 @@
 - **Runbook CTA:** When exporter error streak > 3, snackbar expands with bordered action row styled as tertiary button linking to runtime incident runbook; ensures contrast ratio ≥ 4.5:1 for text on amber background.
 - **Success Reset State:** On recovery, snackbar transitions to success palette with subtle scale animation and resets countdown chip to display last scrape timestamp.
 
+### Governance & Compliance Surfaces (23 Apr)
+- **Summary Card:** 16px radius card anchored within admin home deck, gradient
+  header `linear-gradient(135deg, #1D4ED8, #312E81)` with white steward avatar
+  stack offset. Status badges follow semantic palette with icon glyphs for quick
+  scanning; remediation list uses subtle dividers and trailing chevron.
+- **Detail Bottom Sheet:** 24px top radius, sticky header containing context name
+  and classification pill; body includes checklist with toggle chips, audit note
+  block with tinted background, and CTA row featuring primary accent button
+  (“Escalate”) plus ghost secondary (“Export report”).
+- **Empty & Healthy States:** Empty view uses clipboard illustration with CTA to
+  “Schedule first review”; healthy view uses celebratory ribbon around shield
+  icon and copy reinforcing next review cadence with accent-coloured countdown
+  chip.
+
 ### Settings & Legal Pages
 - **Account Preferences:** Toggle groups arranged on raised surfaces with descriptive copy; destructive options flagged with warning icon and background tint.
 - **Legal Documents:** Use typographic hierarchy with drop caps for section titles, sticky summary banner, and accent callout boxes for key updates.

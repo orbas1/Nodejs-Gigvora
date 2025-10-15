@@ -118,6 +118,14 @@
 ## `src/services/domainIntrospectionService.js`
 - New service that serialises bounded-context metadata, Sequelize models, indexes, hooks, and associations to power `/api/domains` diagnostics and registry exports.
 - Resolves attached domain services via capability descriptors, enabling tooling to understand which contexts provide authentication, marketplace, or platform workflows.
+- Added governance aggregators that join `domainMetadata` descriptors with
+  persisted `DomainGovernanceReview` records, expose summary counts (contexts
+  requiring remediation vs. approved), and provide detailed context payloads
+  (classification, PII coverage, steward contacts, outstanding tasks) consumed by
+  `/api/domains/governance` and the generated schema clients.
+- Normalises empty states for contexts lacking historic reviews so APIs still
+  supply target cadences and compliance SLAs pulled from metadata, preventing UI
+  gaps and simplifying policy automation.
 
 ## `src/services/runtimeObservabilityService.js`
 - Aggregates readiness, liveness, dependency health, process telemetry, and rate-limit metrics into a single operational snapshot consumed by `/api/admin/runtime/health`.

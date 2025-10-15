@@ -7,3 +7,9 @@
 - Partner SDK pipelines and documentation portals should fetch `/api/docs/runtime-security` during build to stay aligned with the published health/auth contract; honour the five-minute cache headers and ETag to avoid unnecessary downloads.
 - Admin dashboards, SOC tooling, and automated abuse detectors should parse the new `waf` block summaries returned by `/api/admin/runtime/health` to trigger alerts when block volume spikes or new rules start firing.
 - Consumers of `/api/admin/runtime/health` should read `waf.autoBlock` to surface active quarantines, expose next review timestamps, and coordinate automated unblocking workflows when TTLs expire.
+- Governance tooling, admin dashboards, and data catalog integrations should adopt
+  `/api/domains/governance` (summaries) and `/api/domains/:context/governance`
+  (detail) using the generated TypeScript definitions under
+  `shared-contracts/clients/typescript/governance`. Downstream consumers should
+  persist `nextReviewDueAt` to trigger reminders and hydrate policy runbooks with
+  steward contact details.

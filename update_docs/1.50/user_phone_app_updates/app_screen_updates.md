@@ -1,5 +1,15 @@
 # Screen Updates — User App
 
+## Admin Home Screen (23 Apr 2024)
+- Added governance summary section below runtime telemetry tiles, presenting
+  remediation-required contexts with steward avatars, status chips, and CTA to
+  open detail bottom sheet. Supports pull-to-refresh and shares auto-refresh
+  timers with runtime health stream.
+- Documented voice-over order, semantics for status chips, and fallback copy for
+  zero-review states to keep accessibility parity with web dashboards.
+- Instrumented `governance_summary_card_impression` and detail CTA analytics to
+  measure operator engagement and remediation follow-through.
+
 ## Session Bootstrap Flow (12 Apr 2024)
 - Maintenance overlays now include the backend-provided support contact so users see the escalation path during outages without digging into settings.
 - Snackbar copy references the contact information when degraded health persists, harmonising the mobile experience with admin dashboards.

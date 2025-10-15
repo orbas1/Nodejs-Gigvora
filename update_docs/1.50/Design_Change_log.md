@@ -1,5 +1,20 @@
 # Version 1.50 Design Change Log (Enterprise Detail)
 
+## 23 Apr 2024 — Domain Governance Registry Experience
+1. **Admin Governance Card:** Updated `Dashboard Designs.md`,
+   `Screens_Updates_widget_functions.md`, and `Screens_update_images_and_vectors.md`
+   with governance summary layouts covering remediation badges, steward avatar
+   stacks, scorecard progress bars, and overdue review callouts aligned with the
+   `/api/domains/governance` schema.
+2. **Copy & Localisation:** Added governance lexicon, escalation copy, and
+   localisation tokens to `Design Plan.md`, `Screen_text.md`, and
+   `text.md.md`, detailing empty states (“No governance reviews recorded”),
+   remediation CTAs, and accessible descriptions for PII classifications.
+3. **Mobile Parity:** Documented Flutter governance card/drawer variants in
+   `App_screens_drawings.md`, `Screens_Update_Plan.md`, and
+   `user_app_wireframe_changes.md`, ensuring mobile operators see the same
+   remediation backlog, steward contacts, and audit notes as the web dashboard.
+
 ## 19 Apr 2024 — Prometheus Metrics Exporter UX Alignment
 1. **Admin Telemetry Card:** Updated `Dashboard Designs.md`, `Screens_Updates_widget_functions.md`, and `Screens_update_images_and_vectors.md` to add the Prometheus exporter tile showing scrape freshness, exporter uptime, and alert thresholds so operators can triage `/health/metrics` status without leaving the runtime panel.
 2. **Operations Copy:** Documented exporter-stale guidance and escalation copy in `Design Plan.md`, `Screen_text.md`, and `Screen_buttons.md`, including localisation tokens for English, French, and Spanish to keep messaging aligned with the new runbook.

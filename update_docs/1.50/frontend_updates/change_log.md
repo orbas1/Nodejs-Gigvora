@@ -1,5 +1,16 @@
 # Front-end Change Log — Version 1.50 Update
 
+## 23 Apr 2024
+- Added a data governance registry card to the admin dashboard surfacing bounded
+  context classification, steward contacts, PII coverage, review status, and
+  remediation countdowns sourced from the new `/api/domains/governance` endpoint.
+- Introduced `useDomainGovernanceSummaries` hook and `domainGovernance` service to
+  consume the generated TypeScript clients, handle abortable fetches, and expose
+  auto-refresh plus manual refresh support for operations teams.
+- Wired badge helpers and theming tokens so governance severity levels render with
+  accessible colour ramps across neutral and emo themes, and documented loading,
+  error, and empty-state behaviours for QA in `Dashboard Designs.md`.
+
 ## 12 Apr 2024
 - Extended the admin runtime telemetry panel with an API perimeter card that surfaces blocked origins, last attempt timing, and
   aggregated counts from the new backend perimeter metrics.

@@ -1,5 +1,30 @@
 # Backend Change Log — Version 1.50 Update
 
+## 23 Apr 2024
+- Centralised bounded-context governance metadata in `src/domains/domainMetadata.js`,
+  enriching each context with ownership contacts, retention windows, classification,
+  and PII field inventories. The metadata feeds the existing domain registry and the
+  new governance endpoints so downstream tools can evaluate stewardship gaps
+  programmatically.
+- Introduced the `DomainGovernanceReview` Sequelize model plus migration and seed to
+  persist audit scores, remediation statuses, and next-review cadences for every
+  domain. Service helpers aggregate the data for dashboards while enforcing a
+  unique context constraint so each bounded context exposes a single active
+  governance record per environment.
+- Expanded `domainIntrospectionService` with governance resolvers that merge metadata,
+  review aggregates, and outstanding remediation tasks. Added Jest coverage to lock
+  the new summaries and to ensure contexts without historic reviews still return
+  default remediation targets for the UI.
+- Extended `/api/domains` routing with `GET /api/domains/governance` and
+  `GET /api/domains/:context/governance`, returning summary totals, review trends,
+  and audit backlogs for admin dashboards and automated policy agents. Responses
+  reuse the generated JSON schemas published under `shared-contracts/domain/governance`
+  so React, Flutter, and Node clients ingest typed payloads.
+- Regenerated schema clients (`npm run schemas:sync && npm run schemas:clients`) to
+  publish governance DTOs alongside the existing registry contracts. Updated
+  TypeScript definitions now include governance types, enums, and helper factories for
+  integrations consuming the shared packages.
+
 ## 19 Apr 2024
 - Added a Prometheus metrics exporter (`src/observability/metricsRegistry.js`) and exposed `/health/metrics`, wiring startup
   priming in `src/server.js` and surfacing exporter status through `runtimeObservabilityService`. Admin dashboards and partner

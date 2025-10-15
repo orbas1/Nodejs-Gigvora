@@ -1,5 +1,18 @@
 # Admin Dashboard Updates — Version 1.50 Update
 
+## Domain Governance Registry (23 Apr 2024)
+- **New governance card:** Added `DomainGovernanceSummaryCard` presenting each
+  bounded context’s classification, steward, review status, outstanding
+  remediation tasks, and next-review due date sourced from the governance
+  summaries endpoint.
+- **Schema-aligned badges:** Severity chips now map to the shared governance
+  enums and leverage the refreshed status badge helper so approved contexts render
+  success states while remediation-required contexts display escalated tones with
+  accessible contrast.
+- **Refresh and error affordances:** Hook integrates with the existing telemetry
+  refresh controls to support manual reloads, ten-minute auto-refresh cadence,
+  empty-state guidance, and retry copy aligned with operations tooling.
+
 ## Runtime Health Panel — API Perimeter (12 Apr 2024)
 - **Blocked origin analytics:** New API perimeter card lists the top blocked origins, request counts, and last-attempt timing sourced from backend perimeter metrics so operations can spot abuse without leaving the dashboard.
 - **Telemetry alignment:** Panel messaging now highlights the backend support contact when the platform enters maintenance, mirroring Flutter bootstrapper updates and ensuring operators have a single source of truth.

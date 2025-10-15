@@ -22,6 +22,10 @@
 - **Status 17 Apr:** Finalised WAF telemetry handoffs with environment-driven rule notes, admin card data bindings, and Flutter snackbar localisation tokens so engineering can wire the new `/api/admin/runtime/health.waf` payload without additional design rounds.
 - **Status 18 Apr:** Documented auto-block telemetry states (active quarantines, countdown timers, escalation copy) across admin dashboards and Flutter snackbars, completing the design package for the `waf.autoBlock` schema and unblocking implementation reviews.
 - **Status 19 Apr:** Prometheus exporter telemetry card, scrape freshness indicators, and runbook CTAs documented for admin dashboards and Flutter alerts, ensuring `/health/metrics` coverage and localisation tokens are ready for implementation handoff.
+- **Status 23 Apr:** Governance registry card and drill-down drawer specs shipped for
+  web and Flutter, mapping `/api/domains/governance` payloads to remediation badges,
+  steward contact chips, and analytics hooks so engineering can implement the new
+  dashboards without follow-up design cycles.
 
 ## Milestone 3 – Web Marketing & Dashboard Refresh (Week 3–5)
 **Objective:** Modernise marketing site, landing hero, and authenticated dashboards with modular partials.
@@ -51,6 +55,10 @@
 - **Status 17 Apr:** Added SOC-focused annotations describing how WAF metrics feed alerting dashboards and documented fallback copy when block volume is zero, ensuring QA checks include low/no-data states.
 - **Status 18 Apr:** Captured auto-block escalation workflows, review guidance, and localisation notes so compliance, SOC, and support teams have consistent copy when automated quarantines trigger; QA scripts updated to verify countdown timers and accessible announcements.
 - **Status 16 Apr:** Logged shutdown/drain verdict chips and runbook copy updates tied to the new backend orchestrator so operators and Flutter maintenance drawers surface drain failure guidance during planned outages.
+- **Status 23 Apr:** Added governance stewardship lexicon, remediation copy, and
+  accessibility annotations to cover the new admin/mobile governance widgets; QA
+  checklist now includes overdue review highlighting, empty-state localisation, and
+  voice-over expectations for steward contact chips.
 
 ## Milestone 6 – Handoff, QA, and Implementation Support (Week 6–7)
 **Objective:** Equip engineering and QA teams with detailed documentation, assets, and review rituals.

@@ -50,4 +50,17 @@
 - **Prometheus Exporter Healthy:** "Exporter online — last scrape {{relativeTime}}"; keep tone neutral, no CTA.
 - **Prometheus Exporter Warning:** "Exporter stale — last scrape {{relativeTime}}. Retry or open runbook." Provide runbook CTA label `View exporter runbook`.
 - **Prometheus Exporter Error:** "Exporter unresponsive for {{failureMinutes}}. Follow incident steps to restore metrics." CTA `Open runtime runbook` and secondary text `Scrapes will resume automatically after resolution.`
+
+### Governance Registry Copy (Added 23 Apr)
+- **Summary Header:** "Data governance overview" with description "Track steward coverage, remediation backlog, and upcoming
+  reviews across every bounded context."
+- **Approved Chip:** "Approved" label with tooltip "Latest review passed {{reviewDate}} — next check {{nextReviewDate}}."
+- **Monitoring Chip:** "Monitoring" label with tooltip "Follow-up scheduled {{nextReviewDate}} — monitor scorecard for
+  updates."
+- **Remediation Chip:** "Remediation required" label with tooltip "{{remediationCount}} outstanding tasks. Escalate to steward if
+  overdue."
+- **Empty State:** Title "No governance reviews yet" with body "Schedule your first data governance review to populate this
+  dashboard." CTA `Plan review cadence`.
+- **Healthy State:** Title "All domains compliant" with body "Keep momentum — next reviews due starting {{nextReviewDate}}."
+- **Drawer Escalation Copy:** "Contact {{stewardName}} to unblock remediation. Include request ID {{requestId}} in your notes."
 - **Mobile Snackbar:** Shorten to "Metrics exporter stale — last scrape {{relativeTime}}" with action `View telemetry` and optional secondary action `Runbook` when failure streak ≥ 3.
