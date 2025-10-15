@@ -4,8 +4,6 @@ Percentages reflect initial baseline before execution. Update the tracker weekly
 
 | Task ID | Task Name | Security Level % | Completion Level % | Integration Level % | Functionality Level % | Error Free Level % | Production Level % | Overall Level % |
 |---------|-----------|------------------|--------------------|---------------------|-----------------------|--------------------|---------------------|-----------------|
-| 1 | Stabilise service lifecycles and security perimeters | 89 | 85 | 84 | 83 | 80 | 87 | 85 |
-|---------|-----------|------------------|--------------------|---------------------|-----------------------|--------------------|--------------------|-----------------|
 | 1 | Stabilise service lifecycles and security perimeters | 95 | 92 | 90 | 89 | 88 | 93 | 91 |
 | 2 | Modularise domain models and align schemas | 72 | 93 | 90 | 92 | 90 | 90 | 88 |
 | 3 | Enforce validation, consent, and governance workflows | 82 | 75 | 73 | 78 | 65 | 68 | 73 |
