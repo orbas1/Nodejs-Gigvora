@@ -1,5 +1,14 @@
 # Version 1.50 Design Change Log (Enterprise Detail)
 
+## 10 Apr 2024 — Compliance Guard Rails & Operations Messaging
+1. **Custodial Downtime Patterns:** Documented new 503 guard rails for payouts and verification flows in `Dashboard Designs.md`
+   and `component_functions.md`, including banner copy, iconography, and CTA disablement states triggered by the backend
+   dependency gating.
+2. **Admin Runtime Alerts:** Updated `Screen_text.md` and `Design Plan.md` with escalation copy for Stripe/Escrow outages so
+   operators receive consistent messaging in runtime telemetry panels and finance dashboards when `paymentsCore` is degraded.
+3. **Mobile & Flutter Parity:** Added dependency outage overlays to `App_screens_drawings.md` and `Screens_Update_Plan.md` to
+   align the Flutter wallet experiences with the new backend guard clauses, covering offline states and retry cadence guidance.
+
 ## Overview
 - **Scope:** Consolidates UI/UX decisions across the Application Design Update Plan and Web Application Design Update workstreams housed under `ui-ux_updates/Design_Task_Plan_Upgrade`.
 - **Drivers:** Resolve parity gaps between marketing, authenticated web hubs, and native apps; incorporate feedback from agency/provider personas; prepare for theme switching and modular page composition (including partial-driven layouts and emo-theme packs).

@@ -9,6 +9,8 @@ import {
   markHttpServerClosing,
   markHttpServerStopped,
 } from './lifecycle/runtimeHealth.js';
+import { getPlatformSettings } from './services/platformSettingsService.js';
+import { syncCriticalDependencies } from './observability/dependencyHealth.js';
 
 dotenv.config();
 
@@ -22,6 +24,12 @@ export async function start({ port = DEFAULT_PORT } = {}) {
   }
 
   markHttpServerStarting();
+  try {
+    const settings = await getPlatformSettings();
+    syncCriticalDependencies(settings, { logger: logger.child({ component: 'server' }) });
+  } catch (error) {
+    logger.warn({ err: error }, 'Failed to synchronise critical dependencies before startup');
+  }
   await startBackgroundWorkers({ logger });
 
   httpServer = http.createServer(app);

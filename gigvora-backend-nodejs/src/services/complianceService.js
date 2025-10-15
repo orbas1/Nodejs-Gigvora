@@ -14,8 +14,14 @@ import {
   ESCROW_INTEGRATION_PROVIDERS,
 } from '../models/index.js';
 import { ValidationError, NotFoundError, ConflictError } from '../utils/errors.js';
+import { assertDependenciesHealthy } from '../utils/dependencyGate.js';
 
 const CLOSED_LOOP_CLASSIFICATION = 'closed_loop_non_cash';
+const COMPLIANCE_DEPENDENCIES = ['database', 'paymentsCore', 'complianceProviders'];
+
+function guardCompliance(feature) {
+  assertDependenciesHealthy(COMPLIANCE_DEPENDENCIES, { feature });
+}
 
 function ensureHttpStatus(error) {
   if (error && error.statusCode && !error.status) {
@@ -124,6 +130,8 @@ export async function ensureWalletAccount({
   const normalizedType = assertInEnum(accountType, WALLET_ACCOUNT_TYPES, 'accountType');
   const provider = resolveCustodyProvider(normalizedType, custodyProvider);
 
+  guardCompliance('Wallet account provisioning');
+
   const [account] = await WalletAccount.findOrCreate({
     where: { userId: numericUserId, profileId: numericProfileId, accountType: normalizedType },
     defaults: {
@@ -159,6 +167,8 @@ export async function ensureProfileWallets(user, { transaction } = {}) {
   if (!user || !user.Profile) {
     return;
   }
+
+  guardCompliance('Profile wallet provisioning');
 
   const { Profile: baseProfile, FreelancerProfile, CompanyProfile, AgencyProfile } = user;
   const tasks = [
@@ -272,6 +282,8 @@ export async function upsertIdentityVerification(userId, payload = {}, { transac
     metadata: payload.metadata ?? null,
   };
 
+  guardCompliance('Identity verification updates');
+
   const [record, created] = await IdentityVerification.findOrCreate({
     where: { userId: numericUserId, profileId },
     defaults: recordPayload,
@@ -354,6 +366,8 @@ export async function upsertCorporateVerification(userId, payload = {}, { transa
     ? { ownerType, companyProfileId: basePayload.companyProfileId }
     : { ownerType, agencyProfileId: basePayload.agencyProfileId };
 
+  guardCompliance('Corporate verification updates');
+
   const [record, created] = await CorporateVerification.findOrCreate({
     where,
     defaults: basePayload,
@@ -399,6 +413,8 @@ export async function recordQualificationCredential(userId, payload = {}, { tran
   if (defaults.status === 'unverified' && !defaults.verificationNotes) {
     defaults.verificationNotes = 'Awaiting official documentation; currently marked as not verified.';
   }
+
+  guardCompliance('Qualification credential recording');
 
   const [record, created] = await QualificationCredential.findOrCreate({
     where: {
@@ -513,6 +529,8 @@ export async function recordWalletLedgerEntry(walletAccountId, payload = {}, { t
 
   const occurredAt = optionalDate(payload.occurredAt ?? new Date().toISOString(), 'occurredAt', { required: true });
   const reference = sanitizeString(payload.reference, { maxLength: 160 }) ?? generateLedgerReference();
+
+  guardCompliance('Wallet ledger entry recording');
 
   const entry = await WalletLedgerEntry.create(
     {
@@ -819,6 +837,8 @@ export async function getProfileComplianceSnapshot(user, { transaction } = {}) {
   if (!user || !user.Profile) {
     throw ensureHttpStatus(new NotFoundError('Profile context is required to build compliance snapshot.'));
   }
+
+  guardCompliance('Compliance snapshot retrieval');
 
   const profileId = user.Profile.id;
   const identityRecord = await IdentityVerification.findOne({

@@ -7,6 +7,7 @@
 
 ## Backend Testing Strategy
 - Unit tests for lifecycle helpers, health service, worker manager, and existing services impacted by the refactor.
+- Service-level tests that simulate Stripe/Escrow outages by toggling `paymentsCore`/`complianceProviders` health, asserting finance overviews and wallet ledger writes return 503 with structured dependency metadata.
 - Integration tests covering `/health/*` endpoints, rate limiting boundaries, and correlation ID propagation.
 - Smoke tests validating start/stop sequences, worker supervisor state changes, and Sequelize connectivity fallbacks.
 - Security tests confirming payload size enforcement, abuse throttling, and structured logging redaction.

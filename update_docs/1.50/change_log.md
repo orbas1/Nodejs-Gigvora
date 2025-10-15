@@ -1,5 +1,13 @@
 # Version 1.50 Update Change Log
 
+## 10 Apr 2024
+- Introduced runtime dependency gating for finance and compliance services so payout, wallet, and verification workflows halt
+  with clear 503 messaging when Stripe/Escrow configurations or maintenance flags render custodial providers unsafe.
+- Bootstrapped critical dependency health from platform settings at API startup and after administrative updates, ensuring
+  `/health/ready` and admin telemetry expose payment/compliance readiness immediately after configuration changes.
+- Added regression coverage around the wallet ledger writer to verify dependency outages short-circuit safely and to lock in the
+  closed-loop compliance metadata applied to credit entries.
+
 ## 09 Apr 2024
 - Extended schema-backed validation across search, project, and finance APIs so high-volume discovery, execution, and revenue
   endpoints reject unsafe payloads and coerce filters, pagination, and configuration objects before hitting services.
