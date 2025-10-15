@@ -46,6 +46,13 @@ The desktop and responsive web experience received an end-to-end restructuring t
 - Multi-tab layout (Users, Permissions, Audit Logs, Security, Billing) with data tables, action drawers, and status banners.
 - Overview widgets summarising active sessions, pending approvals, and compliance alerts.
 
+#### Runtime Maintenance Registry (Added 10 Apr)
+- Table lists slug, severity, status, window (start/end), audiences, channels, and last updated by.
+- Bulk actions row with checkboxes for scheduling/resolving multiple announcements; disabled until all selections share compatible statuses.
+- Right-side inspector panel reveals markdown preview, metadata JSON, and activity log.
+- Create/Edit modal includes datetime pickers with inline validation, channel/audience multi-select chips, and severity preview swatch.
+- History tab surfaces resolved announcements with filters (status, audience, channel) and export to CSV button.
+
 ### User Panel
 - Personalised feed combining bookings, tasks, learning modules, and community invitations.
 - Sidebar quick actions for account preferences, finance settings, and saved items.

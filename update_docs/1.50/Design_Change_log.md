@@ -6,6 +6,13 @@
 - **Research Inputs:** Combined analysis of `Screens_Update_Plan.md`, `Screens_update_images_and_vectors.md`, `Logic_Flow_map.md`, and web assets documentation produced during Version 1.50 discovery.
 - **Rollout:** Sequenced through design QA gates prior to sprint integration, with staged publication of tokens to engineering repositories (React, Node API docs, Flutter kit).
 
+## 10 Apr 2024 — Maintenance & Incident Communications System
+1. **Announcement Registry UX:** Documented admin maintenance registry table, modal editor, and lifecycle toasts in `Dashboard Designs.md`, `component_functions.md`, and `Screens_Updates_widget_functions.md`, covering severity color ramps, slug collision warnings, and schedule validation states.
+2. **Cross-Surface Banners:** Updated `web_application_styling_changes.md`, `user_application_styling_changes.md`, and `provider_application_styling_changes.md` with responsive banner specs, dismissal behaviour, iconography tokens, and localisation strings aligned to the new maintenance API contracts.
+3. **Mobile Maintenance Drawer:** Added Flutter app guidance in `App_screens_drawings.md` and `user_app_wireframe_changes.md` for the maintenance drawer, including polling cadence indicators, offline-safe messaging, and CTA patterns when downtime blocks bookings.
+4. **Telemetry Integration:** Extended `Design Plan.md` and `Design_update_task_list.md` Task 7 notes to reference maintenance snapshot chips inside runtime dashboards, aligning visual treatments with the updated observability payload (`/api/admin/runtime/health`).
+5. **Accessibility & QA:** Logged aria-live requirements, focus management, and analytics hooks in `Design_update_progress_tracker.md` commentary plus `Design_update_task_list.md` Task 9 so QA can validate screen-reader announcements and localisation fallback copy during incident simulations.
+
 ## 07 Apr 2024 — Runtime Health Operations Suite
 1. **Admin Runtime Panel:** Documented the new runtime health section in `Dashboard Designs.md` and `Screens_Updates_widget_functions.md`, covering readiness badges, dependency chips, rate-limit utilisation bars, and history cards tied to `/api/admin/runtime/health`.
 2. **Telemetry Copy & Localisation:** Finalised operations copy decks and localisation strings for rate-limit alerts and refresh messaging in `Screen_text.md` and `text.md.md`, aligning with Compliance UX (Task 9) requirements.
@@ -32,7 +39,7 @@
 1. **Colour Tokens:** Revalidated Gigvora Indigo palette with expanded semantic aliases (`surface-muted`, `surface-inverse`, `cta-emo`) to support both neutral and emo-inspired themes requested by marketing. The new alias map is propagated to SCSS/Tailwind builds (`Colours.md`, `colours.md`).
 2. **Typography Scale:** Rebalanced heading/body pairings per `Fonts.md` to ensure consistent vertical rhythm across dashboards, wizards, and CMS-driven pages. Added fallback stacks for low-latency rendering on emerging markets devices.
 3. **Spacing Grid:** Standardised 8pt grid with overlay guidelines for cards, menus, and modal shells. The layout spec extends to partial templates used on the home page, preventing drift between `Home page components.md` and `Screens_list.md` assets.
-4. **Iconography & Illustration:** Adopted the refreshed 2px stroke icon pack and vector set defined in `images_and_vectors.md` and `Screens_update_images_and_vectors.md`. Emo-theme friendly accent illustrations leverage gradient overlays configurable through CMS theme toggles.
+4. **Iconography & Illustration:** Adopted the refreshed 2px stroke icon pack and vector set defined in `images_and_vectors.md`and `Screens_update_images_and_vectors.md`. Emo-theme friendly accent illustrations leverage gradient overlays configurable through CMS theme toggles.
 
 ### Interaction Patterns
 - **Navigation Harmonisation:** All menus (per `Menus.md`, `Menus.md.md`) now follow a left-anchored mega-menu for desktop, condensed drawer for mobile. Added persona-aware shortcuts and analytics instrumentation for path tracking.

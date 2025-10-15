@@ -112,3 +112,9 @@
 - Explore AI-generated gig briefs using historical data.
 - Add collaborative booking for multi-user households.
 - Investigate offline mode for low-connectivity regions.
+
+## Maintenance Drawer (Added 10 Apr)
+- Entry point from home banner tap, notification center alert, or forced modal when severity=incident/security and status=active.
+- Drawer includes countdown pill, impacted services list with icons, CTA buttons (Contact Support, View Timeline), and link to status history.
+- Offline mode displays cached announcement plus retry button; includes banner reminding users to stay subscribed for updates.
+- Wireframes show responsive adjustments for small devices with collapsed metadata stack.

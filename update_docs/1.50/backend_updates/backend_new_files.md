@@ -2,6 +2,22 @@
 
 | File | Description |
 |------|-------------|
+| `database/migrations/20241015121500-runtime-maintenance-announcements.cjs` | Migration creating `runtime_announcements` table with indexed status/start/end columns plus JSONB audiences/channels metadata. |
+| `src/models/runtimeAnnouncement.js` | Sequelize model defining runtime maintenance announcements with severity/status enums, JSON audience/channel lists, metadata, and helper methods for filtering/scheduling. |
+| `src/controllers/runtimeController.js` | Public controller serving filtered maintenance announcements to unauthenticated clients with caching hints and validation. |
+| `src/controllers/adminRuntimeController.js` | Admin controller providing paginated list, create/update, and lifecycle actions for maintenance announcements with audit metadata. |
+| `src/routes/runtimeRoutes.js` | Express router registering `/api/runtime/maintenance` with validation and caching headers. |
+| `src/routes/adminRuntimeRoutes.js` | Express router wiring admin maintenance CRUD + status endpoints behind authentication and validation middleware. |
+| `src/services/runtimeMaintenanceService.js` | Service encapsulating announcement creation, updates, lifecycle transitions, filtering, and serialization for controllers. |
+| `src/validation/schemas/runtimeSchemas.js` | Zod schema catalogue covering public/admin query params, create/update payloads, status transitions, and identifier params. |
+| `tests/services/runtimeMaintenanceService.test.js` | Unit coverage exercising sanitisation, chronology enforcement, lifecycle transitions, and filtering branches for the service. |
+| `tests/routes/runtimeRoutes.test.js` | Supertest coverage validating public maintenance endpoint filtering, caching headers, and validation behaviour using stubs. |
+| `tests/stubs/pinoStub.js` | Jest stub for `pino` to unblock maintenance route/service tests without requiring the binary dependency. |
+| `tests/stubs/pinoHttpStub.js` | Jest stub for `pino-http` supporting middleware instrumentation within route tests. |
+| `tests/stubs/expressRateLimitStub.js` | Jest stub that mimics `express-rate-limit` handler signatures for isolated route coverage. |
+
+| File | Description |
+|------|-------------|
 | `src/lifecycle/runtimeHealth.js` | Centralised runtime health state tracker capturing HTTP status, worker readiness, and dependency availability for consumption by health endpoints and operators. |
 | `src/lifecycle/workerManager.js` | Supervisor responsible for starting/stopping search bootstrap, profile engagement, and news aggregation workers with health reporting hooks. |
 | `src/middleware/correlationId.js` | Express middleware that enforces correlation IDs for every request, echoing them back to clients and structured logs. |
@@ -21,10 +37,10 @@
 | `src/services/domainIntrospectionService.js` | Service that serialises bounded-context metadata, model definitions, and service bindings for the `/api/domains` endpoints. |
 | `src/routes/domainRoutes.js` | Express router exposing `/api/domains/registry`, context drill-down, and model definition endpoints. |
 | `shared-contracts/clients/typescript/*` | Generated TypeScript declarations mirroring domain schemas for Node and React consumers. |
-| `src/observability/rateLimitMetrics.js` | Instrumented metrics store that tracks per-key request attempts, blocks, utilisation history, and top consumers for the API rate limiter. |
+| `src/observability/rateLimitMetrics.js` | Instrumented metrics store that tracks per-key request attempts, blocked responses, and history snapshots. |
 | `src/middleware/rateLimiter.js` | Wrapper around `express-rate-limit` that records telemetry, applies admin-aware keys, and exposes metrics to the observability service. |
 | `src/middleware/validateRequest.js` | Zod-backed middleware that validates and normalises Express request bodies, queries, params, headers, and cookies before controller execution. |
-| `src/services/runtimeObservabilityService.js` | Aggregates readiness, dependency, environment, and rate-limit data for `/api/admin/runtime/health`. |
+| `src/services/runtimeObservabilityService.js` | Aggregates readiness, liveness, dependency, environment, and rate-limit data for `/api/admin/runtime/health`. |
 | `src/validation/primitives.js` | Shared Zod helper utilities for trimming strings, coercing numbers/booleans, and normalising geo-location payloads. |
 | `src/validation/schemas/authSchemas.js` | Auth route schema catalogue enforcing login/registration payload contracts. |
 | `src/validation/schemas/adminSchemas.js` | Admin dashboard/settings schema catalogue guarding query parameters and nested configuration payloads. |

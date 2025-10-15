@@ -1,5 +1,8 @@
 # Module Changes — Version 1.50 Update
 
+- Introduced `src/models/runtimeAnnouncement.js`, `src/controllers/runtimeController.js`, and `src/controllers/adminRuntimeController.js` with companion routes/services to manage maintenance announcements across public and admin surfaces. Added
+  `src/routes/runtimeRoutes.js`, `src/routes/adminRuntimeRoutes.js`, and validation schemas under `src/validation/schemas/runtimeSchemas.js` wired into the shared `validateRequest` middleware.
+- Added Jest module mappers and stubs (`tests/stubs/pino*.js`, `tests/stubs/expressRateLimitStub.js`) so optional dependencies no longer block maintenance route coverage.
 - Created a new `lifecycle/` module that centralises runtime health tracking (`runtimeHealth.js`) and worker supervision (`workerManager.js`). This module exposes start/stop primitives for the HTTP server to call during boot/shutdown.
 - Updated `src/server.js` to consume the lifecycle module, export `start`/`stop` helpers for testing, and register signal handlers for graceful termination.
 - Refactored background workers (profile engagement, news aggregation, search bootstrap) to register with the lifecycle supervisor and report health status.

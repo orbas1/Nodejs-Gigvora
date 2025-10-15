@@ -1,5 +1,16 @@
 # Backend Change Log — Version 1.50 Update
 
+## 10 Apr 2024
+- Added runtime maintenance registry backed by the new `RuntimeAnnouncement` Sequelize model, CRUD controllers, and
+  `runtimeMaintenanceService` so the platform can publish downtime/incident messaging for targeted audiences and channels.
+- Registered `/api/runtime/maintenance` public endpoint that serves active/upcoming announcements with caching hints and
+  filtering, plus admin-only `/api/admin/runtime/maintenance/*` routes for listing, creating, updating, scheduling, resolving,
+  and patching maintenance windows with guardrails enforcing chronology and severity.
+- Integrated runtime maintenance announcements into the runtime observability snapshot so `/api/admin/runtime/health` exposes the
+  most recent active window, upcoming schedule, and relevant metadata alongside dependency telemetry.
+- Expanded Jest infrastructure with module mappers for optional logging/rate-limit dependencies and added unit/route coverage to
+  lock maintenance filtering, lifecycle transitions, and validation outcomes.
+
 ## 09 Apr 2024
 - Added validation schemas for search discovery queries, saved-search subscription payloads, project management bodies, and
   finance overview parameters to enforce canonical categories, numeric coercion, viewport parsing, and nested configuration
@@ -10,13 +21,9 @@
   and document expected sanitisation behaviour for cross-functional teams.
 
 ## 08 Apr 2024
-- Added a reusable Zod-powered `validateRequest` middleware and schema catalogue covering authentication and admin routes so req
-  uests are normalised, coerced, and rejected before hitting controllers.
-- Hardened `/api/auth/*` registration, login, two-factor, and Google OAuth flows with strict body validation that trims names,
-  lowercases emails, coerces booleans, and rejects malformed payloads prior to domain service execution.
-- Secured `/api/admin/dashboard`, `/api/admin/platform-settings`, and `/api/admin/affiliate-settings` by sanitising query/body
-  inputs, coercing booleans/numbers, and ensuring nested settings objects cannot introduce prototype pollution or invalid confi
-  guration shapes.
+- Added a reusable Zod-powered `validateRequest` middleware and schema catalogue covering authentication and admin routes so requests are normalised, coerced, and rejected before hitting controllers.
+- Hardened `/api/auth/*` registration, login, two-factor, and Google OAuth flows with strict body validation that trims names, lowercases emails, coerces booleans, and rejects malformed payloads prior to domain service execution.
+- Secured `/api/admin/dashboard`, `/api/admin/platform-settings`, and `/api/admin/affiliate-settings` by sanitising query/body inputs, coercing booleans/numbers, and ensuring nested settings objects cannot introduce prototype pollution or invalid configuration shapes.
 
 ## 07 Apr 2024
 - Introduced an observability-focused rate limiter wrapper and metrics store that track per-window utilisation, top offenders, and blocked ratios without external persistence.

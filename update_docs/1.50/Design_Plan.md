@@ -31,6 +31,7 @@ Detail the holistic design intent for Version 1.50 across application and web ex
 - Map bounded-context ownership in UI artefacts by updating `Architecture_Domain_Map.md` and in-product ERDs so dashboard widgets reference the new auth/marketplace/platform domains.
 - Design domain registry observability panels that visualise `/api/domains` responses with drill-down tables, schema change alerts, and export actions documented in `Screens_Updates_widget_functions.md` and `Dashboard Designs.md`.
 - Extend admin operations specs with runtime health telemetry sourced from `/api/admin/runtime/health`, including dependency badges, rate-limit utilisation bars, and manual refresh behaviours recorded in `Dashboard Designs.md`, `component_functions.md`, and `Screen_text.md`.
+- Define admin maintenance registry workflows (list, modal editor, lifecycle toasts) referencing `Dashboard Designs.md`, `Screens_Updates_widget_functions.md`, and `Application_Design_Update_Plan/Screens_Updates_widget_functions.md` so CRUD flows mirror the new backend announcement schema.
 
 ### 3. Web Application Modernisation
 - Redesign marketing landing pages guided by `Home Page Organisations.md`, `Home page text.md`, and `Home page images.md`.

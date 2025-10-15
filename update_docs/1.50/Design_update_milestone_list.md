@@ -14,6 +14,7 @@
 - **Status 05 Apr:** Architecture domain map annotated with auth/marketplace/platform ownership, and feature flag management wireframes drafted for dashboard integration; ERD visual refresh pending stakeholder review.
 - **Status 06 Apr:** Added domain registry observability panels to dashboard specs, linking `/api/domains` metadata to design annotations and TypeScript contract references.
 - **Status 07 Apr:** Runtime telemetry panel designs now capture `/api/admin/runtime/health` outputs with dependency badges, rate-limit trend bars, and localisation-ready incident copy. Accessibility notes cover screen-reader announcements and focus management for manual refresh interactions.
+- **Status 10 Apr:** Admin maintenance registry and cross-platform downtime banners specced, including lifecycle toasts, dismissal controls, and mobile drawer guidance tied to the new runtime maintenance APIs. QA checklist updated with aria-live and localisation scenarios.
 
 ## Milestone 3 – Web Marketing & Dashboard Refresh (Week 3–5)
 **Objective:** Modernise marketing site, landing hero, and authenticated dashboards with modular partials.
@@ -34,6 +35,7 @@
 - Provide security-sensitive UI patterns for finance, identity verification, and audit trails.
 - **Status 04 Apr:** Maintenance-mode messaging, health telemetry widgets, and rate-limit callouts are specced with localisation guidance; pending review includes integrating the assets into emo theme variations and validating screen-reader announcements.
 - **Status 07 Apr:** Operations playbook overlays incorporate runtime telemetry alerts, and compliance approved the admin dashboard copy deck; remaining scope focuses on emo theme permutations and security sign-off for provider maintenance workflows.
+- **Status 10 Apr:** Maintenance announcement localisation packs, accessibility annotations, and incident analytics hooks delivered to engineering; pending actions limited to regulator artefact bundling.
 
 ## Milestone 6 – Handoff, QA, and Implementation Support (Week 6–7)
 **Objective:** Equip engineering and QA teams with detailed documentation, assets, and review rituals.

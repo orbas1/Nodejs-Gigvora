@@ -36,6 +36,7 @@ import trustRoutes from './trustRoutes.js';
 import userRoutes from './userRoutes.js';
 import workspaceTemplateRoutes from './workspaceTemplateRoutes.js';
 import workManagementRoutes from './workManagementRoutes.js';
+import runtimeRoutes from './runtimeRoutes.js';
 
 const router = Router();
 
@@ -76,5 +77,6 @@ router.use('/trust', trustRoutes);
 router.use('/users', userRoutes);
 router.use('/users/:userId/project-gig-management', projectGigManagementRoutes);
 router.use('/workspace-templates', workspaceTemplateRoutes);
+router.use('/runtime', runtimeRoutes);
 
 export default router;

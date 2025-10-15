@@ -1,5 +1,15 @@
 # Controller Changes — Version 1.50 Update
 
+## `src/controllers/adminRuntimeController.js`
+- New controller exposing maintenance announcement registry, create/update actions, and status transitions with structured error
+  handling and audit metadata for admin operations teams.
+- Leverages runtime maintenance service to enforce chronology, severity, and targeting rules while translating service results
+  into API-friendly payloads with caching and pagination hints.
+
+## `src/controllers/runtimeController.js`
+- New public controller returning active/upcoming maintenance announcements based on audience/channel filters. Applies short-term
+  caching headers and gracefully handles empty states for web/mobile banners.
+
 ## `src/controllers/adminController.js`
 - Added `runtimeHealth` action that authenticates admin requests and returns the aggregated snapshot from `runtimeObservabilityService`.
 - Extended dashboard controller wiring so admin telemetry can be polled without impacting existing platform/affiliate settings endpoints.
