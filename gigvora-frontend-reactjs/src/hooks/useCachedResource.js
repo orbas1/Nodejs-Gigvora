@@ -9,6 +9,7 @@ export function useCachedResource(
   const abortRef = useRef();
   const mountedRef = useRef(true);
   const dependencySnapshotRef = useRef({ values: [], initialised: false });
+  const fetcherRef = useRef(fetcher);
   const [state, setState] = useState({
     data: null,
     error: null,
@@ -16,6 +17,10 @@ export function useCachedResource(
     fromCache: false,
     lastUpdated: null,
   });
+
+  useEffect(() => {
+    fetcherRef.current = fetcher;
+  }, [fetcher]);
 
   const refresh = useCallback(
     async ({ force = false } = {}) => {
@@ -41,7 +46,7 @@ export function useCachedResource(
       }
 
       try {
-        const result = await fetcher({ signal: controller.signal, force });
+        const result = await fetcherRef.current({ signal: controller.signal, force });
         if (!mountedRef.current) {
           return { data: result, fromCache: false };
         }
@@ -74,7 +79,7 @@ export function useCachedResource(
         return { error, fromCache: false };
       }
     },
-    [cacheKey, fetcher, ttl],
+    [cacheKey, ttl],
   );
 
   useEffect(() => {
