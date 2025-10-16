@@ -1,5 +1,14 @@
 # Database Change Log — Version 1.50 Update
 
+## 29 Apr 2024
+- Added `rbac_policy_audit_events` table to persist RBAC simulation and matrix
+  access audits with persona/resource/action indexes, actor metadata, request
+  context, and JSON metadata for downstream compliance exports. Down migration
+  drops the table and restores sequences to keep staging environments clean.
+- Introduced composite indexes on `persona`, `decision`, and `occurredAt` to
+  support audit-log filtering within the new admin RBAC console and ensure
+  regulator exports run without full table scans even as telemetry grows.
+
 ## 27 Apr 2024
 - Added consent governance tables: `consent_policies`, `consent_policy_versions`,
   `user_consents`, and `consent_audit_events`. Schema enforces sequential version

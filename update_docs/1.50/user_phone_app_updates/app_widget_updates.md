@@ -1,5 +1,18 @@
 # Widget Updates — User App
 
+## 29 Apr 2024
+- **RBAC Matrix Card:** Delivered a security guardrail card summarising persona
+  coverage, guardrail count, next review cadence, and top guardrails. Styling
+  mirrors `user_application_styling_changes.md` with severity-aware chips and
+  responsive metric wrap for small devices.
+- **State coverage:** Implemented loading shimmer, privileged data view, empty
+  guidance for non-privileged sessions, and error messaging reusing backend
+  exception copy. Widget tests assert each state and confirm severity chips
+  render with correct tone.
+- **Accessibility & analytics:** Added semantic grouping for VoiceOver, ensured
+  chip labels announce persona coverage, and wired analytics events for matrix
+  impressions and refresh actions.
+
 ## 24 Apr 2024
 - **Governance Card Widget Tests:** Authored widget coverage for loading, error,
   and remediation-heavy states using Riverpod overrides and fixture summaries so

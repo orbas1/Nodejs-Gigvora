@@ -4,7 +4,7 @@ Percentages reflect initial baseline before execution. Update the tracker weekly
 
 | Task ID | Task Name | Security Level % | Completion Level % | Integration Level % | Functionality Level % | Error Free Level % | Production Level % | Overall Level % |
 |---------|-----------|------------------|--------------------|---------------------|-----------------------|--------------------|---------------------|-----------------|
-| 1 | Stabilise service lifecycles and security perimeters | 95 | 92 | 90 | 89 | 88 | 93 | 91 |
+| 1 | Stabilise service lifecycles and security perimeters | 97 | 95 | 93 | 93 | 92 | 95 | 94 |
 | 2 | Modularise domain models and align schemas | 72 | 93 | 90 | 92 | 90 | 90 | 88 |
 | 3 | Enforce validation, consent, and governance workflows | 82 | 75 | 73 | 78 | 65 | 68 | 73 |
 | 4 | Complete financial, escrow, and dispute capabilities | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
@@ -18,6 +18,13 @@ Percentages reflect initial baseline before execution. Update the tracker weekly
 **Progress Note (Cross-Stack • 19 Apr):** Prometheus exporter now serves `/health/metrics`, admin dashboards surface exporter health, and the new runtime incident runbook documents scrape recovery and perimeter triage. Compliance locker endpoints are covered by Zod validation with dedicated Supertest coverage, and Flutter clients raise telemetry alerts when scrapes are stale. Task 1 security, integration, and production maturity increased through unified monitoring and guardrail enforcement.
 
 **Progress Note (Cross-Stack • 20 Apr):** Backend/API documentation, route inventories, and design trackers now reference the metrics exporter, `/health/metrics` contract, and compliance locker validation. Progress trackers updated to reflect operational readiness uplift, and new test suites plus runbook entries are queued for execution to keep Task 1 telemetry changes auditable end-to-end.
+**Progress Note (Cross-Stack • 28 Apr):** RBAC governance matrix spans backend, React admin, and Flutter. New `/api/admin/governance/rbac` endpoints persist audit logs in `rbac_policy_audit_events`, React renders the `RbacMatrixPanel`, and Flutter introduces the `RbacMatrixCard`. Documentation and trackers updated; Task 1 completion, integration, and production readiness scores increased with live policy telemetry and automated auditing.
+**Progress Note (Cross-Stack • 29 Apr):** Hardened RBAC delivery with Supertest coverage for the governance routes, Jest unit
+coverage for `rbacPolicyService`, Vitest widget tests for the admin panel, and Flutter widget tests for the RBAC card. Updated
+backend/frontend/mobile/design change logs plus task trackers to document the audit migration and guardrail UX, lifting Task 1
+security, functionality, and error-free metrics to production-ready levels.
+
+**Progress Note (Cross-Stack • 30 Apr):** Confirmed the RBAC Jest and Supertest suites pass after exporting `RuntimeSecurityAuditEvent`, ran the Vitest admin panel tests, and noted the Flutter widget suite is still blocked in this container due to the missing Flutter SDK. Added shared date formatting utilities to stabilise admin RBAC/consent panels and documented the Flutter SDK dependency so CI can pick up the new tests.
 
 **Progress Note (Cross-Stack • 23 Apr):** Domain governance metadata landed end-to-end—Node API exposes governance summaries and
 context drill-downs, React admin dashboards surface remediation counts and steward

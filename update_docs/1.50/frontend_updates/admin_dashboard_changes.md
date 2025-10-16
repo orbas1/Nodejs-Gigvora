@@ -1,5 +1,30 @@
 # Admin Dashboard Updates — Version 1.50 Update
 
+## RBAC Telemetry Hardening (30 Apr 2024)
+- Added shared date/time formatting helpers to keep RBAC and consent governance
+  panels in sync across locales and unblock the Vitest harness from resolving
+  the new utilities imported by `RbacMatrixPanel`.
+- Executed the RBAC Vitest suite to confirm loading/error/empty states render as
+  designed; warnings logged about React act wrapping are queued for follow-up so
+  automated coverage remains actionable.
+
+## RBAC Guardrails Panel (29 Apr 2024)
+- **Matrix snapshot card:** Inserted `RbacMatrixPanel` into the governance row
+  featuring persona/guardrail/resource summary tiles, review cadence chips, and
+  refresh controls aligned with `Admin_panel_drawings.md`. Panel now mirrors the
+  backend matrix metadata (publish date, next review timestamp, guardrail
+  severity pills) so operators can confirm security posture without leaving the
+  dashboard.
+- **Guardrail & resource grids:** Added responsive grid layouts for guardrail
+  descriptions, severity badges, and coverage chips plus a governed-resource
+  table referencing owner teams and surfaces. Layout matches
+  `web_application_styling_changes.md` to ensure tone and spacing align with the
+  runtime telemetry shell.
+- **Error and empty states:** Implemented DataStatus integration with actionable
+  error copy, persona-targeted empty state guidance, and manual refresh button.
+  Vitest coverage asserts refresh behaviour, error messaging, and guardrail
+  rendering so future data model changes remain regression-safe.
+
 ## Consent Governance Console (27 Apr 2024)
 - **Policy inventory table:** Added `ConsentGovernancePanel` with pinned summary
   bar showing active/inactive counts, migration backlog, and breach alerts.

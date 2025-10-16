@@ -84,6 +84,12 @@
   32px circles with 4px white border to preserve contrast on gradient header.
   Detail CTA styled as tertiary button with inline chevron icon and tooltip
   clarifying that clicking opens the governance modal.
+- **RBAC Guardrail Panel (29 Apr):** Persona summary chips sit in the header row
+  with emerald/indigo badges showing persona and guardrail counts. Guardrail grid
+  renders severity-toned cards (critical/high/medium) with coverage chips and
+  copy blocks referencing constraints; governed resources list uses slate surface
+  cards with owner/surface columns. Refresh pill adopts neutral styling with hover
+  accent and disabled opacity while loading.
 
 ### Commerce & Finance
 - **Purchase Page:** Plan cards employ layered backgrounds with hero illustrations, highlight best value with accent ribbon, and animate ROI calculator with incremental counters.

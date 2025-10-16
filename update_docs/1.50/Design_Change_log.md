@@ -1,5 +1,31 @@
 # Version 1.50 Design Change Log (Enterprise Detail)
 
+## 30 Apr 2024 — Governance UX Documentation QA
+1. **Progress Tracker Hygiene:** Consolidated duplicate Task 9 progress notes and
+   executive overview rows in `Design_update_task_list.md` so governance and
+   security UX status reports no longer repeat outdated bullets. Ensures design
+   partners can trace RBAC/consent updates without reconciling conflicting
+   entries.
+2. **Dependency Highlighting:** Reaffirmed Task 9 dependencies and risks after
+   the consolidation work so localisation approvals and theme deliverables stay
+   visible to programme stakeholders reviewing the latest RBAC governance copy.
+
+## 29 Apr 2024 — RBAC Guardrail Matrix & Audit UX
+1. **Admin RBAC Panel:** Updated `Dashboard Designs.md`,
+   `Screens_Updates_widget_functions.md`, and `Screens_update_images_and_vectors.md`
+   with the RBAC matrix layout covering persona tiles, guardrail summary chips,
+   guardrail/resource grids, next-review cadence indicators, and manual refresh
+   affordances. Added localisation tokens and severity colour ramps to
+   `Design_Plan.md` and `Screen_text.md` so engineering aligns with the new copy.
+2. **Mobile RBAC Card:** Documented Flutter RBAC card variants in
+   `App_screens_drawings.md`, `Screens_Update_Plan.md`, and
+   `user_app_wireframe_changes.md`, including loading shimmer, empty guidance,
+   error banners, and severity chip treatments that mirror the React dashboard.
+3. **Audit Copy & Analytics:** Extended `Screen_buttons.md`, `Design Plan.md`, and
+   `Design_update_task_list.md` Task 9 notes with RBAC simulation guidance,
+   persona-specific empty states, and analytics taxonomy for matrix impressions
+   and refresh actions across web and mobile.
+
 ## 27 Apr 2024 — Consent Governance Console & Privacy Console
 1. **Admin Consent Panel:** Updated `Dashboard Designs.md`,
    `Screens_Updates_widget_functions.md`, and

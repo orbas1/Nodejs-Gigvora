@@ -1,5 +1,19 @@
 # Services Changes — Version 1.50 Update
 
+## `src/services/rbacPolicyService.js`
+- Introduced a production RBAC catalogue exposing personas, guardrails, and governed resources
+  through `getPolicyMatrix()` and `listPersonas()`, enabling admin and mobile clients to render
+  the security matrix without reading static JSON. Grants now encode constraints, audit retention
+  windows, and escalation metadata so downstream tooling can display actionable guardrails.
+- Added `evaluateAccess()` to compute allow/deny decisions with wildcard handling, alias matching
+  for verbs (`view`/`read`, `update`/`edit`), and explicit deny propagation. Responses surface
+  constraints and retention guidance to power simulation tooling in the admin panel and incident
+  runbooks.
+- Implemented `recordPolicyEvent()` and `listPolicyAuditEvents()` which persist normalised audit
+  rows, strip sensitive headers from metadata, and paginate with case-insensitive search across
+  reasons and actor email. API consumers and compliance teams now receive traceable RBAC actions
+  tied to personas, resources, request context, and HTTP status codes.
+
 ## `src/services/consentService.js`
 - New governance service orchestrating consent policy lifecycle, including draft
   creation, version activation, supersession, and historical retention aligned

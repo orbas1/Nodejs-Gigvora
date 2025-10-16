@@ -22,6 +22,7 @@
 - New request-validation middleware that accepts Zod schemas for body, query, params, headers, and cookies, replacing ad-hoc checks across controllers.
 - Normalises input by reassigning parsed payloads back to the Express `req` object and converts Zod issues into structured `ValidationError` responses for the global error handler.
 - Extended coverage to search discovery, project management, finance, and runtime maintenance endpoints to canonicalise categories, coerce pagination, sanitise auto-assign payloads, and ensure downtime messaging respects severity/status schedules.
+- Wired the RBAC governance routes into the middleware so audit log queries, pagination, persona filters, and simulation payloads are validated before controller logic executes, preventing malformed admin requests from bypassing policy evaluation.
 
 ## `src/middleware/authorization.js`
 - Added a dedicated `normaliseMemberships` helper so membership and role middleware deduplicate nested arrays/objects before evaluating access rules.

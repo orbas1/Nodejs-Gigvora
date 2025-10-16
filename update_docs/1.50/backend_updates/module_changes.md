@@ -3,6 +3,10 @@
 - Added `tests/stubs/promClientStub.js` with a Jest module alias so Prometheus metrics dependencies are decoupled from the test
   harness, alongside `src/utils/errors.js` cleanup that removed duplicate `ServiceUnavailableError` exports to keep telemetry
   modules importable under Babel.
+- Registered the RBAC governance module: `src/models/rbacPolicyAuditEvent.js`,
+  `src/services/rbacPolicyService.js`, controller, router, and validation schemas now
+  ship together and are exported through `src/models/index.js` so policy simulations,
+  audit log pagination, and persona matrix retrieval share a single code path.
 - Introduced consent governance module assets: `src/models/consentModels.js`
   (registering `ConsentPolicy`, `ConsentPolicyVersion`, `UserConsent`,
   `ConsentAuditEvent`), migration

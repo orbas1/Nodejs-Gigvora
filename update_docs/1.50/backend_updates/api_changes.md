@@ -93,3 +93,18 @@
   revocable policy withdrawals, capturing reason codes, supporting documents, and
   disabling dependent experiences while rejecting non-revocable requests with
   `409 Conflict` responses.
+
+## RBAC Governance API
+- Added `GET /api/admin/governance/rbac/matrix` serving versioned persona, guardrail, and
+  resource catalogues sourced from `rbacPolicyService`. Responses power the admin dashboard,
+  Flutter card, and CLI tooling with review cadence, escalation targets, and constraint notes while
+  emitting audit events for every retrieval.
+- Added `GET /api/admin/governance/rbac/audit-events` that paginates RBAC audit trails with filters
+  for persona, policy key, resource, decision, free-text search, and ISO date windows. The endpoint
+  sanitises metadata before returning results so compliance teams can export evidence without
+  leaking sensitive headers.
+- Added `POST /api/admin/governance/rbac/simulate` allowing operators to test persona/resource/action
+  combinations against the live policy matrix. Responses include allow/deny verdicts, constraints, and
+  audit retention windows while denying non-granted actions with HTTP `403`.
+- Supertest coverage (`tests/routes/adminRbacRoutes.test.js`) now verifies persona filtering, deny
+  simulations, and audit recording to prevent regressions in the new governance endpoints.

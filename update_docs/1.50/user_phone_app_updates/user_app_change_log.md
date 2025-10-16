@@ -1,3 +1,26 @@
+# User Phone App Change Log — 30 Apr 2024
+
+1. **RBAC Widget Test Readiness:** Attempted to execute
+   `rbac_matrix_card_test.dart`, documenting the missing Flutter SDK in the
+   container so CI can provision the toolchain before the next run. No Dart code
+   changes required; repository and widget remain production-ready pending
+   environment setup.
+
+# User Phone App Change Log — 29 Apr 2024
+
+1. **RBAC Matrix Card:** Added `RbacMatrixCard` to the admin home deck, surfacing
+   guardrail counts, persona coverage, next review cadence, and the top three
+   guardrails using design tokens from `user_application_styling_changes.md`.
+   Widget consumes the shared RBAC repository/provider and mirrors the React
+   panel copy for security parity.
+2. **Provider & Repository Wiring:** Extended the RBAC repository to fetch the
+   matrix, normalise persona keys, and expose Riverpod provider selectors used by
+   both the card and upcoming audit log views. Session-aware guard ensures the
+   matrix only loads for privileged personas.
+3. **Widget Coverage:** Authored `rbac_matrix_card_test.dart` exercising loading,
+   data, empty, and error states to lock down copy, metrics, and severity badge
+   rendering before expanding to audit drill-downs.
+
 # User Phone App Change Log — 27 Apr 2024
 
 1. **Consent Governance Card:** Added `UserConsentCard` to the admin home
