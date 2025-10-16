@@ -89,7 +89,8 @@ describe('consentService', () => {
     ).rejects.toBeInstanceOf(ConflictError);
 
     const snapshot = await getUserConsentSnapshot(user.id, {});
-    expect(snapshot).toHaveLength(1);
-    expect(snapshot[0].consent.status).toBe('granted');
+    expect(snapshot.outstandingRequired).toBe(0);
+    expect(snapshot.policies).toHaveLength(1);
+    expect(snapshot.policies[0].consent.status).toBe('granted');
   });
 });

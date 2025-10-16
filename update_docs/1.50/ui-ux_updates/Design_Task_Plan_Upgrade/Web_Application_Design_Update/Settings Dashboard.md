@@ -18,6 +18,7 @@ Allow users to customise dashboard layout, module visibility, and notification p
 ## Accessibility
 - Drag-and-drop complemented with keyboard controls (move up/down buttons).
 - Provide focus outlines and ARIA announcements when modules reordered.
+- Consent history timeline expansion buttons announce state change and actor metadata; outstanding required badges include ARIA labels summarising pending policies for screen readers.
 
 ## Analytics
 - Track adoption of custom layouts and re-enabled modules to inform default improvements.

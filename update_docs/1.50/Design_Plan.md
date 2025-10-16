@@ -53,10 +53,17 @@ Detail the holistic design intent for Version 1.50 across application and web ex
   `Screens_Updates_widget_functions.md`, and
   `Screens_update_images_and_vectors.md` so the React admin console mirrors legal
   requirements documented in `Consent Governance Copy.md`.
+- Record QA alignment for the consent console by linking the new backend Supertest
+  coverage into `Dashboard Designs.md` and `Design_update_task_list.md`, ensuring
+  automated regression evidence keeps the documented interactions and copy in sync
+  without introducing additional visual adjustments.
 - Refresh Settings privacy console artefacts in `Settings Dashboard.md`,
   `Screen_text.md`, and `Screen_buttons.md` to cover granular consent toggles,
   audit timelines, SAR entry points, and accessibility annotations aligned with
   backend consent schemas.
+- Document consent history timeline states (collapsed, expanded, filtered) with actor/version metadata chips and outstanding
+  required badges so React/Flutter implementations mirror audit expectations. Capture QA notes in `Design_update_task_list.md`
+  referencing backend Supertest evidence to support regulator reviews.
 - Update Flutter artefacts (`App_screens_drawings.md`, `Screens_Update_Plan.md`,
   `user_app_wireframe_changes.md`) with consent card, withdrawal confirmation,
   and offline fallback states to keep mobile parity with the web privacy console.

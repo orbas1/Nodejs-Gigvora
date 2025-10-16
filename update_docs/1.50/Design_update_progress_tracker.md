@@ -12,13 +12,13 @@ Percentages reflect the most recent assessment by the design operations council.
 | Prototype Integration & Partial QA | Week 5 | 78 | 76 | 74 | 79 | 82 | 75 | 73 | 76 | 77 | 80 | 81 | 72 | 67 | 65 | 76 | 77 | +7 |
 | Prototype Integration & Partial QA | Week 5 | 80 | 78 | 76 | 79 | 84 | 77 | 78 | 78 | 78 | 82 | 83 | 74 | 68 | 66 | 78 | 79 | +7 |
 | Pre-Handoff QA Readiness | Week 6 | 85 | 83 | 81 | 84 | 87 | 82 | 82 | 80 | 83 | 85 | 86 | 79 | 72 | 70 | 82 | 82 | +5 |
-| Launch Readiness Audit | Week 7 | 86 | 83 | 80 | 85 | 87 | 84 | 84 | 83 | 84 | 84 | 85 | 78 | 73 | 71 | 83 | 83 | +1 |
+| Launch Readiness Audit | Week 7 | 86 | 83 | 80 | 85 | 87 | 84 | 84 | 83 | 84 | 84 | 85 | 78 | 75 | 73 | 83 | 84 | +1 |
 | Prototype Integration & Partial QA | Week 5 | 78 | 76 | 74 | 79 | 82 | 75 | 73 | 70 | 77 | 80 | 81 | 72 | 67 | 65 | 76 | 75 | +5 |
 | Pre-Handoff QA Readiness | Week 6 | 83 | 81 | 79 | 82 | 85 | 80 | 76 | 73 | 82 | 84 | 85 | 77 | 71 | 69 | 80 | 79 | +6 |
 | Launch Readiness Audit | Week 7 | 85 | 82 | 79 | 84 | 86 | 83 | 81 | 80 | 84 | 84 | 85 | 77 | 73 | 71 | 83 | 82 | +5 |
 | Exporter Telemetry Integration | Week 7 | 87 | 84 | 82 | 86 | 88 | 84 | 85 | 84 | 83 | 84 | 80 | 75 | 72 | 71 | 84 | 83 | +1 |
 | Governance Registry Integration | Week 7 | 88 | 86 | 84 | 87 | 86 | 85 | 86 | 88 | 86 | 82 | 80 | 77 | 74 | 73 | 85 | 84 | +1 |
-| Consent Governance Console | Week 7 | 90 | 88 | 86 | 90 | 88 | 86 | 90 | 91 | 88 | 84 | 82 | 79 | 76 | 74 | 87 | 86 | +2 |
+| Consent Governance Console | Week 7 | 90 | 88 | 86 | 90 | 88 | 86 | 90 | 91 | 88 | 84 | 82 | 79 | 78 | 76 | 87 | 87 | +2 |
 | RBAC Guardrail Matrix | Week 7 | 92 | 90 | 88 | 92 | 89 | 88 | 92 | 94 | 89 | 86 | 84 | 80 | 77 | 75 | 88 | 88 | +2 |
 
 ## Scoring Methodology
@@ -45,13 +45,15 @@ Percentages reflect the most recent assessment by the design operations council.
 4. **Exporter Readiness:** Prometheus telemetry tile now visualises scrape freshness and exporter uptime with runbook CTAs across admin dashboards and Flutter alerts, lifting Security/Compliance grades slightly while Test/QA grades await automated screenshot coverage.
 5. **Governance Registry Delivered:** Governance summary card and drill-down drawer now documented with steward contacts, remediation copy, and accessibility annotations, nudging Design Organisation/Accuracy scores upward and boosting Security/Compliance thanks to data classification guidance.
 6. **Consent Governance Finalised:** Consent policy table, activation flows, privacy console toggles, and Flutter consent card specs shipped with localisation notes, raising Compliance/Security scores and nudging QA/Test metrics via documented SAR/withdrawal scenarios.
-7. **RBAC Guardrail Matrix Added:** RBAC persona matrix specs now cover summary tiles, guardrail/resource grids, refresh affordances, and empty/error guidance across web and Flutter artefacts, lifting Week 7 Security, Compliance, and QA grades as operators can audit guardrails without bespoke follow-up.
+7. **Automated QA Evidence Logged:** Backend Supertests executed on 01 May validate admin filtering, version activation, and user grant/withdraw flows, allowing Test/QA grades for the consent console to climb as design sign-off now references repeatable automation instead of manual spot checks.
+9. **Consent Timeline Productionised:** Settings privacy console timeline, outstanding badges, and Flutter parity are now documented with audit metadata chips and localisation notes, nudging Launch Readiness Test/QA grades upward and giving compliance reviewers a single artefact to reference alongside backend evidence.
+8. **RBAC Guardrail Matrix Added:** RBAC persona matrix specs now cover summary tiles, guardrail/resource grids, refresh affordances, and empty/error guidance across web and Flutter artefacts, lifting Week 7 Security, Compliance, and QA grades as operators can audit guardrails without bespoke follow-up.
 4. **Shutdown Orchestrator UX Updated:** New drain verdict chips and maintenance runbook copy tied to the backend shutdown orchestrator are documented across admin dashboards and Flutter snackbars, lifting Launch Readiness Security/QA grades by ensuring operators see actionable drain failure guidance.
 5. **Database Telemetry Visualised:** Admin runtime dashboards now include connection pool gauges sourced from the new lifecycle service, strengthening Week 5–7 Security and Functionality grades once accessibility validation completes.
 5. **Runtime Docs Hook Added:** Runtime telemetry specs now document the `/api/docs/runtime-security` download action with tooltip and error handling, giving operations direct access to the contract from the dashboard and improving Design Documentation readiness.
 5. **Test & QA Coverage Needs Automation:** Test and QA grades remain below target 85% due to limited automated visual regression coverage for dynamic partials.
 6. **Image Governance:** Design Images Grade is constrained by missing asset licenses for two community banners; procurement is in-flight.
-7. **Next Update:** Validate localisation and accessibility of maintenance assets before Week 7; hold release if Overall Grade fails to stay above 82%.
+7. **Next Update:** Validate localisation and accessibility of maintenance assets and consent timeline metadata chips before Week 7; hold release if Overall Grade fails to stay above 82%.
 8. **Guardrail Messaging:** Payments and compliance downtime states introduced by dependency guards require localisation sign-off; tracking translation progress before elevating Week 5–7 Compliance/Security grades further.
 1. **Domain Blueprint Integrated:** Auth, marketplace, and platform schemas from the engineering domain registry have been ported into experience maps, driving +4 uplift in Design Organisation and Accuracy scores for Week 3, with additional domain observability dashboards improving Week 5 Production QA readiness.
 2. **Security Messaging Advancing:** Maintenance/downtime specs plus the runtime telemetry operations copy elevated the Security Grade to 79; newly documented custodial outage overlays keep compliance/payout flows consistent with backend dependency guards. 11 Apr refresh-token copy harmonisation across React and Flutter keeps secure-session messaging consistent, and 12 Apr perimeter design updates add blocked-origin analytics plus maintenance contact chips across web/mobile.

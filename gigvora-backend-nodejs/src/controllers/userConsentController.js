@@ -9,7 +9,8 @@ export async function snapshot(req, res) {
   const snapshotData = await getUserConsentSnapshot(userId, filters);
   res.json({
     userId,
-    policies: snapshotData,
+    outstandingRequired: snapshotData.outstandingRequired,
+    policies: snapshotData.policies,
   });
 }
 

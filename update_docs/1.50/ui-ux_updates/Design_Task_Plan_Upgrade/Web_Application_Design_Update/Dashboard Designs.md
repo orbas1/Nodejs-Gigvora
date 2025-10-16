@@ -35,3 +35,6 @@
 
 ## Analytics
 - Track module interactions, quick action usage, and dismissed insights to refine recommendations.
+
+## QA Alignment Notes — 01 May 2024
+- Backend Supertests now exercise the admin consent governance console end-to-end. Filtering, activation modals, and audit badges described in this document are verified against live `/api/admin/governance/consents` responses, so no additional UI adjustments are required while the QA log captures regression evidence.
