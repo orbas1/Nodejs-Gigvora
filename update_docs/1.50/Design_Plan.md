@@ -53,6 +53,10 @@ Detail the holistic design intent for Version 1.50 across application and web ex
   `Screens_Updates_widget_functions.md`, and
   `Screens_update_images_and_vectors.md` so the React admin console mirrors legal
   requirements documented in `Consent Governance Copy.md`.
+- Record QA alignment for the consent console by linking the new backend Supertest
+  coverage into `Dashboard Designs.md` and `Design_update_task_list.md`, ensuring
+  automated regression evidence keeps the documented interactions and copy in sync
+  without introducing additional visual adjustments.
 - Refresh Settings privacy console artefacts in `Settings Dashboard.md`,
   `Screen_text.md`, and `Screen_buttons.md` to cover granular consent toggles,
   audit timelines, SAR entry points, and accessibility annotations aligned with

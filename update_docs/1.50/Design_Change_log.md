@@ -1,5 +1,16 @@
 # Version 1.50 Design Change Log (Enterprise Detail)
 
+## 01 May 2024 — Consent Governance QA Alignment
+1. **Admin Consent Console Regression Note:** Added a QA annotation to `Web_Application_Design_Update/Dashboard Designs.md`
+   summarising the new backend Supertest coverage so designers know `/api/admin/governance/consents` filtering, activation, and
+   audit states are verified against the documented table/interactions.
+2. **Privacy Console Confidence:** Updated `Design_Plan.md` Task 3 checklist with a reference to the automated user grant/
+   withdraw tests, reinforcing that copy, conflict messaging, and persona gating captured in the privacy console remain
+   production-accurate.
+3. **Design Tracker Update:** Logged the backend QA linkage in `Design_update_task_list.md` and `Design_update_progress_tracker.md`
+   so cross-functional stakeholders can see consent UX assets now have end-to-end regression evidence without needing new visual
+   adjustments.
+
 ## 30 Apr 2024 — Governance UX Documentation QA
 1. **Progress Tracker Hygiene:** Consolidated duplicate Task 9 progress notes and
    executive overview rows in `Design_update_task_list.md` so governance and

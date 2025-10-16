@@ -6,7 +6,7 @@ Percentages reflect initial baseline before execution. Update the tracker weekly
 |---------|-----------|------------------|--------------------|---------------------|-----------------------|--------------------|---------------------|-----------------|
 | 1 | Stabilise service lifecycles and security perimeters | 97 | 95 | 93 | 93 | 92 | 95 | 94 |
 | 2 | Modularise domain models and align schemas | 72 | 93 | 90 | 92 | 90 | 90 | 88 |
-| 3 | Enforce validation, consent, and governance workflows | 82 | 75 | 73 | 78 | 65 | 68 | 73 |
+| 3 | Enforce validation, consent, and governance workflows | 84 | 80 | 78 | 82 | 74 | 76 | 79 |
 | 4 | Complete financial, escrow, and dispute capabilities | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | 5 | Deliver creation studio and marketplace experiences | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | 6 | Modernise frontend architecture and experience foundations | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
@@ -44,6 +44,8 @@ controllers), React admin (ConsentGovernancePanel + settings privacy console), a
 Documentation, change logs, and design artefacts updated; backend Jest suite `npm test -- consentService` passes while consent
 route Supertests are queued next sprint. Task 3 security/completion/functionality scores rose with SAR/export readiness logged in
 trackers.
+
+**Progress Note (Backend • 01 May):** Supertest regression suite now exercises `/api/admin/governance/consents` and `/api/users/:id/consents/:policyCode`, verifying admin filters, version activation/supersede flows, user grant/withdraw decisions, and conflict responses when withdrawing required policies. The tests persist audit trail assertions so consent governance telemetry stays production-ready and closes the outstanding Task 3 coverage gap.
 
 **Progress Note (Cross-Stack • 10 Apr):** Runtime maintenance registry delivered with CRUD APIs, observability integration, and Flutter client consumption. Security raised via audience targeting/severity enforcement, completion/integration scores improved by cross-surface delivery, and production readiness increased through migration plus test automation.
 

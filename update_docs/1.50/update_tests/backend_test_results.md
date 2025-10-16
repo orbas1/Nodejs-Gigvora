@@ -2,6 +2,7 @@
 
 | Date | Command | Result | Notes |
 |------|---------|--------|-------|
+| 01 May 2024 | `npm test -- --runTestsByPath tests/routes/consentRoutes.integration.test.js` | ✅ Pass | Exercised admin/user consent routes end-to-end, confirming policy publication, version activation, user grant/withdraw flows, and conflict handling for non-revocable policies with audit assertions. 【de76f0†L1-L20】 |
 | 30 Apr 2024 | `npm test -- --runTestsByPath tests/services/rbacPolicyService.test.js tests/routes/adminRbacRoutes.test.js` | ✅ Pass | Exported `RuntimeSecurityAuditEvent` so admin RBAC suites load; confirmed matrix/audit/simulation flows persist audits and return typed payloads. 【c8eeba†L1-L8】 |
 | 27 Apr 2024 | `npm test -- consentService` | ✅ Pass | Validated consent policy lifecycle orchestration, activation guardrails, and withdrawal conflicts. Suite exercises audit emission, SAR export helpers, and non-revocable safeguards; SQLite TEXT warnings persist as expected. |
 | 25 Apr 2024 | `npm test -- routes/domainRoutes.governance` | ✅ Pass | Implemented `groupService.listMemberGroups`, guarded duplicate association wiring in `careerDocumentModels`, and adjusted domain registry errors so the governance HTTP suite now loads fixtures, returns 404 for unknown contexts, and completes successfully. 【36b0bd†L1-L7】 |
