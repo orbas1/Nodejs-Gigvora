@@ -1,5 +1,13 @@
 # Version 1.50 Update Change Log
 
+## 01 May 2024
+- Added backend Supertest coverage for the consent governance routes, confirming admin filtering, version activation, audit
+  logging, and user grant/withdraw conflict handling behave as documented. Updated backend change logs, route tables, test
+  results, and progress trackers accordingly.
+- Logged design QA alignment so the consent console and privacy console artefacts now reference automated regression evidence in
+  `Web_Application_Design_Update/Dashboard Designs.md`, `Design_Plan.md`, `Design_update_task_list.md`, and
+  `Design_update_progress_tracker.md` without introducing visual changes.
+
 ## 30 Apr 2024
 - Executed RBAC regression suites across Node and React, exporting
   `RuntimeSecurityAuditEvent` for the admin router and introducing shared date
