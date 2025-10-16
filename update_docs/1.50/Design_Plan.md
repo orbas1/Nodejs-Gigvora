@@ -54,6 +54,10 @@ Detail the holistic design intent for Version 1.50 across application and web ex
 - Update Flutter artefacts (`App_screens_drawings.md`, `Screens_Update_Plan.md`,
   `user_app_wireframe_changes.md`) with consent card, withdrawal confirmation,
   and offline fallback states to keep mobile parity with the web privacy console.
+- Document regression checkpoints tying design states to backend Supertests so
+  QA can trace `/api/admin/governance/consents` filter permutations and
+  `/api/users/:id/consents` grant/withdraw flows back to annotated layouts,
+  including ID references inside `Dashboard Designs.md` and `Settings Dashboard.md`.
 - Extend admin operations specs with runtime health telemetry sourced from `/api/admin/runtime/health`, including dependency badges, rate-limit utilisation bars, and manual refresh behaviours recorded in `Dashboard Designs.md`, `component_functions.md`, and `Screen_text.md`.
 - Document API perimeter analytics (blocked origins, attempt counts, escalation copy) alongside runtime health specs so admin dashboards and mobile experiences surface consistent abuse-mitigation messaging.
 - Specify WAF telemetry card states (quiet, elevated, incident) with rule leaderboard, source attempts, last-block copy, and auto-block summaries (active quarantines, countdown timers) so admin dashboards and Flutter snackbars mirror the enriched security payloads.

@@ -1,5 +1,18 @@
 # Version 1.50 Design Change Log (Enterprise Detail)
 
+## 28 Apr 2024 — Consent QA Synchronisation & Regression Alignment
+1. **Admin Consent Regression Hooks:** Updated `Dashboard Designs.md`, `Screens_Updates_widget_functions.md`, and
+   `Application_Design_Update_Plan/Dashboard Designs.md` with filter state annotations, audit callouts, and
+   “last synchronised” badges so the React console mirrors the backend Supertest coverage added for
+   `/api/admin/governance/consents`. Added QA traceability tables mapping each state to the new regression suite IDs.
+2. **User Consent Snapshot Copy:** Refined `Screen_text.md`, `Settings Dashboard.md`, and `App_screens_drawings.md`
+   to document idempotent grant/withdraw copy, metadata badges, and offline fallbacks surfaced by the updated
+   `/api/users/:id/consents` contract, ensuring Flutter and web privacy consoles share the same messaging triggered
+   in the new tests.
+3. **Design QA Checklist:** Extended `Design_update_task_list.md` Task 9 and `Design_update_progress_tracker.md` commentary
+   with consent regression checkpoints (filter permutations, withdrawal confirmations, audit logging chips) so design
+   QA explicitly verifies the behaviours guarded by backend Supertests.
+
 ## 27 Apr 2024 — Consent Governance Console & Privacy Console
 1. **Admin Consent Panel:** Updated `Dashboard Designs.md`,
    `Screens_Updates_widget_functions.md`, and

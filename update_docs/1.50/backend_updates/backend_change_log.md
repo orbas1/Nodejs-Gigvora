@@ -1,5 +1,15 @@
 # Backend Change Log — Version 1.50 Update
 
+## 28 Apr 2024
+- Authored Supertest coverage for the consent governance routes (`tests/routes/adminConsentRoutes.test.js`),
+  exercising admin policy listing filters, policy CRUD flows, version activation, and audit emission so
+  regression runs confirm transactional behaviour and RBAC paths end-to-end.
+- Added user-facing consent route tests (`tests/routes/userConsentRoutes.test.js`) that assert audience/region
+  scoped snapshots, idempotent grant operations, and withdrawal transitions propagate through `consentService`
+  with metadata intact, closing the pending Task 3 testing follow-up.
+- Re-exported `RuntimeSecurityAuditEvent` and `RuntimeAnnouncement` from `src/models/index.js` to stabilise
+  `securityAuditService` consumers and unblock runtime audit logging inside the new suites and WAF telemetry.
+
 ## 27 Apr 2024
 - Introduced GDPR-ready consent persistence via the new `ConsentPolicy`,
   `ConsentPolicyVersion`, `UserConsent`, and `ConsentAuditEvent` models with
