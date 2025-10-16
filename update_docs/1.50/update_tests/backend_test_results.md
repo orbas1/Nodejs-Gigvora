@@ -2,6 +2,7 @@
 
 | Date | Command | Result | Notes |
 |------|---------|--------|-------|
+| 28 Apr 2024 | `npm test -- adminConsentRoutes userConsentRoutes` | ✅ Pass | Mocked consent service Supertests validate admin policy CRUD, version activation, and user consent withdrawal conflicts without triggering the heavy Sequelize bootstrap; confirms HTTP contracts and RBAC wiring for Task 3. |
 | 27 Apr 2024 | `npm test -- consentService` | ✅ Pass | Validated consent policy lifecycle orchestration, activation guardrails, and withdrawal conflicts. Suite exercises audit emission, SAR export helpers, and non-revocable safeguards; SQLite TEXT warnings persist as expected. |
 | 25 Apr 2024 | `npm test -- routes/domainRoutes.governance` | ✅ Pass | Implemented `groupService.listMemberGroups`, guarded duplicate association wiring in `careerDocumentModels`, and adjusted domain registry errors so the governance HTTP suite now loads fixtures, returns 404 for unknown contexts, and completes successfully. 【36b0bd†L1-L7】 |
 | 24 Apr 2024 | `npm test -- routes/domainRoutes.governance` | ❌ Fail | Suite aborts because Jest cannot resolve the optional `prom-client` dependency required by `metricsRegistry.js`; the missing module surfaces before the new Supertest assertions execute. 【e7061d†L1-L86】 |

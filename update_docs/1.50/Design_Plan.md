@@ -51,6 +51,11 @@ Detail the holistic design intent for Version 1.50 across application and web ex
   `Screen_text.md`, and `Screen_buttons.md` to cover granular consent toggles,
   audit timelines, SAR entry points, and accessibility annotations aligned with
   backend consent schemas.
+- Document consent error/confirmation states reflecting the new HTTP tests by
+  updating `Screen_text.md`, `Application_Design_Update_Plan/Screen_buttons.md`,
+  and `Screens_Update_Plan.md` so admin copy, button affordances, and mobile
+  drawers surface the same conflict messaging as `/api/admin/governance/consents`
+  and `/api/users/:id/consents` responses.
 - Update Flutter artefacts (`App_screens_drawings.md`, `Screens_Update_Plan.md`,
   `user_app_wireframe_changes.md`) with consent card, withdrawal confirmation,
   and offline fallback states to keep mobile parity with the web privacy console.

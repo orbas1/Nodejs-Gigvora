@@ -1,5 +1,22 @@
 # Version 1.50 Update Change Log
 
+## 28 Apr 2024 — Consent Route Regression Coverage
+- Added Supertest suites for admin and user consent routes so `/api/admin/governance/consents`
+  and `/api/users/:id/consents` contracts are exercised against happy-path, mutation,
+  and conflict flows. Tests mock the consent service to assert payload sanitisation,
+  RBAC enforcement, version creation behaviour, and withdrawal guards without relying on
+  the heavy Sequelize bootstrap.
+- Exported `RuntimeSecurityAuditEvent` and `RuntimeAnnouncement` directly from
+  `src/models/index.js` so security audit services and the mocked HTTP suites can
+  resolve runtime telemetry models without auxiliary imports.
+- Logged the new regression coverage in `backend_updates/backend_change_log.md`,
+  `update_tests/backend_test_results.md`, and refreshed Task 3 progress metrics to
+  reflect the additional HTTP QA evidence.
+- Updated design trackers (`Design_update_progress_tracker.md`,
+  `Design_update_milestone_list.md`, `Design_update_task_list.md`) plus web/mobile
+  wireframes so admin privacy consoles and Flutter consent sheets surface the
+  conflict/error copy validated by the new tests.
+
 ## 27 Apr 2024
 - Deployed a full GDPR consent governance stack: Sequelize consent tables/migration,
   `consentService`, admin/user controllers, and RBAC-protected routes now power policy

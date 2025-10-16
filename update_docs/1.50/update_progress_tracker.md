@@ -6,7 +6,7 @@ Percentages reflect initial baseline before execution. Update the tracker weekly
 |---------|-----------|------------------|--------------------|---------------------|-----------------------|--------------------|---------------------|-----------------|
 | 1 | Stabilise service lifecycles and security perimeters | 95 | 92 | 90 | 89 | 88 | 93 | 91 |
 | 2 | Modularise domain models and align schemas | 72 | 93 | 90 | 92 | 90 | 90 | 88 |
-| 3 | Enforce validation, consent, and governance workflows | 82 | 75 | 73 | 78 | 65 | 68 | 73 |
+| 3 | Enforce validation, consent, and governance workflows | 82 | 78 | 76 | 82 | 72 | 75 | 77 |
 | 4 | Complete financial, escrow, and dispute capabilities | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | 5 | Deliver creation studio and marketplace experiences | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | 6 | Modernise frontend architecture and experience foundations | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
@@ -37,6 +37,16 @@ controllers), React admin (ConsentGovernancePanel + settings privacy console), a
 Documentation, change logs, and design artefacts updated; backend Jest suite `npm test -- consentService` passes while consent
 route Supertests are queued next sprint. Task 3 security/completion/functionality scores rose with SAR/export readiness logged in
 trackers.
+
+**Progress Note (Backend • 28 Apr):** Added mocked Supertest suites for `/api/admin/governance/consents` and
+`/api/users/:id/consents`, validating policy CRUD, version activation, and withdrawal conflicts without incurring the Sequelize
+bootstrap. Tests run via `npm test -- adminConsentRoutes userConsentRoutes` and `src/models/index.js` now re-exports runtime audit
+models so security services and the new HTTP coverage resolve shared telemetry dependencies.
+
+**Progress Note (Design • 28 Apr):** Finalised admin consent deletion, locale-gap, and immutable-withdrawal messaging across
+`Dashboard Designs.md`, `Screen_text.md`, and Flutter artefacts so the UI copy aligns with the new HTTP regression payloads.
+Design trackers updated to reflect higher text/compliance/QA scores and QA scripts now cover conflict resolution and offline
+retry scenarios referenced by the tests.
 
 **Progress Note (Cross-Stack • 10 Apr):** Runtime maintenance registry delivered with CRUD APIs, observability integration, and Flutter client consumption. Security raised via audience targeting/severity enforcement, completion/integration scores improved by cross-surface delivery, and production readiness increased through migration plus test automation.
 

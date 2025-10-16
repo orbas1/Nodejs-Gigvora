@@ -112,6 +112,8 @@ import sequelizeClient from './sequelizeClient.js';
 
 
 export { sequelize } from './sequelizeClient.js';
+export { RuntimeSecurityAuditEvent } from './runtimeSecurityAuditEvent.js';
+export { RuntimeAnnouncement } from './runtimeAnnouncement.js';
 
 const sequelize = sequelizeClient;
 const dialect = sequelize.getDialect();

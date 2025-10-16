@@ -77,6 +77,12 @@ Each numbered task maps to the update plan and contains explicit integration cov
 
 **Progress Note (Cross-Stack • 27 Apr):** Consent migration, models, services, and admin/user controllers shipped with RBAC and audit hooks; React admin dashboard now includes `ConsentGovernancePanel` plus Settings privacy console upgrades, and Flutter home screen surfaces consent ledger via `UserConsentCard`. Backend Jest suite `npm test -- consentService` passes, documentation/design trackers updated, and consent route Supertests scheduled next to close out Task 3 testing.
 
+**Progress Note (Backend • 28 Apr):** Mocked Supertest suites now cover admin and user consent HTTP routes, asserting policy CRUD, version activation, and withdrawal conflict responses. `npm test -- adminConsentRoutes userConsentRoutes` provides Task 3 QA evidence without bootstrapping Sequelize, and runtime audit models are re-exported so security services/tests resolve shared telemetry dependencies.
+
+**Progress Note (Design • 28 Apr):** Admin consent drawers, privacy console toggles, and Flutter withdrawal sheets now include
+regression-tested error/immutable states. Localised copy tokens map to the HTTP payloads asserted in the new Supertests, and
+design trackers were uplifted to capture the improved text/compliance/QA grades for Task 3.
+
 ## Task 4 — Complete financial, escrow, and dispute capabilities (0%)
 - **Backend:** Implement Stripe/Adyen/PayPal adapters, wallet modelling, and ledger reconciliation jobs (Feature Plan Phase 3).
 - **Front-end:** Ship finance dashboards, dispute workflows, and review insights for every persona.

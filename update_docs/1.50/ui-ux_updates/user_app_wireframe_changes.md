@@ -128,6 +128,14 @@
   requires reason selection and displays warnings when policy is non-revocable.
 - Wireframes include offline fallback with cached timestamp notice, as well as
   skeleton state demonstrating shimmer placeholders for data fetching.
+- Error states now mirror backend responses: withdrawal attempts against
+  immutable policies lock the CTA, show a "Contact compliance" button, and
+  surface the backend-provided `reasonCode` plus escalation copy; conflicting
+  withdrawal requests render inline resolution steps referencing audit IDs.
+- When the API returns `409` due to an active admin migration, banner advises
+  users that updates are in-flight and caches the attempted timestamp for QA
+  traceability; retry becomes available once migration completes and telemetry
+  indicates success.
 
 ## Domain Governance Card & Drawer (Added 23 Apr)
 - Home screen card surfaces contexts grouped by status (Approved, Monitoring,
