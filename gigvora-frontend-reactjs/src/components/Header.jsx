@@ -1,6 +1,17 @@
-import { Fragment } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Fragment, useMemo } from 'react';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { Menu, Transition } from '@headlessui/react';
+import {
+  Bars3Icon,
+  BellIcon,
+  BuildingStorefrontIcon,
+  ChatBubbleLeftRightIcon,
+  HomeIcon,
+  RssIcon,
+  SparklesIcon,
+  Squares2X2Icon,
+  UserCircleIcon,
+} from '@heroicons/react/24/outline';
 import { LOGO_URL } from '../constants/branding.js';
 import useSession from '../hooks/useSession.js';
 import { useLanguage } from '../context/LanguageContext.jsx';
@@ -87,6 +98,29 @@ function UserMenu({ session, onLogout }) {
   );
 }
 
+function resolveDashboardPath(session) {
+  const raw =
+    (session?.primaryDashboard || session?.primaryMembership || session?.memberships?.[0] || session?.userType || 'user')
+      ?.toString()
+      .toLowerCase();
+  const mapping = {
+    user: 'user',
+    freelancer: 'freelancer',
+    agency: 'agency',
+    company: 'company',
+    headhunter: 'headhunter',
+    mentor: 'mentor',
+    launchpad: 'launchpad',
+    admin: 'admin',
+  };
+  const resolved = mapping[raw] ?? 'user';
+  return `/dashboard/${resolved}`;
+}
+
+function classNames(...classes) {
+  return classes.filter(Boolean).join(' ');
+}
+
 export default function Header() {
   const navigate = useNavigate();
   const { t } = useLanguage();
@@ -97,14 +131,99 @@ export default function Header() {
     navigate('/login');
   };
 
-  return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-        <Link to="/" className="inline-flex items-center">
-          <img src={LOGO_URL} alt="Gigvora" className="h-14 w-auto" />
-        </Link>
+  const dashboardPath = resolveDashboardPath(session);
 
-        <div className="flex items-center gap-3 sm:gap-4">
+  const navigationItems = useMemo(
+    () =>
+      [
+        { id: 'feed', label: 'Live feed', to: '/feed', icon: RssIcon },
+        { id: 'explorer', label: 'Explorer', to: '/search', icon: Squares2X2Icon },
+        { id: 'dashboard', label: 'Dashboard', to: dashboardPath, icon: HomeIcon },
+        { id: 'studio', label: 'Creation Studio', to: '/projects/new', icon: SparklesIcon },
+        { id: 'shopfronts', label: 'Shopfronts', to: '/pages', icon: BuildingStorefrontIcon },
+        { id: 'messages', label: 'Messages', to: '/inbox', icon: ChatBubbleLeftRightIcon },
+        { id: 'notifications', label: 'Notifications', to: '/notifications', icon: BellIcon },
+        { id: 'profile', label: 'Profile', to: '/profile/me', icon: UserCircleIcon },
+      ],
+    [dashboardPath],
+  );
+
+  return (
+    <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur">
+      <div className="mx-auto flex h-20 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center gap-3">
+          {isAuthenticated ? (
+            <Menu as="div" className="relative lg:hidden">
+              <Menu.Button className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white p-2 text-slate-600 shadow-sm transition hover:border-slate-300 hover:text-slate-900">
+                <span className="sr-only">Open navigation</span>
+                <Bars3Icon className="h-5 w-5" />
+              </Menu.Button>
+              <Transition
+                as={Fragment}
+                enter="transition ease-out duration-100"
+                enterFrom="transform opacity-0 scale-95"
+                enterTo="transform opacity-100 scale-100"
+                leave="transition ease-in duration-75"
+                leaveFrom="transform opacity-100 scale-100"
+                leaveTo="transform opacity-0 scale-95"
+              >
+                <Menu.Items className="absolute left-0 z-50 mt-3 w-64 origin-top-left space-y-1 rounded-3xl border border-slate-200/80 bg-white p-2 text-sm shadow-xl focus:outline-none">
+                  {navigationItems.map((item) => (
+                    <Menu.Item key={item.id}>
+                      {({ active }) => (
+                        <NavLink
+                          to={item.to}
+                          className={({ isActive }) =>
+                            classNames(
+                              'flex items-center gap-2 rounded-2xl px-3 py-2 font-medium transition',
+                              isActive
+                                ? 'bg-slate-900 text-white shadow-sm'
+                                : active
+                                  ? 'bg-slate-100 text-slate-900'
+                                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+                            )
+                          }
+                        >
+                          <item.icon className="h-4 w-4" />
+                          {item.label}
+                        </NavLink>
+                      )}
+                    </Menu.Item>
+                  ))}
+                </Menu.Items>
+              </Transition>
+            </Menu>
+          ) : null}
+          <Link to="/" className="inline-flex items-center">
+            <img src={LOGO_URL} alt="Gigvora" className="h-12 w-auto" />
+          </Link>
+        </div>
+
+        {isAuthenticated ? (
+          <nav className="hidden flex-1 items-center justify-center gap-1 text-sm font-medium lg:flex">
+            {navigationItems.map((item) => (
+              <NavLink
+                key={item.id}
+                to={item.to}
+                className={({ isActive }) =>
+                  classNames(
+                    'inline-flex items-center gap-2 rounded-full border px-4 py-2 transition',
+                    isActive
+                      ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
+                      : 'border-transparent text-slate-600 hover:border-slate-300 hover:bg-white hover:text-slate-900',
+                  )
+                }
+              >
+                <item.icon className="h-4 w-4" />
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+        ) : (
+          <div className="flex-1" />
+        )}
+
+        <div className="ml-auto flex items-center gap-3 sm:gap-4">
           <LanguageSelector />
           {isAuthenticated ? (
             <UserMenu session={session} onLogout={handleLogout} />

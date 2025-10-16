@@ -1134,11 +1134,11 @@ function LiveMomentsTicker({ moments = [] }) {
   );
 }
 
-function FeedSidebar({ session, insights }) {
-  const { interests = [], connectionSuggestions = [], groupSuggestions = [], liveMoments = [] } = insights ?? {};
+
+function FeedIdentityRail({ session, interests = [] }) {
   return (
-    <aside className="order-2 space-y-6 lg:order-1">
-      <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-soft">
+    <aside className="order-2 space-y-6 xl:order-1">
+      <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-soft">
         <div className="flex items-center gap-4">
           <UserAvatar name={session?.name ?? 'Member'} seed={session?.avatarSeed ?? session?.name} size="lg" />
           <div>
@@ -1227,9 +1227,18 @@ function FeedSidebar({ session, insights }) {
           </div>
         ) : null}
       </div>
+    </aside>
+  );
+}
+
+function FeedInsightsRail({ liveMoments = [], connectionSuggestions = [], groupSuggestions = [] }) {
+  const hasSuggestions = connectionSuggestions.length || groupSuggestions.length;
+
+  return (
+    <aside className="order-3 space-y-6 xl:order-3">
       <LiveMomentsTicker moments={liveMoments} />
       {connectionSuggestions.length ? (
-        <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-soft">
+        <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-soft">
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold text-slate-900">Suggested connections</p>
             <Link to="/connections" className="text-xs font-semibold text-accent transition hover:text-accentDark">
@@ -1263,7 +1272,7 @@ function FeedSidebar({ session, insights }) {
         </div>
       ) : null}
       {groupSuggestions.length ? (
-        <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-soft">
+        <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-soft">
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold text-slate-900">Groups to join</p>
             <Link to="/groups" className="text-xs font-semibold text-accent transition hover:text-accentDark">
@@ -1290,20 +1299,24 @@ function FeedSidebar({ session, insights }) {
           </ul>
         </div>
       ) : null}
-      <div className="rounded-3xl border border-accent/30 bg-accentSoft p-6 text-sm text-slate-700">
+      <div className="rounded-3xl border border-accent/30 bg-accentSoft/80 p-6 text-sm text-slate-700">
         <p className="text-sm font-semibold text-accentDark">Explorer consolidation</p>
         <p className="mt-2 text-sm text-slate-700">
-          Jobs, gigs, projects, Experience Launchpad cohorts, volunteer opportunities, and talent discovery now live inside the
-          Explorer. Use filters to pivot between freelancers, companies, people, groups, headhunters, and agencies without leaving
-          your flow.
+          Jobs, gigs, projects, Experience Launchpad cohorts, volunteer opportunities, and talent discovery now live inside the Explorer. Use filters to pivot between freelancers, companies, people, groups, headhunters, and agencies without leaving your flow.
         </p>
-        <a
-          href="/search"
+        <Link
+          to="/search"
           className="mt-4 inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-soft transition hover:bg-accentDark"
         >
           Open Explorer
-        </a>
+        </Link>
       </div>
+      {!hasSuggestions ? (
+        <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 text-sm text-slate-600 shadow-soft">
+          <p className="text-sm font-semibold text-slate-900">No new suggestions just yet</p>
+          <p className="mt-2 text-sm">As soon as the community shifts, you’ll see fresh connections and groups to explore.</p>
+        </div>
+      ) : null}
     </aside>
   );
 }
@@ -1348,6 +1361,12 @@ export default function FeedPage() {
   }, [data, localPosts, session]);
 
   const engagementSignals = useEngagementSignals({ session, feedPosts: posts });
+  const {
+    interests = [],
+    connectionSuggestions = [],
+    groupSuggestions = [],
+    liveMoments = [],
+  } = engagementSignals ?? {};
 
   const membershipList = useMemo(() => {
     const memberships = new Set();
@@ -1630,9 +1649,9 @@ export default function FeedPage() {
             />
           }
         />
-        <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(260px,0.75fr),minmax(0,2fr)] lg:items-start">
-          <FeedSidebar session={session} insights={engagementSignals} />
-          <div className="order-1 space-y-8 lg:order-2">
+        <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(240px,0.9fr),minmax(0,2fr)] xl:grid-cols-[minmax(240px,0.85fr),minmax(0,2.2fr),minmax(240px,1fr)] xl:items-start">
+          <FeedIdentityRail session={session} interests={interests} />
+          <div className="order-1 space-y-8 xl:order-2">
             <FeedComposer onCreate={handleComposerCreate} session={session} />
             {error && !loading ? (
               <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
@@ -1641,6 +1660,11 @@ export default function FeedPage() {
             ) : null}
             {loading && !posts.length ? renderSkeleton() : renderPosts()}
           </div>
+          <FeedInsightsRail
+            liveMoments={liveMoments}
+            connectionSuggestions={connectionSuggestions}
+            groupSuggestions={groupSuggestions}
+          />
         </div>
       </div>
     </section>
