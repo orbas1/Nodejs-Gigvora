@@ -1,5 +1,14 @@
 # Migrations Updates — Version 1.50 Update
 
+## `20241021120000-rbac-policy-audit.cjs`
+- Creates `rbac_policy_audit_events` with persona/resource/action indexes,
+  actor/request metadata, sanitised JSON payload storage, and timezone-aware
+  timestamps so every RBAC interaction becomes auditable evidence.
+- Adds composite indexes for `(persona, decision)` and `occurredAt` to accelerate
+  the new admin audit log filters while keeping exports performant at enterprise scale.
+- Down migration drops the table and indexes; ensure audit evidence is exported
+  before rollback when operating in regulated environments.
+
 ## `20241010104500-create-domain-governance-reviews.cjs`
 - Creates `domain_governance_reviews` with steward team, data steward contact,
   review status enum (`in_progress`, `approved`, `remediation_required`), review

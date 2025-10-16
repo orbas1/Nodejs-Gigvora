@@ -11,6 +11,7 @@ import {
 } from '../validation/schemas/adminSchemas.js';
 import adminRuntimeRoutes from './adminRuntimeRoutes.js';
 import adminConsentRoutes from './adminConsentRoutes.js';
+import adminRbacRoutes from './adminRbacRoutes.js';
 
 const router = Router();
 
@@ -38,5 +39,6 @@ router.put(
 router.use('/ads/coupons', adminAdRoutes);
 router.use('/runtime', adminRuntimeRoutes);
 router.use('/governance/consents', adminConsentRoutes);
+router.use('/governance/rbac', adminRbacRoutes);
 
 export default router;

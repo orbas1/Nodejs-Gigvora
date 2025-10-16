@@ -1,5 +1,25 @@
 # Front-end Change Log — Version 1.50 Update
 
+## 30 Apr 2024
+- Added shared date formatting utilities (`src/utils/formatDate.js`,
+  `src/utils/formatDateTime.js`) used by the admin RBAC and consent governance
+  panels to render publish timestamps and review cadences consistently across
+  environments. Utilities normalise invalid inputs, respect locale overrides,
+  and unblock the Vitest harness from resolving imports introduced with the
+  RBAC governance telemetry work.
+
+## 29 Apr 2024
+- Added `RbacMatrixPanel` to the admin dashboard with guardrail/persona/resource
+  summaries, refresh controls, review cadence chips, and guardrail/resource grids
+  aligned with `Admin_panel_drawings.md`. Panel consumes the new RBAC service
+  client and surfaces publish dates plus next review timestamps.
+- Wired RBAC telemetry service (`services/rbac.js`) to normalise matrix/audit
+  payloads and created Vitest coverage (`RbacMatrixPanel.test.jsx`) validating
+  happy path rendering, refresh behaviour, and error/empty states so the console
+  remains regression safe.
+- Configured Vitest + Testing Library in the React app, enabling jsdom testing
+  with shared setup and coverage reporting for subsequent dashboard work.
+
 ## 27 Apr 2024
 - Launched the admin `ConsentGovernancePanel` with paginated policy tables,
   breach indicators, and policy drill-down drawer aligned with

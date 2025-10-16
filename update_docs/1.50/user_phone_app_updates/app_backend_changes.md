@@ -1,5 +1,16 @@
 # Backend Integration Updates — User App
 
+## 29 Apr 2024
+- **RBAC Repository:** Introduced `RbacRepository` backed by the admin RBAC matrix
+  endpoints to hydrate the new mobile guardrail card. Repository normalises
+  persona keys, filters guardrails for quick display, and caches the matrix so
+  repeated refreshes avoid excess network calls.
+- **Session-aware gating:** Updated `rbacMatrixProvider` to short-circuit when the
+  session lacks privileged memberships, ensuring non-privileged users see the
+  empty guidance state and no API request is fired.
+- **Telemetry instrumentation:** Added analytics hooks for matrix fetch success
+  and failures, aligning mobile runtime telemetry with the React RBAC panel.
+
 ## 23 Apr 2024
 - **Governance Repository:** Added `DomainGovernanceRepository` backed by the
   shared governance schema client to fetch summaries/detail payloads, merge

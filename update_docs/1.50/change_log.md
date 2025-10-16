@@ -1,5 +1,27 @@
 # Version 1.50 Update Change Log
 
+## 30 Apr 2024
+- Executed RBAC regression suites across Node and React, exporting
+  `RuntimeSecurityAuditEvent` for the admin router and introducing shared date
+  formatting utilities so governance panels render timestamps consistently.
+- Logged backend/Vitest results, flagged the missing Flutter SDK blocking the
+  RBAC card widget run, and refreshed progress trackers plus design task lists to
+  reflect the cleaned governance documentation and outstanding mobile dependency.
+
+## 28 Apr 2024
+- Established role-based access governance across the stack: added `/api/admin/governance/rbac/matrix`, `/audit-events`, and
+  `/simulate` endpoints with Zod validation, policy evaluation, and persisted audits via the new `rbac_policy_audit_events`
+  migration and Sequelize model.
+- Introduced `rbacPolicyService`, controller, and router plumbing so privileged admin requests record structured audit trails,
+  reusable policy evaluation, and persona-aware matrix responses for downstream clients.
+- Shipped the React admin `RbacMatrixPanel`, RBAC service client, and dashboard wiring that visualise guardrails, personas,
+  review cadence, and governed resources alongside the existing consent panel. Admin dashboards now expose actionable security
+  telemetry without bespoke tooling.
+- Delivered Flutter parity with a `RbacMatrixCard`, repository/provider, and domain models so mobile operators consume the same
+  RBAC matrix, guardrails, and next-review metadata surfaced on the web dashboard.
+- Documented RBAC updates across backend/frontend/mobile change logs, bumped Task 1 metrics, refreshed design artefacts, and
+  updated test plans plus progress trackers to evidence the hardened security perimeter.
+
 ## 27 Apr 2024
 - Deployed a full GDPR consent governance stack: Sequelize consent tables/migration,
   `consentService`, admin/user controllers, and RBAC-protected routes now power policy

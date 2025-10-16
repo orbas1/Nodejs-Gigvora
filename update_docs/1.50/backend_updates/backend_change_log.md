@@ -1,5 +1,22 @@
 # Backend Change Log — Version 1.50 Update
 
+## 29 Apr 2024
+- Executed the new RBAC regression suites (`tests/services/rbacPolicyService.test.js`,
+  `tests/routes/adminRbacRoutes.test.js`) and fixed the missing
+  `RuntimeSecurityAuditEvent` export so Jest can hydrate the governance router
+  during route tests. Confirmed matrix, audit log, and deny simulation paths all
+  return structured responses and persist audit trails without runtime import
+  errors.
+
+## 28 Apr 2024
+- Added RBAC governance endpoints: `/api/admin/governance/rbac/matrix`, `/audit-events`, and `/simulate` now deliver policy
+  matrices, paginated audit logs, and evaluation tooling backed by Zod schemas and typed responses. Requests persist structured
+  audits via the new `RbacPolicyAuditEvent` model so privileged actions remain traceable.
+- Introduced `rbacPolicyService`, controller, and router wiring that encapsulate policy evaluation, persona mapping, audit
+  emission, and sanitised metadata, ensuring every admin RBAC interaction records request IDs, actors, and constraints.
+- Registered the RBAC module in `src/models/index.js`, updated the domain registry to assign the model to the governance context,
+  and exposed named exports for downstream tooling.
+
 ## 27 Apr 2024
 - Introduced GDPR-ready consent persistence via the new `ConsentPolicy`,
   `ConsentPolicyVersion`, `UserConsent`, and `ConsentAuditEvent` models with

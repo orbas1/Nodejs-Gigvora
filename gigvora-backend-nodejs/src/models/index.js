@@ -4,6 +4,7 @@ import { domainMetadata } from '../domains/domainMetadata.js';
 import logger from '../utils/logger.js';
 import { PlatformSetting } from './platformSetting.js';
 import { RuntimeSecurityAuditEvent } from './runtimeSecurityAuditEvent.js';
+import { RbacPolicyAuditEvent } from './rbacPolicyAuditEvent.js';
 import { RuntimeAnnouncement } from './runtimeAnnouncement.js';
 import {
   ConsentPolicy,
@@ -120,6 +121,8 @@ const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB 
 export * from './constants/index.js';
 export { BlogCategory, BlogMedia, BlogPost, BlogPostMedia, BlogPostTag, BlogTag } from './blogModels.js';
 export { ConsentPolicy, ConsentPolicyVersion, UserConsent, ConsentAuditEvent } from './consentModels.js';
+export { RuntimeSecurityAuditEvent } from './runtimeSecurityAuditEvent.js';
+export { RbacPolicyAuditEvent } from './rbacPolicyAuditEvent.js';
 
 const PIPELINE_OWNER_TYPES = ['freelancer', 'agency', 'company'];
 const TWO_FACTOR_METHODS = ['email', 'app', 'sms'];
@@ -16463,6 +16466,7 @@ export default {
   FeatureFlagAssignment,
   PlatformSetting,
   RuntimeSecurityAuditEvent,
+  RbacPolicyAuditEvent,
   RuntimeAnnouncement,
   UserLoginAudit,
   CareerDocument,
@@ -16625,6 +16629,7 @@ domainRegistry.registerContext({
       /^Executive/.test(modelName) ||
       /^Accessibility/.test(modelName) ||
       /^Policy/.test(modelName) ||
+      /^RbacPolicy/.test(modelName) ||
       /^DomainGovernance/.test(modelName),
   ],
   metadata: domainMetadata.governance,

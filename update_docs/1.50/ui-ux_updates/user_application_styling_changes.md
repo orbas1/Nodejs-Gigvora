@@ -107,6 +107,12 @@
   inherits bottom sheet styling with segmented sections (Policy summary, History,
   Actions) and sticky action bar; withdrawal CTA uses destructive theme while
   disabled state presents tooltip copy referencing legal basis.
+- **RBAC Matrix Card (29 Apr):** Security guardrail card uses 24px radius, 24px
+  padding, and Riverpod-driven states. Header shows guardrail/persona counts with
+  secondary tone chips; metric wrap displays guardrail/resource counts and review
+  cadence pill. Guardrail list renders severity-toned containers (critical/high/
+  medium) with coverage chips; empty state copy references operations persona
+  requirements, and error state uses warning palette from runtime alerts.
 
 ### Settings & Legal Pages
 - **Account Preferences:** Toggle groups arranged on raised surfaces with descriptive copy; destructive options flagged with warning icon and background tint.

@@ -1,5 +1,18 @@
 # Controller Changes — Version 1.50 Update
 
+## `src/controllers/rbacPolicyController.js`
+- Added persona resolution that maps admin roles, headers, and explicit payload personas to the
+  canonical matrix keys before delegating to `rbacPolicyService`. Controllers normalise actors,
+  request metadata, and correlation IDs so every RBAC interaction records a rich audit row.
+- `matrix` now returns the curated persona/guardrail/resource catalogue while writing
+  `governance.rbac.matrix` audit events for telemetry parity with the admin dashboard and Flutter
+  card.
+- `auditLog` exposes paginated, filterable RBAC audit events (persona, policy, decision, time
+  window, text search) and emits read audits so compliance teams can trace every log export.
+- `simulate` evaluates persona/resource/action combinations, returning allow/deny decisions with
+  constraints, policy key, and audit retention guidance. Deny verdicts respond with `403` while
+  still persisting audit records for investigation.
+
 ## `src/controllers/adminRuntimeController.js`
 - New controller exposing maintenance announcement registry, create/update actions, and status transitions with structured error
   handling and audit metadata for admin operations teams.

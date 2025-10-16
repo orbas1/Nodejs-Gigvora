@@ -59,3 +59,23 @@ Document the annotated mobile layouts that visualise runtime maintenance and Pro
   snapshot message with timestamp; error state offers retry CTA.
 - **Analytics:** `governance_detail_export_clicked`, `governance_remediation_toggle`,
   `governance_contact_clicked` events emitted with context metadata.
+
+## RBAC Guardrail Card (Added 29 Apr)
+- **Layout:** Card height 320px with 24px radius and padding. Header row includes
+  persona/guardrail count chips, last published date, and refresh button. Body
+  displays wrap of guardrail/resource/review cadence metrics followed by the top
+  three guardrails rendered as severity-toned tiles (critical/high/medium) with
+  coverage chips.
+- **States:**
+  - *Loading:* Skeleton shimmer replicating metric chips and guardrail rows.
+  - *Data:* Metrics populated, guardrail list scrollable when more than three
+    entries; tap opens audit log (future state placeholder).
+  - *Empty:* Guidance copy prompting operators to publish the RBAC matrix; CTA to
+    admin dashboard matrix editor.
+  - *Error:* Warning banner referencing incident ticket requirement and retry CTA.
+- **Accessibility:** Entire card grouped for VoiceOver; guardrail severity chips
+  announce severity and persona coverage. Refresh button announces last updated
+  timestamp.
+- **Analytics:** `rbac_matrix_viewed`, `rbac_matrix_refresh`, and
+  `rbac_matrix_error_seen` events capture impressions, manual refreshes, and error
+  states for security reporting.

@@ -41,6 +41,12 @@ Detail the holistic design intent for Version 1.50 across application and web ex
   `Screen_text.md` with severity colour ramps, empty states, and analytics hooks
   so engineering can ship the new admin dashboard widgets without additional
   copy/design passes.
+- Define RBAC guardrail matrix panel specs referencing
+  `/api/admin/governance/rbac/*` payloads. Update `Dashboard Designs.md`,
+  `Screens_Updates_widget_functions.md`, and `Screens_update_images_and_vectors.md`
+  with persona summaries, guardrail/resource grids, severity chips, refresh
+  affordances, and empty/error states so the admin dashboard and Flutter card
+  present a consistent security posture.
 - Specify consent governance console layouts, policy activation workflows,
   breach alerts, and export affordances referencing
   `Application_Design_Update_Plan/Dashboard Designs.md`,

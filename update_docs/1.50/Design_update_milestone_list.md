@@ -26,6 +26,11 @@
   web and Flutter, mapping `/api/domains/governance` payloads to remediation badges,
   steward contact chips, and analytics hooks so engineering can implement the new
   dashboards without follow-up design cycles.
+- **Status 29 Apr:** RBAC guardrail matrix panel defined with persona summary tiles,
+  guardrail/resource grids, error/empty guidance, and analytics annotations across
+  `Dashboard Designs.md`, `Screens_Updates_widget_functions.md`, and
+  `App_screens_drawings.md`, preparing React and Flutter teams to ship the new
+  governance telemetry without additional review loops.
 
 ## Milestone 3 – Web Marketing & Dashboard Refresh (Week 3–5)
 **Objective:** Modernise marketing site, landing hero, and authenticated dashboards with modular partials.

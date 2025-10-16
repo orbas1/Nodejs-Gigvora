@@ -19,6 +19,7 @@ Percentages reflect the most recent assessment by the design operations council.
 | Exporter Telemetry Integration | Week 7 | 87 | 84 | 82 | 86 | 88 | 84 | 85 | 84 | 83 | 84 | 80 | 75 | 72 | 71 | 84 | 83 | +1 |
 | Governance Registry Integration | Week 7 | 88 | 86 | 84 | 87 | 86 | 85 | 86 | 88 | 86 | 82 | 80 | 77 | 74 | 73 | 85 | 84 | +1 |
 | Consent Governance Console | Week 7 | 90 | 88 | 86 | 90 | 88 | 86 | 90 | 91 | 88 | 84 | 82 | 79 | 76 | 74 | 87 | 86 | +2 |
+| RBAC Guardrail Matrix | Week 7 | 92 | 90 | 88 | 92 | 89 | 88 | 92 | 94 | 89 | 86 | 84 | 80 | 77 | 75 | 88 | 88 | +2 |
 
 ## Scoring Methodology
 - **Design Quality:** Weighted review of visual fidelity, component consistency, and motion adherence across key flows.
@@ -44,6 +45,7 @@ Percentages reflect the most recent assessment by the design operations council.
 4. **Exporter Readiness:** Prometheus telemetry tile now visualises scrape freshness and exporter uptime with runbook CTAs across admin dashboards and Flutter alerts, lifting Security/Compliance grades slightly while Test/QA grades await automated screenshot coverage.
 5. **Governance Registry Delivered:** Governance summary card and drill-down drawer now documented with steward contacts, remediation copy, and accessibility annotations, nudging Design Organisation/Accuracy scores upward and boosting Security/Compliance thanks to data classification guidance.
 6. **Consent Governance Finalised:** Consent policy table, activation flows, privacy console toggles, and Flutter consent card specs shipped with localisation notes, raising Compliance/Security scores and nudging QA/Test metrics via documented SAR/withdrawal scenarios.
+7. **RBAC Guardrail Matrix Added:** RBAC persona matrix specs now cover summary tiles, guardrail/resource grids, refresh affordances, and empty/error guidance across web and Flutter artefacts, lifting Week 7 Security, Compliance, and QA grades as operators can audit guardrails without bespoke follow-up.
 4. **Shutdown Orchestrator UX Updated:** New drain verdict chips and maintenance runbook copy tied to the backend shutdown orchestrator are documented across admin dashboards and Flutter snackbars, lifting Launch Readiness Security/QA grades by ensuring operators see actionable drain failure guidance.
 5. **Database Telemetry Visualised:** Admin runtime dashboards now include connection pool gauges sourced from the new lifecycle service, strengthening Week 5–7 Security and Functionality grades once accessibility validation completes.
 5. **Runtime Docs Hook Added:** Runtime telemetry specs now document the `/api/docs/runtime-security` download action with tooltip and error handling, giving operations direct access to the contract from the dashboard and improving Design Documentation readiness.

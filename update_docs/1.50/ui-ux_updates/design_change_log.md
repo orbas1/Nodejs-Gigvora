@@ -1,5 +1,19 @@
 # Version 1.50 UI/UX Design Change Log
 
+## 29 Apr 2024 — RBAC Matrix & Audit Surfaces
+- Documented admin RBAC guardrail panel layouts in `Dashboard Designs.md`,
+  `Screens_Updates_widget_functions.md`, and `web_application_styling_changes.md`
+  covering persona summary chips, guardrail/resource grids, review cadence
+  banners, refresh interactions, and empty/error states aligned with the new
+  governance payloads.
+- Updated `App_screens_drawings.md`, `Screens_Update_Plan.md`, and
+  `user_application_styling_changes.md` with Flutter RBAC card states (loading,
+  data, empty, error) plus severity chip treatments, analytics hooks, and VoiceOver
+  annotations to mirror the web dashboard.
+- Added RBAC simulation and audit copy guidance to `Screen_text.md`,
+  `Screen_buttons.md`, and analytics taxonomy docs so web and mobile telemetry
+  capture matrix impressions, refresh actions, and deny simulations consistently.
+
 ## 27 Apr 2024 — Consent Governance & Privacy Console
 - Documented admin consent governance panel wireframes in
   `web_app_wireframe_changes.md` and `web_application_logic_flow_changes.md`,
