@@ -1,3 +1,13 @@
+# User Phone App Change Log — 02 May 2024
+
+1. **Consent Timeline & Outstanding Badges:** Updated `UserConsentSnapshot` models, repository, and `UserConsentCard` UI to parse
+   audit trail events, outstanding required counts, and latest action summaries returned by the backend snapshot route. Card now
+   surfaces outstanding required messaging with amber styling and displays the most recent audit action for quick operator
+   review.
+2. **Documentation Sync:** Refreshed `App_screens_drawings.md`, `Screens_Update_Plan.md`, and `user_app_wireframe_changes.md`
+   with timeline badge treatments, outstanding copy, and analytics hooks so Flutter stays aligned with the React privacy console
+   and backend evidence.
+
 # User Phone App Change Log — 30 Apr 2024
 
 1. **RBAC Widget Test Readiness:** Attempted to execute

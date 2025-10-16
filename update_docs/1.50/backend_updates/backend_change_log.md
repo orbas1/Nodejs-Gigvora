@@ -1,5 +1,21 @@
 # Backend Change Log — Version 1.50 Update
 
+# 02 May 2024
+- Enhanced `consentService.getUserConsentSnapshot` with audit trail hydration and outstanding required calculations. The service
+  now returns per-policy audit events (actors, versions, consent decision metadata) and a summary count so privacy hubs surface
+  compliance readiness without additional queries. Added shared serializers for audit events reused by both admin and user
+  surfaces.
+- Extended `userConsentController.snapshot` to expose the new payload shape and updated `tests/routes/consentRoutes.integration.test.js`
+  with assertions covering audit actions, outstanding required counts, and actor metadata. Coverage protects the snapshot
+  contract and ensures future changes preserve audit telemetry.
+
+## 01 May 2024
+- Authored end-to-end Supertest coverage for the consent governance stack. `tests/routes/consentRoutes.integration.test.js`
+  now provisions consent policies, exercises admin filtering/version publication, and walks through user grant/withdrawal
+  flows while asserting audit trail emission and conflict handling for non-revocable policies. The suite shares the production
+  Express stack so policy telemetry, audit events, and request guards are validated together instead of relying solely on
+  service-layer unit tests.
+
 ## 29 Apr 2024
 - Executed the new RBAC regression suites (`tests/services/rbacPolicyService.test.js`,
   `tests/routes/adminRbacRoutes.test.js`) and fixed the missing

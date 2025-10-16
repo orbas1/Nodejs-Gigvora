@@ -96,14 +96,87 @@ class UserConsentDecision {
   }
 }
 
+class ConsentAuditEventInfo {
+  ConsentAuditEventInfo({
+    required this.id,
+    required this.action,
+    this.occurredAt,
+    this.actorLabel,
+    this.metadata,
+    this.version,
+    this.versionEffectiveAt,
+    this.versionSupersededAt,
+    this.consentStatus,
+    this.consentGrantedAt,
+    this.consentWithdrawnAt,
+  });
+
+  final int id;
+  final String action;
+  final DateTime? occurredAt;
+  final String? actorLabel;
+  final Map<String, dynamic>? metadata;
+  final int? version;
+  final DateTime? versionEffectiveAt;
+  final DateTime? versionSupersededAt;
+  final String? consentStatus;
+  final DateTime? consentGrantedAt;
+  final DateTime? consentWithdrawnAt;
+
+  static DateTime? _parseDate(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is String && value.isNotEmpty) {
+      return DateTime.tryParse(value);
+    }
+    return null;
+  }
+
+  static int? _parseInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) {
+      return int.tryParse(value);
+    }
+    return null;
+  }
+
+  factory ConsentAuditEventInfo.fromJson(Map<String, dynamic> json) {
+    final actor = json['actor'] as Map<String, dynamic>?;
+    final actorType = actor?['type'] as String? ?? 'system';
+    final actorId = actor?['id'];
+    final actorLabel = actorId != null ? '$actorType • $actorId' : actorType;
+
+    final versionJson = json['policyVersion'] as Map<String, dynamic>?;
+    final consentJson = json['userConsent'] as Map<String, dynamic>?;
+
+    return ConsentAuditEventInfo(
+      id: _parseInt(json['id']) ?? 0,
+      action: json['action'] as String? ?? 'unknown_event',
+      occurredAt: _parseDate(json['occurredAt']),
+      actorLabel: actorLabel,
+      metadata: json['metadata'] is Map<String, dynamic> ? json['metadata'] as Map<String, dynamic> : null,
+      version: _parseInt(versionJson?['version']),
+      versionEffectiveAt: _parseDate(versionJson?['effectiveAt']),
+      versionSupersededAt: _parseDate(versionJson?['supersededAt']),
+      consentStatus: consentJson?['status'] as String?,
+      consentGrantedAt: _parseDate(consentJson?['grantedAt']),
+      consentWithdrawnAt: _parseDate(consentJson?['withdrawnAt']),
+    );
+  }
+}
+
 class ConsentSnapshotEntry {
   ConsentSnapshotEntry({
     required this.policy,
     this.consent,
+    this.auditTrail = const [],
   });
 
   final ConsentPolicyInfo policy;
   final UserConsentDecision? consent;
+  final List<ConsentAuditEventInfo> auditTrail;
 
   factory ConsentSnapshotEntry.fromJson(Map<String, dynamic> json) {
     return ConsentSnapshotEntry(
@@ -111,6 +184,9 @@ class ConsentSnapshotEntry {
       consent: json['consent'] == null
           ? null
           : UserConsentDecision.fromJson(json['consent'] as Map<String, dynamic>),
+      auditTrail: (json['auditTrail'] as List<dynamic>? ?? const [])
+          .map((entry) => ConsentAuditEventInfo.fromJson(entry as Map<String, dynamic>))
+          .toList(),
     );
   }
 }
@@ -119,11 +195,13 @@ class UserConsentSnapshot {
   UserConsentSnapshot({
     required this.userId,
     required this.entries,
+    required this.outstandingRequired,
     required this.fetchedAt,
   });
 
   final int userId;
   final List<ConsentSnapshotEntry> entries;
+  final int outstandingRequired;
   final DateTime fetchedAt;
 
   factory UserConsentSnapshot.fromJson(Map<String, dynamic> json) {
@@ -135,6 +213,9 @@ class UserConsentSnapshot {
       entries: policiesJson
           .map((item) => ConsentSnapshotEntry.fromJson(item as Map<String, dynamic>))
           .toList(),
+      outstandingRequired: json['outstandingRequired'] is int
+          ? json['outstandingRequired'] as int
+          : int.tryParse('${json['outstandingRequired']}') ?? 0,
       fetchedAt: DateTime.now(),
     );
   }

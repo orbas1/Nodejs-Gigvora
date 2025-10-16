@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckCircleIcon, ExclamationTriangleIcon, ShieldCheckIcon } from '@heroicons/react/24/outline';
 import PageHeader from '../components/PageHeader.jsx';
 import useSession from '../hooks/useSession.js';
 import { fetchUserConsentSnapshot, updateUserConsent } from '../services/consent.js';
 import formatDateTime from '../utils/formatDateTime.js';
+import ConsentHistoryTimeline from '../components/compliance/ConsentHistoryTimeline.jsx';
 
 function Toggle({ enabled, disabled, onClick }) {
   return (
@@ -28,13 +29,13 @@ function Toggle({ enabled, disabled, onClick }) {
   );
 }
 
-function ConsentPreferenceRow({ policy, consent, updating, onChange }) {
+function ConsentPreferenceRow({ policy, consent, auditTrail, updating, expanded, onChange, onToggleHistory }) {
   const isRequired = policy.required && !policy.revocable;
   const enabled = consent?.status === 'granted';
   const lastUpdated = consent?.grantedAt ?? consent?.withdrawnAt ?? policy.updatedAt;
 
   return (
-    <div className="grid gap-4 rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm sm:grid-cols-6 sm:items-center">
+    <div className="grid gap-4 rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm sm:grid-cols-6 sm:items-start">
       <div className="sm:col-span-2">
         <p className="text-sm font-semibold text-slate-900">{policy.title}</p>
         <p className="mt-1 text-xs text-slate-500">Audience: {policy.audience.toUpperCase()} • Region: {policy.region.toUpperCase()}</p>
@@ -58,13 +59,25 @@ function ConsentPreferenceRow({ policy, consent, updating, onChange }) {
           <p className="text-xs text-slate-500">Updated {formatDateTime(lastUpdated)}</p>
         )}
       </div>
-      <div className="flex items-center justify-end">
+      <div className="flex items-center justify-end gap-3">
+        <button
+          type="button"
+          onClick={onToggleHistory}
+          className="text-xs font-semibold uppercase tracking-wide text-accent transition hover:text-accent-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        >
+          {expanded ? 'Hide history' : 'View history'}
+        </button>
         <Toggle
           enabled={enabled}
           disabled={isRequired || updating}
           onClick={() => onChange(!enabled)}
         />
       </div>
+      {expanded && (
+        <div className="sm:col-span-6">
+          <ConsentHistoryTimeline events={auditTrail} />
+        </div>
+      )}
     </div>
   );
 }
@@ -76,26 +89,44 @@ export default function SettingsPage() {
   const [error, setError] = useState(null);
   const [consentRows, setConsentRows] = useState([]);
   const [pending, setPending] = useState({});
+  const [outstandingRequired, setOutstandingRequired] = useState(0);
+  const [expandedRows, setExpandedRows] = useState({});
+
+  const loadSnapshot = useCallback(async () => {
+    if (!userId) {
+      return { policies: [], outstandingRequired: 0 };
+    }
+    const snapshot = await fetchUserConsentSnapshot(userId, {});
+    return {
+      policies: snapshot.policies ?? [],
+      outstandingRequired: snapshot.outstandingRequired ?? 0,
+    };
+  }, [userId]);
 
   useEffect(() => {
-    if (!userId) {
-      setConsentRows([]);
-      setLoading(false);
-      return;
-    }
-
     let cancelled = false;
-    async function load() {
+    async function hydrate() {
       setLoading(true);
       setError(null);
       try {
-        const snapshot = await fetchUserConsentSnapshot(userId, {});
+        const snapshot = await loadSnapshot();
         if (!cancelled) {
-          setConsentRows(snapshot.policies ?? []);
+          setConsentRows(snapshot.policies);
+          setOutstandingRequired(snapshot.outstandingRequired);
+          setExpandedRows((state) => {
+            const next = {};
+            snapshot.policies.forEach(({ policy }) => {
+              next[policy.code] = Boolean(state[policy.code]);
+            });
+            return next;
+          });
         }
       } catch (loadError) {
         if (!cancelled) {
           setError(loadError.message ?? 'Unable to load privacy preferences.');
+          setConsentRows([]);
+          setOutstandingRequired(0);
+          setExpandedRows({});
         }
       } finally {
         if (!cancelled) {
@@ -104,42 +135,48 @@ export default function SettingsPage() {
       }
     }
 
-    load();
+    hydrate();
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [loadSnapshot]);
 
   const summary = useMemo(() => {
     if (!consentRows.length) {
-      return { granted: 0, total: 0 };
+      return { granted: 0, total: 0, outstandingRequired };
     }
     const granted = consentRows.filter((entry) => entry.consent?.status === 'granted').length;
-    return { granted, total: consentRows.length };
-  }, [consentRows]);
+    return { granted, total: consentRows.length, outstandingRequired };
+  }, [consentRows, outstandingRequired]);
 
   const handleConsentChange = async (policyCode, shouldGrant) => {
     if (!userId) return;
     setPending((state) => ({ ...state, [policyCode]: true }));
     try {
-      const response = await updateUserConsent(userId, policyCode, {
+      await updateUserConsent(userId, policyCode, {
         status: shouldGrant ? 'granted' : 'withdrawn',
         source: 'web_settings',
         metadata: { surface: 'settings_privacy' },
       });
-
-      setConsentRows((rows) =>
-        rows.map((row) =>
-          row.policy.code === policyCode
-            ? { ...row, consent: response.consent }
-            : row,
-        ),
-      );
+      const snapshot = await loadSnapshot();
+      setConsentRows(snapshot.policies);
+      setOutstandingRequired(snapshot.outstandingRequired);
+      setExpandedRows((state) => {
+        const next = {};
+        snapshot.policies.forEach(({ policy }) => {
+          next[policy.code] = Boolean(state[policy.code]);
+        });
+        return next;
+      });
     } catch (updateError) {
       setError(updateError.message ?? 'Failed to update consent.');
     } finally {
       setPending((state) => ({ ...state, [policyCode]: false }));
     }
+  };
+
+  const toggleHistory = (policyCode) => {
+    setExpandedRows((state) => ({ ...state, [policyCode]: !state[policyCode] }));
   };
 
   return (
@@ -167,8 +204,22 @@ export default function SettingsPage() {
                   invites—you wish to receive. Required policies stay locked to preserve contractual and security obligations.
                 </p>
               </div>
-              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-emerald-700">
-                <ShieldCheckIcon className="mr-2 inline h-4 w-4" /> {summary.granted} of {summary.total} preferences enabled
+              <div className="flex flex-col items-end gap-2">
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                  <ShieldCheckIcon className="mr-2 inline h-4 w-4" /> {summary.granted} of {summary.total} preferences enabled
+                </div>
+                <div
+                  className={`rounded-2xl px-4 py-3 text-xs font-semibold uppercase tracking-wide ${
+                    summary.outstandingRequired
+                      ? 'border border-amber-200 bg-amber-50 text-amber-700'
+                      : 'border border-emerald-200 bg-emerald-50 text-emerald-700'
+                  }`}
+                >
+                  <ExclamationTriangleIcon className="mr-2 inline h-4 w-4" />
+                  {summary.outstandingRequired
+                    ? `${summary.outstandingRequired} required policies pending`
+                    : 'All required policies granted'}
+                </div>
               </div>
             </div>
 
@@ -186,13 +237,16 @@ export default function SettingsPage() {
               </div>
             ) : consentRows.length ? (
               <div className="mt-6 space-y-4">
-                {consentRows.map(({ policy, consent }) => (
+                {consentRows.map(({ policy, consent, auditTrail }) => (
                   <ConsentPreferenceRow
                     key={policy.id}
                     policy={policy}
                     consent={consent}
+                    auditTrail={auditTrail}
+                    expanded={Boolean(expandedRows[policy.code])}
                     updating={Boolean(pending[policy.code])}
                     onChange={(shouldGrant) => handleConsentChange(policy.code, shouldGrant)}
+                    onToggleHistory={() => toggleHistory(policy.code)}
                   />
                 ))}
               </div>

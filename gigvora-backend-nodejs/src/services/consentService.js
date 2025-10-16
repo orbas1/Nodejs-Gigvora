@@ -462,13 +462,84 @@ export async function recordUserConsentDecision(
   });
 }
 
+function serialiseAuditEvent(event) {
+  const plain = event.get({ plain: true });
+  return {
+    id: plain.id,
+    action: plain.action,
+    occurredAt: plain.createdAt ? new Date(plain.createdAt).toISOString() : null,
+    actor: {
+      id: plain.actorId ?? null,
+      type: plain.actorType ?? 'system',
+    },
+    reason: plain.reason ?? null,
+    metadata: plain.metadata ?? {},
+    policyVersion: plain.policyVersion
+      ? {
+          id: plain.policyVersion.id,
+          version: plain.policyVersion.version,
+          effectiveAt: plain.policyVersion.effectiveAt
+            ? new Date(plain.policyVersion.effectiveAt).toISOString()
+            : null,
+          supersededAt: plain.policyVersion.supersededAt
+            ? new Date(plain.policyVersion.supersededAt).toISOString()
+            : null,
+        }
+      : null,
+    userConsent: plain.userConsent
+      ? {
+          id: plain.userConsent.id,
+          status: plain.userConsent.status,
+          grantedAt: plain.userConsent.grantedAt
+            ? new Date(plain.userConsent.grantedAt).toISOString()
+            : null,
+          withdrawnAt: plain.userConsent.withdrawnAt
+            ? new Date(plain.userConsent.withdrawnAt).toISOString()
+            : null,
+        }
+      : null,
+  };
+}
+
+async function fetchAuditTrailForPolicy(policyId, userConsentId) {
+  const orConditions = [{ userConsentId: null }];
+  if (userConsentId) {
+    orConditions.push({ userConsentId });
+  }
+
+  const events = await ConsentAuditEvent.findAll({
+    where: {
+      policyId,
+      [Op.or]: orConditions,
+    },
+    include: [
+      {
+        model: ConsentPolicyVersion,
+        as: 'policyVersion',
+        attributes: ['id', 'version', 'effectiveAt', 'supersededAt'],
+        required: false,
+      },
+      {
+        model: UserConsent,
+        as: 'userConsent',
+        attributes: ['id', 'status', 'grantedAt', 'withdrawnAt'],
+        required: false,
+      },
+    ],
+    order: [['createdAt', 'DESC']],
+    limit: 20,
+  });
+
+  return events.map(serialiseAuditEvent);
+}
+
 export async function getUserConsentSnapshot(userId, { audience, region } = {}) {
   assert(userId, 'userId is required when reading consent snapshots.');
 
   const policies = await listConsentPolicies({ audience, region, includeInactive: false });
   const policyIds = policies.map((policy) => policy.id);
   if (!policyIds.length) {
-    return [];
+    return { outstandingRequired: 0, policies: [] };
   }
 
   const consents = await UserConsent.findAll({
@@ -477,10 +548,30 @@ export async function getUserConsentSnapshot(userId, { audience, region } = {}) 
 
   const consentMap = new Map(consents.map((consent) => [consent.policyId, consent.toSnapshot()]));
 
-  return policies.map((policy) => ({
-    policy,
-    consent: consentMap.get(policy.id) ?? null,
-  }));
+  const policiesWithAudit = await Promise.all(
+    policies.map(async (policy) => {
+      const consent = consentMap.get(policy.id) ?? null;
+      const auditTrail = await fetchAuditTrailForPolicy(policy.id, consent?.id ?? null);
+      return {
+        policy,
+        consent,
+        auditTrail,
+      };
+    }),
+  );
+
+  const outstandingRequired = policiesWithAudit.filter((entry) => {
+    if (!entry.policy.required) {
+      return false;
+    }
+    const status = entry.consent?.status ?? null;
+    return status !== 'granted';
+  }).length;
+
+  return {
+    outstandingRequired,
+    policies: policiesWithAudit,
+  };
 }
 
 export async function deleteConsentPolicy(policyId, options = {}) {

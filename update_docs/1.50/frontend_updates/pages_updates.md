@@ -1,3 +1,15 @@
+# Frontend Page Updates — 02 May 2024
+
+## Settings Privacy Console Enhancements
+- Settings privacy page now consumes the enriched consent snapshot payload, rendering audit timelines via the new
+  `ConsentHistoryTimeline` component. Operators can expand each policy to review actor, version, and metadata context without
+  leaving the console.
+- Added outstanding required badge logic so the console surfaces pending contractual consents with amber messaging while
+  celebrating zero outstanding items with success styling. Snapshot refresh executes after toggles to keep audit history
+  current and ensure audit evidence stays aligned with the backend.
+- Hardened optimistic update flow: per-policy toggles disable during API calls, errors surface inline, and the console reloads
+  state after updates to incorporate server-issued audit events and outstanding counts.
+
 # Frontend Page Updates — 27 Apr 2024
 
 ## Admin Consent Governance Console

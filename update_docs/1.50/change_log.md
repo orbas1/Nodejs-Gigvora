@@ -1,5 +1,24 @@
 # Version 1.50 Update Change Log
 
+# 02 May 2024
+- Extended the consent snapshot service to hydrate policy-level audit trails and outstanding required counts so `/api/users/:id/consents`
+  now returns structured metadata for compliance operators and client privacy hubs. Integration coverage verifies audit emission
+  and snapshot payloads now include actor, version, and metadata fields.
+- Upgraded the React Settings privacy console with timeline toggles, outstanding required badges, and refreshed error handling so
+  users can review consent history without leaving the dashboard. Timeline rendering reuses the new audit payload and aligns with
+  design artefacts referenced in `ui-ux_updates`.
+- Updated the Flutter `UserConsentCard`, repository models, and Riverpod providers to parse audit trails and outstanding counts,
+  surfacing pending required consents and latest decisions on mobile. Change logged in the user phone app documentation to keep
+  cross-platform privacy messaging consistent.
+
+## 01 May 2024
+- Added backend Supertest coverage for the consent governance routes, confirming admin filtering, version activation, audit
+  logging, and user grant/withdraw conflict handling behave as documented. Updated backend change logs, route tables, test
+  results, and progress trackers accordingly.
+- Logged design QA alignment so the consent console and privacy console artefacts now reference automated regression evidence in
+  `Web_Application_Design_Update/Dashboard Designs.md`, `Design_Plan.md`, `Design_update_task_list.md`, and
+  `Design_update_progress_tracker.md` without introducing visual changes.
+
 ## 30 Apr 2024
 - Executed RBAC regression suites across Node and React, exporting
   `RuntimeSecurityAuditEvent` for the admin router and introducing shared date

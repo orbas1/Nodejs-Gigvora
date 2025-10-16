@@ -1,5 +1,14 @@
 # Front-end Change Log — Version 1.50 Update
 
+# 02 May 2024
+- Refined the Settings privacy console (`src/pages/SettingsPage.jsx`) with consent history timelines, outstanding required badges,
+  and stronger error/loading states. The view now consumes the enriched consent snapshot payload and re-fetches after updates so
+  audit events remain in sync with backend evidence.
+- Introduced `ConsentHistoryTimeline` component (`src/components/compliance/ConsentHistoryTimeline.jsx`) to render policy audit
+  actions with actor, metadata, and version context. Timeline styling mirrors design artefacts and reuses shared date formatters.
+- Synced the consent service client to the new snapshot contract and refreshed React state handling so toggles remain responsive
+  while audit history refreshes. Updated the Flutter consent card in tandem (see mobile change log) to keep parity messaging.
+
 ## 30 Apr 2024
 - Added shared date formatting utilities (`src/utils/formatDate.js`,
   `src/utils/formatDateTime.js`) used by the admin RBAC and consent governance

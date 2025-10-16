@@ -1,3 +1,7 @@
+# 02 May 2024
+- **Consent Card Enhancements:** Updated `UserConsentCard` to display outstanding required consent badges, latest audit action copy, and refreshed loading/error handling. Timeline data is summarised for mobile while retaining parity with the React timeline component.
+- **Repository & Model Sync:** `ConsentSnapshotEntry` now parses audit events and outstanding counts, enabling Riverpod providers to expose richer telemetry for widgets and downstream detail sheets. Documentation references backend snapshot Supertests.
+
 # Widget Updates — User App
 
 ## 29 Apr 2024

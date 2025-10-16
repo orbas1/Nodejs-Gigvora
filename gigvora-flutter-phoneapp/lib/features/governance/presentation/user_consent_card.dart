@@ -124,6 +124,7 @@ class _ConsentContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final total = snapshot.entries.length;
     final granted = snapshot.grantedCount;
+    final outstandingRequired = snapshot.outstandingRequired;
 
     final theme = Theme.of(context);
     final consentColours = theme.colorScheme;
@@ -141,6 +142,26 @@ class _ConsentContent extends StatelessWidget {
           style: theme.textTheme.bodyMedium?.copyWith(
             color: consentColours.primary,
             fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: outstandingRequired > 0
+                ? consentColours.errorContainer.withOpacity(0.6)
+                : consentColours.secondaryContainer.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Text(
+            outstandingRequired > 0
+                ? '$outstandingRequired required consent${outstandingRequired > 1 ? 's remain' : ' remains'} pending. Complete them to access all Gigvora services.'
+                : 'All required consents are satisfied. You can still review optional preferences below.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: outstandingRequired > 0
+                  ? consentColours.onErrorContainer
+                  : consentColours.onSecondaryContainer,
+            ),
           ),
         ),
         const SizedBox(height: 16),
@@ -167,6 +188,23 @@ class _ConsentChip extends StatelessWidget {
   const _ConsentChip({required this.entry});
 
   final ConsentSnapshotEntry entry;
+
+  String _describeAction(String action) {
+    switch (action) {
+      case 'consent_granted':
+        return 'Granted';
+      case 'consent_withdrawn':
+        return 'Withdrawn';
+      case 'policy_version_activated':
+        return 'Version activated';
+      case 'policy_version_superseded':
+        return 'Version superseded';
+      case 'policy_created':
+        return 'Policy registered';
+      default:
+        return action.replaceAll('_', ' ');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -216,6 +254,16 @@ class _ConsentChip extends StatelessWidget {
                 .bodySmall
                 ?.copyWith(color: foreground.withOpacity(0.8)),
           ),
+          if (entry.auditTrail.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Latest: ${_describeAction(entry.auditTrail.first.action)}',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: foreground.withOpacity(0.7)),
+            ),
+          ],
         ],
       ),
     );

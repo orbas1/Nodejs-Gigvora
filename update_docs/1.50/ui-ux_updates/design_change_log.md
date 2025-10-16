@@ -1,5 +1,14 @@
 # Version 1.50 UI/UX Design Change Log
 
+# 02 May 2024 — Consent Timeline Refinement
+- Updated `Settings Dashboard.md`, `web_application_styling_changes.md`, and `Screen_text.md` with consent history timeline specs
+  including expand/collapse affordances, actor/version metadata chips, and outstanding required badges so the React implementation
+  mirrors production-ready copy and accessibility guidance.
+- Synced `App_screens_drawings.md`, `user_app_wireframe_changes.md`, and `user_application_styling_changes.md` with Flutter consent
+  card updates, covering outstanding required messaging, latest-action summaries, and audit metadata chips for parity with web.
+- Added QA hooks to `Screens_Updates_widget_functions.md` referencing the backend snapshot Supertests so design sign-off now cites
+  automated evidence when validating timeline states across locales.
+
 ## 29 Apr 2024 — RBAC Matrix & Audit Surfaces
 - Documented admin RBAC guardrail panel layouts in `Dashboard Designs.md`,
   `Screens_Updates_widget_functions.md`, and `web_application_styling_changes.md`

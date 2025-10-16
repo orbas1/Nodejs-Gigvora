@@ -69,6 +69,9 @@
   `Settings Dashboard.md`, `Screen_text.md`, `App_screens_drawings.md`, and
   `Screens_Update_Plan.md`, leaving only emo theme contrast validation and regulator
   artefact bundling before Task 9 closure.
+- **Status 02 May:** Documented consent history timelines, outstanding required badges, and Flutter parity notes so both web
+  and mobile artefacts mirror the enriched snapshot payload. QA checklists reference backend Supertests to keep regulator audit
+  evidence aligned with the new UI.
 
 ## Milestone 6 – Handoff, QA, and Implementation Support (Week 6–7)
 **Objective:** Equip engineering and QA teams with detailed documentation, assets, and review rituals.
