@@ -120,6 +120,9 @@ const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB 
 export * from './constants/index.js';
 export { BlogCategory, BlogMedia, BlogPost, BlogPostMedia, BlogPostTag, BlogTag } from './blogModels.js';
 export { ConsentPolicy, ConsentPolicyVersion, UserConsent, ConsentAuditEvent } from './consentModels.js';
+export { PlatformSetting } from './platformSetting.js';
+export { RuntimeSecurityAuditEvent } from './runtimeSecurityAuditEvent.js';
+export { RuntimeAnnouncement } from './runtimeAnnouncement.js';
 
 const PIPELINE_OWNER_TYPES = ['freelancer', 'agency', 'company'];
 const TWO_FACTOR_METHODS = ['email', 'app', 'sms'];

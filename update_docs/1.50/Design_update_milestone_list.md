@@ -64,6 +64,10 @@
   `Settings Dashboard.md`, `Screen_text.md`, `App_screens_drawings.md`, and
   `Screens_Update_Plan.md`, leaving only emo theme contrast validation and regulator
   artefact bundling before Task 9 closure.
+- **Status 28 Apr:** Linked consent console artefacts to backend Supertest IDs,
+  annotated filter permutations/withdrawal copy with QA checkpoints, and
+  documented regression handoff tables so design reviews verify the behaviours
+  protected by the new admin/user consent suites.
 
 ## Milestone 6 – Handoff, QA, and Implementation Support (Week 6–7)
 **Objective:** Equip engineering and QA teams with detailed documentation, assets, and review rituals.
