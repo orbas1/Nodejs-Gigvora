@@ -1,5 +1,17 @@
 # Backend Change Log — Version 1.50 Update
 
+## 28 Apr 2024
+- Added lightweight Supertest suites for `/api/admin/governance/consents` and
+  `/api/users/:id/consents` that mock the consent service to validate request
+  sanitisation, RBAC enforcement, policy version creation, and withdrawal
+  conflict handling. This provides HTTP regression evidence without forcing the
+  full Sequelize bootstrap for each run.
+- Exported `RuntimeSecurityAuditEvent` and `RuntimeAnnouncement` directly from
+  `src/models/index.js` so security audit services and the new route tests can
+  resolve runtime telemetry models without ad hoc imports.
+- Recorded the passing Jest command in the backend test log to keep Task 3 QA
+  documentation aligned with the new contract coverage.
+
 ## 27 Apr 2024
 - Introduced GDPR-ready consent persistence via the new `ConsentPolicy`,
   `ConsentPolicyVersion`, `UserConsent`, and `ConsentAuditEvent` models with

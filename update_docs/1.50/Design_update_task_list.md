@@ -6,14 +6,14 @@
 | 1 | Finalise Token Architecture | Lead Systems Designer (I. Ortega) | 18 Mar | 19 Apr | In Progress | 45% | Medium | Emo theme tokens creating spacing regressions in marketing layouts |
 | 2 | Consolidate Iconography & Imagery | Brand Systems Lead (R. Banerjee) | 19 Mar | 12 Apr | In Progress | 38% | Medium | Licensing validation for new community banners still pending |
 | 3 | Re-map Application Screen Hierarchy | Product Design Manager (S. Malik) | 18 Mar | 26 Apr | In Progress | 42% | Low | Persona validation backlog could delay approval |
-| 4 | Refine Application Widgets & States | Interaction Lead (D. Yeh) | 21 Mar | 3 May | In Progress | 35% | Medium | Accessibility sign-off for high-density widgets |
+| 4 | Refine Application Widgets & States | Interaction Lead (D. Yeh) | 21 Mar | 3 May | In Progress | 41% | Medium | Accessibility sign-off for high-density widgets |
 | 5 | Redesign Marketing Landing Pages | Web Experience Lead (C. Lavoie) | 20 Mar | 10 May | In Progress | 31% | Low | Copy deck approvals for testimonials |
 | 6 | Expand Secondary Web Pages | Content Experience Lead (G. Santos) | 22 Mar | 8 May | In Progress | 26% | Medium | CMS partial dependencies unsettled |
 | 7 | Refresh Authenticated Web Dashboards | Data Visualisation Lead (J. Chen) | 25 Mar | 17 May | In Progress | 72% | Medium | Awaiting analytics instrumentation guidance |
 | 8 | Implement Theme & Partial Infrastructure | Platform Design Ops (A. Ekpo) | 25 Mar | 24 May | In Progress | 24% | High | CMS preview workflow not yet approved by security |
-| 9 | Governance & Security UX Updates | Compliance UX Lead (H. Wells) | 18 Mar | 30 Apr | In Progress | 92% | Medium | Localisation approvals for maintenance copy |
+| 9 | Governance & Security UX Updates | Compliance UX Lead (H. Wells) | 18 Mar | 30 Apr | In Progress | 95% | Medium | Localisation approvals for maintenance copy |
 | 10 | Handoff, QA, and Documentation | Design Ops PM (T. Dawson) | 1 Apr | 31 May | Planned | 18% | Medium | Dependency on upstream asset readiness |
-| 9 | Governance & Security UX Updates | Compliance UX Lead (H. Wells) | 18 Mar | 30 Apr | In Progress | 92% | Medium | Localisation approvals for maintenance copy |
+| 9 | Governance & Security UX Updates | Compliance UX Lead (H. Wells) | 18 Mar | 30 Apr | In Progress | 95% | Medium | Localisation approvals for maintenance copy |
 | 10 | Handoff, QA, and Documentation | Design Ops PM (T. Dawson) | 1 Apr | 31 May | Planned | 18% | Medium | Dependency on upstream asset readiness |
 
 ---
@@ -63,6 +63,8 @@
 
 **Progress Notes:** Persona validation complete; domain registry map exported to design toolkit so widget groupings reflect auth/marketplace/platform boundaries while analytics inputs are finalised.
 
+**New Progress (28 Apr):** Consent widget specs now include deletion and withdrawal conflict copy tied to the new backend Supertests. `Screen_text.md`, `Screens_Update_Plan.md`, and `Application_Design_Update_Plan/Screen_buttons.md` list the exact phrases and button states triggered by the HTTP responses exercised in `adminConsentRoutes`/`userConsentRoutes` tests.
+
 **Dependencies:** Widget specifications from Task 4 and security copy from Task 9 for restricted flows.
 
 **Risk & Mitigation:** Approval fatigue—breaking reviews into persona-focused sessions to accelerate sign-off.
@@ -79,6 +81,10 @@
 - [ ] Prototype high-risk widgets (finance reconciliation, dispute triage) for engineering feasibility testing.
 
 **Progress Notes:** Interaction pattern review kicked off; maintenance banner states, downtime drawer behaviours, and lifecycle toasts added to widget specifications. Accessibility audit scheduled for 12 Apr to validate aria-live and keyboard focus across the new maintenance components.
+
+**New Progress (28 Apr):** Documented admin consent deletion blockers, immutable policy messaging, and retry affordances for
+privacy console and Flutter sheets, mirroring the regression scenarios covered by the new HTTP tests. Widget annotations now
+include analytics hooks for withdrawal conflict alerts and offline resubmission guidance.
 
 **Dependencies:** Dependent on Task 3 hierarchy outcomes and Task 7 data density guidelines.
 
@@ -166,6 +172,10 @@
 - [ ] Coordinate sign-off with legal, security, and compliance steering group.
 
 **Progress Notes:** Consent governance console specs now cover policy inventory tables, activation flows, breach alert badges, CSV export guidance, and escalation copy across `Dashboard Designs.md`, `Screens_Updates_widget_functions.md`, and `Screen_text.md`. Settings privacy console artefacts were refreshed with granular toggle hierarchy, audit timeline treatments, SAR entry points, and accessibility annotations, while Flutter consent card/withdrawal sheets landed in `App_screens_drawings.md` and `Screens_Update_Plan.md` to guarantee parity. Maintenance mode, rate-limit, and outage messaging kits approved; telemetry widget spec handed to engineering. Custodial dependency outage overlays and disabled CTA states were added to finance/compliance journeys (web + Flutter) so the new backend guards surface clear 503 copy. 11 Apr updates aligned Flutter splash/login maintenance messaging with admin dashboards, harmonised refresh token error copy across React/Flutter, and logged localisation identifiers for three launch languages. 12 Apr perimeter alignment captured maintenance contact chips and blocked-origin escalation copy for both web and mobile telemetry widgets. 16 Apr shutdown telemetry refresh added drain verdict chips and runbook copy so admin dashboards and Flutter snackbars reflect backend drain failures during maintenance windows. 19 Apr copy sweep introduced Prometheus exporter alert messaging, runbook CTA labels, and localisation tokens so stale scrape escalations stay consistent across admin and Flutter surfaces. 23 Apr governance pass added stewardship lexicon, remediation CTA copy, empty-state guidance, and accessibility annotations so the new governance dashboards stay compliant across languages; remaining work covers emo theme contrast validation and regulator artefact packaging.
+
+**New Progress (28 Apr):** Finalised consent error-state copy for admin drawers, privacy console alerts, and Flutter withdrawal
+flows to match the regression tests. Added QA checklist steps covering deletion blockers, immutable jurisdictions, and conflict
+resolution guidance so compliance/legal review can proceed with localisation sign-off.
 **Progress Notes:** Maintenance mode, rate-limit, and outage messaging kits approved; telemetry widget spec handed to engineering. Admin maintenance registry flows, mobile downtime drawer copy, and localisation notes shipped for engineering review. Added payments/compliance guard downtime banners with request ID surfacing and legal escalation copy. Newly documented shutdown audit overlays and pool warning copy align with lifecycle telemetry updates. Remaining work covers emo theme contrast validation and regulator artefact packaging.
 **Progress Notes:** Maintenance mode, rate-limit, and outage messaging kits approved; telemetry widget spec handed to engineering. Custodial dependency outage overlays and disabled CTA states were added to finance/compliance journeys (web + Flutter) so the new backend guards surface clear 503 copy, while remaining work covers emo theme contrast validation and regulator artefact packaging.
 

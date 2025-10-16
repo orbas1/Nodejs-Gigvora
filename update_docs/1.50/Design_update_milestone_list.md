@@ -64,6 +64,11 @@
   `Settings Dashboard.md`, `Screen_text.md`, `App_screens_drawings.md`, and
   `Screens_Update_Plan.md`, leaving only emo theme contrast validation and regulator
   artefact bundling before Task 9 closure.
+- **Status 28 Apr:** Finalised admin consent deletion and withdrawal conflict copy
+  mapped to the new HTTP regression tests; updated `Screen_text.md`,
+  `Application_Design_Update_Plan/Screen_buttons.md`, and mobile drawer specs so
+  QA scripts cover policy deletion blockers, immutable policies, and offline retry
+  messaging. Progress tracker deltas reflect improved compliance and QA grades.
 
 ## Milestone 6 – Handoff, QA, and Implementation Support (Week 6–7)
 **Objective:** Equip engineering and QA teams with detailed documentation, assets, and review rituals.

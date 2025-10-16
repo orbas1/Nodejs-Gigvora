@@ -70,6 +70,21 @@ The desktop and responsive web experience received an end-to-end restructuring t
   threshold; export dropdown includes CSV and ICS (reminder) options aligned with
   legal workflow needs documented in `Screen_text.md`.
 
+#### Admin Consent Error States (Added 28 Apr)
+- Policy deletion flow now surfaces inline blocking alerts when downstream
+  reports exist, mirroring the `409` payload validated by the regression tests;
+  CTA converts to "Resolve conflicts" and links to audit timeline filtered for
+  open migrations.
+- Activation drawer contains escalation banner when attempting to promote a
+  version missing required locales; error copy references locale codes and
+  provides quick links to translation tasks plus a retry CTA once resolved.
+- Withdrawal ledger integrates new badge + tooltip for immutable policies,
+  clarifying why withdrawal is disabled and surfacing legal contact chips when
+  `canWithdraw=false` is returned by `/api/admin/governance/consents`.
+- Error toasts and sticky footers reuse text tokens defined in
+  `Application_Design_Update_Plan/Screen_buttons.md`, ensuring admin UI copy
+  stays aligned with automated HTTP coverage and localisation packs.
+
 ### User Panel
 - Personalised feed combining bookings, tasks, learning modules, and community invitations.
 - Sidebar quick actions for account preferences, finance settings, and saved items.

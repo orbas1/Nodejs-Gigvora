@@ -1,5 +1,19 @@
 # Version 1.50 Design Change Log (Enterprise Detail)
 
+## 28 Apr 2024 — Consent Route Error-State Alignment
+1. **Admin Consent States:** Updated `Dashboard Designs.md`, `Screen_text.md`, and
+   `Application_Design_Update_Plan/Screen_buttons.md` with error-state copy for
+   policy deletion failures and version activation confirmations so the React
+   console mirrors the HTTP regression scenarios covered by the new Supertests.
+2. **User Ledger Feedback:** Documented withdrawal conflict messaging and metadata
+   hints in `Screens_Update_Plan.md`, `Screen_text.md`, and
+   `ui-ux_updates/user_app_wireframe_changes.md` to ensure the consent ledger and
+   Flutter card surface the same conflict copy returned by the `/api/users/:id/consents`
+   routes.
+3. **QA References:** Noted the new HTTP coverage in `Design Plan.md` and
+   `Design_update_progress_tracker.md` to tie design QA back to the automated
+   consent contract tests.
+
 ## 27 Apr 2024 — Consent Governance Console & Privacy Console
 1. **Admin Consent Panel:** Updated `Dashboard Designs.md`,
    `Screens_Updates_widget_functions.md`, and
