@@ -617,6 +617,19 @@ export const FINANCE_TAX_EXPORT_STATUSES = ['generating', 'available', 'archived
 
 export const CAREER_ANALYTICS_TREND_DIRECTIONS = ['up', 'down', 'flat'];
 export const CALENDAR_INTEGRATION_STATUSES = ['connected', 'syncing', 'error', 'disconnected'];
+export const CALENDAR_EVENT_TYPES = [
+  'interview',
+  'job_interview',
+  'networking',
+  'project',
+  'project_milestone',
+  'gig',
+  'mentorship',
+  'volunteering',
+  'event',
+  'wellbeing',
+  'deadline',
+  'ritual',
 export const CALENDAR_EVENT_TYPES = ['interview', 'networking', 'project', 'wellbeing', 'deadline', 'ritual'];
 export const FREELANCER_CALENDAR_EVENT_TYPES = [
   'project',
@@ -645,7 +658,17 @@ export const FREELANCER_CALENDAR_RELATED_TYPES = [
   'other',
 ];
 export const CALENDAR_EVENT_SOURCES = ['manual', 'google', 'outlook', 'gigvora'];
-export const FOCUS_SESSION_TYPES = ['interview_prep', 'networking', 'application', 'deep_work', 'wellbeing'];
+export const CALENDAR_EVENT_VISIBILITIES = ['private', 'shared', 'public'];
+export const CALENDAR_DEFAULT_VIEWS = ['agenda', 'week', 'month'];
+export const FOCUS_SESSION_TYPES = [
+  'interview_prep',
+  'networking',
+  'application',
+  'deep_work',
+  'wellbeing',
+  'mentorship',
+  'volunteering',
+];
 export const ADVISOR_COLLABORATION_STATUSES = ['draft', 'active', 'paused', 'archived'];
 export const ADVISOR_COLLABORATION_MEMBER_ROLES = ['mentor', 'agency', 'coach', 'observer', 'teammate'];
 export const ADVISOR_COLLABORATION_MEMBER_STATUSES = ['invited', 'active', 'revoked'];

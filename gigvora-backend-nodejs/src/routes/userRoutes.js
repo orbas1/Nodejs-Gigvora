@@ -6,6 +6,7 @@ import * as userDisputeController from '../controllers/userDisputeController.js'
 import asyncHandler from '../utils/asyncHandler.js';
 import authenticate from '../middleware/authenticate.js';
 import userConsentRoutes from './userConsentRoutes.js';
+import userCalendarRoutes from './userCalendarRoutes.js';
 import userNetworkingRoutes from './userNetworkingRoutes.js';
 import userVolunteeringRoutes from './userVolunteeringRoutes.js';
 import walletRoutes from './walletRoutes.js';
@@ -173,6 +174,15 @@ router.post(
   '/:id/notifications/mark-all-read',
   authenticate({ roles: NOTIFICATION_ROLES, matchParam: 'id' }),
   asyncHandler(notificationController.markAllUserNotificationsRead),
+);
+
+router.use(
+  '/:id/calendar',
+  authenticate({
+    roles: ['user', 'freelancer', 'agency', 'company', 'mentor', 'headhunter', 'admin'],
+    matchParam: 'id',
+  }),
+  userCalendarRoutes,
 );
 
 export default router;

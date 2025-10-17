@@ -31,6 +31,7 @@ import {
   WeeklyDigestSubscription,
   CalendarIntegration,
   CandidateCalendarEvent,
+  UserCalendarSetting,
   FocusSession,
   AdvisorCollaboration,
   AdvisorCollaborationMember,
@@ -2343,6 +2344,27 @@ function sanitizeCalendarIntegrationRecord(integration) {
   };
 }
 
+function sanitizeCalendarSettingRecord(setting) {
+  const plain = toPlain(setting);
+  if (!plain) return null;
+  return {
+    id: plain.id,
+    timezone: plain.timezone ?? 'UTC',
+    weekStart: plain.weekStart == null ? 1 : Number(plain.weekStart),
+    workStartMinutes: plain.workStartMinutes == null ? 480 : Number(plain.workStartMinutes),
+    workEndMinutes: plain.workEndMinutes == null ? 1020 : Number(plain.workEndMinutes),
+    defaultView: plain.defaultView ?? 'agenda',
+    defaultReminderMinutes:
+      plain.defaultReminderMinutes == null ? 30 : Number(plain.defaultReminderMinutes),
+    autoFocusBlocks: Boolean(plain.autoFocusBlocks),
+    shareAvailability: Boolean(plain.shareAvailability),
+    colorHex: plain.colorHex ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt ?? null,
+    updatedAt: plain.updatedAt ?? null,
+  };
+}
+
 function sanitizeCalendarEventRecord(event) {
   const plain = toPlain(event);
   if (!plain) return null;
@@ -2354,6 +2376,17 @@ function sanitizeCalendarEventRecord(event) {
     startsAt: plain.startsAt,
     endsAt: plain.endsAt,
     location: plain.location,
+    description: plain.description ?? null,
+    videoConferenceLink: plain.videoConferenceLink ?? null,
+    isAllDay: Boolean(plain.isAllDay),
+    reminderMinutes: plain.reminderMinutes == null ? null : Number(plain.reminderMinutes),
+    visibility: plain.visibility ?? 'private',
+    relatedEntityType: plain.relatedEntityType ?? null,
+    relatedEntityId:
+      plain.relatedEntityId == null || Number.isNaN(Number(plain.relatedEntityId))
+        ? null
+        : Number(plain.relatedEntityId),
+    colorHex: plain.colorHex ?? null,
     isFocusBlock: Boolean(plain.isFocusBlock),
     focusMode: plain.focusMode,
     metadata: plain.metadata ?? null,
@@ -2538,10 +2571,11 @@ function buildCareerAnalyticsInsights(snapshotRecords, benchmarkRecords) {
   };
 }
 
-function buildCalendarInsights(eventsRecords, focusSessionRecords, integrationRecords) {
+function buildCalendarInsights(eventsRecords, focusSessionRecords, integrationRecords, settingRecord) {
   const events = eventsRecords.map((record) => sanitizeCalendarEventRecord(record)).filter(Boolean);
   const focusSessions = focusSessionRecords.map((record) => sanitizeFocusSessionRecord(record)).filter(Boolean);
   const integrations = integrationRecords.map((record) => sanitizeCalendarIntegrationRecord(record)).filter(Boolean);
+  const settings = sanitizeCalendarSettingRecord(settingRecord);
 
   const now = new Date();
   const upcomingEvents = events.filter((event) => !event.startsAt || new Date(event.startsAt) >= now);
@@ -2571,6 +2605,21 @@ function buildCalendarInsights(eventsRecords, focusSessionRecords, integrationRe
     return accumulator;
   }, {});
 
+  const eventsByType = events.reduce((accumulator, event) => {
+    const key = event.eventType || 'other';
+    accumulator[key] = (accumulator[key] ?? 0) + 1;
+    return accumulator;
+  }, {});
+
+  const upcomingFocusSessions = focusSessions
+    .filter((session) => !session.completed)
+    .sort((a, b) => {
+      const aStart = a.startedAt ? new Date(a.startedAt).getTime() : Number.POSITIVE_INFINITY;
+      const bStart = b.startedAt ? new Date(b.startedAt).getTime() : Number.POSITIVE_INFINITY;
+      return aStart - bStart;
+    })
+    .slice(0, 5);
+
   return {
     integrations,
     events,
@@ -2580,6 +2629,14 @@ function buildCalendarInsights(eventsRecords, focusSessionRecords, integrationRe
       sessions: focusSessions,
       totalMinutes: focusTotalMinutes,
       byType: focusByType,
+    },
+    settings,
+    summary: {
+      totalEvents: events.length,
+      upcomingCount: upcomingEvents.length,
+      eventsByType,
+      nextEvent: upcomingEvents[0] ?? null,
+      upcomingFocusSessions,
     },
   };
 }
@@ -2807,6 +2864,8 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     limit: 40,
   });
 
+  const calendarSettingsQuery = UserCalendarSetting.findOne({ where: { userId } });
+
   const focusSessionsQuery = FocusSession.findAll({
     where: { userId },
     order: [['startedAt', 'DESC']],
@@ -2989,6 +3048,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     digestSubscription,
     calendarIntegrations,
     calendarEvents,
+    calendarSettings,
     focusSessions,
     collaborations,
     supportCases,
@@ -3022,6 +3082,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     digestSubscriptionQuery,
     calendarIntegrationsQuery,
     calendarEventsQuery,
+    calendarSettingsQuery,
     focusSessionsQuery,
     collaborationsQuery,
     supportCasesQuery,
@@ -3292,7 +3353,12 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
   }
 
   const careerAnalytics = buildCareerAnalyticsInsights(careerSnapshots, peerBenchmarks);
-  const calendarInsights = buildCalendarInsights(calendarEvents, focusSessions, calendarIntegrations);
+  const calendarInsights = buildCalendarInsights(
+    calendarEvents,
+    focusSessions,
+    calendarIntegrations,
+    calendarSettings,
+  );
   const advisorInsights = buildAdvisorInsights(collaborations, auditLogs);
   const supportDesk = buildSupportDeskInsights(supportCases, automationLogs, knowledgeArticles);
 
