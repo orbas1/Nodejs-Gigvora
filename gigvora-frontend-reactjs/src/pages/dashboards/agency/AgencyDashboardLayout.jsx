@@ -10,6 +10,40 @@ export default function AgencyDashboardLayout({
   onMenuItemSelect,
   adSurface = 'agency_dashboard',
 }) {
+import { AGENCY_DASHBOARD_MENU } from '../../../constants/agencyDashboardMenu.js';
+
+function buildProfile(workspace) {
+  if (!workspace) {
+    return null;
+  }
+  const name = workspace.name ?? 'Agency workspace';
+  const initials = name
+    .split(' ')
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
+  return {
+    name,
+    role: 'Agency workspace',
+    initials: initials || 'AG',
+    status: 'Operational',
+  };
+}
+
+export default function AgencyDashboardLayout({
+  children,
+  title = 'Agency control tower',
+  subtitle = 'Orchestrate delivery, partnerships, and trust from a unified view.',
+  description,
+  menuSections = AGENCY_DASHBOARD_MENU,
+  activeMenuItem,
+  workspace,
+}) {
+  const profile = buildProfile(workspace);
+
   return (
     <DashboardLayout
       currentDashboard="agency"
@@ -23,6 +57,12 @@ export default function AgencyDashboardLayout({
       adSurface={adSurface}
     >
       {children}
+      menuSections={menuSections}
+      activeMenuItem={activeMenuItem}
+      availableDashboards={['agency', 'company', 'freelancer', 'launchpad']}
+      profile={profile}
+    >
+      <div className="px-4 pb-16 pt-8 sm:px-6 lg:px-12">{children}</div>
     </DashboardLayout>
   );
 }
