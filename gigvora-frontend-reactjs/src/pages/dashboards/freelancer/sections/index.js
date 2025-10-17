@@ -1,6 +1,7 @@
 export { default as AutomationSection } from './AutomationSection.jsx';
 export { default as DeliveryOperationsSection } from './DeliveryOperationsSection.jsx';
 export { default as FinanceComplianceSection } from './FinanceComplianceSection.jsx';
+export { default as DisputeManagementSection } from './DisputeManagementSection.jsx';
 export { default as GigMarketplaceOperationsSection } from './GigMarketplaceOperationsSection.jsx';
 export { default as GigStudioSection } from './GigStudioSection.jsx';
 export { default as GrowthPartnershipSection } from './GrowthPartnershipSection.jsx';

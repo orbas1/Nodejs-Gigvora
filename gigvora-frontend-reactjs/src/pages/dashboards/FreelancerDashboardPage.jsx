@@ -25,6 +25,7 @@ import {
   TimelineManagementSection,
   WorkspaceSettingsSection,
 } from './freelancer/sections/index.js';
+import DisputeManagementSection from './freelancer/sections/DisputeManagementSection.jsx';
 
 const HERO_METRICS = [
   { id: 'matches', label: 'New matches', value: 8, trend: '+2 this week' },
@@ -269,6 +270,9 @@ export default function FreelancerDashboardPage() {
 
           return <SectionComponent key={sectionId} />;
         })}
+        <div className="mt-12">
+          <DisputeManagementSection />
+        </div>
       </div>
     </DashboardLayout>
   );
