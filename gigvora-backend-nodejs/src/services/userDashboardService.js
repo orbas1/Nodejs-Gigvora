@@ -51,7 +51,7 @@ import { appCache, buildCacheKey } from '../utils/cache.js';
 import { ValidationError } from '../utils/errors.js';
 import careerPipelineAutomationService from './careerPipelineAutomationService.js';
 import { getAdDashboardSnapshot } from './adService.js';
-import { initializeWorkspaceForProject } from './projectWorkspaceService.js';
+import { initializeWorkspaceForProject, getProjectWorkspaceSummary } from './projectWorkspaceService.js';
 import affiliateDashboardService from './affiliateDashboardService.js';
 
 const CACHE_NAMESPACE = 'dashboard:user';
@@ -2474,6 +2474,8 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     brandAssets: sanitizedBrandAssets,
   });
 
+  const projectWorkspaceSummary = await getProjectWorkspaceSummary(userId);
+
   const followUps = buildFollowUps(applications, targetMap);
 
   const automations = [];
@@ -2631,6 +2633,9 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
       recent: sanitizedProjectEvents,
     },
     projectGigManagement,
+    projectWorkspace: {
+      summary: projectWorkspaceSummary,
+    },
     tasks: {
       followUps,
       automations,
