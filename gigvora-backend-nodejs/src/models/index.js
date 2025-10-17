@@ -12526,6 +12526,88 @@ AutoAssignQueueEntry.prototype.toPublicObject = function toPublicObject() {
     resolvedAt: plain.resolvedAt,
     projectValue: plain.projectValue == null ? null : Number(plain.projectValue),
     metadata: plain.metadata,
+    responseMetadata: plain.responseMetadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const FreelancerAutoMatchPreference = sequelize.define(
+  'FreelancerAutoMatchPreference',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    availabilityStatus: { type: DataTypes.STRING(32), allowNull: false, defaultValue: 'available' },
+    availabilityMode: { type: DataTypes.STRING(32), allowNull: false, defaultValue: 'always_on' },
+    timezone: { type: DataTypes.STRING(60), allowNull: true },
+    dailyMatchLimit: { type: DataTypes.INTEGER, allowNull: true },
+    autoAcceptThreshold: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    quietHoursStart: { type: DataTypes.STRING(5), allowNull: true },
+    quietHoursEnd: { type: DataTypes.STRING(5), allowNull: true },
+    snoozedUntil: { type: DataTypes.DATE, allowNull: true },
+    receiveEmailNotifications: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    receiveInAppNotifications: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    escalationContact: { type: DataTypes.STRING(180), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'freelancer_auto_match_preferences', underscored: true },
+);
+
+FreelancerAutoMatchPreference.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    availabilityStatus: plain.availabilityStatus,
+    availabilityMode: plain.availabilityMode,
+    timezone: plain.timezone,
+    dailyMatchLimit: plain.dailyMatchLimit,
+    autoAcceptThreshold: plain.autoAcceptThreshold == null ? null : Number(plain.autoAcceptThreshold),
+    quietHoursStart: plain.quietHoursStart,
+    quietHoursEnd: plain.quietHoursEnd,
+    snoozedUntil: plain.snoozedUntil,
+    receiveEmailNotifications: Boolean(plain.receiveEmailNotifications),
+    receiveInAppNotifications: Boolean(plain.receiveInAppNotifications),
+    escalationContact: plain.escalationContact,
+    notes: plain.notes,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const AutoAssignResponse = sequelize.define(
+  'AutoAssignResponse',
+  {
+    queueEntryId: { type: DataTypes.INTEGER, allowNull: false },
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    status: {
+      type: DataTypes.ENUM('accepted', 'declined', 'reassigned'),
+      allowNull: false,
+    },
+    respondedBy: { type: DataTypes.INTEGER, allowNull: true },
+    respondedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    reasonCode: { type: DataTypes.STRING(64), allowNull: true },
+    reasonLabel: { type: DataTypes.STRING(180), allowNull: true },
+    responseNotes: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'auto_assign_responses', underscored: true },
+);
+
+AutoAssignResponse.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    queueEntryId: plain.queueEntryId,
+    freelancerId: plain.freelancerId,
+    status: plain.status,
+    respondedBy: plain.respondedBy,
+    respondedAt: plain.respondedAt,
+    reasonCode: plain.reasonCode,
+    reasonLabel: plain.reasonLabel,
+    responseNotes: plain.responseNotes,
+    metadata: plain.metadata,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };
@@ -16802,6 +16884,12 @@ ProjectBlueprintSprint.hasMany(ProjectBillingCheckpoint, {
 
 User.hasMany(AutoAssignQueueEntry, { foreignKey: 'freelancerId', as: 'autoAssignQueue' });
 AutoAssignQueueEntry.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+User.hasOne(FreelancerAutoMatchPreference, { foreignKey: 'freelancerId', as: 'autoMatchPreference' });
+FreelancerAutoMatchPreference.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+AutoAssignQueueEntry.hasOne(AutoAssignResponse, { foreignKey: 'queueEntryId', as: 'response' });
+AutoAssignResponse.belongsTo(AutoAssignQueueEntry, { foreignKey: 'queueEntryId', as: 'queueEntry' });
+AutoAssignResponse.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+User.hasMany(AutoAssignResponse, { foreignKey: 'freelancerId', as: 'autoAssignResponses' });
 
 User.hasMany(Gig, { foreignKey: 'ownerId', as: 'ownedGigs' });
 Gig.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
@@ -18910,6 +18998,8 @@ export default {
   ProjectIntegration,
   ProjectRetrospective,
   AutoAssignQueueEntry,
+  AutoAssignResponse,
+  FreelancerAutoMatchPreference,
   CommunitySpotlight,
   CommunitySpotlightHighlight,
   CommunitySpotlightAsset,
