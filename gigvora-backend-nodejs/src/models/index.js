@@ -1293,6 +1293,217 @@ export const FreelancerHeroBanner = sequelize.define(
   },
 );
 
+export const FreelancerPortfolioItem = sequelize.define(
+  'FreelancerPortfolioItem',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    profileId: { type: DataTypes.INTEGER, allowNull: true },
+    slug: { type: DataTypes.STRING(160), allowNull: false, unique: true },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    tagline: { type: DataTypes.STRING(240), allowNull: true },
+    clientName: { type: DataTypes.STRING(180), allowNull: true },
+    clientIndustry: { type: DataTypes.STRING(180), allowNull: true },
+    role: { type: DataTypes.STRING(180), allowNull: true },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    problemStatement: { type: DataTypes.TEXT, allowNull: true },
+    approachSummary: { type: DataTypes.TEXT, allowNull: true },
+    outcomeSummary: { type: DataTypes.TEXT, allowNull: true },
+    impactMetrics: { type: jsonType, allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    industries: { type: jsonType, allowNull: true },
+    services: { type: jsonType, allowNull: true },
+    technologies: { type: jsonType, allowNull: true },
+    heroImageUrl: { type: DataTypes.STRING(1024), allowNull: true },
+    heroVideoUrl: { type: DataTypes.STRING(1024), allowNull: true },
+    callToActionLabel: { type: DataTypes.STRING(160), allowNull: true },
+    callToActionUrl: { type: DataTypes.STRING(1024), allowNull: true },
+    repositoryUrl: { type: DataTypes.STRING(1024), allowNull: true },
+    liveUrl: { type: DataTypes.STRING(1024), allowNull: true },
+    visibility: {
+      type: DataTypes.ENUM('private', 'network', 'public'),
+      allowNull: false,
+      defaultValue: 'public',
+    },
+    status: {
+      type: DataTypes.ENUM('draft', 'published', 'archived'),
+      allowNull: false,
+      defaultValue: 'draft',
+    },
+    isFeatured: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    featuredOrder: { type: DataTypes.INTEGER, allowNull: true },
+    startDate: { type: DataTypes.DATE, allowNull: true },
+    endDate: { type: DataTypes.DATE, allowNull: true },
+    publishedAt: { type: DataTypes.DATE, allowNull: true },
+    archivedAt: { type: DataTypes.DATE, allowNull: true },
+    lastSharedAt: { type: DataTypes.DATE, allowNull: true },
+    lastReviewedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'freelancer_portfolio_items',
+    indexes: [
+      { fields: ['userId'] },
+      { fields: ['status'] },
+      { fields: ['visibility'] },
+      { fields: ['isFeatured'] },
+    ],
+  },
+);
+
+export const FreelancerPortfolioAsset = sequelize.define(
+  'FreelancerPortfolioAsset',
+  {
+    portfolioItemId: { type: DataTypes.INTEGER, allowNull: false },
+    label: { type: DataTypes.STRING(180), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    url: { type: DataTypes.STRING(1024), allowNull: false },
+    thumbnailUrl: { type: DataTypes.STRING(1024), allowNull: true },
+    assetType: {
+      type: DataTypes.ENUM('image', 'video', 'document', 'link', 'embed'),
+      allowNull: false,
+      defaultValue: 'image',
+    },
+    sortOrder: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    isPrimary: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'freelancer_portfolio_assets',
+    indexes: [
+      { fields: ['portfolioItemId'] },
+      { fields: ['assetType'] },
+    ],
+  },
+);
+
+export const FreelancerPortfolioSetting = sequelize.define(
+  'FreelancerPortfolioSetting',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false, primaryKey: true },
+    profileId: { type: DataTypes.INTEGER, allowNull: true },
+    heroHeadline: { type: DataTypes.STRING(180), allowNull: true },
+    heroSubheadline: { type: DataTypes.STRING(255), allowNull: true },
+    coverImageUrl: { type: DataTypes.STRING(1024), allowNull: true },
+    coverVideoUrl: { type: DataTypes.STRING(1024), allowNull: true },
+    brandAccentColor: { type: DataTypes.STRING(32), allowNull: true },
+    defaultVisibility: {
+      type: DataTypes.ENUM('private', 'network', 'public'),
+      allowNull: false,
+      defaultValue: 'public',
+    },
+    allowPublicDownload: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    autoShareToFeed: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    showMetrics: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    showTestimonials: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    showContactButton: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    contactEmail: { type: DataTypes.STRING(255), allowNull: true },
+    schedulingLink: { type: DataTypes.STRING(1024), allowNull: true },
+    customDomain: { type: DataTypes.STRING(255), allowNull: true },
+    previewBasePath: { type: DataTypes.STRING(255), allowNull: true },
+    lastPublishedAt: { type: DataTypes.DATE, allowNull: true },
+    lastSyncedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'freelancer_portfolio_settings',
+    indexes: [{ fields: ['defaultVisibility'] }],
+  },
+);
+
+FreelancerPortfolioAsset.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    portfolioItemId: plain.portfolioItemId,
+    label: plain.label,
+    description: plain.description ?? null,
+    url: plain.url,
+    thumbnailUrl: plain.thumbnailUrl ?? null,
+    assetType: plain.assetType,
+    sortOrder: plain.sortOrder ?? 0,
+    isPrimary: Boolean(plain.isPrimary),
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+FreelancerPortfolioItem.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  const rawAssets = plain.assets ?? plain.FreelancerPortfolioAssets ?? [];
+  const assets = Array.isArray(rawAssets)
+    ? rawAssets
+        .map((asset) => (typeof asset?.toPublicObject === 'function' ? asset.toPublicObject() : asset))
+        .filter(Boolean)
+        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+    : [];
+
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    profileId: plain.profileId ?? null,
+    slug: plain.slug,
+    title: plain.title,
+    tagline: plain.tagline ?? null,
+    clientName: plain.clientName ?? null,
+    clientIndustry: plain.clientIndustry ?? null,
+    role: plain.role ?? null,
+    summary: plain.summary ?? null,
+    problemStatement: plain.problemStatement ?? null,
+    approachSummary: plain.approachSummary ?? null,
+    outcomeSummary: plain.outcomeSummary ?? null,
+    impactMetrics: Array.isArray(plain.impactMetrics) ? plain.impactMetrics : [],
+    tags: Array.isArray(plain.tags) ? plain.tags : [],
+    industries: Array.isArray(plain.industries) ? plain.industries : [],
+    services: Array.isArray(plain.services) ? plain.services : [],
+    technologies: Array.isArray(plain.technologies) ? plain.technologies : [],
+    heroImageUrl: plain.heroImageUrl ?? null,
+    heroVideoUrl: plain.heroVideoUrl ?? null,
+    callToActionLabel: plain.callToActionLabel ?? null,
+    callToActionUrl: plain.callToActionUrl ?? null,
+    repositoryUrl: plain.repositoryUrl ?? null,
+    liveUrl: plain.liveUrl ?? null,
+    visibility: plain.visibility,
+    status: plain.status,
+    isFeatured: Boolean(plain.isFeatured),
+    featuredOrder: plain.featuredOrder ?? null,
+    startDate: plain.startDate ?? null,
+    endDate: plain.endDate ?? null,
+    publishedAt: plain.publishedAt ?? null,
+    archivedAt: plain.archivedAt ?? null,
+    lastSharedAt: plain.lastSharedAt ?? null,
+    lastReviewedAt: plain.lastReviewedAt ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+    assets,
+  };
+};
+
+FreelancerPortfolioSetting.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    userId: plain.userId,
+    profileId: plain.profileId ?? null,
+    heroHeadline: plain.heroHeadline ?? null,
+    heroSubheadline: plain.heroSubheadline ?? null,
+    coverImageUrl: plain.coverImageUrl ?? null,
+    coverVideoUrl: plain.coverVideoUrl ?? null,
+    brandAccentColor: plain.brandAccentColor ?? null,
+    defaultVisibility: plain.defaultVisibility ?? 'public',
+    allowPublicDownload: Boolean(plain.allowPublicDownload),
+    autoShareToFeed: Boolean(plain.autoShareToFeed),
+    showMetrics: Boolean(plain.showMetrics),
+    showTestimonials: Boolean(plain.showTestimonials),
+    showContactButton: Boolean(plain.showContactButton),
+    contactEmail: plain.contactEmail ?? null,
+    schedulingLink: plain.schedulingLink ?? null,
+    customDomain: plain.customDomain ?? null,
+    previewBasePath: plain.previewBasePath ?? null,
+    lastPublishedAt: plain.lastPublishedAt ?? null,
+    lastSyncedAt: plain.lastSyncedAt ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 export const FeedPost = sequelize.define(
   'FeedPost',
   {
@@ -14209,6 +14420,24 @@ FreelancerTestimonial.belongsTo(Profile, { as: 'profile', foreignKey: 'profileId
 Profile.hasMany(FreelancerHeroBanner, { as: 'heroBanners', foreignKey: 'profileId', onDelete: 'CASCADE' });
 FreelancerHeroBanner.belongsTo(Profile, { as: 'profile', foreignKey: 'profileId' });
 
+Profile.hasMany(FreelancerPortfolioItem, { as: 'portfolioItems', foreignKey: 'profileId', onDelete: 'SET NULL' });
+FreelancerPortfolioItem.belongsTo(Profile, { as: 'profile', foreignKey: 'profileId' });
+
+User.hasMany(FreelancerPortfolioItem, { as: 'portfolioItems', foreignKey: 'userId', onDelete: 'CASCADE' });
+FreelancerPortfolioItem.belongsTo(User, { as: 'freelancer', foreignKey: 'userId' });
+
+FreelancerPortfolioItem.hasMany(FreelancerPortfolioAsset, {
+  as: 'assets',
+  foreignKey: 'portfolioItemId',
+  onDelete: 'CASCADE',
+});
+FreelancerPortfolioAsset.belongsTo(FreelancerPortfolioItem, { as: 'portfolioItem', foreignKey: 'portfolioItemId' });
+
+User.hasOne(FreelancerPortfolioSetting, { as: 'portfolioSettings', foreignKey: 'userId', onDelete: 'CASCADE' });
+FreelancerPortfolioSetting.belongsTo(User, { as: 'freelancer', foreignKey: 'userId' });
+Profile.hasOne(FreelancerPortfolioSetting, { as: 'portfolioSettings', foreignKey: 'profileId', onDelete: 'SET NULL' });
+FreelancerPortfolioSetting.belongsTo(Profile, { as: 'profile', foreignKey: 'profileId' });
+
 User.hasOne(CompanyProfile, { foreignKey: 'userId' });
 CompanyProfile.belongsTo(User, { foreignKey: 'userId' });
 
@@ -16215,6 +16444,9 @@ export default {
   FreelancerSuccessMetric,
   FreelancerTestimonial,
   FreelancerHeroBanner,
+  FreelancerPortfolioItem,
+  FreelancerPortfolioAsset,
+  FreelancerPortfolioSetting,
   FeedPost,
   Job,
   Gig,
