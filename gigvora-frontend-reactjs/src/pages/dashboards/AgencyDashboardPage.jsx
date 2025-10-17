@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import useSession from '../../hooks/useSession.js';
+import { AGENCY_DASHBOARD_MENU_SECTIONS } from '../../constants/agencyDashboardMenu.js';
 
 const OVERVIEW_METRICS = [
   { id: 'clients', label: 'Active clients', value: 18, hint: '4 onboarding this month' },
@@ -36,22 +38,22 @@ export default function AgencyDashboardPage() {
   const displayName = session?.name || session?.firstName || 'Agency team';
 
   return (
-    <div className="min-h-screen bg-surfaceMuted pb-16">
-      <div className="mx-auto max-w-6xl px-4 pt-12 sm:px-6 lg:px-8">
-        <header className="flex flex-col gap-4 border-b border-slate-200 pb-8">
-          <div>
-            <p className="text-sm uppercase tracking-[0.4em] text-slate-500">Agency control tower</p>
-            <h1 className="mt-2 text-3xl font-semibold text-slate-900">Hello, {displayName}</h1>
-            <p className="mt-3 max-w-3xl text-sm text-slate-600">
-              Track client health, revenue momentum, and the team’s next actions. Keep the bench balanced and highlight wins to
-              leadership.
-            </p>
-          </div>
+    <DashboardLayout
+      currentDashboard="agency"
+      title={`Hello, ${displayName}`}
+      subtitle="Agency control tower"
+      description="Track client health, momentum, and resourcing in one view."
+      menuSections={AGENCY_DASHBOARD_MENU_SECTIONS}
+      availableDashboards={['agency', 'company', 'freelancer', 'user']}
+      activeMenuItem="agency-overview"
+    >
+      <div className="space-y-12">
+        <section id="agency-overview" className="space-y-6">
           <div className="grid gap-4 sm:grid-cols-3">
             {OVERVIEW_METRICS.map((metric) => (
               <div
                 key={metric.id}
-                className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft transition hover:-translate-y-0.5 hover:border-accent/60"
+                className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-soft transition hover:-translate-y-0.5 hover:border-accent/60"
               >
                 <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">{metric.label}</p>
                 <p className="mt-3 text-3xl font-semibold text-slate-900">{metric.value}</p>
@@ -59,9 +61,9 @@ export default function AgencyDashboardPage() {
               </div>
             ))}
           </div>
-        </header>
+        </section>
 
-        <section className="mt-12 grid gap-8 lg:grid-cols-[1.35fr_1fr]">
+        <section id="team-focus" className="grid gap-8 lg:grid-cols-[1.35fr_1fr]">
           <div className="space-y-6">
             <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
               <div className="flex items-center justify-between">
@@ -134,6 +136,6 @@ export default function AgencyDashboardPage() {
           </aside>
         </section>
       </div>
-    </div>
+    </DashboardLayout>
   );
 }
