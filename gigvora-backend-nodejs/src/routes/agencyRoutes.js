@@ -12,5 +12,19 @@ router.get(
   asyncHandler(agencyController.dashboard),
 );
 
+router.get(
+  '/dashboard/overview',
+  authenticate(),
+  requireRoles('agency', 'agency_admin', 'admin'),
+  asyncHandler(agencyController.overview),
+);
+
+router.put(
+  '/dashboard/overview',
+  authenticate(),
+  requireRoles('agency_admin', 'admin'),
+  asyncHandler(agencyController.updateOverview),
+);
+
 export default router;
 
