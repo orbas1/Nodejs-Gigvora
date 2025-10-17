@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
 import useSession from '../../hooks/useSession.js';
+import AgencyDashboardLayout from './agency/AgencyDashboardLayout.jsx';
+import { AGENCY_DASHBOARD_MENU } from '../../constants/agencyDashboardMenu.js';
 
 const OVERVIEW_METRICS = [
   { id: 'clients', label: 'Active clients', value: 18, hint: '4 onboarding this month' },
@@ -35,39 +37,66 @@ export default function AgencyDashboardPage() {
   const { session } = useSession();
   const displayName = session?.name || session?.firstName || 'Agency team';
 
-  return (
-    <div className="min-h-screen bg-surfaceMuted pb-16">
-      <div className="mx-auto max-w-6xl px-4 pt-12 sm:px-6 lg:px-8">
-        <header className="flex flex-col gap-4 border-b border-slate-200 pb-8">
-          <div>
-            <p className="text-sm uppercase tracking-[0.4em] text-slate-500">Agency control tower</p>
-            <h1 className="mt-2 text-3xl font-semibold text-slate-900">Hello, {displayName}</h1>
-            <p className="mt-3 max-w-3xl text-sm text-slate-600">
-              Track client health, revenue momentum, and the team’s next actions. Keep the bench balanced and highlight wins to
-              leadership.
-            </p>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-3">
-            {OVERVIEW_METRICS.map((metric) => (
-              <div
-                key={metric.id}
-                className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft transition hover:-translate-y-0.5 hover:border-accent/60"
-              >
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">{metric.label}</p>
-                <p className="mt-3 text-3xl font-semibold text-slate-900">{metric.value}</p>
-                <p className="mt-2 text-xs text-slate-500">{metric.hint}</p>
-              </div>
-            ))}
-          </div>
-        </header>
+  const workspace = {
+    name: `${displayName}'s workspace`,
+  };
 
-        <section className="mt-12 grid gap-8 lg:grid-cols-[1.35fr_1fr]">
+  return (
+    <AgencyDashboardLayout
+      workspace={workspace}
+      menuSections={AGENCY_DASHBOARD_MENU}
+      activeMenuItem="agency-overview"
+      description="Track client delivery, utilisation, and finance telemetry with actionable next steps."
+    >
+      <div className="space-y-12">
+        <section id="agency-overview" className="space-y-6">
+          <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-500">Mission control</p>
+                <h1 className="mt-2 text-3xl font-semibold text-slate-900">Hello, {displayName}</h1>
+                <p className="mt-3 max-w-2xl text-sm text-slate-600">
+                  Keep an eye on client satisfaction, delivery readiness, and revenue pacing from this control panel. Use the
+                  quick actions to broadcast updates or assign owners in seconds.
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {OVERVIEW_METRICS.map((metric) => (
+                  <div
+                    key={metric.id}
+                    className="rounded-2xl border border-slate-200 bg-slate-50/80 px-5 py-4 shadow-sm"
+                  >
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{metric.label}</p>
+                    <p className="mt-2 text-2xl font-semibold text-slate-900">{metric.value}</p>
+                    <p className="text-xs text-slate-500">{metric.hint}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <Link
+                to="/dashboard/agency/escrow"
+                className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700"
+              >
+                Open escrow mission control
+              </Link>
+              <Link
+                to="/inbox"
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent"
+              >
+                Broadcast update
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section id="agency-projects" className="grid gap-8 lg:grid-cols-[1.35fr_1fr]">
           <div className="space-y-6">
             <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold text-slate-900">Team focus</h2>
                 <Link to="/inbox" className="text-sm font-semibold text-accent hover:text-accentDark">
-                  Share update
+                  Assign owner
                 </Link>
               </div>
               <ol className="mt-6 space-y-4">
@@ -86,7 +115,7 @@ export default function AgencyDashboardPage() {
             </div>
 
             <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
-              <h2 className="text-xl font-semibold text-slate-900">Bench signals</h2>
+              <h2 className="text-xl font-semibold text-slate-900">Bench capacity</h2>
               <div className="mt-4 space-y-3">
                 <div className="flex items-center justify-between rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-3">
                   <p className="text-sm text-slate-600">Product design squad</p>
@@ -121,8 +150,7 @@ export default function AgencyDashboardPage() {
             <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-accent/10 via-white to-blue-100 p-6 shadow-soft">
               <h2 className="text-lg font-semibold text-slate-900">Need support?</h2>
               <p className="mt-2 text-sm text-slate-600">
-                Coordinate with finance or compliance in the shared channel. We’ll help unblock vendors, approvals, or contract
-                questions within the hour.
+                Finance and compliance respond within one hour. Flag blockers and we will unblock contracts, payouts, or vendor checks fast.
               </p>
               <Link
                 to="/inbox"
@@ -133,7 +161,64 @@ export default function AgencyDashboardPage() {
             </div>
           </aside>
         </section>
+
+        <section id="agency-compliance" className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-semibold text-slate-900">Compliance pulses</h2>
+              <p className="text-sm text-slate-600">
+                Stay audit ready with the latest contract renewals, NDAs, and KYC refresh tasks.
+              </p>
+            </div>
+            <Link to="/trust-center" className="text-sm font-semibold text-accent hover:text-accentDark">
+              View trust center
+            </Link>
+          </div>
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">KYC refresh</p>
+              <p className="mt-2 text-2xl font-semibold text-slate-900">4 vendors</p>
+              <p className="text-xs text-slate-500">Due this week</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Contracts expiring</p>
+              <p className="mt-2 text-2xl font-semibold text-slate-900">3 retainers</p>
+              <p className="text-xs text-slate-500">Renew before Friday</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Security attestations</p>
+              <p className="mt-2 text-2xl font-semibold text-slate-900">SOC 2 draft</p>
+              <p className="text-xs text-slate-500">In review with compliance</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="agency-automation" className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-semibold text-slate-900">Automation experiments</h2>
+              <p className="text-sm text-slate-600">Review queue automations, AI summaries, and partner hand-offs ready to enable.</p>
+            </div>
+            <Link to="/auto-assign" className="text-sm font-semibold text-accent hover:text-accentDark">
+              Manage auto-assign
+            </Link>
+          </div>
+          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-sm font-semibold text-slate-900">Escalation routing</p>
+              <p className="mt-2 text-xs text-slate-500">Pilot automation for support tickets that touch finance or contracts.</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-sm font-semibold text-slate-900">AI project recaps</p>
+              <p className="mt-2 text-xs text-slate-500">Summaries posted in #client-wins every Friday at 4pm.</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-sm font-semibold text-slate-900">Bench nudges</p>
+              <p className="mt-2 text-xs text-slate-500">Automated alerts when utilisation drops below 60% for any squad.</p>
+            </div>
+          </div>
+        </section>
       </div>
-    </div>
+    </AgencyDashboardLayout>
   );
 }
