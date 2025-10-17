@@ -13,6 +13,13 @@ import {
   updateBlogTag,
   deleteBlogTag,
   createBlogMedia,
+  getBlogMetricsOverview,
+  getBlogPostMetrics,
+  updateBlogPostMetrics,
+  listBlogComments,
+  createBlogComment,
+  updateBlogComment,
+  deleteBlogComment,
 } from '../services/blogService.js';
 
 function parseBoolean(value) {
@@ -107,6 +114,55 @@ export async function createMedia(req, res) {
   res.status(201).json(media);
 }
 
+export async function metricsOverview(req, res) {
+  const { start, end } = req.query ?? {};
+  const metrics = await getBlogMetricsOverview({ startDate: start, endDate: end });
+  res.json(metrics);
+}
+
+export async function metricsForPost(req, res) {
+  const { postId } = req.params;
+  const metrics = await getBlogPostMetrics(Number(postId) || postId);
+  res.json(metrics);
+}
+
+export async function updatePostMetrics(req, res) {
+  const { postId } = req.params;
+  const payload = await updateBlogPostMetrics(Number(postId) || postId, req.body ?? {});
+  res.json(payload);
+}
+
+export async function comments(req, res) {
+  const { postId } = req.params;
+  const { status, page, pageSize } = req.query ?? {};
+  const payload = await listBlogComments({
+    postId: postId ? Number(postId) || postId : undefined,
+    status,
+    page,
+    pageSize,
+  });
+  res.json(payload);
+}
+
+export async function createComment(req, res) {
+  const { postId } = req.params;
+  const { id: actorId } = req.user ?? {};
+  const comment = await createBlogComment(Number(postId) || postId, req.body ?? {}, { actorId });
+  res.status(201).json(comment);
+}
+
+export async function updateComment(req, res) {
+  const { commentId } = req.params;
+  const comment = await updateBlogComment(Number(commentId) || commentId, req.body ?? {});
+  res.json(comment);
+}
+
+export async function deleteComment(req, res) {
+  const { commentId } = req.params;
+  await deleteBlogComment(Number(commentId) || commentId);
+  res.status(204).send();
+}
+
 export default {
   list,
   retrieve,
@@ -122,4 +178,11 @@ export default {
   updateTag,
   deleteTag,
   createMedia,
+  metricsOverview,
+  metricsForPost,
+  updatePostMetrics,
+  comments,
+  createComment,
+  updateComment,
+  deleteComment,
 };

@@ -42,8 +42,8 @@ import docsRoutes from './docsRoutes.js';
 const router = Router();
 
 router.use('/ads', adRoutes);
-router.use('/admin', adminRoutes);
 router.use('/admin/blog', blogAdminRoutes);
+router.use('/admin', adminRoutes);
 router.use('/agency', agencyRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/auth', authRoutes);

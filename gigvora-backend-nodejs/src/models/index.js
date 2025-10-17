@@ -21,8 +21,11 @@ import {
   BlogPost,
   BlogPostMedia,
   BlogPostTag,
+  BlogPostMetric,
+  BlogComment,
   BlogTag,
   registerBlogAssociations,
+  BLOG_COMMENT_STATUSES,
 } from './blogModels.js';
 import {
   PROFILE_AVAILABILITY_STATUSES, PROFILE_APPRECIATION_TYPES, PROFILE_FOLLOWER_STATUSES, PROFILE_ENGAGEMENT_JOB_STATUSES,
@@ -119,7 +122,17 @@ const dialect = sequelize.getDialect();
 const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB : DataTypes.JSON;
 
 export * from './constants/index.js';
-export { BlogCategory, BlogMedia, BlogPost, BlogPostMedia, BlogPostTag, BlogTag } from './blogModels.js';
+export {
+  BlogCategory,
+  BlogMedia,
+  BlogPost,
+  BlogPostMedia,
+  BlogPostTag,
+  BlogPostMetric,
+  BlogComment,
+  BlogTag,
+  BLOG_COMMENT_STATUSES,
+} from './blogModels.js';
 export { ConsentPolicy, ConsentPolicyVersion, UserConsent, ConsentAuditEvent } from './consentModels.js';
 export { RuntimeSecurityAuditEvent } from './runtimeSecurityAuditEvent.js';
 export { RbacPolicyAuditEvent } from './rbacPolicyAuditEvent.js';
