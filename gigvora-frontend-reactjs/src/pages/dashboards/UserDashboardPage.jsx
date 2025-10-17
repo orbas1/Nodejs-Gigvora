@@ -6,6 +6,7 @@ import { fetchUserDashboard } from '../../services/userDashboard.js';
 import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
 import DocumentStudioSection from '../../components/documentStudio/DocumentStudioSection.jsx';
 import ProjectGigManagementContainer from '../../components/projectGigManagement/ProjectGigManagementContainer.jsx';
+import EventManagementSection from '../../components/eventManagement/EventManagementSection.jsx';
 import useSession from '../../hooks/useSession.js';
 import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
 import DashboardBlogSpotlight from '../../components/blog/DashboardBlogSpotlight.jsx';
@@ -157,6 +158,12 @@ function buildProfileCard(data, summary, session) {
 
 function buildMenuSections(data) {
   const summary = data?.summary ?? {};
+  const eventManagement = data?.eventManagement ?? {};
+  const eventOverview = eventManagement.overview ?? {};
+  const upcomingEventCount = Array.isArray(eventOverview.upcomingEvents)
+    ? eventOverview.upcomingEvents.length
+    : 0;
+  const nextEvent = eventOverview.nextEvent ?? null;
   const documents = data?.documents ?? {};
   const documentStudio = data?.documentStudio;
   const documentSummary = documentStudio?.summary ?? {};
@@ -177,6 +184,26 @@ function buildMenuSections(data) {
   const automationMetrics = pipelineAutomation.kanban?.metrics ?? {};
   const automationBoardName = pipelineAutomation.board?.name ?? 'Career pipeline';
   return [
+    {
+      label: 'Events',
+      items: [
+        {
+          name: 'Plan',
+          description: '',
+          sectionId: 'event-management',
+        },
+        {
+          name: 'Guests',
+          description: '',
+          sectionId: 'event-management',
+        },
+        {
+          name: 'Finance',
+          description: '',
+          sectionId: 'event-management',
+        },
+      ],
+    },
     {
       label: 'Project & gig management',
       items: [
@@ -403,6 +430,8 @@ export default function UserDashboardPage() {
   const interviews = Array.isArray(data?.interviews) ? data.interviews : [];
   const documents = data?.documents ?? { attachments: [], portfolioLinks: [] };
   const documentStudio = data?.documentStudio ?? null;
+  const eventManagement = data?.eventManagement ?? null;
+  const eventManagementOverview = eventManagement?.overview ?? null;
   const projectGigManagement = data?.projectGigManagement ?? null;
   const notifications = Array.isArray(data?.notifications?.recent) ? data.notifications.recent : [];
   const projectActivity = Array.isArray(data?.projectActivity?.recent) ? data.projectActivity.recent : [];
@@ -452,6 +481,11 @@ export default function UserDashboardPage() {
       label: 'Total applications',
       value: summary.totalApplications,
       description: 'Opportunities you have submitted or are drafting.',
+    },
+    {
+      label: 'Active events',
+      value: eventManagementOverview?.active ?? 0,
+      description: `Managing ${formatNumber(eventManagementOverview?.events ?? 0)} total events across your programs.`,
     },
     {
       label: 'Active pipeline',
@@ -1474,6 +1508,10 @@ export default function UserDashboardPage() {
             </div>
           </div>
         </section>
+
+        {userId ? (
+          <EventManagementSection data={eventManagement} userId={userId} onRefresh={() => refresh({ force: true })} />
+        ) : null}
 
         <ProjectGigManagementContainer userId={userId} />
         {documentStudio ? (

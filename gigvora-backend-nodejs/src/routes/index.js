@@ -38,6 +38,7 @@ import workspaceTemplateRoutes from './workspaceTemplateRoutes.js';
 import workManagementRoutes from './workManagementRoutes.js';
 import runtimeRoutes from './runtimeRoutes.js';
 import docsRoutes from './docsRoutes.js';
+import eventManagementRoutes from './eventManagementRoutes.js';
 
 const router = Router();
 
@@ -77,6 +78,7 @@ router.use('/search', searchRoutes);
 router.use('/trust', trustRoutes);
 router.use('/users', userRoutes);
 router.use('/users/:userId/project-gig-management', projectGigManagementRoutes);
+router.use('/users/:userId/events', eventManagementRoutes);
 router.use('/workspace-templates', workspaceTemplateRoutes);
 router.use('/runtime', runtimeRoutes);
 router.use('/docs', docsRoutes);

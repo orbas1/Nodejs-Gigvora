@@ -7,6 +7,25 @@ import { RuntimeSecurityAuditEvent } from './runtimeSecurityAuditEvent.js';
 import { RbacPolicyAuditEvent } from './rbacPolicyAuditEvent.js';
 import { RuntimeAnnouncement } from './runtimeAnnouncement.js';
 import {
+  UserEvent,
+  UserEventAgendaItem,
+  UserEventTask,
+  UserEventGuest,
+  UserEventBudgetItem,
+  UserEventAsset,
+  UserEventChecklistItem,
+  USER_EVENT_STATUSES,
+  USER_EVENT_FORMATS,
+  USER_EVENT_VISIBILITIES,
+  USER_EVENT_TASK_STATUSES,
+  USER_EVENT_TASK_PRIORITIES,
+  USER_EVENT_GUEST_STATUSES,
+  USER_EVENT_BUDGET_STATUSES,
+  USER_EVENT_ASSET_TYPES,
+  USER_EVENT_ASSET_VISIBILITIES,
+  registerEventManagementAssociations,
+} from './eventManagement.js';
+import {
   ConsentPolicy,
   ConsentPolicyVersion,
   UserConsent,
@@ -180,6 +199,8 @@ User.searchByTerm = async function searchByTerm(term) {
     order: [['lastName', 'ASC']],
   });
 };
+
+registerEventManagementAssociations({ User });
 
 export const UserLoginAudit = sequelize.define(
   'UserLoginAudit',
@@ -16468,6 +16489,13 @@ export default {
   RuntimeSecurityAuditEvent,
   RbacPolicyAuditEvent,
   RuntimeAnnouncement,
+  UserEvent,
+  UserEventAgendaItem,
+  UserEventTask,
+  UserEventGuest,
+  UserEventBudgetItem,
+  UserEventAsset,
+  UserEventChecklistItem,
   UserLoginAudit,
   CareerDocument,
   CareerDocumentVersion,
@@ -16654,3 +16682,15 @@ if (unassignedModels.length) {
 }
 
 export { domainRegistry };
+
+export {
+  USER_EVENT_STATUSES,
+  USER_EVENT_FORMATS,
+  USER_EVENT_VISIBILITIES,
+  USER_EVENT_TASK_STATUSES,
+  USER_EVENT_TASK_PRIORITIES,
+  USER_EVENT_GUEST_STATUSES,
+  USER_EVENT_BUDGET_STATUSES,
+  USER_EVENT_ASSET_TYPES,
+  USER_EVENT_ASSET_VISIBILITIES,
+};
