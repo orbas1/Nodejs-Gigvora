@@ -365,6 +365,28 @@ export const CompanyProfile = sequelize.define(
   { tableName: 'company_profiles' },
 );
 
+export const CompanyDashboardOverview = sequelize.define(
+  'CompanyDashboardOverview',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    displayName: { type: DataTypes.STRING(150), allowNull: false },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    avatarUrl: { type: DataTypes.STRING(1024), allowNull: true },
+    followerCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    trustScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    rating: { type: DataTypes.DECIMAL(3, 2), allowNull: true },
+    preferences: { type: jsonType, allowNull: true },
+    lastEditedById: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  {
+    tableName: 'company_dashboard_overviews',
+    indexes: [
+      { unique: true, fields: ['workspaceId'] },
+      { fields: ['lastEditedById'] },
+    ],
+  },
+);
+
 export const AgencyProfile = sequelize.define(
   'AgencyProfile',
   {
@@ -15585,6 +15607,18 @@ MemberBrandingMetric.prototype.toPublicObject = function toPublicObject() {
 
 ProviderWorkspace.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
 ProviderWorkspace.hasMany(ProviderWorkspaceMember, { foreignKey: 'workspaceId', as: 'members' });
+ProviderWorkspace.hasOne(CompanyDashboardOverview, {
+  foreignKey: 'workspaceId',
+  as: 'dashboardOverview',
+});
+CompanyDashboardOverview.belongsTo(ProviderWorkspace, {
+  foreignKey: 'workspaceId',
+  as: 'workspace',
+});
+CompanyDashboardOverview.belongsTo(User, {
+  foreignKey: 'lastEditedById',
+  as: 'lastEditedBy',
+});
 ProviderWorkspace.hasMany(ProviderWorkspaceInvite, { foreignKey: 'workspaceId', as: 'invites' });
 ProviderWorkspace.hasMany(ProviderContactNote, { foreignKey: 'workspaceId', as: 'contactNotes' });
 ProviderWorkspace.hasMany(ExecutiveIntelligenceMetric, { foreignKey: 'workspaceId', as: 'executiveMetrics' });
