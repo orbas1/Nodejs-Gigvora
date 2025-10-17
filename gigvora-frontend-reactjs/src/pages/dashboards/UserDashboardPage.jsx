@@ -1,4 +1,7 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
+import { useMemo, useState } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import useCachedResource from '../../hooks/useCachedResource.js';
 import DataStatus from '../../components/DataStatus.jsx';
@@ -6,15 +9,32 @@ import { fetchUserDashboard } from '../../services/userDashboard.js';
 import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
 import DocumentStudioSection from '../../components/documentStudio/DocumentStudioSection.jsx';
 import ProjectGigManagementContainer from '../../components/projectGigManagement/ProjectGigManagementContainer.jsx';
+import UserMentoringSection from '../../components/mentoring/user/UserMentoringSection.jsx';
+import ProjectWorkspaceContainer from '../../components/projectWorkspace/ProjectWorkspaceContainer.jsx';
+import EscrowManagementSection from '../../components/escrow/EscrowManagementSection.jsx';
+import EventManagementSection from '../../components/eventManagement/EventManagementSection.jsx';
 import useSession from '../../hooks/useSession.js';
 import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
 import DashboardBlogSpotlight from '../../components/blog/DashboardBlogSpotlight.jsx';
 import AffiliateProgramSection from '../../components/affiliate/AffiliateProgramSection.jsx';
 import VolunteeringManagementSection from '../../components/volunteeringManagement/VolunteeringManagementSection.jsx';
+import { DashboardInboxWorkspace } from '../../features/inbox/index.js';
+import WebsitePreferencesSection from '../../components/websitePreferences/WebsitePreferencesSection.jsx';
+import ProfileSettingsSection from '../../components/profileSettings/ProfileSettingsSection.jsx';
+import WalletManagementSection from '../../components/wallet/WalletManagementSection.jsx';
+import DashboardNotificationCenterSection from '../../components/notifications/DashboardNotificationCenterSection.jsx';
+import useSavedSearches from '../../hooks/useSavedSearches.js';
+import { TopSearchSection } from './user/sections/index.js';
 
 const DEFAULT_USER_ID = 1;
 const availableDashboards = ['user', 'freelancer', 'agency', 'company', 'headhunter'];
 const allowedDashboardRoles = availableDashboards;
+
+const ESCROW_VIEW_TO_MENU = {
+  overview: 'escrow-overview',
+  release: 'escrow-release',
+  disputes: 'escrow-disputes',
+};
 
 function resolveUserId(session) {
   if (!session) {
@@ -158,16 +178,68 @@ function buildProfileCard(data, summary, session) {
 
 function buildMenuSections(data) {
   const summary = data?.summary ?? {};
+  const eventManagement = data?.eventManagement ?? {};
+  const eventOverview = eventManagement.overview ?? {};
+  const upcomingEventCount = Array.isArray(eventOverview.upcomingEvents)
+    ? eventOverview.upcomingEvents.length
+    : 0;
+  const nextEvent = eventOverview.nextEvent ?? null;
   const documents = data?.documents ?? {};
   const documentStudio = data?.documentStudio;
   const documentSummary = documentStudio?.summary ?? {};
   const projectGigManagement = data?.projectGigManagement ?? {};
+  const mentoring = data?.mentoring ?? {};
+  const mentoringSummary = mentoring.summary ?? {};
+  const projectWorkspace = data?.projectWorkspace ?? {};
   const projectSummary = projectGigManagement.summary ?? {};
+  const workspaceSummary = projectWorkspace.summary ?? {};
   const assetSummary = projectGigManagement.assets?.summary ?? {};
   const purchasedGigStats = projectGigManagement.purchasedGigs?.stats ?? {};
   const vendorAverages = purchasedGigStats.averages ?? {};
-  const storytelling = projectGigManagement.storytelling ?? {};
   const averageBoardProgress = projectGigManagement.managementBoard?.metrics?.averageProgress;
+  const lifecycleStats = projectGigManagement.projectLifecycle?.stats ?? {};
+  const openProjectsCount = lifecycleStats.openCount ?? projectSummary.activeProjects ?? 0;
+  const closedProjectsCount =
+    lifecycleStats.closedCount ?? Math.max(0, (projectSummary.totalProjects ?? 0) - openProjectsCount);
+  const lifecycleProgressLabel =
+    lifecycleStats.openAverageProgress != null
+      ? `${Number(lifecycleStats.openAverageProgress).toFixed(0)}% avg progress`
+      : averageBoardProgress != null
+      ? `${averageBoardProgress}% avg progress`
+      : 'tracking';
+  const bidStats = projectGigManagement.projectBids?.stats ?? {};
+  const totalBids = bidStats.total ?? projectSummary.bidsInPlay ?? 0;
+  const activeBidStatuses = ['sent', 'shortlisted', 'awarded'];
+  const activeBids = activeBidStatuses.reduce(
+    (accumulator, status) => accumulator + Number(bidStats.byStatus?.[status] ?? 0),
+    0,
+  );
+  const invitationStats = projectGigManagement.invitations?.stats ?? {};
+  const totalInvitations = invitationStats.total ?? 0;
+  const acceptedInvitations =
+    invitationStats.accepted ?? Number(invitationStats.byStatus?.accepted ?? 0);
+  const invitationAcceptanceRate =
+    totalInvitations > 0 ? Math.round((acceptedInvitations / totalInvitations) * 100) : null;
+  const autoMatchSummary = projectGigManagement.autoMatch?.summary ?? {};
+  const autoMatchSettings = projectGigManagement.autoMatch?.settings ?? {};
+  const autoMatchTotalMatches = autoMatchSummary.total ?? 0;
+  const autoMatchAverageScore =
+    autoMatchSummary.averageScore != null ? Number(autoMatchSummary.averageScore).toFixed(1) : null;
+  const autoMatchEnabled = autoMatchSettings.enabled ?? autoMatchTotalMatches > 0;
+  const autoMatchWindow = autoMatchSettings.matchingWindowDays ?? null;
+  const reviewSummary = projectGigManagement.reviews?.summary ?? {};
+  const reviewTotal = reviewSummary.total ?? 0;
+  const reviewAverage = reviewSummary.averageOverall != null ? Number(reviewSummary.averageOverall).toFixed(1) : null;
+  const escrowAccount = projectGigManagement.escrow?.account ?? {};
+  const escrowBalance = escrowAccount.balance ?? 0;
+  const escrowCurrency = escrowAccount.currency ?? projectSummary.currency ?? 'USD';
+  const escrowAutoReleaseDays = escrowAccount.autoReleaseDays ?? null;
+  const escrowTransactionCount = Array.isArray(projectGigManagement.escrow?.transactions)
+    ? projectGigManagement.escrow.transactions.length
+    : 0;
+  const storytelling = projectGigManagement.storytelling ?? {};
+  const disputeManagement = data?.disputeManagement ?? {};
+  const disputeSummary = disputeManagement.summary ?? {};
   const vendorScoreLabel =
     vendorAverages.overall != null ? `${Number(vendorAverages.overall).toFixed(1)}/5` : 'unrated';
   const portfolioProjects = Array.isArray(documentStudio?.brandHub?.portfolioProjects)
@@ -177,7 +249,69 @@ function buildMenuSections(data) {
   const pipelineAutomation = data?.careerPipelineAutomation ?? {};
   const automationMetrics = pipelineAutomation.kanban?.metrics ?? {};
   const automationBoardName = pipelineAutomation.board?.name ?? 'Career pipeline';
+  const walletCompliance = data?.compliance?.wallet ?? data?.profile?.walletCompliance ?? {};
+  const walletAccountCount = Array.isArray(walletCompliance.accounts) ? walletCompliance.accounts.length : 0;
+  const walletLedgerIntegrity = walletCompliance.ledgerIntegrity ?? 'unknown';
+  const walletComplianceStatus = walletCompliance.complianceStatus ?? 'inactive';
+  const escrowManagement = data?.escrowManagement ?? {};
+  const escrowSummary = escrowManagement.summary ?? {};
+  const escrowCurrency = escrowSummary.currency ?? 'USD';
   return [
+    {
+      label: 'Mentoring',
+      items: [
+        {
+          name: 'Sessions',
+          description: `${formatNumber(mentoringSummary.upcomingSessions ?? 0)} upcoming touchpoints ready.`,
+          tags: ['mentors', 'sessions'],
+          sectionId: 'mentoring-sessions',
+        },
+        {
+          name: 'Packages',
+          description: `${formatCurrency(
+            mentoringSummary.totalSpend ?? 0,
+            mentoringSummary.currency ?? 'USD',
+          )} tracked spend and credits.`,
+          tags: ['billing'],
+          sectionId: 'mentoring-packages',
+        },
+        {
+          name: 'People',
+          description: 'Favourite mentors and smart picks.',
+          tags: ['network'],
+          sectionId: 'mentoring-people',
+        },
+        {
+          name: 'Reviews',
+          description: 'Feedback log for every mentor.',
+          tags: ['insights'],
+          sectionId: 'mentoring-reviews',
+      label: 'Projects',
+      items: [
+        {
+          name: 'Workspace',
+          description: `${formatNumber(openProjectsCount)} open · ${formatNumber(totalBids)} bids · ${formatNumber(totalInvitations)} invites`,
+          href: '/dashboard/user/projects',
+          sectionId: 'project-workspace',
+      label: 'Events',
+      items: [
+        {
+          name: 'Plan',
+          description: '',
+          sectionId: 'event-management',
+        },
+        {
+          name: 'Guests',
+          description: '',
+          sectionId: 'event-management',
+        },
+        {
+          name: 'Finance',
+          description: '',
+          sectionId: 'event-management',
+        },
+      ],
+    },
     {
       label: 'Project & gig management',
       items: [
@@ -188,6 +322,14 @@ function buildMenuSections(data) {
           )} templates ready for mentors or freelancers.`,
           tags: ['briefs', 'collaboration'],
           sectionId: 'project-gig-creation',
+        },
+        {
+          name: 'Project workspace hub',
+          description: `Operate ${formatNumber(workspaceSummary.projectCount ?? 0)} workspaces with ${formatNumber(
+            workspaceSummary.activeCollaborators ?? 0,
+          )} collaborators active.`,
+          tags: ['workspace', 'collaboration'],
+          sectionId: 'project-workspace',
         },
         {
           name: 'Template gallery',
@@ -218,6 +360,12 @@ function buildMenuSections(data) {
           description: `Manage ${formatNumber(purchasedGigStats.totalOrders ?? 0)} vendor orders with CSAT ${vendorScoreLabel} and escrow safeguards.`,
           tags: ['vendors', 'escrow'],
           sectionId: 'project-gig-purchased',
+        },
+        {
+          name: 'Gig hub',
+          description: 'Timeline, chat, escrow, and reviews in one place.',
+          tags: ['timeline', 'chat'],
+          sectionId: 'project-gig-operations',
         },
         {
           name: 'CV-ready storytelling',
@@ -257,6 +405,36 @@ function buildMenuSections(data) {
       ],
     },
     {
+      label: 'Messaging & collaboration',
+      items: [
+        {
+          name: 'Inbox',
+          description: 'Manage secure conversations, live calls, and role-based access in one inbox.',
+          tags: ['messaging', 'support'],
+          sectionId: 'messaging-inbox',
+        },
+        {
+          name: 'Support desk',
+          description: 'Escalate threads with audit trails and automate responses.',
+          tags: ['support', 'automation'],
+          sectionId: 'insights-accountability-support',
+      label: 'Search',
+      items: [
+        {
+          name: 'Search',
+          description: 'Saved alerts',
+          tags: ['search'],
+          sectionId: 'top-search',
+        },
+        {
+          name: 'Explorer',
+          description: 'Full explorer',
+          tags: ['explorer'],
+          href: '/search',
+        },
+      ],
+    },
+    {
       label: 'Career operations',
       items: [
         {
@@ -289,8 +467,34 @@ function buildMenuSections(data) {
           description: `${formatNumber(portfolioProjects || portfolioCount)} public case studies, testimonials, and banners.`,
         },
         {
+          name: 'Website',
+          description: 'Design your hosted site with colors, pages, and SEO.',
+          tags: ['website', 'brand'],
+          sectionId: 'website-preferences',
+        },
+        {
           name: 'Purchased gigs',
           description: `Review ${formatNumber(documentStudio?.purchasedGigs?.stats?.total ?? 0)} vendor deliverables feeding your workspace.`,
+        },
+      ],
+    },
+    {
+      label: 'Funds',
+      items: [
+        {
+          id: 'escrow-overview',
+          name: 'Escrow',
+          sectionId: 'escrow-management',
+        },
+        {
+          id: 'escrow-release',
+          name: 'Release',
+          sectionId: 'escrow-management',
+        },
+        {
+          id: 'escrow-disputes',
+          name: 'Disputes',
+          sectionId: 'escrow-management',
         },
       ],
     },
@@ -312,8 +516,60 @@ function buildMenuSections(data) {
           description: `Maintain ${formatNumber(summary.connections)} relationships for referrals and mentorship.`,
         },
         {
-          name: 'Profile settings',
-          description: 'Control availability, visibility, and launchpad eligibility signals.',
+          name: 'Profile',
+          description: 'Edit your profile, tags, and collaboration data in one workspace.',
+          sectionId: 'profile',
+        },
+      ],
+    },
+    {
+      label: 'Finance',
+      items: [
+        {
+          name: 'Wallet',
+          description: `${formatNumber(walletAccountCount)} accounts • ${walletLedgerIntegrity === 'good' ? 'Balanced' : 'Review'}`,
+          tags: ['wallet'],
+          sectionId: 'wallet-home',
+        },
+        {
+          name: 'Sources',
+          description: 'Payment methods',
+          tags: ['payments'],
+          sectionId: 'wallet-sources',
+        },
+        {
+          name: 'Rules',
+          description: `${walletComplianceStatus.replace(/_/g, ' ')} automation`,
+          tags: ['automation'],
+          sectionId: 'wallet-rules',
+        },
+        {
+          name: 'Moves',
+          description: 'Transfer queue',
+          tags: ['payouts'],
+          sectionId: 'wallet-moves',
+        },
+        {
+          name: 'Escrow',
+          description: 'Reserves overview',
+          tags: ['escrow'],
+          sectionId: 'wallet-escrow',
+      label: 'Alerts',
+      items: [
+        {
+          name: 'Inbox',
+          description: `${formatNumber(data?.notifications?.unreadCount ?? 0)} unread`,
+          tags: ['notifications', 'alerts'],
+          sectionId: 'notifications-center',
+        },
+        {
+          name: 'Digest',
+          description: `${
+            data?.notifications?.preferences?.digestFrequency
+              ? data.notifications.preferences.digestFrequency.replace(/^(\w)/, (match) => match.toUpperCase())
+              : 'Immediate'
+          } cadence`,
+          sectionId: 'notifications-center',
         },
       ],
     },
@@ -344,6 +600,25 @@ function buildMenuSections(data) {
         },
       ],
     },
+    {
+      label: 'Trust',
+      items: [
+        {
+          name: 'Disputes',
+          description: `${formatNumber(disputeSummary.openCount ?? 0)} open · ${formatNumber(
+            disputeSummary.awaitingCustomerAction ?? 0,
+          )} waiting`,
+          tags: ['cases'],
+          href: '/dashboard/user/disputes',
+          sectionId: 'disputes',
+        },
+        {
+          name: 'Escrow',
+          description: 'Releases, holds, and guardrails overview.',
+          tags: ['payments'],
+        },
+      ],
+    },
   ];
 }
 
@@ -351,6 +626,8 @@ export default function UserDashboardPage() {
   const { session, isAuthenticated } = useSession();
   const userId = session ? resolveUserId(session) : null;
   const shouldLoadDashboard = Boolean(isAuthenticated && userId);
+  const [activeMenuItemId, setActiveMenuItemId] = useState(null);
+  const [activeMentoringPanel, setActiveMentoringPanel] = useState('mentoring-sessions');
 
   const { data, error, loading, fromCache, lastUpdated, refresh } = useCachedResource(
     `dashboard:user:${userId ?? 'anonymous'}`,
@@ -366,6 +643,15 @@ export default function UserDashboardPage() {
       enabled: shouldLoadDashboard,
     },
   );
+
+  const {
+    items: savedSearches,
+    loading: savedSearchesLoading,
+    createSavedSearch,
+    updateSavedSearch,
+    deleteSavedSearch,
+    runSavedSearch,
+  } = useSavedSearches({ enabled: shouldLoadDashboard });
 
   const summary = data?.summary ?? {
     totalApplications: 0,
@@ -415,12 +701,61 @@ export default function UserDashboardPage() {
   const interviews = Array.isArray(data?.interviews) ? data.interviews : [];
   const documents = data?.documents ?? { attachments: [], portfolioLinks: [] };
   const documentStudio = data?.documentStudio ?? null;
+  const eventManagement = data?.eventManagement ?? null;
+  const eventManagementOverview = eventManagement?.overview ?? null;
   const projectGigManagement = data?.projectGigManagement ?? null;
+  const mentoring = data?.mentoring ?? null;
+  const websitePreferences = data?.websitePreferences ?? null;
+  const escrowManagement = data?.escrowManagement ?? null;
   const notifications = Array.isArray(data?.notifications?.recent) ? data.notifications.recent : [];
+  const notificationsUnreadCount = Number(data?.notifications?.unreadCount ?? 0);
+  const notificationPreferences = data?.notifications?.preferences ?? null;
+  const notificationStats = data?.notifications?.stats ?? null;
   const projectActivity = Array.isArray(data?.projectActivity?.recent) ? data.projectActivity.recent : [];
   const launchpadApplications = Array.isArray(data?.launchpad?.applications) ? data.launchpad.applications : [];
   const affiliateProgram = data?.affiliate ?? null;
   const affiliateOverview = affiliateProgram?.overview ?? {};
+  const disputeManagement = data?.disputeManagement ?? null;
+
+  const [activeMenuItem, setActiveMenuItem] = useState(null);
+  const [escrowView, setEscrowView] = useState('overview');
+
+  const handleMenuSelect = (itemId, item) => {
+    setActiveMenuItem(itemId);
+    if (itemId === 'escrow-overview') {
+      setEscrowView('overview');
+    } else if (itemId === 'escrow-release') {
+      setEscrowView('release');
+    } else if (itemId === 'escrow-disputes') {
+      setEscrowView('disputes');
+    }
+
+    if (item?.href && typeof window !== 'undefined') {
+      if (item.href.startsWith('http')) {
+        window.open(item.href, item.target ?? '_blank', 'noreferrer');
+      } else {
+        window.location.assign(item.href);
+      }
+      return;
+    }
+
+    const targetId = item?.sectionId ?? item?.targetId;
+    if (targetId && typeof document !== 'undefined') {
+      const targetElement = document.getElementById(targetId);
+      if (targetElement) {
+        targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  };
+
+  const handleEscrowViewChange = (view) => {
+    setEscrowView(view);
+    const menuId = ESCROW_VIEW_TO_MENU[view] ?? null;
+    if (menuId) {
+      setActiveMenuItem(menuId);
+    }
+  };
+  const topSearchData = data?.topSearch ?? null;
 
   const insights = data?.insights ?? {};
   const careerAnalytics = insights.careerAnalytics ?? {};
@@ -457,13 +792,55 @@ export default function UserDashboardPage() {
   const supportSummary = supportDesk.summary ?? {};
 
   const menuSections = useMemo(() => buildMenuSections(data), [data]);
+  const handleDashboardMenuSelect = useCallback(
+    (itemId, item) => {
+      if (!item) {
+        return;
+      }
+      const targetId = item.sectionId ?? item.targetId ?? item.id ?? itemId;
+      setActiveMenuItemId(itemId);
+      if (targetId && targetId.startsWith('mentoring-')) {
+        setActiveMentoringPanel(targetId);
+      }
+      if (targetId && typeof document !== 'undefined') {
+        const scrollToTarget = () => {
+          const targetElement = document.getElementById(targetId);
+          if (targetElement) {
+            targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        };
+        if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+          window.requestAnimationFrame(scrollToTarget);
+        } else {
+          setTimeout(scrollToTarget, 0);
+        }
+      }
+    },
+    [],
+  );
+  useEffect(() => {
+    const mentoringItems = menuSections
+      .flatMap((section) => section.items)
+      .filter((item) => item.sectionId?.startsWith('mentoring-'));
+    const matchingItem = mentoringItems.find((item) => item.sectionId === activeMentoringPanel);
+    const activeIsMentoring = mentoringItems.some((item) => item.id === activeMenuItemId);
+    if (matchingItem && (!activeMenuItemId || activeIsMentoring) && activeMenuItemId !== matchingItem.id) {
+      setActiveMenuItemId(matchingItem.id);
+    }
+  }, [menuSections, activeMentoringPanel, activeMenuItemId]);
   const profileCard = useMemo(() => buildProfileCard(data, summary, session), [data, session, summary]);
+  const canEditWebsite = Boolean(isAuthenticated);
 
   const summaryCards = [
     {
       label: 'Total applications',
       value: summary.totalApplications,
       description: 'Opportunities you have submitted or are drafting.',
+    },
+    {
+      label: 'Active events',
+      value: eventManagementOverview?.active ?? 0,
+      description: `Managing ${formatNumber(eventManagementOverview?.events ?? 0)} total events across your programs.`,
     },
     {
       label: 'Active pipeline',
@@ -509,6 +886,10 @@ export default function UserDashboardPage() {
       sections={[]}
       profile={profileCard}
       availableDashboards={availableDashboards}
+      onMenuItemSelect={handleDashboardMenuSelect}
+      activeMenuItem={activeMenuItemId}
+      activeMenuItem={activeMenuItem}
+      onMenuItemSelect={handleMenuSelect}
     >
       <div className="space-y-10">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -537,6 +918,35 @@ export default function UserDashboardPage() {
             </div>
           ))}
         </section>
+
+        <UserMentoringSection
+          mentoring={mentoring}
+          userId={userId}
+          onRefresh={refresh}
+          canEdit={canEditMentoring}
+          activePanelId={activeMentoringPanel}
+          onPanelChange={(panelId) => {
+            setActiveMentoringPanel(panelId);
+            const matchingItem = menuSections
+              .flatMap((section) => section.items)
+              .find((item) => item.sectionId === panelId);
+            if (matchingItem) {
+              setActiveMenuItemId(matchingItem.id);
+            }
+          }}
+        <section id="messaging-inbox">
+          <DashboardInboxWorkspace />
+        </section>
+        {userId ? <WalletManagementSection userId={userId} /> : null}
+        <TopSearchSection
+          data={topSearchData}
+          savedSearches={savedSearches}
+          savedSearchesLoading={savedSearchesLoading}
+          onCreateSavedSearch={createSavedSearch}
+          onUpdateSavedSearch={updateSavedSearch}
+          onDeleteSavedSearch={deleteSavedSearch}
+          onRunSavedSearch={runSavedSearch}
+        />
 
         <section id="career-pipeline-automation" className="space-y-8">
           <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-accentSoft p-6 shadow-sm">
@@ -1391,7 +1801,7 @@ export default function UserDashboardPage() {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section id="project-workspace" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-semibold text-slate-900">Recent applications</h2>
             <span className="text-xs uppercase tracking-wide text-slate-500">Showing up to 10 latest updates</span>
@@ -1487,12 +1897,68 @@ export default function UserDashboardPage() {
           </div>
         </section>
 
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Project workspace</h2>
+              <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-500">
+                <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-700">
+                  Open {formatNumber(openProjectsCount)}
+                </span>
+                <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-700">
+                  Closed {formatNumber(closedProjectsCount)}
+                </span>
+                <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-700">
+                  Bids {formatNumber(totalBids)}
+                </span>
+              </div>
+            </div>
+            <Link
+              to="/dashboard/user/projects"
+              className="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
+            >
+              Open workspace
+            </Link>
+          </div>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-500">Projects</p>
+              <p className="text-sm font-semibold text-slate-900">{formatNumber(openProjectsCount)} open / {formatNumber(closedProjectsCount)} closed</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-500">Invites</p>
+              <p className="text-sm font-semibold text-slate-900">{formatNumber(totalInvitations)} sent / {formatNumber(acceptedInvitations)} accepted</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-500">Matches</p>
+              <p className="text-sm font-semibold text-slate-900">{formatNumber(autoMatchSummary.total ?? 0)} in pool</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-500">Escrow</p>
+              <p className="text-sm font-semibold text-slate-900">{formatCurrency(escrowAccount.balance ?? 0, escrowCurrency) ?? '—'}</p>
+            </div>
+          </div>
+        </section>
+        <ProjectWorkspaceContainer userId={userId} />
+        {userId ? (
+          <EventManagementSection data={eventManagement} userId={userId} onRefresh={() => refresh({ force: true })} />
+        ) : null}
+
         <ProjectGigManagementContainer userId={userId} />
         <VolunteeringManagementSection
           userId={userId}
           data={data?.volunteeringManagement}
           onRefresh={() => refresh({ force: true })}
         />
+        {escrowManagement ? (
+          <EscrowManagementSection
+            data={escrowManagement}
+            userId={userId}
+            onRefresh={() => refresh({ force: true })}
+            activeView={escrowView}
+            onViewChange={handleEscrowViewChange}
+          />
+        ) : null}
         {documentStudio ? (
           <DocumentStudioSection
             data={documentStudio}
@@ -1571,6 +2037,47 @@ export default function UserDashboardPage() {
                 )}
               </div>
             </div>
+          </div>
+        </section>
+
+        <WebsitePreferencesSection
+          userId={userId}
+          initialPreferences={websitePreferences}
+          onRefresh={() => refresh({ force: true })}
+          canEdit={canEditWebsite}
+        />
+        <section id="disputes" className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Disputes</h2>
+              <p className="text-sm text-slate-500">
+                {formatNumber(disputeSummary.openCount ?? 0)} open · {formatNumber(disputeSummary.awaitingCustomerAction ?? 0)} waiting on you
+              </p>
+              {disputeSummary.upcomingDeadlines?.[0]?.dueAt ? (
+                <p className="mt-2 inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+                  Next due {formatAbsolute(disputeSummary.upcomingDeadlines[0].dueAt)}
+                </p>
+              ) : null}
+            </div>
+            <Link
+              to="/dashboard/user/disputes"
+              className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-accent/90"
+            >
+              Open workspace
+            </Link>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { label: 'Open', value: disputeSummary.openCount },
+              { label: 'Waiting on you', value: disputeSummary.awaitingCustomerAction },
+              { label: 'Escalated', value: disputeSummary.escalatedCount },
+              { label: 'Total', value: disputeSummary.total },
+            ].map((metric) => (
+              <div key={metric.label} className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{metric.label}</p>
+                <p className="mt-2 text-2xl font-semibold text-slate-900">{formatNumber(metric.value ?? 0)}</p>
+              </div>
+            ))}
           </div>
         </section>
 
@@ -2089,34 +2596,31 @@ export default function UserDashboardPage() {
           </div>
         </section>
 
+        {data?.profile ? (
+          <ProfileSettingsSection
+            profile={data.profile}
+            userId={userId}
+            onRefresh={refresh}
+            session={session}
+          />
+        ) : null}
+
         <section id="affiliate-program" className="rounded-3xl border border-slate-200 bg-white p-0 shadow-sm">
           <AffiliateProgramSection data={affiliateProgram} />
         </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">Notifications</h2>
-          <div className="mt-4 space-y-3">
-            {notifications.length ? (
-              notifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  className={`rounded-2xl border p-4 ${notification.isUnread ? 'border-accent/50 bg-accentSoft/70' : 'border-slate-200 bg-slate-50/70'}`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-800">{notification.title}</p>
-                      {notification.body ? (
-                        <p className="mt-1 text-sm text-slate-600">{notification.body}</p>
-                      ) : null}
-                    </div>
-                    <span className="text-xs text-slate-500">{formatRelativeTime(notification.createdAt)}</span>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-sm text-slate-500">You are all caught up — new notifications will appear here as recruiters or automations update your workflow.</p>
-            )}
-          </div>
+        <section
+          id="notifications-center"
+          className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+        >
+          <DashboardNotificationCenterSection
+            userId={userId ?? DEFAULT_USER_ID}
+            initialNotifications={notifications}
+            initialUnreadCount={notificationsUnreadCount}
+            initialPreferences={notificationPreferences}
+            initialStats={notificationStats}
+            session={session}
+          />
         </section>
       </div>
     </DashboardLayout>
@@ -2128,3 +2632,4 @@ export default function UserDashboardPage() {
     </DashboardAccessGuard>
   );
 }
+  const canEditMentoring = Boolean(isAuthenticated && userId);
