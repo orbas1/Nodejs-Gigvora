@@ -153,6 +153,12 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
     label: 'Operations & governance',
     items: [
       {
+        name: 'Project workspace',
+        description: 'Coordinate budgets, tasks, meetings, files, and staffing for each project.',
+        sectionId: 'project-workspace',
+        href: '/dashboard/company/workspace',
+      },
+      {
         name: 'Calendar & communications',
         description: 'Sync recruiting calendars, digests, integrations, and cross-functional updates.',
         sectionId: 'calendar-communications',
