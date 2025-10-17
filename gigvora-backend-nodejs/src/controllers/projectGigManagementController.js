@@ -1,10 +1,21 @@
 import {
   getProjectGigManagementOverview,
   createProject,
+  updateProject,
   addProjectAsset,
+  updateProjectAsset,
+  deleteProjectAsset,
   updateProjectWorkspace,
+  createProjectMilestone,
+  updateProjectMilestone,
+  deleteProjectMilestone,
+  createProjectCollaborator,
+  updateProjectCollaborator,
+  deleteProjectCollaborator,
   createGigOrder,
   updateGigOrder,
+  archiveProject,
+  restoreProject,
 } from '../services/projectGigManagementWorkflowService.js';
 import { AuthorizationError } from '../utils/errors.js';
 import {
@@ -141,6 +152,16 @@ export async function storeProject(req, res) {
   res.status(201).json({ project: result, dashboard: snapshot });
 }
 
+export async function patchProject(req, res) {
+  const ownerId = parseOwnerId(req);
+  const access = ensureManageAccess(req, ownerId);
+  const projectId = Number.parseInt(req.params?.projectId, 10);
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
+    updateProject(ownerId, projectId, req.body),
+  );
+  res.json({ project: result, dashboard: snapshot });
+}
+
 export async function storeAsset(req, res) {
   const ownerId = parseOwnerId(req);
   const access = ensureManageAccess(req, ownerId);
@@ -151,6 +172,28 @@ export async function storeAsset(req, res) {
   res.status(201).json({ asset: result, dashboard: snapshot });
 }
 
+export async function patchAsset(req, res) {
+  const ownerId = parseOwnerId(req);
+  const access = ensureManageAccess(req, ownerId);
+  const projectId = Number.parseInt(req.params?.projectId, 10);
+  const assetId = Number.parseInt(req.params?.assetId, 10);
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
+    updateProjectAsset(ownerId, projectId, assetId, req.body),
+  );
+  res.json({ asset: result, dashboard: snapshot });
+}
+
+export async function destroyAsset(req, res) {
+  const ownerId = parseOwnerId(req);
+  const access = ensureManageAccess(req, ownerId);
+  const projectId = Number.parseInt(req.params?.projectId, 10);
+  const assetId = Number.parseInt(req.params?.assetId, 10);
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
+    deleteProjectAsset(ownerId, projectId, assetId),
+  );
+  res.json({ asset: result, dashboard: snapshot });
+}
+
 export async function patchWorkspace(req, res) {
   const ownerId = parseOwnerId(req);
   const access = ensureManageAccess(req, ownerId);
@@ -159,6 +202,90 @@ export async function patchWorkspace(req, res) {
     updateProjectWorkspace(ownerId, projectId, req.body),
   );
   res.json({ workspace: result, dashboard: snapshot });
+}
+
+export async function archiveProjectAction(req, res) {
+  const ownerId = parseOwnerId(req);
+  const access = ensureManageAccess(req, ownerId);
+  const projectId = Number.parseInt(req.params?.projectId, 10);
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
+    archiveProject(ownerId, projectId, req.body ?? {}),
+  );
+  res.json({ project: result, dashboard: snapshot });
+}
+
+export async function restoreProjectAction(req, res) {
+  const ownerId = parseOwnerId(req);
+  const access = ensureManageAccess(req, ownerId);
+  const projectId = Number.parseInt(req.params?.projectId, 10);
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
+    restoreProject(ownerId, projectId, req.body ?? {}),
+  );
+  res.json({ project: result, dashboard: snapshot });
+}
+
+export async function storeMilestone(req, res) {
+  const ownerId = parseOwnerId(req);
+  const access = ensureManageAccess(req, ownerId);
+  const projectId = Number.parseInt(req.params?.projectId, 10);
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
+    createProjectMilestone(ownerId, projectId, req.body),
+  );
+  res.status(201).json({ milestone: result, dashboard: snapshot });
+}
+
+export async function patchMilestone(req, res) {
+  const ownerId = parseOwnerId(req);
+  const access = ensureManageAccess(req, ownerId);
+  const projectId = Number.parseInt(req.params?.projectId, 10);
+  const milestoneId = Number.parseInt(req.params?.milestoneId, 10);
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
+    updateProjectMilestone(ownerId, projectId, milestoneId, req.body),
+  );
+  res.json({ milestone: result, dashboard: snapshot });
+}
+
+export async function destroyMilestone(req, res) {
+  const ownerId = parseOwnerId(req);
+  const access = ensureManageAccess(req, ownerId);
+  const projectId = Number.parseInt(req.params?.projectId, 10);
+  const milestoneId = Number.parseInt(req.params?.milestoneId, 10);
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
+    deleteProjectMilestone(ownerId, projectId, milestoneId),
+  );
+  res.json({ milestone: result, dashboard: snapshot });
+}
+
+export async function storeCollaborator(req, res) {
+  const ownerId = parseOwnerId(req);
+  const access = ensureManageAccess(req, ownerId);
+  const projectId = Number.parseInt(req.params?.projectId, 10);
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
+    createProjectCollaborator(ownerId, projectId, req.body),
+  );
+  res.status(201).json({ collaborator: result, dashboard: snapshot });
+}
+
+export async function patchCollaborator(req, res) {
+  const ownerId = parseOwnerId(req);
+  const access = ensureManageAccess(req, ownerId);
+  const projectId = Number.parseInt(req.params?.projectId, 10);
+  const collaboratorId = Number.parseInt(req.params?.collaboratorId, 10);
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
+    updateProjectCollaborator(ownerId, projectId, collaboratorId, req.body),
+  );
+  res.json({ collaborator: result, dashboard: snapshot });
+}
+
+export async function destroyCollaborator(req, res) {
+  const ownerId = parseOwnerId(req);
+  const access = ensureManageAccess(req, ownerId);
+  const projectId = Number.parseInt(req.params?.projectId, 10);
+  const collaboratorId = Number.parseInt(req.params?.collaboratorId, 10);
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
+    deleteProjectCollaborator(ownerId, projectId, collaboratorId),
+  );
+  res.json({ collaborator: result, dashboard: snapshot });
 }
 
 export async function storeGigOrder(req, res) {
@@ -181,8 +308,19 @@ export async function patchGigOrder(req, res) {
 export default {
   overview,
   storeProject,
+  patchProject,
   storeAsset,
+  patchAsset,
+  destroyAsset,
   patchWorkspace,
+  archiveProjectAction,
+  restoreProjectAction,
+  storeMilestone,
+  patchMilestone,
+  destroyMilestone,
+  storeCollaborator,
+  patchCollaborator,
+  destroyCollaborator,
   storeGigOrder,
   patchGigOrder,
 };

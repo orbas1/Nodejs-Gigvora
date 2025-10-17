@@ -16,6 +16,7 @@ import {
   BrandAsset,
   PROJECT_STATUSES,
   PROJECT_RISK_LEVELS,
+  PROJECT_COLLABORATOR_STATUSES,
   GIG_ORDER_STATUSES,
   syncProjectGigManagementModels,
 } from '../models/projectGigManagementModels.js';
@@ -236,11 +237,107 @@ function buildStorytelling(projects, orders, storyBlocks) {
   return { achievements, quickExports, prompts };
 }
 
+function parseTagList(value) {
+  if (!value) {
+    return [];
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => (typeof item === 'string' ? item.trim() : null))
+      .filter((item) => item && item.length > 0)
+      .slice(0, 20);
+  }
+
+  if (typeof value === 'string') {
+    return value
+      .split(/[,#/]+/)
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0)
+      .slice(0, 20);
+  }
+
+  return [];
+}
+
+function buildLifecycleSnapshot(project) {
+  const workspaceStatus = project.workspace?.status ?? project.status ?? 'planning';
+  const nextDueAt = project.workspace?.nextMilestoneDueAt ?? project.dueDate ?? null;
+  const dueDate = nextDueAt ? new Date(nextDueAt) : null;
+  const overdue = dueDate ? dueDate.getTime() < Date.now() : false;
+  const riskLevel = project.workspace?.riskLevel ?? 'low';
+  const progressPercent = normalizeNumber(project.workspace?.progressPercent ?? 0);
+
+  const milestoneCount = Array.isArray(project.milestones) ? project.milestones.length : 0;
+  const completedMilestones = Array.isArray(project.milestones)
+    ? project.milestones.filter((milestone) => milestone.status === 'completed').length
+    : 0;
+  const upcomingMilestone = Array.isArray(project.milestones)
+    ? project.milestones.find((milestone) => milestone.status !== 'completed') ?? null
+    : null;
+
+  const metadata = project.metadata ?? {};
+  const clientName = metadata.clientName ?? metadata.client ?? null;
+  const workspaceUrl = metadata.workspaceUrl ?? metadata.portalUrl ?? metadata.clientPortalUrl ?? null;
+  const coverImageUrl = metadata.coverImageUrl ?? metadata.heroImageUrl ?? metadata.thumbnailUrl ?? null;
+  const highlightImageUrl = metadata.highlightImageUrl ?? metadata.presentationImageUrl ?? null;
+  const tags = parseTagList(metadata.tags);
+
+  const archivedAt = project.archivedAt ? new Date(project.archivedAt).toISOString() : null;
+  const startDate = project.startDate ? new Date(project.startDate) : null;
+  const cycleTimeDays = archivedAt && startDate ? Math.max(Math.round((new Date(archivedAt) - startDate) / (1000 * 60 * 60 * 24)), 0) : null;
+  const reopenedAt = metadata.lifecycle?.restoredAt ?? metadata.restoredAt ?? null;
+  const lastStatusChange = metadata.lifecycle?.lastStatusChange ?? null;
+
+  const healthScore = (() => {
+    const baseline = Number.isFinite(progressPercent) ? progressPercent : 0;
+    const riskPenalty = riskLevel === 'high' ? -35 : riskLevel === 'medium' ? -15 : 5;
+    const overduePenalty = overdue ? -20 : 0;
+    const completionBoost = workspaceStatus === 'completed' ? 20 : 0;
+    const score = baseline + riskPenalty + overduePenalty + completionBoost + completedMilestones * 2;
+    return Math.max(0, Math.min(100, Math.round(score)));
+  })();
+
+  return {
+    workspaceStatus,
+    nextDueAt,
+    overdue,
+    riskLevel,
+    progressPercent,
+    milestoneCount,
+    completedMilestones,
+    upcomingMilestone: upcomingMilestone
+      ? {
+          id: upcomingMilestone.id,
+          title: upcomingMilestone.title,
+          dueDate: upcomingMilestone.dueDate,
+          status: upcomingMilestone.status,
+        }
+      : null,
+    clientName,
+    workspaceUrl,
+    coverImageUrl,
+    highlightImageUrl,
+    tags,
+    archivedAt,
+    cycleTimeDays,
+    reopenedAt,
+    lastStatusChange,
+    lastUpdatedAt: project.updatedAt ?? project.createdAt ?? null,
+    healthScore,
+  };
+}
+
 function sanitizeProject(projectInstance) {
   const project = projectInstance.get({ plain: true });
-  return {
+  const enriched = {
     ...project,
     budget: computeBudgetSnapshot(project),
+  };
+
+  return {
+    ...enriched,
+    lifecycle: buildLifecycleSnapshot(enriched),
   };
 }
 
@@ -327,16 +424,29 @@ export async function getProjectGigManagementOverview(ownerId) {
   const storyBlocks = await StoryBlock.findAll({ where: { ownerId }, order: [['createdAt', 'DESC']] });
   const brandAssets = await BrandAsset.findAll({ where: { ownerId }, order: [['createdAt', 'DESC']] });
 
+  const sanitizedProjects = projects.map((project) => sanitizeProject(project));
+  const openProjects = sanitizedProjects.filter((project) => {
+    const status = project.lifecycle?.workspaceStatus ?? project.status ?? 'planning';
+    return !project.archivedAt && status !== 'completed';
+  });
+  const closedProjects = sanitizedProjects.filter((project) => {
+    const status = project.lifecycle?.workspaceStatus ?? project.status ?? 'planning';
+    return project.archivedAt != null || status === 'completed';
+  });
+
   const summary = {
-    totalProjects: projects.length,
-    activeProjects: projects.filter((project) => project.status !== 'completed').length,
-    budgetInPlay: projects.reduce((acc, project) => acc + normalizeNumber(project.budgetAllocated), 0),
+    totalProjects: sanitizedProjects.length,
+    activeProjects: openProjects.length,
+    closedProjects: closedProjects.length,
+    atRiskProjects: openProjects.filter((project) => project.lifecycle?.riskLevel === 'high').length,
+    budgetInPlay: openProjects.reduce(
+      (acc, project) => acc + normalizeNumber(project.budget?.allocated ?? project.budgetAllocated),
+      0,
+    ),
     gigsInDelivery: orders.filter((order) => !['completed', 'cancelled'].includes(order.status)).length,
     templatesAvailable: templates.length,
     assetsSecured: brandAssets.length,
   };
-
-  const sanitizedProjects = projects.map((project) => sanitizeProject(project));
   const assets = sanitizedProjects.flatMap((project) => project.assets);
   const assetSummary = summarizeAssets(assets);
   const board = {
@@ -368,6 +478,128 @@ export async function getProjectGigManagementOverview(ownerId) {
       stats: vendorStats,
     },
     storytelling,
+    projectLifecycle: buildProjectLifecycleSnapshot(sanitizedProjects),
+  };
+}
+
+function buildProjectLifecycleSnapshot(projects) {
+  const openProjects = projects.filter((project) => {
+    const status = project.lifecycle?.workspaceStatus ?? project.status ?? 'planning';
+    return !project.archivedAt && status !== 'completed';
+  });
+
+  const closedProjects = projects.filter((project) => {
+    const status = project.lifecycle?.workspaceStatus ?? project.status ?? 'planning';
+    return project.archivedAt != null || status === 'completed';
+  });
+
+  const budgetInPlay = openProjects.reduce(
+    (acc, project) => acc + normalizeNumber(project.budget?.allocated ?? project.budgetAllocated),
+    0,
+  );
+
+  const overdueCount = openProjects.filter((project) => project.lifecycle?.overdue).length;
+  const atRiskCount = openProjects.filter((project) => project.lifecycle?.riskLevel === 'high').length;
+  const averageProgress = openProjects.length
+    ?
+        openProjects.reduce(
+          (acc, project) => acc + normalizeNumber(project.lifecycle?.progressPercent ?? project.workspace?.progressPercent),
+          0,
+        ) / openProjects.length
+    : 0;
+
+  const cycleTimes = closedProjects
+    .map((project) => normalizeNumber(project.lifecycle?.cycleTimeDays, null))
+    .filter((value) => value != null && value > 0);
+  const averageCycleTimeDays = cycleTimes.length
+    ? cycleTimes.reduce((acc, value) => acc + value, 0) / cycleTimes.length
+    : null;
+
+  const THIRTY_DAYS = 1000 * 60 * 60 * 24 * 30;
+  const NINETY_DAYS = THIRTY_DAYS * 3;
+  const now = Date.now();
+
+  const archivedLast30Days = closedProjects.filter((project) => {
+    if (!project.archivedAt) {
+      return false;
+    }
+    const archivedDate = new Date(project.archivedAt);
+    return !Number.isNaN(archivedDate.getTime()) && now - archivedDate.getTime() <= THIRTY_DAYS;
+  }).length;
+
+  const reopenedLast90Days = closedProjects.filter((project) => {
+    const reopenedAt = project.lifecycle?.reopenedAt;
+    if (!reopenedAt) {
+      return false;
+    }
+    const reopenedDate = new Date(reopenedAt);
+    return !Number.isNaN(reopenedDate.getTime()) && now - reopenedDate.getTime() <= NINETY_DAYS;
+  }).length;
+
+  const healthDistribution = openProjects.reduce(
+    (acc, project) => {
+      const score = normalizeNumber(project.lifecycle?.healthScore, 0);
+      if (score >= 70) {
+        acc.healthy += 1;
+      } else if (score >= 40) {
+        acc.watch += 1;
+      } else {
+        acc.intervention += 1;
+      }
+      return acc;
+    },
+    { healthy: 0, watch: 0, intervention: 0 },
+  );
+
+  const clientCounts = new Map();
+  const tagCounts = new Map();
+  openProjects.forEach((project) => {
+    const clientName = project.lifecycle?.clientName?.toString().trim();
+    if (clientName) {
+      clientCounts.set(clientName, (clientCounts.get(clientName) ?? 0) + 1);
+    }
+    (project.lifecycle?.tags ?? []).forEach((tag) => {
+      const normalized = tag.toString().trim();
+      if (normalized) {
+        tagCounts.set(normalized, (tagCounts.get(normalized) ?? 0) + 1);
+      }
+    });
+  });
+
+  const topClients = Array.from(clientCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([name, count]) => ({ name, count }));
+
+  const topTags = Array.from(tagCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([name, count]) => ({ name, count }));
+
+  return {
+    open: openProjects,
+    closed: closedProjects,
+    stats: {
+      openCount: openProjects.length,
+      closedCount: closedProjects.length,
+      overdueCount,
+      atRiskCount,
+      averageProgress,
+      averageCycleTimeDays,
+      budgetInPlay,
+      archivedLast30Days,
+      reopenedLast90Days,
+      healthDistribution,
+      topClients,
+      topTags,
+    },
+    filters: {
+      statuses: PROJECT_STATUSES,
+      riskLevels: PROJECT_RISK_LEVELS,
+    },
+    meta: {
+      generatedAt: new Date().toISOString(),
+    },
   };
 }
 
@@ -508,6 +740,78 @@ export async function addProjectAsset(ownerId, projectId, payload) {
   });
 }
 
+export async function updateProjectAsset(ownerId, projectId, assetId, payload) {
+  await ensureInitialized();
+  const project = await Project.findByPk(projectId);
+  assertOwnership(project, ownerId, 'Project not found');
+  const asset = await ProjectAsset.findByPk(assetId);
+  if (!asset || asset.projectId !== projectId) {
+    throw new NotFoundError('Asset not found');
+  }
+
+  const updates = {};
+  if (payload.label != null) {
+    const label = payload.label.toString().trim();
+    if (!label) {
+      throw new ValidationError('Asset label cannot be empty.');
+    }
+    updates.label = label;
+  }
+  if (payload.category != null) {
+    const category = payload.category.toString().trim();
+    if (!category) {
+      throw new ValidationError('Asset category cannot be empty.');
+    }
+    updates.category = category;
+  }
+  if (payload.storageUrl != null) {
+    const storageUrl = payload.storageUrl.toString().trim();
+    if (!storageUrl) {
+      throw new ValidationError('Asset storage URL cannot be empty.');
+    }
+    updates.storageUrl = storageUrl;
+  }
+  if (payload.thumbnailUrl !== undefined) {
+    const thumbnailUrl = payload.thumbnailUrl?.toString().trim();
+    updates.thumbnailUrl = thumbnailUrl || null;
+  }
+  if (payload.sizeBytes != null) {
+    const sizeBytes = Number(payload.sizeBytes);
+    if (!Number.isFinite(sizeBytes) || sizeBytes < 0) {
+      throw new ValidationError('Asset size must be a valid number.');
+    }
+    updates.sizeBytes = sizeBytes;
+  }
+  if (payload.permissionLevel != null) {
+    const permissionLevel = payload.permissionLevel.toString().trim();
+    if (!permissionLevel) {
+      throw new ValidationError('Asset permission level cannot be empty.');
+    }
+    updates.permissionLevel = permissionLevel;
+  }
+  if (payload.watermarkEnabled != null) {
+    updates.watermarkEnabled = Boolean(payload.watermarkEnabled);
+  }
+  if (payload.metadata !== undefined) {
+    updates.metadata = payload.metadata ?? {};
+  }
+
+  await asset.update(updates);
+  return asset;
+}
+
+export async function deleteProjectAsset(ownerId, projectId, assetId) {
+  await ensureInitialized();
+  const project = await Project.findByPk(projectId);
+  assertOwnership(project, ownerId, 'Project not found');
+  const asset = await ProjectAsset.findByPk(assetId);
+  if (!asset || asset.projectId !== projectId) {
+    throw new NotFoundError('Asset not found');
+  }
+  await asset.destroy();
+  return { id: assetId };
+}
+
 export async function updateProjectWorkspace(ownerId, projectId, payload) {
   await ensureInitialized();
   const project = await Project.findByPk(projectId, { include: [{ model: ProjectWorkspace, as: 'workspace' }] });
@@ -542,6 +846,366 @@ export async function updateProjectWorkspace(ownerId, projectId, payload) {
   });
 
   return project.workspace.reload();
+}
+
+export async function updateProject(ownerId, projectId, payload = {}) {
+  await ensureInitialized();
+
+  const project = await Project.findByPk(projectId, {
+    include: [{ model: ProjectWorkspace, as: 'workspace' }],
+  });
+  assertOwnership(project, ownerId, 'Project not found');
+
+  const updates = {};
+
+  if (payload.title !== undefined) {
+    const title = payload.title?.toString().trim();
+    if (!title) {
+      throw new ValidationError('Project title cannot be empty.');
+    }
+    updates.title = title;
+  }
+
+  if (payload.description !== undefined) {
+    const description = payload.description?.toString().trim();
+    if (!description) {
+      throw new ValidationError('Project description cannot be empty.');
+    }
+    updates.description = description;
+  }
+
+  if (payload.status !== undefined) {
+    if (payload.status && !PROJECT_STATUSES.includes(payload.status)) {
+      throw new ValidationError('Invalid project status provided.');
+    }
+    updates.status = payload.status ?? project.status;
+  }
+
+  const startDate =
+    payload.startDate !== undefined ? ensureDate(payload.startDate, { label: 'Start date' }) : project.startDate;
+  const dueDate = payload.dueDate !== undefined ? ensureDate(payload.dueDate, { label: 'Due date' }) : project.dueDate;
+
+  if (startDate !== null && dueDate !== null && startDate && dueDate && dueDate.getTime() < startDate.getTime()) {
+    throw new ValidationError('Due date cannot be earlier than the project start date.');
+  }
+
+  if (payload.startDate !== undefined) {
+    updates.startDate = startDate;
+  }
+  if (payload.dueDate !== undefined) {
+    updates.dueDate = dueDate;
+  }
+
+  const budgetAllocated =
+    payload.budgetAllocated !== undefined
+      ? ensureNumber(payload.budgetAllocated, { label: 'Budget allocated' })
+      : project.budgetAllocated;
+  const budgetSpent =
+    payload.budgetSpent !== undefined
+      ? ensureNumber(payload.budgetSpent, { label: 'Budget spent' })
+      : project.budgetSpent;
+
+  if (budgetSpent > budgetAllocated) {
+    throw new ValidationError('Budget spent cannot exceed the allocated amount.');
+  }
+
+  if (payload.budgetCurrency !== undefined) {
+    updates.budgetCurrency = payload.budgetCurrency ?? project.budgetCurrency;
+  }
+  if (payload.budgetAllocated !== undefined) {
+    updates.budgetAllocated = budgetAllocated;
+  }
+  if (payload.budgetSpent !== undefined) {
+    updates.budgetSpent = budgetSpent;
+  }
+
+  if (payload.metadata !== undefined) {
+    updates.metadata = payload.metadata ?? project.metadata ?? {};
+  }
+
+  if (Object.keys(updates).length > 0) {
+    await project.update(updates);
+  }
+
+  if (payload.workspace) {
+    await updateProjectWorkspace(ownerId, projectId, payload.workspace);
+  }
+
+  const refreshed = await Project.findByPk(projectId, {
+    include: [
+      { model: ProjectWorkspace, as: 'workspace' },
+      { model: ProjectMilestone, as: 'milestones', separate: true, order: [['ordinal', 'ASC']] },
+      { model: ProjectCollaborator, as: 'collaborators' },
+      { model: ProjectIntegration, as: 'integrations' },
+      { model: ProjectRetrospective, as: 'retrospectives', separate: true, order: [['generatedAt', 'DESC']] },
+      { model: ProjectAsset, as: 'assets' },
+    ],
+  });
+
+  return sanitizeProject(refreshed);
+}
+
+export async function archiveProject(ownerId, projectId, payload = {}) {
+  await ensureInitialized();
+
+  const project = await Project.findByPk(projectId, {
+    include: [{ model: ProjectWorkspace, as: 'workspace' }],
+  });
+  assertOwnership(project, ownerId, 'Project not found');
+
+  const archivedAt = payload.archivedAt ? ensureDate(payload.archivedAt, { label: 'Archived at' }) : new Date();
+  const status = payload.status && PROJECT_STATUSES.includes(payload.status) ? payload.status : 'completed';
+
+  await project.update({
+    archivedAt,
+    status,
+  });
+
+  if (project.workspace) {
+    await updateProjectWorkspace(ownerId, projectId, {
+      status: payload.workspace?.status ?? 'completed',
+      progressPercent: payload.workspace?.progressPercent ?? 100,
+      riskLevel: payload.workspace?.riskLevel ?? 'low',
+      nextMilestone: payload.workspace?.nextMilestone ?? project.workspace.nextMilestone,
+      nextMilestoneDueAt: payload.workspace?.nextMilestoneDueAt ?? project.workspace.nextMilestoneDueAt,
+      notes: payload.workspace?.notes ?? project.workspace.notes,
+      metrics: payload.workspace?.metrics ?? project.workspace.metrics,
+    });
+  }
+
+  const refreshed = await Project.findByPk(projectId, {
+    include: [
+      { model: ProjectWorkspace, as: 'workspace' },
+      { model: ProjectMilestone, as: 'milestones', separate: true, order: [['ordinal', 'ASC']] },
+      { model: ProjectCollaborator, as: 'collaborators' },
+      { model: ProjectIntegration, as: 'integrations' },
+      { model: ProjectRetrospective, as: 'retrospectives', separate: true, order: [['generatedAt', 'DESC']] },
+      { model: ProjectAsset, as: 'assets' },
+    ],
+  });
+
+  return sanitizeProject(refreshed);
+}
+
+export async function restoreProject(ownerId, projectId, payload = {}) {
+  await ensureInitialized();
+
+  const project = await Project.findByPk(projectId, {
+    include: [{ model: ProjectWorkspace, as: 'workspace' }],
+  });
+  assertOwnership(project, ownerId, 'Project not found');
+
+  const status = payload.status && PROJECT_STATUSES.includes(payload.status) ? payload.status : 'in_progress';
+
+  await project.update({
+    archivedAt: null,
+    status,
+  });
+
+  if (project.workspace) {
+    await updateProjectWorkspace(ownerId, projectId, {
+      status: payload.workspace?.status ?? status,
+      progressPercent:
+        payload.workspace?.progressPercent != null
+          ? payload.workspace.progressPercent
+          : project.workspace.progressPercent ?? 25,
+      riskLevel: payload.workspace?.riskLevel ?? project.workspace.riskLevel ?? 'medium',
+      nextMilestone: payload.workspace?.nextMilestone ?? project.workspace.nextMilestone,
+      nextMilestoneDueAt: payload.workspace?.nextMilestoneDueAt ?? project.workspace.nextMilestoneDueAt,
+      notes: payload.workspace?.notes ?? project.workspace.notes,
+      metrics: payload.workspace?.metrics ?? project.workspace.metrics,
+    });
+  }
+
+  const refreshed = await Project.findByPk(projectId, {
+    include: [
+      { model: ProjectWorkspace, as: 'workspace' },
+      { model: ProjectMilestone, as: 'milestones', separate: true, order: [['ordinal', 'ASC']] },
+      { model: ProjectCollaborator, as: 'collaborators' },
+      { model: ProjectIntegration, as: 'integrations' },
+      { model: ProjectRetrospective, as: 'retrospectives', separate: true, order: [['generatedAt', 'DESC']] },
+      { model: ProjectAsset, as: 'assets' },
+    ],
+  });
+
+  return sanitizeProject(refreshed);
+}
+
+export async function createProjectMilestone(ownerId, projectId, payload) {
+  await ensureInitialized();
+  const project = await Project.findByPk(projectId);
+  assertOwnership(project, ownerId, 'Project not found');
+  if (!payload.title || !payload.title.toString().trim()) {
+    throw new ValidationError('Milestone title is required.');
+  }
+
+  const dueDate = ensureDate(payload.dueDate, { label: 'Milestone due date' });
+  const budget = ensureNumber(payload.budget ?? 0, { label: 'Milestone budget' });
+  const maxOrdinal = await ProjectMilestone.max('ordinal', { where: { projectId } });
+  const ordinal = payload.ordinal != null ? Number(payload.ordinal) : Number.isFinite(maxOrdinal) ? maxOrdinal + 1 : 0;
+
+  return ProjectMilestone.create({
+    projectId,
+    title: payload.title.toString().trim(),
+    description: payload.description ?? null,
+    ordinal: Number.isFinite(ordinal) && ordinal >= 0 ? ordinal : 0,
+    dueDate,
+    status: payload.status ?? 'planned',
+    budget,
+    metrics: payload.metrics ?? {},
+  });
+}
+
+export async function updateProjectMilestone(ownerId, projectId, milestoneId, payload) {
+  await ensureInitialized();
+  const project = await Project.findByPk(projectId);
+  assertOwnership(project, ownerId, 'Project not found');
+  const milestone = await ProjectMilestone.findByPk(milestoneId);
+  if (!milestone || milestone.projectId !== projectId) {
+    throw new NotFoundError('Milestone not found');
+  }
+
+  const updates = {};
+  if (payload.title != null) {
+    const title = payload.title.toString().trim();
+    if (!title) {
+      throw new ValidationError('Milestone title cannot be empty.');
+    }
+    updates.title = title;
+  }
+  if (payload.description !== undefined) {
+    updates.description = payload.description ?? null;
+  }
+  if (payload.ordinal != null) {
+    const ordinal = Number(payload.ordinal);
+    if (!Number.isFinite(ordinal) || ordinal < 0) {
+      throw new ValidationError('Milestone order must be zero or a positive number.');
+    }
+    updates.ordinal = ordinal;
+  }
+  if (payload.dueDate !== undefined) {
+    updates.dueDate = ensureDate(payload.dueDate, { label: 'Milestone due date' });
+  }
+  if (payload.completedAt !== undefined) {
+    updates.completedAt = payload.completedAt ? ensureDate(payload.completedAt, { label: 'Completion date' }) : null;
+  }
+  if (payload.status != null) {
+    const allowedStatuses = ['planned', 'in_progress', 'waiting_on_client', 'completed'];
+    if (!allowedStatuses.includes(payload.status)) {
+      throw new ValidationError('Invalid milestone status provided.');
+    }
+    updates.status = payload.status;
+  }
+  if (payload.budget != null) {
+    updates.budget = ensureNumber(payload.budget, { label: 'Milestone budget' });
+  }
+  if (payload.metrics !== undefined) {
+    updates.metrics = payload.metrics ?? {};
+  }
+
+  await milestone.update(updates);
+  return milestone;
+}
+
+export async function deleteProjectMilestone(ownerId, projectId, milestoneId) {
+  await ensureInitialized();
+  const project = await Project.findByPk(projectId);
+  assertOwnership(project, ownerId, 'Project not found');
+  const milestone = await ProjectMilestone.findByPk(milestoneId);
+  if (!milestone || milestone.projectId !== projectId) {
+    throw new NotFoundError('Milestone not found');
+  }
+  await milestone.destroy();
+  return { id: milestoneId };
+}
+
+export async function createProjectCollaborator(ownerId, projectId, payload) {
+  await ensureInitialized();
+  const project = await Project.findByPk(projectId);
+  assertOwnership(project, ownerId, 'Project not found');
+  if (!payload.fullName || !payload.fullName.toString().trim()) {
+    throw new ValidationError('Collaborator name is required.');
+  }
+
+  const status = payload.status ?? 'invited';
+  if (!PROJECT_COLLABORATOR_STATUSES.includes(status)) {
+    throw new ValidationError('Invalid collaborator status provided.');
+  }
+
+  let hourlyRate = null;
+  if (payload.hourlyRate != null && payload.hourlyRate !== '') {
+    hourlyRate = ensureNumber(payload.hourlyRate, { label: 'Hourly rate', allowZero: false });
+  }
+
+  return ProjectCollaborator.create({
+    projectId,
+    fullName: payload.fullName.toString().trim(),
+    email: payload.email?.toString().trim() || null,
+    role: payload.role?.toString().trim() || 'Collaborator',
+    status,
+    hourlyRate,
+    permissions: payload.permissions ?? {},
+  });
+}
+
+export async function updateProjectCollaborator(ownerId, projectId, collaboratorId, payload) {
+  await ensureInitialized();
+  const project = await Project.findByPk(projectId);
+  assertOwnership(project, ownerId, 'Project not found');
+  const collaborator = await ProjectCollaborator.findByPk(collaboratorId);
+  if (!collaborator || collaborator.projectId !== projectId) {
+    throw new NotFoundError('Collaborator not found');
+  }
+
+  const updates = {};
+  if (payload.fullName != null) {
+    const name = payload.fullName.toString().trim();
+    if (!name) {
+      throw new ValidationError('Collaborator name cannot be empty.');
+    }
+    updates.fullName = name;
+  }
+  if (payload.email !== undefined) {
+    updates.email = payload.email?.toString().trim() || null;
+  }
+  if (payload.role != null) {
+    const role = payload.role.toString().trim();
+    if (!role) {
+      throw new ValidationError('Collaborator role cannot be empty.');
+    }
+    updates.role = role;
+  }
+  if (payload.status != null) {
+    if (!PROJECT_COLLABORATOR_STATUSES.includes(payload.status)) {
+      throw new ValidationError('Invalid collaborator status provided.');
+    }
+    updates.status = payload.status;
+  }
+  if (payload.hourlyRate !== undefined) {
+    if (payload.hourlyRate === null || payload.hourlyRate === '') {
+      updates.hourlyRate = null;
+    } else {
+      updates.hourlyRate = ensureNumber(payload.hourlyRate, { label: 'Hourly rate', allowZero: false });
+    }
+  }
+  if (payload.permissions !== undefined) {
+    updates.permissions = payload.permissions ?? {};
+  }
+
+  await collaborator.update(updates);
+  return collaborator;
+}
+
+export async function deleteProjectCollaborator(ownerId, projectId, collaboratorId) {
+  await ensureInitialized();
+  const project = await Project.findByPk(projectId);
+  assertOwnership(project, ownerId, 'Project not found');
+  const collaborator = await ProjectCollaborator.findByPk(collaboratorId);
+  if (!collaborator || collaborator.projectId !== projectId) {
+    throw new NotFoundError('Collaborator not found');
+  }
+  await collaborator.destroy();
+  return { id: collaboratorId };
 }
 
 export async function createGigOrder(ownerId, payload) {
@@ -682,8 +1346,19 @@ export async function updateGigOrder(ownerId, orderId, payload) {
 export default {
   getProjectGigManagementOverview,
   createProject,
+  updateProject,
   addProjectAsset,
+  updateProjectAsset,
+  deleteProjectAsset,
   updateProjectWorkspace,
+  archiveProject,
+  restoreProject,
+  createProjectMilestone,
+  updateProjectMilestone,
+  deleteProjectMilestone,
+  createProjectCollaborator,
+  updateProjectCollaborator,
+  deleteProjectCollaborator,
   createGigOrder,
   updateGigOrder,
 };

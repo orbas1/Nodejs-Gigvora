@@ -507,6 +507,7 @@ export default function TaskSprintManager() {
                 className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </label>
+          </div>
             <button
               type="submit"
               className={`inline-flex w-full items-center justify-center rounded-xl px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 ${
@@ -608,6 +609,7 @@ export default function TaskSprintManager() {
                 className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </label>
+          </div>
             <button
               type="submit"
               className={`inline-flex w-full items-center justify-center rounded-xl px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 ${
@@ -687,15 +689,16 @@ export default function TaskSprintManager() {
               />
               Billable entry
             </label>
-              <label className="text-xs text-slate-500 sm:col-span-2">
-                Notes
-                <textarea
-                  value={timeForm.notes}
-                  onChange={(event) => setTimeForm((prev) => ({ ...prev, notes: event.target.value }))}
-                  rows={2}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                />
-              </label>
+            <label className="text-xs text-slate-500 sm:col-span-2">
+              Notes
+              <textarea
+                value={timeForm.notes}
+                onChange={(event) => setTimeForm((prev) => ({ ...prev, notes: event.target.value }))}
+                rows={2}
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              />
+            </label>
+          </div>
             <button
               type="submit"
               className={`inline-flex w-full items-center justify-center rounded-xl px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 ${
@@ -823,6 +826,7 @@ export default function TaskSprintManager() {
                 className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </label>
+          </div>
             <button
               type="submit"
               className={`inline-flex w-full items-center justify-center rounded-xl px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 ${
@@ -886,28 +890,28 @@ export default function TaskSprintManager() {
               className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
             />
           </label>
-            <label className="text-xs text-slate-500 sm:col-span-2">
-              Description &amp; rationale
-              <textarea
-                required
-                value={changeForm.description}
-                onChange={(event) => setChangeForm((prev) => ({ ...prev, description: event.target.value }))}
-                rows={3}
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              />
-            </label>
-          </div>
-          <button
-            type="submit"
-            className={`inline-flex w-full items-center justify-center rounded-xl px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 ${
-              isInteractiveDisabled || submittingChangeRequest
-                ? 'cursor-not-allowed bg-blue-300'
-                : 'bg-blue-600 hover:bg-blue-700'
-            }`}
-            disabled={isInteractiveDisabled || submittingChangeRequest}
-          >
-            {submittingChangeRequest ? 'Routing…' : 'Submit change request'}
-          </button>
+          <label className="text-xs text-slate-500 sm:col-span-2">
+            Description &amp; rationale
+            <textarea
+              required
+              value={changeForm.description}
+              onChange={(event) => setChangeForm((prev) => ({ ...prev, description: event.target.value }))}
+              rows={3}
+              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            />
+          </label>
+        </div>
+        <button
+          type="submit"
+          className={`inline-flex w-full items-center justify-center rounded-xl px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 ${
+            isInteractiveDisabled || submittingChangeRequest
+              ? 'cursor-not-allowed bg-blue-300'
+              : 'bg-blue-600 hover:bg-blue-700'
+          }`}
+          disabled={isInteractiveDisabled || submittingChangeRequest}
+        >
+          {submittingChangeRequest ? 'Routing…' : 'Submit change request'}
+        </button>
         </fieldset>
       </form>
 
