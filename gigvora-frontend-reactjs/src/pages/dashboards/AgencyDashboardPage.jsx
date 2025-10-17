@@ -232,6 +232,21 @@ export default function AgencyDashboardPage() {
   return (
     <DashboardLayout
       currentDashboard="agency"
+      title={`Hello, ${displayName}`}
+      subtitle="Agency control tower"
+      description="Track client health, momentum, and resourcing in one view."
+      menuSections={AGENCY_DASHBOARD_MENU_SECTIONS}
+      availableDashboards={['agency', 'company', 'freelancer', 'user']}
+      activeMenuItem="agency-overview"
+    >
+      <div className="space-y-12">
+        <section id="agency-overview" className="space-y-6">
+          <div className="grid gap-4 sm:grid-cols-3">
+            {OVERVIEW_METRICS.map((metric) => (
+              <div
+                key={metric.id}
+                className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-soft transition hover:-translate-y-0.5 hover:border-accent/60"
+              >
       title="Agency control tower"
       subtitle="Daily visibility across client commitments, bench capacity, and finance health"
       description="Track client health, revenue momentum, and the team’s next actions. Keep the bench balanced and spotlight wins for leadership."
@@ -385,6 +400,8 @@ export default function AgencyDashboardPage() {
             </div>
           </div>
         </section>
+
+        <section id="team-focus" className="grid gap-8 lg:grid-cols-[1.35fr_1fr]">
 
         <section id="agency-projects" className="grid gap-8 lg:grid-cols-[1.35fr_1fr]">
 

@@ -17217,7 +17217,7 @@ export default {
   BlogPostMedia,
 };
 
-registerBlogAssociations({ User });
+registerBlogAssociations({ User, ProviderWorkspace });
 
 const domainRegistry = new DomainRegistry({
   sequelize,

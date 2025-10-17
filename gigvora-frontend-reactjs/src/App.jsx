@@ -42,6 +42,7 @@ import CompanyAnalyticsPage from './pages/dashboards/CompanyAnalyticsPage.jsx';
 import CompanyIntegrationsPage from './pages/dashboards/CompanyIntegrationsPage.jsx';
 import CompanyNetworkingHubPage from './pages/networking/CompanyNetworkingHubPage.jsx';
 import AgencyDashboardPage from './pages/dashboards/AgencyDashboardPage.jsx';
+import AgencyBlogManagementPage from './pages/dashboards/AgencyBlogManagementPage.jsx';
 import AgencyTimelineDashboardPage from './pages/dashboards/agency/AgencyTimelineDashboardPage.jsx';
 import AgencyWalletManagementPage from './pages/dashboards/agency/AgencyWalletManagementPage.jsx';
 import DisputeManagementPage from './pages/dashboards/agency/DisputeManagementPage.jsx';
@@ -289,6 +290,15 @@ export default function App() {
         element={
           <RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}>
             <AgencyTimelineDashboardPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
+        path="dashboard/agency/blog"
+        element={
+          <RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}>
+            <AgencyBlogManagementPage />
           </RequireRole>
         }
       />
