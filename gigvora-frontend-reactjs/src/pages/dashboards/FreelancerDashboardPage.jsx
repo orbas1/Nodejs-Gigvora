@@ -55,6 +55,7 @@ function buildProfile(session) {
 import { Link } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import useSession from '../../hooks/useSession.js';
+import { ReviewManagementSection } from './freelancer/sections/index.js';
 import { MENU_GROUPS, AVAILABLE_DASHBOARDS } from './freelancer/menuConfig.js';
 import { DEFAULT_PROFILE } from './freelancer/sampleData.js';
 import {
@@ -462,6 +463,9 @@ export default function FreelancerDashboardPage() {
           </div>
         </section>
 
+        <section className="mt-16">
+          <ReviewManagementSection />
+        </section>
         {orderedSectionIds.map((sectionId) => {
           const SectionComponent = SECTION_COMPONENTS[sectionId];
           if (!SectionComponent) {

@@ -519,6 +519,7 @@ export default function TaskSprintManager() {
                 className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </label>
+            </div>
           </div>
             <button
               type="submit"
@@ -633,6 +634,7 @@ export default function TaskSprintManager() {
                 className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </label>
+            </div>
           </div>
             <button
               type="submit"
@@ -755,6 +757,7 @@ export default function TaskSprintManager() {
                 className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </label>
+            </div>
           </div>
             <button
               type="submit"
@@ -893,6 +896,7 @@ export default function TaskSprintManager() {
                 className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </label>
+            </div>
           </div>
             <button
               type="submit"

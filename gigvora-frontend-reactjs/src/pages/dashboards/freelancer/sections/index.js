@@ -15,6 +15,7 @@ export { default as ProjectManagementSection } from './project-management/Projec
 export { default as ProjectLabSection } from './ProjectLabSection.jsx';
 export { default as ProjectWorkspaceExcellenceSection } from './ProjectWorkspaceExcellenceSection.jsx';
 export { default as ReferencesSection } from './ReferencesSection.jsx';
+export { default as ReviewManagementSection } from './ReviewManagementSection.jsx';
 export { default as SupportSection } from './SupportSection.jsx';
 export { default as WorkspaceSettingsSection } from './WorkspaceSettingsSection.jsx';
 export { default as TaskManagementSection } from './TaskManagementSection.jsx';
