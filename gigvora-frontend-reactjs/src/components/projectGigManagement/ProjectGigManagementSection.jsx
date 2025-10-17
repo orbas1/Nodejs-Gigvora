@@ -1,32 +1,79 @@
 import PropTypes from 'prop-types';
-import { useMemo } from 'react';
+import ProjectLifecyclePanel from './ProjectLifecyclePanel.jsx';
+import ProjectBidsPanel from './ProjectBidsPanel.jsx';
+import ProjectInvitationsPanel from './ProjectInvitationsPanel.jsx';
+import AutoMatchPanel from './AutoMatchPanel.jsx';
+import ProjectReviewsPanel from './ProjectReviewsPanel.jsx';
+import EscrowManagementPanel from './EscrowManagementPanel.jsx';
+
+function PanelWrapper({ children }) {
+  return <div className="min-h-[24rem] rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">{children}</div>;
+}
+
+PanelWrapper.propTypes = {
+  children: PropTypes.node,
+};
+
+PanelWrapper.defaultProps = {
+  children: null,
+};
+
+function EmptyPanel({ title, actionLabel, onAction }) {
+  return (
+    <PanelWrapper>
+      <div className="flex h-full flex-col items-center justify-center gap-4 text-center text-slate-500">
+        <p className="text-sm font-semibold text-slate-900">{title}</p>
+        {actionLabel ? (
+          <button
+            type="button"
+            onClick={onAction}
+            className="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
+          >
+            {actionLabel}
+          </button>
+        ) : null}
+      </div>
+    </PanelWrapper>
+  );
+}
+
+EmptyPanel.propTypes = {
+  title: PropTypes.string.isRequired,
+  actionLabel: PropTypes.string,
+  onAction: PropTypes.func,
+};
+
+EmptyPanel.defaultProps = {
+  actionLabel: null,
+  onAction: undefined,
 import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
 
-function formatNumber(value, { fractionDigits = 0 } = {}) {
+const NAV_ITEMS = [
+  { id: 'manage', label: 'Manage' },
+  { id: 'create', label: 'Create' },
+  { id: 'open', label: 'Open' },
+  { id: 'closed', label: 'Closed' },
+  { id: 'timeline', label: 'Timeline' },
+  { id: 'submit', label: 'Submit' },
+  { id: 'chat', label: 'Chat' },
+];
+
+function formatNumber(value) {
   if (value == null || Number.isNaN(Number(value))) {
     return '0';
   }
-  return new Intl.NumberFormat('en-GB', {
-    minimumFractionDigits: fractionDigits,
-    maximumFractionDigits: fractionDigits,
-  }).format(Number(value));
-}
-
-function formatPercent(value) {
-  if (value == null || Number.isNaN(Number(value))) {
-    return '0%';
-  }
-  return `${Math.round(Number(value))}%`;
+  return new Intl.NumberFormat('en-GB').format(Number(value));
 }
 
 function formatCurrency(value, currency = 'USD') {
   if (value == null || Number.isNaN(Number(value))) {
-    return '—';
+    return `${currency} 0`;
   }
   try {
     return new Intl.NumberFormat('en-GB', {
       style: 'currency',
       currency,
+      minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(Number(value));
   } catch (error) {
@@ -34,828 +81,606 @@ function formatCurrency(value, currency = 'USD') {
   }
 }
 
-function formatStatus(value) {
-  if (!value) return 'Unknown';
-  return value
-    .toString()
-    .split('_')
-    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-    .join(' ');
-}
-
-function formatScore(value) {
-  if (value == null || Number.isNaN(Number(value))) {
-    return '—';
-  }
-  return `${Number(value).toFixed(1)}/5`;
-}
-
-function formatFileSize(bytes) {
-  if (!bytes || Number.isNaN(Number(bytes))) {
-    return '0 KB';
-  }
-  const size = Number(bytes);
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-}
-
-function Badge({ children, tone = 'default' }) {
-  const toneClasses = {
-    default: 'bg-slate-100 text-slate-700 border-slate-200',
-    accent: 'bg-accentSoft text-accent border-accent/40',
-    success: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    warning: 'bg-amber-50 text-amber-700 border-amber-200',
-    danger: 'bg-rose-50 text-rose-600 border-rose-200',
-  };
+function StatCard({ label, value }) {
   return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
-        toneClasses[tone] || toneClasses.default
-      }`}
-    >
-      {children}
-    </span>
-  );
-}
-
-Badge.propTypes = {
-  children: PropTypes.node.isRequired,
-  tone: PropTypes.oneOf(['default', 'accent', 'success', 'warning', 'danger']),
-};
-
-function MetricCard({ label, value, description }) {
-  return (
-    <div className="rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-sm transition hover:border-accent/40 hover:shadow-soft">
-      <p className="text-sm font-medium text-slate-500">{label}</p>
-      <p className="mt-3 text-2xl font-semibold text-slate-900">{value}</p>
-      {description ? <p className="mt-2 text-sm text-slate-500">{description}</p> : null}
+    <div className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="mt-2 text-2xl font-semibold text-slate-900">{value}</p>
     </div>
   );
 }
 
-MetricCard.propTypes = {
+StatCard.propTypes = {
   label: PropTypes.string.isRequired,
   value: PropTypes.node.isRequired,
-  description: PropTypes.string,
 };
 
-function ProjectCard({ entry }) {
-  const status = formatStatus(entry.workspace?.status ?? entry.project?.status);
-  const progress = entry.workspace?.progressPercent;
-  const riskLevel = entry.workspace?.riskLevel ?? 'low';
-  const riskTone = riskLevel === 'high' ? 'danger' : riskLevel === 'medium' ? 'warning' : 'accent';
-  const dueAt = entry.timeline?.nextMilestoneDueAt;
-  const collaborators = entry.collaboratorSummary ?? { active: 0, invited: 0 };
-  const approvalsPending = entry.communications?.pendingApprovals ?? 0;
-  const unreadMessages = entry.communications?.unreadMessages ?? 0;
-  const budget = entry.budget ?? {};
-
+function OrderCard({ order, onOpen, onTimeline, onLog, onEdit }) {
+  const status = order.status?.replace(/_/g, ' ');
+  const due = order.dueAt ? formatRelativeTime(order.dueAt) : 'No due date';
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-sm">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h4 className="text-base font-semibold text-slate-900">{entry.project?.title ?? 'Project'}</h4>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-            <Badge tone="accent">{status}</Badge>
-            <Badge tone={riskTone}>{`Risk: ${formatStatus(riskLevel)}`}</Badge>
-            {entry.workspace?.nextMilestone ? <Badge>{entry.workspace.nextMilestone}</Badge> : null}
+          <p className="text-sm font-semibold text-slate-900">{order.serviceName}</p>
+          <p className="text-xs text-slate-500">{order.vendorName}</p>
+        </div>
+        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{status}</span>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <p className="text-xs text-slate-500">Progress</p>
+          <p className="text-sm font-semibold text-slate-900">{order.progressPercent ?? 0}%</p>
+        </div>
+        <div>
+          <p className="text-xs text-slate-500">Due</p>
+          <p className="text-sm font-semibold text-slate-900">{due}</p>
+        </div>
+        <div>
+          <p className="text-xs text-slate-500">Amount</p>
+          <p className="text-sm font-semibold text-slate-900">{formatCurrency(order.amount, order.currency)}</p>
+        </div>
+        <div>
+          <p className="text-xs text-slate-500">Open items</p>
+          <p className="text-sm font-semibold text-slate-900">{order.outstandingRequirements ?? 0}</p>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => onOpen(order)}
+          className="rounded-full bg-slate-900 px-4 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
+        >
+          View
+        </button>
+        <button
+          type="button"
+          onClick={() => onEdit(order)}
+          className="rounded-full border border-slate-200 px-4 py-1.5 text-xs font-semibold text-slate-600 hover:border-accent hover:text-accent"
+        >
+          Edit
+        </button>
+        <button
+          type="button"
+          onClick={() => onTimeline(order)}
+          className="rounded-full border border-slate-200 px-4 py-1.5 text-xs font-semibold text-slate-600 hover:border-accent hover:text-accent"
+        >
+          Milestone
+        </button>
+        <button
+          type="button"
+          onClick={() => onLog(order)}
+          className="rounded-full border border-slate-200 px-4 py-1.5 text-xs font-semibold text-slate-600 hover:border-accent hover:text-accent"
+        >
+          Delivery
+        </button>
+      </div>
+    </div>
+  );
+}
+
+OrderCard.propTypes = {
+  order: PropTypes.object.isRequired,
+  onOpen: PropTypes.func.isRequired,
+  onTimeline: PropTypes.func.isRequired,
+  onLog: PropTypes.func.isRequired,
+  onEdit: PropTypes.func.isRequired,
+};
+
+function ManageView({ summary, board, onOpenProject, onOpenOrder }) {
+  return (
+    <div className="flex h-full flex-col gap-6">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Projects" value={formatNumber(summary.totalProjects)} />
+        <StatCard label="Active" value={formatNumber(summary.activeProjects)} />
+        <StatCard label="Open gigs" value={formatNumber(summary.openGigs)} />
+        <StatCard label="Closed gigs" value={formatNumber(summary.closedGigs)} />
+        <StatCard label="In play" value={formatCurrency(summary.openGigValue, summary.currency)} />
+        <StatCard label="Budget" value={formatCurrency(summary.budgetInPlay, summary.currency)} />
+        <StatCard label="Templates" value={formatNumber(summary.templatesAvailable)} />
+        <StatCard label="Stories" value={formatNumber(summary.storiesReady)} />
+      </div>
+      <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-base font-semibold text-slate-900">Board lanes</h3>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onOpenProject}
+              className="rounded-full bg-slate-900 px-4 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
+            >
+              Project
+            </button>
+            <button
+              type="button"
+              onClick={onOpenOrder}
+              className="rounded-full bg-accent px-4 py-1.5 text-xs font-semibold text-white hover:bg-accent/90"
+            >
+              Order
+            </button>
           </div>
         </div>
-        <div className="text-right text-xs text-slate-500">
-          {dueAt ? `Next milestone ${formatRelativeTime(dueAt)}` : 'No upcoming milestone'}
-        </div>
-      </div>
-
-      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div>
-          <p className="text-xs uppercase tracking-wide text-slate-500">Progress</p>
-          <p className="text-sm font-semibold text-slate-900">{formatPercent(progress)}</p>
-        </div>
-        <div>
-          <p className="text-xs uppercase tracking-wide text-slate-500">Collaborators</p>
-          <p className="text-sm font-semibold text-slate-900">
-            {formatNumber(collaborators.active)} active
-            <span className="text-xs font-normal text-slate-500"> · {formatNumber(collaborators.invited)} invited</span>
-          </p>
-        </div>
-        <div>
-          <p className="text-xs uppercase tracking-wide text-slate-500">Approvals</p>
-          <p className="text-sm font-semibold text-slate-900">{formatNumber(approvalsPending)} pending</p>
-        </div>
-        <div>
-          <p className="text-xs uppercase tracking-wide text-slate-500">Inbox</p>
-          <p className="text-sm font-semibold text-slate-900">{formatNumber(unreadMessages)} unread</p>
-        </div>
-      </div>
-
-      <div className="mt-4 grid gap-4 sm:grid-cols-3">
-        <div>
-          <p className="text-xs uppercase tracking-wide text-slate-500">Budget allocated</p>
-          <p className="text-sm font-semibold text-slate-900">{formatCurrency(budget.allocated, budget.currency)}</p>
-        </div>
-        <div>
-          <p className="text-xs uppercase tracking-wide text-slate-500">Budget spent</p>
-          <p className="text-sm font-semibold text-slate-900">{formatCurrency(budget.spent, budget.currency)}</p>
-        </div>
-        <div>
-          <p className="text-xs uppercase tracking-wide text-slate-500">Burn rate</p>
-          <p className="text-sm font-semibold text-slate-900">
-            {budget.burnRatePercent != null ? formatPercent(budget.burnRatePercent) : '—'}
-          </p>
-        </div>
-      </div>
-
-      {entry.milestones?.length ? (
-        <div className="mt-4 text-xs text-slate-500">
-          <p className="font-semibold text-slate-600">Milestone highlights</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {entry.milestones.slice(0, 3).map((milestone) => (
-              <Badge key={milestone.id} tone={milestone.status === 'completed' ? 'success' : 'default'}>
-                {milestone.title}
-              </Badge>
-            ))}
-          </div>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-ProjectCard.propTypes = {
-  entry: PropTypes.shape({
-    project: PropTypes.object,
-    workspace: PropTypes.object,
-    collaboratorSummary: PropTypes.object,
-    communications: PropTypes.object,
-    timeline: PropTypes.object,
-    budget: PropTypes.object,
-    milestones: PropTypes.array,
-  }).isRequired,
-};
-
-function TemplateCard({ template }) {
-  return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold text-slate-900">{template.name}</p>
-          <p className="text-xs text-slate-500">{formatStatus(template.category)}</p>
-        </div>
-        {template.isFeatured ? <Badge tone="accent">Featured</Badge> : null}
-      </div>
-      {template.summary ? <p className="mt-2 text-xs text-slate-500">{template.summary}</p> : null}
-      <div className="mt-3 flex flex-wrap gap-2 text-[11px] uppercase tracking-wide text-slate-500">
-        {template.durationWeeks ? <Badge>{`${template.durationWeeks} wks`}</Badge> : null}
-        {Array.isArray(template.integrations)
-          ? template.integrations.slice(0, 3).map((integration) => <Badge key={integration}>{integration}</Badge>)
-          : null}
-      </div>
-    </div>
-  );
-}
-
-TemplateCard.propTypes = {
-  template: PropTypes.shape({
-    name: PropTypes.string,
-    category: PropTypes.string,
-    summary: PropTypes.string,
-    durationWeeks: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-    integrations: PropTypes.array,
-    isFeatured: PropTypes.bool,
-  }).isRequired,
-};
-
-function AssetRow({ asset }) {
-  const watermarkEnabled = Boolean(asset.watermarkSettings?.enabled);
-  const allowDownload = asset.permissions?.allowDownload !== false;
-  return (
-    <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white/80 p-4 sm:grid-cols-4">
-      <div>
-        <p className="text-sm font-semibold text-slate-900">{asset.name ?? asset.filename ?? 'Asset'}</p>
-        <p className="text-xs text-slate-500">{asset.projectTitle ?? 'Workspace asset'}</p>
-      </div>
-      <div>
-        <p className="text-xs uppercase tracking-wide text-slate-500">Storage</p>
-        <p className="text-sm font-semibold text-slate-900">{asset.storageProvider ?? 'internal'}</p>
-      </div>
-      <div>
-        <p className="text-xs uppercase tracking-wide text-slate-500">Permissions</p>
-        <p className="text-sm font-semibold text-slate-900">{allowDownload ? 'Downloadable' : 'View only'}</p>
-        <p className="text-[11px] text-slate-500">
-          {Array.isArray(asset.permissions?.allowedRoles) && asset.permissions.allowedRoles.length
-            ? asset.permissions.allowedRoles.join(', ')
-            : 'Restricted roles'}
-        </p>
-      </div>
-      <div>
-        <p className="text-xs uppercase tracking-wide text-slate-500">Watermark</p>
-        <p className="text-sm font-semibold text-slate-900">{watermarkEnabled ? 'Enabled' : 'Disabled'}</p>
-        <p className="text-[11px] text-slate-500">{formatFileSize(asset.sizeBytes)}</p>
-      </div>
-    </div>
-  );
-}
-
-AssetRow.propTypes = {
-  asset: PropTypes.shape({
-    name: PropTypes.string,
-    filename: PropTypes.string,
-    projectTitle: PropTypes.string,
-    storageProvider: PropTypes.string,
-    permissions: PropTypes.object,
-    watermarkSettings: PropTypes.object,
-    sizeBytes: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-  }).isRequired,
-};
-
-function ReminderRow({ reminder }) {
-  return (
-    <div className="flex flex-col gap-1 rounded-2xl border border-amber-100 bg-amber-50/80 p-4">
-      <div className="flex flex-wrap items-center gap-2 text-xs text-amber-700">
-        <Badge tone="warning">{reminder.type ?? 'delivery'}</Badge>
-        <span className="font-semibold">Order {reminder.orderNumber}</span>
-        {reminder.daysUntilDue != null ? <span>{`${reminder.daysUntilDue} days`}</span> : null}
-      </div>
-      <p className="text-sm font-semibold text-slate-900">{reminder.title}</p>
-      <p className="text-xs text-slate-500">
-        {reminder.dueAt ? `Due ${formatRelativeTime(reminder.dueAt)}` : 'No due date provided'} ·{' '}
-        {reminder.gigTitle ?? 'Vendor engagement'}
-      </p>
-      {reminder.notes ? <p className="text-xs text-slate-500">{reminder.notes}</p> : null}
-    </div>
-  );
-}
-
-ReminderRow.propTypes = {
-  reminder: PropTypes.shape({
-    orderNumber: PropTypes.string,
-    title: PropTypes.string,
-    dueAt: PropTypes.string,
-    daysUntilDue: PropTypes.number,
-    type: PropTypes.string,
-    notes: PropTypes.string,
-    gigTitle: PropTypes.string,
-  }).isRequired,
-};
-
-function ScorecardRow({ scorecard }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
-        <span className="font-semibold text-slate-700">{scorecard.vendorName ?? 'Vendor'}</span>
-        {scorecard.reviewedAt ? <span>{formatAbsolute(scorecard.reviewedAt)}</span> : null}
-      </div>
-      <p className="mt-1 text-sm font-semibold text-slate-900">Order {scorecard.orderNumber}</p>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <div>
-          <p className="text-[11px] uppercase tracking-wide text-slate-500">Overall</p>
-          <p className="text-sm font-semibold text-slate-900">{formatScore(scorecard.overallScore)}</p>
-        </div>
-        <div>
-          <p className="text-[11px] uppercase tracking-wide text-slate-500">Risk level</p>
-          <p className="text-sm font-semibold text-slate-900">{formatStatus(scorecard.riskLevel)}</p>
-        </div>
-      </div>
-      {scorecard.notes ? <p className="mt-3 text-xs text-slate-500">{scorecard.notes}</p> : null}
-    </div>
-  );
-}
-
-ScorecardRow.propTypes = {
-  scorecard: PropTypes.shape({
-    vendorName: PropTypes.string,
-    orderNumber: PropTypes.string,
-    reviewedAt: PropTypes.string,
-    overallScore: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-    riskLevel: PropTypes.string,
-    notes: PropTypes.string,
-  }).isRequired,
-};
-
-function AchievementCard({ achievement }) {
-  return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <Badge tone={achievement.source === 'project' ? 'accent' : 'success'}>{achievement.source}</Badge>
-        {achievement.deliveredAt ? (
-          <span className="text-xs text-slate-500">{formatRelativeTime(achievement.deliveredAt)}</span>
-        ) : null}
-      </div>
-      <h4 className="mt-3 text-sm font-semibold text-slate-900">{achievement.title}</h4>
-      <p className="mt-2 text-xs text-slate-500">{achievement.bullet}</p>
-      <div className="mt-3 flex flex-wrap gap-2 text-[11px] uppercase tracking-wide text-slate-500">
-        {achievement.metrics?.progressPercent != null ? (
-          <Badge>{formatPercent(achievement.metrics.progressPercent)}</Badge>
-        ) : null}
-        {achievement.metrics?.csat != null ? <Badge>{`CSAT ${formatScore(achievement.metrics.csat)}`}</Badge> : null}
-        {achievement.recommendedChannel ? <Badge tone="accent">{achievement.recommendedChannel}</Badge> : null}
-      </div>
-    </div>
-  );
-}
-
-AchievementCard.propTypes = {
-  achievement: PropTypes.shape({
-    source: PropTypes.string,
-    deliveredAt: PropTypes.string,
-    title: PropTypes.string,
-    bullet: PropTypes.string,
-    metrics: PropTypes.object,
-    recommendedChannel: PropTypes.string,
-  }).isRequired,
-};
-
-function QuickExportGroup({ title, items }) {
-  if (!items.length) {
-    return null;
-  }
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white/70 p-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p>
-      <ul className="mt-2 list-disc space-y-2 pl-4 text-sm text-slate-600">
-        {items.map((item, index) => (
-          <li key={`${title}-${index}`}>{item}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-QuickExportGroup.propTypes = {
-  title: PropTypes.string.isRequired,
-  items: PropTypes.arrayOf(PropTypes.string).isRequired,
-};
-
-export default function ProjectGigManagementSection({ data }) {
-  const summary = data?.summary ?? {
-    totalProjects: 0,
-    activeProjects: 0,
-    budgetInPlay: 0,
-    currency: 'USD',
-    gigsInDelivery: 0,
-    templatesAvailable: 0,
-    assetsSecured: 0,
-    vendorSatisfaction: null,
-    storiesReady: 0,
-  };
-
-  const projectCreation = data?.projectCreation ?? { projects: [], templates: [] };
-  const assets = data?.assets ?? { items: [], summary: {} };
-  const managementBoard = data?.managementBoard ?? { lanes: [], metrics: {}, integrations: [], retrospectives: [] };
-  const purchasedGigs = data?.purchasedGigs ?? { orders: [], reminders: [], scorecards: [], stats: {} };
-  const storytelling = data?.storytelling ?? { achievements: [], quickExports: {}, prompts: [] };
-
-  const assetSummary = assets.summary ?? {};
-  const orders = Array.isArray(purchasedGigs.orders) ? purchasedGigs.orders : [];
-  const reminders = Array.isArray(purchasedGigs.reminders) ? purchasedGigs.reminders : [];
-  const scorecards = Array.isArray(purchasedGigs.scorecards) ? purchasedGigs.scorecards : [];
-  const achievements = Array.isArray(storytelling.achievements) ? storytelling.achievements : [];
-  const quickExports = storytelling.quickExports ?? {};
-  const prompts = Array.isArray(storytelling.prompts) ? storytelling.prompts : [];
-
-  const riskDistribution = useMemo(() => {
-    const distribution = managementBoard.metrics?.riskDistribution ?? {};
-    return Object.entries(distribution).map(([label, count]) => ({ label: formatStatus(label), count }));
-  }, [managementBoard.metrics]);
-
-  const integrations = Array.isArray(managementBoard.integrations) ? managementBoard.integrations : [];
-  const retrospectives = Array.isArray(managementBoard.retrospectives) ? managementBoard.retrospectives : [];
-
-  const topAssets = useMemo(() => (Array.isArray(assets.items) ? assets.items.slice(0, 6) : []), [assets.items]);
-  const boardLanes = Array.isArray(managementBoard.lanes) ? managementBoard.lanes : [];
-  const templateList = Array.isArray(projectCreation.templates) ? projectCreation.templates.slice(0, 6) : [];
-  const projectList = Array.isArray(projectCreation.projects) ? projectCreation.projects.slice(0, 3) : [];
-
-  const summaryMetrics = [
-    {
-      label: 'Active projects',
-      value: formatNumber(summary.activeProjects ?? 0),
-      description: 'In delivery or at-risk initiatives',
-    },
-    {
-      label: 'Budget in play',
-      value: formatCurrency(summary.budgetInPlay, summary.currency),
-      description: 'Across tracked initiatives',
-    },
-    {
-      label: 'Gigs in delivery',
-      value: formatNumber(summary.gigsInDelivery ?? 0),
-      description: 'Vendor deliverables underway',
-    },
-    {
-      label: 'Templates available',
-      value: formatNumber(summary.templatesAvailable ?? templateList.length ?? 0),
-      description: 'Launch-ready playbooks',
-    },
-    {
-      label: 'Assets secured',
-      value: formatNumber(summary.assetsSecured ?? assetSummary.total ?? 0),
-      description: `${formatNumber(assetSummary.watermarked ?? 0)} watermarked`,
-    },
-    {
-      label: 'Stories ready',
-      value: formatNumber(summary.storiesReady ?? achievements.length ?? 0),
-      description: 'CV and LinkedIn achievements',
-    },
-  ];
-
-  return (
-    <section id="project-gig-management" className="space-y-10">
-      <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-white to-accentSoft/30 p-6 shadow-sm">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-accent">Project & gig management</p>
-            <h2 className="mt-2 text-2xl font-semibold text-slate-900">Launch initiatives & orchestrate gig delivery</h2>
-            <p className="mt-3 max-w-3xl text-sm text-slate-600">
-              Kick off personal projects, collaborate with mentors or freelancers, secure assets with watermarking, and
-              convert every milestone into resume-ready storytelling.
-            </p>
-          </div>
-          <div className="grid gap-3 rounded-2xl border border-accent/30 bg-white/80 p-4 text-sm text-slate-700 shadow-inner sm:grid-cols-3 lg:max-w-xl">
-            <div>
-              <p className="text-xs uppercase tracking-wide text-slate-500">Total projects</p>
-              <p className="mt-1 text-xl font-semibold text-slate-900">{formatNumber(summary.totalProjects ?? 0)}</p>
+        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {board.lanes.map((lane) => (
+            <div key={lane.status} className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{lane.label}</p>
+              <p className="mt-2 text-3xl font-semibold text-slate-900">{lane.projects.length}</p>
+              <div className="mt-3 grid gap-2">
+                {lane.projects.slice(0, 3).map((project) => (
+                  <div key={project.id} className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+                    <p className="font-semibold text-slate-900">{project.title}</p>
+                    <p>{project.progress}% · {project.riskLevel}</p>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div>
-              <p className="text-xs uppercase tracking-wide text-slate-500">Vendor CSAT</p>
-              <p className="mt-1 text-xl font-semibold text-slate-900">
-                {summary.vendorSatisfaction != null ? formatScore(summary.vendorSatisfaction) : '—'}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wide text-slate-500">Budget in play</p>
-              <p className="mt-1 text-xl font-semibold text-slate-900">{formatCurrency(summary.budgetInPlay, summary.currency)}</p>
-            </div>
-          </div>
-        </div>
-        <div className="mt-6 grid gap-4 md:grid-cols-3 xl:grid-cols-6">
-          {summaryMetrics.map((metric) => (
-            <MetricCard key={metric.label} label={metric.label} value={metric.value} description={metric.description} />
           ))}
         </div>
       </div>
-
-      <div className="grid gap-6 xl:grid-cols-7">
-        <div id="project-gig-creation" className="space-y-4 xl:col-span-4">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900">Project creation workspace</h3>
-              <p className="text-sm text-slate-600">
-                Structure briefs, milestones, and collaborator cadences for your flagship initiatives.
-              </p>
-            </div>
-            <span className="text-xs uppercase tracking-wide text-slate-500">
-              {projectCreation.projects?.length ? `${projectCreation.projects.length} workspaces` : 'No active workspaces yet'}
-            </span>
-          </div>
-          <div className="space-y-4">
-            {projectList.length ? (
-              projectList.map((project) => <ProjectCard key={project.project?.id ?? project.projectId} entry={project} />)
-            ) : (
-              <div className="rounded-3xl border border-dashed border-slate-200 bg-white/70 p-6 text-sm text-slate-500">
-                No recent project workspaces yet. Start by launching a brief or inviting a collaborator.
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div id="project-gig-templates" className="space-y-4 xl:col-span-3">
-          <div className="flex flex-col gap-2">
-            <h3 className="text-lg font-semibold text-slate-900">Template gallery</h3>
-            <p className="text-sm text-slate-600">
-              Spin up hackathons, bootcamps, and consulting gigs with proven blueprints.
-            </p>
-          </div>
-          <div className="space-y-3">
-            {templateList.length ? (
-              templateList.map((template) => <TemplateCard key={template.id ?? template.name} template={template} />)
-            ) : (
-              <div className="rounded-3xl border border-dashed border-slate-200 bg-white/70 p-6 text-sm text-slate-500">
-                Templates seed as you connect GitHub, Notion, Figma, or cloud drives.
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div id="project-gig-assets" className="space-y-4">
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900">Asset repository</h3>
-              <p className="text-sm text-slate-600">Granular permissions, watermarking, and compliance ready exports.</p>
-            </div>
-            <div className="grid grid-cols-2 gap-3 text-sm text-slate-700 sm:grid-cols-4">
-              <div>
-                <p className="text-xs uppercase tracking-wide text-slate-500">Assets</p>
-                <p className="text-sm font-semibold text-slate-900">{formatNumber(assetSummary.total ?? 0)}</p>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-wide text-slate-500">Watermarked</p>
-                <p className="text-sm font-semibold text-slate-900">{formatNumber(assetSummary.watermarked ?? 0)}</p>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-wide text-slate-500">Restricted</p>
-                <p className="text-sm font-semibold text-slate-900">{formatNumber(assetSummary.restricted ?? 0)}</p>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-wide text-slate-500">Storage</p>
-                <p className="text-sm font-semibold text-slate-900">{formatFileSize(assetSummary.totalSizeBytes)}</p>
-              </div>
-            </div>
-          </div>
-          <div className="mt-4 space-y-3">
-            {topAssets.length ? (
-              topAssets.map((asset) => <AssetRow key={asset.id ?? asset.name} asset={asset} />)
-            ) : (
-              <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5 text-sm text-slate-500">
-                Upload project assets to manage watermarking and collaborator permissions.
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div id="project-gig-board" className="space-y-6">
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900">Project management board</h3>
-              <p className="text-sm text-slate-600">Visualise progress, risks, integrations, and retrospectives in one board.</p>
-            </div>
-            <div className="grid grid-cols-3 gap-3 text-sm text-slate-700">
-              <div>
-                <p className="text-xs uppercase tracking-wide text-slate-500">Average progress</p>
-                <p className="text-sm font-semibold text-slate-900">{formatPercent(managementBoard.metrics?.averageProgress)}</p>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-wide text-slate-500">Velocity score</p>
-                <p className="text-sm font-semibold text-slate-900">
-                  {managementBoard.metrics?.velocityAverage != null
-                    ? formatNumber(managementBoard.metrics.velocityAverage, { fractionDigits: 1 })
-                    : '—'}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-wide text-slate-500">Active projects</p>
-                <p className="text-sm font-semibold text-slate-900">{formatNumber(managementBoard.metrics?.activeProjects ?? 0)}</p>
-              </div>
-            </div>
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-500">
-            {riskDistribution.length ? (
-              riskDistribution.map((entry) => (
-                <Badge key={entry.label} tone={entry.label.includes('High') ? 'danger' : 'default'}>
-                  {entry.label}: {formatNumber(entry.count)}
-                </Badge>
-              ))
-            ) : (
-              <Badge>No risk signals captured yet</Badge>
-            )}
-          </div>
-          <div className="mt-6 grid gap-4 lg:grid-cols-2 2xl:grid-cols-4">
-            {boardLanes.length ? (
-              boardLanes.map((lane) => (
-                <div key={lane.id} className="flex h-full flex-col rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">{lane.label}</p>
-                      <p className="text-xs text-slate-500">{formatNumber(lane.items?.length ?? 0)} initiatives</p>
-                    </div>
-                    <Badge tone="accent">{formatPercent(lane.averageProgress)}</Badge>
-                  </div>
-                  <div className="mt-3 space-y-3">
-                    {lane.items?.slice(0, 3).map((item) => (
-                      <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-3">
-                        <p className="text-sm font-semibold text-slate-900">{item.title}</p>
-                        <p className="text-xs text-slate-500">
-                          {formatStatus(item.status)} · {formatPercent(item.progressPercent)}
-                        </p>
-                        {item.nextMilestone ? (
-                          <p className="text-[11px] text-slate-500">
-                            Next: {item.nextMilestone}
-                            {item.nextMilestoneDueAt ? ` • ${formatRelativeTime(item.nextMilestoneDueAt)}` : ''}
-                          </p>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="rounded-3xl border border-dashed border-slate-200 bg-white/70 p-6 text-sm text-slate-500">
-                Connect your project workspaces to populate kanban lanes and velocity metrics.
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h4 className="text-base font-semibold text-slate-900">Delivery integrations</h4>
-            <p className="mt-2 text-sm text-slate-600">Track GitHub, Notion, Figma, and cloud drive sync health.</p>
-            <div className="mt-4 space-y-3">
-              {integrations.length ? (
-                integrations.map((integration) => (
-                  <div key={integration.provider} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-700">
-                      <span className="font-semibold text-slate-900">{formatStatus(integration.provider)}</span>
-                      {integration.lastSyncedAt ? (
-                        <span className="text-xs text-slate-500">Synced {formatRelativeTime(integration.lastSyncedAt)}</span>
-                      ) : null}
-                    </div>
-                    <div className="mt-3 grid grid-cols-3 gap-3 text-xs text-slate-500">
-                      <span>Connected {formatNumber(integration.connected ?? 0)}</span>
-                      <span>Syncing {formatNumber(integration.syncing ?? 0)}</span>
-                      <span>Failing {formatNumber(integration.failing ?? 0)}</span>
-                    </div>
-                    <p className="mt-2 text-[11px] uppercase tracking-wide text-slate-500">
-                      {formatNumber(integration.projectCount ?? 0)} projects linked
-                    </p>
-                  </div>
-                ))
-              ) : (
-                <div className="rounded-2xl border border-dashed border-slate-200 bg-white/70 p-5 text-sm text-slate-500">
-                  Integrations will appear once repositories or documents sync with project workspaces.
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h4 className="text-base font-semibold text-slate-900">Retrospective reports</h4>
-            <p className="mt-2 text-sm text-slate-600">Automatic milestone retros for storytelling and governance.</p>
-            <div className="mt-4 space-y-3">
-              {retrospectives.length ? (
-                retrospectives.slice(0, 4).map((retro) => (
-                  <div key={retro.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-sm font-semibold text-slate-900">{retro.projectTitle ?? retro.milestone?.title ?? 'Retrospective'}</p>
-                    <p className="text-xs text-slate-500">
-                      {retro.generatedAt ? formatRelativeTime(retro.generatedAt) : 'Recently generated'} ·{' '}
-                      {retro.authoredBy?.name ?? retro.authoredBy?.email ?? 'Auto generated'}
-                    </p>
-                    {retro.highlights?.length ? (
-                      <p className="mt-2 text-xs text-slate-500">{retro.highlights[0]}</p>
-                    ) : retro.summary ? (
-                      <p className="mt-2 text-xs text-slate-500">{retro.summary}</p>
-                    ) : null}
-                  </div>
-                ))
-              ) : (
-                <div className="rounded-2xl border border-dashed border-slate-200 bg-white/70 p-5 text-sm text-slate-500">
-                  Retrospectives auto-generate when milestones complete and metrics are logged.
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div id="project-gig-purchased" className="space-y-6">
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900">Purchased gig operations</h3>
-              <p className="text-sm text-slate-600">
-                Track milestones, release escrows, and review vendors powering your deliverables.
-              </p>
-            </div>
-            <span className="text-xs uppercase tracking-wide text-slate-500">
-              {orders.length ? `${orders.length} recent orders` : 'No active gig orders'}
-            </span>
-          </div>
-          <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <MetricCard label="Total orders" value={formatNumber(purchasedGigs.stats?.totalOrders ?? orders.length ?? 0)} />
-            <MetricCard
-              label="Active"
-              value={formatNumber(orders.filter((order) => !['completed', 'cancelled'].includes(order.status)).length)}
-            />
-            <MetricCard
-              label="Avg. progress"
-              value={formatPercent(
-                orders.length
-                  ? orders.reduce((sum, order) => sum + Number(order.progressPercent ?? 0), 0) / orders.length
-                  : 0,
-              )}
-            />
-            <MetricCard
-              label="Vendor CSAT"
-              value={
-                purchasedGigs.stats?.averages?.overall != null
-                  ? formatScore(purchasedGigs.stats.averages.overall)
-                  : '—'
-              }
-            />
-          </div>
-          <div className="mt-6 grid gap-4 lg:grid-cols-2">
-            <div className="space-y-3">
-              <h4 className="text-sm font-semibold text-slate-900">Order watchlist</h4>
-              {orders.length ? (
-                orders.slice(0, 4).map((order) => (
-                  <div key={order.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
-                      <span className="font-semibold text-slate-700">{order.gig?.title ?? 'Vendor engagement'}</span>
-                      <Badge tone="accent">{formatStatus(order.status)}</Badge>
-                    </div>
-                    <p className="mt-2 text-sm font-semibold text-slate-900">Order {order.orderNumber}</p>
-                    <p className="text-xs text-slate-500">
-                      Next due {order.nextRequirementDueAt ? formatRelativeTime(order.nextRequirementDueAt) : 'TBC'} ·{' '}
-                      {formatPercent(order.progressPercent)} complete
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-2 text-[11px] uppercase tracking-wide text-slate-500">
-                      <Badge tone="warning">{formatNumber(order.outstandingRequirements ?? 0)} requirements</Badge>
-                      <Badge tone="default">{formatNumber(order.activeRevisions ?? 0)} revisions</Badge>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="rounded-2xl border border-dashed border-slate-200 bg-white/70 p-5 text-sm text-slate-500">
-                  Purchase gig services to unlock escrow controls and vendor scorecards.
-                </div>
-              )}
-            </div>
-            <div className="space-y-3">
-              <h4 className="text-sm font-semibold text-slate-900">Compliance & reminders</h4>
-              {reminders.length ? (
-                reminders.map((reminder) => <ReminderRow key={reminder.id} reminder={reminder} />)
-              ) : (
-                <div className="rounded-2xl border border-dashed border-amber-200 bg-amber-50/70 p-5 text-sm text-amber-700">
-                  No outstanding compliance or delivery reminders.
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="mt-6 space-y-3">
-            <h4 className="text-sm font-semibold text-slate-900">Vendor scorecards</h4>
-            {scorecards.length ? (
-              scorecards.slice(0, 4).map((scorecard) => <ScorecardRow key={scorecard.id ?? scorecard.orderId} scorecard={scorecard} />)
-            ) : (
-              <div className="rounded-2xl border border-dashed border-slate-200 bg-white/70 p-5 text-sm text-slate-500">
-                Vendor performance insights will surface after your first review.
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div id="project-gig-storytelling" className="space-y-6">
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900">CV-ready storytelling</h3>
-              <p className="text-sm text-slate-600">
-                Translate delivered impact into resume bullets, cover letters, and social proof.
-              </p>
-            </div>
-            <span className="text-xs uppercase tracking-wide text-slate-500">
-              {achievements.length ? `${achievements.length} achievements` : 'No achievements yet'}
-            </span>
-          </div>
-          <div className="mt-4 grid gap-4 lg:grid-cols-3">
-            {achievements.length ? (
-              achievements.slice(0, 6).map((achievement) => (
-                <AchievementCard key={achievement.id} achievement={achievement} />
-              ))
-            ) : (
-              <div className="rounded-3xl border border-dashed border-slate-200 bg-white/70 p-6 text-sm text-slate-500">
-                Complete project milestones or approve gig deliverables to unlock storytelling prompts.
-              </div>
-            )}
-          </div>
-          <div className="mt-6 grid gap-4 lg:grid-cols-3">
-            <QuickExportGroup title="Resume bullets" items={Array.isArray(quickExports.resumeBullets) ? quickExports.resumeBullets : []} />
-            <QuickExportGroup title="Cover letter ideas" items={Array.isArray(quickExports.coverLetters) ? quickExports.coverLetters : []} />
-            <QuickExportGroup title="LinkedIn updates" items={Array.isArray(quickExports.linkedinPosts) ? quickExports.linkedinPosts : []} />
-          </div>
-          <div className="mt-6">
-            <h4 className="text-sm font-semibold text-slate-900">Achievement assistant prompts</h4>
-            <div className="mt-3 space-y-3">
-              {prompts.length ? (
-                prompts.map((prompt) => (
-                  <div key={prompt.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-sm font-semibold text-slate-900">{prompt.title}</p>
-                    <p className="text-xs text-slate-600">{prompt.prompt}</p>
-                  </div>
-                ))
-              ) : (
-                <div className="rounded-2xl border border-dashed border-slate-200 bg-white/70 p-5 text-sm text-slate-500">
-                  Generate story prompts by logging milestone retrospectives or vendor reviews.
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
+    </div>
   );
+}
+
+ManageView.propTypes = {
+  summary: PropTypes.object.isRequired,
+  board: PropTypes.object.isRequired,
+  onOpenProject: PropTypes.func.isRequired,
+  onOpenOrder: PropTypes.func.isRequired,
+};
+
+function CreateView({ onOpenProject, onOpenOrder, onCreateTimeline, onLogSubmission, onStartChat }) {
+  const actions = [
+    { label: 'Project', onClick: onOpenProject },
+    { label: 'Order', onClick: onOpenOrder },
+    { label: 'Milestone', onClick: onCreateTimeline },
+    { label: 'Delivery', onClick: onLogSubmission },
+    { label: 'Message', onClick: onStartChat },
+  ];
+
+  return (
+    <div className="grid h-full place-items-center rounded-3xl border border-slate-200 bg-white/95 p-10 shadow-sm">
+      <div className="grid w-full max-w-3xl gap-4 sm:grid-cols-2">
+        {actions.map((action) => (
+          <button
+            key={action.label}
+            type="button"
+            onClick={() => action.onClick()}
+            className="rounded-3xl border border-slate-200 bg-slate-50/70 px-6 py-10 text-lg font-semibold text-slate-900 shadow-sm transition hover:border-accent hover:bg-white"
+          >
+            {action.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+CreateView.propTypes = {
+  onOpenProject: PropTypes.func.isRequired,
+  onOpenOrder: PropTypes.func.isRequired,
+  onCreateTimeline: PropTypes.func.isRequired,
+  onLogSubmission: PropTypes.func.isRequired,
+  onStartChat: PropTypes.func.isRequired,
+};
+
+function OrdersView({ title, orders, onOpenOrder, onTimeline, onLog, onEdit }) {
+  return (
+    <div className="grid h-full gap-4 rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
+      <h3 className="text-base font-semibold text-slate-900">{title}</h3>
+      {orders.length ? (
+        <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+          {orders.map((order) => (
+            <OrderCard
+              key={order.id}
+              order={order}
+              onOpen={() => onOpenOrder(order)}
+              onTimeline={() => onTimeline(order.id)}
+              onLog={() => onLog(order.id)}
+              onEdit={() => onEdit(order)}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className="flex h-full items-center justify-center rounded-2xl border border-dashed border-slate-200 p-10 text-sm text-slate-500">
+          Nothing here yet.
+        </p>
+      )}
+    </div>
+  );
+}
+
+OrdersView.propTypes = {
+  title: PropTypes.string.isRequired,
+  orders: PropTypes.arrayOf(PropTypes.object).isRequired,
+  onOpenOrder: PropTypes.func.isRequired,
+  onTimeline: PropTypes.func.isRequired,
+  onLog: PropTypes.func.isRequired,
+  onEdit: PropTypes.func.isRequired,
+};
+
+function TimelineView({ timeline, onEdit }) {
+  return (
+    <div className="grid h-full gap-6 rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
+      <div>
+        <h3 className="text-base font-semibold text-slate-900">Upcoming</h3>
+        <div className="mt-3 grid gap-3 lg:grid-cols-2">
+          {timeline.upcoming.length ? (
+            timeline.upcoming.slice(0, 8).map((event) => (
+              <button
+                key={event.id}
+                type="button"
+                onClick={() => onEdit(event.orderId, event)}
+                className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 text-left text-sm text-slate-700 transition hover:border-accent hover:bg-white"
+              >
+                <p className="font-semibold text-slate-900">{event.title}</p>
+                <p className="mt-1 text-xs text-slate-500">{event.serviceName}</p>
+                <p className="mt-2 text-xs text-slate-500">{event.scheduledAt ? formatRelativeTime(event.scheduledAt) : 'No date'}</p>
+              </button>
+            ))
+          ) : (
+            <p className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm text-slate-500">No upcoming items.</p>
+          )}
+        </div>
+      </div>
+      <div>
+        <h3 className="text-base font-semibold text-slate-900">Recent</h3>
+        <div className="mt-3 grid gap-3 lg:grid-cols-2">
+          {timeline.recent.length ? (
+            timeline.recent.slice(0, 8).map((event) => (
+              <button
+                key={event.id}
+                type="button"
+                onClick={() => onEdit(event.orderId, event)}
+                className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 text-left text-sm text-slate-700 transition hover:border-accent hover:bg-white"
+              >
+                <p className="font-semibold text-slate-900">{event.title}</p>
+                <p className="mt-1 text-xs text-slate-500">{event.serviceName}</p>
+                <p className="mt-2 text-xs text-slate-500">{event.completedAt ? formatAbsolute(event.completedAt) : 'In progress'}</p>
+              </button>
+            ))
+          ) : (
+            <p className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm text-slate-500">No history yet.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+TimelineView.propTypes = {
+  timeline: PropTypes.object.isRequired,
+  onEdit: PropTypes.func.isRequired,
+};
+
+function SubmissionView({ submissions, onEdit }) {
+  return (
+    <div className="grid h-full gap-6 rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
+      <div>
+        <h3 className="text-base font-semibold text-slate-900">Pending</h3>
+        <div className="mt-3 grid gap-3 lg:grid-cols-2">
+          {submissions.pending.length ? (
+            submissions.pending.slice(0, 8).map((submission) => (
+              <button
+                key={submission.id}
+                type="button"
+                onClick={() => onEdit(submission.orderId, submission)}
+                className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 text-left text-sm text-slate-700 transition hover:border-accent hover:bg-white"
+              >
+                <p className="font-semibold text-slate-900">{submission.title}</p>
+                <p className="mt-2 text-xs text-slate-500">{submission.status.replace(/_/g, ' ')}</p>
+                <p className="mt-2 text-xs text-slate-500">{submission.submittedAt ? formatRelativeTime(submission.submittedAt) : 'Draft'}</p>
+              </button>
+            ))
+          ) : (
+            <p className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm text-slate-500">All caught up.</p>
+          )}
+        </div>
+      </div>
+      <div>
+        <h3 className="text-base font-semibold text-slate-900">Recent</h3>
+        <div className="mt-3 grid gap-3 lg:grid-cols-2">
+          {submissions.recent.length ? (
+            submissions.recent.slice(0, 8).map((submission) => (
+              <button
+                key={submission.id}
+                type="button"
+                onClick={() => onEdit(submission.orderId, submission)}
+                className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 text-left text-sm text-slate-700 transition hover:border-accent hover:bg-white"
+              >
+                <p className="font-semibold text-slate-900">{submission.title}</p>
+                <p className="mt-2 text-xs text-slate-500">{submission.status.replace(/_/g, ' ')}</p>
+                <p className="mt-2 text-xs text-slate-500">{submission.reviewedAt ? formatAbsolute(submission.reviewedAt) : 'Awaiting review'}</p>
+              </button>
+            ))
+          ) : (
+            <p className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm text-slate-500">No deliveries logged.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+SubmissionView.propTypes = {
+  submissions: PropTypes.object.isRequired,
+  onEdit: PropTypes.func.isRequired,
+};
+
+function ChatView({ chat, onReply }) {
+  return (
+    <div className="grid h-full gap-4 rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
+      <div className="flex items-center justify-between">
+        <h3 className="text-base font-semibold text-slate-900">Threads</h3>
+        <button
+          type="button"
+          onClick={() => onReply()}
+          className="rounded-full bg-accent px-4 py-1.5 text-xs font-semibold text-white hover:bg-accent/90"
+        >
+          New
+        </button>
+      </div>
+      <div className="grid gap-3 lg:grid-cols-2">
+        {chat.recent.length ? (
+          chat.recent.slice(0, 12).map((message) => (
+            <button
+              key={message.id}
+              type="button"
+              onClick={() => onReply(message.orderId)}
+              className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 text-left text-sm text-slate-700 transition hover:border-accent hover:bg-white"
+            >
+              <p className="font-semibold text-slate-900">{message.serviceName}</p>
+              <p className="mt-1 text-xs text-slate-500">{message.authorName ?? 'Anon'}</p>
+              <p className="mt-2 text-xs text-slate-500">{message.sentAt ? formatRelativeTime(message.sentAt) : 'Just now'}</p>
+              <p className="mt-2 line-clamp-2 text-xs text-slate-600">{message.body}</p>
+            </button>
+          ))
+        ) : (
+          <p className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm text-slate-500">No chatter yet.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+ChatView.propTypes = {
+  chat: PropTypes.object.isRequired,
+  onReply: PropTypes.func.isRequired,
+};
+
+export default function ProjectGigManagementSection({
+  data,
+  actions,
+  activeTab,
+  canManage,
+  onProjectPreview,
+}) {
+  const lifecycle = data?.projectLifecycle ?? { open: [], closed: [], stats: {} };
+  const projects = data?.projectCreation?.projects ?? [];
+  const bids = data?.projectBids ?? { bids: [], stats: {} };
+  const invitations = data?.invitations ?? { entries: [], stats: {} };
+  const autoMatch = data?.autoMatch ?? { settings: {}, matches: [], summary: {} };
+  const reviews = data?.reviews ?? { entries: [], summary: {} };
+  const escrow = data?.escrow ?? { account: {}, transactions: [] };
+  const purchasedGigs = data?.purchasedGigs ?? { orders: [] };
+
+  const handleProjectSelect = (projectId) => {
+    if (onProjectPreview) {
+      onProjectPreview(projectId);
+    }
+  };
+
+  if (activeTab === 'projects') {
+    if (!lifecycle.open.length && !lifecycle.closed.length) {
+      return <EmptyPanel title="No projects yet" />;
+    }
+
+    return (
+      <ProjectLifecyclePanel
+        lifecycle={lifecycle}
+        onUpdateWorkspace={actions.updateWorkspace}
+        canManage={canManage}
+        onPreviewProject={handleProjectSelect}
+      />
+    );
+  }
+
+  if (activeTab === 'bids') {
+    return (
+      <ProjectBidsPanel
+        bids={bids.bids ?? []}
+        stats={bids.stats ?? {}}
+        projects={projects}
+        onCreateBid={actions.createProjectBid}
+        onUpdateBid={actions.updateProjectBid}
+        canManage={canManage}
+      />
+    );
+  }
+
+  if (activeTab === 'invites') {
+    return (
+      <ProjectInvitationsPanel
+        entries={invitations.entries ?? []}
+        stats={invitations.stats ?? {}}
+        projects={projects}
+        onSendInvitation={actions.sendProjectInvitation}
+        onUpdateInvitation={actions.updateProjectInvitation}
+        canManage={canManage}
+      />
+    );
+  }
+
+  if (activeTab === 'match') {
+    return (
+      <AutoMatchPanel
+        settings={autoMatch.settings ?? {}}
+        matches={autoMatch.matches ?? []}
+        summary={autoMatch.summary ?? {}}
+        projects={projects}
+        onUpdateSettings={actions.updateAutoMatchSettings}
+        onCreateMatch={actions.createAutoMatch}
+        onUpdateMatch={actions.updateAutoMatch}
+        canManage={canManage}
+      />
+    );
+  }
+
+  if (activeTab === 'reviews') {
+    return (
+      <ProjectReviewsPanel
+        entries={reviews.entries ?? []}
+        summary={reviews.summary ?? {}}
+        projects={projects}
+        orders={purchasedGigs.orders ?? []}
+        onCreateReview={actions.createProjectReview}
+        canManage={canManage}
+      />
+    );
+  }
+
+  if (activeTab === 'escrow') {
+    return (
+      <EscrowManagementPanel
+        account={escrow.account ?? {}}
+        transactions={escrow.transactions ?? []}
+        onCreateTransaction={actions.createEscrowTransaction}
+        onUpdateSettings={actions.updateEscrowSettings}
+        canManage={canManage}
+      />
+    );
+  }
+
+  return <EmptyPanel title="Choose a tab" />;
 }
 
 ProjectGigManagementSection.propTypes = {
   data: PropTypes.object,
+  actions: PropTypes.shape({
+    updateWorkspace: PropTypes.func,
+    createProjectBid: PropTypes.func,
+    updateProjectBid: PropTypes.func,
+    sendProjectInvitation: PropTypes.func,
+    updateProjectInvitation: PropTypes.func,
+    updateAutoMatchSettings: PropTypes.func,
+    createAutoMatch: PropTypes.func,
+    updateAutoMatch: PropTypes.func,
+    createProjectReview: PropTypes.func,
+    createEscrowTransaction: PropTypes.func,
+    updateEscrowSettings: PropTypes.func,
+  }).isRequired,
+  activeTab: PropTypes.string.isRequired,
+  canManage: PropTypes.bool,
+  onProjectPreview: PropTypes.func,
 };
 
 ProjectGigManagementSection.defaultProps = {
   data: null,
+  canManage: false,
+  onProjectPreview: undefined,
 };
+  activeView,
+  onViewChange,
+  onOpenProject,
+  onOpenOrder,
+  onOpenOrderDetail,
+  onCreateTimeline,
+  onEditTimeline,
+  onLogSubmission,
+  onEditSubmission,
+  onStartChat,
+  onEditOrder,
+}) {
+  const openOrders = data.purchasedGigs?.orders?.filter((order) => ['requirements', 'in_delivery', 'in_revision'].includes(order.status)) ?? [];
+  const closedOrders = data.purchasedGigs?.orders?.filter((order) => !['requirements', 'in_delivery', 'in_revision'].includes(order.status)) ?? [];
+
+  let viewContent = null;
+  if (activeView === 'manage') {
+    viewContent = (
+      <ManageView summary={data.summary} board={data.managementBoard} onOpenProject={onOpenProject} onOpenOrder={onOpenOrder} />
+    );
+  } else if (activeView === 'create') {
+    viewContent = (
+      <CreateView
+        onOpenProject={onOpenProject}
+        onOpenOrder={onOpenOrder}
+        onCreateTimeline={() => onCreateTimeline(openOrders[0]?.id ?? data.purchasedGigs?.orders?.[0]?.id)}
+        onLogSubmission={() => onLogSubmission(openOrders[0]?.id ?? data.purchasedGigs?.orders?.[0]?.id)}
+        onStartChat={() => onStartChat(openOrders[0]?.id ?? data.purchasedGigs?.orders?.[0]?.id)}
+      />
+    );
+  } else if (activeView === 'open') {
+    viewContent = (
+      <OrdersView
+        title="Active gigs"
+        orders={openOrders}
+        onOpenOrder={(order) => {
+          onOpenOrderDetail(order.id);
+        }}
+        onTimeline={(orderId) => onCreateTimeline(orderId)}
+        onLog={(orderId) => onLogSubmission(orderId)}
+        onEdit={(order) => onEditOrder(order)}
+      />
+    );
+  } else if (activeView === 'closed') {
+    viewContent = (
+      <OrdersView
+        title="Closed gigs"
+        orders={closedOrders}
+        onOpenOrder={(order) => {
+          onOpenOrderDetail(order.id);
+        }}
+        onTimeline={(orderId) => onCreateTimeline(orderId)}
+        onLog={(orderId) => onLogSubmission(orderId)}
+        onEdit={(order) => onEditOrder(order)}
+      />
+    );
+  } else if (activeView === 'timeline') {
+    viewContent = <TimelineView timeline={data.purchasedGigs?.timeline ?? { upcoming: [], recent: [] }} onEdit={onEditTimeline} />;
+  } else if (activeView === 'submit') {
+    viewContent = <SubmissionView submissions={data.purchasedGigs?.submissions ?? { pending: [], recent: [] }} onEdit={onEditSubmission} />;
+  } else if (activeView === 'chat') {
+    viewContent = <ChatView chat={data.purchasedGigs?.chat ?? { recent: [] }} onReply={(orderId) => onStartChat(orderId)} />;
+  }
+
+  return (
+    <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+      <nav className="flex w-full flex-row gap-2 overflow-x-auto rounded-3xl border border-slate-200 bg-white/80 p-3 shadow-sm lg:w-48 lg:flex-col">
+        {NAV_ITEMS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => onViewChange(item.id)}
+            className={`rounded-2xl px-4 py-2 text-sm font-semibold transition ${
+              activeView === item.id
+                ? 'bg-slate-900 text-white shadow-sm'
+                : 'bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </nav>
+      <div className="flex-1">
+        <div className="min-h-[640px] rounded-3xl bg-gradient-to-br from-slate-50 via-white to-white p-6 shadow-sm">
+          {viewContent}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ProjectGigManagementSection.propTypes = {
+  data: PropTypes.object.isRequired,
+  activeView: PropTypes.string.isRequired,
+  onViewChange: PropTypes.func.isRequired,
+  onOpenProject: PropTypes.func.isRequired,
+  onOpenOrder: PropTypes.func.isRequired,
+  onOpenOrderDetail: PropTypes.func.isRequired,
+  onCreateTimeline: PropTypes.func.isRequired,
+  onEditTimeline: PropTypes.func.isRequired,
+  onLogSubmission: PropTypes.func.isRequired,
+  onEditSubmission: PropTypes.func.isRequired,
+  onStartChat: PropTypes.func.isRequired,
+  onEditOrder: PropTypes.func.isRequired,
+};
+

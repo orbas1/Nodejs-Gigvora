@@ -7,6 +7,7 @@ import {
   createGigOrder,
   updateGigOrder,
   getProjectGigManagementOverview,
+  getGigOrderDetail,
 } from '../src/services/projectGigManagementWorkflowService.js';
 
 const ownerId = 42;
@@ -59,6 +60,56 @@ describe('projectGigManagementWorkflowService', () => {
       serviceName: 'Executive resume refresh',
       progressPercent: 20,
       requirements: [{ title: 'Upload baseline resume', dueAt: new Date(Date.now() + 2 * 86400000) }],
+      classes: [
+        {
+          name: 'Starter',
+          summary: 'Core resume polish',
+          priceAmount: 1800,
+          priceCurrency: 'USD',
+          deliveryDays: 7,
+          inclusions: ['Initial consult', 'Resume draft'],
+        },
+        {
+          name: 'Growth',
+          summary: 'Adds LinkedIn refresh',
+          priceAmount: 2400,
+          priceCurrency: 'USD',
+          deliveryDays: 10,
+          inclusions: ['Consult', 'Resume draft', 'LinkedIn profile'],
+        },
+        {
+          name: 'Elite',
+          summary: 'Full executive kit',
+          priceAmount: 3200,
+          priceCurrency: 'USD',
+          deliveryDays: 14,
+          inclusions: ['Consult', 'Resume draft', 'LinkedIn profile', 'Cover letter'],
+        },
+      ],
+      addons: [
+        {
+          name: 'Rush delivery',
+          description: '48-hour turnaround',
+          priceAmount: 600,
+          priceCurrency: 'USD',
+          deliveryDays: 2,
+          isPopular: true,
+        },
+      ],
+      tags: ['resume', 'executive', 'refresh'],
+      media: [
+        {
+          type: 'image',
+          url: 'https://cdn.example.com/resume-sample.png',
+          caption: 'Before and after sample',
+        },
+      ],
+      faqs: [
+        {
+          question: 'How many revisions are included?',
+          answer: 'Two revision rounds in every class.',
+        },
+      ],
     });
 
     await updateGigOrder(ownerId, order.id, {
@@ -79,9 +130,14 @@ describe('projectGigManagementWorkflowService', () => {
     expect(snapshot.board.metrics.averageProgress).toBeGreaterThan(0);
 
     expect(snapshot.purchasedGigs.orders).toHaveLength(1);
-    expect(snapshot.purchasedGigs.orders[0].revisions).toHaveLength(1);
+    expect(snapshot.purchasedGigs.orders[0].classes.length).toBeGreaterThanOrEqual(3);
     expect(snapshot.purchasedGigs.stats.totalOrders).toBe(1);
     expect(snapshot.purchasedGigs.stats.averages.overall).toBeCloseTo(4.5);
+
+    const detail = await getGigOrderDetail(ownerId, order.id);
+    expect(detail.revisions).toHaveLength(1);
+    expect(detail.classes.length).toBeGreaterThanOrEqual(3);
+    expect(detail.addons.length).toBeGreaterThan(0);
 
     expect(snapshot.storytelling.achievements.length).toBeGreaterThan(0);
     expect(snapshot.templates.length).toBeGreaterThan(0);
