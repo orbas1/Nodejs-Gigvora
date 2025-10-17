@@ -42,8 +42,11 @@ import {
   BlogPost,
   BlogPostMedia,
   BlogPostTag,
+  BlogPostMetric,
+  BlogComment,
   BlogTag,
   registerBlogAssociations,
+  BLOG_COMMENT_STATUSES,
 } from './blogModels.js';
 import { AgencyAiConfiguration, AgencyAutoBidTemplate } from './agencyAiModels.js';
 import {
@@ -176,6 +179,17 @@ const dialect = sequelize.getDialect();
 const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB : DataTypes.JSON;
 
 export * from './constants/index.js';
+export {
+  BlogCategory,
+  BlogMedia,
+  BlogPost,
+  BlogPostMedia,
+  BlogPostTag,
+  BlogPostMetric,
+  BlogComment,
+  BlogTag,
+  BLOG_COMMENT_STATUSES,
+} from './blogModels.js';
 export * from './agencyJobModels.js';
 export { BlogCategory, BlogMedia, BlogPost, BlogPostMedia, BlogPostTag, BlogTag } from './blogModels.js';
 export { ConsentPolicy, ConsentPolicyVersion, UserConsent, ConsentAuditEvent } from './consentModels.js';

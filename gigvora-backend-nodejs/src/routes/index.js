@@ -50,8 +50,8 @@ import eventManagementRoutes from './eventManagementRoutes.js';
 const router = Router();
 
 router.use('/ads', adRoutes);
-router.use('/admin', adminRoutes);
 router.use('/admin/blog', blogAdminRoutes);
+router.use('/admin', adminRoutes);
 router.use('/agency/job-management', agencyJobManagementRoutes);
 router.use('/agency/wallet', agencyWalletRoutes);
 router.use('/agency', agencyRoutes);
