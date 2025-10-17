@@ -83,6 +83,8 @@ import { appCache, buildCacheKey } from '../utils/cache.js';
 import { AuthenticationError, AuthorizationError, NotFoundError } from '../utils/errors.js';
 import { getAdDashboardSnapshot } from './adService.js';
 import { getFinanceControlTowerOverview } from './financeService.js';
+import { getAgencyOverview } from './agencyOverviewService.js';
+import { getCreationStudioSnapshot } from './agencyCreationStudioService.js';
 
 const ACTIVE_MEMBER_STATUSES = ['active'];
 const PROJECT_STATUS_BUCKETS = {
@@ -3211,6 +3213,19 @@ export async function getAgencyDashboard(
     const workspaceIdFilter = workspace ? workspace.id : null;
     const workspaceOwnerId = workspace ? workspace.ownerId : null;
 
+    let dashboardOverview = null;
+    if (workspaceIdFilter) {
+      try {
+        const overviewResult = await getAgencyOverview(
+          { workspaceId: workspaceIdFilter },
+          { actorId, actorRole, actorRoles: [actorRole].filter(Boolean) },
+        );
+        dashboardOverview = overviewResult?.overview ?? null;
+      } catch (error) {
+        dashboardOverview = null;
+      }
+    }
+
     let memberRows = [];
     let inviteRows = [];
     let noteRows = [];
@@ -3544,6 +3559,10 @@ export async function getAgencyDashboard(
     }
 
     const agencyProfilePlain = agencyProfile ? agencyProfile.get({ plain: true }) : null;
+    const creationStudio = await getCreationStudioSnapshot(
+      { agencyProfileId: agencyProfilePlain?.id ?? null },
+      { actorId, actorRole },
+    );
 
     const formattedProjects = scopedProjects.map((project) => ({
       id: project.id,
@@ -4303,7 +4322,9 @@ export async function getAgencyDashboard(
 
     return {
       workspace: workspace ? sanitizeWorkspaceRecord(workspace) : null,
+      dashboardOverview,
       agencyProfile: agencyProfilePlain,
+      creationStudio,
       scope,
       summary: {
         members: membersSummary,

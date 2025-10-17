@@ -455,20 +455,20 @@ export default function TaskSprintManager() {
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
-        <form onSubmit={handleCreateSprint} className="space-y-3 rounded-3xl border border-slate-200 bg-slate-50 p-5">
-          <h3 className="text-sm font-semibold text-slate-700">Create sprint</h3>
-          <fieldset disabled={isInteractiveDisabled || creatingSprint} className="space-y-3">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="text-xs text-slate-500">
-                Name
-                <input
-                  required
-                  type="text"
-                value={sprintForm.name}
-                onChange={(event) => setSprintForm((prev) => ({ ...prev, name: event.target.value }))}
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              />
-            </label>
+          <form onSubmit={handleCreateSprint} className="space-y-3 rounded-3xl border border-slate-200 bg-slate-50 p-5">
+            <h3 className="text-sm font-semibold text-slate-700">Create sprint</h3>
+            <fieldset disabled={isInteractiveDisabled || creatingSprint} className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="text-xs text-slate-500">
+                  Name
+                  <input
+                    required
+                    type="text"
+                    value={sprintForm.name}
+                    onChange={(event) => setSprintForm((prev) => ({ ...prev, name: event.target.value }))}
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  />
+                </label>
             <label className="text-xs text-slate-500">
               Goal
               <input
@@ -496,6 +496,18 @@ export default function TaskSprintManager() {
                 className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </label>
+              <label className="text-xs text-slate-500">
+                Velocity target (pts)
+                <input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={sprintForm.velocityTarget}
+                  onChange={(event) => setSprintForm((prev) => ({ ...prev, velocityTarget: event.target.value }))}
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                />
+              </label>
+            </div>
             <label className="text-xs text-slate-500">
               Velocity target (pts)
               <input
@@ -507,6 +519,8 @@ export default function TaskSprintManager() {
                 className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </label>
+            </div>
+          </div>
             <button
               type="submit"
               className={`inline-flex w-full items-center justify-center rounded-xl px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 ${
@@ -518,6 +532,8 @@ export default function TaskSprintManager() {
             >
               {creatingSprint ? 'Saving…' : 'Save sprint'}
             </button>
+            </div>
+          </div>
           </fieldset>
         </form>
 
@@ -530,11 +546,11 @@ export default function TaskSprintManager() {
                 <input
                   required
                   type="text"
-                value={taskForm.title}
-                onChange={(event) => setTaskForm((prev) => ({ ...prev, title: event.target.value }))}
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              />
-            </label>
+                  value={taskForm.title}
+                  onChange={(event) => setTaskForm((prev) => ({ ...prev, title: event.target.value }))}
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                />
+              </label>
             <label className="text-xs text-slate-500">
               Sprint
               <select
@@ -565,19 +581,19 @@ export default function TaskSprintManager() {
                 <option value="done">Done</option>
               </select>
             </label>
-            <label className="text-xs text-slate-500">
-              Priority
-              <select
-                value={taskForm.priority}
-                onChange={(event) => setTaskForm((prev) => ({ ...prev, priority: event.target.value }))}
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-                <option value="critical">Critical</option>
-              </select>
-            </label>
+              <label className="text-xs text-slate-500">
+                Priority
+                <select
+                  value={taskForm.priority}
+                  onChange={(event) => setTaskForm((prev) => ({ ...prev, priority: event.target.value }))}
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="critical">Critical</option>
+                </select>
+              </label>
             <label className="text-xs text-slate-500">
               Story points
               <input
@@ -598,6 +614,17 @@ export default function TaskSprintManager() {
                 className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </label>
+              <label className="text-xs text-slate-500">
+                Assignee ID
+                <input
+                  type="number"
+                  min="1"
+                  value={taskForm.assigneeId}
+                  onChange={(event) => setTaskForm((prev) => ({ ...prev, assigneeId: event.target.value }))}
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                />
+              </label>
+            </div>
             <label className="text-xs text-slate-500">
               Assignee ID
               <input
@@ -608,6 +635,8 @@ export default function TaskSprintManager() {
                 className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </label>
+            </div>
+          </div>
             <button
               type="submit"
               className={`inline-flex w-full items-center justify-center rounded-xl px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 ${
@@ -619,33 +648,35 @@ export default function TaskSprintManager() {
             >
               {creatingTask ? 'Saving…' : 'Add task'}
             </button>
+            </div>
+          </div>
           </fieldset>
         </form>
       </div>
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-2">
-        <form onSubmit={handleLogTime} className="space-y-3 rounded-3xl border border-slate-200 bg-slate-50 p-5">
-          <h3 className="text-sm font-semibold text-slate-700">Log time</h3>
-          <fieldset disabled={isInteractiveDisabled || loggingTimeEntry} className="space-y-3">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="text-xs text-slate-500">
-                Task
-                <select
-                  required
-                  value={timeForm.taskId}
-                onChange={(event) => setTimeForm((prev) => ({ ...prev, taskId: event.target.value }))}
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              >
-                <option value="" disabled>
-                  Select task
-                </option>
-                {allTasks.map((task) => (
-                  <option key={task.id} value={task.id}>
-                    #{task.id} · {task.title}
-                  </option>
-                ))}
-              </select>
-            </label>
+        <div className="mt-8 grid gap-6 lg:grid-cols-2">
+          <form onSubmit={handleLogTime} className="space-y-3 rounded-3xl border border-slate-200 bg-slate-50 p-5">
+            <h3 className="text-sm font-semibold text-slate-700">Log time</h3>
+            <fieldset disabled={isInteractiveDisabled || loggingTimeEntry} className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="text-xs text-slate-500">
+                  Task
+                  <select
+                    required
+                    value={timeForm.taskId}
+                    onChange={(event) => setTimeForm((prev) => ({ ...prev, taskId: event.target.value }))}
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  >
+                    <option value="" disabled>
+                      Select task
+                    </option>
+                    {allTasks.map((task) => (
+                      <option key={task.id} value={task.id}>
+                        #{task.id} · {task.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
             <label className="text-xs text-slate-500">
               User ID
               <input
@@ -678,6 +709,38 @@ export default function TaskSprintManager() {
                 className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </label>
+                <label className="flex items-center gap-2 text-xs text-slate-500">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(timeForm.billable)}
+                    onChange={(event) => setTimeForm((prev) => ({ ...prev, billable: event.target.checked }))}
+                    className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  Billable entry
+                </label>
+                <label className="text-xs text-slate-500 sm:col-span-2">
+                  Notes
+                  <textarea
+                    value={timeForm.notes}
+                    onChange={(event) => setTimeForm((prev) => ({ ...prev, notes: event.target.value }))}
+                    rows={2}
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  />
+                </label>
+              </div>
+              <button
+                type="submit"
+                className={`inline-flex w-full items-center justify-center rounded-xl px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 ${
+                  isInteractiveDisabled || loggingTimeEntry
+                    ? 'cursor-not-allowed bg-blue-300'
+                    : 'bg-blue-600 hover:bg-blue-700'
+                }`}
+                disabled={isInteractiveDisabled || loggingTimeEntry}
+              >
+                {loggingTimeEntry ? 'Logging…' : 'Log time'}
+              </button>
+            </fieldset>
+          </form>
             <label className="flex items-center gap-2 text-xs text-slate-500">
               <input
                 type="checkbox"
@@ -687,15 +750,17 @@ export default function TaskSprintManager() {
               />
               Billable entry
             </label>
-              <label className="text-xs text-slate-500 sm:col-span-2">
-                Notes
-                <textarea
-                  value={timeForm.notes}
-                  onChange={(event) => setTimeForm((prev) => ({ ...prev, notes: event.target.value }))}
-                  rows={2}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                />
-              </label>
+            <label className="text-xs text-slate-500 sm:col-span-2">
+              Notes
+              <textarea
+                value={timeForm.notes}
+                onChange={(event) => setTimeForm((prev) => ({ ...prev, notes: event.target.value }))}
+                rows={2}
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              />
+            </label>
+            </div>
+          </div>
             <button
               type="submit"
               className={`inline-flex w-full items-center justify-center rounded-xl px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 ${
@@ -707,23 +772,24 @@ export default function TaskSprintManager() {
             >
               {loggingTimeEntry ? 'Logging…' : 'Log time'}
             </button>
+            </div>
           </fieldset>
         </form>
 
-        <form onSubmit={handleCreateRisk} className="space-y-3 rounded-3xl border border-slate-200 bg-slate-50 p-5">
-          <h3 className="text-sm font-semibold text-slate-700">Register risk</h3>
-          <fieldset disabled={isInteractiveDisabled || registeringRisk} className="space-y-3">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="text-xs text-slate-500">
-                Title
-                <input
-                  required
-                  type="text"
-                value={riskForm.title}
-                onChange={(event) => setRiskForm((prev) => ({ ...prev, title: event.target.value }))}
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              />
-            </label>
+          <form onSubmit={handleCreateRisk} className="space-y-3 rounded-3xl border border-slate-200 bg-slate-50 p-5">
+            <h3 className="text-sm font-semibold text-slate-700">Register risk</h3>
+            <fieldset disabled={isInteractiveDisabled || registeringRisk} className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="text-xs text-slate-500">
+                  Title
+                  <input
+                    required
+                    type="text"
+                    value={riskForm.title}
+                    onChange={(event) => setRiskForm((prev) => ({ ...prev, title: event.target.value }))}
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  />
+                </label>
             <label className="text-xs text-slate-500">
               Owner ID
               <input
@@ -777,18 +843,18 @@ export default function TaskSprintManager() {
                 <option value="critical">Critical</option>
               </select>
             </label>
-            <label className="text-xs text-slate-500">
-              Probability (0-1)
-              <input
-                type="number"
-                min="0"
-                max="1"
-                step="0.05"
-                value={riskForm.probability}
-                onChange={(event) => setRiskForm((prev) => ({ ...prev, probability: event.target.value }))}
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              />
-            </label>
+              <label className="text-xs text-slate-500">
+                Probability (0-1)
+                <input
+                  type="number"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={riskForm.probability}
+                  onChange={(event) => setRiskForm((prev) => ({ ...prev, probability: event.target.value }))}
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                />
+              </label>
             <label className="text-xs text-slate-500">
               Severity score
               <input
@@ -814,6 +880,16 @@ export default function TaskSprintManager() {
                 <option value="closed">Closed</option>
               </select>
             </label>
+              <label className="text-xs text-slate-500 sm:col-span-2">
+                Mitigation plan
+                <textarea
+                  value={riskForm.mitigationPlan}
+                  onChange={(event) => setRiskForm((prev) => ({ ...prev, mitigationPlan: event.target.value }))}
+                  rows={2}
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                />
+              </label>
+            </div>
             <label className="text-xs text-slate-500 sm:col-span-2">
               Mitigation plan
               <textarea
@@ -823,6 +899,8 @@ export default function TaskSprintManager() {
                 className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </label>
+            </div>
+          </div>
             <button
               type="submit"
               className={`inline-flex w-full items-center justify-center rounded-xl px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 ${
@@ -834,24 +912,25 @@ export default function TaskSprintManager() {
             >
               {registeringRisk ? 'Registering…' : 'Register risk'}
             </button>
+            </div>
           </fieldset>
         </form>
       </div>
 
-      <form onSubmit={handleChangeRequest} className="mt-8 space-y-3 rounded-3xl border border-slate-200 bg-slate-50 p-5">
-        <h3 className="text-sm font-semibold text-slate-700">Change request approval</h3>
-        <fieldset disabled={isInteractiveDisabled || submittingChangeRequest} className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-          <label className="text-xs text-slate-500">
-            Title
-            <input
-              required
-              type="text"
-              value={changeForm.title}
-              onChange={(event) => setChangeForm((prev) => ({ ...prev, title: event.target.value }))}
-              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
-            />
-          </label>
+        <form onSubmit={handleChangeRequest} className="mt-8 space-y-3 rounded-3xl border border-slate-200 bg-slate-50 p-5">
+          <h3 className="text-sm font-semibold text-slate-700">Change request approval</h3>
+          <fieldset disabled={isInteractiveDisabled || submittingChangeRequest} className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="text-xs text-slate-500">
+                Title
+                <input
+                  required
+                  type="text"
+                  value={changeForm.title}
+                  onChange={(event) => setChangeForm((prev) => ({ ...prev, title: event.target.value }))}
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                />
+              </label>
           <label className="text-xs text-slate-500">
             Sprint
             <select
@@ -877,6 +956,39 @@ export default function TaskSprintManager() {
               className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
             />
           </label>
+              <label className="text-xs text-slate-500">
+                E-sign document URL
+                <input
+                  type="url"
+                  value={changeForm.eSignDocumentUrl}
+                  onChange={(event) => setChangeForm((prev) => ({ ...prev, eSignDocumentUrl: event.target.value }))}
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                />
+              </label>
+              <label className="text-xs text-slate-500 sm:col-span-2">
+                Description &amp; rationale
+                <textarea
+                  required
+                  value={changeForm.description}
+                  onChange={(event) => setChangeForm((prev) => ({ ...prev, description: event.target.value }))}
+                  rows={3}
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                />
+              </label>
+            </div>
+            <button
+              type="submit"
+              className={`inline-flex w-full items-center justify-center rounded-xl px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 ${
+                isInteractiveDisabled || submittingChangeRequest
+                  ? 'cursor-not-allowed bg-blue-300'
+                  : 'bg-blue-600 hover:bg-blue-700'
+              }`}
+              disabled={isInteractiveDisabled || submittingChangeRequest}
+            >
+              {submittingChangeRequest ? 'Routing…' : 'Submit change request'}
+            </button>
+          </fieldset>
+        </form>
           <label className="text-xs text-slate-500">
             E-sign document URL
             <input
@@ -886,28 +998,28 @@ export default function TaskSprintManager() {
               className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
             />
           </label>
-            <label className="text-xs text-slate-500 sm:col-span-2">
-              Description &amp; rationale
-              <textarea
-                required
-                value={changeForm.description}
-                onChange={(event) => setChangeForm((prev) => ({ ...prev, description: event.target.value }))}
-                rows={3}
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              />
-            </label>
-          </div>
-          <button
-            type="submit"
-            className={`inline-flex w-full items-center justify-center rounded-xl px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 ${
-              isInteractiveDisabled || submittingChangeRequest
-                ? 'cursor-not-allowed bg-blue-300'
-                : 'bg-blue-600 hover:bg-blue-700'
-            }`}
-            disabled={isInteractiveDisabled || submittingChangeRequest}
-          >
-            {submittingChangeRequest ? 'Routing…' : 'Submit change request'}
-          </button>
+          <label className="text-xs text-slate-500 sm:col-span-2">
+            Description &amp; rationale
+            <textarea
+              required
+              value={changeForm.description}
+              onChange={(event) => setChangeForm((prev) => ({ ...prev, description: event.target.value }))}
+              rows={3}
+              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            />
+          </label>
+        </div>
+        <button
+          type="submit"
+          className={`inline-flex w-full items-center justify-center rounded-xl px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 ${
+            isInteractiveDisabled || submittingChangeRequest
+              ? 'cursor-not-allowed bg-blue-300'
+              : 'bg-blue-600 hover:bg-blue-700'
+          }`}
+          disabled={isInteractiveDisabled || submittingChangeRequest}
+        >
+          {submittingChangeRequest ? 'Routing…' : 'Submit change request'}
+        </button>
         </fieldset>
       </form>
 
