@@ -10,8 +10,22 @@ export async function createEscrowAccount(payload, options = {}) {
   return response.account;
 }
 
+export async function updateEscrowAccount(accountId, payload, options = {}) {
+  const response = await apiClient.patch(`/trust/escrow/accounts/${accountId}`, payload, options);
+  return response.account;
+}
+
 export async function initiateEscrowTransaction(payload, options = {}) {
   const response = await apiClient.post('/trust/escrow/transactions', payload, options);
+  return response.transaction;
+}
+
+export async function updateEscrowTransaction(transactionId, payload, options = {}) {
+  const response = await apiClient.patch(
+    `/trust/escrow/transactions/${transactionId}`,
+    payload,
+    options,
+  );
   return response.transaction;
 }
 
@@ -57,7 +71,9 @@ export async function updateDispute(disputeId, payload, options = {}) {
 export default {
   fetchTrustOverview,
   createEscrowAccount,
+  updateEscrowAccount,
   initiateEscrowTransaction,
+  updateEscrowTransaction,
   releaseEscrow,
   refundEscrow,
   createDispute,

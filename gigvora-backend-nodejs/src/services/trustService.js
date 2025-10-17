@@ -273,6 +273,66 @@ export async function ensureEscrowAccount({ userId, provider, currencyCode = 'US
   return account.toPublicObject();
 }
 
+export async function updateEscrowAccount(accountId, payload = {}) {
+  const id = Number.parseInt(accountId, 10);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new ValidationError('A valid accountId is required to update an escrow account');
+  }
+
+  const account = await EscrowAccount.findByPk(id);
+  if (!account) {
+    throw new NotFoundError('Escrow account not found');
+  }
+
+  const updates = {};
+
+  if (payload.status) {
+    if (!ESCROW_ACCOUNT_STATUSES.includes(payload.status)) {
+      throw new ValidationError(`Status must be one of: ${ESCROW_ACCOUNT_STATUSES.join(', ')}`);
+    }
+    updates.status = payload.status;
+  }
+
+  if (payload.currencyCode) {
+    updates.currencyCode = payload.currencyCode;
+  }
+
+  if (payload.externalId !== undefined) {
+    updates.externalId = payload.externalId || null;
+  }
+
+  if (payload.walletAccountId !== undefined) {
+    updates.walletAccountId = payload.walletAccountId || null;
+  }
+
+  if (payload.lastReconciledAt !== undefined) {
+    if (payload.lastReconciledAt === null || payload.lastReconciledAt === '') {
+      updates.lastReconciledAt = null;
+    } else {
+      const reconciledAt = new Date(payload.lastReconciledAt);
+      if (Number.isNaN(reconciledAt.getTime())) {
+        throw new ValidationError('Invalid reconciliation timestamp supplied');
+      }
+      updates.lastReconciledAt = reconciledAt;
+    }
+  }
+
+  if (payload.metadata !== undefined) {
+    if (payload.metadata == null || typeof payload.metadata === 'object') {
+      updates.metadata = payload.metadata ?? null;
+    } else {
+      throw new ValidationError('Metadata must be an object when updating escrow accounts');
+    }
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return account.toPublicObject();
+  }
+
+  await account.update(updates);
+  return account.toPublicObject();
+}
+
 async function loadTransactionWithAccount(transactionId, trx) {
   const transactionRecord = await EscrowTransaction.findByPk(transactionId, {
     transaction: trx,
@@ -401,6 +461,141 @@ export async function initiateEscrowTransaction(payload, { transaction: external
       { transaction: trx },
     );
 
+    return transactionRecord.toPublicObject();
+  });
+}
+
+export async function updateEscrowTransaction(
+  transactionId,
+  payload = {},
+  { transaction: externalTransaction } = {},
+) {
+  const id = Number.parseInt(transactionId, 10);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new ValidationError('A valid transactionId is required to update an escrow transaction');
+  }
+
+  return withTransaction(externalTransaction, async (trx) => {
+    const transactionRecord = await EscrowTransaction.findByPk(id, {
+      transaction: trx,
+      lock: trx?.LOCK?.UPDATE,
+    });
+
+    if (!transactionRecord) {
+      throw new NotFoundError('Escrow transaction not found');
+    }
+
+    const updates = {};
+
+    if (payload.reference && payload.reference !== transactionRecord.reference) {
+      const existing = await EscrowTransaction.findOne({
+        where: { reference: payload.reference },
+        transaction: trx,
+        lock: trx?.LOCK?.UPDATE,
+      });
+
+      if (existing) {
+        throw new ConflictError('Another escrow transaction already uses this reference');
+      }
+
+      updates.reference = payload.reference;
+    }
+
+    if (payload.status) {
+      if (!ESCROW_TRANSACTION_STATUSES.includes(payload.status)) {
+        throw new ValidationError(
+          `Status must be one of: ${ESCROW_TRANSACTION_STATUSES.join(', ')}`,
+        );
+      }
+      updates.status = payload.status;
+
+      if (payload.status === 'released' && !transactionRecord.releasedAt) {
+        const releasedAt = payload.releasedAt ? new Date(payload.releasedAt) : new Date();
+        if (Number.isNaN(releasedAt.getTime())) {
+          throw new ValidationError('releasedAt must be a valid datetime');
+        }
+        updates.releasedAt = releasedAt;
+      }
+
+      if (payload.status === 'refunded' && !transactionRecord.refundedAt) {
+        const refundedAt = payload.refundedAt ? new Date(payload.refundedAt) : new Date();
+        if (Number.isNaN(refundedAt.getTime())) {
+          throw new ValidationError('refundedAt must be a valid datetime');
+        }
+        updates.refundedAt = refundedAt;
+      }
+
+      if (payload.status === 'cancelled' && !transactionRecord.cancelledAt) {
+        updates.cancelledAt = new Date();
+      }
+    }
+
+    if (payload.milestoneLabel !== undefined) {
+      updates.milestoneLabel = payload.milestoneLabel || null;
+    }
+
+    if (payload.scheduledReleaseAt !== undefined) {
+      if (payload.scheduledReleaseAt === null || payload.scheduledReleaseAt === '') {
+        updates.scheduledReleaseAt = null;
+      } else {
+        const scheduledAt = new Date(payload.scheduledReleaseAt);
+        if (Number.isNaN(scheduledAt.getTime())) {
+          throw new ValidationError('scheduledReleaseAt must be a valid datetime');
+        }
+        updates.scheduledReleaseAt = scheduledAt;
+      }
+    }
+
+    if (payload.metadata !== undefined) {
+      if (payload.metadata == null || typeof payload.metadata === 'object') {
+        updates.metadata = payload.metadata ?? null;
+      } else {
+        throw new ValidationError('Metadata must be an object when updating transactions');
+      }
+    }
+
+    const amountUpdated = payload.amount !== undefined;
+    const feeUpdated = payload.feeAmount !== undefined;
+
+    if (amountUpdated) {
+      const amount = normaliseAmount(payload.amount);
+      if (amount <= 0) {
+        throw new ValidationError('Escrow amount must be greater than zero');
+      }
+      updates.amount = amount;
+    }
+
+    if (feeUpdated) {
+      const fee = normaliseAmount(payload.feeAmount);
+      if (fee < 0) {
+        throw new ValidationError('Fee amount cannot be negative');
+      }
+      updates.feeAmount = fee;
+    }
+
+    if (amountUpdated || feeUpdated) {
+      const gross = amountUpdated ? updates.amount : normaliseAmount(transactionRecord.amount);
+      const fee = feeUpdated ? updates.feeAmount : normaliseAmount(transactionRecord.feeAmount ?? 0);
+      if (fee > gross) {
+        throw new ValidationError('Fee amount cannot exceed the escrow amount');
+      }
+      updates.netAmount = Number.parseFloat((gross - fee).toFixed(4));
+    } else if (payload.netAmount !== undefined) {
+      const net = normaliseAmount(payload.netAmount);
+      updates.netAmount = net;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return transactionRecord.toPublicObject();
+    }
+
+    updates.auditTrail = buildAuditTrail(transactionRecord.auditTrail, {
+      type: 'update',
+      actorId: payload.actorId ?? null,
+      metadata: { fields: Object.keys(updates) },
+    });
+
+    await transactionRecord.update(updates, { transaction: trx });
     return transactionRecord.toPublicObject();
   });
 }
@@ -1134,7 +1329,9 @@ export async function getTrustOverview() {
 
 export default {
   ensureEscrowAccount,
+  updateEscrowAccount,
   initiateEscrowTransaction,
+  updateEscrowTransaction,
   releaseEscrowTransaction,
   refundEscrowTransaction,
   createDisputeCase,
