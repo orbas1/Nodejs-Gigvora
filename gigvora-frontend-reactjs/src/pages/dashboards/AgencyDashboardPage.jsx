@@ -20,6 +20,7 @@ const DEFAULT_SECTION = 'manage';
 import { Link } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import useSession from '../../hooks/useSession.js';
+import { AGENCY_DASHBOARD_MENU_SECTIONS, AGENCY_DASHBOARD_ALTERNATES } from './agency/menuConfig.js';
 import { AGENCY_DASHBOARD_MENU_SECTIONS } from '../../constants/agencyDashboardMenu.js';
 import { AGENCY_DASHBOARD_MENU } from '../../constants/agencyDashboardMenu.js';
 import { useMemo } from 'react';
@@ -463,6 +464,12 @@ export default function AgencyDashboardPage() {
   return (
     <DashboardLayout
       currentDashboard="agency"
+      title="Agency command center"
+      subtitle="Control tower for growth, delivery, and finance"
+      description="Keep your clients delighted, balance the bench, and unblock the team with one connected workspace."
+      menuSections={AGENCY_DASHBOARD_MENU_SECTIONS}
+      availableDashboards={AGENCY_DASHBOARD_ALTERNATES}
+      activeMenuItem="agency-overview"
       title="Agency Hub"
       subtitle={`Hello ${displayName.split(' ')[0] ?? displayName}`}
       description="Run gigs end-to-end."
@@ -609,9 +616,24 @@ export default function AgencyDashboardPage() {
             <p className="text-sm uppercase tracking-[0.4em] text-slate-500">Agency control tower</p>
             <h1 className="mt-2 text-3xl font-semibold text-slate-900">Hello, {displayName}</h1>
             <p className="mt-3 max-w-3xl text-sm text-slate-600">
-              Track client health, revenue momentum, and the team’s next actions. Keep the bench balanced and highlight wins to
-              leadership.
+              Track client health, revenue momentum, and the team’s next actions. Keep the bench balanced and highlight wins to leadership.
             </p>
+            <div className="mt-6 grid gap-4 sm:grid-cols-3">
+              {OVERVIEW_METRICS.map((metric) => (
+                <div
+                  key={metric.id}
+                  className="rounded-3xl border border-slate-200 bg-slate-50 p-6 shadow-soft transition hover:-translate-y-0.5 hover:border-accent/60"
+                >
+                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">{metric.label}</p>
+                  <p className="mt-3 text-3xl font-semibold text-slate-900">{metric.value}</p>
+                  <p className="mt-2 text-xs text-slate-500">{metric.hint}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="project-operations" className="grid gap-8 lg:grid-cols-[1.35fr_1fr]">
             <div className="mt-4 flex flex-wrap gap-3">
               <Link
                 to="/dashboard/agency/integrations"
@@ -718,6 +740,9 @@ export default function AgencyDashboardPage() {
           <div className="space-y-6">
             <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft" aria-labelledby="team-focus-heading">
               <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-slate-900">Team focus</h2>
+                <Link to="/dashboard/agency/inbox" className="text-sm font-semibold text-accent hover:text-accentDark">
+                  Share update
                 <h2 id="team-focus-heading" className="text-xl font-semibold text-slate-900">
                   Team focus
                 </h2>
@@ -825,6 +850,7 @@ export default function AgencyDashboardPage() {
         </div>
 
           <aside className="space-y-6">
+            <div id="finance-oversight" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
             <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft" aria-labelledby="finance-snapshot-heading">
               <h2 id="finance-snapshot-heading" className="text-lg font-semibold text-slate-900">
                 Finance snapshot
@@ -862,14 +888,15 @@ export default function AgencyDashboardPage() {
                 Need support?
               </h2>
               <p className="mt-2 text-sm text-slate-600">
+                Coordinate with finance or compliance in the shared channel. We’ll help unblock vendors, approvals, or contract questions within the hour.
                 Finance and compliance respond within one hour. Flag blockers and we will unblock contracts, payouts, or vendor checks fast.
                 Coordinate with finance or compliance from your shared operations channel. Our team responds within an hour.
               </p>
               <Link
-                to="/inbox"
+                to="/dashboard/agency/inbox"
                 className="mt-4 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
               >
-                Message operations
+                Open inbox
               </Link>
             </section>
           </aside>
