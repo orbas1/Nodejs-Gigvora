@@ -20,5 +20,6 @@ export { default as ReviewManagementSection } from './ReviewManagementSection.js
 export { default as SupportSection } from './SupportSection.jsx';
 export { default as WorkspaceSettingsSection } from './WorkspaceSettingsSection.jsx';
 export { default as TaskManagementSection } from './TaskManagementSection.jsx';
+export { default as IdentityVerificationSection } from './identity/IdentityVerificationSection.jsx';
 export { default as VolunteeringManagementSection } from './volunteering/VolunteeringManagementSection.jsx';
 export { default as TimelineManagementSection } from './timeline/TimelineManagementSection.jsx';

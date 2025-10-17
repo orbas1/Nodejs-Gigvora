@@ -23,6 +23,7 @@ import {
   StarIcon,
   UserCircleIcon,
   UserGroupIcon,
+  ShieldCheckIcon,
   ScaleIcon,
 } from '@heroicons/react/24/outline';
 
@@ -307,6 +308,12 @@ export const MENU_GROUPS = [
         name: 'Settings',
         description: null,
         icon: Cog6ToothIcon,
+      },
+      {
+        id: 'id-verification',
+        name: 'Identity',
+        description: 'Verify',
+        icon: ShieldCheckIcon,
       },
     ],
   },
