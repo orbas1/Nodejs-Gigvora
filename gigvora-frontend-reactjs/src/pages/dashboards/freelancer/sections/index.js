@@ -10,6 +10,7 @@ export { default as OperationalQuickAccessSection } from './OperationalQuickAcce
 export { default as OperationsHQSection } from './OperationsHQSection.jsx';
 export { default as OverviewSection } from './OverviewSection.jsx';
 export { default as PlanningSection } from './PlanningSection.jsx';
+export { default as ProfileOverviewSection } from './ProfileOverviewSection.jsx';
 export { default as ProfileShowcaseSection } from './ProfileShowcaseSection.jsx';
 export { default as PortfolioManagementSection } from './PortfolioManagementSection.jsx';
 export { default as ProjectManagementSection } from './project-management/ProjectManagementSection.jsx';

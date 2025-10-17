@@ -202,18 +202,21 @@ export const MENU_GROUPS = [
       {
         id: 'profile-overview',
         name: 'Profile',
+        description: '',
         description: null,
         icon: UserCircleIcon,
       },
       {
         id: 'operations-hq',
         name: 'Ops',
+        description: '',
         description: null,
         icon: HomeModernIcon,
       },
       {
         id: 'delivery-ops',
         name: 'Delivery',
+        description: '',
         description: null,
         icon: ClipboardDocumentCheckIcon,
       },
@@ -226,11 +229,14 @@ export const MENU_GROUPS = [
       {
         id: 'task-management',
         name: 'Tasks',
+        description: '',
         description: null,
         icon: Squares2X2Icon,
       },
       {
         id: 'planning',
+        name: 'Calendar',
+        description: '',
         name: 'Planner',
         description: '',
         name: 'Calendar',
@@ -256,6 +262,8 @@ export const MENU_GROUPS = [
         name: 'Workspace',
         description: 'Projects, delivery rooms, and collaboration tools.',
         id: 'project-excellence',
+        name: 'Excellence',
+        description: '',
         name: 'Workspaces',
         description: null,
         icon: ClipboardDocumentCheckIcon,
@@ -263,6 +271,7 @@ export const MENU_GROUPS = [
       {
         id: 'project-lab',
         name: 'Lab',
+        description: '',
         description: null,
         icon: BriefcaseIcon,
       },
@@ -275,6 +284,7 @@ export const MENU_GROUPS = [
       {
         id: 'gig-studio',
         name: 'Studio',
+        description: '',
         description: null,
         icon: SparklesIcon,
       },
@@ -286,6 +296,8 @@ export const MENU_GROUPS = [
       },
       {
         id: 'gig-marketplace',
+        name: 'Market',
+        description: '',
         name: 'Marketplace',
         description: null,
         icon: MegaphoneIcon,
@@ -293,6 +305,7 @@ export const MENU_GROUPS = [
       {
         id: 'automation',
         name: 'Signals',
+        description: '',
         description: null,
         icon: BoltIcon,
       },
@@ -304,6 +317,8 @@ export const MENU_GROUPS = [
     items: [
       {
         id: 'finance-compliance',
+        name: 'Finance',
+        description: '',
         name: 'Cashflow',
         description: null,
         icon: BanknotesIcon,
@@ -317,6 +332,7 @@ export const MENU_GROUPS = [
       {
         id: 'workspace-settings',
         name: 'Settings',
+        description: '',
         description: null,
         icon: Cog6ToothIcon,
       },
@@ -335,18 +351,21 @@ export const MENU_GROUPS = [
       {
         id: 'profile-showcase',
         name: 'Showcase',
+        description: '',
         description: null,
         icon: PhotoIcon,
       },
       {
         id: 'references',
         name: 'Reviews',
+        description: '',
         description: null,
         icon: ChatBubbleBottomCenterTextIcon,
       },
       {
         id: 'network',
         name: 'Network',
+        description: '',
         description: 'Sessions, spend, contacts.',
         href: '/dashboard/freelancer/networking',
         description: null,
@@ -354,6 +373,8 @@ export const MENU_GROUPS = [
       },
       {
         id: 'growth-partnerships',
+        name: 'Growth',
+        description: '',
         name: 'Partnerships',
         description: null,
         icon: ArrowTrendingUpIcon,
@@ -373,6 +394,8 @@ export const MENU_GROUPS = [
     items: [
       {
         id: 'quick-access',
+        name: 'Shortcuts',
+        description: '',
         name: 'Access',
         description: null,
         icon: RectangleStackIcon,
@@ -390,6 +413,7 @@ export const MENU_GROUPS = [
       {
         id: 'support',
         name: 'Support',
+        description: '',
         description: null,
         icon: LifebuoyIcon,
       },
