@@ -1,3 +1,5 @@
+import { useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
@@ -18,6 +20,7 @@ import useSession from '../../hooks/useSession.js';
 import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
 import DashboardBlogSpotlight from '../../components/blog/DashboardBlogSpotlight.jsx';
 import AffiliateProgramSection from '../../components/affiliate/AffiliateProgramSection.jsx';
+import CreationStudioSummary from '../../components/creationStudio/CreationStudioSummary.jsx';
 import UserNetworkingSection from '../../components/userNetworking/UserNetworkingSection.jsx';
 import VolunteeringManagementSection from '../../components/volunteeringManagement/VolunteeringManagementSection.jsx';
 import { DashboardInboxWorkspace } from '../../features/inbox/index.js';
@@ -188,6 +191,8 @@ function buildMenuSections(data) {
   const nextEvent = eventOverview.nextEvent ?? null;
   const documents = data?.documents ?? {};
   const documentStudio = data?.documentStudio;
+  const creationStudio = data?.creationStudio ?? {};
+  const creationSummary = creationStudio.summary ?? {};
   const documentSummary = documentStudio?.summary ?? {};
   const jobApplicationsWorkspace = data?.jobApplicationsWorkspace ?? {};
   const jobApplicationsSummary = jobApplicationsWorkspace.summary ?? {};
@@ -350,6 +355,15 @@ function buildMenuSections(data) {
     {
       label: 'Project & gig management',
       items: [
+        {
+          name: 'Creation studio wizard',
+          description: `Launch ${formatNumber(creationSummary.total ?? 0)} creations with ${formatNumber(
+            creationSummary.published ?? 0,
+          )} published and ${formatNumber(creationSummary.drafts ?? 0)} drafts ready to finish.`,
+          tags: ['wizard', 'launch'],
+          sectionId: 'creation-studio',
+          href: '/dashboard/user/creation-studio',
+        },
         {
           name: 'Project creation workspace',
           description: `Launch ${formatNumber(projectSummary.totalProjects ?? 0)} initiatives with ${formatNumber(
@@ -744,6 +758,7 @@ export default function UserDashboardPage() {
   const interviews = Array.isArray(data?.interviews) ? data.interviews : [];
   const documents = data?.documents ?? { attachments: [], portfolioLinks: [] };
   const documentStudio = data?.documentStudio ?? null;
+  const creationStudio = data?.creationStudio ?? { items: [], summary: {}, catalog: [] };
   const eventManagement = data?.eventManagement ?? null;
   const eventManagementOverview = eventManagement?.overview ?? null;
   const projectGigManagement = data?.projectGigManagement ?? null;
@@ -839,6 +854,23 @@ export default function UserDashboardPage() {
   const networkingUserId = userId ?? networkingData?.summary?.userId ?? null;
 
   const menuSections = useMemo(() => buildMenuSections(data), [data]);
+
+  const handleMenuSelect = useCallback(
+    (itemId, item) => {
+      if (item?.href) {
+        navigate(item.href);
+        return;
+      }
+      const targetId = item?.sectionId ?? itemId;
+      if (targetId && typeof document !== 'undefined') {
+        const targetElement = document.getElementById(targetId);
+        if (targetElement) {
+          targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    },
+    [navigate],
+  );
   const handleDashboardMenuSelect = useCallback(
     (itemId, item) => {
       if (!item) {
@@ -1956,6 +1988,9 @@ export default function UserDashboardPage() {
           </div>
         </section>
 
+        <section id="creation-studio">
+          <CreationStudioSummary data={creationStudio} />
+        </section>
         <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>

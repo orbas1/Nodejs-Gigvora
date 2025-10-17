@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as userController from '../controllers/userController.js';
 import * as careerDocumentController from '../controllers/careerDocumentController.js';
+import * as creationStudioController from '../controllers/creationStudioController.js';
 import * as userDisputeController from '../controllers/userDisputeController.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import authenticate from '../middleware/authenticate.js';
@@ -82,6 +83,7 @@ router.use(
 );
 
 const DOCUMENT_ROLES = ['user', 'freelancer', 'agency', 'company', 'headhunter', 'mentor', 'admin'];
+const CREATION_STUDIO_ROLES = ['user', 'freelancer', 'agency', 'company', 'mentor', 'headhunter', 'admin'];
 const NOTIFICATION_ROLES = ['user', 'freelancer', 'agency', 'company', 'headhunter', 'mentor', 'admin'];
 
 router.get(
@@ -100,6 +102,36 @@ router.post(
   asyncHandler(careerDocumentController.uploadVersion),
 );
 
+router.get(
+  '/:id/creation-studio',
+  authenticate({ roles: CREATION_STUDIO_ROLES, matchParam: 'id' }),
+  asyncHandler(creationStudioController.getWorkspace),
+);
+router.post(
+  '/:id/creation-studio',
+  authenticate({ roles: CREATION_STUDIO_ROLES, matchParam: 'id' }),
+  asyncHandler(creationStudioController.createItem),
+);
+router.put(
+  '/:id/creation-studio/:itemId',
+  authenticate({ roles: CREATION_STUDIO_ROLES, matchParam: 'id' }),
+  asyncHandler(creationStudioController.updateItem),
+);
+router.post(
+  '/:id/creation-studio/:itemId/steps/:stepKey',
+  authenticate({ roles: CREATION_STUDIO_ROLES, matchParam: 'id' }),
+  asyncHandler(creationStudioController.recordStep),
+);
+router.post(
+  '/:id/creation-studio/:itemId/share',
+  authenticate({ roles: CREATION_STUDIO_ROLES, matchParam: 'id' }),
+  asyncHandler(creationStudioController.shareItem),
+);
+router.delete(
+  '/:id/creation-studio/:itemId',
+  authenticate({ roles: CREATION_STUDIO_ROLES, matchParam: 'id' }),
+  asyncHandler(creationStudioController.archiveItem),
+);
 router.use('/:id/volunteering', userVolunteeringRoutes);
 
 router.use('/:id/consents', userConsentRoutes);

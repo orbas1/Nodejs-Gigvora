@@ -65,6 +65,7 @@ import careerPipelineAutomationService from './careerPipelineAutomationService.j
 import { getAdDashboardSnapshot } from './adService.js';
 import { initializeWorkspaceForProject, getProjectWorkspaceSummary } from './projectWorkspaceService.js';
 import affiliateDashboardService from './affiliateDashboardService.js';
+import creationStudioService from './creationStudioService.js';
 import { getJobApplicationWorkspace as getJobApplicationWorkspaceSnapshot } from './jobApplicationService.js';
 import userNetworkingService from './userNetworkingService.js';
 import volunteeringManagementService from './volunteeringManagementService.js';
@@ -2975,6 +2976,8 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
 
   const mentoringDashboardPromise = userMentoringService.getMentoringDashboard(userId, { bypassCache });
 
+  const creationStudioQuery = creationStudioService.getDashboardSnapshot(userId);
+
   const [
     applications,
     pipelineRows,
@@ -3002,6 +3005,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     careerPipelineAutomation,
     affiliateProgram,
     projectParticipation,
+    creationStudio,
     volunteeringManagement,
     eventManagement,
     notificationPreferences,
@@ -3034,6 +3038,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     careerPipelineAutomationService.getCareerPipelineAutomation(userId, { bypassCache }),
     affiliateDashboardService.getAffiliateDashboard(userId),
     projectParticipationQuery,
+    creationStudioQuery,
     volunteeringManagementService.getUserVolunteeringManagement(userId, { bypassCache }),
     eventManagementService.getUserEventManagement(userId, { includeArchived: false, limit: 6 }),
     notificationService.getPreferences(userId),
@@ -3376,6 +3381,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     projectActivity: {
       recent: sanitizedProjectEvents,
     },
+    creationStudio,
     escrowManagement,
     projectGigManagement,
     projectWorkspace: {
