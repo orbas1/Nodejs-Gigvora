@@ -52,9 +52,10 @@ export const MENU_GROUPS = [
       },
       {
         id: 'planning',
-        name: 'Calendar & planning',
-        description: 'Capacity forecast, rituals, and important dates.',
+        name: 'Planner',
+        description: '',
         icon: CalendarDaysIcon,
+        href: '/dashboard/freelancer/planner',
       },
     ],
   },

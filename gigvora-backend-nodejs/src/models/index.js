@@ -99,7 +99,13 @@ import {
   DELIVERABLE_ITEM_NDA_STATUSES, DELIVERABLE_RETENTION_POLICIES,
   FINANCE_REVENUE_TYPES, FINANCE_REVENUE_STATUSES, FINANCE_EXPENSE_STATUSES, FINANCE_SAVINGS_STATUSES,
   FINANCE_AUTOMATION_TYPES, FINANCE_PAYOUT_STATUSES, FINANCE_FORECAST_SCENARIO_TYPES, FINANCE_TAX_EXPORT_STATUSES,
-  CAREER_ANALYTICS_TREND_DIRECTIONS, CALENDAR_INTEGRATION_STATUSES, CALENDAR_EVENT_TYPES, CALENDAR_EVENT_SOURCES,
+  CAREER_ANALYTICS_TREND_DIRECTIONS,
+  CALENDAR_INTEGRATION_STATUSES,
+  CALENDAR_EVENT_TYPES,
+  CALENDAR_EVENT_SOURCES,
+  FREELANCER_CALENDAR_EVENT_TYPES,
+  FREELANCER_CALENDAR_EVENT_STATUSES,
+  FREELANCER_CALENDAR_RELATED_TYPES,
   FOCUS_SESSION_TYPES, ADVISOR_COLLABORATION_STATUSES, ADVISOR_COLLABORATION_MEMBER_ROLES, ADVISOR_COLLABORATION_MEMBER_STATUSES,
   DOCUMENT_ROOM_STATUSES, SUPPORT_AUTOMATION_STATUSES, COMPLIANCE_DOCUMENT_TYPES, COMPLIANCE_DOCUMENT_STATUSES,
   COMPLIANCE_REMINDER_STATUSES, COMPLIANCE_OBLIGATION_STATUSES, COMPLIANCE_STORAGE_PROVIDERS, REPUTATION_TESTIMONIAL_SOURCES,
@@ -1292,6 +1298,87 @@ export const FreelancerHeroBanner = sequelize.define(
     ],
   },
 );
+
+export const FreelancerCalendarEvent = sequelize.define(
+  'FreelancerCalendarEvent',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    eventType: {
+      type: DataTypes.ENUM(...FREELANCER_CALENDAR_EVENT_TYPES),
+      allowNull: false,
+      defaultValue: 'project',
+      validate: { isIn: [FREELANCER_CALENDAR_EVENT_TYPES] },
+    },
+    status: {
+      type: DataTypes.ENUM(...FREELANCER_CALENDAR_EVENT_STATUSES),
+      allowNull: false,
+      defaultValue: 'confirmed',
+      validate: { isIn: [FREELANCER_CALENDAR_EVENT_STATUSES] },
+    },
+    startsAt: { type: DataTypes.DATE, allowNull: false },
+    endsAt: { type: DataTypes.DATE, allowNull: true },
+    isAllDay: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    meetingUrl: { type: DataTypes.STRING(500), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    relatedEntityType: {
+      type: DataTypes.ENUM(...FREELANCER_CALENDAR_RELATED_TYPES),
+      allowNull: true,
+      validate: { isIn: [FREELANCER_CALENDAR_RELATED_TYPES] },
+    },
+    relatedEntityId: { type: DataTypes.STRING(120), allowNull: true },
+    relatedEntityName: { type: DataTypes.STRING(255), allowNull: true },
+    reminderMinutesBefore: { type: DataTypes.INTEGER, allowNull: true },
+    source: { type: DataTypes.STRING(80), allowNull: false, defaultValue: 'manual' },
+    color: { type: DataTypes.STRING(32), allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'freelancer_calendar_events',
+    indexes: [
+      { fields: ['freelancerId'] },
+      { fields: ['startsAt'] },
+      { fields: ['eventType'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+FreelancerCalendarEvent.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  const startsAt = plain.startsAt ? new Date(plain.startsAt) : null;
+  const endsAt = plain.endsAt ? new Date(plain.endsAt) : null;
+  const createdAt = plain.createdAt ? new Date(plain.createdAt) : null;
+  const updatedAt = plain.updatedAt ? new Date(plain.updatedAt) : null;
+
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    title: plain.title,
+    eventType: plain.eventType,
+    status: plain.status,
+    startsAt: startsAt ? startsAt.toISOString() : null,
+    endsAt: endsAt ? endsAt.toISOString() : null,
+    isAllDay: Boolean(plain.isAllDay),
+    location: plain.location ?? null,
+    meetingUrl: plain.meetingUrl ?? null,
+    notes: plain.notes ?? null,
+    relatedEntityType: plain.relatedEntityType ?? null,
+    relatedEntityId: plain.relatedEntityId ?? null,
+    relatedEntityName: plain.relatedEntityName ?? null,
+    reminderMinutesBefore: plain.reminderMinutesBefore ?? null,
+    source: plain.source ?? 'manual',
+    color: plain.color ?? null,
+    createdById: plain.createdById ?? null,
+    updatedById: plain.updatedById ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: createdAt ? createdAt.toISOString() : null,
+    updatedAt: updatedAt ? updatedAt.toISOString() : null,
+  };
+};
 
 export const FeedPost = sequelize.define(
   'FeedPost',
@@ -14209,6 +14296,17 @@ FreelancerTestimonial.belongsTo(Profile, { as: 'profile', foreignKey: 'profileId
 Profile.hasMany(FreelancerHeroBanner, { as: 'heroBanners', foreignKey: 'profileId', onDelete: 'CASCADE' });
 FreelancerHeroBanner.belongsTo(Profile, { as: 'profile', foreignKey: 'profileId' });
 
+User.hasMany(FreelancerCalendarEvent, {
+  foreignKey: 'freelancerId',
+  as: 'freelancerCalendarEvents',
+  onDelete: 'CASCADE',
+});
+FreelancerCalendarEvent.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+User.hasMany(FreelancerCalendarEvent, { foreignKey: 'createdById', as: 'createdFreelancerCalendarEvents' });
+User.hasMany(FreelancerCalendarEvent, { foreignKey: 'updatedById', as: 'updatedFreelancerCalendarEvents' });
+FreelancerCalendarEvent.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+FreelancerCalendarEvent.belongsTo(User, { foreignKey: 'updatedById', as: 'updatedBy' });
+
 User.hasOne(CompanyProfile, { foreignKey: 'userId' });
 CompanyProfile.belongsTo(User, { foreignKey: 'userId' });
 
@@ -16215,6 +16313,7 @@ export default {
   FreelancerSuccessMetric,
   FreelancerTestimonial,
   FreelancerHeroBanner,
+  FreelancerCalendarEvent,
   FeedPost,
   Job,
   Gig,

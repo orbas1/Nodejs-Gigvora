@@ -541,6 +541,32 @@ export const FINANCE_TAX_EXPORT_STATUSES = ['generating', 'available', 'archived
 export const CAREER_ANALYTICS_TREND_DIRECTIONS = ['up', 'down', 'flat'];
 export const CALENDAR_INTEGRATION_STATUSES = ['connected', 'syncing', 'error', 'disconnected'];
 export const CALENDAR_EVENT_TYPES = ['interview', 'networking', 'project', 'wellbeing', 'deadline', 'ritual'];
+export const FREELANCER_CALENDAR_EVENT_TYPES = [
+  'project',
+  'gig',
+  'job_interview',
+  'mentorship',
+  'volunteering',
+  'client_meeting',
+  'other',
+];
+export const FREELANCER_CALENDAR_EVENT_STATUSES = [
+  'tentative',
+  'confirmed',
+  'in_progress',
+  'completed',
+  'cancelled',
+];
+export const FREELANCER_CALENDAR_RELATED_TYPES = [
+  'project',
+  'gig',
+  'job',
+  'mentorship',
+  'volunteering',
+  'client',
+  'community',
+  'other',
+];
 export const CALENDAR_EVENT_SOURCES = ['manual', 'google', 'outlook', 'gigvora'];
 export const FOCUS_SESSION_TYPES = ['interview_prep', 'networking', 'application', 'deep_work', 'wellbeing'];
 export const ADVISOR_COLLABORATION_STATUSES = ['draft', 'active', 'paused', 'archived'];
