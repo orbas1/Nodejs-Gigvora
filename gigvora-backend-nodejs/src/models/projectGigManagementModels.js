@@ -17,6 +17,24 @@ export const PROJECT_INTEGRATION_STATUSES = ['connected', 'disconnected', 'error
 export const GIG_ORDER_STATUSES = ['requirements', 'in_delivery', 'in_revision', 'completed', 'cancelled'];
 export const GIG_REQUIREMENT_STATUSES = ['pending', 'received', 'approved'];
 export const GIG_REVISION_STATUSES = ['requested', 'in_progress', 'submitted', 'approved'];
+export const GIG_TIMELINE_EVENT_TYPES = [
+  'kickoff',
+  'milestone',
+  'check_in',
+  'scope_change',
+  'handoff',
+  'qa',
+  'client_feedback',
+  'blocker',
+];
+export const GIG_TIMELINE_VISIBILITIES = ['internal', 'client', 'vendor'];
+export const GIG_SUBMISSION_STATUSES = ['draft', 'submitted', 'under_review', 'approved', 'rejected'];
+export const GIG_CHAT_VISIBILITIES = ['internal', 'client', 'vendor'];
+export const CLIENT_ACCOUNT_TIERS = ['strategic', 'growth', 'core', 'incubating'];
+export const CLIENT_ACCOUNT_STATUSES = ['active', 'onboarding', 'paused', 'closed'];
+export const CLIENT_ACCOUNT_HEALTH_STATUSES = ['healthy', 'monitor', 'at_risk'];
+export const CLIENT_KANBAN_PRIORITIES = ['low', 'medium', 'high', 'critical'];
+export const CLIENT_KANBAN_RISK_LEVELS = ['low', 'medium', 'high'];
 
 export const WORKSPACE_BUDGET_STATUSES = ['planned', 'approved', 'in_progress', 'completed', 'overbudget'];
 export const WORKSPACE_TASK_STATUSES = ['planned', 'in_progress', 'blocked', 'completed', 'cancelled'];
@@ -202,6 +220,102 @@ export const GigVendorScorecard = projectGigManagementSequelize.define(
     notes: { type: DataTypes.TEXT, allowNull: true },
   },
   { tableName: 'pgm_vendor_scorecards', underscored: true },
+);
+
+export const ClientAccount = projectGigManagementSequelize.define(
+  'PgmClientAccount',
+  {
+    ownerId: { type: DataTypes.INTEGER, allowNull: false },
+    workspaceId: { type: DataTypes.INTEGER, allowNull: true },
+    name: { type: DataTypes.STRING(180), allowNull: false },
+    slug: { type: DataTypes.STRING(180), allowNull: true, unique: false },
+    websiteUrl: { type: DataTypes.STRING(255), allowNull: true },
+    logoUrl: { type: DataTypes.STRING(255), allowNull: true },
+    industry: { type: DataTypes.STRING(120), allowNull: true },
+    tier: { type: DataTypes.ENUM(...CLIENT_ACCOUNT_TIERS), allowNull: false, defaultValue: 'growth' },
+    status: { type: DataTypes.ENUM(...CLIENT_ACCOUNT_STATUSES), allowNull: false, defaultValue: 'active' },
+    healthStatus: { type: DataTypes.ENUM(...CLIENT_ACCOUNT_HEALTH_STATUSES), allowNull: false, defaultValue: 'healthy' },
+    annualContractValue: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    timezone: { type: DataTypes.STRING(60), allowNull: true },
+    primaryContactName: { type: DataTypes.STRING(180), allowNull: true },
+    primaryContactEmail: { type: DataTypes.STRING(180), allowNull: true },
+    primaryContactPhone: { type: DataTypes.STRING(60), allowNull: true },
+    accountManagerName: { type: DataTypes.STRING(180), allowNull: true },
+    accountManagerEmail: { type: DataTypes.STRING(180), allowNull: true },
+    lastInteractionAt: { type: DataTypes.DATE, allowNull: true },
+    nextReviewAt: { type: DataTypes.DATE, allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pgm_client_accounts', underscored: true },
+);
+
+export const ClientKanbanColumn = projectGigManagementSequelize.define(
+  'PgmClientKanbanColumn',
+  {
+    ownerId: { type: DataTypes.INTEGER, allowNull: false },
+    workspaceId: { type: DataTypes.INTEGER, allowNull: true },
+    name: { type: DataTypes.STRING(120), allowNull: false },
+    slug: { type: DataTypes.STRING(160), allowNull: true },
+    wipLimit: { type: DataTypes.INTEGER, allowNull: true },
+    sortOrder: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    color: { type: DataTypes.STRING(30), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pgm_client_kanban_columns', underscored: true },
+);
+
+export const ClientKanbanCard = projectGigManagementSequelize.define(
+  'PgmClientKanbanCard',
+  {
+    ownerId: { type: DataTypes.INTEGER, allowNull: false },
+    workspaceId: { type: DataTypes.INTEGER, allowNull: true },
+    columnId: { type: DataTypes.INTEGER, allowNull: false },
+    clientId: { type: DataTypes.INTEGER, allowNull: true },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    projectName: { type: DataTypes.STRING(180), allowNull: true },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    priority: { type: DataTypes.ENUM(...CLIENT_KANBAN_PRIORITIES), allowNull: false, defaultValue: 'medium' },
+    riskLevel: { type: DataTypes.ENUM(...CLIENT_KANBAN_RISK_LEVELS), allowNull: false, defaultValue: 'low' },
+    valueCurrency: { type: DataTypes.STRING(6), allowNull: false, defaultValue: 'USD' },
+    valueAmount: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    potentialMonthlyValue: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    contactName: { type: DataTypes.STRING(180), allowNull: true },
+    contactEmail: { type: DataTypes.STRING(180), allowNull: true },
+    ownerName: { type: DataTypes.STRING(180), allowNull: true },
+    ownerEmail: { type: DataTypes.STRING(180), allowNull: true },
+    healthStatus: { type: DataTypes.ENUM(...CLIENT_ACCOUNT_HEALTH_STATUSES), allowNull: false, defaultValue: 'healthy' },
+    startDate: { type: DataTypes.DATE, allowNull: true },
+    dueDate: { type: DataTypes.DATE, allowNull: true },
+    lastInteractionAt: { type: DataTypes.DATE, allowNull: true },
+    nextInteractionAt: { type: DataTypes.DATE, allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    checklistSummary: { type: jsonType, allowNull: true },
+    attachments: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    sortOrder: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    archivedAt: { type: DataTypes.DATE, allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  { tableName: 'pgm_client_kanban_cards', underscored: true },
+);
+
+export const ClientKanbanChecklistItem = projectGigManagementSequelize.define(
+  'PgmClientKanbanChecklistItem',
+  {
+    cardId: { type: DataTypes.INTEGER, allowNull: false },
+    ownerId: { type: DataTypes.INTEGER, allowNull: false },
+    workspaceId: { type: DataTypes.INTEGER, allowNull: true },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    completed: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    sortOrder: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    dueDate: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pgm_client_kanban_checklist_items', underscored: true },
 );
 
 export const StoryBlock = projectGigManagementSequelize.define(
@@ -460,6 +574,55 @@ export const ProjectWorkspaceChatMessage = projectGigManagementSequelize.define(
     metadata: { type: jsonType, allowNull: true },
   },
   { tableName: 'pgm_project_workspace_chat_messages', underscored: true },
+export const GigTimelineEvent = projectGigManagementSequelize.define(
+  'PgmGigTimelineEvent',
+  {
+    orderId: { type: DataTypes.INTEGER, allowNull: false },
+    eventType: { type: DataTypes.ENUM(...GIG_TIMELINE_EVENT_TYPES), allowNull: false },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    visibility: { type: DataTypes.ENUM(...GIG_TIMELINE_VISIBILITIES), allowNull: false, defaultValue: 'internal' },
+    occurredAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pgm_gig_timeline_events', underscored: true },
+);
+
+export const GigSubmission = projectGigManagementSequelize.define(
+  'PgmGigSubmission',
+  {
+    orderId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    status: { type: DataTypes.ENUM(...GIG_SUBMISSION_STATUSES), allowNull: false, defaultValue: 'submitted' },
+    assetUrl: { type: DataTypes.STRING(255), allowNull: true },
+    assetType: { type: DataTypes.STRING(80), allowNull: true },
+    attachments: { type: jsonType, allowNull: true },
+    submittedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    approvedAt: { type: DataTypes.DATE, allowNull: true },
+    submittedById: { type: DataTypes.INTEGER, allowNull: true },
+    reviewedById: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pgm_gig_submissions', underscored: true },
+);
+
+export const GigChatMessage = projectGigManagementSequelize.define(
+  'PgmGigChatMessage',
+  {
+    orderId: { type: DataTypes.INTEGER, allowNull: false },
+    senderId: { type: DataTypes.INTEGER, allowNull: true },
+    senderRole: { type: DataTypes.STRING(80), allowNull: true },
+    body: { type: DataTypes.TEXT, allowNull: false },
+    attachments: { type: jsonType, allowNull: true },
+    visibility: { type: DataTypes.ENUM(...GIG_CHAT_VISIBILITIES), allowNull: false, defaultValue: 'internal' },
+    sentAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    acknowledgedAt: { type: DataTypes.DATE, allowNull: true },
+    acknowledgedById: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pgm_gig_chat_messages', underscored: true },
 );
 
 Project.hasOne(ProjectWorkspace, { as: 'workspace', foreignKey: 'projectId', onDelete: 'CASCADE' });
@@ -531,9 +694,33 @@ ProjectWorkspaceDocument.belongsTo(ProjectWorkspace, { foreignKey: 'workspaceId'
 
 ProjectWorkspace.hasMany(ProjectWorkspaceChatMessage, { as: 'chatMessages', foreignKey: 'workspaceId', onDelete: 'CASCADE' });
 ProjectWorkspaceChatMessage.belongsTo(ProjectWorkspace, { foreignKey: 'workspaceId' });
+GigOrder.hasMany(GigTimelineEvent, { as: 'timeline', foreignKey: 'orderId', onDelete: 'CASCADE' });
+GigTimelineEvent.belongsTo(GigOrder, { foreignKey: 'orderId' });
+
+GigOrder.hasMany(GigSubmission, { as: 'submissions', foreignKey: 'orderId', onDelete: 'CASCADE' });
+GigSubmission.belongsTo(GigOrder, { foreignKey: 'orderId' });
+
+GigOrder.hasMany(GigChatMessage, { as: 'messages', foreignKey: 'orderId', onDelete: 'CASCADE' });
+GigChatMessage.belongsTo(GigOrder, { foreignKey: 'orderId' });
+ClientAccount.hasMany(ClientKanbanCard, { as: 'kanbanCards', foreignKey: 'clientId', onDelete: 'SET NULL' });
+ClientKanbanCard.belongsTo(ClientAccount, { as: 'client', foreignKey: 'clientId' });
+
+ClientKanbanColumn.hasMany(ClientKanbanCard, { as: 'cards', foreignKey: 'columnId', onDelete: 'CASCADE' });
+ClientKanbanCard.belongsTo(ClientKanbanColumn, { as: 'column', foreignKey: 'columnId' });
+
+ClientKanbanCard.hasMany(ClientKanbanChecklistItem, { as: 'checklist', foreignKey: 'cardId', onDelete: 'CASCADE' });
+ClientKanbanChecklistItem.belongsTo(ClientKanbanCard, { foreignKey: 'cardId' });
 
 export async function syncProjectGigManagementModels(options = {}) {
-  await projectGigManagementSequelize.sync({ alter: false, ...options });
+  const shouldSync =
+    options.force || options.alter || process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
+
+  if (shouldSync) {
+    await projectGigManagementSequelize.sync({ alter: false, ...options });
+    return;
+  }
+
+  await projectGigManagementSequelize.authenticate();
 }
 
 export default {
@@ -550,6 +737,10 @@ export default {
   GigOrderRequirement,
   GigOrderRevision,
   GigVendorScorecard,
+  ClientAccount,
+  ClientKanbanColumn,
+  ClientKanbanCard,
+  ClientKanbanChecklistItem,
   StoryBlock,
   BrandAsset,
   ProjectWorkspaceBudgetLine,
@@ -565,4 +756,7 @@ export default {
   ProjectWorkspaceObject,
   ProjectWorkspaceDocument,
   ProjectWorkspaceChatMessage,
+  GigTimelineEvent,
+  GigSubmission,
+  GigChatMessage,
 };

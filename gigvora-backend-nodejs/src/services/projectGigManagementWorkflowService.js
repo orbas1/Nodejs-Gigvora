@@ -14,9 +14,17 @@ import {
   GigVendorScorecard,
   StoryBlock,
   BrandAsset,
+  GigTimelineEvent,
+  GigSubmission,
+  GigChatMessage,
   PROJECT_STATUSES,
   PROJECT_RISK_LEVELS,
   GIG_ORDER_STATUSES,
+  GIG_TIMELINE_EVENT_TYPES,
+  GIG_TIMELINE_VISIBILITIES,
+  GIG_SUBMISSION_STATUSES,
+  GIG_CHAT_VISIBILITIES,
+  syncProjectGigManagementModels,
 } from '../models/projectGigManagementModels.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
 
@@ -235,6 +243,434 @@ function buildStorytelling(projects, orders, storyBlocks) {
   return { achievements, quickExports, prompts };
 }
 
+function sanitizeRequirement(requirementInstance) {
+  if (!requirementInstance) {
+    return null;
+  }
+  const requirement = requirementInstance.get ? requirementInstance.get({ plain: true }) : requirementInstance;
+  return {
+    id: requirement.id,
+    title: requirement.title,
+    status: requirement.status,
+    dueAt: requirement.dueAt,
+    notes: requirement.notes,
+    createdAt: requirement.createdAt,
+    updatedAt: requirement.updatedAt,
+  };
+}
+
+function sanitizeRevision(revisionInstance) {
+  if (!revisionInstance) {
+    return null;
+  }
+  const revision = revisionInstance.get ? revisionInstance.get({ plain: true }) : revisionInstance;
+  return {
+    id: revision.id,
+    roundNumber: revision.roundNumber,
+    status: revision.status,
+    requestedAt: revision.requestedAt,
+    dueAt: revision.dueAt,
+    submittedAt: revision.submittedAt,
+    approvedAt: revision.approvedAt,
+    summary: revision.summary,
+    createdAt: revision.createdAt,
+    updatedAt: revision.updatedAt,
+  };
+}
+
+function sanitizeScorecard(scorecardInstance) {
+  if (!scorecardInstance) {
+    return null;
+  }
+  const scorecard = scorecardInstance.get ? scorecardInstance.get({ plain: true }) : scorecardInstance;
+  return {
+    id: scorecard.id,
+    qualityScore: scorecard.qualityScore != null ? Number(scorecard.qualityScore) : null,
+    communicationScore: scorecard.communicationScore != null ? Number(scorecard.communicationScore) : null,
+    reliabilityScore: scorecard.reliabilityScore != null ? Number(scorecard.reliabilityScore) : null,
+    overallScore: scorecard.overallScore != null ? Number(scorecard.overallScore) : null,
+    notes: scorecard.notes,
+    createdAt: scorecard.createdAt,
+    updatedAt: scorecard.updatedAt,
+  };
+}
+
+function sanitizeTimelineEvent(eventInstance) {
+  if (!eventInstance) {
+    return null;
+  }
+  const event = eventInstance.get ? eventInstance.get({ plain: true }) : eventInstance;
+  return {
+    id: event.id,
+    orderId: event.orderId,
+    eventType: event.eventType,
+    title: event.title,
+    summary: event.summary,
+    createdById: event.createdById,
+    visibility: event.visibility,
+    occurredAt: event.occurredAt,
+    metadata: event.metadata ?? {},
+    createdAt: event.createdAt,
+    updatedAt: event.updatedAt,
+  };
+}
+
+function sanitizeSubmission(submissionInstance) {
+  if (!submissionInstance) {
+    return null;
+  }
+  const submission = submissionInstance.get ? submissionInstance.get({ plain: true }) : submissionInstance;
+  return {
+    id: submission.id,
+    orderId: submission.orderId,
+    title: submission.title,
+    description: submission.description,
+    status: submission.status,
+    assetUrl: submission.assetUrl,
+    assetType: submission.assetType,
+    attachments: submission.attachments ?? [],
+    submittedAt: submission.submittedAt,
+    approvedAt: submission.approvedAt,
+    submittedById: submission.submittedById,
+    reviewedById: submission.reviewedById,
+    metadata: submission.metadata ?? {},
+    createdAt: submission.createdAt,
+    updatedAt: submission.updatedAt,
+  };
+}
+
+function sanitizeChatMessage(messageInstance) {
+  if (!messageInstance) {
+    return null;
+  }
+  const message = messageInstance.get ? messageInstance.get({ plain: true }) : messageInstance;
+  return {
+    id: message.id,
+    orderId: message.orderId,
+    senderId: message.senderId,
+    senderRole: message.senderRole,
+    body: message.body,
+    attachments: message.attachments ?? [],
+    visibility: message.visibility,
+    sentAt: message.sentAt,
+    acknowledgedAt: message.acknowledgedAt,
+    acknowledgedById: message.acknowledgedById,
+    metadata: message.metadata ?? {},
+    createdAt: message.createdAt,
+    updatedAt: message.updatedAt,
+  };
+}
+
+function sanitizeGigOrder(orderInstance, { includeAssociations = true } = {}) {
+  if (!orderInstance) {
+    return null;
+  }
+  const order = orderInstance.get ? orderInstance.get({ plain: true }) : orderInstance;
+  const sanitizedMetadata = sanitizeGigMetadata(order.metadata ?? {});
+  const base = {
+    id: order.id,
+    ownerId: order.ownerId,
+    orderNumber: order.orderNumber,
+    vendorName: order.vendorName,
+    serviceName: order.serviceName,
+    status: order.status,
+    progressPercent: order.progressPercent != null ? Number(order.progressPercent) : 0,
+    amount: order.amount != null ? Number(order.amount) : 0,
+    currency: order.currency,
+    kickoffAt: order.kickoffAt,
+    dueAt: order.dueAt,
+    metadata: sanitizedMetadata,
+    classes: sanitizedMetadata.classes ?? [],
+    addons: sanitizedMetadata.addons ?? [],
+    tags: sanitizedMetadata.tags ?? [],
+    media: sanitizedMetadata.media ?? [],
+    faqs: sanitizedMetadata.faqs ?? [],
+    createdAt: order.createdAt,
+    updatedAt: order.updatedAt,
+  };
+
+  if (!includeAssociations) {
+    return base;
+  }
+
+  return {
+    ...base,
+    requirements: Array.isArray(order.requirements)
+      ? order.requirements.map((requirement) => sanitizeRequirement(requirement)).filter(Boolean)
+      : [],
+    revisions: Array.isArray(order.revisions)
+      ? order.revisions.map((revision) => sanitizeRevision(revision)).filter(Boolean)
+      : [],
+    scorecard: order.scorecard ? sanitizeScorecard(order.scorecard) : null,
+    timeline: Array.isArray(order.timeline)
+      ? order.timeline.map((event) => sanitizeTimelineEvent(event)).filter(Boolean)
+      : [],
+    submissions: Array.isArray(order.submissions)
+      ? order.submissions.map((submission) => sanitizeSubmission(submission)).filter(Boolean)
+      : [],
+    messages: Array.isArray(order.messages)
+      ? order.messages.map((message) => sanitizeChatMessage(message)).filter(Boolean)
+      : [],
+  };
+}
+
+function normalizeAttachments(rawAttachments, { limit = 10 } = {}) {
+  if (!Array.isArray(rawAttachments)) {
+    return [];
+  }
+  return rawAttachments
+    .map((item) => {
+      if (!item) {
+        return null;
+      }
+      const url = typeof item.url === 'string' ? item.url.trim() : null;
+      if (!url) {
+        return null;
+      }
+      const label = typeof item.label === 'string' ? item.label.trim() : null;
+      const type = typeof item.type === 'string' ? item.type.trim() : null;
+      return { url, label, type };
+    })
+    .filter(Boolean)
+    .slice(0, limit);
+}
+
+function cleanString(value, { maxLength = 240 } = {}) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return trimmed.slice(0, maxLength);
+}
+
+function normalizeGigTags(rawTags, { limit = 12 } = {}) {
+  if (!Array.isArray(rawTags)) {
+    return [];
+  }
+  const tags = rawTags
+    .map((tag) => cleanString(tag, { maxLength: 40 }))
+    .filter(Boolean)
+    .filter((tag, index, arr) => arr.indexOf(tag) === index)
+    .slice(0, limit);
+  return tags;
+}
+
+function normalizeGigClasses(rawClasses, { currency = 'USD' } = {}) {
+  if (!Array.isArray(rawClasses)) {
+    return [];
+  }
+
+  const classes = rawClasses
+    .map((item, index) => {
+      if (!item) {
+        return null;
+      }
+      const name = cleanString(item.name, { maxLength: 80 }) ?? `Class ${index + 1}`;
+      const summary = cleanString(item.summary, { maxLength: 260 });
+      const priceAmount = ensureNumber(item.priceAmount ?? 0, {
+        label: 'Gig class price',
+        allowNegative: false,
+      });
+      if (priceAmount <= 0) {
+        throw new ValidationError('Gig class price must be greater than zero.');
+      }
+      const deliveryDays = item.deliveryDays != null ? ensureNumber(item.deliveryDays, {
+        label: 'Gig class delivery days',
+        allowNegative: false,
+        allowZero: false,
+      }) : null;
+      const inclusions = Array.isArray(item.inclusions)
+        ? item.inclusions
+            .map((inclusion) => cleanString(inclusion, { maxLength: 120 }))
+            .filter(Boolean)
+            .slice(0, 8)
+        : [];
+
+      return {
+        key: cleanString(item.key, { maxLength: 60 }) ?? `class-${index + 1}`,
+        name,
+        summary,
+        priceAmount,
+        priceCurrency: item.priceCurrency ? cleanString(item.priceCurrency, { maxLength: 6 }) ?? currency : currency,
+        deliveryDays,
+        inclusions,
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 6);
+
+  if (classes.length < 3) {
+    throw new ValidationError('Provide at least three gig classes before publishing.');
+  }
+
+  return classes;
+}
+
+function normalizeGigAddons(rawAddons, { currency = 'USD' } = {}) {
+  if (!Array.isArray(rawAddons)) {
+    return [];
+  }
+
+  return rawAddons
+    .map((addon, index) => {
+      if (!addon) {
+        return null;
+      }
+      const name = cleanString(addon.name, { maxLength: 120 });
+      if (!name) {
+        return null;
+      }
+      const priceAmount = ensureNumber(addon.priceAmount ?? 0, {
+        label: 'Addon price',
+        allowNegative: false,
+      });
+      if (priceAmount <= 0) {
+        throw new ValidationError('Addon price must be greater than zero.');
+      }
+      const deliveryDays = addon.deliveryDays != null ? ensureNumber(addon.deliveryDays, {
+        label: 'Addon delivery days',
+        allowNegative: false,
+        allowZero: false,
+      }) : null;
+      return {
+        key: cleanString(addon.key, { maxLength: 60 }) ?? `addon-${index + 1}`,
+        name,
+        description: cleanString(addon.description, { maxLength: 260 }),
+        priceAmount,
+        priceCurrency: addon.priceCurrency ? cleanString(addon.priceCurrency, { maxLength: 6 }) ?? currency : currency,
+        deliveryDays,
+        isPopular: Boolean(addon.isPopular),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 10);
+}
+
+const ALLOWED_MEDIA_TYPES = new Set(['image', 'video']);
+
+function normalizeGigMedia(rawMedia) {
+  if (!Array.isArray(rawMedia)) {
+    return [];
+  }
+
+  return rawMedia
+    .map((item, index) => {
+      if (!item) {
+        return null;
+      }
+      const type = cleanString(item.type, { maxLength: 20 }) ?? 'image';
+      if (!ALLOWED_MEDIA_TYPES.has(type)) {
+        throw new ValidationError('Media type must be image or video.');
+      }
+      const url = cleanString(item.url, { maxLength: 500 });
+      if (!url || !/^https?:\/\//i.test(url)) {
+        throw new ValidationError('Media items require a valid URL.');
+      }
+      return {
+        key: cleanString(item.key, { maxLength: 60 }) ?? `media-${index + 1}`,
+        type,
+        url,
+        thumbnailUrl: cleanString(item.thumbnailUrl, { maxLength: 500 }) ?? null,
+        caption: cleanString(item.caption, { maxLength: 140 }),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 12);
+}
+
+function normalizeGigFaqs(rawFaqs) {
+  if (!Array.isArray(rawFaqs)) {
+    return [];
+  }
+
+  return rawFaqs
+    .map((item, index) => {
+      if (!item) {
+        return null;
+      }
+      const question = cleanString(item.question, { maxLength: 200 });
+      const answer = cleanString(item.answer, { maxLength: 600 });
+      if (!question || !answer) {
+        return null;
+      }
+      return {
+        key: cleanString(item.key, { maxLength: 60 }) ?? `faq-${index + 1}`,
+        question,
+        answer,
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 12);
+}
+
+function buildGigMetadata(payload, currency) {
+  const classes = normalizeGigClasses(payload.classes ?? payload.gigClasses ?? [], { currency });
+  const addons = normalizeGigAddons(payload.addons ?? payload.gigAddons ?? [], { currency });
+  const tags = normalizeGigTags(payload.tags ?? payload.gigTags ?? []);
+  const media = normalizeGigMedia(payload.media ?? payload.gigMedia ?? []);
+  const faqs = normalizeGigFaqs(payload.faqs ?? payload.gigFaqs ?? []);
+
+  return {
+    ...(payload.metadata ?? {}),
+    currency,
+    classes,
+    addons,
+    tags,
+    media,
+    faqs,
+  };
+}
+
+function sanitizeGigMetadata(metadata = {}) {
+  const currency = metadata.currency ?? 'USD';
+  let classes = [];
+  try {
+    classes = normalizeGigClasses(metadata.classes ?? [], { currency });
+  } catch (error) {
+    classes = Array.isArray(metadata.classes) ? metadata.classes : [];
+  }
+
+  let addons = [];
+  try {
+    addons = normalizeGigAddons(metadata.addons ?? [], { currency });
+  } catch (error) {
+    addons = Array.isArray(metadata.addons) ? metadata.addons : [];
+  }
+
+  let tags = [];
+  try {
+    tags = normalizeGigTags(metadata.tags ?? []);
+  } catch (error) {
+    tags = Array.isArray(metadata.tags) ? metadata.tags : [];
+  }
+
+  let media = [];
+  try {
+    media = normalizeGigMedia(metadata.media ?? []);
+  } catch (error) {
+    media = Array.isArray(metadata.media) ? metadata.media : [];
+  }
+
+  let faqs = [];
+  try {
+    faqs = normalizeGigFaqs(metadata.faqs ?? []);
+  } catch (error) {
+    faqs = Array.isArray(metadata.faqs) ? metadata.faqs : [];
+  }
+
+  return {
+    ...metadata,
+    classes,
+    addons,
+    tags,
+    media,
+    faqs,
+  };
+}
+
 function sanitizeProject(projectInstance) {
   const project = projectInstance.get({ plain: true });
   return {
@@ -357,18 +793,22 @@ export async function getProjectGigManagementOverview(ownerId) {
   const vendorStats = buildVendorStats(orders);
   const reminders = buildGigReminders(orders);
   const storytelling = buildStorytelling(sanitizedProjects, orders, storyBlocks);
+  const sanitizedOrders = orders.map((order) => sanitizeGigOrder(order, { includeAssociations: false }));
 
   return {
     summary,
     projectCreation: { projects: sanitizedProjects, templates },
     assets: { items: assets, summary: assetSummary, brandAssets },
     managementBoard: board,
+    board,
     purchasedGigs: {
-      orders,
+      orders: sanitizedOrders,
       reminders,
       stats: vendorStats,
     },
     storytelling,
+    projects: sanitizedProjects,
+    templates,
   };
 }
 
@@ -562,6 +1002,9 @@ export async function createGigOrder(ownerId, payload) {
     throw new ValidationError('Delivery due date cannot be earlier than the kickoff date.');
   }
 
+  const currency = payload.currency ?? 'USD';
+  const metadata = buildGigMetadata(payload, currency);
+
   return projectGigManagementSequelize.transaction(async (transaction) => {
     const order = await GigOrder.create(
       {
@@ -572,10 +1015,10 @@ export async function createGigOrder(ownerId, payload) {
         status: payload.status ?? 'requirements',
         progressPercent: payload.progressPercent ?? 0,
         amount,
-        currency: payload.currency ?? 'USD',
+        currency,
         kickoffAt,
         dueAt,
-        metadata: payload.metadata ?? {},
+        metadata,
       },
       { transaction },
     );
@@ -607,7 +1050,8 @@ export async function createGigOrder(ownerId, payload) {
       );
     }
 
-    return order;
+    await order.reload({ transaction });
+    return sanitizeGigOrder(order, { includeAssociations: false });
   });
 }
 
@@ -633,12 +1077,42 @@ export async function updateGigOrder(ownerId, orderId, payload) {
   }
   const dueAt = ensureDate(payload.dueAt, { label: 'Delivery due date' });
 
+  const currency = payload.currency ?? order.currency;
+  let nextMetadata = order.metadata ?? {};
+  if (
+    payload.classes ||
+    payload.gigClasses ||
+    payload.addons ||
+    payload.gigAddons ||
+    payload.tags ||
+    payload.gigTags ||
+    payload.media ||
+    payload.gigMedia ||
+    payload.faqs ||
+    payload.gigFaqs
+  ) {
+    nextMetadata = buildGigMetadata(
+      {
+        ...payload,
+        metadata: { ...order.metadata, ...(payload.metadata ?? {}) },
+        classes: payload.classes ?? payload.gigClasses ?? order.metadata?.classes ?? [],
+        addons: payload.addons ?? payload.gigAddons ?? order.metadata?.addons ?? [],
+        tags: payload.tags ?? payload.gigTags ?? order.metadata?.tags ?? [],
+        media: payload.media ?? payload.gigMedia ?? order.metadata?.media ?? [],
+        faqs: payload.faqs ?? payload.gigFaqs ?? order.metadata?.faqs ?? [],
+      },
+      currency,
+    );
+  } else if (payload.metadata) {
+    nextMetadata = { ...order.metadata, ...payload.metadata };
+  }
+
   await order.update({
     status: payload.status ?? order.status,
     progressPercent:
       payload.progressPercent != null ? Number(payload.progressPercent) : order.progressPercent,
     dueAt: dueAt ?? order.dueAt,
-    metadata: payload.metadata ?? order.metadata,
+    metadata: nextMetadata,
   });
 
   if (Array.isArray(payload.newRevisions)) {
@@ -677,7 +1151,222 @@ export async function updateGigOrder(ownerId, orderId, payload) {
     }
   }
 
-  return order.reload();
+  await order.reload();
+  return sanitizeGigOrder(order);
+}
+
+export async function getGigOrderDetail(ownerId, orderId, { messageLimit = 50 } = {}) {
+  await ensureInitialized();
+  const order = await GigOrder.findByPk(orderId, {
+    include: [
+      { model: GigOrderRequirement, as: 'requirements', separate: true, order: [['createdAt', 'ASC']] },
+      { model: GigOrderRevision, as: 'revisions', separate: true, order: [['roundNumber', 'ASC']] },
+      { model: GigVendorScorecard, as: 'scorecard' },
+      {
+        model: GigTimelineEvent,
+        as: 'timeline',
+        separate: true,
+        order: [
+          ['occurredAt', 'DESC'],
+          ['createdAt', 'DESC'],
+        ],
+        limit: 120,
+      },
+      {
+        model: GigSubmission,
+        as: 'submissions',
+        separate: true,
+        order: [
+          ['submittedAt', 'DESC'],
+          ['createdAt', 'DESC'],
+        ],
+        limit: 120,
+      },
+      {
+        model: GigChatMessage,
+        as: 'messages',
+        separate: true,
+        order: [
+          ['sentAt', 'DESC'],
+          ['createdAt', 'DESC'],
+        ],
+        limit: Number.isFinite(messageLimit) && messageLimit > 0 ? Math.min(messageLimit, 200) : 50,
+      },
+    ],
+  });
+  assertOwnership(order, ownerId, 'Gig order not found');
+  return sanitizeGigOrder(order);
+}
+
+export async function createGigTimelineEvent(ownerId, orderId, payload, { actorId } = {}) {
+  await ensureInitialized();
+  const order = await GigOrder.findByPk(orderId);
+  assertOwnership(order, ownerId, 'Gig order not found');
+
+  const title = typeof payload.title === 'string' ? payload.title.trim() : '';
+  if (!title) {
+    throw new ValidationError('Timeline events must include a title.');
+  }
+  const eventType = typeof payload.eventType === 'string' ? payload.eventType.trim().toLowerCase() : '';
+  if (!GIG_TIMELINE_EVENT_TYPES.includes(eventType)) {
+    throw new ValidationError('Choose a valid event type for the timeline entry.');
+  }
+  const visibility = typeof payload.visibility === 'string' ? payload.visibility.trim().toLowerCase() : 'internal';
+  if (!GIG_TIMELINE_VISIBILITIES.includes(visibility)) {
+    throw new ValidationError('Timeline visibility must be internal, client, or vendor.');
+  }
+  const occurredAt = ensureDate(payload.occurredAt ?? new Date(), { label: 'Event time' }) ?? new Date();
+
+  const event = await GigTimelineEvent.create({
+    orderId: order.id,
+    eventType,
+    title,
+    summary: typeof payload.summary === 'string' ? payload.summary.trim() || null : null,
+    createdById: actorId ?? ownerId,
+    visibility,
+    occurredAt,
+    metadata: payload.metadata ?? {},
+  });
+
+  return sanitizeTimelineEvent(event);
+}
+
+export async function createGigSubmission(ownerId, orderId, payload, { actorId } = {}) {
+  await ensureInitialized();
+  const order = await GigOrder.findByPk(orderId);
+  assertOwnership(order, ownerId, 'Gig order not found');
+
+  const title = typeof payload.title === 'string' ? payload.title.trim() : '';
+  if (!title) {
+    throw new ValidationError('Provide a submission title so the team can reference it.');
+  }
+  const status = typeof payload.status === 'string' ? payload.status.trim().toLowerCase() : 'submitted';
+  if (!GIG_SUBMISSION_STATUSES.includes(status)) {
+    throw new ValidationError('Submission status is not recognised.');
+  }
+
+  const submission = await GigSubmission.create({
+    orderId: order.id,
+    title,
+    description: typeof payload.description === 'string' ? payload.description.trim() || null : null,
+    status,
+    assetUrl: typeof payload.assetUrl === 'string' ? payload.assetUrl.trim() || null : null,
+    assetType: typeof payload.assetType === 'string' ? payload.assetType.trim() || null : null,
+    attachments: normalizeAttachments(payload.attachments),
+    submittedAt: ensureDate(payload.submittedAt ?? new Date(), { label: 'Submission time' }) ?? new Date(),
+    approvedAt:
+      status === 'approved'
+        ? ensureDate(payload.approvedAt ?? new Date(), { label: 'Approval time' }) ?? new Date()
+        : ensureDate(payload.approvedAt, { label: 'Approval time' }),
+    submittedById: actorId ?? ownerId,
+    reviewedById: payload.reviewedById ?? null,
+    metadata: payload.metadata ?? {},
+  });
+
+  return sanitizeSubmission(submission);
+}
+
+export async function updateGigSubmission(ownerId, orderId, submissionId, payload, { actorId } = {}) {
+  await ensureInitialized();
+  const submission = await GigSubmission.findByPk(submissionId);
+  if (!submission || submission.orderId !== orderId) {
+    throw new NotFoundError('Gig submission not found.');
+  }
+  const order = await GigOrder.findByPk(orderId);
+  assertOwnership(order, ownerId, 'Gig order not found');
+
+  const updates = {};
+  if (payload.title != null) {
+    const title = typeof payload.title === 'string' ? payload.title.trim() : '';
+    if (!title) {
+      throw new ValidationError('Submission title cannot be empty.');
+    }
+    updates.title = title;
+  }
+  if (payload.description != null) {
+    updates.description = typeof payload.description === 'string' ? payload.description.trim() || null : null;
+  }
+  if (payload.status != null) {
+    const status = typeof payload.status === 'string' ? payload.status.trim().toLowerCase() : '';
+    if (!GIG_SUBMISSION_STATUSES.includes(status)) {
+      throw new ValidationError('Submission status is not recognised.');
+    }
+    updates.status = status;
+    if (status === 'approved') {
+      updates.approvedAt = ensureDate(payload.approvedAt ?? new Date(), { label: 'Approval time' }) ?? new Date();
+      updates.reviewedById = payload.reviewedById ?? actorId ?? ownerId;
+    } else if (payload.approvedAt != null) {
+      updates.approvedAt = ensureDate(payload.approvedAt, { label: 'Approval time' });
+    }
+  }
+  if (payload.assetUrl != null) {
+    updates.assetUrl = typeof payload.assetUrl === 'string' ? payload.assetUrl.trim() || null : null;
+  }
+  if (payload.assetType != null) {
+    updates.assetType = typeof payload.assetType === 'string' ? payload.assetType.trim() || null : null;
+  }
+  if (payload.attachments != null) {
+    updates.attachments = normalizeAttachments(payload.attachments);
+  }
+  if (payload.metadata != null) {
+    updates.metadata = payload.metadata;
+  }
+  if (Object.keys(updates).length === 0) {
+    return sanitizeSubmission(submission);
+  }
+
+  await submission.update(updates);
+  return sanitizeSubmission(submission);
+}
+
+export async function postGigChatMessage(ownerId, orderId, payload, { actorId, actorRole } = {}) {
+  await ensureInitialized();
+  const order = await GigOrder.findByPk(orderId);
+  assertOwnership(order, ownerId, 'Gig order not found');
+
+  const body = typeof payload.body === 'string' ? payload.body.trim() : '';
+  if (!body) {
+    throw new ValidationError('Chat messages require content.');
+  }
+  const visibility = typeof payload.visibility === 'string' ? payload.visibility.trim().toLowerCase() : 'internal';
+  if (!GIG_CHAT_VISIBILITIES.includes(visibility)) {
+    throw new ValidationError('Chat visibility must be internal, client, or vendor.');
+  }
+
+  const message = await GigChatMessage.create({
+    orderId: order.id,
+    senderId: actorId ?? ownerId,
+    senderRole:
+      typeof payload.senderRole === 'string'
+        ? payload.senderRole.trim().toLowerCase()
+        : typeof actorRole === 'string'
+        ? actorRole.trim().toLowerCase()
+        : 'owner',
+    body,
+    attachments: normalizeAttachments(payload.attachments, { limit: 6 }),
+    visibility,
+    sentAt: ensureDate(payload.sentAt ?? new Date(), { label: 'Message time' }) ?? new Date(),
+    metadata: payload.metadata ?? {},
+  });
+
+  return sanitizeChatMessage(message);
+}
+
+export async function acknowledgeGigChatMessage(ownerId, orderId, messageId, { actorId } = {}) {
+  await ensureInitialized();
+  const message = await GigChatMessage.findByPk(messageId);
+  if (!message || message.orderId !== orderId) {
+    throw new NotFoundError('Chat message not found.');
+  }
+  const order = await GigOrder.findByPk(orderId);
+  assertOwnership(order, ownerId, 'Gig order not found');
+
+  await message.update({
+    acknowledgedAt: ensureDate(new Date(), { label: 'Acknowledged at' }) ?? new Date(),
+    acknowledgedById: actorId ?? ownerId,
+  });
+
+  return sanitizeChatMessage(message);
 }
 
 export default {
@@ -687,4 +1376,10 @@ export default {
   updateProjectWorkspace,
   createGigOrder,
   updateGigOrder,
+  getGigOrderDetail,
+  createGigTimelineEvent,
+  createGigSubmission,
+  updateGigSubmission,
+  postGigChatMessage,
+  acknowledgeGigChatMessage,
 };
