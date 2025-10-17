@@ -153,9 +153,10 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
     label: 'Operations & governance',
     items: [
       {
-        name: 'Calendar & communications',
-        description: 'Sync recruiting calendars, digests, integrations, and cross-functional updates.',
+        name: 'Calendar',
+        description: '',
         sectionId: 'calendar-communications',
+        href: '/dashboard/company/calendar',
       },
       {
         name: 'Settings & governance',

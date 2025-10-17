@@ -9,7 +9,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint .",
-    "test": "vitest"
+    "test": "vitest",
+    "calendar:stub": "node ../calendar_stub/server.mjs"
   },
   "dependencies": {
     "@headlessui/react": "^2.1.1",
