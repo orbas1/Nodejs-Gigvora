@@ -1,3 +1,14 @@
+import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import useSession from '../../hooks/useSession.js';
+import { AGENCY_DASHBOARD_MENU_SECTIONS } from '../../constants/agencyDashboardMenu.js';
+
+const OVERVIEW_METRICS = [
+  { id: 'clients', label: 'Active clients', value: 18, hint: '4 onboarding this month' },
+  { id: 'projects', label: 'Managed projects', value: 42, hint: '8 in kickoff' },
+  { id: 'talent', label: 'Bench capacity', value: '63%', hint: '120 hours open' },
+];
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import DataStatus from '../../components/DataStatus.jsx';
@@ -112,6 +123,11 @@ const TEAM_NOTES = [
   { id: 'growth', title: 'Growth pipeline', helper: 'Align pitch schedule for next week demos.' },
 ];
 
+const AVAILABLE_DASHBOARDS = ['agency', 'company', 'freelancer', 'user', 'headhunter'];
+
+export default function AgencyDashboardPage() {
+  const { session } = useSession();
+  const displayName = useMemo(() => session?.name || session?.firstName || 'Agency team', [session]);
 const AVAILABLE_DASHBOARDS = ['agency', 'company', 'freelancer', 'user'];
 
 function buildProfile(name) {
@@ -464,6 +480,15 @@ export default function AgencyDashboardPage() {
   return (
     <DashboardLayout
       currentDashboard="agency"
+      title={`Hello, ${displayName}`}
+      subtitle="Agency control tower"
+      description="Track client health, delivery posture, and finance momentum so pods stay aligned and proactive."
+      menuSections={AGENCY_DASHBOARD_MENU_SECTIONS}
+      availableDashboards={AVAILABLE_DASHBOARDS}
+      activeMenuItem="overview"
+    >
+      <div className="space-y-12">
+        <section>
       title="Agency command center"
       subtitle="Control tower for growth, delivery, and finance"
       description="Keep your clients delighted, balance the bench, and unblock the team with one connected workspace."
@@ -675,6 +700,7 @@ export default function AgencyDashboardPage() {
             </div>
           </div>
         </section>
+
 
         <section id="team-focus" className="grid gap-8 lg:grid-cols-[1.35fr_1fr]">
 

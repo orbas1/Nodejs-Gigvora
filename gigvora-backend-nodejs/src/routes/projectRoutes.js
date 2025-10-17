@@ -4,6 +4,7 @@ import projectController from '../controllers/projectController.js';
 import projectBlueprintController from '../controllers/projectBlueprintController.js';
 import projectWorkspaceController from '../controllers/projectWorkspaceController.js';
 import projectOperationsController from '../controllers/projectOperationsController.js';
+import projectWorkspaceManagementController from '../controllers/projectWorkspaceManagementController.js';
 import { requireProjectManagementRole } from '../middleware/authorization.js';
 import validateRequest from '../middleware/validateRequest.js';
 import {
@@ -23,6 +24,7 @@ router.post(
   validateRequest({ body: createProjectBodySchema }),
   asyncHandler(projectController.store),
 );
+router.get('/workspace/management', asyncHandler(projectWorkspaceManagementController.index));
 router.put('/:projectId/blueprint', requireProjectManagementRole, asyncHandler(projectBlueprintController.upsert));
 router.get('/:projectId/blueprint', asyncHandler(projectBlueprintController.show));
 router.patch(
@@ -42,6 +44,7 @@ router.get(
   validateRequest({ params: projectIdParamsSchema }),
   asyncHandler(projectController.show),
 );
+router.get('/:projectId/workspace/management', asyncHandler(projectWorkspaceManagementController.show));
 router.get(
   '/:projectId/events',
   validateRequest({ params: projectIdParamsSchema, query: projectEventsQuerySchema }),
@@ -59,6 +62,26 @@ router.delete(
   '/:projectId/operations/tasks/:taskId',
   requireProjectManagementRole,
   asyncHandler(projectOperationsController.removeTask),
+);
+router.post(
+  '/:projectId/workspace/management/:entity',
+  requireProjectManagementRole,
+  asyncHandler(projectWorkspaceManagementController.create),
+);
+router.put(
+  '/:projectId/workspace/management/:entity',
+  requireProjectManagementRole,
+  asyncHandler(projectWorkspaceManagementController.update),
+);
+router.put(
+  '/:projectId/workspace/management/:entity/:recordId',
+  requireProjectManagementRole,
+  asyncHandler(projectWorkspaceManagementController.update),
+);
+router.delete(
+  '/:projectId/workspace/management/:entity/:recordId',
+  requireProjectManagementRole,
+  asyncHandler(projectWorkspaceManagementController.destroy),
 );
 router.get('/:projectId/workspace', asyncHandler(projectWorkspaceController.show));
 router.put('/:projectId/workspace/brief', requireProjectManagementRole, asyncHandler(projectWorkspaceController.updateBrief));

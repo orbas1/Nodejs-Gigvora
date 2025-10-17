@@ -727,8 +727,10 @@ async function ensureTemplatesSeeded(transaction) {
 let initialized = false;
 
 async function ensureInitialized() {
-  if (initialized) return;
-  await syncProjectGigManagementModels();
+  if (initialized) {
+    return;
+  }
+  await projectGigManagementSequelize.authenticate();
   initialized = true;
 }
 
