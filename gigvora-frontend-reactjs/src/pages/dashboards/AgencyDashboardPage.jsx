@@ -1,139 +1,263 @@
-import { Link } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import DataStatus from '../../components/DataStatus.jsx';
 import useSession from '../../hooks/useSession.js';
+import useAgencyDashboard from '../../hooks/useAgencyDashboard.js';
+import useProjectGigManagement from '../../hooks/useProjectGigManagement.js';
+import useGigOrderDetail from '../../hooks/useGigOrderDetail.js';
+import { MENU_GROUPS, AVAILABLE_DASHBOARDS } from './agency/menuConfig.js';
+import {
+  GigManagementSection,
+  GigTimelineSection,
+  GigCreationSection,
+  OpenGigsSection,
+  ClosedGigsSection,
+  GigSubmissionsSection,
+  GigChatSection,
+} from './agency/sections/index.js';
 
-const OVERVIEW_METRICS = [
-  { id: 'clients', label: 'Active clients', value: 18, hint: '4 onboarding this month' },
-  { id: 'projects', label: 'Managed projects', value: 42, hint: '8 in kickoff' },
-  { id: 'talent', label: 'Bench capacity', value: '63%', hint: 'Plan for 120 open hours' },
-];
-
-const TEAM_TASKS = [
-  {
-    id: 'advocacy',
-    title: 'Client advocacy sync',
-    description: 'Review NPS signals and queue follow-ups with account owners.',
-  },
-  {
-    id: 'payments',
-    title: 'Finance review',
-    description: 'Reconcile open payouts and approve this week’s vendor invoices.',
-  },
-  {
-    id: 'growth',
-    title: 'Growth pipeline',
-    description: 'Share the latest pitch deck and align on next-week demos.',
-  },
-];
-
-const FINANCE_SUMMARY = [
-  { id: 'run-rate', label: 'Revenue run-rate', value: '$1.84M', hint: '+12% vs last quarter' },
-  { id: 'invoiced', label: 'Invoices sent', value: '$310K', hint: 'Awaiting 3 approvals' },
-  { id: 'payouts', label: 'Payouts processed', value: '$245K', hint: 'Cleared overnight' },
-];
+const DEFAULT_SECTION = 'manage';
 
 export default function AgencyDashboardPage() {
   const { session } = useSession();
-  const displayName = session?.name || session?.firstName || 'Agency team';
+  const [activeSection, setActiveSection] = useState(DEFAULT_SECTION);
+
+  const {
+    data: agencyDashboard,
+    loading: agencyLoading,
+    error: agencyError,
+    refresh: refreshAgency,
+  } = useAgencyDashboard();
+
+  const ownerId = agencyDashboard?.workspace?.ownerId ?? session?.id ?? null;
+
+  const {
+    data: projectGigData,
+    loading: projectLoading,
+    error: projectError,
+    actions: projectActions,
+    reload: reloadProject,
+  } = useProjectGigManagement(ownerId);
+
+  const orders = useMemo(() => projectGigData?.purchasedGigs?.orders ?? [], [projectGigData]);
+
+  const [selectedOrderId, setSelectedOrderId] = useState(() => (orders.length ? orders[0].id : null));
+  useEffect(() => {
+    if (!orders.length) {
+      setSelectedOrderId(null);
+      return;
+    }
+    if (selectedOrderId == null) {
+      setSelectedOrderId(orders[0].id);
+      return;
+    }
+    const match = orders.find((order) => order.id === selectedOrderId);
+    if (!match) {
+      setSelectedOrderId(orders[0].id);
+    }
+  }, [orders, selectedOrderId]);
+
+  const {
+    data: orderDetail,
+    loading: orderLoading,
+    error: orderError,
+    actions: orderActions,
+    refresh: refreshOrder,
+    pendingAction,
+  } = useGigOrderDetail(ownerId, selectedOrderId);
+
+  const [creatingGig, setCreatingGig] = useState(false);
+  const [updatingOrderId, setUpdatingOrderId] = useState(null);
+
+  const handleRefresh = useCallback(async () => {
+    await Promise.all([refreshAgency(), reloadProject()]);
+    if (selectedOrderId) {
+      await refreshOrder();
+    }
+  }, [refreshAgency, reloadProject, refreshOrder, selectedOrderId]);
+
+  const handleCreateGig = useCallback(
+    async (payload) => {
+      if (!projectActions?.createGigOrder) return;
+      setCreatingGig(true);
+      try {
+        const response = await projectActions.createGigOrder(payload);
+        await handleRefresh();
+        if (response?.order?.id) {
+          setSelectedOrderId(response.order.id);
+        }
+      } finally {
+        setCreatingGig(false);
+      }
+    },
+    [projectActions, handleRefresh],
+  );
+
+  const handleUpdateOrder = useCallback(
+    async (orderId, payload) => {
+      if (!projectActions?.updateGigOrder) return;
+      setUpdatingOrderId(orderId);
+      try {
+        await projectActions.updateGigOrder(orderId, payload);
+        await refreshOrder();
+      } finally {
+        setUpdatingOrderId(null);
+      }
+    },
+    [projectActions, refreshOrder],
+  );
+
+  const handleReopenOrder = useCallback(
+    async (order) => {
+      if (!order || !projectActions?.updateGigOrder) return;
+      const fallback = order.dueAt ? new Date(order.dueAt) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      const normalized = new Date(fallback.getFullYear(), fallback.getMonth(), fallback.getDate())
+        .toISOString()
+        .slice(0, 10);
+      setUpdatingOrderId(order.id);
+      try {
+        await projectActions.updateGigOrder(order.id, {
+          status: 'in_delivery',
+          dueAt: normalized,
+          progressPercent: order.progressPercent ?? 0,
+        });
+        setActiveSection('open-gigs');
+        setSelectedOrderId(order.id);
+        await refreshOrder();
+      } finally {
+        setUpdatingOrderId(null);
+      }
+    },
+    [projectActions, refreshOrder],
+  );
+
+  const handleAddTimelineEvent = useCallback(
+    (payload) => orderActions.addTimelineEvent?.(payload),
+    [orderActions],
+  );
+
+  const handleCreateSubmission = useCallback(
+    (payload) => orderActions.createSubmission?.(payload),
+    [orderActions],
+  );
+
+  const handleUpdateSubmission = useCallback(
+    (submissionId, payload) => orderActions.updateSubmission?.(submissionId, payload),
+    [orderActions],
+  );
+
+  const handleSendMessage = useCallback(
+    (payload) => orderActions.sendMessage?.(payload),
+    [orderActions],
+  );
+
+  const handleAcknowledgeMessage = useCallback(
+    (messageId) => orderActions.acknowledgeMessage?.(messageId),
+    [orderActions],
+  );
+
+  const studioInsights = agencyDashboard?.operations?.gigPrograms?.studio ?? {};
+  const pageLoading = agencyLoading || projectLoading;
+  const displayName = session?.name || session?.firstName || 'agency team';
+  const anyError = agencyError || projectError || orderError;
+
+  const renderSection = () => {
+    switch (activeSection) {
+      case 'manage':
+        return (
+          <GigManagementSection
+            summary={studioInsights.summary}
+            deliverables={studioInsights.deliverables}
+            orders={orders}
+            selectedOrderId={selectedOrderId}
+            onSelectOrder={setSelectedOrderId}
+            onRefresh={handleRefresh}
+            loading={pageLoading || orderLoading}
+            detail={orderDetail}
+          />
+        );
+      case 'timeline':
+        return (
+          <GigTimelineSection
+            orderDetail={orderDetail}
+            onAddEvent={handleAddTimelineEvent}
+            loading={orderLoading}
+            pending={pendingAction}
+          />
+        );
+      case 'build':
+        return (
+          <GigCreationSection
+            onCreate={handleCreateGig}
+            creating={creatingGig}
+            defaultCurrency={agencyDashboard?.workspace?.defaultCurrency ?? 'USD'}
+            onCreated={handleRefresh}
+          />
+        );
+      case 'open':
+        return (
+          <OpenGigsSection
+            orders={orders}
+            onUpdateOrder={handleUpdateOrder}
+            updatingOrderId={updatingOrderId}
+          />
+        );
+      case 'closed':
+        return (
+          <ClosedGigsSection
+            orders={orders}
+            onReopen={handleReopenOrder}
+            updatingOrderId={updatingOrderId}
+          />
+        );
+      case 'proofs':
+        return (
+          <GigSubmissionsSection
+            orderDetail={orderDetail}
+            onCreateSubmission={handleCreateSubmission}
+            onUpdateSubmission={handleUpdateSubmission}
+            pending={pendingAction}
+          />
+        );
+      case 'chat':
+        return (
+          <GigChatSection
+            orderDetail={orderDetail}
+            onSendMessage={handleSendMessage}
+            onAcknowledgeMessage={handleAcknowledgeMessage}
+            pending={pendingAction}
+          />
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-surfaceMuted pb-16">
-      <div className="mx-auto max-w-6xl px-4 pt-12 sm:px-6 lg:px-8">
-        <header className="flex flex-col gap-4 border-b border-slate-200 pb-8">
-          <div>
-            <p className="text-sm uppercase tracking-[0.4em] text-slate-500">Agency control tower</p>
-            <h1 className="mt-2 text-3xl font-semibold text-slate-900">Hello, {displayName}</h1>
-            <p className="mt-3 max-w-3xl text-sm text-slate-600">
-              Track client health, revenue momentum, and the team’s next actions. Keep the bench balanced and highlight wins to
-              leadership.
-            </p>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-3">
-            {OVERVIEW_METRICS.map((metric) => (
-              <div
-                key={metric.id}
-                className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft transition hover:-translate-y-0.5 hover:border-accent/60"
-              >
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">{metric.label}</p>
-                <p className="mt-3 text-3xl font-semibold text-slate-900">{metric.value}</p>
-                <p className="mt-2 text-xs text-slate-500">{metric.hint}</p>
-              </div>
-            ))}
-          </div>
-        </header>
-
-        <section className="mt-12 grid gap-8 lg:grid-cols-[1.35fr_1fr]">
-          <div className="space-y-6">
-            <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-slate-900">Team focus</h2>
-                <Link to="/inbox" className="text-sm font-semibold text-accent hover:text-accentDark">
-                  Share update
-                </Link>
-              </div>
-              <ol className="mt-6 space-y-4">
-                {TEAM_TASKS.map((task, index) => (
-                  <li key={task.id} className="flex gap-4 rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-sm font-semibold text-white">
-                      {index + 1}
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">{task.title}</p>
-                      <p className="text-xs text-slate-500">{task.description}</p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </div>
-
-            <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
-              <h2 className="text-xl font-semibold text-slate-900">Bench signals</h2>
-              <div className="mt-4 space-y-3">
-                <div className="flex items-center justify-between rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-3">
-                  <p className="text-sm text-slate-600">Product design squad</p>
-                  <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">Under capacity</span>
-                </div>
-                <div className="flex items-center justify-between rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-3">
-                  <p className="text-sm text-slate-600">Growth marketing</p>
-                  <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">Monitor</span>
-                </div>
-                <div className="flex items-center justify-between rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-3">
-                  <p className="text-sm text-slate-600">Engineering guild</p>
-                  <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">Over capacity</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <aside className="space-y-6">
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
-              <h2 className="text-lg font-semibold text-slate-900">Finance snapshot</h2>
-              <ul className="mt-4 space-y-3">
-                {FINANCE_SUMMARY.map((item) => (
-                  <li key={item.id} className="rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
-                    <p className="text-sm font-semibold text-slate-900">{item.label}</p>
-                    <p className="mt-1 text-lg font-semibold text-slate-900">{item.value}</p>
-                    <p className="text-xs text-slate-500">{item.hint}</p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-accent/10 via-white to-blue-100 p-6 shadow-soft">
-              <h2 className="text-lg font-semibold text-slate-900">Need support?</h2>
-              <p className="mt-2 text-sm text-slate-600">
-                Coordinate with finance or compliance in the shared channel. We’ll help unblock vendors, approvals, or contract
-                questions within the hour.
-              </p>
-              <Link
-                to="/inbox"
-                className="mt-4 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
-              >
-                Message operations
-              </Link>
-            </div>
-          </aside>
-        </section>
+    <DashboardLayout
+      currentDashboard="agency"
+      title="Agency Hub"
+      subtitle={`Hello ${displayName.split(' ')[0] ?? displayName}`}
+      description="Run gigs end-to-end."
+      menuSections={MENU_GROUPS}
+      availableDashboards={AVAILABLE_DASHBOARDS}
+      activeMenuItem={activeSection}
+      onMenuItemSelect={(itemId) => setActiveSection(itemId)}
+    >
+      <div className="mx-auto w-full max-w-7xl space-y-10 px-8 py-10">
+        {anyError ? (
+          <DataStatus
+            status="error"
+            title="Unable to load gigs"
+            message={agencyError?.message || projectError?.message || orderError?.message}
+            onRetry={handleRefresh}
+          />
+        ) : null}
+        {pageLoading && !orders.length && !studioInsights.summary ? (
+          <DataStatus status="loading" title="Loading" />
+        ) : null}
+        {renderSection()}
       </div>
-    </div>
+    </DashboardLayout>
   );
 }
