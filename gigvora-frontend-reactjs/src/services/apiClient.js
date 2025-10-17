@@ -174,13 +174,27 @@ async function request(method, path, { body, params, signal, headers } = {}) {
     ...headers,
   };
 
-  const response = await fetch(url, {
+  const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+  if (isFormData) {
+    delete requestHeaders['Content-Type'];
+  }
+
+  const fetchOptions = {
     method,
     headers: requestHeaders,
-    body: body == null ? undefined : JSON.stringify(body),
     signal,
     credentials: 'include',
-  });
+  };
+
+  if (method !== 'GET' && method !== 'HEAD') {
+    if (isFormData) {
+      fetchOptions.body = body;
+    } else if (body != null) {
+      fetchOptions.body = JSON.stringify(body);
+    }
+  }
+
+  const response = await fetch(url, fetchOptions);
 
   const contentType = response.headers.get('content-type') || '';
   let responseBody = null;
