@@ -29,6 +29,26 @@ export const ACCESSIBILITY_AUDIT_STATUSES = ['pending', 'in_progress', 'remediat
 
 
 export const APPLICATION_TARGET_TYPES = ['job', 'gig', 'project', 'launchpad', 'volunteer'];
+export const VOLUNTEER_APPLICATION_STATUSES = [
+  'draft',
+  'submitted',
+  'in_review',
+  'interview',
+  'offered',
+  'accepted',
+  'rejected',
+  'withdrawn',
+];
+export const VOLUNTEER_RESPONSE_TYPES = ['message', 'request_info', 'approval', 'rejection', 'update'];
+export const VOLUNTEER_CONTRACT_STATUSES = ['draft', 'awaiting_signature', 'active', 'on_hold', 'completed', 'cancelled'];
+export const VOLUNTEER_SPEND_CATEGORIES = [
+  'travel',
+  'stipend',
+  'equipment',
+  'training',
+  'operations',
+  'other',
+];
 export const APPLICATION_STATUSES = [
   'draft',
   'submitted',

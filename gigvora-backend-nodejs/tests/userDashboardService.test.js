@@ -1,4 +1,7 @@
+process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'false';
+
 import { describe, expect, it, beforeEach } from '@jest/globals';
+import './setupTestEnv.js';
 import {
   Profile,
   Connection,

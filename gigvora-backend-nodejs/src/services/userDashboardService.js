@@ -53,6 +53,7 @@ import careerPipelineAutomationService from './careerPipelineAutomationService.j
 import { getAdDashboardSnapshot } from './adService.js';
 import { initializeWorkspaceForProject } from './projectWorkspaceService.js';
 import affiliateDashboardService from './affiliateDashboardService.js';
+import volunteeringManagementService from './volunteeringManagementService.js';
 
 const CACHE_NAMESPACE = 'dashboard:user';
 const CACHE_TTL_SECONDS = 60;
@@ -2299,6 +2300,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     careerPipelineAutomation,
     affiliateProgram,
     projectParticipation,
+    volunteeringManagement,
   ] = await Promise.all([
     applicationQuery,
     pipelineQuery,
@@ -2322,6 +2324,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     careerPipelineAutomationService.getCareerPipelineAutomation(userId, { bypassCache }),
     affiliateDashboardService.getAffiliateDashboard(userId),
     projectParticipationQuery,
+    volunteeringManagementService.getUserVolunteeringManagement(userId, { bypassCache }),
   ]);
 
   const sanitizedStoryPrompts = storyBlocks.map((block) => sanitizeStoryBlock(block)).filter(Boolean);
@@ -2645,6 +2648,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     affiliate: affiliateProgram,
     careerPipelineAutomation,
     ads,
+    volunteeringManagement,
   };
 }
 

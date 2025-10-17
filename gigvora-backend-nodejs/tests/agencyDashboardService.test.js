@@ -1,3 +1,5 @@
+process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'false';
+
 import crypto from 'crypto';
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import './setupTestEnv.js';

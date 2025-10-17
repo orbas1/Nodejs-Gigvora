@@ -4,6 +4,7 @@ import * as careerDocumentController from '../controllers/careerDocumentControll
 import asyncHandler from '../utils/asyncHandler.js';
 import authenticate from '../middleware/authenticate.js';
 import userConsentRoutes from './userConsentRoutes.js';
+import userVolunteeringRoutes from './userVolunteeringRoutes.js';
 
 const router = Router();
 
@@ -54,6 +55,8 @@ router.post(
   authenticate({ roles: DOCUMENT_ROLES, matchParam: 'id' }),
   asyncHandler(careerDocumentController.uploadVersion),
 );
+
+router.use('/:id/volunteering', userVolunteeringRoutes);
 
 router.use('/:id/consents', userConsentRoutes);
 

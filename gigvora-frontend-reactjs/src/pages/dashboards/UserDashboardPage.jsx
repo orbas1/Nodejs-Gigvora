@@ -10,6 +10,7 @@ import useSession from '../../hooks/useSession.js';
 import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
 import DashboardBlogSpotlight from '../../components/blog/DashboardBlogSpotlight.jsx';
 import AffiliateProgramSection from '../../components/affiliate/AffiliateProgramSection.jsx';
+import VolunteeringManagementSection from '../../components/volunteeringManagement/VolunteeringManagementSection.jsx';
 
 const DEFAULT_USER_ID = 1;
 const availableDashboards = ['user', 'freelancer', 'agency', 'company', 'headhunter'];
@@ -313,6 +314,17 @@ function buildMenuSections(data) {
         {
           name: 'Profile settings',
           description: 'Control availability, visibility, and launchpad eligibility signals.',
+        },
+      ],
+    },
+    {
+      label: 'Community',
+      items: [
+        {
+          name: 'Volunteer',
+          description: 'Applications, contracts, spend, and reviews together.',
+          tags: ['volunteering', 'community'],
+          sectionId: 'volunteering-management',
         },
       ],
     },
@@ -1476,6 +1488,11 @@ export default function UserDashboardPage() {
         </section>
 
         <ProjectGigManagementContainer userId={userId} />
+        <VolunteeringManagementSection
+          userId={userId}
+          data={data?.volunteeringManagement}
+          onRefresh={() => refresh({ force: true })}
+        />
         {documentStudio ? (
           <DocumentStudioSection
             data={documentStudio}
