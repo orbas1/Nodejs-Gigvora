@@ -100,7 +100,8 @@ import {
   FINANCE_REVENUE_TYPES, FINANCE_REVENUE_STATUSES, FINANCE_EXPENSE_STATUSES, FINANCE_SAVINGS_STATUSES,
   FINANCE_AUTOMATION_TYPES, FINANCE_PAYOUT_STATUSES, FINANCE_FORECAST_SCENARIO_TYPES, FINANCE_TAX_EXPORT_STATUSES,
   CAREER_ANALYTICS_TREND_DIRECTIONS, CALENDAR_INTEGRATION_STATUSES, CALENDAR_EVENT_TYPES, CALENDAR_EVENT_SOURCES,
-  FOCUS_SESSION_TYPES, ADVISOR_COLLABORATION_STATUSES, ADVISOR_COLLABORATION_MEMBER_ROLES, ADVISOR_COLLABORATION_MEMBER_STATUSES,
+  CALENDAR_EVENT_VISIBILITIES, CALENDAR_DEFAULT_VIEWS, FOCUS_SESSION_TYPES,
+  ADVISOR_COLLABORATION_STATUSES, ADVISOR_COLLABORATION_MEMBER_ROLES, ADVISOR_COLLABORATION_MEMBER_STATUSES,
   DOCUMENT_ROOM_STATUSES, SUPPORT_AUTOMATION_STATUSES, COMPLIANCE_DOCUMENT_TYPES, COMPLIANCE_DOCUMENT_STATUSES,
   COMPLIANCE_REMINDER_STATUSES, COMPLIANCE_OBLIGATION_STATUSES, COMPLIANCE_STORAGE_PROVIDERS, REPUTATION_TESTIMONIAL_SOURCES,
   REPUTATION_TESTIMONIAL_STATUSES, REPUTATION_SUCCESS_STORY_STATUSES, REPUTATION_METRIC_TREND_DIRECTIONS, REPUTATION_REVIEW_WIDGET_STATUSES,
@@ -8345,6 +8346,18 @@ export const CandidateCalendarEvent = sequelize.define(
     startsAt: { type: DataTypes.DATE, allowNull: false },
     endsAt: { type: DataTypes.DATE, allowNull: true },
     location: { type: DataTypes.STRING(255), allowNull: true },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    videoConferenceLink: { type: DataTypes.STRING(500), allowNull: true },
+    isAllDay: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    reminderMinutes: { type: DataTypes.INTEGER, allowNull: true },
+    visibility: {
+      type: DataTypes.ENUM(...CALENDAR_EVENT_VISIBILITIES),
+      allowNull: false,
+      defaultValue: 'private',
+    },
+    relatedEntityType: { type: DataTypes.STRING(80), allowNull: true },
+    relatedEntityId: { type: DataTypes.INTEGER, allowNull: true },
+    colorHex: { type: DataTypes.STRING(9), allowNull: true },
     isFocusBlock: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     focusMode: { type: DataTypes.STRING(120), allowNull: true },
     metadata: { type: jsonType, allowNull: true },
@@ -8363,6 +8376,12 @@ CandidateCalendarEvent.prototype.toPublicObject = function toPublicObject() {
   const plain = this.get({ plain: true });
   return {
     ...plain,
+    isAllDay: Boolean(plain.isAllDay),
+    reminderMinutes: plain.reminderMinutes == null ? null : Number(plain.reminderMinutes),
+    relatedEntityId:
+      plain.relatedEntityId == null || Number.isNaN(Number(plain.relatedEntityId))
+        ? null
+        : Number(plain.relatedEntityId),
     metadata: plain.metadata ?? null,
   };
 };
@@ -8401,6 +8420,57 @@ FocusSession.prototype.toPublicObject = function toPublicObject() {
         ? null
         : Number.parseInt(typeof plain.durationMinutes === 'number' ? plain.durationMinutes : String(plain.durationMinutes), 10),
     metadata: plain.metadata ?? null,
+  };
+};
+
+export const UserCalendarSetting = sequelize.define(
+  'UserCalendarSetting',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    timezone: { type: DataTypes.STRING(120), allowNull: false, defaultValue: 'UTC' },
+    weekStart: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
+    workStartMinutes: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 480 },
+    workEndMinutes: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1020 },
+    defaultView: {
+      type: DataTypes.ENUM(...CALENDAR_DEFAULT_VIEWS),
+      allowNull: false,
+      defaultValue: 'agenda',
+    },
+    defaultReminderMinutes: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 30 },
+    autoFocusBlocks: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    shareAvailability: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    colorHex: { type: DataTypes.STRING(9), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'user_calendar_settings',
+    indexes: [
+      {
+        unique: true,
+        fields: ['userId'],
+      },
+    ],
+  },
+);
+
+UserCalendarSetting.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    timezone: plain.timezone ?? 'UTC',
+    weekStart: plain.weekStart == null ? 1 : Number(plain.weekStart),
+    workStartMinutes: plain.workStartMinutes == null ? 480 : Number(plain.workStartMinutes),
+    workEndMinutes: plain.workEndMinutes == null ? 1020 : Number(plain.workEndMinutes),
+    defaultView: plain.defaultView ?? 'agenda',
+    defaultReminderMinutes:
+      plain.defaultReminderMinutes == null ? 30 : Number(plain.defaultReminderMinutes),
+    autoFocusBlocks: Boolean(plain.autoFocusBlocks),
+    shareAvailability: Boolean(plain.shareAvailability),
+    colorHex: plain.colorHex ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
   };
 };
 
@@ -14284,6 +14354,9 @@ CalendarIntegration.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasMany(CandidateCalendarEvent, { foreignKey: 'userId', as: 'calendarEvents' });
 CandidateCalendarEvent.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
+User.hasOne(UserCalendarSetting, { foreignKey: 'userId', as: 'calendarSettings' });
+UserCalendarSetting.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
 User.hasMany(FocusSession, { foreignKey: 'userId', as: 'focusSessions' });
 FocusSession.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
@@ -16319,6 +16392,7 @@ export default {
   WeeklyDigestSubscription,
   CalendarIntegration,
   CandidateCalendarEvent,
+  UserCalendarSetting,
   FocusSession,
   AdvisorCollaboration,
   AdvisorCollaborationMember,

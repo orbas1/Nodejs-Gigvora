@@ -4,6 +4,7 @@ import * as careerDocumentController from '../controllers/careerDocumentControll
 import asyncHandler from '../utils/asyncHandler.js';
 import authenticate from '../middleware/authenticate.js';
 import userConsentRoutes from './userConsentRoutes.js';
+import userCalendarRoutes from './userCalendarRoutes.js';
 
 const router = Router();
 
@@ -56,5 +57,14 @@ router.post(
 );
 
 router.use('/:id/consents', userConsentRoutes);
+
+router.use(
+  '/:id/calendar',
+  authenticate({
+    roles: ['user', 'freelancer', 'agency', 'company', 'mentor', 'headhunter', 'admin'],
+    matchParam: 'id',
+  }),
+  userCalendarRoutes,
+);
 
 export default router;

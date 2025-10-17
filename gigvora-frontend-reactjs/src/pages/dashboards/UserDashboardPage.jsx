@@ -10,6 +10,7 @@ import useSession from '../../hooks/useSession.js';
 import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
 import DashboardBlogSpotlight from '../../components/blog/DashboardBlogSpotlight.jsx';
 import AffiliateProgramSection from '../../components/affiliate/AffiliateProgramSection.jsx';
+import UserCalendarSection from '../../components/calendar/UserCalendarSection.jsx';
 
 const DEFAULT_USER_ID = 1;
 const availableDashboards = ['user', 'freelancer', 'agency', 'company', 'headhunter'];
@@ -51,16 +52,6 @@ function formatChangeBadge(change, { suffix = '' } = {}) {
     label: value == null ? 'Stable' : `${symbol} ${value}${suffix}`,
     tone: direction === 'down' ? 'negative' : direction === 'up' ? 'positive' : 'neutral',
   };
-}
-
-function formatMinutesToHours(minutes) {
-  if (!minutes || Number.isNaN(Number(minutes))) return '0m';
-  const total = Math.max(0, Math.round(Number(minutes)));
-  const hours = Math.floor(total / 60);
-  const remainder = total % 60;
-  if (hours === 0) return `${remainder}m`;
-  if (remainder === 0) return `${hours}h`;
-  return `${hours}h ${remainder}m`;
 }
 
 function formatStatus(status) {
@@ -154,6 +145,8 @@ function buildProfileCard(data, summary, session) {
     ],
   };
 }
+
+export { buildProfileCard };
 
 function buildMenuSections(data) {
   const summary = data?.summary ?? {};
@@ -317,6 +310,18 @@ function buildMenuSections(data) {
       ],
     },
     {
+      label: 'Schedule',
+      items: [
+        {
+          name: 'Calendar',
+          description: '',
+          tags: ['calendar'],
+          sectionId: 'calendar-operations',
+          href: '/dashboard/user/calendar',
+        },
+      ],
+    },
+    {
       label: 'Affiliate & referrals',
       items: [
         {
@@ -334,6 +339,8 @@ function buildMenuSections(data) {
     },
   ];
 }
+
+export { buildMenuSections as buildUserDashboardMenuSections };
 
 export default function UserDashboardPage() {
   const { session, isAuthenticated } = useSession();
@@ -422,15 +429,8 @@ export default function UserDashboardPage() {
   const digestSubscription = weeklyDigest.subscription ?? null;
   const digestIntegrations = Array.isArray(weeklyDigest.integrations) ? weeklyDigest.integrations : [];
 
-  const calendarInsights = insights.calendar ?? {};
-  const upcomingInterviewEvents = Array.isArray(calendarInsights.upcomingInterviews)
-    ? calendarInsights.upcomingInterviews
-    : [];
-  const nextFocusBlock = calendarInsights.nextFocusBlock ?? null;
-  const focusInsights = calendarInsights.focus ?? { sessions: [], totalMinutes: 0, byType: {} };
-  const focusSessions = Array.isArray(focusInsights.sessions) ? focusInsights.sessions : [];
-  const focusMinutesTotal = focusInsights.totalMinutes ?? 0;
-  const focusByTypeEntries = focusInsights.byType ? Object.entries(focusInsights.byType) : [];
+  const calendarInsights = insights.calendar ?? null;
+  const canManageCalendar = Boolean(session);
 
   const advisorInsights = insights.advisorCollaboration ?? {};
   const advisorCollaborations = Array.isArray(advisorInsights.collaborations)
@@ -1732,82 +1732,11 @@ export default function UserDashboardPage() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <h3 className="text-base font-semibold text-slate-900">Calendar &amp; rituals</h3>
-                    <p className="text-sm text-slate-500">
-                      Combine interviews, networking, deadlines, and wellbeing rituals in one focus layer.
-                    </p>
-                  </div>
-                  <div className="text-right text-xs text-slate-500">
-                    <p>Total focus time {formatMinutesToHours(focusMinutesTotal)}</p>
-                    {nextFocusBlock?.startsAt ? (
-                      <p>Next focus block {formatRelativeTime(nextFocusBlock.startsAt)}</p>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div className="mt-4 grid gap-5 lg:grid-cols-2">
-                  <div className="space-y-3">
-                    <h4 className="text-sm font-semibold text-slate-800">Upcoming interviews</h4>
-                    {upcomingInterviewEvents.length ? (
-                      upcomingInterviewEvents.slice(0, 4).map((event) => (
-                        <div key={event.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                          <p className="text-sm font-semibold text-slate-800">{event.title}</p>
-                          <p className="text-xs uppercase tracking-wide text-slate-500">{formatStatus(event.eventType)}</p>
-                          <p className="mt-1 text-xs text-slate-500">{formatAbsolute(event.startsAt)}</p>
-                          {event.location ? (
-                            <p className="mt-1 text-xs text-slate-500">{event.location}</p>
-                          ) : null}
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-sm text-slate-500">No interviews scheduled yet — sync a calendar to stay ahead.</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-3">
-                    <h4 className="text-sm font-semibold text-slate-800">Focus sessions</h4>
-                    {focusSessions.length ? (
-                      focusSessions.slice(0, 4).map((session) => (
-                        <div key={session.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="font-semibold text-slate-800">{formatStatus(session.focusType)}</span>
-                            <span className="text-xs text-slate-500">
-                              {session.startedAt ? formatRelativeTime(session.startedAt) : 'Scheduled'}
-                            </span>
-                          </div>
-                          <p className="mt-1 text-xs uppercase tracking-wide text-slate-500">
-                            {session.completed ? 'Completed' : 'Planned'} • {formatMinutesToHours(session.durationMinutes)}
-                          </p>
-                          {session.notes ? (
-                            <p className="mt-2 text-xs text-slate-600">{session.notes}</p>
-                          ) : null}
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-sm text-slate-500">
-                        No focus sessions logged — block time for interview prep or relationship sprints.
-                      </p>
-                    )}
-
-                    {focusByTypeEntries.length ? (
-                      <div className="rounded-xl border border-slate-200 bg-white/80 p-3 text-xs text-slate-600">
-                        <p className="font-semibold text-slate-700">Focus mix</p>
-                        <ul className="mt-2 space-y-1">
-                          {focusByTypeEntries.map(([key, value]) => (
-                            <li key={key} className="flex items-center justify-between">
-                              <span>{formatStatus(key)}</span>
-                              <span>{formatMinutesToHours(value)}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
+              <UserCalendarSection
+                userId={userId}
+                insights={calendarInsights}
+                canManage={canManageCalendar}
+              />
             </div>
 
             <div className="space-y-6">
