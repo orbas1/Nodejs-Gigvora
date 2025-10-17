@@ -133,6 +133,9 @@ const GIG_PREVIEW_DEVICE_TYPES = ['desktop', 'tablet', 'mobile'];
 const FEATURE_FLAG_ROLLOUT_TYPES = ['global', 'percentage', 'cohort'];
 const FEATURE_FLAG_STATUSES = ['draft', 'active', 'disabled'];
 const FEATURE_FLAG_AUDIENCE_TYPES = ['user', 'workspace', 'membership', 'domain'];
+const AGENCY_CALENDAR_EVENT_TYPES = ['project', 'interview', 'gig', 'mentorship', 'volunteering'];
+const AGENCY_CALENDAR_EVENT_STATUSES = ['planned', 'confirmed', 'completed', 'cancelled', 'tentative'];
+const AGENCY_CALENDAR_EVENT_VISIBILITIES = ['internal', 'client', 'public'];
 export const AGENCY_PROFILE_MEDIA_ALLOWED_TYPES = ['image', 'video', 'banner'];
 export const AGENCY_PROFILE_CREDENTIAL_TYPES = ['qualification', 'certificate'];
 
@@ -8273,6 +8276,74 @@ export const RecruitingCalendarEvent = sequelize.define(
     ],
   },
 );
+
+export const AgencyCalendarEvent = sequelize.define(
+  'AgencyCalendarEvent',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    createdById: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    eventType: {
+      type: DataTypes.ENUM(...AGENCY_CALENDAR_EVENT_TYPES),
+      allowNull: false,
+      defaultValue: 'project',
+    },
+    status: {
+      type: DataTypes.ENUM(...AGENCY_CALENDAR_EVENT_STATUSES),
+      allowNull: false,
+      defaultValue: 'planned',
+    },
+    visibility: {
+      type: DataTypes.ENUM(...AGENCY_CALENDAR_EVENT_VISIBILITIES),
+      allowNull: false,
+      defaultValue: 'internal',
+    },
+    relatedEntityType: { type: DataTypes.STRING(120), allowNull: true },
+    relatedEntityId: { type: DataTypes.INTEGER, allowNull: true },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    meetingUrl: { type: DataTypes.STRING(500), allowNull: true },
+    coverImageUrl: { type: DataTypes.STRING(500), allowNull: true },
+    attachments: { type: jsonType, allowNull: true },
+    guestEmails: { type: jsonType, allowNull: true },
+    reminderOffsets: { type: jsonType, allowNull: true },
+    isAllDay: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    timezone: { type: DataTypes.STRING(120), allowNull: true },
+    startsAt: { type: DataTypes.DATE, allowNull: false },
+    endsAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'agency_calendar_events',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['eventType'] },
+      { fields: ['status'] },
+      { fields: ['startsAt'] },
+    ],
+  },
+);
+
+AgencyCalendarEvent.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+
+  return {
+    ...plain,
+    attachments: Array.isArray(plain.attachments) ? plain.attachments : [],
+    guestEmails: Array.isArray(plain.guestEmails)
+      ? plain.guestEmails.map((email) => (email == null ? null : String(email))).filter(Boolean)
+      : [],
+    reminderOffsets: Array.isArray(plain.reminderOffsets)
+      ? plain.reminderOffsets
+          .map((value) => {
+            const numeric = Number.parseInt(value, 10);
+            return Number.isFinite(numeric) ? numeric : null;
+          })
+          .filter((value) => value != null)
+      : [],
+  };
+};
 
 export const EmployerBrandAsset = sequelize.define(
   'EmployerBrandAsset',
@@ -16604,6 +16675,7 @@ AgencyAutoBidTemplate.belongsTo(User, { foreignKey: 'updatedBy', as: 'updater' }
 User.hasMany(AgencyAutoBidTemplate, { foreignKey: 'createdBy', as: 'createdAgencyAutoBidTemplates' });
 User.hasMany(AgencyAutoBidTemplate, { foreignKey: 'updatedBy', as: 'updatedAgencyAutoBidTemplates' });
 ProviderWorkspace.hasMany(RecruitingCalendarEvent, { foreignKey: 'workspaceId', as: 'recruitingEvents' });
+ProviderWorkspace.hasMany(AgencyCalendarEvent, { foreignKey: 'workspaceId', as: 'agencyCalendarEvents' });
 ProviderWorkspace.hasMany(EmployerBrandAsset, { foreignKey: 'workspaceId', as: 'employerBrandAssets' });
 ProviderWorkspace.hasMany(ProspectIntelligenceProfile, { foreignKey: 'workspaceId', as: 'prospectProfiles' });
 ProviderWorkspace.hasMany(ProspectSearchDefinition, { foreignKey: 'workspaceId', as: 'prospectSearches' });
@@ -16890,6 +16962,9 @@ AgencyBillingEvent.belongsTo(AgencyCollaboration, {
   as: 'collaboration',
 });
 RecruitingCalendarEvent.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+AgencyCalendarEvent.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+AgencyCalendarEvent.belongsTo(User, { foreignKey: 'createdById', as: 'creator' });
+User.hasMany(AgencyCalendarEvent, { foreignKey: 'createdById', as: 'createdAgencyCalendarEvents' });
 EmployerBrandAsset.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 ProspectIntelligenceProfile.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 ProspectIntelligenceProfile.belongsTo(User, { foreignKey: 'candidateId', as: 'candidate' });

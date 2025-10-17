@@ -1,3 +1,6 @@
+import useSession from '../../hooks/useSession.js';
+import AgencyDashboardLayout from './agency/AgencyDashboardLayout.jsx';
+import AgencyOverview from './agency/AgencyOverview.jsx';
 import { useMemo } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import CreationStudioSection from '../../components/agencyCreationStudio/CreationStudioSection.jsx';
@@ -677,6 +680,9 @@ export default function AgencyDashboardPage() {
   );
 
   return (
+    <AgencyDashboardLayout activeItem="overview">
+      <AgencyOverview displayName={displayName} />
+    </AgencyDashboardLayout>
     <DashboardLayout
       currentDashboard="agency"
       title="Agency hub"
@@ -1542,3 +1548,4 @@ export default function AgencyDashboardPage() {
     </DashboardLayout>
   );
 }
+

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import asyncHandler from '../utils/asyncHandler.js';
 import agencyController from '../controllers/agencyController.js';
+import agencyCalendarController from '../controllers/agencyCalendarController.js';
 import creationStudioRoutes from './agencyCreationRoutes.js';
 import agencyMentoringController from '../controllers/agencyMentoringController.js';
 import agencyProjectManagementController from '../controllers/agencyProjectManagementController.js';
@@ -60,6 +61,39 @@ router.get(
   asyncHandler(agencyController.dashboard),
 );
 
+router.get(
+  '/calendar',
+  authenticate(),
+  requireRoles('agency', 'agency_admin', 'admin'),
+  asyncHandler(agencyCalendarController.index),
+);
+
+router.get(
+  '/calendar/:eventId',
+  authenticate(),
+  requireRoles('agency', 'agency_admin', 'admin'),
+  asyncHandler(agencyCalendarController.show),
+);
+
+router.post(
+  '/calendar',
+  authenticate(),
+  requireRoles('agency', 'agency_admin', 'admin'),
+  asyncHandler(agencyCalendarController.store),
+);
+
+router.put(
+  '/calendar/:eventId',
+  authenticate(),
+  requireRoles('agency', 'agency_admin', 'admin'),
+  asyncHandler(agencyCalendarController.update),
+);
+
+router.delete(
+  '/calendar/:eventId',
+  authenticate(),
+  requireRoles('agency', 'agency_admin', 'admin'),
+  asyncHandler(agencyCalendarController.destroy),
 router.use('/creation-studio', creationStudioRoutes);
 router.get(
   '/mentoring/overview',
