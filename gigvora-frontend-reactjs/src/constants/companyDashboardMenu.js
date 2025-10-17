@@ -128,6 +128,13 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
     label: 'Brand & people',
     items: [
       {
+        name: 'Volunteer',
+        description: 'Publish volunteer opportunities, manage applicants, and track contracts & stipend spend.',
+        sectionId: 'volunteering-management',
+        href: '/dashboard/company/volunteering',
+        tags: ['community'],
+      },
+      {
         name: 'Employer brand & workforce intelligence',
         description: 'Promote your culture, understand workforce trends, and connect hiring with employee experience data.',
         sectionId: 'employer-brand-workforce',

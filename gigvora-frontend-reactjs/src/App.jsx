@@ -40,6 +40,7 @@ import CompanyDashboardPage from './pages/dashboards/CompanyDashboardPage.jsx';
 import CompanyAtsOperationsPage from './pages/dashboards/CompanyAtsOperationsPage.jsx';
 import CompanyAnalyticsPage from './pages/dashboards/CompanyAnalyticsPage.jsx';
 import CompanyIntegrationsPage from './pages/dashboards/CompanyIntegrationsPage.jsx';
+import CompanyVolunteeringManagementPage from './pages/dashboards/CompanyVolunteeringManagementPage.jsx';
 import CompanyNetworkingHubPage from './pages/networking/CompanyNetworkingHubPage.jsx';
 import AgencyDashboardPage from './pages/dashboards/AgencyDashboardPage.jsx';
 import HeadhunterDashboardPage from './pages/dashboards/HeadhunterDashboardPage.jsx';
@@ -206,6 +207,15 @@ export default function App() {
         element={
           <RequireRole allowedRoles={['company']}>
             <CompanyIntegrationsPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
+        path="dashboard/company/volunteering"
+        element={
+          <RequireRole allowedRoles={['company']}>
+            <CompanyVolunteeringManagementPage />
           </RequireRole>
         }
       />
