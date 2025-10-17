@@ -4,6 +4,7 @@ import * as careerDocumentController from '../controllers/careerDocumentControll
 import asyncHandler from '../utils/asyncHandler.js';
 import authenticate from '../middleware/authenticate.js';
 import userConsentRoutes from './userConsentRoutes.js';
+import walletRoutes from './walletRoutes.js';
 import * as notificationController from '../controllers/notificationController.js';
 
 const router = Router();
@@ -37,6 +38,15 @@ router.put(
 router.get('/:id', asyncHandler(userController.getUserProfile));
 router.put('/:id', asyncHandler(userController.updateUser));
 router.patch('/:id/profile', asyncHandler(userController.updateProfileSettings));
+
+router.use(
+  '/:id/wallet',
+  authenticate({
+    roles: ['user', 'freelancer', 'agency', 'company', 'headhunter', 'admin'],
+    matchParam: 'id',
+  }),
+  walletRoutes,
+);
 
 const DOCUMENT_ROLES = ['user', 'freelancer', 'agency', 'company', 'headhunter', 'mentor', 'admin'];
 const NOTIFICATION_ROLES = ['user', 'freelancer', 'agency', 'company', 'headhunter', 'mentor', 'admin'];

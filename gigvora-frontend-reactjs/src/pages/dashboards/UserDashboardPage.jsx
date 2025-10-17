@@ -12,6 +12,7 @@ import useSession from '../../hooks/useSession.js';
 import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
 import DashboardBlogSpotlight from '../../components/blog/DashboardBlogSpotlight.jsx';
 import AffiliateProgramSection from '../../components/affiliate/AffiliateProgramSection.jsx';
+import WalletManagementSection from '../../components/wallet/WalletManagementSection.jsx';
 import DashboardNotificationCenterSection from '../../components/notifications/DashboardNotificationCenterSection.jsx';
 import useSavedSearches from '../../hooks/useSavedSearches.js';
 import { TopSearchSection } from './user/sections/index.js';
@@ -193,6 +194,10 @@ function buildMenuSections(data) {
   const pipelineAutomation = data?.careerPipelineAutomation ?? {};
   const automationMetrics = pipelineAutomation.kanban?.metrics ?? {};
   const automationBoardName = pipelineAutomation.board?.name ?? 'Career pipeline';
+  const walletCompliance = data?.compliance?.wallet ?? data?.profile?.walletCompliance ?? {};
+  const walletAccountCount = Array.isArray(walletCompliance.accounts) ? walletCompliance.accounts.length : 0;
+  const walletLedgerIntegrity = walletCompliance.ledgerIntegrity ?? 'unknown';
+  const walletComplianceStatus = walletCompliance.complianceStatus ?? 'inactive';
   const escrowManagement = data?.escrowManagement ?? {};
   const escrowSummary = escrowManagement.summary ?? {};
   const escrowCurrency = escrowSummary.currency ?? 'USD';
@@ -394,6 +399,37 @@ function buildMenuSections(data) {
       ],
     },
     {
+      label: 'Finance',
+      items: [
+        {
+          name: 'Wallet',
+          description: `${formatNumber(walletAccountCount)} accounts • ${walletLedgerIntegrity === 'good' ? 'Balanced' : 'Review'}`,
+          tags: ['wallet'],
+          sectionId: 'wallet-home',
+        },
+        {
+          name: 'Sources',
+          description: 'Payment methods',
+          tags: ['payments'],
+          sectionId: 'wallet-sources',
+        },
+        {
+          name: 'Rules',
+          description: `${walletComplianceStatus.replace(/_/g, ' ')} automation`,
+          tags: ['automation'],
+          sectionId: 'wallet-rules',
+        },
+        {
+          name: 'Moves',
+          description: 'Transfer queue',
+          tags: ['payouts'],
+          sectionId: 'wallet-moves',
+        },
+        {
+          name: 'Escrow',
+          description: 'Reserves overview',
+          tags: ['escrow'],
+          sectionId: 'wallet-escrow',
       label: 'Alerts',
       items: [
         {
@@ -685,6 +721,7 @@ export default function UserDashboardPage() {
           ))}
         </section>
 
+        {userId ? <WalletManagementSection userId={userId} /> : null}
         <TopSearchSection
           data={topSearchData}
           savedSearches={savedSearches}

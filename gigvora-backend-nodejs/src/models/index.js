@@ -76,7 +76,9 @@ import {
   TALENT_POOL_TYPES, TALENT_POOL_STATUSES, TALENT_POOL_MEMBER_STATUSES, TALENT_POOL_MEMBER_SOURCE_TYPES,
   TALENT_POOL_ENGAGEMENT_TYPES, AGENCY_BILLING_STATUSES, ESCROW_TRANSACTION_STATUSES, ID_VERIFICATION_STATUSES,
   CORPORATE_VERIFICATION_STATUSES, QUALIFICATION_CREDENTIAL_STATUSES, WALLET_ACCOUNT_TYPES, WALLET_ACCOUNT_STATUSES,
-  WALLET_LEDGER_ENTRY_TYPES, ESCROW_INTEGRATION_PROVIDERS, DISPUTE_STAGES, DISPUTE_STATUSES,
+  WALLET_LEDGER_ENTRY_TYPES, WALLET_FUNDING_SOURCE_TYPES, WALLET_FUNDING_SOURCE_STATUSES,
+  WALLET_TRANSFER_RULE_CADENCES, WALLET_TRANSFER_RULE_STATUSES, WALLET_TRANSFER_TYPES, WALLET_TRANSFER_STATUSES,
+  ESCROW_INTEGRATION_PROVIDERS, DISPUTE_STAGES, DISPUTE_STATUSES,
   DISPUTE_PRIORITIES, DISPUTE_ACTION_TYPES, DISPUTE_ACTOR_TYPES, NETWORKING_SESSION_STATUSES,
   NETWORKING_SESSION_ACCESS_TYPES, NETWORKING_SESSION_VISIBILITIES, NETWORKING_SESSION_SIGNUP_STATUSES, NETWORKING_SESSION_SIGNUP_SOURCES,
   NETWORKING_BUSINESS_CARD_STATUSES, NETWORKING_ROTATION_STATUSES, NETWORKING_SIGNUP_PAYMENT_STATUSES,
@@ -1215,6 +1217,200 @@ WalletLedgerEntry.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+export const WalletFundingSource = sequelize.define(
+  'WalletFundingSource',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    walletAccountId: { type: DataTypes.INTEGER, allowNull: false },
+    type: {
+      type: DataTypes.ENUM(...WALLET_FUNDING_SOURCE_TYPES),
+      allowNull: false,
+      defaultValue: 'bank_account',
+      validate: { isIn: [WALLET_FUNDING_SOURCE_TYPES] },
+    },
+    label: { type: DataTypes.STRING(160), allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...WALLET_FUNDING_SOURCE_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+      validate: { isIn: [WALLET_FUNDING_SOURCE_STATUSES] },
+    },
+    provider: { type: DataTypes.STRING(120), allowNull: true },
+    externalReference: { type: DataTypes.STRING(160), allowNull: true },
+    lastFour: { type: DataTypes.STRING(8), allowNull: true },
+    currencyCode: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    isPrimary: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    connectedAt: { type: DataTypes.DATE, allowNull: true },
+    disabledAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'wallet_funding_sources',
+    indexes: [
+      { fields: ['userId'] },
+      { fields: ['walletAccountId'] },
+      { fields: ['status'] },
+      { fields: ['type'] },
+      { unique: true, fields: ['walletAccountId', 'externalReference'] },
+    ],
+  },
+);
+
+WalletFundingSource.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    walletAccountId: plain.walletAccountId,
+    type: plain.type,
+    label: plain.label,
+    status: plain.status,
+    provider: plain.provider,
+    externalReference: plain.externalReference,
+    lastFour: plain.lastFour,
+    currencyCode: plain.currencyCode,
+    isPrimary: Boolean(plain.isPrimary),
+    connectedAt: plain.connectedAt,
+    disabledAt: plain.disabledAt,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const WalletTransferRule = sequelize.define(
+  'WalletTransferRule',
+  {
+    walletAccountId: { type: DataTypes.INTEGER, allowNull: false },
+    fundingSourceId: { type: DataTypes.INTEGER, allowNull: true },
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    transferType: {
+      type: DataTypes.ENUM(...WALLET_TRANSFER_TYPES),
+      allowNull: false,
+      defaultValue: 'payout',
+      validate: { isIn: [WALLET_TRANSFER_TYPES] },
+    },
+    cadence: {
+      type: DataTypes.ENUM(...WALLET_TRANSFER_RULE_CADENCES),
+      allowNull: false,
+      defaultValue: 'monthly',
+      validate: { isIn: [WALLET_TRANSFER_RULE_CADENCES] },
+    },
+    status: {
+      type: DataTypes.ENUM(...WALLET_TRANSFER_RULE_STATUSES),
+      allowNull: false,
+      defaultValue: 'active',
+      validate: { isIn: [WALLET_TRANSFER_RULE_STATUSES] },
+    },
+    thresholdAmount: { type: DataTypes.DECIMAL(18, 2), allowNull: false, defaultValue: 0 },
+    thresholdCurrency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    executionDay: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    lastExecutedAt: { type: DataTypes.DATE, allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  {
+    tableName: 'wallet_transfer_rules',
+    indexes: [
+      { fields: ['walletAccountId'] },
+      { fields: ['fundingSourceId'] },
+      { fields: ['status'] },
+      { fields: ['transferType'] },
+    ],
+  },
+);
+
+WalletTransferRule.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    walletAccountId: plain.walletAccountId,
+    fundingSourceId: plain.fundingSourceId,
+    name: plain.name,
+    transferType: plain.transferType,
+    cadence: plain.cadence,
+    status: plain.status,
+    thresholdAmount: Number.parseFloat(plain.thresholdAmount ?? 0),
+    thresholdCurrency: plain.thresholdCurrency,
+    executionDay: plain.executionDay,
+    metadata: plain.metadata ?? null,
+    lastExecutedAt: plain.lastExecutedAt,
+    createdById: plain.createdById,
+    updatedById: plain.updatedById,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const WalletTransferRequest = sequelize.define(
+  'WalletTransferRequest',
+  {
+    walletAccountId: { type: DataTypes.INTEGER, allowNull: false },
+    fundingSourceId: { type: DataTypes.INTEGER, allowNull: true },
+    transferType: {
+      type: DataTypes.ENUM(...WALLET_TRANSFER_TYPES),
+      allowNull: false,
+      defaultValue: 'payout',
+      validate: { isIn: [WALLET_TRANSFER_TYPES] },
+    },
+    status: {
+      type: DataTypes.ENUM(...WALLET_TRANSFER_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+      validate: { isIn: [WALLET_TRANSFER_STATUSES] },
+    },
+    amount: { type: DataTypes.DECIMAL(18, 2), allowNull: false },
+    currencyCode: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    reference: { type: DataTypes.STRING(160), allowNull: true, unique: true },
+    requestedById: { type: DataTypes.INTEGER, allowNull: false },
+    approvedById: { type: DataTypes.INTEGER, allowNull: true },
+    scheduledAt: { type: DataTypes.DATE, allowNull: true },
+    processedAt: { type: DataTypes.DATE, allowNull: true },
+    notes: { type: DataTypes.STRING(500), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'wallet_transfer_requests',
+    indexes: [
+      { fields: ['walletAccountId'] },
+      { fields: ['fundingSourceId'] },
+      { fields: ['status'] },
+      { fields: ['transferType'] },
+    ],
+  },
+);
+
+WalletTransferRequest.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    walletAccountId: plain.walletAccountId,
+    fundingSourceId: plain.fundingSourceId,
+    transferType: plain.transferType,
+    status: plain.status,
+    amount: Number.parseFloat(plain.amount ?? 0),
+    currencyCode: plain.currencyCode,
+    reference: plain.reference,
+    requestedById: plain.requestedById,
+    approvedById: plain.approvedById,
+    scheduledAt: plain.scheduledAt,
+    processedAt: plain.processedAt,
+    notes: plain.notes,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const COMMUNITY_SPOTLIGHT_STATUSES = ['draft', 'scheduled', 'published', 'archived'];
+export const COMMUNITY_SPOTLIGHT_HIGHLIGHT_CATEGORIES = [
+  'speaking',
+  'open_source',
+  'contribution',
+  'press',
+  'mentorship',
+  'award',
 const WALLET_FUNDING_SOURCE_TYPES = ['bank_account', 'virtual_account', 'card', 'wallet'];
 const WALLET_FUNDING_SOURCE_STATUSES = ['active', 'inactive', 'pending_verification', 'disabled'];
 const WALLET_TRANSFER_RULE_TRIGGER_TYPES = ['low_balance', 'schedule', 'manual'];
@@ -16203,6 +16399,36 @@ WalletLedgerEntry.belongsTo(WalletAccount, { foreignKey: 'walletAccountId', as: 
 WalletLedgerEntry.belongsTo(User, { foreignKey: 'initiatedById', as: 'initiatedBy' });
 User.hasMany(WalletLedgerEntry, { foreignKey: 'initiatedById', as: 'initiatedLedgerEntries' });
 
+WalletAccount.hasMany(WalletFundingSource, {
+  foreignKey: 'walletAccountId',
+  as: 'fundingSources',
+  onDelete: 'CASCADE',
+});
+WalletFundingSource.belongsTo(WalletAccount, { foreignKey: 'walletAccountId', as: 'walletAccount' });
+WalletFundingSource.belongsTo(User, { foreignKey: 'userId', as: 'owner' });
+User.hasMany(WalletFundingSource, { foreignKey: 'userId', as: 'walletFundingSources' });
+
+WalletAccount.hasMany(WalletTransferRule, {
+  foreignKey: 'walletAccountId',
+  as: 'transferRules',
+  onDelete: 'CASCADE',
+});
+WalletTransferRule.belongsTo(WalletAccount, { foreignKey: 'walletAccountId', as: 'walletAccount' });
+WalletTransferRule.belongsTo(WalletFundingSource, { foreignKey: 'fundingSourceId', as: 'fundingSource' });
+WalletFundingSource.hasMany(WalletTransferRule, { foreignKey: 'fundingSourceId', as: 'transferRules' });
+
+WalletAccount.hasMany(WalletTransferRequest, {
+  foreignKey: 'walletAccountId',
+  as: 'transferRequests',
+  onDelete: 'CASCADE',
+});
+WalletTransferRequest.belongsTo(WalletAccount, { foreignKey: 'walletAccountId', as: 'walletAccount' });
+WalletTransferRequest.belongsTo(WalletFundingSource, { foreignKey: 'fundingSourceId', as: 'fundingSource' });
+WalletFundingSource.hasMany(WalletTransferRequest, { foreignKey: 'fundingSourceId', as: 'transferRequests' });
+WalletTransferRequest.belongsTo(User, { foreignKey: 'requestedById', as: 'requestedBy' });
+WalletTransferRequest.belongsTo(User, { foreignKey: 'approvedById', as: 'approvedBy' });
+User.hasMany(WalletTransferRequest, { foreignKey: 'requestedById', as: 'walletTransferRequests' });
+User.hasMany(WalletTransferRequest, { foreignKey: 'approvedById', as: 'approvedWalletTransfers' });
 ProviderWorkspace.hasMany(WalletAccount, { foreignKey: 'workspaceId', as: 'walletAccounts' });
 WalletAccount.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 ProviderWorkspace.hasMany(WalletFundingSource, { foreignKey: 'workspaceId', as: 'walletFundingSources' });
