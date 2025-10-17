@@ -53,6 +53,7 @@ import careerPipelineAutomationService from './careerPipelineAutomationService.j
 import { getAdDashboardSnapshot } from './adService.js';
 import { initializeWorkspaceForProject } from './projectWorkspaceService.js';
 import affiliateDashboardService from './affiliateDashboardService.js';
+import userDisputeService from './userDisputeService.js';
 
 const CACHE_NAMESPACE = 'dashboard:user';
 const CACHE_TTL_SECONDS = 60;
@@ -2128,6 +2129,26 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     limit: 12,
   });
 
+  const disputeOverviewPromise = userDisputeService.getUserDisputeOverview(userId).catch(() => ({
+    summary: {
+      total: 0,
+      openCount: 0,
+      awaitingCustomerAction: 0,
+      escalatedCount: 0,
+      lastUpdatedAt: null,
+      upcomingDeadlines: [],
+    },
+    metadata: {
+      stages: [],
+      statuses: [],
+      priorities: [],
+      reasonCodes: [],
+      actionTypes: [],
+      actorTypes: [],
+    },
+    permissions: { canCreate: false },
+  }));
+
   const careerSnapshotsQuery = CareerAnalyticsSnapshot.findAll({
     where: { userId },
     order: [['timeframeEnd', 'DESC']],
@@ -2595,16 +2616,19 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     }
   });
 
-  const ads = await getAdDashboardSnapshot({
-    surfaces: ['user_dashboard', 'global_dashboard'],
-    context: {
-      keywordHints: adKeywordHints,
-      opportunityTargets: [
-        ...(adJobIds.length ? [{ targetType: 'job', ids: adJobIds }] : []),
-        ...(adGigIds.length ? [{ targetType: 'gig', ids: adGigIds }] : []),
-      ],
-    },
-  });
+  const [disputeOverview, ads] = await Promise.all([
+    disputeOverviewPromise,
+    getAdDashboardSnapshot({
+      surfaces: ['user_dashboard', 'global_dashboard'],
+      context: {
+        keywordHints: adKeywordHints,
+        opportunityTargets: [
+          ...(adJobIds.length ? [{ targetType: 'job', ids: adJobIds }] : []),
+          ...(adGigIds.length ? [{ targetType: 'gig', ids: adGigIds }] : []),
+        ],
+      },
+    }),
+  ]);
 
   return {
     generatedAt: new Date().toISOString(),
@@ -2643,6 +2667,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
       supportDesk,
     },
     affiliate: affiliateProgram,
+    disputeManagement: disputeOverview,
     careerPipelineAutomation,
     ads,
   };

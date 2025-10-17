@@ -10,6 +10,7 @@ import {
   DISPUTE_STATUSES,
   DISPUTE_STAGES,
   DISPUTE_PRIORITIES,
+  DISPUTE_REASON_CODES,
 } from '../models/index.js';
 import { ValidationError, NotFoundError, ConflictError } from '../utils/errors.js';
 import r2Client from '../utils/r2Client.js';
@@ -303,6 +304,10 @@ export async function createDisputeCase(payload, options = {}) {
 
   if (!DISPUTE_PRIORITIES.includes(priority)) {
     throw new ValidationError(`priority must be one of: ${DISPUTE_PRIORITIES.join(', ')}`);
+  }
+
+  if (!DISPUTE_REASON_CODES.includes(reasonCode)) {
+    throw new ValidationError(`reasonCode must be one of: ${DISPUTE_REASON_CODES.join(', ')}`);
   }
 
   return withTransaction(options.transaction, async (trx) => {

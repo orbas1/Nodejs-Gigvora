@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as userController from '../controllers/userController.js';
 import * as careerDocumentController from '../controllers/careerDocumentController.js';
+import * as userDisputeController from '../controllers/userDisputeController.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import authenticate from '../middleware/authenticate.js';
 import userConsentRoutes from './userConsentRoutes.js';
@@ -23,6 +24,26 @@ router.get('/:id/support-desk', asyncHandler(userController.getSupportDesk));
 router.get('/:id/catalog-insights', asyncHandler(userController.getFreelancerCatalogInsights));
 router.get('/:id/gig-builder', asyncHandler(userController.getFreelancerGigBuilder));
 router.get('/:id/gig-manager', asyncHandler(userController.getGigManagerSnapshot));
+router.get(
+  '/:id/disputes',
+  authenticate({ roles: ['user', 'freelancer', 'agency', 'company', 'headhunter', 'admin'], matchParam: 'id' }),
+  userDisputeController.listUserDisputes,
+);
+router.get(
+  '/:id/disputes/:disputeId',
+  authenticate({ roles: ['user', 'freelancer', 'agency', 'company', 'headhunter', 'admin'], matchParam: 'id' }),
+  userDisputeController.getUserDispute,
+);
+router.post(
+  '/:id/disputes',
+  authenticate({ roles: ['user', 'freelancer', 'agency', 'company', 'headhunter', 'admin'], matchParam: 'id' }),
+  userDisputeController.createUserDispute,
+);
+router.post(
+  '/:id/disputes/:disputeId/events',
+  authenticate({ roles: ['user', 'freelancer', 'agency', 'company', 'headhunter', 'admin'], matchParam: 'id' }),
+  userDisputeController.appendUserDisputeEvent,
+);
 router.get(
   '/:id/ai-settings',
   authenticate({ roles: ['user', 'admin'], matchParam: 'id' }),

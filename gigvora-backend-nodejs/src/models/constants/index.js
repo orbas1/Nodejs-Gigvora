@@ -183,6 +183,14 @@ export const ESCROW_INTEGRATION_PROVIDERS = ['stripe', 'escrow_com'];
 export const DISPUTE_STAGES = ['intake', 'mediation', 'arbitration', 'resolved'];
 export const DISPUTE_STATUSES = ['open', 'awaiting_customer', 'under_review', 'settled', 'closed'];
 export const DISPUTE_PRIORITIES = ['low', 'medium', 'high', 'urgent'];
+export const DISPUTE_REASON_CODES = [
+  'quality_issue',
+  'scope_disagreement',
+  'missed_deadline',
+  'communication_breakdown',
+  'fraud_concern',
+  'payment_issue',
+];
 export const DISPUTE_ACTION_TYPES = [
   'comment',
   'evidence_upload',
