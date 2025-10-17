@@ -17,6 +17,7 @@ export const PROJECT_INTEGRATION_STATUSES = ['connected', 'disconnected', 'error
 export const GIG_ORDER_STATUSES = ['requirements', 'in_delivery', 'in_revision', 'completed', 'cancelled'];
 export const GIG_REQUIREMENT_STATUSES = ['pending', 'received', 'approved'];
 export const GIG_REVISION_STATUSES = ['requested', 'in_progress', 'submitted', 'approved'];
+export const PROJECT_AUTOMATCH_DECISION_STATUSES = ['pending', 'accepted', 'rejected'];
 
 export const Project = projectGigManagementSequelize.define(
   'PgmProject',
@@ -24,12 +25,28 @@ export const Project = projectGigManagementSequelize.define(
     ownerId: { type: DataTypes.INTEGER, allowNull: false },
     title: { type: DataTypes.STRING(180), allowNull: false },
     description: { type: DataTypes.TEXT, allowNull: false },
+    category: { type: DataTypes.STRING(120), allowNull: false, defaultValue: 'General' },
+    skills: { type: jsonType, allowNull: false, defaultValue: [] },
+    durationWeeks: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 4 },
     status: { type: DataTypes.ENUM(...PROJECT_STATUSES), allowNull: false, defaultValue: 'planning' },
+    lifecycleState: { type: DataTypes.ENUM('open', 'closed'), allowNull: false, defaultValue: 'open' },
     startDate: { type: DataTypes.DATE, allowNull: true },
     dueDate: { type: DataTypes.DATE, allowNull: true },
     budgetCurrency: { type: DataTypes.STRING(6), allowNull: false, defaultValue: 'USD' },
     budgetAllocated: { type: DataTypes.DECIMAL(12, 2), allowNull: false, defaultValue: 0 },
     budgetSpent: { type: DataTypes.DECIMAL(12, 2), allowNull: false, defaultValue: 0 },
+    autoMatchEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    autoMatchAcceptEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    autoMatchRejectEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    autoMatchBudgetMin: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    autoMatchBudgetMax: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    autoMatchWeeklyHoursMin: { type: DataTypes.DECIMAL(6, 2), allowNull: true },
+    autoMatchWeeklyHoursMax: { type: DataTypes.DECIMAL(6, 2), allowNull: true },
+    autoMatchDurationWeeksMin: { type: DataTypes.INTEGER, allowNull: true },
+    autoMatchDurationWeeksMax: { type: DataTypes.INTEGER, allowNull: true },
+    autoMatchSkills: { type: jsonType, allowNull: true },
+    autoMatchNotes: { type: DataTypes.TEXT, allowNull: true },
+    autoMatchUpdatedBy: { type: DataTypes.INTEGER, allowNull: true },
     archivedAt: { type: DataTypes.DATE, allowNull: true },
     metadata: { type: jsonType, allowNull: true },
   },
@@ -138,6 +155,26 @@ export const ProjectTemplate = projectGigManagementSequelize.define(
   { tableName: 'pgm_project_templates', underscored: true },
 );
 
+export const ProjectAutoMatchFreelancer = projectGigManagementSequelize.define(
+  'PgmProjectAutoMatchFreelancer',
+  {
+    projectId: { type: DataTypes.INTEGER, allowNull: false },
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    freelancerName: { type: DataTypes.STRING(180), allowNull: false },
+    freelancerRole: { type: DataTypes.STRING(120), allowNull: true },
+    score: { type: DataTypes.DECIMAL(6, 2), allowNull: true },
+    autoMatchEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    status: {
+      type: DataTypes.ENUM(...PROJECT_AUTOMATCH_DECISION_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+    },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pgm_project_automatch_freelancers', underscored: true },
+);
+
 export const GigOrder = projectGigManagementSequelize.define(
   'PgmGigOrder',
   {
@@ -238,6 +275,13 @@ ProjectRetrospective.belongsTo(Project, { foreignKey: 'projectId' });
 Project.hasMany(ProjectAsset, { as: 'assets', foreignKey: 'projectId', onDelete: 'CASCADE' });
 ProjectAsset.belongsTo(Project, { foreignKey: 'projectId' });
 
+Project.hasMany(ProjectAutoMatchFreelancer, {
+  as: 'autoMatchFreelancers',
+  foreignKey: 'projectId',
+  onDelete: 'CASCADE',
+});
+ProjectAutoMatchFreelancer.belongsTo(Project, { foreignKey: 'projectId' });
+
 GigOrder.hasMany(GigOrderRequirement, { as: 'requirements', foreignKey: 'orderId', onDelete: 'CASCADE' });
 GigOrderRequirement.belongsTo(GigOrder, { foreignKey: 'orderId' });
 
@@ -261,6 +305,7 @@ export default {
   ProjectRetrospective,
   ProjectAsset,
   ProjectTemplate,
+  ProjectAutoMatchFreelancer,
   GigOrder,
   GigOrderRequirement,
   GigOrderRevision,
