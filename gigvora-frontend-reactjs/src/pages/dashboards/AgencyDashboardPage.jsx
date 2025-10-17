@@ -1,3 +1,7 @@
+import { Link } from 'react-router-dom';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import useSession from '../../hooks/useSession.js';
+import { AGENCY_DASHBOARD_MENU } from '../../constants/agencyDashboardMenu.js';
 import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
@@ -97,6 +101,8 @@ const availableDashboards = ['agency', 'company', 'freelancer', 'user'];
 
 export default function AgencyDashboardPage() {
   const { session } = useSession();
+  const displayName = session?.name || session?.firstName || 'Agency team';
+  const availableDashboards = ['agency', 'company', 'freelancer', 'user'];
   const [searchParams] = useSearchParams();
   const workspaceIdParam = searchParams.get('workspaceId');
   const workspaceId = parseWorkspaceId(workspaceIdParam);
@@ -204,6 +210,14 @@ export default function AgencyDashboardPage() {
     <DashboardLayout
       currentDashboard="agency"
       title="Agency control tower"
+      subtitle={`Hello, ${displayName}`}
+      description="Track client health, revenue momentum, and the team’s next actions."
+      menuSections={AGENCY_DASHBOARD_MENU}
+      availableDashboards={availableDashboards}
+      activeMenuItem="agency-overview"
+      adSurface="agency_dashboard"
+    >
+      <div id="agency-overview" className="mx-auto max-w-6xl space-y-12 px-4 py-10 sm:px-6 lg:px-8">
       subtitle="Orchestrate delivery, growth, and trust"
       description="A single place to align your agency—revenue, delivery, talent, and dispute operations."
       menuSections={MENU_SECTIONS}

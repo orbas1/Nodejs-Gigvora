@@ -42,6 +42,7 @@ import CompanyAnalyticsPage from './pages/dashboards/CompanyAnalyticsPage.jsx';
 import CompanyIntegrationsPage from './pages/dashboards/CompanyIntegrationsPage.jsx';
 import CompanyNetworkingHubPage from './pages/networking/CompanyNetworkingHubPage.jsx';
 import AgencyDashboardPage from './pages/dashboards/AgencyDashboardPage.jsx';
+import AgencyWalletManagementPage from './pages/dashboards/agency/AgencyWalletManagementPage.jsx';
 import DisputeManagementPage from './pages/dashboards/agency/DisputeManagementPage.jsx';
 import AgencyEscrowManagementPage from './pages/dashboards/agency/AgencyEscrowManagementPage.jsx';
 import AgencyCrmPipelinePage from './pages/dashboards/AgencyCrmPipelinePage.jsx';
@@ -269,6 +270,15 @@ export default function App() {
         element={
           <RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}>
             <AgencyClientKanbanPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
+        path="dashboard/agency/wallet"
+        element={
+          <RequireRole allowedRoles={['agency']}>
+            <AgencyWalletManagementPage />
           </RequireRole>
         }
       />
