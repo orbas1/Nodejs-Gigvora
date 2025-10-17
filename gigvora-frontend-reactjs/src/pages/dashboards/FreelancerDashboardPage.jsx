@@ -1,154 +1,195 @@
-import { useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import useSession from '../../hooks/useSession.js';
+import { MENU_GROUPS, AVAILABLE_DASHBOARDS } from './freelancer/menuConfig.js';
+import { DEFAULT_PROFILE } from './freelancer/sampleData.js';
+import {
+  AutomationSection,
+  DeliveryOperationsSection,
+  FinanceComplianceSection,
+  GigMarketplaceOperationsSection,
+  GigStudioSection,
+  GrowthPartnershipSection,
+  NetworkSection,
+  OperationalQuickAccessSection,
+  OperationsHQSection,
+  OverviewSection,
+  PlanningSection,
+  ProfileShowcaseSection,
+  ProjectLabSection,
+  ProjectWorkspaceExcellenceSection,
+  ReferencesSection,
+  SupportSection,
+  TaskManagementSection,
+  WorkspaceSettingsSection,
+} from './freelancer/sections/index.js';
+import {
+  fetchFreelancerDashboardOverview,
+  saveFreelancerDashboardOverview,
+} from '../../services/freelancerDashboard.js';
 
-const SAMPLE_METRICS = [
-  { id: 'matches', label: 'New matches', value: 8, trend: '+2 this week' },
-  { id: 'applications', label: 'Active applications', value: 5, trend: '2 awaiting review' },
-  { id: 'saved', label: 'Saved gigs', value: 14, trend: 'Keep refining your preferences' },
-];
+const SECTION_COMPONENTS = {
+  overview: OverviewSection,
+  ops: OperationsHQSection,
+  delivery: DeliveryOperationsSection,
+  tasks: TaskManagementSection,
+  plan: PlanningSection,
+  excellence: ProjectWorkspaceExcellenceSection,
+  lab: ProjectLabSection,
+  studio: GigStudioSection,
+  market: GigMarketplaceOperationsSection,
+  signals: AutomationSection,
+  ledger: FinanceComplianceSection,
+  settings: WorkspaceSettingsSection,
+  showcase: ProfileShowcaseSection,
+  reviews: ReferencesSection,
+  network: NetworkSection,
+  growth: GrowthPartnershipSection,
+  quick: OperationalQuickAccessSection,
+  help: SupportSection,
+};
 
-const SAMPLE_PIPELINE = [
-  { id: 'discovery', title: 'Discovery call', description: 'Schedule time with the client success partner to confirm scope.' },
-  { id: 'proposal', title: 'Proposal sent', description: 'Tailor your pricing pack and highlight relevant case studies.' },
-  { id: 'interview', title: 'Interview', description: 'Prepare a short demo of your recent work to stand out.' },
-];
+function buildProfileMetrics(overview) {
+  if (!overview?.profile) {
+    return DEFAULT_PROFILE.metrics;
+  }
 
-const SAMPLE_RESOURCES = [
-  {
-    id: 'profile',
-    title: 'Refresh your profile',
-    copy: 'Fine tune your expertise tags and headline so matching stays accurate.',
-    to: '/profile/me',
-  },
-  {
-    id: 'launchpad',
-    title: 'Browse Launchpad gigs',
-    copy: 'Explore curated, fast-moving projects looking for immediate contributors.',
-    to: '/experience-launchpad',
-  },
-  {
-    id: 'community',
-    title: 'Join a guild session',
-    copy: 'Share feedback and learn from other freelancers in the community.',
-    to: '/groups',
-  },
-];
+  const followerCount = overview.profile.followerCount ?? 0;
+  const trustScore = overview.profile.trustScore;
+  const rating = overview.profile.rating;
+  const upcoming = overview.upcomingSchedule?.length ?? 0;
+
+  return [
+    {
+      label: 'Followers',
+      value: followerCount.toLocaleString(),
+      hint: overview.profile.followerGoal ? `${overview.profile.followerGoal.toLocaleString()} goal` : null,
+    },
+    {
+      label: 'Trust score',
+      value: trustScore != null ? `${Math.round(trustScore)} / 100` : '—',
+      hint:
+        overview.profile.trustScoreChange != null
+          ? `${overview.profile.trustScoreChange > 0 ? '+' : ''}${overview.profile.trustScoreChange.toFixed(1)} vs last month`
+          : null,
+    },
+    {
+      label: 'Rating',
+      value: rating != null ? `${rating.toFixed(1)} / 5` : '—',
+      hint: overview.profile.ratingCount ? `${overview.profile.ratingCount} reviews` : null,
+    },
+    {
+      label: 'Upcoming engagements',
+      value: upcoming,
+      hint: upcoming === 1 ? 'One commitment today' : `${upcoming} commitments scheduled`,
+    },
+  ];
+}
 
 export default function FreelancerDashboardPage() {
   const { session } = useSession();
+  const [activeSection, setActiveSection] = useState('overview');
+  const [menuSections] = useState(MENU_GROUPS);
+  const [profile, setProfile] = useState(DEFAULT_PROFILE);
+  const [overview, setOverview] = useState(null);
+  const [loadingOverview, setLoadingOverview] = useState(false);
+  const [overviewError, setOverviewError] = useState(null);
+  const [overviewSaving, setOverviewSaving] = useState(false);
 
-  const displayName = useMemo(() => {
-    if (!session) {
-      return 'Freelancer';
+  const freelancerId = session?.id ?? null;
+
+  const refreshOverview = useCallback(async () => {
+    if (!freelancerId) {
+      return null;
     }
-    return session.name || session.firstName || session.email || 'Freelancer';
-  }, [session]);
+    setLoadingOverview(true);
+    setOverviewError(null);
+    try {
+      const data = await fetchFreelancerDashboardOverview(freelancerId);
+      setOverview(data);
+      setProfile((current) => ({
+        ...current,
+        name: data?.profile?.name ?? current.name,
+        role: data?.profile?.headline ?? current.role,
+        avatarUrl: data?.profile?.avatarUrl ?? current.avatarUrl,
+        metrics: buildProfileMetrics(data),
+      }));
+      return data;
+    } catch (error) {
+      console.error('Failed to load freelancer overview', error);
+      setOverviewError(error instanceof Error ? error : new Error('Unable to load overview.'));
+      return null;
+    } finally {
+      setLoadingOverview(false);
+    }
+  }, [freelancerId]);
+
+  useEffect(() => {
+    refreshOverview();
+  }, [refreshOverview]);
+
+  const handleOverviewSave = useCallback(
+    async (updates) => {
+      if (!freelancerId) {
+        throw new Error('Freelancer session missing.');
+      }
+      setOverviewSaving(true);
+      setOverviewError(null);
+      try {
+        const data = await saveFreelancerDashboardOverview(freelancerId, updates);
+        setOverview(data);
+        setProfile((current) => ({
+          ...current,
+          name: data?.profile?.name ?? current.name,
+          role: data?.profile?.headline ?? current.role,
+          avatarUrl: data?.profile?.avatarUrl ?? current.avatarUrl,
+          metrics: buildProfileMetrics(data),
+        }));
+        return data;
+      } catch (error) {
+        console.error('Failed to update overview', error);
+        setOverviewError(error instanceof Error ? error : new Error('Unable to save overview updates.'));
+        throw error;
+      } finally {
+        setOverviewSaving(false);
+      }
+    },
+    [freelancerId],
+  );
+
+  const renderSection = useCallback(() => {
+    const Component = SECTION_COMPONENTS[activeSection] ?? OverviewSection;
+    if (Component === OverviewSection) {
+      return (
+        <OverviewSection
+          overview={overview}
+          loading={loadingOverview}
+          error={overviewError}
+          onRefresh={refreshOverview}
+          onSave={handleOverviewSave}
+          saving={overviewSaving}
+        />
+      );
+    }
+    return <Component overview={overview} profile={profile} />;
+  }, [activeSection, overview, loadingOverview, overviewError, refreshOverview, handleOverviewSave, overviewSaving, profile]);
+
+  const description = useMemo(() => 'Stay on top of your gigs, relationships, and rituals.', []);
 
   return (
-    <div className="min-h-screen bg-surfaceMuted pb-16">
-      <div className="mx-auto max-w-6xl px-4 pt-12 sm:px-6 lg:px-8">
-        <header className="flex flex-col gap-4 border-b border-slate-200 pb-8">
-          <div>
-            <p className="text-sm uppercase tracking-[0.4em] text-slate-500">Welcome back</p>
-            <h1 className="mt-2 text-3xl font-semibold text-slate-900">{displayName}</h1>
-            <p className="mt-3 max-w-2xl text-sm text-slate-600">
-              Keep momentum going by following the next actions in your pipeline and sharing progress with the Gigvora team.
-            </p>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-3">
-            {SAMPLE_METRICS.map((metric) => (
-              <div
-                key={metric.id}
-                className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft transition hover:-translate-y-0.5 hover:border-accent/60"
-              >
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">{metric.label}</p>
-                <p className="mt-3 text-3xl font-semibold text-slate-900">{metric.value}</p>
-                <p className="mt-2 text-xs text-slate-500">{metric.trend}</p>
-              </div>
-            ))}
-          </div>
-        </header>
-
-        <section className="mt-12 grid gap-8 lg:grid-cols-[1.3fr_1fr]">
-          <div className="space-y-6">
-            <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-slate-900">Pipeline focus</h2>
-                <Link to="/dashboard/freelancer/pipeline" className="text-sm font-semibold text-accent hover:text-accentDark">
-                  View detailed pipeline
-                </Link>
-              </div>
-              <ol className="mt-6 space-y-4">
-                {SAMPLE_PIPELINE.map((step, index) => (
-                  <li key={step.id} className="flex gap-4 rounded-2xl border border-slate-200/70 bg-slate-50/80 p-4">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-sm font-semibold text-white">
-                      {index + 1}
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">{step.title}</p>
-                      <p className="text-xs text-slate-500">{step.description}</p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </div>
-
-            <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
-              <h2 className="text-xl font-semibold text-slate-900">Quick wins</h2>
-              <ul className="mt-6 space-y-3">
-                <li className="flex items-start gap-3 rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
-                  <span className="mt-0.5 h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />
-                  <p className="text-sm text-slate-600">
-                    Keep an eye on new invites—responding within the first hour improves conversion by 30%.
-                  </p>
-                </li>
-                <li className="flex items-start gap-3 rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
-                  <span className="mt-0.5 h-2 w-2 rounded-full bg-sky-500" aria-hidden="true" />
-                  <p className="text-sm text-slate-600">Upload a short video introduction to strengthen your applications.</p>
-                </li>
-                <li className="flex items-start gap-3 rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
-                  <span className="mt-0.5 h-2 w-2 rounded-full bg-amber-500" aria-hidden="true" />
-                  <p className="text-sm text-slate-600">Share updates with your talent partner weekly so we can advocate for you.</p>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <aside className="space-y-6">
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
-              <h2 className="text-lg font-semibold text-slate-900">Recommended resources</h2>
-              <ul className="mt-4 space-y-3">
-                {SAMPLE_RESOURCES.map((resource) => (
-                  <li key={resource.id} className="rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
-                    <p className="text-sm font-semibold text-slate-900">{resource.title}</p>
-                    <p className="mt-1 text-xs text-slate-500">{resource.copy}</p>
-                    <Link
-                      to={resource.to}
-                      className="mt-2 inline-flex items-center gap-2 text-xs font-semibold text-accent transition hover:text-accentDark"
-                    >
-                      Explore
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-accent/10 via-white to-blue-100 p-6 shadow-soft">
-              <h2 className="text-lg font-semibold text-slate-900">Need help?</h2>
-              <p className="mt-2 text-sm text-slate-600">
-                Your client success partner can walk through opportunities, feedback, and growth plans.
-              </p>
-              <Link
-                to="/inbox"
-                className="mt-4 inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700"
-              >
-                Send a message
-              </Link>
-            </div>
-          </aside>
-        </section>
+    <DashboardLayout
+      currentDashboard="freelancer"
+      title="Freelancer hub"
+      subtitle={profile?.role ?? 'Independent professional'}
+      description={description}
+      menuSections={menuSections}
+      availableDashboards={AVAILABLE_DASHBOARDS}
+      activeMenuItem={activeSection}
+      onMenuItemSelect={(itemId) => setActiveSection(itemId)}
+    >
+      <div className="mx-auto w-full max-w-screen-2xl space-y-12 px-8 py-10">
+        {renderSection()}
       </div>
-    </div>
+    </DashboardLayout>
   );
 }

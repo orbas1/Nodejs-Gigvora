@@ -391,6 +391,38 @@ export const FreelancerProfile = sequelize.define(
   { tableName: 'freelancer_profiles' },
 );
 
+export const FreelancerDashboardOverview = sequelize.define(
+  'FreelancerDashboardOverview',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    headline: { type: DataTypes.STRING(255), allowNull: true },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    avatarUrl: { type: DataTypes.STRING(2048), allowNull: true },
+    followerCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    followerGoal: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    trustScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    trustScoreChange: { type: DataTypes.DECIMAL(6, 2), allowNull: true },
+    rating: { type: DataTypes.DECIMAL(3, 2), allowNull: true },
+    ratingCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    workstreams: { type: jsonType, allowNull: false, defaultValue: [] },
+    relationshipHealth: { type: jsonType, allowNull: true },
+    upcomingSchedule: { type: jsonType, allowNull: false, defaultValue: [] },
+    weatherLocation: { type: DataTypes.STRING(255), allowNull: true },
+    weatherLatitude: { type: DataTypes.DECIMAL(10, 6), allowNull: true },
+    weatherLongitude: { type: DataTypes.DECIMAL(10, 6), allowNull: true },
+    weatherUnits: {
+      type: DataTypes.ENUM('metric', 'imperial'),
+      allowNull: false,
+      defaultValue: 'metric',
+      validate: { isIn: [['metric', 'imperial']] },
+    },
+    weatherLastCheckedAt: { type: DataTypes.DATE, allowNull: true },
+    weatherSnapshot: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'freelancer_dashboard_overviews' },
+);
+
 export const IdentityVerification = sequelize.define(
   'IdentityVerification',
   {
@@ -14218,6 +14250,9 @@ AgencyProfile.belongsTo(User, { foreignKey: 'userId' });
 User.hasOne(FreelancerProfile, { foreignKey: 'userId' });
 FreelancerProfile.belongsTo(User, { foreignKey: 'userId' });
 
+User.hasOne(FreelancerDashboardOverview, { foreignKey: 'freelancerId', as: 'dashboardOverview' });
+FreelancerDashboardOverview.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
 User.hasMany(ReputationTestimonial, { foreignKey: 'freelancerId', as: 'reputationTestimonials' });
 ReputationTestimonial.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
 
@@ -16206,6 +16241,7 @@ export default {
   CompanyProfile,
   AgencyProfile,
   FreelancerProfile,
+  FreelancerDashboardOverview,
   ReputationTestimonial,
   ReputationSuccessStory,
   ReputationMetric,
