@@ -17,6 +17,7 @@ import useSession from '../../hooks/useSession.js';
 import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
 import DashboardBlogSpotlight from '../../components/blog/DashboardBlogSpotlight.jsx';
 import AffiliateProgramSection from '../../components/affiliate/AffiliateProgramSection.jsx';
+import UserNetworkingSection from '../../components/userNetworking/UserNetworkingSection.jsx';
 import VolunteeringManagementSection from '../../components/volunteeringManagement/VolunteeringManagementSection.jsx';
 import { DashboardInboxWorkspace } from '../../features/inbox/index.js';
 import WebsitePreferencesSection from '../../components/websitePreferences/WebsitePreferencesSection.jsx';
@@ -516,6 +517,14 @@ function buildMenuSections(data) {
           description: `Maintain ${formatNumber(summary.connections)} relationships for referrals and mentorship.`,
         },
         {
+          name: 'Network',
+          description: '',
+          tags: ['networking'],
+          sectionId: 'networking-management',
+        },
+        {
+          name: 'Profile settings',
+          description: 'Control availability, visibility, and launchpad eligibility signals.',
           name: 'Profile',
           description: 'Edit your profile, tags, and collaboration data in one workspace.',
           sectionId: 'profile',
@@ -791,6 +800,9 @@ export default function UserDashboardPage() {
   const supportArticles = Array.isArray(supportDesk.knowledgeArticles) ? supportDesk.knowledgeArticles : [];
   const supportSummary = supportDesk.summary ?? {};
 
+  const networkingData = data?.networking ?? {};
+  const networkingUserId = userId ?? networkingData?.summary?.userId ?? null;
+
   const menuSections = useMemo(() => buildMenuSections(data), [data]);
   const handleDashboardMenuSelect = useCallback(
     (itemId, item) => {
@@ -868,6 +880,16 @@ export default function UserDashboardPage() {
         affiliateOverview?.pendingPayouts ?? 0,
         affiliateOverview?.currency ?? 'USD',
       )} with ${(affiliateOverview?.conversionRate ?? 0).toFixed(1)}% conversion velocity.`,
+    },
+    {
+      label: 'Networking bookings',
+      value: data?.networking?.summary?.sessionsBooked ?? 0,
+      description: `Spend ${formatCurrency(
+        ((data?.networking?.summary?.totalSpendCents ?? data?.networking?.purchases?.totalSpendCents ?? 0) / 100),
+        data?.networking?.purchases?.currency ?? 'USD',
+      )} • Connections ${formatNumber(
+        data?.networking?.summary?.connectionsTracked ?? data?.networking?.connections?.total ?? 0,
+      )}`,
     },
   ];
 
@@ -2596,6 +2618,19 @@ export default function UserDashboardPage() {
           </div>
         </section>
 
+        <section id="networking-management" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          {networkingUserId ? (
+            <UserNetworkingSection
+              userId={networkingUserId}
+              networking={networkingData}
+              onRefresh={() => refresh({ force: true })}
+            />
+          ) : (
+            <p className="text-sm text-slate-500">
+              Sign in to manage networking bookings, purchases, and follow-ups.
+            </p>
+          )}
+        </section>
         {data?.profile ? (
           <ProfileSettingsSection
             profile={data.profile}

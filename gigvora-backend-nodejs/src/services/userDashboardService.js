@@ -65,6 +65,7 @@ import careerPipelineAutomationService from './careerPipelineAutomationService.j
 import { getAdDashboardSnapshot } from './adService.js';
 import { initializeWorkspaceForProject, getProjectWorkspaceSummary } from './projectWorkspaceService.js';
 import affiliateDashboardService from './affiliateDashboardService.js';
+import userNetworkingService from './userNetworkingService.js';
 import volunteeringManagementService from './volunteeringManagementService.js';
 import userMentoringService from './userMentoringService.js';
 import { getUserWebsitePreferences } from './userWebsitePreferenceService.js';
@@ -2708,6 +2709,7 @@ async function hydrateTargets(applications) {
 
 async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
   const profile = await profileService.getProfileOverview(userId, { bypassCache });
+  const networkingPromise = userNetworkingService.getOverview(userId);
 
   const applicationQuery = Application.findAll({
     where: { applicantId: userId },
@@ -3324,6 +3326,8 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     }
   });
 
+  const [networking, ads] = await Promise.all([
+    networkingPromise,
   const [disputeOverview, ads] = await Promise.all([
     disputeOverviewPromise,
     getAdDashboardSnapshot({
@@ -3376,6 +3380,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
       followUps,
       automations,
     },
+    networking,
     insights: {
       careerAnalytics,
       weeklyDigest,

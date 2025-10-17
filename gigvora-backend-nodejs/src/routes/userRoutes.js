@@ -5,6 +5,7 @@ import * as userDisputeController from '../controllers/userDisputeController.js'
 import asyncHandler from '../utils/asyncHandler.js';
 import authenticate from '../middleware/authenticate.js';
 import userConsentRoutes from './userConsentRoutes.js';
+import userNetworkingRoutes from './userNetworkingRoutes.js';
 import userVolunteeringRoutes from './userVolunteeringRoutes.js';
 import walletRoutes from './walletRoutes.js';
 import * as notificationController from '../controllers/notificationController.js';
@@ -102,6 +103,14 @@ router.post(
 router.use('/:id/volunteering', userVolunteeringRoutes);
 
 router.use('/:id/consents', userConsentRoutes);
+router.use(
+  '/:id/networking',
+  authenticate({
+    roles: ['user', 'freelancer', 'agency', 'company', 'headhunter', 'mentor', 'admin'],
+    matchParam: 'id',
+  }),
+  userNetworkingRoutes,
+);
 
 router.get(
   '/:id/notifications',

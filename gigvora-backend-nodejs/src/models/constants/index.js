@@ -255,6 +255,8 @@ export const NETWORKING_CONNECTION_STATUSES = ['new', 'follow_up', 'connected', 
 export const NETWORKING_CONNECTION_TYPES = ['follow', 'connect', 'collaboration'];
 export const NETWORKING_BUSINESS_CARD_STATUSES = ['draft', 'published', 'archived'];
 export const NETWORKING_ROTATION_STATUSES = ['scheduled', 'in_progress', 'completed', 'cancelled'];
+export const NETWORKING_SESSION_ORDER_STATUSES = ['pending', 'paid', 'refunded', 'cancelled'];
+export const NETWORKING_CONNECTION_FOLLOW_STATUSES = ['saved', 'requested', 'following', 'connected', 'archived'];
 
 export const OPPORTUNITY_TAXONOMY_TYPES = ['job', 'gig', 'freelance', 'volunteering', 'launchpad'];
 export const AD_TYPES = ['video', 'display', 'text'];
