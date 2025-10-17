@@ -54,24 +54,26 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
     ],
   },
   {
-    label: 'Networking & community',
+    label: 'Networking',
     items: [
       {
-        name: 'Networking sessions',
-        description: 'Launch and monitor speed networking programs with configurable rotations and join limits.',
-        sectionId: 'networking-sessions',
-        href: '/dashboard/company/networking',
+        name: 'Plan',
+        sectionId: 'network-plan',
+        href: '/dashboard/company/networking/sessions#plan',
       },
       {
-        name: 'Attendee experience',
-        description: 'Digital business cards, profile sharing, and chat tools keep every connection actionable.',
-        sectionId: 'networking-attendee-experience',
-        href: '/dashboard/company/networking',
+        name: 'Spend',
+        sectionId: 'network-spend',
+        href: '/dashboard/company/networking/sessions#spend',
       },
       {
-        name: 'Attendance controls',
-        description: 'Automate penalties for repeated no-shows and manage eligibility for future sessions.',
-        sectionId: 'networking-attendance-controls',
+        name: 'Follow',
+        sectionId: 'network-follow',
+        href: '/dashboard/company/networking/sessions#follow',
+      },
+      {
+        name: 'Hub',
+        sectionId: 'network-hub',
         href: '/dashboard/company/networking',
       },
     ],

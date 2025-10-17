@@ -41,6 +41,7 @@ import CompanyAtsOperationsPage from './pages/dashboards/CompanyAtsOperationsPag
 import CompanyAnalyticsPage from './pages/dashboards/CompanyAnalyticsPage.jsx';
 import CompanyIntegrationsPage from './pages/dashboards/CompanyIntegrationsPage.jsx';
 import CompanyNetworkingHubPage from './pages/networking/CompanyNetworkingHubPage.jsx';
+import NetworkingSessionsPage from './pages/networking/NetworkingSessionsPage.jsx';
 import AgencyDashboardPage from './pages/dashboards/AgencyDashboardPage.jsx';
 import HeadhunterDashboardPage from './pages/dashboards/HeadhunterDashboardPage.jsx';
 import MentorDashboardPage from './pages/dashboards/MentorDashboardPage.jsx';
@@ -215,6 +216,15 @@ export default function App() {
         element={
           <RequireRole allowedRoles={['company']}>
             <CompanyNetworkingHubPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
+        path="dashboard/company/networking/sessions"
+        element={
+          <RequireRole allowedRoles={['company']}>
+            <NetworkingSessionsPage />
           </RequireRole>
         }
       />
