@@ -1,4 +1,6 @@
 import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
+import { useMemo, useState } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import useCachedResource from '../../hooks/useCachedResource.js';
 import DataStatus from '../../components/DataStatus.jsx';
@@ -6,15 +8,27 @@ import { fetchUserDashboard } from '../../services/userDashboard.js';
 import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
 import DocumentStudioSection from '../../components/documentStudio/DocumentStudioSection.jsx';
 import ProjectGigManagementContainer from '../../components/projectGigManagement/ProjectGigManagementContainer.jsx';
+import EscrowManagementSection from '../../components/escrow/EscrowManagementSection.jsx';
+import EventManagementSection from '../../components/eventManagement/EventManagementSection.jsx';
 import useSession from '../../hooks/useSession.js';
 import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
 import DashboardBlogSpotlight from '../../components/blog/DashboardBlogSpotlight.jsx';
 import AffiliateProgramSection from '../../components/affiliate/AffiliateProgramSection.jsx';
 import ProfileSettingsSection from '../../components/profileSettings/ProfileSettingsSection.jsx';
+import WalletManagementSection from '../../components/wallet/WalletManagementSection.jsx';
+import DashboardNotificationCenterSection from '../../components/notifications/DashboardNotificationCenterSection.jsx';
+import useSavedSearches from '../../hooks/useSavedSearches.js';
+import { TopSearchSection } from './user/sections/index.js';
 
 const DEFAULT_USER_ID = 1;
 const availableDashboards = ['user', 'freelancer', 'agency', 'company', 'headhunter'];
 const allowedDashboardRoles = availableDashboards;
+
+const ESCROW_VIEW_TO_MENU = {
+  overview: 'escrow-overview',
+  release: 'escrow-release',
+  disputes: 'escrow-disputes',
+};
 
 function resolveUserId(session) {
   if (!session) {
@@ -158,6 +172,12 @@ function buildProfileCard(data, summary, session) {
 
 function buildMenuSections(data) {
   const summary = data?.summary ?? {};
+  const eventManagement = data?.eventManagement ?? {};
+  const eventOverview = eventManagement.overview ?? {};
+  const upcomingEventCount = Array.isArray(eventOverview.upcomingEvents)
+    ? eventOverview.upcomingEvents.length
+    : 0;
+  const nextEvent = eventOverview.nextEvent ?? null;
   const documents = data?.documents ?? {};
   const documentStudio = data?.documentStudio;
   const documentSummary = documentStudio?.summary ?? {};
@@ -168,6 +188,8 @@ function buildMenuSections(data) {
   const vendorAverages = purchasedGigStats.averages ?? {};
   const storytelling = projectGigManagement.storytelling ?? {};
   const averageBoardProgress = projectGigManagement.managementBoard?.metrics?.averageProgress;
+  const disputeManagement = data?.disputeManagement ?? {};
+  const disputeSummary = disputeManagement.summary ?? {};
   const vendorScoreLabel =
     vendorAverages.overall != null ? `${Number(vendorAverages.overall).toFixed(1)}/5` : 'unrated';
   const portfolioProjects = Array.isArray(documentStudio?.brandHub?.portfolioProjects)
@@ -177,7 +199,34 @@ function buildMenuSections(data) {
   const pipelineAutomation = data?.careerPipelineAutomation ?? {};
   const automationMetrics = pipelineAutomation.kanban?.metrics ?? {};
   const automationBoardName = pipelineAutomation.board?.name ?? 'Career pipeline';
+  const walletCompliance = data?.compliance?.wallet ?? data?.profile?.walletCompliance ?? {};
+  const walletAccountCount = Array.isArray(walletCompliance.accounts) ? walletCompliance.accounts.length : 0;
+  const walletLedgerIntegrity = walletCompliance.ledgerIntegrity ?? 'unknown';
+  const walletComplianceStatus = walletCompliance.complianceStatus ?? 'inactive';
+  const escrowManagement = data?.escrowManagement ?? {};
+  const escrowSummary = escrowManagement.summary ?? {};
+  const escrowCurrency = escrowSummary.currency ?? 'USD';
   return [
+    {
+      label: 'Events',
+      items: [
+        {
+          name: 'Plan',
+          description: '',
+          sectionId: 'event-management',
+        },
+        {
+          name: 'Guests',
+          description: '',
+          sectionId: 'event-management',
+        },
+        {
+          name: 'Finance',
+          description: '',
+          sectionId: 'event-management',
+        },
+      ],
+    },
     {
       label: 'Project & gig management',
       items: [
@@ -257,6 +306,23 @@ function buildMenuSections(data) {
       ],
     },
     {
+      label: 'Search',
+      items: [
+        {
+          name: 'Search',
+          description: 'Saved alerts',
+          tags: ['search'],
+          sectionId: 'top-search',
+        },
+        {
+          name: 'Explorer',
+          description: 'Full explorer',
+          tags: ['explorer'],
+          href: '/search',
+        },
+      ],
+    },
+    {
       label: 'Career operations',
       items: [
         {
@@ -295,6 +361,26 @@ function buildMenuSections(data) {
       ],
     },
     {
+      label: 'Funds',
+      items: [
+        {
+          id: 'escrow-overview',
+          name: 'Escrow',
+          sectionId: 'escrow-management',
+        },
+        {
+          id: 'escrow-release',
+          name: 'Release',
+          sectionId: 'escrow-management',
+        },
+        {
+          id: 'escrow-disputes',
+          name: 'Disputes',
+          sectionId: 'escrow-management',
+        },
+      ],
+    },
+    {
       label: 'Insights & network',
       items: [
         {
@@ -319,6 +405,57 @@ function buildMenuSections(data) {
       ],
     },
     {
+      label: 'Finance',
+      items: [
+        {
+          name: 'Wallet',
+          description: `${formatNumber(walletAccountCount)} accounts • ${walletLedgerIntegrity === 'good' ? 'Balanced' : 'Review'}`,
+          tags: ['wallet'],
+          sectionId: 'wallet-home',
+        },
+        {
+          name: 'Sources',
+          description: 'Payment methods',
+          tags: ['payments'],
+          sectionId: 'wallet-sources',
+        },
+        {
+          name: 'Rules',
+          description: `${walletComplianceStatus.replace(/_/g, ' ')} automation`,
+          tags: ['automation'],
+          sectionId: 'wallet-rules',
+        },
+        {
+          name: 'Moves',
+          description: 'Transfer queue',
+          tags: ['payouts'],
+          sectionId: 'wallet-moves',
+        },
+        {
+          name: 'Escrow',
+          description: 'Reserves overview',
+          tags: ['escrow'],
+          sectionId: 'wallet-escrow',
+      label: 'Alerts',
+      items: [
+        {
+          name: 'Inbox',
+          description: `${formatNumber(data?.notifications?.unreadCount ?? 0)} unread`,
+          tags: ['notifications', 'alerts'],
+          sectionId: 'notifications-center',
+        },
+        {
+          name: 'Digest',
+          description: `${
+            data?.notifications?.preferences?.digestFrequency
+              ? data.notifications.preferences.digestFrequency.replace(/^(\w)/, (match) => match.toUpperCase())
+              : 'Immediate'
+          } cadence`,
+          sectionId: 'notifications-center',
+        },
+      ],
+    },
+    {
       label: 'Affiliate & referrals',
       items: [
         {
@@ -331,6 +468,25 @@ function buildMenuSections(data) {
           name: 'Referral compliance',
           description: 'Monitor KYC, payout thresholds, and activity guardrails for each partner.',
           tags: ['compliance'],
+        },
+      ],
+    },
+    {
+      label: 'Trust',
+      items: [
+        {
+          name: 'Disputes',
+          description: `${formatNumber(disputeSummary.openCount ?? 0)} open · ${formatNumber(
+            disputeSummary.awaitingCustomerAction ?? 0,
+          )} waiting`,
+          tags: ['cases'],
+          href: '/dashboard/user/disputes',
+          sectionId: 'disputes',
+        },
+        {
+          name: 'Escrow',
+          description: 'Releases, holds, and guardrails overview.',
+          tags: ['payments'],
         },
       ],
     },
@@ -356,6 +512,15 @@ export default function UserDashboardPage() {
       enabled: shouldLoadDashboard,
     },
   );
+
+  const {
+    items: savedSearches,
+    loading: savedSearchesLoading,
+    createSavedSearch,
+    updateSavedSearch,
+    deleteSavedSearch,
+    runSavedSearch,
+  } = useSavedSearches({ enabled: shouldLoadDashboard });
 
   const summary = data?.summary ?? {
     totalApplications: 0,
@@ -405,12 +570,59 @@ export default function UserDashboardPage() {
   const interviews = Array.isArray(data?.interviews) ? data.interviews : [];
   const documents = data?.documents ?? { attachments: [], portfolioLinks: [] };
   const documentStudio = data?.documentStudio ?? null;
+  const eventManagement = data?.eventManagement ?? null;
+  const eventManagementOverview = eventManagement?.overview ?? null;
   const projectGigManagement = data?.projectGigManagement ?? null;
+  const escrowManagement = data?.escrowManagement ?? null;
   const notifications = Array.isArray(data?.notifications?.recent) ? data.notifications.recent : [];
+  const notificationsUnreadCount = Number(data?.notifications?.unreadCount ?? 0);
+  const notificationPreferences = data?.notifications?.preferences ?? null;
+  const notificationStats = data?.notifications?.stats ?? null;
   const projectActivity = Array.isArray(data?.projectActivity?.recent) ? data.projectActivity.recent : [];
   const launchpadApplications = Array.isArray(data?.launchpad?.applications) ? data.launchpad.applications : [];
   const affiliateProgram = data?.affiliate ?? null;
   const affiliateOverview = affiliateProgram?.overview ?? {};
+  const disputeManagement = data?.disputeManagement ?? null;
+
+  const [activeMenuItem, setActiveMenuItem] = useState(null);
+  const [escrowView, setEscrowView] = useState('overview');
+
+  const handleMenuSelect = (itemId, item) => {
+    setActiveMenuItem(itemId);
+    if (itemId === 'escrow-overview') {
+      setEscrowView('overview');
+    } else if (itemId === 'escrow-release') {
+      setEscrowView('release');
+    } else if (itemId === 'escrow-disputes') {
+      setEscrowView('disputes');
+    }
+
+    if (item?.href && typeof window !== 'undefined') {
+      if (item.href.startsWith('http')) {
+        window.open(item.href, item.target ?? '_blank', 'noreferrer');
+      } else {
+        window.location.assign(item.href);
+      }
+      return;
+    }
+
+    const targetId = item?.sectionId ?? item?.targetId;
+    if (targetId && typeof document !== 'undefined') {
+      const targetElement = document.getElementById(targetId);
+      if (targetElement) {
+        targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  };
+
+  const handleEscrowViewChange = (view) => {
+    setEscrowView(view);
+    const menuId = ESCROW_VIEW_TO_MENU[view] ?? null;
+    if (menuId) {
+      setActiveMenuItem(menuId);
+    }
+  };
+  const topSearchData = data?.topSearch ?? null;
 
   const insights = data?.insights ?? {};
   const careerAnalytics = insights.careerAnalytics ?? {};
@@ -456,6 +668,11 @@ export default function UserDashboardPage() {
       description: 'Opportunities you have submitted or are drafting.',
     },
     {
+      label: 'Active events',
+      value: eventManagementOverview?.active ?? 0,
+      description: `Managing ${formatNumber(eventManagementOverview?.events ?? 0)} total events across your programs.`,
+    },
+    {
       label: 'Active pipeline',
       value: summary.activeApplications,
       description: 'Applications requiring monitoring or follow-up.',
@@ -499,6 +716,8 @@ export default function UserDashboardPage() {
       sections={[]}
       profile={profileCard}
       availableDashboards={availableDashboards}
+      activeMenuItem={activeMenuItem}
+      onMenuItemSelect={handleMenuSelect}
     >
       <div className="space-y-10">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -527,6 +746,17 @@ export default function UserDashboardPage() {
             </div>
           ))}
         </section>
+
+        {userId ? <WalletManagementSection userId={userId} /> : null}
+        <TopSearchSection
+          data={topSearchData}
+          savedSearches={savedSearches}
+          savedSearchesLoading={savedSearchesLoading}
+          onCreateSavedSearch={createSavedSearch}
+          onUpdateSavedSearch={updateSavedSearch}
+          onDeleteSavedSearch={deleteSavedSearch}
+          onRunSavedSearch={runSavedSearch}
+        />
 
         <section id="career-pipeline-automation" className="space-y-8">
           <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-accentSoft p-6 shadow-sm">
@@ -1477,7 +1707,20 @@ export default function UserDashboardPage() {
           </div>
         </section>
 
+        {userId ? (
+          <EventManagementSection data={eventManagement} userId={userId} onRefresh={() => refresh({ force: true })} />
+        ) : null}
+
         <ProjectGigManagementContainer userId={userId} />
+        {escrowManagement ? (
+          <EscrowManagementSection
+            data={escrowManagement}
+            userId={userId}
+            onRefresh={() => refresh({ force: true })}
+            activeView={escrowView}
+            onViewChange={handleEscrowViewChange}
+          />
+        ) : null}
         {documentStudio ? (
           <DocumentStudioSection
             data={documentStudio}
@@ -1556,6 +1799,41 @@ export default function UserDashboardPage() {
                 )}
               </div>
             </div>
+          </div>
+        </section>
+
+        <section id="disputes" className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Disputes</h2>
+              <p className="text-sm text-slate-500">
+                {formatNumber(disputeSummary.openCount ?? 0)} open · {formatNumber(disputeSummary.awaitingCustomerAction ?? 0)} waiting on you
+              </p>
+              {disputeSummary.upcomingDeadlines?.[0]?.dueAt ? (
+                <p className="mt-2 inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+                  Next due {formatAbsolute(disputeSummary.upcomingDeadlines[0].dueAt)}
+                </p>
+              ) : null}
+            </div>
+            <Link
+              to="/dashboard/user/disputes"
+              className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-accent/90"
+            >
+              Open workspace
+            </Link>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { label: 'Open', value: disputeSummary.openCount },
+              { label: 'Waiting on you', value: disputeSummary.awaitingCustomerAction },
+              { label: 'Escalated', value: disputeSummary.escalatedCount },
+              { label: 'Total', value: disputeSummary.total },
+            ].map((metric) => (
+              <div key={metric.label} className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{metric.label}</p>
+                <p className="mt-2 text-2xl font-semibold text-slate-900">{formatNumber(metric.value ?? 0)}</p>
+              </div>
+            ))}
           </div>
         </section>
 
@@ -2087,30 +2365,18 @@ export default function UserDashboardPage() {
           <AffiliateProgramSection data={affiliateProgram} />
         </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">Notifications</h2>
-          <div className="mt-4 space-y-3">
-            {notifications.length ? (
-              notifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  className={`rounded-2xl border p-4 ${notification.isUnread ? 'border-accent/50 bg-accentSoft/70' : 'border-slate-200 bg-slate-50/70'}`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-800">{notification.title}</p>
-                      {notification.body ? (
-                        <p className="mt-1 text-sm text-slate-600">{notification.body}</p>
-                      ) : null}
-                    </div>
-                    <span className="text-xs text-slate-500">{formatRelativeTime(notification.createdAt)}</span>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-sm text-slate-500">You are all caught up — new notifications will appear here as recruiters or automations update your workflow.</p>
-            )}
-          </div>
+        <section
+          id="notifications-center"
+          className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+        >
+          <DashboardNotificationCenterSection
+            userId={userId ?? DEFAULT_USER_ID}
+            initialNotifications={notifications}
+            initialUnreadCount={notificationsUnreadCount}
+            initialPreferences={notificationPreferences}
+            initialStats={notificationStats}
+            session={session}
+          />
         </section>
       </div>
     </DashboardLayout>
