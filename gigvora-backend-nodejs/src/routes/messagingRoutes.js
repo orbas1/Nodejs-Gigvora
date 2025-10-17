@@ -16,5 +16,11 @@ router.post('/threads/:threadId/mute', asyncHandler(messagingController.muteConv
 router.post('/threads/:threadId/escalate', asyncHandler(messagingController.escalateThread));
 router.post('/threads/:threadId/assign-support', asyncHandler(messagingController.assignSupport));
 router.post('/threads/:threadId/support-status', asyncHandler(messagingController.updateSupportStatus));
+router.post('/threads/:threadId/settings', asyncHandler(messagingController.updateThreadSettings));
+router.post('/threads/:threadId/participants', asyncHandler(messagingController.addParticipants));
+router.delete(
+  '/threads/:threadId/participants/:participantId',
+  asyncHandler(messagingController.removeParticipant),
+);
 
 export default router;
