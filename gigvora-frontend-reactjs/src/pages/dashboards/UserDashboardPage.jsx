@@ -10,6 +10,7 @@ import useSession from '../../hooks/useSession.js';
 import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
 import DashboardBlogSpotlight from '../../components/blog/DashboardBlogSpotlight.jsx';
 import AffiliateProgramSection from '../../components/affiliate/AffiliateProgramSection.jsx';
+import WebsitePreferencesSection from '../../components/websitePreferences/WebsitePreferencesSection.jsx';
 
 const DEFAULT_USER_ID = 1;
 const availableDashboards = ['user', 'freelancer', 'agency', 'company', 'headhunter'];
@@ -288,6 +289,12 @@ function buildMenuSections(data) {
           description: `${formatNumber(portfolioProjects || portfolioCount)} public case studies, testimonials, and banners.`,
         },
         {
+          name: 'Website',
+          description: 'Design your hosted site with colors, pages, and SEO.',
+          tags: ['website', 'brand'],
+          sectionId: 'website-preferences',
+        },
+        {
           name: 'Purchased gigs',
           description: `Review ${formatNumber(documentStudio?.purchasedGigs?.stats?.total ?? 0)} vendor deliverables feeding your workspace.`,
         },
@@ -404,6 +411,7 @@ export default function UserDashboardPage() {
   const documents = data?.documents ?? { attachments: [], portfolioLinks: [] };
   const documentStudio = data?.documentStudio ?? null;
   const projectGigManagement = data?.projectGigManagement ?? null;
+  const websitePreferences = data?.websitePreferences ?? null;
   const notifications = Array.isArray(data?.notifications?.recent) ? data.notifications.recent : [];
   const projectActivity = Array.isArray(data?.projectActivity?.recent) ? data.projectActivity.recent : [];
   const launchpadApplications = Array.isArray(data?.launchpad?.applications) ? data.launchpad.applications : [];
@@ -446,6 +454,7 @@ export default function UserDashboardPage() {
 
   const menuSections = useMemo(() => buildMenuSections(data), [data]);
   const profileCard = useMemo(() => buildProfileCard(data, summary, session), [data, session, summary]);
+  const canEditWebsite = Boolean(isAuthenticated);
 
   const summaryCards = [
     {
@@ -1556,6 +1565,13 @@ export default function UserDashboardPage() {
             </div>
           </div>
         </section>
+
+        <WebsitePreferencesSection
+          userId={userId}
+          initialPreferences={websitePreferences}
+          onRefresh={() => refresh({ force: true })}
+          canEdit={canEditWebsite}
+        />
 
         <section
           id="insights-accountability-support"

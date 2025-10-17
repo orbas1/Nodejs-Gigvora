@@ -8655,6 +8655,49 @@ export const NotificationPreference = sequelize.define(
   { tableName: 'notification_preferences' },
 );
 
+export const UserWebsitePreference = sequelize.define(
+  'UserWebsitePreference',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false, unique: true },
+    settings: { type: jsonType, allowNull: true },
+    theme: { type: jsonType, allowNull: true },
+    hero: { type: jsonType, allowNull: true },
+    about: { type: jsonType, allowNull: true },
+    navigation: { type: jsonType, allowNull: true },
+    services: { type: jsonType, allowNull: true },
+    testimonials: { type: jsonType, allowNull: true },
+    gallery: { type: jsonType, allowNull: true },
+    contact: { type: jsonType, allowNull: true },
+    seo: { type: jsonType, allowNull: true },
+    social: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'user_website_preferences' },
+);
+
+UserWebsitePreference.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  const normalizeObject = (value, fallback = {}) =>
+    value && typeof value === 'object' && !Array.isArray(value) ? value : fallback;
+
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    settings: normalizeObject(plain.settings),
+    theme: normalizeObject(plain.theme),
+    hero: normalizeObject(plain.hero),
+    about: normalizeObject(plain.about),
+    navigation: normalizeObject(plain.navigation ?? { links: [] }, { links: [] }),
+    services: normalizeObject(plain.services ?? { items: [] }, { items: [] }),
+    testimonials: normalizeObject(plain.testimonials ?? { items: [] }, { items: [] }),
+    gallery: normalizeObject(plain.gallery ?? { items: [] }, { items: [] }),
+    contact: normalizeObject(plain.contact),
+    seo: normalizeObject(plain.seo),
+    social: normalizeObject(plain.social ?? { links: [] }, { links: [] }),
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 export const AnalyticsEvent = sequelize.define(
   'AnalyticsEvent',
   {
@@ -15035,6 +15078,8 @@ User.hasMany(ComplianceDocument, { foreignKey: 'ownerId', as: 'complianceDocumen
 Notification.belongsTo(User, { foreignKey: 'userId', as: 'recipient' });
 NotificationPreference.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasOne(NotificationPreference, { foreignKey: 'userId', as: 'notificationPreference' });
+UserWebsitePreference.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasOne(UserWebsitePreference, { foreignKey: 'userId', as: 'websitePreferences' });
 
 User.hasMany(Notification, { foreignKey: 'userId', as: 'notifications' });
 User.hasMany(EmployerBrandStory, { foreignKey: 'authorId', as: 'authoredBrandStories' });
@@ -16327,6 +16372,7 @@ export default {
   SupportAutomationLog,
   Notification,
   NotificationPreference,
+  UserWebsitePreference,
   AnalyticsEvent,
   AnalyticsDailyRollup,
   DeliverableVault,
