@@ -10,6 +10,7 @@ import useSession from '../../hooks/useSession.js';
 import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
 import DashboardBlogSpotlight from '../../components/blog/DashboardBlogSpotlight.jsx';
 import AffiliateProgramSection from '../../components/affiliate/AffiliateProgramSection.jsx';
+import DashboardNotificationCenterSection from '../../components/notifications/DashboardNotificationCenterSection.jsx';
 import useSavedSearches from '../../hooks/useSavedSearches.js';
 import { TopSearchSection } from './user/sections/index.js';
 
@@ -336,6 +337,26 @@ function buildMenuSections(data) {
       ],
     },
     {
+      label: 'Alerts',
+      items: [
+        {
+          name: 'Inbox',
+          description: `${formatNumber(data?.notifications?.unreadCount ?? 0)} unread`,
+          tags: ['notifications', 'alerts'],
+          sectionId: 'notifications-center',
+        },
+        {
+          name: 'Digest',
+          description: `${
+            data?.notifications?.preferences?.digestFrequency
+              ? data.notifications.preferences.digestFrequency.replace(/^(\w)/, (match) => match.toUpperCase())
+              : 'Immediate'
+          } cadence`,
+          sectionId: 'notifications-center',
+        },
+      ],
+    },
+    {
       label: 'Affiliate & referrals',
       items: [
         {
@@ -433,6 +454,9 @@ export default function UserDashboardPage() {
   const documentStudio = data?.documentStudio ?? null;
   const projectGigManagement = data?.projectGigManagement ?? null;
   const notifications = Array.isArray(data?.notifications?.recent) ? data.notifications.recent : [];
+  const notificationsUnreadCount = Number(data?.notifications?.unreadCount ?? 0);
+  const notificationPreferences = data?.notifications?.preferences ?? null;
+  const notificationStats = data?.notifications?.stats ?? null;
   const projectActivity = Array.isArray(data?.projectActivity?.recent) ? data.projectActivity.recent : [];
   const launchpadApplications = Array.isArray(data?.launchpad?.applications) ? data.launchpad.applications : [];
   const affiliateProgram = data?.affiliate ?? null;
@@ -2116,30 +2140,18 @@ export default function UserDashboardPage() {
           <AffiliateProgramSection data={affiliateProgram} />
         </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">Notifications</h2>
-          <div className="mt-4 space-y-3">
-            {notifications.length ? (
-              notifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  className={`rounded-2xl border p-4 ${notification.isUnread ? 'border-accent/50 bg-accentSoft/70' : 'border-slate-200 bg-slate-50/70'}`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-800">{notification.title}</p>
-                      {notification.body ? (
-                        <p className="mt-1 text-sm text-slate-600">{notification.body}</p>
-                      ) : null}
-                    </div>
-                    <span className="text-xs text-slate-500">{formatRelativeTime(notification.createdAt)}</span>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-sm text-slate-500">You are all caught up — new notifications will appear here as recruiters or automations update your workflow.</p>
-            )}
-          </div>
+        <section
+          id="notifications-center"
+          className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+        >
+          <DashboardNotificationCenterSection
+            userId={userId ?? DEFAULT_USER_ID}
+            initialNotifications={notifications}
+            initialUnreadCount={notificationsUnreadCount}
+            initialPreferences={notificationPreferences}
+            initialStats={notificationStats}
+            session={session}
+          />
         </section>
       </div>
     </DashboardLayout>
