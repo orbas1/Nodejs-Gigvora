@@ -1,10 +1,13 @@
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import useSession from '../../hooks/useSession.js';
+import { AGENCY_DASHBOARD_MENU_SECTIONS } from '../../constants/agencyDashboardMenu.js';
 
 const OVERVIEW_METRICS = [
   { id: 'clients', label: 'Active clients', value: 18, hint: '4 onboarding this month' },
   { id: 'projects', label: 'Managed projects', value: 42, hint: '8 in kickoff' },
-  { id: 'talent', label: 'Bench capacity', value: '63%', hint: 'Plan for 120 open hours' },
+  { id: 'talent', label: 'Bench capacity', value: '63%', hint: '120 hours open' },
 ];
 
 const TEAM_TASKS = [
@@ -31,22 +34,24 @@ const FINANCE_SUMMARY = [
   { id: 'payouts', label: 'Payouts processed', value: '$245K', hint: 'Cleared overnight' },
 ];
 
+const AVAILABLE_DASHBOARDS = ['agency', 'company', 'freelancer', 'user', 'headhunter'];
+
 export default function AgencyDashboardPage() {
   const { session } = useSession();
-  const displayName = session?.name || session?.firstName || 'Agency team';
+  const displayName = useMemo(() => session?.name || session?.firstName || 'Agency team', [session]);
 
   return (
-    <div className="min-h-screen bg-surfaceMuted pb-16">
-      <div className="mx-auto max-w-6xl px-4 pt-12 sm:px-6 lg:px-8">
-        <header className="flex flex-col gap-4 border-b border-slate-200 pb-8">
-          <div>
-            <p className="text-sm uppercase tracking-[0.4em] text-slate-500">Agency control tower</p>
-            <h1 className="mt-2 text-3xl font-semibold text-slate-900">Hello, {displayName}</h1>
-            <p className="mt-3 max-w-3xl text-sm text-slate-600">
-              Track client health, revenue momentum, and the team’s next actions. Keep the bench balanced and highlight wins to
-              leadership.
-            </p>
-          </div>
+    <DashboardLayout
+      currentDashboard="agency"
+      title={`Hello, ${displayName}`}
+      subtitle="Agency control tower"
+      description="Track client health, delivery posture, and finance momentum so pods stay aligned and proactive."
+      menuSections={AGENCY_DASHBOARD_MENU_SECTIONS}
+      availableDashboards={AVAILABLE_DASHBOARDS}
+      activeMenuItem="overview"
+    >
+      <div className="space-y-12">
+        <section>
           <div className="grid gap-4 sm:grid-cols-3">
             {OVERVIEW_METRICS.map((metric) => (
               <div
@@ -59,9 +64,9 @@ export default function AgencyDashboardPage() {
               </div>
             ))}
           </div>
-        </header>
+        </section>
 
-        <section className="mt-12 grid gap-8 lg:grid-cols-[1.35fr_1fr]">
+        <section className="grid gap-8 lg:grid-cols-[1.35fr_1fr]">
           <div className="space-y-6">
             <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
               <div className="flex items-center justify-between">
@@ -134,6 +139,6 @@ export default function AgencyDashboardPage() {
           </aside>
         </section>
       </div>
-    </div>
+    </DashboardLayout>
   );
 }

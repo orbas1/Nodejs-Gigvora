@@ -6,13 +6,7 @@ import { PlatformSetting } from './platformSetting.js';
 import { RuntimeSecurityAuditEvent } from './runtimeSecurityAuditEvent.js';
 import { RbacPolicyAuditEvent } from './rbacPolicyAuditEvent.js';
 import { RuntimeAnnouncement } from './runtimeAnnouncement.js';
-import {
-  ConsentPolicy,
-  ConsentPolicyVersion,
-  UserConsent,
-  ConsentAuditEvent,
-} from './consentModels.js';
-
+import { UserConsent } from './consentModels.js';
 import { buildLocationDetails } from '../utils/location.js';
 
 import {

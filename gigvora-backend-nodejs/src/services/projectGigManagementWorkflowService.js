@@ -17,7 +17,6 @@ import {
   PROJECT_STATUSES,
   PROJECT_RISK_LEVELS,
   GIG_ORDER_STATUSES,
-  syncProjectGigManagementModels,
 } from '../models/projectGigManagementModels.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
 
@@ -292,8 +291,10 @@ async function ensureTemplatesSeeded(transaction) {
 let initialized = false;
 
 async function ensureInitialized() {
-  if (initialized) return;
-  await syncProjectGigManagementModels();
+  if (initialized) {
+    return;
+  }
+  await projectGigManagementSequelize.authenticate();
   initialized = true;
 }
 

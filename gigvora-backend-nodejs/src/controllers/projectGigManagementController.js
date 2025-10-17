@@ -30,24 +30,11 @@ function normalizeRole(role) {
   return role?.toString().trim().toLowerCase().replace(/[^a-z0-9]+/g, '_') ?? null;
 }
 
-function resolveOwnerId(req) {
-  const candidates = [req.params?.userId, req.params?.id, req.user?.id, resolveRequestUserId(req)];
-  for (const candidate of candidates) {
-    const parsed = Number.parseInt(candidate, 10);
-    if (Number.isInteger(parsed)) {
-      return parsed;
-    }
-  }
-  return null;
-}
-
 function resolveAccess(req, ownerId) {
   const actorId = resolveRequestUserId(req);
   const actorRoleRaw = resolveRequestUserRole(req);
   const permissions = resolveRequestPermissions(req) ?? [];
   const normalizedRole = normalizeRole(actorRoleRaw);
-
-  const permissionList = Array.isArray(permissions) ? permissions : [];
 
   const isOwner = actorId != null && ownerId === actorId;
   const permissionFlags = permissions
