@@ -9,20 +9,28 @@ export const BLOG_POST_STATUSES = ['draft', 'scheduled', 'published', 'archived'
 export const BlogCategory = sequelize.define(
   'BlogCategory',
   {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: true },
     name: { type: DataTypes.STRING(160), allowNull: false },
-    slug: { type: DataTypes.STRING(180), allowNull: false, unique: true },
+    slug: { type: DataTypes.STRING(180), allowNull: false },
     description: { type: DataTypes.TEXT, allowNull: true },
     accentColor: { type: DataTypes.STRING(20), allowNull: true },
     heroImageUrl: { type: DataTypes.STRING(500), allowNull: true },
     metadata: { type: jsonType, allowNull: true },
   },
-  { tableName: 'blog_categories', indexes: [{ unique: true, fields: ['slug'] }] },
+  {
+    tableName: 'blog_categories',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { unique: true, fields: ['workspaceId', 'slug'], name: 'blog_categories_workspace_slug_unique' },
+    ],
+  },
 );
 
 BlogCategory.prototype.toPublicObject = function toPublicObject() {
   const plain = this.get({ plain: true });
   return {
     id: plain.id,
+    workspaceId: plain.workspaceId ?? null,
     name: plain.name,
     slug: plain.slug,
     description: plain.description,
@@ -37,18 +45,26 @@ BlogCategory.prototype.toPublicObject = function toPublicObject() {
 export const BlogTag = sequelize.define(
   'BlogTag',
   {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: true },
     name: { type: DataTypes.STRING(160), allowNull: false },
-    slug: { type: DataTypes.STRING(180), allowNull: false, unique: true },
+    slug: { type: DataTypes.STRING(180), allowNull: false },
     description: { type: DataTypes.TEXT, allowNull: true },
     metadata: { type: jsonType, allowNull: true },
   },
-  { tableName: 'blog_tags', indexes: [{ unique: true, fields: ['slug'] }] },
+  {
+    tableName: 'blog_tags',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { unique: true, fields: ['workspaceId', 'slug'], name: 'blog_tags_workspace_slug_unique' },
+    ],
+  },
 );
 
 BlogTag.prototype.toPublicObject = function toPublicObject() {
   const plain = this.get({ plain: true });
   return {
     id: plain.id,
+    workspaceId: plain.workspaceId ?? null,
     name: plain.name,
     slug: plain.slug,
     description: plain.description,
@@ -88,7 +104,7 @@ export const BlogPost = sequelize.define(
   'BlogPost',
   {
     title: { type: DataTypes.STRING(200), allowNull: false },
-    slug: { type: DataTypes.STRING(220), allowNull: false, unique: true },
+    slug: { type: DataTypes.STRING(220), allowNull: false },
     excerpt: { type: DataTypes.STRING(480), allowNull: true },
     content: { type: DataTypes.TEXT, allowNull: false },
     status: { type: DataTypes.ENUM(...BLOG_POST_STATUSES), allowNull: false, defaultValue: 'draft' },
@@ -98,6 +114,7 @@ export const BlogPost = sequelize.define(
     authorId: { type: DataTypes.INTEGER, allowNull: true },
     categoryId: { type: DataTypes.INTEGER, allowNull: true },
     coverImageId: { type: DataTypes.INTEGER, allowNull: true },
+    workspaceId: { type: DataTypes.INTEGER, allowNull: true },
     meta: { type: jsonType, allowNull: true },
   },
   {
@@ -108,6 +125,8 @@ export const BlogPost = sequelize.define(
       { fields: ['publishedAt'] },
       { fields: ['categoryId'] },
       { fields: ['featured'] },
+      { fields: ['workspaceId'] },
+      { unique: true, fields: ['workspaceId', 'slug'], name: 'blog_posts_workspace_slug_unique' },
     ],
   },
 );
@@ -120,6 +139,7 @@ BlogPost.prototype.toPublicObject = function toPublicObject() {
   const tags = Array.isArray(this.get?.('tags')) ? this.get('tags') : plain.tags ?? [];
   const mediaItems = Array.isArray(this.get?.('media')) ? this.get('media') : plain.media ?? [];
   const metrics = this.get?.('metrics') ?? plain.metrics ?? null;
+  const workspace = this.get?.('workspace') ?? plain.workspace ?? null;
 
   return {
     id: plain.id,
@@ -132,6 +152,13 @@ BlogPost.prototype.toPublicObject = function toPublicObject() {
     readingTimeMinutes: plain.readingTimeMinutes ?? null,
     featured: Boolean(plain.featured),
     meta: plain.meta ?? null,
+    workspace: workspace
+      ? {
+          id: workspace.id,
+          name: workspace.name,
+          slug: workspace.slug,
+        }
+      : null,
     author: author
       ? {
           id: author.id,
@@ -323,9 +350,24 @@ BlogComment.prototype.toPublicObject = function toPublicObject() {
 };
 
 export function registerBlogAssociations({ User }) {
+export function registerBlogAssociations({ User, ProviderWorkspace }) {
   BlogPost.belongsTo(User, { as: 'author', foreignKey: 'authorId' });
   BlogPost.belongsTo(BlogCategory, { as: 'category', foreignKey: 'categoryId' });
   BlogPost.belongsTo(BlogMedia, { as: 'coverImage', foreignKey: 'coverImageId' });
+  BlogPost.belongsTo(ProviderWorkspace, {
+    as: 'workspace',
+    foreignKey: 'workspaceId',
+  });
+
+  BlogCategory.belongsTo(ProviderWorkspace, {
+    as: 'workspace',
+    foreignKey: 'workspaceId',
+  });
+
+  BlogTag.belongsTo(ProviderWorkspace, {
+    as: 'workspace',
+    foreignKey: 'workspaceId',
+  });
 
   BlogPost.belongsToMany(BlogTag, { through: BlogPostTag, as: 'tags', foreignKey: 'postId' });
   BlogTag.belongsToMany(BlogPost, { through: BlogPostTag, as: 'posts', foreignKey: 'tagId' });

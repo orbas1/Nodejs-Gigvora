@@ -250,7 +250,6 @@ function refreshMetricSnapshots({ updateCounters = false } = {}) {
   const poolBorrowed = toNumber(poolSnapshot.borrowed);
   const poolPending = toNumber(poolSnapshot.pending);
   const poolUpdatedAt = poolSnapshot.updatedAt ?? null;
-  const poolLastEventTimestamp = toTimestamp(poolSnapshot.updatedAt);
 
   databasePoolSizeGauge.set(poolSize);
   databasePoolAvailableGauge.set(poolAvailable);

@@ -9,10 +9,11 @@ import {
   BlogComment,
   BlogTag,
   BLOG_COMMENT_STATUSES,
+  ProviderWorkspace,
   User,
   sequelize,
 } from '../models/index.js';
-import { NotFoundError, ValidationError } from '../utils/errors.js';
+import { AuthorizationError, NotFoundError, ValidationError } from '../utils/errors.js';
 
 const STATUS_SET = new Set(['draft', 'scheduled', 'published', 'archived']);
 const COUNTED_COMMENT_STATUSES = new Set(['approved']);
@@ -31,12 +32,21 @@ function slugify(value, fallback = 'blog-post') {
   return `${fallback}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-async function ensureUniqueSlug(model, desiredSlug, { transaction, excludeId } = {}) {
+async function ensureUniqueSlug(model, desiredSlug, { transaction, excludeId, scope } = {}) {
   let candidate = slugify(desiredSlug);
   let suffix = 1;
   // eslint-disable-next-line no-constant-condition
   while (true) {
     const where = { slug: candidate };
+    const hasWorkspaceScope = Boolean(model?.rawAttributes?.workspaceId);
+    if (hasWorkspaceScope) {
+      const workspaceId = scope?.workspaceId ?? null;
+      if (workspaceId == null) {
+        where.workspaceId = { [Op.is]: null };
+      } else {
+        where.workspaceId = workspaceId;
+      }
+    }
     if (excludeId) {
       where.id = { [Op.ne]: excludeId };
     }
@@ -158,6 +168,7 @@ function asNumber(value, fallback = 0) {
 }
 
 async function resolveCategory(input, { transaction, allowCreate = true } = {}) {
+async function resolveCategory(input, { transaction, allowCreate = true, workspaceId } = {}) {
   if (!input) {
     return null;
   }
@@ -169,7 +180,20 @@ async function resolveCategory(input, { transaction, allowCreate = true } = {}) 
     return category;
   }
   if (typeof input === 'string') {
-    const category = await BlogCategory.findOne({ where: { slug: slugify(input) }, transaction });
+    const slugValue = slugify(input);
+    if (workspaceId != null) {
+      const scopedCategory = await BlogCategory.findOne({
+        where: { slug: slugValue, workspaceId },
+        transaction,
+      });
+      if (scopedCategory) {
+        return scopedCategory;
+      }
+    }
+    const category = await BlogCategory.findOne({
+      where: { slug: slugValue, workspaceId: null },
+      transaction,
+    });
     if (category) {
       return category;
     }
@@ -179,7 +203,11 @@ async function resolveCategory(input, { transaction, allowCreate = true } = {}) 
     return BlogCategory.create(
       {
         name: input,
-        slug: await ensureUniqueSlug(BlogCategory, input, { transaction }),
+        slug: await ensureUniqueSlug(BlogCategory, input, {
+          transaction,
+          scope: { workspaceId: workspaceId ?? null },
+        }),
+        workspaceId: workspaceId ?? null,
       },
       { transaction },
     );
@@ -187,20 +215,29 @@ async function resolveCategory(input, { transaction, allowCreate = true } = {}) 
   if (typeof input === 'object') {
     const { id, slug, name, description, accentColor, heroImageUrl } = input;
     if (id) {
-      return resolveCategory(id, { transaction, allowCreate });
+      return resolveCategory(id, { transaction, allowCreate, workspaceId });
     }
     if (!name) {
       throw new ValidationError('Category name is required.');
     }
-    const normalizedSlug = slug ? slugify(slug) : await ensureUniqueSlug(BlogCategory, name, { transaction });
+    const normalizedSlug = slug
+      ? slugify(slug)
+      : await ensureUniqueSlug(BlogCategory, name, {
+          transaction,
+          scope: { workspaceId: workspaceId ?? null },
+        });
     const [category] = await BlogCategory.findOrCreate({
-      where: { slug: normalizedSlug },
+      where: {
+        slug: normalizedSlug,
+        workspaceId: workspaceId ?? null,
+      },
       defaults: {
         name,
         slug: normalizedSlug,
         description: description ?? null,
         accentColor: accentColor ?? null,
         heroImageUrl: heroImageUrl ?? null,
+        workspaceId: workspaceId ?? null,
       },
       transaction,
     });
@@ -217,7 +254,7 @@ async function resolveCategory(input, { transaction, allowCreate = true } = {}) 
   return null;
 }
 
-async function resolveTags(tagsInput, { transaction } = {}) {
+async function resolveTags(tagsInput, { transaction, workspaceId } = {}) {
   const tags = normaliseArray(tagsInput)
     .map((tag) => (typeof tag === 'string' ? { name: tag } : tag))
     .filter((tag) => tag && (tag.id || tag.slug || tag.name));
@@ -238,14 +275,21 @@ async function resolveTags(tagsInput, { transaction } = {}) {
       continue;
     }
     const baseSlug = tag.slug ? slugify(tag.slug) : slugify(tag.name);
-    const slug = await ensureUniqueSlug(BlogTag, baseSlug, { transaction });
+    const slug = await ensureUniqueSlug(BlogTag, baseSlug, {
+      transaction,
+      scope: { workspaceId: workspaceId ?? null },
+    });
     const [record] = await BlogTag.findOrCreate({
-      where: { slug: baseSlug },
+      where: {
+        slug: baseSlug,
+        workspaceId: workspaceId ?? null,
+      },
       defaults: {
         name: tag.name ?? tag.slug ?? slug,
         slug,
         description: tag.description ?? null,
         metadata: tag.metadata ?? null,
+        workspaceId: workspaceId ?? null,
       },
       transaction,
     });
@@ -322,6 +366,11 @@ function buildInclude({ requireCategory, requireTag } = {}) {
     },
     { model: BlogPostMetric, as: 'metrics' },
     {
+      model: ProviderWorkspace,
+      as: 'workspace',
+      attributes: ['id', 'name', 'slug'],
+    },
+    {
       model: User,
       as: 'author',
       attributes: ['id', 'firstName', 'lastName', 'email'],
@@ -342,26 +391,52 @@ function buildPagination({ count, page, pageSize }) {
 }
 
 export async function listBlogPosts(
-  { status = 'published', page = 1, pageSize = 12, category, tag, search, includeUnpublished = false } = {},
+  {
+    status = 'published',
+    page = 1,
+    pageSize = 12,
+    category,
+    tag,
+    search,
+    includeUnpublished = false,
+    workspaceId,
+    includeGlobalWorkspace = false,
+  } = {},
 ) {
   const normalizedPage = Math.max(1, Number.parseInt(page, 10) || 1);
   const normalizedPageSize = Math.min(50, Math.max(1, Number.parseInt(pageSize, 10) || 12));
 
-  const where = {};
+  const filters = [];
   if (!includeUnpublished) {
-    where.status = 'published';
+    filters.push({ status: 'published' });
   } else if (status && STATUS_SET.has(status)) {
-    where.status = status;
+    filters.push({ status });
+  }
+
+  if (workspaceId !== undefined) {
+    if (workspaceId === null) {
+      filters.push({ workspaceId: { [Op.is]: null } });
+    } else if (includeGlobalWorkspace) {
+      filters.push({
+        [Op.or]: [{ workspaceId }, { workspaceId: { [Op.is]: null } }],
+      });
+    } else {
+      filters.push({ workspaceId });
+    }
   }
 
   if (search) {
     const value = `%${search.trim()}%`;
-    where[Op.or] = [
-      { title: { [Op.iLike ?? Op.like]: value } },
-      { excerpt: { [Op.iLike ?? Op.like]: value } },
-      { content: { [Op.iLike ?? Op.like]: value } },
-    ];
+    filters.push({
+      [Op.or]: [
+        { title: { [Op.iLike ?? Op.like]: value } },
+        { excerpt: { [Op.iLike ?? Op.like]: value } },
+        { content: { [Op.iLike ?? Op.like]: value } },
+      ],
+    });
   }
+
+  const where = filters.length ? { [Op.and]: filters } : {};
 
   const include = buildInclude({
     requireCategory: category ? { slug: slugify(category) } : null,
@@ -387,18 +462,31 @@ export async function listBlogPosts(
   };
 }
 
-export async function getBlogPost(identifier, { includeUnpublished = false } = {}) {
+export async function getBlogPost(identifier, { includeUnpublished = false, workspaceId } = {}) {
   if (!identifier) {
     throw new ValidationError('A blog identifier is required.');
   }
 
-  const where = typeof identifier === 'number' || /^\d+$/.test(`${identifier}`)
-    ? { id: Number(identifier) }
-    : { slug: identifier };
+  const filters = [];
+  if (typeof identifier === 'number' || /^\d+$/.test(`${identifier}`)) {
+    filters.push({ id: Number(identifier) });
+  } else {
+    filters.push({ slug: identifier });
+  }
 
   if (!includeUnpublished) {
-    where.status = 'published';
+    filters.push({ status: 'published' });
   }
+
+  if (workspaceId !== undefined) {
+    if (workspaceId === null) {
+      filters.push({ workspaceId: { [Op.is]: null } });
+    } else {
+      filters.push({ workspaceId });
+    }
+  }
+
+  const where = filters.length ? { [Op.and]: filters } : {};
 
   const post = await BlogPost.findOne({
     where,
@@ -437,7 +525,7 @@ function computePublishedAt(status, publishedAt) {
   return null;
 }
 
-async function upsertBlogPost(payload, { actorId, post }) {
+async function upsertBlogPost(payload, { actorId, post, workspaceId }) {
   const {
     title,
     slug,
@@ -464,8 +552,13 @@ async function upsertBlogPost(payload, { actorId, post }) {
   const publicationDate = computePublishedAt(resolvedStatus, publishedAt ?? post?.publishedAt);
 
   return sequelize.transaction(async (transaction) => {
-    const categoryInstance = await resolveCategory(category ?? categoryId, { transaction, allowCreate: true });
-    const tagsCollection = await resolveTags(tags, { transaction });
+    const resolvedWorkspaceId = workspaceId ?? post?.workspaceId ?? null;
+    const categoryInstance = await resolveCategory(category ?? categoryId, {
+      transaction,
+      allowCreate: true,
+      workspaceId: resolvedWorkspaceId,
+    });
+    const tagsCollection = await resolveTags(tags, { transaction, workspaceId: resolvedWorkspaceId });
     const mediaCollection = await resolveMedia(media, { transaction });
 
     let coverImageInstance = null;
@@ -477,6 +570,7 @@ async function upsertBlogPost(payload, { actorId, post }) {
     const slugCandidate = await ensureUniqueSlug(BlogPost, slug ?? title, {
       transaction,
       excludeId: post?.id,
+      scope: { workspaceId: resolvedWorkspaceId },
     });
 
     const payloadToPersist = {
@@ -491,6 +585,7 @@ async function upsertBlogPost(payload, { actorId, post }) {
       authorId: actorId ?? post?.authorId ?? null,
       categoryId: categoryInstance?.id ?? null,
       coverImageId: coverImageInstance?.id ?? post?.coverImageId ?? null,
+      workspaceId: resolvedWorkspaceId,
       meta: meta ?? post?.meta ?? null,
     };
 
@@ -537,11 +632,11 @@ async function upsertBlogPost(payload, { actorId, post }) {
   });
 }
 
-export async function createBlogPost(payload, { actorId } = {}) {
-  return upsertBlogPost(payload, { actorId });
+export async function createBlogPost(payload, { actorId, workspaceId } = {}) {
+  return upsertBlogPost(payload, { actorId, workspaceId: workspaceId ?? payload?.workspaceId ?? null });
 }
 
-export async function updateBlogPost(postId, payload, { actorId } = {}) {
+export async function updateBlogPost(postId, payload, { actorId, workspaceId } = {}) {
   if (!postId) {
     throw new ValidationError('A valid blog post identifier is required.');
   }
@@ -549,16 +644,22 @@ export async function updateBlogPost(postId, payload, { actorId } = {}) {
   if (!post) {
     throw new NotFoundError('Blog post not found.');
   }
-  return upsertBlogPost(payload, { actorId, post });
+  if (workspaceId != null && post.workspaceId !== workspaceId) {
+    throw new AuthorizationError('You do not have permission to update this blog post.');
+  }
+  return upsertBlogPost(payload, { actorId, post, workspaceId: workspaceId ?? post.workspaceId ?? null });
 }
 
-export async function deleteBlogPost(postId) {
+export async function deleteBlogPost(postId, { workspaceId } = {}) {
   if (!postId) {
     throw new ValidationError('A valid blog post identifier is required.');
   }
   const post = await BlogPost.findByPk(postId);
   if (!post) {
     throw new NotFoundError('Blog post not found.');
+  }
+  if (workspaceId != null && post.workspaceId !== workspaceId) {
+    throw new AuthorizationError('You do not have permission to delete this blog post.');
   }
   await sequelize.transaction(async (transaction) => {
     await BlogPostMedia.destroy({ where: { postId }, transaction });
@@ -568,16 +669,29 @@ export async function deleteBlogPost(postId) {
   return { success: true };
 }
 
-export async function listBlogCategories() {
-  const categories = await BlogCategory.findAll({ order: [['name', 'ASC']] });
+export async function listBlogCategories({ workspaceId, includeGlobal = true } = {}) {
+  const where = {};
+  if (workspaceId !== undefined) {
+    if (workspaceId === null) {
+      where.workspaceId = null;
+    } else if (includeGlobal) {
+      where[Op.or] = [{ workspaceId }, { workspaceId: null }];
+    } else {
+      where.workspaceId = workspaceId;
+    }
+  }
+  const categories = await BlogCategory.findAll({ where, order: [['name', 'ASC']] });
   return categories.map((category) => category.toPublicObject());
 }
 
-export async function createBlogCategory(payload) {
+export async function createBlogCategory(payload, { workspaceId } = {}) {
   if (!payload?.name) {
     throw new ValidationError('Category name is required.');
   }
-  const slug = await ensureUniqueSlug(BlogCategory, payload.slug ?? payload.name);
+  const effectiveWorkspaceId = payload.workspaceId ?? workspaceId ?? null;
+  const slug = await ensureUniqueSlug(BlogCategory, payload.slug ?? payload.name, {
+    scope: { workspaceId: effectiveWorkspaceId },
+  });
   const category = await BlogCategory.create({
     name: payload.name,
     slug,
@@ -585,11 +699,12 @@ export async function createBlogCategory(payload) {
     accentColor: payload.accentColor ?? null,
     heroImageUrl: payload.heroImageUrl ?? null,
     metadata: payload.metadata ?? null,
+    workspaceId: effectiveWorkspaceId,
   });
   return category.toPublicObject();
 }
 
-export async function updateBlogCategory(categoryId, payload) {
+export async function updateBlogCategory(categoryId, payload, { workspaceId } = {}) {
   if (!categoryId) {
     throw new ValidationError('Category id is required.');
   }
@@ -597,25 +712,37 @@ export async function updateBlogCategory(categoryId, payload) {
   if (!category) {
     throw new NotFoundError('Category not found.');
   }
+  if (workspaceId != null && category.workspaceId !== workspaceId) {
+    throw new AuthorizationError('You do not have permission to update this category.');
+  }
   if (payload.slug) {
-    category.slug = await ensureUniqueSlug(BlogCategory, payload.slug, { excludeId: category.id });
+    category.slug = await ensureUniqueSlug(BlogCategory, payload.slug, {
+      excludeId: category.id,
+      scope: { workspaceId: category.workspaceId ?? workspaceId ?? null },
+    });
   }
   category.name = payload.name ?? category.name;
   category.description = payload.description ?? category.description;
   category.accentColor = payload.accentColor ?? category.accentColor;
   category.heroImageUrl = payload.heroImageUrl ?? category.heroImageUrl;
   category.metadata = payload.metadata ?? category.metadata;
+  if (payload.workspaceId != null) {
+    category.workspaceId = payload.workspaceId;
+  }
   await category.save();
   return category.toPublicObject();
 }
 
-export async function deleteBlogCategory(categoryId) {
+export async function deleteBlogCategory(categoryId, { workspaceId } = {}) {
   if (!categoryId) {
     throw new ValidationError('Category id is required.');
   }
   const category = await BlogCategory.findByPk(categoryId);
   if (!category) {
     throw new NotFoundError('Category not found.');
+  }
+  if (workspaceId != null && category.workspaceId !== workspaceId) {
+    throw new AuthorizationError('You do not have permission to delete this category.');
   }
   const postCount = await BlogPost.count({ where: { categoryId } });
   if (postCount > 0) {
@@ -625,26 +752,40 @@ export async function deleteBlogCategory(categoryId) {
   return { success: true };
 }
 
-export async function listBlogTags() {
-  const tags = await BlogTag.findAll({ order: [['name', 'ASC']] });
+export async function listBlogTags({ workspaceId, includeGlobal = true } = {}) {
+  const where = {};
+  if (workspaceId !== undefined) {
+    if (workspaceId === null) {
+      where.workspaceId = null;
+    } else if (includeGlobal) {
+      where[Op.or] = [{ workspaceId }, { workspaceId: null }];
+    } else {
+      where.workspaceId = workspaceId;
+    }
+  }
+  const tags = await BlogTag.findAll({ where, order: [['name', 'ASC']] });
   return tags.map((tag) => tag.toPublicObject());
 }
 
-export async function createBlogTag(payload) {
+export async function createBlogTag(payload, { workspaceId } = {}) {
   if (!payload?.name) {
     throw new ValidationError('Tag name is required.');
   }
-  const slug = await ensureUniqueSlug(BlogTag, payload.slug ?? payload.name);
+  const effectiveWorkspaceId = payload.workspaceId ?? workspaceId ?? null;
+  const slug = await ensureUniqueSlug(BlogTag, payload.slug ?? payload.name, {
+    scope: { workspaceId: effectiveWorkspaceId },
+  });
   const tag = await BlogTag.create({
     name: payload.name,
     slug,
     description: payload.description ?? null,
     metadata: payload.metadata ?? null,
+    workspaceId: effectiveWorkspaceId,
   });
   return tag.toPublicObject();
 }
 
-export async function updateBlogTag(tagId, payload) {
+export async function updateBlogTag(tagId, payload, { workspaceId } = {}) {
   if (!tagId) {
     throw new ValidationError('Tag id is required.');
   }
@@ -652,23 +793,35 @@ export async function updateBlogTag(tagId, payload) {
   if (!tag) {
     throw new NotFoundError('Tag not found.');
   }
+  if (workspaceId != null && tag.workspaceId !== workspaceId) {
+    throw new AuthorizationError('You do not have permission to update this tag.');
+  }
   if (payload.slug) {
-    tag.slug = await ensureUniqueSlug(BlogTag, payload.slug, { excludeId: tag.id });
+    tag.slug = await ensureUniqueSlug(BlogTag, payload.slug, {
+      excludeId: tag.id,
+      scope: { workspaceId: tag.workspaceId ?? workspaceId ?? null },
+    });
   }
   tag.name = payload.name ?? tag.name;
   tag.description = payload.description ?? tag.description;
   tag.metadata = payload.metadata ?? tag.metadata;
+  if (payload.workspaceId != null) {
+    tag.workspaceId = payload.workspaceId;
+  }
   await tag.save();
   return tag.toPublicObject();
 }
 
-export async function deleteBlogTag(tagId) {
+export async function deleteBlogTag(tagId, { workspaceId } = {}) {
   if (!tagId) {
     throw new ValidationError('Tag id is required.');
   }
   const tag = await BlogTag.findByPk(tagId);
   if (!tag) {
     throw new NotFoundError('Tag not found.');
+  }
+  if (workspaceId != null && tag.workspaceId !== workspaceId) {
+    throw new AuthorizationError('You do not have permission to delete this tag.');
   }
   const usage = await BlogPostTag.count({ where: { tagId } });
   if (usage > 0) {
