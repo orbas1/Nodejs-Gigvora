@@ -41,6 +41,46 @@ export async function updateGigOrder(userId, orderId, payload) {
   return response.data;
 }
 
+export async function createGigTimelineEvent(userId, orderId, payload) {
+  const response = await apiClient.post(
+    `${BASE_PATH}/${userId}/project-gig-management/gig-orders/${orderId}/timeline`,
+    payload,
+  );
+  return response.data;
+}
+
+export async function updateGigTimelineEvent(userId, orderId, eventId, payload) {
+  const response = await apiClient.patch(
+    `${BASE_PATH}/${userId}/project-gig-management/gig-orders/${orderId}/timeline/${eventId}`,
+    payload,
+  );
+  return response.data;
+}
+
+export async function createGigSubmission(userId, orderId, payload) {
+  const response = await apiClient.post(
+    `${BASE_PATH}/${userId}/project-gig-management/gig-orders/${orderId}/submissions`,
+    payload,
+  );
+  return response.data;
+}
+
+export async function updateGigSubmission(userId, orderId, submissionId, payload) {
+  const response = await apiClient.patch(
+    `${BASE_PATH}/${userId}/project-gig-management/gig-orders/${orderId}/submissions/${submissionId}`,
+    payload,
+  );
+  return response.data;
+}
+
+export async function postGigChatMessage(userId, orderId, payload) {
+  const response = await apiClient.post(
+    `${BASE_PATH}/${userId}/project-gig-management/gig-orders/${orderId}/chat`,
+    payload,
+  );
+  return response.data;
+}
+
 export default {
   fetchProjectGigManagement,
   createProject,
@@ -48,4 +88,9 @@ export default {
   updateWorkspace,
   createGigOrder,
   updateGigOrder,
+  createGigTimelineEvent,
+  updateGigTimelineEvent,
+  createGigSubmission,
+  updateGigSubmission,
+  postGigChatMessage,
 };

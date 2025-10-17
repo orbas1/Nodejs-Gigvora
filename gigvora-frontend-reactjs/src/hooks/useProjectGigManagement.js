@@ -6,6 +6,11 @@ import {
   updateWorkspace,
   createGigOrder,
   updateGigOrder,
+  createGigTimelineEvent,
+  updateGigTimelineEvent,
+  createGigSubmission,
+  updateGigSubmission,
+  postGigChatMessage,
 } from '../services/projectGigManagement.js';
 
 export default function useProjectGigManagement(userId) {
@@ -66,6 +71,41 @@ export default function useProjectGigManagement(userId) {
         throw new Error('You do not have permission to manage gig orders.');
       }
       await updateGigOrder(userId, orderId, payload);
+      await load();
+    },
+    async createGigTimelineEvent(orderId, payload) {
+      if (data?.access?.canManage === false) {
+        throw new Error('You do not have permission to manage gig timelines.');
+      }
+      await createGigTimelineEvent(userId, orderId, payload);
+      await load();
+    },
+    async updateGigTimelineEvent(orderId, eventId, payload) {
+      if (data?.access?.canManage === false) {
+        throw new Error('You do not have permission to manage gig timelines.');
+      }
+      await updateGigTimelineEvent(userId, orderId, eventId, payload);
+      await load();
+    },
+    async createGigSubmission(orderId, payload) {
+      if (data?.access?.canManage === false) {
+        throw new Error('You do not have permission to log gig submissions.');
+      }
+      await createGigSubmission(userId, orderId, payload);
+      await load();
+    },
+    async updateGigSubmission(orderId, submissionId, payload) {
+      if (data?.access?.canManage === false) {
+        throw new Error('You do not have permission to update gig submissions.');
+      }
+      await updateGigSubmission(userId, orderId, submissionId, payload);
+      await load();
+    },
+    async postGigChatMessage(orderId, payload) {
+      if (data?.access?.canManage === false) {
+        throw new Error('You do not have permission to post in-gig chat messages.');
+      }
+      await postGigChatMessage(userId, orderId, payload);
       await load();
     },
   }), [data?.access?.canManage, userId, load]);
