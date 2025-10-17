@@ -43,6 +43,9 @@ import CompanyIntegrationsPage from './pages/dashboards/CompanyIntegrationsPage.
 import CompanyNetworkingHubPage from './pages/networking/CompanyNetworkingHubPage.jsx';
 import AgencyDashboardPage from './pages/dashboards/AgencyDashboardPage.jsx';
 import AgencyIntegrationsPage from './pages/dashboards/AgencyIntegrationsPage.jsx';
+import AgencyAiAutomationPage from './pages/dashboards/AgencyAiAutomationPage.jsx';
+import AgencyProfileManagementPage from './pages/dashboards/AgencyProfileManagementPage.jsx';
+import AgencyClientKanbanPage from './pages/dashboards/AgencyClientKanbanPage.jsx';
 import HeadhunterDashboardPage from './pages/dashboards/HeadhunterDashboardPage.jsx';
 import MentorDashboardPage from './pages/dashboards/MentorDashboardPage.jsx';
 import LaunchpadOperationsPage from './pages/dashboards/LaunchpadOperationsPage.jsx';
@@ -234,6 +237,18 @@ export default function App() {
         element={
           <RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}>
             <AgencyIntegrationsPage />
+        path="dashboard/agency/ai"
+        element={
+          <RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}>
+            <AgencyAiAutomationPage />
+        path="dashboard/agency/profile"
+        element={
+          <RequireRole allowedRoles={['agency']}>
+            <AgencyProfileManagementPage />
+        path="dashboard/agency/client-kanban"
+        element={
+          <RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}>
+            <AgencyClientKanbanPage />
           </RequireRole>
         }
       />
