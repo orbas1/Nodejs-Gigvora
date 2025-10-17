@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import useSession from '../../hooks/useSession.js';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import { AGENCY_DASHBOARD_MENU_SECTIONS } from '../../constants/agencyDashboardMenu.js';
@@ -21,6 +22,8 @@ const FINANCE_SNAPSHOT = [
   { id: 'payouts', label: 'Payouts processed', value: '$245K', helper: 'Cleared overnight' },
 ];
 
+const availableDashboards = ['agency', 'company', 'freelancer', 'user'];
+
 export default function AgencyDashboardPage() {
   const { session } = useSession();
   const displayName = session?.name || session?.firstName || 'Agency team';
@@ -29,6 +32,48 @@ export default function AgencyDashboardPage() {
     <DashboardLayout
       currentDashboard="agency"
       title="Agency control tower"
+      subtitle={`Hello, ${displayName}`}
+      description="Track client health, revenue momentum, and bench coverage from one place."
+      menuSections={AGENCY_DASHBOARD_MENU_SECTIONS}
+      availableDashboards={availableDashboards}
+      activeMenuItem="agency-overview"
+    >
+      <div className="mx-auto max-w-6xl space-y-10 px-6 py-10">
+        <div className="grid gap-4 sm:grid-cols-3">
+          {OVERVIEW_METRICS.map((metric) => (
+            <div
+              key={metric.id}
+              className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft transition hover:-translate-y-0.5 hover:border-accent/60"
+            >
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">{metric.label}</p>
+              <p className="mt-3 text-3xl font-semibold text-slate-900">{metric.value}</p>
+              <p className="mt-2 text-xs text-slate-500">{metric.hint}</p>
+            </div>
+          ))}
+        </div>
+
+        <section className="grid gap-8 lg:grid-cols-[1.35fr_1fr]">
+          <div className="space-y-6">
+            <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-slate-900">Team focus</h2>
+                <Link to="/inbox" className="text-sm font-semibold text-accent hover:text-accentDark">
+                  Share update
+                </Link>
+              </div>
+              <ol className="mt-6 space-y-4">
+                {TEAM_TASKS.map((task, index) => (
+                  <li key={task.id} className="flex gap-4 rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-sm font-semibold text-white">
+                      {index + 1}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">{task.title}</p>
+                      <p className="text-xs text-slate-500">{task.description}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
       subtitle={`Good to see you, ${displayName}`}
       description="Monitor client health, delivery momentum, and capacity in one place."
       menuSections={AGENCY_DASHBOARD_MENU_SECTIONS}
@@ -104,6 +149,21 @@ export default function AgencyDashboardPage() {
             </ul>
           </div>
 
+            <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-accent/10 via-white to-blue-100 p-6 shadow-soft">
+              <h2 className="text-lg font-semibold text-slate-900">Need support?</h2>
+              <p className="mt-2 text-sm text-slate-600">
+                Coordinate with finance or compliance from your shared operations channel. Our team responds within an hour.
+              </p>
+              <Link
+                to="/inbox"
+                className="mt-4 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+              >
+                Message operations
+              </Link>
+            </div>
+          </aside>
+        </section>
+      </div>
           <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-accent/10 via-white to-blue-100 p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-slate-900">Need support?</h2>
             <p className="mt-2 text-sm text-slate-600">
