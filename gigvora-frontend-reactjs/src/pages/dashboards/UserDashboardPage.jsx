@@ -191,8 +191,48 @@ function buildMenuSections(data) {
   const assetSummary = projectGigManagement.assets?.summary ?? {};
   const purchasedGigStats = projectGigManagement.purchasedGigs?.stats ?? {};
   const vendorAverages = purchasedGigStats.averages ?? {};
-  const storytelling = projectGigManagement.storytelling ?? {};
   const averageBoardProgress = projectGigManagement.managementBoard?.metrics?.averageProgress;
+  const lifecycleStats = projectGigManagement.projectLifecycle?.stats ?? {};
+  const openProjectsCount = lifecycleStats.openCount ?? projectSummary.activeProjects ?? 0;
+  const closedProjectsCount =
+    lifecycleStats.closedCount ?? Math.max(0, (projectSummary.totalProjects ?? 0) - openProjectsCount);
+  const lifecycleProgressLabel =
+    lifecycleStats.openAverageProgress != null
+      ? `${Number(lifecycleStats.openAverageProgress).toFixed(0)}% avg progress`
+      : averageBoardProgress != null
+      ? `${averageBoardProgress}% avg progress`
+      : 'tracking';
+  const bidStats = projectGigManagement.projectBids?.stats ?? {};
+  const totalBids = bidStats.total ?? projectSummary.bidsInPlay ?? 0;
+  const activeBidStatuses = ['sent', 'shortlisted', 'awarded'];
+  const activeBids = activeBidStatuses.reduce(
+    (accumulator, status) => accumulator + Number(bidStats.byStatus?.[status] ?? 0),
+    0,
+  );
+  const invitationStats = projectGigManagement.invitations?.stats ?? {};
+  const totalInvitations = invitationStats.total ?? 0;
+  const acceptedInvitations =
+    invitationStats.accepted ?? Number(invitationStats.byStatus?.accepted ?? 0);
+  const invitationAcceptanceRate =
+    totalInvitations > 0 ? Math.round((acceptedInvitations / totalInvitations) * 100) : null;
+  const autoMatchSummary = projectGigManagement.autoMatch?.summary ?? {};
+  const autoMatchSettings = projectGigManagement.autoMatch?.settings ?? {};
+  const autoMatchTotalMatches = autoMatchSummary.total ?? 0;
+  const autoMatchAverageScore =
+    autoMatchSummary.averageScore != null ? Number(autoMatchSummary.averageScore).toFixed(1) : null;
+  const autoMatchEnabled = autoMatchSettings.enabled ?? autoMatchTotalMatches > 0;
+  const autoMatchWindow = autoMatchSettings.matchingWindowDays ?? null;
+  const reviewSummary = projectGigManagement.reviews?.summary ?? {};
+  const reviewTotal = reviewSummary.total ?? 0;
+  const reviewAverage = reviewSummary.averageOverall != null ? Number(reviewSummary.averageOverall).toFixed(1) : null;
+  const escrowAccount = projectGigManagement.escrow?.account ?? {};
+  const escrowBalance = escrowAccount.balance ?? 0;
+  const escrowCurrency = escrowAccount.currency ?? projectSummary.currency ?? 'USD';
+  const escrowAutoReleaseDays = escrowAccount.autoReleaseDays ?? null;
+  const escrowTransactionCount = Array.isArray(projectGigManagement.escrow?.transactions)
+    ? projectGigManagement.escrow.transactions.length
+    : 0;
+  const storytelling = projectGigManagement.storytelling ?? {};
   const disputeManagement = data?.disputeManagement ?? {};
   const disputeSummary = disputeManagement.summary ?? {};
   const vendorScoreLabel =
@@ -213,6 +253,13 @@ function buildMenuSections(data) {
   const escrowCurrency = escrowSummary.currency ?? 'USD';
   return [
     {
+      label: 'Projects',
+      items: [
+        {
+          name: 'Workspace',
+          description: `${formatNumber(openProjectsCount)} open · ${formatNumber(totalBids)} bids · ${formatNumber(totalInvitations)} invites`,
+          href: '/dashboard/user/projects',
+          sectionId: 'project-workspace',
       label: 'Events',
       items: [
         {
@@ -1654,7 +1701,7 @@ export default function UserDashboardPage() {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section id="project-workspace" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-semibold text-slate-900">Recent applications</h2>
             <span className="text-xs uppercase tracking-wide text-slate-500">Showing up to 10 latest updates</span>
@@ -1750,6 +1797,48 @@ export default function UserDashboardPage() {
           </div>
         </section>
 
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Project workspace</h2>
+              <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-500">
+                <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-700">
+                  Open {formatNumber(openProjectsCount)}
+                </span>
+                <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-700">
+                  Closed {formatNumber(closedProjectsCount)}
+                </span>
+                <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-700">
+                  Bids {formatNumber(totalBids)}
+                </span>
+              </div>
+            </div>
+            <Link
+              to="/dashboard/user/projects"
+              className="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
+            >
+              Open workspace
+            </Link>
+          </div>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-500">Projects</p>
+              <p className="text-sm font-semibold text-slate-900">{formatNumber(openProjectsCount)} open / {formatNumber(closedProjectsCount)} closed</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-500">Invites</p>
+              <p className="text-sm font-semibold text-slate-900">{formatNumber(totalInvitations)} sent / {formatNumber(acceptedInvitations)} accepted</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-500">Matches</p>
+              <p className="text-sm font-semibold text-slate-900">{formatNumber(autoMatchSummary.total ?? 0)} in pool</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-500">Escrow</p>
+              <p className="text-sm font-semibold text-slate-900">{formatCurrency(escrowAccount.balance ?? 0, escrowCurrency) ?? '—'}</p>
+            </div>
+          </div>
+        </section>
         <ProjectWorkspaceContainer userId={userId} />
         {userId ? (
           <EventManagementSection data={eventManagement} userId={userId} onRefresh={() => refresh({ force: true })} />

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import useProjectGigManagement from '../../hooks/useProjectGigManagement.js';
 import DataStatus from '../DataStatus.jsx';
@@ -13,7 +13,246 @@ import SubmissionComposer from './SubmissionComposer.jsx';
 import ChatComposer from './ChatComposer.jsx';
 import GigOrderDetailDrawer from './GigOrderDetailDrawer.jsx';
 
+const PROJECT_MANAGEMENT_ROLE_LABELS = [
+  'Agency lead',
+  'Operations lead',
+  'Company operator',
+  'Workspace admin',
+  'Platform admin',
+];
+
+const NAV_TABS = [
+  { id: 'projects', label: 'Projects' },
+  { id: 'bids', label: 'Bids' },
+  { id: 'invites', label: 'Invites' },
+  { id: 'match', label: 'Match' },
+  { id: 'reviews', label: 'Reviews' },
+  { id: 'escrow', label: 'Escrow' },
+];
+
+const INITIAL_PROJECT_FORM = {
+  title: '',
+  description: '',
+  budgetAllocated: '',
+  budgetCurrency: 'USD',
+  dueDate: '',
+};
+
+const INITIAL_GIG_FORM = {
+  vendorName: '',
+  serviceName: '',
+  amount: '',
+  currency: 'USD',
+  dueAt: '',
+};
+
+function parseNumber(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function startOfToday() {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
+function validateProjectForm(values) {
+  const errors = {};
+  if (!values.title?.trim()) {
+    errors.title = 'Add a project name.';
+  } else if (values.title.trim().length < 3) {
+    errors.title = 'Use at least three characters.';
+  }
+
+  if (!values.description?.trim()) {
+    errors.description = 'Add a short project outline.';
+  }
+
+  if (values.budgetAllocated !== '') {
+    const amount = parseNumber(values.budgetAllocated);
+    if (amount == null) {
+      errors.budgetAllocated = 'Enter a number.';
+    } else if (amount < 0) {
+      errors.budgetAllocated = 'Budget cannot be negative.';
+    }
+  }
+
+  if (values.dueDate) {
+    const due = new Date(values.dueDate);
+    if (Number.isNaN(due.getTime())) {
+      errors.dueDate = 'Choose a valid date.';
+    } else if (due < startOfToday()) {
+      errors.dueDate = 'Use a future date.';
+    }
+  }
+
+  return errors;
+}
+
+function validateGigForm(values) {
+  const errors = {};
+  if (!values.vendorName?.trim()) {
+    errors.vendorName = 'Add the vendor name.';
+  }
+  if (!values.serviceName?.trim()) {
+    errors.serviceName = 'Add the service.';
+  }
+
+  if (values.amount !== '') {
+    const amount = parseNumber(values.amount);
+    if (amount == null) {
+      errors.amount = 'Enter a number.';
+    } else if (amount < 0) {
+      errors.amount = 'Amount cannot be negative.';
+    }
+  }
+
+  if (values.dueAt) {
+    const due = new Date(values.dueAt);
+    if (Number.isNaN(due.getTime())) {
+      errors.dueAt = 'Choose a valid date.';
+    } else if (due < startOfToday()) {
+      errors.dueAt = 'Use a future date.';
+    }
+  }
+
+  return errors;
+}
 const EMPTY_COMPOSER = { form: null, context: null };
+
+function Modal({ title, onClose, children, footer, width = 'max-w-2xl' }) {
+  if (!children) {
+    return null;
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-4 py-10">
+      <div
+        role="dialog"
+        aria-modal="true"
+        className={`w-full ${width} overflow-hidden rounded-3xl bg-white shadow-2xl`}
+      >
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700"
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+        <div className="max-h-[70vh] overflow-y-auto px-6 py-5">{children}</div>
+        {footer ? <div className="border-t border-slate-100 px-6 py-4">{footer}</div> : null}
+      </div>
+    </div>
+  );
+}
+
+Modal.propTypes = {
+  title: PropTypes.string.isRequired,
+  onClose: PropTypes.func.isRequired,
+  children: PropTypes.node,
+  footer: PropTypes.node,
+  width: PropTypes.string,
+};
+
+Modal.defaultProps = {
+  children: null,
+  footer: null,
+  width: 'max-w-2xl',
+};
+
+function ProjectPreview({ project, onClose }) {
+  if (!project) {
+    return null;
+  }
+
+  const budget = project.budget ?? {};
+  const workspace = project.workspace ?? {};
+  const collaborators = project.collaborators ?? [];
+  const milestones = project.milestones ?? [];
+
+  return (
+    <Modal title={project.project?.title ?? project.title ?? 'Project'} onClose={onClose} width="max-w-3xl">
+      <div className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="rounded-2xl border border-slate-200 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Status</p>
+            <p className="mt-2 text-sm font-semibold text-slate-900">
+              {(workspace.status ?? project.status ?? 'planning').replace(/_/g, ' ')}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Progress</p>
+            <p className="mt-2 text-sm font-semibold text-slate-900">
+              {Number(workspace.progressPercent ?? 0).toFixed(0)}%
+            </p>
+          </div>
+        </div>
+        <div className="rounded-2xl border border-slate-200 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Budget</p>
+          <div className="mt-2 grid gap-3 sm:grid-cols-3">
+            <div>
+              <p className="text-xs text-slate-500">Allocated</p>
+              <p className="text-sm font-semibold text-slate-900">
+                {budget.allocated != null ? `${budget.currency ?? 'USD'} ${Number(budget.allocated).toLocaleString()}` : '—'}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">Spent</p>
+              <p className="text-sm font-semibold text-slate-900">
+                {budget.spent != null ? `${budget.currency ?? 'USD'} ${Number(budget.spent).toLocaleString()}` : '—'}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">Burn</p>
+              <p className="text-sm font-semibold text-slate-900">
+                {budget.burnRatePercent != null ? `${Number(budget.burnRatePercent).toFixed(0)}%` : '—'}
+              </p>
+            </div>
+          </div>
+        </div>
+        {milestones.length ? (
+          <div className="rounded-2xl border border-slate-200 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Milestones</p>
+            <ul className="mt-2 space-y-2 text-sm text-slate-700">
+              {milestones.slice(0, 6).map((milestone) => (
+                <li key={milestone.id} className="flex items-center justify-between">
+                  <span>{milestone.title}</span>
+                  <span className="text-xs text-slate-500">{milestone.status?.replace(/_/g, ' ') ?? 'planned'}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {collaborators.length ? (
+          <div className="rounded-2xl border border-slate-200 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Team</p>
+            <ul className="mt-2 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
+              {collaborators.slice(0, 8).map((person) => (
+                <li key={person.id} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                  <p className="font-semibold text-slate-900">{person.fullName}</p>
+                  <p className="text-xs text-slate-500">{person.role}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </div>
+    </Modal>
+  );
+}
+
+ProjectPreview.propTypes = {
+  project: PropTypes.object,
+  onClose: PropTypes.func.isRequired,
+};
+
+ProjectPreview.defaultProps = {
+  project: null,
+};
 
 export default function ProjectGigManagementContainer({ userId }) {
   const { canManageProjects, denialReason } = useProjectManagementAccess();
@@ -21,6 +260,18 @@ export default function ProjectGigManagementContainer({ userId }) {
 
   if (!canManageProjects) {
     return (
+      <section
+        id="project-workspace"
+        className="rounded-3xl border border-amber-200 bg-amber-50/70 p-8 shadow-sm"
+      >
+        <h2 className="text-lg font-semibold text-amber-900">Workspace access required</h2>
+        <p className="mt-2 text-sm text-amber-800">
+          Project controls are available to approved workspace roles only.
+        </p>
+        <p className="mt-3 text-xs uppercase tracking-wide text-amber-700">
+          Allowed roles: {PROJECT_MANAGEMENT_ROLE_LABELS.join(', ')}
+        </p>
+        <p className="mt-3 text-sm text-amber-800">{denialReason}</p>
       <section className="rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Access needed</h2>
         <p className="mt-3 text-sm text-slate-600">{denialReason ?? 'Switch to a workspace role with project rights.'}</p>
@@ -29,6 +280,52 @@ export default function ProjectGigManagementContainer({ userId }) {
   }
 
   const { data, loading, error, actions, reload } = useProjectGigManagement(userId);
+  const [activeTab, setActiveTab] = useState('projects');
+  const [projectForm, setProjectForm] = useState(INITIAL_PROJECT_FORM);
+  const [projectErrors, setProjectErrors] = useState({});
+  const [projectFeedback, setProjectFeedback] = useState(null);
+  const [submittingProject, setSubmittingProject] = useState(false);
+
+  const [gigForm, setGigForm] = useState(INITIAL_GIG_FORM);
+  const [gigErrors, setGigErrors] = useState({});
+  const [gigFeedback, setGigFeedback] = useState(null);
+  const [submittingGig, setSubmittingGig] = useState(false);
+
+  const [projectDialogOpen, setProjectDialogOpen] = useState(false);
+  const [gigDialogOpen, setGigDialogOpen] = useState(false);
+  const [previewProjectId, setPreviewProjectId] = useState(null);
+
+  useEffect(() => {
+    if (!projectDialogOpen) {
+      setProjectForm(INITIAL_PROJECT_FORM);
+      setProjectErrors({});
+    }
+  }, [projectDialogOpen]);
+
+  useEffect(() => {
+    if (!gigDialogOpen) {
+      setGigForm(INITIAL_GIG_FORM);
+      setGigErrors({});
+    }
+  }, [gigDialogOpen]);
+
+  const access = data?.access ?? { canManage: false };
+  const canManage = access.canManage !== false;
+  const accessReason = !canManage ? access.reason : null;
+  const lastUpdated = data?.meta?.lastUpdated ?? null;
+  const fromCache = data?.meta?.fromCache ?? false;
+
+  const projects = data?.projectCreation?.projects ?? [];
+
+  const projectLookup = useMemo(() => {
+    const map = new Map();
+    projects.forEach((project) => {
+      map.set(project.id, project);
+    });
+    return map;
+  }, [projects]);
+
+  const selectedProject = previewProjectId ? projectLookup.get(previewProjectId) ?? null : null;
   const [activeView, setActiveView] = useState('manage');
   const [composer, setComposer] = useState(EMPTY_COMPOSER);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
@@ -85,6 +382,350 @@ export default function ProjectGigManagementContainer({ userId }) {
     setComposer({ form, context });
   };
 
+  const submitProject = async (event) => {
+    event.preventDefault();
+    const validation = validateProjectForm(projectForm);
+    setProjectErrors(validation);
+    if (Object.keys(validation).length > 0) {
+      setProjectFeedback({ tone: 'error', message: 'Fix the highlighted fields.' });
+      return;
+    }
+    setSubmittingProject(true);
+    setProjectFeedback(null);
+    try {
+      await actions.createProject({
+        title: projectForm.title,
+        description: projectForm.description,
+        budgetCurrency: projectForm.budgetCurrency,
+        budgetAllocated: parseNumber(projectForm.budgetAllocated) ?? 0,
+        dueDate: projectForm.dueDate || undefined,
+        workspace: { status: 'planning', progressPercent: 5 },
+      });
+      setProjectForm(INITIAL_PROJECT_FORM);
+      setProjectErrors({});
+      setProjectFeedback({ tone: 'success', message: 'Project created.' });
+      setProjectDialogOpen(false);
+      setActiveTab('projects');
+    } catch (submitError) {
+      setProjectFeedback({ tone: 'error', message: submitError?.message ?? 'Unable to create the project.' });
+    } finally {
+      setSubmittingProject(false);
+    }
+  };
+
+  const submitGig = async (event) => {
+    event.preventDefault();
+    const validation = validateGigForm(gigForm);
+    setGigErrors(validation);
+    if (Object.keys(validation).length > 0) {
+      setGigFeedback({ tone: 'error', message: 'Fix the highlighted fields.' });
+      return;
+    }
+    setSubmittingGig(true);
+    setGigFeedback(null);
+    try {
+      await actions.createGigOrder({
+        vendorName: gigForm.vendorName,
+        serviceName: gigForm.serviceName,
+        amount: parseNumber(gigForm.amount) ?? 0,
+        currency: gigForm.currency,
+        dueAt: gigForm.dueAt || undefined,
+        requirements: [{ title: 'Kickoff', status: 'pending' }],
+      });
+      setGigForm(INITIAL_GIG_FORM);
+      setGigErrors({});
+      setGigFeedback({ tone: 'success', message: 'Gig recorded.' });
+      setGigDialogOpen(false);
+    } catch (submitError) {
+      setGigFeedback({ tone: 'error', message: submitError?.message ?? 'Unable to save the gig.' });
+    } finally {
+      setSubmittingGig(false);
+    }
+  };
+
+  const projectFormContent = projectDialogOpen ? (
+    <form className="grid gap-4" onSubmit={submitProject} noValidate>
+      {projectFeedback ? (
+        <div
+          className={`rounded-2xl border px-4 py-3 text-sm ${
+            projectFeedback.tone === 'success'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+              : 'border-rose-200 bg-rose-50 text-rose-700'
+          }`}
+        >
+          {projectFeedback.message}
+        </div>
+      ) : null}
+      {!canManage ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {accessReason ?? 'Project creation is limited.'}
+        </div>
+      ) : null}
+      <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
+        Name
+        <input
+          name="title"
+          value={projectForm.title}
+          onChange={handleProjectChange}
+          className={`rounded-xl border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/30 ${
+            projectErrors.title ? 'border-rose-400 focus:ring-rose-200' : 'border-slate-200'
+          }`}
+          placeholder="Launch"
+          required
+          disabled={!canManage || submittingProject}
+        />
+        {projectErrors.title ? <span className="text-xs text-rose-600">{projectErrors.title}</span> : null}
+      </label>
+      <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
+        Description
+        <textarea
+          name="description"
+          value={projectForm.description}
+          onChange={handleProjectChange}
+          className={`min-h-[120px] rounded-xl border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/30 ${
+            projectErrors.description ? 'border-rose-400 focus:ring-rose-200' : 'border-slate-200'
+          }`}
+          placeholder="Outline goals"
+          required
+          disabled={!canManage || submittingProject}
+        />
+        {projectErrors.description ? <span className="text-xs text-rose-600">{projectErrors.description}</span> : null}
+      </label>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
+          Budget
+          <input
+            name="budgetAllocated"
+            value={projectForm.budgetAllocated}
+            onChange={handleProjectChange}
+            className={`rounded-xl border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/30 ${
+              projectErrors.budgetAllocated ? 'border-rose-400 focus:ring-rose-200' : 'border-slate-200'
+            }`}
+            placeholder="25000"
+            type="number"
+            min="0"
+            disabled={!canManage || submittingProject}
+          />
+          {projectErrors.budgetAllocated ? (
+            <span className="text-xs text-rose-600">{projectErrors.budgetAllocated}</span>
+          ) : null}
+        </label>
+        <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
+          Currency
+          <select
+            name="budgetCurrency"
+            value={projectForm.budgetCurrency}
+            onChange={handleProjectChange}
+            className="rounded-xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/30"
+            disabled={!canManage || submittingProject}
+          >
+            <option value="USD">USD</option>
+            <option value="GBP">GBP</option>
+            <option value="EUR">EUR</option>
+          </select>
+        </label>
+      </div>
+      <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
+        Due date
+        <input
+          type="date"
+          name="dueDate"
+          value={projectForm.dueDate}
+          onChange={handleProjectChange}
+          className={`rounded-xl border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/30 ${
+            projectErrors.dueDate ? 'border-rose-400 focus:ring-rose-200' : 'border-slate-200'
+          }`}
+          min={new Date().toISOString().split('T')[0]}
+          disabled={!canManage || submittingProject}
+        />
+        {projectErrors.dueDate ? <span className="text-xs text-rose-600">{projectErrors.dueDate}</span> : null}
+      </label>
+      <button
+        type="submit"
+        className="inline-flex items-center justify-center rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:bg-accent/60"
+        disabled={submittingProject || !canManage}
+      >
+        {submittingProject ? 'Saving…' : 'Create project'}
+      </button>
+    </form>
+  ) : null;
+
+  const gigFormContent = gigDialogOpen ? (
+    <form className="grid gap-4" onSubmit={submitGig} noValidate>
+      {gigFeedback ? (
+        <div
+          className={`rounded-2xl border px-4 py-3 text-sm ${
+            gigFeedback.tone === 'success'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+              : 'border-rose-200 bg-rose-50 text-rose-700'
+          }`}
+        >
+          {gigFeedback.message}
+        </div>
+      ) : null}
+      {!canManage ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {accessReason ?? 'Gig tracking is limited.'}
+        </div>
+      ) : null}
+      <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
+        Vendor
+        <input
+          name="vendorName"
+          value={gigForm.vendorName}
+          onChange={handleGigChange}
+          className={`rounded-xl border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/30 ${
+            gigErrors.vendorName ? 'border-rose-400 focus:ring-rose-200' : 'border-slate-200'
+          }`}
+          placeholder="Studio"
+          required
+          disabled={!canManage || submittingGig}
+        />
+        {gigErrors.vendorName ? <span className="text-xs text-rose-600">{gigErrors.vendorName}</span> : null}
+      </label>
+      <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
+        Service
+        <input
+          name="serviceName"
+          value={gigForm.serviceName}
+          onChange={handleGigChange}
+          className={`rounded-xl border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/30 ${
+            gigErrors.serviceName ? 'border-rose-400 focus:ring-rose-200' : 'border-slate-200'
+          }`}
+          placeholder="Design"
+          required
+          disabled={!canManage || submittingGig}
+        />
+        {gigErrors.serviceName ? <span className="text-xs text-rose-600">{gigErrors.serviceName}</span> : null}
+      </label>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
+          Amount
+          <input
+            name="amount"
+            value={gigForm.amount}
+            onChange={handleGigChange}
+            className={`rounded-xl border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/30 ${
+              gigErrors.amount ? 'border-rose-400 focus:ring-rose-200' : 'border-slate-200'
+            }`}
+            placeholder="4800"
+            type="number"
+            min="0"
+            disabled={!canManage || submittingGig}
+          />
+          {gigErrors.amount ? <span className="text-xs text-rose-600">{gigErrors.amount}</span> : null}
+        </label>
+        <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
+          Currency
+          <select
+            name="currency"
+            value={gigForm.currency}
+            onChange={handleGigChange}
+            className="rounded-xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/30"
+            disabled={!canManage || submittingGig}
+          >
+            <option value="USD">USD</option>
+            <option value="GBP">GBP</option>
+            <option value="EUR">EUR</option>
+          </select>
+        </label>
+      </div>
+      <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
+        Delivery date
+        <input
+          type="date"
+          name="dueAt"
+          value={gigForm.dueAt}
+          onChange={handleGigChange}
+          className={`rounded-xl border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/30 ${
+            gigErrors.dueAt ? 'border-rose-400 focus:ring-rose-200' : 'border-slate-200'
+          }`}
+          min={new Date().toISOString().split('T')[0]}
+          disabled={!canManage || submittingGig}
+        />
+        {gigErrors.dueAt ? <span className="text-xs text-rose-600">{gigErrors.dueAt}</span> : null}
+      </label>
+      <button
+        type="submit"
+        className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-600"
+        disabled={submittingGig || !canManage}
+      >
+        {submittingGig ? 'Saving…' : 'Add gig'}
+      </button>
+    </form>
+  ) : null;
+
+  return (
+    <section id="project-workspace" className="flex min-h-[70vh] flex-col gap-6">
+      <header className="flex flex-col gap-3 border-b border-slate-200 pb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-accent">Workspace</p>
+            <h1 className="text-2xl font-semibold text-slate-900">Project control</h1>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => { setProjectDialogOpen(true); setProjectFeedback(null); }}
+              className="inline-flex items-center justify-center rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:bg-accent/60"
+              disabled={!canManage}
+            >
+              New project
+            </button>
+            <button
+              type="button"
+              onClick={() => { setGigDialogOpen(true); setGigFeedback(null); }}
+              className="inline-flex items-center justify-center rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
+              disabled={!canManage}
+            >
+              New gig
+            </button>
+          </div>
+        </div>
+        <DataStatus loading={loading} error={error} fromCache={fromCache} lastUpdated={lastUpdated} onRefresh={reload} />
+      </header>
+
+      <div className="flex flex-1 flex-col gap-6 lg:flex-row">
+        <nav className="lg:w-48">
+          <ul className="flex gap-2 overflow-x-auto lg:flex-col">
+            {NAV_TABS.map((tab) => {
+              const isActive = activeTab === tab.id;
+              return (
+                <li key={tab.id} className="flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`w-full rounded-full px-4 py-2 text-sm font-semibold transition lg:text-left ${
+                      isActive
+                        ? 'bg-slate-900 text-white shadow-sm'
+                        : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:text-slate-900'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+
+        <div className="flex-1">
+          {loading && !data ? (
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="h-48 rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm">
+                <div className="h-full animate-pulse space-y-4">
+                  <div className="h-4 w-1/2 rounded bg-slate-200" />
+                  <div className="h-3 w-3/4 rounded bg-slate-200" />
+                  <div className="h-24 rounded-xl bg-slate-100" />
+                </div>
+              </div>
+              <div className="h-48 rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm">
+                <div className="h-full animate-pulse space-y-4">
+                  <div className="h-4 w-2/3 rounded bg-slate-200" />
+                  <div className="h-3 w-1/2 rounded bg-slate-200" />
+                  <div className="h-24 rounded-xl bg-slate-100" />
+                </div>
+              </div>
   const closeComposer = () => {
     setComposer(EMPTY_COMPOSER);
   };
@@ -135,14 +776,35 @@ export default function ProjectGigManagementContainer({ userId }) {
               <div className="h-32 rounded-xl bg-slate-100" />
               <div className="h-10 rounded-xl bg-slate-100" />
             </div>
-          </div>
-          <div className="h-full rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm">
-            <div className="h-full animate-pulse space-y-4">
-              <div className="h-4 w-2/3 rounded bg-slate-200" />
-              <div className="h-3 w-1/2 rounded bg-slate-200" />
-              <div className="h-32 rounded-xl bg-slate-100" />
-              <div className="h-10 rounded-xl bg-slate-100" />
+          ) : null}
+
+          {data ? (
+            <ProjectGigManagementSection
+              data={data}
+              actions={actions}
+              activeTab={activeTab}
+              canManage={canManage}
+              onProjectPreview={(projectId) => setPreviewProjectId(projectId)}
+            />
+          ) : null}
+
+          {error && !data ? (
+            <div className="mt-4 rounded-3xl border border-rose-200 bg-rose-50/80 p-6 text-sm text-rose-700">
+              Unable to load workspace. Try again shortly.
             </div>
+          ) : null}
+        </div>
+      </div>
+
+      {projectDialogOpen ? (
+        <Modal title="Create project" onClose={() => setProjectDialogOpen(false)}>{projectFormContent}</Modal>
+      ) : null}
+      {gigDialogOpen ? (
+        <Modal title="Add gig" onClose={() => setGigDialogOpen(false)}>{gigFormContent}</Modal>
+      ) : null}
+      {selectedProject ? (
+        <ProjectPreview project={selectedProject} onClose={() => setPreviewProjectId(null)} />
+      ) : null}
           </div>
         </div>
       ) : (

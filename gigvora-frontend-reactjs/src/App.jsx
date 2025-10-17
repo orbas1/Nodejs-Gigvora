@@ -34,6 +34,7 @@ import BlogArticlePage from './pages/BlogArticlePage.jsx';
 import SecurityOperationsPage from './pages/SecurityOperationsPage.jsx';
 import AdminLoginPage from './pages/AdminLoginPage.jsx';
 import UserDashboardPage from './pages/dashboards/UserDashboardPage.jsx';
+import UserProjectManagementPage from './pages/dashboards/UserProjectManagementPage.jsx';
 import UserDisputesPage from './pages/dashboards/UserDisputesPage.jsx';
 import FreelancerDashboardPage from './pages/dashboards/FreelancerDashboardPage.jsx';
 import FreelancerAutoMatchPage from './pages/dashboards/FreelancerAutoMatchPage.jsx';
@@ -183,6 +184,11 @@ export default function App() {
       />
 
       <Route
+        path="dashboard/user/projects"
+        element={
+          <RoleProtectedRoute allowedRoles={['user', 'freelancer', 'agency', 'company', 'headhunter']}>
+            <MembershipGate allowedMemberships={['user', 'freelancer', 'agency', 'company', 'headhunter']}>
+              <UserProjectManagementPage />
         path="dashboard/user/disputes"
         element={
           <RoleProtectedRoute allowedRoles={['user', 'freelancer', 'agency', 'company', 'headhunter']}>
