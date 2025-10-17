@@ -103,6 +103,83 @@ export async function createBlogMedia(payload, { signal } = {}) {
   return apiClient.post('/admin/blog/media', payload, { signal });
 }
 
+export async function fetchAgencyBlogWorkspaces({ signal } = {}) {
+  const data = await apiClient.get('/agency/blog/workspaces', { signal });
+  return data?.results ?? [];
+}
+
+export async function fetchAgencyBlogPosts(
+  { workspaceId, page = 1, pageSize = 20, status, search } = {},
+  { signal } = {},
+) {
+  if (!workspaceId) {
+    throw new Error('workspaceId is required.');
+  }
+  const params = {
+    workspaceId,
+    page,
+    pageSize,
+    status,
+    search,
+  };
+  return apiClient.get('/agency/blog/posts', { params, signal });
+}
+
+export async function createAgencyBlogPost(workspaceId, payload, { signal } = {}) {
+  if (!workspaceId) {
+    throw new Error('workspaceId is required.');
+  }
+  return apiClient.post('/agency/blog/posts', { ...payload, workspaceId }, { signal });
+}
+
+export async function updateAgencyBlogPost(postId, workspaceId, payload, { signal } = {}) {
+  if (!postId || !workspaceId) {
+    throw new Error('postId and workspaceId are required.');
+  }
+  return apiClient.put(`/agency/blog/posts/${postId}`, { ...payload, workspaceId }, { signal });
+}
+
+export async function deleteAgencyBlogPost(postId, workspaceId, { signal } = {}) {
+  if (!postId || !workspaceId) {
+    throw new Error('postId and workspaceId are required.');
+  }
+  return apiClient.delete(`/agency/blog/posts/${postId}`, { params: { workspaceId }, signal });
+}
+
+export async function fetchAgencyBlogCategories(workspaceId, { signal } = {}) {
+  if (!workspaceId) {
+    throw new Error('workspaceId is required.');
+  }
+  const data = await apiClient.get('/agency/blog/categories', { params: { workspaceId }, signal });
+  return data?.results ?? [];
+}
+
+export async function fetchAgencyBlogTags(workspaceId, { signal } = {}) {
+  if (!workspaceId) {
+    throw new Error('workspaceId is required.');
+  }
+  const data = await apiClient.get('/agency/blog/tags', { params: { workspaceId }, signal });
+  return data?.results ?? [];
+}
+
+export async function createAgencyBlogCategory(workspaceId, payload, { signal } = {}) {
+  if (!workspaceId) {
+    throw new Error('workspaceId is required.');
+  }
+  return apiClient.post('/agency/blog/categories', { ...payload, workspaceId }, { signal });
+}
+
+export async function createAgencyBlogTag(workspaceId, payload, { signal } = {}) {
+  if (!workspaceId) {
+    throw new Error('workspaceId is required.');
+  }
+  return apiClient.post('/agency/blog/tags', { ...payload, workspaceId }, { signal });
+}
+
+export async function createAgencyBlogMedia(payload, { signal } = {}) {
+  return apiClient.post('/agency/blog/media', payload, { signal });
+}
+
 export default {
   fetchBlogPosts,
   fetchBlogPost,
@@ -120,4 +197,14 @@ export default {
   updateBlogTag,
   deleteBlogTag,
   createBlogMedia,
+  fetchAgencyBlogWorkspaces,
+  fetchAgencyBlogPosts,
+  createAgencyBlogPost,
+  updateAgencyBlogPost,
+  deleteAgencyBlogPost,
+  fetchAgencyBlogCategories,
+  fetchAgencyBlogTags,
+  createAgencyBlogCategory,
+  createAgencyBlogTag,
+  createAgencyBlogMedia,
 };
