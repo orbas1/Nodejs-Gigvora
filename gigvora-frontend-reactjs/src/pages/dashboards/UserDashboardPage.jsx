@@ -10,6 +10,7 @@ import useSession from '../../hooks/useSession.js';
 import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
 import DashboardBlogSpotlight from '../../components/blog/DashboardBlogSpotlight.jsx';
 import AffiliateProgramSection from '../../components/affiliate/AffiliateProgramSection.jsx';
+import WalletManagementSection from '../../components/wallet/WalletManagementSection.jsx';
 
 const DEFAULT_USER_ID = 1;
 const availableDashboards = ['user', 'freelancer', 'agency', 'company', 'headhunter'];
@@ -176,6 +177,10 @@ function buildMenuSections(data) {
   const pipelineAutomation = data?.careerPipelineAutomation ?? {};
   const automationMetrics = pipelineAutomation.kanban?.metrics ?? {};
   const automationBoardName = pipelineAutomation.board?.name ?? 'Career pipeline';
+  const walletCompliance = data?.compliance?.wallet ?? data?.profile?.walletCompliance ?? {};
+  const walletAccountCount = Array.isArray(walletCompliance.accounts) ? walletCompliance.accounts.length : 0;
+  const walletLedgerIntegrity = walletCompliance.ledgerIntegrity ?? 'unknown';
+  const walletComplianceStatus = walletCompliance.complianceStatus ?? 'inactive';
   return [
     {
       label: 'Project & gig management',
@@ -313,6 +318,41 @@ function buildMenuSections(data) {
         {
           name: 'Profile settings',
           description: 'Control availability, visibility, and launchpad eligibility signals.',
+        },
+      ],
+    },
+    {
+      label: 'Finance',
+      items: [
+        {
+          name: 'Wallet',
+          description: `${formatNumber(walletAccountCount)} accounts • ${walletLedgerIntegrity === 'good' ? 'Balanced' : 'Review'}`,
+          tags: ['wallet'],
+          sectionId: 'wallet-home',
+        },
+        {
+          name: 'Sources',
+          description: 'Payment methods',
+          tags: ['payments'],
+          sectionId: 'wallet-sources',
+        },
+        {
+          name: 'Rules',
+          description: `${walletComplianceStatus.replace(/_/g, ' ')} automation`,
+          tags: ['automation'],
+          sectionId: 'wallet-rules',
+        },
+        {
+          name: 'Moves',
+          description: 'Transfer queue',
+          tags: ['payouts'],
+          sectionId: 'wallet-moves',
+        },
+        {
+          name: 'Escrow',
+          description: 'Reserves overview',
+          tags: ['escrow'],
+          sectionId: 'wallet-escrow',
         },
       ],
     },
@@ -525,6 +565,8 @@ export default function UserDashboardPage() {
             </div>
           ))}
         </section>
+
+        {userId ? <WalletManagementSection userId={userId} /> : null}
 
         <section id="career-pipeline-automation" className="space-y-8">
           <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-accentSoft p-6 shadow-sm">
