@@ -37,36 +37,41 @@ export default function useProjectGigManagement(userId) {
       if (data?.access?.canManage === false) {
         throw new Error('You do not have permission to create project workspaces.');
       }
-      await createProject(userId, payload);
+      const response = await createProject(userId, payload);
       await load();
+      return response;
     },
     async addAsset(projectId, payload) {
       if (data?.access?.canManage === false) {
         throw new Error('You do not have permission to update this project workspace.');
       }
-      await addProjectAsset(userId, projectId, payload);
+      const response = await addProjectAsset(userId, projectId, payload);
       await load();
+      return response;
     },
     async updateWorkspace(projectId, payload) {
       if (data?.access?.canManage === false) {
         throw new Error('You do not have permission to update this project workspace.');
       }
-      await updateWorkspace(userId, projectId, payload);
+      const response = await updateWorkspace(userId, projectId, payload);
       await load();
+      return response;
     },
     async createGigOrder(payload) {
       if (data?.access?.canManage === false) {
         throw new Error('You do not have permission to manage gig orders.');
       }
-      await createGigOrder(userId, payload);
+      const response = await createGigOrder(userId, payload);
       await load();
+      return response;
     },
     async updateGigOrder(orderId, payload) {
       if (data?.access?.canManage === false) {
         throw new Error('You do not have permission to manage gig orders.');
       }
-      await updateGigOrder(userId, orderId, payload);
+      const response = await updateGigOrder(userId, orderId, payload);
       await load();
+      return response;
     },
   }), [data?.access?.canManage, userId, load]);
 

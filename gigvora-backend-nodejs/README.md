@@ -55,9 +55,9 @@ All values entered through the admin panel are validated and persisted to the ne
 
 ## Key Directories
 
-- `src/controllers` – Request handlers for authentication, feed, user and search flows.
-- `src/models` – Sequelize models defining the schema for users, marketplace data, groups, and social graph.
-- `src/services` – Business logic for authentication and 2FA email code handling.
+- `src/controllers` – Request handlers for authentication, feed, user and search flows, plus agency calendar CRUD endpoints.
+- `src/models` – Sequelize models defining the schema for users, marketplace data, groups, social graph, and agency calendar events.
+- `src/services` – Business logic for authentication, 2FA email code handling, and workspace-aware calendar orchestration.
 - `database/migrations` – Schema definition for the relational data store.
 - `database/seeders` – Starter data to explore the platform locally.
 - `docs/` – Authoritative schema overview, ER diagrams, and governance policies for engineering and compliance review.
