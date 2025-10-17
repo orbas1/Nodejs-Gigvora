@@ -5,7 +5,7 @@ import {
   addProjectAsset,
   updateWorkspace,
   createGigOrder,
-  updateGigOrder,
+  updateGigOrder as updateGigOrderRequest,
 } from '../services/projectGigManagement.js';
 
 export default function useProjectGigManagement(userId) {
@@ -65,7 +65,7 @@ export default function useProjectGigManagement(userId) {
       if (data?.access?.canManage === false) {
         throw new Error('You do not have permission to manage gig orders.');
       }
-      await updateGigOrder(userId, orderId, payload);
+      await updateGigOrderRequest(userId, orderId, payload);
       await load();
     },
   }), [data?.access?.canManage, userId, load]);
