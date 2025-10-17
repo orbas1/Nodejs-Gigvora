@@ -25,7 +25,13 @@ import {
   registerBlogAssociations,
 } from './blogModels.js';
 import {
-  PROFILE_AVAILABILITY_STATUSES, PROFILE_APPRECIATION_TYPES, PROFILE_FOLLOWER_STATUSES, PROFILE_ENGAGEMENT_JOB_STATUSES,
+  PROFILE_AVAILABILITY_STATUSES,
+  PROFILE_APPRECIATION_TYPES,
+  PROFILE_FOLLOWER_STATUSES,
+  PROFILE_ENGAGEMENT_JOB_STATUSES,
+  PROFILE_VISIBILITY_OPTIONS,
+  PROFILE_NETWORK_VISIBILITY_OPTIONS,
+  PROFILE_FOLLOWERS_VISIBILITY_OPTIONS,
   GROUP_VISIBILITIES, GROUP_MEMBER_POLICIES, GROUP_MEMBERSHIP_STATUSES, GROUP_MEMBERSHIP_ROLES,
   EMPLOYER_BRAND_SECTION_TYPES, EMPLOYER_BRAND_SECTION_STATUSES, EMPLOYER_BRAND_CAMPAIGN_STATUSES, WORKFORCE_COHORT_TYPES,
   INTERNAL_JOB_POSTING_STATUSES, EMPLOYEE_REFERRAL_STATUSES, CAREER_PATHING_STATUSES, COMPLIANCE_POLICY_STATUSES,
@@ -252,6 +258,28 @@ export const Profile = sequelize.define(
     pipelineInsights: { type: jsonType, allowNull: true },
     profileCompletion: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
     avatarSeed: { type: DataTypes.STRING(255), allowNull: true },
+    avatarUrl: { type: DataTypes.STRING(1024), allowNull: true },
+    avatarStorageKey: { type: DataTypes.STRING(255), allowNull: true },
+    avatarUpdatedAt: { type: DataTypes.DATE, allowNull: true },
+    profileVisibility: {
+      type: DataTypes.ENUM(...PROFILE_VISIBILITY_OPTIONS),
+      allowNull: false,
+      defaultValue: 'members',
+      validate: { isIn: [PROFILE_VISIBILITY_OPTIONS] },
+    },
+    networkVisibility: {
+      type: DataTypes.ENUM(...PROFILE_NETWORK_VISIBILITY_OPTIONS),
+      allowNull: false,
+      defaultValue: 'connections',
+      validate: { isIn: [PROFILE_NETWORK_VISIBILITY_OPTIONS] },
+    },
+    followersVisibility: {
+      type: DataTypes.ENUM(...PROFILE_FOLLOWERS_VISIBILITY_OPTIONS),
+      allowNull: false,
+      defaultValue: 'connections',
+      validate: { isIn: [PROFILE_FOLLOWERS_VISIBILITY_OPTIONS] },
+    },
+    socialLinks: { type: jsonType, allowNull: true },
     engagementRefreshedAt: { type: DataTypes.DATE, allowNull: true },
   },
   { tableName: 'profiles' },
@@ -310,6 +338,10 @@ export const ProfileFollower = sequelize.define(
       validate: { isIn: [PROFILE_FOLLOWER_STATUSES] },
     },
     notificationsEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    displayName: { type: DataTypes.STRING(255), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    lastInteractedAt: { type: DataTypes.DATE, allowNull: true },
     metadata: { type: jsonType, allowNull: true },
     followedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
   },
@@ -5643,6 +5675,17 @@ export const Connection = sequelize.define(
       defaultValue: 'pending',
       allowNull: false,
     },
+    relationshipTag: { type: DataTypes.STRING(120), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    favourite: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    visibility: {
+      type: DataTypes.ENUM(...PROFILE_NETWORK_VISIBILITY_OPTIONS),
+      allowNull: false,
+      defaultValue: 'connections',
+      validate: { isIn: [PROFILE_NETWORK_VISIBILITY_OPTIONS] },
+    },
+    connectedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    lastInteractedAt: { type: DataTypes.DATE, allowNull: true },
   },
   { tableName: 'connections' },
 );
@@ -14633,6 +14676,8 @@ User.belongsToMany(User, {
   foreignKey: 'requesterId',
   otherKey: 'addresseeId',
 });
+Connection.belongsTo(User, { foreignKey: 'requesterId', as: 'requester' });
+Connection.belongsTo(User, { foreignKey: 'addresseeId', as: 'addressee' });
 
 User.hasMany(Application, { foreignKey: 'applicantId', as: 'applications' });
 Application.belongsTo(User, { foreignKey: 'applicantId', as: 'applicant' });

@@ -53,6 +53,7 @@ import careerPipelineAutomationService from './careerPipelineAutomationService.j
 import { getAdDashboardSnapshot } from './adService.js';
 import { initializeWorkspaceForProject } from './projectWorkspaceService.js';
 import affiliateDashboardService from './affiliateDashboardService.js';
+import profileHubService from './profileHubService.js';
 
 const CACHE_NAMESPACE = 'dashboard:user';
 const CACHE_TTL_SECONDS = 60;
@@ -2606,9 +2607,15 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     },
   });
 
+  const profileHub = await profileHubService.getProfileHub(userId, {
+    bypassCache,
+    profileOverview: profile,
+  });
+
   return {
     generatedAt: new Date().toISOString(),
     profile,
+    profileHub,
     summary,
     pipeline: {
       statuses: pipeline,

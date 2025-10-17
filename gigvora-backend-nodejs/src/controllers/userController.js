@@ -79,11 +79,63 @@ export async function updateProfileSettings(req, res) {
   res.json(profile);
 }
 
+export async function updateUserProfileDetails(req, res) {
+  const profile = await profileHubService.updateProfileBasics(req.params.id, req.body ?? {});
+  res.json(profile);
+}
+
+export async function updateUserProfileAvatar(req, res) {
+  const file = req.file ?? null;
+  const payload = {
+    fileBuffer: file?.buffer ?? null,
+    mimeType: file?.mimetype ?? null,
+    fileName: file?.originalname ?? null,
+    url: req.body?.avatarUrl ?? req.body?.url ?? null,
+    metadata: req.body?.metadata ?? null,
+  };
+  const profile = await profileHubService.changeProfileAvatar(req.params.id, payload);
+  res.json(profile);
+}
+
+export async function listUserFollowers(req, res) {
+  const hub = await profileHubService.getProfileHub(req.params.id, {
+    bypassCache: req.query.fresh === 'true',
+  });
+  res.json(hub.followers);
+}
+
+export async function saveUserFollower(req, res) {
+  const follower = await profileHubService.saveFollower(req.params.id, req.body ?? {});
+  res.status(201).json(follower);
+}
+
+export async function deleteUserFollower(req, res) {
+  await profileHubService.deleteFollower(req.params.id, req.params.followerId);
+  res.status(204).send();
+}
+
+export async function listUserConnections(req, res) {
+  const connections = await profileHubService.listConnections(req.params.id);
+  res.json(connections);
+}
+
+export async function updateUserConnection(req, res) {
+  const connection = await profileHubService.updateConnection(req.params.id, req.params.connectionId, req.body ?? {});
+  res.json(connection);
+}
+
 export async function getUserDashboard(req, res) {
   const dashboard = await userDashboardService.getUserDashboard(req.params.id, {
     bypassCache: req.query.fresh === 'true',
   });
   res.json(dashboard);
+}
+
+export async function getUserProfileHub(req, res) {
+  const hub = await profileHubService.getProfileHub(req.params.id, {
+    bypassCache: req.query.fresh === 'true',
+  });
+  res.json(hub);
 }
 
 export async function getUserAffiliateDashboard(req, res) {

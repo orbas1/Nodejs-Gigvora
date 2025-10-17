@@ -167,6 +167,7 @@ function getRefreshToken() {
 
 async function request(method, path, { body, params, signal, headers } = {}) {
   const url = buildUrl(path, params);
+  const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
   const requestHeaders = {
     Accept: 'application/json',
     'Content-Type': 'application/json',
@@ -174,10 +175,14 @@ async function request(method, path, { body, params, signal, headers } = {}) {
     ...headers,
   };
 
+  if (isFormData) {
+    delete requestHeaders['Content-Type'];
+  }
+
   const response = await fetch(url, {
     method,
     headers: requestHeaders,
-    body: body == null ? undefined : JSON.stringify(body),
+    body: body == null ? undefined : isFormData ? body : JSON.stringify(body),
     signal,
     credentials: 'include',
   });

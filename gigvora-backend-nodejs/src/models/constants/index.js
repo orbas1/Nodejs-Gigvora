@@ -2,6 +2,9 @@ export const PROFILE_AVAILABILITY_STATUSES = ['available', 'limited', 'unavailab
 export const PROFILE_APPRECIATION_TYPES = ['like', 'celebrate', 'support', 'endorse', 'applause'];
 export const PROFILE_FOLLOWER_STATUSES = ['active', 'muted', 'blocked'];
 export const PROFILE_ENGAGEMENT_JOB_STATUSES = ['pending', 'completed', 'failed'];
+export const PROFILE_VISIBILITY_OPTIONS = ['public', 'members', 'private'];
+export const PROFILE_NETWORK_VISIBILITY_OPTIONS = ['public', 'connections', 'private'];
+export const PROFILE_FOLLOWERS_VISIBILITY_OPTIONS = ['public', 'connections', 'private'];
 
 export const GROUP_VISIBILITIES = ['public', 'private', 'secret'];
 export const GROUP_MEMBER_POLICIES = ['open', 'request', 'invite'];

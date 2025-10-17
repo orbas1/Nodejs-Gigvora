@@ -10,6 +10,7 @@ import useSession from '../../hooks/useSession.js';
 import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
 import DashboardBlogSpotlight from '../../components/blog/DashboardBlogSpotlight.jsx';
 import AffiliateProgramSection from '../../components/affiliate/AffiliateProgramSection.jsx';
+import ProfileHubQuickPanel from '../../components/profileHub/ProfileHubQuickPanel.jsx';
 
 const DEFAULT_USER_ID = 1;
 const availableDashboards = ['user', 'freelancer', 'agency', 'company', 'headhunter'];
@@ -157,6 +158,14 @@ function buildProfileCard(data, summary, session) {
 
 function buildMenuSections(data) {
   const summary = data?.summary ?? {};
+  const profileHub = data?.profileHub ?? {};
+  const profileSettings = profileHub.settings ?? {};
+  const followerStats = profileHub.followers ?? {};
+  const connectionStats = profileHub.connections ?? {};
+  const socialLinkCount = Array.isArray(profileSettings.socialLinks) ? profileSettings.socialLinks.length : 0;
+  const pendingRequests = Array.isArray(connectionStats.pending)
+    ? connectionStats.pending.length
+    : Number(connectionStats.pending ?? 0);
   const documents = data?.documents ?? {};
   const documentStudio = data?.documentStudio;
   const documentSummary = documentStudio?.summary ?? {};
@@ -176,7 +185,24 @@ function buildMenuSections(data) {
   const pipelineAutomation = data?.careerPipelineAutomation ?? {};
   const automationMetrics = pipelineAutomation.kanban?.metrics ?? {};
   const automationBoardName = pipelineAutomation.board?.name ?? 'Career pipeline';
-  return [
+  const identitySection = {
+    label: 'Profile',
+    items: [
+      {
+        id: 'profile-hub',
+        name: 'Workspace',
+        sectionId: 'profile-hub',
+        href: '/dashboard/user/profile',
+      },
+      {
+        id: 'profile-connect',
+        name: 'Connect',
+        href: '/connections',
+      },
+    ],
+  };
+
+  const sections = [
     {
       label: 'Project & gig management',
       items: [
@@ -333,6 +359,8 @@ function buildMenuSections(data) {
       ],
     },
   ];
+
+  return [identitySection, ...sections];
 }
 
 export default function UserDashboardPage() {
@@ -363,6 +391,18 @@ export default function UserDashboardPage() {
     documentsUploaded: 0,
     connections: 0,
   };
+
+  const profileOverview = data?.profile ?? null;
+  const profileHub = data?.profileHub ?? null;
+  const profileHubSnapshot = useMemo(
+    () =>
+      profileHub ?? {
+        followers: { items: [], total: 0, active: 0, muted: 0, blocked: 0 },
+        connections: { items: [], pending: [], total: 0, favourites: 0 },
+        settings: { socialLinks: [], profileVisibility: 'members', networkVisibility: 'connections', followersVisibility: 'connections' },
+      },
+    [profileHub],
+  );
 
   const pipelineAutomation = data?.careerPipelineAutomation ?? {};
   const automationBoard = pipelineAutomation.board ?? null;
@@ -510,6 +550,10 @@ export default function UserDashboardPage() {
         </div>
 
         <DashboardBlogSpotlight />
+
+        {userId ? (
+          <ProfileHubQuickPanel profileOverview={profileOverview} profileHub={profileHubSnapshot} />
+        ) : null}
 
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {summaryCards.map((card) => (
