@@ -63,9 +63,9 @@ export const MENU_GROUPS = [
     label: 'Workspace excellence',
     items: [
       {
-        id: 'project-excellence',
-        name: 'Project workspace excellence',
-        description: 'Templates, collaboration cockpit, and deliverable vault.',
+        id: 'workspace',
+        name: 'Workspace',
+        description: 'Projects, delivery rooms, and collaboration tools.',
         icon: ClipboardDocumentCheckIcon,
       },
       {
