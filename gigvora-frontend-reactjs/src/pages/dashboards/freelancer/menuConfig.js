@@ -6,6 +6,7 @@ import {
   CalendarDaysIcon,
   ChatBubbleBottomCenterTextIcon,
   ChartBarSquareIcon,
+  ClipboardDocumentListIcon,
   ClipboardDocumentCheckIcon,
   Cog6ToothIcon,
   DocumentTextIcon,
@@ -95,6 +96,12 @@ export const MENU_GROUPS = [
         name: 'Delivery',
         description: null,
         icon: ClipboardDocumentCheckIcon,
+      },
+      {
+        id: 'project-management',
+        name: 'Projects',
+        description: '',
+        icon: ClipboardDocumentListIcon,
       },
       {
         id: 'task-management',
