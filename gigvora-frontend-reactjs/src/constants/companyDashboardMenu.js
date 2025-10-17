@@ -3,31 +3,37 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
     label: 'Talent acquisition',
     items: [
       {
-        name: 'Hiring overview',
-        description: 'Pipeline health, hiring velocity, diversity metrics, and alerts.',
+        name: 'Overview',
+        description: 'Pipeline, conversion, and alerts.',
         sectionId: 'hiring-overview',
       },
       {
-        name: 'Job lifecycle & ATS intelligence',
-        description:
-          'Run a modern applicant tracking system with collaborative job creation, smart sourcing, and full-funnel insights.',
+        name: 'Lifecycle',
+        description: 'Plan requisitions and ATS automations.',
         tags: ['ATS'],
         sectionId: 'job-lifecycle-ats-intelligence',
         href: '/dashboard/company/ats',
       },
       {
-        name: 'Interview excellence & candidate experience',
-        description: 'Structured guides, scheduling automation, and feedback collaboration for every interview panel.',
+        name: 'Jobs',
+        description: 'Openings, pipeline, and actions.',
+        sectionId: 'job-operations-command-center',
+        tags: ['ATS', 'Operations'],
+        href: '/dashboard/company/job-management',
+      },
+      {
+        name: 'Interviews',
+        description: 'Panels, scorecards, and feedback.',
         sectionId: 'interview-excellence',
       },
       {
-        name: 'Offer & onboarding bridge',
-        description: 'Generate offers, track approvals, manage background checks, and orchestrate onboarding tasks.',
+        name: 'Offers',
+        description: 'Approvals and onboarding tasks.',
         sectionId: 'offer-onboarding',
       },
       {
-        name: 'Candidate care center',
-        description: 'Monitor response times, candidate NPS, and inclusion metrics to deliver a world-class experience.',
+        name: 'Care',
+        description: 'Candidate comms and experience.',
         sectionId: 'candidate-care-center',
       },
     ],
