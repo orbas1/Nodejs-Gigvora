@@ -82,6 +82,50 @@ export async function markThreadRead(threadId, { userId } = {}) {
   });
 }
 
+export async function updateThreadState(threadId, { state } = {}) {
+  return apiClient.post(`/messaging/threads/${threadId}/state`, { state });
+}
+
+export async function muteThread(threadId, { userId, until } = {}) {
+  return apiClient.post(`/messaging/threads/${threadId}/mute`, {
+    userId,
+    until,
+  });
+}
+
+export async function escalateThread(threadId, { userId, reason, priority = 'medium', metadata = {} } = {}) {
+  return apiClient.post(`/messaging/threads/${threadId}/escalate`, {
+    userId,
+    reason,
+    priority,
+    metadata,
+  });
+}
+
+export async function assignSupportAgent(
+  threadId,
+  { userId, agentId, assignedBy, notifyAgent = true } = {},
+) {
+  return apiClient.post(`/messaging/threads/${threadId}/assign-support`, {
+    userId,
+    agentId,
+    assignedBy,
+    notifyAgent,
+  });
+}
+
+export async function updateSupportStatus(
+  threadId,
+  { userId, status, resolutionSummary, metadata = {} } = {},
+) {
+  return apiClient.post(`/messaging/threads/${threadId}/support-status`, {
+    userId,
+    status,
+    resolutionSummary,
+    metadata,
+  });
+}
+
 export default {
   fetchInbox,
   fetchThread,
@@ -90,4 +134,9 @@ export default {
   createThread,
   createCallSession,
   markThreadRead,
+  updateThreadState,
+  muteThread,
+  escalateThread,
+  assignSupportAgent,
+  updateSupportStatus,
 };

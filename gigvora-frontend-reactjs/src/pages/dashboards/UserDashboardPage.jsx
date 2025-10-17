@@ -10,6 +10,7 @@ import useSession from '../../hooks/useSession.js';
 import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
 import DashboardBlogSpotlight from '../../components/blog/DashboardBlogSpotlight.jsx';
 import AffiliateProgramSection from '../../components/affiliate/AffiliateProgramSection.jsx';
+import { DashboardInboxWorkspace } from '../../features/inbox/index.js';
 
 const DEFAULT_USER_ID = 1;
 const availableDashboards = ['user', 'freelancer', 'agency', 'company', 'headhunter'];
@@ -252,6 +253,23 @@ function buildMenuSections(data) {
           description: 'Rule library with analytics and guardrails for premium roles.',
           tags: ['automation', 'ai'],
           sectionId: 'career-auto-apply-rules',
+        },
+      ],
+    },
+    {
+      label: 'Messaging & collaboration',
+      items: [
+        {
+          name: 'Inbox',
+          description: 'Manage secure conversations, live calls, and role-based access in one inbox.',
+          tags: ['messaging', 'support'],
+          sectionId: 'messaging-inbox',
+        },
+        {
+          name: 'Support desk',
+          description: 'Escalate threads with audit trails and automate responses.',
+          tags: ['support', 'automation'],
+          sectionId: 'insights-accountability-support',
         },
       ],
     },
@@ -524,6 +542,10 @@ export default function UserDashboardPage() {
               <p className="mt-2 text-sm text-slate-500">{card.description}</p>
             </div>
           ))}
+        </section>
+
+        <section id="messaging-inbox">
+          <DashboardInboxWorkspace />
         </section>
 
         <section id="career-pipeline-automation" className="space-y-8">
