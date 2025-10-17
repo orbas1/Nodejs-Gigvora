@@ -42,6 +42,7 @@ import CompanyAnalyticsPage from './pages/dashboards/CompanyAnalyticsPage.jsx';
 import CompanyIntegrationsPage from './pages/dashboards/CompanyIntegrationsPage.jsx';
 import CompanyNetworkingHubPage from './pages/networking/CompanyNetworkingHubPage.jsx';
 import AgencyDashboardPage from './pages/dashboards/AgencyDashboardPage.jsx';
+import AgencyCrmPipelinePage from './pages/dashboards/AgencyCrmPipelinePage.jsx';
 import AgencyIntegrationsPage from './pages/dashboards/AgencyIntegrationsPage.jsx';
 import AgencyAiAutomationPage from './pages/dashboards/AgencyAiAutomationPage.jsx';
 import AgencyProfileManagementPage from './pages/dashboards/AgencyProfileManagementPage.jsx';
@@ -226,6 +227,7 @@ export default function App() {
       <Route
         path="dashboard/agency"
         element={
+          <RequireRole allowedRoles={['agency', 'agency_admin']}>
           <RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}>
             <AgencyDashboardPage />
           </RequireRole>
@@ -233,6 +235,10 @@ export default function App() {
       />
 
       <Route
+        path="dashboard/agency/crm"
+        element={
+          <RequireRole allowedRoles={['agency', 'agency_admin']}>
+            <AgencyCrmPipelinePage />
         path="dashboard/agency/integrations"
         element={
           <RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}>

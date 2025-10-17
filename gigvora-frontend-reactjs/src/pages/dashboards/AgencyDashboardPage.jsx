@@ -36,6 +36,7 @@ function parseWorkspaceId(value) {
 import { Link } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import useSession from '../../hooks/useSession.js';
+import { AGENCY_OVERVIEW_MENU_SECTIONS } from '../../constants/agencyDashboardMenu.js';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import { AGENCY_DASHBOARD_MENU_SECTIONS } from '../../constants/agencyDashboardMenu.js';
 
@@ -161,6 +162,24 @@ export default function AgencyDashboardPage() {
   }, [session?.firstName, session?.name]);
 
   return (
+    <DashboardLayout
+      currentDashboard="agency"
+      title="Agency command center"
+      subtitle={`Hello, ${displayName}`}
+      description="Monitor delivery health, balance your bench, and keep leadership aligned on revenue momentum."
+      menuSections={AGENCY_OVERVIEW_MENU_SECTIONS}
+      availableDashboards={[
+        { id: 'agency', label: 'Agency overview', href: '/dashboard/agency' },
+        { id: 'agency-crm', label: 'CRM pipeline', href: '/dashboard/agency/crm' },
+        'freelancer',
+        'company',
+        'user',
+      ]}
+    >
+      <div className="space-y-12">
+        <section id="overview-summary" className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
+          <p className="text-sm uppercase tracking-[0.4em] text-slate-500">Workspace pulse</p>
+          <div className="mt-6 grid gap-4 sm:grid-cols-3">
     <div className="min-h-screen bg-surfaceMuted pb-16">
       <div className="mx-auto max-w-6xl px-4 pt-12 sm:px-6 lg:px-8">
         <header className="flex flex-col gap-4 border-b border-slate-200 pb-8">
@@ -190,16 +209,24 @@ export default function AgencyDashboardPage() {
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
             {OVERVIEW_METRICS.map((metric) => (
-              <div
-                key={metric.id}
-                className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft transition hover:-translate-y-0.5 hover:border-accent/60"
-              >
+              <div key={metric.id} className="rounded-3xl border border-slate-200 bg-slate-50/80 p-6">
                 <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">{metric.label}</p>
                 <p className="mt-3 text-3xl font-semibold text-slate-900">{metric.value}</p>
                 <p className="mt-2 text-xs text-slate-500">{metric.hint}</p>
               </div>
             ))}
           </div>
+        </section>
+
+        <section className="grid gap-8 lg:grid-cols-[1.35fr_1fr]">
+          <div className="space-y-8">
+            <div id="overview-team-focus" className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-semibold text-slate-900">Team focus</h2>
+                  <p className="mt-1 text-sm text-slate-500">Share the priorities anchoring this week’s stand-up.</p>
+                </div>
+                <Link to="/inbox" className="text-sm font-semibold text-accent transition hover:text-accentDark">
         </header>
     <DashboardLayout
       currentDashboard="agency"
@@ -310,6 +337,22 @@ export default function AgencyDashboardPage() {
             </ol>
           </div>
 
+            <div id="overview-bench-signals" className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
+              <h2 className="text-xl font-semibold text-slate-900">Bench signals</h2>
+              <p className="mt-1 text-sm text-slate-500">Use pod utilisation to plan rotations or accelerate sales outreach.</p>
+              <div className="mt-4 space-y-3">
+                <div className="flex items-center justify-between rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-3">
+                  <p className="text-sm text-slate-600">Product design squad</p>
+                  <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">Under capacity</span>
+                </div>
+                <div className="flex items-center justify-between rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-3">
+                  <p className="text-sm text-slate-600">Growth marketing</p>
+                  <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">Monitor</span>
+                </div>
+                <div className="flex items-center justify-between rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-3">
+                  <p className="text-sm text-slate-600">Engineering guild</p>
+                  <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">Over capacity</span>
+                </div>
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-slate-900">Bench signals</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -329,6 +372,19 @@ export default function AgencyDashboardPage() {
           </div>
         </div>
 
+          <aside className="space-y-8">
+            <div id="overview-finance" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
+              <h2 className="text-lg font-semibold text-slate-900">Finance snapshot</h2>
+              <ul className="mt-4 space-y-3">
+                {FINANCE_SUMMARY.map((item) => (
+                  <li key={item.id} className="rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
+                    <p className="text-sm font-semibold text-slate-900">{item.label}</p>
+                    <p className="mt-1 text-lg font-semibold text-slate-900">{item.value}</p>
+                    <p className="text-xs text-slate-500">{item.hint}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
         <aside className="space-y-6">
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-slate-900">Finance snapshot</h2>
