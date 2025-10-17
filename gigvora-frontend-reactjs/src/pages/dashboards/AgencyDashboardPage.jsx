@@ -47,6 +47,14 @@ export default function AgencyDashboardPage() {
               leadership.
             </p>
           </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              to="/dashboard/agency/ai"
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:text-blue-700"
+            >
+              Manage AI & bidding
+            </Link>
+          </div>
           <div className="grid gap-4 sm:grid-cols-3">
             {OVERVIEW_METRICS.map((metric) => (
               <div
