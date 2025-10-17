@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useMemo, useState } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import useCachedResource from '../../hooks/useCachedResource.js';
@@ -185,6 +187,8 @@ function buildMenuSections(data) {
   const vendorAverages = purchasedGigStats.averages ?? {};
   const storytelling = projectGigManagement.storytelling ?? {};
   const averageBoardProgress = projectGigManagement.managementBoard?.metrics?.averageProgress;
+  const disputeManagement = data?.disputeManagement ?? {};
+  const disputeSummary = disputeManagement.summary ?? {};
   const vendorScoreLabel =
     vendorAverages.overall != null ? `${Number(vendorAverages.overall).toFixed(1)}/5` : 'unrated';
   const portfolioProjects = Array.isArray(documentStudio?.brandHub?.portfolioProjects)
@@ -465,6 +469,25 @@ function buildMenuSections(data) {
         },
       ],
     },
+    {
+      label: 'Trust',
+      items: [
+        {
+          name: 'Disputes',
+          description: `${formatNumber(disputeSummary.openCount ?? 0)} open · ${formatNumber(
+            disputeSummary.awaitingCustomerAction ?? 0,
+          )} waiting`,
+          tags: ['cases'],
+          href: '/dashboard/user/disputes',
+          sectionId: 'disputes',
+        },
+        {
+          name: 'Escrow',
+          description: 'Releases, holds, and guardrails overview.',
+          tags: ['payments'],
+        },
+      ],
+    },
   ];
 }
 
@@ -557,6 +580,7 @@ export default function UserDashboardPage() {
   const launchpadApplications = Array.isArray(data?.launchpad?.applications) ? data.launchpad.applications : [];
   const affiliateProgram = data?.affiliate ?? null;
   const affiliateOverview = affiliateProgram?.overview ?? {};
+  const disputeManagement = data?.disputeManagement ?? null;
 
   const [activeMenuItem, setActiveMenuItem] = useState(null);
   const [escrowView, setEscrowView] = useState('overview');
@@ -1773,6 +1797,41 @@ export default function UserDashboardPage() {
                 )}
               </div>
             </div>
+          </div>
+        </section>
+
+        <section id="disputes" className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Disputes</h2>
+              <p className="text-sm text-slate-500">
+                {formatNumber(disputeSummary.openCount ?? 0)} open · {formatNumber(disputeSummary.awaitingCustomerAction ?? 0)} waiting on you
+              </p>
+              {disputeSummary.upcomingDeadlines?.[0]?.dueAt ? (
+                <p className="mt-2 inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+                  Next due {formatAbsolute(disputeSummary.upcomingDeadlines[0].dueAt)}
+                </p>
+              ) : null}
+            </div>
+            <Link
+              to="/dashboard/user/disputes"
+              className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-accent/90"
+            >
+              Open workspace
+            </Link>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { label: 'Open', value: disputeSummary.openCount },
+              { label: 'Waiting on you', value: disputeSummary.awaitingCustomerAction },
+              { label: 'Escalated', value: disputeSummary.escalatedCount },
+              { label: 'Total', value: disputeSummary.total },
+            ].map((metric) => (
+              <div key={metric.label} className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{metric.label}</p>
+                <p className="mt-2 text-2xl font-semibold text-slate-900">{formatNumber(metric.value ?? 0)}</p>
+              </div>
+            ))}
           </div>
         </section>
 
