@@ -14,9 +14,22 @@ import {
   GigVendorScorecard,
   StoryBlock,
   BrandAsset,
+  ProjectBid,
+  ProjectInvitation,
+  AutoMatchSetting,
+  AutoMatchCandidate,
+  ProjectReview,
+  EscrowAccount,
+  EscrowTransaction,
   PROJECT_STATUSES,
   PROJECT_RISK_LEVELS,
   GIG_ORDER_STATUSES,
+  PROJECT_BID_STATUSES,
+  PROJECT_INVITATION_STATUSES,
+  AUTO_MATCH_STATUS,
+  REVIEW_SUBJECT_TYPES,
+  ESCROW_TRANSACTION_TYPES,
+  ESCROW_TRANSACTION_STATUSES,
   syncProjectGigManagementModels,
 } from '../models/projectGigManagementModels.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
@@ -77,6 +90,130 @@ function summarizeAssets(assets = []) {
     watermarkCoverage,
     storageBytes,
   };
+}
+
+function partitionProjects(projects = []) {
+  const openStatuses = new Set(['planning', 'in_progress', 'at_risk', 'on_hold']);
+  return projects.reduce(
+    (acc, project) => {
+      const status = project.workspace?.status ?? project.status ?? 'planning';
+      if (openStatuses.has(status)) {
+        acc.open.push(project);
+      } else {
+        acc.closed.push(project);
+      }
+      return acc;
+    },
+    { open: [], closed: [] },
+  );
+}
+
+function buildLifecycleStats(projects = []) {
+  const { open, closed } = partitionProjects(projects);
+  const averageOpenProgress = open.length
+    ? open.reduce((total, project) => total + normalizeNumber(project.workspace?.progressPercent), 0) / open.length
+    : 0;
+  return {
+    openCount: open.length,
+    closedCount: closed.length,
+    openAverageProgress: averageOpenProgress,
+    total: projects.length,
+  };
+}
+
+function buildBidStats(bids = []) {
+  const totals = bids.reduce(
+    (acc, bid) => {
+      const status = bid.status ?? 'draft';
+      acc.total += 1;
+      acc.byStatus[status] = (acc.byStatus[status] ?? 0) + 1;
+      if (bid.amount != null) {
+        acc.totalValue += Number(bid.amount);
+      }
+      if (bid.status === 'awarded') {
+        acc.awarded += 1;
+      }
+      if (bid.status === 'shortlisted') {
+        acc.shortlisted += 1;
+      }
+      return acc;
+    },
+    { total: 0, totalValue: 0, awarded: 0, shortlisted: 0, byStatus: {} },
+  );
+  return totals;
+}
+
+function buildInvitationStats(invitations = []) {
+  return invitations.reduce(
+    (acc, invite) => {
+      acc.total += 1;
+      acc.byStatus[invite.status ?? 'pending'] = (acc.byStatus[invite.status ?? 'pending'] ?? 0) + 1;
+      if (invite.status === 'accepted') {
+        acc.accepted += 1;
+      }
+      if (invite.status === 'declined') {
+        acc.declined += 1;
+      }
+      return acc;
+    },
+    { total: 0, accepted: 0, declined: 0, byStatus: {} },
+  );
+}
+
+function buildAutoMatchSummary(matches = []) {
+  if (!matches.length) {
+    return { total: 0, averageScore: null, engaged: 0, contacted: 0 };
+  }
+  const totals = matches.reduce(
+    (acc, match) => {
+      acc.total += 1;
+      acc.score += Number(match.matchScore ?? 0);
+      if (match.status === 'engaged') {
+        acc.engaged += 1;
+      }
+      if (match.status === 'contacted') {
+        acc.contacted += 1;
+      }
+      return acc;
+    },
+    { total: 0, score: 0, engaged: 0, contacted: 0 },
+  );
+  return {
+    total: totals.total,
+    averageScore: totals.total ? totals.score / totals.total : null,
+    engaged: totals.engaged,
+    contacted: totals.contacted,
+  };
+}
+
+function buildReviewSummary(reviews = []) {
+  if (!reviews.length) {
+    return { total: 0, averageOverall: null, recommended: 0 };
+  }
+  const aggregate = reviews.reduce(
+    (acc, review) => {
+      acc.total += 1;
+      acc.overall += Number(review.ratingOverall ?? 0);
+      if (review.wouldRecommend) {
+        acc.recommended += 1;
+      }
+      return acc;
+    },
+    { total: 0, overall: 0, recommended: 0 },
+  );
+  return {
+    total: aggregate.total,
+    averageOverall: aggregate.total ? aggregate.overall / aggregate.total : null,
+    recommended: aggregate.recommended,
+  };
+}
+
+function normalizeCurrency(value) {
+  if (value == null) {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function buildBoardLanes(projects) {
@@ -300,41 +437,67 @@ async function ensureInitialized() {
 export async function getProjectGigManagementOverview(ownerId) {
   await ensureInitialized();
 
-  const projects = await Project.findAll({
+  const [
+    projects,
+    templates,
+    orders,
+    storyBlocks,
+    brandAssets,
+    bids,
+    invitations,
+    matches,
+    reviews,
+  ] = await Promise.all([
+    Project.findAll({
+      where: { ownerId },
+      include: [
+        { model: ProjectWorkspace, as: 'workspace' },
+        { model: ProjectMilestone, as: 'milestones', separate: true, order: [['ordinal', 'ASC']] },
+        { model: ProjectCollaborator, as: 'collaborators' },
+        { model: ProjectIntegration, as: 'integrations' },
+        { model: ProjectRetrospective, as: 'retrospectives', separate: true, order: [['generatedAt', 'DESC']] },
+        { model: ProjectAsset, as: 'assets' },
+        { model: ProjectBid, as: 'bids' },
+        { model: ProjectInvitation, as: 'invitations' },
+        { model: ProjectReview, as: 'reviews' },
+        { model: AutoMatchCandidate, as: 'autoMatches' },
+      ],
+      order: [['updatedAt', 'DESC']],
+    }),
+    ProjectTemplate.findAll({ order: [['createdAt', 'DESC']] }),
+    GigOrder.findAll({
+      where: { ownerId },
+      include: [
+        { model: GigOrderRequirement, as: 'requirements' },
+        { model: GigOrderRevision, as: 'revisions', order: [['roundNumber', 'ASC']] },
+        { model: GigVendorScorecard, as: 'scorecard' },
+        { model: ProjectReview, as: 'orderReviews' },
+      ],
+      order: [['createdAt', 'DESC']],
+    }),
+    StoryBlock.findAll({ where: { ownerId }, order: [['createdAt', 'DESC']] }),
+    BrandAsset.findAll({ where: { ownerId }, order: [['createdAt', 'DESC']] }),
+    ProjectBid.findAll({ where: { ownerId }, order: [['createdAt', 'DESC']] }),
+    ProjectInvitation.findAll({ where: { ownerId }, order: [['inviteSentAt', 'DESC']] }),
+    AutoMatchCandidate.findAll({ where: { ownerId }, order: [['matchedAt', 'DESC']] }),
+    ProjectReview.findAll({ where: { ownerId }, order: [['submittedAt', 'DESC']] }),
+  ]);
+
+  const [autoMatchSettings] = await AutoMatchSetting.findOrCreate({
     where: { ownerId },
-    include: [
-      { model: ProjectWorkspace, as: 'workspace' },
-      { model: ProjectMilestone, as: 'milestones', separate: true, order: [['ordinal', 'ASC']] },
-      { model: ProjectCollaborator, as: 'collaborators' },
-      { model: ProjectIntegration, as: 'integrations' },
-      { model: ProjectRetrospective, as: 'retrospectives', separate: true, order: [['generatedAt', 'DESC']] },
-      { model: ProjectAsset, as: 'assets' },
-    ],
-    order: [['updatedAt', 'DESC']],
+    defaults: { ownerId, enabled: false, matchingWindowDays: 14 },
   });
 
-  const templates = await ProjectTemplate.findAll({ order: [['createdAt', 'DESC']] });
-  const orders = await GigOrder.findAll({
+  const [escrowAccount] = await EscrowAccount.findOrCreate({
     where: { ownerId },
-    include: [
-      { model: GigOrderRequirement, as: 'requirements' },
-      { model: GigOrderRevision, as: 'revisions', order: [['roundNumber', 'ASC']] },
-      { model: GigVendorScorecard, as: 'scorecard' },
-    ],
-    order: [['createdAt', 'DESC']],
+    defaults: { ownerId, currency: 'USD', balance: 0, autoReleaseDays: 14 },
   });
 
-  const storyBlocks = await StoryBlock.findAll({ where: { ownerId }, order: [['createdAt', 'DESC']] });
-  const brandAssets = await BrandAsset.findAll({ where: { ownerId }, order: [['createdAt', 'DESC']] });
-
-  const summary = {
-    totalProjects: projects.length,
-    activeProjects: projects.filter((project) => project.status !== 'completed').length,
-    budgetInPlay: projects.reduce((acc, project) => acc + normalizeNumber(project.budgetAllocated), 0),
-    gigsInDelivery: orders.filter((order) => !['completed', 'cancelled'].includes(order.status)).length,
-    templatesAvailable: templates.length,
-    assetsSecured: brandAssets.length,
-  };
+  const escrowTransactions = await EscrowTransaction.findAll({
+    where: { accountId: escrowAccount.id },
+    order: [['occurredAt', 'DESC']],
+    limit: 25,
+  });
 
   const sanitizedProjects = projects.map((project) => sanitizeProject(project));
   const assets = sanitizedProjects.flatMap((project) => project.assets);
@@ -353,21 +516,91 @@ export async function getProjectGigManagementOverview(ownerId) {
       .slice(0, 6),
   };
 
-  const vendorStats = buildVendorStats(orders);
-  const reminders = buildGigReminders(orders);
-  const storytelling = buildStorytelling(sanitizedProjects, orders, storyBlocks);
+  const lifecycleStats = buildLifecycleStats(sanitizedProjects);
+  const lifecyclePartition = partitionProjects(sanitizedProjects);
+
+  const orderSnapshots = orders.map((order) => {
+    const plain = order.get({ plain: true });
+    return {
+      ...plain,
+      amount: normalizeCurrency(plain.amount),
+      progressPercent: normalizeNumber(plain.progressPercent),
+    };
+  });
+
+  const bidRecords = bids.map((bid) => {
+    const plain = bid.get({ plain: true });
+    return { ...plain, amount: normalizeCurrency(plain.amount) };
+  });
+
+  const invitationRecords = invitations.map((invite) => invite.get({ plain: true }));
+  const autoMatchRecords = matches.map((match) => {
+    const plain = match.get({ plain: true });
+    return { ...plain, matchScore: normalizeCurrency(plain.matchScore) ?? 0 };
+  });
+  const reviewRecords = reviews.map((review) => {
+    const plain = review.get({ plain: true });
+    return {
+      ...plain,
+      ratingOverall: normalizeCurrency(plain.ratingOverall) ?? 0,
+      ratingQuality: normalizeCurrency(plain.ratingQuality),
+      ratingCommunication: normalizeCurrency(plain.ratingCommunication),
+      ratingProfessionalism: normalizeCurrency(plain.ratingProfessionalism),
+    };
+  });
+
+  const autoMatchSettingsPlain = autoMatchSettings.get({ plain: true });
+  const escrowAccountPlain = escrowAccount.get({ plain: true });
+  const escrowTransactionRecords = escrowTransactions.map((transaction) => {
+    const plain = transaction.get({ plain: true });
+    return { ...plain, amount: normalizeCurrency(plain.amount) ?? 0 };
+  });
+
+  const vendorStats = buildVendorStats(orderSnapshots);
+  const reminders = buildGigReminders(orderSnapshots);
+  const storytelling = buildStorytelling(sanitizedProjects, orderSnapshots, storyBlocks);
+
+  const summary = {
+    totalProjects: sanitizedProjects.length,
+    activeProjects: lifecycleStats.openCount,
+    budgetInPlay: sanitizedProjects.reduce((acc, project) => acc + normalizeNumber(project.budgetAllocated), 0),
+    gigsInDelivery: orderSnapshots.filter((order) => !['completed', 'cancelled'].includes(order.status)).length,
+    templatesAvailable: templates.length,
+    assetsSecured: brandAssets.length,
+    storiesReady: storytelling.achievements.length,
+  };
 
   return {
     summary,
     projectCreation: { projects: sanitizedProjects, templates },
+    projectLifecycle: {
+      open: lifecyclePartition.open,
+      closed: lifecyclePartition.closed,
+      stats: lifecycleStats,
+    },
+    projectBids: { bids: bidRecords, stats: buildBidStats(bidRecords) },
+    invitations: { entries: invitationRecords, stats: buildInvitationStats(invitationRecords) },
+    autoMatch: {
+      settings: autoMatchSettingsPlain,
+      matches: autoMatchRecords,
+      summary: buildAutoMatchSummary(autoMatchRecords),
+    },
+    reviews: { entries: reviewRecords, summary: buildReviewSummary(reviewRecords) },
     assets: { items: assets, summary: assetSummary, brandAssets },
     managementBoard: board,
     purchasedGigs: {
-      orders,
+      orders: orderSnapshots,
       reminders,
       stats: vendorStats,
     },
     storytelling,
+    escrow: {
+      account: {
+        ...escrowAccountPlain,
+        balance: normalizeCurrency(escrowAccountPlain.balance) ?? 0,
+      },
+      transactions: escrowTransactionRecords,
+    },
   };
 }
 
@@ -679,6 +912,307 @@ export async function updateGigOrder(ownerId, orderId, payload) {
   return order.reload();
 }
 
+export async function createProjectBid(ownerId, payload) {
+  await ensureInitialized();
+  if (!payload?.title || !payload.vendorName) {
+    throw new ValidationError('Bid title and vendor name are required.');
+  }
+  if (payload.status && !PROJECT_BID_STATUSES.includes(payload.status)) {
+    throw new ValidationError('Invalid bid status provided.');
+  }
+
+  const amount =
+    payload.amount != null
+      ? ensureNumber(payload.amount, { label: 'Bid amount', allowNegative: false, allowZero: false })
+      : null;
+  const submittedAt = ensureDate(payload.submittedAt, { label: 'Submission date' }) ?? new Date();
+  const validUntil = ensureDate(payload.validUntil, { label: 'Validity date' });
+
+  return ProjectBid.create({
+    ownerId,
+    projectId: payload.projectId ?? null,
+    title: payload.title,
+    vendorName: payload.vendorName,
+    vendorEmail: payload.vendorEmail ?? null,
+    amount,
+    currency: payload.currency ?? 'USD',
+    status: payload.status ?? 'submitted',
+    submittedAt,
+    validUntil,
+    notes: payload.notes ?? null,
+    metadata: payload.metadata ?? {},
+  });
+}
+
+export async function updateProjectBid(ownerId, bidId, payload) {
+  await ensureInitialized();
+  const bid = await ProjectBid.findByPk(bidId);
+  assertOwnership(bid, ownerId, 'Bid not found');
+
+  if (payload.status && !PROJECT_BID_STATUSES.includes(payload.status)) {
+    throw new ValidationError('Invalid bid status provided.');
+  }
+  const amount =
+    payload.amount != null
+      ? ensureNumber(payload.amount, { label: 'Bid amount', allowNegative: false, allowZero: false })
+      : bid.amount;
+  const submittedAt = payload.submittedAt ? ensureDate(payload.submittedAt, { label: 'Submission date' }) : bid.submittedAt;
+  const validUntil = payload.validUntil ? ensureDate(payload.validUntil, { label: 'Validity date' }) : bid.validUntil;
+
+  await bid.update({
+    title: payload.title ?? bid.title,
+    vendorName: payload.vendorName ?? bid.vendorName,
+    vendorEmail: payload.vendorEmail ?? bid.vendorEmail,
+    amount,
+    currency: payload.currency ?? bid.currency,
+    status: payload.status ?? bid.status,
+    submittedAt,
+    validUntil,
+    notes: payload.notes ?? bid.notes,
+    metadata: payload.metadata ?? bid.metadata,
+  });
+
+  return bid.reload();
+}
+
+export async function sendProjectInvitation(ownerId, payload) {
+  await ensureInitialized();
+  if (!payload?.freelancerName) {
+    throw new ValidationError('Freelancer name is required.');
+  }
+  if (payload.status && !PROJECT_INVITATION_STATUSES.includes(payload.status)) {
+    throw new ValidationError('Invalid invitation status provided.');
+  }
+
+  const inviteSentAt = ensureDate(payload.inviteSentAt, { label: 'Invitation sent date' }) ?? new Date();
+  const respondedAt = ensureDate(payload.respondedAt, { label: 'Response date' });
+
+  return ProjectInvitation.create({
+    ownerId,
+    projectId: payload.projectId ?? null,
+    freelancerName: payload.freelancerName,
+    freelancerEmail: payload.freelancerEmail ?? null,
+    role: payload.role ?? null,
+    message: payload.message ?? null,
+    status: payload.status ?? 'pending',
+    inviteSentAt,
+    respondedAt,
+    metadata: payload.metadata ?? {},
+  });
+}
+
+export async function updateProjectInvitation(ownerId, invitationId, payload) {
+  await ensureInitialized();
+  const invitation = await ProjectInvitation.findByPk(invitationId);
+  assertOwnership(invitation, ownerId, 'Invitation not found');
+
+  if (payload.status && !PROJECT_INVITATION_STATUSES.includes(payload.status)) {
+    throw new ValidationError('Invalid invitation status provided.');
+  }
+
+  const respondedAt = payload.respondedAt ? ensureDate(payload.respondedAt, { label: 'Response date' }) : invitation.respondedAt;
+
+  await invitation.update({
+    freelancerName: payload.freelancerName ?? invitation.freelancerName,
+    freelancerEmail: payload.freelancerEmail ?? invitation.freelancerEmail,
+    role: payload.role ?? invitation.role,
+    message: payload.message ?? invitation.message,
+    status: payload.status ?? invitation.status,
+    respondedAt,
+    metadata: payload.metadata ?? invitation.metadata,
+  });
+
+  return invitation.reload();
+}
+
+export async function updateAutoMatchSettings(ownerId, payload) {
+  await ensureInitialized();
+  const [settings] = await AutoMatchSetting.findOrCreate({
+    where: { ownerId },
+    defaults: { ownerId, enabled: false, matchingWindowDays: 14 },
+  });
+
+  const matchingWindowDays = payload.matchingWindowDays != null
+    ? ensureNumber(payload.matchingWindowDays, { label: 'Matching window', allowNegative: false, allowZero: false })
+    : settings.matchingWindowDays;
+
+  const budgetMin = payload.budgetMin != null ? ensureNumber(payload.budgetMin, { label: 'Minimum budget', allowNegative: false }) : settings.budgetMin;
+  const budgetMax = payload.budgetMax != null ? ensureNumber(payload.budgetMax, { label: 'Maximum budget', allowNegative: false }) : settings.budgetMax;
+
+  await settings.update({
+    enabled: payload.enabled != null ? Boolean(payload.enabled) : settings.enabled,
+    matchingWindowDays,
+    budgetMin,
+    budgetMax,
+    targetRoles: payload.targetRoles ?? settings.targetRoles,
+    focusSkills: payload.focusSkills ?? settings.focusSkills,
+    geoPreferences: payload.geoPreferences ?? settings.geoPreferences,
+    seniority: payload.seniority ?? settings.seniority,
+    metadata: payload.metadata ?? settings.metadata,
+  });
+
+  return settings.reload();
+}
+
+export async function recordAutoMatchCandidate(ownerId, payload) {
+  await ensureInitialized();
+  if (!payload?.freelancerName) {
+    throw new ValidationError('Candidate name is required.');
+  }
+  if (payload.status && !AUTO_MATCH_STATUS.includes(payload.status)) {
+    throw new ValidationError('Invalid match status provided.');
+  }
+
+  const matchScore = payload.matchScore != null ? ensureNumber(payload.matchScore, { label: 'Match score', allowNegative: false }) : 0;
+  const matchedAt = ensureDate(payload.matchedAt, { label: 'Match date' }) ?? new Date();
+
+  return AutoMatchCandidate.create({
+    ownerId,
+    projectId: payload.projectId ?? null,
+    freelancerName: payload.freelancerName,
+    freelancerEmail: payload.freelancerEmail ?? null,
+    matchScore,
+    status: payload.status ?? 'suggested',
+    matchedAt,
+    channel: payload.channel ?? null,
+    notes: payload.notes ?? null,
+    metadata: payload.metadata ?? {},
+  });
+}
+
+export async function updateAutoMatchCandidate(ownerId, candidateId, payload) {
+  await ensureInitialized();
+  const candidate = await AutoMatchCandidate.findByPk(candidateId);
+  assertOwnership(candidate, ownerId, 'Match candidate not found');
+
+  if (payload.status && !AUTO_MATCH_STATUS.includes(payload.status)) {
+    throw new ValidationError('Invalid match status provided.');
+  }
+
+  const matchScore = payload.matchScore != null ? ensureNumber(payload.matchScore, { label: 'Match score', allowNegative: false }) : candidate.matchScore;
+  const matchedAt = payload.matchedAt ? ensureDate(payload.matchedAt, { label: 'Match date' }) : candidate.matchedAt;
+
+  await candidate.update({
+    freelancerName: payload.freelancerName ?? candidate.freelancerName,
+    freelancerEmail: payload.freelancerEmail ?? candidate.freelancerEmail,
+    matchScore,
+    status: payload.status ?? candidate.status,
+    matchedAt,
+    channel: payload.channel ?? candidate.channel,
+    notes: payload.notes ?? candidate.notes,
+    metadata: payload.metadata ?? candidate.metadata,
+  });
+
+  return candidate.reload();
+}
+
+function ensureRating(value, label) {
+  const rating = ensureNumber(value, { label, allowNegative: false });
+  if (rating < 0 || rating > 5) {
+    throw new ValidationError(`${label} must be between 0 and 5.`);
+  }
+  return rating;
+}
+
+export async function createProjectReview(ownerId, payload) {
+  await ensureInitialized();
+  if (!payload?.subjectName) {
+    throw new ValidationError('Subject name is required.');
+  }
+  if (payload.subjectType && !REVIEW_SUBJECT_TYPES.includes(payload.subjectType)) {
+    throw new ValidationError('Invalid review subject type provided.');
+  }
+
+  const ratingOverall = ensureRating(payload.ratingOverall ?? 0, 'Overall rating');
+  const ratingQuality = payload.ratingQuality != null ? ensureRating(payload.ratingQuality, 'Quality rating') : null;
+  const ratingCommunication = payload.ratingCommunication != null ? ensureRating(payload.ratingCommunication, 'Communication rating') : null;
+  const ratingProfessionalism =
+    payload.ratingProfessionalism != null ? ensureRating(payload.ratingProfessionalism, 'Professionalism rating') : null;
+  const submittedAt = ensureDate(payload.submittedAt, { label: 'Submitted at' }) ?? new Date();
+
+  return ProjectReview.create({
+    ownerId,
+    orderId: payload.orderId ?? null,
+    projectId: payload.projectId ?? null,
+    subjectType: payload.subjectType ?? 'vendor',
+    subjectName: payload.subjectName,
+    ratingOverall,
+    ratingQuality,
+    ratingCommunication,
+    ratingProfessionalism,
+    wouldRecommend: payload.wouldRecommend != null ? Boolean(payload.wouldRecommend) : null,
+    comments: payload.comments ?? null,
+    submittedAt,
+    metadata: payload.metadata ?? {},
+  });
+}
+
+export async function createEscrowTransaction(ownerId, payload) {
+  await ensureInitialized();
+  if (!payload?.type || !ESCROW_TRANSACTION_TYPES.includes(payload.type)) {
+    throw new ValidationError('Escrow transaction type is invalid.');
+  }
+  if (payload.status && !ESCROW_TRANSACTION_STATUSES.includes(payload.status)) {
+    throw new ValidationError('Escrow transaction status is invalid.');
+  }
+
+  const amount = ensureNumber(payload.amount, { label: 'Transaction amount', allowNegative: false, allowZero: false });
+  const occurredAt = ensureDate(payload.occurredAt, { label: 'Transaction timestamp' }) ?? new Date();
+  const status = payload.status ?? 'completed';
+
+  return projectGigManagementSequelize.transaction(async (transaction) => {
+    const [account] = await EscrowAccount.findOrCreate({
+      where: { ownerId },
+      defaults: { ownerId, currency: payload.currency ?? 'USD', balance: 0, autoReleaseDays: 14 },
+      transaction,
+    });
+
+    const entry = await EscrowTransaction.create(
+      {
+        accountId: account.id,
+        reference: payload.reference ?? `ESC-${Date.now()}`,
+        type: payload.type,
+        status,
+        amount,
+        currency: payload.currency ?? account.currency ?? 'USD',
+        occurredAt,
+        description: payload.description ?? null,
+        metadata: payload.metadata ?? {},
+      },
+      { transaction },
+    );
+
+    if (status === 'completed') {
+      const direction = payload.direction ?? (['deposit', 'refund'].includes(payload.type) ? 'credit' : 'debit');
+      const delta = direction === 'debit' ? -amount : amount;
+      await account.increment('balance', { by: delta, transaction });
+    }
+
+    return entry;
+  });
+}
+
+export async function updateEscrowSettings(ownerId, payload) {
+  await ensureInitialized();
+  const [account] = await EscrowAccount.findOrCreate({
+    where: { ownerId },
+    defaults: { ownerId, currency: payload.currency ?? 'USD', balance: 0, autoReleaseDays: 14 },
+  });
+
+  const autoReleaseDays =
+    payload.autoReleaseDays != null
+      ? ensureNumber(payload.autoReleaseDays, { label: 'Auto-release days', allowNegative: false, allowZero: false })
+      : account.autoReleaseDays;
+
+  await account.update({
+    currency: payload.currency ?? account.currency,
+    autoReleaseDays,
+    metadata: payload.metadata ?? account.metadata,
+  });
+
+  return account.reload();
+}
+
 export default {
   getProjectGigManagementOverview,
   createProject,
@@ -686,4 +1220,14 @@ export default {
   updateProjectWorkspace,
   createGigOrder,
   updateGigOrder,
+  createProjectBid,
+  updateProjectBid,
+  sendProjectInvitation,
+  updateProjectInvitation,
+  updateAutoMatchSettings,
+  recordAutoMatchCandidate,
+  updateAutoMatchCandidate,
+  createProjectReview,
+  createEscrowTransaction,
+  updateEscrowSettings,
 };

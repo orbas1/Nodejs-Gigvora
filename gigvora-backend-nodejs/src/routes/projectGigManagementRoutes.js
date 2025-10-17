@@ -23,5 +23,35 @@ router.patch(
   requireProjectManagementRole,
   asyncHandler(projectGigManagementController.patchGigOrder),
 );
+router.post('/project-bids', requireProjectManagementRole, asyncHandler(projectGigManagementController.storeBid));
+router.patch('/project-bids/:bidId', requireProjectManagementRole, asyncHandler(projectGigManagementController.patchBid));
+router.post('/invitations', requireProjectManagementRole, asyncHandler(projectGigManagementController.storeInvitation));
+router.patch(
+  '/invitations/:invitationId',
+  requireProjectManagementRole,
+  asyncHandler(projectGigManagementController.patchInvitation),
+);
+router.put(
+  '/auto-match/settings',
+  requireProjectManagementRole,
+  asyncHandler(projectGigManagementController.upsertAutoMatchSettings),
+);
+router.post('/auto-match/matches', requireProjectManagementRole, asyncHandler(projectGigManagementController.storeAutoMatch));
+router.patch(
+  '/auto-match/matches/:matchId',
+  requireProjectManagementRole,
+  asyncHandler(projectGigManagementController.patchAutoMatch),
+);
+router.post('/reviews', requireProjectManagementRole, asyncHandler(projectGigManagementController.storeReview));
+router.post(
+  '/escrow/transactions',
+  requireProjectManagementRole,
+  asyncHandler(projectGigManagementController.storeEscrowTransaction),
+);
+router.patch(
+  '/escrow/settings',
+  requireProjectManagementRole,
+  asyncHandler(projectGigManagementController.patchEscrowSettings),
+);
 
 export default router;

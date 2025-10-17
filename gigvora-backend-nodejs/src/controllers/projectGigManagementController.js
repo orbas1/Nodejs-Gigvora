@@ -5,6 +5,16 @@ import {
   updateProjectWorkspace,
   createGigOrder,
   updateGigOrder,
+  createProjectBid,
+  updateProjectBid,
+  sendProjectInvitation,
+  updateProjectInvitation,
+  updateAutoMatchSettings,
+  recordAutoMatchCandidate,
+  updateAutoMatchCandidate,
+  createProjectReview,
+  createEscrowTransaction,
+  updateEscrowSettings,
 } from '../services/projectGigManagementWorkflowService.js';
 import { AuthorizationError } from '../utils/errors.js';
 import {
@@ -178,6 +188,85 @@ export async function patchGigOrder(req, res) {
   res.json({ order: result, dashboard: snapshot });
 }
 
+export async function storeBid(req, res) {
+  const ownerId = parseOwnerId(req);
+  const access = ensureManageAccess(req, ownerId);
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () => createProjectBid(ownerId, req.body));
+  res.status(201).json({ bid: result, dashboard: snapshot });
+}
+
+export async function patchBid(req, res) {
+  const ownerId = parseOwnerId(req);
+  const access = ensureManageAccess(req, ownerId);
+  const bidId = Number.parseInt(req.params?.bidId, 10);
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () => updateProjectBid(ownerId, bidId, req.body));
+  res.json({ bid: result, dashboard: snapshot });
+}
+
+export async function storeInvitation(req, res) {
+  const ownerId = parseOwnerId(req);
+  const access = ensureManageAccess(req, ownerId);
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () => sendProjectInvitation(ownerId, req.body));
+  res.status(201).json({ invitation: result, dashboard: snapshot });
+}
+
+export async function patchInvitation(req, res) {
+  const ownerId = parseOwnerId(req);
+  const access = ensureManageAccess(req, ownerId);
+  const invitationId = Number.parseInt(req.params?.invitationId, 10);
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
+    updateProjectInvitation(ownerId, invitationId, req.body),
+  );
+  res.json({ invitation: result, dashboard: snapshot });
+}
+
+export async function upsertAutoMatchSettings(req, res) {
+  const ownerId = parseOwnerId(req);
+  const access = ensureManageAccess(req, ownerId);
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
+    updateAutoMatchSettings(ownerId, req.body),
+  );
+  res.json({ settings: result, dashboard: snapshot });
+}
+
+export async function storeAutoMatch(req, res) {
+  const ownerId = parseOwnerId(req);
+  const access = ensureManageAccess(req, ownerId);
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () => recordAutoMatchCandidate(ownerId, req.body));
+  res.status(201).json({ match: result, dashboard: snapshot });
+}
+
+export async function patchAutoMatch(req, res) {
+  const ownerId = parseOwnerId(req);
+  const access = ensureManageAccess(req, ownerId);
+  const matchId = Number.parseInt(req.params?.matchId, 10);
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
+    updateAutoMatchCandidate(ownerId, matchId, req.body),
+  );
+  res.json({ match: result, dashboard: snapshot });
+}
+
+export async function storeReview(req, res) {
+  const ownerId = parseOwnerId(req);
+  const access = ensureManageAccess(req, ownerId);
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () => createProjectReview(ownerId, req.body));
+  res.status(201).json({ review: result, dashboard: snapshot });
+}
+
+export async function storeEscrowTransaction(req, res) {
+  const ownerId = parseOwnerId(req);
+  const access = ensureManageAccess(req, ownerId);
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () => createEscrowTransaction(ownerId, req.body));
+  res.status(201).json({ transaction: result, dashboard: snapshot });
+}
+
+export async function patchEscrowSettings(req, res) {
+  const ownerId = parseOwnerId(req);
+  const access = ensureManageAccess(req, ownerId);
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () => updateEscrowSettings(ownerId, req.body));
+  res.json({ account: result, dashboard: snapshot });
+}
+
 export default {
   overview,
   storeProject,
@@ -185,4 +274,14 @@ export default {
   patchWorkspace,
   storeGigOrder,
   patchGigOrder,
+  storeBid,
+  patchBid,
+  storeInvitation,
+  patchInvitation,
+  upsertAutoMatchSettings,
+  storeAutoMatch,
+  patchAutoMatch,
+  storeReview,
+  storeEscrowTransaction,
+  patchEscrowSettings,
 };

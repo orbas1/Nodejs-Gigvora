@@ -41,6 +41,65 @@ export async function updateGigOrder(userId, orderId, payload) {
   return response.data;
 }
 
+export async function createProjectBid(userId, payload) {
+  const response = await apiClient.post(`${BASE_PATH}/${userId}/project-gig-management/project-bids`, payload);
+  return response.data;
+}
+
+export async function updateProjectBid(userId, bidId, payload) {
+  const response = await apiClient.patch(
+    `${BASE_PATH}/${userId}/project-gig-management/project-bids/${bidId}`,
+    payload,
+  );
+  return response.data;
+}
+
+export async function sendProjectInvitation(userId, payload) {
+  const response = await apiClient.post(`${BASE_PATH}/${userId}/project-gig-management/invitations`, payload);
+  return response.data;
+}
+
+export async function updateProjectInvitation(userId, invitationId, payload) {
+  const response = await apiClient.patch(
+    `${BASE_PATH}/${userId}/project-gig-management/invitations/${invitationId}`,
+    payload,
+  );
+  return response.data;
+}
+
+export async function updateAutoMatchSettings(userId, payload) {
+  const response = await apiClient.put(`${BASE_PATH}/${userId}/project-gig-management/auto-match/settings`, payload);
+  return response.data;
+}
+
+export async function createAutoMatch(userId, payload) {
+  const response = await apiClient.post(`${BASE_PATH}/${userId}/project-gig-management/auto-match/matches`, payload);
+  return response.data;
+}
+
+export async function updateAutoMatch(userId, matchId, payload) {
+  const response = await apiClient.patch(
+    `${BASE_PATH}/${userId}/project-gig-management/auto-match/matches/${matchId}`,
+    payload,
+  );
+  return response.data;
+}
+
+export async function createProjectReview(userId, payload) {
+  const response = await apiClient.post(`${BASE_PATH}/${userId}/project-gig-management/reviews`, payload);
+  return response.data;
+}
+
+export async function createEscrowTransaction(userId, payload) {
+  const response = await apiClient.post(`${BASE_PATH}/${userId}/project-gig-management/escrow/transactions`, payload);
+  return response.data;
+}
+
+export async function updateEscrowSettings(userId, payload) {
+  const response = await apiClient.patch(`${BASE_PATH}/${userId}/project-gig-management/escrow/settings`, payload);
+  return response.data;
+}
+
 export default {
   fetchProjectGigManagement,
   createProject,
@@ -48,4 +107,14 @@ export default {
   updateWorkspace,
   createGigOrder,
   updateGigOrder,
+  createProjectBid,
+  updateProjectBid,
+  sendProjectInvitation,
+  updateProjectInvitation,
+  updateAutoMatchSettings,
+  createAutoMatch,
+  updateAutoMatch,
+  createProjectReview,
+  createEscrowTransaction,
+  updateEscrowSettings,
 };
