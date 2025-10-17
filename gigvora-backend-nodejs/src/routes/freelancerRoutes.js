@@ -42,6 +42,18 @@ import {
   appendEvent,
 } from '../controllers/freelancerDisputeController.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import {
+  getTimelineWorkspace,
+  updateTimelineSettings,
+  createTimelineEntry as createTimelineEntryController,
+  updateTimelineEntry as updateTimelineEntryController,
+  deleteTimelineEntry as deleteTimelineEntryController,
+  createTimelinePost as createTimelinePostController,
+  updateTimelinePost as updateTimelinePostController,
+  deleteTimelinePost as deleteTimelinePostController,
+  publishTimelinePost as publishTimelinePostController,
+  recordTimelinePostMetrics,
+} from '../controllers/freelancerTimelineController.js';
 
 const router = Router();
 
@@ -71,6 +83,23 @@ router.post(
 router.patch(
   '/order-pipeline/orders/:orderId/escrow-checkpoints/:checkpointId',
   asyncHandler(updateOrderEscrowCheckpoint),
+);
+
+router.get('/:freelancerId/timeline', asyncHandler(getTimelineWorkspace));
+router.put('/:freelancerId/timeline/settings', asyncHandler(updateTimelineSettings));
+router.post('/:freelancerId/timeline/entries', asyncHandler(createTimelineEntryController));
+router.put('/:freelancerId/timeline/entries/:entryId', asyncHandler(updateTimelineEntryController));
+router.delete('/:freelancerId/timeline/entries/:entryId', asyncHandler(deleteTimelineEntryController));
+router.post('/:freelancerId/timeline/posts', asyncHandler(createTimelinePostController));
+router.put('/:freelancerId/timeline/posts/:postId', asyncHandler(updateTimelinePostController));
+router.delete('/:freelancerId/timeline/posts/:postId', asyncHandler(deleteTimelinePostController));
+router.post(
+  '/:freelancerId/timeline/posts/:postId/publish',
+  asyncHandler(publishTimelinePostController),
+);
+router.post(
+  '/:freelancerId/timeline/posts/:postId/metrics',
+  asyncHandler(recordTimelinePostMetrics),
 );
 
 router.get('/:freelancerId/community-spotlight', asyncHandler(communitySpotlight));

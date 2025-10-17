@@ -17,3 +17,4 @@ export { default as ReferencesSection } from './ReferencesSection.jsx';
 export { default as SupportSection } from './SupportSection.jsx';
 export { default as WorkspaceSettingsSection } from './WorkspaceSettingsSection.jsx';
 export { default as TaskManagementSection } from './TaskManagementSection.jsx';
+export { default as TimelineManagementSection } from './timeline/TimelineManagementSection.jsx';

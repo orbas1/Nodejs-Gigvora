@@ -8,6 +8,7 @@ import {
   ChartBarSquareIcon,
   ClipboardDocumentCheckIcon,
   Cog6ToothIcon,
+  DocumentTextIcon,
   GlobeAltIcon,
   HeartIcon,
   HomeModernIcon,
@@ -24,6 +25,56 @@ import {
 
 export const MENU_GROUPS = [
   {
+    id: 'mission',
+    label: 'Mission',
+    items: [
+      { id: 'profile-overview', name: 'Profile', icon: UserCircleIcon },
+      { id: 'operations-hq', name: 'Ops', icon: HomeModernIcon },
+      { id: 'delivery-ops', name: 'Delivery', icon: ClipboardDocumentCheckIcon },
+      { id: 'task-management', name: 'Tasks', icon: Squares2X2Icon },
+      { id: 'planning', name: 'Calendar', icon: CalendarDaysIcon },
+    ],
+  },
+  {
+    id: 'workspace',
+    label: 'Workspace',
+    items: [
+      { id: 'project-excellence', name: 'Projects', icon: ClipboardDocumentCheckIcon },
+      { id: 'project-lab', name: 'Lab', icon: BriefcaseIcon },
+    ],
+  },
+  {
+    id: 'commerce',
+    label: 'Commerce',
+    items: [
+      { id: 'gig-studio', name: 'Studio', icon: SparklesIcon },
+      { id: 'gig-marketplace', name: 'Market', icon: MegaphoneIcon },
+      { id: 'automation', name: 'Signals', icon: BoltIcon },
+    ],
+  },
+  {
+    id: 'finance',
+    label: 'Finance',
+    items: [
+      { id: 'finance-compliance', name: 'Finance', icon: BanknotesIcon },
+      { id: 'workspace-settings', name: 'Settings', icon: Cog6ToothIcon },
+    ],
+  },
+  {
+    id: 'brand',
+    label: 'Brand',
+    items: [
+      { id: 'profile-showcase', name: 'Showcase', icon: PhotoIcon },
+      { id: 'references', name: 'Reviews', icon: ChatBubbleBottomCenterTextIcon },
+      { id: 'timeline-management', name: 'Timeline', icon: DocumentTextIcon },
+      { id: 'network', name: 'Network', icon: UserGroupIcon },
+      { id: 'growth-partnerships', name: 'Growth', icon: ArrowTrendingUpIcon },
+    ],
+  },
+  {
+    id: 'quick',
+    label: 'Quick',
+    items: [{ id: 'quick-access', name: 'Launch', icon: RectangleStackIcon }],
     id: 'mission-control',
     label: 'Mission',
     items: [
@@ -170,6 +221,7 @@ export const MENU_GROUPS = [
   {
     id: 'support',
     label: 'Support',
+    items: [{ id: 'support', name: 'Help', icon: LifebuoyIcon }],
     items: [
       {
         id: 'support',
