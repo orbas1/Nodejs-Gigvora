@@ -23,6 +23,7 @@ router.patch(
   requireProjectManagementRole,
   asyncHandler(projectGigManagementController.patchGigOrder),
 );
+router.get('/gig-orders/:orderId', asyncHandler(projectGigManagementController.showGigOrder));
 router.post(
   '/gig-orders/:orderId/timeline',
   requireProjectManagementRole,
@@ -47,6 +48,11 @@ router.post(
   '/gig-orders/:orderId/chat',
   requireProjectManagementRole,
   asyncHandler(projectGigManagementController.storeGigChatMessage),
+);
+router.post(
+  '/gig-orders/:orderId/chat/:messageId/acknowledge',
+  requireProjectManagementRole,
+  asyncHandler(projectGigManagementController.acknowledgeGigMessage),
 );
 
 export default router;

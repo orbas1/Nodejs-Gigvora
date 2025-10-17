@@ -36,12 +36,29 @@ import AdminLoginPage from './pages/AdminLoginPage.jsx';
 import UserDashboardPage from './pages/dashboards/UserDashboardPage.jsx';
 import FreelancerDashboardPage from './pages/dashboards/FreelancerDashboardPage.jsx';
 import FreelancerPipelinePage from './pages/dashboards/FreelancerPipelinePage.jsx';
+import FreelancerDisputesPage from './pages/dashboards/freelancer/FreelancerDisputesPage.jsx';
 import CompanyDashboardPage from './pages/dashboards/CompanyDashboardPage.jsx';
 import CompanyAtsOperationsPage from './pages/dashboards/CompanyAtsOperationsPage.jsx';
 import CompanyAnalyticsPage from './pages/dashboards/CompanyAnalyticsPage.jsx';
 import CompanyIntegrationsPage from './pages/dashboards/CompanyIntegrationsPage.jsx';
 import CompanyNetworkingHubPage from './pages/networking/CompanyNetworkingHubPage.jsx';
 import AgencyDashboardPage from './pages/dashboards/AgencyDashboardPage.jsx';
+import AgencyCalendarPage from './pages/dashboards/agency/AgencyCalendarPage.jsx';
+import AgencyJobManagementPage from './pages/dashboards/agency/AgencyJobManagementPage.jsx';
+import AgencyMentoringPage from './pages/dashboards/AgencyMentoringPage.jsx';
+import AgencyProjectManagementPage from './pages/dashboards/AgencyProjectManagementPage.jsx';
+import ProjectWorkspacePage from './pages/dashboards/agency/ProjectWorkspacePage.jsx';
+import AgencyInboxPage from './pages/dashboards/agency/AgencyInboxPage.jsx';
+import AgencyBlogManagementPage from './pages/dashboards/AgencyBlogManagementPage.jsx';
+import AgencyTimelineDashboardPage from './pages/dashboards/agency/AgencyTimelineDashboardPage.jsx';
+import AgencyWalletManagementPage from './pages/dashboards/agency/AgencyWalletManagementPage.jsx';
+import DisputeManagementPage from './pages/dashboards/agency/DisputeManagementPage.jsx';
+import AgencyEscrowManagementPage from './pages/dashboards/agency/AgencyEscrowManagementPage.jsx';
+import AgencyCrmPipelinePage from './pages/dashboards/AgencyCrmPipelinePage.jsx';
+import AgencyIntegrationsPage from './pages/dashboards/AgencyIntegrationsPage.jsx';
+import AgencyAiAutomationPage from './pages/dashboards/AgencyAiAutomationPage.jsx';
+import AgencyProfileManagementPage from './pages/dashboards/AgencyProfileManagementPage.jsx';
+import AgencyClientKanbanPage from './pages/dashboards/AgencyClientKanbanPage.jsx';
 import HeadhunterDashboardPage from './pages/dashboards/HeadhunterDashboardPage.jsx';
 import MentorDashboardPage from './pages/dashboards/MentorDashboardPage.jsx';
 import LaunchpadOperationsPage from './pages/dashboards/LaunchpadOperationsPage.jsx';
@@ -175,6 +192,15 @@ export default function App() {
       />
 
       <Route
+        path="dashboard/freelancer/disputes"
+        element={
+          <RequireRole allowedRoles={['freelancer']}>
+            <FreelancerDisputesPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/company"
         element={
           <RequireRole allowedRoles={['company']}>
@@ -222,8 +248,127 @@ export default function App() {
       <Route
         path="dashboard/agency"
         element={
-          <RequireRole allowedRoles={['agency']}>
+          <RequireRole allowedRoles={['agency', 'agency_admin']}>
+          <RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}>
             <AgencyDashboardPage />
+          </RequireRole>
+        }
+      />
+      <Route
+        path="dashboard/agency/disputes"
+        element={
+          <RequireRole allowedRoles={['agency']}>
+            <DisputeManagementPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
+        path="dashboard/agency/escrow"
+        element={
+          <RequireRole allowedRoles={['agency']}>
+            <AgencyEscrowManagementPage />
+        path="dashboard/agency/crm"
+        element={
+          <RequireRole allowedRoles={['agency', 'agency_admin']}>
+            <AgencyCrmPipelinePage />
+        path="dashboard/agency/integrations"
+        element={
+          <RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}>
+            <AgencyIntegrationsPage />
+        path="dashboard/agency/ai"
+        element={
+          <RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}>
+            <AgencyAiAutomationPage />
+        path="dashboard/agency/profile"
+        element={
+          <RequireRole allowedRoles={['agency']}>
+            <AgencyProfileManagementPage />
+        path="dashboard/agency/client-kanban"
+        element={
+          <RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}>
+            <AgencyClientKanbanPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
+        path="dashboard/agency/wallet"
+        element={
+          <RequireRole allowedRoles={['agency']}>
+            <AgencyWalletManagementPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
+        path="dashboard/agency/timeline"
+        element={
+          <RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}>
+            <AgencyTimelineDashboardPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
+        path="dashboard/agency/blog"
+        element={
+          <RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}>
+            <AgencyBlogManagementPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
+        path="dashboard/agency/inbox"
+        element={
+          <RequireRole allowedRoles={['agency']}>
+            <AgencyInboxPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
+        path="dashboard/agency/workspace"
+        element={
+          <RequireRole allowedRoles={['agency']}>
+            <ProjectWorkspacePage />
+          </RequireRole>
+        }
+      />
+
+      <Route
+        path="dashboard/agency/projects"
+        element={
+          <RequireRole allowedRoles={['agency']}>
+            <AgencyProjectManagementPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
+        path="dashboard/agency/mentoring"
+        element={
+          <RequireRole allowedRoles={['agency']}>
+            <AgencyMentoringPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
+        path="dashboard/agency/job-management"
+        element={
+          <RequireRole allowedRoles={['agency']}>
+            <AgencyJobManagementPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
+        path="dashboard/agency/calendar"
+        element={
+          <RequireRole allowedRoles={['agency']}>
+            <AgencyCalendarPage />
           </RequireRole>
         }
       />

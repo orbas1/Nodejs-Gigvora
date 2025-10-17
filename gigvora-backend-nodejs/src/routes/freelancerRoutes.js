@@ -35,7 +35,25 @@ import {
   updateSuccessMetrics,
   updateTestimonials,
 } from '../controllers/freelancerProfileController.js';
+import {
+  listDisputes,
+  createDispute,
+  showDispute,
+  appendEvent,
+} from '../controllers/freelancerDisputeController.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import {
+  getTimelineWorkspace,
+  updateTimelineSettings,
+  createTimelineEntry as createTimelineEntryController,
+  updateTimelineEntry as updateTimelineEntryController,
+  deleteTimelineEntry as deleteTimelineEntryController,
+  createTimelinePost as createTimelinePostController,
+  updateTimelinePost as updateTimelinePostController,
+  deleteTimelinePost as deleteTimelinePostController,
+  publishTimelinePost as publishTimelinePostController,
+  recordTimelinePostMetrics,
+} from '../controllers/freelancerTimelineController.js';
 
 const router = Router();
 
@@ -67,6 +85,23 @@ router.patch(
   asyncHandler(updateOrderEscrowCheckpoint),
 );
 
+router.get('/:freelancerId/timeline', asyncHandler(getTimelineWorkspace));
+router.put('/:freelancerId/timeline/settings', asyncHandler(updateTimelineSettings));
+router.post('/:freelancerId/timeline/entries', asyncHandler(createTimelineEntryController));
+router.put('/:freelancerId/timeline/entries/:entryId', asyncHandler(updateTimelineEntryController));
+router.delete('/:freelancerId/timeline/entries/:entryId', asyncHandler(deleteTimelineEntryController));
+router.post('/:freelancerId/timeline/posts', asyncHandler(createTimelinePostController));
+router.put('/:freelancerId/timeline/posts/:postId', asyncHandler(updateTimelinePostController));
+router.delete('/:freelancerId/timeline/posts/:postId', asyncHandler(deleteTimelinePostController));
+router.post(
+  '/:freelancerId/timeline/posts/:postId/publish',
+  asyncHandler(publishTimelinePostController),
+);
+router.post(
+  '/:freelancerId/timeline/posts/:postId/metrics',
+  asyncHandler(recordTimelinePostMetrics),
+);
+
 router.get('/:freelancerId/community-spotlight', asyncHandler(communitySpotlight));
 router.get('/:freelancerId/client-success/overview', asyncHandler(clientSuccessOverview));
 router.post('/:freelancerId/client-success/playbooks', asyncHandler(storePlaybook));
@@ -91,6 +126,11 @@ router.get(
   '/:freelancerId/agency-collaborations',
   asyncHandler(collaborationsOverview),
 );
+
+router.get('/:freelancerId/disputes', asyncHandler(listDisputes));
+router.post('/:freelancerId/disputes', asyncHandler(createDispute));
+router.get('/:freelancerId/disputes/:disputeId', asyncHandler(showDispute));
+router.post('/:freelancerId/disputes/:disputeId/events', asyncHandler(appendEvent));
 
 router.get('/:userId/profile-hub', asyncHandler(getProfileHub));
 router.put('/:userId/profile-hub', asyncHandler(updateProfileHub));

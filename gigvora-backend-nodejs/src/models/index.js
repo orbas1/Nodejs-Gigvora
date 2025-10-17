@@ -4,15 +4,10 @@ import { domainMetadata } from '../domains/domainMetadata.js';
 import logger from '../utils/logger.js';
 import { PlatformSetting } from './platformSetting.js';
 import { RuntimeSecurityAuditEvent } from './runtimeSecurityAuditEvent.js';
+import './agencyWorkforceModels.js';
 import { RbacPolicyAuditEvent } from './rbacPolicyAuditEvent.js';
 import { RuntimeAnnouncement } from './runtimeAnnouncement.js';
-import {
-  ConsentPolicy,
-  ConsentPolicyVersion,
-  UserConsent,
-  ConsentAuditEvent,
-} from './consentModels.js';
-
+import { UserConsent } from './consentModels.js';
 import { buildLocationDetails } from '../utils/location.js';
 
 import {
@@ -24,6 +19,7 @@ import {
   BlogTag,
   registerBlogAssociations,
 } from './blogModels.js';
+import { AgencyAiConfiguration, AgencyAutoBidTemplate } from './agencyAiModels.js';
 import {
   PROFILE_AVAILABILITY_STATUSES, PROFILE_APPRECIATION_TYPES, PROFILE_FOLLOWER_STATUSES, PROFILE_ENGAGEMENT_JOB_STATUSES,
   GROUP_VISIBILITIES, GROUP_MEMBER_POLICIES, GROUP_MEMBERSHIP_STATUSES, GROUP_MEMBERSHIP_ROLES,
@@ -46,7 +42,10 @@ import {
   AGENCY_ALLIANCE_POD_STATUSES, AGENCY_ALLIANCE_RATE_CARD_STATUSES, AGENCY_ALLIANCE_RATE_CARD_APPROVAL_STATUSES, AGENCY_ALLIANCE_REVENUE_SPLIT_TYPES,
   AGENCY_ALLIANCE_REVENUE_SPLIT_STATUSES, AGENCY_COLLABORATION_STATUSES, AGENCY_COLLABORATION_TYPES, AGENCY_INVITATION_STATUSES,
   AGENCY_RATE_CARD_STATUSES, AGENCY_RATE_CARD_ITEM_UNIT_TYPES, AGENCY_RETAINER_NEGOTIATION_STATUSES, AGENCY_RETAINER_NEGOTIATION_STAGES,
-  AGENCY_RETAINER_EVENT_ACTOR_TYPES, AGENCY_RETAINER_EVENT_TYPES, ESCROW_ACCOUNT_STATUSES, ESCROW_TRANSACTION_TYPES,
+  AGENCY_RETAINER_EVENT_ACTOR_TYPES, AGENCY_RETAINER_EVENT_TYPES, AGENCY_MENTORING_SESSION_STATUSES, AGENCY_MENTORING_PURCHASE_STATUSES,
+  AGENCY_MENTOR_PREFERENCE_LEVELS, ESCROW_ACCOUNT_STATUSES, ESCROW_TRANSACTION_TYPES,
+  AGENCY_RETAINER_EVENT_ACTOR_TYPES, AGENCY_RETAINER_EVENT_TYPES, AGENCY_TIMELINE_POST_STATUSES,
+  AGENCY_TIMELINE_VISIBILITIES, AGENCY_TIMELINE_DISTRIBUTION_CHANNELS, ESCROW_ACCOUNT_STATUSES, ESCROW_TRANSACTION_TYPES,
   HEADHUNTER_INVITE_STATUSES, HEADHUNTER_BRIEF_STATUSES, HEADHUNTER_ASSIGNMENT_STATUSES, HEADHUNTER_COMMISSION_STATUSES,
   TALENT_POOL_TYPES, TALENT_POOL_STATUSES, TALENT_POOL_MEMBER_STATUSES, TALENT_POOL_MEMBER_SOURCE_TYPES,
   TALENT_POOL_ENGAGEMENT_TYPES, AGENCY_BILLING_STATUSES, ESCROW_TRANSACTION_STATUSES, ID_VERIFICATION_STATUSES,
@@ -69,7 +68,8 @@ import {
   INTERNAL_OPPORTUNITY_CATEGORIES, INTERNAL_MATCH_STATUSES, BRANDING_ASSET_TYPES, BRANDING_ASSET_STATUSES,
   BRANDING_APPROVAL_STATUSES, EMPLOYER_BRAND_STORY_TYPES, EMPLOYER_BRAND_STORY_STATUSES, EMPLOYER_BENEFIT_CATEGORIES,
   EMPLOYEE_JOURNEY_PROGRAM_TYPES, EMPLOYEE_JOURNEY_HEALTH_STATUSES, WORKSPACE_INTEGRATION_CATEGORIES, WORKSPACE_INTEGRATION_STATUSES,
-  WORKSPACE_INTEGRATION_SYNC_FREQUENCIES, WORKSPACE_CALENDAR_CONNECTION_STATUSES, CAREER_DOCUMENT_TYPES, CAREER_DOCUMENT_STATUSES,
+  WORKSPACE_INTEGRATION_SYNC_FREQUENCIES, WORKSPACE_INTEGRATION_SECRET_TYPES, WORKSPACE_INTEGRATION_WEBHOOK_STATUSES,
+  WORKSPACE_INTEGRATION_AUDIT_EVENT_TYPES, WORKSPACE_CALENDAR_CONNECTION_STATUSES, CAREER_DOCUMENT_TYPES, CAREER_DOCUMENT_STATUSES,
   CAREER_DOCUMENT_VERSION_APPROVAL_STATUSES, CAREER_DOCUMENT_COLLABORATOR_ROLES, CAREER_DOCUMENT_EXPORT_FORMATS, CAREER_DOCUMENT_ANALYTICS_VIEWER_TYPES,
   CAREER_STORY_BLOCK_TONES, CAREER_STORY_BLOCK_STATUSES, CAREER_BRAND_ASSET_TYPES, CAREER_BRAND_ASSET_STATUSES,
   CAREER_BRAND_ASSET_APPROVAL_STATUSES, CAREER_PIPELINE_STAGE_TYPES, CAREER_PIPELINE_STAGE_OUTCOMES, CAREER_OPPORTUNITY_FOLLOW_UP_STATUSES,
@@ -119,10 +119,12 @@ const dialect = sequelize.getDialect();
 const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB : DataTypes.JSON;
 
 export * from './constants/index.js';
+export * from './agencyJobModels.js';
 export { BlogCategory, BlogMedia, BlogPost, BlogPostMedia, BlogPostTag, BlogTag } from './blogModels.js';
 export { ConsentPolicy, ConsentPolicyVersion, UserConsent, ConsentAuditEvent } from './consentModels.js';
 export { RuntimeSecurityAuditEvent } from './runtimeSecurityAuditEvent.js';
 export { RbacPolicyAuditEvent } from './rbacPolicyAuditEvent.js';
+export { AgencyAiConfiguration, AgencyAutoBidTemplate } from './agencyAiModels.js';
 
 const PIPELINE_OWNER_TYPES = ['freelancer', 'agency', 'company'];
 const TWO_FACTOR_METHODS = ['email', 'app', 'sms'];
@@ -131,6 +133,31 @@ const GIG_PREVIEW_DEVICE_TYPES = ['desktop', 'tablet', 'mobile'];
 const FEATURE_FLAG_ROLLOUT_TYPES = ['global', 'percentage', 'cohort'];
 const FEATURE_FLAG_STATUSES = ['draft', 'active', 'disabled'];
 const FEATURE_FLAG_AUDIENCE_TYPES = ['user', 'workspace', 'membership', 'domain'];
+const AGENCY_CALENDAR_EVENT_TYPES = ['project', 'interview', 'gig', 'mentorship', 'volunteering'];
+const AGENCY_CALENDAR_EVENT_STATUSES = ['planned', 'confirmed', 'completed', 'cancelled', 'tentative'];
+const AGENCY_CALENDAR_EVENT_VISIBILITIES = ['internal', 'client', 'public'];
+export const AGENCY_PROFILE_MEDIA_ALLOWED_TYPES = ['image', 'video', 'banner'];
+export const AGENCY_PROFILE_CREDENTIAL_TYPES = ['qualification', 'certificate'];
+
+export const AGENCY_CREATION_TARGET_TYPES = [
+  'project',
+  'gig',
+  'job',
+  'launchpad_job',
+  'launchpad_project',
+  'volunteer_opportunity',
+  'networking_session',
+  'blog_post',
+  'group',
+  'page',
+  'ad',
+];
+
+export const AGENCY_CREATION_STATUSES = ['draft', 'in_review', 'scheduled', 'published', 'archived'];
+export const AGENCY_CREATION_PRIORITIES = ['low', 'medium', 'high', 'urgent'];
+export const AGENCY_CREATION_VISIBILITIES = ['internal', 'restricted', 'public'];
+export const AGENCY_CREATION_ASSET_TYPES = ['image', 'video', 'document', 'link'];
+export const AGENCY_CREATION_COLLABORATOR_STATUSES = ['invited', 'active', 'declined', 'removed'];
 
 export const User = sequelize.define(
   'User',
@@ -365,6 +392,28 @@ export const CompanyProfile = sequelize.define(
   { tableName: 'company_profiles' },
 );
 
+export const CompanyDashboardOverview = sequelize.define(
+  'CompanyDashboardOverview',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    displayName: { type: DataTypes.STRING(150), allowNull: false },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    avatarUrl: { type: DataTypes.STRING(1024), allowNull: true },
+    followerCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    trustScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    rating: { type: DataTypes.DECIMAL(3, 2), allowNull: true },
+    preferences: { type: jsonType, allowNull: true },
+    lastEditedById: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  {
+    tableName: 'company_dashboard_overviews',
+    indexes: [
+      { unique: true, fields: ['workspaceId'] },
+      { fields: ['lastEditedById'] },
+    ],
+  },
+);
+
 export const AgencyProfile = sequelize.define(
   'AgencyProfile',
   {
@@ -374,8 +423,240 @@ export const AgencyProfile = sequelize.define(
     website: { type: DataTypes.STRING(255), allowNull: true },
     location: { type: DataTypes.STRING(255), allowNull: true },
     geoLocation: { type: jsonType, allowNull: true },
+    tagline: { type: DataTypes.STRING(160), allowNull: true },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    about: { type: DataTypes.TEXT, allowNull: true },
+    services: { type: jsonType, allowNull: true },
+    industries: { type: jsonType, allowNull: true },
+    clients: { type: jsonType, allowNull: true },
+    awards: { type: jsonType, allowNull: true },
+    socialLinks: { type: jsonType, allowNull: true },
+    teamSize: { type: DataTypes.INTEGER, allowNull: true },
+    foundedYear: { type: DataTypes.INTEGER, allowNull: true },
+    primaryContactName: { type: DataTypes.STRING(160), allowNull: true },
+    primaryContactEmail: { type: DataTypes.STRING(255), allowNull: true },
+    primaryContactPhone: { type: DataTypes.STRING(60), allowNull: true },
+    brandColor: { type: DataTypes.STRING(12), allowNull: true },
+    bannerUrl: { type: DataTypes.STRING(500), allowNull: true },
+    avatarUrl: { type: DataTypes.STRING(500), allowNull: true },
+    avatarStorageKey: { type: DataTypes.STRING(500), allowNull: true },
+    autoAcceptFollowers: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    defaultConnectionMessage: { type: DataTypes.TEXT, allowNull: true },
+    followerPolicy: {
+      type: DataTypes.ENUM('open', 'approval_required', 'closed'),
+      allowNull: false,
+      defaultValue: 'open',
+    },
+    connectionPolicy: {
+      type: DataTypes.ENUM('open', 'invite_only', 'manual_review'),
+      allowNull: false,
+      defaultValue: 'open',
+    },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    introVideoUrl: { type: DataTypes.STRING(500), allowNull: true },
+    bannerImageUrl: { type: DataTypes.STRING(500), allowNull: true },
+    profileImageUrl: { type: DataTypes.STRING(500), allowNull: true },
+    workforceAvailable: { type: DataTypes.INTEGER, allowNull: true },
+    workforceNotes: { type: DataTypes.STRING(255), allowNull: true },
   },
   { tableName: 'agency_profiles' },
+);
+
+export const AgencyCreationItem = sequelize.define(
+  'AgencyCreationItem',
+  {
+    agencyProfileId: { type: DataTypes.INTEGER, allowNull: false },
+    ownerWorkspaceId: { type: DataTypes.INTEGER, allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: false },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    slug: { type: DataTypes.STRING(200), allowNull: true },
+    targetType: {
+      type: DataTypes.ENUM(...AGENCY_CREATION_TARGET_TYPES),
+      allowNull: false,
+      validate: { isIn: [AGENCY_CREATION_TARGET_TYPES] },
+    },
+    status: {
+      type: DataTypes.ENUM(...AGENCY_CREATION_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [AGENCY_CREATION_STATUSES] },
+    },
+    priority: {
+      type: DataTypes.ENUM(...AGENCY_CREATION_PRIORITIES),
+      allowNull: false,
+      defaultValue: 'medium',
+      validate: { isIn: [AGENCY_CREATION_PRIORITIES] },
+    },
+    visibility: {
+      type: DataTypes.ENUM(...AGENCY_CREATION_VISIBILITIES),
+      allowNull: false,
+      defaultValue: 'internal',
+      validate: { isIn: [AGENCY_CREATION_VISIBILITIES] },
+    },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    description: { type: DataTypes.TEXT('long'), allowNull: true },
+    callToAction: { type: DataTypes.STRING(160), allowNull: true },
+    ctaUrl: { type: DataTypes.STRING(500), allowNull: true },
+    applicationInstructions: { type: DataTypes.TEXT, allowNull: true },
+    requirements: { type: jsonType, allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    timezone: { type: DataTypes.STRING(120), allowNull: true },
+    launchDate: { type: DataTypes.DATE, allowNull: true },
+    closingDate: { type: DataTypes.DATE, allowNull: true },
+    budgetAmount: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    budgetCurrency: { type: DataTypes.STRING(6), allowNull: true },
+    capacityNeeded: { type: DataTypes.INTEGER, allowNull: true },
+    expectedAttendees: { type: DataTypes.INTEGER, allowNull: true },
+    experienceLevel: { type: DataTypes.STRING(120), allowNull: true },
+    audience: { type: jsonType, allowNull: true },
+    autoShareChannels: { type: jsonType, allowNull: true },
+    settings: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    contactEmail: { type: DataTypes.STRING(180), allowNull: true },
+    contactPhone: { type: DataTypes.STRING(60), allowNull: true },
+  },
+  { tableName: 'agency_creation_items' },
+);
+
+export const AgencyCreationAsset = sequelize.define(
+  'AgencyCreationAsset',
+  {
+    itemId: { type: DataTypes.INTEGER, allowNull: false },
+    uploadedById: { type: DataTypes.INTEGER, allowNull: true },
+    label: { type: DataTypes.STRING(160), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    assetType: {
+      type: DataTypes.ENUM(...AGENCY_CREATION_ASSET_TYPES),
+      allowNull: false,
+      defaultValue: 'link',
+      validate: { isIn: [AGENCY_CREATION_ASSET_TYPES] },
+    },
+    url: { type: DataTypes.STRING(500), allowNull: false },
+    thumbnailUrl: { type: DataTypes.STRING(500), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'agency_creation_item_assets' },
+);
+
+export const AgencyCreationCollaborator = sequelize.define(
+  'AgencyCreationCollaborator',
+  {
+    itemId: { type: DataTypes.INTEGER, allowNull: false },
+    collaboratorId: { type: DataTypes.INTEGER, allowNull: true },
+    collaboratorEmail: { type: DataTypes.STRING(255), allowNull: true },
+    collaboratorName: { type: DataTypes.STRING(160), allowNull: true },
+    role: { type: DataTypes.STRING(120), allowNull: false, defaultValue: 'Contributor' },
+    status: {
+      type: DataTypes.ENUM(...AGENCY_CREATION_COLLABORATOR_STATUSES),
+      allowNull: false,
+      defaultValue: 'invited',
+      validate: { isIn: [AGENCY_CREATION_COLLABORATOR_STATUSES] },
+    },
+    permissions: { type: jsonType, allowNull: true },
+    addedById: { type: DataTypes.INTEGER, allowNull: true },
+    invitedAt: { type: DataTypes.DATE, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  { tableName: 'agency_creation_collaborators' },
+export const AgencyTimelinePost = sequelize.define(
+  'AgencyTimelinePost',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    ownerId: { type: DataTypes.INTEGER, allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    slug: { type: DataTypes.STRING(200), allowNull: false, unique: true },
+    excerpt: { type: DataTypes.STRING(500), allowNull: true },
+    content: { type: DataTypes.TEXT, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...AGENCY_TIMELINE_POST_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [AGENCY_TIMELINE_POST_STATUSES] },
+    },
+    visibility: {
+      type: DataTypes.ENUM(...AGENCY_TIMELINE_VISIBILITIES),
+      allowNull: false,
+      defaultValue: 'internal',
+      validate: { isIn: [AGENCY_TIMELINE_VISIBILITIES] },
+    },
+    scheduledAt: { type: DataTypes.DATE, allowNull: true },
+    publishedAt: { type: DataTypes.DATE, allowNull: true },
+    archivedAt: { type: DataTypes.DATE, allowNull: true },
+    lastSentAt: { type: DataTypes.DATE, allowNull: true },
+    heroImageUrl: { type: DataTypes.STRING(512), allowNull: true },
+    thumbnailUrl: { type: DataTypes.STRING(512), allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    attachments: { type: jsonType, allowNull: true },
+    distributionChannels: { type: jsonType, allowNull: true },
+    audienceRoles: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: false, defaultValue: {} },
+    engagementScore: { type: DataTypes.DECIMAL(9, 4), allowNull: false, defaultValue: 0 },
+  },
+  {
+    tableName: 'agency_timeline_posts',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['status'] },
+      { fields: ['publishedAt'] },
+      { fields: ['scheduledAt'] },
+      { unique: true, fields: ['slug'] },
+    ],
+  },
+);
+
+export const AgencyTimelinePostRevision = sequelize.define(
+  'AgencyTimelinePostRevision',
+  {
+    postId: { type: DataTypes.INTEGER, allowNull: false },
+    editorId: { type: DataTypes.INTEGER, allowNull: true },
+    version: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
+    title: { type: DataTypes.STRING(180), allowNull: true },
+    excerpt: { type: DataTypes.STRING(500), allowNull: true },
+    content: { type: DataTypes.TEXT, allowNull: true },
+    changeSummary: { type: DataTypes.STRING(400), allowNull: true },
+    diff: { type: jsonType, allowNull: true },
+    snapshot: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'agency_timeline_post_revisions',
+    indexes: [
+      { fields: ['postId'] },
+      { unique: true, fields: ['postId', 'version'] },
+    ],
+  },
+);
+
+export const AgencyTimelinePostMetric = sequelize.define(
+  'AgencyTimelinePostMetric',
+  {
+    postId: { type: DataTypes.INTEGER, allowNull: false },
+    periodStart: { type: DataTypes.DATE, allowNull: false },
+    periodEnd: { type: DataTypes.DATE, allowNull: false },
+    channel: { type: DataTypes.STRING(80), allowNull: true },
+    impressions: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    clicks: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    engagements: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    shares: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    comments: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    leads: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    audience: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    conversionRate: { type: DataTypes.DECIMAL(8, 4), allowNull: false, defaultValue: 0 },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'agency_timeline_post_metrics',
+    indexes: [
+      { fields: ['postId'] },
+      { fields: ['periodStart'] },
+      { fields: ['periodEnd'] },
+      { fields: ['channel'] },
+      { unique: true, fields: ['postId', 'periodStart', 'periodEnd', 'channel'] },
+    ],
+  },
 );
 
 export const FreelancerProfile = sequelize.define(
@@ -389,6 +670,133 @@ export const FreelancerProfile = sequelize.define(
     geoLocation: { type: jsonType, allowNull: true },
   },
   { tableName: 'freelancer_profiles' },
+);
+
+export const AgencyProfileMedia = sequelize.define(
+  'AgencyProfileMedia',
+  {
+    agencyProfileId: { type: DataTypes.INTEGER, allowNull: false },
+    type: {
+      type: DataTypes.STRING(32),
+      allowNull: false,
+      defaultValue: 'image',
+      validate: { isIn: [AGENCY_PROFILE_MEDIA_ALLOWED_TYPES] },
+    },
+    title: { type: DataTypes.STRING(160), allowNull: true },
+    url: { type: DataTypes.STRING(2048), allowNull: false },
+    altText: { type: DataTypes.STRING(255), allowNull: true },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    position: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'agency_profile_media',
+    indexes: [
+      { fields: ['agencyProfileId'] },
+      { fields: ['agencyProfileId', 'type'] },
+      { fields: ['position'] },
+    ],
+  },
+);
+
+export const AgencyProfileSkill = sequelize.define(
+  'AgencyProfileSkill',
+  {
+    agencyProfileId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(120), allowNull: false },
+    category: { type: DataTypes.STRING(120), allowNull: true },
+    proficiency: { type: DataTypes.INTEGER, allowNull: true },
+    experienceYears: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    isFeatured: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    position: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  },
+  {
+    tableName: 'agency_profile_skills',
+    indexes: [
+      { fields: ['agencyProfileId'] },
+      { fields: ['agencyProfileId', 'name'] },
+    ],
+  },
+);
+
+export const AgencyProfileCredential = sequelize.define(
+  'AgencyProfileCredential',
+  {
+    agencyProfileId: { type: DataTypes.INTEGER, allowNull: false },
+    type: {
+      type: DataTypes.STRING(32),
+      allowNull: false,
+      defaultValue: 'qualification',
+      validate: { isIn: [AGENCY_PROFILE_CREDENTIAL_TYPES] },
+    },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    issuer: { type: DataTypes.STRING(180), allowNull: true },
+    issuedAt: { type: DataTypes.DATEONLY, allowNull: true },
+    expiresAt: { type: DataTypes.DATEONLY, allowNull: true },
+    credentialUrl: { type: DataTypes.STRING(500), allowNull: true },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    referenceId: { type: DataTypes.STRING(120), allowNull: true },
+    verificationStatus: { type: DataTypes.STRING(60), allowNull: true },
+  },
+  {
+    tableName: 'agency_profile_credentials',
+    indexes: [
+      { fields: ['agencyProfileId'] },
+      { fields: ['agencyProfileId', 'type'] },
+      { fields: ['issuedAt'] },
+    ],
+  },
+);
+
+export const AgencyProfileExperience = sequelize.define(
+  'AgencyProfileExperience',
+  {
+    agencyProfileId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    client: { type: DataTypes.STRING(180), allowNull: true },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    startDate: { type: DataTypes.DATEONLY, allowNull: true },
+    endDate: { type: DataTypes.DATEONLY, allowNull: true },
+    isCurrent: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    impact: { type: DataTypes.TEXT, allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    heroImageUrl: { type: DataTypes.STRING(500), allowNull: true },
+    position: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  },
+  {
+    tableName: 'agency_profile_experiences',
+    indexes: [
+      { fields: ['agencyProfileId'] },
+      { fields: ['agencyProfileId', 'isCurrent'] },
+      { fields: ['position'] },
+    ],
+  },
+);
+
+export const AgencyProfileWorkforceSegment = sequelize.define(
+  'AgencyProfileWorkforceSegment',
+  {
+    agencyProfileId: { type: DataTypes.INTEGER, allowNull: false },
+    segmentName: { type: DataTypes.STRING(180), allowNull: false },
+    specialization: { type: DataTypes.STRING(180), allowNull: true },
+    availableCount: { type: DataTypes.INTEGER, allowNull: true },
+    totalCount: { type: DataTypes.INTEGER, allowNull: true },
+    deliveryModel: { type: DataTypes.STRING(60), allowNull: true },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    availabilityNotes: { type: DataTypes.TEXT, allowNull: true },
+    averageBillRate: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    currency: { type: DataTypes.STRING(6), allowNull: true },
+    leadTimeDays: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    position: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  },
+  {
+    tableName: 'agency_profile_workforce_segments',
+    indexes: [
+      { fields: ['agencyProfileId'] },
+      { fields: ['agencyProfileId', 'segmentName'] },
+    ],
+  },
 );
 
 export const IdentityVerification = sequelize.define(
@@ -628,6 +1036,8 @@ export const WalletAccount = sequelize.define(
   {
     userId: { type: DataTypes.INTEGER, allowNull: false },
     profileId: { type: DataTypes.INTEGER, allowNull: false },
+    workspaceId: { type: DataTypes.INTEGER, allowNull: true },
+    displayName: { type: DataTypes.STRING(120), allowNull: true },
     accountType: {
       type: DataTypes.ENUM(...WALLET_ACCOUNT_TYPES),
       allowNull: false,
@@ -673,6 +1083,8 @@ WalletAccount.prototype.toPublicObject = function toPublicObject() {
     id: plain.id,
     userId: plain.userId,
     profileId: plain.profileId,
+    workspaceId: plain.workspaceId,
+    displayName: plain.displayName ?? null,
     accountType: plain.accountType,
     custodyProvider: plain.custodyProvider,
     providerAccountId: plain.providerAccountId,
@@ -732,6 +1144,232 @@ WalletLedgerEntry.prototype.toPublicObject = function toPublicObject() {
     initiatedById: plain.initiatedById,
     occurredAt: plain.occurredAt,
     balanceAfter: Number.parseFloat(plain.balanceAfter ?? 0),
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+const WALLET_FUNDING_SOURCE_TYPES = ['bank_account', 'virtual_account', 'card', 'wallet'];
+const WALLET_FUNDING_SOURCE_STATUSES = ['active', 'inactive', 'pending_verification', 'disabled'];
+const WALLET_TRANSFER_RULE_TRIGGER_TYPES = ['low_balance', 'schedule', 'manual'];
+const WALLET_PAYOUT_REQUEST_STATUSES = [
+  'draft',
+  'pending_review',
+  'approved',
+  'scheduled',
+  'rejected',
+  'cancelled',
+  'completed',
+];
+const WALLET_RISK_TIERS = ['low', 'medium', 'high', 'critical'];
+
+export const WalletFundingSource = sequelize.define(
+  'WalletFundingSource',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    label: { type: DataTypes.STRING(160), allowNull: false },
+    type: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'bank_account',
+      validate: { isIn: [WALLET_FUNDING_SOURCE_TYPES] },
+    },
+    provider: { type: DataTypes.STRING(120), allowNull: true },
+    accountNumberLast4: { type: DataTypes.STRING(12), allowNull: true },
+    currencyCode: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    status: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'active',
+      validate: { isIn: [WALLET_FUNDING_SOURCE_STATUSES] },
+    },
+    isPrimary: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    metadata: { type: jsonType, allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  {
+    tableName: 'wallet_funding_sources',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['status'] },
+      { fields: ['isPrimary'] },
+    ],
+  },
+);
+
+WalletFundingSource.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    label: plain.label,
+    type: plain.type,
+    provider: plain.provider,
+    accountNumberLast4: plain.accountNumberLast4,
+    currencyCode: plain.currencyCode,
+    status: plain.status,
+    isPrimary: Boolean(plain.isPrimary),
+    metadata: plain.metadata ?? null,
+    createdById: plain.createdById,
+    updatedById: plain.updatedById,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const WalletOperationalSetting = sequelize.define(
+  'WalletOperationalSetting',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false, unique: true },
+    lowBalanceAlertThreshold: { type: DataTypes.DECIMAL(18, 2), allowNull: true },
+    autoSweepEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    autoSweepThreshold: { type: DataTypes.DECIMAL(18, 2), allowNull: true },
+    reconciliationCadence: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+      validate: { isIn: [['daily', 'weekly', 'monthly']] },
+    },
+    dualControlEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    complianceContactEmail: { type: DataTypes.STRING(160), allowNull: true },
+    payoutWindow: { type: DataTypes.STRING(40), allowNull: true },
+    riskTier: {
+      type: DataTypes.STRING(40),
+      allowNull: true,
+      validate: { isIn: [WALLET_RISK_TIERS] },
+    },
+    complianceNotes: { type: DataTypes.STRING(500), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  {
+    tableName: 'wallet_operational_settings',
+  },
+);
+
+WalletOperationalSetting.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    lowBalanceAlertThreshold:
+      plain.lowBalanceAlertThreshold != null ? Number.parseFloat(plain.lowBalanceAlertThreshold) : null,
+    autoSweepEnabled: Boolean(plain.autoSweepEnabled),
+    autoSweepThreshold:
+      plain.autoSweepThreshold != null ? Number.parseFloat(plain.autoSweepThreshold) : null,
+    reconciliationCadence: plain.reconciliationCadence ?? null,
+    dualControlEnabled: Boolean(plain.dualControlEnabled),
+    complianceContactEmail: plain.complianceContactEmail ?? null,
+    payoutWindow: plain.payoutWindow ?? null,
+    riskTier: plain.riskTier ?? null,
+    complianceNotes: plain.complianceNotes ?? null,
+    metadata: plain.metadata ?? null,
+    createdById: plain.createdById,
+    updatedById: plain.updatedById,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const WalletTransferRule = sequelize.define(
+  'WalletTransferRule',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    triggerType: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'low_balance',
+      validate: { isIn: [WALLET_TRANSFER_RULE_TRIGGER_TYPES] },
+    },
+    thresholdAmount: { type: DataTypes.DECIMAL(18, 2), allowNull: true },
+    scheduleCron: { type: DataTypes.STRING(120), allowNull: true },
+    destinationFundingSourceId: { type: DataTypes.INTEGER, allowNull: true },
+    isActive: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    metadata: { type: jsonType, allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  {
+    tableName: 'wallet_transfer_rules',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['isActive'] },
+    ],
+  },
+);
+
+WalletTransferRule.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    name: plain.name,
+    triggerType: plain.triggerType,
+    thresholdAmount: plain.thresholdAmount != null ? Number.parseFloat(plain.thresholdAmount) : null,
+    scheduleCron: plain.scheduleCron ?? null,
+    destinationFundingSourceId: plain.destinationFundingSourceId ?? null,
+    isActive: Boolean(plain.isActive),
+    metadata: plain.metadata ?? null,
+    createdById: plain.createdById,
+    updatedById: plain.updatedById,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const WalletPayoutRequest = sequelize.define(
+  'WalletPayoutRequest',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    walletAccountId: { type: DataTypes.INTEGER, allowNull: false },
+    fundingSourceId: { type: DataTypes.INTEGER, allowNull: true },
+    amount: { type: DataTypes.DECIMAL(18, 2), allowNull: false },
+    currencyCode: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    status: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'pending_review',
+      validate: { isIn: [WALLET_PAYOUT_REQUEST_STATUSES] },
+    },
+    requestedById: { type: DataTypes.INTEGER, allowNull: false },
+    reviewedById: { type: DataTypes.INTEGER, allowNull: true },
+    processedById: { type: DataTypes.INTEGER, allowNull: true },
+    requestedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    approvedAt: { type: DataTypes.DATE, allowNull: true },
+    processedAt: { type: DataTypes.DATE, allowNull: true },
+    notes: { type: DataTypes.STRING(500), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'wallet_payout_requests',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['walletAccountId'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+WalletPayoutRequest.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    walletAccountId: plain.walletAccountId,
+    fundingSourceId: plain.fundingSourceId ?? null,
+    amount: Number.parseFloat(plain.amount ?? 0),
+    currencyCode: plain.currencyCode,
+    status: plain.status,
+    requestedById: plain.requestedById,
+    reviewedById: plain.reviewedById ?? null,
+    processedById: plain.processedById ?? null,
+    requestedAt: plain.requestedAt,
+    approvedAt: plain.approvedAt,
+    processedAt: plain.processedAt,
+    notes: plain.notes ?? null,
     metadata: plain.metadata ?? null,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
@@ -1316,6 +1954,111 @@ export const FeedPost = sequelize.define(
     authorAvatarSeed: { type: DataTypes.STRING(255), allowNull: true },
   },
   { tableName: 'feed_posts' },
+);
+
+export const FreelancerTimelineWorkspace = sequelize.define(
+  'FreelancerTimelineWorkspace',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    timezone: { type: DataTypes.STRING(120), allowNull: false, defaultValue: 'UTC' },
+    defaultVisibility: {
+      type: DataTypes.ENUM('public', 'connections', 'private'),
+      allowNull: false,
+      defaultValue: 'public',
+    },
+    autoShareToFeed: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    reviewBeforePublish: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    distributionChannels: { type: jsonType, allowNull: true },
+    contentThemes: { type: jsonType, allowNull: true },
+    pinnedCampaigns: { type: jsonType, allowNull: true },
+    cadenceGoal: { type: DataTypes.INTEGER, allowNull: true },
+    lastSyncedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  { tableName: 'freelancer_timeline_workspaces' },
+);
+
+export const FreelancerTimelinePost = sequelize.define(
+  'FreelancerTimelinePost',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    workspaceId: { type: DataTypes.INTEGER, allowNull: true },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    content: { type: DataTypes.TEXT, allowNull: true },
+    status: {
+      type: DataTypes.ENUM('draft', 'scheduled', 'published', 'archived'),
+      allowNull: false,
+      defaultValue: 'draft',
+    },
+    visibility: {
+      type: DataTypes.ENUM('public', 'connections', 'private'),
+      allowNull: false,
+      defaultValue: 'public',
+    },
+    scheduledAt: { type: DataTypes.DATE, allowNull: true },
+    publishedAt: { type: DataTypes.DATE, allowNull: true },
+    timezone: { type: DataTypes.STRING(120), allowNull: true },
+    heroImageUrl: { type: DataTypes.STRING(2048), allowNull: true },
+    allowComments: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    tags: { type: jsonType, allowNull: true },
+    attachments: { type: jsonType, allowNull: true },
+    targetAudience: { type: jsonType, allowNull: true },
+    campaign: { type: DataTypes.STRING(180), allowNull: true },
+    callToAction: { type: jsonType, allowNull: true },
+    metricsSnapshot: { type: jsonType, allowNull: true },
+    lastEditedById: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  { tableName: 'freelancer_timeline_posts' },
+);
+
+export const FreelancerTimelineEntry = sequelize.define(
+  'FreelancerTimelineEntry',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    workspaceId: { type: DataTypes.INTEGER, allowNull: true },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    entryType: {
+      type: DataTypes.ENUM('milestone', 'content', 'event', 'campaign'),
+      allowNull: false,
+      defaultValue: 'milestone',
+    },
+    status: {
+      type: DataTypes.ENUM('planned', 'in_progress', 'completed', 'blocked'),
+      allowNull: false,
+      defaultValue: 'planned',
+    },
+    startAt: { type: DataTypes.DATE, allowNull: true },
+    endAt: { type: DataTypes.DATE, allowNull: true },
+    linkedPostId: { type: DataTypes.INTEGER, allowNull: true },
+    owner: { type: DataTypes.STRING(180), allowNull: true },
+    channel: { type: DataTypes.STRING(180), allowNull: true },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'freelancer_timeline_entries' },
+);
+
+export const FreelancerTimelinePostMetric = sequelize.define(
+  'FreelancerTimelinePostMetric',
+  {
+    postId: { type: DataTypes.INTEGER, allowNull: false },
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    capturedAt: { type: DataTypes.DATEONLY, allowNull: false },
+    impressions: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    views: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    clicks: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    comments: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    reactions: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    saves: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    shares: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    profileVisits: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    leads: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    conversionRate: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'freelancer_timeline_post_metrics' },
 );
 
 export const Job = sequelize.define(
@@ -7667,6 +8410,74 @@ export const RecruitingCalendarEvent = sequelize.define(
   },
 );
 
+export const AgencyCalendarEvent = sequelize.define(
+  'AgencyCalendarEvent',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    createdById: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    eventType: {
+      type: DataTypes.ENUM(...AGENCY_CALENDAR_EVENT_TYPES),
+      allowNull: false,
+      defaultValue: 'project',
+    },
+    status: {
+      type: DataTypes.ENUM(...AGENCY_CALENDAR_EVENT_STATUSES),
+      allowNull: false,
+      defaultValue: 'planned',
+    },
+    visibility: {
+      type: DataTypes.ENUM(...AGENCY_CALENDAR_EVENT_VISIBILITIES),
+      allowNull: false,
+      defaultValue: 'internal',
+    },
+    relatedEntityType: { type: DataTypes.STRING(120), allowNull: true },
+    relatedEntityId: { type: DataTypes.INTEGER, allowNull: true },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    meetingUrl: { type: DataTypes.STRING(500), allowNull: true },
+    coverImageUrl: { type: DataTypes.STRING(500), allowNull: true },
+    attachments: { type: jsonType, allowNull: true },
+    guestEmails: { type: jsonType, allowNull: true },
+    reminderOffsets: { type: jsonType, allowNull: true },
+    isAllDay: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    timezone: { type: DataTypes.STRING(120), allowNull: true },
+    startsAt: { type: DataTypes.DATE, allowNull: false },
+    endsAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'agency_calendar_events',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['eventType'] },
+      { fields: ['status'] },
+      { fields: ['startsAt'] },
+    ],
+  },
+);
+
+AgencyCalendarEvent.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+
+  return {
+    ...plain,
+    attachments: Array.isArray(plain.attachments) ? plain.attachments : [],
+    guestEmails: Array.isArray(plain.guestEmails)
+      ? plain.guestEmails.map((email) => (email == null ? null : String(email))).filter(Boolean)
+      : [],
+    reminderOffsets: Array.isArray(plain.reminderOffsets)
+      ? plain.reminderOffsets
+          .map((value) => {
+            const numeric = Number.parseInt(value, 10);
+            return Number.isFinite(numeric) ? numeric : null;
+          })
+          .filter((value) => value != null)
+      : [],
+  };
+};
+
 export const EmployerBrandAsset = sequelize.define(
   'EmployerBrandAsset',
   {
@@ -7814,6 +8625,87 @@ export const WorkspaceIntegration = sequelize.define(
       { fields: ['providerKey'] },
       { fields: ['category'] },
       { fields: ['status'] },
+    ],
+  },
+);
+
+export const WorkspaceIntegrationSecret = sequelize.define(
+  'WorkspaceIntegrationSecret',
+  {
+    integrationId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    secretType: {
+      type: DataTypes.ENUM(...WORKSPACE_INTEGRATION_SECRET_TYPES),
+      allowNull: false,
+      defaultValue: 'api_key',
+    },
+    hashAlgorithm: { type: DataTypes.STRING(80), allowNull: false, defaultValue: 'pbkdf2_sha512' },
+    hashedValue: { type: DataTypes.STRING(512), allowNull: false },
+    salt: { type: DataTypes.STRING(128), allowNull: false },
+    lastFour: { type: DataTypes.STRING(8), allowNull: true },
+    version: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
+    lastRotatedAt: { type: DataTypes.DATE, allowNull: true },
+    rotatedById: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'workspace_integration_secrets',
+    indexes: [
+      { fields: ['integrationId'] },
+      { fields: ['secretType'] },
+      { fields: ['rotatedById'] },
+    ],
+  },
+);
+
+export const WorkspaceIntegrationWebhook = sequelize.define(
+  'WorkspaceIntegrationWebhook',
+  {
+    integrationId: { type: DataTypes.INTEGER, allowNull: false },
+    secretId: { type: DataTypes.INTEGER, allowNull: true },
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...WORKSPACE_INTEGRATION_WEBHOOK_STATUSES),
+      allowNull: false,
+      defaultValue: 'active',
+    },
+    targetUrl: { type: DataTypes.STRING(500), allowNull: false },
+    eventTypes: { type: jsonType, allowNull: false, defaultValue: [] },
+    verificationToken: { type: DataTypes.STRING(255), allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    lastTriggeredAt: { type: DataTypes.DATE, allowNull: true },
+    lastErrorAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'workspace_integration_webhooks',
+    indexes: [
+      { fields: ['integrationId'] },
+      { fields: ['status'] },
+      { fields: ['createdById'] },
+    ],
+  },
+);
+
+export const WorkspaceIntegrationAuditLog = sequelize.define(
+  'WorkspaceIntegrationAuditLog',
+  {
+    integrationId: { type: DataTypes.INTEGER, allowNull: false },
+    actorId: { type: DataTypes.INTEGER, allowNull: true },
+    eventType: {
+      type: DataTypes.ENUM(...WORKSPACE_INTEGRATION_AUDIT_EVENT_TYPES),
+      allowNull: false,
+      defaultValue: 'integration_created',
+    },
+    summary: { type: DataTypes.STRING(255), allowNull: false },
+    detail: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'workspace_integration_audit_logs',
+    indexes: [
+      { fields: ['integrationId'] },
+      { fields: ['actorId'] },
+      { fields: ['eventType'] },
     ],
   },
 );
@@ -8779,6 +9671,41 @@ export const ProviderWorkspaceInvite = sequelize.define(
     indexes: [
       { fields: ['workspaceId'] },
       { fields: ['status'] },
+    ],
+  },
+);
+
+export const AgencyDashboardOverview = sequelize.define(
+  'AgencyDashboardOverview',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false, unique: true },
+    greetingName: { type: DataTypes.STRING(150), allowNull: false, defaultValue: 'Agency team' },
+    greetingHeadline: {
+      type: DataTypes.STRING(200),
+      allowNull: false,
+      defaultValue: 'Keep every client and project on track.',
+    },
+    overviewSummary: { type: DataTypes.TEXT, allowNull: true },
+    avatarUrl: { type: DataTypes.STRING(2048), allowNull: true },
+    followerCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    trustScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    rating: { type: DataTypes.DECIMAL(3, 2), allowNull: true },
+    highlights: { type: jsonType, allowNull: true },
+    weatherLocation: { type: DataTypes.STRING(180), allowNull: true },
+    weatherLatitude: { type: DataTypes.DECIMAL(10, 6), allowNull: true },
+    weatherLongitude: { type: DataTypes.DECIMAL(10, 6), allowNull: true },
+    weatherProvider: { type: DataTypes.STRING(120), allowNull: true },
+    weatherSnapshot: { type: jsonType, allowNull: true },
+    weatherLastCheckedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  {
+    tableName: 'agency_dashboard_overviews',
+    indexes: [
+      { unique: true, fields: ['workspaceId'] },
+      { fields: ['weatherLocation'] },
     ],
   },
 );
@@ -14142,6 +15069,29 @@ WalletLedgerEntry.belongsTo(WalletAccount, { foreignKey: 'walletAccountId', as: 
 WalletLedgerEntry.belongsTo(User, { foreignKey: 'initiatedById', as: 'initiatedBy' });
 User.hasMany(WalletLedgerEntry, { foreignKey: 'initiatedById', as: 'initiatedLedgerEntries' });
 
+ProviderWorkspace.hasMany(WalletAccount, { foreignKey: 'workspaceId', as: 'walletAccounts' });
+WalletAccount.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+ProviderWorkspace.hasMany(WalletFundingSource, { foreignKey: 'workspaceId', as: 'walletFundingSources' });
+WalletFundingSource.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+ProviderWorkspace.hasMany(WalletTransferRule, { foreignKey: 'workspaceId', as: 'walletTransferRules' });
+WalletTransferRule.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+WalletTransferRule.belongsTo(WalletFundingSource, {
+  foreignKey: 'destinationFundingSourceId',
+  as: 'destinationFundingSource',
+});
+WalletFundingSource.hasMany(WalletTransferRule, {
+  foreignKey: 'destinationFundingSourceId',
+  as: 'transferRules',
+});
+ProviderWorkspace.hasMany(WalletPayoutRequest, { foreignKey: 'workspaceId', as: 'walletPayoutRequests' });
+WalletPayoutRequest.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+WalletPayoutRequest.belongsTo(WalletAccount, { foreignKey: 'walletAccountId', as: 'walletAccount' });
+WalletAccount.hasMany(WalletPayoutRequest, { foreignKey: 'walletAccountId', as: 'payoutRequests' });
+WalletPayoutRequest.belongsTo(WalletFundingSource, { foreignKey: 'fundingSourceId', as: 'fundingSource' });
+WalletFundingSource.hasMany(WalletPayoutRequest, { foreignKey: 'fundingSourceId', as: 'payoutRequests' });
+ProviderWorkspace.hasOne(WalletOperationalSetting, { foreignKey: 'workspaceId', as: 'walletSettings' });
+WalletOperationalSetting.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+
 WalletAccount.hasMany(EscrowAccount, { foreignKey: 'walletAccountId', as: 'escrowAccounts' });
 EscrowAccount.belongsTo(WalletAccount, { foreignKey: 'walletAccountId', as: 'walletAccount' });
 
@@ -14157,6 +15107,70 @@ AgencyProfile.hasMany(CorporateVerification, {
   onDelete: 'CASCADE',
 });
 CorporateVerification.belongsTo(AgencyProfile, { foreignKey: 'agencyProfileId', as: 'agencyProfile' });
+
+AgencyProfile.hasMany(AgencyCreationItem, {
+  foreignKey: 'agencyProfileId',
+  as: 'creationItems',
+  onDelete: 'CASCADE',
+});
+AgencyCreationItem.belongsTo(AgencyProfile, { foreignKey: 'agencyProfileId', as: 'agencyProfile' });
+AgencyCreationItem.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+AgencyCreationItem.belongsTo(User, { foreignKey: 'updatedById', as: 'updatedBy' });
+AgencyCreationItem.belongsTo(ProviderWorkspace, { foreignKey: 'ownerWorkspaceId', as: 'workspace' });
+
+AgencyCreationItem.hasMany(AgencyCreationAsset, {
+  foreignKey: 'itemId',
+  as: 'assets',
+  onDelete: 'CASCADE',
+});
+AgencyCreationAsset.belongsTo(AgencyCreationItem, { foreignKey: 'itemId', as: 'item' });
+AgencyCreationAsset.belongsTo(User, { foreignKey: 'uploadedById', as: 'uploadedBy' });
+
+AgencyCreationItem.hasMany(AgencyCreationCollaborator, {
+  foreignKey: 'itemId',
+  as: 'collaborators',
+  onDelete: 'CASCADE',
+});
+AgencyCreationCollaborator.belongsTo(AgencyCreationItem, { foreignKey: 'itemId', as: 'item' });
+AgencyCreationCollaborator.belongsTo(User, { foreignKey: 'collaboratorId', as: 'collaborator' });
+AgencyCreationCollaborator.belongsTo(User, { foreignKey: 'addedById', as: 'addedBy' });
+
+User.hasMany(AgencyCreationItem, { foreignKey: 'createdById', as: 'createdAgencyItems' });
+User.hasMany(AgencyCreationItem, { foreignKey: 'updatedById', as: 'updatedAgencyItems' });
+User.hasMany(AgencyCreationAsset, { foreignKey: 'uploadedById', as: 'uploadedAgencyAssets' });
+User.hasMany(AgencyCreationCollaborator, { foreignKey: 'collaboratorId', as: 'agencyCollaborations' });
+User.hasMany(AgencyCreationCollaborator, { foreignKey: 'addedById', as: 'invitedAgencyCollaborations' });
+
+AgencyProfile.hasMany(AgencyProfileMedia, {
+  foreignKey: 'agencyProfileId',
+  as: 'media',
+  onDelete: 'CASCADE',
+});
+AgencyProfileMedia.belongsTo(AgencyProfile, { foreignKey: 'agencyProfileId', as: 'agencyProfile' });
+AgencyProfile.hasMany(AgencyProfileSkill, {
+  foreignKey: 'agencyProfileId',
+  as: 'skills',
+  onDelete: 'CASCADE',
+});
+AgencyProfileSkill.belongsTo(AgencyProfile, { foreignKey: 'agencyProfileId', as: 'agencyProfile' });
+AgencyProfile.hasMany(AgencyProfileCredential, {
+  foreignKey: 'agencyProfileId',
+  as: 'credentials',
+  onDelete: 'CASCADE',
+});
+AgencyProfileCredential.belongsTo(AgencyProfile, { foreignKey: 'agencyProfileId', as: 'agencyProfile' });
+AgencyProfile.hasMany(AgencyProfileExperience, {
+  foreignKey: 'agencyProfileId',
+  as: 'experiences',
+  onDelete: 'CASCADE',
+});
+AgencyProfileExperience.belongsTo(AgencyProfile, { foreignKey: 'agencyProfileId', as: 'agencyProfile' });
+AgencyProfile.hasMany(AgencyProfileWorkforceSegment, {
+  foreignKey: 'agencyProfileId',
+  as: 'workforceSegments',
+  onDelete: 'CASCADE',
+});
+AgencyProfileWorkforceSegment.belongsTo(AgencyProfile, { foreignKey: 'agencyProfileId', as: 'agencyProfile' });
 CorporateVerification.belongsTo(User, { foreignKey: 'userId', as: 'requestor' });
 CorporateVerification.belongsTo(User, { foreignKey: 'reviewerId', as: 'reviewer' });
 User.hasMany(CorporateVerification, { foreignKey: 'userId', as: 'corporateVerifications' });
@@ -14214,6 +15228,31 @@ CompanyProfile.belongsTo(User, { foreignKey: 'userId' });
 
 User.hasOne(AgencyProfile, { foreignKey: 'userId' });
 AgencyProfile.belongsTo(User, { foreignKey: 'userId' });
+
+ProviderWorkspace.hasMany(AgencyTimelinePost, {
+  foreignKey: 'workspaceId',
+  as: 'timelinePosts',
+  onDelete: 'CASCADE',
+});
+AgencyTimelinePost.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+AgencyTimelinePost.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
+AgencyTimelinePost.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+AgencyTimelinePost.belongsTo(User, { foreignKey: 'updatedById', as: 'updatedBy' });
+
+AgencyTimelinePost.hasMany(AgencyTimelinePostRevision, {
+  foreignKey: 'postId',
+  as: 'revisions',
+  onDelete: 'CASCADE',
+});
+AgencyTimelinePostRevision.belongsTo(AgencyTimelinePost, { foreignKey: 'postId', as: 'post' });
+AgencyTimelinePostRevision.belongsTo(User, { foreignKey: 'editorId', as: 'editor' });
+
+AgencyTimelinePost.hasMany(AgencyTimelinePostMetric, {
+  foreignKey: 'postId',
+  as: 'metrics',
+  onDelete: 'CASCADE',
+});
+AgencyTimelinePostMetric.belongsTo(AgencyTimelinePost, { foreignKey: 'postId', as: 'post' });
 
 User.hasOne(FreelancerProfile, { foreignKey: 'userId' });
 FreelancerProfile.belongsTo(User, { foreignKey: 'userId' });
@@ -14617,6 +15656,29 @@ GigCatalogItem.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' })
 User.hasMany(FeedPost, { foreignKey: 'userId' });
 FeedPost.belongsTo(User, { foreignKey: 'userId' });
 
+User.hasOne(FreelancerTimelineWorkspace, { foreignKey: 'freelancerId', as: 'timelineWorkspace' });
+FreelancerTimelineWorkspace.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
+FreelancerTimelineWorkspace.hasMany(FreelancerTimelinePost, { foreignKey: 'workspaceId', as: 'posts' });
+FreelancerTimelineWorkspace.hasMany(FreelancerTimelineEntry, { foreignKey: 'workspaceId', as: 'entries' });
+FreelancerTimelinePost.belongsTo(FreelancerTimelineWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+FreelancerTimelineEntry.belongsTo(FreelancerTimelineWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+
+User.hasMany(FreelancerTimelinePost, { foreignKey: 'freelancerId', as: 'timelinePosts' });
+FreelancerTimelinePost.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
+User.hasMany(FreelancerTimelineEntry, { foreignKey: 'freelancerId', as: 'timelineEntries' });
+FreelancerTimelineEntry.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
+FreelancerTimelineEntry.belongsTo(FreelancerTimelinePost, { foreignKey: 'linkedPostId', as: 'linkedPost' });
+FreelancerTimelinePost.hasMany(FreelancerTimelineEntry, { foreignKey: 'linkedPostId', as: 'linkedEntries' });
+
+FreelancerTimelinePost.hasMany(FreelancerTimelinePostMetric, { foreignKey: 'postId', as: 'metrics' });
+FreelancerTimelinePostMetric.belongsTo(FreelancerTimelinePost, { foreignKey: 'postId', as: 'post' });
+
+User.hasMany(FreelancerTimelinePostMetric, { foreignKey: 'freelancerId', as: 'timelineMetrics' });
+FreelancerTimelinePostMetric.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
 User.belongsToMany(Group, { through: GroupMembership, foreignKey: 'userId' });
 Group.belongsToMany(User, { through: GroupMembership, foreignKey: 'groupId' });
 Group.hasMany(GroupMembership, { foreignKey: 'groupId', as: 'memberships' });
@@ -14867,6 +15929,116 @@ export const PeerMentoringSession = sequelize.define(
   { tableName: 'peer_mentoring_sessions' },
 );
 
+export const AgencyMentoringSession = sequelize.define(
+  'AgencyMentoringSession',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    purchaseId: { type: DataTypes.INTEGER, allowNull: true },
+    mentorId: { type: DataTypes.INTEGER, allowNull: true },
+    mentorName: { type: DataTypes.STRING(255), allowNull: true },
+    mentorEmail: { type: DataTypes.STRING(255), allowNull: true },
+    clientName: { type: DataTypes.STRING(255), allowNull: true },
+    clientEmail: { type: DataTypes.STRING(255), allowNull: true },
+    clientCompany: { type: DataTypes.STRING(255), allowNull: true },
+    focusArea: { type: DataTypes.STRING(255), allowNull: true },
+    agenda: { type: DataTypes.TEXT, allowNull: true },
+    scheduledAt: { type: DataTypes.DATE, allowNull: false },
+    durationMinutes: { type: DataTypes.INTEGER, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...AGENCY_MENTORING_SESSION_STATUSES),
+      allowNull: false,
+      defaultValue: 'scheduled',
+    },
+    meetingUrl: { type: DataTypes.STRING(255), allowNull: true },
+    recordingUrl: { type: DataTypes.STRING(255), allowNull: true },
+    followUpActions: { type: DataTypes.TEXT, allowNull: true },
+    sessionNotes: { type: DataTypes.TEXT, allowNull: true },
+    sessionTags: { type: jsonType, allowNull: true },
+    costAmount: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    currency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    createdBy: { type: DataTypes.INTEGER, allowNull: false },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'agency_mentoring_sessions',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['mentorId'] },
+      { fields: ['scheduledAt'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+export const AgencyMentoringPurchase = sequelize.define(
+  'AgencyMentoringPurchase',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    mentorId: { type: DataTypes.INTEGER, allowNull: true },
+    mentorName: { type: DataTypes.STRING(255), allowNull: true },
+    mentorEmail: { type: DataTypes.STRING(255), allowNull: true },
+    packageName: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    sessionsIncluded: { type: DataTypes.INTEGER, allowNull: true },
+    sessionsUsed: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    amount: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    currency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    purchasedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    validFrom: { type: DataTypes.DATE, allowNull: true },
+    validUntil: { type: DataTypes.DATE, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...AGENCY_MENTORING_PURCHASE_STATUSES),
+      allowNull: false,
+      defaultValue: 'active',
+    },
+    invoiceUrl: { type: DataTypes.STRING(255), allowNull: true },
+    referenceCode: { type: DataTypes.STRING(120), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    createdBy: { type: DataTypes.INTEGER, allowNull: false },
+  },
+  {
+    tableName: 'agency_mentoring_purchases',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['mentorId'] },
+      { fields: ['status'] },
+      { fields: ['purchasedAt'] },
+    ],
+  },
+);
+
+export const AgencyMentorPreference = sequelize.define(
+  'AgencyMentorPreference',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    mentorId: { type: DataTypes.INTEGER, allowNull: true },
+    mentorName: { type: DataTypes.STRING(255), allowNull: false },
+    mentorEmail: { type: DataTypes.STRING(255), allowNull: true },
+    preferenceLevel: {
+      type: DataTypes.ENUM(...AGENCY_MENTOR_PREFERENCE_LEVELS),
+      allowNull: false,
+      defaultValue: 'preferred',
+    },
+    favourite: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    introductionNotes: { type: DataTypes.TEXT, allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    lastEngagedAt: { type: DataTypes.DATE, allowNull: true },
+    createdBy: { type: DataTypes.INTEGER, allowNull: false },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'agency_mentor_preferences',
+    indexes: [
+      { unique: true, fields: ['workspaceId', 'mentorEmail'] },
+      { unique: true, fields: ['workspaceId', 'mentorId'], where: { mentorId: { [Op.ne]: null } } },
+      { fields: ['workspaceId'] },
+      { fields: ['mentorId'] },
+      { fields: ['preferenceLevel'] },
+    ],
+  },
+);
+
 export const SkillGapDiagnostic = sequelize.define(
   'SkillGapDiagnostic',
   {
@@ -14938,6 +16110,25 @@ PeerMentoringSession.belongsTo(User, { foreignKey: 'mentorId', as: 'mentor' });
 PeerMentoringSession.belongsTo(User, { foreignKey: 'menteeId', as: 'mentee' });
 User.hasMany(PeerMentoringSession, { foreignKey: 'mentorId', as: 'mentoringSessionsLed' });
 User.hasMany(PeerMentoringSession, { foreignKey: 'menteeId', as: 'mentoringSessions' });
+
+ProviderWorkspace.hasMany(AgencyMentoringSession, { foreignKey: 'workspaceId', as: 'mentoringSessions' });
+AgencyMentoringSession.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+AgencyMentoringSession.belongsTo(AgencyMentoringPurchase, { foreignKey: 'purchaseId', as: 'purchase' });
+AgencyMentoringSession.belongsTo(User, { foreignKey: 'mentorId', as: 'mentor' });
+AgencyMentoringSession.belongsTo(User, { foreignKey: 'createdBy', as: 'createdByUser' });
+User.hasMany(AgencyMentoringSession, { foreignKey: 'mentorId', as: 'agencyMentoringSessionsLed' });
+User.hasMany(AgencyMentoringSession, { foreignKey: 'createdBy', as: 'agencyMentoringSessionsCreated' });
+
+ProviderWorkspace.hasMany(AgencyMentoringPurchase, { foreignKey: 'workspaceId', as: 'mentoringPurchases' });
+AgencyMentoringPurchase.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+AgencyMentoringPurchase.belongsTo(User, { foreignKey: 'mentorId', as: 'mentor' });
+AgencyMentoringPurchase.belongsTo(User, { foreignKey: 'createdBy', as: 'createdByUser' });
+AgencyMentoringPurchase.hasMany(AgencyMentoringSession, { foreignKey: 'purchaseId', as: 'sessions' });
+
+ProviderWorkspace.hasMany(AgencyMentorPreference, { foreignKey: 'workspaceId', as: 'mentorPreferences' });
+AgencyMentorPreference.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+AgencyMentorPreference.belongsTo(User, { foreignKey: 'mentorId', as: 'mentor' });
+AgencyMentorPreference.belongsTo(User, { foreignKey: 'createdBy', as: 'createdByUser' });
 
 SkillGapDiagnostic.belongsTo(ServiceLine, { foreignKey: 'serviceLineId', as: 'serviceLine' });
 SkillGapDiagnostic.belongsTo(User, { foreignKey: 'userId', as: 'user' });
@@ -15585,10 +16776,26 @@ MemberBrandingMetric.prototype.toPublicObject = function toPublicObject() {
 
 ProviderWorkspace.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
 ProviderWorkspace.hasMany(ProviderWorkspaceMember, { foreignKey: 'workspaceId', as: 'members' });
+ProviderWorkspace.hasOne(CompanyDashboardOverview, {
+  foreignKey: 'workspaceId',
+  as: 'dashboardOverview',
+});
+CompanyDashboardOverview.belongsTo(ProviderWorkspace, {
+  foreignKey: 'workspaceId',
+  as: 'workspace',
+});
+CompanyDashboardOverview.belongsTo(User, {
+  foreignKey: 'lastEditedById',
+  as: 'lastEditedBy',
+});
 ProviderWorkspace.hasMany(ProviderWorkspaceInvite, { foreignKey: 'workspaceId', as: 'invites' });
 ProviderWorkspace.hasMany(ProviderContactNote, { foreignKey: 'workspaceId', as: 'contactNotes' });
 ProviderWorkspace.hasMany(ExecutiveIntelligenceMetric, { foreignKey: 'workspaceId', as: 'executiveMetrics' });
 ProviderWorkspace.hasMany(ExecutiveScenarioPlan, { foreignKey: 'workspaceId', as: 'executiveScenarioPlans' });
+ProviderWorkspace.hasOne(AgencyDashboardOverview, { foreignKey: 'workspaceId', as: 'dashboardOverview' });
+AgencyDashboardOverview.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+AgencyDashboardOverview.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+AgencyDashboardOverview.belongsTo(User, { foreignKey: 'updatedById', as: 'updatedBy' });
 ProviderWorkspace.hasMany(GovernanceRiskRegister, { foreignKey: 'workspaceId', as: 'governanceRisks' });
 ProviderWorkspace.hasMany(GovernanceAuditExport, { foreignKey: 'workspaceId', as: 'governanceAuditExports' });
 ProviderWorkspace.hasMany(LeadershipRitual, { foreignKey: 'workspaceId', as: 'leadershipRituals' });
@@ -15654,7 +16861,16 @@ ProviderWorkspace.hasMany(TalentPoolMember, { foreignKey: 'workspaceId', as: 'ta
 ProviderWorkspace.hasMany(TalentPoolEngagement, { foreignKey: 'workspaceId', as: 'talentPoolEngagements' });
 ProviderWorkspace.hasMany(AgencySlaSnapshot, { foreignKey: 'workspaceId', as: 'agencySlaSnapshots' });
 ProviderWorkspace.hasMany(AgencyBillingEvent, { foreignKey: 'workspaceId', as: 'agencyBillingEvents' });
+ProviderWorkspace.hasOne(AgencyAiConfiguration, { foreignKey: 'workspaceId', as: 'aiConfiguration' });
+ProviderWorkspace.hasMany(AgencyAutoBidTemplate, { foreignKey: 'workspaceId', as: 'autoBidTemplates' });
+AgencyAiConfiguration.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+AgencyAutoBidTemplate.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+AgencyAutoBidTemplate.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+AgencyAutoBidTemplate.belongsTo(User, { foreignKey: 'updatedBy', as: 'updater' });
+User.hasMany(AgencyAutoBidTemplate, { foreignKey: 'createdBy', as: 'createdAgencyAutoBidTemplates' });
+User.hasMany(AgencyAutoBidTemplate, { foreignKey: 'updatedBy', as: 'updatedAgencyAutoBidTemplates' });
 ProviderWorkspace.hasMany(RecruitingCalendarEvent, { foreignKey: 'workspaceId', as: 'recruitingEvents' });
+ProviderWorkspace.hasMany(AgencyCalendarEvent, { foreignKey: 'workspaceId', as: 'agencyCalendarEvents' });
 ProviderWorkspace.hasMany(EmployerBrandAsset, { foreignKey: 'workspaceId', as: 'employerBrandAssets' });
 ProviderWorkspace.hasMany(ProspectIntelligenceProfile, { foreignKey: 'workspaceId', as: 'prospectProfiles' });
 ProviderWorkspace.hasMany(ProspectSearchDefinition, { foreignKey: 'workspaceId', as: 'prospectSearches' });
@@ -15779,6 +16995,21 @@ ProviderWorkspace.hasMany(EmployerBrandStory, { foreignKey: 'workspaceId', as: '
 ProviderWorkspace.hasMany(EmployerBenefit, { foreignKey: 'workspaceId', as: 'employerBenefits' });
 ProviderWorkspace.hasMany(EmployeeJourneyProgram, { foreignKey: 'workspaceId', as: 'employeeJourneyPrograms' });
 ProviderWorkspace.hasMany(WorkspaceIntegration, { foreignKey: 'workspaceId', as: 'workspaceIntegrations' });
+WorkspaceIntegration.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+WorkspaceIntegration.hasMany(WorkspaceIntegrationSecret, { foreignKey: 'integrationId', as: 'secrets' });
+WorkspaceIntegration.hasMany(WorkspaceIntegrationWebhook, { foreignKey: 'integrationId', as: 'webhooks' });
+WorkspaceIntegration.hasMany(WorkspaceIntegrationAuditLog, { foreignKey: 'integrationId', as: 'auditLogs' });
+WorkspaceIntegrationSecret.belongsTo(WorkspaceIntegration, { foreignKey: 'integrationId', as: 'integration' });
+WorkspaceIntegrationSecret.belongsTo(User, { foreignKey: 'rotatedById', as: 'rotatedBy' });
+WorkspaceIntegrationSecret.hasMany(WorkspaceIntegrationWebhook, { foreignKey: 'secretId', as: 'webhooks' });
+WorkspaceIntegrationWebhook.belongsTo(WorkspaceIntegration, { foreignKey: 'integrationId', as: 'integration' });
+WorkspaceIntegrationWebhook.belongsTo(WorkspaceIntegrationSecret, { foreignKey: 'secretId', as: 'secret' });
+WorkspaceIntegrationWebhook.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+WorkspaceIntegrationAuditLog.belongsTo(WorkspaceIntegration, { foreignKey: 'integrationId', as: 'integration' });
+WorkspaceIntegrationAuditLog.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
+User.hasMany(WorkspaceIntegrationSecret, { foreignKey: 'rotatedById', as: 'rotatedIntegrationSecrets' });
+User.hasMany(WorkspaceIntegrationWebhook, { foreignKey: 'createdById', as: 'createdIntegrationWebhooks' });
+User.hasMany(WorkspaceIntegrationAuditLog, { foreignKey: 'actorId', as: 'workspaceIntegrationAuditEvents' });
 ProviderWorkspace.hasMany(WorkspaceCalendarConnection, { foreignKey: 'workspaceId', as: 'calendarConnections' });
 
 ProviderWorkspace.hasMany(ClientEngagement, { foreignKey: 'workspaceId', as: 'clientEngagements' });
@@ -15926,6 +17157,9 @@ AgencyBillingEvent.belongsTo(AgencyCollaboration, {
   as: 'collaboration',
 });
 RecruitingCalendarEvent.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+AgencyCalendarEvent.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+AgencyCalendarEvent.belongsTo(User, { foreignKey: 'createdById', as: 'creator' });
+User.hasMany(AgencyCalendarEvent, { foreignKey: 'createdById', as: 'createdAgencyCalendarEvents' });
 EmployerBrandAsset.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 ProspectIntelligenceProfile.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 ProspectIntelligenceProfile.belongsTo(User, { foreignKey: 'candidateId', as: 'candidate' });
@@ -16205,6 +17439,7 @@ export default {
   ProfileEngagementJob,
   CompanyProfile,
   AgencyProfile,
+  AgencyDashboardOverview,
   FreelancerProfile,
   ReputationTestimonial,
   ReputationSuccessStory,
@@ -16216,6 +17451,10 @@ export default {
   FreelancerTestimonial,
   FreelancerHeroBanner,
   FeedPost,
+  FreelancerTimelineWorkspace,
+  FreelancerTimelinePost,
+  FreelancerTimelineEntry,
+  FreelancerTimelinePostMetric,
   Job,
   Gig,
   GigPackage,
@@ -16433,6 +17672,9 @@ export default {
   EmployerBenefit,
   EmployeeJourneyProgram,
   WorkspaceIntegration,
+  WorkspaceIntegrationSecret,
+  WorkspaceIntegrationWebhook,
+  WorkspaceIntegrationAuditLog,
   WorkspaceCalendarConnection,
   EscrowAccount,
   EscrowTransaction,
@@ -16528,7 +17770,7 @@ export default {
   BlogPostMedia,
 };
 
-registerBlogAssociations({ User });
+registerBlogAssociations({ User, ProviderWorkspace });
 
 const domainRegistry = new DomainRegistry({
   sequelize,
@@ -16611,7 +17853,8 @@ domainRegistry.registerContext({
       /^Message/.test(modelName) ||
       /^Notification/.test(modelName) ||
       /^Support/.test(modelName) ||
-      /^Analytics/.test(modelName),
+      /^Analytics/.test(modelName) ||
+      /^AgencyTimeline/.test(modelName),
   ],
   metadata: domainMetadata.communications,
 });

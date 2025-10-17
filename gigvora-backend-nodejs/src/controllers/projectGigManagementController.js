@@ -10,6 +10,12 @@ import {
   addGigSubmission,
   updateGigSubmission,
   postGigChatMessage,
+  getGigOrderDetail,
+  createGigTimelineEvent,
+  createGigSubmission,
+  updateGigSubmission,
+  postGigChatMessage,
+  acknowledgeGigChatMessage,
 } from '../services/projectGigManagementWorkflowService.js';
 import { AuthorizationError } from '../utils/errors.js';
 import {
@@ -35,24 +41,11 @@ function normalizeRole(role) {
   return role?.toString().trim().toLowerCase().replace(/[^a-z0-9]+/g, '_') ?? null;
 }
 
-function resolveOwnerId(req) {
-  const candidates = [req.params?.userId, req.params?.id, req.user?.id, resolveRequestUserId(req)];
-  for (const candidate of candidates) {
-    const parsed = Number.parseInt(candidate, 10);
-    if (Number.isInteger(parsed)) {
-      return parsed;
-    }
-  }
-  return null;
-}
-
 function resolveAccess(req, ownerId) {
   const actorId = resolveRequestUserId(req);
   const actorRoleRaw = resolveRequestUserRole(req);
   const permissions = resolveRequestPermissions(req) ?? [];
   const normalizedRole = normalizeRole(actorRoleRaw);
-
-  const permissionList = Array.isArray(permissions) ? permissions : [];
 
   const isOwner = actorId != null && ownerId === actorId;
   const permissionFlags = permissions
@@ -139,6 +132,12 @@ async function withDashboardRefresh(ownerId, access, resolver) {
   return { result, snapshot: { ...snapshot, access } };
 }
 
+async function withOrderRefresh(ownerId, orderId, resolver) {
+  const result = await resolver();
+  const detail = await getGigOrderDetail(ownerId, orderId);
+  return { result, detail };
+}
+
 export async function storeProject(req, res) {
   const ownerId = parseOwnerId(req);
   const access = ensureManageAccess(req, ownerId);
@@ -202,6 +201,22 @@ export async function patchGigTimelineEvent(req, res) {
     updateGigTimelineEvent(ownerId, orderId, eventId, req.body),
   );
   res.json({ event: result, dashboard: snapshot });
+export async function showGigOrder(req, res) {
+  const ownerId = parseOwnerId(req);
+  ensureViewAccess(req, ownerId);
+  const orderId = Number.parseInt(req.params?.orderId, 10);
+  const detail = await getGigOrderDetail(ownerId, orderId);
+  res.json({ order: detail });
+}
+
+export async function storeGigTimelineEvent(req, res) {
+  const ownerId = parseOwnerId(req);
+  const access = ensureManageAccess(req, ownerId);
+  const orderId = Number.parseInt(req.params?.orderId, 10);
+  const { result, detail } = await withOrderRefresh(ownerId, orderId, () =>
+    createGigTimelineEvent(ownerId, orderId, req.body, { actorId: access.actorId }),
+  );
+  res.status(201).json({ event: result, order: detail });
 }
 
 export async function storeGigSubmission(req, res) {
@@ -212,6 +227,10 @@ export async function storeGigSubmission(req, res) {
     addGigSubmission(ownerId, orderId, req.body),
   );
   res.status(201).json({ submission: result, dashboard: snapshot });
+  const { result, detail } = await withOrderRefresh(ownerId, orderId, () =>
+    createGigSubmission(ownerId, orderId, req.body, { actorId: access.actorId }),
+  );
+  res.status(201).json({ submission: result, order: detail });
 }
 
 export async function patchGigSubmission(req, res) {
@@ -223,6 +242,10 @@ export async function patchGigSubmission(req, res) {
     updateGigSubmission(ownerId, orderId, submissionId, req.body),
   );
   res.json({ submission: result, dashboard: snapshot });
+  const { result, detail } = await withOrderRefresh(ownerId, orderId, () =>
+    updateGigSubmission(ownerId, orderId, submissionId, req.body, { actorId: access.actorId }),
+  );
+  res.json({ submission: result, order: detail });
 }
 
 export async function storeGigChatMessage(req, res) {
@@ -233,6 +256,21 @@ export async function storeGigChatMessage(req, res) {
     postGigChatMessage(ownerId, orderId, req.body),
   );
   res.status(201).json({ message: result, dashboard: snapshot });
+  const { result, detail } = await withOrderRefresh(ownerId, orderId, () =>
+    postGigChatMessage(ownerId, orderId, req.body, { actorId: access.actorId, actorRole: access.actorRole }),
+  );
+  res.status(201).json({ message: result, order: detail });
+}
+
+export async function acknowledgeGigMessage(req, res) {
+  const ownerId = parseOwnerId(req);
+  const access = ensureManageAccess(req, ownerId);
+  const orderId = Number.parseInt(req.params?.orderId, 10);
+  const messageId = Number.parseInt(req.params?.messageId, 10);
+  const { result, detail } = await withOrderRefresh(ownerId, orderId, () =>
+    acknowledgeGigChatMessage(ownerId, orderId, messageId, { actorId: access.actorId }),
+  );
+  res.json({ message: result, order: detail });
 }
 
 export default {
@@ -247,4 +285,10 @@ export default {
   storeGigSubmission,
   patchGigSubmission,
   storeGigChatMessage,
+  showGigOrder,
+  storeGigTimelineEvent,
+  storeGigSubmission,
+  patchGigSubmission,
+  storeGigChatMessage,
+  acknowledgeGigMessage,
 };
