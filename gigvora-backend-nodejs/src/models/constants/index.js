@@ -132,6 +132,24 @@ export const AGENCY_RETAINER_NEGOTIATION_STATUSES = ['draft', 'in_discussion', '
 export const AGENCY_RETAINER_NEGOTIATION_STAGES = ['qualification', 'scoping', 'commercials', 'legal', 'kickoff'];
 export const AGENCY_RETAINER_EVENT_ACTOR_TYPES = ['freelancer', 'agency', 'system'];
 export const AGENCY_RETAINER_EVENT_TYPES = ['note', 'term_update', 'document_shared', 'meeting', 'status_change'];
+export const AGENCY_MENTORING_SESSION_STATUSES = [
+  'scheduled',
+  'in_progress',
+  'completed',
+  'cancelled',
+  'no_show',
+];
+export const AGENCY_MENTORING_PURCHASE_STATUSES = ['active', 'exhausted', 'expired', 'refunded'];
+export const AGENCY_MENTOR_PREFERENCE_LEVELS = ['watch', 'consider', 'preferred', 'primary'];
+export const AGENCY_TIMELINE_POST_STATUSES = ['draft', 'scheduled', 'published', 'archived'];
+export const AGENCY_TIMELINE_VISIBILITIES = ['internal', 'client', 'public'];
+export const AGENCY_TIMELINE_DISTRIBUTION_CHANNELS = [
+  'gigvora_feed',
+  'email',
+  'slack',
+  'client_portal',
+  'social',
+];
 export const ESCROW_ACCOUNT_STATUSES = ['pending', 'active', 'suspended', 'closed'];
 export const ESCROW_TRANSACTION_TYPES = ['project', 'gig', 'milestone', 'retainer'];
 export const HEADHUNTER_INVITE_STATUSES = ['pending', 'accepted', 'declined', 'expired', 'revoked'];
@@ -204,6 +222,9 @@ export const NETWORKING_SESSION_ACCESS_TYPES = ['free', 'paid', 'invite_only'];
 export const NETWORKING_SESSION_VISIBILITIES = ['private', 'workspace', 'public'];
 export const NETWORKING_SESSION_SIGNUP_STATUSES = ['registered', 'waitlisted', 'checked_in', 'no_show', 'removed', 'completed'];
 export const NETWORKING_SESSION_SIGNUP_SOURCES = ['self', 'host', 'admin', 'import'];
+export const NETWORKING_SIGNUP_PAYMENT_STATUSES = ['unpaid', 'pending', 'paid', 'refunded'];
+export const NETWORKING_CONNECTION_STATUSES = ['new', 'follow_up', 'connected', 'archived'];
+export const NETWORKING_CONNECTION_TYPES = ['follow', 'connect', 'collaboration'];
 export const NETWORKING_BUSINESS_CARD_STATUSES = ['draft', 'published', 'archived'];
 export const NETWORKING_ROTATION_STATUSES = ['scheduled', 'in_progress', 'completed', 'cancelled'];
 
@@ -357,6 +378,19 @@ export const EMPLOYEE_JOURNEY_HEALTH_STATUSES = ['on_track', 'at_risk', 'off_tra
 export const WORKSPACE_INTEGRATION_CATEGORIES = ['calendar', 'hris', 'communication', 'ats', 'productivity', 'other'];
 export const WORKSPACE_INTEGRATION_STATUSES = ['connected', 'disconnected', 'error', 'pending'];
 export const WORKSPACE_INTEGRATION_SYNC_FREQUENCIES = ['manual', 'hourly', 'daily', 'weekly'];
+export const WORKSPACE_INTEGRATION_SECRET_TYPES = ['api_key', 'oauth_token', 'webhook_secret', 'custom'];
+export const WORKSPACE_INTEGRATION_WEBHOOK_STATUSES = ['active', 'paused', 'disabled'];
+export const WORKSPACE_INTEGRATION_AUDIT_EVENT_TYPES = [
+  'integration_created',
+  'integration_updated',
+  'secret_created',
+  'secret_rotated',
+  'webhook_created',
+  'webhook_updated',
+  'webhook_deleted',
+  'connection_tested',
+  'sync_triggered',
+];
 export const WORKSPACE_CALENDAR_CONNECTION_STATUSES = ['connected', 'sync_error', 'disconnected', 'pending'];
 export const CAREER_DOCUMENT_TYPES = ['cv', 'cover_letter', 'portfolio', 'brand_asset', 'story_block'];
 export const CAREER_DOCUMENT_STATUSES = ['draft', 'in_review', 'approved', 'archived'];
@@ -547,6 +581,32 @@ export const FINANCE_TAX_EXPORT_STATUSES = ['generating', 'available', 'archived
 export const CAREER_ANALYTICS_TREND_DIRECTIONS = ['up', 'down', 'flat'];
 export const CALENDAR_INTEGRATION_STATUSES = ['connected', 'syncing', 'error', 'disconnected'];
 export const CALENDAR_EVENT_TYPES = ['interview', 'networking', 'project', 'wellbeing', 'deadline', 'ritual'];
+export const FREELANCER_CALENDAR_EVENT_TYPES = [
+  'project',
+  'gig',
+  'job_interview',
+  'mentorship',
+  'volunteering',
+  'client_meeting',
+  'other',
+];
+export const FREELANCER_CALENDAR_EVENT_STATUSES = [
+  'tentative',
+  'confirmed',
+  'in_progress',
+  'completed',
+  'cancelled',
+];
+export const FREELANCER_CALENDAR_RELATED_TYPES = [
+  'project',
+  'gig',
+  'job',
+  'mentorship',
+  'volunteering',
+  'client',
+  'community',
+  'other',
+];
 export const CALENDAR_EVENT_SOURCES = ['manual', 'google', 'outlook', 'gigvora'];
 export const FOCUS_SESSION_TYPES = ['interview_prep', 'networking', 'application', 'deep_work', 'wellbeing'];
 export const ADVISOR_COLLABORATION_STATUSES = ['draft', 'active', 'paused', 'archived'];
