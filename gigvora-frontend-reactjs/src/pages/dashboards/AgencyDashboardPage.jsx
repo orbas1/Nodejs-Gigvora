@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import useSession from '../../hooks/useSession.js';
+import { AGENCY_DASHBOARD_MENU_SECTIONS } from '../../constants/agencyDashboardMenu.js';
 
 const OVERVIEW_METRICS = [
   { id: 'clients', label: 'Active clients', value: 18, hint: '4 onboarding this month' },
@@ -31,41 +33,64 @@ const FINANCE_SUMMARY = [
   { id: 'payouts', label: 'Payouts processed', value: '$245K', hint: 'Cleared overnight' },
 ];
 
+const AVAILABLE_DASHBOARDS = ['agency', 'company', 'freelancer', 'user'];
+
+function buildProfile(name) {
+  const initials = name
+    .split(' ')
+    .map((part) => part[0])
+    .filter(Boolean)
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
+  return {
+    name,
+    role: 'Agency leadership workspace',
+    initials: initials || 'AG',
+    status: 'Monitoring client momentum and bench health',
+    badges: ['Control tower'],
+    metrics: OVERVIEW_METRICS.map((metric) => ({ label: metric.label, value: metric.value })),
+  };
+}
+
 export default function AgencyDashboardPage() {
   const { session } = useSession();
   const displayName = session?.name || session?.firstName || 'Agency team';
 
-  return (
-    <div className="min-h-screen bg-surfaceMuted pb-16">
-      <div className="mx-auto max-w-6xl px-4 pt-12 sm:px-6 lg:px-8">
-        <header className="flex flex-col gap-4 border-b border-slate-200 pb-8">
-          <div>
-            <p className="text-sm uppercase tracking-[0.4em] text-slate-500">Agency control tower</p>
-            <h1 className="mt-2 text-3xl font-semibold text-slate-900">Hello, {displayName}</h1>
-            <p className="mt-3 max-w-3xl text-sm text-slate-600">
-              Track client health, revenue momentum, and the team’s next actions. Keep the bench balanced and highlight wins to
-              leadership.
-            </p>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-3">
-            {OVERVIEW_METRICS.map((metric) => (
-              <div
-                key={metric.id}
-                className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft transition hover:-translate-y-0.5 hover:border-accent/60"
-              >
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">{metric.label}</p>
-                <p className="mt-3 text-3xl font-semibold text-slate-900">{metric.value}</p>
-                <p className="mt-2 text-xs text-slate-500">{metric.hint}</p>
-              </div>
-            ))}
-          </div>
-        </header>
+  const profile = buildProfile(displayName);
 
-        <section className="mt-12 grid gap-8 lg:grid-cols-[1.35fr_1fr]">
+  return (
+    <DashboardLayout
+      currentDashboard="agency"
+      title="Agency control tower"
+      subtitle="Daily visibility across client commitments, bench capacity, and finance health"
+      description="Track client health, revenue momentum, and the team’s next actions. Keep the bench balanced and spotlight wins for leadership."
+      menuSections={AGENCY_DASHBOARD_MENU_SECTIONS}
+      availableDashboards={AVAILABLE_DASHBOARDS}
+      profile={profile}
+    >
+      <div id="agency-home" className="space-y-10">
+        <div className="grid gap-4 sm:grid-cols-3">
+          {OVERVIEW_METRICS.map((metric) => (
+            <div
+              key={metric.id}
+              className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft transition hover:-translate-y-0.5 hover:border-accent/60"
+            >
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">{metric.label}</p>
+              <p className="mt-3 text-3xl font-semibold text-slate-900">{metric.value}</p>
+              <p className="mt-2 text-xs text-slate-500">{metric.hint}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid gap-8 lg:grid-cols-[1.35fr_1fr]">
           <div className="space-y-6">
-            <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
+            <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft" aria-labelledby="team-focus-heading">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-slate-900">Team focus</h2>
+                <h2 id="team-focus-heading" className="text-xl font-semibold text-slate-900">
+                  Team focus
+                </h2>
                 <Link to="/inbox" className="text-sm font-semibold text-accent hover:text-accentDark">
                   Share update
                 </Link>
@@ -83,10 +108,12 @@ export default function AgencyDashboardPage() {
                   </li>
                 ))}
               </ol>
-            </div>
+            </section>
 
-            <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
-              <h2 className="text-xl font-semibold text-slate-900">Bench signals</h2>
+            <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft" aria-labelledby="bench-signals-heading">
+              <h2 id="bench-signals-heading" className="text-xl font-semibold text-slate-900">
+                Bench signals
+              </h2>
               <div className="mt-4 space-y-3">
                 <div className="flex items-center justify-between rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-3">
                   <p className="text-sm text-slate-600">Product design squad</p>
@@ -101,12 +128,14 @@ export default function AgencyDashboardPage() {
                   <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">Over capacity</span>
                 </div>
               </div>
-            </div>
+            </section>
           </div>
 
           <aside className="space-y-6">
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
-              <h2 className="text-lg font-semibold text-slate-900">Finance snapshot</h2>
+            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft" aria-labelledby="finance-snapshot-heading">
+              <h2 id="finance-snapshot-heading" className="text-lg font-semibold text-slate-900">
+                Finance snapshot
+              </h2>
               <ul className="mt-4 space-y-3">
                 {FINANCE_SUMMARY.map((item) => (
                   <li key={item.id} className="rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
@@ -116,10 +145,12 @@ export default function AgencyDashboardPage() {
                   </li>
                 ))}
               </ul>
-            </div>
+            </section>
 
-            <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-accent/10 via-white to-blue-100 p-6 shadow-soft">
-              <h2 className="text-lg font-semibold text-slate-900">Need support?</h2>
+            <section className="rounded-3xl border border-slate-200 bg-gradient-to-br from-accent/10 via-white to-blue-100 p-6 shadow-soft" aria-labelledby="support-heading">
+              <h2 id="support-heading" className="text-lg font-semibold text-slate-900">
+                Need support?
+              </h2>
               <p className="mt-2 text-sm text-slate-600">
                 Coordinate with finance or compliance in the shared channel. We’ll help unblock vendors, approvals, or contract
                 questions within the hour.
@@ -130,10 +161,10 @@ export default function AgencyDashboardPage() {
               >
                 Message operations
               </Link>
-            </div>
+            </section>
           </aside>
-        </section>
+        </div>
       </div>
-    </div>
+    </DashboardLayout>
   );
 }

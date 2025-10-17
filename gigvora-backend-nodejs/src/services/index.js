@@ -33,6 +33,7 @@ export { default as freelancerProfileHubService } from './freelancerProfileHubSe
 export { default as gigManagerService } from './gigManagerService.js';
 export { default as workspaceTemplateService } from './workspaceTemplateService.js';
 export { default as companyDashboardService } from './companyDashboardService.js';
+export { default as agencyTimelineService } from './agencyTimelineService.js';
 export { default as blogService } from './blogService.js';
 export { default as careerDocumentService } from './careerDocumentService.js';
 export { default as runtimeMaintenanceService } from './runtimeMaintenanceService.js';

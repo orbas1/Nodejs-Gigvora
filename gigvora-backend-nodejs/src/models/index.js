@@ -46,7 +46,8 @@ import {
   AGENCY_ALLIANCE_POD_STATUSES, AGENCY_ALLIANCE_RATE_CARD_STATUSES, AGENCY_ALLIANCE_RATE_CARD_APPROVAL_STATUSES, AGENCY_ALLIANCE_REVENUE_SPLIT_TYPES,
   AGENCY_ALLIANCE_REVENUE_SPLIT_STATUSES, AGENCY_COLLABORATION_STATUSES, AGENCY_COLLABORATION_TYPES, AGENCY_INVITATION_STATUSES,
   AGENCY_RATE_CARD_STATUSES, AGENCY_RATE_CARD_ITEM_UNIT_TYPES, AGENCY_RETAINER_NEGOTIATION_STATUSES, AGENCY_RETAINER_NEGOTIATION_STAGES,
-  AGENCY_RETAINER_EVENT_ACTOR_TYPES, AGENCY_RETAINER_EVENT_TYPES, ESCROW_ACCOUNT_STATUSES, ESCROW_TRANSACTION_TYPES,
+  AGENCY_RETAINER_EVENT_ACTOR_TYPES, AGENCY_RETAINER_EVENT_TYPES, AGENCY_TIMELINE_POST_STATUSES,
+  AGENCY_TIMELINE_VISIBILITIES, AGENCY_TIMELINE_DISTRIBUTION_CHANNELS, ESCROW_ACCOUNT_STATUSES, ESCROW_TRANSACTION_TYPES,
   HEADHUNTER_INVITE_STATUSES, HEADHUNTER_BRIEF_STATUSES, HEADHUNTER_ASSIGNMENT_STATUSES, HEADHUNTER_COMMISSION_STATUSES,
   TALENT_POOL_TYPES, TALENT_POOL_STATUSES, TALENT_POOL_MEMBER_STATUSES, TALENT_POOL_MEMBER_SOURCE_TYPES,
   TALENT_POOL_ENGAGEMENT_TYPES, AGENCY_BILLING_STATUSES, ESCROW_TRANSACTION_STATUSES, ID_VERIFICATION_STATUSES,
@@ -376,6 +377,105 @@ export const AgencyProfile = sequelize.define(
     geoLocation: { type: jsonType, allowNull: true },
   },
   { tableName: 'agency_profiles' },
+);
+
+export const AgencyTimelinePost = sequelize.define(
+  'AgencyTimelinePost',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    ownerId: { type: DataTypes.INTEGER, allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    slug: { type: DataTypes.STRING(200), allowNull: false, unique: true },
+    excerpt: { type: DataTypes.STRING(500), allowNull: true },
+    content: { type: DataTypes.TEXT, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...AGENCY_TIMELINE_POST_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [AGENCY_TIMELINE_POST_STATUSES] },
+    },
+    visibility: {
+      type: DataTypes.ENUM(...AGENCY_TIMELINE_VISIBILITIES),
+      allowNull: false,
+      defaultValue: 'internal',
+      validate: { isIn: [AGENCY_TIMELINE_VISIBILITIES] },
+    },
+    scheduledAt: { type: DataTypes.DATE, allowNull: true },
+    publishedAt: { type: DataTypes.DATE, allowNull: true },
+    archivedAt: { type: DataTypes.DATE, allowNull: true },
+    lastSentAt: { type: DataTypes.DATE, allowNull: true },
+    heroImageUrl: { type: DataTypes.STRING(512), allowNull: true },
+    thumbnailUrl: { type: DataTypes.STRING(512), allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    attachments: { type: jsonType, allowNull: true },
+    distributionChannels: { type: jsonType, allowNull: true },
+    audienceRoles: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: false, defaultValue: {} },
+    engagementScore: { type: DataTypes.DECIMAL(9, 4), allowNull: false, defaultValue: 0 },
+  },
+  {
+    tableName: 'agency_timeline_posts',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['status'] },
+      { fields: ['publishedAt'] },
+      { fields: ['scheduledAt'] },
+      { unique: true, fields: ['slug'] },
+    ],
+  },
+);
+
+export const AgencyTimelinePostRevision = sequelize.define(
+  'AgencyTimelinePostRevision',
+  {
+    postId: { type: DataTypes.INTEGER, allowNull: false },
+    editorId: { type: DataTypes.INTEGER, allowNull: true },
+    version: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
+    title: { type: DataTypes.STRING(180), allowNull: true },
+    excerpt: { type: DataTypes.STRING(500), allowNull: true },
+    content: { type: DataTypes.TEXT, allowNull: true },
+    changeSummary: { type: DataTypes.STRING(400), allowNull: true },
+    diff: { type: jsonType, allowNull: true },
+    snapshot: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'agency_timeline_post_revisions',
+    indexes: [
+      { fields: ['postId'] },
+      { unique: true, fields: ['postId', 'version'] },
+    ],
+  },
+);
+
+export const AgencyTimelinePostMetric = sequelize.define(
+  'AgencyTimelinePostMetric',
+  {
+    postId: { type: DataTypes.INTEGER, allowNull: false },
+    periodStart: { type: DataTypes.DATE, allowNull: false },
+    periodEnd: { type: DataTypes.DATE, allowNull: false },
+    channel: { type: DataTypes.STRING(80), allowNull: true },
+    impressions: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    clicks: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    engagements: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    shares: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    comments: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    leads: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    audience: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    conversionRate: { type: DataTypes.DECIMAL(8, 4), allowNull: false, defaultValue: 0 },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'agency_timeline_post_metrics',
+    indexes: [
+      { fields: ['postId'] },
+      { fields: ['periodStart'] },
+      { fields: ['periodEnd'] },
+      { fields: ['channel'] },
+      { unique: true, fields: ['postId', 'periodStart', 'periodEnd', 'channel'] },
+    ],
+  },
 );
 
 export const FreelancerProfile = sequelize.define(
@@ -14215,6 +14315,31 @@ CompanyProfile.belongsTo(User, { foreignKey: 'userId' });
 User.hasOne(AgencyProfile, { foreignKey: 'userId' });
 AgencyProfile.belongsTo(User, { foreignKey: 'userId' });
 
+ProviderWorkspace.hasMany(AgencyTimelinePost, {
+  foreignKey: 'workspaceId',
+  as: 'timelinePosts',
+  onDelete: 'CASCADE',
+});
+AgencyTimelinePost.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+AgencyTimelinePost.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
+AgencyTimelinePost.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+AgencyTimelinePost.belongsTo(User, { foreignKey: 'updatedById', as: 'updatedBy' });
+
+AgencyTimelinePost.hasMany(AgencyTimelinePostRevision, {
+  foreignKey: 'postId',
+  as: 'revisions',
+  onDelete: 'CASCADE',
+});
+AgencyTimelinePostRevision.belongsTo(AgencyTimelinePost, { foreignKey: 'postId', as: 'post' });
+AgencyTimelinePostRevision.belongsTo(User, { foreignKey: 'editorId', as: 'editor' });
+
+AgencyTimelinePost.hasMany(AgencyTimelinePostMetric, {
+  foreignKey: 'postId',
+  as: 'metrics',
+  onDelete: 'CASCADE',
+});
+AgencyTimelinePostMetric.belongsTo(AgencyTimelinePost, { foreignKey: 'postId', as: 'post' });
+
 User.hasOne(FreelancerProfile, { foreignKey: 'userId' });
 FreelancerProfile.belongsTo(User, { foreignKey: 'userId' });
 
@@ -16611,7 +16736,8 @@ domainRegistry.registerContext({
       /^Message/.test(modelName) ||
       /^Notification/.test(modelName) ||
       /^Support/.test(modelName) ||
-      /^Analytics/.test(modelName),
+      /^Analytics/.test(modelName) ||
+      /^AgencyTimeline/.test(modelName),
   ],
   metadata: domainMetadata.communications,
 });

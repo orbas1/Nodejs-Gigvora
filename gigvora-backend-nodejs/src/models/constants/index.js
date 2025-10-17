@@ -132,6 +132,15 @@ export const AGENCY_RETAINER_NEGOTIATION_STATUSES = ['draft', 'in_discussion', '
 export const AGENCY_RETAINER_NEGOTIATION_STAGES = ['qualification', 'scoping', 'commercials', 'legal', 'kickoff'];
 export const AGENCY_RETAINER_EVENT_ACTOR_TYPES = ['freelancer', 'agency', 'system'];
 export const AGENCY_RETAINER_EVENT_TYPES = ['note', 'term_update', 'document_shared', 'meeting', 'status_change'];
+export const AGENCY_TIMELINE_POST_STATUSES = ['draft', 'scheduled', 'published', 'archived'];
+export const AGENCY_TIMELINE_VISIBILITIES = ['internal', 'client', 'public'];
+export const AGENCY_TIMELINE_DISTRIBUTION_CHANNELS = [
+  'gigvora_feed',
+  'email',
+  'slack',
+  'client_portal',
+  'social',
+];
 export const ESCROW_ACCOUNT_STATUSES = ['pending', 'active', 'suspended', 'closed'];
 export const ESCROW_TRANSACTION_TYPES = ['project', 'gig', 'milestone', 'retainer'];
 export const HEADHUNTER_INVITE_STATUSES = ['pending', 'accepted', 'declined', 'expired', 'revoked'];
