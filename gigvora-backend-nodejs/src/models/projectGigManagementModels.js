@@ -1,5 +1,6 @@
 import { Sequelize, DataTypes } from 'sequelize';
 import databaseConfig from '../config/database.js';
+import { GIG_ORDER_ACTIVITY_TYPES, GIG_ORDER_ESCROW_STATUSES } from './constants/index.js';
 
 const { url, ...sequelizeOptions } = databaseConfig;
 
@@ -23,6 +24,40 @@ export const AUTO_MATCH_STATUS = ['suggested', 'contacted', 'engaged', 'dismisse
 export const REVIEW_SUBJECT_TYPES = ['vendor', 'freelancer', 'mentor', 'project'];
 export const ESCROW_TRANSACTION_TYPES = ['deposit', 'release', 'refund', 'fee', 'adjustment'];
 export const ESCROW_TRANSACTION_STATUSES = ['pending', 'completed', 'failed'];
+export const GIG_ESCROW_STATUSES = [...GIG_ORDER_ESCROW_STATUSES];
+export const GIG_TIMELINE_EVENT_TYPES = ['kickoff', 'milestone', 'checkpoint', 'handoff', 'qa_review', 'retro', 'note'];
+export const GIG_TIMELINE_EVENT_STATUSES = ['scheduled', 'in_progress', 'completed', 'cancelled'];
+export const GIG_SUBMISSION_STATUSES = ['draft', 'submitted', 'approved', 'rejected', 'needs_changes'];
+export const PROJECT_AUTOMATCH_DECISION_STATUSES = ['pending', 'accepted', 'rejected'];
+export const GIG_TIMELINE_EVENT_TYPES = [
+  'kickoff',
+  'milestone',
+  'check_in',
+  'scope_change',
+  'handoff',
+  'qa',
+  'client_feedback',
+  'blocker',
+];
+export const GIG_TIMELINE_VISIBILITIES = ['internal', 'client', 'vendor'];
+export const GIG_SUBMISSION_STATUSES = ['draft', 'submitted', 'under_review', 'approved', 'rejected'];
+export const GIG_CHAT_VISIBILITIES = ['internal', 'client', 'vendor'];
+export const CLIENT_ACCOUNT_TIERS = ['strategic', 'growth', 'core', 'incubating'];
+export const CLIENT_ACCOUNT_STATUSES = ['active', 'onboarding', 'paused', 'closed'];
+export const CLIENT_ACCOUNT_HEALTH_STATUSES = ['healthy', 'monitor', 'at_risk'];
+export const CLIENT_KANBAN_PRIORITIES = ['low', 'medium', 'high', 'critical'];
+export const CLIENT_KANBAN_RISK_LEVELS = ['low', 'medium', 'high'];
+
+export const WORKSPACE_BUDGET_STATUSES = ['planned', 'approved', 'in_progress', 'completed', 'overbudget'];
+export const WORKSPACE_TASK_STATUSES = ['planned', 'in_progress', 'blocked', 'completed', 'cancelled'];
+export const WORKSPACE_TASK_PRIORITIES = ['low', 'medium', 'high', 'critical'];
+export const WORKSPACE_MEETING_STATUSES = ['scheduled', 'completed', 'cancelled'];
+export const WORKSPACE_INVITE_STATUSES = ['pending', 'accepted', 'declined', 'expired'];
+export const WORKSPACE_ROLE_STATUSES = ['draft', 'active', 'backfill', 'closed'];
+export const WORKSPACE_SUBMISSION_STATUSES = ['pending', 'in_review', 'approved', 'changes_requested'];
+export const WORKSPACE_HR_STATUSES = ['planned', 'active', 'on_leave', 'completed'];
+export const WORKSPACE_TIME_ENTRY_STATUSES = ['draft', 'submitted', 'approved', 'rejected'];
+export const WORKSPACE_OBJECT_TYPES = ['asset', 'deliverable', 'dependency', 'risk', 'note'];
 
 export const Project = projectGigManagementSequelize.define(
   'PgmProject',
@@ -30,12 +65,28 @@ export const Project = projectGigManagementSequelize.define(
     ownerId: { type: DataTypes.INTEGER, allowNull: false },
     title: { type: DataTypes.STRING(180), allowNull: false },
     description: { type: DataTypes.TEXT, allowNull: false },
+    category: { type: DataTypes.STRING(120), allowNull: false, defaultValue: 'General' },
+    skills: { type: jsonType, allowNull: false, defaultValue: [] },
+    durationWeeks: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 4 },
     status: { type: DataTypes.ENUM(...PROJECT_STATUSES), allowNull: false, defaultValue: 'planning' },
+    lifecycleState: { type: DataTypes.ENUM('open', 'closed'), allowNull: false, defaultValue: 'open' },
     startDate: { type: DataTypes.DATE, allowNull: true },
     dueDate: { type: DataTypes.DATE, allowNull: true },
     budgetCurrency: { type: DataTypes.STRING(6), allowNull: false, defaultValue: 'USD' },
     budgetAllocated: { type: DataTypes.DECIMAL(12, 2), allowNull: false, defaultValue: 0 },
     budgetSpent: { type: DataTypes.DECIMAL(12, 2), allowNull: false, defaultValue: 0 },
+    autoMatchEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    autoMatchAcceptEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    autoMatchRejectEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    autoMatchBudgetMin: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    autoMatchBudgetMax: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    autoMatchWeeklyHoursMin: { type: DataTypes.DECIMAL(6, 2), allowNull: true },
+    autoMatchWeeklyHoursMax: { type: DataTypes.DECIMAL(6, 2), allowNull: true },
+    autoMatchDurationWeeksMin: { type: DataTypes.INTEGER, allowNull: true },
+    autoMatchDurationWeeksMax: { type: DataTypes.INTEGER, allowNull: true },
+    autoMatchSkills: { type: jsonType, allowNull: true },
+    autoMatchNotes: { type: DataTypes.TEXT, allowNull: true },
+    autoMatchUpdatedBy: { type: DataTypes.INTEGER, allowNull: true },
     archivedAt: { type: DataTypes.DATE, allowNull: true },
     metadata: { type: jsonType, allowNull: true },
   },
@@ -144,6 +195,26 @@ export const ProjectTemplate = projectGigManagementSequelize.define(
   { tableName: 'pgm_project_templates', underscored: true },
 );
 
+export const ProjectAutoMatchFreelancer = projectGigManagementSequelize.define(
+  'PgmProjectAutoMatchFreelancer',
+  {
+    projectId: { type: DataTypes.INTEGER, allowNull: false },
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    freelancerName: { type: DataTypes.STRING(180), allowNull: false },
+    freelancerRole: { type: DataTypes.STRING(120), allowNull: true },
+    score: { type: DataTypes.DECIMAL(6, 2), allowNull: true },
+    autoMatchEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    status: {
+      type: DataTypes.ENUM(...PROJECT_AUTOMATCH_DECISION_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+    },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pgm_project_automatch_freelancers', underscored: true },
+);
+
 export const GigOrder = projectGigManagementSequelize.define(
   'PgmGigOrder',
   {
@@ -197,6 +268,203 @@ export const GigVendorScorecard = projectGigManagementSequelize.define(
     notes: { type: DataTypes.TEXT, allowNull: true },
   },
   { tableName: 'pgm_vendor_scorecards', underscored: true },
+);
+
+export const GigOrderEscrowCheckpoint = projectGigManagementSequelize.define(
+  'PgmGigOrderEscrowCheckpoint',
+  {
+    label: { type: DataTypes.STRING(120), allowNull: false },
+    amount: { type: DataTypes.DECIMAL(12, 2), allowNull: false },
+    currency: { type: DataTypes.STRING(6), allowNull: false, defaultValue: 'USD' },
+    status: { type: DataTypes.ENUM(...GIG_ESCROW_STATUSES), allowNull: false, defaultValue: 'funded' },
+    approvalRequirement: { type: DataTypes.STRING(160), allowNull: true },
+    csatThreshold: { type: DataTypes.DECIMAL(3, 2), allowNull: true },
+    releasedAt: { type: DataTypes.DATE, allowNull: true },
+    releasedById: { type: DataTypes.INTEGER, allowNull: true },
+    payoutReference: { type: DataTypes.STRING(160), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  { tableName: 'pgm_gig_order_escrows', underscored: true },
+);
+
+export const GigOrderActivity = projectGigManagementSequelize.define(
+  'PgmGigOrderActivity',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: true },
+    actorId: { type: DataTypes.INTEGER, allowNull: true },
+    activityType: { type: DataTypes.ENUM(...GIG_ORDER_ACTIVITY_TYPES), allowNull: false, defaultValue: 'system' },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    occurredAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pgm_gig_order_activities', underscored: true },
+);
+
+export const GigOrderMessage = projectGigManagementSequelize.define(
+  'PgmGigOrderMessage',
+  {
+    authorId: { type: DataTypes.INTEGER, allowNull: false },
+    authorName: { type: DataTypes.STRING(180), allowNull: false },
+    roleLabel: { type: DataTypes.STRING(120), allowNull: true },
+    body: { type: DataTypes.TEXT, allowNull: false },
+    attachments: { type: jsonType, allowNull: true },
+    visibility: { type: DataTypes.ENUM('private', 'shared'), allowNull: false, defaultValue: 'private' },
+    postedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+  },
+  { tableName: 'pgm_gig_order_messages', underscored: true },
+export const GigTimelineEvent = projectGigManagementSequelize.define(
+  'PgmGigTimelineEvent',
+  {
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    type: { type: DataTypes.ENUM(...GIG_TIMELINE_EVENT_TYPES), allowNull: false, defaultValue: 'note' },
+    status: { type: DataTypes.ENUM(...GIG_TIMELINE_EVENT_STATUSES), allowNull: false, defaultValue: 'scheduled' },
+    scheduledAt: { type: DataTypes.DATE, allowNull: true },
+    completedAt: { type: DataTypes.DATE, allowNull: true },
+    assignedTo: { type: DataTypes.STRING(180), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pgm_gig_timeline_events', underscored: true },
+);
+
+export const GigSubmission = projectGigManagementSequelize.define(
+  'PgmGigSubmission',
+  {
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    status: { type: DataTypes.ENUM(...GIG_SUBMISSION_STATUSES), allowNull: false, defaultValue: 'submitted' },
+    submittedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    submittedBy: { type: DataTypes.STRING(180), allowNull: true },
+    submittedByEmail: { type: DataTypes.STRING(180), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    reviewNotes: { type: DataTypes.TEXT, allowNull: true },
+    reviewedAt: { type: DataTypes.DATE, allowNull: true },
+    reviewedBy: { type: DataTypes.STRING(180), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pgm_gig_submissions', underscored: true },
+);
+
+export const GigSubmissionAsset = projectGigManagementSequelize.define(
+  'PgmGigSubmissionAsset',
+  {
+    label: { type: DataTypes.STRING(180), allowNull: false },
+    url: { type: DataTypes.STRING(255), allowNull: false },
+    previewUrl: { type: DataTypes.STRING(255), allowNull: true },
+    sizeBytes: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pgm_gig_submission_assets', underscored: true },
+);
+
+export const GigChatMessage = projectGigManagementSequelize.define(
+  'PgmGigChatMessage',
+  {
+    orderId: { type: DataTypes.INTEGER, allowNull: false },
+    authorId: { type: DataTypes.INTEGER, allowNull: true },
+    authorName: { type: DataTypes.STRING(180), allowNull: false },
+    authorRole: { type: DataTypes.STRING(120), allowNull: true },
+    body: { type: DataTypes.TEXT, allowNull: false },
+    attachments: { type: jsonType, allowNull: true },
+    sentAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    pinned: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    visibility: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'internal' },
+  },
+  { tableName: 'pgm_gig_chat_messages', underscored: true },
+export const ClientAccount = projectGigManagementSequelize.define(
+  'PgmClientAccount',
+  {
+    ownerId: { type: DataTypes.INTEGER, allowNull: false },
+    workspaceId: { type: DataTypes.INTEGER, allowNull: true },
+    name: { type: DataTypes.STRING(180), allowNull: false },
+    slug: { type: DataTypes.STRING(180), allowNull: true, unique: false },
+    websiteUrl: { type: DataTypes.STRING(255), allowNull: true },
+    logoUrl: { type: DataTypes.STRING(255), allowNull: true },
+    industry: { type: DataTypes.STRING(120), allowNull: true },
+    tier: { type: DataTypes.ENUM(...CLIENT_ACCOUNT_TIERS), allowNull: false, defaultValue: 'growth' },
+    status: { type: DataTypes.ENUM(...CLIENT_ACCOUNT_STATUSES), allowNull: false, defaultValue: 'active' },
+    healthStatus: { type: DataTypes.ENUM(...CLIENT_ACCOUNT_HEALTH_STATUSES), allowNull: false, defaultValue: 'healthy' },
+    annualContractValue: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    timezone: { type: DataTypes.STRING(60), allowNull: true },
+    primaryContactName: { type: DataTypes.STRING(180), allowNull: true },
+    primaryContactEmail: { type: DataTypes.STRING(180), allowNull: true },
+    primaryContactPhone: { type: DataTypes.STRING(60), allowNull: true },
+    accountManagerName: { type: DataTypes.STRING(180), allowNull: true },
+    accountManagerEmail: { type: DataTypes.STRING(180), allowNull: true },
+    lastInteractionAt: { type: DataTypes.DATE, allowNull: true },
+    nextReviewAt: { type: DataTypes.DATE, allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pgm_client_accounts', underscored: true },
+);
+
+export const ClientKanbanColumn = projectGigManagementSequelize.define(
+  'PgmClientKanbanColumn',
+  {
+    ownerId: { type: DataTypes.INTEGER, allowNull: false },
+    workspaceId: { type: DataTypes.INTEGER, allowNull: true },
+    name: { type: DataTypes.STRING(120), allowNull: false },
+    slug: { type: DataTypes.STRING(160), allowNull: true },
+    wipLimit: { type: DataTypes.INTEGER, allowNull: true },
+    sortOrder: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    color: { type: DataTypes.STRING(30), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pgm_client_kanban_columns', underscored: true },
+);
+
+export const ClientKanbanCard = projectGigManagementSequelize.define(
+  'PgmClientKanbanCard',
+  {
+    ownerId: { type: DataTypes.INTEGER, allowNull: false },
+    workspaceId: { type: DataTypes.INTEGER, allowNull: true },
+    columnId: { type: DataTypes.INTEGER, allowNull: false },
+    clientId: { type: DataTypes.INTEGER, allowNull: true },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    projectName: { type: DataTypes.STRING(180), allowNull: true },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    priority: { type: DataTypes.ENUM(...CLIENT_KANBAN_PRIORITIES), allowNull: false, defaultValue: 'medium' },
+    riskLevel: { type: DataTypes.ENUM(...CLIENT_KANBAN_RISK_LEVELS), allowNull: false, defaultValue: 'low' },
+    valueCurrency: { type: DataTypes.STRING(6), allowNull: false, defaultValue: 'USD' },
+    valueAmount: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    potentialMonthlyValue: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    contactName: { type: DataTypes.STRING(180), allowNull: true },
+    contactEmail: { type: DataTypes.STRING(180), allowNull: true },
+    ownerName: { type: DataTypes.STRING(180), allowNull: true },
+    ownerEmail: { type: DataTypes.STRING(180), allowNull: true },
+    healthStatus: { type: DataTypes.ENUM(...CLIENT_ACCOUNT_HEALTH_STATUSES), allowNull: false, defaultValue: 'healthy' },
+    startDate: { type: DataTypes.DATE, allowNull: true },
+    dueDate: { type: DataTypes.DATE, allowNull: true },
+    lastInteractionAt: { type: DataTypes.DATE, allowNull: true },
+    nextInteractionAt: { type: DataTypes.DATE, allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    checklistSummary: { type: jsonType, allowNull: true },
+    attachments: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    sortOrder: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    archivedAt: { type: DataTypes.DATE, allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  { tableName: 'pgm_client_kanban_cards', underscored: true },
+);
+
+export const ClientKanbanChecklistItem = projectGigManagementSequelize.define(
+  'PgmClientKanbanChecklistItem',
+  {
+    cardId: { type: DataTypes.INTEGER, allowNull: false },
+    ownerId: { type: DataTypes.INTEGER, allowNull: false },
+    workspaceId: { type: DataTypes.INTEGER, allowNull: true },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    completed: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    sortOrder: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    dueDate: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pgm_client_kanban_checklist_items', underscored: true },
 );
 
 export const StoryBlock = projectGigManagementSequelize.define(
@@ -343,6 +611,284 @@ export const EscrowTransaction = projectGigManagementSequelize.define(
     metadata: { type: jsonType, allowNull: true },
   },
   { tableName: 'pgm_escrow_transactions', underscored: true },
+export const ProjectWorkspaceBudgetLine = projectGigManagementSequelize.define(
+  'PgmProjectWorkspaceBudgetLine',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    category: { type: DataTypes.STRING(120), allowNull: false },
+    label: { type: DataTypes.STRING(180), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    plannedAmount: { type: DataTypes.DECIMAL(12, 2), allowNull: false, defaultValue: 0 },
+    actualAmount: { type: DataTypes.DECIMAL(12, 2), allowNull: false, defaultValue: 0 },
+    currency: { type: DataTypes.STRING(6), allowNull: false, defaultValue: 'USD' },
+    status: { type: DataTypes.ENUM(...WORKSPACE_BUDGET_STATUSES), allowNull: false, defaultValue: 'planned' },
+    ownerName: { type: DataTypes.STRING(120), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pgm_project_workspace_budget_lines', underscored: true },
+);
+
+export const ProjectWorkspaceObjective = projectGigManagementSequelize.define(
+  'PgmProjectWorkspaceObjective',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(200), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    ownerName: { type: DataTypes.STRING(120), allowNull: true },
+    metric: { type: DataTypes.STRING(120), allowNull: true },
+    targetValue: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    currentValue: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    status: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'on_track' },
+    dueDate: { type: DataTypes.DATE, allowNull: true },
+    weight: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pgm_project_workspace_objectives', underscored: true },
+);
+
+export const ProjectWorkspaceTask = projectGigManagementSequelize.define(
+  'PgmProjectWorkspaceTask',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(200), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    status: { type: DataTypes.ENUM(...WORKSPACE_TASK_STATUSES), allowNull: false, defaultValue: 'planned' },
+    priority: { type: DataTypes.ENUM(...WORKSPACE_TASK_PRIORITIES), allowNull: false, defaultValue: 'medium' },
+    lane: { type: DataTypes.STRING(120), allowNull: true },
+    assigneeName: { type: DataTypes.STRING(120), allowNull: true },
+    assigneeEmail: { type: DataTypes.STRING(180), allowNull: true },
+    startDate: { type: DataTypes.DATE, allowNull: true },
+    dueDate: { type: DataTypes.DATE, allowNull: true },
+    estimatedHours: { type: DataTypes.DECIMAL(8, 2), allowNull: true },
+    loggedHours: { type: DataTypes.DECIMAL(8, 2), allowNull: true },
+    progressPercent: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
+    dependencies: { type: jsonType, allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pgm_project_workspace_tasks', underscored: true },
+);
+
+export const ProjectWorkspaceMeeting = projectGigManagementSequelize.define(
+  'PgmProjectWorkspaceMeeting',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(200), allowNull: false },
+    agenda: { type: DataTypes.TEXT, allowNull: true },
+    status: { type: DataTypes.ENUM(...WORKSPACE_MEETING_STATUSES), allowNull: false, defaultValue: 'scheduled' },
+    scheduledAt: { type: DataTypes.DATE, allowNull: false },
+    durationMinutes: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 60 },
+    location: { type: DataTypes.STRING(180), allowNull: true },
+    meetingLink: { type: DataTypes.STRING(255), allowNull: true },
+    organizerName: { type: DataTypes.STRING(120), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    followUpItems: { type: jsonType, allowNull: true },
+    recurrenceRule: { type: DataTypes.STRING(180), allowNull: true },
+  },
+  { tableName: 'pgm_project_workspace_meetings', underscored: true },
+);
+
+export const ProjectWorkspaceCalendarEvent = projectGigManagementSequelize.define(
+  'PgmProjectWorkspaceCalendarEvent',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(200), allowNull: false },
+    eventType: { type: DataTypes.STRING(80), allowNull: false, defaultValue: 'milestone' },
+    startAt: { type: DataTypes.DATE, allowNull: false },
+    endAt: { type: DataTypes.DATE, allowNull: true },
+    visibility: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'team' },
+    location: { type: DataTypes.STRING(180), allowNull: true },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    attendees: { type: jsonType, allowNull: true },
+    reminderMinutesBefore: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pgm_project_workspace_calendar_events', underscored: true },
+);
+
+export const ProjectWorkspaceRoleAssignment = projectGigManagementSequelize.define(
+  'PgmProjectWorkspaceRoleAssignment',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    roleName: { type: DataTypes.STRING(140), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    memberName: { type: DataTypes.STRING(120), allowNull: true },
+    memberEmail: { type: DataTypes.STRING(180), allowNull: true },
+    status: { type: DataTypes.ENUM(...WORKSPACE_ROLE_STATUSES), allowNull: false, defaultValue: 'draft' },
+    allocationPercent: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    permissions: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pgm_project_workspace_role_assignments', underscored: true },
+);
+
+export const ProjectWorkspaceSubmission = projectGigManagementSequelize.define(
+  'PgmProjectWorkspaceSubmission',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(200), allowNull: false },
+    submissionType: { type: DataTypes.STRING(80), allowNull: false, defaultValue: 'deliverable' },
+    status: { type: DataTypes.ENUM(...WORKSPACE_SUBMISSION_STATUSES), allowNull: false, defaultValue: 'pending' },
+    dueAt: { type: DataTypes.DATE, allowNull: true },
+    submittedAt: { type: DataTypes.DATE, allowNull: true },
+    submittedByName: { type: DataTypes.STRING(120), allowNull: true },
+    submittedByEmail: { type: DataTypes.STRING(180), allowNull: true },
+    assetUrl: { type: DataTypes.STRING(255), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pgm_project_workspace_submissions', underscored: true },
+);
+
+export const ProjectWorkspaceInvite = projectGigManagementSequelize.define(
+  'PgmProjectWorkspaceInvite',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    email: { type: DataTypes.STRING(180), allowNull: false },
+    role: { type: DataTypes.STRING(120), allowNull: false },
+    status: { type: DataTypes.ENUM(...WORKSPACE_INVITE_STATUSES), allowNull: false, defaultValue: 'pending' },
+    invitedByName: { type: DataTypes.STRING(120), allowNull: true },
+    invitedByEmail: { type: DataTypes.STRING(180), allowNull: true },
+    message: { type: DataTypes.TEXT, allowNull: true },
+    invitedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    respondedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pgm_project_workspace_invites', underscored: true },
+);
+
+export const ProjectWorkspaceHrRecord = projectGigManagementSequelize.define(
+  'PgmProjectWorkspaceHrRecord',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    memberName: { type: DataTypes.STRING(120), allowNull: false },
+    roleTitle: { type: DataTypes.STRING(140), allowNull: true },
+    employmentType: { type: DataTypes.STRING(80), allowNull: false, defaultValue: 'contract' },
+    status: { type: DataTypes.ENUM(...WORKSPACE_HR_STATUSES), allowNull: false, defaultValue: 'planned' },
+    startDate: { type: DataTypes.DATE, allowNull: true },
+    endDate: { type: DataTypes.DATE, allowNull: true },
+    hourlyRate: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
+    weeklyCapacityHours: { type: DataTypes.DECIMAL(6, 2), allowNull: true },
+    allocationPercent: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pgm_project_workspace_hr_records', underscored: true },
+);
+
+export const ProjectWorkspaceTimeEntry = projectGigManagementSequelize.define(
+  'PgmProjectWorkspaceTimeEntry',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    memberName: { type: DataTypes.STRING(120), allowNull: false },
+    entryDate: { type: DataTypes.DATEONLY, allowNull: false },
+    hours: { type: DataTypes.DECIMAL(6, 2), allowNull: false, defaultValue: 0 },
+    billable: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    status: { type: DataTypes.ENUM(...WORKSPACE_TIME_ENTRY_STATUSES), allowNull: false, defaultValue: 'submitted' },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    approvedByName: { type: DataTypes.STRING(120), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pgm_project_workspace_time_entries', underscored: true },
+);
+
+export const ProjectWorkspaceObject = projectGigManagementSequelize.define(
+  'PgmProjectWorkspaceObject',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    objectType: { type: DataTypes.ENUM(...WORKSPACE_OBJECT_TYPES), allowNull: false, defaultValue: 'asset' },
+    label: { type: DataTypes.STRING(200), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    ownerName: { type: DataTypes.STRING(120), allowNull: true },
+    quantity: { type: DataTypes.INTEGER, allowNull: true },
+    unit: { type: DataTypes.STRING(40), allowNull: true },
+    status: { type: DataTypes.STRING(60), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pgm_project_workspace_objects', underscored: true },
+);
+
+export const ProjectWorkspaceDocument = projectGigManagementSequelize.define(
+  'PgmProjectWorkspaceDocument',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(200), allowNull: false },
+    category: { type: DataTypes.STRING(120), allowNull: false, defaultValue: 'general' },
+    storageUrl: { type: DataTypes.STRING(255), allowNull: false },
+    thumbnailUrl: { type: DataTypes.STRING(255), allowNull: true },
+    sizeBytes: { type: DataTypes.INTEGER, allowNull: true },
+    visibility: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'team' },
+    ownerName: { type: DataTypes.STRING(120), allowNull: true },
+    version: { type: DataTypes.STRING(40), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pgm_project_workspace_documents', underscored: true },
+);
+
+export const ProjectWorkspaceChatMessage = projectGigManagementSequelize.define(
+  'PgmProjectWorkspaceChatMessage',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    channel: { type: DataTypes.STRING(120), allowNull: false, defaultValue: 'general' },
+    authorName: { type: DataTypes.STRING(120), allowNull: false },
+    authorRole: { type: DataTypes.STRING(80), allowNull: true },
+    body: { type: DataTypes.TEXT, allowNull: false },
+    postedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    pinned: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pgm_project_workspace_chat_messages', underscored: true },
+export const GigTimelineEvent = projectGigManagementSequelize.define(
+  'PgmGigTimelineEvent',
+  {
+    orderId: { type: DataTypes.INTEGER, allowNull: false },
+    eventType: { type: DataTypes.ENUM(...GIG_TIMELINE_EVENT_TYPES), allowNull: false },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    visibility: { type: DataTypes.ENUM(...GIG_TIMELINE_VISIBILITIES), allowNull: false, defaultValue: 'internal' },
+    occurredAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pgm_gig_timeline_events', underscored: true },
+);
+
+export const GigSubmission = projectGigManagementSequelize.define(
+  'PgmGigSubmission',
+  {
+    orderId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    status: { type: DataTypes.ENUM(...GIG_SUBMISSION_STATUSES), allowNull: false, defaultValue: 'submitted' },
+    assetUrl: { type: DataTypes.STRING(255), allowNull: true },
+    assetType: { type: DataTypes.STRING(80), allowNull: true },
+    attachments: { type: jsonType, allowNull: true },
+    submittedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    approvedAt: { type: DataTypes.DATE, allowNull: true },
+    submittedById: { type: DataTypes.INTEGER, allowNull: true },
+    reviewedById: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pgm_gig_submissions', underscored: true },
+);
+
+export const GigChatMessage = projectGigManagementSequelize.define(
+  'PgmGigChatMessage',
+  {
+    orderId: { type: DataTypes.INTEGER, allowNull: false },
+    senderId: { type: DataTypes.INTEGER, allowNull: true },
+    senderRole: { type: DataTypes.STRING(80), allowNull: true },
+    body: { type: DataTypes.TEXT, allowNull: false },
+    attachments: { type: jsonType, allowNull: true },
+    visibility: { type: DataTypes.ENUM(...GIG_CHAT_VISIBILITIES), allowNull: false, defaultValue: 'internal' },
+    sentAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    acknowledgedAt: { type: DataTypes.DATE, allowNull: true },
+    acknowledgedById: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pgm_gig_chat_messages', underscored: true },
 );
 
 Project.hasOne(ProjectWorkspace, { as: 'workspace', foreignKey: 'projectId', onDelete: 'CASCADE' });
@@ -374,6 +920,12 @@ ProjectReview.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
 
 Project.hasMany(AutoMatchCandidate, { as: 'autoMatches', foreignKey: 'projectId', onDelete: 'SET NULL' });
 AutoMatchCandidate.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
+Project.hasMany(ProjectAutoMatchFreelancer, {
+  as: 'autoMatchFreelancers',
+  foreignKey: 'projectId',
+  onDelete: 'CASCADE',
+});
+ProjectAutoMatchFreelancer.belongsTo(Project, { foreignKey: 'projectId' });
 
 GigOrder.hasMany(GigOrderRequirement, { as: 'requirements', foreignKey: 'orderId', onDelete: 'CASCADE' });
 GigOrderRequirement.belongsTo(GigOrder, { foreignKey: 'orderId' });
@@ -389,9 +941,89 @@ ProjectReview.belongsTo(GigOrder, { as: 'order', foreignKey: 'orderId' });
 
 EscrowAccount.hasMany(EscrowTransaction, { as: 'transactions', foreignKey: 'accountId', onDelete: 'CASCADE' });
 EscrowTransaction.belongsTo(EscrowAccount, { as: 'account', foreignKey: 'accountId' });
+GigOrder.hasMany(GigOrderEscrowCheckpoint, { as: 'escrowCheckpoints', foreignKey: 'orderId', onDelete: 'CASCADE' });
+GigOrderEscrowCheckpoint.belongsTo(GigOrder, { foreignKey: 'orderId', as: 'order' });
+
+GigOrder.hasMany(GigOrderActivity, { as: 'activities', foreignKey: 'orderId', onDelete: 'CASCADE' });
+GigOrderActivity.belongsTo(GigOrder, { foreignKey: 'orderId', as: 'order' });
+
+GigOrder.hasMany(GigOrderMessage, { as: 'messages', foreignKey: 'orderId', onDelete: 'CASCADE' });
+GigOrderMessage.belongsTo(GigOrder, { foreignKey: 'orderId', as: 'order' });
+GigOrder.hasMany(GigTimelineEvent, { as: 'timelineEvents', foreignKey: 'orderId', onDelete: 'CASCADE' });
+ProjectWorkspace.hasMany(ProjectWorkspaceBudgetLine, { as: 'budgetLines', foreignKey: 'workspaceId', onDelete: 'CASCADE' });
+ProjectWorkspaceBudgetLine.belongsTo(ProjectWorkspace, { foreignKey: 'workspaceId' });
+
+ProjectWorkspace.hasMany(ProjectWorkspaceObjective, { as: 'objectives', foreignKey: 'workspaceId', onDelete: 'CASCADE' });
+ProjectWorkspaceObjective.belongsTo(ProjectWorkspace, { foreignKey: 'workspaceId' });
+
+ProjectWorkspace.hasMany(ProjectWorkspaceTask, { as: 'tasks', foreignKey: 'workspaceId', onDelete: 'CASCADE' });
+ProjectWorkspaceTask.belongsTo(ProjectWorkspace, { foreignKey: 'workspaceId' });
+
+ProjectWorkspace.hasMany(ProjectWorkspaceMeeting, { as: 'meetings', foreignKey: 'workspaceId', onDelete: 'CASCADE' });
+ProjectWorkspaceMeeting.belongsTo(ProjectWorkspace, { foreignKey: 'workspaceId' });
+
+ProjectWorkspace.hasMany(ProjectWorkspaceCalendarEvent, { as: 'calendarEvents', foreignKey: 'workspaceId', onDelete: 'CASCADE' });
+ProjectWorkspaceCalendarEvent.belongsTo(ProjectWorkspace, { foreignKey: 'workspaceId' });
+
+ProjectWorkspace.hasMany(ProjectWorkspaceRoleAssignment, {
+  as: 'roleAssignments',
+  foreignKey: 'workspaceId',
+  onDelete: 'CASCADE',
+});
+ProjectWorkspaceRoleAssignment.belongsTo(ProjectWorkspace, { foreignKey: 'workspaceId' });
+
+ProjectWorkspace.hasMany(ProjectWorkspaceSubmission, { as: 'submissions', foreignKey: 'workspaceId', onDelete: 'CASCADE' });
+ProjectWorkspaceSubmission.belongsTo(ProjectWorkspace, { foreignKey: 'workspaceId' });
+
+ProjectWorkspace.hasMany(ProjectWorkspaceInvite, { as: 'invites', foreignKey: 'workspaceId', onDelete: 'CASCADE' });
+ProjectWorkspaceInvite.belongsTo(ProjectWorkspace, { foreignKey: 'workspaceId' });
+
+ProjectWorkspace.hasMany(ProjectWorkspaceHrRecord, { as: 'hrRecords', foreignKey: 'workspaceId', onDelete: 'CASCADE' });
+ProjectWorkspaceHrRecord.belongsTo(ProjectWorkspace, { foreignKey: 'workspaceId' });
+
+ProjectWorkspace.hasMany(ProjectWorkspaceTimeEntry, { as: 'timeEntries', foreignKey: 'workspaceId', onDelete: 'CASCADE' });
+ProjectWorkspaceTimeEntry.belongsTo(ProjectWorkspace, { foreignKey: 'workspaceId' });
+
+ProjectWorkspace.hasMany(ProjectWorkspaceObject, { as: 'workspaceObjects', foreignKey: 'workspaceId', onDelete: 'CASCADE' });
+ProjectWorkspaceObject.belongsTo(ProjectWorkspace, { foreignKey: 'workspaceId' });
+
+ProjectWorkspace.hasMany(ProjectWorkspaceDocument, { as: 'documents', foreignKey: 'workspaceId', onDelete: 'CASCADE' });
+ProjectWorkspaceDocument.belongsTo(ProjectWorkspace, { foreignKey: 'workspaceId' });
+
+ProjectWorkspace.hasMany(ProjectWorkspaceChatMessage, { as: 'chatMessages', foreignKey: 'workspaceId', onDelete: 'CASCADE' });
+ProjectWorkspaceChatMessage.belongsTo(ProjectWorkspace, { foreignKey: 'workspaceId' });
+GigOrder.hasMany(GigTimelineEvent, { as: 'timeline', foreignKey: 'orderId', onDelete: 'CASCADE' });
+GigTimelineEvent.belongsTo(GigOrder, { foreignKey: 'orderId' });
+
+GigOrder.hasMany(GigSubmission, { as: 'submissions', foreignKey: 'orderId', onDelete: 'CASCADE' });
+GigSubmission.belongsTo(GigOrder, { foreignKey: 'orderId' });
+
+GigSubmission.hasMany(GigSubmissionAsset, { as: 'assets', foreignKey: 'submissionId', onDelete: 'CASCADE' });
+GigSubmissionAsset.belongsTo(GigSubmission, { foreignKey: 'submissionId' });
+
+GigOrder.hasMany(GigChatMessage, { as: 'chatMessages', foreignKey: 'orderId', onDelete: 'CASCADE' });
+GigChatMessage.belongsTo(GigOrder, { foreignKey: 'orderId' });
+GigOrder.hasMany(GigChatMessage, { as: 'messages', foreignKey: 'orderId', onDelete: 'CASCADE' });
+GigChatMessage.belongsTo(GigOrder, { foreignKey: 'orderId' });
+ClientAccount.hasMany(ClientKanbanCard, { as: 'kanbanCards', foreignKey: 'clientId', onDelete: 'SET NULL' });
+ClientKanbanCard.belongsTo(ClientAccount, { as: 'client', foreignKey: 'clientId' });
+
+ClientKanbanColumn.hasMany(ClientKanbanCard, { as: 'cards', foreignKey: 'columnId', onDelete: 'CASCADE' });
+ClientKanbanCard.belongsTo(ClientKanbanColumn, { as: 'column', foreignKey: 'columnId' });
+
+ClientKanbanCard.hasMany(ClientKanbanChecklistItem, { as: 'checklist', foreignKey: 'cardId', onDelete: 'CASCADE' });
+ClientKanbanChecklistItem.belongsTo(ClientKanbanCard, { foreignKey: 'cardId' });
 
 export async function syncProjectGigManagementModels(options = {}) {
-  await projectGigManagementSequelize.sync({ alter: false, ...options });
+  const shouldSync =
+    options.force || options.alter || process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
+
+  if (shouldSync) {
+    await projectGigManagementSequelize.sync({ alter: false, ...options });
+    return;
+  }
+
+  await projectGigManagementSequelize.authenticate();
 }
 
 export default {
@@ -404,10 +1036,22 @@ export default {
   ProjectRetrospective,
   ProjectAsset,
   ProjectTemplate,
+  ProjectAutoMatchFreelancer,
   GigOrder,
   GigOrderRequirement,
   GigOrderRevision,
   GigVendorScorecard,
+  GigOrderEscrowCheckpoint,
+  GigOrderActivity,
+  GigOrderMessage,
+  GigTimelineEvent,
+  GigSubmission,
+  GigSubmissionAsset,
+  GigChatMessage,
+  ClientAccount,
+  ClientKanbanColumn,
+  ClientKanbanCard,
+  ClientKanbanChecklistItem,
   StoryBlock,
   BrandAsset,
   ProjectBid,
@@ -417,4 +1061,20 @@ export default {
   ProjectReview,
   EscrowAccount,
   EscrowTransaction,
+  ProjectWorkspaceBudgetLine,
+  ProjectWorkspaceObjective,
+  ProjectWorkspaceTask,
+  ProjectWorkspaceMeeting,
+  ProjectWorkspaceCalendarEvent,
+  ProjectWorkspaceRoleAssignment,
+  ProjectWorkspaceSubmission,
+  ProjectWorkspaceInvite,
+  ProjectWorkspaceHrRecord,
+  ProjectWorkspaceTimeEntry,
+  ProjectWorkspaceObject,
+  ProjectWorkspaceDocument,
+  ProjectWorkspaceChatMessage,
+  GigTimelineEvent,
+  GigSubmission,
+  GigChatMessage,
 };
