@@ -8,6 +8,10 @@ import gigBuilderService from '../services/gigBuilderService.js';
 import gigManagerService from '../services/gigManagerService.js';
 import { getUserOpenAiSettings, updateUserOpenAiSettings } from '../services/aiAutoReplyService.js';
 import affiliateDashboardService from '../services/affiliateDashboardService.js';
+import {
+  getUserWebsitePreferences as fetchUserWebsitePreferences,
+  updateUserWebsitePreferences as saveUserWebsitePreferences,
+} from '../services/userWebsitePreferenceService.js';
 import { normalizeLocationPayload } from '../utils/location.js';
 
 export async function listUsers(req, res) {
@@ -135,4 +139,14 @@ export async function getUserAiSettings(req, res) {
 export async function updateUserAiSettings(req, res) {
   const settings = await updateUserOpenAiSettings(req.params.id, req.body ?? {});
   res.json(settings);
+}
+
+export async function getWebsitePreferences(req, res) {
+  const preferences = await fetchUserWebsitePreferences(req.params.id);
+  res.json(preferences);
+}
+
+export async function updateWebsitePreferences(req, res) {
+  const preferences = await saveUserWebsitePreferences(req.params.id, req.body ?? {});
+  res.json(preferences);
 }
