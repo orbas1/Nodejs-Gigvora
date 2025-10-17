@@ -64,3 +64,15 @@ export function describeTimeSince(value) {
   if (!date) return '';
   return `${formatRelativeTime(date)} (${formatAbsolute(date)})`;
 }
+
+export function formatDateLabel(value, { includeTime = false, fallback = '—' } = {}) {
+  const date = toDate(value);
+  if (!date) {
+    return fallback;
+  }
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    dateStyle: 'medium',
+    ...(includeTime ? { timeStyle: 'short' } : {}),
+  });
+  return formatter.format(date);
+}

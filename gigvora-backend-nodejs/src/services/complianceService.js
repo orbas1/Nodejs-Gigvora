@@ -6,6 +6,11 @@ import {
   WalletAccount,
   WalletLedgerEntry,
   EscrowAccount,
+  User,
+  Profile,
+  CompanyProfile,
+  AgencyProfile,
+  FreelancerProfile,
   ID_VERIFICATION_STATUSES,
   CORPORATE_VERIFICATION_STATUSES,
   QUALIFICATION_CREDENTIAL_STATUSES,
@@ -19,6 +24,51 @@ import { assertDependenciesHealthy } from '../utils/dependencyGate.js';
 
 const CLOSED_LOOP_CLASSIFICATION = 'closed_loop_non_cash';
 const COMPLIANCE_DEPENDENCIES = ['database', 'paymentsCore', 'complianceProviders'];
+const REVIEW_SLA_HOURS = 48;
+
+const SUPPORTED_ID_TYPES = Object.freeze([
+  { value: 'passport', label: 'Passport' },
+  { value: "driver_license", label: 'Driver licence' },
+  { value: 'national_id', label: 'National ID card' },
+  { value: 'residence_permit', label: 'Residence permit' },
+  { value: 'work_permit', label: 'Work permit' },
+]);
+
+const SUPPORTED_COUNTRIES = Object.freeze([
+  { value: 'US', label: 'United States' },
+  { value: 'GB', label: 'United Kingdom' },
+  { value: 'CA', label: 'Canada' },
+  { value: 'AU', label: 'Australia' },
+  { value: 'DE', label: 'Germany' },
+  { value: 'FR', label: 'France' },
+  { value: 'ES', label: 'Spain' },
+  { value: 'IN', label: 'India' },
+  { value: 'SG', label: 'Singapore' },
+  { value: 'BR', label: 'Brazil' },
+]);
+
+const REQUIRED_ID_DOCUMENTS = Object.freeze([
+  {
+    id: 'government-id-front',
+    label: 'Government ID — front',
+    description: 'High-resolution scan or photo of the front of your government-issued identification document.',
+  },
+  {
+    id: 'government-id-back',
+    label: 'Government ID — back',
+    description: 'Back of the document if applicable. Upload even if blank to confirm authenticity.',
+  },
+  {
+    id: 'selfie',
+    label: 'Live selfie',
+    description: 'Capture a live selfie in good lighting with no filters so our compliance team can match your identity.',
+  },
+  {
+    id: 'address-proof',
+    label: 'Proof of address',
+    description: 'Recent utility bill or bank statement dated within the last 90 days showing your legal name and address.',
+  },
+]);
 
 function guardCompliance(feature) {
   assertDependenciesHealthy(COMPLIANCE_DEPENDENCIES, { feature });
@@ -77,6 +127,36 @@ function optionalDate(value, label, { required = false } = {}) {
     throw ensureHttpStatus(new ValidationError(`${label} is not a valid date.`));
   }
   return date;
+}
+
+async function loadUserWithProfile(userId, profileId, { transaction, lock } = {}) {
+  const numericUserId = normalizeId(userId, 'userId');
+  const normalizedProfileId = profileId ? normalizeId(profileId, 'profileId') : null;
+
+  const user = await User.findByPk(numericUserId, {
+    include: [
+      {
+        model: Profile,
+        required: true,
+        ...(normalizedProfileId ? { where: { id: normalizedProfileId } } : {}),
+      },
+      CompanyProfile,
+      AgencyProfile,
+      FreelancerProfile,
+    ],
+    transaction,
+    lock: lock ? transaction.LOCK.UPDATE : undefined,
+  });
+
+  if (!user) {
+    throw ensureHttpStatus(new NotFoundError('User not found for identity verification context.'));
+  }
+
+  if (!user.Profile) {
+    throw ensureHttpStatus(new NotFoundError('Profile context is required for identity verification.'));
+  }
+
+  return user;
 }
 
 function assertInEnum(value, allowed, label) {
@@ -261,8 +341,9 @@ export async function ensureProfileWallets(user, { transaction, logger, requestI
 export async function upsertIdentityVerification(userId, payload = {}, { transaction } = {}) {
   const numericUserId = normalizeId(userId, 'userId');
   const profileId = normalizeId(payload.profileId ?? payload.profileID ?? payload.profile_id, 'profileId');
+  const requestedStatus = payload.status ?? (payload.submittedAt ? 'submitted' : 'pending');
   const status = assertInEnum(
-    sanitizeString(payload.status ?? 'submitted', { required: true, maxLength: 40, toLowerCase: true }),
+    sanitizeString(requestedStatus, { required: true, maxLength: 40, toLowerCase: true }),
     ID_VERIFICATION_STATUSES,
     'status',
   );
@@ -271,6 +352,23 @@ export async function upsertIdentityVerification(userId, payload = {}, { transac
     required: true,
     maxLength: 80,
   });
+
+  const metadataPayload =
+    payload.metadata == null
+      ? null
+      : (() => {
+          const objectValue = ensurePlainObject(payload.metadata, 'metadata');
+          return Object.keys(objectValue).length ? objectValue : null;
+        })();
+
+  const submittedAtValue =
+    payload.submittedAt == null || payload.submittedAt === ''
+      ? undefined
+      : optionalDate(payload.submittedAt, 'submittedAt');
+  const reviewedAtValue =
+    payload.reviewedAt == null || payload.reviewedAt === ''
+      ? undefined
+      : optionalDate(payload.reviewedAt, 'reviewedAt');
 
   const recordPayload = {
     userId: numericUserId,
@@ -296,10 +394,16 @@ export async function upsertIdentityVerification(userId, payload = {}, { transac
     reviewNotes: sanitizeString(payload.reviewNotes, { maxLength: 2000 }),
     declinedReason: sanitizeString(payload.declinedReason, { maxLength: 2000 }),
     reviewerId: payload.reviewerId ? normalizeId(payload.reviewerId, 'reviewerId') : null,
-    submittedAt: optionalDate(payload.submittedAt ?? new Date().toISOString(), 'submittedAt'),
-    reviewedAt: optionalDate(payload.reviewedAt, 'reviewedAt'),
-    metadata: payload.metadata ?? null,
+    metadata: metadataPayload,
   };
+
+  if (submittedAtValue !== undefined) {
+    recordPayload.submittedAt = submittedAtValue;
+  }
+
+  if (reviewedAtValue !== undefined) {
+    recordPayload.reviewedAt = reviewedAtValue;
+  }
 
   guardCompliance('Identity verification updates');
 
@@ -313,6 +417,75 @@ export async function upsertIdentityVerification(userId, payload = {}, { transac
   if (!created) {
     await record.update(recordPayload, { transaction });
   }
+
+  return record;
+}
+
+export async function submitIdentityVerification(userId, payload = {}, options = {}) {
+  const submissionPayload = { ...payload };
+  if (!submissionPayload.status) {
+    submissionPayload.status = 'submitted';
+  }
+  if (!submissionPayload.submittedAt) {
+    submissionPayload.submittedAt = new Date().toISOString();
+  }
+  return upsertIdentityVerification(userId, submissionPayload, options);
+}
+
+export async function reviewIdentityVerification(userId, payload = {}, { transaction } = {}) {
+  const numericUserId = normalizeId(userId, 'userId');
+  const normalizedProfileId = payload.profileId ? normalizeId(payload.profileId, 'profileId') : null;
+  const reviewerId = payload.reviewerId ? normalizeId(payload.reviewerId, 'reviewerId') : null;
+
+  const status = assertInEnum(
+    sanitizeString(payload.status, { required: true, maxLength: 40, toLowerCase: true }),
+    ID_VERIFICATION_STATUSES,
+    'status',
+  );
+
+  guardCompliance('Identity verification review');
+
+  const user = await loadUserWithProfile(numericUserId, normalizedProfileId, { transaction });
+
+  const record = await IdentityVerification.findOne({
+    where: { userId: numericUserId, profileId: user.Profile.id },
+    order: [
+      ['createdAt', 'DESC'],
+    ],
+    transaction,
+    lock: transaction ? transaction.LOCK.UPDATE : undefined,
+  });
+
+  if (!record) {
+    throw ensureHttpStatus(new NotFoundError('No identity verification submission found to review.'));
+  }
+
+  const updates = {
+    status,
+    reviewerId,
+    reviewNotes: sanitizeString(payload.reviewNotes, { maxLength: 2000, defaultValue: record.reviewNotes ?? null }),
+    declinedReason: sanitizeString(payload.declinedReason, { maxLength: 2000, defaultValue: record.declinedReason ?? null }),
+    metadata:
+      payload.metadata == null
+        ? record.metadata ?? null
+        : (() => {
+            const normalized = ensurePlainObject(payload.metadata, 'metadata');
+            return Object.keys(normalized).length ? normalized : null;
+          })(),
+  };
+
+  const shouldSetReviewedAt = ['verified', 'rejected', 'expired'].includes(status);
+  if (shouldSetReviewedAt) {
+    updates.reviewedAt = optionalDate(payload.reviewedAt ?? new Date().toISOString(), 'reviewedAt');
+  } else if (payload.reviewedAt) {
+    updates.reviewedAt = optionalDate(payload.reviewedAt, 'reviewedAt');
+  }
+
+  if (status === 'verified') {
+    updates.declinedReason = null;
+  }
+
+  await record.update(updates, { transaction });
 
   return record;
 }
@@ -603,6 +776,29 @@ function buildIdentitySnapshot(record) {
       submitted: false,
       complianceFlags: ['missing_identity_verification'],
       note: 'Identity verification not yet submitted. Please provide government-issued ID, selfie verification, and address proof.',
+      documents: { front: null, back: null, selfie: null },
+      typeOfId: null,
+      nameOnId: null,
+      dateOfBirth: null,
+      address: {
+        line1: null,
+        line2: null,
+        city: null,
+        state: null,
+        postalCode: null,
+        country: null,
+      },
+      idNumberLast4: null,
+      issuingCountry: null,
+      issuedAt: null,
+      expiresAt: null,
+      submittedAt: null,
+      reviewedAt: null,
+      reviewerId: null,
+      reviewNotes: null,
+      declinedReason: null,
+      lastUpdated: null,
+      metadata: null,
     };
   }
 
@@ -638,13 +834,81 @@ function buildIdentitySnapshot(record) {
     issuingCountry: plain.issuingCountry,
     issuedAt: plain.issuedAt,
     expiresAt: plain.expiresAt,
+    idNumberLast4: plain.idNumberLast4,
+    submitted: Boolean(plain.submittedAt),
     submittedAt: plain.submittedAt,
     reviewedAt: plain.reviewedAt,
     reviewerId: plain.reviewerId,
     reviewNotes: plain.reviewNotes,
     declinedReason: plain.declinedReason,
+    metadata: plain.metadata ?? null,
+    lastUpdated: plain.updatedAt ?? plain.createdAt ?? null,
     complianceFlags,
   };
+}
+
+function deriveNextActions(snapshot, capabilities = {}) {
+  const actions = [];
+  if (!snapshot || snapshot.status === 'pending') {
+    actions.push({
+      id: 'complete-profile',
+      label: 'Complete identity profile',
+      description: 'Provide personal details, address, and the type of government-issued identification you will upload.',
+      priority: 'high',
+    });
+  }
+
+  if (snapshot && (!snapshot.submitted || snapshot.status === 'expired')) {
+    actions.push({
+      id: 'submit-documents',
+      label: 'Submit identity documents',
+      description: 'Upload the required ID scans and selfie, then submit for compliance review.',
+      priority: 'high',
+      enabled: Boolean(capabilities.canSubmit),
+    });
+  }
+
+  if (snapshot && ['submitted', 'in_review'].includes(snapshot.status)) {
+    actions.push({
+      id: 'await-review',
+      label: 'Await compliance review',
+      description: `A compliance specialist will review your documents within ${REVIEW_SLA_HOURS} hours. We will notify you of any questions or approvals.`,
+      priority: 'medium',
+    });
+    if (capabilities.canReview) {
+      actions.push({
+        id: 'perform-review',
+        label: 'Review submission',
+        description: 'Review the uploaded evidence, add decision notes, and update the verification status.',
+        priority: 'high',
+        enabled: true,
+      });
+    }
+  }
+
+  if (snapshot && snapshot.status === 'rejected') {
+    actions.push({
+      id: 'resolve-issues',
+      label: 'Resolve outstanding issues',
+      description: snapshot.declinedReason
+        ? snapshot.declinedReason
+        : 'Update any missing fields or upload clearer documents, then resubmit for review.',
+      priority: 'high',
+    });
+  }
+
+  if (snapshot && snapshot.status === 'verified') {
+    actions.push({
+      id: 'schedule-renewal',
+      label: 'Set renewal reminder',
+      description: snapshot.expiresAt
+        ? `Your identification expires on ${new Date(snapshot.expiresAt).toLocaleDateString()}. Set a reminder to refresh your documents before that date.`
+        : 'Set a periodic reminder to re-verify your identity if your documents change.',
+      priority: 'low',
+    });
+  }
+
+  return actions;
 }
 
 function buildCorporateSnapshot(record, ownerType) {
@@ -924,12 +1188,100 @@ export async function getProfileComplianceSnapshot(user, { transaction } = {}) {
   };
 }
 
+export async function getIdentityVerificationOverview(
+  userId,
+  { profileId, includeHistory = true, actorRoles = [], transaction } = {},
+) {
+  guardCompliance('Identity verification overview');
+
+  const normalizedRoles = Array.isArray(actorRoles)
+    ? actorRoles.map((role) => (role == null ? null : `${role}`.trim().toLowerCase())).filter(Boolean)
+    : [];
+  const canReview = normalizedRoles.some((role) => role.includes('admin') || role.includes('compliance') || role.includes('trust'));
+  const capabilities = {
+    canUploadDocuments: true,
+    canSubmit: true,
+    canReview,
+  };
+
+  const user = await loadUserWithProfile(userId, profileId, { transaction });
+
+  const where = {
+    userId: user.id,
+    profileId: user.Profile.id,
+  };
+
+  const latestRecord = await IdentityVerification.findOne({
+    where,
+    order: [
+      ['submittedAt', 'DESC'],
+      ['createdAt', 'DESC'],
+    ],
+    transaction,
+  });
+
+  let history = [];
+  if (includeHistory) {
+    const entries = await IdentityVerification.findAll({
+      where,
+      order: [['createdAt', 'DESC']],
+      transaction,
+    });
+    history = entries.map((entry) => {
+      const plain = entry.get({ plain: true });
+      return {
+        id: plain.id,
+        status: plain.status,
+        verificationProvider: plain.verificationProvider,
+        submittedAt: plain.submittedAt,
+        reviewedAt: plain.reviewedAt,
+        reviewerId: plain.reviewerId,
+        reviewNotes: plain.reviewNotes,
+        declinedReason: plain.declinedReason,
+        createdAt: plain.createdAt,
+        updatedAt: plain.updatedAt,
+      };
+    });
+  }
+
+  const current = buildIdentitySnapshot(latestRecord);
+  const requirements = {
+    acceptedIdTypes: SUPPORTED_ID_TYPES,
+    acceptedIssuingCountries: SUPPORTED_COUNTRIES,
+    requiredDocuments: REQUIRED_ID_DOCUMENTS,
+    reviewSlaHours: REVIEW_SLA_HOURS,
+    supportContact: {
+      email: 'trust@gigvora.com',
+      workspaceHref: '/support',
+    },
+  };
+
+  const nextActions = deriveNextActions(current, capabilities);
+
+  return {
+    userId: user.id,
+    profileId: user.Profile.id,
+    current,
+    history,
+    requirements,
+    capabilities,
+    allowedStatuses: ID_VERIFICATION_STATUSES,
+    nextActions,
+    lastUpdated:
+      current.lastUpdated ??
+      (history.length ? history[0].updatedAt ?? history[0].createdAt ?? null : null),
+  };
+}
+
 export default {
   ensureWalletAccount,
   ensureProfileWallets,
   upsertIdentityVerification,
+  submitIdentityVerification,
+  reviewIdentityVerification,
   upsertCorporateVerification,
   recordQualificationCredential,
   recordWalletLedgerEntry,
   getProfileComplianceSnapshot,
+  getIdentityVerificationOverview,
 };
