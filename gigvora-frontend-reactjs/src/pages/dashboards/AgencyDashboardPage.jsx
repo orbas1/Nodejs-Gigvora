@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import useSession from '../../hooks/useSession.js';
 
 const OVERVIEW_METRICS = [
@@ -31,20 +32,51 @@ const FINANCE_SUMMARY = [
   { id: 'payouts', label: 'Payouts processed', value: '$245K', hint: 'Cleared overnight' },
 ];
 
+const MENU_SECTIONS = [
+  {
+    label: 'Ops',
+    items: [
+      {
+        name: 'Control',
+        sectionId: 'agency-overview',
+      },
+      {
+        name: 'Bench',
+        sectionId: 'agency-bench',
+      },
+    ],
+  },
+  {
+    label: 'Talent',
+    items: [
+      {
+        name: 'Jobs',
+        href: '/dashboard/agency/job-management',
+      },
+    ],
+  },
+];
+
 export default function AgencyDashboardPage() {
   const { session } = useSession();
   const displayName = session?.name || session?.firstName || 'Agency team';
 
   return (
-    <div className="min-h-screen bg-surfaceMuted pb-16">
-      <div className="mx-auto max-w-6xl px-4 pt-12 sm:px-6 lg:px-8">
-        <header className="flex flex-col gap-4 border-b border-slate-200 pb-8">
+    <DashboardLayout
+      currentDashboard="agency"
+      title="Agency control tower"
+      subtitle="Client success & bench management"
+      description="Track client health, revenue momentum, and the team’s next actions. Keep the bench balanced and highlight wins to leadership."
+      menuSections={MENU_SECTIONS}
+      availableDashboards={['agency', 'user', 'freelancer', 'company', 'headhunter']}
+    >
+      <section id="agency-overview" className="space-y-12">
+        <header className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
           <div>
             <p className="text-sm uppercase tracking-[0.4em] text-slate-500">Agency control tower</p>
             <h1 className="mt-2 text-3xl font-semibold text-slate-900">Hello, {displayName}</h1>
             <p className="mt-3 max-w-3xl text-sm text-slate-600">
-              Track client health, revenue momentum, and the team’s next actions. Keep the bench balanced and highlight wins to
-              leadership.
+              Track client health, revenue momentum, and the team’s next actions. Keep the bench balanced and highlight wins to leadership.
             </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
@@ -61,7 +93,7 @@ export default function AgencyDashboardPage() {
           </div>
         </header>
 
-        <section className="mt-12 grid gap-8 lg:grid-cols-[1.35fr_1fr]">
+        <section className="grid gap-8 lg:grid-cols-[1.35fr_1fr]">
           <div className="space-y-6">
             <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
               <div className="flex items-center justify-between">
@@ -85,7 +117,7 @@ export default function AgencyDashboardPage() {
               </ol>
             </div>
 
-            <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
+            <div id="agency-bench" className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
               <h2 className="text-xl font-semibold text-slate-900">Bench signals</h2>
               <div className="mt-4 space-y-3">
                 <div className="flex items-center justify-between rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-3">
@@ -121,8 +153,7 @@ export default function AgencyDashboardPage() {
             <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-accent/10 via-white to-blue-100 p-6 shadow-soft">
               <h2 className="text-lg font-semibold text-slate-900">Need support?</h2>
               <p className="mt-2 text-sm text-slate-600">
-                Coordinate with finance or compliance in the shared channel. We’ll help unblock vendors, approvals, or contract
-                questions within the hour.
+                Coordinate with finance or compliance in the shared channel. We’ll help unblock vendors, approvals, or contract questions within the hour.
               </p>
               <Link
                 to="/inbox"
@@ -133,7 +164,7 @@ export default function AgencyDashboardPage() {
             </div>
           </aside>
         </section>
-      </div>
-    </div>
+      </section>
+    </DashboardLayout>
   );
 }
