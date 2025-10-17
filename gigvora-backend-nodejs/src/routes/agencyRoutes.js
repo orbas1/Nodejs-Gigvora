@@ -73,6 +73,17 @@ router.get(
 );
 
 router.get(
+  '/dashboard/overview',
+  authenticate(),
+  requireRoles('agency', 'agency_admin', 'admin'),
+  asyncHandler(agencyController.overview),
+);
+
+router.put(
+  '/dashboard/overview',
+  authenticate(),
+  requireRoles('agency_admin', 'admin'),
+  asyncHandler(agencyController.updateOverview),
   '/profile',
   authenticate(),
   requireRoles('agency', 'agency_admin', 'admin'),

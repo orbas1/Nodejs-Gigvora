@@ -9570,6 +9570,41 @@ export const ProviderWorkspaceInvite = sequelize.define(
   },
 );
 
+export const AgencyDashboardOverview = sequelize.define(
+  'AgencyDashboardOverview',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false, unique: true },
+    greetingName: { type: DataTypes.STRING(150), allowNull: false, defaultValue: 'Agency team' },
+    greetingHeadline: {
+      type: DataTypes.STRING(200),
+      allowNull: false,
+      defaultValue: 'Keep every client and project on track.',
+    },
+    overviewSummary: { type: DataTypes.TEXT, allowNull: true },
+    avatarUrl: { type: DataTypes.STRING(2048), allowNull: true },
+    followerCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    trustScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    rating: { type: DataTypes.DECIMAL(3, 2), allowNull: true },
+    highlights: { type: jsonType, allowNull: true },
+    weatherLocation: { type: DataTypes.STRING(180), allowNull: true },
+    weatherLatitude: { type: DataTypes.DECIMAL(10, 6), allowNull: true },
+    weatherLongitude: { type: DataTypes.DECIMAL(10, 6), allowNull: true },
+    weatherProvider: { type: DataTypes.STRING(120), allowNull: true },
+    weatherSnapshot: { type: jsonType, allowNull: true },
+    weatherLastCheckedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  {
+    tableName: 'agency_dashboard_overviews',
+    indexes: [
+      { unique: true, fields: ['workspaceId'] },
+      { fields: ['weatherLocation'] },
+    ],
+  },
+);
+
 export const ProviderContactNote = sequelize.define(
   'ProviderContactNote',
   {
@@ -16629,6 +16664,10 @@ ProviderWorkspace.hasMany(ProviderWorkspaceInvite, { foreignKey: 'workspaceId', 
 ProviderWorkspace.hasMany(ProviderContactNote, { foreignKey: 'workspaceId', as: 'contactNotes' });
 ProviderWorkspace.hasMany(ExecutiveIntelligenceMetric, { foreignKey: 'workspaceId', as: 'executiveMetrics' });
 ProviderWorkspace.hasMany(ExecutiveScenarioPlan, { foreignKey: 'workspaceId', as: 'executiveScenarioPlans' });
+ProviderWorkspace.hasOne(AgencyDashboardOverview, { foreignKey: 'workspaceId', as: 'dashboardOverview' });
+AgencyDashboardOverview.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+AgencyDashboardOverview.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+AgencyDashboardOverview.belongsTo(User, { foreignKey: 'updatedById', as: 'updatedBy' });
 ProviderWorkspace.hasMany(GovernanceRiskRegister, { foreignKey: 'workspaceId', as: 'governanceRisks' });
 ProviderWorkspace.hasMany(GovernanceAuditExport, { foreignKey: 'workspaceId', as: 'governanceAuditExports' });
 ProviderWorkspace.hasMany(LeadershipRitual, { foreignKey: 'workspaceId', as: 'leadershipRituals' });
@@ -17272,6 +17311,7 @@ export default {
   ProfileEngagementJob,
   CompanyProfile,
   AgencyProfile,
+  AgencyDashboardOverview,
   FreelancerProfile,
   ReputationTestimonial,
   ReputationSuccessStory,

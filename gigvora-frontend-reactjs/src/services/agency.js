@@ -184,6 +184,18 @@ export async function fetchAgencyCalendarEvent(eventId, { workspaceSlug, workspa
   });
 }
 
+export async function fetchAgencyOverview({ workspaceSlug, workspaceId } = {}, { signal } = {}) {
+  return apiClient.get('/agency/dashboard/overview', {
+    params: {
+      workspaceSlug: workspaceSlug ?? undefined,
+      workspaceId: workspaceId ?? undefined,
+    },
+    signal,
+  });
+}
+
+export async function updateAgencyOverview(payload, options = {}) {
+  return apiClient.put('/agency/dashboard/overview', payload, options);
 export async function createAgencyCalendarEvent(payload = {}, { signal } = {}) {
   return apiClient.post('/agency/calendar', payload, { signal });
 }
@@ -250,6 +262,8 @@ export function deleteAgencyVolunteeringSpendEntry(spendEntryId, options = {}) {
 
 export default {
   fetchAgencyDashboard,
+  fetchAgencyOverview,
+  updateAgencyOverview,
   fetchAgencyProfile,
   updateAgencyProfile,
   updateAgencyAvatar,

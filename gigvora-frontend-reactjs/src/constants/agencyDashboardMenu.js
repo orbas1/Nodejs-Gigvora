@@ -1,5 +1,8 @@
 export const AGENCY_DASHBOARD_MENU_SECTIONS = [
   {
+    label: 'Agency',
+    items: [
+      {
     id: 'ops',
     label: 'Ops',
     label: 'Main',
@@ -52,6 +55,9 @@ export const AGENCY_DASHBOARD_MENU = [
       },
     ],
   },
+];
+
+export default AGENCY_DASHBOARD_MENU_SECTIONS;
   {
     id: 'risk',
     label: 'Risk',
