@@ -52,7 +52,13 @@ import {
   EMPLOYER_BRAND_SECTION_TYPES, EMPLOYER_BRAND_SECTION_STATUSES, EMPLOYER_BRAND_CAMPAIGN_STATUSES, WORKFORCE_COHORT_TYPES,
   INTERNAL_JOB_POSTING_STATUSES, EMPLOYEE_REFERRAL_STATUSES, CAREER_PATHING_STATUSES, COMPLIANCE_POLICY_STATUSES,
   COMPLIANCE_AUDIT_STATUSES, ACCESSIBILITY_AUDIT_STATUSES, APPLICATION_TARGET_TYPES, APPLICATION_STATUSES,
-  APPLICATION_REVIEW_STAGES, APPLICATION_REVIEW_DECISIONS, AUTO_ASSIGN_STATUSES,
+  APPLICATION_REVIEW_STAGES,
+  APPLICATION_REVIEW_DECISIONS,
+  VOLUNTEER_APPLICATION_STATUSES,
+  VOLUNTEER_RESPONSE_TYPES,
+  VOLUNTEER_CONTRACT_STATUSES,
+  VOLUNTEER_SPEND_CATEGORIES,
+  AUTO_ASSIGN_STATUSES,
   GIG_MILESTONE_STATUSES, GIG_BUNDLE_STATUSES,
   GIG_UPSELL_STATUSES, GIG_CATALOG_STATUSES, MESSAGE_CHANNEL_TYPES, MESSAGE_THREAD_STATES,
   MESSAGE_TYPES, SUPPORT_CASE_STATUSES, SUPPORT_CASE_PRIORITIES, SUPPORT_PLAYBOOK_STAGES,
@@ -7076,6 +7082,237 @@ Volunteering.searchByTerm = async function searchByTerm(term) {
     limit: 20,
     order: [['title', 'ASC']],
   });
+};
+
+export const VolunteerApplication = sequelize.define(
+  'VolunteerApplication',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    volunteeringRoleId: { type: DataTypes.INTEGER, allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...VOLUNTEER_APPLICATION_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [VOLUNTEER_APPLICATION_STATUSES] },
+    },
+    motivation: { type: DataTypes.TEXT, allowNull: true },
+    availabilityStart: { type: DataTypes.DATEONLY, allowNull: true },
+    availabilityHoursPerWeek: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      validate: { min: 0, max: 168 },
+    },
+    submittedAt: { type: DataTypes.DATE, allowNull: true },
+    decisionAt: { type: DataTypes.DATE, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'volunteer_applications',
+    indexes: [
+      { fields: ['userId'] },
+      { fields: ['volunteeringRoleId'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+VolunteerApplication.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    volunteeringRoleId: plain.volunteeringRoleId,
+    status: plain.status,
+    motivation: plain.motivation ?? null,
+    availabilityStart: plain.availabilityStart ?? null,
+    availabilityHoursPerWeek: plain.availabilityHoursPerWeek ?? null,
+    submittedAt: plain.submittedAt ?? null,
+    decisionAt: plain.decisionAt ?? null,
+    notes: plain.notes ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const VolunteerResponse = sequelize.define(
+  'VolunteerResponse',
+  {
+    applicationId: { type: DataTypes.INTEGER, allowNull: false },
+    responderId: { type: DataTypes.INTEGER, allowNull: true },
+    responseType: {
+      type: DataTypes.ENUM(...VOLUNTEER_RESPONSE_TYPES),
+      allowNull: false,
+      defaultValue: 'message',
+      validate: { isIn: [VOLUNTEER_RESPONSE_TYPES] },
+    },
+    message: { type: DataTypes.TEXT, allowNull: false },
+    requestedAction: { type: DataTypes.STRING(255), allowNull: true },
+    respondedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'volunteer_responses',
+    indexes: [
+      { fields: ['applicationId'] },
+      { fields: ['responderId'] },
+      { fields: ['responseType'] },
+    ],
+  },
+);
+
+VolunteerResponse.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    applicationId: plain.applicationId,
+    responderId: plain.responderId ?? null,
+    responseType: plain.responseType,
+    message: plain.message,
+    requestedAction: plain.requestedAction ?? null,
+    respondedAt: plain.respondedAt,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const VolunteerContract = sequelize.define(
+  'VolunteerContract',
+  {
+    applicationId: { type: DataTypes.INTEGER, allowNull: false },
+    ownerId: { type: DataTypes.INTEGER, allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...VOLUNTEER_CONTRACT_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [VOLUNTEER_CONTRACT_STATUSES] },
+    },
+    startDate: { type: DataTypes.DATEONLY, allowNull: true },
+    endDate: { type: DataTypes.DATEONLY, allowNull: true },
+    commitmentHours: { type: DataTypes.INTEGER, allowNull: true, validate: { min: 0 } },
+    hourlyRate: { type: DataTypes.DECIMAL(10, 2), allowNull: true, validate: { min: 0 } },
+    currencyCode: { type: DataTypes.STRING(3), allowNull: true },
+    totalValue: { type: DataTypes.DECIMAL(12, 2), allowNull: true, validate: { min: 0 } },
+    spendToDate: { type: DataTypes.DECIMAL(12, 2), allowNull: true, validate: { min: 0 } },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'volunteer_contracts',
+    indexes: [
+      { fields: ['applicationId'], unique: true },
+      { fields: ['ownerId'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+VolunteerContract.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    applicationId: plain.applicationId,
+    ownerId: plain.ownerId,
+    status: plain.status,
+    startDate: plain.startDate ?? null,
+    endDate: plain.endDate ?? null,
+    commitmentHours: plain.commitmentHours ?? null,
+    hourlyRate: plain.hourlyRate ?? null,
+    currencyCode: plain.currencyCode ?? null,
+    totalValue: plain.totalValue ?? null,
+    spendToDate: plain.spendToDate ?? null,
+    notes: plain.notes ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const VolunteerContractSpend = sequelize.define(
+  'VolunteerContractSpend',
+  {
+    contractId: { type: DataTypes.INTEGER, allowNull: false },
+    recordedById: { type: DataTypes.INTEGER, allowNull: true },
+    amount: { type: DataTypes.DECIMAL(12, 2), allowNull: false, validate: { min: 0 } },
+    currencyCode: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    category: {
+      type: DataTypes.ENUM(...VOLUNTEER_SPEND_CATEGORIES),
+      allowNull: false,
+      defaultValue: 'other',
+      validate: { isIn: [VOLUNTEER_SPEND_CATEGORIES] },
+    },
+    description: { type: DataTypes.STRING(255), allowNull: true },
+    incurredAt: { type: DataTypes.DATEONLY, allowNull: false, defaultValue: DataTypes.NOW },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'volunteer_contract_spend',
+    indexes: [
+      { fields: ['contractId'] },
+      { fields: ['incurredAt'] },
+    ],
+  },
+);
+
+VolunteerContractSpend.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    contractId: plain.contractId,
+    recordedById: plain.recordedById ?? null,
+    amount: plain.amount,
+    currencyCode: plain.currencyCode,
+    category: plain.category,
+    description: plain.description ?? null,
+    incurredAt: plain.incurredAt,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const VolunteerContractReview = sequelize.define(
+  'VolunteerContractReview',
+  {
+    contractId: { type: DataTypes.INTEGER, allowNull: false },
+    reviewerId: { type: DataTypes.INTEGER, allowNull: false },
+    rating: { type: DataTypes.INTEGER, allowNull: false, validate: { min: 1, max: 5 } },
+    headline: { type: DataTypes.STRING(180), allowNull: true },
+    feedback: { type: DataTypes.TEXT, allowNull: true },
+    visibility: {
+      type: DataTypes.ENUM('private', 'shared'),
+      allowNull: false,
+      defaultValue: 'private',
+    },
+    publishedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'volunteer_contract_reviews',
+    indexes: [
+      { fields: ['contractId'] },
+      { fields: ['reviewerId'] },
+    ],
+  },
+);
+
+VolunteerContractReview.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    contractId: plain.contractId,
+    reviewerId: plain.reviewerId,
+    rating: plain.rating,
+    headline: plain.headline ?? null,
+    feedback: plain.feedback ?? null,
+    visibility: plain.visibility,
+    publishedAt: plain.publishedAt ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
 };
 
 export const OpportunityTaxonomy = sequelize.define(
@@ -15002,6 +15239,41 @@ OpportunityTaxonomyAssignment.belongsTo(Volunteering, {
   as: 'volunteeringRole',
   constraints: false,
 });
+
+VolunteerApplication.belongsTo(User, { foreignKey: 'userId', as: 'applicant' });
+VolunteerApplication.belongsTo(Volunteering, { foreignKey: 'volunteeringRoleId', as: 'role' });
+VolunteerApplication.hasMany(VolunteerResponse, {
+  foreignKey: 'applicationId',
+  as: 'responses',
+  onDelete: 'CASCADE',
+});
+VolunteerApplication.hasOne(VolunteerContract, {
+  foreignKey: 'applicationId',
+  as: 'contract',
+  onDelete: 'CASCADE',
+});
+
+VolunteerResponse.belongsTo(VolunteerApplication, { foreignKey: 'applicationId', as: 'application' });
+VolunteerResponse.belongsTo(User, { foreignKey: 'responderId', as: 'responder' });
+
+VolunteerContract.belongsTo(VolunteerApplication, { foreignKey: 'applicationId', as: 'application' });
+VolunteerContract.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
+VolunteerContract.hasMany(VolunteerContractSpend, {
+  foreignKey: 'contractId',
+  as: 'spendEntries',
+  onDelete: 'CASCADE',
+});
+VolunteerContract.hasMany(VolunteerContractReview, {
+  foreignKey: 'contractId',
+  as: 'reviews',
+  onDelete: 'CASCADE',
+});
+
+VolunteerContractSpend.belongsTo(VolunteerContract, { foreignKey: 'contractId', as: 'contract' });
+VolunteerContractSpend.belongsTo(User, { foreignKey: 'recordedById', as: 'recordedBy' });
+
+VolunteerContractReview.belongsTo(VolunteerContract, { foreignKey: 'contractId', as: 'contract' });
+VolunteerContractReview.belongsTo(User, { foreignKey: 'reviewerId', as: 'reviewer' });
 
 AdCampaign.hasMany(AdCreative, { foreignKey: 'campaignId', as: 'creatives', onDelete: 'CASCADE' });
 AdCreative.belongsTo(AdCampaign, { foreignKey: 'campaignId', as: 'campaign' });

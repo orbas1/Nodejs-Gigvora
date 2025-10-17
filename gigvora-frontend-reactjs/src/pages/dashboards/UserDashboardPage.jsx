@@ -17,6 +17,7 @@ import useSession from '../../hooks/useSession.js';
 import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
 import DashboardBlogSpotlight from '../../components/blog/DashboardBlogSpotlight.jsx';
 import AffiliateProgramSection from '../../components/affiliate/AffiliateProgramSection.jsx';
+import VolunteeringManagementSection from '../../components/volunteeringManagement/VolunteeringManagementSection.jsx';
 import { DashboardInboxWorkspace } from '../../features/inbox/index.js';
 import WebsitePreferencesSection from '../../components/websitePreferences/WebsitePreferencesSection.jsx';
 import ProfileSettingsSection from '../../components/profileSettings/ProfileSettingsSection.jsx';
@@ -569,6 +570,17 @@ function buildMenuSections(data) {
               : 'Immediate'
           } cadence`,
           sectionId: 'notifications-center',
+        },
+      ],
+    },
+    {
+      label: 'Community',
+      items: [
+        {
+          name: 'Volunteer',
+          description: 'Applications, contracts, spend, and reviews together.',
+          tags: ['volunteering', 'community'],
+          sectionId: 'volunteering-management',
         },
       ],
     },
@@ -1933,6 +1945,11 @@ export default function UserDashboardPage() {
         ) : null}
 
         <ProjectGigManagementContainer userId={userId} />
+        <VolunteeringManagementSection
+          userId={userId}
+          data={data?.volunteeringManagement}
+          onRefresh={() => refresh({ force: true })}
+        />
         {escrowManagement ? (
           <EscrowManagementSection
             data={escrowManagement}

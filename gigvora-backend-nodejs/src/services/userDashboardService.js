@@ -65,6 +65,7 @@ import careerPipelineAutomationService from './careerPipelineAutomationService.j
 import { getAdDashboardSnapshot } from './adService.js';
 import { initializeWorkspaceForProject, getProjectWorkspaceSummary } from './projectWorkspaceService.js';
 import affiliateDashboardService from './affiliateDashboardService.js';
+import volunteeringManagementService from './volunteeringManagementService.js';
 import userMentoringService from './userMentoringService.js';
 import { getUserWebsitePreferences } from './userWebsitePreferenceService.js';
 import userDisputeService from './userDisputeService.js';
@@ -2998,6 +2999,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     careerPipelineAutomation,
     affiliateProgram,
     projectParticipation,
+    volunteeringManagement,
     eventManagement,
     notificationPreferences,
     notificationStats,
@@ -3029,6 +3031,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     careerPipelineAutomationService.getCareerPipelineAutomation(userId, { bypassCache }),
     affiliateDashboardService.getAffiliateDashboard(userId),
     projectParticipationQuery,
+    volunteeringManagementService.getUserVolunteeringManagement(userId, { bypassCache }),
     eventManagementService.getUserEventManagement(userId, { includeArchived: false, limit: 6 }),
     notificationService.getPreferences(userId),
     notificationService.getStats(userId),
@@ -3385,6 +3388,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     disputeManagement: disputeOverview,
     careerPipelineAutomation,
     ads,
+    volunteeringManagement,
     websitePreferences,
     topSearch: topSearchModule,
   };

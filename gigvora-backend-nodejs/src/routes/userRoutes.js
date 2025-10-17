@@ -5,6 +5,7 @@ import * as userDisputeController from '../controllers/userDisputeController.js'
 import asyncHandler from '../utils/asyncHandler.js';
 import authenticate from '../middleware/authenticate.js';
 import userConsentRoutes from './userConsentRoutes.js';
+import userVolunteeringRoutes from './userVolunteeringRoutes.js';
 import walletRoutes from './walletRoutes.js';
 import * as notificationController from '../controllers/notificationController.js';
 
@@ -97,6 +98,8 @@ router.post(
   authenticate({ roles: DOCUMENT_ROLES, matchParam: 'id' }),
   asyncHandler(careerDocumentController.uploadVersion),
 );
+
+router.use('/:id/volunteering', userVolunteeringRoutes);
 
 router.use('/:id/consents', userConsentRoutes);
 
