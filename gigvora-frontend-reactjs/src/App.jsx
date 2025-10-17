@@ -42,6 +42,7 @@ import CompanyAnalyticsPage from './pages/dashboards/CompanyAnalyticsPage.jsx';
 import CompanyIntegrationsPage from './pages/dashboards/CompanyIntegrationsPage.jsx';
 import CompanyNetworkingHubPage from './pages/networking/CompanyNetworkingHubPage.jsx';
 import AgencyDashboardPage from './pages/dashboards/AgencyDashboardPage.jsx';
+import AgencyCalendarPage from './pages/dashboards/agency/AgencyCalendarPage.jsx';
 import HeadhunterDashboardPage from './pages/dashboards/HeadhunterDashboardPage.jsx';
 import MentorDashboardPage from './pages/dashboards/MentorDashboardPage.jsx';
 import LaunchpadOperationsPage from './pages/dashboards/LaunchpadOperationsPage.jsx';
@@ -224,6 +225,15 @@ export default function App() {
         element={
           <RequireRole allowedRoles={['agency']}>
             <AgencyDashboardPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
+        path="dashboard/agency/calendar"
+        element={
+          <RequireRole allowedRoles={['agency']}>
+            <AgencyCalendarPage />
           </RequireRole>
         }
       />
