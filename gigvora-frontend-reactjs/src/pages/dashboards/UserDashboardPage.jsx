@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useMemo, useState } from 'react';
@@ -8,6 +9,7 @@ import { fetchUserDashboard } from '../../services/userDashboard.js';
 import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
 import DocumentStudioSection from '../../components/documentStudio/DocumentStudioSection.jsx';
 import ProjectGigManagementContainer from '../../components/projectGigManagement/ProjectGigManagementContainer.jsx';
+import UserMentoringSection from '../../components/mentoring/user/UserMentoringSection.jsx';
 import ProjectWorkspaceContainer from '../../components/projectWorkspace/ProjectWorkspaceContainer.jsx';
 import EscrowManagementSection from '../../components/escrow/EscrowManagementSection.jsx';
 import EventManagementSection from '../../components/eventManagement/EventManagementSection.jsx';
@@ -185,6 +187,8 @@ function buildMenuSections(data) {
   const documentStudio = data?.documentStudio;
   const documentSummary = documentStudio?.summary ?? {};
   const projectGigManagement = data?.projectGigManagement ?? {};
+  const mentoring = data?.mentoring ?? {};
+  const mentoringSummary = mentoring.summary ?? {};
   const projectWorkspace = data?.projectWorkspace ?? {};
   const projectSummary = projectGigManagement.summary ?? {};
   const workspaceSummary = projectWorkspace.summary ?? {};
@@ -253,6 +257,34 @@ function buildMenuSections(data) {
   const escrowCurrency = escrowSummary.currency ?? 'USD';
   return [
     {
+      label: 'Mentoring',
+      items: [
+        {
+          name: 'Sessions',
+          description: `${formatNumber(mentoringSummary.upcomingSessions ?? 0)} upcoming touchpoints ready.`,
+          tags: ['mentors', 'sessions'],
+          sectionId: 'mentoring-sessions',
+        },
+        {
+          name: 'Packages',
+          description: `${formatCurrency(
+            mentoringSummary.totalSpend ?? 0,
+            mentoringSummary.currency ?? 'USD',
+          )} tracked spend and credits.`,
+          tags: ['billing'],
+          sectionId: 'mentoring-packages',
+        },
+        {
+          name: 'People',
+          description: 'Favourite mentors and smart picks.',
+          tags: ['network'],
+          sectionId: 'mentoring-people',
+        },
+        {
+          name: 'Reviews',
+          description: 'Feedback log for every mentor.',
+          tags: ['insights'],
+          sectionId: 'mentoring-reviews',
       label: 'Projects',
       items: [
         {
@@ -582,6 +614,8 @@ export default function UserDashboardPage() {
   const { session, isAuthenticated } = useSession();
   const userId = session ? resolveUserId(session) : null;
   const shouldLoadDashboard = Boolean(isAuthenticated && userId);
+  const [activeMenuItemId, setActiveMenuItemId] = useState(null);
+  const [activeMentoringPanel, setActiveMentoringPanel] = useState('mentoring-sessions');
 
   const { data, error, loading, fromCache, lastUpdated, refresh } = useCachedResource(
     `dashboard:user:${userId ?? 'anonymous'}`,
@@ -658,6 +692,7 @@ export default function UserDashboardPage() {
   const eventManagement = data?.eventManagement ?? null;
   const eventManagementOverview = eventManagement?.overview ?? null;
   const projectGigManagement = data?.projectGigManagement ?? null;
+  const mentoring = data?.mentoring ?? null;
   const websitePreferences = data?.websitePreferences ?? null;
   const escrowManagement = data?.escrowManagement ?? null;
   const notifications = Array.isArray(data?.notifications?.recent) ? data.notifications.recent : [];
@@ -745,6 +780,42 @@ export default function UserDashboardPage() {
   const supportSummary = supportDesk.summary ?? {};
 
   const menuSections = useMemo(() => buildMenuSections(data), [data]);
+  const handleDashboardMenuSelect = useCallback(
+    (itemId, item) => {
+      if (!item) {
+        return;
+      }
+      const targetId = item.sectionId ?? item.targetId ?? item.id ?? itemId;
+      setActiveMenuItemId(itemId);
+      if (targetId && targetId.startsWith('mentoring-')) {
+        setActiveMentoringPanel(targetId);
+      }
+      if (targetId && typeof document !== 'undefined') {
+        const scrollToTarget = () => {
+          const targetElement = document.getElementById(targetId);
+          if (targetElement) {
+            targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        };
+        if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+          window.requestAnimationFrame(scrollToTarget);
+        } else {
+          setTimeout(scrollToTarget, 0);
+        }
+      }
+    },
+    [],
+  );
+  useEffect(() => {
+    const mentoringItems = menuSections
+      .flatMap((section) => section.items)
+      .filter((item) => item.sectionId?.startsWith('mentoring-'));
+    const matchingItem = mentoringItems.find((item) => item.sectionId === activeMentoringPanel);
+    const activeIsMentoring = mentoringItems.some((item) => item.id === activeMenuItemId);
+    if (matchingItem && (!activeMenuItemId || activeIsMentoring) && activeMenuItemId !== matchingItem.id) {
+      setActiveMenuItemId(matchingItem.id);
+    }
+  }, [menuSections, activeMentoringPanel, activeMenuItemId]);
   const profileCard = useMemo(() => buildProfileCard(data, summary, session), [data, session, summary]);
   const canEditWebsite = Boolean(isAuthenticated);
 
@@ -803,6 +874,8 @@ export default function UserDashboardPage() {
       sections={[]}
       profile={profileCard}
       availableDashboards={availableDashboards}
+      onMenuItemSelect={handleDashboardMenuSelect}
+      activeMenuItem={activeMenuItemId}
       activeMenuItem={activeMenuItem}
       onMenuItemSelect={handleMenuSelect}
     >
@@ -834,6 +907,21 @@ export default function UserDashboardPage() {
           ))}
         </section>
 
+        <UserMentoringSection
+          mentoring={mentoring}
+          userId={userId}
+          onRefresh={refresh}
+          canEdit={canEditMentoring}
+          activePanelId={activeMentoringPanel}
+          onPanelChange={(panelId) => {
+            setActiveMentoringPanel(panelId);
+            const matchingItem = menuSections
+              .flatMap((section) => section.items)
+              .find((item) => item.sectionId === panelId);
+            if (matchingItem) {
+              setActiveMenuItemId(matchingItem.id);
+            }
+          }}
         <section id="messaging-inbox">
           <DashboardInboxWorkspace />
         </section>
@@ -2527,3 +2615,4 @@ export default function UserDashboardPage() {
     </DashboardAccessGuard>
   );
 }
+  const canEditMentoring = Boolean(isAuthenticated && userId);

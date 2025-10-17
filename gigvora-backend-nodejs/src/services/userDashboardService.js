@@ -65,6 +65,7 @@ import careerPipelineAutomationService from './careerPipelineAutomationService.j
 import { getAdDashboardSnapshot } from './adService.js';
 import { initializeWorkspaceForProject, getProjectWorkspaceSummary } from './projectWorkspaceService.js';
 import affiliateDashboardService from './affiliateDashboardService.js';
+import userMentoringService from './userMentoringService.js';
 import { getUserWebsitePreferences } from './userWebsitePreferenceService.js';
 import userDisputeService from './userDisputeService.js';
 import eventManagementService from './eventManagementService.js';
@@ -2968,6 +2969,8 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
   });
   const topSearchModulePromise = loadTopSearchModule(userId);
 
+  const mentoringDashboardPromise = userMentoringService.getMentoringDashboard(userId, { bypassCache });
+
   const [
     applications,
     pipelineRows,
@@ -2991,6 +2994,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     escrowTransactions,
     escrowDisputes,
     purchasedGigOrders,
+    mentoringDashboard,
     careerPipelineAutomation,
     affiliateProgram,
     projectParticipation,
@@ -3021,6 +3025,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     escrowTransactionsQuery,
     escrowDisputesQuery,
     purchasedGigOrdersQuery,
+    mentoringDashboardPromise,
     careerPipelineAutomationService.getCareerPipelineAutomation(userId, { bypassCache }),
     affiliateDashboardService.getAffiliateDashboard(userId),
     projectParticipationQuery,
@@ -3376,6 +3381,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
       supportDesk,
     },
     affiliate: affiliateProgram,
+    mentoring: mentoringDashboard,
     disputeManagement: disputeOverview,
     careerPipelineAutomation,
     ads,
