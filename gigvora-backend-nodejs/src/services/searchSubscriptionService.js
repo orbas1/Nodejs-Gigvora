@@ -131,6 +131,10 @@ function computeNextRunAt(frequency) {
   }
 }
 
+export function getNextRunTimestamp(frequency) {
+  return computeNextRunAt(frequency);
+}
+
 export async function listSubscriptions(userId) {
   const subscriptions = await SearchSubscription.findAll({
     where: { userId },
@@ -244,9 +248,25 @@ export async function deleteSubscription(id, userId) {
   return { success: true };
 }
 
+export async function runSubscription(id, userId) {
+  const subscription = await SearchSubscription.findOne({ where: { id, userId } });
+  if (!subscription) {
+    throw new NotFoundError('Search subscription not found.', { id });
+  }
+
+  const frequency = subscription.frequency ?? 'daily';
+  const lastTriggeredAt = new Date();
+  const nextRunAt = computeNextRunAt(frequency);
+
+  await subscription.update({ lastTriggeredAt, nextRunAt });
+
+  return subscription.toPublicObject();
+}
+
 export default {
   listSubscriptions,
   createSubscription,
   updateSubscription,
   deleteSubscription,
+  runSubscription,
 };

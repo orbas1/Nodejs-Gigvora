@@ -178,19 +178,9 @@ function collectRequestRoles(req) {
     req.body?.memberships,
   ];
 
-  for (const source of sources) {
-    normalizeToArray(source).forEach((entry) => {
-      if (typeof entry === 'string') {
-        entry
-          .split(/[,\s]+/)
-          .map((part) => part.trim())
-          .filter(Boolean)
-          .forEach(push);
-      } else {
-        push(entry);
-      }
-    });
-  }
+  sources.forEach((source) => {
+    normalizeToArray(source).forEach((entry) => merge(entry));
+  });
 
   return aggregated;
 }
