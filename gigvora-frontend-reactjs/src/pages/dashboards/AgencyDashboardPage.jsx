@@ -232,6 +232,30 @@ const FINANCE_SNAPSHOT = [
   { id: 'payouts', label: 'Payouts processed', value: '$245K', helper: 'Cleared overnight' },
 ];
 
+const MENU_SECTIONS = [
+  {
+    label: 'Ops',
+    items: [
+      {
+        name: 'Control',
+        sectionId: 'agency-overview',
+      },
+      {
+        name: 'Bench',
+        sectionId: 'agency-bench',
+      },
+    ],
+  },
+  {
+    label: 'Talent',
+    items: [
+      {
+        name: 'Jobs',
+        href: '/dashboard/agency/job-management',
+      },
+    ],
+  },
+];
 const availableDashboards = ['agency', 'company', 'freelancer', 'user'];
 
 export default function AgencyDashboardPage() {
@@ -624,6 +648,14 @@ export default function AgencyDashboardPage() {
   return (
     <DashboardLayout
       currentDashboard="agency"
+      title="Agency control tower"
+      subtitle="Client success & bench management"
+      description="Track client health, revenue momentum, and the team’s next actions. Keep the bench balanced and highlight wins to leadership."
+      menuSections={MENU_SECTIONS}
+      availableDashboards={['agency', 'user', 'freelancer', 'company', 'headhunter']}
+    >
+      <section id="agency-overview" className="space-y-12">
+        <header className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
       title="Agency"
       subtitle="Operations"
       description="Control contracts, teams, and volunteering programmes from one screen."
@@ -1056,6 +1088,7 @@ export default function AgencyDashboardPage() {
             </ol>
           </div>
 
+            <div id="agency-bench" className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
             <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
               <h2 className="text-xl font-semibold text-slate-900">Bench capacity</h2>
             <div id="overview-bench-signals" className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
