@@ -14,6 +14,7 @@ import useSession from '../../hooks/useSession.js';
 import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
 import DashboardBlogSpotlight from '../../components/blog/DashboardBlogSpotlight.jsx';
 import AffiliateProgramSection from '../../components/affiliate/AffiliateProgramSection.jsx';
+import { DashboardInboxWorkspace } from '../../features/inbox/index.js';
 import WebsitePreferencesSection from '../../components/websitePreferences/WebsitePreferencesSection.jsx';
 import ProfileSettingsSection from '../../components/profileSettings/ProfileSettingsSection.jsx';
 import WalletManagementSection from '../../components/wallet/WalletManagementSection.jsx';
@@ -313,6 +314,19 @@ function buildMenuSections(data) {
       ],
     },
     {
+      label: 'Messaging & collaboration',
+      items: [
+        {
+          name: 'Inbox',
+          description: 'Manage secure conversations, live calls, and role-based access in one inbox.',
+          tags: ['messaging', 'support'],
+          sectionId: 'messaging-inbox',
+        },
+        {
+          name: 'Support desk',
+          description: 'Escalate threads with audit trails and automate responses.',
+          tags: ['support', 'automation'],
+          sectionId: 'insights-accountability-support',
       label: 'Search',
       items: [
         {
@@ -762,6 +776,9 @@ export default function UserDashboardPage() {
           ))}
         </section>
 
+        <section id="messaging-inbox">
+          <DashboardInboxWorkspace />
+        </section>
         {userId ? <WalletManagementSection userId={userId} /> : null}
         <TopSearchSection
           data={topSearchData}

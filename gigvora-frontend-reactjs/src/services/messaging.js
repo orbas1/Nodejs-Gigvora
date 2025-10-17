@@ -82,6 +82,18 @@ export async function markThreadRead(threadId, { userId } = {}) {
   });
 }
 
+export async function updateThreadState(threadId, { state } = {}) {
+  return apiClient.post(`/messaging/threads/${threadId}/state`, { state });
+}
+
+export async function muteThread(threadId, { userId, until } = {}) {
+  return apiClient.post(`/messaging/threads/${threadId}/mute`, {
+    userId,
+    until,
+  });
+}
+
+export async function escalateThread(threadId, { userId, reason, priority = 'medium', metadata = {} } = {}) {
 export async function updateThreadState(threadId, { state, userId } = {}) {
   return apiClient.post(`/messaging/threads/${threadId}/state`, { state, userId });
 }
@@ -99,6 +111,10 @@ export async function escalateThread(threadId, { userId, reason, priority, metad
   });
 }
 
+export async function assignSupportAgent(
+  threadId,
+  { userId, agentId, assignedBy, notifyAgent = true } = {},
+) {
 export async function assignSupport(threadId, { userId, agentId, assignedBy, notifyAgent } = {}) {
   return apiClient.post(`/messaging/threads/${threadId}/assign-support`, {
     userId,
@@ -108,6 +124,10 @@ export async function assignSupport(threadId, { userId, agentId, assignedBy, not
   });
 }
 
+export async function updateSupportStatus(
+  threadId,
+  { userId, status, resolutionSummary, metadata = {} } = {},
+) {
 export async function updateSupportStatus(threadId, { userId, status, resolutionSummary, metadata } = {}) {
   return apiClient.post(`/messaging/threads/${threadId}/support-status`, {
     userId,
@@ -150,6 +170,8 @@ export default {
   updateThreadState,
   muteThread,
   escalateThread,
+  assignSupportAgent,
+  updateSupportStatus,
   assignSupport,
   updateSupportStatus,
   updateThreadSettings,
