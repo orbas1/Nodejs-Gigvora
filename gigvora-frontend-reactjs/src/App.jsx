@@ -42,6 +42,7 @@ import CompanyAnalyticsPage from './pages/dashboards/CompanyAnalyticsPage.jsx';
 import CompanyIntegrationsPage from './pages/dashboards/CompanyIntegrationsPage.jsx';
 import CompanyNetworkingHubPage from './pages/networking/CompanyNetworkingHubPage.jsx';
 import AgencyDashboardPage from './pages/dashboards/AgencyDashboardPage.jsx';
+import AgencyAiAutomationPage from './pages/dashboards/AgencyAiAutomationPage.jsx';
 import AgencyProfileManagementPage from './pages/dashboards/AgencyProfileManagementPage.jsx';
 import AgencyClientKanbanPage from './pages/dashboards/AgencyClientKanbanPage.jsx';
 import HeadhunterDashboardPage from './pages/dashboards/HeadhunterDashboardPage.jsx';
@@ -231,6 +232,10 @@ export default function App() {
       />
 
       <Route
+        path="dashboard/agency/ai"
+        element={
+          <RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}>
+            <AgencyAiAutomationPage />
         path="dashboard/agency/profile"
         element={
           <RequireRole allowedRoles={['agency']}>

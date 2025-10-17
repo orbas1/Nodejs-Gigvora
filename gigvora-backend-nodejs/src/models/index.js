@@ -25,6 +25,7 @@ import {
   BlogTag,
   registerBlogAssociations,
 } from './blogModels.js';
+import { AgencyAiConfiguration, AgencyAutoBidTemplate } from './agencyAiModels.js';
 import {
   PROFILE_AVAILABILITY_STATUSES, PROFILE_APPRECIATION_TYPES, PROFILE_FOLLOWER_STATUSES, PROFILE_ENGAGEMENT_JOB_STATUSES,
   GROUP_VISIBILITIES, GROUP_MEMBER_POLICIES, GROUP_MEMBERSHIP_STATUSES, GROUP_MEMBERSHIP_ROLES,
@@ -124,6 +125,7 @@ export { BlogCategory, BlogMedia, BlogPost, BlogPostMedia, BlogPostTag, BlogTag 
 export { ConsentPolicy, ConsentPolicyVersion, UserConsent, ConsentAuditEvent } from './consentModels.js';
 export { RuntimeSecurityAuditEvent } from './runtimeSecurityAuditEvent.js';
 export { RbacPolicyAuditEvent } from './rbacPolicyAuditEvent.js';
+export { AgencyAiConfiguration, AgencyAutoBidTemplate } from './agencyAiModels.js';
 
 const PIPELINE_OWNER_TYPES = ['freelancer', 'agency', 'company'];
 const TWO_FACTOR_METHODS = ['email', 'app', 'sms'];
@@ -15855,6 +15857,14 @@ ProviderWorkspace.hasMany(TalentPoolMember, { foreignKey: 'workspaceId', as: 'ta
 ProviderWorkspace.hasMany(TalentPoolEngagement, { foreignKey: 'workspaceId', as: 'talentPoolEngagements' });
 ProviderWorkspace.hasMany(AgencySlaSnapshot, { foreignKey: 'workspaceId', as: 'agencySlaSnapshots' });
 ProviderWorkspace.hasMany(AgencyBillingEvent, { foreignKey: 'workspaceId', as: 'agencyBillingEvents' });
+ProviderWorkspace.hasOne(AgencyAiConfiguration, { foreignKey: 'workspaceId', as: 'aiConfiguration' });
+ProviderWorkspace.hasMany(AgencyAutoBidTemplate, { foreignKey: 'workspaceId', as: 'autoBidTemplates' });
+AgencyAiConfiguration.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+AgencyAutoBidTemplate.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+AgencyAutoBidTemplate.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+AgencyAutoBidTemplate.belongsTo(User, { foreignKey: 'updatedBy', as: 'updater' });
+User.hasMany(AgencyAutoBidTemplate, { foreignKey: 'createdBy', as: 'createdAgencyAutoBidTemplates' });
+User.hasMany(AgencyAutoBidTemplate, { foreignKey: 'updatedBy', as: 'updatedAgencyAutoBidTemplates' });
 ProviderWorkspace.hasMany(RecruitingCalendarEvent, { foreignKey: 'workspaceId', as: 'recruitingEvents' });
 ProviderWorkspace.hasMany(EmployerBrandAsset, { foreignKey: 'workspaceId', as: 'employerBrandAssets' });
 ProviderWorkspace.hasMany(ProspectIntelligenceProfile, { foreignKey: 'workspaceId', as: 'prospectProfiles' });

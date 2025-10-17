@@ -161,6 +161,38 @@ export default function AgencyDashboardPage() {
   }, [session?.firstName, session?.name]);
 
   return (
+    <div className="min-h-screen bg-surfaceMuted pb-16">
+      <div className="mx-auto max-w-6xl px-4 pt-12 sm:px-6 lg:px-8">
+        <header className="flex flex-col gap-4 border-b border-slate-200 pb-8">
+          <div>
+            <p className="text-sm uppercase tracking-[0.4em] text-slate-500">Agency control tower</p>
+            <h1 className="mt-2 text-3xl font-semibold text-slate-900">Hello, {displayName}</h1>
+            <p className="mt-3 max-w-3xl text-sm text-slate-600">
+              Track client health, revenue momentum, and the team’s next actions. Keep the bench balanced and highlight wins to
+              leadership.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              to="/dashboard/agency/ai"
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:text-blue-700"
+            >
+              Manage AI & bidding
+            </Link>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {OVERVIEW_METRICS.map((metric) => (
+              <div
+                key={metric.id}
+                className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft transition hover:-translate-y-0.5 hover:border-accent/60"
+              >
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">{metric.label}</p>
+                <p className="mt-3 text-3xl font-semibold text-slate-900">{metric.value}</p>
+                <p className="mt-2 text-xs text-slate-500">{metric.hint}</p>
+              </div>
+            ))}
+          </div>
+        </header>
     <DashboardLayout
       currentDashboard="agency"
       title={title}
