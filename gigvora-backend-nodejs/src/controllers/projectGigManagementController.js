@@ -5,6 +5,11 @@ import {
   updateProjectWorkspace,
   createGigOrder,
   updateGigOrder,
+  addGigTimelineEvent,
+  updateGigTimelineEvent,
+  addGigSubmission,
+  updateGigSubmission,
+  postGigChatMessage,
   getGigOrderDetail,
   createGigTimelineEvent,
   createGigSubmission,
@@ -177,6 +182,25 @@ export async function patchGigOrder(req, res) {
   res.json({ order: result, dashboard: snapshot });
 }
 
+export async function storeGigTimelineEvent(req, res) {
+  const ownerId = parseOwnerId(req);
+  const access = ensureManageAccess(req, ownerId);
+  const orderId = Number.parseInt(req.params?.orderId, 10);
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
+    addGigTimelineEvent(ownerId, orderId, req.body),
+  );
+  res.status(201).json({ event: result, dashboard: snapshot });
+}
+
+export async function patchGigTimelineEvent(req, res) {
+  const ownerId = parseOwnerId(req);
+  const access = ensureManageAccess(req, ownerId);
+  const orderId = Number.parseInt(req.params?.orderId, 10);
+  const eventId = Number.parseInt(req.params?.eventId, 10);
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
+    updateGigTimelineEvent(ownerId, orderId, eventId, req.body),
+  );
+  res.json({ event: result, dashboard: snapshot });
 export async function showGigOrder(req, res) {
   const ownerId = parseOwnerId(req);
   ensureViewAccess(req, ownerId);
@@ -199,6 +223,10 @@ export async function storeGigSubmission(req, res) {
   const ownerId = parseOwnerId(req);
   const access = ensureManageAccess(req, ownerId);
   const orderId = Number.parseInt(req.params?.orderId, 10);
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
+    addGigSubmission(ownerId, orderId, req.body),
+  );
+  res.status(201).json({ submission: result, dashboard: snapshot });
   const { result, detail } = await withOrderRefresh(ownerId, orderId, () =>
     createGigSubmission(ownerId, orderId, req.body, { actorId: access.actorId }),
   );
@@ -210,6 +238,10 @@ export async function patchGigSubmission(req, res) {
   const access = ensureManageAccess(req, ownerId);
   const orderId = Number.parseInt(req.params?.orderId, 10);
   const submissionId = Number.parseInt(req.params?.submissionId, 10);
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
+    updateGigSubmission(ownerId, orderId, submissionId, req.body),
+  );
+  res.json({ submission: result, dashboard: snapshot });
   const { result, detail } = await withOrderRefresh(ownerId, orderId, () =>
     updateGigSubmission(ownerId, orderId, submissionId, req.body, { actorId: access.actorId }),
   );
@@ -220,6 +252,10 @@ export async function storeGigChatMessage(req, res) {
   const ownerId = parseOwnerId(req);
   const access = ensureManageAccess(req, ownerId);
   const orderId = Number.parseInt(req.params?.orderId, 10);
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
+    postGigChatMessage(ownerId, orderId, req.body),
+  );
+  res.status(201).json({ message: result, dashboard: snapshot });
   const { result, detail } = await withOrderRefresh(ownerId, orderId, () =>
     postGigChatMessage(ownerId, orderId, req.body, { actorId: access.actorId, actorRole: access.actorRole }),
   );
@@ -244,6 +280,11 @@ export default {
   patchWorkspace,
   storeGigOrder,
   patchGigOrder,
+  storeGigTimelineEvent,
+  patchGigTimelineEvent,
+  storeGigSubmission,
+  patchGigSubmission,
+  storeGigChatMessage,
   showGigOrder,
   storeGigTimelineEvent,
   storeGigSubmission,

@@ -139,6 +139,12 @@ export const MENU_GROUPS = [
         icon: SparklesIcon,
       },
       {
+        id: 'gig-management',
+        name: 'Gigs',
+        description: 'Timeline, submissions, chat, and compliance for every gig.',
+        icon: ClipboardDocumentCheckIcon,
+      },
+      {
         id: 'gig-marketplace',
         name: 'Marketplace',
         description: null,

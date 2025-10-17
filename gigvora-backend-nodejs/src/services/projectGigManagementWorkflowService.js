@@ -12,6 +12,10 @@ import {
   GigOrderRequirement,
   GigOrderRevision,
   GigVendorScorecard,
+  GigTimelineEvent,
+  GigSubmission,
+  GigSubmissionAsset,
+  GigChatMessage,
   StoryBlock,
   BrandAsset,
   GigTimelineEvent,
@@ -21,6 +25,8 @@ import {
   PROJECT_RISK_LEVELS,
   GIG_ORDER_STATUSES,
   GIG_TIMELINE_EVENT_TYPES,
+  GIG_TIMELINE_EVENT_STATUSES,
+  GIG_SUBMISSION_STATUSES,
   GIG_TIMELINE_VISIBILITIES,
   GIG_SUBMISSION_STATUSES,
   GIG_CHAT_VISIBILITIES,
@@ -76,13 +82,16 @@ function computeBudgetSnapshot(project) {
 function summarizeAssets(assets = []) {
   const total = assets.length;
   const restricted = assets.filter((asset) => asset.permissionLevel !== 'public').length;
-  const watermarkCoverage = total === 0 ? 0 : (assets.filter((asset) => asset.watermarkEnabled).length / total) * 100;
+  const watermarkedCount = assets.filter((asset) => asset.watermarkEnabled).length;
+  const watermarkCoverage = total === 0 ? 0 : (watermarkedCount / total) * 100;
   const storageBytes = assets.reduce((acc, asset) => acc + normalizeNumber(asset.sizeBytes), 0);
   return {
     total,
     restricted,
+    watermarked: watermarkedCount,
     watermarkCoverage,
     storageBytes,
+    totalSizeBytes: storageBytes,
   };
 }
 
@@ -193,6 +202,20 @@ function buildGigReminders(orders) {
           status: requirement.status,
         });
       });
+      order.timelineEvents?.forEach((event) => {
+        if (['completed', 'cancelled'].includes(event.status)) {
+          return;
+        }
+        reminders.push({
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          type: 'timeline',
+          title: event.title,
+          dueAt: event.scheduledAt,
+          status: event.status,
+          overdue: event.scheduledAt ? new Date(event.scheduledAt).getTime() < now : false,
+        });
+      });
       return reminders;
     })
     .sort((a, b) => new Date(a.dueAt || 0).getTime() - new Date(b.dueAt || 0).getTime());
@@ -205,9 +228,16 @@ function buildStorytelling(projects, orders, storyBlocks) {
     const progress = normalizeNumber(project.workspace?.progressPercent);
     if (progress >= 70) {
       achievements.push({
+        id: `project-${project.id}`,
         type: 'project',
         title: project.title,
         bullet: `Advanced ${progress.toFixed(0)}% with ${project.collaborators.length} collaborators.`,
+        metrics: {
+          progressPercent: progress,
+          csat: project.workspace?.metrics?.csat ?? null,
+        },
+        deliveredAt: project.workspace?.nextMilestoneDueAt ?? project.updatedAt ?? null,
+        recommendedChannel: 'portfolio',
       });
     }
   });
@@ -215,30 +245,43 @@ function buildStorytelling(projects, orders, storyBlocks) {
   orders.forEach((order) => {
     if (order.status === 'completed') {
       achievements.push({
+        id: `order-${order.id}`,
         type: 'gig',
         title: order.serviceName,
         bullet: `Delivered ${order.serviceName} with ${order.vendorName} and captured ${order.currency} ${order.amount}.`,
+        metrics: {
+          progressPercent: normalizeNumber(order.progressPercent),
+          csat: order.scorecard?.overallScore ?? null,
+        },
+        deliveredAt: order.dueAt ?? order.completedAt ?? order.updatedAt ?? null,
+        recommendedChannel: 'client_update',
       });
     }
   });
 
   storyBlocks.forEach((block) => {
     achievements.push({
+      id: `story-${block.id}`,
       type: 'story_block',
       title: block.title,
       bullet: block.outcome,
+      metrics: block.metrics ?? {},
+      deliveredAt: block.lastUsedAt ?? block.createdAt ?? null,
+      recommendedChannel: block.metadata?.recommendedChannel ?? 'linkedin',
     });
   });
 
   const quickExports = {
-    resume: achievements.slice(0, 3).map((achievement) => `• ${achievement.bullet}`),
-    linkedin: achievements.slice(0, 2).map((achievement) => `Celebrated ${achievement.title}`),
-    coverLetter: achievements.map((achievement) => `${achievement.title} — ${achievement.bullet}`),
+    resumeBullets: achievements.slice(0, 3).map((achievement) => `• ${achievement.bullet}`),
+    linkedinPosts: achievements.slice(0, 2).map((achievement) => `Celebrated ${achievement.title}`),
+    coverLetters: achievements.map((achievement) => `${achievement.title} — ${achievement.bullet}`),
   };
 
-  const prompts = achievements.map((achievement) =>
-    `How would you expand on ${achievement.title} to highlight measurable impact and collaborators?`,
-  );
+  const prompts = achievements.map((achievement, index) => ({
+    id: `prompt-${achievement.id ?? index}`,
+    title: achievement.title,
+    prompt: `How would you expand on ${achievement.title} to highlight measurable impact and collaborators?`,
+  }));
 
   return { achievements, quickExports, prompts };
 }
@@ -679,6 +722,175 @@ function sanitizeProject(projectInstance) {
   };
 }
 
+function sanitizeTimelineEvent(eventInstance, order) {
+  const event = eventInstance?.get ? eventInstance.get({ plain: true }) : { ...eventInstance };
+  return {
+    ...event,
+    orderId: order.id,
+    orderNumber: order.orderNumber,
+    serviceName: order.serviceName,
+  };
+}
+
+function sanitizeSubmission(submissionInstance, order) {
+  const submission = submissionInstance?.get ? submissionInstance.get({ plain: true }) : { ...submissionInstance };
+  submission.assets = (submission.assets ?? []).map((asset) => (asset?.get ? asset.get({ plain: true }) : asset));
+  return {
+    ...submission,
+    orderId: order.id,
+    orderNumber: order.orderNumber,
+    serviceName: order.serviceName,
+  };
+}
+
+function sanitizeChatMessage(messageInstance, order) {
+  const message = messageInstance?.get ? messageInstance.get({ plain: true }) : { ...messageInstance };
+  return {
+    ...message,
+    orderId: order.id,
+    orderNumber: order.orderNumber,
+    serviceName: order.serviceName,
+  };
+}
+
+function sanitizeOrder(orderInstance) {
+  const order = orderInstance.get({ plain: true });
+  const requirements = Array.isArray(order.requirements) ? order.requirements : [];
+  const outstandingRequirements = requirements.filter((requirement) => requirement.status !== 'approved');
+  const nextRequirementDueAt = outstandingRequirements
+    .map((requirement) => requirement.dueAt)
+    .filter(Boolean)
+    .map((due) => new Date(due).getTime())
+    .sort((a, b) => a - b)[0];
+
+  const revisions = Array.isArray(order.revisions) ? order.revisions : [];
+  const timelineEvents = Array.isArray(order.timelineEvents) ? order.timelineEvents : [];
+  const submissions = Array.isArray(order.submissions) ? order.submissions : [];
+  const chatMessages = Array.isArray(order.chatMessages) ? order.chatMessages : [];
+
+  return {
+    ...order,
+    gig: order.gig ?? { title: order.serviceName },
+    outstandingRequirements: outstandingRequirements.length,
+    nextRequirementDueAt: nextRequirementDueAt ? new Date(nextRequirementDueAt).toISOString() : null,
+    activeRevisions: revisions.filter((revision) => revision.status !== 'approved').length,
+    timelineEvents: timelineEvents.map((event) => sanitizeTimelineEvent(event, order)),
+    submissions: submissions.map((submission) => sanitizeSubmission(submission, order)),
+    chatMessages: chatMessages.map((message) => sanitizeChatMessage(message, order)),
+    scorecard: order.scorecard?.get ? order.scorecard.get({ plain: true }) : order.scorecard ?? null,
+  };
+}
+
+function buildGigOrderBuckets(orders) {
+  const openStatuses = new Set(['requirements', 'in_delivery', 'in_revision']);
+  const open = [];
+  const closed = [];
+
+  orders.forEach((order) => {
+    if (openStatuses.has(order.status)) {
+      open.push(order);
+    } else {
+      closed.push(order);
+    }
+  });
+
+  return {
+    open,
+    closed,
+    stats: {
+      openCount: open.length,
+      closedCount: closed.length,
+      openValue: open.reduce((sum, order) => sum + normalizeNumber(order.amount), 0),
+      closedValue: closed.reduce((sum, order) => sum + normalizeNumber(order.amount), 0),
+    },
+  };
+}
+
+function buildTimelineSummary(orders) {
+  const now = Date.now();
+  const events = orders.flatMap((order) =>
+    order.timelineEvents.map((event) => {
+      const scheduledAtTime = event.scheduledAt ? new Date(event.scheduledAt).getTime() : null;
+      const overdue = scheduledAtTime != null && scheduledAtTime < now && !['completed', 'cancelled'].includes(event.status);
+      return { ...event, orderId: order.id, overdue };
+    }),
+  );
+
+  const upcoming = events
+    .filter((event) => !['completed', 'cancelled'].includes(event.status))
+    .sort((a, b) => new Date(a.scheduledAt ?? 0).getTime() - new Date(b.scheduledAt ?? 0).getTime());
+
+  const recent = events
+    .filter((event) => event.status === 'completed')
+    .sort((a, b) => new Date(b.completedAt ?? 0).getTime() - new Date(a.completedAt ?? 0).getTime());
+
+  return {
+    events,
+    upcoming: upcoming.slice(0, 8),
+    recent: recent.slice(0, 8),
+    stats: {
+      total: events.length,
+      upcoming: upcoming.length,
+      overdue: upcoming.filter((event) => event.scheduledAt && new Date(event.scheduledAt).getTime() < now).length,
+      completed: recent.length,
+    },
+  };
+}
+
+function buildSubmissionSummary(orders) {
+  const submissions = orders.flatMap((order) => order.submissions.map((submission) => ({ ...submission, orderId: order.id })));
+  const pendingStatuses = new Set(['draft', 'submitted', 'needs_changes']);
+
+  const pending = submissions
+    .filter((submission) => pendingStatuses.has(submission.status))
+    .sort((a, b) => new Date(a.submittedAt ?? a.createdAt ?? 0) - new Date(b.submittedAt ?? b.createdAt ?? 0));
+
+  const recent = submissions
+    .slice()
+    .sort((a, b) => new Date(b.submittedAt ?? b.reviewedAt ?? 0) - new Date(a.submittedAt ?? a.reviewedAt ?? 0));
+
+  return {
+    submissions,
+    pending: pending.slice(0, 8),
+    recent: recent.slice(0, 8),
+    stats: {
+      total: submissions.length,
+      pending: pending.length,
+      approved: submissions.filter((submission) => submission.status === 'approved').length,
+      rejected: submissions.filter((submission) => submission.status === 'rejected').length,
+    },
+  };
+}
+
+function buildChatSummary(orders) {
+  const messages = orders.flatMap((order) => order.chatMessages.map((message) => ({ ...message, orderId: order.id })));
+  const sortedMessages = messages
+    .slice()
+    .sort((a, b) => new Date(b.sentAt ?? 0).getTime() - new Date(a.sentAt ?? 0).getTime());
+
+  const participants = new Map();
+  sortedMessages.forEach((message) => {
+    if (!message.authorName) return;
+    if (!participants.has(message.authorName)) {
+      participants.set(message.authorName, {
+        name: message.authorName,
+        role: message.authorRole ?? 'collaborator',
+        messages: 0,
+      });
+    }
+    participants.get(message.authorName).messages += 1;
+  });
+
+  return {
+    recent: sortedMessages.slice(0, 25),
+    totals: {
+      messages: sortedMessages.length,
+      ordersWithChat: orders.filter((order) => order.chatMessages.length > 0).length,
+    },
+    participants: Array.from(participants.values()).sort((a, b) => b.messages - a.messages),
+  };
+}
+
 async function ensureTemplatesSeeded(transaction) {
   const count = await ProjectTemplate.count({ transaction });
   if (count > 0) {
@@ -757,6 +969,32 @@ export async function getProjectGigManagementOverview(ownerId) {
       { model: GigOrderRequirement, as: 'requirements' },
       { model: GigOrderRevision, as: 'revisions', order: [['roundNumber', 'ASC']] },
       { model: GigVendorScorecard, as: 'scorecard' },
+      {
+        model: GigTimelineEvent,
+        as: 'timelineEvents',
+        separate: true,
+        order: [
+          ['scheduledAt', 'ASC'],
+          ['createdAt', 'ASC'],
+        ],
+      },
+      {
+        model: GigSubmission,
+        as: 'submissions',
+        separate: true,
+        include: [{ model: GigSubmissionAsset, as: 'assets' }],
+        order: [
+          ['submittedAt', 'DESC'],
+          ['createdAt', 'DESC'],
+        ],
+      },
+      {
+        model: GigChatMessage,
+        as: 'chatMessages',
+        separate: true,
+        order: [['sentAt', 'DESC']],
+        limit: 100,
+      },
     ],
     order: [['createdAt', 'DESC']],
   });
@@ -764,18 +1002,11 @@ export async function getProjectGigManagementOverview(ownerId) {
   const storyBlocks = await StoryBlock.findAll({ where: { ownerId }, order: [['createdAt', 'DESC']] });
   const brandAssets = await BrandAsset.findAll({ where: { ownerId }, order: [['createdAt', 'DESC']] });
 
-  const summary = {
-    totalProjects: projects.length,
-    activeProjects: projects.filter((project) => project.status !== 'completed').length,
-    budgetInPlay: projects.reduce((acc, project) => acc + normalizeNumber(project.budgetAllocated), 0),
-    gigsInDelivery: orders.filter((order) => !['completed', 'cancelled'].includes(order.status)).length,
-    templatesAvailable: templates.length,
-    assetsSecured: brandAssets.length,
-  };
-
   const sanitizedProjects = projects.map((project) => sanitizeProject(project));
+  const sanitizedOrders = orders.map((order) => sanitizeOrder(order));
   const assets = sanitizedProjects.flatMap((project) => project.assets);
   const assetSummary = summarizeAssets(assets);
+  const orderBuckets = buildGigOrderBuckets(sanitizedOrders);
   const board = {
     lanes: buildBoardLanes(sanitizedProjects),
     metrics: buildBoardMetrics(sanitizedProjects),
@@ -790,6 +1021,45 @@ export async function getProjectGigManagementOverview(ownerId) {
       .slice(0, 6),
   };
 
+  const vendorStats = buildVendorStats(sanitizedOrders);
+  const reminders = buildGigReminders(sanitizedOrders);
+  const storytelling = buildStorytelling(sanitizedProjects, sanitizedOrders, storyBlocks);
+  const timeline = buildTimelineSummary(sanitizedOrders);
+  const submissionsSummary = buildSubmissionSummary(sanitizedOrders);
+  const chatSummary = buildChatSummary(sanitizedOrders);
+  const scorecards = sanitizedOrders
+    .map((order) =>
+      order.scorecard
+        ? {
+            ...order.scorecard,
+            orderNumber: order.orderNumber,
+            vendorName: order.vendorName,
+            reviewedAt: order.scorecard.updatedAt ?? order.scorecard.createdAt ?? null,
+            riskLevel: order.metadata?.riskLevel ?? order.scorecard.riskLevel ?? 'standard',
+          }
+        : null,
+    )
+    .filter(Boolean);
+
+  const summary = {
+    totalProjects: sanitizedProjects.length,
+    activeProjects: sanitizedProjects.filter((project) => project.status !== 'completed').length,
+    budgetInPlay: sanitizedProjects.reduce((acc, project) => acc + normalizeNumber(project.budgetAllocated), 0),
+    gigsInDelivery: orderBuckets.stats.openCount,
+    openGigs: orderBuckets.stats.openCount,
+    closedGigs: orderBuckets.stats.closedCount,
+    openGigValue: orderBuckets.stats.openValue,
+    templatesAvailable: templates.length,
+    assetsSecured: brandAssets.length,
+    storiesReady: storytelling.achievements.length,
+    vendorSatisfaction: vendorStats.averages?.overall ?? null,
+    currency: sanitizedOrders.find((order) => order.currency)?.currency ?? 'USD',
+  };
+
+  const meta = {
+    lastUpdated: new Date().toISOString(),
+    fromCache: false,
+  };
   const vendorStats = buildVendorStats(orders);
   const reminders = buildGigReminders(orders);
   const storytelling = buildStorytelling(sanitizedProjects, orders, storyBlocks);
@@ -805,8 +1075,14 @@ export async function getProjectGigManagementOverview(ownerId) {
       orders: sanitizedOrders,
       reminders,
       stats: vendorStats,
+      buckets: orderBuckets.stats,
+      timeline,
+      submissions: submissionsSummary,
+      chat: chatSummary,
+      scorecards,
     },
     storytelling,
+    meta,
     projects: sanitizedProjects,
     templates,
   };
@@ -1052,6 +1328,227 @@ export async function createGigOrder(ownerId, payload) {
 
     await order.reload({ transaction });
     return sanitizeGigOrder(order, { includeAssociations: false });
+  });
+}
+
+export async function addGigTimelineEvent(ownerId, orderId, payload) {
+  await ensureInitialized();
+  const order = await GigOrder.findByPk(orderId);
+  assertOwnership(order, ownerId, 'Gig order not found');
+
+  if (!payload.title || !payload.title.trim()) {
+    throw new ValidationError('Timeline event title is required.');
+  }
+
+  const type = payload.type ?? 'note';
+  if (!GIG_TIMELINE_EVENT_TYPES.includes(type)) {
+    throw new ValidationError('Invalid timeline event type provided.');
+  }
+
+  const status = payload.status ?? 'scheduled';
+  if (!GIG_TIMELINE_EVENT_STATUSES.includes(status)) {
+    throw new ValidationError('Invalid timeline event status provided.');
+  }
+
+  const scheduledAt = ensureDate(payload.scheduledAt, { label: 'Scheduled at' });
+  const completedAt = ensureDate(payload.completedAt, { label: 'Completed at' });
+
+  if (completedAt && !['completed'].includes(status)) {
+    throw new ValidationError('Completed at can only be supplied when the event is marked as completed.');
+  }
+
+  return GigTimelineEvent.create({
+    orderId: order.id,
+    title: payload.title.trim(),
+    type,
+    status,
+    scheduledAt,
+    completedAt: completedAt ?? null,
+    assignedTo: payload.assignedTo ?? null,
+    notes: payload.notes ?? null,
+    metadata: payload.metadata ?? {},
+  });
+}
+
+export async function updateGigTimelineEvent(ownerId, orderId, eventId, payload) {
+  await ensureInitialized();
+  const order = await GigOrder.findByPk(orderId);
+  assertOwnership(order, ownerId, 'Gig order not found');
+
+  const event = await GigTimelineEvent.findByPk(eventId);
+  if (!event || event.orderId !== order.id) {
+    throw new NotFoundError('Timeline event not found');
+  }
+
+  let type = event.type;
+  if (payload.type) {
+    if (!GIG_TIMELINE_EVENT_TYPES.includes(payload.type)) {
+      throw new ValidationError('Invalid timeline event type provided.');
+    }
+    type = payload.type;
+  }
+
+  let status = event.status;
+  if (payload.status) {
+    if (!GIG_TIMELINE_EVENT_STATUSES.includes(payload.status)) {
+      throw new ValidationError('Invalid timeline event status provided.');
+    }
+    status = payload.status;
+  }
+
+  const scheduledAt = payload.scheduledAt ? ensureDate(payload.scheduledAt, { label: 'Scheduled at' }) : event.scheduledAt;
+  const completedAt = payload.completedAt ? ensureDate(payload.completedAt, { label: 'Completed at' }) : event.completedAt;
+
+  if (completedAt && !['completed'].includes(status)) {
+    throw new ValidationError('Completed at can only be supplied when the event is marked as completed.');
+  }
+
+  await event.update({
+    title: payload.title?.trim() || event.title,
+    type,
+    status,
+    scheduledAt,
+    completedAt: completedAt ?? null,
+    assignedTo: payload.assignedTo ?? event.assignedTo,
+    notes: payload.notes ?? event.notes,
+    metadata: payload.metadata ?? event.metadata,
+  });
+
+  return event.reload();
+}
+
+export async function addGigSubmission(ownerId, orderId, payload) {
+  await ensureInitialized();
+  const order = await GigOrder.findByPk(orderId);
+  assertOwnership(order, ownerId, 'Gig order not found');
+
+  if (!payload.title || !payload.title.trim()) {
+    throw new ValidationError('Submission title is required.');
+  }
+
+  const status = payload.status ?? 'submitted';
+  if (!GIG_SUBMISSION_STATUSES.includes(status)) {
+    throw new ValidationError('Invalid submission status provided.');
+  }
+
+  const submittedAt = ensureDate(payload.submittedAt ?? new Date(), { label: 'Submitted at' }) ?? new Date();
+  const reviewedAt = ensureDate(payload.reviewedAt, { label: 'Reviewed at' });
+
+  return projectGigManagementSequelize.transaction(async (transaction) => {
+    const submission = await GigSubmission.create(
+      {
+        orderId: order.id,
+        title: payload.title.trim(),
+        status,
+        submittedAt,
+        submittedBy: payload.submittedBy ?? null,
+        submittedByEmail: payload.submittedByEmail ?? null,
+        notes: payload.notes ?? null,
+        reviewNotes: payload.reviewNotes ?? null,
+        reviewedAt: reviewedAt ?? null,
+        reviewedBy: payload.reviewedBy ?? null,
+        metadata: payload.metadata ?? {},
+      },
+      { transaction },
+    );
+
+    if (Array.isArray(payload.assets) && payload.assets.length > 0) {
+      await GigSubmissionAsset.bulkCreate(
+        payload.assets
+          .filter((asset) => asset?.url)
+          .map((asset) => ({
+            submissionId: submission.id,
+            label: asset.label ?? asset.url,
+            url: asset.url,
+            previewUrl: asset.previewUrl ?? null,
+            sizeBytes: asset.sizeBytes ?? null,
+            metadata: asset.metadata ?? {},
+          })),
+        { transaction },
+      );
+    }
+
+    return submission;
+  });
+}
+
+export async function updateGigSubmission(ownerId, orderId, submissionId, payload) {
+  await ensureInitialized();
+  const order = await GigOrder.findByPk(orderId);
+  assertOwnership(order, ownerId, 'Gig order not found');
+
+  const submission = await GigSubmission.findByPk(submissionId, {
+    include: [{ model: GigSubmissionAsset, as: 'assets' }],
+  });
+
+  if (!submission || submission.orderId !== order.id) {
+    throw new NotFoundError('Gig submission not found');
+  }
+
+  let status = submission.status;
+  if (payload.status) {
+    if (!GIG_SUBMISSION_STATUSES.includes(payload.status)) {
+      throw new ValidationError('Invalid submission status provided.');
+    }
+    status = payload.status;
+  }
+
+  const submittedAt = payload.submittedAt ? ensureDate(payload.submittedAt, { label: 'Submitted at' }) : submission.submittedAt;
+  const reviewedAt = payload.reviewedAt ? ensureDate(payload.reviewedAt, { label: 'Reviewed at' }) : submission.reviewedAt;
+
+  await submission.update({
+    title: payload.title?.trim() || submission.title,
+    status,
+    submittedAt,
+    submittedBy: payload.submittedBy ?? submission.submittedBy,
+    submittedByEmail: payload.submittedByEmail ?? submission.submittedByEmail,
+    notes: payload.notes ?? submission.notes,
+    reviewNotes: payload.reviewNotes ?? submission.reviewNotes,
+    reviewedAt,
+    reviewedBy: payload.reviewedBy ?? submission.reviewedBy,
+    metadata: payload.metadata ?? submission.metadata,
+  });
+
+  if (Array.isArray(payload.appendAssets) && payload.appendAssets.length > 0) {
+    await GigSubmissionAsset.bulkCreate(
+      payload.appendAssets
+        .filter((asset) => asset?.url)
+        .map((asset) => ({
+          submissionId: submission.id,
+          label: asset.label ?? asset.url,
+          url: asset.url,
+          previewUrl: asset.previewUrl ?? null,
+          sizeBytes: asset.sizeBytes ?? null,
+          metadata: asset.metadata ?? {},
+        })),
+    );
+  }
+
+  return submission.reload({ include: [{ model: GigSubmissionAsset, as: 'assets' }] });
+}
+
+export async function postGigChatMessage(ownerId, orderId, payload) {
+  await ensureInitialized();
+  const order = await GigOrder.findByPk(orderId);
+  assertOwnership(order, ownerId, 'Gig order not found');
+
+  if (!payload.body || !payload.body.trim()) {
+    throw new ValidationError('Message body is required.');
+  }
+
+  const sentAt = ensureDate(payload.sentAt ?? new Date(), { label: 'Sent at' }) ?? new Date();
+  const attachments = Array.isArray(payload.attachments) ? payload.attachments : payload.attachments ? [payload.attachments] : [];
+
+  return GigChatMessage.create({
+    orderId: order.id,
+    authorId: payload.authorId ?? ownerId,
+    authorName: payload.authorName ?? 'Workspace member',
+    authorRole: payload.authorRole ?? null,
+    body: payload.body.trim(),
+    attachments: attachments.length ? attachments : null,
+    sentAt,
+    pinned: Boolean(payload.pinned),
+    visibility: payload.visibility ?? 'internal',
   });
 }
 
@@ -1375,6 +1872,11 @@ export default {
   addProjectAsset,
   updateProjectWorkspace,
   createGigOrder,
+  addGigTimelineEvent,
+  updateGigTimelineEvent,
+  addGigSubmission,
+  updateGigSubmission,
+  postGigChatMessage,
   updateGigOrder,
   getGigOrderDetail,
   createGigTimelineEvent,

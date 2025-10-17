@@ -29,6 +29,11 @@ router.post(
   requireProjectManagementRole,
   asyncHandler(projectGigManagementController.storeGigTimelineEvent),
 );
+router.patch(
+  '/gig-orders/:orderId/timeline/:eventId',
+  requireProjectManagementRole,
+  asyncHandler(projectGigManagementController.patchGigTimelineEvent),
+);
 router.post(
   '/gig-orders/:orderId/submissions',
   requireProjectManagementRole,
