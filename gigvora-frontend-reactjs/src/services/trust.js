@@ -48,6 +48,26 @@ export async function appendDisputeEvent(disputeId, payload, options = {}) {
   return apiClient.post(`/trust/disputes/${disputeId}/events`, payload, options);
 }
 
+export async function fetchDisputes(params = {}, options = {}) {
+  const response = await apiClient.get('/trust/disputes', { params, ...options });
+  return {
+    disputes: response.disputes ?? [],
+    pagination: response.pagination ?? {},
+    totals: response.totals ?? {},
+    filters: response.filters ?? {},
+  };
+}
+
+export async function fetchDispute(disputeId, options = {}) {
+  const response = await apiClient.get(`/trust/disputes/${disputeId}`, options);
+  return response.dispute;
+}
+
+export async function updateDispute(disputeId, payload, options = {}) {
+  const response = await apiClient.patch(`/trust/disputes/${disputeId}`, payload, options);
+  return response.dispute;
+}
+
 export default {
   fetchTrustOverview,
   createEscrowAccount,
@@ -58,4 +78,7 @@ export default {
   refundEscrow,
   createDispute,
   appendDisputeEvent,
+  fetchDisputes,
+  fetchDispute,
+  updateDispute,
 };

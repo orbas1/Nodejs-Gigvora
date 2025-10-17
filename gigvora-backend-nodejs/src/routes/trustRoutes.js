@@ -8,6 +8,9 @@ import {
   refundEscrow,
   createDispute,
   appendDisputeEvent,
+  listDisputes,
+  getDispute,
+  updateDispute,
   getTrustOverview,
 } from '../controllers/trustController.js';
 
@@ -22,5 +25,8 @@ router.post('/escrow/transactions/:transactionId/release', releaseEscrow);
 router.post('/escrow/transactions/:transactionId/refund', refundEscrow);
 router.post('/disputes', createDispute);
 router.post('/disputes/:disputeId/events', appendDisputeEvent);
+router.get('/disputes', listDisputes);
+router.get('/disputes/:disputeId', getDispute);
+router.patch('/disputes/:disputeId', updateDispute);
 
 export default router;

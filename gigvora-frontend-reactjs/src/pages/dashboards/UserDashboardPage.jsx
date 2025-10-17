@@ -7,10 +7,14 @@ import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
 import DocumentStudioSection from '../../components/documentStudio/DocumentStudioSection.jsx';
 import ProjectGigManagementContainer from '../../components/projectGigManagement/ProjectGigManagementContainer.jsx';
 import EscrowManagementSection from '../../components/escrow/EscrowManagementSection.jsx';
+import EventManagementSection from '../../components/eventManagement/EventManagementSection.jsx';
 import useSession from '../../hooks/useSession.js';
 import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
 import DashboardBlogSpotlight from '../../components/blog/DashboardBlogSpotlight.jsx';
 import AffiliateProgramSection from '../../components/affiliate/AffiliateProgramSection.jsx';
+import DashboardNotificationCenterSection from '../../components/notifications/DashboardNotificationCenterSection.jsx';
+import useSavedSearches from '../../hooks/useSavedSearches.js';
+import { TopSearchSection } from './user/sections/index.js';
 
 const DEFAULT_USER_ID = 1;
 const availableDashboards = ['user', 'freelancer', 'agency', 'company', 'headhunter'];
@@ -164,6 +168,12 @@ function buildProfileCard(data, summary, session) {
 
 function buildMenuSections(data) {
   const summary = data?.summary ?? {};
+  const eventManagement = data?.eventManagement ?? {};
+  const eventOverview = eventManagement.overview ?? {};
+  const upcomingEventCount = Array.isArray(eventOverview.upcomingEvents)
+    ? eventOverview.upcomingEvents.length
+    : 0;
+  const nextEvent = eventOverview.nextEvent ?? null;
   const documents = data?.documents ?? {};
   const documentStudio = data?.documentStudio;
   const documentSummary = documentStudio?.summary ?? {};
@@ -187,6 +197,26 @@ function buildMenuSections(data) {
   const escrowSummary = escrowManagement.summary ?? {};
   const escrowCurrency = escrowSummary.currency ?? 'USD';
   return [
+    {
+      label: 'Events',
+      items: [
+        {
+          name: 'Plan',
+          description: '',
+          sectionId: 'event-management',
+        },
+        {
+          name: 'Guests',
+          description: '',
+          sectionId: 'event-management',
+        },
+        {
+          name: 'Finance',
+          description: '',
+          sectionId: 'event-management',
+        },
+      ],
+    },
     {
       label: 'Project & gig management',
       items: [
@@ -262,6 +292,23 @@ function buildMenuSections(data) {
           description: 'Rule library with analytics and guardrails for premium roles.',
           tags: ['automation', 'ai'],
           sectionId: 'career-auto-apply-rules',
+        },
+      ],
+    },
+    {
+      label: 'Search',
+      items: [
+        {
+          name: 'Search',
+          description: 'Saved alerts',
+          tags: ['search'],
+          sectionId: 'top-search',
+        },
+        {
+          name: 'Explorer',
+          description: 'Full explorer',
+          tags: ['explorer'],
+          href: '/search',
         },
       ],
     },
@@ -347,6 +394,26 @@ function buildMenuSections(data) {
       ],
     },
     {
+      label: 'Alerts',
+      items: [
+        {
+          name: 'Inbox',
+          description: `${formatNumber(data?.notifications?.unreadCount ?? 0)} unread`,
+          tags: ['notifications', 'alerts'],
+          sectionId: 'notifications-center',
+        },
+        {
+          name: 'Digest',
+          description: `${
+            data?.notifications?.preferences?.digestFrequency
+              ? data.notifications.preferences.digestFrequency.replace(/^(\w)/, (match) => match.toUpperCase())
+              : 'Immediate'
+          } cadence`,
+          sectionId: 'notifications-center',
+        },
+      ],
+    },
+    {
       label: 'Affiliate & referrals',
       items: [
         {
@@ -384,6 +451,15 @@ export default function UserDashboardPage() {
       enabled: shouldLoadDashboard,
     },
   );
+
+  const {
+    items: savedSearches,
+    loading: savedSearchesLoading,
+    createSavedSearch,
+    updateSavedSearch,
+    deleteSavedSearch,
+    runSavedSearch,
+  } = useSavedSearches({ enabled: shouldLoadDashboard });
 
   const summary = data?.summary ?? {
     totalApplications: 0,
@@ -433,9 +509,14 @@ export default function UserDashboardPage() {
   const interviews = Array.isArray(data?.interviews) ? data.interviews : [];
   const documents = data?.documents ?? { attachments: [], portfolioLinks: [] };
   const documentStudio = data?.documentStudio ?? null;
+  const eventManagement = data?.eventManagement ?? null;
+  const eventManagementOverview = eventManagement?.overview ?? null;
   const projectGigManagement = data?.projectGigManagement ?? null;
   const escrowManagement = data?.escrowManagement ?? null;
   const notifications = Array.isArray(data?.notifications?.recent) ? data.notifications.recent : [];
+  const notificationsUnreadCount = Number(data?.notifications?.unreadCount ?? 0);
+  const notificationPreferences = data?.notifications?.preferences ?? null;
+  const notificationStats = data?.notifications?.stats ?? null;
   const projectActivity = Array.isArray(data?.projectActivity?.recent) ? data.projectActivity.recent : [];
   const launchpadApplications = Array.isArray(data?.launchpad?.applications) ? data.launchpad.applications : [];
   const affiliateProgram = data?.affiliate ?? null;
@@ -479,6 +560,7 @@ export default function UserDashboardPage() {
       setActiveMenuItem(menuId);
     }
   };
+  const topSearchData = data?.topSearch ?? null;
 
   const insights = data?.insights ?? {};
   const careerAnalytics = insights.careerAnalytics ?? {};
@@ -522,6 +604,11 @@ export default function UserDashboardPage() {
       label: 'Total applications',
       value: summary.totalApplications,
       description: 'Opportunities you have submitted or are drafting.',
+    },
+    {
+      label: 'Active events',
+      value: eventManagementOverview?.active ?? 0,
+      description: `Managing ${formatNumber(eventManagementOverview?.events ?? 0)} total events across your programs.`,
     },
     {
       label: 'Active pipeline',
@@ -597,6 +684,16 @@ export default function UserDashboardPage() {
             </div>
           ))}
         </section>
+
+        <TopSearchSection
+          data={topSearchData}
+          savedSearches={savedSearches}
+          savedSearchesLoading={savedSearchesLoading}
+          onCreateSavedSearch={createSavedSearch}
+          onUpdateSavedSearch={updateSavedSearch}
+          onDeleteSavedSearch={deleteSavedSearch}
+          onRunSavedSearch={runSavedSearch}
+        />
 
         <section id="career-pipeline-automation" className="space-y-8">
           <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-accentSoft p-6 shadow-sm">
@@ -1547,6 +1644,10 @@ export default function UserDashboardPage() {
           </div>
         </section>
 
+        {userId ? (
+          <EventManagementSection data={eventManagement} userId={userId} onRefresh={() => refresh({ force: true })} />
+        ) : null}
+
         <ProjectGigManagementContainer userId={userId} />
         {escrowManagement ? (
           <EscrowManagementSection
@@ -2157,30 +2258,18 @@ export default function UserDashboardPage() {
           <AffiliateProgramSection data={affiliateProgram} />
         </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">Notifications</h2>
-          <div className="mt-4 space-y-3">
-            {notifications.length ? (
-              notifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  className={`rounded-2xl border p-4 ${notification.isUnread ? 'border-accent/50 bg-accentSoft/70' : 'border-slate-200 bg-slate-50/70'}`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-800">{notification.title}</p>
-                      {notification.body ? (
-                        <p className="mt-1 text-sm text-slate-600">{notification.body}</p>
-                      ) : null}
-                    </div>
-                    <span className="text-xs text-slate-500">{formatRelativeTime(notification.createdAt)}</span>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-sm text-slate-500">You are all caught up — new notifications will appear here as recruiters or automations update your workflow.</p>
-            )}
-          </div>
+        <section
+          id="notifications-center"
+          className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+        >
+          <DashboardNotificationCenterSection
+            userId={userId ?? DEFAULT_USER_ID}
+            initialNotifications={notifications}
+            initialUnreadCount={notificationsUnreadCount}
+            initialPreferences={notificationPreferences}
+            initialStats={notificationStats}
+            session={session}
+          />
         </section>
       </div>
     </DashboardLayout>

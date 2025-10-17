@@ -48,6 +48,7 @@ import {
   EscrowAccount,
   EscrowTransaction,
   DisputeCase,
+  SearchSubscription,
 } from '../models/index.js';
 import {
   ESCROW_ACCOUNT_STATUSES,
@@ -64,6 +65,8 @@ import careerPipelineAutomationService from './careerPipelineAutomationService.j
 import { getAdDashboardSnapshot } from './adService.js';
 import { initializeWorkspaceForProject } from './projectWorkspaceService.js';
 import affiliateDashboardService from './affiliateDashboardService.js';
+import eventManagementService from './eventManagementService.js';
+import notificationService from './notificationService.js';
 
 const CACHE_NAMESPACE = 'dashboard:user';
 const CACHE_TTL_SECONDS = 60;
@@ -221,6 +224,326 @@ function collectAttachments(applications) {
     }
   });
   return attachments;
+}
+
+function sanitizeSearchSubscription(record) {
+  if (!record) {
+    return null;
+  }
+  if (typeof record.toPublicObject === 'function') {
+    return record.toPublicObject();
+  }
+  if (typeof record.get === 'function') {
+    return record.get({ plain: true });
+  }
+  return { ...record };
+}
+
+function formatCategoryLabel(value) {
+  if (!value) return 'Mixed opportunities';
+  const normalised = `${value}`.trim().toLowerCase();
+  switch (normalised) {
+    case 'job':
+    case 'jobs':
+      return 'Jobs';
+    case 'gig':
+    case 'gigs':
+      return 'Gigs';
+    case 'project':
+    case 'projects':
+      return 'Projects';
+    case 'launchpad':
+      return 'Experience launchpads';
+    case 'volunteering':
+      return 'Volunteering';
+    case 'people':
+      return 'People';
+    case 'mixed':
+      return 'Mixed opportunities';
+    default:
+      return normalised.charAt(0).toUpperCase() + normalised.slice(1);
+  }
+}
+
+function formatFrequencyLabel(value) {
+  if (!value) return 'Daily';
+  const normalised = `${value}`.trim().toLowerCase();
+  switch (normalised) {
+    case 'immediate':
+      return 'Immediate';
+    case 'daily':
+      return 'Daily';
+    case 'weekly':
+      return 'Weekly';
+    default:
+      return normalised.charAt(0).toUpperCase() + normalised.slice(1);
+  }
+}
+
+function describeOpportunityCount(count) {
+  if (count >= 75) return 'High demand';
+  if (count >= 30) return 'Growing momentum';
+  if (count > 0) return 'Emerging activity';
+  return 'Monitor for changes';
+}
+
+function buildSearchStats(savedSearches) {
+  const totals = {
+    saved: 0,
+    withEmailAlerts: 0,
+    withInAppAlerts: 0,
+    remoteEnabled: 0,
+  };
+  const categories = new Map();
+  const frequencies = new Map();
+  const now = new Date();
+  const dueSoonThreshold = new Date(now.getTime() + 72 * 60 * 60 * 1000);
+
+  let nextRunAt = null;
+  let lastTriggeredAt = null;
+  let overdue = 0;
+  let dueSoon = 0;
+
+  savedSearches.forEach((search) => {
+    totals.saved += 1;
+    const categoryKey = (search.category ?? 'mixed').toLowerCase();
+    categories.set(categoryKey, (categories.get(categoryKey) ?? 0) + 1);
+
+    const frequencyKey = (search.frequency ?? 'daily').toLowerCase();
+    frequencies.set(frequencyKey, (frequencies.get(frequencyKey) ?? 0) + 1);
+
+    if (search.notifyByEmail) {
+      totals.withEmailAlerts += 1;
+    }
+    if (search.notifyInApp) {
+      totals.withInAppAlerts += 1;
+    }
+    if (search.filters?.isRemote === true) {
+      totals.remoteEnabled += 1;
+    }
+
+    if (search.lastTriggeredAt) {
+      const last = new Date(search.lastTriggeredAt);
+      if (!Number.isNaN(last.getTime())) {
+        if (!lastTriggeredAt || last > lastTriggeredAt) {
+          lastTriggeredAt = last;
+        }
+      }
+    } else if (search.updatedAt) {
+      const updated = new Date(search.updatedAt);
+      if (!Number.isNaN(updated.getTime())) {
+        if (!lastTriggeredAt || updated > lastTriggeredAt) {
+          lastTriggeredAt = updated;
+        }
+      }
+    }
+
+    if (search.nextRunAt) {
+      const next = new Date(search.nextRunAt);
+      if (!Number.isNaN(next.getTime())) {
+        if (!nextRunAt || next < nextRunAt) {
+          nextRunAt = next;
+        }
+        if (next < now) {
+          overdue += 1;
+        } else if (next <= dueSoonThreshold) {
+          dueSoon += 1;
+        }
+      }
+    }
+  });
+
+  const categoryDistribution = Array.from(categories.entries())
+    .map(([key, count]) => ({
+      key,
+      label: formatCategoryLabel(key),
+      count,
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  const frequencyDistribution = Array.from(frequencies.entries())
+    .map(([key, count]) => ({
+      key,
+      label: formatFrequencyLabel(key),
+      count,
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  return {
+    totals,
+    distribution: {
+      categories: categoryDistribution,
+      frequencies: frequencyDistribution,
+    },
+    schedule: {
+      nextRunAt: nextRunAt ? nextRunAt.toISOString() : null,
+      lastTriggeredAt: lastTriggeredAt ? lastTriggeredAt.toISOString() : null,
+      overdue,
+      dueSoon,
+    },
+  };
+}
+
+function computeKeywordHighlights(savedSearches, limit = 6) {
+  const tokens = new Map();
+  savedSearches.forEach((search) => {
+    if (!search.query) {
+      return;
+    }
+    const parts = `${search.query}`
+      .split(/\s+/)
+      .map((part) => part.replace(/[^\w#\+\-]/g, '').toLowerCase())
+      .filter((part) => part.length >= 3 && !Number.isFinite(Number(part)));
+    parts.forEach((part) => {
+      tokens.set(part, (tokens.get(part) ?? 0) + 1);
+    });
+  });
+
+  return Array.from(tokens.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([keyword, count]) => ({ keyword, count }));
+}
+
+function buildUpcomingRuns(savedSearches, limit = 8) {
+  const now = new Date();
+  return savedSearches
+    .map((search) => {
+      if (!search.nextRunAt) {
+        return null;
+      }
+      const next = new Date(search.nextRunAt);
+      if (Number.isNaN(next.getTime())) {
+        return null;
+      }
+      return {
+        id: search.id,
+        name: search.name,
+        nextRunAt: next.toISOString(),
+        frequency: search.frequency ?? 'daily',
+        notifyByEmail: Boolean(search.notifyByEmail),
+        notifyInApp: Boolean(search.notifyInApp),
+        status: next < now ? 'overdue' : 'scheduled',
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => new Date(a.nextRunAt) - new Date(b.nextRunAt))
+    .slice(0, limit);
+}
+
+function buildSearchMarketIntelligence({ jobCategoryRows = [], jobLocationRows = [], gigCategoryRows = [] }) {
+  const categories = jobCategoryRows
+    .map((row) => {
+      const value = row.employmentType ?? 'mixed';
+      const count = Number(row.count ?? 0);
+      return {
+        id: value,
+        label: formatCategoryLabel(value),
+        totalRoles: count,
+        insight: describeOpportunityCount(count),
+      };
+    })
+    .filter((entry) => entry.totalRoles > 0);
+
+  const locations = jobLocationRows
+    .map((row) => {
+      const location = row.location ?? 'Flexible / Remote';
+      const count = Number(row.count ?? 0);
+      return {
+        location,
+        totalRoles: count,
+        insight: describeOpportunityCount(count),
+      };
+    })
+    .filter((entry) => entry.totalRoles > 0);
+
+  const gigCategories = gigCategoryRows
+    .map((row) => {
+      const value = row.category ?? 'General services';
+      const count = Number(row.count ?? 0);
+      return {
+        id: value,
+        label: value.charAt(0).toUpperCase() + value.slice(1),
+        totalListings: count,
+        insight: describeOpportunityCount(count),
+      };
+    })
+    .filter((entry) => entry.totalListings > 0);
+
+  return {
+    categoryHighlights: categories.slice(0, 6),
+    locationHighlights: locations.slice(0, 6),
+    gigHighlights: gigCategories.slice(0, 6),
+  };
+}
+
+async function loadTopSearchModule(userId) {
+  const subscriptionRecords = await SearchSubscription.findAll({
+    where: { userId },
+    order: [
+      ['updatedAt', 'DESC'],
+      ['id', 'DESC'],
+    ],
+    limit: 50,
+  });
+
+  const savedSearches = subscriptionRecords
+    .map((subscription) => sanitizeSearchSubscription(subscription))
+    .filter(Boolean);
+
+  const [jobCategoryRows, jobLocationRows, gigCategoryRows] = await Promise.all([
+    Job.findAll({
+      attributes: ['employmentType', [fn('COUNT', col('id')), 'count']],
+      group: ['employmentType'],
+      order: [[fn('COUNT', col('id')), 'DESC']],
+      limit: 8,
+      raw: true,
+    }),
+    Job.findAll({
+      attributes: ['location', [fn('COUNT', col('id')), 'count']],
+      where: { location: { [Op.ne]: null } },
+      group: ['location'],
+      order: [[fn('COUNT', col('id')), 'DESC']],
+      limit: 8,
+      raw: true,
+    }),
+    Gig.findAll({
+      attributes: ['category', [fn('COUNT', col('id')), 'count']],
+      where: { status: { [Op.ne]: 'draft' } },
+      group: ['category'],
+      order: [[fn('COUNT', col('id')), 'DESC']],
+      limit: 8,
+      raw: true,
+    }),
+  ]);
+
+  const stats = buildSearchStats(savedSearches);
+  const keywordHighlights = computeKeywordHighlights(savedSearches);
+  const upcomingRuns = buildUpcomingRuns(savedSearches);
+  const marketIntelligence = buildSearchMarketIntelligence({
+    jobCategoryRows,
+    jobLocationRows,
+    gigCategoryRows,
+  });
+
+  return {
+    savedSearches,
+    stats: {
+      ...stats,
+      keywordHighlights,
+    },
+    upcomingRuns,
+    recommendations: marketIntelligence,
+    permissions: {
+      canCreate: true,
+      canUpdate: true,
+      canDelete: true,
+      canRun: true,
+    },
+    actions: {
+      openExplorer: '/search',
+    },
+  };
 }
 
 function toPlainUser(instance) {
@@ -2621,6 +2944,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     attributes: [[fn('DISTINCT', col('projectId')), 'projectId']],
     raw: true,
   });
+  const topSearchModulePromise = loadTopSearchModule(userId);
 
   const [
     applications,
@@ -2648,6 +2972,10 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     careerPipelineAutomation,
     affiliateProgram,
     projectParticipation,
+    eventManagement,
+    notificationPreferences,
+    notificationStats,
+    topSearchModule,
   ] = await Promise.all([
     applicationQuery,
     pipelineQuery,
@@ -2674,6 +3002,10 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     careerPipelineAutomationService.getCareerPipelineAutomation(userId, { bypassCache }),
     affiliateDashboardService.getAffiliateDashboard(userId),
     projectParticipationQuery,
+    eventManagementService.getUserEventManagement(userId, { includeArchived: false, limit: 6 }),
+    notificationService.getPreferences(userId),
+    notificationService.getStats(userId),
+    topSearchModulePromise,
   ]);
 
   const sanitizedStoryPrompts = storyBlocks.map((block) => sanitizeStoryBlock(block)).filter(Boolean);
@@ -2988,6 +3320,8 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     notifications: {
       unreadCount,
       recent: sanitizedNotifications,
+      preferences: notificationPreferences,
+      stats: notificationStats,
     },
     launchpad: {
       applications: sanitizedLaunchpad,
@@ -2997,6 +3331,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     },
     escrowManagement,
     projectGigManagement,
+    eventManagement,
     tasks: {
       followUps,
       automations,
@@ -3011,6 +3346,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     affiliate: affiliateProgram,
     careerPipelineAutomation,
     ads,
+    topSearch: topSearchModule,
   };
 }
 
