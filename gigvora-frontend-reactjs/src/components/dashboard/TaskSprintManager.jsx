@@ -519,6 +519,7 @@ export default function TaskSprintManager() {
             >
               {creatingSprint ? 'Saving…' : 'Save sprint'}
             </button>
+          </div>
           </fieldset>
         </form>
 
@@ -621,6 +622,7 @@ export default function TaskSprintManager() {
             >
               {creatingTask ? 'Saving…' : 'Add task'}
             </button>
+          </div>
           </fieldset>
         </form>
       </div>
