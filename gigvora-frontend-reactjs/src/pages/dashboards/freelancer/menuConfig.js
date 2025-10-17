@@ -8,6 +8,7 @@ import {
   ChartBarSquareIcon,
   ClipboardDocumentCheckIcon,
   Cog6ToothIcon,
+  LockClosedIcon,
   GlobeAltIcon,
   HeartIcon,
   HomeModernIcon,
@@ -109,6 +110,12 @@ export const MENU_GROUPS = [
         name: 'Finance, compliance, & reputation',
         description: 'Cash flow, contracts, and reputation programs.',
         icon: BanknotesIcon,
+      },
+      {
+        id: 'escrow-management',
+        name: 'Escrow',
+        description: 'Accounts, releases, disputes.',
+        icon: LockClosedIcon,
       },
       {
         id: 'workspace-settings',

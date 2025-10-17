@@ -35,6 +35,16 @@ import {
   updateSuccessMetrics,
   updateTestimonials,
 } from '../controllers/freelancerProfileController.js';
+import {
+  appendDisputeEvent as appendEscrowDisputeEvent,
+  createAccount as createEscrowAccount,
+  createTransaction as createEscrowTransaction,
+  openDispute as openEscrowDispute,
+  overview as escrowOverview,
+  refundTransaction as refundEscrowTransaction,
+  releaseTransaction as releaseEscrowTransaction,
+  updateAccount as updateEscrowAccount,
+} from '../controllers/freelancerEscrowController.js';
 import asyncHandler from '../utils/asyncHandler.js';
 
 const router = Router();
@@ -65,6 +75,27 @@ router.post(
 router.patch(
   '/order-pipeline/orders/:orderId/escrow-checkpoints/:checkpointId',
   asyncHandler(updateOrderEscrowCheckpoint),
+);
+
+router.get('/:freelancerId/escrow/overview', asyncHandler(escrowOverview));
+router.post('/:freelancerId/escrow/accounts', asyncHandler(createEscrowAccount));
+router.patch('/:freelancerId/escrow/accounts/:accountId', asyncHandler(updateEscrowAccount));
+router.post('/:freelancerId/escrow/transactions', asyncHandler(createEscrowTransaction));
+router.post(
+  '/:freelancerId/escrow/transactions/:transactionId/release',
+  asyncHandler(releaseEscrowTransaction),
+);
+router.post(
+  '/:freelancerId/escrow/transactions/:transactionId/refund',
+  asyncHandler(refundEscrowTransaction),
+);
+router.post(
+  '/:freelancerId/escrow/transactions/:transactionId/disputes',
+  asyncHandler(openEscrowDispute),
+);
+router.post(
+  '/:freelancerId/escrow/disputes/:disputeId/events',
+  asyncHandler(appendEscrowDisputeEvent),
 );
 
 router.get('/:freelancerId/community-spotlight', asyncHandler(communitySpotlight));
