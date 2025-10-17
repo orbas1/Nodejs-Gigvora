@@ -36,6 +36,15 @@ import {
   updateTestimonials,
 } from '../controllers/freelancerProfileController.js';
 import {
+  listPortfolio,
+  createPortfolioItem,
+  updatePortfolioItem,
+  deletePortfolioItem,
+  createPortfolioAsset,
+  updatePortfolioAsset,
+  deletePortfolioAsset,
+  updatePortfolioSettings,
+} from '../controllers/freelancerPortfolioController.js';
   listCalendarEvents,
   createCalendarEvent,
   updateCalendarEvent,
@@ -195,5 +204,14 @@ router.put('/:userId/testimonials', asyncHandler(updateTestimonials));
 router.put('/:userId/hero-banners', asyncHandler(updateHeroBanners));
 
 router.get('/:id/purchased-gigs', asyncHandler(getPurchasedGigWorkspace));
+
+router.get('/:userId/portfolio', asyncHandler(listPortfolio));
+router.post('/:userId/portfolio', asyncHandler(createPortfolioItem));
+router.put('/:userId/portfolio/:portfolioId', asyncHandler(updatePortfolioItem));
+router.delete('/:userId/portfolio/:portfolioId', asyncHandler(deletePortfolioItem));
+router.post('/:userId/portfolio/:portfolioId/assets', asyncHandler(createPortfolioAsset));
+router.put('/:userId/portfolio/:portfolioId/assets/:assetId', asyncHandler(updatePortfolioAsset));
+router.delete('/:userId/portfolio/:portfolioId/assets/:assetId', asyncHandler(deletePortfolioAsset));
+router.put('/:userId/portfolio-settings', asyncHandler(updatePortfolioSettings));
 
 export default router;

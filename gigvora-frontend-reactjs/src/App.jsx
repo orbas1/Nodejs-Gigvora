@@ -38,6 +38,7 @@ import FreelancerDashboardPage from './pages/dashboards/FreelancerDashboardPage.
 import FreelancerPlannerPage from './pages/dashboards/FreelancerPlannerPage.jsx';
 import FreelancerVolunteerPage from './pages/dashboards/FreelancerVolunteerPage.jsx';
 import FreelancerPipelinePage from './pages/dashboards/FreelancerPipelinePage.jsx';
+import FreelancerPortfolioPage from './pages/dashboards/FreelancerPortfolioPage.jsx';
 import FreelancerCreationStudioPage from './pages/dashboards/FreelancerCreationStudioPage.jsx';
 import FreelancerNetworkingPage from './pages/dashboards/freelancer/FreelancerNetworkingPage.jsx';
 import FreelancerDisputesPage from './pages/dashboards/freelancer/FreelancerDisputesPage.jsx';
@@ -209,6 +210,10 @@ export default function App() {
       />
 
       <Route
+        path="dashboard/freelancer/portfolio"
+        element={
+          <RequireRole allowedRoles={['freelancer']}>
+            <FreelancerPortfolioPage />
         path="dashboard/freelancer/creation-studio"
         element={
           <RequireRole allowedRoles={['freelancer']}>
