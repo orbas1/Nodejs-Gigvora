@@ -42,6 +42,7 @@ import CompanyAnalyticsPage from './pages/dashboards/CompanyAnalyticsPage.jsx';
 import CompanyIntegrationsPage from './pages/dashboards/CompanyIntegrationsPage.jsx';
 import CompanyNetworkingHubPage from './pages/networking/CompanyNetworkingHubPage.jsx';
 import AgencyDashboardPage from './pages/dashboards/AgencyDashboardPage.jsx';
+import AgencyEscrowManagementPage from './pages/dashboards/agency/AgencyEscrowManagementPage.jsx';
 import AgencyCrmPipelinePage from './pages/dashboards/AgencyCrmPipelinePage.jsx';
 import AgencyIntegrationsPage from './pages/dashboards/AgencyIntegrationsPage.jsx';
 import AgencyAiAutomationPage from './pages/dashboards/AgencyAiAutomationPage.jsx';
@@ -235,6 +236,10 @@ export default function App() {
       />
 
       <Route
+        path="dashboard/agency/escrow"
+        element={
+          <RequireRole allowedRoles={['agency']}>
+            <AgencyEscrowManagementPage />
         path="dashboard/agency/crm"
         element={
           <RequireRole allowedRoles={['agency', 'agency_admin']}>

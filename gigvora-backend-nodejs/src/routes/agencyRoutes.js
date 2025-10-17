@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import asyncHandler from '../utils/asyncHandler.js';
 import agencyController from '../controllers/agencyController.js';
+import agencyEscrowController from '../controllers/agencyEscrowController.js';
 import agencyIntegrationController from '../controllers/agencyIntegrationController.js';
 import agencyAiController from '../controllers/agencyAiController.js';
 import agencyWorkforceController from '../controllers/agencyWorkforceController.js';
@@ -44,6 +45,20 @@ router.get(
   asyncHandler(agencyController.dashboard),
 );
 
+router.use(authenticate(), requireRoles('agency', 'agency_admin', 'admin'));
+
+router.get('/escrow/overview', asyncHandler(agencyEscrowController.fetchOverview));
+router.get('/escrow/accounts', asyncHandler(agencyEscrowController.fetchAccounts));
+router.post('/escrow/accounts', asyncHandler(agencyEscrowController.createAccount));
+router.patch('/escrow/accounts/:accountId', asyncHandler(agencyEscrowController.updateAccount));
+
+router.get('/escrow/transactions', asyncHandler(agencyEscrowController.fetchTransactions));
+router.post('/escrow/transactions', asyncHandler(agencyEscrowController.createTransaction));
+router.patch('/escrow/transactions/:transactionId', asyncHandler(agencyEscrowController.updateTransaction));
+router.post('/escrow/transactions/:transactionId/release', asyncHandler(agencyEscrowController.releaseTransaction));
+router.post('/escrow/transactions/:transactionId/refund', asyncHandler(agencyEscrowController.refundTransaction));
+
+router.patch('/escrow/settings', asyncHandler(agencyEscrowController.updateSettings));
 router.get(
   '/integrations',
   authenticate(),
