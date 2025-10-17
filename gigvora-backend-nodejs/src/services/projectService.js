@@ -1,11 +1,5 @@
 import { Op } from 'sequelize';
-import {
-  sequelize,
-  Project,
-  AutoAssignQueueEntry,
-  ProjectAssignmentEvent,
-  WORKSPACE_STATUSES,
-} from '../models/index.js';
+import { sequelize, Project, AutoAssignQueueEntry, ProjectAssignmentEvent } from '../models/index.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
 import { normalizeLocationPayload, areGeoLocationsEqual } from '../utils/location.js';
 import { buildAssignmentQueue, getProjectQueue } from './autoAssignService.js';
