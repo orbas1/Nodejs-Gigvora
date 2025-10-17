@@ -11,6 +11,10 @@ import {
   restoreProject,
   createGigOrder,
   updateGigOrder,
+  addGigTimelineEvent,
+  postGigOrderMessage,
+  createGigEscrowCheckpoint,
+  updateGigEscrowCheckpoint,
   createProjectMilestone,
   updateProjectMilestone,
   deleteProjectMilestone,
@@ -199,6 +203,34 @@ export default function useProjectGigManagement(userId) {
         throw new Error('You do not have permission to post in-gig chat messages.');
       }
       await postGigChatMessage(userId, orderId, payload);
+      await load();
+    },
+    async addTimelineEvent(orderId, payload) {
+      if (data?.access?.canManage === false) {
+        throw new Error('You do not have permission to log gig timeline events.');
+      }
+      await addGigTimelineEvent(userId, orderId, payload);
+      await load();
+    },
+    async postGigMessage(orderId, payload) {
+      if (data?.access?.canManage === false) {
+        throw new Error('You do not have permission to message within gig orders.');
+      }
+      await postGigOrderMessage(userId, orderId, payload);
+      await load();
+    },
+    async createEscrowCheckpoint(orderId, payload) {
+      if (data?.access?.canManage === false) {
+        throw new Error('You do not have permission to manage escrow checkpoints.');
+      }
+      await createGigEscrowCheckpoint(userId, orderId, payload);
+      await load();
+    },
+    async updateEscrowCheckpoint(orderId, checkpointId, payload) {
+      if (data?.access?.canManage === false) {
+        throw new Error('You do not have permission to manage escrow checkpoints.');
+      }
+      await updateGigEscrowCheckpoint(userId, orderId, checkpointId, payload);
       await load();
     },
   }), [data?.access?.canManage, userId, load]);

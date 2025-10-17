@@ -4,6 +4,8 @@ import useProjectGigManagement from '../../hooks/useProjectGigManagement.js';
 import DataStatus from '../DataStatus.jsx';
 import ProjectGigManagementSection from './ProjectGigManagementSection.jsx';
 import { useProjectManagementAccess } from '../../hooks/useAuthorization.js';
+import useSession from '../../hooks/useSession.js';
+import GigOperationsWorkspace from './GigOperationsWorkspace.jsx';
 import ProjectWizard from './ProjectWizard.jsx';
 import GigOrderComposer from './GigOrderComposer.jsx';
 import TimelineComposer from './TimelineComposer.jsx';
@@ -15,6 +17,7 @@ const EMPTY_COMPOSER = { form: null, context: null };
 
 export default function ProjectGigManagementContainer({ userId }) {
   const { canManageProjects, denialReason } = useProjectManagementAccess();
+  const { session } = useSession();
 
   if (!canManageProjects) {
     return (
@@ -43,6 +46,40 @@ export default function ProjectGigManagementContainer({ userId }) {
     () => orders.find((order) => order.id === selectedOrderId) ?? null,
     [orders, selectedOrderId],
   );
+  const accessReason = hasSnapshot && !canManage
+    ? access.reason ??
+      (access.actorRole
+        ? `Gig operations are view-only for the ${access.actorRole.replace(/_/g, ' ')} role.`
+        : 'Gig operations are view-only for your current access level.')
+    : null;
+
+  const defaultAuthorName = useMemo(() => {
+    if (!session) {
+      return null;
+    }
+    if (session.name) {
+      return session.name;
+    }
+    const user = session.user ?? {};
+    if (user.name) {
+      return user.name;
+    }
+    const parts = [user.firstName, user.lastName].filter(Boolean);
+    if (parts.length) {
+      return parts.join(' ');
+    }
+    return session.email ?? session.user?.email ?? null;
+  }, [session]);
+
+  const inputClassName = (hasError) =>
+    `rounded-xl border px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent ${
+      hasError ? 'border-rose-400 focus:ring-rose-200 focus:border-rose-500' : 'border-slate-200'
+    }`;
+
+  const handleProjectChange = (event) => {
+    const { name, value } = event.target;
+    setProjectForm((current) => ({ ...current, [name]: value }));
+  };
 
   const openComposer = (form, context = null) => {
     setComposer({ form, context });
@@ -89,6 +126,50 @@ export default function ProjectGigManagementContainer({ userId }) {
         onSubmit={(payload) => actions.createProject(payload)}
       />
 
+      {loading && !data ? (
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="h-full rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm">
+            <div className="h-full animate-pulse space-y-4">
+              <div className="h-4 w-1/2 rounded bg-slate-200" />
+              <div className="h-3 w-3/4 rounded bg-slate-200" />
+              <div className="h-32 rounded-xl bg-slate-100" />
+              <div className="h-10 rounded-xl bg-slate-100" />
+            </div>
+          </div>
+          <div className="h-full rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm">
+            <div className="h-full animate-pulse space-y-4">
+              <div className="h-4 w-2/3 rounded bg-slate-200" />
+              <div className="h-3 w-1/2 rounded bg-slate-200" />
+              <div className="h-32 rounded-xl bg-slate-100" />
+              <div className="h-10 rounded-xl bg-slate-100" />
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-6 md:grid-cols-2">
+            {renderProjectForm()}
+            {renderGigForm()}
+          </div>
+          {data ? (
+            <>
+              <ProjectGigManagementSection data={data} />
+              <GigOperationsWorkspace
+                data={data}
+                canManage={canManage}
+                onCreateOrder={actions.createGigOrder}
+                onUpdateOrder={actions.updateGigOrder}
+                onAddTimelineEvent={actions.addTimelineEvent}
+                onPostMessage={actions.postGigMessage}
+                onCreateEscrow={actions.createEscrowCheckpoint}
+                onUpdateEscrow={actions.updateEscrowCheckpoint}
+                onSubmitReview={(orderId, payload) => actions.updateGigOrder(orderId, payload)}
+                defaultAuthorName={defaultAuthorName}
+              />
+            </>
+          ) : null}
+        </>
+      )}
       <GigOrderComposer
         open={composer.form === 'order'}
         order={composer.context?.order ?? null}

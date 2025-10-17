@@ -126,6 +126,7 @@ export async function updateGigOrder(userId, orderId, payload) {
   return response.data;
 }
 
+export async function addGigTimelineEvent(userId, orderId, payload) {
 export async function createGigTimelineEvent(userId, orderId, payload) {
   const response = await apiClient.post(
     `${BASE_PATH}/${userId}/project-gig-management/gig-orders/${orderId}/timeline`,
@@ -134,6 +135,9 @@ export async function createGigTimelineEvent(userId, orderId, payload) {
   return response.data;
 }
 
+export async function postGigOrderMessage(userId, orderId, payload) {
+  const response = await apiClient.post(
+    `${BASE_PATH}/${userId}/project-gig-management/gig-orders/${orderId}/messages`,
 export async function updateGigTimelineEvent(userId, orderId, eventId, payload) {
   const response = await apiClient.patch(
     `${BASE_PATH}/${userId}/project-gig-management/gig-orders/${orderId}/timeline/${eventId}`,
@@ -142,6 +146,9 @@ export async function updateGigTimelineEvent(userId, orderId, eventId, payload) 
   return response.data;
 }
 
+export async function createGigEscrowCheckpoint(userId, orderId, payload) {
+  const response = await apiClient.post(
+    `${BASE_PATH}/${userId}/project-gig-management/gig-orders/${orderId}/escrow`,
 export async function createGigSubmission(userId, orderId, payload) {
   const response = await apiClient.post(
     `${BASE_PATH}/${userId}/project-gig-management/gig-orders/${orderId}/submissions`,
@@ -150,6 +157,12 @@ export async function createGigSubmission(userId, orderId, payload) {
   return response.data;
 }
 
+export async function updateGigEscrowCheckpoint(userId, orderId, checkpointId, payload) {
+  const response = await apiClient.patch(
+    `${BASE_PATH}/${userId}/project-gig-management/gig-orders/${orderId}/escrow/${checkpointId}`,
+    payload,
+  );
+  return response.data;
 export async function updateGigSubmission(userId, orderId, submissionId, payload) {
   const response = await apiClient.patch(
     `${BASE_PATH}/${userId}/project-gig-management/gig-orders/${orderId}/submissions/${submissionId}`,
@@ -221,6 +234,10 @@ export default {
   restoreProject,
   createGigOrder,
   updateGigOrder,
+  addGigTimelineEvent,
+  postGigOrderMessage,
+  createGigEscrowCheckpoint,
+  updateGigEscrowCheckpoint,
   createGigTimelineEvent,
   updateGigTimelineEvent,
   createGigSubmission,

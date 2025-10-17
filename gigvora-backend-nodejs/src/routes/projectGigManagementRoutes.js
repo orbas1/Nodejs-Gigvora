@@ -80,6 +80,20 @@ router.post(
   requireProjectManagementRole,
   asyncHandler(projectGigManagementController.storeGigTimelineEvent),
 );
+router.post(
+  '/gig-orders/:orderId/messages',
+  requireProjectManagementRole,
+  asyncHandler(projectGigManagementController.storeGigMessage),
+);
+router.post(
+  '/gig-orders/:orderId/escrow',
+  requireProjectManagementRole,
+  asyncHandler(projectGigManagementController.storeGigEscrowCheckpoint),
+);
+router.patch(
+  '/gig-orders/:orderId/escrow/:checkpointId',
+  requireProjectManagementRole,
+  asyncHandler(projectGigManagementController.patchGigEscrowCheckpoint),
 router.patch(
   '/gig-orders/:orderId/timeline/:eventId',
   requireProjectManagementRole,
