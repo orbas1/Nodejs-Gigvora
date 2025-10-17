@@ -171,6 +171,14 @@ export default function AgencyDashboardPage() {
               Track client health, revenue momentum, and the team’s next actions. Keep the bench balanced and highlight wins to
               leadership.
             </p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Link
+                to="/dashboard/agency/integrations"
+                className="inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+              >
+                Manage integrations
+              </Link>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <Link

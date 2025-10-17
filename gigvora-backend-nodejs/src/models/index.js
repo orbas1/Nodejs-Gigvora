@@ -71,7 +71,8 @@ import {
   INTERNAL_OPPORTUNITY_CATEGORIES, INTERNAL_MATCH_STATUSES, BRANDING_ASSET_TYPES, BRANDING_ASSET_STATUSES,
   BRANDING_APPROVAL_STATUSES, EMPLOYER_BRAND_STORY_TYPES, EMPLOYER_BRAND_STORY_STATUSES, EMPLOYER_BENEFIT_CATEGORIES,
   EMPLOYEE_JOURNEY_PROGRAM_TYPES, EMPLOYEE_JOURNEY_HEALTH_STATUSES, WORKSPACE_INTEGRATION_CATEGORIES, WORKSPACE_INTEGRATION_STATUSES,
-  WORKSPACE_INTEGRATION_SYNC_FREQUENCIES, WORKSPACE_CALENDAR_CONNECTION_STATUSES, CAREER_DOCUMENT_TYPES, CAREER_DOCUMENT_STATUSES,
+  WORKSPACE_INTEGRATION_SYNC_FREQUENCIES, WORKSPACE_INTEGRATION_SECRET_TYPES, WORKSPACE_INTEGRATION_WEBHOOK_STATUSES,
+  WORKSPACE_INTEGRATION_AUDIT_EVENT_TYPES, WORKSPACE_CALENDAR_CONNECTION_STATUSES, CAREER_DOCUMENT_TYPES, CAREER_DOCUMENT_STATUSES,
   CAREER_DOCUMENT_VERSION_APPROVAL_STATUSES, CAREER_DOCUMENT_COLLABORATOR_ROLES, CAREER_DOCUMENT_EXPORT_FORMATS, CAREER_DOCUMENT_ANALYTICS_VIEWER_TYPES,
   CAREER_STORY_BLOCK_TONES, CAREER_STORY_BLOCK_STATUSES, CAREER_BRAND_ASSET_TYPES, CAREER_BRAND_ASSET_STATUSES,
   CAREER_BRAND_ASSET_APPROVAL_STATUSES, CAREER_PIPELINE_STAGE_TYPES, CAREER_PIPELINE_STAGE_OUTCOMES, CAREER_OPPORTUNITY_FOLLOW_UP_STATUSES,
@@ -7975,6 +7976,87 @@ export const WorkspaceIntegration = sequelize.define(
       { fields: ['providerKey'] },
       { fields: ['category'] },
       { fields: ['status'] },
+    ],
+  },
+);
+
+export const WorkspaceIntegrationSecret = sequelize.define(
+  'WorkspaceIntegrationSecret',
+  {
+    integrationId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    secretType: {
+      type: DataTypes.ENUM(...WORKSPACE_INTEGRATION_SECRET_TYPES),
+      allowNull: false,
+      defaultValue: 'api_key',
+    },
+    hashAlgorithm: { type: DataTypes.STRING(80), allowNull: false, defaultValue: 'pbkdf2_sha512' },
+    hashedValue: { type: DataTypes.STRING(512), allowNull: false },
+    salt: { type: DataTypes.STRING(128), allowNull: false },
+    lastFour: { type: DataTypes.STRING(8), allowNull: true },
+    version: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
+    lastRotatedAt: { type: DataTypes.DATE, allowNull: true },
+    rotatedById: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'workspace_integration_secrets',
+    indexes: [
+      { fields: ['integrationId'] },
+      { fields: ['secretType'] },
+      { fields: ['rotatedById'] },
+    ],
+  },
+);
+
+export const WorkspaceIntegrationWebhook = sequelize.define(
+  'WorkspaceIntegrationWebhook',
+  {
+    integrationId: { type: DataTypes.INTEGER, allowNull: false },
+    secretId: { type: DataTypes.INTEGER, allowNull: true },
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...WORKSPACE_INTEGRATION_WEBHOOK_STATUSES),
+      allowNull: false,
+      defaultValue: 'active',
+    },
+    targetUrl: { type: DataTypes.STRING(500), allowNull: false },
+    eventTypes: { type: jsonType, allowNull: false, defaultValue: [] },
+    verificationToken: { type: DataTypes.STRING(255), allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    lastTriggeredAt: { type: DataTypes.DATE, allowNull: true },
+    lastErrorAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'workspace_integration_webhooks',
+    indexes: [
+      { fields: ['integrationId'] },
+      { fields: ['status'] },
+      { fields: ['createdById'] },
+    ],
+  },
+);
+
+export const WorkspaceIntegrationAuditLog = sequelize.define(
+  'WorkspaceIntegrationAuditLog',
+  {
+    integrationId: { type: DataTypes.INTEGER, allowNull: false },
+    actorId: { type: DataTypes.INTEGER, allowNull: true },
+    eventType: {
+      type: DataTypes.ENUM(...WORKSPACE_INTEGRATION_AUDIT_EVENT_TYPES),
+      allowNull: false,
+      defaultValue: 'integration_created',
+    },
+    summary: { type: DataTypes.STRING(255), allowNull: false },
+    detail: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'workspace_integration_audit_logs',
+    indexes: [
+      { fields: ['integrationId'] },
+      { fields: ['actorId'] },
+      { fields: ['eventType'] },
     ],
   },
 );
@@ -15990,6 +16072,21 @@ ProviderWorkspace.hasMany(EmployerBrandStory, { foreignKey: 'workspaceId', as: '
 ProviderWorkspace.hasMany(EmployerBenefit, { foreignKey: 'workspaceId', as: 'employerBenefits' });
 ProviderWorkspace.hasMany(EmployeeJourneyProgram, { foreignKey: 'workspaceId', as: 'employeeJourneyPrograms' });
 ProviderWorkspace.hasMany(WorkspaceIntegration, { foreignKey: 'workspaceId', as: 'workspaceIntegrations' });
+WorkspaceIntegration.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+WorkspaceIntegration.hasMany(WorkspaceIntegrationSecret, { foreignKey: 'integrationId', as: 'secrets' });
+WorkspaceIntegration.hasMany(WorkspaceIntegrationWebhook, { foreignKey: 'integrationId', as: 'webhooks' });
+WorkspaceIntegration.hasMany(WorkspaceIntegrationAuditLog, { foreignKey: 'integrationId', as: 'auditLogs' });
+WorkspaceIntegrationSecret.belongsTo(WorkspaceIntegration, { foreignKey: 'integrationId', as: 'integration' });
+WorkspaceIntegrationSecret.belongsTo(User, { foreignKey: 'rotatedById', as: 'rotatedBy' });
+WorkspaceIntegrationSecret.hasMany(WorkspaceIntegrationWebhook, { foreignKey: 'secretId', as: 'webhooks' });
+WorkspaceIntegrationWebhook.belongsTo(WorkspaceIntegration, { foreignKey: 'integrationId', as: 'integration' });
+WorkspaceIntegrationWebhook.belongsTo(WorkspaceIntegrationSecret, { foreignKey: 'secretId', as: 'secret' });
+WorkspaceIntegrationWebhook.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+WorkspaceIntegrationAuditLog.belongsTo(WorkspaceIntegration, { foreignKey: 'integrationId', as: 'integration' });
+WorkspaceIntegrationAuditLog.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
+User.hasMany(WorkspaceIntegrationSecret, { foreignKey: 'rotatedById', as: 'rotatedIntegrationSecrets' });
+User.hasMany(WorkspaceIntegrationWebhook, { foreignKey: 'createdById', as: 'createdIntegrationWebhooks' });
+User.hasMany(WorkspaceIntegrationAuditLog, { foreignKey: 'actorId', as: 'workspaceIntegrationAuditEvents' });
 ProviderWorkspace.hasMany(WorkspaceCalendarConnection, { foreignKey: 'workspaceId', as: 'calendarConnections' });
 
 ProviderWorkspace.hasMany(ClientEngagement, { foreignKey: 'workspaceId', as: 'clientEngagements' });
@@ -16644,6 +16741,9 @@ export default {
   EmployerBenefit,
   EmployeeJourneyProgram,
   WorkspaceIntegration,
+  WorkspaceIntegrationSecret,
+  WorkspaceIntegrationWebhook,
+  WorkspaceIntegrationAuditLog,
   WorkspaceCalendarConnection,
   EscrowAccount,
   EscrowTransaction,
