@@ -6,6 +6,8 @@ import * as creationStudioController from '../controllers/creationStudioControll
 import * as userDisputeController from '../controllers/userDisputeController.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import authenticate from '../middleware/authenticate.js';
+import validateRequest from '../middleware/validateRequest.js';
+import { updateUserDashboardOverviewSchema } from '../validation/schemas/userDashboardSchemas.js';
 import userConsentRoutes from './userConsentRoutes.js';
 import userCalendarRoutes from './userCalendarRoutes.js';
 import userNetworkingRoutes from './userNetworkingRoutes.js';
@@ -23,6 +25,29 @@ router.get(
   asyncHandler(userController.getUserDashboard),
 );
 router.get(
+  '/:id/dashboard/overview',
+  authenticate({
+    roles: ['user', 'freelancer', 'agency', 'company', 'headhunter', 'admin'],
+    matchParam: 'id',
+  }),
+  asyncHandler(userController.getUserDashboardOverview),
+);
+router.put(
+  '/:id/dashboard/overview',
+  authenticate({
+    roles: ['user', 'freelancer', 'agency', 'company', 'headhunter', 'admin'],
+    matchParam: 'id',
+  }),
+  validateRequest({ body: updateUserDashboardOverviewSchema }),
+  asyncHandler(userController.updateUserDashboardOverview),
+);
+router.post(
+  '/:id/dashboard/overview/refresh-weather',
+  authenticate({
+    roles: ['user', 'freelancer', 'agency', 'company', 'headhunter', 'admin'],
+    matchParam: 'id',
+  }),
+  asyncHandler(userController.refreshUserDashboardOverviewWeather),
   '/:id/profile-hub',
   authenticate({ roles: ['user', 'admin'], matchParam: 'id' }),
   asyncHandler(userController.getUserProfileHub),

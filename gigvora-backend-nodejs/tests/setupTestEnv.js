@@ -48,6 +48,17 @@ function markCoreDependenciesHealthy() {
 
 let coreModelsLoaded = false;
 
+function markCoreDependenciesHealthy() {
+  ['database', 'paymentsCore', 'complianceProviders', 'paymentsEngine'].forEach((name) => {
+    try {
+      markDependencyHealthy(name);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn(`Failed to mark dependency ${name} as healthy in test setup:`, error);
+    }
+  });
+}
+
 async function loadCoreModels() {
   if (coreModelsLoaded) {
     return;
@@ -99,6 +110,13 @@ async function primeDependencyHealth() {
     },
   };
 if (process.env.SKIP_SEQUELIZE_BOOTSTRAP === 'true') {
+  beforeAll(() => {
+    markCoreDependenciesHealthy();
+  });
+  beforeEach(() => {
+    markCoreDependenciesHealthy();
+  });
+  afterAll(() => {});
   beforeAll(async () => {
     markCoreDependenciesHealthy();
     await loadCoreModels();
@@ -118,6 +136,7 @@ if (process.env.SKIP_SEQUELIZE_BOOTSTRAP === 'true') {
     markCoreDependenciesHealthy();
     await loadCoreModels();
     await sequelize.sync({ force: true });
+    markCoreDependenciesHealthy();
     seedDependencyHealth();
   });
 
@@ -126,6 +145,7 @@ if (process.env.SKIP_SEQUELIZE_BOOTSTRAP === 'true') {
     markCoreDependenciesHealthy();
     await loadCoreModels();
     await sequelize.sync({ force: true });
+    markCoreDependenciesHealthy();
     seedDependencyHealth();
   });
 

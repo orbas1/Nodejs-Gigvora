@@ -190,6 +190,7 @@ const GIG_PREVIEW_DEVICE_TYPES = ['desktop', 'tablet', 'mobile'];
 const FEATURE_FLAG_ROLLOUT_TYPES = ['global', 'percentage', 'cohort'];
 const FEATURE_FLAG_STATUSES = ['draft', 'active', 'disabled'];
 const FEATURE_FLAG_AUDIENCE_TYPES = ['user', 'workspace', 'membership', 'domain'];
+const WEATHER_UNIT_OPTIONS = ['metric', 'imperial'];
 const AGENCY_CALENDAR_EVENT_TYPES = ['project', 'interview', 'gig', 'mentorship', 'volunteering'];
 const AGENCY_CALENDAR_EVENT_STATUSES = ['planned', 'confirmed', 'completed', 'cancelled', 'tentative'];
 const AGENCY_CALENDAR_EVENT_VISIBILITIES = ['internal', 'client', 'public'];
@@ -246,6 +247,95 @@ export const User = sequelize.define(
     indexes: [{ fields: ['email'] }],
   },
 );
+
+export const UserDashboardOverview = sequelize.define(
+  'UserDashboardOverview',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    greetingName: { type: DataTypes.STRING(120), allowNull: true },
+    headline: { type: DataTypes.STRING(180), allowNull: true },
+    overview: { type: DataTypes.TEXT, allowNull: true },
+    followersCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    followersGoal: { type: DataTypes.INTEGER, allowNull: true },
+    avatarUrl: { type: DataTypes.STRING(2048), allowNull: true },
+    bannerImageUrl: { type: DataTypes.STRING(2048), allowNull: true },
+    trustScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    trustScoreLabel: { type: DataTypes.STRING(120), allowNull: true },
+    rating: { type: DataTypes.DECIMAL(3, 2), allowNull: true },
+    ratingCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    weatherLocation: { type: DataTypes.STRING(180), allowNull: true },
+    weatherLatitude: { type: DataTypes.DECIMAL(10, 6), allowNull: true },
+    weatherLongitude: { type: DataTypes.DECIMAL(10, 6), allowNull: true },
+    weatherUnits: {
+      type: DataTypes.ENUM(...WEATHER_UNIT_OPTIONS),
+      allowNull: false,
+      defaultValue: 'metric',
+    },
+    weatherSnapshot: { type: jsonType, allowNull: true },
+    weatherUpdatedAt: { type: DataTypes.DATE, allowNull: true },
+    meta: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'user_dashboard_overviews',
+    indexes: [
+      { fields: ['userId'], unique: true },
+      { fields: ['weatherLocation'] },
+    ],
+  },
+);
+
+UserDashboardOverview.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  const numeric = (value) => {
+    if (value == null) return null;
+    const coerced = Number(value);
+    return Number.isFinite(coerced) ? coerced : null;
+  };
+
+  const snapshot = plain.weatherSnapshot ?? null;
+  const weather = snapshot
+    ? {
+        ...snapshot,
+        location: snapshot.location ?? plain.weatherLocation ?? null,
+        latitude: snapshot.latitude ?? numeric(plain.weatherLatitude),
+        longitude: snapshot.longitude ?? numeric(plain.weatherLongitude),
+        units: snapshot.units ?? plain.weatherUnits ?? 'metric',
+        updatedAt: snapshot.updatedAt ?? plain.weatherUpdatedAt ?? null,
+      }
+    : {
+        location: plain.weatherLocation ?? null,
+        latitude: numeric(plain.weatherLatitude),
+        longitude: numeric(plain.weatherLongitude),
+        units: plain.weatherUnits ?? 'metric',
+        updatedAt: plain.weatherUpdatedAt ?? null,
+      };
+
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    greetingName: plain.greetingName ?? null,
+    headline: plain.headline ?? null,
+    overview: plain.overview ?? null,
+    followers: {
+      count: plain.followersCount ?? 0,
+      goal: plain.followersGoal ?? null,
+    },
+    avatarUrl: plain.avatarUrl ?? null,
+    bannerImageUrl: plain.bannerImageUrl ?? null,
+    trust: {
+      score: numeric(plain.trustScore),
+      label: plain.trustScoreLabel ?? null,
+    },
+    rating: {
+      score: numeric(plain.rating),
+      count: plain.ratingCount ?? 0,
+    },
+    weather,
+    meta: plain.meta ?? null,
+    updatedAt: plain.updatedAt ?? null,
+    createdAt: plain.createdAt ?? null,
+  };
+};
 
 User.searchByTerm = async function searchByTerm(term) {
   if (!term) return [];
@@ -17056,6 +17146,13 @@ FinanceTaxExport.prototype.toPublicObject = function toPublicObject() {
     updatedAt: plain.updatedAt,
   };
 };
+
+User.hasOne(UserDashboardOverview, {
+  foreignKey: 'userId',
+  as: 'dashboardOverview',
+  onDelete: 'CASCADE',
+});
+UserDashboardOverview.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 User.hasOne(Profile, { foreignKey: 'userId' });
 Profile.belongsTo(User, { foreignKey: 'userId' });

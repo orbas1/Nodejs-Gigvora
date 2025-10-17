@@ -20,6 +20,7 @@ import useSession from '../../hooks/useSession.js';
 import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
 import DashboardBlogSpotlight from '../../components/blog/DashboardBlogSpotlight.jsx';
 import AffiliateProgramSection from '../../components/affiliate/AffiliateProgramSection.jsx';
+import UserDashboardOverviewSection from '../../components/userDashboard/UserDashboardOverviewSection.jsx';
 import ProfileHubQuickPanel from '../../components/profileHub/ProfileHubQuickPanel.jsx';
 import UserCalendarSection from '../../components/calendar/UserCalendarSection.jsx';
 import CreationStudioSummary from '../../components/creationStudio/CreationStudioSummary.jsx';
@@ -260,6 +261,37 @@ function buildMenuSections(data) {
   const pipelineAutomation = data?.careerPipelineAutomation ?? {};
   const automationMetrics = pipelineAutomation.kanban?.metrics ?? {};
   const automationBoardName = pipelineAutomation.board?.name ?? 'Career pipeline';
+  const sections = [
+    {
+      label: 'Overview',
+      items: [
+        {
+          name: 'Hero',
+          sectionId: 'user-dashboard-overview',
+        },
+        {
+          name: 'Stats',
+          sectionId: 'user-dashboard-overview-stats',
+        },
+        {
+          name: 'Sky',
+          sectionId: 'user-dashboard-overview-weather',
+        },
+        {
+          name: 'Images',
+          sectionId: 'user-dashboard-overview-visuals',
+        },
+      ],
+    },
+    {
+      label: 'Projects',
+      items: [
+        {
+          name: 'Workspace',
+          sectionId: 'project-gig-creation',
+        },
+        {
+          name: 'Templates',
   const identitySection = {
     label: 'Profile',
     items: [
@@ -409,28 +441,19 @@ function buildMenuSections(data) {
           sectionId: 'project-gig-templates',
         },
         {
-          name: 'Asset repository',
-          description: `${formatNumber(assetSummary.total ?? 0)} secured files with ${formatNumber(
-            assetSummary.watermarked ?? 0,
-          )} watermark protections & granular permissions.`,
-          tags: ['assets', 'compliance'],
+          name: 'Files',
           sectionId: 'project-gig-assets',
         },
         {
-          name: 'Delivery board',
-          description: `Visualise ${formatNumber(projectSummary.activeProjects ?? 0)} active projects with average progress ${
-            averageBoardProgress != null ? `${averageBoardProgress}%` : 'tracking'
-          }.`,
-          tags: ['kanban', 'progress'],
+          name: 'Delivery',
           sectionId: 'project-gig-board',
         },
         {
-          name: 'Purchased gig operations',
-          description: `Manage ${formatNumber(purchasedGigStats.totalOrders ?? 0)} vendor orders with CSAT ${vendorScoreLabel} and escrow safeguards.`,
-          tags: ['vendors', 'escrow'],
+          name: 'Orders',
           sectionId: 'project-gig-purchased',
         },
         {
+          name: 'Stories',
           name: 'Gig hub',
           description: 'Timeline, chat, escrow, and reviews in one place.',
           tags: ['timeline', 'chat'],
@@ -445,35 +468,28 @@ function buildMenuSections(data) {
       ],
     },
     {
-      label: 'Career pipeline automation',
+      label: 'Automation',
       items: [
         {
-          name: 'Job applications kanban',
-          description: `${automationBoardName} with ${formatNumber(automationMetrics.totalOpportunities ?? 0)} tracked opportunities.`,
-          tags: ['kanban', 'sla'],
+          name: 'Kanban',
           sectionId: 'career-pipeline-automation-kanban',
         },
         {
-          name: 'Interview command center',
-          description: 'Prep tasks, scorecards, and live readiness tracking for every panel.',
-          tags: ['calendar', 'prep'],
+          name: 'Interviews',
           sectionId: 'career-interview-command-center',
         },
         {
-          name: 'Offer negotiation vault',
-          description: 'Scenario planning, competing offers, and legal-ready archives.',
-          tags: ['compensation'],
+          name: 'Offers',
           sectionId: 'career-offer-negotiation-vault',
         },
         {
-          name: 'Auto job application criteria',
-          description: 'Rule library with analytics and guardrails for premium roles.',
-          tags: ['automation', 'ai'],
+          name: 'Rules',
           sectionId: 'career-auto-apply-rules',
         },
       ],
     },
     {
+      label: 'Career',
       label: 'Messaging & collaboration',
       items: [
         {
@@ -507,35 +523,32 @@ function buildMenuSections(data) {
       label: 'Career operations',
       items: [
         {
-          name: 'Pipeline overview',
-          description: `${formatNumber(summary.activeApplications)} live opportunities with ${formatNumber(summary.interviewsScheduled)} interviews scheduled.`,
-          tags: ['applications', 'interviews'],
+          name: 'Pipeline',
         },
         {
           name: 'Follow-ups',
-          description: 'Track outstanding nudges and due diligence per opportunity.',
-          tags: ['tasks'],
         },
         {
-          name: 'Automation rules',
-          description: 'Monitor launchpad readiness and availability automations.',
-          tags: ['automation'],
+          name: 'Automation',
         },
       ],
     },
     {
-      label: 'Documents & branding',
+      label: 'Documents',
       items: [
         {
-          name: 'Document library',
-          description: `${formatNumber(documentSummary.totalDocuments ?? summary.documentsUploaded ?? 0)} tailored assets ready to send.`,
-          tags: ['resumes'],
+          name: 'Library',
         },
         {
-          name: 'Portfolio evidence',
-          description: `${formatNumber(portfolioProjects || portfolioCount)} public case studies, testimonials, and banners.`,
+          name: 'Portfolio',
         },
         {
+          name: 'Gigs',
+        },
+      ],
+    },
+    {
+      label: 'Insights',
           name: 'Website',
           description: 'Design your hosted site with colors, pages, and SEO.',
           tags: ['website', 'brand'],
@@ -571,20 +584,17 @@ function buildMenuSections(data) {
       label: 'Insights & network',
       items: [
         {
-          name: 'Insights, accountability, & support',
-          description: 'Career analytics, rituals, advisors, and support in one command center.',
-          tags: ['insights', 'support'],
+          name: 'Support',
           sectionId: 'insights-accountability-support',
         },
         {
-          name: 'Talent intelligence',
-          description: 'Track interview conversion, offer momentum, and market benchmarks.',
+          name: 'Talent',
         },
         {
-          name: 'Connections CRM',
-          description: `Maintain ${formatNumber(summary.connections)} relationships for referrals and mentorship.`,
+          name: 'Connections',
         },
         {
+          name: 'Profile',
           name: 'Network',
           description: '',
           tags: ['networking'],
@@ -674,18 +684,14 @@ function buildMenuSections(data) {
       ],
     },
     {
-      label: 'Affiliate & referrals',
+      label: 'Affiliate',
       items: [
         {
-          name: 'Affiliate revenue cockpit',
-          description: 'Track referral links, tiered commissions, and payout readiness in real time.',
-          tags: ['growth', 'monetisation'],
+          name: 'Dashboard',
           sectionId: 'affiliate-program',
         },
         {
-          name: 'Referral compliance',
-          description: 'Monitor KYC, payout thresholds, and activity guardrails for each partner.',
-          tags: ['compliance'],
+          name: 'Compliance',
         },
       ],
     },
@@ -710,6 +716,7 @@ function buildMenuSections(data) {
     },
   ];
 
+  return sections;
   return [identitySection, ...sections];
 }
 
@@ -821,6 +828,7 @@ export default function UserDashboardPage() {
   const launchpadApplications = Array.isArray(data?.launchpad?.applications) ? data.launchpad.applications : [];
   const affiliateProgram = data?.affiliate ?? null;
   const affiliateOverview = affiliateProgram?.overview ?? {};
+  const overview = data?.overview ?? null;
   const jobApplicationsWorkspace = data?.jobApplicationsWorkspace ?? null;
   const disputeManagement = data?.disputeManagement ?? null;
 
@@ -1031,6 +1039,12 @@ export default function UserDashboardPage() {
             onRetry={refresh}
           />
         </div>
+
+        <UserDashboardOverviewSection
+          userId={userId}
+          overview={overview}
+          onOverviewUpdated={() => refresh({ force: true })}
+        />
 
         <DashboardBlogSpotlight />
 
