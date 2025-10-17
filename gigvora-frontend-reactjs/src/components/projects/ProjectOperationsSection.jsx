@@ -811,11 +811,9 @@ export default function ProjectOperationsSection({ projectId }) {
     <section className="space-y-6 rounded-4xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-6 shadow-xl">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-emerald-500">Project operations</p>
-          <h3 className="mt-2 text-2xl font-semibold text-slate-900">Enterprise PMO cockpit</h3>
-          <p className="mt-1 max-w-2xl text-sm text-slate-600">
-            Create interactive Gantt plans, delegate agency workloads, and orchestrate contributor pay splits for every delivery pod.
-          </p>
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-emerald-500">Project ops</p>
+          <h3 className="mt-2 text-2xl font-semibold text-slate-900">Delivery board</h3>
+          <p className="mt-1 max-w-xl text-sm text-slate-600">Track the gantt, assign work, and keep payouts aligned.</p>
         </div>
         <div className="flex flex-col items-end gap-2 text-xs text-slate-500">
           <div>

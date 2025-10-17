@@ -45,6 +45,19 @@ function generateLocalId() {
   return `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function computeNextRunAt(frequency) {
+  const now = new Date();
+  switch ((frequency ?? 'daily').toLowerCase()) {
+    case 'immediate':
+      return now;
+    case 'weekly':
+      return new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    case 'daily':
+    default:
+      return new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  }
+}
+
 function buildActorHeaders() {
   if (typeof window === 'undefined') {
     return {};
@@ -160,6 +173,33 @@ export default function useSavedSearches({ enabled = true } = {}) {
     [actorHeaders, canUseServer, items, refreshSaved],
   );
 
+  const runSavedSearch = useCallback(
+    async (target) => {
+      const id = typeof target === 'object' ? target.id : target;
+      if (canUseServer) {
+        await apiClient.post(`/search/subscriptions/${id}/run`, {}, { headers: actorHeaders });
+        await refreshSaved({ force: true });
+        return;
+      }
+
+      const now = new Date();
+      const updated = items.map((item) => {
+        if (item.id !== id) {
+          return item;
+        }
+        const nextRun = computeNextRunAt(item.frequency);
+        return {
+          ...item,
+          lastTriggeredAt: now.toISOString(),
+          nextRunAt: nextRun.toISOString(),
+        };
+      });
+      setLocalItems(updated);
+      writeLocalSavedSearches(updated);
+    },
+    [actorHeaders, canUseServer, items, refreshSaved],
+  );
+
   return {
     items,
     loading: canUseServer ? loading : false,
@@ -168,6 +208,7 @@ export default function useSavedSearches({ enabled = true } = {}) {
     createSavedSearch,
     updateSavedSearch,
     deleteSavedSearch,
+    runSavedSearch,
     canUseServer,
   };
 }

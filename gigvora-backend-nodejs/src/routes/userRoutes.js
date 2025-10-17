@@ -1,10 +1,16 @@
 import { Router } from 'express';
 import * as userController from '../controllers/userController.js';
 import * as careerDocumentController from '../controllers/careerDocumentController.js';
+import * as creationStudioController from '../controllers/creationStudioController.js';
+import * as userDisputeController from '../controllers/userDisputeController.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import authenticate from '../middleware/authenticate.js';
 import userConsentRoutes from './userConsentRoutes.js';
 import userCalendarRoutes from './userCalendarRoutes.js';
+import userNetworkingRoutes from './userNetworkingRoutes.js';
+import userVolunteeringRoutes from './userVolunteeringRoutes.js';
+import walletRoutes from './walletRoutes.js';
+import * as notificationController from '../controllers/notificationController.js';
 
 const router = Router();
 
@@ -25,6 +31,26 @@ router.get('/:id/catalog-insights', asyncHandler(userController.getFreelancerCat
 router.get('/:id/gig-builder', asyncHandler(userController.getFreelancerGigBuilder));
 router.get('/:id/gig-manager', asyncHandler(userController.getGigManagerSnapshot));
 router.get(
+  '/:id/disputes',
+  authenticate({ roles: ['user', 'freelancer', 'agency', 'company', 'headhunter', 'admin'], matchParam: 'id' }),
+  userDisputeController.listUserDisputes,
+);
+router.get(
+  '/:id/disputes/:disputeId',
+  authenticate({ roles: ['user', 'freelancer', 'agency', 'company', 'headhunter', 'admin'], matchParam: 'id' }),
+  userDisputeController.getUserDispute,
+);
+router.post(
+  '/:id/disputes',
+  authenticate({ roles: ['user', 'freelancer', 'agency', 'company', 'headhunter', 'admin'], matchParam: 'id' }),
+  userDisputeController.createUserDispute,
+);
+router.post(
+  '/:id/disputes/:disputeId/events',
+  authenticate({ roles: ['user', 'freelancer', 'agency', 'company', 'headhunter', 'admin'], matchParam: 'id' }),
+  userDisputeController.appendUserDisputeEvent,
+);
+router.get(
   '/:id/ai-settings',
   authenticate({ roles: ['user', 'admin'], matchParam: 'id' }),
   asyncHandler(userController.getUserAiSettings),
@@ -34,11 +60,32 @@ router.put(
   authenticate({ roles: ['user', 'admin'], matchParam: 'id' }),
   asyncHandler(userController.updateUserAiSettings),
 );
+router.get(
+  '/:id/website-preferences',
+  authenticate({ roles: ['user', 'freelancer', 'agency', 'company', 'headhunter', 'admin'], matchParam: 'id' }),
+  asyncHandler(userController.getWebsitePreferences),
+);
+router.put(
+  '/:id/website-preferences',
+  authenticate({ roles: ['user', 'freelancer', 'agency', 'company', 'headhunter', 'admin'], matchParam: 'id' }),
+  asyncHandler(userController.updateWebsitePreferences),
+);
 router.get('/:id', asyncHandler(userController.getUserProfile));
 router.put('/:id', asyncHandler(userController.updateUser));
 router.patch('/:id/profile', asyncHandler(userController.updateProfileSettings));
 
+router.use(
+  '/:id/wallet',
+  authenticate({
+    roles: ['user', 'freelancer', 'agency', 'company', 'headhunter', 'admin'],
+    matchParam: 'id',
+  }),
+  walletRoutes,
+);
+
 const DOCUMENT_ROLES = ['user', 'freelancer', 'agency', 'company', 'headhunter', 'mentor', 'admin'];
+const CREATION_STUDIO_ROLES = ['user', 'freelancer', 'agency', 'company', 'mentor', 'headhunter', 'admin'];
+const NOTIFICATION_ROLES = ['user', 'freelancer', 'agency', 'company', 'headhunter', 'mentor', 'admin'];
 
 router.get(
   '/:id/cv-documents/workspace',
@@ -56,7 +103,78 @@ router.post(
   asyncHandler(careerDocumentController.uploadVersion),
 );
 
+router.get(
+  '/:id/creation-studio',
+  authenticate({ roles: CREATION_STUDIO_ROLES, matchParam: 'id' }),
+  asyncHandler(creationStudioController.getWorkspace),
+);
+router.post(
+  '/:id/creation-studio',
+  authenticate({ roles: CREATION_STUDIO_ROLES, matchParam: 'id' }),
+  asyncHandler(creationStudioController.createItem),
+);
+router.put(
+  '/:id/creation-studio/:itemId',
+  authenticate({ roles: CREATION_STUDIO_ROLES, matchParam: 'id' }),
+  asyncHandler(creationStudioController.updateItem),
+);
+router.post(
+  '/:id/creation-studio/:itemId/steps/:stepKey',
+  authenticate({ roles: CREATION_STUDIO_ROLES, matchParam: 'id' }),
+  asyncHandler(creationStudioController.recordStep),
+);
+router.post(
+  '/:id/creation-studio/:itemId/share',
+  authenticate({ roles: CREATION_STUDIO_ROLES, matchParam: 'id' }),
+  asyncHandler(creationStudioController.shareItem),
+);
+router.delete(
+  '/:id/creation-studio/:itemId',
+  authenticate({ roles: CREATION_STUDIO_ROLES, matchParam: 'id' }),
+  asyncHandler(creationStudioController.archiveItem),
+);
+router.use('/:id/volunteering', userVolunteeringRoutes);
+
 router.use('/:id/consents', userConsentRoutes);
+router.use(
+  '/:id/networking',
+  authenticate({
+    roles: ['user', 'freelancer', 'agency', 'company', 'headhunter', 'mentor', 'admin'],
+    matchParam: 'id',
+  }),
+  userNetworkingRoutes,
+);
+
+router.get(
+  '/:id/notifications',
+  authenticate({ roles: NOTIFICATION_ROLES, matchParam: 'id' }),
+  asyncHandler(notificationController.listUserNotifications),
+);
+router.post(
+  '/:id/notifications',
+  authenticate({ roles: NOTIFICATION_ROLES, matchParam: 'id' }),
+  asyncHandler(notificationController.createUserNotification),
+);
+router.patch(
+  '/:id/notifications/:notificationId',
+  authenticate({ roles: NOTIFICATION_ROLES, matchParam: 'id' }),
+  asyncHandler(notificationController.updateUserNotification),
+);
+router.get(
+  '/:id/notifications/preferences',
+  authenticate({ roles: NOTIFICATION_ROLES, matchParam: 'id' }),
+  asyncHandler(notificationController.getUserNotificationPreferences),
+);
+router.put(
+  '/:id/notifications/preferences',
+  authenticate({ roles: NOTIFICATION_ROLES, matchParam: 'id' }),
+  asyncHandler(notificationController.updateUserNotificationPreferences),
+);
+router.post(
+  '/:id/notifications/mark-all-read',
+  authenticate({ roles: NOTIFICATION_ROLES, matchParam: 'id' }),
+  asyncHandler(notificationController.markAllUserNotificationsRead),
+);
 
 router.use(
   '/:id/calendar',
