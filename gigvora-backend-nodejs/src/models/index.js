@@ -54,7 +54,8 @@ import {
   WALLET_LEDGER_ENTRY_TYPES, ESCROW_INTEGRATION_PROVIDERS, DISPUTE_STAGES, DISPUTE_STATUSES,
   DISPUTE_PRIORITIES, DISPUTE_ACTION_TYPES, DISPUTE_ACTOR_TYPES, NETWORKING_SESSION_STATUSES,
   NETWORKING_SESSION_ACCESS_TYPES, NETWORKING_SESSION_VISIBILITIES, NETWORKING_SESSION_SIGNUP_STATUSES, NETWORKING_SESSION_SIGNUP_SOURCES,
-  NETWORKING_BUSINESS_CARD_STATUSES, NETWORKING_ROTATION_STATUSES, OPPORTUNITY_TAXONOMY_TYPES, AD_TYPES,
+  NETWORKING_BUSINESS_CARD_STATUSES, NETWORKING_ROTATION_STATUSES, NETWORKING_SIGNUP_PAYMENT_STATUSES,
+  NETWORKING_CONNECTION_STATUSES, NETWORKING_CONNECTION_TYPES, OPPORTUNITY_TAXONOMY_TYPES, AD_TYPES,
   AD_STATUSES, AD_PACING_MODES, AD_OBJECTIVES, AD_SURFACE_TYPES,
   AD_POSITION_TYPES, AD_KEYWORD_INTENTS, AD_OPPORTUNITY_TYPES, AD_COUPON_STATUSES,
   AD_COUPON_DISCOUNT_TYPES,
@@ -4964,6 +4965,16 @@ export const NetworkingSessionSignup = sequelize.define(
     businessCardSnapshot: { type: jsonType, allowNull: true },
     profileSnapshot: { type: jsonType, allowNull: true },
     metadata: { type: jsonType, allowNull: true },
+    purchaseCents: { type: DataTypes.INTEGER, allowNull: true },
+    purchaseCurrency: { type: DataTypes.STRING(3), allowNull: true },
+    paymentStatus: {
+      type: DataTypes.ENUM(...NETWORKING_SIGNUP_PAYMENT_STATUSES),
+      allowNull: false,
+      defaultValue: 'unpaid',
+      validate: { isIn: [NETWORKING_SIGNUP_PAYMENT_STATUSES] },
+    },
+    bookedAt: { type: DataTypes.DATE, allowNull: true },
+    cancelledAt: { type: DataTypes.DATE, allowNull: true },
   },
   { tableName: 'networking_session_signups' },
 );
@@ -4996,6 +5007,11 @@ NetworkingSessionSignup.prototype.toPublicObject = function toPublicObject() {
     businessCardSnapshot: plain.businessCardSnapshot ?? null,
     profileSnapshot: plain.profileSnapshot ?? null,
     metadata: plain.metadata ?? {},
+    purchaseCents: plain.purchaseCents == null ? null : Number(plain.purchaseCents),
+    purchaseCurrency: plain.purchaseCurrency ?? null,
+    paymentStatus: plain.paymentStatus,
+    bookedAt: plain.bookedAt,
+    cancelledAt: plain.cancelledAt,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };
@@ -5057,6 +5073,74 @@ NetworkingBusinessCard.prototype.toPublicObject = function toPublicObject() {
     metadata: plain.metadata ?? {},
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
+  };
+};
+
+export const NetworkingConnection = sequelize.define(
+  'NetworkingConnection',
+  {
+    sessionId: { type: DataTypes.INTEGER, allowNull: true },
+    sourceSignupId: { type: DataTypes.INTEGER, allowNull: true },
+    targetSignupId: { type: DataTypes.INTEGER, allowNull: true },
+    sourceParticipantId: { type: DataTypes.INTEGER, allowNull: true },
+    targetParticipantId: { type: DataTypes.INTEGER, allowNull: true },
+    counterpartName: { type: DataTypes.STRING(255), allowNull: true },
+    counterpartEmail: { type: DataTypes.STRING(255), allowNull: true, validate: { isEmail: true } },
+    connectionType: {
+      type: DataTypes.ENUM(...NETWORKING_CONNECTION_TYPES),
+      allowNull: false,
+      defaultValue: 'follow',
+      validate: { isIn: [NETWORKING_CONNECTION_TYPES] },
+    },
+    status: {
+      type: DataTypes.ENUM(...NETWORKING_CONNECTION_STATUSES),
+      allowNull: false,
+      defaultValue: 'new',
+      validate: { isIn: [NETWORKING_CONNECTION_STATUSES] },
+    },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    firstInteractedAt: { type: DataTypes.DATE, allowNull: true },
+    followUpAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'networking_connections' },
+);
+
+NetworkingConnection.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  const resolveParticipant = (participant) => {
+    if (!participant) {
+      return null;
+    }
+    const name = participant.name
+      ? participant.name
+      : [participant.firstName, participant.lastName].filter(Boolean).join(' ').trim();
+    return {
+      id: participant.id ?? null,
+      name: name || participant.email || null,
+      email: participant.email ?? null,
+    };
+  };
+  return {
+    id: plain.id,
+    sessionId: plain.sessionId,
+    sourceSignupId: plain.sourceSignupId,
+    targetSignupId: plain.targetSignupId,
+    sourceParticipantId: plain.sourceParticipantId,
+    targetParticipantId: plain.targetParticipantId,
+    counterpartName: plain.counterpartName,
+    counterpartEmail: plain.counterpartEmail,
+    connectionType: plain.connectionType,
+    status: plain.status,
+    notes: plain.notes,
+    firstInteractedAt: plain.firstInteractedAt,
+    followUpAt: plain.followUpAt,
+    metadata: plain.metadata ?? {},
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+    session: plain.session ?? null,
+    sourceParticipant: resolveParticipant(plain.sourceParticipant ?? null),
+    targetParticipant: resolveParticipant(plain.targetParticipant ?? null),
   };
 };
 
@@ -14739,6 +14823,14 @@ NetworkingSessionSignup.belongsTo(User, { foreignKey: 'participantId', as: 'part
 NetworkingBusinessCard.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
 NetworkingBusinessCard.belongsTo(ProviderWorkspace, { foreignKey: 'companyId', as: 'company' });
 NetworkingBusinessCard.hasMany(NetworkingSessionSignup, { foreignKey: 'businessCardId', as: 'signups' });
+NetworkingSession.hasMany(NetworkingConnection, { foreignKey: 'sessionId', as: 'connections' });
+NetworkingConnection.belongsTo(NetworkingSession, { foreignKey: 'sessionId', as: 'session' });
+NetworkingConnection.belongsTo(NetworkingSessionSignup, { foreignKey: 'sourceSignupId', as: 'sourceSignup' });
+NetworkingConnection.belongsTo(NetworkingSessionSignup, { foreignKey: 'targetSignupId', as: 'targetSignup' });
+NetworkingConnection.belongsTo(User, { foreignKey: 'sourceParticipantId', as: 'sourceParticipant' });
+NetworkingConnection.belongsTo(User, { foreignKey: 'targetParticipantId', as: 'targetParticipant' });
+NetworkingSessionSignup.hasMany(NetworkingConnection, { foreignKey: 'sourceSignupId', as: 'outboundConnections' });
+NetworkingSessionSignup.hasMany(NetworkingConnection, { foreignKey: 'targetSignupId', as: 'inboundConnections' });
 
 ClientSuccessPlaybook.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
 ClientSuccessPlaybook.hasMany(ClientSuccessStep, { foreignKey: 'playbookId', as: 'steps' });
@@ -16519,6 +16611,7 @@ export default {
   NetworkingSessionRotation,
   NetworkingSessionSignup,
   NetworkingBusinessCard,
+  NetworkingConnection,
   MemberBrandingMetric,
   BlogCategory,
   BlogTag,

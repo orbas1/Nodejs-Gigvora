@@ -136,8 +136,9 @@ export const MENU_GROUPS = [
       },
       {
         id: 'network',
-        name: 'Suggested follows',
-        description: 'Signal-boosted peers and collaboration pods.',
+        name: 'Network',
+        description: 'Sessions, spend, contacts.',
+        href: '/dashboard/freelancer/networking',
         icon: UserGroupIcon,
       },
       {
@@ -183,6 +184,7 @@ export const QUICK_CARD_ICONS = {
 export const AVAILABLE_DASHBOARDS = [
   { id: 'freelancer', label: 'Freelancer', href: '/dashboard/freelancer' },
   { id: 'freelancer-pipeline', label: 'Pipeline HQ', href: '/dashboard/freelancer/pipeline' },
+  { id: 'freelancer-networking', label: 'Network', href: '/dashboard/freelancer/networking' },
   { id: 'company', label: 'Company', href: '/dashboard/company' },
   { id: 'headhunter', label: 'Headhunter', href: '/dashboard/headhunter' },
 ];
