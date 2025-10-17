@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import useSession from '../../hooks/useSession.js';
+import { AGENCY_OVERVIEW_MENU_SECTIONS } from '../../constants/agencyDashboardMenu.js';
 
 const OVERVIEW_METRICS = [
   { id: 'clients', label: 'Active clients', value: 18, hint: '4 onboarding this month' },
@@ -36,37 +38,43 @@ export default function AgencyDashboardPage() {
   const displayName = session?.name || session?.firstName || 'Agency team';
 
   return (
-    <div className="min-h-screen bg-surfaceMuted pb-16">
-      <div className="mx-auto max-w-6xl px-4 pt-12 sm:px-6 lg:px-8">
-        <header className="flex flex-col gap-4 border-b border-slate-200 pb-8">
-          <div>
-            <p className="text-sm uppercase tracking-[0.4em] text-slate-500">Agency control tower</p>
-            <h1 className="mt-2 text-3xl font-semibold text-slate-900">Hello, {displayName}</h1>
-            <p className="mt-3 max-w-3xl text-sm text-slate-600">
-              Track client health, revenue momentum, and the team’s next actions. Keep the bench balanced and highlight wins to
-              leadership.
-            </p>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-3">
+    <DashboardLayout
+      currentDashboard="agency"
+      title="Agency command center"
+      subtitle={`Hello, ${displayName}`}
+      description="Monitor delivery health, balance your bench, and keep leadership aligned on revenue momentum."
+      menuSections={AGENCY_OVERVIEW_MENU_SECTIONS}
+      availableDashboards={[
+        { id: 'agency', label: 'Agency overview', href: '/dashboard/agency' },
+        { id: 'agency-crm', label: 'CRM pipeline', href: '/dashboard/agency/crm' },
+        'freelancer',
+        'company',
+        'user',
+      ]}
+    >
+      <div className="space-y-12">
+        <section id="overview-summary" className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
+          <p className="text-sm uppercase tracking-[0.4em] text-slate-500">Workspace pulse</p>
+          <div className="mt-6 grid gap-4 sm:grid-cols-3">
             {OVERVIEW_METRICS.map((metric) => (
-              <div
-                key={metric.id}
-                className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft transition hover:-translate-y-0.5 hover:border-accent/60"
-              >
+              <div key={metric.id} className="rounded-3xl border border-slate-200 bg-slate-50/80 p-6">
                 <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">{metric.label}</p>
                 <p className="mt-3 text-3xl font-semibold text-slate-900">{metric.value}</p>
                 <p className="mt-2 text-xs text-slate-500">{metric.hint}</p>
               </div>
             ))}
           </div>
-        </header>
+        </section>
 
-        <section className="mt-12 grid gap-8 lg:grid-cols-[1.35fr_1fr]">
-          <div className="space-y-6">
-            <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-slate-900">Team focus</h2>
-                <Link to="/inbox" className="text-sm font-semibold text-accent hover:text-accentDark">
+        <section className="grid gap-8 lg:grid-cols-[1.35fr_1fr]">
+          <div className="space-y-8">
+            <div id="overview-team-focus" className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-semibold text-slate-900">Team focus</h2>
+                  <p className="mt-1 text-sm text-slate-500">Share the priorities anchoring this week’s stand-up.</p>
+                </div>
+                <Link to="/inbox" className="text-sm font-semibold text-accent transition hover:text-accentDark">
                   Share update
                 </Link>
               </div>
@@ -85,8 +93,9 @@ export default function AgencyDashboardPage() {
               </ol>
             </div>
 
-            <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
+            <div id="overview-bench-signals" className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
               <h2 className="text-xl font-semibold text-slate-900">Bench signals</h2>
+              <p className="mt-1 text-sm text-slate-500">Use pod utilisation to plan rotations or accelerate sales outreach.</p>
               <div className="mt-4 space-y-3">
                 <div className="flex items-center justify-between rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-3">
                   <p className="text-sm text-slate-600">Product design squad</p>
@@ -104,8 +113,8 @@ export default function AgencyDashboardPage() {
             </div>
           </div>
 
-          <aside className="space-y-6">
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
+          <aside className="space-y-8">
+            <div id="overview-finance" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
               <h2 className="text-lg font-semibold text-slate-900">Finance snapshot</h2>
               <ul className="mt-4 space-y-3">
                 {FINANCE_SUMMARY.map((item) => (
@@ -134,6 +143,6 @@ export default function AgencyDashboardPage() {
           </aside>
         </section>
       </div>
-    </div>
+    </DashboardLayout>
   );
 }
