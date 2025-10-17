@@ -136,6 +136,26 @@ const FEATURE_FLAG_AUDIENCE_TYPES = ['user', 'workspace', 'membership', 'domain'
 export const AGENCY_PROFILE_MEDIA_ALLOWED_TYPES = ['image', 'video', 'banner'];
 export const AGENCY_PROFILE_CREDENTIAL_TYPES = ['qualification', 'certificate'];
 
+export const AGENCY_CREATION_TARGET_TYPES = [
+  'project',
+  'gig',
+  'job',
+  'launchpad_job',
+  'launchpad_project',
+  'volunteer_opportunity',
+  'networking_session',
+  'blog_post',
+  'group',
+  'page',
+  'ad',
+];
+
+export const AGENCY_CREATION_STATUSES = ['draft', 'in_review', 'scheduled', 'published', 'archived'];
+export const AGENCY_CREATION_PRIORITIES = ['low', 'medium', 'high', 'urgent'];
+export const AGENCY_CREATION_VISIBILITIES = ['internal', 'restricted', 'public'];
+export const AGENCY_CREATION_ASSET_TYPES = ['image', 'video', 'document', 'link'];
+export const AGENCY_CREATION_COLLABORATOR_STATUSES = ['invited', 'active', 'declined', 'removed'];
+
 export const User = sequelize.define(
   'User',
   {
@@ -411,6 +431,104 @@ export const AgencyProfile = sequelize.define(
   { tableName: 'agency_profiles' },
 );
 
+export const AgencyCreationItem = sequelize.define(
+  'AgencyCreationItem',
+  {
+    agencyProfileId: { type: DataTypes.INTEGER, allowNull: false },
+    ownerWorkspaceId: { type: DataTypes.INTEGER, allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: false },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    slug: { type: DataTypes.STRING(200), allowNull: true },
+    targetType: {
+      type: DataTypes.ENUM(...AGENCY_CREATION_TARGET_TYPES),
+      allowNull: false,
+      validate: { isIn: [AGENCY_CREATION_TARGET_TYPES] },
+    },
+    status: {
+      type: DataTypes.ENUM(...AGENCY_CREATION_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [AGENCY_CREATION_STATUSES] },
+    },
+    priority: {
+      type: DataTypes.ENUM(...AGENCY_CREATION_PRIORITIES),
+      allowNull: false,
+      defaultValue: 'medium',
+      validate: { isIn: [AGENCY_CREATION_PRIORITIES] },
+    },
+    visibility: {
+      type: DataTypes.ENUM(...AGENCY_CREATION_VISIBILITIES),
+      allowNull: false,
+      defaultValue: 'internal',
+      validate: { isIn: [AGENCY_CREATION_VISIBILITIES] },
+    },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    description: { type: DataTypes.TEXT('long'), allowNull: true },
+    callToAction: { type: DataTypes.STRING(160), allowNull: true },
+    ctaUrl: { type: DataTypes.STRING(500), allowNull: true },
+    applicationInstructions: { type: DataTypes.TEXT, allowNull: true },
+    requirements: { type: jsonType, allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    timezone: { type: DataTypes.STRING(120), allowNull: true },
+    launchDate: { type: DataTypes.DATE, allowNull: true },
+    closingDate: { type: DataTypes.DATE, allowNull: true },
+    budgetAmount: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    budgetCurrency: { type: DataTypes.STRING(6), allowNull: true },
+    capacityNeeded: { type: DataTypes.INTEGER, allowNull: true },
+    expectedAttendees: { type: DataTypes.INTEGER, allowNull: true },
+    experienceLevel: { type: DataTypes.STRING(120), allowNull: true },
+    audience: { type: jsonType, allowNull: true },
+    autoShareChannels: { type: jsonType, allowNull: true },
+    settings: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    contactEmail: { type: DataTypes.STRING(180), allowNull: true },
+    contactPhone: { type: DataTypes.STRING(60), allowNull: true },
+  },
+  { tableName: 'agency_creation_items' },
+);
+
+export const AgencyCreationAsset = sequelize.define(
+  'AgencyCreationAsset',
+  {
+    itemId: { type: DataTypes.INTEGER, allowNull: false },
+    uploadedById: { type: DataTypes.INTEGER, allowNull: true },
+    label: { type: DataTypes.STRING(160), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    assetType: {
+      type: DataTypes.ENUM(...AGENCY_CREATION_ASSET_TYPES),
+      allowNull: false,
+      defaultValue: 'link',
+      validate: { isIn: [AGENCY_CREATION_ASSET_TYPES] },
+    },
+    url: { type: DataTypes.STRING(500), allowNull: false },
+    thumbnailUrl: { type: DataTypes.STRING(500), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'agency_creation_item_assets' },
+);
+
+export const AgencyCreationCollaborator = sequelize.define(
+  'AgencyCreationCollaborator',
+  {
+    itemId: { type: DataTypes.INTEGER, allowNull: false },
+    collaboratorId: { type: DataTypes.INTEGER, allowNull: true },
+    collaboratorEmail: { type: DataTypes.STRING(255), allowNull: true },
+    collaboratorName: { type: DataTypes.STRING(160), allowNull: true },
+    role: { type: DataTypes.STRING(120), allowNull: false, defaultValue: 'Contributor' },
+    status: {
+      type: DataTypes.ENUM(...AGENCY_CREATION_COLLABORATOR_STATUSES),
+      allowNull: false,
+      defaultValue: 'invited',
+      validate: { isIn: [AGENCY_CREATION_COLLABORATOR_STATUSES] },
+    },
+    permissions: { type: jsonType, allowNull: true },
+    addedById: { type: DataTypes.INTEGER, allowNull: true },
+    invitedAt: { type: DataTypes.DATE, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  { tableName: 'agency_creation_collaborators' },
 export const AgencyTimelinePost = sequelize.define(
   'AgencyTimelinePost',
   {
@@ -14750,6 +14868,40 @@ AgencyProfile.hasMany(CorporateVerification, {
   onDelete: 'CASCADE',
 });
 CorporateVerification.belongsTo(AgencyProfile, { foreignKey: 'agencyProfileId', as: 'agencyProfile' });
+
+AgencyProfile.hasMany(AgencyCreationItem, {
+  foreignKey: 'agencyProfileId',
+  as: 'creationItems',
+  onDelete: 'CASCADE',
+});
+AgencyCreationItem.belongsTo(AgencyProfile, { foreignKey: 'agencyProfileId', as: 'agencyProfile' });
+AgencyCreationItem.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+AgencyCreationItem.belongsTo(User, { foreignKey: 'updatedById', as: 'updatedBy' });
+AgencyCreationItem.belongsTo(ProviderWorkspace, { foreignKey: 'ownerWorkspaceId', as: 'workspace' });
+
+AgencyCreationItem.hasMany(AgencyCreationAsset, {
+  foreignKey: 'itemId',
+  as: 'assets',
+  onDelete: 'CASCADE',
+});
+AgencyCreationAsset.belongsTo(AgencyCreationItem, { foreignKey: 'itemId', as: 'item' });
+AgencyCreationAsset.belongsTo(User, { foreignKey: 'uploadedById', as: 'uploadedBy' });
+
+AgencyCreationItem.hasMany(AgencyCreationCollaborator, {
+  foreignKey: 'itemId',
+  as: 'collaborators',
+  onDelete: 'CASCADE',
+});
+AgencyCreationCollaborator.belongsTo(AgencyCreationItem, { foreignKey: 'itemId', as: 'item' });
+AgencyCreationCollaborator.belongsTo(User, { foreignKey: 'collaboratorId', as: 'collaborator' });
+AgencyCreationCollaborator.belongsTo(User, { foreignKey: 'addedById', as: 'addedBy' });
+
+User.hasMany(AgencyCreationItem, { foreignKey: 'createdById', as: 'createdAgencyItems' });
+User.hasMany(AgencyCreationItem, { foreignKey: 'updatedById', as: 'updatedAgencyItems' });
+User.hasMany(AgencyCreationAsset, { foreignKey: 'uploadedById', as: 'uploadedAgencyAssets' });
+User.hasMany(AgencyCreationCollaborator, { foreignKey: 'collaboratorId', as: 'agencyCollaborations' });
+User.hasMany(AgencyCreationCollaborator, { foreignKey: 'addedById', as: 'invitedAgencyCollaborations' });
+
 AgencyProfile.hasMany(AgencyProfileMedia, {
   foreignKey: 'agencyProfileId',
   as: 'media',

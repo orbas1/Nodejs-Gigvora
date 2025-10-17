@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import asyncHandler from '../utils/asyncHandler.js';
 import agencyController from '../controllers/agencyController.js';
+import creationStudioRoutes from './agencyCreationRoutes.js';
 import agencyMentoringController from '../controllers/agencyMentoringController.js';
 import agencyProjectManagementController from '../controllers/agencyProjectManagementController.js';
 import { authenticate, requireRoles } from '../middleware/authenticate.js';
@@ -59,6 +60,7 @@ router.get(
   asyncHandler(agencyController.dashboard),
 );
 
+router.use('/creation-studio', creationStudioRoutes);
 router.get(
   '/mentoring/overview',
   authenticate(),
