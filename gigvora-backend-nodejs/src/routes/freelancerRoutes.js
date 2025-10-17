@@ -55,6 +55,8 @@ import {
   recordTimelinePostMetrics,
 } from '../controllers/freelancerTimelineController.js';
 
+import volunteeringController from '../controllers/volunteeringController.js';
+
 const router = Router();
 
 router.get('/dashboard', asyncHandler(dashboard));
@@ -85,6 +87,19 @@ router.patch(
   asyncHandler(updateOrderEscrowCheckpoint),
 );
 
+router.get('/:freelancerId/volunteering', asyncHandler(volunteeringController.workspace));
+router.post('/:freelancerId/volunteering/applications', asyncHandler(volunteeringController.storeApplication));
+router.put('/:freelancerId/volunteering/applications/:applicationId', asyncHandler(volunteeringController.patchApplication));
+router.delete('/:freelancerId/volunteering/applications/:applicationId', asyncHandler(volunteeringController.destroyApplication));
+router.post('/:freelancerId/volunteering/applications/:applicationId/responses', asyncHandler(volunteeringController.storeResponse));
+router.put('/:freelancerId/volunteering/responses/:responseId', asyncHandler(volunteeringController.patchResponse));
+router.delete('/:freelancerId/volunteering/responses/:responseId', asyncHandler(volunteeringController.destroyResponse));
+router.post('/:freelancerId/volunteering/contracts', asyncHandler(volunteeringController.storeContract));
+router.put('/:freelancerId/volunteering/contracts/:contractId', asyncHandler(volunteeringController.patchContract));
+router.delete('/:freelancerId/volunteering/contracts/:contractId', asyncHandler(volunteeringController.destroyContract));
+router.post('/:freelancerId/volunteering/contracts/:contractId/spend', asyncHandler(volunteeringController.storeSpend));
+router.put('/:freelancerId/volunteering/spend/:spendId', asyncHandler(volunteeringController.patchSpend));
+router.delete('/:freelancerId/volunteering/spend/:spendId', asyncHandler(volunteeringController.destroySpend));
 router.get('/:freelancerId/timeline', asyncHandler(getTimelineWorkspace));
 router.put('/:freelancerId/timeline/settings', asyncHandler(updateTimelineSettings));
 router.post('/:freelancerId/timeline/entries', asyncHandler(createTimelineEntryController));

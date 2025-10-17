@@ -115,6 +115,13 @@ export const MENU_GROUPS = [
         description: null,
         icon: CalendarDaysIcon,
       },
+      {
+        id: 'volunteering-management',
+        name: 'Volunteer',
+        description: 'Keep volunteer work organised.',
+        icon: HeartIcon,
+        href: '/dashboard/freelancer/volunteer',
+      },
     ],
   },
   {
