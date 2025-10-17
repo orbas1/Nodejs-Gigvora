@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import asyncHandler from '../utils/asyncHandler.js';
 import agencyController from '../controllers/agencyController.js';
+import agencyTimelineRoutes from './agencyTimelineRoutes.js';
 import agencyEscrowController from '../controllers/agencyEscrowController.js';
 import agencyIntegrationController from '../controllers/agencyIntegrationController.js';
 import agencyAiController from '../controllers/agencyAiController.js';
@@ -45,6 +46,7 @@ router.get(
   asyncHandler(agencyController.dashboard),
 );
 
+router.use('/timeline', agencyTimelineRoutes);
 router.use(authenticate(), requireRoles('agency', 'agency_admin', 'admin'));
 
 router.get('/escrow/overview', asyncHandler(agencyEscrowController.fetchOverview));

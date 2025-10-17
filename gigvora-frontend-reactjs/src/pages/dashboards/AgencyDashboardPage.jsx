@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import useSession from '../../hooks/useSession.js';
+import { AGENCY_DASHBOARD_MENU_SECTIONS } from '../../constants/agencyDashboardMenu.js';
 import { AGENCY_DASHBOARD_MENU } from '../../constants/agencyDashboardMenu.js';
 import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -91,6 +92,26 @@ const TEAM_NOTES = [
   { id: 'growth', title: 'Growth pipeline', helper: 'Align pitch schedule for next week demos.' },
 ];
 
+const AVAILABLE_DASHBOARDS = ['agency', 'company', 'freelancer', 'user'];
+
+function buildProfile(name) {
+  const initials = name
+    .split(' ')
+    .map((part) => part[0])
+    .filter(Boolean)
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
+  return {
+    name,
+    role: 'Agency leadership workspace',
+    initials: initials || 'AG',
+    status: 'Monitoring client momentum and bench health',
+    badges: ['Control tower'],
+    metrics: OVERVIEW_METRICS.map((metric) => ({ label: metric.label, value: metric.value })),
+  };
+}
 const FINANCE_SNAPSHOT = [
   { id: 'run-rate', label: 'Revenue run-rate', value: '$1.84M', helper: '+12% vs last quarter' },
   { id: 'invoiced', label: 'Invoices sent', value: '$310K', helper: 'Awaiting 3 approvals' },
@@ -206,10 +227,19 @@ export default function AgencyDashboardPage() {
     name: `${displayName}'s workspace`,
   };
 
+  const profile = buildProfile(displayName);
+
   return (
     <DashboardLayout
       currentDashboard="agency"
       title="Agency control tower"
+      subtitle="Daily visibility across client commitments, bench capacity, and finance health"
+      description="Track client health, revenue momentum, and the team’s next actions. Keep the bench balanced and spotlight wins for leadership."
+      menuSections={AGENCY_DASHBOARD_MENU_SECTIONS}
+      availableDashboards={AVAILABLE_DASHBOARDS}
+      profile={profile}
+    >
+      <div id="agency-home" className="space-y-10">
       subtitle={`Hello, ${displayName}`}
       description="Track client health, revenue momentum, and the team’s next actions."
       menuSections={AGENCY_DASHBOARD_MENU}
@@ -413,11 +443,14 @@ export default function AgencyDashboardPage() {
           ))}
         </div>
 
+        <div className="grid gap-8 lg:grid-cols-[1.35fr_1fr]">
         <section className="grid gap-8 lg:grid-cols-[1.35fr_1fr]">
           <div className="space-y-6">
-            <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
+            <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft" aria-labelledby="team-focus-heading">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-slate-900">Team focus</h2>
+                <h2 id="team-focus-heading" className="text-xl font-semibold text-slate-900">
+                  Team focus
+                </h2>
                 <Link to="/inbox" className="text-sm font-semibold text-accent hover:text-accentDark">
                   Assign owner
                 </Link>
@@ -435,6 +468,12 @@ export default function AgencyDashboardPage() {
                   </li>
                 ))}
               </ol>
+            </section>
+
+            <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft" aria-labelledby="bench-signals-heading">
+              <h2 id="bench-signals-heading" className="text-xl font-semibold text-slate-900">
+                Bench signals
+              </h2>
       subtitle={`Good to see you, ${displayName}`}
       description="Monitor client health, delivery momentum, and capacity in one place."
       menuSections={AGENCY_DASHBOARD_MENU_SECTIONS}
@@ -502,6 +541,7 @@ export default function AgencyDashboardPage() {
                 <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Product design squad</p>
                 <p className="mt-2 text-sm text-emerald-700">Under capacity · 24 hours open</p>
               </div>
+            </section>
               <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Growth marketing pod</p>
                 <p className="mt-2 text-sm text-amber-700">Monitor utilisation · 6 hours variance</p>
@@ -514,6 +554,11 @@ export default function AgencyDashboardPage() {
           </div>
         </div>
 
+          <aside className="space-y-6">
+            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft" aria-labelledby="finance-snapshot-heading">
+              <h2 id="finance-snapshot-heading" className="text-lg font-semibold text-slate-900">
+                Finance snapshot
+              </h2>
           <aside className="space-y-8">
             <div id="overview-finance" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
               <h2 className="text-lg font-semibold text-slate-900">Finance snapshot</h2>
@@ -526,6 +571,7 @@ export default function AgencyDashboardPage() {
                   </li>
                 ))}
               </ul>
+            </section>
             </div>
         <aside className="space-y-6">
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -541,8 +587,10 @@ export default function AgencyDashboardPage() {
             </ul>
           </div>
 
-            <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-accent/10 via-white to-blue-100 p-6 shadow-soft">
-              <h2 className="text-lg font-semibold text-slate-900">Need support?</h2>
+            <section className="rounded-3xl border border-slate-200 bg-gradient-to-br from-accent/10 via-white to-blue-100 p-6 shadow-soft" aria-labelledby="support-heading">
+              <h2 id="support-heading" className="text-lg font-semibold text-slate-900">
+                Need support?
+              </h2>
               <p className="mt-2 text-sm text-slate-600">
                 Finance and compliance respond within one hour. Flag blockers and we will unblock contracts, payouts, or vendor checks fast.
                 Coordinate with finance or compliance from your shared operations channel. Our team responds within an hour.
@@ -553,8 +601,10 @@ export default function AgencyDashboardPage() {
               >
                 Message operations
               </Link>
-            </div>
+            </section>
           </aside>
+        </div>
+      </div>
         </section>
 
         <section id="agency-compliance" className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
