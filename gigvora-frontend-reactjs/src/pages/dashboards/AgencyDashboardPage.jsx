@@ -1,139 +1,209 @@
-import { Link } from 'react-router-dom';
+import { useCallback, useMemo } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import useSession from '../../hooks/useSession.js';
+import VolunteeringWorkspace from '../../components/agency/volunteering/VolunteeringWorkspace.jsx';
+import { AGENCY_DASHBOARD_MENU_SECTIONS } from '../../constants/agencyDashboardMenu.js';
 
-const OVERVIEW_METRICS = [
-  { id: 'clients', label: 'Active clients', value: 18, hint: '4 onboarding this month' },
-  { id: 'projects', label: 'Managed projects', value: 42, hint: '8 in kickoff' },
-  { id: 'talent', label: 'Bench capacity', value: '63%', hint: 'Plan for 120 open hours' },
+const OVERVIEW_CARDS = [
+  { id: 'programmes', label: 'Programmes', value: 7 },
+  { id: 'active-volunteers', label: 'Volunteers', value: 42 },
+  { id: 'deployments', label: 'Deployments', value: 5 },
+  { id: 'responses', label: 'Replies today', value: 18 },
 ];
 
-const TEAM_TASKS = [
-  {
-    id: 'advocacy',
-    title: 'Client advocacy sync',
-    description: 'Review NPS signals and queue follow-ups with account owners.',
-  },
-  {
-    id: 'payments',
-    title: 'Finance review',
-    description: 'Reconcile open payouts and approve this week’s vendor invoices.',
-  },
-  {
-    id: 'growth',
-    title: 'Growth pipeline',
-    description: 'Share the latest pitch deck and align on next-week demos.',
-  },
+const TEAM_REMINDERS = [
+  { id: 'checkins', label: 'Client check-in · 10:00' },
+  { id: 'onboarding', label: 'Onboard three mentors' },
+  { id: 'reports', label: 'Send weekly summary' },
 ];
 
-const FINANCE_SUMMARY = [
-  { id: 'run-rate', label: 'Revenue run-rate', value: '$1.84M', hint: '+12% vs last quarter' },
-  { id: 'invoiced', label: 'Invoices sent', value: '$310K', hint: 'Awaiting 3 approvals' },
-  { id: 'payouts', label: 'Payouts processed', value: '$245K', hint: 'Cleared overnight' },
+const QUICK_LINKS = [
+  { id: 'inbox', label: 'Inbox', to: '/inbox' },
+  { id: 'finance', label: 'Finance', to: '/finance' },
+  { id: 'settings', label: 'Settings', to: '/settings' },
 ];
+
+const VOL_PANES = new Set(['overview', 'applications', 'responses', 'contracts', 'spend']);
+const VOL_MENU_TO_PANE = Object.freeze({
+  'volunteer-home': 'overview',
+  'volunteer-deals': 'contracts',
+  'volunteer-apply': 'applications',
+  'volunteer-replies': 'responses',
+  'volunteer-spend': 'spend',
+});
+
+function parseWorkspaceId(rawValue) {
+  if (!rawValue) {
+    return undefined;
+  }
+  const numeric = Number.parseInt(rawValue, 10);
+  return Number.isNaN(numeric) ? undefined : numeric;
+}
+
+function normalizePane(value) {
+  if (!value) {
+    return 'overview';
+  }
+  return VOL_PANES.has(value) ? value : 'overview';
+}
 
 export default function AgencyDashboardPage() {
   const { session } = useSession();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const workspaceIdParam = searchParams.get('workspaceId');
+  const workspaceSlugParam = searchParams.get('workspaceSlug');
+  const volPaneParam = normalizePane(searchParams.get('volPane'));
+
+  const workspaceId = parseWorkspaceId(workspaceIdParam);
+  const workspaceSlug = workspaceSlugParam || undefined;
+
+  const menuSections = useMemo(
+    () =>
+      AGENCY_DASHBOARD_MENU_SECTIONS.map((section) => ({
+        ...section,
+        items: section.items.map((item) => ({ ...item })),
+      })),
+    [],
+  );
+  const availableDashboards = useMemo(() => ['agency', 'company', 'headhunter', 'user', 'freelancer'], []);
   const displayName = session?.name || session?.firstName || 'Agency team';
 
+  const handleVolunteeringPaneChange = useCallback(
+    (nextPane) => {
+      setSearchParams(
+        (current) => {
+          const next = new URLSearchParams(current);
+          if (nextPane === 'overview') {
+            next.delete('volPane');
+          } else {
+            next.set('volPane', nextPane);
+          }
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const handleDashboardMenuSelect = useCallback(
+    (itemId, item) => {
+      if (!item) {
+        return;
+      }
+
+      const pane = VOL_MENU_TO_PANE[itemId];
+      if (pane) {
+        handleVolunteeringPaneChange(pane);
+        if (typeof document !== 'undefined') {
+          const target = document.getElementById('volunteering-home');
+          if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }
+        return;
+      }
+
+      if (item.href) {
+        if (typeof window !== 'undefined') {
+          if (item.href.startsWith('http')) {
+            window.open(item.href, item.target ?? '_blank', 'noreferrer');
+          } else {
+            window.location.href = item.href;
+          }
+        }
+        return;
+      }
+
+      const targetId = item.sectionId || item.targetId || item.id;
+      if (targetId && typeof document !== 'undefined') {
+        const targetElement = document.getElementById(targetId);
+        if (targetElement) {
+          targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    },
+    [handleVolunteeringPaneChange],
+  );
+
   return (
-    <div className="min-h-screen bg-surfaceMuted pb-16">
-      <div className="mx-auto max-w-6xl px-4 pt-12 sm:px-6 lg:px-8">
-        <header className="flex flex-col gap-4 border-b border-slate-200 pb-8">
-          <div>
-            <p className="text-sm uppercase tracking-[0.4em] text-slate-500">Agency control tower</p>
-            <h1 className="mt-2 text-3xl font-semibold text-slate-900">Hello, {displayName}</h1>
-            <p className="mt-3 max-w-3xl text-sm text-slate-600">
-              Track client health, revenue momentum, and the team’s next actions. Keep the bench balanced and highlight wins to
-              leadership.
-            </p>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-3">
-            {OVERVIEW_METRICS.map((metric) => (
-              <div
-                key={metric.id}
-                className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft transition hover:-translate-y-0.5 hover:border-accent/60"
+    <DashboardLayout
+      currentDashboard="agency"
+      title="Agency"
+      subtitle="Operations"
+      description="Control contracts, teams, and volunteering programmes from one screen."
+      menuSections={menuSections}
+      availableDashboards={availableDashboards}
+      onMenuItemSelect={handleDashboardMenuSelect}
+    >
+      <div className="space-y-10">
+        <section
+          id="agency-overview"
+          className="rounded-3xl border border-slate-200 bg-white px-8 py-10 shadow-soft"
+        >
+          <div className="flex flex-wrap items-end justify-between gap-6">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500">Workspace</p>
+              <h1 className="mt-2 text-3xl font-semibold text-slate-900">Welcome back, {displayName}</h1>
+            </div>
+            <div className="flex gap-3">
+              <Link
+                to="/dashboard/company"
+                className="inline-flex items-center justify-center rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
               >
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">{metric.label}</p>
-                <p className="mt-3 text-3xl font-semibold text-slate-900">{metric.value}</p>
-                <p className="mt-2 text-xs text-slate-500">{metric.hint}</p>
+                Switch board
+              </Link>
+            </div>
+          </div>
+
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {OVERVIEW_CARDS.map((card) => (
+              <div key={card.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-6 text-center">
+                <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500">{card.label}</p>
+                <p className="mt-3 text-3xl font-semibold text-slate-900">{card.value}</p>
               </div>
             ))}
           </div>
-        </header>
 
-        <section className="mt-12 grid gap-8 lg:grid-cols-[1.35fr_1fr]">
-          <div className="space-y-6">
-            <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-slate-900">Team focus</h2>
-                <Link to="/inbox" className="text-sm font-semibold text-accent hover:text-accentDark">
-                  Share update
-                </Link>
-              </div>
-              <ol className="mt-6 space-y-4">
-                {TEAM_TASKS.map((task, index) => (
-                  <li key={task.id} className="flex gap-4 rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-sm font-semibold text-white">
-                      {index + 1}
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">{task.title}</p>
-                      <p className="text-xs text-slate-500">{task.description}</p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </div>
-
-            <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
-              <h2 className="text-xl font-semibold text-slate-900">Bench signals</h2>
-              <div className="mt-4 space-y-3">
-                <div className="flex items-center justify-between rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-3">
-                  <p className="text-sm text-slate-600">Product design squad</p>
-                  <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">Under capacity</span>
-                </div>
-                <div className="flex items-center justify-between rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-3">
-                  <p className="text-sm text-slate-600">Growth marketing</p>
-                  <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">Monitor</span>
-                </div>
-                <div className="flex items-center justify-between rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-3">
-                  <p className="text-sm text-slate-600">Engineering guild</p>
-                  <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">Over capacity</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <aside className="space-y-6">
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
-              <h2 className="text-lg font-semibold text-slate-900">Finance snapshot</h2>
-              <ul className="mt-4 space-y-3">
-                {FINANCE_SUMMARY.map((item) => (
-                  <li key={item.id} className="rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
-                    <p className="text-sm font-semibold text-slate-900">{item.label}</p>
-                    <p className="mt-1 text-lg font-semibold text-slate-900">{item.value}</p>
-                    <p className="text-xs text-slate-500">{item.hint}</p>
+          <div className="mt-10 grid gap-6 lg:grid-cols-[1.5fr_1fr]">
+            <article className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
+              <h2 className="text-lg font-semibold text-slate-900">Today</h2>
+              <ul className="mt-4 space-y-3 text-sm text-slate-600">
+                {TEAM_REMINDERS.map((item) => (
+                  <li key={item.id} className="rounded-2xl border border-slate-100 bg-white px-4 py-3">
+                    {item.label}
                   </li>
                 ))}
               </ul>
-            </div>
-
-            <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-accent/10 via-white to-blue-100 p-6 shadow-soft">
-              <h2 className="text-lg font-semibold text-slate-900">Need support?</h2>
-              <p className="mt-2 text-sm text-slate-600">
-                Coordinate with finance or compliance in the shared channel. We’ll help unblock vendors, approvals, or contract
-                questions within the hour.
-              </p>
-              <Link
-                to="/inbox"
-                className="mt-4 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
-              >
-                Message operations
-              </Link>
-            </div>
-          </aside>
+            </article>
+            <article className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
+              <h2 className="text-lg font-semibold text-slate-900">Shortcuts</h2>
+              <ul className="mt-4 space-y-3 text-sm text-slate-600">
+                {QUICK_LINKS.map((link) => (
+                  <li key={link.id}>
+                    <Link
+                      to={link.to}
+                      className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white px-4 py-3 font-semibold text-slate-900 transition hover:border-slate-300 hover:text-slate-700"
+                    >
+                      {link.label}
+                      <span className="text-xs font-medium uppercase tracking-wide text-slate-400">Open</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </article>
+          </div>
         </section>
+
+        <VolunteeringWorkspace
+          workspaceId={workspaceId}
+          workspaceSlug={workspaceSlug}
+          initialPane={volPaneParam}
+          onPaneChange={handleVolunteeringPaneChange}
+        />
       </div>
-    </div>
+    </DashboardLayout>
   );
 }
