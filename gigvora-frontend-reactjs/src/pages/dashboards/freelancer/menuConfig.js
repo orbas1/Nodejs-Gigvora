@@ -19,6 +19,7 @@ import {
   SparklesIcon,
   UserCircleIcon,
   UserGroupIcon,
+  ShieldCheckIcon,
 } from '@heroicons/react/24/outline';
 
 export const MENU_GROUPS = [
@@ -115,6 +116,12 @@ export const MENU_GROUPS = [
         name: 'Workspace settings',
         description: 'Personalization, feature toggles, and safety.',
         icon: Cog6ToothIcon,
+      },
+      {
+        id: 'id-verification',
+        name: 'Identity',
+        description: 'Verify',
+        icon: ShieldCheckIcon,
       },
     ],
   },

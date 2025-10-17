@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import useSession from '../../hooks/useSession.js';
+import IdentityVerificationSection from './freelancer/sections/identity/IdentityVerificationSection.jsx';
 
 const SAMPLE_METRICS = [
   { id: 'matches', label: 'New matches', value: 8, trend: '+2 this week' },
@@ -148,6 +149,10 @@ export default function FreelancerDashboardPage() {
             </div>
           </aside>
         </section>
+
+        <div className="mt-16 -mx-4 sm:-mx-6 lg:-mx-8">
+          <IdentityVerificationSection />
+        </div>
       </div>
     </div>
   );
