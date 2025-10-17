@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as userController from '../controllers/userController.js';
 import * as careerDocumentController from '../controllers/careerDocumentController.js';
+import * as creationStudioController from '../controllers/creationStudioController.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import authenticate from '../middleware/authenticate.js';
 import userConsentRoutes from './userConsentRoutes.js';
@@ -38,6 +39,7 @@ router.put('/:id', asyncHandler(userController.updateUser));
 router.patch('/:id/profile', asyncHandler(userController.updateProfileSettings));
 
 const DOCUMENT_ROLES = ['user', 'freelancer', 'agency', 'company', 'headhunter', 'mentor', 'admin'];
+const CREATION_STUDIO_ROLES = ['user', 'freelancer', 'agency', 'company', 'mentor', 'headhunter', 'admin'];
 
 router.get(
   '/:id/cv-documents/workspace',
@@ -53,6 +55,37 @@ router.post(
   '/:id/cv-documents/:documentId/upload',
   authenticate({ roles: DOCUMENT_ROLES, matchParam: 'id' }),
   asyncHandler(careerDocumentController.uploadVersion),
+);
+
+router.get(
+  '/:id/creation-studio',
+  authenticate({ roles: CREATION_STUDIO_ROLES, matchParam: 'id' }),
+  asyncHandler(creationStudioController.getWorkspace),
+);
+router.post(
+  '/:id/creation-studio',
+  authenticate({ roles: CREATION_STUDIO_ROLES, matchParam: 'id' }),
+  asyncHandler(creationStudioController.createItem),
+);
+router.put(
+  '/:id/creation-studio/:itemId',
+  authenticate({ roles: CREATION_STUDIO_ROLES, matchParam: 'id' }),
+  asyncHandler(creationStudioController.updateItem),
+);
+router.post(
+  '/:id/creation-studio/:itemId/steps/:stepKey',
+  authenticate({ roles: CREATION_STUDIO_ROLES, matchParam: 'id' }),
+  asyncHandler(creationStudioController.recordStep),
+);
+router.post(
+  '/:id/creation-studio/:itemId/share',
+  authenticate({ roles: CREATION_STUDIO_ROLES, matchParam: 'id' }),
+  asyncHandler(creationStudioController.shareItem),
+);
+router.delete(
+  '/:id/creation-studio/:itemId',
+  authenticate({ roles: CREATION_STUDIO_ROLES, matchParam: 'id' }),
+  asyncHandler(creationStudioController.archiveItem),
 );
 
 router.use('/:id/consents', userConsentRoutes);

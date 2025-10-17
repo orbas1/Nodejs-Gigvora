@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import useCachedResource from '../../hooks/useCachedResource.js';
 import DataStatus from '../../components/DataStatus.jsx';
@@ -10,6 +11,7 @@ import useSession from '../../hooks/useSession.js';
 import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
 import DashboardBlogSpotlight from '../../components/blog/DashboardBlogSpotlight.jsx';
 import AffiliateProgramSection from '../../components/affiliate/AffiliateProgramSection.jsx';
+import CreationStudioSummary from '../../components/creationStudio/CreationStudioSummary.jsx';
 
 const DEFAULT_USER_ID = 1;
 const availableDashboards = ['user', 'freelancer', 'agency', 'company', 'headhunter'];
@@ -159,6 +161,8 @@ function buildMenuSections(data) {
   const summary = data?.summary ?? {};
   const documents = data?.documents ?? {};
   const documentStudio = data?.documentStudio;
+  const creationStudio = data?.creationStudio ?? {};
+  const creationSummary = creationStudio.summary ?? {};
   const documentSummary = documentStudio?.summary ?? {};
   const projectGigManagement = data?.projectGigManagement ?? {};
   const projectSummary = projectGigManagement.summary ?? {};
@@ -180,6 +184,15 @@ function buildMenuSections(data) {
     {
       label: 'Project & gig management',
       items: [
+        {
+          name: 'Creation studio wizard',
+          description: `Launch ${formatNumber(creationSummary.total ?? 0)} creations with ${formatNumber(
+            creationSummary.published ?? 0,
+          )} published and ${formatNumber(creationSummary.drafts ?? 0)} drafts ready to finish.`,
+          tags: ['wizard', 'launch'],
+          sectionId: 'creation-studio',
+          href: '/dashboard/user/creation-studio',
+        },
         {
           name: 'Project creation workspace',
           description: `Launch ${formatNumber(projectSummary.totalProjects ?? 0)} initiatives with ${formatNumber(
@@ -403,6 +416,7 @@ export default function UserDashboardPage() {
   const interviews = Array.isArray(data?.interviews) ? data.interviews : [];
   const documents = data?.documents ?? { attachments: [], portfolioLinks: [] };
   const documentStudio = data?.documentStudio ?? null;
+  const creationStudio = data?.creationStudio ?? { items: [], summary: {}, catalog: [] };
   const projectGigManagement = data?.projectGigManagement ?? null;
   const notifications = Array.isArray(data?.notifications?.recent) ? data.notifications.recent : [];
   const projectActivity = Array.isArray(data?.projectActivity?.recent) ? data.projectActivity.recent : [];
@@ -445,6 +459,23 @@ export default function UserDashboardPage() {
   const supportSummary = supportDesk.summary ?? {};
 
   const menuSections = useMemo(() => buildMenuSections(data), [data]);
+
+  const handleMenuSelect = useCallback(
+    (itemId, item) => {
+      if (item?.href) {
+        navigate(item.href);
+        return;
+      }
+      const targetId = item?.sectionId ?? itemId;
+      if (targetId && typeof document !== 'undefined') {
+        const targetElement = document.getElementById(targetId);
+        if (targetElement) {
+          targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    },
+    [navigate],
+  );
   const profileCard = useMemo(() => buildProfileCard(data, summary, session), [data, session, summary]);
 
   const summaryCards = [
@@ -497,6 +528,7 @@ export default function UserDashboardPage() {
       sections={[]}
       profile={profileCard}
       availableDashboards={availableDashboards}
+      onMenuItemSelect={handleMenuSelect}
     >
       <div className="space-y-10">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -1473,6 +1505,10 @@ export default function UserDashboardPage() {
               )}
             </div>
           </div>
+        </section>
+
+        <section id="creation-studio">
+          <CreationStudioSummary data={creationStudio} />
         </section>
 
         <ProjectGigManagementContainer userId={userId} />

@@ -53,6 +53,7 @@ import careerPipelineAutomationService from './careerPipelineAutomationService.j
 import { getAdDashboardSnapshot } from './adService.js';
 import { initializeWorkspaceForProject } from './projectWorkspaceService.js';
 import affiliateDashboardService from './affiliateDashboardService.js';
+import creationStudioService from './creationStudioService.js';
 
 const CACHE_NAMESPACE = 'dashboard:user';
 const CACHE_TTL_SECONDS = 60;
@@ -2276,6 +2277,8 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     raw: true,
   });
 
+  const creationStudioQuery = creationStudioService.getDashboardSnapshot(userId);
+
   const [
     applications,
     pipelineRows,
@@ -2299,6 +2302,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     careerPipelineAutomation,
     affiliateProgram,
     projectParticipation,
+    creationStudio,
   ] = await Promise.all([
     applicationQuery,
     pipelineQuery,
@@ -2322,6 +2326,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     careerPipelineAutomationService.getCareerPipelineAutomation(userId, { bypassCache }),
     affiliateDashboardService.getAffiliateDashboard(userId),
     projectParticipationQuery,
+    creationStudioQuery,
   ]);
 
   const sanitizedStoryPrompts = storyBlocks.map((block) => sanitizeStoryBlock(block)).filter(Boolean);
@@ -2630,6 +2635,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     projectActivity: {
       recent: sanitizedProjectEvents,
     },
+    creationStudio,
     projectGigManagement,
     tasks: {
       followUps,
