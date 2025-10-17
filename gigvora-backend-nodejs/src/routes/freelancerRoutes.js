@@ -35,6 +35,12 @@ import {
   updateSuccessMetrics,
   updateTestimonials,
 } from '../controllers/freelancerProfileController.js';
+import {
+  listDisputes,
+  createDispute,
+  showDispute,
+  appendEvent,
+} from '../controllers/freelancerDisputeController.js';
 import asyncHandler from '../utils/asyncHandler.js';
 
 const router = Router();
@@ -91,6 +97,11 @@ router.get(
   '/:freelancerId/agency-collaborations',
   asyncHandler(collaborationsOverview),
 );
+
+router.get('/:freelancerId/disputes', asyncHandler(listDisputes));
+router.post('/:freelancerId/disputes', asyncHandler(createDispute));
+router.get('/:freelancerId/disputes/:disputeId', asyncHandler(showDispute));
+router.post('/:freelancerId/disputes/:disputeId/events', asyncHandler(appendEvent));
 
 router.get('/:userId/profile-hub', asyncHandler(getProfileHub));
 router.put('/:userId/profile-hub', asyncHandler(updateProfileHub));
