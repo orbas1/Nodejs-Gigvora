@@ -56,6 +56,13 @@ export const MENU_GROUPS = [
         description: 'Capacity forecast, rituals, and important dates.',
         icon: CalendarDaysIcon,
       },
+      {
+        id: 'volunteering-management',
+        name: 'Volunteer',
+        description: 'Keep volunteer work organised.',
+        icon: HeartIcon,
+        href: '/dashboard/freelancer/volunteer',
+      },
     ],
   },
   {
