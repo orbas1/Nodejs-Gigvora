@@ -7,6 +7,7 @@ import { ValidationError, NotFoundError } from '../utils/errors.js';
 import { buildLocationDetails } from '../utils/location.js';
 
 import { getAdDashboardSnapshot } from './adService.js';
+import { getCreationStudioOverview } from './creationStudioService.js';
 
 function withDefaultModel(model) {
   if (model) {
@@ -5918,6 +5919,8 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       inviteSummary,
       alerts: alertsSummary,
     });
+    const creationStudio = await getCreationStudioOverview({ workspaceId: workspace.id, limit: 16 });
+
     const brandAndPeople = {
       employerBrandStudio,
       employeeJourneys: employeeJourneysSummary,
@@ -6019,6 +6022,7 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
         agencyCollaboration: agencyCollaborationInsights,
       },
       brandIntelligence,
+      creationStudio,
       employerBrandWorkforce,
       governance,
       calendar: calendarDigest,

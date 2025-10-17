@@ -16,6 +16,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import DataStatus from '../../components/DataStatus.jsx';
 import PartnershipsSourcingSection from '../../components/dashboard/PartnershipsSourcingSection.jsx';
 import JobLifecycleSection from '../../components/company/JobLifecycleSection.jsx';
+import CreationStudioSummary from '../../components/company/CreationStudioSummary.jsx';
 import InterviewExperienceSection from '../../components/dashboard/InterviewExperienceSection.jsx';
 import AccessDeniedPanel from '../../components/dashboard/AccessDeniedPanel.jsx';
 import { useCompanyDashboard } from '../../hooks/useCompanyDashboard.js';
@@ -1124,6 +1125,15 @@ export default function CompanyDashboardPage() {
         ) : null}
 
         <SummaryCardGrid cards={enrichedSummaryCards} />
+
+        {data?.creationStudio ? (
+          <CreationStudioSummary
+            overview={data.creationStudio}
+            ctaTo="/dashboard/company/creation-studio"
+            ctaLabel="Open creation studio"
+            compact
+          />
+        ) : null}
 
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-900">Workspace memberships</h2>

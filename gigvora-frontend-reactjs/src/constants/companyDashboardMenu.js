@@ -1,5 +1,17 @@
 export const COMPANY_DASHBOARD_MENU_SECTIONS = [
   {
+    label: 'Studio',
+    items: [
+      {
+        name: 'Studio',
+        description: 'Create assets.',
+        sectionId: 'creation-studio',
+        href: '/dashboard/company/creation-studio',
+        tags: ['studio'],
+      },
+    ],
+  },
+  {
     label: 'Talent acquisition',
     items: [
       {
