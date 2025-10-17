@@ -1318,6 +1318,111 @@ export const FeedPost = sequelize.define(
   { tableName: 'feed_posts' },
 );
 
+export const FreelancerTimelineWorkspace = sequelize.define(
+  'FreelancerTimelineWorkspace',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    timezone: { type: DataTypes.STRING(120), allowNull: false, defaultValue: 'UTC' },
+    defaultVisibility: {
+      type: DataTypes.ENUM('public', 'connections', 'private'),
+      allowNull: false,
+      defaultValue: 'public',
+    },
+    autoShareToFeed: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    reviewBeforePublish: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    distributionChannels: { type: jsonType, allowNull: true },
+    contentThemes: { type: jsonType, allowNull: true },
+    pinnedCampaigns: { type: jsonType, allowNull: true },
+    cadenceGoal: { type: DataTypes.INTEGER, allowNull: true },
+    lastSyncedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  { tableName: 'freelancer_timeline_workspaces' },
+);
+
+export const FreelancerTimelinePost = sequelize.define(
+  'FreelancerTimelinePost',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    workspaceId: { type: DataTypes.INTEGER, allowNull: true },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    content: { type: DataTypes.TEXT, allowNull: true },
+    status: {
+      type: DataTypes.ENUM('draft', 'scheduled', 'published', 'archived'),
+      allowNull: false,
+      defaultValue: 'draft',
+    },
+    visibility: {
+      type: DataTypes.ENUM('public', 'connections', 'private'),
+      allowNull: false,
+      defaultValue: 'public',
+    },
+    scheduledAt: { type: DataTypes.DATE, allowNull: true },
+    publishedAt: { type: DataTypes.DATE, allowNull: true },
+    timezone: { type: DataTypes.STRING(120), allowNull: true },
+    heroImageUrl: { type: DataTypes.STRING(2048), allowNull: true },
+    allowComments: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    tags: { type: jsonType, allowNull: true },
+    attachments: { type: jsonType, allowNull: true },
+    targetAudience: { type: jsonType, allowNull: true },
+    campaign: { type: DataTypes.STRING(180), allowNull: true },
+    callToAction: { type: jsonType, allowNull: true },
+    metricsSnapshot: { type: jsonType, allowNull: true },
+    lastEditedById: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  { tableName: 'freelancer_timeline_posts' },
+);
+
+export const FreelancerTimelineEntry = sequelize.define(
+  'FreelancerTimelineEntry',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    workspaceId: { type: DataTypes.INTEGER, allowNull: true },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    entryType: {
+      type: DataTypes.ENUM('milestone', 'content', 'event', 'campaign'),
+      allowNull: false,
+      defaultValue: 'milestone',
+    },
+    status: {
+      type: DataTypes.ENUM('planned', 'in_progress', 'completed', 'blocked'),
+      allowNull: false,
+      defaultValue: 'planned',
+    },
+    startAt: { type: DataTypes.DATE, allowNull: true },
+    endAt: { type: DataTypes.DATE, allowNull: true },
+    linkedPostId: { type: DataTypes.INTEGER, allowNull: true },
+    owner: { type: DataTypes.STRING(180), allowNull: true },
+    channel: { type: DataTypes.STRING(180), allowNull: true },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'freelancer_timeline_entries' },
+);
+
+export const FreelancerTimelinePostMetric = sequelize.define(
+  'FreelancerTimelinePostMetric',
+  {
+    postId: { type: DataTypes.INTEGER, allowNull: false },
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    capturedAt: { type: DataTypes.DATEONLY, allowNull: false },
+    impressions: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    views: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    clicks: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    comments: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    reactions: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    saves: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    shares: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    profileVisits: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    leads: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    conversionRate: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'freelancer_timeline_post_metrics' },
+);
+
 export const Job = sequelize.define(
   'Job',
   {
@@ -14617,6 +14722,29 @@ GigCatalogItem.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' })
 User.hasMany(FeedPost, { foreignKey: 'userId' });
 FeedPost.belongsTo(User, { foreignKey: 'userId' });
 
+User.hasOne(FreelancerTimelineWorkspace, { foreignKey: 'freelancerId', as: 'timelineWorkspace' });
+FreelancerTimelineWorkspace.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
+FreelancerTimelineWorkspace.hasMany(FreelancerTimelinePost, { foreignKey: 'workspaceId', as: 'posts' });
+FreelancerTimelineWorkspace.hasMany(FreelancerTimelineEntry, { foreignKey: 'workspaceId', as: 'entries' });
+FreelancerTimelinePost.belongsTo(FreelancerTimelineWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+FreelancerTimelineEntry.belongsTo(FreelancerTimelineWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+
+User.hasMany(FreelancerTimelinePost, { foreignKey: 'freelancerId', as: 'timelinePosts' });
+FreelancerTimelinePost.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
+User.hasMany(FreelancerTimelineEntry, { foreignKey: 'freelancerId', as: 'timelineEntries' });
+FreelancerTimelineEntry.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
+FreelancerTimelineEntry.belongsTo(FreelancerTimelinePost, { foreignKey: 'linkedPostId', as: 'linkedPost' });
+FreelancerTimelinePost.hasMany(FreelancerTimelineEntry, { foreignKey: 'linkedPostId', as: 'linkedEntries' });
+
+FreelancerTimelinePost.hasMany(FreelancerTimelinePostMetric, { foreignKey: 'postId', as: 'metrics' });
+FreelancerTimelinePostMetric.belongsTo(FreelancerTimelinePost, { foreignKey: 'postId', as: 'post' });
+
+User.hasMany(FreelancerTimelinePostMetric, { foreignKey: 'freelancerId', as: 'timelineMetrics' });
+FreelancerTimelinePostMetric.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
 User.belongsToMany(Group, { through: GroupMembership, foreignKey: 'userId' });
 Group.belongsToMany(User, { through: GroupMembership, foreignKey: 'groupId' });
 Group.hasMany(GroupMembership, { foreignKey: 'groupId', as: 'memberships' });
@@ -16216,6 +16344,10 @@ export default {
   FreelancerTestimonial,
   FreelancerHeroBanner,
   FeedPost,
+  FreelancerTimelineWorkspace,
+  FreelancerTimelinePost,
+  FreelancerTimelineEntry,
+  FreelancerTimelinePostMetric,
   Job,
   Gig,
   GigPackage,

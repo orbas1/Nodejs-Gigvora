@@ -8,6 +8,7 @@ import {
   ChartBarSquareIcon,
   ClipboardDocumentCheckIcon,
   Cog6ToothIcon,
+  DocumentTextIcon,
   GlobeAltIcon,
   HeartIcon,
   HomeModernIcon,
@@ -23,154 +24,61 @@ import {
 
 export const MENU_GROUPS = [
   {
-    id: 'mission-control',
-    label: 'Mission control',
+    id: 'mission',
+    label: 'Mission',
     items: [
-      {
-        id: 'profile-overview',
-        name: 'Profile overview',
-        description: 'Trust signals, live workstreams, and daily context.',
-        icon: UserCircleIcon,
-      },
-      {
-        id: 'operations-hq',
-        name: 'Freelancer Operations HQ',
-        description: 'Memberships, positioning, and enterprise-ready context.',
-        icon: HomeModernIcon,
-      },
-      {
-        id: 'delivery-ops',
-        name: 'Delivery operations',
-        description: 'Jobs, gig orders, and delivery cadences.',
-        icon: ClipboardDocumentCheckIcon,
-      },
-      {
-        id: 'task-management',
-        name: 'Task management & delegation',
-        description: 'Sprint planning, backlog health, and governance approvals.',
-        icon: Squares2X2Icon,
-      },
-      {
-        id: 'planning',
-        name: 'Calendar & planning',
-        description: 'Capacity forecast, rituals, and important dates.',
-        icon: CalendarDaysIcon,
-      },
+      { id: 'profile-overview', name: 'Profile', icon: UserCircleIcon },
+      { id: 'operations-hq', name: 'Ops', icon: HomeModernIcon },
+      { id: 'delivery-ops', name: 'Delivery', icon: ClipboardDocumentCheckIcon },
+      { id: 'task-management', name: 'Tasks', icon: Squares2X2Icon },
+      { id: 'planning', name: 'Calendar', icon: CalendarDaysIcon },
     ],
   },
   {
-    id: 'workspace-excellence',
-    label: 'Workspace excellence',
+    id: 'workspace',
+    label: 'Workspace',
     items: [
-      {
-        id: 'project-excellence',
-        name: 'Project workspace excellence',
-        description: 'Templates, collaboration cockpit, and deliverable vault.',
-        icon: ClipboardDocumentCheckIcon,
-      },
-      {
-        id: 'project-lab',
-        name: 'Project lab',
-        description: 'Compose enterprise-grade project workflows.',
-        icon: BriefcaseIcon,
-      },
+      { id: 'project-excellence', name: 'Projects', icon: ClipboardDocumentCheckIcon },
+      { id: 'project-lab', name: 'Lab', icon: BriefcaseIcon },
     ],
   },
   {
-    id: 'gig-commerce',
-    label: 'Gig commerce',
+    id: 'commerce',
+    label: 'Commerce',
     items: [
-      {
-        id: 'gig-studio',
-        name: 'Gig building studio',
-        description: 'Design modular offers and pricing experiments.',
-        icon: SparklesIcon,
-      },
-      {
-        id: 'gig-marketplace',
-        name: 'Gig marketplace operations',
-        description: 'Listings, order pipeline, and client success automation.',
-        icon: MegaphoneIcon,
-      },
-      {
-        id: 'automation',
-        name: 'Automation & signals',
-        description: 'Playbooks, referrals, and health telemetry.',
-        icon: BoltIcon,
-      },
+      { id: 'gig-studio', name: 'Studio', icon: SparklesIcon },
+      { id: 'gig-marketplace', name: 'Market', icon: MegaphoneIcon },
+      { id: 'automation', name: 'Signals', icon: BoltIcon },
     ],
   },
   {
-    id: 'finance-governance',
-    label: 'Finance & governance',
+    id: 'finance',
+    label: 'Finance',
     items: [
-      {
-        id: 'finance-compliance',
-        name: 'Finance, compliance, & reputation',
-        description: 'Cash flow, contracts, and reputation programs.',
-        icon: BanknotesIcon,
-      },
-      {
-        id: 'workspace-settings',
-        name: 'Workspace settings',
-        description: 'Personalization, feature toggles, and safety.',
-        icon: Cog6ToothIcon,
-      },
+      { id: 'finance-compliance', name: 'Finance', icon: BanknotesIcon },
+      { id: 'workspace-settings', name: 'Settings', icon: Cog6ToothIcon },
     ],
   },
   {
-    id: 'brand-growth',
-    label: 'Brand & growth',
+    id: 'brand',
+    label: 'Brand',
     items: [
-      {
-        id: 'profile-showcase',
-        name: 'Profile showcase',
-        description: 'Banner, biography, portfolio, and media.',
-        icon: PhotoIcon,
-      },
-      {
-        id: 'references',
-        name: 'References & reviews',
-        description: 'Manage testimonials, references, and feed posts.',
-        icon: ChatBubbleBottomCenterTextIcon,
-      },
-      {
-        id: 'network',
-        name: 'Suggested follows',
-        description: 'Signal-boosted peers and collaboration pods.',
-        icon: UserGroupIcon,
-      },
-      {
-        id: 'growth-partnerships',
-        name: 'Growth, partnerships, & skills',
-        description: 'Pipeline CRM, alliances, learning, and spotlight.',
-        icon: ArrowTrendingUpIcon,
-      },
+      { id: 'profile-showcase', name: 'Showcase', icon: PhotoIcon },
+      { id: 'references', name: 'Reviews', icon: ChatBubbleBottomCenterTextIcon },
+      { id: 'timeline-management', name: 'Timeline', icon: DocumentTextIcon },
+      { id: 'network', name: 'Network', icon: UserGroupIcon },
+      { id: 'growth-partnerships', name: 'Growth', icon: ArrowTrendingUpIcon },
     ],
   },
   {
-    id: 'operations-quick',
-    label: 'Operational quick access',
-    items: [
-      {
-        id: 'quick-access',
-        name: 'Operational quick access',
-        description: 'Workspace dashboards, gig commerce, and growth shortcuts.',
-        icon: RectangleStackIcon,
-      },
-    ],
+    id: 'quick',
+    label: 'Quick',
+    items: [{ id: 'quick-access', name: 'Launch', icon: RectangleStackIcon }],
   },
   {
     id: 'support',
     label: 'Support',
-    items: [
-      {
-        id: 'support',
-        name: 'Support desk',
-        description: 'Fast help from Gigvora success engineers.',
-        icon: LifebuoyIcon,
-      },
-    ],
+    items: [{ id: 'support', name: 'Help', icon: LifebuoyIcon }],
   },
 ];
 
