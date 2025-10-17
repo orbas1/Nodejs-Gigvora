@@ -11,6 +11,8 @@ import DashboardAccessGuard from '../../components/security/DashboardAccessGuard
 import DashboardBlogSpotlight from '../../components/blog/DashboardBlogSpotlight.jsx';
 import AffiliateProgramSection from '../../components/affiliate/AffiliateProgramSection.jsx';
 import DashboardNotificationCenterSection from '../../components/notifications/DashboardNotificationCenterSection.jsx';
+import useSavedSearches from '../../hooks/useSavedSearches.js';
+import { TopSearchSection } from './user/sections/index.js';
 
 const DEFAULT_USER_ID = 1;
 const availableDashboards = ['user', 'freelancer', 'agency', 'company', 'headhunter'];
@@ -257,6 +259,23 @@ function buildMenuSections(data) {
       ],
     },
     {
+      label: 'Search',
+      items: [
+        {
+          name: 'Search',
+          description: 'Saved alerts',
+          tags: ['search'],
+          sectionId: 'top-search',
+        },
+        {
+          name: 'Explorer',
+          description: 'Full explorer',
+          tags: ['explorer'],
+          href: '/search',
+        },
+      ],
+    },
+    {
       label: 'Career operations',
       items: [
         {
@@ -376,6 +395,15 @@ export default function UserDashboardPage() {
     },
   );
 
+  const {
+    items: savedSearches,
+    loading: savedSearchesLoading,
+    createSavedSearch,
+    updateSavedSearch,
+    deleteSavedSearch,
+    runSavedSearch,
+  } = useSavedSearches({ enabled: shouldLoadDashboard });
+
   const summary = data?.summary ?? {
     totalApplications: 0,
     activeApplications: 0,
@@ -433,6 +461,8 @@ export default function UserDashboardPage() {
   const launchpadApplications = Array.isArray(data?.launchpad?.applications) ? data.launchpad.applications : [];
   const affiliateProgram = data?.affiliate ?? null;
   const affiliateOverview = affiliateProgram?.overview ?? {};
+
+  const topSearchData = data?.topSearch ?? null;
 
   const insights = data?.insights ?? {};
   const careerAnalytics = insights.careerAnalytics ?? {};
@@ -549,6 +579,16 @@ export default function UserDashboardPage() {
             </div>
           ))}
         </section>
+
+        <TopSearchSection
+          data={topSearchData}
+          savedSearches={savedSearches}
+          savedSearchesLoading={savedSearchesLoading}
+          onCreateSavedSearch={createSavedSearch}
+          onUpdateSavedSearch={updateSavedSearch}
+          onDeleteSavedSearch={deleteSavedSearch}
+          onRunSavedSearch={runSavedSearch}
+        />
 
         <section id="career-pipeline-automation" className="space-y-8">
           <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-accentSoft p-6 shadow-sm">
