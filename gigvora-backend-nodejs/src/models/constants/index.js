@@ -360,6 +360,19 @@ export const EMPLOYEE_JOURNEY_HEALTH_STATUSES = ['on_track', 'at_risk', 'off_tra
 export const WORKSPACE_INTEGRATION_CATEGORIES = ['calendar', 'hris', 'communication', 'ats', 'productivity', 'other'];
 export const WORKSPACE_INTEGRATION_STATUSES = ['connected', 'disconnected', 'error', 'pending'];
 export const WORKSPACE_INTEGRATION_SYNC_FREQUENCIES = ['manual', 'hourly', 'daily', 'weekly'];
+export const WORKSPACE_INTEGRATION_SECRET_TYPES = ['api_key', 'oauth_token', 'webhook_secret', 'custom'];
+export const WORKSPACE_INTEGRATION_WEBHOOK_STATUSES = ['active', 'paused', 'disabled'];
+export const WORKSPACE_INTEGRATION_AUDIT_EVENT_TYPES = [
+  'integration_created',
+  'integration_updated',
+  'secret_created',
+  'secret_rotated',
+  'webhook_created',
+  'webhook_updated',
+  'webhook_deleted',
+  'connection_tested',
+  'sync_triggered',
+];
 export const WORKSPACE_CALENDAR_CONNECTION_STATUSES = ['connected', 'sync_error', 'disconnected', 'pending'];
 export const CAREER_DOCUMENT_TYPES = ['cv', 'cover_letter', 'portfolio', 'brand_asset', 'story_block'];
 export const CAREER_DOCUMENT_STATUSES = ['draft', 'in_review', 'approved', 'archived'];
