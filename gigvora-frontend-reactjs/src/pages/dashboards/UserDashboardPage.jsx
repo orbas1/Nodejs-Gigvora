@@ -14,6 +14,7 @@ import useSession from '../../hooks/useSession.js';
 import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
 import DashboardBlogSpotlight from '../../components/blog/DashboardBlogSpotlight.jsx';
 import AffiliateProgramSection from '../../components/affiliate/AffiliateProgramSection.jsx';
+import ProfileSettingsSection from '../../components/profileSettings/ProfileSettingsSection.jsx';
 import WalletManagementSection from '../../components/wallet/WalletManagementSection.jsx';
 import DashboardNotificationCenterSection from '../../components/notifications/DashboardNotificationCenterSection.jsx';
 import useSavedSearches from '../../hooks/useSavedSearches.js';
@@ -397,8 +398,9 @@ function buildMenuSections(data) {
           description: `Maintain ${formatNumber(summary.connections)} relationships for referrals and mentorship.`,
         },
         {
-          name: 'Profile settings',
-          description: 'Control availability, visibility, and launchpad eligibility signals.',
+          name: 'Profile',
+          description: 'Edit your profile, tags, and collaboration data in one workspace.',
+          sectionId: 'profile',
         },
       ],
     },
@@ -2349,6 +2351,15 @@ export default function UserDashboardPage() {
             </div>
           </div>
         </section>
+
+        {data?.profile ? (
+          <ProfileSettingsSection
+            profile={data.profile}
+            userId={userId}
+            onRefresh={refresh}
+            session={session}
+          />
+        ) : null}
 
         <section id="affiliate-program" className="rounded-3xl border border-slate-200 bg-white p-0 shadow-sm">
           <AffiliateProgramSection data={affiliateProgram} />
