@@ -42,6 +42,8 @@ import {
   AGENCY_ALLIANCE_POD_STATUSES, AGENCY_ALLIANCE_RATE_CARD_STATUSES, AGENCY_ALLIANCE_RATE_CARD_APPROVAL_STATUSES, AGENCY_ALLIANCE_REVENUE_SPLIT_TYPES,
   AGENCY_ALLIANCE_REVENUE_SPLIT_STATUSES, AGENCY_COLLABORATION_STATUSES, AGENCY_COLLABORATION_TYPES, AGENCY_INVITATION_STATUSES,
   AGENCY_RATE_CARD_STATUSES, AGENCY_RATE_CARD_ITEM_UNIT_TYPES, AGENCY_RETAINER_NEGOTIATION_STATUSES, AGENCY_RETAINER_NEGOTIATION_STAGES,
+  AGENCY_RETAINER_EVENT_ACTOR_TYPES, AGENCY_RETAINER_EVENT_TYPES, AGENCY_MENTORING_SESSION_STATUSES, AGENCY_MENTORING_PURCHASE_STATUSES,
+  AGENCY_MENTOR_PREFERENCE_LEVELS, ESCROW_ACCOUNT_STATUSES, ESCROW_TRANSACTION_TYPES,
   AGENCY_RETAINER_EVENT_ACTOR_TYPES, AGENCY_RETAINER_EVENT_TYPES, AGENCY_TIMELINE_POST_STATUSES,
   AGENCY_TIMELINE_VISIBILITIES, AGENCY_TIMELINE_DISTRIBUTION_CHANNELS, ESCROW_ACCOUNT_STATUSES, ESCROW_TRANSACTION_TYPES,
   HEADHUNTER_INVITE_STATUSES, HEADHUNTER_BRIEF_STATUSES, HEADHUNTER_ASSIGNMENT_STATUSES, HEADHUNTER_COMMISSION_STATUSES,
@@ -15512,6 +15514,116 @@ export const PeerMentoringSession = sequelize.define(
   { tableName: 'peer_mentoring_sessions' },
 );
 
+export const AgencyMentoringSession = sequelize.define(
+  'AgencyMentoringSession',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    purchaseId: { type: DataTypes.INTEGER, allowNull: true },
+    mentorId: { type: DataTypes.INTEGER, allowNull: true },
+    mentorName: { type: DataTypes.STRING(255), allowNull: true },
+    mentorEmail: { type: DataTypes.STRING(255), allowNull: true },
+    clientName: { type: DataTypes.STRING(255), allowNull: true },
+    clientEmail: { type: DataTypes.STRING(255), allowNull: true },
+    clientCompany: { type: DataTypes.STRING(255), allowNull: true },
+    focusArea: { type: DataTypes.STRING(255), allowNull: true },
+    agenda: { type: DataTypes.TEXT, allowNull: true },
+    scheduledAt: { type: DataTypes.DATE, allowNull: false },
+    durationMinutes: { type: DataTypes.INTEGER, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...AGENCY_MENTORING_SESSION_STATUSES),
+      allowNull: false,
+      defaultValue: 'scheduled',
+    },
+    meetingUrl: { type: DataTypes.STRING(255), allowNull: true },
+    recordingUrl: { type: DataTypes.STRING(255), allowNull: true },
+    followUpActions: { type: DataTypes.TEXT, allowNull: true },
+    sessionNotes: { type: DataTypes.TEXT, allowNull: true },
+    sessionTags: { type: jsonType, allowNull: true },
+    costAmount: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    currency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    createdBy: { type: DataTypes.INTEGER, allowNull: false },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'agency_mentoring_sessions',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['mentorId'] },
+      { fields: ['scheduledAt'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+export const AgencyMentoringPurchase = sequelize.define(
+  'AgencyMentoringPurchase',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    mentorId: { type: DataTypes.INTEGER, allowNull: true },
+    mentorName: { type: DataTypes.STRING(255), allowNull: true },
+    mentorEmail: { type: DataTypes.STRING(255), allowNull: true },
+    packageName: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    sessionsIncluded: { type: DataTypes.INTEGER, allowNull: true },
+    sessionsUsed: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    amount: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    currency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    purchasedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    validFrom: { type: DataTypes.DATE, allowNull: true },
+    validUntil: { type: DataTypes.DATE, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...AGENCY_MENTORING_PURCHASE_STATUSES),
+      allowNull: false,
+      defaultValue: 'active',
+    },
+    invoiceUrl: { type: DataTypes.STRING(255), allowNull: true },
+    referenceCode: { type: DataTypes.STRING(120), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    createdBy: { type: DataTypes.INTEGER, allowNull: false },
+  },
+  {
+    tableName: 'agency_mentoring_purchases',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['mentorId'] },
+      { fields: ['status'] },
+      { fields: ['purchasedAt'] },
+    ],
+  },
+);
+
+export const AgencyMentorPreference = sequelize.define(
+  'AgencyMentorPreference',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    mentorId: { type: DataTypes.INTEGER, allowNull: true },
+    mentorName: { type: DataTypes.STRING(255), allowNull: false },
+    mentorEmail: { type: DataTypes.STRING(255), allowNull: true },
+    preferenceLevel: {
+      type: DataTypes.ENUM(...AGENCY_MENTOR_PREFERENCE_LEVELS),
+      allowNull: false,
+      defaultValue: 'preferred',
+    },
+    favourite: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    introductionNotes: { type: DataTypes.TEXT, allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    lastEngagedAt: { type: DataTypes.DATE, allowNull: true },
+    createdBy: { type: DataTypes.INTEGER, allowNull: false },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'agency_mentor_preferences',
+    indexes: [
+      { unique: true, fields: ['workspaceId', 'mentorEmail'] },
+      { unique: true, fields: ['workspaceId', 'mentorId'], where: { mentorId: { [Op.ne]: null } } },
+      { fields: ['workspaceId'] },
+      { fields: ['mentorId'] },
+      { fields: ['preferenceLevel'] },
+    ],
+  },
+);
+
 export const SkillGapDiagnostic = sequelize.define(
   'SkillGapDiagnostic',
   {
@@ -15583,6 +15695,25 @@ PeerMentoringSession.belongsTo(User, { foreignKey: 'mentorId', as: 'mentor' });
 PeerMentoringSession.belongsTo(User, { foreignKey: 'menteeId', as: 'mentee' });
 User.hasMany(PeerMentoringSession, { foreignKey: 'mentorId', as: 'mentoringSessionsLed' });
 User.hasMany(PeerMentoringSession, { foreignKey: 'menteeId', as: 'mentoringSessions' });
+
+ProviderWorkspace.hasMany(AgencyMentoringSession, { foreignKey: 'workspaceId', as: 'mentoringSessions' });
+AgencyMentoringSession.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+AgencyMentoringSession.belongsTo(AgencyMentoringPurchase, { foreignKey: 'purchaseId', as: 'purchase' });
+AgencyMentoringSession.belongsTo(User, { foreignKey: 'mentorId', as: 'mentor' });
+AgencyMentoringSession.belongsTo(User, { foreignKey: 'createdBy', as: 'createdByUser' });
+User.hasMany(AgencyMentoringSession, { foreignKey: 'mentorId', as: 'agencyMentoringSessionsLed' });
+User.hasMany(AgencyMentoringSession, { foreignKey: 'createdBy', as: 'agencyMentoringSessionsCreated' });
+
+ProviderWorkspace.hasMany(AgencyMentoringPurchase, { foreignKey: 'workspaceId', as: 'mentoringPurchases' });
+AgencyMentoringPurchase.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+AgencyMentoringPurchase.belongsTo(User, { foreignKey: 'mentorId', as: 'mentor' });
+AgencyMentoringPurchase.belongsTo(User, { foreignKey: 'createdBy', as: 'createdByUser' });
+AgencyMentoringPurchase.hasMany(AgencyMentoringSession, { foreignKey: 'purchaseId', as: 'sessions' });
+
+ProviderWorkspace.hasMany(AgencyMentorPreference, { foreignKey: 'workspaceId', as: 'mentorPreferences' });
+AgencyMentorPreference.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+AgencyMentorPreference.belongsTo(User, { foreignKey: 'mentorId', as: 'mentor' });
+AgencyMentorPreference.belongsTo(User, { foreignKey: 'createdBy', as: 'createdByUser' });
 
 SkillGapDiagnostic.belongsTo(ServiceLine, { foreignKey: 'serviceLineId', as: 'serviceLine' });
 SkillGapDiagnostic.belongsTo(User, { foreignKey: 'userId', as: 'user' });

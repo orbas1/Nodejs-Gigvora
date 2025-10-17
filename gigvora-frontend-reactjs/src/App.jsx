@@ -42,6 +42,7 @@ import CompanyAnalyticsPage from './pages/dashboards/CompanyAnalyticsPage.jsx';
 import CompanyIntegrationsPage from './pages/dashboards/CompanyIntegrationsPage.jsx';
 import CompanyNetworkingHubPage from './pages/networking/CompanyNetworkingHubPage.jsx';
 import AgencyDashboardPage from './pages/dashboards/AgencyDashboardPage.jsx';
+import AgencyMentoringPage from './pages/dashboards/AgencyMentoringPage.jsx';
 import AgencyProjectManagementPage from './pages/dashboards/AgencyProjectManagementPage.jsx';
 import ProjectWorkspacePage from './pages/dashboards/agency/ProjectWorkspacePage.jsx';
 import AgencyInboxPage from './pages/dashboards/agency/AgencyInboxPage.jsx';
@@ -329,6 +330,15 @@ export default function App() {
         element={
           <RequireRole allowedRoles={['agency']}>
             <AgencyProjectManagementPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
+        path="dashboard/agency/mentoring"
+        element={
+          <RequireRole allowedRoles={['agency']}>
+            <AgencyMentoringPage />
           </RequireRole>
         }
       />
