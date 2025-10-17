@@ -35,6 +35,12 @@ import {
   updateSuccessMetrics,
   updateTestimonials,
 } from '../controllers/freelancerProfileController.js';
+import {
+  overview as autoMatchOverview,
+  matches as autoMatchMatches,
+  updatePreferences as autoMatchUpdatePreferences,
+  respond as autoMatchRespond,
+} from '../controllers/freelancerAutoMatchController.js';
 import asyncHandler from '../utils/asyncHandler.js';
 
 const router = Router();
@@ -65,6 +71,14 @@ router.post(
 router.patch(
   '/order-pipeline/orders/:orderId/escrow-checkpoints/:checkpointId',
   asyncHandler(updateOrderEscrowCheckpoint),
+);
+
+router.get('/:freelancerId/auto-match/overview', asyncHandler(autoMatchOverview));
+router.get('/:freelancerId/auto-match/matches', asyncHandler(autoMatchMatches));
+router.patch('/:freelancerId/auto-match/preferences', asyncHandler(autoMatchUpdatePreferences));
+router.post(
+  '/:freelancerId/auto-match/matches/:entryId/decision',
+  asyncHandler(autoMatchRespond),
 );
 
 router.get('/:freelancerId/community-spotlight', asyncHandler(communitySpotlight));

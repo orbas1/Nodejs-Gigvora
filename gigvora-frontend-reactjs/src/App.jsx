@@ -35,6 +35,7 @@ import SecurityOperationsPage from './pages/SecurityOperationsPage.jsx';
 import AdminLoginPage from './pages/AdminLoginPage.jsx';
 import UserDashboardPage from './pages/dashboards/UserDashboardPage.jsx';
 import FreelancerDashboardPage from './pages/dashboards/FreelancerDashboardPage.jsx';
+import FreelancerAutoMatchPage from './pages/dashboards/FreelancerAutoMatchPage.jsx';
 import FreelancerPipelinePage from './pages/dashboards/FreelancerPipelinePage.jsx';
 import CompanyDashboardPage from './pages/dashboards/CompanyDashboardPage.jsx';
 import CompanyAtsOperationsPage from './pages/dashboards/CompanyAtsOperationsPage.jsx';
@@ -161,6 +162,15 @@ export default function App() {
         element={
           <RequireRole allowedRoles={['freelancer']}>
             <FreelancerDashboardPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
+        path="dashboard/freelancer/automatch"
+        element={
+          <RequireRole allowedRoles={['freelancer']}>
+            <FreelancerAutoMatchPage />
           </RequireRole>
         }
       />
