@@ -4,6 +4,7 @@ import * as careerDocumentController from '../controllers/careerDocumentControll
 import asyncHandler from '../utils/asyncHandler.js';
 import authenticate from '../middleware/authenticate.js';
 import userConsentRoutes from './userConsentRoutes.js';
+import userNetworkingRoutes from './userNetworkingRoutes.js';
 
 const router = Router();
 
@@ -56,5 +57,13 @@ router.post(
 );
 
 router.use('/:id/consents', userConsentRoutes);
+router.use(
+  '/:id/networking',
+  authenticate({
+    roles: ['user', 'freelancer', 'agency', 'company', 'headhunter', 'mentor', 'admin'],
+    matchParam: 'id',
+  }),
+  userNetworkingRoutes,
+);
 
 export default router;

@@ -54,7 +54,8 @@ import {
   WALLET_LEDGER_ENTRY_TYPES, ESCROW_INTEGRATION_PROVIDERS, DISPUTE_STAGES, DISPUTE_STATUSES,
   DISPUTE_PRIORITIES, DISPUTE_ACTION_TYPES, DISPUTE_ACTOR_TYPES, NETWORKING_SESSION_STATUSES,
   NETWORKING_SESSION_ACCESS_TYPES, NETWORKING_SESSION_VISIBILITIES, NETWORKING_SESSION_SIGNUP_STATUSES, NETWORKING_SESSION_SIGNUP_SOURCES,
-  NETWORKING_BUSINESS_CARD_STATUSES, NETWORKING_ROTATION_STATUSES, OPPORTUNITY_TAXONOMY_TYPES, AD_TYPES,
+  NETWORKING_BUSINESS_CARD_STATUSES, NETWORKING_ROTATION_STATUSES, NETWORKING_SESSION_ORDER_STATUSES,
+  NETWORKING_CONNECTION_FOLLOW_STATUSES, OPPORTUNITY_TAXONOMY_TYPES, AD_TYPES,
   AD_STATUSES, AD_PACING_MODES, AD_OBJECTIVES, AD_SURFACE_TYPES,
   AD_POSITION_TYPES, AD_KEYWORD_INTENTS, AD_OPPORTUNITY_TYPES, AD_COUPON_STATUSES,
   AD_COUPON_DISCOUNT_TYPES,
@@ -5054,6 +5055,100 @@ NetworkingBusinessCard.prototype.toPublicObject = function toPublicObject() {
     status: plain.status,
     lastSharedAt: plain.lastSharedAt,
     shareCount: plain.shareCount,
+    metadata: plain.metadata ?? {},
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const NetworkingSessionOrder = sequelize.define(
+  'NetworkingSessionOrder',
+  {
+    sessionId: { type: DataTypes.INTEGER, allowNull: false },
+    purchaserId: { type: DataTypes.INTEGER, allowNull: false },
+    purchaserEmail: { type: DataTypes.STRING(255), allowNull: true, validate: { isEmail: true } },
+    purchaserName: { type: DataTypes.STRING(255), allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...NETWORKING_SESSION_ORDER_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+      validate: { isIn: [NETWORKING_SESSION_ORDER_STATUSES] },
+    },
+    amountCents: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    currency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    purchasedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    reference: { type: DataTypes.STRING(120), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'networking_session_orders' },
+);
+
+NetworkingSessionOrder.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    sessionId: plain.sessionId,
+    purchaserId: plain.purchaserId,
+    purchaserEmail: plain.purchaserEmail,
+    purchaserName: plain.purchaserName,
+    status: plain.status,
+    amountCents: plain.amountCents == null ? 0 : Number(plain.amountCents),
+    currency: plain.currency,
+    purchasedAt: plain.purchasedAt,
+    reference: plain.reference,
+    metadata: plain.metadata ?? {},
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const NetworkingConnection = sequelize.define(
+  'NetworkingConnection',
+  {
+    ownerId: { type: DataTypes.INTEGER, allowNull: false },
+    connectionUserId: { type: DataTypes.INTEGER, allowNull: true },
+    sessionId: { type: DataTypes.INTEGER, allowNull: true },
+    connectionName: { type: DataTypes.STRING(255), allowNull: false },
+    connectionEmail: { type: DataTypes.STRING(255), allowNull: true, validate: { isEmail: true } },
+    connectionHeadline: { type: DataTypes.STRING(255), allowNull: true },
+    connectionCompany: { type: DataTypes.STRING(255), allowNull: true },
+    followStatus: {
+      type: DataTypes.ENUM(...NETWORKING_CONNECTION_FOLLOW_STATUSES),
+      allowNull: false,
+      defaultValue: 'saved',
+      validate: { isIn: [NETWORKING_CONNECTION_FOLLOW_STATUSES] },
+    },
+    connectedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    lastContactedAt: { type: DataTypes.DATE, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'networking_connections' },
+);
+
+NetworkingConnection.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    ownerId: plain.ownerId,
+    connectionUserId: plain.connectionUserId,
+    sessionId: plain.sessionId,
+    connectionName: plain.connectionName,
+    connectionEmail: plain.connectionEmail,
+    connectionHeadline: plain.connectionHeadline,
+    connectionCompany: plain.connectionCompany,
+    followStatus: plain.followStatus,
+    connectedAt: plain.connectedAt,
+    lastContactedAt: plain.lastContactedAt,
+    notes: plain.notes,
+    tags: Array.isArray(plain.tags)
+      ? plain.tags
+      : plain.tags && typeof plain.tags === 'object'
+        ? Object.values(plain.tags)
+        : plain.tags
+          ? [plain.tags]
+          : [],
     metadata: plain.metadata ?? {},
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
@@ -14736,9 +14831,19 @@ NetworkingSession.hasMany(NetworkingSessionSignup, { foreignKey: 'sessionId', as
 NetworkingSessionSignup.belongsTo(NetworkingSession, { foreignKey: 'sessionId', as: 'session' });
 NetworkingSessionSignup.belongsTo(NetworkingBusinessCard, { foreignKey: 'businessCardId', as: 'businessCard' });
 NetworkingSessionSignup.belongsTo(User, { foreignKey: 'participantId', as: 'participant' });
+NetworkingSession.hasMany(NetworkingSessionOrder, { foreignKey: 'sessionId', as: 'orders' });
+NetworkingSessionOrder.belongsTo(NetworkingSession, { foreignKey: 'sessionId', as: 'session' });
+NetworkingSessionOrder.belongsTo(User, { foreignKey: 'purchaserId', as: 'purchaser' });
+User.hasMany(NetworkingSessionOrder, { foreignKey: 'purchaserId', as: 'networkingOrders' });
 NetworkingBusinessCard.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
 NetworkingBusinessCard.belongsTo(ProviderWorkspace, { foreignKey: 'companyId', as: 'company' });
 NetworkingBusinessCard.hasMany(NetworkingSessionSignup, { foreignKey: 'businessCardId', as: 'signups' });
+NetworkingSession.hasMany(NetworkingConnection, { foreignKey: 'sessionId', as: 'connections' });
+NetworkingConnection.belongsTo(NetworkingSession, { foreignKey: 'sessionId', as: 'session' });
+NetworkingConnection.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
+NetworkingConnection.belongsTo(User, { foreignKey: 'connectionUserId', as: 'contact' });
+User.hasMany(NetworkingConnection, { foreignKey: 'ownerId', as: 'networkingConnections' });
+User.hasMany(NetworkingConnection, { foreignKey: 'connectionUserId', as: 'networkingContacts' });
 
 ClientSuccessPlaybook.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
 ClientSuccessPlaybook.hasMany(ClientSuccessStep, { foreignKey: 'playbookId', as: 'steps' });
@@ -16519,6 +16624,8 @@ export default {
   NetworkingSessionRotation,
   NetworkingSessionSignup,
   NetworkingBusinessCard,
+  NetworkingSessionOrder,
+  NetworkingConnection,
   MemberBrandingMetric,
   BlogCategory,
   BlogTag,
