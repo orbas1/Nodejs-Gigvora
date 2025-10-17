@@ -216,6 +216,9 @@ export const NETWORKING_SESSION_ACCESS_TYPES = ['free', 'paid', 'invite_only'];
 export const NETWORKING_SESSION_VISIBILITIES = ['private', 'workspace', 'public'];
 export const NETWORKING_SESSION_SIGNUP_STATUSES = ['registered', 'waitlisted', 'checked_in', 'no_show', 'removed', 'completed'];
 export const NETWORKING_SESSION_SIGNUP_SOURCES = ['self', 'host', 'admin', 'import'];
+export const NETWORKING_SIGNUP_PAYMENT_STATUSES = ['unpaid', 'pending', 'paid', 'refunded'];
+export const NETWORKING_CONNECTION_STATUSES = ['new', 'follow_up', 'connected', 'archived'];
+export const NETWORKING_CONNECTION_TYPES = ['follow', 'connect', 'collaboration'];
 export const NETWORKING_BUSINESS_CARD_STATUSES = ['draft', 'published', 'archived'];
 export const NETWORKING_ROTATION_STATUSES = ['scheduled', 'in_progress', 'completed', 'cancelled'];
 

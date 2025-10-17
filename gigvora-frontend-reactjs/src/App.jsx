@@ -37,6 +37,7 @@ import UserDashboardPage from './pages/dashboards/UserDashboardPage.jsx';
 import FreelancerDashboardPage from './pages/dashboards/FreelancerDashboardPage.jsx';
 import FreelancerVolunteerPage from './pages/dashboards/FreelancerVolunteerPage.jsx';
 import FreelancerPipelinePage from './pages/dashboards/FreelancerPipelinePage.jsx';
+import FreelancerNetworkingPage from './pages/dashboards/freelancer/FreelancerNetworkingPage.jsx';
 import FreelancerDisputesPage from './pages/dashboards/freelancer/FreelancerDisputesPage.jsx';
 import CompanyDashboardPage from './pages/dashboards/CompanyDashboardPage.jsx';
 import CompanyAtsOperationsPage from './pages/dashboards/CompanyAtsOperationsPage.jsx';
@@ -195,6 +196,10 @@ export default function App() {
       />
 
       <Route
+        path="dashboard/freelancer/networking"
+        element={
+          <RequireRole allowedRoles={['freelancer']}>
+            <FreelancerNetworkingPage />
         path="dashboard/freelancer/disputes"
         element={
           <RequireRole allowedRoles={['freelancer']}>

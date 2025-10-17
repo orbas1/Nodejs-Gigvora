@@ -42,6 +42,8 @@ import {
   appendEvent,
 } from '../controllers/freelancerDisputeController.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import { authenticateRequest } from '../middleware/authentication.js';
+import freelancerNetworkingController from '../controllers/freelancerNetworkingController.js';
 import {
   getTimelineWorkspace,
   updateTimelineSettings,
@@ -87,6 +89,35 @@ router.patch(
   asyncHandler(updateOrderEscrowCheckpoint),
 );
 
+router.get(
+  '/:freelancerId/networking/dashboard',
+  authenticateRequest(),
+  asyncHandler(freelancerNetworkingController.dashboard),
+);
+router.post(
+  '/:freelancerId/networking/sessions/:sessionId/book',
+  authenticateRequest(),
+  asyncHandler(freelancerNetworkingController.book),
+);
+router.patch(
+  '/:freelancerId/networking/signups/:signupId',
+  authenticateRequest(),
+  asyncHandler(freelancerNetworkingController.updateSignup),
+);
+router.get(
+  '/:freelancerId/networking/connections',
+  authenticateRequest(),
+  asyncHandler(freelancerNetworkingController.listConnections),
+);
+router.post(
+  '/:freelancerId/networking/connections',
+  authenticateRequest(),
+  asyncHandler(freelancerNetworkingController.createConnection),
+);
+router.patch(
+  '/:freelancerId/networking/connections/:connectionId',
+  authenticateRequest(),
+  asyncHandler(freelancerNetworkingController.updateConnection),
 router.get('/:freelancerId/volunteering', asyncHandler(volunteeringController.workspace));
 router.post('/:freelancerId/volunteering/applications', asyncHandler(volunteeringController.storeApplication));
 router.put('/:freelancerId/volunteering/applications/:applicationId', asyncHandler(volunteeringController.patchApplication));
