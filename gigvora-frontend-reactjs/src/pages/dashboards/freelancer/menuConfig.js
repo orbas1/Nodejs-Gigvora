@@ -167,9 +167,12 @@ export const MENU_GROUPS = [
       },
       {
         id: 'planning',
+        name: 'Planner',
+        description: '',
         name: 'Calendar',
         description: null,
         icon: CalendarDaysIcon,
+        href: '/dashboard/freelancer/planner',
       },
       {
         id: 'volunteering-management',

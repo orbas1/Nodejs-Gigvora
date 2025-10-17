@@ -36,6 +36,11 @@ import {
   updateTestimonials,
 } from '../controllers/freelancerProfileController.js';
 import {
+  listCalendarEvents,
+  createCalendarEvent,
+  updateCalendarEvent,
+  deleteCalendarEvent,
+} from '../controllers/freelancerCalendarController.js';
   listDisputes,
   createDispute,
   showDispute,
@@ -89,6 +94,10 @@ router.patch(
   asyncHandler(updateOrderEscrowCheckpoint),
 );
 
+router.get('/:freelancerId/calendar/events', asyncHandler(listCalendarEvents));
+router.post('/:freelancerId/calendar/events', asyncHandler(createCalendarEvent));
+router.put('/:freelancerId/calendar/events/:eventId', asyncHandler(updateCalendarEvent));
+router.delete('/:freelancerId/calendar/events/:eventId', asyncHandler(deleteCalendarEvent));
 router.get(
   '/:freelancerId/networking/dashboard',
   authenticateRequest(),

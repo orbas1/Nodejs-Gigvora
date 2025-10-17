@@ -35,6 +35,7 @@ import SecurityOperationsPage from './pages/SecurityOperationsPage.jsx';
 import AdminLoginPage from './pages/AdminLoginPage.jsx';
 import UserDashboardPage from './pages/dashboards/UserDashboardPage.jsx';
 import FreelancerDashboardPage from './pages/dashboards/FreelancerDashboardPage.jsx';
+import FreelancerPlannerPage from './pages/dashboards/FreelancerPlannerPage.jsx';
 import FreelancerVolunteerPage from './pages/dashboards/FreelancerVolunteerPage.jsx';
 import FreelancerPipelinePage from './pages/dashboards/FreelancerPipelinePage.jsx';
 import FreelancerCreationStudioPage from './pages/dashboards/FreelancerCreationStudioPage.jsx';
@@ -186,6 +187,15 @@ export default function App() {
       />
 
       <Route path="dashboard/freelancer/volunteer" element={<FreelancerVolunteerPage />} />
+
+      <Route
+        path="dashboard/freelancer/planner"
+        element={
+          <RequireRole allowedRoles={['freelancer']}>
+            <FreelancerPlannerPage />
+          </RequireRole>
+        }
+      />
 
       <Route
         path="dashboard/freelancer/pipeline"
