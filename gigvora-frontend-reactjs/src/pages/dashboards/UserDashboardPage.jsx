@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import useCachedResource from '../../hooks/useCachedResource.js';
 import DataStatus from '../../components/DataStatus.jsx';
@@ -6,6 +6,7 @@ import { fetchUserDashboard } from '../../services/userDashboard.js';
 import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
 import DocumentStudioSection from '../../components/documentStudio/DocumentStudioSection.jsx';
 import ProjectGigManagementContainer from '../../components/projectGigManagement/ProjectGigManagementContainer.jsx';
+import EscrowManagementSection from '../../components/escrow/EscrowManagementSection.jsx';
 import useSession from '../../hooks/useSession.js';
 import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
 import DashboardBlogSpotlight from '../../components/blog/DashboardBlogSpotlight.jsx';
@@ -14,6 +15,12 @@ import AffiliateProgramSection from '../../components/affiliate/AffiliateProgram
 const DEFAULT_USER_ID = 1;
 const availableDashboards = ['user', 'freelancer', 'agency', 'company', 'headhunter'];
 const allowedDashboardRoles = availableDashboards;
+
+const ESCROW_VIEW_TO_MENU = {
+  overview: 'escrow-overview',
+  release: 'escrow-release',
+  disputes: 'escrow-disputes',
+};
 
 function resolveUserId(session) {
   if (!session) {
@@ -176,6 +183,9 @@ function buildMenuSections(data) {
   const pipelineAutomation = data?.careerPipelineAutomation ?? {};
   const automationMetrics = pipelineAutomation.kanban?.metrics ?? {};
   const automationBoardName = pipelineAutomation.board?.name ?? 'Career pipeline';
+  const escrowManagement = data?.escrowManagement ?? {};
+  const escrowSummary = escrowManagement.summary ?? {};
+  const escrowCurrency = escrowSummary.currency ?? 'USD';
   return [
     {
       label: 'Project & gig management',
@@ -294,6 +304,26 @@ function buildMenuSections(data) {
       ],
     },
     {
+      label: 'Funds',
+      items: [
+        {
+          id: 'escrow-overview',
+          name: 'Escrow',
+          sectionId: 'escrow-management',
+        },
+        {
+          id: 'escrow-release',
+          name: 'Release',
+          sectionId: 'escrow-management',
+        },
+        {
+          id: 'escrow-disputes',
+          name: 'Disputes',
+          sectionId: 'escrow-management',
+        },
+      ],
+    },
+    {
       label: 'Insights & network',
       items: [
         {
@@ -404,11 +434,51 @@ export default function UserDashboardPage() {
   const documents = data?.documents ?? { attachments: [], portfolioLinks: [] };
   const documentStudio = data?.documentStudio ?? null;
   const projectGigManagement = data?.projectGigManagement ?? null;
+  const escrowManagement = data?.escrowManagement ?? null;
   const notifications = Array.isArray(data?.notifications?.recent) ? data.notifications.recent : [];
   const projectActivity = Array.isArray(data?.projectActivity?.recent) ? data.projectActivity.recent : [];
   const launchpadApplications = Array.isArray(data?.launchpad?.applications) ? data.launchpad.applications : [];
   const affiliateProgram = data?.affiliate ?? null;
   const affiliateOverview = affiliateProgram?.overview ?? {};
+
+  const [activeMenuItem, setActiveMenuItem] = useState(null);
+  const [escrowView, setEscrowView] = useState('overview');
+
+  const handleMenuSelect = (itemId, item) => {
+    setActiveMenuItem(itemId);
+    if (itemId === 'escrow-overview') {
+      setEscrowView('overview');
+    } else if (itemId === 'escrow-release') {
+      setEscrowView('release');
+    } else if (itemId === 'escrow-disputes') {
+      setEscrowView('disputes');
+    }
+
+    if (item?.href && typeof window !== 'undefined') {
+      if (item.href.startsWith('http')) {
+        window.open(item.href, item.target ?? '_blank', 'noreferrer');
+      } else {
+        window.location.assign(item.href);
+      }
+      return;
+    }
+
+    const targetId = item?.sectionId ?? item?.targetId;
+    if (targetId && typeof document !== 'undefined') {
+      const targetElement = document.getElementById(targetId);
+      if (targetElement) {
+        targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  };
+
+  const handleEscrowViewChange = (view) => {
+    setEscrowView(view);
+    const menuId = ESCROW_VIEW_TO_MENU[view] ?? null;
+    if (menuId) {
+      setActiveMenuItem(menuId);
+    }
+  };
 
   const insights = data?.insights ?? {};
   const careerAnalytics = insights.careerAnalytics ?? {};
@@ -497,6 +567,8 @@ export default function UserDashboardPage() {
       sections={[]}
       profile={profileCard}
       availableDashboards={availableDashboards}
+      activeMenuItem={activeMenuItem}
+      onMenuItemSelect={handleMenuSelect}
     >
       <div className="space-y-10">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -1476,6 +1548,15 @@ export default function UserDashboardPage() {
         </section>
 
         <ProjectGigManagementContainer userId={userId} />
+        {escrowManagement ? (
+          <EscrowManagementSection
+            data={escrowManagement}
+            userId={userId}
+            onRefresh={() => refresh({ force: true })}
+            activeView={escrowView}
+            onViewChange={handleEscrowViewChange}
+          />
+        ) : null}
         {documentStudio ? (
           <DocumentStudioSection
             data={documentStudio}

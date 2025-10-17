@@ -24,9 +24,12 @@ import {
   FinanceRevenueEntry,
   FinanceExpenseEntry,
   FinanceSavingsGoal,
+  sequelize,
 } from '../src/models/index.js';
 import { getAgencyDashboard } from '../src/services/agencyDashboardService.js';
 import { createUser } from './helpers/factories.js';
+import { markDependencyHealthy } from '../src/lifecycle/runtimeHealth.js';
+import PlatformSetting from '../src/models/platformSetting.js';
 
 function buildDateOffset(days) {
   return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
@@ -40,6 +43,36 @@ describe('agencyDashboardService', () => {
   let client;
 
   beforeEach(async () => {
+    await sequelize.sync({ force: true });
+
+    markDependencyHealthy('database', { vendor: 'sqlite', configured: true });
+    markDependencyHealthy('paymentsCore', { provider: 'stripe', configured: true });
+    markDependencyHealthy('complianceProviders', { custodyProvider: 'stripe', escrowEnabled: true });
+
+    await PlatformSetting.create({
+      key: 'platform',
+      value: {
+        payments: {
+          provider: 'stripe',
+          stripe: {
+            publishableKey: 'pk_test_agency',
+            secretKey: 'sk_test_agency',
+            webhookSecret: 'whsec_test_agency',
+          },
+        },
+        storage: {
+          provider: 'cloudflare_r2',
+          cloudflare_r2: {
+            accountId: 'acc_test_agency',
+            accessKeyId: 'access_test_agency',
+            secretAccessKey: 'secret_test_agency',
+            bucket: 'gigvora-test-bucket',
+            endpoint: 'https://r2.example.com',
+          },
+        },
+      },
+    });
+
     owner = await createUser({ userType: 'agency', email: 'owner@nova.test', firstName: 'Nova', lastName: 'Lead' });
     strategist = await createUser({ userType: 'agency', email: 'strategist@nova.test', firstName: 'Mira' });
     benchDesigner = await createUser({ userType: 'agency', email: 'designer@nova.test', firstName: 'Kai' });
