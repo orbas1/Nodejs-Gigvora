@@ -11,6 +11,7 @@ export { default as searchIndexService } from './searchIndexService.js';
 export { default as searchSubscriptionService } from './searchSubscriptionService.js';
 export { default as autoAssignService } from './autoAssignService.js';
 export { default as aiAutoReplyService } from './aiAutoReplyService.js';
+export { default as agencyAiService } from './agencyAiService.js';
 export { default as projectService } from './projectService.js';
 export { default as launchpadService } from './launchpadService.js';
 export { default as profileService } from './profileService.js';
@@ -33,6 +34,8 @@ export { default as freelancerProfileHubService } from './freelancerProfileHubSe
 export { default as gigManagerService } from './gigManagerService.js';
 export { default as workspaceTemplateService } from './workspaceTemplateService.js';
 export { default as companyDashboardService } from './companyDashboardService.js';
+export { default as agencyOverviewService } from './agencyOverviewService.js';
+export { default as agencyTimelineService } from './agencyTimelineService.js';
 export { default as blogService } from './blogService.js';
 export { default as careerDocumentService } from './careerDocumentService.js';
 export { default as runtimeMaintenanceService } from './runtimeMaintenanceService.js';

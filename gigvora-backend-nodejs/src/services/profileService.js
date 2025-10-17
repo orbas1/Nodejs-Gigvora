@@ -979,8 +979,44 @@ function buildProfilePayload({ user, groups, connectionsCount, complianceSnapsho
     : null;
   const agencyProfile = plainUser.AgencyProfile
     ? {
+        id: plainUser.AgencyProfile.id,
         agencyName: plainUser.AgencyProfile.agencyName,
         focusArea: plainUser.AgencyProfile.focusArea,
+        tagline: plainUser.AgencyProfile.tagline ?? null,
+        summary: plainUser.AgencyProfile.summary ?? null,
+        about: plainUser.AgencyProfile.about ?? null,
+        services: coerceStringArray(plainUser.AgencyProfile.services),
+        industries: coerceStringArray(plainUser.AgencyProfile.industries),
+        clients: coerceStringArray(plainUser.AgencyProfile.clients),
+        awards: coerceStringArray(plainUser.AgencyProfile.awards),
+        socialLinks: coerceObjectArray(plainUser.AgencyProfile.socialLinks).map((link) => {
+          if (!link) {
+            return null;
+          }
+          const label = typeof link.label === 'string' ? link.label.trim() : null;
+          const url = typeof link.url === 'string' ? link.url.trim() : null;
+          if (!url) {
+            return null;
+          }
+          return {
+            label: label && label.length ? label : null,
+            url,
+          };
+        }).filter(Boolean),
+        teamSize: plainUser.AgencyProfile.teamSize == null ? null : Number(plainUser.AgencyProfile.teamSize),
+        foundedYear:
+          plainUser.AgencyProfile.foundedYear == null ? null : Number(plainUser.AgencyProfile.foundedYear),
+        primaryContactName: plainUser.AgencyProfile.primaryContactName ?? null,
+        primaryContactEmail: plainUser.AgencyProfile.primaryContactEmail ?? null,
+        primaryContactPhone: plainUser.AgencyProfile.primaryContactPhone ?? null,
+        brandColor: plainUser.AgencyProfile.brandColor ?? null,
+        bannerUrl: plainUser.AgencyProfile.bannerUrl ?? null,
+        avatarUrl: plainUser.AgencyProfile.avatarUrl ?? null,
+        avatarStorageKey: plainUser.AgencyProfile.avatarStorageKey ?? null,
+        autoAcceptFollowers: plainUser.AgencyProfile.autoAcceptFollowers ?? true,
+        defaultConnectionMessage: plainUser.AgencyProfile.defaultConnectionMessage ?? null,
+        followerPolicy: plainUser.AgencyProfile.followerPolicy ?? 'open',
+        connectionPolicy: plainUser.AgencyProfile.connectionPolicy ?? 'open',
         website: plainUser.AgencyProfile.website,
         location: plainUser.AgencyProfile.location ?? null,
         geoLocation: plainUser.AgencyProfile.geoLocation ?? null,
@@ -1042,6 +1078,7 @@ function buildProfilePayload({ user, groups, connectionsCount, complianceSnapsho
   return {
     id: plainUser.id,
     userId: plainUser.id,
+    profileId: profile.id,
     firstName: plainUser.firstName,
     lastName: plainUser.lastName,
     name: `${plainUser.firstName} ${plainUser.lastName}`.trim(),
