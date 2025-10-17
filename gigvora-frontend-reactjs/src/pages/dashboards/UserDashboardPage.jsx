@@ -8,6 +8,7 @@ import { fetchUserDashboard } from '../../services/userDashboard.js';
 import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
 import DocumentStudioSection from '../../components/documentStudio/DocumentStudioSection.jsx';
 import ProjectGigManagementContainer from '../../components/projectGigManagement/ProjectGigManagementContainer.jsx';
+import ProjectWorkspaceContainer from '../../components/projectWorkspace/ProjectWorkspaceContainer.jsx';
 import EscrowManagementSection from '../../components/escrow/EscrowManagementSection.jsx';
 import EventManagementSection from '../../components/eventManagement/EventManagementSection.jsx';
 import useSession from '../../hooks/useSession.js';
@@ -184,7 +185,9 @@ function buildMenuSections(data) {
   const documentStudio = data?.documentStudio;
   const documentSummary = documentStudio?.summary ?? {};
   const projectGigManagement = data?.projectGigManagement ?? {};
+  const projectWorkspace = data?.projectWorkspace ?? {};
   const projectSummary = projectGigManagement.summary ?? {};
+  const workspaceSummary = projectWorkspace.summary ?? {};
   const assetSummary = projectGigManagement.assets?.summary ?? {};
   const purchasedGigStats = projectGigManagement.purchasedGigs?.stats ?? {};
   const vendorAverages = purchasedGigStats.averages ?? {};
@@ -239,6 +242,14 @@ function buildMenuSections(data) {
           )} templates ready for mentors or freelancers.`,
           tags: ['briefs', 'collaboration'],
           sectionId: 'project-gig-creation',
+        },
+        {
+          name: 'Project workspace hub',
+          description: `Operate ${formatNumber(workspaceSummary.projectCount ?? 0)} workspaces with ${formatNumber(
+            workspaceSummary.activeCollaborators ?? 0,
+          )} collaborators active.`,
+          tags: ['workspace', 'collaboration'],
+          sectionId: 'project-workspace',
         },
         {
           name: 'Template gallery',
@@ -1739,6 +1750,7 @@ export default function UserDashboardPage() {
           </div>
         </section>
 
+        <ProjectWorkspaceContainer userId={userId} />
         {userId ? (
           <EventManagementSection data={eventManagement} userId={userId} onRefresh={() => refresh({ force: true })} />
         ) : null}

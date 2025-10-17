@@ -63,7 +63,7 @@ import { appCache, buildCacheKey } from '../utils/cache.js';
 import { ValidationError } from '../utils/errors.js';
 import careerPipelineAutomationService from './careerPipelineAutomationService.js';
 import { getAdDashboardSnapshot } from './adService.js';
-import { initializeWorkspaceForProject } from './projectWorkspaceService.js';
+import { initializeWorkspaceForProject, getProjectWorkspaceSummary } from './projectWorkspaceService.js';
 import affiliateDashboardService from './affiliateDashboardService.js';
 import { getUserWebsitePreferences } from './userWebsitePreferenceService.js';
 import userDisputeService from './userDisputeService.js';
@@ -3193,6 +3193,8 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     brandAssets: sanitizedBrandAssets,
   });
 
+  const projectWorkspaceSummary = await getProjectWorkspaceSummary(userId);
+
   const followUps = buildFollowUps(applications, targetMap);
 
   const automations = [];
@@ -3358,6 +3360,9 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     },
     escrowManagement,
     projectGigManagement,
+    projectWorkspace: {
+      summary: projectWorkspaceSummary,
+    },
     eventManagement,
     tasks: {
       followUps,

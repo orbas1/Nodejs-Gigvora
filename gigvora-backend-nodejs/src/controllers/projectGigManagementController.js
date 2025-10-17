@@ -32,6 +32,7 @@ import {
   postGigChatMessage,
   acknowledgeGigChatMessage,
 } from '../services/projectGigManagementWorkflowService.js';
+import { ensureManageAccess, ensureViewAccess, parseOwnerId } from '../utils/projectAccess.js';
 import { AuthorizationError } from '../utils/errors.js';
 import {
   resolveRequestPermissions,
