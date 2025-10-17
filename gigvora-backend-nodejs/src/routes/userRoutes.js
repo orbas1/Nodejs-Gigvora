@@ -5,6 +5,8 @@ import * as userDisputeController from '../controllers/userDisputeController.js'
 import asyncHandler from '../utils/asyncHandler.js';
 import authenticate from '../middleware/authenticate.js';
 import userConsentRoutes from './userConsentRoutes.js';
+import walletRoutes from './walletRoutes.js';
+import * as notificationController from '../controllers/notificationController.js';
 
 const router = Router();
 
@@ -58,7 +60,17 @@ router.get('/:id', asyncHandler(userController.getUserProfile));
 router.put('/:id', asyncHandler(userController.updateUser));
 router.patch('/:id/profile', asyncHandler(userController.updateProfileSettings));
 
+router.use(
+  '/:id/wallet',
+  authenticate({
+    roles: ['user', 'freelancer', 'agency', 'company', 'headhunter', 'admin'],
+    matchParam: 'id',
+  }),
+  walletRoutes,
+);
+
 const DOCUMENT_ROLES = ['user', 'freelancer', 'agency', 'company', 'headhunter', 'mentor', 'admin'];
+const NOTIFICATION_ROLES = ['user', 'freelancer', 'agency', 'company', 'headhunter', 'mentor', 'admin'];
 
 router.get(
   '/:id/cv-documents/workspace',
@@ -77,5 +89,36 @@ router.post(
 );
 
 router.use('/:id/consents', userConsentRoutes);
+
+router.get(
+  '/:id/notifications',
+  authenticate({ roles: NOTIFICATION_ROLES, matchParam: 'id' }),
+  asyncHandler(notificationController.listUserNotifications),
+);
+router.post(
+  '/:id/notifications',
+  authenticate({ roles: NOTIFICATION_ROLES, matchParam: 'id' }),
+  asyncHandler(notificationController.createUserNotification),
+);
+router.patch(
+  '/:id/notifications/:notificationId',
+  authenticate({ roles: NOTIFICATION_ROLES, matchParam: 'id' }),
+  asyncHandler(notificationController.updateUserNotification),
+);
+router.get(
+  '/:id/notifications/preferences',
+  authenticate({ roles: NOTIFICATION_ROLES, matchParam: 'id' }),
+  asyncHandler(notificationController.getUserNotificationPreferences),
+);
+router.put(
+  '/:id/notifications/preferences',
+  authenticate({ roles: NOTIFICATION_ROLES, matchParam: 'id' }),
+  asyncHandler(notificationController.updateUserNotificationPreferences),
+);
+router.post(
+  '/:id/notifications/mark-all-read',
+  authenticate({ roles: NOTIFICATION_ROLES, matchParam: 'id' }),
+  asyncHandler(notificationController.markAllUserNotificationsRead),
+);
 
 export default router;

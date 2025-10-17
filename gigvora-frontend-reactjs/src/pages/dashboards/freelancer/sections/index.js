@@ -1,6 +1,7 @@
 export { default as AutomationSection } from './AutomationSection.jsx';
 export { default as DeliveryOperationsSection } from './DeliveryOperationsSection.jsx';
 export { default as FinanceComplianceSection } from './FinanceComplianceSection.jsx';
+export { default as DisputeManagementSection } from './DisputeManagementSection.jsx';
 export { default as GigMarketplaceOperationsSection } from './GigMarketplaceOperationsSection.jsx';
 export { default as GigStudioSection } from './GigStudioSection.jsx';
 export { default as GrowthPartnershipSection } from './GrowthPartnershipSection.jsx';
@@ -9,10 +10,17 @@ export { default as OperationalQuickAccessSection } from './OperationalQuickAcce
 export { default as OperationsHQSection } from './OperationsHQSection.jsx';
 export { default as OverviewSection } from './OverviewSection.jsx';
 export { default as PlanningSection } from './PlanningSection.jsx';
+export { default as ProfileOverviewSection } from './ProfileOverviewSection.jsx';
 export { default as ProfileShowcaseSection } from './ProfileShowcaseSection.jsx';
+export { default as PortfolioManagementSection } from './PortfolioManagementSection.jsx';
+export { default as ProjectManagementSection } from './project-management/ProjectManagementSection.jsx';
 export { default as ProjectLabSection } from './ProjectLabSection.jsx';
 export { default as ProjectWorkspaceExcellenceSection } from './ProjectWorkspaceExcellenceSection.jsx';
 export { default as ReferencesSection } from './ReferencesSection.jsx';
+export { default as ReviewManagementSection } from './ReviewManagementSection.jsx';
 export { default as SupportSection } from './SupportSection.jsx';
 export { default as WorkspaceSettingsSection } from './WorkspaceSettingsSection.jsx';
 export { default as TaskManagementSection } from './TaskManagementSection.jsx';
+export { default as IdentityVerificationSection } from './identity/IdentityVerificationSection.jsx';
+export { default as VolunteeringManagementSection } from './volunteering/VolunteeringManagementSection.jsx';
+export { default as TimelineManagementSection } from './timeline/TimelineManagementSection.jsx';

@@ -14,7 +14,12 @@ export async function fetchCompanyDashboard({ workspaceId, workspaceSlug, lookba
   return apiClient.get('/company/dashboard', { params, signal });
 }
 
+export async function updateCompanyDashboardOverview(payload, { signal } = {}) {
+  return apiClient.put('/company/dashboard/overview', payload, { signal });
+}
+
 export default {
   fetchCompanyDashboard,
+  updateCompanyDashboardOverview,
 };
 
