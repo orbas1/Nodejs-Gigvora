@@ -2,10 +2,26 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   fetchProjectGigManagement,
   createProject,
+  updateProject,
   addProjectAsset,
+  updateProjectAsset,
+  deleteProjectAsset,
   updateWorkspace,
+  archiveProject,
+  restoreProject,
   createGigOrder,
   updateGigOrder,
+  createProjectMilestone,
+  updateProjectMilestone,
+  deleteProjectMilestone,
+  createProjectCollaborator,
+  updateProjectCollaborator,
+  deleteProjectCollaborator,
+  createGigTimelineEvent,
+  updateGigTimelineEvent,
+  createGigSubmission,
+  updateGigSubmission,
+  postGigChatMessage,
 } from '../services/projectGigManagement.js';
 
 export default function useProjectGigManagement(userId) {
@@ -37,35 +53,152 @@ export default function useProjectGigManagement(userId) {
       if (data?.access?.canManage === false) {
         throw new Error('You do not have permission to create project workspaces.');
       }
-      await createProject(userId, payload);
+      const response = await createProject(userId, payload);
+      await load();
+      return response;
+    },
+    async updateProject(projectId, payload) {
+      if (data?.access?.canManage === false) {
+        throw new Error('You do not have permission to update this project.');
+      }
+      await updateProject(userId, projectId, payload);
       await load();
     },
     async addAsset(projectId, payload) {
       if (data?.access?.canManage === false) {
         throw new Error('You do not have permission to update this project workspace.');
       }
-      await addProjectAsset(userId, projectId, payload);
+      const response = await addProjectAsset(userId, projectId, payload);
+      await load();
+      return response;
+    },
+    async updateAsset(projectId, assetId, payload) {
+      if (data?.access?.canManage === false) {
+        throw new Error('You do not have permission to update this project asset.');
+      }
+      await updateProjectAsset(userId, projectId, assetId, payload);
+      await load();
+    },
+    async deleteAsset(projectId, assetId) {
+      if (data?.access?.canManage === false) {
+        throw new Error('You do not have permission to delete this project asset.');
+      }
+      await deleteProjectAsset(userId, projectId, assetId);
       await load();
     },
     async updateWorkspace(projectId, payload) {
       if (data?.access?.canManage === false) {
         throw new Error('You do not have permission to update this project workspace.');
       }
-      await updateWorkspace(userId, projectId, payload);
+      const response = await updateWorkspace(userId, projectId, payload);
+      await load();
+      return response;
+    },
+    async createMilestone(projectId, payload) {
+      if (data?.access?.canManage === false) {
+        throw new Error('You do not have permission to manage project milestones.');
+      }
+      await createProjectMilestone(userId, projectId, payload);
+      await load();
+    },
+    async updateMilestone(projectId, milestoneId, payload) {
+      if (data?.access?.canManage === false) {
+        throw new Error('You do not have permission to manage project milestones.');
+      }
+      await updateProjectMilestone(userId, projectId, milestoneId, payload);
+      await load();
+    },
+    async deleteMilestone(projectId, milestoneId) {
+      if (data?.access?.canManage === false) {
+        throw new Error('You do not have permission to manage project milestones.');
+      }
+      await deleteProjectMilestone(userId, projectId, milestoneId);
+      await load();
+    },
+    async createCollaborator(projectId, payload) {
+      if (data?.access?.canManage === false) {
+        throw new Error('You do not have permission to manage project collaborators.');
+      }
+      await createProjectCollaborator(userId, projectId, payload);
+      await load();
+    },
+    async updateCollaborator(projectId, collaboratorId, payload) {
+      if (data?.access?.canManage === false) {
+        throw new Error('You do not have permission to manage project collaborators.');
+      }
+      await updateProjectCollaborator(userId, projectId, collaboratorId, payload);
+      await load();
+    },
+    async deleteCollaborator(projectId, collaboratorId) {
+      if (data?.access?.canManage === false) {
+        throw new Error('You do not have permission to manage project collaborators.');
+      }
+      await deleteProjectCollaborator(userId, projectId, collaboratorId);
+      await load();
+    },
+    async archiveProject(projectId, payload = {}) {
+      if (data?.access?.canManage === false) {
+        throw new Error('You do not have permission to archive this project.');
+      }
+      await archiveProject(userId, projectId, payload);
+      await load();
+    },
+    async restoreProject(projectId, payload = {}) {
+      if (data?.access?.canManage === false) {
+        throw new Error('You do not have permission to restore this project.');
+      }
+      await restoreProject(userId, projectId, payload);
       await load();
     },
     async createGigOrder(payload) {
       if (data?.access?.canManage === false) {
         throw new Error('You do not have permission to manage gig orders.');
       }
-      await createGigOrder(userId, payload);
+      const response = await createGigOrder(userId, payload);
       await load();
+      return response;
     },
     async updateGigOrder(orderId, payload) {
       if (data?.access?.canManage === false) {
         throw new Error('You do not have permission to manage gig orders.');
       }
-      await updateGigOrder(userId, orderId, payload);
+      const response = await updateGigOrder(userId, orderId, payload);
+      await load();
+      return response;
+    },
+    async createGigTimelineEvent(orderId, payload) {
+      if (data?.access?.canManage === false) {
+        throw new Error('You do not have permission to manage gig timelines.');
+      }
+      await createGigTimelineEvent(userId, orderId, payload);
+      await load();
+    },
+    async updateGigTimelineEvent(orderId, eventId, payload) {
+      if (data?.access?.canManage === false) {
+        throw new Error('You do not have permission to manage gig timelines.');
+      }
+      await updateGigTimelineEvent(userId, orderId, eventId, payload);
+      await load();
+    },
+    async createGigSubmission(orderId, payload) {
+      if (data?.access?.canManage === false) {
+        throw new Error('You do not have permission to log gig submissions.');
+      }
+      await createGigSubmission(userId, orderId, payload);
+      await load();
+    },
+    async updateGigSubmission(orderId, submissionId, payload) {
+      if (data?.access?.canManage === false) {
+        throw new Error('You do not have permission to update gig submissions.');
+      }
+      await updateGigSubmission(userId, orderId, submissionId, payload);
+      await load();
+    },
+    async postGigChatMessage(orderId, payload) {
+      if (data?.access?.canManage === false) {
+        throw new Error('You do not have permission to post in-gig chat messages.');
+      }
+      await postGigChatMessage(userId, orderId, payload);
       await load();
     },
   }), [data?.access?.canManage, userId, load]);

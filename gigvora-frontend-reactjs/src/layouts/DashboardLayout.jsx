@@ -170,6 +170,7 @@ export default function DashboardLayout({
   onMenuItemSelect,
   adSurface,
 }) {
+  const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openDrawers, setOpenDrawers] = useState(() => new Set());
@@ -455,6 +456,27 @@ export default function DashboardLayout({
         return;
       }
       navigate(item.href);
+      const href = item.href.trim();
+      const isExternal = /^https?:\/\//i.test(href);
+      if (isExternal) {
+        window.open(href, item.target ?? '_blank', 'noreferrer');
+        setMobileOpen(false);
+        return;
+      }
+
+      if (href.startsWith('#')) {
+        const targetId = href.slice(1);
+        if (targetId && typeof document !== 'undefined') {
+          const targetElement = document.getElementById(targetId);
+          if (targetElement) {
+            targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }
+        setMobileOpen(false);
+        return;
+      }
+
+      navigate(href, { replace: false });
       setMobileOpen(false);
       return;
     }

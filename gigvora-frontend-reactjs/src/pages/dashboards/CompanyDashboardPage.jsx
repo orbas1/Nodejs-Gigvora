@@ -18,6 +18,7 @@ import PartnershipsSourcingSection from '../../components/dashboard/Partnerships
 import JobLifecycleSection from '../../components/company/JobLifecycleSection.jsx';
 import InterviewExperienceSection from '../../components/dashboard/InterviewExperienceSection.jsx';
 import AccessDeniedPanel from '../../components/dashboard/AccessDeniedPanel.jsx';
+import CompanyDashboardOverviewSection from '../../components/company/CompanyDashboardOverviewSection.jsx';
 import { useCompanyDashboard } from '../../hooks/useCompanyDashboard.js';
 import { useSession } from '../../context/SessionContext.jsx';
 import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
@@ -1122,6 +1123,13 @@ export default function CompanyDashboardPage() {
             {error.message || 'Unable to load company dashboard data.'}
           </div>
         ) : null}
+
+        <CompanyDashboardOverviewSection
+          overview={data?.overview}
+          profile={profile}
+          workspace={data?.workspace}
+          onOverviewUpdated={() => refresh({ force: true })}
+        />
 
         <SummaryCardGrid cards={enrichedSummaryCards} />
 
