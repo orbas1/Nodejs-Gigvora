@@ -83,6 +83,7 @@ import { appCache, buildCacheKey } from '../utils/cache.js';
 import { AuthenticationError, AuthorizationError, NotFoundError } from '../utils/errors.js';
 import { getAdDashboardSnapshot } from './adService.js';
 import { getFinanceControlTowerOverview } from './financeService.js';
+import { getCreationStudioSnapshot } from './agencyCreationStudioService.js';
 
 const ACTIVE_MEMBER_STATUSES = ['active'];
 const PROJECT_STATUS_BUCKETS = {
@@ -3544,6 +3545,10 @@ export async function getAgencyDashboard(
     }
 
     const agencyProfilePlain = agencyProfile ? agencyProfile.get({ plain: true }) : null;
+    const creationStudio = await getCreationStudioSnapshot(
+      { agencyProfileId: agencyProfilePlain?.id ?? null },
+      { actorId, actorRole },
+    );
 
     const formattedProjects = scopedProjects.map((project) => ({
       id: project.id,
@@ -4304,6 +4309,7 @@ export async function getAgencyDashboard(
     return {
       workspace: workspace ? sanitizeWorkspaceRecord(workspace) : null,
       agencyProfile: agencyProfilePlain,
+      creationStudio,
       scope,
       summary: {
         members: membersSummary,
