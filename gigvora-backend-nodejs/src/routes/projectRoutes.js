@@ -63,6 +63,173 @@ router.delete(
   requireProjectManagementRole,
   asyncHandler(projectOperationsController.removeTask),
 );
+router.post('/:projectId/operations/budgets', requireProjectManagementRole, asyncHandler(projectOperationsController.createBudget));
+router.patch(
+  '/:projectId/operations/budgets/:budgetId',
+  requireProjectManagementRole,
+  asyncHandler(projectOperationsController.updateBudget),
+);
+router.delete(
+  '/:projectId/operations/budgets/:budgetId',
+  requireProjectManagementRole,
+  asyncHandler(projectOperationsController.deleteBudget),
+);
+router.post('/:projectId/operations/objects', requireProjectManagementRole, asyncHandler(projectOperationsController.createObject));
+router.patch(
+  '/:projectId/operations/objects/:objectId',
+  requireProjectManagementRole,
+  asyncHandler(projectOperationsController.updateObject),
+);
+router.delete(
+  '/:projectId/operations/objects/:objectId',
+  requireProjectManagementRole,
+  asyncHandler(projectOperationsController.deleteObject),
+);
+router.post(
+  '/:projectId/operations/timeline/events',
+  requireProjectManagementRole,
+  asyncHandler(projectOperationsController.createTimelineEvent),
+);
+router.patch(
+  '/:projectId/operations/timeline/events/:eventId',
+  requireProjectManagementRole,
+  asyncHandler(projectOperationsController.updateTimelineEvent),
+);
+router.delete(
+  '/:projectId/operations/timeline/events/:eventId',
+  requireProjectManagementRole,
+  asyncHandler(projectOperationsController.deleteTimelineEvent),
+);
+router.post('/:projectId/operations/meetings', requireProjectManagementRole, asyncHandler(projectOperationsController.createMeeting));
+router.patch(
+  '/:projectId/operations/meetings/:meetingId',
+  requireProjectManagementRole,
+  asyncHandler(projectOperationsController.updateMeeting),
+);
+router.delete(
+  '/:projectId/operations/meetings/:meetingId',
+  requireProjectManagementRole,
+  asyncHandler(projectOperationsController.deleteMeeting),
+);
+router.post(
+  '/:projectId/operations/calendar',
+  requireProjectManagementRole,
+  asyncHandler(projectOperationsController.createCalendarEntry),
+);
+router.patch(
+  '/:projectId/operations/calendar/:entryId',
+  requireProjectManagementRole,
+  asyncHandler(projectOperationsController.updateCalendarEntry),
+);
+router.delete(
+  '/:projectId/operations/calendar/:entryId',
+  requireProjectManagementRole,
+  asyncHandler(projectOperationsController.deleteCalendarEntry),
+);
+router.post('/:projectId/operations/roles', requireProjectManagementRole, asyncHandler(projectOperationsController.createRole));
+router.patch(
+  '/:projectId/operations/roles/:roleId',
+  requireProjectManagementRole,
+  asyncHandler(projectOperationsController.updateRole),
+);
+router.delete(
+  '/:projectId/operations/roles/:roleId',
+  requireProjectManagementRole,
+  asyncHandler(projectOperationsController.deleteRole),
+);
+router.post(
+  '/:projectId/operations/submissions',
+  requireProjectManagementRole,
+  asyncHandler(projectOperationsController.createSubmission),
+);
+router.patch(
+  '/:projectId/operations/submissions/:submissionId',
+  requireProjectManagementRole,
+  asyncHandler(projectOperationsController.updateSubmission),
+);
+router.delete(
+  '/:projectId/operations/submissions/:submissionId',
+  requireProjectManagementRole,
+  asyncHandler(projectOperationsController.deleteSubmission),
+);
+router.post('/:projectId/operations/invites', requireProjectManagementRole, asyncHandler(projectOperationsController.createInvite));
+router.patch(
+  '/:projectId/operations/invites/:inviteId',
+  requireProjectManagementRole,
+  asyncHandler(projectOperationsController.updateInvite),
+);
+router.delete(
+  '/:projectId/operations/invites/:inviteId',
+  requireProjectManagementRole,
+  asyncHandler(projectOperationsController.deleteInvite),
+);
+router.post('/:projectId/operations/hr', requireProjectManagementRole, asyncHandler(projectOperationsController.createHrRecord));
+router.patch(
+  '/:projectId/operations/hr/:recordId',
+  requireProjectManagementRole,
+  asyncHandler(projectOperationsController.updateHrRecord),
+);
+router.delete(
+  '/:projectId/operations/hr/:recordId',
+  requireProjectManagementRole,
+  asyncHandler(projectOperationsController.deleteHrRecord),
+);
+router.post(
+  '/:projectId/operations/time-logs',
+  requireProjectManagementRole,
+  asyncHandler(projectOperationsController.createTimeLog),
+);
+router.patch(
+  '/:projectId/operations/time-logs/:logId',
+  requireProjectManagementRole,
+  asyncHandler(projectOperationsController.updateTimeLog),
+);
+router.delete(
+  '/:projectId/operations/time-logs/:logId',
+  requireProjectManagementRole,
+  asyncHandler(projectOperationsController.deleteTimeLog),
+);
+router.post('/:projectId/operations/targets', requireProjectManagementRole, asyncHandler(projectOperationsController.createTarget));
+router.patch(
+  '/:projectId/operations/targets/:targetId',
+  requireProjectManagementRole,
+  asyncHandler(projectOperationsController.updateTarget),
+);
+router.delete(
+  '/:projectId/operations/targets/:targetId',
+  requireProjectManagementRole,
+  asyncHandler(projectOperationsController.deleteTarget),
+);
+router.post(
+  '/:projectId/operations/objectives',
+  requireProjectManagementRole,
+  asyncHandler(projectOperationsController.createObjective),
+);
+router.patch(
+  '/:projectId/operations/objectives/:objectiveId',
+  requireProjectManagementRole,
+  asyncHandler(projectOperationsController.updateObjective),
+);
+router.delete(
+  '/:projectId/operations/objectives/:objectiveId',
+  requireProjectManagementRole,
+  asyncHandler(projectOperationsController.deleteObjective),
+);
+router.post(
+  '/:projectId/operations/conversations/:conversationId/messages',
+  requireProjectManagementRole,
+  asyncHandler(projectOperationsController.postConversationMessage),
+);
+router.post('/:projectId/operations/files', requireProjectManagementRole, asyncHandler(projectOperationsController.createFile));
+router.patch(
+  '/:projectId/operations/files/:fileId',
+  requireProjectManagementRole,
+  asyncHandler(projectOperationsController.updateFile),
+);
+router.delete(
+  '/:projectId/operations/files/:fileId',
+  requireProjectManagementRole,
+  asyncHandler(projectOperationsController.deleteFile),
 router.post(
   '/:projectId/workspace/management/:entity',
   requireProjectManagementRole,

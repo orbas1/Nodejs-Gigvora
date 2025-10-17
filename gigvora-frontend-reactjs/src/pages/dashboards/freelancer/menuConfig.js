@@ -115,6 +115,9 @@ export const MENU_GROUPS = [
     label: 'Workspace',
     items: [
       {
+        id: 'workspace',
+        name: 'Workspace',
+        description: 'Projects, delivery rooms, and collaboration tools.',
         id: 'project-excellence',
         name: 'Workspaces',
         description: null,
