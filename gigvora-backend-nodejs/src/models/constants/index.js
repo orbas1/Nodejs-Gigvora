@@ -62,6 +62,12 @@ export const APPLICATION_STATUSES = [
 ];
 export const APPLICATION_REVIEW_STAGES = ['screen', 'interview', 'assessment', 'final', 'offer'];
 export const APPLICATION_REVIEW_DECISIONS = ['pending', 'advance', 'reject', 'hold', 'withdrawn'];
+export const JOB_APPLICATION_FAVOURITE_PRIORITIES = ['watching', 'warm', 'hot'];
+export const JOB_INTERVIEW_TYPES = ['phone', 'video', 'onsite', 'panel', 'assignment', 'other'];
+export const JOB_INTERVIEW_STATUSES = ['scheduled', 'completed', 'cancelled', 'rescheduled', 'no_show'];
+export const JOB_APPLICATION_RESPONSE_DIRECTIONS = ['incoming', 'outgoing', 'system'];
+export const JOB_APPLICATION_RESPONSE_CHANNELS = ['email', 'phone', 'portal', 'message', 'sms'];
+export const JOB_APPLICATION_RESPONSE_STATUSES = ['pending', 'sent', 'received', 'acknowledged', 'needs_follow_up'];
 export const AUTO_ASSIGN_STATUSES = [
   'pending',
   'notified',

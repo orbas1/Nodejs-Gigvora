@@ -65,6 +65,7 @@ import careerPipelineAutomationService from './careerPipelineAutomationService.j
 import { getAdDashboardSnapshot } from './adService.js';
 import { initializeWorkspaceForProject, getProjectWorkspaceSummary } from './projectWorkspaceService.js';
 import affiliateDashboardService from './affiliateDashboardService.js';
+import { getJobApplicationWorkspace as getJobApplicationWorkspaceSnapshot } from './jobApplicationService.js';
 import userNetworkingService from './userNetworkingService.js';
 import volunteeringManagementService from './volunteeringManagementService.js';
 import userMentoringService from './userMentoringService.js';
@@ -3344,6 +3345,11 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
 
   const websitePreferences = await getUserWebsitePreferences(normalizedUserId);
 
+  const jobApplicationsWorkspace = await getJobApplicationWorkspaceSnapshot(userId, {
+    actorId: userId,
+    limit: 30,
+  });
+
   return {
     generatedAt: new Date().toISOString(),
     profile,
@@ -3380,6 +3386,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
       followUps,
       automations,
     },
+    jobApplicationsWorkspace,
     networking,
     insights: {
       careerAnalytics,
