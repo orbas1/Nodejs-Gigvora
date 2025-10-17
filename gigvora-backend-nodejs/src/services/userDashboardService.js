@@ -31,6 +31,7 @@ import {
   WeeklyDigestSubscription,
   CalendarIntegration,
   CandidateCalendarEvent,
+  UserCalendarSetting,
   FocusSession,
   AdvisorCollaboration,
   AdvisorCollaborationMember,
@@ -45,15 +46,36 @@ import {
   CareerDocumentExport,
   CareerStoryBlock,
   CareerBrandAsset,
+  EscrowAccount,
+  EscrowTransaction,
+  DisputeCase,
+  SearchSubscription,
 } from '../models/index.js';
+import {
+  ESCROW_ACCOUNT_STATUSES,
+  ESCROW_INTEGRATION_PROVIDERS,
+  ESCROW_TRANSACTION_STATUSES,
+  ESCROW_TRANSACTION_TYPES,
+  DISPUTE_STATUSES,
+  DISPUTE_PRIORITIES,
+} from '../models/constants/index.js';
 import profileService from './profileService.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
 import { ValidationError } from '../utils/errors.js';
 import careerPipelineAutomationService from './careerPipelineAutomationService.js';
 import { getAdDashboardSnapshot } from './adService.js';
-import { initializeWorkspaceForProject } from './projectWorkspaceService.js';
+import { initializeWorkspaceForProject, getProjectWorkspaceSummary } from './projectWorkspaceService.js';
 import affiliateDashboardService from './affiliateDashboardService.js';
 import profileHubService from './profileHubService.js';
+import creationStudioService from './creationStudioService.js';
+import { getJobApplicationWorkspace as getJobApplicationWorkspaceSnapshot } from './jobApplicationService.js';
+import userNetworkingService from './userNetworkingService.js';
+import volunteeringManagementService from './volunteeringManagementService.js';
+import userMentoringService from './userMentoringService.js';
+import { getUserWebsitePreferences } from './userWebsitePreferenceService.js';
+import userDisputeService from './userDisputeService.js';
+import eventManagementService from './eventManagementService.js';
+import notificationService from './notificationService.js';
 
 const CACHE_NAMESPACE = 'dashboard:user';
 const CACHE_TTL_SECONDS = 60;
@@ -62,6 +84,9 @@ const TERMINAL_STATUSES = new Set(['withdrawn', 'rejected', 'hired']);
 const OFFER_STATUSES = new Set(['offered', 'hired']);
 const INTERVIEW_STATUSES = new Set(['interview']);
 const FOLLOW_UP_STATUSES = new Set(['submitted', 'under_review', 'shortlisted', 'interview', 'offered']);
+const ESCROW_PENDING_STATUSES = new Set(['initiated', 'funded', 'in_escrow', 'disputed']);
+const ESCROW_RELEASED_STATUSES = new Set(['released']);
+const ESCROW_REFUND_STATUSES = new Set(['refunded']);
 
 function normalizeUserId(userId) {
   const numeric = Number(userId);
@@ -208,6 +233,326 @@ function collectAttachments(applications) {
     }
   });
   return attachments;
+}
+
+function sanitizeSearchSubscription(record) {
+  if (!record) {
+    return null;
+  }
+  if (typeof record.toPublicObject === 'function') {
+    return record.toPublicObject();
+  }
+  if (typeof record.get === 'function') {
+    return record.get({ plain: true });
+  }
+  return { ...record };
+}
+
+function formatCategoryLabel(value) {
+  if (!value) return 'Mixed opportunities';
+  const normalised = `${value}`.trim().toLowerCase();
+  switch (normalised) {
+    case 'job':
+    case 'jobs':
+      return 'Jobs';
+    case 'gig':
+    case 'gigs':
+      return 'Gigs';
+    case 'project':
+    case 'projects':
+      return 'Projects';
+    case 'launchpad':
+      return 'Experience launchpads';
+    case 'volunteering':
+      return 'Volunteering';
+    case 'people':
+      return 'People';
+    case 'mixed':
+      return 'Mixed opportunities';
+    default:
+      return normalised.charAt(0).toUpperCase() + normalised.slice(1);
+  }
+}
+
+function formatFrequencyLabel(value) {
+  if (!value) return 'Daily';
+  const normalised = `${value}`.trim().toLowerCase();
+  switch (normalised) {
+    case 'immediate':
+      return 'Immediate';
+    case 'daily':
+      return 'Daily';
+    case 'weekly':
+      return 'Weekly';
+    default:
+      return normalised.charAt(0).toUpperCase() + normalised.slice(1);
+  }
+}
+
+function describeOpportunityCount(count) {
+  if (count >= 75) return 'High demand';
+  if (count >= 30) return 'Growing momentum';
+  if (count > 0) return 'Emerging activity';
+  return 'Monitor for changes';
+}
+
+function buildSearchStats(savedSearches) {
+  const totals = {
+    saved: 0,
+    withEmailAlerts: 0,
+    withInAppAlerts: 0,
+    remoteEnabled: 0,
+  };
+  const categories = new Map();
+  const frequencies = new Map();
+  const now = new Date();
+  const dueSoonThreshold = new Date(now.getTime() + 72 * 60 * 60 * 1000);
+
+  let nextRunAt = null;
+  let lastTriggeredAt = null;
+  let overdue = 0;
+  let dueSoon = 0;
+
+  savedSearches.forEach((search) => {
+    totals.saved += 1;
+    const categoryKey = (search.category ?? 'mixed').toLowerCase();
+    categories.set(categoryKey, (categories.get(categoryKey) ?? 0) + 1);
+
+    const frequencyKey = (search.frequency ?? 'daily').toLowerCase();
+    frequencies.set(frequencyKey, (frequencies.get(frequencyKey) ?? 0) + 1);
+
+    if (search.notifyByEmail) {
+      totals.withEmailAlerts += 1;
+    }
+    if (search.notifyInApp) {
+      totals.withInAppAlerts += 1;
+    }
+    if (search.filters?.isRemote === true) {
+      totals.remoteEnabled += 1;
+    }
+
+    if (search.lastTriggeredAt) {
+      const last = new Date(search.lastTriggeredAt);
+      if (!Number.isNaN(last.getTime())) {
+        if (!lastTriggeredAt || last > lastTriggeredAt) {
+          lastTriggeredAt = last;
+        }
+      }
+    } else if (search.updatedAt) {
+      const updated = new Date(search.updatedAt);
+      if (!Number.isNaN(updated.getTime())) {
+        if (!lastTriggeredAt || updated > lastTriggeredAt) {
+          lastTriggeredAt = updated;
+        }
+      }
+    }
+
+    if (search.nextRunAt) {
+      const next = new Date(search.nextRunAt);
+      if (!Number.isNaN(next.getTime())) {
+        if (!nextRunAt || next < nextRunAt) {
+          nextRunAt = next;
+        }
+        if (next < now) {
+          overdue += 1;
+        } else if (next <= dueSoonThreshold) {
+          dueSoon += 1;
+        }
+      }
+    }
+  });
+
+  const categoryDistribution = Array.from(categories.entries())
+    .map(([key, count]) => ({
+      key,
+      label: formatCategoryLabel(key),
+      count,
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  const frequencyDistribution = Array.from(frequencies.entries())
+    .map(([key, count]) => ({
+      key,
+      label: formatFrequencyLabel(key),
+      count,
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  return {
+    totals,
+    distribution: {
+      categories: categoryDistribution,
+      frequencies: frequencyDistribution,
+    },
+    schedule: {
+      nextRunAt: nextRunAt ? nextRunAt.toISOString() : null,
+      lastTriggeredAt: lastTriggeredAt ? lastTriggeredAt.toISOString() : null,
+      overdue,
+      dueSoon,
+    },
+  };
+}
+
+function computeKeywordHighlights(savedSearches, limit = 6) {
+  const tokens = new Map();
+  savedSearches.forEach((search) => {
+    if (!search.query) {
+      return;
+    }
+    const parts = `${search.query}`
+      .split(/\s+/)
+      .map((part) => part.replace(/[^\w#\+\-]/g, '').toLowerCase())
+      .filter((part) => part.length >= 3 && !Number.isFinite(Number(part)));
+    parts.forEach((part) => {
+      tokens.set(part, (tokens.get(part) ?? 0) + 1);
+    });
+  });
+
+  return Array.from(tokens.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([keyword, count]) => ({ keyword, count }));
+}
+
+function buildUpcomingRuns(savedSearches, limit = 8) {
+  const now = new Date();
+  return savedSearches
+    .map((search) => {
+      if (!search.nextRunAt) {
+        return null;
+      }
+      const next = new Date(search.nextRunAt);
+      if (Number.isNaN(next.getTime())) {
+        return null;
+      }
+      return {
+        id: search.id,
+        name: search.name,
+        nextRunAt: next.toISOString(),
+        frequency: search.frequency ?? 'daily',
+        notifyByEmail: Boolean(search.notifyByEmail),
+        notifyInApp: Boolean(search.notifyInApp),
+        status: next < now ? 'overdue' : 'scheduled',
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => new Date(a.nextRunAt) - new Date(b.nextRunAt))
+    .slice(0, limit);
+}
+
+function buildSearchMarketIntelligence({ jobCategoryRows = [], jobLocationRows = [], gigCategoryRows = [] }) {
+  const categories = jobCategoryRows
+    .map((row) => {
+      const value = row.employmentType ?? 'mixed';
+      const count = Number(row.count ?? 0);
+      return {
+        id: value,
+        label: formatCategoryLabel(value),
+        totalRoles: count,
+        insight: describeOpportunityCount(count),
+      };
+    })
+    .filter((entry) => entry.totalRoles > 0);
+
+  const locations = jobLocationRows
+    .map((row) => {
+      const location = row.location ?? 'Flexible / Remote';
+      const count = Number(row.count ?? 0);
+      return {
+        location,
+        totalRoles: count,
+        insight: describeOpportunityCount(count),
+      };
+    })
+    .filter((entry) => entry.totalRoles > 0);
+
+  const gigCategories = gigCategoryRows
+    .map((row) => {
+      const value = row.category ?? 'General services';
+      const count = Number(row.count ?? 0);
+      return {
+        id: value,
+        label: value.charAt(0).toUpperCase() + value.slice(1),
+        totalListings: count,
+        insight: describeOpportunityCount(count),
+      };
+    })
+    .filter((entry) => entry.totalListings > 0);
+
+  return {
+    categoryHighlights: categories.slice(0, 6),
+    locationHighlights: locations.slice(0, 6),
+    gigHighlights: gigCategories.slice(0, 6),
+  };
+}
+
+async function loadTopSearchModule(userId) {
+  const subscriptionRecords = await SearchSubscription.findAll({
+    where: { userId },
+    order: [
+      ['updatedAt', 'DESC'],
+      ['id', 'DESC'],
+    ],
+    limit: 50,
+  });
+
+  const savedSearches = subscriptionRecords
+    .map((subscription) => sanitizeSearchSubscription(subscription))
+    .filter(Boolean);
+
+  const [jobCategoryRows, jobLocationRows, gigCategoryRows] = await Promise.all([
+    Job.findAll({
+      attributes: ['employmentType', [fn('COUNT', col('id')), 'count']],
+      group: ['employmentType'],
+      order: [[fn('COUNT', col('id')), 'DESC']],
+      limit: 8,
+      raw: true,
+    }),
+    Job.findAll({
+      attributes: ['location', [fn('COUNT', col('id')), 'count']],
+      where: { location: { [Op.ne]: null } },
+      group: ['location'],
+      order: [[fn('COUNT', col('id')), 'DESC']],
+      limit: 8,
+      raw: true,
+    }),
+    Gig.findAll({
+      attributes: ['category', [fn('COUNT', col('id')), 'count']],
+      where: { status: { [Op.ne]: 'draft' } },
+      group: ['category'],
+      order: [[fn('COUNT', col('id')), 'DESC']],
+      limit: 8,
+      raw: true,
+    }),
+  ]);
+
+  const stats = buildSearchStats(savedSearches);
+  const keywordHighlights = computeKeywordHighlights(savedSearches);
+  const upcomingRuns = buildUpcomingRuns(savedSearches);
+  const marketIntelligence = buildSearchMarketIntelligence({
+    jobCategoryRows,
+    jobLocationRows,
+    gigCategoryRows,
+  });
+
+  return {
+    savedSearches,
+    stats: {
+      ...stats,
+      keywordHighlights,
+    },
+    upcomingRuns,
+    recommendations: marketIntelligence,
+    permissions: {
+      canCreate: true,
+      canUpdate: true,
+      canDelete: true,
+      canRun: true,
+    },
+    actions: {
+      openExplorer: '/search',
+    },
+  };
 }
 
 function toPlainUser(instance) {
@@ -433,6 +778,287 @@ function sanitizeGigOrderForDocument(orderInstance) {
     vendorScorecards,
     escrowPendingAmount,
     nextEscrowReleaseAt: nextEscrowRelease?.releasedAt ?? null,
+  };
+}
+
+function normaliseMoney(value) {
+  const numeric = Number.parseFloat(value ?? 0);
+  if (!Number.isFinite(numeric)) {
+    return 0;
+  }
+  return Number.parseFloat(numeric.toFixed(2));
+}
+
+function sanitizeEscrowTransaction(transactionInstance) {
+  if (!transactionInstance) return null;
+  const base =
+    transactionInstance.toPublicObject?.() ??
+    transactionInstance.get?.({ plain: true }) ??
+    { ...transactionInstance };
+  const accountInstance =
+    transactionInstance.get?.('account') ?? transactionInstance.account ?? base.account ?? null;
+  const initiatorInstance =
+    transactionInstance.get?.('initiator') ?? transactionInstance.initiator ?? null;
+  const counterpartyInstance =
+    transactionInstance.get?.('counterparty') ?? transactionInstance.counterparty ?? null;
+
+  return {
+    ...base,
+    amount: normaliseMoney(base.amount),
+    feeAmount: normaliseMoney(base.feeAmount ?? 0),
+    netAmount: normaliseMoney(base.netAmount ?? base.amount ?? 0),
+    currencyCode: base.currencyCode ?? accountInstance?.currencyCode ?? 'USD',
+    createdAt: base.createdAt ?? transactionInstance.createdAt ?? null,
+    updatedAt: base.updatedAt ?? transactionInstance.updatedAt ?? null,
+    accountId: base.accountId ?? accountInstance?.id ?? null,
+    account: accountInstance?.toPublicObject?.() ?? accountInstance ?? null,
+    initiator: toPlainUser(initiatorInstance),
+    counterparty: toPlainUser(counterpartyInstance),
+    milestoneLabel: base.milestoneLabel ?? null,
+    scheduledReleaseAt: base.scheduledReleaseAt ?? null,
+    releasedAt: base.releasedAt ?? null,
+    refundedAt: base.refundedAt ?? null,
+    disputes: [],
+    hasOpenDispute: false,
+    hasAuditTrail: Array.isArray(base.auditTrail) ? base.auditTrail.length > 0 : false,
+  };
+}
+
+function sanitizeEscrowAccount(accountInstance, transactionsByAccount) {
+  if (!accountInstance) return null;
+  const base =
+    accountInstance.toPublicObject?.() ?? accountInstance.get?.({ plain: true }) ?? { ...accountInstance };
+  const transactions = transactionsByAccount.get(base.id) ?? [];
+
+  const stats = transactions.reduce(
+    (accumulator, transaction) => {
+      const amount = normaliseMoney(transaction.amount);
+      if (ESCROW_PENDING_STATUSES.has(transaction.status)) {
+        accumulator.inEscrow += amount;
+      }
+      if (ESCROW_RELEASED_STATUSES.has(transaction.status)) {
+        accumulator.released += amount;
+      }
+      if (ESCROW_REFUND_STATUSES.has(transaction.status)) {
+        accumulator.refunded += amount;
+      }
+      if (transaction.hasOpenDispute) {
+        accumulator.disputed += amount;
+      }
+      return accumulator;
+    },
+    { inEscrow: 0, released: 0, refunded: 0, disputed: 0 },
+  );
+
+  const nextRelease = transactions
+    .filter((transaction) => ESCROW_PENDING_STATUSES.has(transaction.status) && transaction.scheduledReleaseAt)
+    .sort((a, b) => {
+      const aTime = new Date(a.scheduledReleaseAt).getTime();
+      const bTime = new Date(b.scheduledReleaseAt).getTime();
+      return aTime - bTime;
+    })[0];
+
+  return {
+    ...base,
+    currentBalance: normaliseMoney(base.currentBalance ?? 0),
+    pendingReleaseTotal: normaliseMoney(base.pendingReleaseTotal ?? 0),
+    totals: {
+      transactions: transactions.length,
+      inEscrow: Number.parseFloat(stats.inEscrow.toFixed(2)),
+      released: Number.parseFloat(stats.released.toFixed(2)),
+      refunded: Number.parseFloat(stats.refunded.toFixed(2)),
+      disputed: Number.parseFloat(stats.disputed.toFixed(2)),
+    },
+    nextReleaseAt: nextRelease?.scheduledReleaseAt ?? null,
+    recentTransactions: transactions.slice(0, 5).map((transaction) => ({
+      id: transaction.id,
+      reference: transaction.reference,
+      status: transaction.status,
+      amount: transaction.amount,
+      scheduledReleaseAt: transaction.scheduledReleaseAt,
+      createdAt: transaction.createdAt,
+    })),
+  };
+}
+
+function sanitizeDisputeCase(disputeInstance) {
+  if (!disputeInstance) return null;
+  const base =
+    disputeInstance.toPublicObject?.() ?? disputeInstance.get?.({ plain: true }) ?? { ...disputeInstance };
+  const transactionInstance =
+    disputeInstance.get?.('transaction') ?? disputeInstance.transaction ?? base.transaction ?? null;
+  const accountInstance = transactionInstance?.get?.('account') ?? transactionInstance?.account ?? null;
+
+  return {
+    ...base,
+    openedBy: toPlainUser(disputeInstance.get?.('openedBy') ?? disputeInstance.openedBy),
+    assignedTo: toPlainUser(disputeInstance.get?.('assignedTo') ?? disputeInstance.assignedTo),
+    transaction: transactionInstance
+      ? {
+          id: transactionInstance.id,
+          reference: transactionInstance.reference,
+          status: transactionInstance.status,
+          amount: normaliseMoney(transactionInstance.amount ?? 0),
+          scheduledReleaseAt: transactionInstance.scheduledReleaseAt ?? null,
+          accountId: transactionInstance.accountId ?? accountInstance?.id ?? null,
+          account: accountInstance?.toPublicObject?.() ?? accountInstance ?? null,
+        }
+      : null,
+  };
+}
+
+function buildEscrowManagementSection({
+  accounts = [],
+  transactions = [],
+  disputes = [],
+  defaultCurrency = 'USD',
+}) {
+  const sanitizedTransactions = transactions
+    .map((transaction) => sanitizeEscrowTransaction(transaction))
+    .filter(Boolean)
+    .sort((a, b) => {
+      const aTime = new Date(a.createdAt ?? 0).getTime();
+      const bTime = new Date(b.createdAt ?? 0).getTime();
+      return bTime - aTime;
+    });
+
+  const transactionsByAccount = new Map();
+  sanitizedTransactions.forEach((transaction) => {
+    const existing = transactionsByAccount.get(transaction.accountId) ?? [];
+    existing.push(transaction);
+    transactionsByAccount.set(transaction.accountId, existing);
+  });
+
+  const sanitizedDisputes = disputes.map((dispute) => sanitizeDisputeCase(dispute)).filter(Boolean);
+  sanitizedDisputes.sort((a, b) => {
+    const aTime = new Date(a.openedAt ?? 0).getTime();
+    const bTime = new Date(b.openedAt ?? 0).getTime();
+    return bTime - aTime;
+  });
+
+  const disputesByTransaction = new Map();
+  sanitizedDisputes.forEach((dispute) => {
+    const transactionId = dispute.transaction?.id;
+    if (!transactionId) {
+      return;
+    }
+    const existing = disputesByTransaction.get(transactionId) ?? [];
+    existing.push(dispute);
+    disputesByTransaction.set(transactionId, existing);
+  });
+
+  const closedDisputeStatuses = new Set(['settled', 'closed']);
+
+  sanitizedTransactions.forEach((transaction) => {
+    const relatedDisputes = disputesByTransaction.get(transaction.id) ?? [];
+    transaction.disputes = relatedDisputes;
+    transaction.hasOpenDispute = relatedDisputes.some((dispute) => !closedDisputeStatuses.has(dispute.status));
+  });
+
+  sanitizedTransactions.forEach((transaction) => {
+    const accountTransactions = transactionsByAccount.get(transaction.accountId);
+    if (accountTransactions) {
+      accountTransactions.sort((a, b) => {
+        const aTime = new Date(a.createdAt ?? 0).getTime();
+        const bTime = new Date(b.createdAt ?? 0).getTime();
+        return bTime - aTime;
+      });
+    }
+  });
+
+  const sanitizedAccounts = accounts
+    .map((account) => sanitizeEscrowAccount(account, transactionsByAccount))
+    .filter(Boolean);
+
+  const totals = sanitizedTransactions.reduce(
+    (accumulator, transaction) => {
+      const amount = normaliseMoney(transaction.amount);
+      accumulator.total += amount;
+      if (ESCROW_PENDING_STATUSES.has(transaction.status)) {
+        accumulator.inEscrow += amount;
+      }
+      if (ESCROW_RELEASED_STATUSES.has(transaction.status)) {
+        accumulator.released += amount;
+      }
+      if (ESCROW_REFUND_STATUSES.has(transaction.status)) {
+        accumulator.refunded += amount;
+      }
+      if (transaction.hasOpenDispute) {
+        accumulator.disputed += amount;
+      }
+      return accumulator;
+    },
+    { total: 0, inEscrow: 0, released: 0, refunded: 0, disputed: 0 },
+  );
+
+  const releaseQueue = sanitizedTransactions
+    .filter((transaction) => ESCROW_PENDING_STATUSES.has(transaction.status))
+    .sort((a, b) => {
+      const aReference = a.scheduledReleaseAt ?? a.createdAt ?? null;
+      const bReference = b.scheduledReleaseAt ?? b.createdAt ?? null;
+      return new Date(aReference ?? 0).getTime() - new Date(bReference ?? 0).getTime();
+    })
+    .slice(0, 20);
+
+  const openDisputes = sanitizedDisputes.filter((dispute) => !closedDisputeStatuses.has(dispute.status));
+
+  const netBalance = sanitizedAccounts.reduce(
+    (sum, account) => sum + normaliseMoney(account.currentBalance ?? 0),
+    0,
+  );
+
+  return {
+    access: {
+      canManage: true,
+      allowedRoles: ['Client admin', 'Finance operator', 'Platform admin'],
+    },
+    summary: {
+      totalAccounts: sanitizedAccounts.length,
+      totalTransactions: sanitizedTransactions.length,
+      currency: defaultCurrency,
+      grossVolume: Number.parseFloat(totals.total.toFixed(2)),
+      inEscrow: Number.parseFloat(totals.inEscrow.toFixed(2)),
+      released: Number.parseFloat(totals.released.toFixed(2)),
+      refunded: Number.parseFloat(totals.refunded.toFixed(2)),
+      disputed: Number.parseFloat(totals.disputed.toFixed(2)),
+      netBalance: Number.parseFloat(netBalance.toFixed(2)),
+      upcomingRelease: releaseQueue[0]
+        ? {
+            transactionId: releaseQueue[0].id,
+            amount: releaseQueue[0].amount,
+            scheduledAt: releaseQueue[0].scheduledReleaseAt ?? releaseQueue[0].createdAt,
+          }
+        : null,
+      releaseQueueSize: releaseQueue.length,
+      disputeCount: openDisputes.length,
+    },
+    accounts: sanitizedAccounts,
+    transactions: {
+      recent: sanitizedTransactions.slice(0, 25),
+      releaseQueue,
+      disputes: openDisputes,
+    },
+    permissions: {
+      canCreateAccount: true,
+      canUpdateAccount: true,
+      canInitiateTransaction: true,
+      canUpdateTransaction: true,
+      canRelease: true,
+      canRefund: true,
+    },
+    forms: {
+      defaultCurrency,
+      providers: ESCROW_INTEGRATION_PROVIDERS,
+      accountStatuses: ESCROW_ACCOUNT_STATUSES,
+      transactionStatuses: ESCROW_TRANSACTION_STATUSES,
+      transactionTypes: ESCROW_TRANSACTION_TYPES,
+      disputeStatuses: DISPUTE_STATUSES,
+      disputePriorities: DISPUTE_PRIORITIES,
+    },
+    integrations: {
+      trustCenterHref: '/trust-center',
+      financeHubHref: '/finance-hub',
+    },
   };
 }
 
@@ -1719,6 +2345,27 @@ function sanitizeCalendarIntegrationRecord(integration) {
   };
 }
 
+function sanitizeCalendarSettingRecord(setting) {
+  const plain = toPlain(setting);
+  if (!plain) return null;
+  return {
+    id: plain.id,
+    timezone: plain.timezone ?? 'UTC',
+    weekStart: plain.weekStart == null ? 1 : Number(plain.weekStart),
+    workStartMinutes: plain.workStartMinutes == null ? 480 : Number(plain.workStartMinutes),
+    workEndMinutes: plain.workEndMinutes == null ? 1020 : Number(plain.workEndMinutes),
+    defaultView: plain.defaultView ?? 'agenda',
+    defaultReminderMinutes:
+      plain.defaultReminderMinutes == null ? 30 : Number(plain.defaultReminderMinutes),
+    autoFocusBlocks: Boolean(plain.autoFocusBlocks),
+    shareAvailability: Boolean(plain.shareAvailability),
+    colorHex: plain.colorHex ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt ?? null,
+    updatedAt: plain.updatedAt ?? null,
+  };
+}
+
 function sanitizeCalendarEventRecord(event) {
   const plain = toPlain(event);
   if (!plain) return null;
@@ -1730,6 +2377,17 @@ function sanitizeCalendarEventRecord(event) {
     startsAt: plain.startsAt,
     endsAt: plain.endsAt,
     location: plain.location,
+    description: plain.description ?? null,
+    videoConferenceLink: plain.videoConferenceLink ?? null,
+    isAllDay: Boolean(plain.isAllDay),
+    reminderMinutes: plain.reminderMinutes == null ? null : Number(plain.reminderMinutes),
+    visibility: plain.visibility ?? 'private',
+    relatedEntityType: plain.relatedEntityType ?? null,
+    relatedEntityId:
+      plain.relatedEntityId == null || Number.isNaN(Number(plain.relatedEntityId))
+        ? null
+        : Number(plain.relatedEntityId),
+    colorHex: plain.colorHex ?? null,
     isFocusBlock: Boolean(plain.isFocusBlock),
     focusMode: plain.focusMode,
     metadata: plain.metadata ?? null,
@@ -1914,10 +2572,11 @@ function buildCareerAnalyticsInsights(snapshotRecords, benchmarkRecords) {
   };
 }
 
-function buildCalendarInsights(eventsRecords, focusSessionRecords, integrationRecords) {
+function buildCalendarInsights(eventsRecords, focusSessionRecords, integrationRecords, settingRecord) {
   const events = eventsRecords.map((record) => sanitizeCalendarEventRecord(record)).filter(Boolean);
   const focusSessions = focusSessionRecords.map((record) => sanitizeFocusSessionRecord(record)).filter(Boolean);
   const integrations = integrationRecords.map((record) => sanitizeCalendarIntegrationRecord(record)).filter(Boolean);
+  const settings = sanitizeCalendarSettingRecord(settingRecord);
 
   const now = new Date();
   const upcomingEvents = events.filter((event) => !event.startsAt || new Date(event.startsAt) >= now);
@@ -1947,6 +2606,21 @@ function buildCalendarInsights(eventsRecords, focusSessionRecords, integrationRe
     return accumulator;
   }, {});
 
+  const eventsByType = events.reduce((accumulator, event) => {
+    const key = event.eventType || 'other';
+    accumulator[key] = (accumulator[key] ?? 0) + 1;
+    return accumulator;
+  }, {});
+
+  const upcomingFocusSessions = focusSessions
+    .filter((session) => !session.completed)
+    .sort((a, b) => {
+      const aStart = a.startedAt ? new Date(a.startedAt).getTime() : Number.POSITIVE_INFINITY;
+      const bStart = b.startedAt ? new Date(b.startedAt).getTime() : Number.POSITIVE_INFINITY;
+      return aStart - bStart;
+    })
+    .slice(0, 5);
+
   return {
     integrations,
     events,
@@ -1956,6 +2630,14 @@ function buildCalendarInsights(eventsRecords, focusSessionRecords, integrationRe
       sessions: focusSessions,
       totalMinutes: focusTotalMinutes,
       byType: focusByType,
+    },
+    settings,
+    summary: {
+      totalEvents: events.length,
+      upcomingCount: upcomingEvents.length,
+      eventsByType,
+      nextEvent: upcomingEvents[0] ?? null,
+      upcomingFocusSessions,
     },
   };
 }
@@ -2087,6 +2769,7 @@ async function hydrateTargets(applications) {
 
 async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
   const profile = await profileService.getProfileOverview(userId, { bypassCache });
+  const networkingPromise = userNetworkingService.getOverview(userId);
 
   const applicationQuery = Application.findAll({
     where: { applicantId: userId },
@@ -2129,6 +2812,26 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     limit: 12,
   });
 
+  const disputeOverviewPromise = userDisputeService.getUserDisputeOverview(userId).catch(() => ({
+    summary: {
+      total: 0,
+      openCount: 0,
+      awaitingCustomerAction: 0,
+      escalatedCount: 0,
+      lastUpdatedAt: null,
+      upcomingDeadlines: [],
+    },
+    metadata: {
+      stages: [],
+      statuses: [],
+      priorities: [],
+      reasonCodes: [],
+      actionTypes: [],
+      actorTypes: [],
+    },
+    permissions: { canCreate: false },
+  }));
+
   const careerSnapshotsQuery = CareerAnalyticsSnapshot.findAll({
     where: { userId },
     order: [['timeframeEnd', 'DESC']],
@@ -2161,6 +2864,8 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     order: [['startsAt', 'ASC']],
     limit: 40,
   });
+
+  const calendarSettingsQuery = UserCalendarSetting.findOne({ where: { userId } });
 
   const focusSessionsQuery = FocusSession.findAll({
     where: { userId },
@@ -2251,6 +2956,57 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     limit: 30,
   });
 
+  const escrowAccountsQuery = EscrowAccount.findAll({
+    where: { userId },
+    include: [
+      {
+        model: EscrowTransaction,
+        as: 'transactions',
+        separate: true,
+        limit: 10,
+        order: [['createdAt', 'DESC']],
+      },
+    ],
+    order: [['createdAt', 'DESC']],
+  });
+
+  const escrowTransactionsQuery = EscrowTransaction.findAll({
+    include: [
+      {
+        model: EscrowAccount,
+        as: 'account',
+        where: { userId },
+        required: true,
+      },
+      { model: User, as: 'initiator', attributes: ['id', 'firstName', 'lastName', 'email'] },
+      { model: User, as: 'counterparty', attributes: ['id', 'firstName', 'lastName', 'email'] },
+    ],
+    order: [['createdAt', 'DESC']],
+    limit: 75,
+  });
+
+  const escrowDisputesQuery = DisputeCase.findAll({
+    include: [
+      {
+        model: EscrowTransaction,
+        as: 'transaction',
+        required: true,
+        include: [
+          {
+            model: EscrowAccount,
+            as: 'account',
+            where: { userId },
+            required: true,
+          },
+        ],
+      },
+      { model: User, as: 'openedBy', attributes: ['id', 'firstName', 'lastName', 'email'] },
+      { model: User, as: 'assignedTo', attributes: ['id', 'firstName', 'lastName', 'email'] },
+    ],
+    order: [['openedAt', 'DESC']],
+    limit: 30,
+  });
+
   const purchasedGigOrdersQuery = GigOrder.findAll({
     where: { freelancerId: userId },
     include: [
@@ -2276,6 +3032,11 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     attributes: [[fn('DISTINCT', col('projectId')), 'projectId']],
     raw: true,
   });
+  const topSearchModulePromise = loadTopSearchModule(userId);
+
+  const mentoringDashboardPromise = userMentoringService.getMentoringDashboard(userId, { bypassCache });
+
+  const creationStudioQuery = creationStudioService.getDashboardSnapshot(userId);
 
   const [
     applications,
@@ -2288,6 +3049,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     digestSubscription,
     calendarIntegrations,
     calendarEvents,
+    calendarSettings,
     focusSessions,
     collaborations,
     supportCases,
@@ -2296,10 +3058,20 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     documentRecords,
     storyBlocks,
     brandAssets,
+    escrowAccounts,
+    escrowTransactions,
+    escrowDisputes,
     purchasedGigOrders,
+    mentoringDashboard,
     careerPipelineAutomation,
     affiliateProgram,
     projectParticipation,
+    creationStudio,
+    volunteeringManagement,
+    eventManagement,
+    notificationPreferences,
+    notificationStats,
+    topSearchModule,
   ] = await Promise.all([
     applicationQuery,
     pipelineQuery,
@@ -2311,6 +3083,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     digestSubscriptionQuery,
     calendarIntegrationsQuery,
     calendarEventsQuery,
+    calendarSettingsQuery,
     focusSessionsQuery,
     collaborationsQuery,
     supportCasesQuery,
@@ -2319,10 +3092,20 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     documentWorkspaceQuery,
     storyBlocksQuery,
     brandAssetsQuery,
+    escrowAccountsQuery,
+    escrowTransactionsQuery,
+    escrowDisputesQuery,
     purchasedGigOrdersQuery,
+    mentoringDashboardPromise,
     careerPipelineAutomationService.getCareerPipelineAutomation(userId, { bypassCache }),
     affiliateDashboardService.getAffiliateDashboard(userId),
     projectParticipationQuery,
+    creationStudioQuery,
+    volunteeringManagementService.getUserVolunteeringManagement(userId, { bypassCache }),
+    eventManagementService.getUserEventManagement(userId, { includeArchived: false, limit: 6 }),
+    notificationService.getPreferences(userId),
+    notificationService.getStats(userId),
+    topSearchModulePromise,
   ]);
 
   const sanitizedStoryPrompts = storyBlocks.map((block) => sanitizeStoryBlock(block)).filter(Boolean);
@@ -2467,6 +3250,19 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     .map((order) => sanitizeGigOrderForDocument(order))
     .filter(Boolean);
 
+  const defaultEscrowCurrency =
+    profile?.preferredCurrency ??
+    profile?.currency ??
+    profile?.profile?.preferredCurrency ??
+    'USD';
+
+  const escrowManagement = buildEscrowManagementSection({
+    accounts: escrowAccounts,
+    transactions: escrowTransactions,
+    disputes: escrowDisputes,
+    defaultCurrency: defaultEscrowCurrency,
+  });
+
   const projectGigManagement = buildProjectGigManagementSection({
     projects: projectRecords,
     templates: projectTemplates,
@@ -2474,6 +3270,8 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     storyBlocks: sanitizedStoryPrompts,
     brandAssets: sanitizedBrandAssets,
   });
+
+  const projectWorkspaceSummary = await getProjectWorkspaceSummary(userId);
 
   const followUps = buildFollowUps(applications, targetMap);
 
@@ -2556,7 +3354,12 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
   }
 
   const careerAnalytics = buildCareerAnalyticsInsights(careerSnapshots, peerBenchmarks);
-  const calendarInsights = buildCalendarInsights(calendarEvents, focusSessions, calendarIntegrations);
+  const calendarInsights = buildCalendarInsights(
+    calendarEvents,
+    focusSessions,
+    calendarIntegrations,
+    calendarSettings,
+  );
   const advisorInsights = buildAdvisorInsights(collaborations, auditLogs);
   const supportDesk = buildSupportDeskInsights(supportCases, automationLogs, knowledgeArticles);
 
@@ -2596,15 +3399,27 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     }
   });
 
-  const ads = await getAdDashboardSnapshot({
-    surfaces: ['user_dashboard', 'global_dashboard'],
-    context: {
-      keywordHints: adKeywordHints,
-      opportunityTargets: [
-        ...(adJobIds.length ? [{ targetType: 'job', ids: adJobIds }] : []),
-        ...(adGigIds.length ? [{ targetType: 'gig', ids: adGigIds }] : []),
-      ],
-    },
+  const [networking, ads] = await Promise.all([
+    networkingPromise,
+  const [disputeOverview, ads] = await Promise.all([
+    disputeOverviewPromise,
+    getAdDashboardSnapshot({
+      surfaces: ['user_dashboard', 'global_dashboard'],
+      context: {
+        keywordHints: adKeywordHints,
+        opportunityTargets: [
+          ...(adJobIds.length ? [{ targetType: 'job', ids: adJobIds }] : []),
+          ...(adGigIds.length ? [{ targetType: 'gig', ids: adGigIds }] : []),
+        ],
+      },
+    }),
+  ]);
+
+  const websitePreferences = await getUserWebsitePreferences(normalizedUserId);
+
+  const jobApplicationsWorkspace = await getJobApplicationWorkspaceSnapshot(userId, {
+    actorId: userId,
+    limit: 30,
   });
 
   const profileHub = await profileHubService.getProfileHub(userId, {
@@ -2630,6 +3445,8 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     notifications: {
       unreadCount,
       recent: sanitizedNotifications,
+      preferences: notificationPreferences,
+      stats: notificationStats,
     },
     launchpad: {
       applications: sanitizedLaunchpad,
@@ -2637,11 +3454,19 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     projectActivity: {
       recent: sanitizedProjectEvents,
     },
+    creationStudio,
+    escrowManagement,
     projectGigManagement,
+    projectWorkspace: {
+      summary: projectWorkspaceSummary,
+    },
+    eventManagement,
     tasks: {
       followUps,
       automations,
     },
+    jobApplicationsWorkspace,
+    networking,
     insights: {
       careerAnalytics,
       weeklyDigest,
@@ -2650,8 +3475,13 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
       supportDesk,
     },
     affiliate: affiliateProgram,
+    mentoring: mentoringDashboard,
+    disputeManagement: disputeOverview,
     careerPipelineAutomation,
     ads,
+    volunteeringManagement,
+    websitePreferences,
+    topSearch: topSearchModule,
   };
 }
 
