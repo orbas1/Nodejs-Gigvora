@@ -61,6 +61,15 @@ import {
   appendEvent,
 } from '../controllers/freelancerDisputeController.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import validateRequest from '../middleware/validateRequest.js';
+import {
+  freelancerDashboardParamsSchema,
+  freelancerDashboardOverviewUpdateSchema,
+} from '../validation/schemas/freelancerSchemas.js';
+import {
+  showOverview as showFreelancerDashboardOverview,
+  updateOverview as updateFreelancerDashboardOverview,
+} from '../controllers/freelancerDashboardOverviewController.js';
 import { authenticateRequest } from '../middleware/authentication.js';
 import freelancerNetworkingController from '../controllers/freelancerNetworkingController.js';
 import {
@@ -85,6 +94,20 @@ router.get('/gigs/:gigId', asyncHandler(show));
 router.post('/gigs', asyncHandler(createGig));
 router.put('/gigs/:gigId', asyncHandler(updateGig));
 router.post('/gigs/:gigId/publish', asyncHandler(publish));
+
+router.get(
+  '/:freelancerId/dashboard-overview',
+  validateRequest({ params: freelancerDashboardParamsSchema }),
+  asyncHandler(showFreelancerDashboardOverview),
+);
+router.put(
+  '/:freelancerId/dashboard-overview',
+  validateRequest({
+    params: freelancerDashboardParamsSchema,
+    body: freelancerDashboardOverviewUpdateSchema,
+  }),
+  asyncHandler(updateFreelancerDashboardOverview),
+);
 
 router.get('/order-pipeline', asyncHandler(orderPipeline));
 router.post('/order-pipeline/orders', asyncHandler(createOrder));
