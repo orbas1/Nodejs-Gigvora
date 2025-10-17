@@ -1,6 +1,6 @@
 process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'false';
 
-import { beforeAll, beforeEach, afterAll, describe, it, expect } from '@jest/globals';
+import { beforeEach, afterAll, describe, it, expect } from '@jest/globals';
 import '../setupTestEnv.js';
 import { PlatformSetting } from '../../src/models/platformSetting.js';
 import { RuntimeAnnouncement } from '../../src/models/runtimeAnnouncement.js';
