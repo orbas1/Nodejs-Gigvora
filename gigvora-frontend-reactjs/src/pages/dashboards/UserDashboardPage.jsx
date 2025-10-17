@@ -14,6 +14,7 @@ import useSession from '../../hooks/useSession.js';
 import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
 import DashboardBlogSpotlight from '../../components/blog/DashboardBlogSpotlight.jsx';
 import AffiliateProgramSection from '../../components/affiliate/AffiliateProgramSection.jsx';
+import WebsitePreferencesSection from '../../components/websitePreferences/WebsitePreferencesSection.jsx';
 import ProfileSettingsSection from '../../components/profileSettings/ProfileSettingsSection.jsx';
 import WalletManagementSection from '../../components/wallet/WalletManagementSection.jsx';
 import DashboardNotificationCenterSection from '../../components/notifications/DashboardNotificationCenterSection.jsx';
@@ -355,6 +356,12 @@ function buildMenuSections(data) {
           description: `${formatNumber(portfolioProjects || portfolioCount)} public case studies, testimonials, and banners.`,
         },
         {
+          name: 'Website',
+          description: 'Design your hosted site with colors, pages, and SEO.',
+          tags: ['website', 'brand'],
+          sectionId: 'website-preferences',
+        },
+        {
           name: 'Purchased gigs',
           description: `Review ${formatNumber(documentStudio?.purchasedGigs?.stats?.total ?? 0)} vendor deliverables feeding your workspace.`,
         },
@@ -573,6 +580,7 @@ export default function UserDashboardPage() {
   const eventManagement = data?.eventManagement ?? null;
   const eventManagementOverview = eventManagement?.overview ?? null;
   const projectGigManagement = data?.projectGigManagement ?? null;
+  const websitePreferences = data?.websitePreferences ?? null;
   const escrowManagement = data?.escrowManagement ?? null;
   const notifications = Array.isArray(data?.notifications?.recent) ? data.notifications.recent : [];
   const notificationsUnreadCount = Number(data?.notifications?.unreadCount ?? 0);
@@ -660,6 +668,7 @@ export default function UserDashboardPage() {
 
   const menuSections = useMemo(() => buildMenuSections(data), [data]);
   const profileCard = useMemo(() => buildProfileCard(data, summary, session), [data, session, summary]);
+  const canEditWebsite = Boolean(isAuthenticated);
 
   const summaryCards = [
     {
@@ -1802,6 +1811,12 @@ export default function UserDashboardPage() {
           </div>
         </section>
 
+        <WebsitePreferencesSection
+          userId={userId}
+          initialPreferences={websitePreferences}
+          onRefresh={() => refresh({ force: true })}
+          canEdit={canEditWebsite}
+        />
         <section id="disputes" className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>

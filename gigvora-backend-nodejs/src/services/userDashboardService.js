@@ -65,6 +65,7 @@ import careerPipelineAutomationService from './careerPipelineAutomationService.j
 import { getAdDashboardSnapshot } from './adService.js';
 import { initializeWorkspaceForProject } from './projectWorkspaceService.js';
 import affiliateDashboardService from './affiliateDashboardService.js';
+import { getUserWebsitePreferences } from './userWebsitePreferenceService.js';
 import userDisputeService from './userDisputeService.js';
 import eventManagementService from './eventManagementService.js';
 import notificationService from './notificationService.js';
@@ -3327,6 +3328,8 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     }),
   ]);
 
+  const websitePreferences = await getUserWebsitePreferences(normalizedUserId);
+
   return {
     generatedAt: new Date().toISOString(),
     profile,
@@ -3371,6 +3374,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     disputeManagement: disputeOverview,
     careerPipelineAutomation,
     ads,
+    websitePreferences,
     topSearch: topSearchModule,
   };
 }

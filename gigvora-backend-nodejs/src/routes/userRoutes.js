@@ -56,6 +56,16 @@ router.put(
   authenticate({ roles: ['user', 'admin'], matchParam: 'id' }),
   asyncHandler(userController.updateUserAiSettings),
 );
+router.get(
+  '/:id/website-preferences',
+  authenticate({ roles: ['user', 'freelancer', 'agency', 'company', 'headhunter', 'admin'], matchParam: 'id' }),
+  asyncHandler(userController.getWebsitePreferences),
+);
+router.put(
+  '/:id/website-preferences',
+  authenticate({ roles: ['user', 'freelancer', 'agency', 'company', 'headhunter', 'admin'], matchParam: 'id' }),
+  asyncHandler(userController.updateWebsitePreferences),
+);
 router.get('/:id', asyncHandler(userController.getUserProfile));
 router.put('/:id', asyncHandler(userController.updateUser));
 router.patch('/:id/profile', asyncHandler(userController.updateProfileSettings));
