@@ -53,6 +53,7 @@ import careerPipelineAutomationService from './careerPipelineAutomationService.j
 import { getAdDashboardSnapshot } from './adService.js';
 import { initializeWorkspaceForProject } from './projectWorkspaceService.js';
 import affiliateDashboardService from './affiliateDashboardService.js';
+import userDashboardOverviewService from './userDashboardOverviewService.js';
 
 const CACHE_NAMESPACE = 'dashboard:user';
 const CACHE_TTL_SECONDS = 60;
@@ -2086,6 +2087,11 @@ async function hydrateTargets(applications) {
 
 async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
   const profile = await profileService.getProfileOverview(userId, { bypassCache });
+  const overviewPromise = userDashboardOverviewService.getOverview(userId, {
+    bypassCache,
+    actorId: userId,
+    actorRoles: ['user'],
+  });
 
   const applicationQuery = Application.findAll({
     where: { applicantId: userId },
@@ -2606,9 +2612,12 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     },
   });
 
+  const overview = await overviewPromise;
+
   return {
     generatedAt: new Date().toISOString(),
     profile,
+    overview,
     summary,
     pipeline: {
       statuses: pipeline,

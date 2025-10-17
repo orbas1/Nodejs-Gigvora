@@ -8,7 +8,9 @@ import gigBuilderService from '../services/gigBuilderService.js';
 import gigManagerService from '../services/gigManagerService.js';
 import { getUserOpenAiSettings, updateUserOpenAiSettings } from '../services/aiAutoReplyService.js';
 import affiliateDashboardService from '../services/affiliateDashboardService.js';
+import userDashboardOverviewService from '../services/userDashboardOverviewService.js';
 import { normalizeLocationPayload } from '../utils/location.js';
+import { resolveRequestUserId } from '../utils/requestContext.js';
 
 export async function listUsers(req, res) {
   const limitParam = Number.parseInt(req.query.limit ?? '20', 10);
@@ -84,6 +86,31 @@ export async function getUserDashboard(req, res) {
     bypassCache: req.query.fresh === 'true',
   });
   res.json(dashboard);
+}
+
+export async function getUserDashboardOverview(req, res) {
+  const overview = await userDashboardOverviewService.getOverview(req.params.id, {
+    bypassCache: req.query.fresh === 'true',
+    actorId: resolveRequestUserId(req),
+    actorRoles: req.user?.roles ?? [],
+  });
+  res.json(overview);
+}
+
+export async function updateUserDashboardOverview(req, res) {
+  const overview = await userDashboardOverviewService.updateOverview(req.params.id, req.body ?? {}, {
+    actorId: resolveRequestUserId(req),
+    actorRoles: req.user?.roles ?? [],
+  });
+  res.json(overview);
+}
+
+export async function refreshUserDashboardOverviewWeather(req, res) {
+  const overview = await userDashboardOverviewService.refreshWeather(req.params.id, {
+    actorId: resolveRequestUserId(req),
+    actorRoles: req.user?.roles ?? [],
+  });
+  res.json(overview);
 }
 
 export async function getUserAffiliateDashboard(req, res) {

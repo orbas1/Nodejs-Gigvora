@@ -3,6 +3,8 @@ import * as userController from '../controllers/userController.js';
 import * as careerDocumentController from '../controllers/careerDocumentController.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import authenticate from '../middleware/authenticate.js';
+import validateRequest from '../middleware/validateRequest.js';
+import { updateUserDashboardOverviewSchema } from '../validation/schemas/userDashboardSchemas.js';
 import userConsentRoutes from './userConsentRoutes.js';
 
 const router = Router();
@@ -12,6 +14,31 @@ router.get(
   '/:id/dashboard',
   authenticate({ roles: ['user', 'admin'], matchParam: 'id' }),
   asyncHandler(userController.getUserDashboard),
+);
+router.get(
+  '/:id/dashboard/overview',
+  authenticate({
+    roles: ['user', 'freelancer', 'agency', 'company', 'headhunter', 'admin'],
+    matchParam: 'id',
+  }),
+  asyncHandler(userController.getUserDashboardOverview),
+);
+router.put(
+  '/:id/dashboard/overview',
+  authenticate({
+    roles: ['user', 'freelancer', 'agency', 'company', 'headhunter', 'admin'],
+    matchParam: 'id',
+  }),
+  validateRequest({ body: updateUserDashboardOverviewSchema }),
+  asyncHandler(userController.updateUserDashboardOverview),
+);
+router.post(
+  '/:id/dashboard/overview/refresh-weather',
+  authenticate({
+    roles: ['user', 'freelancer', 'agency', 'company', 'headhunter', 'admin'],
+    matchParam: 'id',
+  }),
+  asyncHandler(userController.refreshUserDashboardOverviewWeather),
 );
 router.get(
   '/:id/affiliate/dashboard',
