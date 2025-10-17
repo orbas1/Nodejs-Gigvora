@@ -6,6 +6,7 @@ import { fetchUserDashboard } from '../../services/userDashboard.js';
 import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
 import DocumentStudioSection from '../../components/documentStudio/DocumentStudioSection.jsx';
 import ProjectGigManagementContainer from '../../components/projectGigManagement/ProjectGigManagementContainer.jsx';
+import JobApplicationWorkspaceContainer from '../../components/jobApplications/JobApplicationWorkspaceContainer.jsx';
 import useSession from '../../hooks/useSession.js';
 import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
 import DashboardBlogSpotlight from '../../components/blog/DashboardBlogSpotlight.jsx';
@@ -160,6 +161,8 @@ function buildMenuSections(data) {
   const documents = data?.documents ?? {};
   const documentStudio = data?.documentStudio;
   const documentSummary = documentStudio?.summary ?? {};
+  const jobApplicationsWorkspace = data?.jobApplicationsWorkspace ?? {};
+  const jobApplicationsSummary = jobApplicationsWorkspace.summary ?? {};
   const projectGigManagement = data?.projectGigManagement ?? {};
   const projectSummary = projectGigManagement.summary ?? {};
   const assetSummary = projectGigManagement.assets?.summary ?? {};
@@ -177,6 +180,41 @@ function buildMenuSections(data) {
   const automationMetrics = pipelineAutomation.kanban?.metrics ?? {};
   const automationBoardName = pipelineAutomation.board?.name ?? 'Career pipeline';
   return [
+    {
+      label: 'Job hub',
+      items: [
+        {
+          name: 'Overview',
+          description: 'Snapshot',
+          tags: ['apps'],
+          sectionId: 'job-hub-overview',
+        },
+        {
+          name: 'Apps',
+          description: 'Active roles',
+          tags: ['pipeline'],
+          sectionId: 'job-hub-apps',
+        },
+        {
+          name: 'Meets',
+          description: 'Interview plan',
+          tags: ['prep'],
+          sectionId: 'job-hub-meets',
+        },
+        {
+          name: 'Saved',
+          description: 'Watchlist',
+          tags: ['saved'],
+          sectionId: 'job-hub-saved',
+        },
+        {
+          name: 'Replies',
+          description: 'Messages',
+          tags: ['comm'],
+          sectionId: 'job-hub-replies',
+        },
+      ],
+    },
     {
       label: 'Project & gig management',
       items: [
@@ -409,6 +447,7 @@ export default function UserDashboardPage() {
   const launchpadApplications = Array.isArray(data?.launchpad?.applications) ? data.launchpad.applications : [];
   const affiliateProgram = data?.affiliate ?? null;
   const affiliateOverview = affiliateProgram?.overview ?? {};
+  const jobApplicationsWorkspace = data?.jobApplicationsWorkspace ?? null;
 
   const insights = data?.insights ?? {};
   const careerAnalytics = insights.careerAnalytics ?? {};
@@ -510,6 +549,8 @@ export default function UserDashboardPage() {
         </div>
 
         <DashboardBlogSpotlight />
+
+        <JobApplicationWorkspaceContainer userId={userId} initialData={jobApplicationsWorkspace} />
 
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {summaryCards.map((card) => (

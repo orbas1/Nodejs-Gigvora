@@ -74,7 +74,9 @@ import {
   CAREER_STORY_BLOCK_TONES, CAREER_STORY_BLOCK_STATUSES, CAREER_BRAND_ASSET_TYPES, CAREER_BRAND_ASSET_STATUSES,
   CAREER_BRAND_ASSET_APPROVAL_STATUSES, CAREER_PIPELINE_STAGE_TYPES, CAREER_PIPELINE_STAGE_OUTCOMES, CAREER_OPPORTUNITY_FOLLOW_UP_STATUSES,
   CAREER_COMPLIANCE_STATUSES, CAREER_CANDIDATE_BRIEF_STATUSES, CAREER_INTERVIEW_WORKSPACE_STATUSES, CAREER_INTERVIEW_TASK_STATUSES,
-  CAREER_INTERVIEW_TASK_PRIORITIES, CAREER_INTERVIEW_RECOMMENDATIONS, CAREER_NUDGE_SEVERITIES, CAREER_NUDGE_CHANNELS,
+  CAREER_INTERVIEW_TASK_PRIORITIES, CAREER_INTERVIEW_RECOMMENDATIONS, JOB_INTERVIEW_TYPES, JOB_INTERVIEW_STATUSES,
+  JOB_APPLICATION_FAVOURITE_PRIORITIES, JOB_APPLICATION_RESPONSE_DIRECTIONS, JOB_APPLICATION_RESPONSE_CHANNELS,
+  JOB_APPLICATION_RESPONSE_STATUSES, CAREER_NUDGE_SEVERITIES, CAREER_NUDGE_CHANNELS,
   CAREER_OFFER_STATUSES, CAREER_OFFER_DECISIONS, CAREER_AUTO_APPLY_RULE_STATUSES, CAREER_AUTO_APPLY_TEST_STATUSES,
   WORKSPACE_TEMPLATE_VISIBILITIES, WORKSPACE_TEMPLATE_STAGE_TYPES, WORKSPACE_TEMPLATE_RESOURCE_TYPES, EXECUTIVE_METRIC_CATEGORIES,
   EXECUTIVE_METRIC_UNITS, EXECUTIVE_METRIC_TRENDS, EXECUTIVE_SCENARIO_TYPES, EXECUTIVE_SCENARIO_DIMENSION_TYPES,
@@ -5809,6 +5811,180 @@ export const ApplicationReview = sequelize.define(
 
 ApplicationReview.prototype.toPublicObject = function toPublicObject() {
   return this.get({ plain: true });
+};
+
+export const JobApplicationFavourite = sequelize.define(
+  'JobApplicationFavourite',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    jobId: { type: DataTypes.INTEGER, allowNull: true },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    companyName: { type: DataTypes.STRING(180), allowNull: true },
+    location: { type: DataTypes.STRING(180), allowNull: true },
+    priority: {
+      type: DataTypes.ENUM(...JOB_APPLICATION_FAVOURITE_PRIORITIES),
+      allowNull: false,
+      defaultValue: 'watching',
+      validate: { isIn: [JOB_APPLICATION_FAVOURITE_PRIORITIES] },
+    },
+    tags: { type: jsonType, allowNull: true },
+    salaryMin: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    salaryMax: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    currencyCode: { type: DataTypes.STRING(3), allowNull: true },
+    sourceUrl: { type: DataTypes.STRING(500), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    savedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'job_application_favourites',
+    indexes: [
+      { fields: ['userId'], name: 'job_application_favourites_user_idx' },
+      { fields: ['priority'], name: 'job_application_favourites_priority_idx' },
+    ],
+  },
+);
+
+JobApplicationFavourite.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    jobId: plain.jobId,
+    title: plain.title,
+    companyName: plain.companyName ?? null,
+    location: plain.location ?? null,
+    priority: plain.priority,
+    tags: Array.isArray(plain.tags) ? plain.tags : plain.tags ?? [],
+    salaryMin: plain.salaryMin == null ? null : Number(plain.salaryMin),
+    salaryMax: plain.salaryMax == null ? null : Number(plain.salaryMax),
+    currencyCode: plain.currencyCode ?? null,
+    sourceUrl: plain.sourceUrl ?? null,
+    notes: plain.notes ?? null,
+    savedAt: plain.savedAt,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const JobApplicationInterview = sequelize.define(
+  'JobApplicationInterview',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    applicationId: { type: DataTypes.INTEGER, allowNull: false },
+    scheduledAt: { type: DataTypes.DATE, allowNull: false },
+    timezone: { type: DataTypes.STRING(120), allowNull: true },
+    type: {
+      type: DataTypes.ENUM(...JOB_INTERVIEW_TYPES),
+      allowNull: false,
+      defaultValue: 'phone',
+      validate: { isIn: [JOB_INTERVIEW_TYPES] },
+    },
+    status: {
+      type: DataTypes.ENUM(...JOB_INTERVIEW_STATUSES),
+      allowNull: false,
+      defaultValue: 'scheduled',
+      validate: { isIn: [JOB_INTERVIEW_STATUSES] },
+    },
+    interviewerName: { type: DataTypes.STRING(180), allowNull: true },
+    interviewerEmail: { type: DataTypes.STRING(255), allowNull: true, validate: { isEmail: true } },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    meetingUrl: { type: DataTypes.STRING(500), allowNull: true },
+    durationMinutes: { type: DataTypes.INTEGER, allowNull: true },
+    feedbackScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'job_application_interviews',
+    indexes: [
+      { fields: ['userId'], name: 'job_application_interviews_user_idx' },
+      { fields: ['applicationId'], name: 'job_application_interviews_application_idx' },
+      { fields: ['scheduledAt'], name: 'job_application_interviews_schedule_idx' },
+    ],
+  },
+);
+
+JobApplicationInterview.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    applicationId: plain.applicationId,
+    scheduledAt: plain.scheduledAt,
+    timezone: plain.timezone ?? null,
+    type: plain.type,
+    status: plain.status,
+    interviewerName: plain.interviewerName ?? null,
+    interviewerEmail: plain.interviewerEmail ?? null,
+    location: plain.location ?? null,
+    meetingUrl: plain.meetingUrl ?? null,
+    durationMinutes: plain.durationMinutes == null ? null : Number(plain.durationMinutes),
+    feedbackScore: plain.feedbackScore == null ? null : Number(plain.feedbackScore),
+    notes: plain.notes ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const JobApplicationResponse = sequelize.define(
+  'JobApplicationResponse',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    applicationId: { type: DataTypes.INTEGER, allowNull: false },
+    direction: {
+      type: DataTypes.ENUM(...JOB_APPLICATION_RESPONSE_DIRECTIONS),
+      allowNull: false,
+      defaultValue: 'incoming',
+      validate: { isIn: [JOB_APPLICATION_RESPONSE_DIRECTIONS] },
+    },
+    channel: {
+      type: DataTypes.ENUM(...JOB_APPLICATION_RESPONSE_CHANNELS),
+      allowNull: false,
+      defaultValue: 'email',
+      validate: { isIn: [JOB_APPLICATION_RESPONSE_CHANNELS] },
+    },
+    status: {
+      type: DataTypes.ENUM(...JOB_APPLICATION_RESPONSE_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+      validate: { isIn: [JOB_APPLICATION_RESPONSE_STATUSES] },
+    },
+    subject: { type: DataTypes.STRING(255), allowNull: true },
+    body: { type: DataTypes.TEXT, allowNull: true },
+    sentAt: { type: DataTypes.DATE, allowNull: true },
+    followUpRequiredAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'job_application_responses',
+    indexes: [
+      { fields: ['userId'], name: 'job_application_responses_user_idx' },
+      { fields: ['applicationId'], name: 'job_application_responses_application_idx' },
+      { fields: ['status'], name: 'job_application_responses_status_idx' },
+    ],
+  },
+);
+
+JobApplicationResponse.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    applicationId: plain.applicationId,
+    direction: plain.direction,
+    channel: plain.channel,
+    status: plain.status,
+    subject: plain.subject ?? null,
+    body: plain.body ?? null,
+    sentAt: plain.sentAt ?? null,
+    followUpRequiredAt: plain.followUpRequiredAt ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
 };
 
 export const CareerPipelineBoard = sequelize.define(
@@ -14636,10 +14812,27 @@ User.belongsToMany(User, {
 
 User.hasMany(Application, { foreignKey: 'applicantId', as: 'applications' });
 Application.belongsTo(User, { foreignKey: 'applicantId', as: 'applicant' });
+Application.belongsTo(Job, { foreignKey: 'targetId', constraints: false, as: 'jobTarget' });
+Job.hasMany(Application, { foreignKey: 'targetId', constraints: false, as: 'jobApplications' });
 
 Application.hasMany(ApplicationReview, { foreignKey: 'applicationId', as: 'reviews' });
 ApplicationReview.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });
 ApplicationReview.belongsTo(User, { foreignKey: 'reviewerId', as: 'reviewer' });
+
+User.hasMany(JobApplicationFavourite, { foreignKey: 'userId', as: 'jobApplicationFavourites' });
+JobApplicationFavourite.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+JobApplicationFavourite.belongsTo(Job, { foreignKey: 'jobId', as: 'job' });
+Job.hasMany(JobApplicationFavourite, { foreignKey: 'jobId', as: 'jobApplicationFavourites' });
+
+User.hasMany(JobApplicationInterview, { foreignKey: 'userId', as: 'jobApplicationInterviews' });
+JobApplicationInterview.belongsTo(User, { foreignKey: 'userId', as: 'owner' });
+Application.hasMany(JobApplicationInterview, { foreignKey: 'applicationId', as: 'jobInterviews' });
+JobApplicationInterview.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });
+
+User.hasMany(JobApplicationResponse, { foreignKey: 'userId', as: 'jobApplicationResponses' });
+JobApplicationResponse.belongsTo(User, { foreignKey: 'userId', as: 'owner' });
+Application.hasMany(JobApplicationResponse, { foreignKey: 'applicationId', as: 'jobResponses' });
+JobApplicationResponse.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });
 
 User.hasMany(FreelancerCatalogBundle, { foreignKey: 'freelancerId', as: 'catalogBundles' });
 FreelancerCatalogBundle.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
