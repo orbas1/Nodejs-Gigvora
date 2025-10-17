@@ -219,6 +219,12 @@ function buildMenuSections(data) {
           sectionId: 'project-gig-purchased',
         },
         {
+          name: 'Gig hub',
+          description: 'Timeline, chat, escrow, and reviews in one place.',
+          tags: ['timeline', 'chat'],
+          sectionId: 'project-gig-operations',
+        },
+        {
           name: 'CV-ready storytelling',
           description: `Convert ${formatNumber(storytelling.achievements?.length ?? 0)} outcomes into resume bullets & LinkedIn stories.`,
           tags: ['storytelling', 'ai'],

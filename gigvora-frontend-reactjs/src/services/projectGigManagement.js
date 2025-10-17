@@ -41,6 +41,38 @@ export async function updateGigOrder(userId, orderId, payload) {
   return response.data;
 }
 
+export async function addGigTimelineEvent(userId, orderId, payload) {
+  const response = await apiClient.post(
+    `${BASE_PATH}/${userId}/project-gig-management/gig-orders/${orderId}/timeline`,
+    payload,
+  );
+  return response.data;
+}
+
+export async function postGigOrderMessage(userId, orderId, payload) {
+  const response = await apiClient.post(
+    `${BASE_PATH}/${userId}/project-gig-management/gig-orders/${orderId}/messages`,
+    payload,
+  );
+  return response.data;
+}
+
+export async function createGigEscrowCheckpoint(userId, orderId, payload) {
+  const response = await apiClient.post(
+    `${BASE_PATH}/${userId}/project-gig-management/gig-orders/${orderId}/escrow`,
+    payload,
+  );
+  return response.data;
+}
+
+export async function updateGigEscrowCheckpoint(userId, orderId, checkpointId, payload) {
+  const response = await apiClient.patch(
+    `${BASE_PATH}/${userId}/project-gig-management/gig-orders/${orderId}/escrow/${checkpointId}`,
+    payload,
+  );
+  return response.data;
+}
+
 export default {
   fetchProjectGigManagement,
   createProject,
@@ -48,4 +80,8 @@ export default {
   updateWorkspace,
   createGigOrder,
   updateGigOrder,
+  addGigTimelineEvent,
+  postGigOrderMessage,
+  createGigEscrowCheckpoint,
+  updateGigEscrowCheckpoint,
 };

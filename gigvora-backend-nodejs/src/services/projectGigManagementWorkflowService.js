@@ -12,13 +12,18 @@ import {
   GigOrderRequirement,
   GigOrderRevision,
   GigVendorScorecard,
+  GigOrderEscrowCheckpoint,
+  GigOrderActivity,
+  GigOrderMessage,
   StoryBlock,
   BrandAsset,
   PROJECT_STATUSES,
   PROJECT_RISK_LEVELS,
   GIG_ORDER_STATUSES,
+  GIG_ESCROW_STATUSES,
   syncProjectGigManagementModels,
 } from '../models/projectGigManagementModels.js';
+import { GIG_ORDER_ACTIVITY_TYPES } from '../models/constants/index.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
 
 function normalizeNumber(value, fallback = 0) {
@@ -236,6 +241,298 @@ function buildStorytelling(projects, orders, storyBlocks) {
   return { achievements, quickExports, prompts };
 }
 
+function toPlain(instance) {
+  if (!instance) {
+    return null;
+  }
+  if (typeof instance.get === 'function') {
+    return instance.get({ plain: true });
+  }
+  if (typeof instance.toJSON === 'function') {
+    return instance.toJSON();
+  }
+  if (typeof instance === 'object') {
+    return { ...instance };
+  }
+  return instance;
+}
+
+function sanitizeRequirement(requirementInstance) {
+  const requirement = toPlain(requirementInstance) ?? {};
+  return {
+    ...requirement,
+    dueAt: requirement.dueAt ? new Date(requirement.dueAt).toISOString() : null,
+  };
+}
+
+function sanitizeRevision(revisionInstance) {
+  const revision = toPlain(revisionInstance) ?? {};
+  return {
+    ...revision,
+    requestedAt: revision.requestedAt ? new Date(revision.requestedAt).toISOString() : null,
+    dueAt: revision.dueAt ? new Date(revision.dueAt).toISOString() : null,
+    submittedAt: revision.submittedAt ? new Date(revision.submittedAt).toISOString() : null,
+    approvedAt: revision.approvedAt ? new Date(revision.approvedAt).toISOString() : null,
+  };
+}
+
+function sanitizeScorecard(scorecardInstance) {
+  const scorecard = toPlain(scorecardInstance);
+  if (!scorecard) {
+    return null;
+  }
+  return {
+    ...scorecard,
+    qualityScore: scorecard.qualityScore == null ? null : Number(scorecard.qualityScore),
+    communicationScore: scorecard.communicationScore == null ? null : Number(scorecard.communicationScore),
+    reliabilityScore: scorecard.reliabilityScore == null ? null : Number(scorecard.reliabilityScore),
+    overallScore: scorecard.overallScore == null ? null : Number(scorecard.overallScore),
+  };
+}
+
+function sanitizeEscrowCheckpoint(checkpointInstance) {
+  const checkpoint = toPlain(checkpointInstance) ?? {};
+  return {
+    ...checkpoint,
+    amount: checkpoint.amount == null ? 0 : Number(checkpoint.amount),
+    csatThreshold: checkpoint.csatThreshold == null ? null : Number(checkpoint.csatThreshold),
+    releasedAt: checkpoint.releasedAt ? new Date(checkpoint.releasedAt).toISOString() : null,
+  };
+}
+
+function sanitizeActivity(activityInstance) {
+  const activity = toPlain(activityInstance) ?? {};
+  return {
+    ...activity,
+    occurredAt: activity.occurredAt ? new Date(activity.occurredAt).toISOString() : null,
+    metadata: activity.metadata ?? {},
+  };
+}
+
+function normalizeAttachments(attachments) {
+  if (!attachments) {
+    return [];
+  }
+  if (Array.isArray(attachments)) {
+    return attachments;
+  }
+  if (typeof attachments === 'string') {
+    return attachments
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .map((item, index) => ({ id: index + 1, label: item, url: item }));
+  }
+  return [];
+}
+
+function sanitizeMessage(messageInstance) {
+  const message = toPlain(messageInstance) ?? {};
+  return {
+    ...message,
+    attachments: normalizeAttachments(message.attachments),
+    postedAt: message.postedAt ? new Date(message.postedAt).toISOString() : null,
+  };
+}
+
+function prepareMessageAttachments(input) {
+  if (!input) {
+    return [];
+  }
+  if (Array.isArray(input)) {
+    return input
+      .map((item, index) => {
+        if (!item) return null;
+        if (typeof item === 'string') {
+          return { id: index + 1, label: item, url: item };
+        }
+        const label = item.label ?? item.name ?? item.url ?? `Attachment ${index + 1}`;
+        return {
+          id: item.id ?? index + 1,
+          label,
+          url: item.url ?? item.href ?? null,
+          type: item.type ?? null,
+        };
+      })
+      .filter((item) => item && item.url);
+  }
+  if (typeof input === 'string') {
+    return normalizeAttachments(input);
+  }
+  return [];
+}
+
+function computeEscrowSnapshot(checkpoints) {
+  const totals = {
+    pendingAmount: 0,
+    releasedAmount: 0,
+    heldAmount: 0,
+    nextReleaseAt: null,
+  };
+
+  checkpoints.forEach((checkpoint) => {
+    const amount = Number.isFinite(checkpoint.amount) ? Number(checkpoint.amount) : 0;
+    switch (checkpoint.status) {
+      case 'released':
+        totals.releasedAmount += amount;
+        break;
+      case 'held':
+      case 'pending_release':
+      case 'funded':
+        totals.pendingAmount += amount;
+        if (checkpoint.releasedAt) {
+          const timestamp = new Date(checkpoint.releasedAt).getTime();
+          if (!totals.nextReleaseAt || timestamp < new Date(totals.nextReleaseAt).getTime()) {
+            totals.nextReleaseAt = new Date(timestamp).toISOString();
+          }
+        }
+        break;
+      case 'disputed':
+        totals.heldAmount += amount;
+        break;
+      default:
+        break;
+    }
+  });
+
+  return totals;
+}
+
+function buildGigTimeline(order) {
+  const events = [];
+  const addEvent = (event) => {
+    if (!event) {
+      return;
+    }
+    if (!event.occurredAt) {
+      event.occurredAt = order.createdAt ?? new Date().toISOString();
+    }
+    events.push(event);
+  };
+
+  (order.activities ?? []).forEach((activity) => {
+    addEvent({
+      id: `activity-${activity.id}`,
+      kind: 'activity',
+      activityType: activity.activityType,
+      title: activity.title,
+      description: activity.description,
+      occurredAt: activity.occurredAt,
+      metadata: activity.metadata ?? {},
+    });
+  });
+
+  (order.requirements ?? []).forEach((requirement) => {
+    addEvent({
+      id: `requirement-${requirement.id}`,
+      kind: 'requirement',
+      status: requirement.status,
+      title: requirement.title,
+      occurredAt: requirement.dueAt ?? order.kickoffAt ?? order.createdAt,
+    });
+  });
+
+  (order.revisions ?? []).forEach((revision) => {
+    addEvent({
+      id: `revision-${revision.id}`,
+      kind: 'revision',
+      status: revision.status,
+      title: `Revision round ${revision.roundNumber}`,
+      description: revision.summary,
+      occurredAt: revision.requestedAt ?? revision.submittedAt ?? order.createdAt,
+    });
+  });
+
+  (order.escrowCheckpoints ?? []).forEach((checkpoint) => {
+    addEvent({
+      id: `escrow-${checkpoint.id}`,
+      kind: 'escrow',
+      status: checkpoint.status,
+      title: checkpoint.label,
+      amount: checkpoint.amount,
+      currency: checkpoint.currency,
+      occurredAt: checkpoint.releasedAt ?? order.kickoffAt ?? order.createdAt,
+    });
+  });
+
+  (order.messages ?? []).forEach((message) => {
+    addEvent({
+      id: `message-${message.id}`,
+      kind: 'message',
+      authorName: message.authorName,
+      roleLabel: message.roleLabel,
+      title: 'Message posted',
+      description: message.body,
+      occurredAt: message.postedAt,
+    });
+  });
+
+  if (order.createdAt) {
+    addEvent({
+      id: `order-${order.id}`,
+      kind: 'order',
+      title: 'Order created',
+      occurredAt: new Date(order.createdAt).toISOString(),
+      status: order.status,
+    });
+  }
+
+  return events.sort((a, b) => new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime());
+}
+
+function sanitizeGigOrder(orderInstance) {
+  const order = toPlain(orderInstance) ?? {};
+  const requirements = (orderInstance.get?.('requirements') ?? order.requirements ?? []).map((requirement) =>
+    sanitizeRequirement(requirement),
+  );
+  const revisions = (orderInstance.get?.('revisions') ?? order.revisions ?? []).map((revision) =>
+    sanitizeRevision(revision),
+  );
+  const activities = (orderInstance.get?.('activities') ?? order.activities ?? []).map((activity) =>
+    sanitizeActivity(activity),
+  );
+  const messages = (orderInstance.get?.('messages') ?? order.messages ?? []).map((message) =>
+    sanitizeMessage(message),
+  );
+  const checkpoints = (orderInstance.get?.('escrowCheckpoints') ?? order.escrowCheckpoints ?? []).map((checkpoint) =>
+    sanitizeEscrowCheckpoint(checkpoint),
+  );
+  const scorecard = sanitizeScorecard(orderInstance.get?.('scorecard') ?? order.scorecard);
+
+  const outstandingRequirements = requirements.filter((item) => item.status === 'pending').length;
+  const activeRevisions = revisions.filter((item) => ['requested', 'in_progress', 'submitted'].includes(item.status)).length;
+  const nextRequirementDueAt = requirements
+    .filter((requirement) => requirement.status === 'pending' && requirement.dueAt)
+    .sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime())[0]?.dueAt;
+  const escrowSnapshot = computeEscrowSnapshot(checkpoints);
+
+  return {
+    ...order,
+    requirements,
+    revisions,
+    activities,
+    messages,
+    escrowCheckpoints: checkpoints,
+    scorecard,
+    outstandingRequirements,
+    activeRevisions,
+    nextRequirementDueAt: nextRequirementDueAt ?? null,
+    escrowPendingAmount: Number(escrowSnapshot.pendingAmount.toFixed(2)),
+    escrowReleasedAmount: Number(escrowSnapshot.releasedAmount.toFixed(2)),
+    escrowHeldAmount: Number(escrowSnapshot.heldAmount.toFixed(2)),
+    nextEscrowReleaseAt: escrowSnapshot.nextReleaseAt,
+    isClosed: ['completed', 'cancelled'].includes(order.status),
+    timeline: buildGigTimeline({
+      ...order,
+      requirements,
+      revisions,
+      activities,
+      messages,
+      escrowCheckpoints: checkpoints,
+    }),
+  };
+}
+
 function sanitizeProject(projectInstance) {
   const project = projectInstance.get({ plain: true });
   return {
@@ -314,12 +611,31 @@ export async function getProjectGigManagementOverview(ownerId) {
   });
 
   const templates = await ProjectTemplate.findAll({ order: [['createdAt', 'DESC']] });
-  const orders = await GigOrder.findAll({
+  const orderRecords = await GigOrder.findAll({
     where: { ownerId },
     include: [
-      { model: GigOrderRequirement, as: 'requirements' },
-      { model: GigOrderRevision, as: 'revisions', order: [['roundNumber', 'ASC']] },
+      { model: GigOrderRequirement, as: 'requirements', separate: true, order: [['dueAt', 'ASC']] },
+      { model: GigOrderRevision, as: 'revisions', separate: true, order: [['roundNumber', 'ASC']] },
       { model: GigVendorScorecard, as: 'scorecard' },
+      {
+        model: GigOrderEscrowCheckpoint,
+        as: 'escrowCheckpoints',
+        separate: true,
+        order: [['createdAt', 'ASC']],
+      },
+      {
+        model: GigOrderActivity,
+        as: 'activities',
+        separate: true,
+        order: [['occurredAt', 'DESC']],
+      },
+      {
+        model: GigOrderMessage,
+        as: 'messages',
+        separate: true,
+        limit: 25,
+        order: [['postedAt', 'DESC']],
+      },
     ],
     order: [['createdAt', 'DESC']],
   });
@@ -327,11 +643,13 @@ export async function getProjectGigManagementOverview(ownerId) {
   const storyBlocks = await StoryBlock.findAll({ where: { ownerId }, order: [['createdAt', 'DESC']] });
   const brandAssets = await BrandAsset.findAll({ where: { ownerId }, order: [['createdAt', 'DESC']] });
 
+  const orders = orderRecords.map((order) => sanitizeGigOrder(order));
+
   const summary = {
     totalProjects: projects.length,
     activeProjects: projects.filter((project) => project.status !== 'completed').length,
     budgetInPlay: projects.reduce((acc, project) => acc + normalizeNumber(project.budgetAllocated), 0),
-    gigsInDelivery: orders.filter((order) => !['completed', 'cancelled'].includes(order.status)).length,
+    gigsInDelivery: orders.filter((order) => !order.isClosed).length,
     templatesAvailable: templates.length,
     assetsSecured: brandAssets.length,
   };
@@ -679,6 +997,184 @@ export async function updateGigOrder(ownerId, orderId, payload) {
   return order.reload();
 }
 
+export async function addGigOrderActivity(ownerId, orderId, payload, context = {}) {
+  await ensureInitialized();
+  const order = await GigOrder.findByPk(orderId);
+  assertOwnership(order, ownerId, 'Gig order not found');
+
+  const title = payload.title?.toString().trim();
+  if (!title) {
+    throw new ValidationError('Activity title is required.');
+  }
+
+  const activityType = payload.activityType?.toString().trim().toLowerCase() ?? 'note';
+  if (!GIG_ORDER_ACTIVITY_TYPES.includes(activityType)) {
+    throw new ValidationError('Invalid activity type provided.');
+  }
+
+  const occurredAt = ensureDate(payload.occurredAt ?? new Date(), { label: 'Occurred at' }) ?? new Date();
+
+  return GigOrderActivity.create({
+    orderId: order.id,
+    freelancerId: order.freelancerId ?? null,
+    actorId: context.actorId ?? ownerId,
+    activityType,
+    title,
+    description: payload.description ?? null,
+    occurredAt,
+    metadata: {
+      ...(payload.metadata ?? {}),
+      actorRole: context.actorRole ?? null,
+    },
+  });
+}
+
+export async function createGigOrderMessage(ownerId, orderId, payload, context = {}) {
+  await ensureInitialized();
+  const order = await GigOrder.findByPk(orderId);
+  assertOwnership(order, ownerId, 'Gig order not found');
+
+  const body = payload.body?.toString().trim();
+  if (!body) {
+    throw new ValidationError('Message body is required.');
+  }
+
+  const postedAt = ensureDate(payload.postedAt ?? new Date(), { label: 'Posted at' }) ?? new Date();
+  const attachments = prepareMessageAttachments(payload.attachments ?? payload.attachmentUrl);
+  const authorName = payload.authorName?.toString().trim() || context.actorName || 'Workspace operator';
+  const visibility = payload.visibility === 'shared' ? 'shared' : 'private';
+
+  const message = await GigOrderMessage.create({
+    orderId: order.id,
+    authorId: context.actorId ?? ownerId,
+    authorName,
+    roleLabel: payload.roleLabel ?? context.actorRole ?? null,
+    body,
+    attachments,
+    visibility,
+    postedAt,
+  });
+
+  await GigOrderActivity.create({
+    orderId: order.id,
+    freelancerId: order.freelancerId ?? null,
+    actorId: context.actorId ?? ownerId,
+    activityType: 'communication',
+    title: 'Message posted',
+    description: body.slice(0, 160),
+    occurredAt: postedAt,
+    metadata: { source: 'gig_chat', messageId: message.id },
+  });
+
+  return message;
+}
+
+export async function createGigOrderEscrowCheckpoint(ownerId, orderId, payload, context = {}) {
+  await ensureInitialized();
+  const order = await GigOrder.findByPk(orderId);
+  assertOwnership(order, ownerId, 'Gig order not found');
+
+  const label = payload.label?.toString().trim();
+  if (!label) {
+    throw new ValidationError('Escrow checkpoint label is required.');
+  }
+
+  const amount = ensureNumber(payload.amount, { label: 'Escrow amount', allowNegative: false, allowZero: false });
+  const currency = payload.currency?.toString().trim().toUpperCase() || order.currency || 'USD';
+  const status = payload.status?.toString().trim().toLowerCase() || 'funded';
+  if (!GIG_ESCROW_STATUSES.includes(status)) {
+    throw new ValidationError('Invalid escrow status provided.');
+  }
+
+  let releasedAt = null;
+  if (payload.releasedAt) {
+    releasedAt = ensureDate(payload.releasedAt, { label: 'Released at' });
+  }
+
+  return GigOrderEscrowCheckpoint.create({
+    orderId: order.id,
+    label,
+    amount,
+    currency,
+    status,
+    approvalRequirement: payload.approvalRequirement ?? null,
+    csatThreshold:
+      payload.csatThreshold != null
+        ? ensureNumber(payload.csatThreshold, { label: 'CSAT threshold', allowNegative: false })
+        : null,
+    releasedAt,
+    releasedById: releasedAt ? context.actorId ?? ownerId : null,
+    payoutReference: payload.payoutReference ?? null,
+    notes: payload.notes ?? null,
+  });
+}
+
+export async function updateGigOrderEscrowCheckpoint(ownerId, checkpointId, payload, context = {}) {
+  await ensureInitialized();
+  const checkpoint = await GigOrderEscrowCheckpoint.findByPk(checkpointId, {
+    include: [{ model: GigOrder, as: 'order' }],
+  });
+  if (!checkpoint || !checkpoint.order) {
+    throw new NotFoundError('Escrow checkpoint not found.');
+  }
+  assertOwnership(checkpoint.order, ownerId, 'Escrow checkpoint not found.');
+
+  const updates = {};
+  if (payload.label != null) {
+    const label = payload.label.toString().trim();
+    if (!label) {
+      throw new ValidationError('Escrow label cannot be empty.');
+    }
+    updates.label = label;
+  }
+
+  if (payload.amount != null) {
+    updates.amount = ensureNumber(payload.amount, { label: 'Escrow amount', allowNegative: false, allowZero: false });
+  }
+
+  if (payload.currency != null) {
+    updates.currency = payload.currency.toString().trim().toUpperCase();
+  }
+
+  if (payload.status != null) {
+    const status = payload.status.toString().trim().toLowerCase();
+    if (!GIG_ESCROW_STATUSES.includes(status)) {
+      throw new ValidationError('Invalid escrow status provided.');
+    }
+    updates.status = status;
+    if (status === 'released' || payload.releasedAt) {
+      updates.releasedAt = ensureDate(payload.releasedAt ?? new Date(), { label: 'Released at' });
+      updates.releasedById = context.actorId ?? ownerId;
+    }
+    if (status !== 'released' && payload.releasedAt === null) {
+      updates.releasedAt = null;
+      updates.releasedById = null;
+    }
+  }
+
+  if (payload.approvalRequirement != null) {
+    updates.approvalRequirement = payload.approvalRequirement || null;
+  }
+
+  if (payload.notes != null) {
+    updates.notes = payload.notes || null;
+  }
+
+  if (payload.payoutReference != null) {
+    updates.payoutReference = payload.payoutReference || null;
+  }
+
+  if (payload.csatThreshold != null) {
+    updates.csatThreshold = ensureNumber(payload.csatThreshold, {
+      label: 'CSAT threshold',
+      allowNegative: false,
+    });
+  }
+
+  await checkpoint.update(updates);
+  return checkpoint.reload();
+}
+
 export default {
   getProjectGigManagementOverview,
   createProject,
@@ -686,4 +1182,8 @@ export default {
   updateProjectWorkspace,
   createGigOrder,
   updateGigOrder,
+  addGigOrderActivity,
+  createGigOrderMessage,
+  createGigOrderEscrowCheckpoint,
+  updateGigOrderEscrowCheckpoint,
 };

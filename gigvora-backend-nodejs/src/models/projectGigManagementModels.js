@@ -1,5 +1,6 @@
 import { Sequelize, DataTypes } from 'sequelize';
 import databaseConfig from '../config/database.js';
+import { GIG_ORDER_ACTIVITY_TYPES, GIG_ORDER_ESCROW_STATUSES } from './constants/index.js';
 
 const { url, ...sequelizeOptions } = databaseConfig;
 
@@ -17,6 +18,7 @@ export const PROJECT_INTEGRATION_STATUSES = ['connected', 'disconnected', 'error
 export const GIG_ORDER_STATUSES = ['requirements', 'in_delivery', 'in_revision', 'completed', 'cancelled'];
 export const GIG_REQUIREMENT_STATUSES = ['pending', 'received', 'approved'];
 export const GIG_REVISION_STATUSES = ['requested', 'in_progress', 'submitted', 'approved'];
+export const GIG_ESCROW_STATUSES = [...GIG_ORDER_ESCROW_STATUSES];
 
 export const Project = projectGigManagementSequelize.define(
   'PgmProject',
@@ -193,6 +195,51 @@ export const GigVendorScorecard = projectGigManagementSequelize.define(
   { tableName: 'pgm_vendor_scorecards', underscored: true },
 );
 
+export const GigOrderEscrowCheckpoint = projectGigManagementSequelize.define(
+  'PgmGigOrderEscrowCheckpoint',
+  {
+    label: { type: DataTypes.STRING(120), allowNull: false },
+    amount: { type: DataTypes.DECIMAL(12, 2), allowNull: false },
+    currency: { type: DataTypes.STRING(6), allowNull: false, defaultValue: 'USD' },
+    status: { type: DataTypes.ENUM(...GIG_ESCROW_STATUSES), allowNull: false, defaultValue: 'funded' },
+    approvalRequirement: { type: DataTypes.STRING(160), allowNull: true },
+    csatThreshold: { type: DataTypes.DECIMAL(3, 2), allowNull: true },
+    releasedAt: { type: DataTypes.DATE, allowNull: true },
+    releasedById: { type: DataTypes.INTEGER, allowNull: true },
+    payoutReference: { type: DataTypes.STRING(160), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  { tableName: 'pgm_gig_order_escrows', underscored: true },
+);
+
+export const GigOrderActivity = projectGigManagementSequelize.define(
+  'PgmGigOrderActivity',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: true },
+    actorId: { type: DataTypes.INTEGER, allowNull: true },
+    activityType: { type: DataTypes.ENUM(...GIG_ORDER_ACTIVITY_TYPES), allowNull: false, defaultValue: 'system' },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    occurredAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pgm_gig_order_activities', underscored: true },
+);
+
+export const GigOrderMessage = projectGigManagementSequelize.define(
+  'PgmGigOrderMessage',
+  {
+    authorId: { type: DataTypes.INTEGER, allowNull: false },
+    authorName: { type: DataTypes.STRING(180), allowNull: false },
+    roleLabel: { type: DataTypes.STRING(120), allowNull: true },
+    body: { type: DataTypes.TEXT, allowNull: false },
+    attachments: { type: jsonType, allowNull: true },
+    visibility: { type: DataTypes.ENUM('private', 'shared'), allowNull: false, defaultValue: 'private' },
+    postedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+  },
+  { tableName: 'pgm_gig_order_messages', underscored: true },
+);
+
 export const StoryBlock = projectGigManagementSequelize.define(
   'PgmStoryBlock',
   {
@@ -247,6 +294,15 @@ GigOrderRevision.belongsTo(GigOrder, { foreignKey: 'orderId' });
 GigOrder.hasOne(GigVendorScorecard, { as: 'scorecard', foreignKey: 'orderId', onDelete: 'CASCADE' });
 GigVendorScorecard.belongsTo(GigOrder, { foreignKey: 'orderId' });
 
+GigOrder.hasMany(GigOrderEscrowCheckpoint, { as: 'escrowCheckpoints', foreignKey: 'orderId', onDelete: 'CASCADE' });
+GigOrderEscrowCheckpoint.belongsTo(GigOrder, { foreignKey: 'orderId', as: 'order' });
+
+GigOrder.hasMany(GigOrderActivity, { as: 'activities', foreignKey: 'orderId', onDelete: 'CASCADE' });
+GigOrderActivity.belongsTo(GigOrder, { foreignKey: 'orderId', as: 'order' });
+
+GigOrder.hasMany(GigOrderMessage, { as: 'messages', foreignKey: 'orderId', onDelete: 'CASCADE' });
+GigOrderMessage.belongsTo(GigOrder, { foreignKey: 'orderId', as: 'order' });
+
 export async function syncProjectGigManagementModels(options = {}) {
   await projectGigManagementSequelize.sync({ alter: false, ...options });
 }
@@ -265,6 +321,9 @@ export default {
   GigOrderRequirement,
   GigOrderRevision,
   GigVendorScorecard,
+  GigOrderEscrowCheckpoint,
+  GigOrderActivity,
+  GigOrderMessage,
   StoryBlock,
   BrandAsset,
 };

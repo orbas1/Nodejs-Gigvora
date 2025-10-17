@@ -23,5 +23,25 @@ router.patch(
   requireProjectManagementRole,
   asyncHandler(projectGigManagementController.patchGigOrder),
 );
+router.post(
+  '/gig-orders/:orderId/timeline',
+  requireProjectManagementRole,
+  asyncHandler(projectGigManagementController.storeGigTimelineEvent),
+);
+router.post(
+  '/gig-orders/:orderId/messages',
+  requireProjectManagementRole,
+  asyncHandler(projectGigManagementController.storeGigMessage),
+);
+router.post(
+  '/gig-orders/:orderId/escrow',
+  requireProjectManagementRole,
+  asyncHandler(projectGigManagementController.storeGigEscrowCheckpoint),
+);
+router.patch(
+  '/gig-orders/:orderId/escrow/:checkpointId',
+  requireProjectManagementRole,
+  asyncHandler(projectGigManagementController.patchGigEscrowCheckpoint),
+);
 
 export default router;

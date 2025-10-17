@@ -4,6 +4,8 @@ import useProjectGigManagement from '../../hooks/useProjectGigManagement.js';
 import DataStatus from '../DataStatus.jsx';
 import ProjectGigManagementSection from './ProjectGigManagementSection.jsx';
 import { useProjectManagementAccess } from '../../hooks/useAuthorization.js';
+import useSession from '../../hooks/useSession.js';
+import GigOperationsWorkspace from './GigOperationsWorkspace.jsx';
 
 const PROJECT_MANAGEMENT_ROLE_LABELS = [
   'Agency lead',
@@ -108,6 +110,7 @@ function validateGigForm(values) {
 
 export default function ProjectGigManagementContainer({ userId }) {
   const { canManageProjects, denialReason } = useProjectManagementAccess();
+  const { session } = useSession();
 
   if (!canManageProjects) {
     return (
@@ -164,6 +167,24 @@ export default function ProjectGigManagementContainer({ userId }) {
         ? `Gig operations are view-only for the ${access.actorRole.replace(/_/g, ' ')} role.`
         : 'Gig operations are view-only for your current access level.')
     : null;
+
+  const defaultAuthorName = useMemo(() => {
+    if (!session) {
+      return null;
+    }
+    if (session.name) {
+      return session.name;
+    }
+    const user = session.user ?? {};
+    if (user.name) {
+      return user.name;
+    }
+    const parts = [user.firstName, user.lastName].filter(Boolean);
+    if (parts.length) {
+      return parts.join(' ');
+    }
+    return session.email ?? session.user?.email ?? null;
+  }, [session]);
 
   const inputClassName = (hasError) =>
     `rounded-xl border px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent ${
@@ -564,7 +585,23 @@ export default function ProjectGigManagementContainer({ userId }) {
             {renderProjectForm()}
             {renderGigForm()}
           </div>
-          {data ? <ProjectGigManagementSection data={data} /> : null}
+          {data ? (
+            <>
+              <ProjectGigManagementSection data={data} />
+              <GigOperationsWorkspace
+                data={data}
+                canManage={canManage}
+                onCreateOrder={actions.createGigOrder}
+                onUpdateOrder={actions.updateGigOrder}
+                onAddTimelineEvent={actions.addTimelineEvent}
+                onPostMessage={actions.postGigMessage}
+                onCreateEscrow={actions.createEscrowCheckpoint}
+                onUpdateEscrow={actions.updateEscrowCheckpoint}
+                onSubmitReview={(orderId, payload) => actions.updateGigOrder(orderId, payload)}
+                defaultAuthorName={defaultAuthorName}
+              />
+            </>
+          ) : null}
         </>
       )}
 
