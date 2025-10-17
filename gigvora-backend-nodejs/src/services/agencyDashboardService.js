@@ -84,6 +84,7 @@ import { AuthenticationError, AuthorizationError, NotFoundError } from '../utils
 import { getAdDashboardSnapshot } from './adService.js';
 import { getFinanceControlTowerOverview } from './financeService.js';
 import { getAgencyOverview } from './agencyOverviewService.js';
+import { getCreationStudioSnapshot } from './agencyCreationStudioService.js';
 
 const ACTIVE_MEMBER_STATUSES = ['active'];
 const PROJECT_STATUS_BUCKETS = {
@@ -3558,6 +3559,10 @@ export async function getAgencyDashboard(
     }
 
     const agencyProfilePlain = agencyProfile ? agencyProfile.get({ plain: true }) : null;
+    const creationStudio = await getCreationStudioSnapshot(
+      { agencyProfileId: agencyProfilePlain?.id ?? null },
+      { actorId, actorRole },
+    );
 
     const formattedProjects = scopedProjects.map((project) => ({
       id: project.id,
@@ -4319,6 +4324,7 @@ export async function getAgencyDashboard(
       workspace: workspace ? sanitizeWorkspaceRecord(workspace) : null,
       dashboardOverview,
       agencyProfile: agencyProfilePlain,
+      creationStudio,
       scope,
       summary: {
         members: membersSummary,
