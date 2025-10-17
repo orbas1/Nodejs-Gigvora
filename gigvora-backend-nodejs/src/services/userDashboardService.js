@@ -53,6 +53,7 @@ import careerPipelineAutomationService from './careerPipelineAutomationService.j
 import { getAdDashboardSnapshot } from './adService.js';
 import { initializeWorkspaceForProject } from './projectWorkspaceService.js';
 import affiliateDashboardService from './affiliateDashboardService.js';
+import userMentoringService from './userMentoringService.js';
 
 const CACHE_NAMESPACE = 'dashboard:user';
 const CACHE_TTL_SECONDS = 60;
@@ -2276,6 +2277,8 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     raw: true,
   });
 
+  const mentoringDashboardPromise = userMentoringService.getMentoringDashboard(userId, { bypassCache });
+
   const [
     applications,
     pipelineRows,
@@ -2296,6 +2299,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     storyBlocks,
     brandAssets,
     purchasedGigOrders,
+    mentoringDashboard,
     careerPipelineAutomation,
     affiliateProgram,
     projectParticipation,
@@ -2319,6 +2323,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     storyBlocksQuery,
     brandAssetsQuery,
     purchasedGigOrdersQuery,
+    mentoringDashboardPromise,
     careerPipelineAutomationService.getCareerPipelineAutomation(userId, { bypassCache }),
     affiliateDashboardService.getAffiliateDashboard(userId),
     projectParticipationQuery,
@@ -2643,6 +2648,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
       supportDesk,
     },
     affiliate: affiliateProgram,
+    mentoring: mentoringDashboard,
     careerPipelineAutomation,
     ads,
   };

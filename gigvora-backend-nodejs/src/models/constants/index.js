@@ -283,6 +283,7 @@ export const GIG_ORDER_ESCROW_STATUSES = [
 export const LEARNING_COURSE_DIFFICULTIES = ['beginner', 'intermediate', 'advanced', 'expert'];
 export const LEARNING_ENROLLMENT_STATUSES = ['not_started', 'in_progress', 'completed', 'archived'];
 export const PEER_MENTORING_STATUSES = ['requested', 'scheduled', 'completed', 'cancelled'];
+export const MENTORSHIP_ORDER_STATUSES = ['pending', 'active', 'completed', 'cancelled'];
 export const CERTIFICATION_STATUSES = ['active', 'expiring_soon', 'expired', 'revoked'];
 export const LAUNCHPAD_STATUSES = ['draft', 'recruiting', 'active', 'archived'];
 

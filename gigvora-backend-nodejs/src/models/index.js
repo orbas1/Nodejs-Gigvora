@@ -60,6 +60,7 @@ import {
   AD_COUPON_DISCOUNT_TYPES,
   GIG_ORDER_REQUIREMENT_FORM_STATUSES,
   GIG_ORDER_ESCROW_STATUSES, LEARNING_COURSE_DIFFICULTIES, LEARNING_ENROLLMENT_STATUSES, PEER_MENTORING_STATUSES,
+  MENTORSHIP_ORDER_STATUSES,
   CERTIFICATION_STATUSES, LAUNCHPAD_STATUSES, CLIENT_SUCCESS_PLAYBOOK_TRIGGERS, CLIENT_SUCCESS_STEP_TYPES,
   CLIENT_SUCCESS_STEP_CHANNELS, CLIENT_SUCCESS_ENROLLMENT_STATUSES, CLIENT_SUCCESS_EVENT_STATUSES, CLIENT_SUCCESS_REFERRAL_STATUSES,
   CLIENT_SUCCESS_REVIEW_NUDGE_STATUSES, CLIENT_SUCCESS_AFFILIATE_STATUSES, LAUNCHPAD_APPLICATION_STATUSES, LAUNCHPAD_EMPLOYER_REQUEST_STATUSES,
@@ -14851,6 +14852,7 @@ export const PeerMentoringSession = sequelize.define(
     serviceLineId: { type: DataTypes.INTEGER, allowNull: true },
     mentorId: { type: DataTypes.INTEGER, allowNull: false },
     menteeId: { type: DataTypes.INTEGER, allowNull: false },
+    orderId: { type: DataTypes.INTEGER, allowNull: true },
     topic: { type: DataTypes.STRING(255), allowNull: false },
     agenda: { type: DataTypes.TEXT, allowNull: true },
     scheduledAt: { type: DataTypes.DATE, allowNull: false },
@@ -14861,10 +14863,92 @@ export const PeerMentoringSession = sequelize.define(
       defaultValue: 'requested',
     },
     meetingUrl: { type: DataTypes.STRING(255), allowNull: true },
+    meetingLocation: { type: DataTypes.STRING(255), allowNull: true },
+    meetingType: { type: DataTypes.STRING(80), allowNull: true },
     recordingUrl: { type: DataTypes.STRING(255), allowNull: true },
     notes: { type: DataTypes.TEXT, allowNull: true },
+    pricePaid: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    currency: { type: DataTypes.STRING(3), allowNull: true },
+    cancelledAt: { type: DataTypes.DATE, allowNull: true },
+    completedAt: { type: DataTypes.DATE, allowNull: true },
+    feedbackRequested: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
   },
   { tableName: 'peer_mentoring_sessions' },
+);
+
+export const MentorshipOrder = sequelize.define(
+  'MentorshipOrder',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    mentorId: { type: DataTypes.INTEGER, allowNull: false },
+    packageName: { type: DataTypes.STRING(180), allowNull: false },
+    packageDescription: { type: DataTypes.TEXT, allowNull: true },
+    sessionsPurchased: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
+    sessionsRedeemed: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    totalAmount: { type: DataTypes.DECIMAL(12, 2), allowNull: false, defaultValue: 0 },
+    currency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    status: {
+      type: DataTypes.ENUM(...MENTORSHIP_ORDER_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+    },
+    purchasedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    expiresAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'mentorship_orders' },
+);
+
+export const MentorFavourite = sequelize.define(
+  'MentorFavourite',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    mentorId: { type: DataTypes.INTEGER, allowNull: false },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  {
+    tableName: 'mentor_favourites',
+    indexes: [
+      {
+        unique: true,
+        fields: ['userId', 'mentorId'],
+        name: 'mentor_favourites_user_mentor_unique',
+      },
+    ],
+  },
+);
+
+export const MentorRecommendation = sequelize.define(
+  'MentorRecommendation',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    mentorId: { type: DataTypes.INTEGER, allowNull: false },
+    score: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    source: { type: DataTypes.STRING(120), allowNull: true },
+    reason: { type: DataTypes.TEXT, allowNull: true },
+    generatedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'mentor_recommendations' },
+);
+
+export const MentorReview = sequelize.define(
+  'MentorReview',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    mentorId: { type: DataTypes.INTEGER, allowNull: false },
+    sessionId: { type: DataTypes.INTEGER, allowNull: true },
+    orderId: { type: DataTypes.INTEGER, allowNull: true },
+    rating: { type: DataTypes.INTEGER, allowNull: false },
+    wouldRecommend: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    headline: { type: DataTypes.STRING(200), allowNull: true },
+    feedback: { type: DataTypes.TEXT, allowNull: true },
+    praiseHighlights: { type: jsonType, allowNull: true },
+    improvementAreas: { type: jsonType, allowNull: true },
+    publishedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    isPublic: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+  },
+  { tableName: 'mentor_reviews' },
 );
 
 export const SkillGapDiagnostic = sequelize.define(
@@ -14936,8 +15020,30 @@ User.hasMany(LearningCourseEnrollment, { foreignKey: 'userId', as: 'learningEnro
 PeerMentoringSession.belongsTo(ServiceLine, { foreignKey: 'serviceLineId', as: 'serviceLine' });
 PeerMentoringSession.belongsTo(User, { foreignKey: 'mentorId', as: 'mentor' });
 PeerMentoringSession.belongsTo(User, { foreignKey: 'menteeId', as: 'mentee' });
+PeerMentoringSession.belongsTo(MentorshipOrder, { foreignKey: 'orderId', as: 'order' });
 User.hasMany(PeerMentoringSession, { foreignKey: 'mentorId', as: 'mentoringSessionsLed' });
 User.hasMany(PeerMentoringSession, { foreignKey: 'menteeId', as: 'mentoringSessions' });
+MentorshipOrder.belongsTo(User, { foreignKey: 'userId', as: 'mentee' });
+MentorshipOrder.belongsTo(User, { foreignKey: 'mentorId', as: 'mentor' });
+MentorshipOrder.hasMany(PeerMentoringSession, { foreignKey: 'orderId', as: 'sessions' });
+User.hasMany(MentorshipOrder, { foreignKey: 'userId', as: 'mentorshipOrders' });
+User.hasMany(MentorshipOrder, { foreignKey: 'mentorId', as: 'mentorshipSales' });
+MentorFavourite.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+MentorFavourite.belongsTo(User, { foreignKey: 'mentorId', as: 'mentor' });
+User.hasMany(MentorFavourite, { foreignKey: 'userId', as: 'mentorFavourites' });
+User.hasMany(MentorFavourite, { foreignKey: 'mentorId', as: 'favouritedBy' });
+MentorRecommendation.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+MentorRecommendation.belongsTo(User, { foreignKey: 'mentorId', as: 'mentor' });
+User.hasMany(MentorRecommendation, { foreignKey: 'userId', as: 'mentorRecommendations' });
+User.hasMany(MentorRecommendation, { foreignKey: 'mentorId', as: 'recommendedMentorInsights' });
+MentorReview.belongsTo(User, { foreignKey: 'userId', as: 'reviewer' });
+MentorReview.belongsTo(User, { foreignKey: 'mentorId', as: 'mentor' });
+MentorReview.belongsTo(PeerMentoringSession, { foreignKey: 'sessionId', as: 'session' });
+MentorReview.belongsTo(MentorshipOrder, { foreignKey: 'orderId', as: 'order' });
+User.hasMany(MentorReview, { foreignKey: 'userId', as: 'mentorReviews' });
+User.hasMany(MentorReview, { foreignKey: 'mentorId', as: 'mentorFeedback' });
+PeerMentoringSession.hasMany(MentorReview, { foreignKey: 'sessionId', as: 'reviews' });
+MentorshipOrder.hasMany(MentorReview, { foreignKey: 'orderId', as: 'reviews' });
 
 SkillGapDiagnostic.belongsTo(ServiceLine, { foreignKey: 'serviceLineId', as: 'serviceLine' });
 SkillGapDiagnostic.belongsTo(User, { foreignKey: 'userId', as: 'user' });
@@ -16284,6 +16390,10 @@ export default {
   LearningCourseModule,
   LearningCourseEnrollment,
   PeerMentoringSession,
+  MentorshipOrder,
+  MentorFavourite,
+  MentorRecommendation,
+  MentorReview,
   SkillGapDiagnostic,
   FreelancerCertification,
   AiServiceRecommendation,
