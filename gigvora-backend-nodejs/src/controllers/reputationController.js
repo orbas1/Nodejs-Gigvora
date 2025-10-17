@@ -6,6 +6,12 @@ import {
   createBadge,
   createReviewWidget,
 } from '../services/reputationService.js';
+import {
+  listFreelancerReviews,
+  createFreelancerReview,
+  updateFreelancerReview,
+  deleteFreelancerReview,
+} from '../services/freelancerReviewService.js';
 
 function parseBoolean(value, fallback = false) {
   if (value == null) {
@@ -77,6 +83,55 @@ export async function postReviewWidget(req, res) {
   res.status(201).json(result);
 }
 
+function normalizeTagsQuery(value) {
+  if (value == null) {
+    return undefined;
+  }
+  if (Array.isArray(value)) {
+    return value;
+  }
+  return `${value}`
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+export async function getFreelancerReviews(req, res) {
+  const { freelancerId } = req.params;
+  const { page, pageSize, sort, status, highlighted, minRating, maxRating, query, tags } = req.query ?? {};
+  const payload = await listFreelancerReviews({
+    freelancerId,
+    page,
+    pageSize,
+    sort,
+    status,
+    highlighted,
+    minRating,
+    maxRating,
+    query,
+    tags: normalizeTagsQuery(tags),
+  });
+  res.json(payload);
+}
+
+export async function postFreelancerReview(req, res) {
+  const { freelancerId } = req.params;
+  const result = await createFreelancerReview(freelancerId, req.body ?? {});
+  res.status(201).json(result);
+}
+
+export async function putFreelancerReview(req, res) {
+  const { freelancerId, reviewId } = req.params;
+  const result = await updateFreelancerReview(freelancerId, reviewId, req.body ?? {});
+  res.json(result);
+}
+
+export async function removeFreelancerReview(req, res) {
+  const { freelancerId, reviewId } = req.params;
+  await deleteFreelancerReview(freelancerId, reviewId);
+  res.status(204).send();
+}
+
 export default {
   getFreelancerReputation,
   postTestimonial,
@@ -84,5 +139,9 @@ export default {
   postMetric,
   postBadge,
   postReviewWidget,
+  getFreelancerReviews,
+  postFreelancerReview,
+  putFreelancerReview,
+  removeFreelancerReview,
 };
 

@@ -1065,6 +1065,36 @@ export const ReputationReviewWidget = sequelize.define(
   { tableName: 'reputation_review_widgets' },
 );
 
+export const FreelancerReview = sequelize.define(
+  'FreelancerReview',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    reviewerName: { type: DataTypes.STRING(180), allowNull: true },
+    reviewerRole: { type: DataTypes.STRING(180), allowNull: true },
+    reviewerCompany: { type: DataTypes.STRING(180), allowNull: true },
+    rating: { type: DataTypes.DECIMAL(3, 2), allowNull: true },
+    status: {
+      type: DataTypes.ENUM('draft', 'pending', 'published', 'archived'),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [['draft', 'pending', 'published', 'archived']] },
+    },
+    highlighted: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    reviewSource: { type: DataTypes.STRING(120), allowNull: true },
+    body: { type: DataTypes.TEXT, allowNull: false },
+    capturedAt: { type: DataTypes.DATE, allowNull: true },
+    publishedAt: { type: DataTypes.DATE, allowNull: true },
+    previewUrl: { type: DataTypes.STRING(512), allowNull: true },
+    heroImageUrl: { type: DataTypes.STRING(512), allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    attachments: { type: jsonType, allowNull: true },
+    responses: { type: jsonType, allowNull: true },
+    privateNotes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  { tableName: 'freelancer_reviews' },
+);
+
 ReputationTestimonial.prototype.toPublicObject = function toPublicObject() {
   const plain = this.get({ plain: true });
   return {
@@ -1084,6 +1114,33 @@ ReputationTestimonial.prototype.toPublicObject = function toPublicObject() {
     shareUrl: plain.shareUrl ?? null,
     media: plain.media ?? null,
     metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+FreelancerReview.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    title: plain.title,
+    reviewerName: plain.reviewerName ?? null,
+    reviewerRole: plain.reviewerRole ?? null,
+    reviewerCompany: plain.reviewerCompany ?? null,
+    rating: plain.rating == null ? null : Number(plain.rating),
+    status: plain.status,
+    highlighted: Boolean(plain.highlighted),
+    reviewSource: plain.reviewSource ?? null,
+    body: plain.body,
+    capturedAt: plain.capturedAt ?? null,
+    publishedAt: plain.publishedAt ?? null,
+    previewUrl: plain.previewUrl ?? null,
+    heroImageUrl: plain.heroImageUrl ?? null,
+    tags: Array.isArray(plain.tags) ? plain.tags : plain.tags ?? [],
+    attachments: plain.attachments ?? null,
+    responses: plain.responses ?? null,
+    privateNotes: plain.privateNotes ?? null,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };
@@ -14233,6 +14290,9 @@ ReputationBadge.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' }
 User.hasMany(ReputationReviewWidget, { foreignKey: 'freelancerId', as: 'reputationReviewWidgets' });
 ReputationReviewWidget.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
 
+User.hasMany(FreelancerReview, { foreignKey: 'freelancerId', as: 'freelancerReviews' });
+FreelancerReview.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+
 User.hasOne(FreelancerAssignmentMetric, { foreignKey: 'freelancerId', as: 'assignmentMetric' });
 FreelancerAssignmentMetric.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
 
@@ -16211,6 +16271,7 @@ export default {
   ReputationMetric,
   ReputationBadge,
   ReputationReviewWidget,
+  FreelancerReview,
   FreelancerExpertiseArea,
   FreelancerSuccessMetric,
   FreelancerTestimonial,
