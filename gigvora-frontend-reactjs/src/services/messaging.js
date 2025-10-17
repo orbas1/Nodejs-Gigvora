@@ -82,6 +82,27 @@ export async function markThreadRead(threadId, { userId } = {}) {
   });
 }
 
+export async function updateSupportStatus(threadId, { userId, status, resolutionSummary, metadata } = {}) {
+  return apiClient.post(`/messaging/threads/${threadId}/support-status`, {
+    userId,
+    status,
+    resolutionSummary,
+    metadata,
+  });
+}
+
+export async function assignSupportAgent(threadId, { userId, agentId, notifyAgent = true } = {}) {
+  return apiClient.post(`/messaging/threads/${threadId}/assign-support`, {
+    userId,
+    agentId,
+    notifyAgent,
+  });
+}
+
+export async function updateThreadState(threadId, { state } = {}) {
+  return apiClient.post(`/messaging/threads/${threadId}/state`, { state });
+}
+
 export default {
   fetchInbox,
   fetchThread,
@@ -90,4 +111,7 @@ export default {
   createThread,
   createCallSession,
   markThreadRead,
+  updateSupportStatus,
+  assignSupportAgent,
+  updateThreadState,
 };

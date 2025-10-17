@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import useSession from '../../hooks/useSession.js';
+import InboxSection from './freelancer/sections/InboxSection.jsx';
 
 const SAMPLE_METRICS = [
   { id: 'matches', label: 'New matches', value: 8, trend: '+2 this week' },
@@ -147,6 +148,10 @@ export default function FreelancerDashboardPage() {
               </Link>
             </div>
           </aside>
+        </section>
+
+        <section className="mt-12">
+          <InboxSection />
         </section>
       </div>
     </div>

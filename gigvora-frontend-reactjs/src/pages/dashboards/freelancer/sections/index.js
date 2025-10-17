@@ -4,6 +4,7 @@ export { default as FinanceComplianceSection } from './FinanceComplianceSection.
 export { default as GigMarketplaceOperationsSection } from './GigMarketplaceOperationsSection.jsx';
 export { default as GigStudioSection } from './GigStudioSection.jsx';
 export { default as GrowthPartnershipSection } from './GrowthPartnershipSection.jsx';
+export { default as InboxSection } from './InboxSection.jsx';
 export { default as NetworkSection } from './NetworkSection.jsx';
 export { default as OperationalQuickAccessSection } from './OperationalQuickAccessSection.jsx';
 export { default as OperationsHQSection } from './OperationsHQSection.jsx';
