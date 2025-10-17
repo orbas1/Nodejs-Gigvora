@@ -4,6 +4,7 @@ import { domainMetadata } from '../domains/domainMetadata.js';
 import logger from '../utils/logger.js';
 import { PlatformSetting } from './platformSetting.js';
 import { RuntimeSecurityAuditEvent } from './runtimeSecurityAuditEvent.js';
+import './agencyWorkforceModels.js';
 import { RbacPolicyAuditEvent } from './rbacPolicyAuditEvent.js';
 import { RuntimeAnnouncement } from './runtimeAnnouncement.js';
 import {
@@ -133,6 +134,8 @@ const GIG_PREVIEW_DEVICE_TYPES = ['desktop', 'tablet', 'mobile'];
 const FEATURE_FLAG_ROLLOUT_TYPES = ['global', 'percentage', 'cohort'];
 const FEATURE_FLAG_STATUSES = ['draft', 'active', 'disabled'];
 const FEATURE_FLAG_AUDIENCE_TYPES = ['user', 'workspace', 'membership', 'domain'];
+export const AGENCY_PROFILE_MEDIA_ALLOWED_TYPES = ['image', 'video', 'banner'];
+export const AGENCY_PROFILE_CREDENTIAL_TYPES = ['qualification', 'certificate'];
 
 export const User = sequelize.define(
   'User',
@@ -367,6 +370,28 @@ export const CompanyProfile = sequelize.define(
   { tableName: 'company_profiles' },
 );
 
+export const CompanyDashboardOverview = sequelize.define(
+  'CompanyDashboardOverview',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    displayName: { type: DataTypes.STRING(150), allowNull: false },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    avatarUrl: { type: DataTypes.STRING(1024), allowNull: true },
+    followerCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    trustScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    rating: { type: DataTypes.DECIMAL(3, 2), allowNull: true },
+    preferences: { type: jsonType, allowNull: true },
+    lastEditedById: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  {
+    tableName: 'company_dashboard_overviews',
+    indexes: [
+      { unique: true, fields: ['workspaceId'] },
+      { fields: ['lastEditedById'] },
+    ],
+  },
+);
+
 export const AgencyProfile = sequelize.define(
   'AgencyProfile',
   {
@@ -376,6 +401,13 @@ export const AgencyProfile = sequelize.define(
     website: { type: DataTypes.STRING(255), allowNull: true },
     location: { type: DataTypes.STRING(255), allowNull: true },
     geoLocation: { type: jsonType, allowNull: true },
+    tagline: { type: DataTypes.STRING(160), allowNull: true },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    introVideoUrl: { type: DataTypes.STRING(500), allowNull: true },
+    bannerImageUrl: { type: DataTypes.STRING(500), allowNull: true },
+    profileImageUrl: { type: DataTypes.STRING(500), allowNull: true },
+    workforceAvailable: { type: DataTypes.INTEGER, allowNull: true },
+    workforceNotes: { type: DataTypes.STRING(255), allowNull: true },
   },
   { tableName: 'agency_profiles' },
 );
@@ -391,6 +423,133 @@ export const FreelancerProfile = sequelize.define(
     geoLocation: { type: jsonType, allowNull: true },
   },
   { tableName: 'freelancer_profiles' },
+);
+
+export const AgencyProfileMedia = sequelize.define(
+  'AgencyProfileMedia',
+  {
+    agencyProfileId: { type: DataTypes.INTEGER, allowNull: false },
+    type: {
+      type: DataTypes.STRING(32),
+      allowNull: false,
+      defaultValue: 'image',
+      validate: { isIn: [AGENCY_PROFILE_MEDIA_ALLOWED_TYPES] },
+    },
+    title: { type: DataTypes.STRING(160), allowNull: true },
+    url: { type: DataTypes.STRING(2048), allowNull: false },
+    altText: { type: DataTypes.STRING(255), allowNull: true },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    position: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'agency_profile_media',
+    indexes: [
+      { fields: ['agencyProfileId'] },
+      { fields: ['agencyProfileId', 'type'] },
+      { fields: ['position'] },
+    ],
+  },
+);
+
+export const AgencyProfileSkill = sequelize.define(
+  'AgencyProfileSkill',
+  {
+    agencyProfileId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(120), allowNull: false },
+    category: { type: DataTypes.STRING(120), allowNull: true },
+    proficiency: { type: DataTypes.INTEGER, allowNull: true },
+    experienceYears: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    isFeatured: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    position: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  },
+  {
+    tableName: 'agency_profile_skills',
+    indexes: [
+      { fields: ['agencyProfileId'] },
+      { fields: ['agencyProfileId', 'name'] },
+    ],
+  },
+);
+
+export const AgencyProfileCredential = sequelize.define(
+  'AgencyProfileCredential',
+  {
+    agencyProfileId: { type: DataTypes.INTEGER, allowNull: false },
+    type: {
+      type: DataTypes.STRING(32),
+      allowNull: false,
+      defaultValue: 'qualification',
+      validate: { isIn: [AGENCY_PROFILE_CREDENTIAL_TYPES] },
+    },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    issuer: { type: DataTypes.STRING(180), allowNull: true },
+    issuedAt: { type: DataTypes.DATEONLY, allowNull: true },
+    expiresAt: { type: DataTypes.DATEONLY, allowNull: true },
+    credentialUrl: { type: DataTypes.STRING(500), allowNull: true },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    referenceId: { type: DataTypes.STRING(120), allowNull: true },
+    verificationStatus: { type: DataTypes.STRING(60), allowNull: true },
+  },
+  {
+    tableName: 'agency_profile_credentials',
+    indexes: [
+      { fields: ['agencyProfileId'] },
+      { fields: ['agencyProfileId', 'type'] },
+      { fields: ['issuedAt'] },
+    ],
+  },
+);
+
+export const AgencyProfileExperience = sequelize.define(
+  'AgencyProfileExperience',
+  {
+    agencyProfileId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    client: { type: DataTypes.STRING(180), allowNull: true },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    startDate: { type: DataTypes.DATEONLY, allowNull: true },
+    endDate: { type: DataTypes.DATEONLY, allowNull: true },
+    isCurrent: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    impact: { type: DataTypes.TEXT, allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    heroImageUrl: { type: DataTypes.STRING(500), allowNull: true },
+    position: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  },
+  {
+    tableName: 'agency_profile_experiences',
+    indexes: [
+      { fields: ['agencyProfileId'] },
+      { fields: ['agencyProfileId', 'isCurrent'] },
+      { fields: ['position'] },
+    ],
+  },
+);
+
+export const AgencyProfileWorkforceSegment = sequelize.define(
+  'AgencyProfileWorkforceSegment',
+  {
+    agencyProfileId: { type: DataTypes.INTEGER, allowNull: false },
+    segmentName: { type: DataTypes.STRING(180), allowNull: false },
+    specialization: { type: DataTypes.STRING(180), allowNull: true },
+    availableCount: { type: DataTypes.INTEGER, allowNull: true },
+    totalCount: { type: DataTypes.INTEGER, allowNull: true },
+    deliveryModel: { type: DataTypes.STRING(60), allowNull: true },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    availabilityNotes: { type: DataTypes.TEXT, allowNull: true },
+    averageBillRate: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    currency: { type: DataTypes.STRING(6), allowNull: true },
+    leadTimeDays: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    position: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  },
+  {
+    tableName: 'agency_profile_workforce_segments',
+    indexes: [
+      { fields: ['agencyProfileId'] },
+      { fields: ['agencyProfileId', 'segmentName'] },
+    ],
+  },
 );
 
 export const IdentityVerification = sequelize.define(
@@ -14159,6 +14318,36 @@ AgencyProfile.hasMany(CorporateVerification, {
   onDelete: 'CASCADE',
 });
 CorporateVerification.belongsTo(AgencyProfile, { foreignKey: 'agencyProfileId', as: 'agencyProfile' });
+AgencyProfile.hasMany(AgencyProfileMedia, {
+  foreignKey: 'agencyProfileId',
+  as: 'media',
+  onDelete: 'CASCADE',
+});
+AgencyProfileMedia.belongsTo(AgencyProfile, { foreignKey: 'agencyProfileId', as: 'agencyProfile' });
+AgencyProfile.hasMany(AgencyProfileSkill, {
+  foreignKey: 'agencyProfileId',
+  as: 'skills',
+  onDelete: 'CASCADE',
+});
+AgencyProfileSkill.belongsTo(AgencyProfile, { foreignKey: 'agencyProfileId', as: 'agencyProfile' });
+AgencyProfile.hasMany(AgencyProfileCredential, {
+  foreignKey: 'agencyProfileId',
+  as: 'credentials',
+  onDelete: 'CASCADE',
+});
+AgencyProfileCredential.belongsTo(AgencyProfile, { foreignKey: 'agencyProfileId', as: 'agencyProfile' });
+AgencyProfile.hasMany(AgencyProfileExperience, {
+  foreignKey: 'agencyProfileId',
+  as: 'experiences',
+  onDelete: 'CASCADE',
+});
+AgencyProfileExperience.belongsTo(AgencyProfile, { foreignKey: 'agencyProfileId', as: 'agencyProfile' });
+AgencyProfile.hasMany(AgencyProfileWorkforceSegment, {
+  foreignKey: 'agencyProfileId',
+  as: 'workforceSegments',
+  onDelete: 'CASCADE',
+});
+AgencyProfileWorkforceSegment.belongsTo(AgencyProfile, { foreignKey: 'agencyProfileId', as: 'agencyProfile' });
 CorporateVerification.belongsTo(User, { foreignKey: 'userId', as: 'requestor' });
 CorporateVerification.belongsTo(User, { foreignKey: 'reviewerId', as: 'reviewer' });
 User.hasMany(CorporateVerification, { foreignKey: 'userId', as: 'corporateVerifications' });
@@ -15587,6 +15776,18 @@ MemberBrandingMetric.prototype.toPublicObject = function toPublicObject() {
 
 ProviderWorkspace.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
 ProviderWorkspace.hasMany(ProviderWorkspaceMember, { foreignKey: 'workspaceId', as: 'members' });
+ProviderWorkspace.hasOne(CompanyDashboardOverview, {
+  foreignKey: 'workspaceId',
+  as: 'dashboardOverview',
+});
+CompanyDashboardOverview.belongsTo(ProviderWorkspace, {
+  foreignKey: 'workspaceId',
+  as: 'workspace',
+});
+CompanyDashboardOverview.belongsTo(User, {
+  foreignKey: 'lastEditedById',
+  as: 'lastEditedBy',
+});
 ProviderWorkspace.hasMany(ProviderWorkspaceInvite, { foreignKey: 'workspaceId', as: 'invites' });
 ProviderWorkspace.hasMany(ProviderContactNote, { foreignKey: 'workspaceId', as: 'contactNotes' });
 ProviderWorkspace.hasMany(ExecutiveIntelligenceMetric, { foreignKey: 'workspaceId', as: 'executiveMetrics' });
