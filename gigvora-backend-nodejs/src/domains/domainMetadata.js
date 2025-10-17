@@ -44,6 +44,11 @@ export const domainMetadata = {
         retention: '6 years',
         justification: 'Identity evidence retained for Know Your Customer regulations.',
       },
+      IdentityVerificationEvent: {
+        fields: ['previousStatus', 'newStatus', 'notes', 'metadata'],
+        retention: '6 years',
+        justification: 'Audit trail of identity reviews maintained for regulatory reporting.',
+      },
       CorporateVerification: {
         fields: ['companyNumber', 'registrationCountry', 'complianceNotes'],
         retention: '6 years',
@@ -62,6 +67,9 @@ export const domainMetadata = {
       },
       IdentityVerification: {
         complianceNotes: 'Analyst-supplied remediation notes recorded during manual verification.',
+      },
+      IdentityVerificationEvent: {
+        metadata: 'Structured payload with reviewer assignments, file references, and automation signals.',
       },
     },
   },

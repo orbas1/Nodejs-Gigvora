@@ -163,6 +163,12 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
         sectionId: 'settings-governance',
       },
       {
+        name: 'ID',
+        sectionId: 'company-id-verification',
+        href: '/dashboard/company/id-verification',
+        tags: ['compliance'],
+      },
+      {
         name: 'Integration command center',
         description: 'Dedicated console for Salesforce, monday.com, Slack, HubSpot, Google Drive, and BYOK AI connectors.',
         sectionId: 'settings-governance',
