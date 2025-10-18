@@ -245,6 +245,128 @@ SupportCase.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+export const SavedReply = sequelize.define(
+  'SavedReply',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(160), allowNull: false },
+    body: { type: DataTypes.TEXT, allowNull: false },
+    category: { type: DataTypes.STRING(80), allowNull: true },
+    shortcut: { type: DataTypes.STRING(40), allowNull: true },
+    isDefault: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    metadata: { type: jsonType, allowNull: true },
+    orderIndex: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  },
+  {
+    tableName: 'saved_replies',
+    indexes: [
+      { fields: ['userId'] },
+      { unique: true, fields: ['userId', 'shortcut'] },
+      { fields: ['userId', 'isDefault'] },
+    ],
+  },
+);
+
+SavedReply.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    title: plain.title,
+    body: plain.body,
+    category: plain.category,
+    shortcut: plain.shortcut,
+    isDefault: Boolean(plain.isDefault),
+    orderIndex: Number(plain.orderIndex ?? 0),
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const InboxPreference = sequelize.define(
+  'InboxPreference',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false, unique: true },
+    timezone: { type: DataTypes.STRING(80), allowNull: false, defaultValue: 'UTC' },
+    workingHours: { type: jsonType, allowNull: true },
+    notificationsEmail: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    notificationsPush: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    autoArchiveAfterDays: { type: DataTypes.INTEGER, allowNull: true },
+    autoResponderEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    autoResponderMessage: { type: DataTypes.TEXT, allowNull: true },
+    escalationKeywords: { type: jsonType, allowNull: true },
+    defaultSavedReplyId: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  {
+    tableName: 'inbox_preferences',
+    indexes: [
+      { unique: true, fields: ['userId'] },
+    ],
+  },
+);
+
+InboxPreference.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    timezone: plain.timezone,
+    workingHours: plain.workingHours ?? null,
+    notificationsEmail: Boolean(plain.notificationsEmail),
+    notificationsPush: Boolean(plain.notificationsPush),
+    autoArchiveAfterDays:
+      plain.autoArchiveAfterDays != null ? Number(plain.autoArchiveAfterDays) : null,
+    autoResponderEnabled: Boolean(plain.autoResponderEnabled),
+    autoResponderMessage: plain.autoResponderMessage ?? null,
+    escalationKeywords: plain.escalationKeywords ?? null,
+    defaultSavedReplyId: plain.defaultSavedReplyId ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const InboxRoutingRule = sequelize.define(
+  'InboxRoutingRule',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    matchType: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'keyword' },
+    criteria: { type: jsonType, allowNull: true },
+    action: { type: jsonType, allowNull: true },
+    enabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    stopProcessing: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    priority: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  },
+  {
+    tableName: 'inbox_routing_rules',
+    indexes: [
+      { fields: ['userId'] },
+      { fields: ['userId', 'enabled'] },
+      { fields: ['userId', 'priority'] },
+    ],
+  },
+);
+
+InboxRoutingRule.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    name: plain.name,
+    description: plain.description ?? null,
+    matchType: plain.matchType,
+    criteria: plain.criteria ?? null,
+    action: plain.action ?? null,
+    enabled: Boolean(plain.enabled),
+    stopProcessing: Boolean(plain.stopProcessing),
+    priority: Number(plain.priority ?? 0),
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 export const UserAiProviderSetting = sequelize.define(
   'UserAiProviderSetting',
   {
@@ -473,6 +595,16 @@ AiAutoReplyRun.belongsTo(AiAutoReplyTemplate, { foreignKey: 'templateId', as: 't
 AiAutoReplyTemplate.hasMany(AiAutoReplyRun, { foreignKey: 'templateId', as: 'runs' });
 
 
+SavedReply.belongsTo(User, { as: 'owner', foreignKey: 'userId' });
+User.hasMany(SavedReply, { as: 'savedReplies', foreignKey: 'userId' });
+
+InboxPreference.belongsTo(User, { as: 'user', foreignKey: 'userId' });
+InboxPreference.belongsTo(SavedReply, { as: 'defaultSavedReply', foreignKey: 'defaultSavedReplyId' });
+User.hasOne(InboxPreference, { as: 'inboxPreference', foreignKey: 'userId' });
+
+InboxRoutingRule.belongsTo(User, { as: 'owner', foreignKey: 'userId' });
+User.hasMany(InboxRoutingRule, { as: 'inboxRoutingRules', foreignKey: 'userId' });
+
 export default {
   sequelize,
   MESSAGE_CHANNEL_TYPES,
@@ -488,6 +620,9 @@ export default {
   MessageLabel,
   MessageThreadLabel,
   SupportCase,
+  SavedReply,
+  InboxPreference,
+  InboxRoutingRule,
   UserAiProviderSetting,
   AiAutoReplyTemplate,
   AiAutoReplyRun,

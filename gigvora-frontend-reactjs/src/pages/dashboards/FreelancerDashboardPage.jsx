@@ -81,6 +81,7 @@ function buildProfile(session) {
 import { Link } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import useSession from '../../hooks/useSession.js';
+import InboxSection from './freelancer/sections/InboxSection.jsx';
 import IdentityVerificationSection from './freelancer/sections/identity/IdentityVerificationSection.jsx';
 import { ReviewManagementSection } from './freelancer/sections/index.js';
 import { MENU_GROUPS, AVAILABLE_DASHBOARDS } from './freelancer/menuConfig.js';
@@ -1035,6 +1036,9 @@ export default function FreelancerDashboardPage() {
           </div>
         </section>
 
+        <section className="mt-12">
+          <InboxSection />
+        </section>
         <div className="mt-16 -mx-4 sm:-mx-6 lg:-mx-8">
           <IdentityVerificationSection />
         <section className="mt-16">
