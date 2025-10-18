@@ -1,5 +1,6 @@
 import { Op } from 'sequelize';
 import {
+  AiAutoReplyRun,
   Message,
   MessageParticipant,
   MessageThread,
@@ -7,10 +8,12 @@ import {
   UserAiProviderSetting,
 } from '../models/messagingModels.js';
 import { ValidationError } from '../utils/errors.js';
+import { decryptSecret, encryptSecret, fingerprintSecret } from '../utils/secretStorage.js';
 
 const SUPPORTED_PROVIDERS = new Set(['openai']);
 const DEFAULT_MODEL = process.env.OPENAI_DEFAULT_MODEL || 'gpt-4o-mini';
 const DEFAULT_CHANNELS = ['direct', 'support'];
+const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
 const VALID_CHANNELS = new Set(['direct', 'support', 'project', 'contract', 'group']);
 const DEFAULT_TEMPERATURE = 0.35;
 const MAX_INSTRUCTIONS_LENGTH = 2000;
@@ -88,16 +91,6 @@ function trimInstructions(value, fallback = '') {
   return normalized.slice(0, MAX_INSTRUCTIONS_LENGTH);
 }
 
-function maskKey(key) {
-  if (!key) return null;
-  const normalized = String(key).trim();
-  if (!normalized) return null;
-  if (normalized.length <= 4) {
-    return '*'.repeat(normalized.length);
-  }
-  return `${'*'.repeat(normalized.length - 4)}${normalized.slice(-4)}`;
-}
-
 function extractAutoReplySettings(record) {
   if (!record) {
     return {
@@ -128,9 +121,14 @@ function sanitizeSetting(record) {
     autoReplies,
     apiKey: {
       configured: Boolean(record.apiKey),
-      fingerprint: record.apiKey ? maskKey(record.apiKey) : null,
+      fingerprint: record.apiKey ? fingerprintSecret(record.apiKey) : null,
       updatedAt: record.updatedAt ?? record.createdAt ?? null,
     },
+    connection: {
+      baseUrl: record.metadata?.baseUrl || DEFAULT_BASE_URL,
+      lastTestedAt: record.metadata?.lastTestedAt ?? null,
+    },
+    workspaceId: record.metadata?.workspaceId ?? null,
   };
 }
 
@@ -149,6 +147,11 @@ function buildDefaultResponse() {
       fingerprint: null,
       updatedAt: null,
     },
+    connection: {
+      baseUrl: DEFAULT_BASE_URL,
+      lastTestedAt: null,
+    },
+    workspaceId: null,
   };
 }
 
@@ -189,6 +192,16 @@ function normalizeProvider(value, fallback = 'openai') {
   return candidate;
 }
 
+function normalizeBaseUrl(value, fallback = DEFAULT_BASE_URL) {
+  const candidate = coerceOptionalString(value, fallback) || fallback;
+  try {
+    const url = new URL(candidate);
+    return url.toString().replace(/\/$/, '');
+  } catch (error) {
+    throw new ValidationError('baseUrl must be a valid URL.');
+  }
+}
+
 function normalizeAutoReplyPayload(input = {}, fallback = {}) {
   const enabled = coerceBoolean(input.enabled, fallback.enabled ?? false);
   const instructions = trimInstructions(input.instructions, fallback.instructions ?? '');
@@ -223,6 +236,14 @@ export async function updateUserOpenAiSettings(userId, payload = {}) {
   const fallback = extractAutoReplySettings(existing);
   const autoReplies = normalizeAutoReplyPayload(payload.autoReplies ?? {}, fallback);
   const model = coerceModel(payload.model, existing?.model ?? DEFAULT_MODEL);
+  const baseUrl = normalizeBaseUrl(payload.connection?.baseUrl ?? existing?.metadata?.baseUrl, DEFAULT_BASE_URL);
+  const workspaceIdValue = payload.workspaceId ?? payload.connection?.workspaceId ?? existing?.metadata?.workspaceId;
+  const numericWorkspaceId =
+    workspaceIdValue == null || workspaceIdValue === ''
+      ? null
+      : Number.isFinite(Number(workspaceIdValue)) && Number(workspaceIdValue) > 0
+        ? Number(workspaceIdValue)
+        : null;
 
   const updates = {
     userId: numericId,
@@ -234,8 +255,13 @@ export async function updateUserOpenAiSettings(userId, payload = {}) {
       ...(existing?.metadata && typeof existing.metadata === 'object' ? existing.metadata : {}),
       autoReplyChannels: autoReplies.channels,
       autoReplyTemperature: autoReplies.temperature,
+      baseUrl,
     },
   };
+
+  if (numericWorkspaceId != null) {
+    updates.metadata.workspaceId = numericWorkspaceId;
+  }
 
   if (Object.prototype.hasOwnProperty.call(payload, 'apiKey')) {
     if (payload.apiKey == null || payload.apiKey === '') {
@@ -245,7 +271,7 @@ export async function updateUserOpenAiSettings(userId, payload = {}) {
       if (!trimmed || trimmed.length < 8) {
         throw new ValidationError('apiKey must be at least 8 characters when provided.');
       }
-      updates.apiKey = trimmed;
+      updates.apiKey = encryptSecret(trimmed);
     }
   }
 
@@ -295,7 +321,7 @@ async function buildConversationHistory(threadId, userId, skipMessageId, limit =
     .slice(-limit);
 }
 
-async function callOpenAi(apiKey, { model, messages, temperature }) {
+async function callOpenAi(apiKey, { model, messages, temperature, baseUrl = DEFAULT_BASE_URL }) {
   if (!apiKey || !messages.length) {
     return null;
   }
@@ -307,7 +333,8 @@ async function callOpenAi(apiKey, { model, messages, temperature }) {
   }
 
   const fetchImpl = await resolveFetch();
-  const response = await fetchImpl('https://api.openai.com/v1/chat/completions', {
+  const endpoint = `${baseUrl.replace(/\/$/, '')}/chat/completions`;
+  const response = await fetchImpl(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -347,13 +374,53 @@ async function processSettingAutoReply(setting, { thread, message, participantsB
   const systemPrompt = buildSystemPrompt(participant.user, thread, autoReplies);
   const messages = [{ role: 'system', content: systemPrompt }, ...history, { role: 'user', content: message.body }];
 
-  const reply = await callOpenAi(setting.apiKey, {
-    model: setting.model || DEFAULT_MODEL,
-    messages,
-    temperature: autoReplies.temperature,
-  });
+  const decryptedKey = decryptSecret(setting.apiKey);
+  const baseUrl = setting.metadata?.baseUrl || DEFAULT_BASE_URL;
 
-  if (!reply) return;
+  const startedAt = Date.now();
+  let status = 'success';
+  let reply = null;
+  let errorMessage = null;
+
+  try {
+    reply = await callOpenAi(decryptedKey, {
+      model: setting.model || DEFAULT_MODEL,
+      messages,
+      temperature: autoReplies.temperature,
+      baseUrl,
+    });
+    if (!reply) {
+      status = 'skipped';
+      return;
+    }
+  } catch (error) {
+    status = 'error';
+    errorMessage = error?.message ?? 'Unknown error';
+    throw error;
+  } finally {
+    try {
+      await AiAutoReplyRun.create({
+        workspaceId: setting.metadata?.workspaceId ?? null,
+        userId: setting.userId,
+        threadId: thread.id,
+        messageId: message.id,
+        provider: setting.provider,
+        model: setting.model || DEFAULT_MODEL,
+        status,
+        responseLatencyMs: Date.now() - startedAt,
+        responsePreview: reply ? reply.slice(0, 160) : null,
+        errorMessage,
+        metadata: {
+          channels: autoReplies.channels,
+        },
+      });
+    } catch (loggingError) {
+      logError('failed to persist auto reply run', loggingError, {
+        userId: setting.userId,
+        threadId: thread.id,
+      });
+    }
+  }
 
   const { appendMessage } = await import('./messagingService.js');
   await appendMessage(thread.id, setting.userId, {
@@ -436,9 +503,67 @@ export function enqueueAutoReplies({ threadId, messageId, senderId }) {
   });
 }
 
+export async function generateAutoReplyPreview(userId, { message, model, temperature, instructions, channels }) {
+  const numericId = Number(userId);
+  if (!Number.isInteger(numericId) || numericId <= 0) {
+    throw new ValidationError('userId must be a positive integer.');
+  }
+  const setting = await UserAiProviderSetting.findOne({ where: { userId: numericId, provider: 'openai' } });
+  if (!setting || !setting.apiKey) {
+    throw new ValidationError('Configure an OpenAI API key before running a preview.');
+  }
+
+  const autoReplies = extractAutoReplySettings(setting);
+  if (!message || !String(message).trim()) {
+    throw new ValidationError('message is required to generate a preview.');
+  }
+
+  const systemPrompt = buildSystemPrompt(
+    { firstName: 'You' },
+    { subject: 'Preview conversation' },
+    {
+      ...autoReplies,
+      instructions: instructions ?? autoReplies.instructions,
+      channels: channels ?? autoReplies.channels,
+      temperature: temperature ?? autoReplies.temperature,
+    },
+  );
+
+  const decryptedKey = decryptSecret(setting.apiKey);
+  const baseUrl = setting.metadata?.baseUrl || DEFAULT_BASE_URL;
+
+  const reply = await callOpenAi(decryptedKey, {
+    model: model || setting.model || DEFAULT_MODEL,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: String(message) },
+    ],
+    temperature: temperature ?? autoReplies.temperature,
+    baseUrl,
+  });
+
+  if (!reply) {
+    throw new ValidationError('Unable to generate preview, verify the model and message.');
+  }
+
+  setting.metadata = {
+    ...(setting.metadata && typeof setting.metadata === 'object' ? setting.metadata : {}),
+    lastTestedAt: new Date().toISOString(),
+  };
+  await setting.save();
+
+  return {
+    reply,
+    model: model || setting.model || DEFAULT_MODEL,
+    temperature: temperature ?? autoReplies.temperature,
+    testedAt: setting.metadata.lastTestedAt,
+  };
+}
+
 export default {
   getUserOpenAiSettings,
   updateUserOpenAiSettings,
   enqueueAutoReplies,
   processAutoReplies,
+  generateAutoReplyPreview,
 };
