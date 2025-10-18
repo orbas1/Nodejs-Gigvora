@@ -45,6 +45,7 @@ const MENU_SECTIONS = [
         name: 'Risk & trust',
         description: 'Dispute lifecycle, escalations, and marketplace safety monitoring.',
         tags: ['compliance'],
+        href: '/dashboard/admin/disputes',
       },
       {
         name: 'Support operations',
@@ -2447,7 +2448,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Member health */}
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg shadow-blue-100/40 sm:p-8">
+      <section id="admin-risk-trust" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg shadow-blue-100/40 sm:p-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Member health</h2>
