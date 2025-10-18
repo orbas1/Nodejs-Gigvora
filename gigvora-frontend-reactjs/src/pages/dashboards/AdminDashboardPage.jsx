@@ -14,6 +14,7 @@ import useDomainGovernanceSummaries from '../../hooks/useDomainGovernanceSummari
 import { fetchAdminDashboard } from '../../services/admin.js';
 import { fetchPlatformSettings, updatePlatformSettings } from '../../services/platformSettings.js';
 import { fetchAffiliateSettings, updateAffiliateSettings } from '../../services/affiliateSettings.js';
+import { ADMIN_MENU_SECTIONS } from '../../constants/adminMenuSections.js';
 
 const MENU_SECTIONS = [
   {
@@ -35,6 +36,12 @@ const MENU_SECTIONS = [
         name: 'Member health',
         description: 'Growth, activation, and readiness scores across the Gigvora network.',
         tags: ['growth', 'activation'],
+      },
+      {
+        name: 'Profile management',
+        description: 'Provision accounts, edit public profiles, and capture trust annotations.',
+        tags: ['members'],
+        href: '/dashboard/admin/profiles',
       },
       {
         name: 'Financial governance',
@@ -59,6 +66,7 @@ const MENU_SECTIONS = [
         description: 'Campaign coverage, targeting telemetry, and creative governance.',
         tags: ['ads', 'monetisation'],
         sectionId: 'gigvora-ads',
+        href: '/dashboard/admin/ads-settings',
       },
       {
         name: 'Launchpad performance',
@@ -2883,7 +2891,7 @@ export default function AdminDashboardPage() {
         title="Gigvora Admin Control Tower"
         subtitle="Enterprise governance & compliance"
         description="Centralize every lever that powers Gigvora—from member growth and financial operations to trust, support, analytics, and the launchpad."
-        menuSections={MENU_SECTIONS}
+        menuSections={ADMIN_MENU_SECTIONS}
         sections={[]}
         profile={profile}
         availableDashboards={[
@@ -2932,6 +2940,8 @@ export default function AdminDashboardPage() {
       subtitle="Enterprise governance & compliance"
       description="Centralize every lever that powers Gigvora—from member growth and financial operations to trust, support, analytics, and the launchpad."
       menuSections={MENU_SECTIONS}
+      description="Centralize every lever that powers Gigvora—from member growth and financial operations to trust, support, analytics, and the launchpad." 
+      menuSections={ADMIN_MENU_SECTIONS}
       sections={[]}
       profile={profile}
       availableDashboards={[
