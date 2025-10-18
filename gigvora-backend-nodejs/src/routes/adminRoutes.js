@@ -18,6 +18,7 @@ import {
 import adminRuntimeRoutes from './adminRuntimeRoutes.js';
 import adminConsentRoutes from './adminConsentRoutes.js';
 import adminRbacRoutes from './adminRbacRoutes.js';
+import adminJobPostRoutes from './adminJobPostRoutes.js';
 import adminJobApplicationRoutes from './adminJobApplicationRoutes.js';
 import adminCalendarRoutes from './adminCalendarRoutes.js';
 import adminIdentityVerificationRoutes from './adminIdentityVerificationRoutes.js';
@@ -91,6 +92,7 @@ router.use('/ads/settings', adminAdSettingsRoutes);
 router.use('/runtime', adminRuntimeRoutes);
 router.use('/governance/consents', adminConsentRoutes);
 router.use('/governance/rbac', adminRbacRoutes);
+router.use('/jobs', adminJobPostRoutes);
 router.use('/job-applications', adminJobApplicationRoutes);
 router.use('/calendar', adminCalendarRoutes);
 router.use('/verification/identity', adminIdentityVerificationRoutes);

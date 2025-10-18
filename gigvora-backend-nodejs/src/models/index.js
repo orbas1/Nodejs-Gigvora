@@ -4594,6 +4594,63 @@ export const SprintTaskDependency = sequelize.define(
   { tableName: 'sprint_task_dependencies' },
 );
 
+Job.searchByTerm = async function searchByTerm(term) {
+  if (!term) return [];
+  const sanitizedTerm = term.trim();
+  if (!sanitizedTerm) return [];
+
+  return Job.findAll({
+    where: { title: { [Op.iLike ?? Op.like]: `%${sanitizedTerm}%` } },
+    limit: 20,
+    order: [['title', 'ASC']],
+  });
+};
+
+export const JobPostAdminDetail = sequelize.define(
+  'JobPostAdminDetail',
+  {
+    jobId: { type: DataTypes.INTEGER, allowNull: false },
+    slug: { type: DataTypes.STRING(160), allowNull: false, unique: true },
+    status: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'draft' },
+    visibility: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'public' },
+    workflowStage: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'draft' },
+    approvalStatus: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'pending_review' },
+    approvalNotes: { type: DataTypes.TEXT, allowNull: true },
+    applicationUrl: { type: DataTypes.STRING(2048), allowNull: true },
+    applicationEmail: { type: DataTypes.STRING(255), allowNull: true },
+    applicationInstructions: { type: DataTypes.TEXT, allowNull: true },
+    salaryMin: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    salaryMax: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    currency: { type: DataTypes.STRING(3), allowNull: true },
+    compensationType: { type: DataTypes.STRING(40), allowNull: true },
+    workplaceType: { type: DataTypes.STRING(40), allowNull: true },
+    contractType: { type: DataTypes.STRING(40), allowNull: true },
+    experienceLevel: { type: DataTypes.STRING(40), allowNull: true },
+    department: { type: DataTypes.STRING(120), allowNull: true },
+    team: { type: DataTypes.STRING(120), allowNull: true },
+    hiringManagerName: { type: DataTypes.STRING(120), allowNull: true },
+    hiringManagerEmail: { type: DataTypes.STRING(255), allowNull: true },
+    recruiterName: { type: DataTypes.STRING(120), allowNull: true },
+    recruiterEmail: { type: DataTypes.STRING(255), allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    benefits: { type: jsonType, allowNull: true },
+    responsibilities: { type: jsonType, allowNull: true },
+    requirements: { type: jsonType, allowNull: true },
+    attachments: { type: jsonType, allowNull: true },
+    promotionFlags: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    publishedAt: { type: DataTypes.DATE, allowNull: true },
+    expiresAt: { type: DataTypes.DATE, allowNull: true },
+    archivedAt: { type: DataTypes.DATE, allowNull: true },
+    archiveReason: { type: DataTypes.STRING(255), allowNull: true },
+    externalReference: { type: DataTypes.STRING(120), allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  { tableName: 'job_post_admin_details' },
+);
+
+CommunitySpotlight.prototype.toPublicObject = function toPublicObject() {
 SprintTaskDependency.prototype.toPublicObject = function toPublicObject() {
   const plain = this.get({ plain: true });
   return {
@@ -20807,6 +20864,8 @@ JobApprovalWorkflow.belongsTo(Job, { foreignKey: 'jobId', as: 'job' });
 Job.hasMany(JobCampaignPerformance, { foreignKey: 'jobId', as: 'campaignPerformance' });
 JobCampaignPerformance.belongsTo(Job, { foreignKey: 'jobId', as: 'job' });
 
+Job.hasOne(JobPostAdminDetail, { foreignKey: 'jobId', as: 'adminDetail', onDelete: 'CASCADE' });
+JobPostAdminDetail.belongsTo(Job, { foreignKey: 'jobId', as: 'job' });
 Job.hasOne(JobAdvert, { foreignKey: 'jobId', as: 'advert' });
 JobAdvert.belongsTo(Job, { foreignKey: 'jobId', as: 'job' });
 JobAdvert.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
@@ -22739,6 +22798,7 @@ export default {
   FreelancerTimelineEntry,
   FreelancerTimelinePostMetric,
   Job,
+  JobPostAdminDetail,
   Gig,
   GigPackage,
   GigAddon,
