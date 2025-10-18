@@ -91,6 +91,7 @@ import MentorDashboardPage from './pages/dashboards/MentorDashboardPage.jsx';
 import LaunchpadOperationsPage from './pages/dashboards/LaunchpadOperationsPage.jsx';
 import AdminDashboardPage from './pages/dashboards/AdminDashboardPage.jsx';
 import AdminBlogManagementPage from './pages/admin/AdminBlogManagementPage.jsx';
+import AdminProfileManagementPage from './pages/admin/AdminProfileManagementPage.jsx';
 import FreelancerReviewsPreviewPage from './pages/previews/FreelancerReviewsPreviewPage.jsx';
 import ProtectedRoute from './components/routing/ProtectedRoute.jsx';
 import RoleProtectedRoute from './components/auth/RoleProtectedRoute.jsx';
@@ -218,6 +219,11 @@ export default function App() {
           <RoleProtectedRoute allowedRoles={['user', 'freelancer', 'agency', 'company', 'headhunter']}>
             <MembershipGate allowedMemberships={['user', 'freelancer', 'agency', 'company', 'headhunter']}>
               <UserProjectManagementPage />
+            </MembershipGate>
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
         path="dashboard/user/disputes"
         element={
           <RoleProtectedRoute allowedRoles={['user', 'freelancer', 'agency', 'company', 'headhunter']}>
@@ -293,14 +299,26 @@ export default function App() {
         element={
           <RequireRole allowedRoles={['freelancer']}>
             <FreelancerPortfolioPage />
+          </RequireRole>
+        }
+      />
+      <Route
         path="dashboard/freelancer/creation-studio"
         element={
           <RequireRole allowedRoles={['freelancer']}>
             <FreelancerCreationStudioPage />
+          </RequireRole>
+        }
+      />
+      <Route
         path="dashboard/freelancer/networking"
         element={
           <RequireRole allowedRoles={['freelancer']}>
             <FreelancerNetworkingPage />
+          </RequireRole>
+        }
+      />
+      <Route
         path="dashboard/freelancer/disputes"
         element={
           <RequireRole allowedRoles={['freelancer']}>
@@ -446,7 +464,6 @@ export default function App() {
       <Route
         path="dashboard/agency"
         element={
-          <RequireRole allowedRoles={['agency', 'agency_admin']}>
           <RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}>
             <AgencyDashboardPage />
           </RequireRole>
@@ -466,22 +483,42 @@ export default function App() {
         element={
           <RequireRole allowedRoles={['agency']}>
             <AgencyEscrowManagementPage />
+          </RequireRole>
+        }
+      />
+      <Route
         path="dashboard/agency/crm"
         element={
           <RequireRole allowedRoles={['agency', 'agency_admin']}>
             <AgencyCrmPipelinePage />
+          </RequireRole>
+        }
+      />
+      <Route
         path="dashboard/agency/integrations"
         element={
           <RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}>
             <AgencyIntegrationsPage />
+          </RequireRole>
+        }
+      />
+      <Route
         path="dashboard/agency/ai"
         element={
           <RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}>
             <AgencyAiAutomationPage />
+          </RequireRole>
+        }
+      />
+      <Route
         path="dashboard/agency/profile"
         element={
-          <RequireRole allowedRoles={['agency']}>
+          <RequireRole allowedRoles={['agency', 'agency_admin']}>
             <AgencyProfileManagementPage />
+          </RequireRole>
+        }
+      />
+      <Route
         path="dashboard/agency/client-kanban"
         element={
           <RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}>
@@ -611,6 +648,15 @@ export default function App() {
         element={
           <RequireRole allowedRoles={['admin']}>
             <AdminBlogManagementPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
+        path="dashboard/admin/profiles"
+        element={
+          <RequireRole allowedRoles={['admin']}>
+            <AdminProfileManagementPage />
           </RequireRole>
         }
       />

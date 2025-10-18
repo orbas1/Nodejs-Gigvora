@@ -276,6 +276,8 @@ export const User = sequelize.define(
     },
     lastLoginAt: { type: DataTypes.DATE, allowNull: true },
     googleId: { type: DataTypes.STRING(255), allowNull: true },
+    memberships: { type: jsonType, allowNull: false, defaultValue: [] },
+    primaryDashboard: { type: DataTypes.STRING(60), allowNull: true },
   },
   {
     tableName: 'users',
@@ -588,6 +590,49 @@ export const ProfileEngagementJob = sequelize.define(
     ],
   },
 );
+
+const PROFILE_ADMIN_NOTE_VISIBILITIES = ['internal', 'shared'];
+
+export const ProfileAdminNote = sequelize.define(
+  'ProfileAdminNote',
+  {
+    profileId: { type: DataTypes.INTEGER, allowNull: false },
+    authorId: { type: DataTypes.INTEGER, allowNull: true },
+    visibility: {
+      type: DataTypes.ENUM(...PROFILE_ADMIN_NOTE_VISIBILITIES),
+      allowNull: false,
+      defaultValue: 'internal',
+      validate: { isIn: [PROFILE_ADMIN_NOTE_VISIBILITIES] },
+    },
+    pinned: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    body: { type: DataTypes.TEXT, allowNull: false },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'profile_admin_notes',
+    defaultScope: {
+      order: [
+        ['pinned', 'DESC'],
+        ['createdAt', 'DESC'],
+      ],
+    },
+  },
+);
+
+ProfileAdminNote.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    profileId: plain.profileId,
+    authorId: plain.authorId ?? null,
+    visibility: plain.visibility,
+    pinned: Boolean(plain.pinned),
+    body: plain.body,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt ? new Date(plain.createdAt).toISOString() : null,
+    updatedAt: plain.updatedAt ? new Date(plain.updatedAt).toISOString() : null,
+  };
+};
 
 export const CompanyProfile = sequelize.define(
   'CompanyProfile',
@@ -18401,6 +18446,10 @@ Profile.hasMany(ProfileReference, { as: 'references', foreignKey: 'profileId', o
 ProfileReference.belongsTo(Profile, { as: 'profile', foreignKey: 'profileId' });
 Profile.hasMany(ProfileAppreciation, { as: 'appreciations', foreignKey: 'profileId', onDelete: 'CASCADE' });
 ProfileAppreciation.belongsTo(Profile, { as: 'profile', foreignKey: 'profileId' });
+Profile.hasMany(ProfileAdminNote, { as: 'adminNotes', foreignKey: 'profileId', onDelete: 'CASCADE' });
+ProfileAdminNote.belongsTo(Profile, { as: 'profile', foreignKey: 'profileId' });
+ProfileAdminNote.belongsTo(User, { as: 'author', foreignKey: 'authorId' });
+User.hasMany(ProfileAdminNote, { as: 'authoredProfileNotes', foreignKey: 'authorId' });
 ProfileAppreciation.belongsTo(User, { as: 'actor', foreignKey: 'actorId' });
 Profile.hasMany(ProfileFollower, { as: 'followers', foreignKey: 'profileId', onDelete: 'CASCADE' });
 ProfileFollower.belongsTo(Profile, { as: 'profile', foreignKey: 'profileId' });
@@ -21367,6 +21416,7 @@ export default {
   ProfileAppreciation,
   ProfileFollower,
   ProfileEngagementJob,
+  ProfileAdminNote,
   CompanyProfile,
   CompanyProfileFollower,
   CompanyProfileConnection,
