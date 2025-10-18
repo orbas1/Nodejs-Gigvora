@@ -20,6 +20,7 @@ import {
   ClipboardDocumentListIcon,
   ClipboardDocumentCheckIcon,
   Cog6ToothIcon,
+  LockClosedIcon,
   InboxStackIcon,
   FolderIcon,
   DocumentTextIcon,
@@ -380,6 +381,10 @@ export const MENU_GROUPS = [
         icon: BanknotesIcon,
       },
       {
+        id: 'escrow-management',
+        name: 'Escrow',
+        description: 'Accounts, releases, disputes.',
+        icon: LockClosedIcon,
         id: 'dispute-management',
         name: 'Disputes',
         description: null,

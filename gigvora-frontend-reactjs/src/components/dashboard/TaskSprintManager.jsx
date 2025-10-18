@@ -772,6 +772,7 @@ export default function TaskSprintManager() {
             >
               {loggingTimeEntry ? 'Logging…' : 'Log time'}
             </button>
+          </div>
             </div>
           </fieldset>
         </form>
@@ -912,6 +913,7 @@ export default function TaskSprintManager() {
             >
               {registeringRisk ? 'Registering…' : 'Register risk'}
             </button>
+          </div>
             </div>
           </fieldset>
         </form>
