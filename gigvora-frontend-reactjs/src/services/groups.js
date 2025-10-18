@@ -66,6 +66,46 @@ export function requestMembership(groupId, payload = {}) {
   return apiClient.post(`/groups/${groupId}/memberships/request`, payload);
 }
 
+export function listUserGroups(userId, params = {}) {
+  return apiClient.get(`/users/${userId}/groups`, { params: normaliseParams(params) });
+}
+
+export function createUserGroup(userId, payload = {}) {
+  return apiClient.post(`/users/${userId}/groups`, payload);
+}
+
+export function updateUserGroup(userId, groupId, payload = {}) {
+  return apiClient.put(`/users/${userId}/groups/${groupId}`, payload);
+}
+
+export function listUserGroupInvites(userId, groupId) {
+  return apiClient.get(`/users/${userId}/groups/${groupId}/invites`);
+}
+
+export function createUserGroupInvite(userId, groupId, payload = {}) {
+  return apiClient.post(`/users/${userId}/groups/${groupId}/invites`, payload);
+}
+
+export function deleteUserGroupInvite(userId, groupId, inviteId) {
+  return apiClient.delete(`/users/${userId}/groups/${groupId}/invites/${inviteId}`);
+}
+
+export function listUserGroupPosts(userId, groupId, params = {}) {
+  return apiClient.get(`/users/${userId}/groups/${groupId}/posts`, { params: normaliseParams(params) });
+}
+
+export function createUserGroupPost(userId, groupId, payload = {}) {
+  return apiClient.post(`/users/${userId}/groups/${groupId}/posts`, payload);
+}
+
+export function updateUserGroupPost(userId, groupId, postId, payload = {}) {
+  return apiClient.patch(`/users/${userId}/groups/${groupId}/posts/${postId}`, payload);
+}
+
+export function deleteUserGroupPost(userId, groupId, postId) {
+  return apiClient.delete(`/users/${userId}/groups/${groupId}/posts/${postId}`);
+}
+
 const groupsService = {
   listGroups,
   getGroupProfile,
@@ -80,6 +120,16 @@ const groupsService = {
   updateMember,
   removeMember,
   requestMembership,
+  listUserGroups,
+  createUserGroup,
+  updateUserGroup,
+  listUserGroupInvites,
+  createUserGroupInvite,
+  deleteUserGroupInvite,
+  listUserGroupPosts,
+  createUserGroupPost,
+  updateUserGroupPost,
+  deleteUserGroupPost,
 };
 
 export default groupsService;
