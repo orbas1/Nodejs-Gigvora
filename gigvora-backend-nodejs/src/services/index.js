@@ -36,6 +36,7 @@ export { default as freelancerDashboardOverviewService } from './freelancerDashb
 export { default as gigManagerService } from './gigManagerService.js';
 export { default as workspaceTemplateService } from './workspaceTemplateService.js';
 export { default as companyDashboardService } from './companyDashboardService.js';
+export { default as companyInboxService } from './companyInboxService.js';
 export { default as agencyOverviewService } from './agencyOverviewService.js';
 export { default as agencyTimelineService } from './agencyTimelineService.js';
 export { default as blogService } from './blogService.js';

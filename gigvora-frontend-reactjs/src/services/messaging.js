@@ -14,6 +14,7 @@ export async function fetchInbox({
   unreadOnly,
   includeParticipants = true,
   includeSupport = true,
+  includeLabels = false,
   page = 1,
   pageSize = 20,
 } = {}) {
@@ -23,6 +24,7 @@ export async function fetchInbox({
     pageSize,
     includeParticipants,
     includeSupport,
+    includeLabels,
     unreadOnly,
     search,
   });
@@ -37,8 +39,11 @@ export async function fetchInbox({
   return apiClient.get('/messaging/threads', { params });
 }
 
-export async function fetchThread(threadId, { includeParticipants = true, includeSupport = true } = {}) {
-  const params = sanitizeParams({ includeParticipants, includeSupport });
+export async function fetchThread(
+  threadId,
+  { includeParticipants = true, includeSupport = true, includeLabels = false } = {},
+) {
+  const params = sanitizeParams({ includeParticipants, includeSupport, includeLabels });
   return apiClient.get(`/messaging/threads/${threadId}`, { params });
 }
 
@@ -83,6 +88,9 @@ export async function markThreadRead(threadId, { userId } = {}) {
 }
 
 export async function updateThreadState(threadId, { state } = {}) {
+  if (!state) {
+    throw new Error('state is required to update a thread.');
+  }
   return apiClient.post(`/messaging/threads/${threadId}/state`, { state });
 }
 
@@ -170,6 +178,8 @@ export default {
   updateThreadState,
   muteThread,
   escalateThread,
+  assignSupport,
+  updateSupportStatus,
   assignSupportAgent,
   updateSupportStatus,
   assignSupport,

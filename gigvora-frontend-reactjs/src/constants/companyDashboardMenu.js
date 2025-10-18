@@ -186,4 +186,16 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
       { name: 'Governance', sectionId: 'settings-governance' },
     ],
   },
+  {
+    label: 'Communications & support',
+    items: [
+      {
+        name: 'Inbox',
+        description: 'Messaging hub for conversations, support cases, and call workflows.',
+        sectionId: 'communications-inbox',
+        href: '/dashboard/company/inbox',
+        tags: ['messaging'],
+      },
+    ],
+  },
 ];

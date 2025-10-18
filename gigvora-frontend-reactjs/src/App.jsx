@@ -52,6 +52,7 @@ import CompanyDashboardPage from './pages/dashboards/CompanyDashboardPage.jsx';
 import CompanyAtsOperationsPage from './pages/dashboards/CompanyAtsOperationsPage.jsx';
 import CompanyAnalyticsPage from './pages/dashboards/CompanyAnalyticsPage.jsx';
 import CompanyIntegrationsPage from './pages/dashboards/CompanyIntegrationsPage.jsx';
+import CompanyInboxPage from './pages/dashboards/CompanyInboxPage.jsx';
 import CompanyTimelineManagementPage from './pages/dashboards/CompanyTimelineManagementPage.jsx';
 import CompanyWalletManagementPage from './pages/dashboards/CompanyWalletManagementPage.jsx';
 import CompanyNetworkingHubPage from './pages/networking/CompanyNetworkingHubPage.jsx';
@@ -324,6 +325,10 @@ export default function App() {
       />
 
       <Route
+        path="dashboard/company/inbox"
+        element={
+          <RequireRole allowedRoles={['company']}>
+            <CompanyInboxPage />
         path="dashboard/company/timeline"
         element={
           <RequireRole allowedRoles={['company']}>
