@@ -207,6 +207,21 @@ export const domainMetadata = {
         retention: 'Financial year + 10 years',
         justification: 'Ledger entries form the system of record for payouts and disputes.',
       },
+      WalletFundingSource: {
+        fields: ['externalReference', 'lastFour', 'provider'],
+        retention: 'Financial year + 10 years',
+        justification: 'Funding source fingerprints are required for audit trails and consent revocation.',
+      },
+      WalletTransferRule: {
+        fields: ['name', 'metadata'],
+        retention: 'Active membership + 7 years',
+        justification: 'Automation policies demonstrate payout approvals during compliance reviews.',
+      },
+      WalletTransferRequest: {
+        fields: ['reference', 'notes'],
+        retention: 'Financial year + 10 years',
+        justification: 'Transfer requests underpin dispute resolution and tax evidence.',
+      },
       EscrowAccount: {
         fields: ['providerEscrowId', 'status'],
         retention: 'Financial year + 10 years',
