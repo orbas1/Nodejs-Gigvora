@@ -1,5 +1,10 @@
 export const AGENCY_DASHBOARD_MENU_SECTIONS = [
   {
+    label: 'Agency',
+    items: [
+      {
+    id: 'ops',
+    label: 'Ops',
     label: 'Main',
     items: [
       { id: 'agency-overview', name: 'Home', sectionId: 'agency-overview' },
@@ -46,6 +51,21 @@ export const AGENCY_DASHBOARD_MENU = [
       {
         id: 'agency-overview',
         name: 'Home',
+        sectionId: 'agency-overview',
+      },
+    ],
+  },
+];
+
+export default AGENCY_DASHBOARD_MENU_SECTIONS;
+  {
+    id: 'risk',
+    label: 'Risk',
+    items: [
+      {
+        id: 'agency-id-verification',
+        name: 'IDs',
+        sectionId: 'agency-id-verification',
         href: '/dashboard/agency',
       },
       {

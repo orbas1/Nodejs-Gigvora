@@ -1,12 +1,25 @@
 import { Router } from 'express';
 import asyncHandler from '../utils/asyncHandler.js';
 import agencyController from '../controllers/agencyController.js';
+import agencyAdController from '../controllers/agencyAdController.js';
+import agencyCalendarController from '../controllers/agencyCalendarController.js';
 import creationStudioRoutes from './agencyCreationRoutes.js';
 import agencyMentoringController from '../controllers/agencyMentoringController.js';
+import agencyNetworkingRoutes from './agencyNetworkingRoutes.js';
 import agencyProjectManagementController from '../controllers/agencyProjectManagementController.js';
 import { authenticate, requireRoles } from '../middleware/authenticate.js';
 import validateRequest from '../middleware/validateRequest.js';
 import {
+  agencyProfileQuerySchema,
+  listFollowersQuerySchema,
+  updateAgencyProfileSchema,
+  updateAgencyAvatarSchema,
+  followerParamsSchema,
+  updateFollowerBodySchema,
+  connectionParamsSchema,
+  requestConnectionBodySchema,
+  respondConnectionBodySchema,
+} from '../validation/schemas/agencySchemas.js';
   createProjectBodySchema,
   updateProjectBodySchema,
   autoMatchSettingsBodySchema,
@@ -60,7 +73,86 @@ router.get(
   asyncHandler(agencyController.dashboard),
 );
 
+router.get(
+  '/dashboard/overview',
+  authenticate(),
+  requireRoles('agency', 'agency_admin', 'admin'),
+  asyncHandler(agencyController.overview),
+);
+
+router.put(
+  '/dashboard/overview',
+  authenticate(),
+  requireRoles('agency_admin', 'admin'),
+  asyncHandler(agencyController.updateOverview),
+  '/profile',
+  authenticate(),
+  requireRoles('agency', 'agency_admin', 'admin'),
+  validateRequest({ query: agencyProfileQuerySchema }),
+  asyncHandler(agencyController.getProfile),
+const requireAgencyAdsAccess = authenticate({ roles: ['agency', 'agency_admin'], allowAdminOverride: true });
+
+router.get('/ads/reference-data', requireAgencyAdsAccess, asyncHandler(agencyAdController.referenceData));
+router.get('/ads/campaigns', requireAgencyAdsAccess, asyncHandler(agencyAdController.list));
+router.post('/ads/campaigns', requireAgencyAdsAccess, asyncHandler(agencyAdController.create));
+router.get('/ads/campaigns/:campaignId', requireAgencyAdsAccess, asyncHandler(agencyAdController.detail));
+router.put('/ads/campaigns/:campaignId', requireAgencyAdsAccess, asyncHandler(agencyAdController.update));
+router.post(
+  '/ads/campaigns/:campaignId/creatives',
+  requireAgencyAdsAccess,
+  asyncHandler(agencyAdController.createCreative),
+);
+router.put('/ads/creatives/:creativeId', requireAgencyAdsAccess, asyncHandler(agencyAdController.updateCreative));
+router.post(
+  '/ads/campaigns/:campaignId/placements',
+  requireAgencyAdsAccess,
+  asyncHandler(agencyAdController.createPlacement),
+);
+router.put(
+  '/ads/placements/:placementId',
+  requireAgencyAdsAccess,
+  asyncHandler(agencyAdController.updatePlacement),
+router.get(
+  '/calendar',
+  authenticate(),
+  requireRoles('agency', 'agency_admin', 'admin'),
+  asyncHandler(agencyCalendarController.index),
+);
+
+router.get(
+  '/calendar/:eventId',
+  authenticate(),
+  requireRoles('agency', 'agency_admin', 'admin'),
+  asyncHandler(agencyCalendarController.show),
+);
+
+router.post(
+  '/calendar',
+  authenticate(),
+  requireRoles('agency', 'agency_admin', 'admin'),
+  asyncHandler(agencyCalendarController.store),
+);
+
+router.put(
+  '/calendar/:eventId',
+  authenticate(),
+  requireRoles('agency', 'agency_admin', 'admin'),
+  asyncHandler(agencyCalendarController.update),
+);
+
+router.delete(
+  '/calendar/:eventId',
+  authenticate(),
+  requireRoles('agency', 'agency_admin', 'admin'),
+  asyncHandler(agencyCalendarController.destroy),
 router.use('/creation-studio', creationStudioRoutes);
+
+router.use(
+  '/networking',
+  authenticate(),
+  requireRoles('agency', 'agency_admin', 'admin'),
+  agencyNetworkingRoutes,
+);
 router.get(
   '/mentoring/overview',
   authenticate(),
@@ -502,6 +594,71 @@ router.put(
   '/profile',
   authenticate(),
   requireRoles('agency', 'agency_admin', 'admin'),
+  validateRequest({ body: updateAgencyProfileSchema }),
+  asyncHandler(agencyController.updateProfile),
+);
+
+router.put(
+  '/profile/avatar',
+  authenticate(),
+  requireRoles('agency', 'agency_admin', 'admin'),
+  validateRequest({ body: updateAgencyAvatarSchema }),
+  asyncHandler(agencyController.updateAvatar),
+);
+
+router.get(
+  '/profile/followers',
+  authenticate(),
+  requireRoles('agency', 'agency_admin', 'admin'),
+  validateRequest({ query: listFollowersQuerySchema }),
+  asyncHandler(agencyController.listFollowers),
+);
+
+router.patch(
+  '/profile/followers/:followerId',
+  authenticate(),
+  requireRoles('agency', 'agency_admin', 'admin'),
+  validateRequest({ params: followerParamsSchema, body: updateFollowerBodySchema }),
+  asyncHandler(agencyController.updateFollower),
+);
+
+router.delete(
+  '/profile/followers/:followerId',
+  authenticate(),
+  requireRoles('agency', 'agency_admin', 'admin'),
+  validateRequest({ params: followerParamsSchema }),
+  asyncHandler(agencyController.removeFollower),
+);
+
+router.get(
+  '/profile/connections',
+  authenticate(),
+  requireRoles('agency', 'agency_admin', 'admin'),
+  asyncHandler(agencyController.listConnections),
+);
+
+router.post(
+  '/profile/connections',
+  authenticate(),
+  requireRoles('agency', 'agency_admin', 'admin'),
+  validateRequest({ body: requestConnectionBodySchema }),
+  asyncHandler(agencyController.requestConnection),
+);
+
+router.post(
+  '/profile/connections/:connectionId/respond',
+  authenticate(),
+  requireRoles('agency', 'agency_admin', 'admin'),
+  validateRequest({ params: connectionParamsSchema, body: respondConnectionBodySchema }),
+  asyncHandler(agencyController.respondToConnection),
+);
+
+router.delete(
+  '/profile/connections/:connectionId',
+  authenticate(),
+  requireRoles('agency', 'agency_admin', 'admin'),
+  validateRequest({ params: connectionParamsSchema }),
+  asyncHandler(agencyController.removeConnection),
   asyncHandler(agencyController.updateProfile),
 );
 

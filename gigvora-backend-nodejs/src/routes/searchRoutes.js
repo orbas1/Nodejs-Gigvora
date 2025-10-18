@@ -49,5 +49,10 @@ router.delete(
   validateRequest({ params: subscriptionParamsSchema }),
   asyncHandler(searchSubscriptionController.deleteSubscription),
 );
+router.post(
+  '/subscriptions/:id/run',
+  validateRequest({ params: subscriptionParamsSchema }),
+  asyncHandler(searchSubscriptionController.runSubscription),
+);
 
 export default router;

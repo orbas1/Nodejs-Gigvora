@@ -1,5 +1,6 @@
+import PropTypes from 'prop-types';
 import DashboardLayout from '../../../layouts/DashboardLayout.jsx';
-import { AGENCY_DASHBOARD_MENU } from '../../../constants/agencyDashboardMenu.js';
+import { AGENCY_MENU_SECTIONS, AGENCY_AVAILABLE_DASHBOARDS } from './menuConfig.js';
 
 function buildProfile(workspace) {
   if (!workspace) {
@@ -16,9 +17,9 @@ function buildProfile(workspace) {
 
   return {
     name,
-    role: 'Agency workspace',
+    role: workspace.role ?? 'Agency workspace',
     initials: initials || 'AG',
-    status: 'Operational',
+    status: workspace.status ?? 'Operational',
   };
 }
 
@@ -27,9 +28,10 @@ export default function AgencyDashboardLayout({
   title = 'Agency control tower',
   subtitle = 'Orchestrate delivery, partnerships, and trust from a unified view.',
   description,
-  menuSections = AGENCY_DASHBOARD_MENU,
+  menuSections = AGENCY_MENU_SECTIONS,
   activeMenuItem,
   workspace,
+  adSurface = 'agency_dashboard',
 }) {
   const profile = buildProfile(workspace);
 
@@ -40,11 +42,37 @@ export default function AgencyDashboardLayout({
       subtitle={subtitle}
       description={description}
       menuSections={menuSections}
+      availableDashboards={AGENCY_AVAILABLE_DASHBOARDS}
       activeMenuItem={activeMenuItem}
-      availableDashboards={['agency', 'company', 'freelancer', 'launchpad']}
+      adSurface={adSurface}
       profile={profile}
     >
       <div className="px-4 pb-16 pt-8 sm:px-6 lg:px-12">{children}</div>
     </DashboardLayout>
   );
 }
+
+AgencyDashboardLayout.propTypes = {
+  children: PropTypes.node.isRequired,
+  title: PropTypes.string,
+  subtitle: PropTypes.string,
+  description: PropTypes.string,
+  menuSections: PropTypes.array,
+  activeMenuItem: PropTypes.string,
+  workspace: PropTypes.shape({
+    name: PropTypes.string,
+    role: PropTypes.string,
+    status: PropTypes.string,
+  }),
+  adSurface: PropTypes.string,
+};
+
+AgencyDashboardLayout.defaultProps = {
+  title: 'Agency control tower',
+  subtitle: 'Orchestrate delivery, partnerships, and trust from a unified view.',
+  description: undefined,
+  menuSections: AGENCY_MENU_SECTIONS,
+  activeMenuItem: undefined,
+  workspace: null,
+  adSurface: 'agency_dashboard',
+};

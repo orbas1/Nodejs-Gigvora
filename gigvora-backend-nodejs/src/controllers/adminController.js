@@ -7,6 +7,8 @@ import {
   updatePageSetting,
   deletePageSetting,
 } from '../services/pageSettingsService.js';
+import { getGdprSettings, updateGdprSettings } from '../services/gdprSettingsService.js';
+import { getSeoSettings, updateSeoSettings } from '../services/seoSettingsService.js';
 import { getRuntimeOperationalSnapshot } from '../services/runtimeObservabilityService.js';
 
 function parseInteger(value, fallback) {
@@ -67,6 +69,21 @@ export async function removePageSetting(req, res) {
   const { pageId } = req.params;
   await deletePageSetting(pageId);
   res.status(204).send();
+export async function fetchGdprSettings(req, res) {
+  const settings = await getGdprSettings();
+  res.json(settings);
+}
+
+export async function persistGdprSettings(req, res) {
+  const settings = await updateGdprSettings(req.body ?? {});
+export async function fetchSeoSettings(req, res) {
+  const settings = await getSeoSettings();
+  res.json(settings);
+}
+
+export async function persistSeoSettings(req, res) {
+  const settings = await updateSeoSettings(req.body ?? {});
+  res.json(settings);
 }
 
 export async function runtimeHealth(req, res) {
@@ -84,5 +101,9 @@ export default {
   createAdminPageSetting,
   persistPageSetting,
   removePageSetting,
+  fetchGdprSettings,
+  persistGdprSettings,
+  fetchSeoSettings,
+  persistSeoSettings,
   runtimeHealth,
 };
