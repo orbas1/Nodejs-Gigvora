@@ -1,4 +1,39 @@
+import { describe, expect, it, beforeEach, beforeAll, afterAll } from '@jest/globals';
+import { sequelize } from '../src/models/messagingModels.js';
+import { appCache } from '../src/utils/cache.js';
+import { markDependencyHealthy } from '../src/lifecycle/runtimeHealth.js';
+
+await import('../src/models/index.js');
+
+function markDefaultsHealthy() {
+  ['database', 'paymentsCore', 'complianceProviders', 'paymentsEngine'].forEach((name) => {
+    try {
+      markDependencyHealthy(name);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn(`Failed to mark dependency ${name} as healthy in user dashboard test setup`, error);
+    }
+  });
+}
+
+beforeAll(async () => {
+  await sequelize.sync({ force: true });
+  markDefaultsHealthy();
+});
+
+beforeEach(async () => {
+  appCache.store?.clear?.();
+  await sequelize.sync({ force: true });
+  markDefaultsHealthy();
+});
+
+afterAll(async () => {
+  await sequelize.close();
+});
+process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'false';
+
 import { describe, expect, it, beforeEach } from '@jest/globals';
+import './setupTestEnv.js';
 import {
   Profile,
   Connection,
@@ -21,7 +56,10 @@ import {
   ProjectAssignmentEvent,
   Job,
   Gig,
+  sequelize,
 } from '../src/models/index.js';
+import PlatformSetting from '../src/models/platformSetting.js';
+import { markDependencyHealthy } from '../src/lifecycle/runtimeHealth.js';
 import userDashboardService from '../src/services/userDashboardService.js';
 import { createUser } from './helpers/factories.js';
 
@@ -44,6 +82,36 @@ describe('userDashboardService', () => {
   let purchasedGigOrder;
 
   beforeEach(async () => {
+    await sequelize.sync({ force: true });
+
+    markDependencyHealthy('database', { vendor: 'sqlite', configured: true });
+    markDependencyHealthy('paymentsCore', { provider: 'stripe', configured: true });
+    markDependencyHealthy('complianceProviders', { custodyProvider: 'stripe', escrowEnabled: true });
+
+    await PlatformSetting.create({
+      key: 'platform',
+      value: {
+        payments: {
+          provider: 'stripe',
+          stripe: {
+            publishableKey: 'pk_test_dashboard',
+            secretKey: 'sk_test_dashboard',
+            webhookSecret: 'whsec_test_dashboard',
+          },
+        },
+        storage: {
+          provider: 'cloudflare_r2',
+          cloudflare_r2: {
+            accountId: 'acc_test_dashboard',
+            accessKeyId: 'access_test_dashboard',
+            secretAccessKey: 'secret_test_dashboard',
+            bucket: 'gigvora-test-bucket',
+            endpoint: 'https://r2.example.com',
+          },
+        },
+      },
+    });
+
     user = await createUser({ firstName: 'Avery', lastName: 'Stone', userType: 'user' });
     reviewer = await createUser({ firstName: 'Riley', lastName: 'Recruiter', userType: 'company' });
     const connectionPeer = await createUser({ firstName: 'Jordan', lastName: 'Mentor', userType: 'user' });
