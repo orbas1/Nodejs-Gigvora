@@ -1,1 +1,0 @@
-Placeholder for Screens_update_images_and _vectors.md
