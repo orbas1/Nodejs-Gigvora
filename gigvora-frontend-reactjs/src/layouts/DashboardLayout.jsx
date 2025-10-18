@@ -455,6 +455,7 @@ export default function DashboardLayout({
       } else {
         navigate(item.href);
       }
+      }
       } else if (item.href.startsWith('/')) {
         navigate(item.href);
         setMobileOpen(false);

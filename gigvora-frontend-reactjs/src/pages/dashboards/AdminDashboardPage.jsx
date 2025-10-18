@@ -103,6 +103,12 @@ const MENU_SECTIONS = [
     label: 'Configuration stack',
     items: [
       {
+        name: 'Storage management',
+        description: 'Configure object storage endpoints, lifecycle automation, and upload governance.',
+        tags: ['storage'],
+        href: '/dashboard/admin/storage',
+      },
+      {
         name: 'All platform settings',
         description: 'Govern application defaults, commission policies, and feature gates.',
         tags: ['settings'],
