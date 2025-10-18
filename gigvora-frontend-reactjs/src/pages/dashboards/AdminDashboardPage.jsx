@@ -1,3 +1,11 @@
+import { useEffect, useMemo, useState } from 'react';
+import { ArrowPathIcon, LockClosedIcon } from '@heroicons/react/24/outline';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import AdminOverviewPanel from '../../components/admin/AdminOverviewPanel.jsx';
+import useSession from '../../hooks/useSession.js';
+import { fetchAdminDashboard, updateAdminOverview as persistAdminOverview } from '../../services/admin.js';
+
+const ADMIN_ACCESS_ALIASES = new Set(['admin', 'administrator', 'super-admin', 'superadmin']);
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowPathIcon, CurrencyDollarIcon, LifebuoyIcon, ShieldCheckIcon, UsersIcon } from '@heroicons/react/24/outline';
@@ -29,6 +37,11 @@ import { ADMIN_MENU_SECTIONS } from '../../constants/adminMenuSections.js';
 const MENU_SECTIONS = ADMIN_MENU_SECTIONS;
 const MENU_SECTIONS = [
   {
+    label: 'Home',
+    items: [
+      { name: 'Start', sectionId: 'overview-home' },
+      { name: 'Profile', sectionId: 'overview-profile' },
+      { name: 'Stats', sectionId: 'overview-metrics' },
     label: 'Command modules',
     items: [
       {
@@ -226,432 +239,47 @@ const MENU_SECTIONS = [
   },
 ];
 
-const GOVERNANCE_STATUS_STYLES = {
-  approved: {
-    label: 'Approved',
-    className: 'bg-emerald-100 text-emerald-700',
-  },
-  remediation_required: {
-    label: 'Remediation required',
-    className: 'bg-amber-100 text-amber-700',
-  },
-  in_progress: {
-    label: 'In progress',
-    className: 'bg-sky-100 text-sky-700',
-  },
-  unknown: {
-    label: 'Unknown',
-    className: 'bg-slate-100 text-slate-600',
-  },
-};
+const SECTIONS = [
+  { id: 'overview-home', title: 'Start' },
+  { id: 'overview-profile', title: 'Profile' },
+  { id: 'overview-metrics', title: 'Stats' },
+];
 
-const USER_TYPE_LABELS = {
-  user: 'Members',
-  company: 'Companies',
-  freelancer: 'Freelancers',
-  agency: 'Agencies',
-  admin: 'Admins',
-};
-
-const numberFormatter = new Intl.NumberFormat('en-US');
-
-const ADMIN_ACCESS_ALIASES = new Set(['admin', 'administrator', 'super-admin', 'superadmin']);
-
-function formatNumber(value) {
-  const numeric = Number(value ?? 0);
-  if (!Number.isFinite(numeric)) {
-    return '0';
-  }
-  return numberFormatter.format(Math.round(numeric));
-}
-
-function formatCurrency(value, currency = 'USD') {
-  const numeric = Number(value ?? 0);
-  if (!Number.isFinite(numeric)) {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency,
-    }).format(0);
-  }
-  const formatter = new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: numeric >= 1000 ? 0 : 2,
-  });
-  return formatter.format(numeric);
-}
-
-function formatPercent(value, fractionDigits = 1) {
-  const numeric = Number(value ?? 0);
-  if (!Number.isFinite(numeric)) {
-    return '0%';
-  }
-  return `${numeric.toFixed(fractionDigits)}%`;
-}
-
-function formatDurationMinutes(minutes) {
-  const numeric = Number(minutes ?? 0);
-  if (!Number.isFinite(numeric) || numeric <= 0) {
-    return '—';
-  }
-  if (numeric >= 1440) {
-    return `${(numeric / 1440).toFixed(1)} days`;
-  }
-  if (numeric >= 60) {
-    return `${(numeric / 60).toFixed(1)} hrs`;
-  }
-  return `${numeric.toFixed(0)} mins`;
-}
-
-function humanizeLabel(value) {
-  if (!value) return '—';
-  return value
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
-
-function formatDateTime(value) {
-  if (!value) return '—';
-  const date = new Date(value);
-  return date.toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-function formatDate(value) {
-  if (!value) return '—';
-  const date = new Date(value);
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
-
-function formatRelativeTime(value) {
-  if (!value) {
-    return 'moments ago';
-  }
-  const timestamp = new Date(value);
-  const diffMs = Date.now() - timestamp.getTime();
-  const diffMinutes = Math.round(diffMs / (1000 * 60));
-  if (diffMinutes < 1) {
-    return 'moments ago';
-  }
-  if (diffMinutes < 60) {
-    return `${diffMinutes}m ago`;
-  }
-  const diffHours = Math.round(diffMinutes / 60);
-  if (diffHours < 24) {
-    return `${diffHours}h ago`;
-  }
-  const diffDays = Math.round(diffHours / 24);
-  if (diffDays < 7) {
-    return `${diffDays}d ago`;
-  }
-  return timestamp.toLocaleDateString();
-}
-
-function calculatePercentages(dictionary = {}) {
-  const entries = Object.entries(dictionary);
-  const total = entries.reduce((sum, [, value]) => sum + Number(value ?? 0), 0);
-  return entries.map(([key, value]) => {
-    const numeric = Number(value ?? 0);
-    const percent = total > 0 ? Math.round((numeric / total) * 100) : 0;
-    return { key, value: numeric, percent, label: humanizeLabel(key) };
-  });
-}
-
-function normalizeToLowercaseArray(value) {
-  if (!Array.isArray(value)) {
+function normalizeRoles(roles) {
+  if (!Array.isArray(roles)) {
     return [];
   }
-
-  return value
-    .map((item) => {
-      if (typeof item !== 'string') {
-        return null;
-      }
-      const trimmed = item.trim();
-      return trimmed ? trimmed.toLowerCase() : null;
-    })
+  return roles
+    .map((role) => (role == null ? null : `${role}`.trim().toLowerCase()))
     .filter(Boolean);
 }
 
-function normalizeToLowercaseString(value) {
-  if (value == null) {
-    return '';
+function hasAdminAccess(session) {
+  if (!session) {
+    return false;
   }
-
-  return `${value}`.trim().toLowerCase();
-}
-
-function cloneDeep(value) {
-  if (value == null) {
-    return value;
+  const roleCandidates = [session.userType, session.primaryDashboard];
+  if (Array.isArray(session.roles)) {
+    roleCandidates.push(...session.roles);
   }
-  try {
-    return JSON.parse(JSON.stringify(value));
-  } catch (error) {
-    console.warn('Unable to clone value', error);
-    return value;
+  if (Array.isArray(session.accountTypes)) {
+    roleCandidates.push(...session.accountTypes);
   }
-}
-
-function getNestedValue(source, path, fallback = '') {
-  if (!Array.isArray(path) || path.length === 0) {
-    return fallback;
+  if (Array.isArray(session.memberships)) {
+    roleCandidates.push(...session.memberships);
   }
-  const result = path.reduce((accumulator, key) => {
-    if (accumulator == null) {
-      return undefined;
-    }
-    return accumulator[key];
-  }, source);
-  return result ?? fallback;
-}
-
-function setNestedValue(source, path, value) {
-  if (!Array.isArray(path) || path.length === 0) {
-    return value;
-  }
-  const [head, ...rest] = path;
-  const current = source && typeof source === 'object' ? source : {};
-  const clone = Array.isArray(current) ? [...current] : { ...current };
-  clone[head] = rest.length ? setNestedValue(current?.[head], rest, value) : value;
-  return clone;
-}
-
-function maskSecret(value) {
-  if (!value) {
-    return '—';
-  }
-  const stringValue = String(value);
-  if (stringValue.length <= 4) {
-    return '•'.repeat(stringValue.length);
-  }
-  return `${'•'.repeat(stringValue.length - 4)}${stringValue.slice(-4)}`;
-}
-
-function buildSettingsOverview(settings = {}) {
-  const app = settings?.app ?? {};
-  const commissions = settings?.commissions ?? {};
-  const featureToggles = settings?.featureToggles ?? {};
-  const subscriptions = settings?.subscriptions ?? {};
-  const payments = settings?.payments ?? {};
-  const stripe = payments?.stripe ?? {};
-  const escrow = payments?.escrow_com ?? {};
-  const smtp = settings?.smtp ?? {};
-  const storage = settings?.storage ?? {};
-  const storageR2 = storage?.cloudflare_r2 ?? {};
-  const database = settings?.database ?? {};
-
-  const toggleValues = Object.values(featureToggles);
-  const activeToggleCount = toggleValues.filter(Boolean).length;
-  const totalToggleCount = Object.keys(featureToggles).length;
-
-  return {
-    overviewMetrics: [
-      {
-        label: 'Workspace name',
-        value: app.name || 'Gigvora',
-        caption: app.clientUrl ? `Client URL ${app.clientUrl}` : null,
-      },
-      {
-        label: 'Runtime environment',
-        value: (app.environment || 'development').toUpperCase(),
-        caption: app.apiUrl ? `API ${app.apiUrl}` : 'API URL not configured',
-      },
-      {
-        label: 'Active feature toggles',
-        value: activeToggleCount,
-        caption: `${totalToggleCount} total toggles`,
-      },
-      {
-        label: 'Platform commission',
-        value: `${commissions.rate ?? 0}% ${commissions.currency ?? 'USD'}`,
-        caption: commissions.enabled
-          ? commissions.providerControlsServicemanPay
-            ? `Providers manage serviceman pay${
-                commissions.servicemanMinimumRate
-                  ? ` • ${commissions.servicemanMinimumRate}% minimum`
-                  : ''
-              }`
-            : 'Platform-managed serviceman pay'
-          : 'Disabled',
-      },
-    ],
-    cms: {
-      subscriptionsEnabled: Boolean(subscriptions.enabled),
-      restrictedFeatures: Array.isArray(subscriptions.restrictedFeatures)
-        ? subscriptions.restrictedFeatures
-        : [],
-      plans: Array.isArray(subscriptions.plans) ? subscriptions.plans : [],
-      featureToggles,
-      commissions,
-    },
-    environment: {
-      environmentName: app.environment ?? 'development',
-      clientUrl: app.clientUrl ?? '',
-      appName: app.name ?? '',
-      storageProvider: storage.provider ?? 'cloudflare_r2',
-      storageBucket: storageR2.bucket ?? '',
-      storageEndpoint: storageR2.endpoint ?? '',
-      storagePublicBaseUrl: storageR2.publicBaseUrl ?? '',
-      databaseHost: database.host ?? '',
-      databasePort: database.port ?? '',
-      databaseName: database.name ?? '',
-      databaseUser: database.username ?? '',
-    },
-    api: {
-      apiUrl: app.apiUrl ?? '',
-      paymentProvider: payments.provider ?? 'stripe',
-      stripePublishableKey: stripe.publishableKey ?? '',
-      stripeWebhookSecret: stripe.webhookSecret ?? '',
-      stripeAccountId: stripe.accountId ?? '',
-      escrowSandbox: escrow.sandbox ?? true,
-      escrowApiKey: escrow.apiKey ?? '',
-      escrowApiSecret: escrow.apiSecret ?? '',
-      smtpHost: smtp.host ?? '',
-      smtpPort: smtp.port ?? '',
-      smtpSecure: Boolean(smtp.secure),
-      smtpUsername: smtp.username ?? '',
-      smtpFromAddress: smtp.fromAddress ?? '',
-      smtpFromName: smtp.fromName ?? '',
-    },
-  };
-}
-
-function computeInitials(name, fallback = 'GV') {
-  if (!name) return fallback;
-  const letters = name
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase());
-  if (letters.length === 0) {
-    return fallback;
-  }
-  return letters.slice(0, 2).join('').padEnd(2, fallback.charAt(0) || 'G');
-}
-
-function AccessNotice({ title, message, onPrimaryAction, primaryLabel, secondaryHref, secondaryLabel }) {
-  return (
-    <div className="py-20">
-      <div className="mx-auto max-w-2xl rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-soft">
-        <h2 className="text-2xl font-semibold text-slate-900">{title}</h2>
-        <p className="mt-3 text-sm text-slate-600">{message}</p>
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
-          {primaryLabel ? (
-            <button
-              type="button"
-              onClick={onPrimaryAction}
-              className="inline-flex items-center justify-center rounded-full bg-accent px-6 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
-            >
-              {primaryLabel}
-            </button>
-          ) : null}
-          {secondaryHref && secondaryLabel ? (
-            <a
-              href={secondaryHref}
-              className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-6 py-2 text-sm font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
-            >
-              {secondaryLabel}
-            </a>
-          ) : null}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SummaryCard({ label, value, caption, delta, icon: Icon }) {
-  return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-blue-100/40">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-medium text-slate-500">{label}</p>
-          <p className="mt-2 text-2xl font-semibold text-slate-900">{value}</p>
-          {delta ? <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-blue-600">{delta}</p> : null}
-          {caption ? <p className="mt-2 text-xs text-slate-500">{caption}</p> : null}
-        </div>
-        {Icon ? (
-          <div className="rounded-2xl bg-blue-50 p-3 text-blue-600">
-            <Icon className="h-6 w-6" />
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function StatusList({ title, items, emptyLabel = 'No data yet.' }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <p className="text-sm font-semibold text-slate-700">{title}</p>
-      <div className="mt-4 space-y-3">
-        {items.length ? (
-          items.map((item) => (
-            <div key={item.key} className="space-y-1">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-600">{item.label}</span>
-                <span className="font-semibold text-slate-900">{formatNumber(item.value)}</span>
-              </div>
-              <div className="relative h-2 overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className="absolute inset-y-0 left-0 rounded-full bg-blue-500"
-                  style={{ width: `${Math.min(item.percent, 100)}%` }}
-                />
-              </div>
-              <p className="text-right text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                {item.percent}% share
-              </p>
-            </div>
-          ))
-        ) : (
-          <p className="text-sm text-slate-500">{emptyLabel}</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function RecentList({ title, rows, columns, emptyLabel }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <p className="text-sm font-semibold text-slate-700">{title}</p>
-      {rows.length ? (
-        <div className="mt-4 overflow-x-auto">
-          <table className="min-w-full text-left text-sm text-slate-600">
-            <thead>
-              <tr className="text-xs uppercase tracking-wide text-slate-400">
-                {columns.map((column) => (
-                  <th key={column.key} className="whitespace-nowrap px-3 py-2 font-semibold">
-                    {column.label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, rowIndex) => (
-                <tr key={rowIndex} className="border-t border-slate-100">
-                  {columns.map((column) => (
-                    <td key={column.key} className="whitespace-nowrap px-3 py-2 text-slate-600">
-                      {column.render ? column.render(row[column.key], row) : row[column.key] ?? '—'}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <p className="mt-4 text-sm text-slate-500">{emptyLabel}</p>
-      )}
-    </div>
-  );
+  const normalised = normalizeRoles(roleCandidates);
+  return normalised.some((role) => ADMIN_ACCESS_ALIASES.has(role));
 }
 
 export default function AdminDashboardPage() {
+  const { session, loading: sessionLoading } = useSession();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [data, setData] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [overviewStatus, setOverviewStatus] = useState('');
+  const [overviewError, setOverviewError] = useState('');
   const navigate = useNavigate();
   const handleMenuItemSelect = useCallback(
     (itemId, item) => {
@@ -832,57 +460,23 @@ export default function AdminDashboardPage() {
     [domainGovernance.contexts],
   );
 
-  const canAccessDashboard = isAuthenticated && hasAdminSeat;
+  const adminAllowed = useMemo(() => hasAdminAccess(session), [session]);
 
-  useEffect(() => {
-    if (!canAccessDashboard) {
-      setLoading(false);
-      setData(null);
-      setError(null);
-      setSettings(null);
-      setSettingsDraft(null);
-      setSettingsLoading(false);
-      setSettingsError(null);
-      setSettingsDirty(false);
-      setSettingsSaving(false);
-      setSettingsStatus('');
-      setLastSavedAt(null);
-      setAffiliateSettings(null);
-      setAffiliateDraft(null);
-      setAffiliateLoading(false);
-      setAffiliateError(null);
-      setAffiliateDirty(false);
-      setAffiliateSaving(false);
-      setAffiliateStatus('');
-      setAffiliateLastSavedAt(null);
+  const loadDashboard = async () => {
+    if (!adminAllowed) {
       return;
     }
-    if (!hasAdminAccess) {
-      setData(null);
-      setSettings(null);
-      setSettingsDraft(null);
-      setSettingsDirty(false);
-      setLoading(false);
-      setSettingsLoading(false);
-      setError(null);
-      setSettingsError(null);
-      setSettingsStatus('');
-      setLastSavedAt(null);
-      setAffiliateSettings(null);
-      setAffiliateDraft(null);
-      setAffiliateDirty(false);
-      setAffiliateLoading(false);
-      setAffiliateSaving(false);
-      setAffiliateError(null);
-      setAffiliateStatus('');
-      setAffiliateLastSavedAt(null);
-      return;
-    }
-
-    const abortController = new AbortController();
-    let isActive = true;
-
     setLoading(true);
+    setError('');
+    try {
+      const response = await fetchAdminDashboard();
+      setData(response);
+    } catch (err) {
+      const message = err?.body?.message || (err instanceof Error ? err.message : 'Unable to load admin overview.');
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
     setSettingsLoading(true);
     setError(null);
     setSettingsError(null);
@@ -1184,209 +778,63 @@ export default function AdminDashboardPage() {
     updateAffiliateDraft(path, event.target.value);
   };
 
-  const handleAffiliateNumberChange = (path) => (event) => {
-    const raw = event.target.value;
-    updateAffiliateDraft(path, raw === '' ? '' : Number(raw));
+  useEffect(() => {
+    if (sessionLoading) {
+      return;
+    }
+    if (!session) {
+      setLoading(false);
+      setError('Sign in to view the admin dashboard.');
+      return;
+    }
+    if (!adminAllowed) {
+      setLoading(false);
+      setError('Admin access required.');
+      return;
+    }
+    loadDashboard();
+  }, [sessionLoading, session, adminAllowed]);
+
+  const adminOverview = data?.overview ?? null;
+
+  const handleRefresh = () => {
+    if (loading || saving) {
+      return;
+    }
+    loadDashboard();
   };
 
-  const handleAffiliateToggleChange = (path) => (event) => {
-    updateAffiliateDraft(path, event.target.checked);
-  };
-
-  const handleAffiliateRecurrenceChange = (event) => {
-    updateAffiliateDraft(['payouts', 'recurrence', 'type'], event.target.value);
-  };
-
-  const handleAffiliateRecurrenceLimitChange = (event) => {
-    const raw = event.target.value;
-    updateAffiliateDraft(['payouts', 'recurrence', 'limit'], raw === '' ? '' : Number(raw));
-  };
-
-  const handleAffiliateTierChange = (index, field) => (event) => {
-    const raw = event.target.value;
-    setAffiliateDraft((current) => {
-      const baseline = cloneDeep(current ?? affiliateSettings ?? {});
-      const tiers = Array.isArray(baseline.tiers) ? [...baseline.tiers] : [];
-      if (!tiers[index]) {
-        tiers[index] = { id: `tier-${index + 1}`, name: `Tier ${index + 1}`, minValue: 0, maxValue: null, rate: 0 };
-      }
-      const tier = { ...tiers[index] };
-      if (field === 'rate' || field === 'minValue' || field === 'maxValue') {
-        tier[field] = raw === '' ? '' : Number(raw);
-      } else {
-        tier[field] = raw;
-      }
-      if (!tier.id) {
-        tier.id = `tier-${index + 1}`;
-      }
-      tiers[index] = tier;
-      baseline.tiers = tiers;
-      setAffiliateDirty(true);
-      return baseline;
-    });
-  };
-
-  const handleAffiliateRemoveTier = (index) => () => {
-    setAffiliateDraft((current) => {
-      const baseline = cloneDeep(current ?? affiliateSettings ?? {});
-      const tiers = Array.isArray(baseline.tiers) ? [...baseline.tiers] : [];
-      if (index < 0 || index >= tiers.length) {
-        return baseline;
-      }
-      tiers.splice(index, 1);
-      baseline.tiers = tiers;
-      setAffiliateDirty(true);
-      return baseline;
-    });
-  };
-
-  const handleAffiliateAddTier = () => {
-    setAffiliateDraft((current) => {
-      const baseline = cloneDeep(current ?? affiliateSettings ?? {});
-      const tiers = Array.isArray(baseline.tiers) ? [...baseline.tiers] : [];
-      const nextIndex = tiers.length + 1;
-      const lastMax = tiers.length ? tiers[tiers.length - 1].maxValue : null;
-      tiers.push({
-        id: `tier-${Date.now()}-${nextIndex}`,
-        name: `Tier ${nextIndex}`,
-        minValue: typeof lastMax === 'number' ? lastMax : 0,
-        maxValue: null,
-        rate: 5,
+  const handleOverviewSave = async (payload = {}) => {
+    if (!payload || typeof payload !== 'object') {
+      return;
+    }
+    setSaving(true);
+    setOverviewError('');
+    setOverviewStatus('');
+    try {
+      const response = await persistAdminOverview(payload);
+      setData((previous) => {
+        if (!previous) {
+          return { overview: response };
+        }
+        return { ...previous, overview: response };
       });
-      baseline.tiers = tiers;
-      setAffiliateDirty(true);
-      return baseline;
-    });
-  };
-
-  const handleRestrictedFeaturesChange = (value) => {
-    setRestrictedFeaturesInput(value);
-    const features = value
-      .split(',')
-      .map((item) => item.trim())
-      .filter((item) => item.length > 0);
-    updateSettingsDraft(['subscriptions', 'restrictedFeatures'], features);
-  };
-
-  const handleAffiliateDocumentsChange = (event) => {
-    const value = event.target.value;
-    const documents = value
-      .split(',')
-      .map((item) => item.trim())
-      .filter((item) => item.length > 0);
-    updateAffiliateDraft(['compliance', 'requiredDocuments'], documents);
-  };
-
-  const handleSaveSettings = async () => {
-    if (!settingsDraft || settingsSaving) {
-      return;
-    }
-    setSettingsSaving(true);
-    setSettingsError(null);
-    setSettingsStatus('');
-    try {
-      const payload = cloneDeep(settingsDraft);
-      if (Array.isArray(payload?.subscriptions?.restrictedFeatures)) {
-        payload.subscriptions.restrictedFeatures = payload.subscriptions.restrictedFeatures
-          .map((item) => (typeof item === 'string' ? item.trim() : ''))
-          .filter((item) => item.length > 0);
-      }
-      const response = await updatePlatformSettings(payload);
-      setSettings(response);
-      const draft = cloneDeep(response);
-      setSettingsDraft(draft);
-      setRestrictedFeaturesInput(
-        Array.isArray(response?.subscriptions?.restrictedFeatures)
-          ? response.subscriptions.restrictedFeatures.join(', ')
-          : '',
-      );
-      setSettingsDirty(false);
-      setSettingsStatus('Platform settings updated successfully.');
-      setLastSavedAt(new Date().toISOString());
+      setOverviewStatus('Profile updated.');
     } catch (err) {
-      setSettingsError(err?.message || 'Failed to update platform settings.');
+      const message = err?.body?.message || (err instanceof Error ? err.message : 'Failed to update profile.');
+      setOverviewError(message);
     } finally {
-      setSettingsSaving(false);
+      setSaving(false);
     }
   };
 
-  const handleResetSettings = () => {
-    if (!settings) {
-      setSettingsDraft(null);
-      setSettingsDirty(false);
-      setRestrictedFeaturesInput('');
-      return;
-    }
-    const baseline = cloneDeep(settings);
-    setSettingsDraft(baseline);
-    setRestrictedFeaturesInput(
-      Array.isArray(baseline?.subscriptions?.restrictedFeatures)
-        ? baseline.subscriptions.restrictedFeatures.join(', ')
-        : '',
-    );
-    setSettingsDirty(false);
-    setSettingsError(null);
-    setSettingsStatus('Draft reset to last saved configuration.');
-  };
-
-  const disableSettingsInputs = settingsLoading || settingsSaving || !settingsDraft;
-
-  const handleSaveAffiliateSettings = async () => {
-    if (!affiliateDraft || affiliateSaving) {
-      return;
-    }
-    setAffiliateSaving(true);
-    setAffiliateError(null);
-    setAffiliateStatus('');
-    try {
-      const payload = cloneDeep(affiliateDraft);
-      if (Array.isArray(payload?.tiers)) {
-        payload.tiers = payload.tiers.map((tier, index) => ({
-          id: tier.id ?? `tier-${index + 1}`,
-          name: tier.name ?? `Tier ${index + 1}`,
-          minValue:
-            tier.minValue === '' || tier.minValue == null ? 0 : Number.isFinite(Number(tier.minValue)) ? Number(tier.minValue) : 0,
-          maxValue:
-            tier.maxValue === '' || tier.maxValue == null
-              ? null
-              : Number.isFinite(Number(tier.maxValue))
-              ? Number(tier.maxValue)
-              : null,
-          rate:
-            tier.rate === '' || tier.rate == null ? 0 : Number.isFinite(Number(tier.rate)) ? Number(tier.rate) : 0,
-        }));
-      }
-      if (payload?.payouts) {
-        const recurrence = payload.payouts.recurrence ?? {};
-        if (recurrence.type !== 'finite') {
-          recurrence.limit = null;
-        } else if (recurrence.limit === '') {
-          recurrence.limit = null;
-        }
-        payload.payouts.recurrence = recurrence;
-        if (payload.payouts.minimumPayoutThreshold === '') {
-          payload.payouts.minimumPayoutThreshold = 0;
-        }
-      }
-      if (payload.defaultCommissionRate === '') {
-        payload.defaultCommissionRate = 0;
-      }
-      if (payload.referralWindowDays === '') {
-        payload.referralWindowDays = 0;
-      }
-      const response = await updateAffiliateSettings(payload);
-      setAffiliateSettings(response);
-      setAffiliateDraft(cloneDeep(response));
-      setAffiliateDirty(false);
-      setAffiliateStatus('Affiliate settings updated successfully.');
-      setAffiliateLastSavedAt(new Date().toISOString());
-    } catch (err) {
-      setAffiliateError(err?.message || 'Failed to update affiliate settings.');
-    } finally {
-      setAffiliateSaving(false);
-    }
-  };
-
+  const renderState = () => {
+    if (!adminAllowed) {
+      return (
+        <div className="flex flex-col items-center justify-center rounded-3xl border border-amber-200 bg-amber-50 p-12 text-center text-amber-900">
+          <LockClosedIcon className="h-10 w-10" aria-hidden="true" />
+          <h2 className="mt-4 text-xl font-semibold">Restricted</h2>
+          <p className="mt-2 text-sm">Switch to an admin account to open this dashboard.</p>
   const handleResetAffiliateSettings = () => {
     if (!affiliateSettings) {
       setAffiliateDraft(null);
@@ -2312,117 +1760,18 @@ export default function AdminDashboardPage() {
             {affiliateSaving ? 'Saving…' : 'Save affiliate settings'}
           </button>
         </div>
-      </div>
+      );
+    }
 
-      {affiliateError ? (
-        <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{affiliateError}</p>
-      ) : null}
-      {affiliateStatus ? (
-        <p className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          {affiliateStatus}
-        </p>
-      ) : null}
-
-      <div className="mt-6 grid gap-6 xl:grid-cols-3">
-        <div className="space-y-6 xl:col-span-2">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-              <span className="font-semibold text-slate-800">Programme enabled</span>
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                checked={Boolean(normalizedAffiliate.enabled)}
-                onChange={handleAffiliateToggleChange(['enabled'])}
-                disabled={disableAffiliateInputs}
-              />
-            </label>
-            <label className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-              <span className="font-semibold text-slate-800">Auto-approve payouts</span>
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                checked={Boolean(normalizedAffiliate.payouts?.autoApprove)}
-                onChange={handleAffiliateToggleChange(['payouts', 'autoApprove'])}
-                disabled={disableAffiliateInputs}
-              />
-            </label>
-            <label className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-              <span className="font-semibold text-slate-800">Two-factor required</span>
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                checked={Boolean(normalizedAffiliate.compliance?.twoFactorRequired)}
-                onChange={handleAffiliateToggleChange(['compliance', 'twoFactorRequired'])}
-                disabled={disableAffiliateInputs}
-              />
-            </label>
-            <label className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-              <span className="font-semibold text-slate-800">KYC verification</span>
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                checked={Boolean(normalizedAffiliate.compliance?.payoutKyc)}
-                onChange={handleAffiliateToggleChange(['compliance', 'payoutKyc'])}
-                disabled={disableAffiliateInputs}
-              />
-            </label>
+    if (loading && !adminOverview) {
+      return (
+        <div className="space-y-6">
+          <div className="rounded-3xl border border-dashed border-blue-200 bg-blue-50/60 p-10 text-center text-sm text-blue-700">
+            Loading your overview…
           </div>
-
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="flex flex-col gap-2 text-sm text-slate-700">
-              <span className="font-semibold text-slate-800">Default commission rate (%)</span>
-              <input
-                type="number"
-                min="0"
-                max="100"
-                step="0.1"
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-2"
-                value={normalizedAffiliate.defaultCommissionRate ?? ''}
-                onChange={handleAffiliateNumberChange(['defaultCommissionRate'])}
-                disabled={disableAffiliateInputs}
-              />
-            </label>
-            <label className="flex flex-col gap-2 text-sm text-slate-700">
-              <span className="font-semibold text-slate-800">Referral attribution window (days)</span>
-              <input
-                type="number"
-                min="1"
-                max="365"
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-2"
-                value={normalizedAffiliate.referralWindowDays ?? ''}
-                onChange={handleAffiliateNumberChange(['referralWindowDays'])}
-                disabled={disableAffiliateInputs}
-              />
-            </label>
-            <label className="flex flex-col gap-2 text-sm text-slate-700">
-              <span className="font-semibold text-slate-800">Payout frequency</span>
-              <select
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-2"
-                value={normalizedAffiliate.payouts?.frequency ?? 'monthly'}
-                onChange={handleAffiliateTextChange(['payouts', 'frequency'])}
-                disabled={disableAffiliateInputs}
-              >
-                <option value="weekly">Weekly</option>
-                <option value="biweekly">Bi-weekly</option>
-                <option value="monthly">Monthly</option>
-                <option value="quarterly">Quarterly</option>
-              </select>
-            </label>
-            <label className="flex flex-col gap-2 text-sm text-slate-700">
-              <span className="font-semibold text-slate-800">Minimum payout threshold ({normalizedAffiliate.currency ?? 'USD'})</span>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-2"
-                value={normalizedAffiliate.payouts?.minimumPayoutThreshold ?? ''}
-                onChange={handleAffiliateNumberChange(['payouts', 'minimumPayoutThreshold'])}
-                disabled={disableAffiliateInputs}
-              />
-            </label>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
+            {[...Array(4)].map((_, index) => (
+              <div key={index} className="h-32 rounded-3xl bg-slate-100" />
             <label className="flex flex-col gap-2 text-sm text-slate-700">
               <span className="font-semibold text-slate-800">Recurrence model</span>
               <select
@@ -2811,8 +2160,22 @@ export default function AdminDashboardPage() {
             ))}
           </div>
         </div>
-      </section>
+      );
+    }
 
+    if (error && !adminOverview) {
+      return (
+        <div className="flex flex-col items-center justify-center rounded-3xl border border-rose-200 bg-rose-50 p-10 text-center text-rose-700">
+          <p className="text-base font-semibold">{error}</p>
+          <button
+            type="button"
+            onClick={handleRefresh}
+            className="mt-4 inline-flex items-center gap-2 rounded-full border border-rose-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-rose-700 transition hover:border-rose-300 hover:bg-rose-50"
+          >
+            <ArrowPathIcon className="h-4 w-4" /> Try again
+          </button>
+        </div>
+      );
       {/* Financial governance */}
       <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg shadow-blue-100/40 sm:p-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -3216,17 +2579,26 @@ export default function AdminDashboardPage() {
     }
 
     return (
-      <div className="space-y-10">
-        {renderSettingsSection}
-        {renderAffiliateSettingsSection}
-        {dashboardContent}
-      </div>
+      <AdminOverviewPanel
+        overview={adminOverview}
+        saving={saving}
+        status={overviewStatus}
+        error={overviewError || error}
+        onSave={handleOverviewSave}
+        onRefresh={handleRefresh}
+      />
     );
-  })();
+  };
 
   return (
     <DashboardLayout
       currentDashboard="admin"
+      title="Admin Overview"
+      subtitle="Realtime snapshot"
+      description="Stay on top of member sentiment, trust, and weather cues at a glance."
+      menuSections={MENU_SECTIONS}
+      sections={SECTIONS}
+      availableDashboards={['admin', 'user', 'freelancer', 'company', 'agency', 'headhunter']}
       title="Gigvora Admin Control Tower"
       subtitle="Enterprise governance & compliance"
       description="Centralize every lever that powers Gigvora—from member growth and financial operations to trust, support, analytics, and the launchpad."
@@ -3250,21 +2622,9 @@ export default function AdminDashboardPage() {
       onMenuItemSelect={handleMenuSelect}
       onMenuItemSelect={handleMenuItemSelect}
     >
-      {renderContent}
+      <div className="space-y-10">
+        {renderState()}
+      </div>
     </DashboardLayout>
-  );
-}
-
-function GovernanceStatusBadge({ status }) {
-  const normalized = typeof status === 'string' ? status.toLowerCase() : 'unknown';
-  const config = GOVERNANCE_STATUS_STYLES[normalized] ?? GOVERNANCE_STATUS_STYLES.unknown;
-
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${config.className}`}
-      aria-label={`Review status: ${config.label}`}
-    >
-      {config.label}
-    </span>
   );
 }
