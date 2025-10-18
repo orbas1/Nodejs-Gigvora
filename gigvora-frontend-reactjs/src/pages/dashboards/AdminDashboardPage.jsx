@@ -86,22 +86,29 @@ const MENU_SECTIONS = [
   },
   {
     label: 'Configuration stack',
-      items: [
-        {
-          name: 'All platform settings',
-          description: 'Govern application defaults, commission policies, and feature gates.',
-          tags: ['settings'],
-          sectionId: 'admin-settings-overview',
-        },
-        {
-          name: 'Affiliate economics',
-          description: 'Tiered commissions, payout cadences, and partner compliance.',
-          tags: ['affiliate'],
-          sectionId: 'admin-affiliate-settings',
-        },
-        {
-          name: 'CMS controls',
-          description: 'Editorial workflow, restricted features, and monetisation toggles.',
+    items: [
+      {
+        name: 'System settings',
+        description: 'Global runtime defaults, security posture, and incident workflows.',
+        tags: ['operations'],
+        sectionId: 'admin-system-settings',
+        href: '/dashboard/admin/system-settings',
+      },
+      {
+        name: 'All platform settings',
+        description: 'Govern application defaults, commission policies, and feature gates.',
+        tags: ['settings'],
+        sectionId: 'admin-settings-overview',
+      },
+      {
+        name: 'Affiliate economics',
+        description: 'Tiered commissions, payout cadences, and partner compliance.',
+        tags: ['affiliate'],
+        sectionId: 'admin-affiliate-settings',
+      },
+      {
+        name: 'CMS controls',
+        description: 'Editorial workflow, restricted features, and monetisation toggles.',
         sectionId: 'admin-settings-cms',
       },
       {

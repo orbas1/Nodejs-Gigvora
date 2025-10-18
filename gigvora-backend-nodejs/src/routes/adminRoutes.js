@@ -8,6 +8,7 @@ import {
   adminDashboardQuerySchema,
   affiliateSettingsBodySchema,
   platformSettingsBodySchema,
+  systemSettingsBodySchema,
 } from '../validation/schemas/adminSchemas.js';
 import adminRuntimeRoutes from './adminRuntimeRoutes.js';
 import adminConsentRoutes from './adminConsentRoutes.js';
@@ -34,6 +35,12 @@ router.put(
   '/affiliate-settings',
   validateRequest({ body: affiliateSettingsBodySchema }),
   asyncHandler(adminController.persistAffiliateSettings),
+);
+router.get('/system-settings', asyncHandler(adminController.fetchSystemSettings));
+router.put(
+  '/system-settings',
+  validateRequest({ body: systemSettingsBodySchema }),
+  asyncHandler(adminController.persistSystemSettings),
 );
 
 router.use('/ads/coupons', adminAdRoutes);
