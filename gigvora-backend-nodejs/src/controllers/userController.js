@@ -8,7 +8,13 @@ import gigBuilderService from '../services/gigBuilderService.js';
 import gigManagerService from '../services/gigManagerService.js';
 import { getUserOpenAiSettings, updateUserOpenAiSettings } from '../services/aiAutoReplyService.js';
 import affiliateDashboardService from '../services/affiliateDashboardService.js';
+import userDashboardOverviewService from '../services/userDashboardOverviewService.js';
+import {
+  getUserWebsitePreferences as fetchUserWebsitePreferences,
+  updateUserWebsitePreferences as saveUserWebsitePreferences,
+} from '../services/userWebsitePreferenceService.js';
 import { normalizeLocationPayload } from '../utils/location.js';
+import { resolveRequestUserId } from '../utils/requestContext.js';
 
 export async function listUsers(req, res) {
   const limitParam = Number.parseInt(req.query.limit ?? '20', 10);
@@ -79,11 +85,86 @@ export async function updateProfileSettings(req, res) {
   res.json(profile);
 }
 
+export async function updateUserProfileDetails(req, res) {
+  const profile = await profileHubService.updateProfileBasics(req.params.id, req.body ?? {});
+  res.json(profile);
+}
+
+export async function updateUserProfileAvatar(req, res) {
+  const file = req.file ?? null;
+  const payload = {
+    fileBuffer: file?.buffer ?? null,
+    mimeType: file?.mimetype ?? null,
+    fileName: file?.originalname ?? null,
+    url: req.body?.avatarUrl ?? req.body?.url ?? null,
+    metadata: req.body?.metadata ?? null,
+  };
+  const profile = await profileHubService.changeProfileAvatar(req.params.id, payload);
+  res.json(profile);
+}
+
+export async function listUserFollowers(req, res) {
+  const hub = await profileHubService.getProfileHub(req.params.id, {
+    bypassCache: req.query.fresh === 'true',
+  });
+  res.json(hub.followers);
+}
+
+export async function saveUserFollower(req, res) {
+  const follower = await profileHubService.saveFollower(req.params.id, req.body ?? {});
+  res.status(201).json(follower);
+}
+
+export async function deleteUserFollower(req, res) {
+  await profileHubService.deleteFollower(req.params.id, req.params.followerId);
+  res.status(204).send();
+}
+
+export async function listUserConnections(req, res) {
+  const connections = await profileHubService.listConnections(req.params.id);
+  res.json(connections);
+}
+
+export async function updateUserConnection(req, res) {
+  const connection = await profileHubService.updateConnection(req.params.id, req.params.connectionId, req.body ?? {});
+  res.json(connection);
+}
+
 export async function getUserDashboard(req, res) {
   const dashboard = await userDashboardService.getUserDashboard(req.params.id, {
     bypassCache: req.query.fresh === 'true',
   });
   res.json(dashboard);
+}
+
+export async function getUserDashboardOverview(req, res) {
+  const overview = await userDashboardOverviewService.getOverview(req.params.id, {
+    bypassCache: req.query.fresh === 'true',
+    actorId: resolveRequestUserId(req),
+    actorRoles: req.user?.roles ?? [],
+  });
+  res.json(overview);
+}
+
+export async function updateUserDashboardOverview(req, res) {
+  const overview = await userDashboardOverviewService.updateOverview(req.params.id, req.body ?? {}, {
+    actorId: resolveRequestUserId(req),
+    actorRoles: req.user?.roles ?? [],
+  });
+  res.json(overview);
+}
+
+export async function refreshUserDashboardOverviewWeather(req, res) {
+  const overview = await userDashboardOverviewService.refreshWeather(req.params.id, {
+    actorId: resolveRequestUserId(req),
+    actorRoles: req.user?.roles ?? [],
+  });
+  res.json(overview);
+export async function getUserProfileHub(req, res) {
+  const hub = await profileHubService.getProfileHub(req.params.id, {
+    bypassCache: req.query.fresh === 'true',
+  });
+  res.json(hub);
 }
 
 export async function getUserAffiliateDashboard(req, res) {
@@ -135,4 +216,14 @@ export async function getUserAiSettings(req, res) {
 export async function updateUserAiSettings(req, res) {
   const settings = await updateUserOpenAiSettings(req.params.id, req.body ?? {});
   res.json(settings);
+}
+
+export async function getWebsitePreferences(req, res) {
+  const preferences = await fetchUserWebsitePreferences(req.params.id);
+  res.json(preferences);
+}
+
+export async function updateWebsitePreferences(req, res) {
+  const preferences = await saveUserWebsitePreferences(req.params.id, req.body ?? {});
+  res.json(preferences);
 }
