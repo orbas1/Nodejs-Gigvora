@@ -195,6 +195,14 @@ export const AGENCY_TIMELINE_DISTRIBUTION_CHANNELS = [
 ];
 export const ESCROW_ACCOUNT_STATUSES = ['pending', 'active', 'suspended', 'closed'];
 export const ESCROW_TRANSACTION_TYPES = ['project', 'gig', 'milestone', 'retainer'];
+export const ESCROW_RELEASE_POLICY_TYPES = [
+  'auto_release_after_hours',
+  'client_confirmation',
+  'milestone_approval',
+  'manual_review',
+];
+export const ESCROW_RELEASE_POLICY_STATUSES = ['draft', 'active', 'disabled'];
+export const ESCROW_FEE_TIER_STATUSES = ['active', 'inactive'];
 export const HEADHUNTER_INVITE_STATUSES = ['pending', 'accepted', 'declined', 'expired', 'revoked'];
 export const HEADHUNTER_BRIEF_STATUSES = ['draft', 'shared', 'in_progress', 'filled', 'closed'];
 export const HEADHUNTER_ASSIGNMENT_STATUSES = ['invited', 'accepted', 'submitted', 'shortlisted', 'placed', 'closed'];

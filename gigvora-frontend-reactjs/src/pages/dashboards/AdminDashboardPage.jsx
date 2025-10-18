@@ -48,6 +48,8 @@ const MENU_SECTIONS = [
         tags: ['growth', 'activation'],
       },
       {
+        name: 'Escrow',
+        description: '',
         name: 'Profile management',
         description: 'Provision accounts, edit public profiles, and capture trust annotations.',
         tags: ['members'],
@@ -57,6 +59,7 @@ const MENU_SECTIONS = [
         name: 'Financial governance',
         description: 'Escrow flows, fee capture, and treasury risk posture.',
         tags: ['finance'],
+        href: '/dashboard/admin/escrow',
       },
       {
         name: 'Risk & trust',
@@ -2773,16 +2776,24 @@ export default function AdminDashboardPage() {
           <div>
             <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Financial governance</h2>
             <p className="mt-2 max-w-3xl text-sm text-slate-600">
-              Escrow balances, fee capture, and transaction mix to monitor marketplace liquidity and treasury performance.
+              Snapshot of escrow balances, recent activity, and fee capture. Use the escrow management console for full control.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={handleRefresh}
-            className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-blue-700 transition hover:border-blue-300 hover:bg-white"
-          >
-            <ArrowPathIcon className="h-4 w-4" /> Refresh data
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              to="/dashboard/admin/escrow"
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 transition hover:border-blue-300 hover:text-blue-700"
+            >
+              Open escrow console
+            </Link>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-blue-700 transition hover:border-blue-300 hover:bg-white"
+            >
+              <ArrowPathIcon className="h-4 w-4" /> Refresh data
+            </button>
+          </div>
         </div>
         <div className="mt-6 grid gap-4 lg:grid-cols-2">
           <StatusList

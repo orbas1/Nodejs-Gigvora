@@ -339,6 +339,24 @@ function buildDefaultPlatformSettings() {
         apiSecret: coerceOptionalString(process.env.ESCROW_COM_API_SECRET),
         sandbox: coerceBoolean(process.env.ESCROW_COM_SANDBOX, true),
       },
+      escrowControls: {
+        defaultHoldPeriodHours: coerceInteger(process.env.ESCROW_DEFAULT_HOLD_HOURS, 72, {
+          min: 0,
+        }),
+        autoReleaseHours: coerceInteger(process.env.ESCROW_AUTO_RELEASE_HOURS, 48, { min: 0 }),
+        requireManualApproval: coerceBoolean(process.env.ESCROW_REQUIRE_MANUAL_APPROVAL, false),
+        manualApprovalThreshold: coerceNumber(process.env.ESCROW_MANUAL_APPROVAL_THRESHOLD, 25000, {
+          min: 0,
+          precision: 2,
+        }),
+        notificationEmails: uniqueStringList(
+          (process.env.ESCROW_NOTIFICATION_EMAILS ?? '')
+            .split(',')
+            .map((value) => value.trim())
+            .filter((value) => value.length > 0),
+        ),
+        statementDescriptor: coerceOptionalString(process.env.ESCROW_STATEMENT_DESCRIPTOR),
+      },
     },
     smtp: {
       host: coerceOptionalString(process.env.SMTP_HOST),
@@ -688,6 +706,33 @@ function normalizeSubscriptionSettings(input = {}, fallback = {}) {
   return normalized;
 }
 
+function normalizeEscrowControls(input = {}, fallback = {}) {
+  return {
+    defaultHoldPeriodHours: coerceInteger(
+      input.defaultHoldPeriodHours,
+      fallback.defaultHoldPeriodHours ?? 72,
+      { min: 0 },
+    ),
+    autoReleaseHours: coerceInteger(input.autoReleaseHours, fallback.autoReleaseHours ?? 48, {
+      min: 0,
+    }),
+    requireManualApproval: coerceBoolean(
+      input.requireManualApproval,
+      fallback.requireManualApproval ?? false,
+    ),
+    manualApprovalThreshold: coerceNumber(
+      input.manualApprovalThreshold,
+      fallback.manualApprovalThreshold ?? 25000,
+      { min: 0, precision: 2 },
+    ),
+    notificationEmails: uniqueStringList(input.notificationEmails ?? fallback.notificationEmails ?? []),
+    statementDescriptor: coerceOptionalString(
+      input.statementDescriptor,
+      fallback.statementDescriptor ?? '',
+    ),
+  };
+}
+
 function normalizePaymentSettings(input = {}, fallback = {}) {
   const providerCandidate = coerceString(input.provider, fallback.provider ?? 'stripe');
   const provider = PAYMENT_PROVIDERS.has(providerCandidate) ? providerCandidate : 'stripe';
@@ -715,6 +760,7 @@ function normalizePaymentSettings(input = {}, fallback = {}) {
     provider,
     stripe: stripeSettings,
     escrow_com: escrowSettings,
+    escrowControls: normalizeEscrowControls(input.escrowControls, fallback.escrowControls),
   };
 }
 
@@ -892,6 +938,10 @@ function mergeDefaults(defaults, stored) {
       escrow_com: {
         ...defaults.payments.escrow_com,
         ...(stored.payments?.escrow_com ?? {}),
+      },
+      escrowControls: {
+        ...defaults.payments.escrowControls,
+        ...(stored.payments?.escrowControls ?? {}),
       },
     },
     smtp: { ...defaults.smtp, ...(stored.smtp ?? {}) },
