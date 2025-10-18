@@ -49,6 +49,12 @@ export async function appendDisputeEvent(disputeId, payload, options = {}) {
 }
 
 export async function fetchDisputes(params = {}, options = {}) {
+  const response = await apiClient.get('/trust/disputes', { ...options, params });
+  return response;
+}
+
+export async function fetchDispute(disputeId, options = {}) {
+  return apiClient.get(`/trust/disputes/${disputeId}`, options);
   const response = await apiClient.get('/trust/disputes', { params, ...options });
   return {
     disputes: response.disputes ?? [],
@@ -68,6 +74,35 @@ export async function updateDispute(disputeId, payload, options = {}) {
   return response.dispute;
 }
 
+export async function fetchDisputeSettings(params = {}, options = {}) {
+  const response = await apiClient.get('/trust/disputes/settings', { ...options, params });
+  return response.settings;
+}
+
+export async function updateDisputeSettings(payload, options = {}) {
+  const response = await apiClient.put('/trust/disputes/settings', payload, options);
+  return response.settings;
+}
+
+export async function fetchDisputeTemplates(params = {}, options = {}) {
+  const response = await apiClient.get('/trust/disputes/templates', { ...options, params });
+  return response.templates;
+}
+
+export async function createDisputeTemplate(payload, options = {}) {
+  const response = await apiClient.post('/trust/disputes/templates', payload, options);
+  return response.template;
+}
+
+export async function updateDisputeTemplate(templateId, payload, options = {}) {
+  const response = await apiClient.patch(`/trust/disputes/templates/${templateId}`, payload, options);
+  return response.template;
+}
+
+export async function deleteDisputeTemplate(templateId, options = {}) {
+  return apiClient.delete(`/trust/disputes/templates/${templateId}`, options);
+}
+
 export default {
   fetchTrustOverview,
   createEscrowAccount,
@@ -81,4 +116,10 @@ export default {
   fetchDisputes,
   fetchDispute,
   updateDispute,
+  fetchDisputeSettings,
+  updateDisputeSettings,
+  fetchDisputeTemplates,
+  createDisputeTemplate,
+  updateDisputeTemplate,
+  deleteDisputeTemplate,
 };

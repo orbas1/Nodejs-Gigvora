@@ -59,6 +59,34 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
   {
     label: 'People',
     items: [
+      {
+        name: 'Calendar & communications',
+        description: 'Sync recruiting calendars, digests, integrations, and cross-functional updates.',
+        sectionId: 'calendar-communications',
+      },
+      {
+        name: 'Settings & governance',
+        description: 'Permissions, integrations, compliance, and approval workflows.',
+        sectionId: 'settings-governance',
+      },
+      {
+        name: 'Integration command center',
+        description: 'Dedicated console for Salesforce, monday.com, Slack, HubSpot, Google Drive, and BYOK AI connectors.',
+        sectionId: 'settings-governance',
+        href: '/dashboard/company/integrations',
+        tags: ['integrations'],
+      },
+      {
+        name: 'Disputes',
+        sectionId: 'dispute-management',
+        href: '/dashboard/company/disputes',
+        tags: ['trust'],
+      },
+      {
+        name: 'Governance & compliance',
+        description: 'Maintain GDPR/CCPA compliance, accessibility standards, and equitable hiring policies.',
+        sectionId: 'governance-compliance',
+      },
       { name: 'Insight', sectionId: 'employer-brand-workforce' },
       { name: 'Brand', sectionId: 'employer-brand-studio' },
       { name: 'Journeys', sectionId: 'employee-journeys' },
