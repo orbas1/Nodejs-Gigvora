@@ -2409,6 +2409,45 @@ export default function AdminDashboardPage() {
       <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
+            <h2 className="text-lg font-semibold text-slate-900">Job post management</h2>
+            <p className="mt-1 max-w-2xl text-sm text-slate-600">
+              Launch, govern, and monitor every role published across Gigvora. The job workspace supports full CRUD controls,
+              workflow gates, attachments, distribution toggles, and publishing automation.
+            </p>
+          </div>
+          <Link
+            to="/dashboard/admin/jobs"
+            className="inline-flex items-center justify-center rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-slate-700"
+          >
+            Open job workspace
+          </Link>
+        </div>
+        <div className="mt-4 grid gap-3 lg:grid-cols-3">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-600">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Operational coverage</p>
+            <p className="mt-2">
+              Manage job basics, compensation, hiring contacts, metadata, and publishing states with granular validation and audit
+              trails.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-600">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Workflow automation</p>
+            <p className="mt-2">
+              Trigger lifecycle transitions, archive or duplicate postings, and push updates to partner surfaces instantly.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-600">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Distribution readiness</p>
+            <p className="mt-2">
+              Attach creative assets, set promotion flags, and prepare analytics hooks for campaign monitoring.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
             <h2 className="text-lg font-semibold text-slate-900">Blog operations</h2>
             <p className="mt-1 max-w-2xl text-sm text-slate-600">
               Launch and govern Gigvora stories, release notes, and playbooks directly from the control tower. Published posts
