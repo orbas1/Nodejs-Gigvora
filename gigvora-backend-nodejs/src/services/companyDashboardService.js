@@ -8,6 +8,7 @@ import { buildLocationDetails } from '../utils/location.js';
 
 import { getAdDashboardSnapshot } from './adService.js';
 import { getCompanyDashboardOverview } from './companyDashboardOverviewService.js';
+import { getWorkspacePageSnapshot } from './companyPageService.js';
 import { fetchWeatherSummary } from './weatherService.js';
 
 function withDefaultModel(model) {
@@ -4887,7 +4888,7 @@ function buildGovernanceSummary({ approvals, alerts, workspace }) {
   };
 }
 
-function buildEmployerBrandStudioSummary({ profile, assets, stories, benefits }) {
+function buildEmployerBrandStudioSummary({ profile, assets, stories, benefits, pages }) {
   const normalizeName = (record) => {
     const profileRecord = record?.profile ?? record;
     const parts = [profileRecord?.firstName, profileRecord?.lastName].filter(Boolean);
@@ -4943,6 +4944,27 @@ function buildEmployerBrandStudioSummary({ profile, assets, stories, benefits })
     highlights.push('Document employee benefits to power offer and onboarding content.');
   }
 
+  const pagesSnapshot = pages || {};
+  const pagesMetrics = {
+    live: pagesSnapshot.statusCounts?.published ?? pagesSnapshot.statusCounts?.live ?? 0,
+    inReview: pagesSnapshot.statusCounts?.in_review ?? 0,
+    drafts: pagesSnapshot.statusCounts?.draft ?? 0,
+    scheduled: pagesSnapshot.scheduledCount ?? 0,
+    averageConversionRate: pagesSnapshot.averageConversionRate ?? null,
+    totalFollowers: pagesSnapshot.totalFollowers ?? 0,
+    lastPublishedAt: pagesSnapshot.lastPublishedAt ?? null,
+  };
+
+  if (pagesMetrics.live > 0) {
+    highlights.push(`${pagesMetrics.live} public pages are live and driving discovery.`);
+  }
+  if (pagesMetrics.inReview > 0) {
+    highlights.push(`${pagesMetrics.inReview} pages are awaiting reviewer approval.`);
+  }
+  if ((pagesSnapshot.governance?.heroImageRequired ?? 0) > 0) {
+    highlights.push('Add hero imagery to drafts before publishing.');
+  }
+
   return {
     profileCompleteness,
     publishedAssets: publishedAssets.length,
@@ -4974,6 +4996,17 @@ function buildEmployerBrandStudioSummary({ profile, assets, stories, benefits })
       categories: Array.from(benefitCategories.entries()).map(([category, count]) => ({ category, count })),
     },
     highlights,
+    pages: {
+      metrics: pagesMetrics,
+      upcomingLaunches: (pagesSnapshot.upcomingLaunches ?? []).map((launch) => ({
+        id: launch.id,
+        title: launch.title,
+        launchDate: launch.launchDate ? new Date(launch.launchDate).toISOString() : null,
+        status: launch.status,
+        owner: launch.owner ?? null,
+      })),
+      governance: pagesSnapshot.governance ?? {},
+    },
   };
 }
 
@@ -5583,13 +5616,22 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
     const workspace = await fetchWorkspace(selector);
     const since = new Date(Date.now() - lookback * 24 * 60 * 60 * 1000);
 
-    const [members, invites, notes, companyProfile, availableWorkspaces, storedOverview] = await Promise.all([
+    const [
+      members,
+      invites,
+      notes,
+      companyProfile,
+      availableWorkspaces,
+      storedOverview,
+      pagesSnapshot,
+    ] = await Promise.all([
       fetchMembers(workspace.id),
       fetchInvites(workspace.id),
       fetchNotes(workspace.id),
       CompanyProfile.findOne({ where: { userId: workspace.ownerId } }),
       listAvailableWorkspaces(),
       getCompanyDashboardOverview({ workspaceId: workspace.id }).catch(() => null),
+      getWorkspacePageSnapshot({ workspaceId: workspace.id }).catch(() => null),
     ]);
 
     const [
@@ -5904,6 +5946,7 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       assets: plainBrandAssets,
       stories: plainBrandStories,
       benefits: plainBenefits,
+      pages: pagesSnapshot ?? undefined,
     });
     const employeeJourneysSummary = buildEmployeeJourneysSummary({
       journeys: plainEmployeeJourneys,

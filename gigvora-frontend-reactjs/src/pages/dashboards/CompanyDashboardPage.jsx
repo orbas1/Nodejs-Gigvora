@@ -19,6 +19,7 @@ import JobLifecycleSection from '../../components/company/JobLifecycleSection.js
 import InterviewExperienceSection from '../../components/dashboard/InterviewExperienceSection.jsx';
 import AccessDeniedPanel from '../../components/dashboard/AccessDeniedPanel.jsx';
 import CompanyDashboardOverviewSection from '../../components/company/CompanyDashboardOverviewSection.jsx';
+import CompanyPagesManagementSection from '../../components/company/CompanyPagesManagementSection.jsx';
 import { useCompanyDashboard } from '../../hooks/useCompanyDashboard.js';
 import { useSession } from '../../context/SessionContext.jsx';
 import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
@@ -611,32 +612,6 @@ function BrandAndPeopleSection({ data }) {
     off_track: 'bg-rose-50 text-rose-600 border border-rose-200',
   };
 
-  const pageMetrics = [
-    {
-      label: 'Pages live',
-      value: formatNumber(pageWorkspace?.live ?? pageWorkspace?.published ?? 0),
-      helper: 'Publicly available',
-    },
-    {
-      label: 'Drafts in review',
-      value: formatNumber(pageWorkspace?.inReview ?? pageWorkspace?.drafts ?? 0),
-      helper: 'Awaiting approvals',
-    },
-    {
-      label: 'Avg conversion',
-      value: formatPercent(pageWorkspace?.averageConversionRate ?? pageWorkspace?.conversionRate ?? 0),
-      helper: 'Explorer to lead',
-    },
-    {
-      label: 'Follower reach',
-      value: formatNumber(pageWorkspace?.totalFollowers ?? pageWorkspace?.followers ?? 0),
-      helper: 'Across all pages',
-    },
-  ];
-
-  const upcomingPageLaunches = pageWorkspace?.upcomingLaunches ?? pageWorkspace?.upcoming ?? [];
-  const governanceSignals = pageWorkspace?.governance ?? {};
-
   return (
     <section
       id="brand-and-people"
@@ -711,92 +686,11 @@ function BrandAndPeopleSection({ data }) {
             ) : null}
           </div>
 
-          <div id="brand-pages" className="space-y-4 rounded-3xl border border-indigo-100 bg-indigo-50/40 p-5">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h3 className="text-xl font-semibold text-indigo-900">Public pages studio</h3>
-                <p className="text-sm text-indigo-700">
-                  Publish high-converting company and program destinations with approval workflows and analytics baked in.
-                </p>
-                {pageWorkspace?.lastPublishedAt ? (
-                  <p className="mt-1 text-xs text-indigo-600">
-                    Last launch {formatRelativeTime(pageWorkspace.lastPublishedAt)}
-                  </p>
-                ) : null}
-              </div>
-              <Link
-                to="/pages"
-                className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-white/70 px-4 py-2 text-xs font-semibold text-indigo-700 transition hover:border-indigo-400 hover:text-indigo-900"
-              >
-                Open page studio
-              </Link>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {pageMetrics.map((metric) => (
-                <div key={metric.label} className="rounded-2xl bg-white/80 p-4 shadow-sm">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">{metric.label}</p>
-                  <p className="mt-2 text-xl font-semibold text-indigo-900">{metric.value}</p>
-                  <p className="mt-1 text-xs text-indigo-600">{metric.helper}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="grid gap-4 lg:grid-cols-2">
-              <div className="rounded-2xl border border-indigo-100 bg-white/80 p-4">
-                <h4 className="text-sm font-semibold uppercase tracking-wide text-indigo-700">Upcoming launches</h4>
-                <ul className="mt-3 space-y-3 text-sm text-indigo-800">
-                  {upcomingPageLaunches.slice(0, 4).map((item, index) => (
-                    <li
-                      key={item.id ?? item.slug ?? index}
-                      className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-3"
-                    >
-                      <p className="text-sm font-semibold text-indigo-900">{item.title ?? item.name ?? 'Launch'}</p>
-                      <p className="mt-1 text-xs text-indigo-600">
-                        {item.launchDate ? `Launch ${formatAbsolute(item.launchDate)}` : 'Scheduling in progress'}
-                        {item.owner ? ` • Owner ${item.owner}` : ''}
-                      </p>
-                      {item.status ? (
-                        <span className="mt-2 inline-flex rounded-full bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-indigo-700">
-                          {item.status.replace(/_/g, ' ')}
-                        </span>
-                      ) : null}
-                    </li>
-                  ))}
-                  {!upcomingPageLaunches.length ? (
-                    <li className="rounded-2xl border border-dashed border-indigo-200 bg-white/70 p-4 text-xs text-indigo-600">
-                      No launches queued—create a page to start capturing demand.
-                    </li>
-                  ) : null}
-                </ul>
-              </div>
-
-              <div className="rounded-2xl border border-indigo-100 bg-white/80 p-4">
-                <h4 className="text-sm font-semibold uppercase tracking-wide text-indigo-700">Governance guardrails</h4>
-                <ul className="mt-3 space-y-2 text-sm text-indigo-700">
-                  <li className="flex gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-500" />
-                    Brand compliance status: {governanceSignals.brand ?? 'Aligned'}
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-500" />
-                    Accessibility automation: {governanceSignals.accessibility ?? 'AA contrast checks active'}
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-500" />
-                    Privacy reviews pending: {formatNumber(governanceSignals.privacyPending ?? 0)}
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-500" />
-                    Approvers assigned: {formatNumber(governanceSignals.approvers ?? governanceSignals.reviewers ?? 0)}
-                  </li>
-                </ul>
-                <p className="mt-3 text-xs text-indigo-600">
-                  Guardrails sync with Trust Centre policies and automatically enforce on every publish.
-                </p>
-              </div>
-            </div>
-          </div>
+          <CompanyPagesManagementSection
+            workspaceId={companyWorkspaceId}
+            variant="inline"
+            onOpenFullStudio={() => navigate('/dashboard/company/pages')}
+          />
         </div>
       </div>
 
@@ -1007,6 +901,12 @@ export default function CompanyDashboardPage() {
 
   const sections = useMemo(() => buildSections(data), [data]);
   const profile = useMemo(() => buildProfile(data, summaryCards), [data, summaryCards]);
+  const companyWorkspaceId = useMemo(() => {
+    const metaId = data?.meta?.selectedWorkspaceId;
+    const paramId = workspaceIdParam ? Number.parseInt(workspaceIdParam, 10) : null;
+    const fallbackId = data?.workspace?.id ?? null;
+    return metaId ?? paramId ?? fallbackId ?? null;
+  }, [data?.meta?.selectedWorkspaceId, data?.workspace?.id, workspaceIdParam]);
   const workspaceOptions = data?.meta?.availableWorkspaces ?? [];
   const memberships = data?.memberships ?? data?.meta?.memberships ?? membershipsList;
   const enrichedSummaryCards = useMemo(() => summaryCards ?? [], [summaryCards]);

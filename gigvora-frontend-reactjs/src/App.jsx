@@ -52,6 +52,7 @@ import CompanyDashboardPage from './pages/dashboards/CompanyDashboardPage.jsx';
 import CompanyAtsOperationsPage from './pages/dashboards/CompanyAtsOperationsPage.jsx';
 import CompanyAnalyticsPage from './pages/dashboards/CompanyAnalyticsPage.jsx';
 import CompanyIntegrationsPage from './pages/dashboards/CompanyIntegrationsPage.jsx';
+import CompanyPagesManagementPage from './pages/dashboards/CompanyPagesManagementPage.jsx';
 import CompanyNetworkingHubPage from './pages/networking/CompanyNetworkingHubPage.jsx';
 import AgencyDashboardPage from './pages/dashboards/AgencyDashboardPage.jsx';
 import AgencyCalendarPage from './pages/dashboards/agency/AgencyCalendarPage.jsx';
@@ -277,14 +278,29 @@ export default function App() {
         element={
           <RequireRole allowedRoles={['freelancer']}>
             <FreelancerPortfolioPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/freelancer/creation-studio"
         element={
           <RequireRole allowedRoles={['freelancer']}>
             <FreelancerCreationStudioPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/freelancer/networking"
         element={
           <RequireRole allowedRoles={['freelancer']}>
             <FreelancerNetworkingPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/freelancer/disputes"
         element={
           <RequireRole allowedRoles={['freelancer']}>
@@ -330,6 +346,15 @@ export default function App() {
       />
 
       <Route
+        path="dashboard/company/pages"
+        element={
+          <RequireRole allowedRoles={['company']}>
+            <CompanyPagesManagementPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/company/networking"
         element={
           <RequireRole allowedRoles={['company']}>
@@ -341,12 +366,12 @@ export default function App() {
       <Route
         path="dashboard/agency"
         element={
-          <RequireRole allowedRoles={['agency', 'agency_admin']}>
           <RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}>
             <AgencyDashboardPage />
           </RequireRole>
         }
       />
+
       <Route
         path="dashboard/agency/disputes"
         element={
@@ -361,22 +386,47 @@ export default function App() {
         element={
           <RequireRole allowedRoles={['agency']}>
             <AgencyEscrowManagementPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/agency/crm"
         element={
           <RequireRole allowedRoles={['agency', 'agency_admin']}>
             <AgencyCrmPipelinePage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/agency/integrations"
         element={
           <RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}>
             <AgencyIntegrationsPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/agency/ai"
         element={
           <RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}>
             <AgencyAiAutomationPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/agency/profile"
         element={
           <RequireRole allowedRoles={['agency']}>
             <AgencyProfileManagementPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/agency/client-kanban"
         element={
           <RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}>
