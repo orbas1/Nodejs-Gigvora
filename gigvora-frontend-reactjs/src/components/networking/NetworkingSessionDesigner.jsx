@@ -13,19 +13,52 @@ const SESSION_LENGTH_OPTIONS = [
   { label: '60 minutes (30 rotations)', value: 60 },
 ];
 
-export default function NetworkingSessionDesigner({ onCreateSession, defaultValues = {}, disabled }) {
+const STATUS_OPTIONS = [
+  { value: 'draft', label: 'Draft' },
+  { value: 'scheduled', label: 'Scheduled' },
+  { value: 'in_progress', label: 'In progress' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'cancelled', label: 'Cancelled' },
+];
+
+function toDateTimeLocal(value) {
+  if (!value) {
+    return new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16);
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16);
+  }
+  const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60 * 1000);
+  return offsetDate.toISOString().slice(0, 16);
+}
+
+export default function NetworkingSessionDesigner({
+  onCreateSession,
+  onSubmit,
+  onCancel,
+  defaultValues = {},
+  disabled,
+  mode = 'create',
+  submitLabel,
+  title: heading,
+  helperText,
+}) {
   const [form, setForm] = useState(() => ({
     title: defaultValues.title ?? 'Speed networking showcase',
     description:
       defaultValues.description ??
       'Give each attendee five minutes to pitch, exchange digital business cards, and queue warm follow-ups.',
-    startTime: defaultValues.startTime ?? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16),
+    status: defaultValues.status ?? 'draft',
+    startTime: toDateTimeLocal(defaultValues.startTime),
     sessionLengthMinutes: defaultValues.sessionLengthMinutes ?? 30,
     rotationDurationSeconds: defaultValues.rotationDurationSeconds ?? 180,
     joinLimit: defaultValues.joinLimit ?? 40,
     waitlistLimit: defaultValues.waitlistLimit ?? 30,
     accessType: defaultValues.accessType ?? 'free',
-    price: defaultValues.price ?? 0,
+    price:
+      defaultValues.price ??
+      (defaultValues.priceCents != null ? Math.round(Number(defaultValues.priceCents) / 100) : 0),
     requiresApproval: defaultValues.requiresApproval ?? false,
     lobbyInstructions:
       defaultValues.lobbyInstructions ??
@@ -34,7 +67,10 @@ export default function NetworkingSessionDesigner({ onCreateSession, defaultValu
       defaultValues.followUpActions ?? {
         reminders: ['Send follow-up deck via Gigvora chat', 'Log priority connections in CRM tab'],
       },
-    penaltyRules: defaultValues.penaltyRules ?? { noShowThreshold: 2, cooldownDays: 14 },
+    penaltyRules: {
+      noShowThreshold: defaultValues.penaltyRules?.noShowThreshold ?? 2,
+      cooldownDays: defaultValues.penaltyRules?.cooldownDays ?? 14,
+    },
   }));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -61,12 +97,14 @@ export default function NetworkingSessionDesigner({ onCreateSession, defaultValu
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (!onCreateSession) return;
+    const submitHandler = onSubmit ?? onCreateSession;
+    if (!submitHandler) return;
     setIsSubmitting(true);
     setError(null);
     try {
       const payload = {
         ...form,
+        status: form.status,
         joinLimit: Number(form.joinLimit) || null,
         waitlistLimit: Number(form.waitlistLimit) || null,
         sessionLengthMinutes: Number(form.sessionLengthMinutes) || 30,
@@ -74,7 +112,7 @@ export default function NetworkingSessionDesigner({ onCreateSession, defaultValu
         price: Number(form.price) || 0,
         startTime: form.startTime ? new Date(form.startTime).toISOString() : null,
       };
-      await onCreateSession(payload);
+      await submitHandler(payload);
     } catch (submissionError) {
       setError(submissionError.message || 'Failed to create session.');
     } finally {
@@ -88,10 +126,12 @@ export default function NetworkingSessionDesigner({ onCreateSession, defaultValu
       className="flex flex-col gap-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
     >
       <header className="flex flex-col gap-2">
-        <h2 className="text-lg font-semibold text-slate-900">Design a networking session</h2>
+        <h2 className="text-lg font-semibold text-slate-900">
+          {heading ?? (mode === 'edit' ? 'Update networking session' : 'Design a networking session')}
+        </h2>
         <p className="text-sm text-slate-600">
-          Configure timing, join limits, pricing, and lobby instructions. Attendees will enter a warm lobby, cycle through
-          timed rotations, and exchange Gigvora digital business cards.
+          {helperText ??
+            'Configure timing, join limits, pricing, and lobby instructions. Attendees will enter a warm lobby, cycle through timed rotations, and exchange Gigvora digital business cards.'}
         </p>
       </header>
 
@@ -107,6 +147,21 @@ export default function NetworkingSessionDesigner({ onCreateSession, defaultValu
             disabled={disabled || isSubmitting}
             required
           />
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium text-slate-700">Status</span>
+          <select
+            value={form.status}
+            onChange={(event) => handleChange('status', event.target.value)}
+            className="rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            disabled={disabled || isSubmitting}
+          >
+            {STATUS_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium text-slate-700">Start time</span>
@@ -283,12 +338,26 @@ export default function NetworkingSessionDesigner({ onCreateSession, defaultValu
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
       <div className="flex items-center justify-end gap-3">
+        {onCancel ? (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="inline-flex items-center rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-blue-200 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={disabled || isSubmitting}
+          >
+            Cancel
+          </button>
+        ) : null}
         <button
           type="submit"
           className="inline-flex items-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-slate-300"
           disabled={disabled || isSubmitting}
         >
-          {isSubmitting ? 'Creating…' : 'Create session'}
+          {isSubmitting
+            ? mode === 'edit'
+              ? 'Saving…'
+              : 'Creating…'
+            : submitLabel ?? (mode === 'edit' ? 'Save changes' : 'Create session')}
         </button>
       </div>
     </form>

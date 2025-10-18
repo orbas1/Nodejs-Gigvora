@@ -16,6 +16,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import DataStatus from '../../components/DataStatus.jsx';
 import PartnershipsSourcingSection from '../../components/dashboard/PartnershipsSourcingSection.jsx';
 import JobLifecycleSection from '../../components/company/JobLifecycleSection.jsx';
+import CreationStudioSummary from '../../components/company/CreationStudioSummary.jsx';
 import InterviewExperienceSection from '../../components/dashboard/InterviewExperienceSection.jsx';
 import AccessDeniedPanel from '../../components/dashboard/AccessDeniedPanel.jsx';
 import CompanyDashboardOverviewSection from '../../components/company/CompanyDashboardOverviewSection.jsx';
@@ -24,6 +25,7 @@ import { useCompanyDashboard } from '../../hooks/useCompanyDashboard.js';
 import { useSession } from '../../context/SessionContext.jsx';
 import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
 import { COMPANY_DASHBOARD_MENU_SECTIONS } from '../../constants/companyDashboardMenu.js';
+import TimelineManagementSection from '../../components/company/TimelineManagementSection.jsx';
 
 const menuSections = COMPANY_DASHBOARD_MENU_SECTIONS;
 
@@ -266,7 +268,6 @@ function buildSections(data) {
   const workforce = data.employerBrandWorkforce?.workforceAnalytics ?? {};
   const mobility = data.employerBrandWorkforce?.internalMobility ?? {};
   const scenarioPlanning = analyticsForecasting.scenarios ?? {};
-  const networking = data.networking ?? {};
   const governance = data.governance ?? {};
   const calendar = data.calendar ?? {};
   const candidateExperience = data.candidateExperience ?? {};
@@ -286,10 +287,6 @@ function buildSections(data) {
         .slice(0, 4)
         .map((item) => `${item.title ?? item.type ?? 'Alert'} • ${formatRelativeTime(item.detectedAt)}`)
     : ['No active alerts detected in this window.'];
-
-  const networkingSessions = networking.sessions ?? {};
-  const networkingExperience = networking.attendeeExperience ?? {};
-  const networkingPenalties = networking.penalties ?? {};
 
   return [
     {
@@ -424,47 +421,6 @@ function buildSections(data) {
             scenarioPlanning.nextReviewAt
               ? `Next review: ${formatAbsolute(scenarioPlanning.nextReviewAt)}`
               : 'Schedule scenario reviews to align exec decisions.',
-          ],
-        },
-      ],
-    },
-    {
-      id: 'networking-sessions',
-      title: 'Networking & community',
-      description: 'Activate company-hosted networking with end-to-end attendee experience controls.',
-      features: [
-        {
-          name: 'Session operations',
-          sectionId: 'networking-sessions',
-          bulletPoints: [
-            `Active sessions: ${formatNumber(networkingSessions.active)}`,
-            `Upcoming sessions: ${formatNumber(networkingSessions.upcoming)}`,
-            `Join limit: ${formatNumber(networkingSessions.defaultJoinLimit ?? networkingSessions.joinLimit)}`,
-            networkingSessions.rotationDurationMinutes
-              ? `Rotation cadence: ${formatNumber(networkingSessions.rotationDurationMinutes, { suffix: ' min' })}`
-              : 'Configure 2–5 minute rotations to keep meetings balanced.',
-          ],
-        },
-        {
-          name: 'Attendee experience',
-          sectionId: 'networking-attendee-experience',
-          bulletPoints: [
-            `Digital cards created: ${formatNumber(networkingExperience.digitalBusinessCardsCreated)}`,
-            `Average satisfaction: ${formatPercent(networkingExperience.averageSatisfaction)}`,
-            `Saved matches: ${formatNumber(networkingExperience.matchesSaved)}`,
-            `Follow-up nudges sent: ${formatNumber(networkingExperience.followUpsSent)}`,
-          ],
-        },
-        {
-          name: 'Attendance controls',
-          sectionId: 'networking-attendance-controls',
-          bulletPoints: [
-            `No-show rate: ${formatPercent(networkingPenalties.noShowRate)}`,
-            `Active penalties: ${formatNumber(networkingPenalties.activePenalties)}`,
-            `Restricted attendees: ${formatNumber(networkingPenalties.restrictedParticipants)}`,
-            networkingPenalties.cooldownDays
-              ? `Cooldown window: ${formatNumber(networkingPenalties.cooldownDays, { suffix: ' days' })}`
-              : 'Set cooldown windows to auto-manage repeat no-shows.',
           ],
         },
       ],
@@ -908,8 +864,20 @@ export default function CompanyDashboardPage() {
     return metaId ?? paramId ?? fallbackId ?? null;
   }, [data?.meta?.selectedWorkspaceId, data?.workspace?.id, workspaceIdParam]);
   const workspaceOptions = data?.meta?.availableWorkspaces ?? [];
+  const activeWorkspaceId = data?.meta?.selectedWorkspaceId ?? workspaceIdParam ?? data?.workspace?.id ?? null;
   const memberships = data?.memberships ?? data?.meta?.memberships ?? membershipsList;
   const enrichedSummaryCards = useMemo(() => summaryCards ?? [], [summaryCards]);
+  const selectedWorkspaceId = useMemo(() => {
+    const metaId = Number(data?.meta?.selectedWorkspaceId);
+    if (Number.isFinite(metaId)) {
+      return metaId;
+    }
+    const paramId = Number(workspaceIdParam);
+    if (Number.isFinite(paramId)) {
+      return paramId;
+    }
+    return undefined;
+  }, [data?.meta?.selectedWorkspaceId, workspaceIdParam]);
 
   const networkingCta = {
     href: '/dashboard/company/networking',
@@ -1033,6 +1001,15 @@ export default function CompanyDashboardPage() {
 
         <SummaryCardGrid cards={enrichedSummaryCards} />
 
+        {data?.creationStudio ? (
+          <CreationStudioSummary
+            overview={data.creationStudio}
+            ctaTo="/dashboard/company/creation-studio"
+            ctaLabel="Open creation studio"
+            compact
+          />
+        ) : null}
+
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-900">Workspace memberships</h2>
           <p className="mt-1 text-sm text-slate-600">
@@ -1044,6 +1021,32 @@ export default function CompanyDashboardPage() {
         </div>
 
         <PartnershipsSourcingSection data={data?.partnerships} />
+
+        <section
+          id="networking-session-management"
+          className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+        >
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-2xl font-semibold text-slate-900">Networking sessions</h2>
+              <p className="text-sm text-slate-600">Plan, spend, and follow up from the streamlined workspace.</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <a
+                href="/dashboard/company/networking/sessions"
+                className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500"
+              >
+                Open sessions
+              </a>
+              <a
+                href="/dashboard/company/networking"
+                className="inline-flex items-center gap-2 rounded-full border border-blue-200 px-4 py-2 text-sm font-semibold text-blue-600 transition hover:border-blue-400 hover:bg-blue-50"
+              >
+                Live hub
+              </a>
+            </div>
+          </div>
+        </section>
 
         {data ? (
           <JobLifecycleSection
@@ -1086,6 +1089,14 @@ export default function CompanyDashboardPage() {
             />
           </div>
         </section>
+
+        <TimelineManagementSection
+          id="timeline-management"
+          workspaceId={activeWorkspaceId}
+          lookbackDays={lookbackDays}
+          data={data?.timelineManagement}
+          onRefresh={refresh}
+        />
 
         <BrandAndPeopleSection data={data} />
 

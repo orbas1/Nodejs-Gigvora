@@ -7,6 +7,9 @@ import { ValidationError, NotFoundError } from '../utils/errors.js';
 import { buildLocationDetails } from '../utils/location.js';
 
 import { getAdDashboardSnapshot } from './adService.js';
+import { getCreationStudioOverview } from './creationStudioService.js';
+import { getVolunteeringDashboard as getCompanyVolunteeringDashboard } from './volunteeringManagementService.js';
+import { getTimelineManagementSnapshot } from './companyTimelineService.js';
 import { getCompanyDashboardOverview } from './companyDashboardOverviewService.js';
 import { getWorkspacePageSnapshot } from './companyPageService.js';
 import { fetchWeatherSummary } from './weatherService.js';
@@ -710,6 +713,14 @@ function sanitizeProfile(companyProfile) {
     location: plain.location ?? null,
     geoLocation: plain.geoLocation ?? null,
     locationDetails: buildLocationDetails(plain.location, plain.geoLocation),
+    tagline: plain.tagline ?? null,
+    logoUrl: plain.logoUrl ?? null,
+    bannerUrl: plain.bannerUrl ?? null,
+    contactEmail: plain.contactEmail ?? null,
+    contactPhone: plain.contactPhone ?? null,
+    socialLinks: Array.isArray(plain.socialLinks)
+      ? plain.socialLinks.map((entry) => ({ label: entry?.label ?? null, url: entry?.url ?? null }))
+      : [],
   };
 }
 
@@ -5911,6 +5922,11 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       slaSnapshots: agencySlaSnapshots,
       billingEvents: agencyBillingEvents,
     });
+    const timelineManagement = await getTimelineManagementSnapshot({
+      workspaceId: workspace.id,
+      lookbackDays: lookback,
+      workspace,
+    });
     const plainBrandAssets = brandAssets.map((asset) => (asset?.get ? asset.get({ plain: true }) : asset));
     const plainBrandSections = brandSections.map((section) => (section?.get ? section.get({ plain: true }) : section));
     const plainBrandCampaigns = brandCampaigns.map((campaign) => (campaign?.get ? campaign.get({ plain: true }) : campaign));
@@ -5964,6 +5980,8 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       inviteSummary,
       alerts: alertsSummary,
     });
+    const creationStudio = await getCreationStudioOverview({ workspaceId: workspace.id, limit: 16 });
+
     const brandAndPeople = {
       employerBrandStudio,
       employeeJourneys: employeeJourneysSummary,
@@ -6011,6 +6029,24 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
         return Number.isInteger(Number(value)) ? Number(value) : null;
       })
       .filter((value) => value != null);
+
+    let volunteeringSummary = null;
+    try {
+      const volunteeringSnapshot = await getCompanyVolunteeringDashboard({
+        workspaceId: workspace.id,
+        lookbackDays: lookback,
+      });
+      volunteeringSummary = {
+        summary: volunteeringSnapshot.summary,
+        totals: volunteeringSnapshot.totals,
+        permissions: volunteeringSnapshot.permissions,
+        posts: (volunteeringSnapshot.posts ?? []).slice(0, 10),
+      };
+    } catch (error) {
+      if (process.env.NODE_ENV !== 'test') {
+        console.warn('Failed to load volunteering dashboard snapshot', error);
+      }
+    }
 
     const ads = await getAdDashboardSnapshot({
       surfaces: ['company_dashboard', 'global_dashboard'],
@@ -6148,11 +6184,14 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
         talentPools: talentPoolSummary,
         agencyCollaboration: agencyCollaborationInsights,
       },
+      volunteering: volunteeringSummary,
       brandIntelligence,
+      creationStudio,
       employerBrandWorkforce,
       governance,
       calendar: calendarDigest,
       networking,
+      timelineManagement,
       brandAndPeople,
       reviews: {
         total: reviews.length,
