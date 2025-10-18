@@ -99,6 +99,7 @@ import AdminDatabaseSettingsPage from './pages/dashboards/AdminDatabaseSettingsP
 import AdminGdprSettingsPage from './pages/dashboards/admin/AdminGdprSettingsPage.jsx';
 import AdminAdsSettingsPage from './pages/dashboards/admin/AdminAdsSettingsPage.jsx';
 import AdminBlogManagementPage from './pages/admin/AdminBlogManagementPage.jsx';
+import AdminSystemSettingsPage from './pages/dashboards/admin/SystemSettingsPage.jsx';
 import AdminHomepageSettingsPage from './pages/admin/AdminHomepageSettingsPage.jsx';
 import AdminPagesSettingsPage from './pages/dashboards/AdminPagesSettingsPage.jsx';
 import AdminUserManagementPage from './pages/dashboards/admin/AdminUserManagementPage.jsx';
@@ -692,6 +693,10 @@ export default function App() {
       />
 
       <Route
+        path="dashboard/admin/system-settings"
+        element={
+          <RequireRole allowedRoles={['admin']}>
+            <AdminSystemSettingsPage />
         path="dashboard/admin/homepage"
         element={
           <RequireRole allowedRoles={['admin']}>

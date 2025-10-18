@@ -6,6 +6,7 @@ import {
   updateHomepageSettings,
 } from '../services/platformSettingsService.js';
 import { getAffiliateSettings, updateAffiliateSettings } from '../services/affiliateSettingsService.js';
+import { getSystemSettings, updateSystemSettings } from '../services/systemSettingsService.js';
 import {
   listPageSettings,
   createPageSetting,
@@ -99,6 +100,16 @@ export async function persistSeoSettings(req, res) {
   res.json(settings);
 }
 
+export async function fetchSystemSettings(req, res) {
+  const settings = await getSystemSettings();
+  res.json(settings);
+}
+
+export async function persistSystemSettings(req, res) {
+  const settings = await updateSystemSettings(req.body ?? {});
+  res.json(settings);
+}
+
 export async function runtimeHealth(req, res) {
   const snapshot = await getRuntimeOperationalSnapshot();
   res.json(snapshot);
@@ -112,6 +123,8 @@ export default {
   persistHomepageSettings,
   fetchAffiliateSettings,
   persistAffiliateSettings,
+  fetchSystemSettings,
+  persistSystemSettings,
   fetchPageSettings,
   createAdminPageSetting,
   persistPageSetting,

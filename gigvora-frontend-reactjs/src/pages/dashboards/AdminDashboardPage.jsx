@@ -118,6 +118,11 @@ const MENU_SECTIONS = [
     label: 'Configuration stack',
     items: [
       {
+        name: 'System settings',
+        description: 'Global runtime defaults, security posture, and incident workflows.',
+        tags: ['operations'],
+        sectionId: 'admin-system-settings',
+        href: '/dashboard/admin/system-settings',
         name: 'Storage management',
         description: 'Configure object storage endpoints, lifecycle automation, and upload governance.',
         tags: ['storage'],

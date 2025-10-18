@@ -10,6 +10,7 @@ import {
   affiliateSettingsBodySchema,
   gdprSettingsBodySchema,
   platformSettingsBodySchema,
+  systemSettingsBodySchema,
   homepageSettingsBodySchema,
   seoSettingsBodySchema,
 } from '../validation/schemas/adminSchemas.js';
@@ -56,6 +57,11 @@ router.put(
   validateRequest({ body: affiliateSettingsBodySchema }),
   asyncHandler(adminController.persistAffiliateSettings),
 );
+router.get('/system-settings', asyncHandler(adminController.fetchSystemSettings));
+router.put(
+  '/system-settings',
+  validateRequest({ body: systemSettingsBodySchema }),
+  asyncHandler(adminController.persistSystemSettings),
 router.get('/gdpr-settings', asyncHandler(adminController.fetchGdprSettings));
 router.put(
   '/gdpr-settings',

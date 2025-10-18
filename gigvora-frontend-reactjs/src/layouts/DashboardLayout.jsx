@@ -453,6 +453,12 @@ export default function DashboardLayout({
     if (item.href.startsWith('http')) {
       window.open(item.href, item.target ?? '_blank', 'noreferrer');
     if (item.href) {
+      if (/^[a-zA-Z]+:\/\//.test(item.href)) {
+        window.open(item.href, item.target ?? '_blank', 'noreferrer');
+        setMobileOpen(false);
+        return;
+      }
+      navigate(item.href);
       if (typeof window !== 'undefined') {
         if (item.href.startsWith('http')) {
           window.open(item.href, item.target ?? '_blank', 'noreferrer');

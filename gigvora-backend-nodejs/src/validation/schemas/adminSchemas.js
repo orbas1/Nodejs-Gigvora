@@ -261,6 +261,109 @@ export const platformSettingsBodySchema = z
   })
   .strip();
 
+const ssoSettingsSchema = z
+  .object({
+    enabled: optionalBoolean(),
+    provider: optionalTrimmedString({ max: 120 }),
+    entityId: optionalTrimmedString({ max: 255 }),
+    entryPoint: optionalTrimmedString({ max: 2048 }),
+    certificate: optionalTrimmedString({ max: 8192 }),
+  })
+  .strip();
+
+const systemGeneralSchema = z
+  .object({
+    appName: optionalTrimmedString({ max: 120 }),
+    companyName: optionalTrimmedString({ max: 160 }),
+    supportEmail: optionalTrimmedString({ max: 255 }),
+    supportPhone: optionalTrimmedString({ max: 60 }),
+    legalEntity: optionalTrimmedString({ max: 255 }),
+    timezone: optionalTrimmedString({ max: 120 }),
+    defaultLocale: optionalTrimmedString({ max: 16 }),
+    logoUrl: optionalTrimmedString({ max: 2048 }),
+    incidentContact: optionalTrimmedString({ max: 255 }),
+    allowedDomains: optionalStringArray({ maxItemLength: 255 }),
+  })
+  .strip();
+
+const systemSecuritySchema = z
+  .object({
+    requireTwoFactor: optionalBoolean(),
+    passwordMinimumLength: optionalNumber({ min: 6, max: 128, precision: 0, integer: true }),
+    passwordRequireSymbols: optionalBoolean(),
+    passwordRotationDays: optionalNumber({ min: 0, max: 365, precision: 0, integer: true }),
+    sessionTimeoutMinutes: optionalNumber({ min: 5, max: 1440, precision: 0, integer: true }),
+    allowedIpRanges: optionalStringArray({ maxItemLength: 120 }),
+    auditLogRetentionDays: optionalNumber({ min: 30, max: 3650, precision: 0, integer: true }),
+    sso: ssoSettingsSchema.optional(),
+  })
+  .strip();
+
+const systemNotificationsSchema = z
+  .object({
+    emailProvider: optionalTrimmedString({ max: 60 }),
+    emailFromName: optionalTrimmedString({ max: 120 }),
+    emailFromAddress: optionalTrimmedString({ max: 255 }),
+    smsProvider: optionalTrimmedString({ max: 60 }),
+    smsFromNumber: optionalTrimmedString({ max: 32 }),
+    incidentWebhookUrl: optionalTrimmedString({ max: 2048 }),
+    broadcastChannels: optionalStringArray({ maxItemLength: 60 }),
+  })
+  .strip();
+
+const systemStorageSchema = z
+  .object({
+    provider: optionalTrimmedString({ max: 120 }),
+    bucket: optionalTrimmedString({ max: 255 }),
+    region: optionalTrimmedString({ max: 120 }),
+    assetCdnUrl: optionalTrimmedString({ max: 2048 }),
+    assetMaxSizeMb: optionalNumber({ min: 1, max: 2048, precision: 0, integer: true }),
+    backupRetentionDays: optionalNumber({ min: 7, max: 3650, precision: 0, integer: true }),
+    encryptionKeyAlias: optionalTrimmedString({ max: 255 }),
+  })
+  .strip();
+
+const systemIntegrationsSchema = z
+  .object({
+    slackWebhookUrl: optionalTrimmedString({ max: 2048 }),
+    pagerdutyIntegrationKey: optionalTrimmedString({ max: 255 }),
+    segmentWriteKey: optionalTrimmedString({ max: 255 }),
+    mixpanelToken: optionalTrimmedString({ max: 255 }),
+    statusPageUrl: optionalTrimmedString({ max: 2048 }),
+  })
+  .strip();
+
+const maintenanceWindowSchema = z
+  .object({
+    id: optionalTrimmedString({ max: 160 }),
+    title: requiredTrimmedString({ max: 160 }),
+    startAt: requiredTrimmedString({ max: 64 }),
+    endAt: requiredTrimmedString({ max: 64 }),
+    impact: optionalTrimmedString({ max: 255 }),
+    description: optionalTrimmedString({ max: 1000 }),
+  })
+  .strip();
+
+const systemMaintenanceSchema = z
+  .object({
+    autoBroadcast: optionalBoolean(),
+    statusPageUrl: optionalTrimmedString({ max: 2048 }),
+    supportChannel: optionalTrimmedString({ max: 255 }),
+    upcomingWindows: z.array(maintenanceWindowSchema).optional(),
+  })
+  .strip();
+
+export const systemSettingsBodySchema = z
+  .object({
+    general: systemGeneralSchema.optional(),
+    security: systemSecuritySchema.optional(),
+    notifications: systemNotificationsSchema.optional(),
+    storage: systemStorageSchema.optional(),
+    integrations: systemIntegrationsSchema.optional(),
+    maintenance: systemMaintenanceSchema.optional(),
+  })
+  .strip();
+
 const affiliateTierSchema = z
   .object({
     id: optionalTrimmedString({ max: 120 }),
