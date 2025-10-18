@@ -9,6 +9,9 @@ import {
   Connection,
   ProfileReference,
   PROFILE_AVAILABILITY_STATUSES,
+  PROFILE_VISIBILITY_OPTIONS,
+  PROFILE_NETWORK_VISIBILITY_OPTIONS,
+  PROFILE_FOLLOWERS_VISIBILITY_OPTIONS,
 } from '../models/index.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
@@ -26,6 +29,7 @@ import {
   ensureProfileWallets,
   getProfileComplianceSnapshot,
 } from './complianceService.js';
+import { uploadEvidence } from '../utils/r2Client.js';
 
 const PROFILE_CACHE_NAMESPACE = 'profile:overview';
 const PROFILE_CACHE_TTL_SECONDS = 120;
@@ -56,6 +60,25 @@ function sanitizeString(value, { maxLength = 255, allowNull = true, toLowerCase 
   }
   const normalized = trimmed.slice(0, maxLength);
   return toLowerCase ? normalized.toLowerCase() : normalized;
+}
+
+function sanitizeUrl(value, { allowNull = true, maxLength = 2048 } = {}) {
+  if (value == null) {
+    return allowNull ? null : '';
+  }
+  const trimmed = `${value}`.trim();
+  if (!trimmed) {
+    return allowNull ? null : '';
+  }
+  try {
+    const url = new URL(trimmed);
+    if (!['http:', 'https:'].includes(url.protocol)) {
+      return allowNull ? null : '';
+    }
+    return url.toString().slice(0, maxLength);
+  } catch (error) {
+    return allowNull ? null : '';
+  }
 }
 
 function isValidEmail(email) {
@@ -99,6 +122,54 @@ function sanitizeStringList(value, { maxLength = 120, maxItems = 30 } = {}) {
     .map((item) => sanitizeString(item, { maxLength, allowNull: false }))
     .filter(Boolean);
   return uniqueStrings(limitArray(sanitized, maxItems));
+}
+
+function sanitizeVisibility(value, allowedValues, fallback) {
+  if (!Array.isArray(allowedValues) || allowedValues.length === 0) {
+    return fallback ?? null;
+  }
+  if (value == null) {
+    return fallback ?? allowedValues[0];
+  }
+  const normalized = `${value}`.trim().toLowerCase();
+  const match = allowedValues.find((option) => option === normalized);
+  return match ?? (fallback ?? allowedValues[0]);
+}
+
+function buildDataUrl(buffer, mimeType = 'application/octet-stream') {
+  if (!buffer || !Buffer.isBuffer(buffer) || buffer.length === 0) {
+    return null;
+  }
+  const safeType = sanitizeString(mimeType, { maxLength: 120 }) || 'application/octet-stream';
+  return `data:${safeType};base64,${buffer.toString('base64')}`;
+}
+
+function sanitizeLinkEntries(value, { maxItems = 20 } = {}) {
+  return limitArray(coerceLinkArray(value), maxItems)
+    .map((entry) => {
+      if (!entry) {
+        return null;
+      }
+      const url = sanitizeUrl(entry.url);
+      let label = sanitizeString(entry.label, { maxLength: 160 });
+      const description = sanitizeString(entry.description, { maxLength: 200 });
+      if (!label && url) {
+        try {
+          label = new URL(url).hostname;
+        } catch (error) {
+          label = url;
+        }
+      }
+      if (!label && !url) {
+        return null;
+      }
+      return {
+        label: label ?? null,
+        url,
+        description: description ?? null,
+      };
+    })
+    .filter(Boolean);
 }
 
 function parseDateOrNull(value) {
@@ -863,6 +934,7 @@ function buildProfilePayload({ user, groups, connectionsCount, complianceSnapsho
   const statusFlags = coerceStringArray(profile.statusFlags);
   const volunteerBadges = coerceStringArray(profile.volunteerBadges);
   const portfolioLinks = coerceLinkArray(profile.portfolioLinks);
+  const socialLinks = sanitizeLinkEntries(profile.socialLinks);
   const preferredEngagements = coerceStringArray(profile.preferredEngagements);
   const collaborationRoster = coerceObjectArray(profile.collaborationRoster).map((collaborator) => ({
     name: collaborator.name ?? collaborator.person ?? null,
@@ -979,8 +1051,44 @@ function buildProfilePayload({ user, groups, connectionsCount, complianceSnapsho
     : null;
   const agencyProfile = plainUser.AgencyProfile
     ? {
+        id: plainUser.AgencyProfile.id,
         agencyName: plainUser.AgencyProfile.agencyName,
         focusArea: plainUser.AgencyProfile.focusArea,
+        tagline: plainUser.AgencyProfile.tagline ?? null,
+        summary: plainUser.AgencyProfile.summary ?? null,
+        about: plainUser.AgencyProfile.about ?? null,
+        services: coerceStringArray(plainUser.AgencyProfile.services),
+        industries: coerceStringArray(plainUser.AgencyProfile.industries),
+        clients: coerceStringArray(plainUser.AgencyProfile.clients),
+        awards: coerceStringArray(plainUser.AgencyProfile.awards),
+        socialLinks: coerceObjectArray(plainUser.AgencyProfile.socialLinks).map((link) => {
+          if (!link) {
+            return null;
+          }
+          const label = typeof link.label === 'string' ? link.label.trim() : null;
+          const url = typeof link.url === 'string' ? link.url.trim() : null;
+          if (!url) {
+            return null;
+          }
+          return {
+            label: label && label.length ? label : null,
+            url,
+          };
+        }).filter(Boolean),
+        teamSize: plainUser.AgencyProfile.teamSize == null ? null : Number(plainUser.AgencyProfile.teamSize),
+        foundedYear:
+          plainUser.AgencyProfile.foundedYear == null ? null : Number(plainUser.AgencyProfile.foundedYear),
+        primaryContactName: plainUser.AgencyProfile.primaryContactName ?? null,
+        primaryContactEmail: plainUser.AgencyProfile.primaryContactEmail ?? null,
+        primaryContactPhone: plainUser.AgencyProfile.primaryContactPhone ?? null,
+        brandColor: plainUser.AgencyProfile.brandColor ?? null,
+        bannerUrl: plainUser.AgencyProfile.bannerUrl ?? null,
+        avatarUrl: plainUser.AgencyProfile.avatarUrl ?? null,
+        avatarStorageKey: plainUser.AgencyProfile.avatarStorageKey ?? null,
+        autoAcceptFollowers: plainUser.AgencyProfile.autoAcceptFollowers ?? true,
+        defaultConnectionMessage: plainUser.AgencyProfile.defaultConnectionMessage ?? null,
+        followerPolicy: plainUser.AgencyProfile.followerPolicy ?? 'open',
+        connectionPolicy: plainUser.AgencyProfile.connectionPolicy ?? 'open',
         website: plainUser.AgencyProfile.website,
         location: plainUser.AgencyProfile.location ?? null,
         geoLocation: plainUser.AgencyProfile.geoLocation ?? null,
@@ -1041,9 +1149,12 @@ function buildProfilePayload({ user, groups, connectionsCount, complianceSnapsho
 
   return {
     id: plainUser.id,
+    profileId: profile.id,
     userId: plainUser.id,
+    profileId: profile.id,
     firstName: plainUser.firstName,
     lastName: plainUser.lastName,
+    title: plainUser.title ?? null,
     name: `${plainUser.firstName} ${plainUser.lastName}`.trim(),
     email: plainUser.email,
     userType: plainUser.userType,
@@ -1080,6 +1191,13 @@ function buildProfilePayload({ user, groups, connectionsCount, complianceSnapsho
     likesCount: metrics.likesCount,
     connectionsCount: metrics.connectionsCount,
     trustScore: metrics.trustScore,
+    avatarUrl: profile.avatarUrl ?? null,
+    avatarStorageKey: profile.avatarStorageKey ?? null,
+    avatarUpdatedAt: profile.avatarUpdatedAt ?? null,
+    profileVisibility: profile.profileVisibility ?? 'members',
+    networkVisibility: profile.networkVisibility ?? 'connections',
+    followersVisibility: profile.followersVisibility ?? 'connections',
+    socialLinks,
     companyProfile,
     agencyProfile,
     freelancerProfile,
@@ -1262,6 +1380,44 @@ function normalizeProfileUpdatePayload(input = {}) {
     profileUpdates.volunteerBadges = sanitizeStringList(input.volunteerBadges, { maxItems: 30, maxLength: 160 });
   }
 
+  if (Object.prototype.hasOwnProperty.call(input, 'profileVisibility')) {
+    profileUpdates.profileVisibility = sanitizeVisibility(
+      input.profileVisibility,
+      PROFILE_VISIBILITY_OPTIONS,
+      'members',
+    );
+  }
+
+  if (Object.prototype.hasOwnProperty.call(input, 'networkVisibility')) {
+    profileUpdates.networkVisibility = sanitizeVisibility(
+      input.networkVisibility,
+      PROFILE_NETWORK_VISIBILITY_OPTIONS,
+      'connections',
+    );
+  }
+
+  if (Object.prototype.hasOwnProperty.call(input, 'followersVisibility')) {
+    profileUpdates.followersVisibility = sanitizeVisibility(
+      input.followersVisibility,
+      PROFILE_FOLLOWERS_VISIBILITY_OPTIONS,
+      'connections',
+    );
+  }
+
+  if (Object.prototype.hasOwnProperty.call(input, 'socialLinks')) {
+    const sanitizedLinks = sanitizeLinkEntries(input.socialLinks);
+    profileUpdates.socialLinks = sanitizedLinks.length ? sanitizedLinks : [];
+  }
+
+  if (Object.prototype.hasOwnProperty.call(input, 'avatarUrl')) {
+    const url = sanitizeUrl(input.avatarUrl);
+    profileUpdates.avatarUrl = url;
+    profileUpdates.avatarUpdatedAt = url ? new Date() : null;
+    if (url) {
+      profileUpdates.avatarStorageKey = null;
+    }
+  }
+
   if (Object.prototype.hasOwnProperty.call(input, 'experience') || Object.prototype.hasOwnProperty.call(input, 'experienceEntries')) {
     profileUpdates.experienceEntries = sanitizeExperienceEntries(input.experience ?? input.experienceEntries);
   }
@@ -1430,6 +1586,72 @@ async function applyReferenceUpdates(profile, references, { transaction }) {
   );
 }
 
+export async function updateProfileAvatar(userId, payload = {}) {
+  const numericId = normalizeUserId(userId);
+  const fileBuffer = payload.fileBuffer ?? payload.buffer ?? null;
+  const hasFileBuffer = fileBuffer && Buffer.isBuffer(fileBuffer) && fileBuffer.length > 0;
+  const providedUrl = sanitizeUrl(payload.url ?? payload.avatarUrl);
+
+  if (!hasFileBuffer && !providedUrl) {
+    throw ensureHttpStatus(new ValidationError('An avatar file or URL must be provided.'));
+  }
+
+  const mimeType = sanitizeString(payload.mimeType ?? payload.contentType ?? 'application/octet-stream', {
+    maxLength: 120,
+    allowNull: false,
+  });
+  const safeMimeType = mimeType || 'application/octet-stream';
+  const fileName = sanitizeString(payload.fileName ?? payload.filename ?? payload.name ?? null, {
+    maxLength: 255,
+  });
+
+  let uploadResult = null;
+  if (hasFileBuffer) {
+    uploadResult = await uploadEvidence({
+      prefix: `profiles/${numericId}/avatars`,
+      fileName: fileName ?? `avatar-${numericId}`,
+      contentType: safeMimeType,
+      body: fileBuffer,
+      metadata: { userId: `${numericId}`, scope: 'profile_avatar' },
+    });
+  }
+
+  let avatarUrl = providedUrl ?? null;
+  let avatarStorageKey = null;
+
+  if (uploadResult) {
+    if (uploadResult.stored) {
+      avatarStorageKey = uploadResult.key;
+      avatarUrl = sanitizeUrl(uploadResult.url) ?? avatarUrl;
+    } else if (!avatarUrl && hasFileBuffer) {
+      avatarUrl = buildDataUrl(fileBuffer, safeMimeType);
+    }
+  }
+
+  if (!avatarUrl && hasFileBuffer) {
+    avatarUrl = buildDataUrl(fileBuffer, safeMimeType);
+  }
+
+  const now = new Date();
+
+  await sequelize.transaction(async (transaction) => {
+    const context = await loadProfileContext(numericId, { transaction, lock: true });
+    const profile = context.user.Profile;
+    await profile.update(
+      {
+        avatarUrl: avatarUrl ?? null,
+        avatarStorageKey: avatarStorageKey ?? null,
+        avatarUpdatedAt: now,
+      },
+      { transaction },
+    );
+  });
+
+  appCache.delete(cacheKeyForUser(numericId));
+
+  return getProfileOverview(numericId, { bypassCache: true });
+}
+
 export async function updateProfile(userId, payload = {}) {
   const numericId = normalizeUserId(userId);
   const { profileUpdates, availabilityUpdates, references } = normalizeProfileUpdatePayload(payload);
@@ -1511,6 +1733,7 @@ export async function updateProfileAvailability(userId, payload = {}) {
 
 export default {
   getProfileOverview,
+  updateProfileAvatar,
   updateProfile,
   updateProfileAvailability,
 };

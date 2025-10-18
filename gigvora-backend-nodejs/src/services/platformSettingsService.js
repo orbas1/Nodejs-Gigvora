@@ -77,6 +77,223 @@ function uniqueStringList(values = []) {
   return Array.from(new Set(normalized));
 }
 
+function ensureIdentifier(prefix, candidateId, fallbackId, index) {
+  const candidate = coerceOptionalString(candidateId, '') || coerceOptionalString(fallbackId, '');
+  if (candidate) {
+    return candidate;
+  }
+  const random = Math.random().toString(36).slice(2, 10);
+  return `${prefix}-${index + 1}-${random}`;
+}
+
+function normalizeCollection(inputList, fallbackList, limit, normalizer) {
+  const sourceList = Array.isArray(inputList) ? inputList : Array.isArray(fallbackList) ? fallbackList : [];
+  const baselineList = Array.isArray(fallbackList) ? fallbackList : [];
+  const normalized = sourceList
+    .map((item, index) => normalizer(item, baselineList[index] ?? {}, index))
+    .filter(Boolean);
+  if (typeof limit === 'number') {
+    return normalized.slice(0, limit);
+  }
+  return normalized;
+}
+
+function normalizeHomepageStat(stat = {}, fallback = {}, index = 0) {
+  const label = coerceOptionalString(stat.label, fallback.label ?? '');
+  const suffix = coerceOptionalString(stat.suffix, fallback.suffix ?? '');
+  const value = coerceNumber(stat.value, fallback.value ?? 0, { min: 0, precision: 2 });
+  if (!label && value <= 0) {
+    return null;
+  }
+  return {
+    id: ensureIdentifier('homepage-stat', stat.id, fallback.id, index),
+    label,
+    value,
+    suffix,
+  };
+}
+
+function normalizeHomepageValueProp(item = {}, fallback = {}, index = 0) {
+  const title = coerceOptionalString(item.title, fallback.title ?? '');
+  const description = coerceOptionalString(item.description, fallback.description ?? '');
+  if (!title && !description) {
+    return null;
+  }
+  return {
+    id: ensureIdentifier('homepage-value', item.id, fallback.id, index),
+    title,
+    description,
+    icon: coerceOptionalString(item.icon, fallback.icon ?? ''),
+    ctaLabel: coerceOptionalString(item.ctaLabel, fallback.ctaLabel ?? ''),
+    ctaHref: coerceOptionalString(item.ctaHref, fallback.ctaHref ?? ''),
+    mediaUrl: coerceOptionalString(item.mediaUrl, fallback.mediaUrl ?? ''),
+    mediaAlt: coerceOptionalString(item.mediaAlt, fallback.mediaAlt ?? ''),
+  };
+}
+
+function normalizeHomepageBullet(rawBullet, fallback = {}, index = 0, prefix = 'homepage-bullet') {
+  if (rawBullet == null) {
+    return null;
+  }
+  const value =
+    typeof rawBullet === 'string'
+      ? rawBullet
+      : typeof rawBullet === 'object'
+      ? rawBullet.text ?? rawBullet.label ?? ''
+      : '';
+  const text = coerceOptionalString(value, fallback.text ?? fallback.label ?? '');
+  if (!text) {
+    return null;
+  }
+  return {
+    id: ensureIdentifier(prefix, rawBullet.id, fallback.id, index),
+    text,
+  };
+}
+
+function normalizeHomepageFeature(section = {}, fallback = {}, index = 0) {
+  const title = coerceOptionalString(section.title, fallback.title ?? '');
+  const description = coerceOptionalString(section.description, fallback.description ?? '');
+  if (!title && !description) {
+    return null;
+  }
+  const mediaTypeCandidate = coerceOptionalString(section.mediaType, fallback.mediaType ?? 'image').toLowerCase();
+  const mediaType = ['image', 'video', 'illustration'].includes(mediaTypeCandidate) ? mediaTypeCandidate : 'image';
+  const fallbackBullets = Array.isArray(fallback.bullets) ? fallback.bullets : [];
+  const bullets = normalizeCollection(
+    section.bullets,
+    fallbackBullets,
+    6,
+    (bullet, fallbackBullet, bulletIndex) =>
+      normalizeHomepageBullet(bullet, fallbackBullet, bulletIndex, `homepage-feature-${index + 1}-bullet`),
+  ).filter(Boolean);
+
+  return {
+    id: ensureIdentifier('homepage-feature', section.id, fallback.id, index),
+    title,
+    description,
+    mediaType,
+    mediaUrl: coerceOptionalString(section.mediaUrl, fallback.mediaUrl ?? ''),
+    mediaAlt: coerceOptionalString(section.mediaAlt, fallback.mediaAlt ?? ''),
+    bullets,
+  };
+}
+
+function normalizeHomepageTestimonial(testimonial = {}, fallback = {}, index = 0) {
+  const quote = coerceOptionalString(testimonial.quote, fallback.quote ?? '');
+  const authorName = coerceOptionalString(testimonial.authorName, fallback.authorName ?? '');
+  if (!quote && !authorName) {
+    return null;
+  }
+  return {
+    id: ensureIdentifier('homepage-testimonial', testimonial.id, fallback.id, index),
+    quote,
+    authorName,
+    authorRole: coerceOptionalString(testimonial.authorRole, fallback.authorRole ?? ''),
+    avatarUrl: coerceOptionalString(testimonial.avatarUrl, fallback.avatarUrl ?? ''),
+    highlight: coerceBoolean(testimonial.highlight, fallback.highlight ?? false),
+  };
+}
+
+function normalizeHomepageFaq(entry = {}, fallback = {}, index = 0) {
+  const question = coerceOptionalString(entry.question, fallback.question ?? '');
+  const answer = coerceOptionalString(entry.answer, fallback.answer ?? '');
+  if (!question && !answer) {
+    return null;
+  }
+  return {
+    id: ensureIdentifier('homepage-faq', entry.id, fallback.id, index),
+    question,
+    answer,
+  };
+}
+
+function normalizeHomepageQuickLink(link = {}, fallback = {}, index = 0) {
+  const label = coerceOptionalString(link.label, fallback.label ?? '');
+  const href = coerceOptionalString(link.href, fallback.href ?? '');
+  if (!label && !href) {
+    return null;
+  }
+  const targetCandidate = coerceOptionalString(link.target, fallback.target ?? '_self').toLowerCase();
+  const target = ['_self', '_blank'].includes(targetCandidate) ? targetCandidate : '_self';
+  return {
+    id: ensureIdentifier('homepage-link', link.id, fallback.id, index),
+    label,
+    href,
+    target,
+  };
+}
+
+function normalizeHomepageSeo(seo = {}, fallback = {}) {
+  const source = seo && typeof seo === 'object' ? seo : {};
+  const fallbackKeywords = Array.isArray(fallback.keywords) ? fallback.keywords : [];
+  let keywords = fallbackKeywords;
+  if (Array.isArray(source.keywords)) {
+    keywords = source.keywords;
+  } else if (typeof source.keywords === 'string') {
+    keywords = source.keywords
+      .split(',')
+      .map((keyword) => keyword.trim())
+      .filter((keyword) => keyword.length > 0);
+  } else if (source.keywords === null) {
+    keywords = [];
+  }
+
+  return {
+    title: coerceOptionalString(source.title, fallback.title ?? ''),
+    description: coerceOptionalString(source.description, fallback.description ?? ''),
+    keywords: uniqueStringList(keywords).slice(0, 20),
+    ogImageUrl: coerceOptionalString(source.ogImageUrl, fallback.ogImageUrl ?? ''),
+  };
+}
+
+function normalizeHomepageSettings(input = {}, fallback = {}) {
+  const source = input && typeof input === 'object' ? input : {};
+  const baseline = fallback && typeof fallback === 'object' ? fallback : {};
+  const announcementSource = source.announcementBar && typeof source.announcementBar === 'object' ? source.announcementBar : {};
+  const announcementFallback = baseline.announcementBar && typeof baseline.announcementBar === 'object'
+    ? baseline.announcementBar
+    : {};
+
+  const heroSource = source.hero && typeof source.hero === 'object' ? source.hero : {};
+  const heroFallback = baseline.hero && typeof baseline.hero === 'object' ? baseline.hero : {};
+
+  return {
+    announcementBar: {
+      enabled: coerceBoolean(announcementSource.enabled, announcementFallback.enabled ?? true),
+      message: coerceOptionalString(announcementSource.message, announcementFallback.message ?? ''),
+      ctaLabel: coerceOptionalString(announcementSource.ctaLabel, announcementFallback.ctaLabel ?? ''),
+      ctaHref: coerceOptionalString(announcementSource.ctaHref, announcementFallback.ctaHref ?? ''),
+    },
+    hero: {
+      title: coerceOptionalString(heroSource.title, heroFallback.title ?? ''),
+      subtitle: coerceOptionalString(heroSource.subtitle, heroFallback.subtitle ?? ''),
+      primaryCtaLabel: coerceOptionalString(heroSource.primaryCtaLabel, heroFallback.primaryCtaLabel ?? ''),
+      primaryCtaHref: coerceOptionalString(heroSource.primaryCtaHref, heroFallback.primaryCtaHref ?? ''),
+      secondaryCtaLabel: coerceOptionalString(heroSource.secondaryCtaLabel, heroFallback.secondaryCtaLabel ?? ''),
+      secondaryCtaHref: coerceOptionalString(heroSource.secondaryCtaHref, heroFallback.secondaryCtaHref ?? ''),
+      backgroundImageUrl: coerceOptionalString(heroSource.backgroundImageUrl, heroFallback.backgroundImageUrl ?? ''),
+      backgroundImageAlt: coerceOptionalString(heroSource.backgroundImageAlt, heroFallback.backgroundImageAlt ?? ''),
+      overlayOpacity: coerceNumber(heroSource.overlayOpacity, heroFallback.overlayOpacity ?? 0.45, {
+        min: 0,
+        max: 1,
+        precision: 2,
+      }),
+      stats: normalizeCollection(heroSource.stats, heroFallback.stats, 4, normalizeHomepageStat).filter(Boolean),
+    },
+    valueProps: normalizeCollection(source.valueProps, baseline.valueProps, 6, normalizeHomepageValueProp).filter(Boolean),
+    featureSections: normalizeCollection(source.featureSections, baseline.featureSections, 4, normalizeHomepageFeature).filter(
+      Boolean,
+    ),
+    testimonials: normalizeCollection(source.testimonials, baseline.testimonials, 6, normalizeHomepageTestimonial).filter(
+      Boolean,
+    ),
+    faqs: normalizeCollection(source.faqs, baseline.faqs, 8, normalizeHomepageFaq).filter(Boolean),
+    quickLinks: normalizeCollection(source.quickLinks, baseline.quickLinks, 6, normalizeHomepageQuickLink).filter(Boolean),
+    seo: normalizeHomepageSeo(source.seo, baseline.seo),
+  };
+}
+
 function buildDefaultPlatformSettings() {
   return {
     commissions: {
@@ -121,6 +338,24 @@ function buildDefaultPlatformSettings() {
         apiKey: coerceOptionalString(process.env.ESCROW_COM_API_KEY),
         apiSecret: coerceOptionalString(process.env.ESCROW_COM_API_SECRET),
         sandbox: coerceBoolean(process.env.ESCROW_COM_SANDBOX, true),
+      },
+      escrowControls: {
+        defaultHoldPeriodHours: coerceInteger(process.env.ESCROW_DEFAULT_HOLD_HOURS, 72, {
+          min: 0,
+        }),
+        autoReleaseHours: coerceInteger(process.env.ESCROW_AUTO_RELEASE_HOURS, 48, { min: 0 }),
+        requireManualApproval: coerceBoolean(process.env.ESCROW_REQUIRE_MANUAL_APPROVAL, false),
+        manualApprovalThreshold: coerceNumber(process.env.ESCROW_MANUAL_APPROVAL_THRESHOLD, 25000, {
+          min: 0,
+          precision: 2,
+        }),
+        notificationEmails: uniqueStringList(
+          (process.env.ESCROW_NOTIFICATION_EMAILS ?? '')
+            .split(',')
+            .map((value) => value.trim())
+            .filter((value) => value.length > 0),
+        ),
+        statementDescriptor: coerceOptionalString(process.env.ESCROW_STATEMENT_DESCRIPTOR),
       },
     },
     smtp: {
@@ -170,6 +405,188 @@ function buildDefaultPlatformSettings() {
         'support@gigvora.com',
       ),
     },
+    homepage: normalizeHomepageSettings(
+      {
+        announcementBar: {
+          enabled: coerceBoolean(process.env.HOMEPAGE_ANNOUNCEMENT_ENABLED, true),
+          message:
+            coerceOptionalString(
+              process.env.HOMEPAGE_ANNOUNCEMENT_MESSAGE,
+              'Gigvora deploys vetted product teams with finance, compliance, and delivery safeguards.',
+            ) || '',
+          ctaLabel: coerceOptionalString(process.env.HOMEPAGE_ANNOUNCEMENT_CTA_LABEL, 'Book a demo'),
+          ctaHref: coerceOptionalString(process.env.HOMEPAGE_ANNOUNCEMENT_CTA_HREF, '/contact/sales'),
+        },
+        hero: {
+          title: coerceOptionalString(
+            process.env.HOMEPAGE_HERO_TITLE,
+            'Build resilient product squads without the guesswork',
+          ),
+          subtitle: coerceOptionalString(
+            process.env.HOMEPAGE_HERO_SUBTITLE,
+            'Spin up verified designers, engineers, and operators with treasury, compliance, and delivery guardrails baked in.',
+          ),
+          primaryCtaLabel: coerceOptionalString(process.env.HOMEPAGE_PRIMARY_CTA_LABEL, 'Book enterprise demo'),
+          primaryCtaHref: coerceOptionalString(process.env.HOMEPAGE_PRIMARY_CTA_HREF, '/contact/sales'),
+          secondaryCtaLabel: coerceOptionalString(process.env.HOMEPAGE_SECONDARY_CTA_LABEL, 'Explore marketplace'),
+          secondaryCtaHref: coerceOptionalString(process.env.HOMEPAGE_SECONDARY_CTA_HREF, '/gigs'),
+          backgroundImageUrl: coerceOptionalString(
+            process.env.HOMEPAGE_HERO_BACKGROUND_URL,
+            'https://cdn.gigvora.com/assets/hero/command-center.jpg',
+          ),
+          backgroundImageAlt: coerceOptionalString(
+            process.env.HOMEPAGE_HERO_BACKGROUND_ALT,
+            'Gigvora admin control tower dashboard',
+          ),
+          overlayOpacity: coerceNumber(process.env.HOMEPAGE_HERO_OVERLAY_OPACITY, 0.55, {
+            min: 0,
+            max: 1,
+            precision: 2,
+          }),
+          stats: [
+            {
+              id: 'specialists',
+              label: 'Verified specialists',
+              value: coerceNumber(process.env.HOMEPAGE_STAT_SPECIALISTS, 12800, {
+                min: 0,
+                precision: 0,
+              }),
+              suffix: '+',
+            },
+            {
+              id: 'satisfaction',
+              label: 'Client satisfaction',
+              value: coerceNumber(process.env.HOMEPAGE_STAT_SATISFACTION, 97, {
+                min: 0,
+                max: 100,
+                precision: 0,
+              }),
+              suffix: '%',
+            },
+            {
+              id: 'regions',
+              label: 'Countries served',
+              value: coerceNumber(process.env.HOMEPAGE_STAT_REGIONS, 32, { min: 0, precision: 0 }),
+              suffix: '',
+            },
+            {
+              id: 'sla',
+              label: 'Matching SLA (hrs)',
+              value: coerceNumber(process.env.HOMEPAGE_STAT_SLA_HOURS, 48, { min: 0, precision: 0 }),
+              suffix: '',
+            },
+          ],
+        },
+        valueProps: [
+          {
+            id: 'compliance',
+            title: 'Compliance handled',
+            description: 'NDAs, KYC, and region-specific controls live inside every engagement.',
+            icon: 'ShieldCheckIcon',
+            ctaLabel: 'Review trust center',
+            ctaHref: '/trust-center',
+          },
+          {
+            id: 'payments',
+            title: 'Unified payouts',
+            description: 'Escrow, subscriptions, and milestone releases flow through one treasury.',
+            icon: 'CurrencyDollarIcon',
+            ctaLabel: 'View payment options',
+            ctaHref: '/finance',
+          },
+          {
+            id: 'insights',
+            title: 'Operational telemetry',
+            description: 'Live scorecards keep delivery, spend, and sentiment transparent.',
+            icon: 'ChartBarIcon',
+            ctaLabel: 'See analytics',
+            ctaHref: '/dashboard/company/analytics',
+          },
+        ],
+        featureSections: [
+          {
+            id: 'project-launch',
+            title: 'Launch projects without friction',
+            description: 'Spin up scopes, approvals, and budgets with prebuilt compliance guardrails.',
+            mediaType: 'image',
+            mediaUrl: 'https://cdn.gigvora.com/assets/features/project-launch.png',
+            mediaAlt: 'Gigvora project launch workflow',
+            bullets: [
+              { id: 'templates', text: 'Reusable scope templates with approval routing' },
+              { id: 'governance', text: 'Automatic vendor risk and policy checks' },
+            ],
+          },
+          {
+            id: 'workspace',
+            title: 'Collaborate in one workspace',
+            description: 'Docs, deliverables, feedback, and finance sync across teams and partners.',
+            mediaType: 'image',
+            mediaUrl: 'https://cdn.gigvora.com/assets/features/workspace.png',
+            mediaAlt: 'Cross-functional workspace collaboration',
+            bullets: [
+              { id: 'vault', text: 'Role-based deliverable vault with versioning' },
+              { id: 'status', text: 'Automated status digests for stakeholders' },
+            ],
+          },
+        ],
+        testimonials: [
+          {
+            id: 'northwind',
+            quote:
+              'Gigvora unlocked a vetted product pod in 48 hours—finance, compliance, and delivery were already aligned.',
+            authorName: 'Leah Patel',
+            authorRole: 'VP Operations, Northwind Labs',
+            avatarUrl: 'https://cdn.gigvora.com/assets/avatars/leah-patel.png',
+            highlight: true,
+          },
+          {
+            id: 'acme',
+            quote: 'Compliance workflows and milestone escrow meant we focused on shipping, not paperwork.',
+            authorName: 'Marcus Chen',
+            authorRole: 'Head of Product, Acme Robotics',
+            avatarUrl: 'https://cdn.gigvora.com/assets/avatars/marcus-chen.png',
+            highlight: false,
+          },
+        ],
+        faqs: [
+          {
+            id: 'getting-started',
+            question: 'How quickly can teams onboard?',
+            answer: 'Submit a brief and receive a vetted shortlist with compliance approval inside 48 hours.',
+          },
+          {
+            id: 'pricing-models',
+            question: 'What pricing models are supported?',
+            answer: 'Choose milestone-based projects, subscription pods, or hourly retainers based on the workstream.',
+          },
+        ],
+        quickLinks: [
+          { id: 'demo', label: 'Book a live demo', href: '/contact/sales', target: '_self' },
+          { id: 'login', label: 'Sign in to workspace', href: '/login', target: '_self' },
+          { id: 'updates', label: 'Read product updates', href: '/blog', target: '_self' },
+        ],
+        seo: {
+          title: coerceOptionalString(
+            process.env.HOMEPAGE_SEO_TITLE,
+            'Gigvora | Product-ready teams on demand',
+          ),
+          description: coerceOptionalString(
+            process.env.HOMEPAGE_SEO_DESCRIPTION,
+            'Gigvora delivers vetted product talent with treasury, compliance, and delivery automation so teams can launch faster.',
+          ),
+          keywords: uniqueStringList(
+            (process.env.HOMEPAGE_SEO_KEYWORDS ?? 'gigvora,product talent,freelancer marketplace,managed marketplace')
+              .split(',')
+              .map((keyword) => keyword.trim()),
+          ),
+          ogImageUrl: coerceOptionalString(
+            process.env.HOMEPAGE_SEO_OG_IMAGE_URL,
+            'https://cdn.gigvora.com/assets/og/homepage.png',
+          ),
+        },
+      },
+      {},
+    ),
   };
 }
 
@@ -289,6 +706,33 @@ function normalizeSubscriptionSettings(input = {}, fallback = {}) {
   return normalized;
 }
 
+function normalizeEscrowControls(input = {}, fallback = {}) {
+  return {
+    defaultHoldPeriodHours: coerceInteger(
+      input.defaultHoldPeriodHours,
+      fallback.defaultHoldPeriodHours ?? 72,
+      { min: 0 },
+    ),
+    autoReleaseHours: coerceInteger(input.autoReleaseHours, fallback.autoReleaseHours ?? 48, {
+      min: 0,
+    }),
+    requireManualApproval: coerceBoolean(
+      input.requireManualApproval,
+      fallback.requireManualApproval ?? false,
+    ),
+    manualApprovalThreshold: coerceNumber(
+      input.manualApprovalThreshold,
+      fallback.manualApprovalThreshold ?? 25000,
+      { min: 0, precision: 2 },
+    ),
+    notificationEmails: uniqueStringList(input.notificationEmails ?? fallback.notificationEmails ?? []),
+    statementDescriptor: coerceOptionalString(
+      input.statementDescriptor,
+      fallback.statementDescriptor ?? '',
+    ),
+  };
+}
+
 function normalizePaymentSettings(input = {}, fallback = {}) {
   const providerCandidate = coerceString(input.provider, fallback.provider ?? 'stripe');
   const provider = PAYMENT_PROVIDERS.has(providerCandidate) ? providerCandidate : 'stripe';
@@ -316,6 +760,7 @@ function normalizePaymentSettings(input = {}, fallback = {}) {
     provider,
     stripe: stripeSettings,
     escrow_com: escrowSettings,
+    escrowControls: normalizeEscrowControls(input.escrowControls, fallback.escrowControls),
   };
 }
 
@@ -462,6 +907,7 @@ function normalizeSettings(payload = {}, baseline = {}) {
     database: normalizeDatabaseSettings(payload.database, baseline.database),
     featureToggles: normalizeFeatureToggles(payload.featureToggles, baseline.featureToggles),
     maintenance: normalizeMaintenanceSettings(payload.maintenance, baseline.maintenance),
+    homepage: normalizeHomepageSettings(payload.homepage, baseline.homepage),
   };
 }
 
@@ -493,6 +939,10 @@ function mergeDefaults(defaults, stored) {
         ...defaults.payments.escrow_com,
         ...(stored.payments?.escrow_com ?? {}),
       },
+      escrowControls: {
+        ...defaults.payments.escrowControls,
+        ...(stored.payments?.escrowControls ?? {}),
+      },
     },
     smtp: { ...defaults.smtp, ...(stored.smtp ?? {}) },
     storage: {
@@ -507,6 +957,7 @@ function mergeDefaults(defaults, stored) {
     database: { ...defaults.database, ...(stored.database ?? {}) },
     featureToggles: { ...defaults.featureToggles, ...(stored.featureToggles ?? {}) },
     maintenance: normalizeMaintenanceSettings(stored.maintenance, defaults.maintenance),
+    homepage: normalizeHomepageSettings(stored.homepage, defaults.homepage),
   };
 }
 
@@ -533,7 +984,34 @@ export async function updatePlatformSettings(payload = {}) {
   return snapshot;
 }
 
+export async function getHomepageSettings() {
+  const defaults = buildDefaultPlatformSettings();
+  const record = await PlatformSetting.findOne({ where: { key: PLATFORM_SETTINGS_KEY } });
+  const merged = mergeDefaults(defaults, record?.value ?? {});
+  return merged.homepage;
+}
+
+export async function updateHomepageSettings(payload = {}) {
+  const defaults = buildDefaultPlatformSettings();
+  const existing = await PlatformSetting.findOne({ where: { key: PLATFORM_SETTINGS_KEY } });
+  const baseline = mergeDefaults(defaults, existing?.value ?? {});
+  const normalizedHomepage = normalizeHomepageSettings(payload, baseline.homepage ?? defaults.homepage);
+  const nextValue = { ...baseline, homepage: normalizedHomepage };
+
+  if (existing) {
+    await existing.update({ value: nextValue });
+  } else {
+    await PlatformSetting.create({ key: PLATFORM_SETTINGS_KEY, value: nextValue });
+  }
+
+  const snapshot = mergeDefaults(defaults, nextValue);
+  syncCriticalDependencies(snapshot, { logger: logger.child({ component: 'platform-settings' }) });
+  return snapshot.homepage;
+}
+
 export default {
   getPlatformSettings,
   updatePlatformSettings,
+  getHomepageSettings,
+  updateHomepageSettings,
 };
