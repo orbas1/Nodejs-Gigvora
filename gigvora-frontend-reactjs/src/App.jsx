@@ -52,6 +52,7 @@ import CompanyDashboardPage from './pages/dashboards/CompanyDashboardPage.jsx';
 import CompanyAtsOperationsPage from './pages/dashboards/CompanyAtsOperationsPage.jsx';
 import CompanyAnalyticsPage from './pages/dashboards/CompanyAnalyticsPage.jsx';
 import CompanyIntegrationsPage from './pages/dashboards/CompanyIntegrationsPage.jsx';
+import CompanyPagesManagementPage from './pages/dashboards/CompanyPagesManagementPage.jsx';
 import CompanyProfileWorkspacePage from './pages/dashboards/CompanyProfileWorkspacePage.jsx';
 import CompanyIdVerificationPage from './pages/dashboards/CompanyIdVerificationPage.jsx';
 import CompanyCalendarPage from './pages/dashboards/CompanyCalendarPage.jsx';
@@ -302,6 +303,7 @@ export default function App() {
           </RequireRole>
         }
       />
+
       <Route
         path="dashboard/freelancer/creation-studio"
         element={
@@ -310,6 +312,7 @@ export default function App() {
           </RequireRole>
         }
       />
+
       <Route
         path="dashboard/freelancer/networking"
         element={
@@ -318,6 +321,7 @@ export default function App() {
           </RequireRole>
         }
       />
+
       <Route
         path="dashboard/freelancer/disputes"
         element={
@@ -419,6 +423,10 @@ export default function App() {
       />
 
       <Route
+        path="dashboard/company/pages"
+        element={
+          <RequireRole allowedRoles={['company']}>
+            <CompanyPagesManagementPage />
         path="dashboard/company/id-verification"
         element={
           <RequireRole allowedRoles={['company']}>
@@ -469,6 +477,7 @@ export default function App() {
           </RequireRole>
         }
       />
+
       <Route
         path="dashboard/agency/disputes"
         element={
@@ -486,6 +495,7 @@ export default function App() {
           </RequireRole>
         }
       />
+
       <Route
         path="dashboard/agency/crm"
         element={
@@ -494,6 +504,7 @@ export default function App() {
           </RequireRole>
         }
       />
+
       <Route
         path="dashboard/agency/integrations"
         element={
@@ -502,6 +513,7 @@ export default function App() {
           </RequireRole>
         }
       />
+
       <Route
         path="dashboard/agency/ai"
         element={
@@ -510,6 +522,7 @@ export default function App() {
           </RequireRole>
         }
       />
+
       <Route
         path="dashboard/agency/profile"
         element={
@@ -518,6 +531,7 @@ export default function App() {
           </RequireRole>
         }
       />
+
       <Route
         path="dashboard/agency/client-kanban"
         element={

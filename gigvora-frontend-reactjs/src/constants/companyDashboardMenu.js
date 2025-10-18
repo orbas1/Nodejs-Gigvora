@@ -319,6 +319,7 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
       },
       { name: 'Insight', sectionId: 'employer-brand-workforce' },
       { name: 'Brand', sectionId: 'employer-brand-studio' },
+      { name: 'Pages studio', sectionId: 'pages-studio', href: '/dashboard/company/pages' },
       { name: 'Journeys', sectionId: 'employee-journeys' },
       { name: 'Governance', sectionId: 'settings-governance' },
     ],

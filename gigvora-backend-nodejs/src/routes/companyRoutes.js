@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import asyncHandler from '../utils/asyncHandler.js';
 import companyController from '../controllers/companyController.js';
+import companyPageController from '../controllers/companyPageController.js';
 import companyProfileController from '../controllers/companyProfileController.js';
 import { authenticate } from '../middleware/authenticate.js';
 import companyCalendarRoutes from './companyCalendarRoutes.js';
@@ -11,6 +12,7 @@ import { requireMembership } from '../middleware/authorization.js';
 
 const router = Router();
 
+const companyMemberships = ['company', 'company_admin', 'workspace_admin'];
 router.use(authenticate({ roles: ['company', 'company_admin', 'admin'] }));
 
 router.get('/dashboard', asyncHandler(companyController.dashboard));
@@ -35,11 +37,72 @@ router.post('/dashboard/timeline/posts/:postId/metrics', asyncHandler(companyCon
 router.put(
   '/dashboard/overview',
   authenticate(),
-  requireMembership(['company', 'company_admin', 'workspace_admin'], { allowAdmin: true }),
+  requireMembership(companyMemberships, { allowAdmin: true }),
   asyncHandler(companyController.updateDashboardOverview),
 );
 
 router.get(
+  '/dashboard/pages',
+  authenticate(),
+  requireMembership(companyMemberships, { allowAdmin: true }),
+  asyncHandler(companyPageController.index),
+);
+
+router.post(
+  '/dashboard/pages',
+  authenticate(),
+  requireMembership(companyMemberships, { allowAdmin: true }),
+  asyncHandler(companyPageController.create),
+);
+
+router.get(
+  '/dashboard/pages/:pageId',
+  authenticate(),
+  requireMembership(companyMemberships, { allowAdmin: true }),
+  asyncHandler(companyPageController.show),
+);
+
+router.put(
+  '/dashboard/pages/:pageId',
+  authenticate(),
+  requireMembership(companyMemberships, { allowAdmin: true }),
+  asyncHandler(companyPageController.update),
+);
+
+router.put(
+  '/dashboard/pages/:pageId/sections',
+  authenticate(),
+  requireMembership(companyMemberships, { allowAdmin: true }),
+  asyncHandler(companyPageController.updateSections),
+);
+
+router.put(
+  '/dashboard/pages/:pageId/collaborators',
+  authenticate(),
+  requireMembership(companyMemberships, { allowAdmin: true }),
+  asyncHandler(companyPageController.updateCollaborators),
+);
+
+router.post(
+  '/dashboard/pages/:pageId/publish',
+  authenticate(),
+  requireMembership(companyMemberships, { allowAdmin: true }),
+  asyncHandler(companyPageController.publish),
+);
+
+router.post(
+  '/dashboard/pages/:pageId/archive',
+  authenticate(),
+  requireMembership(companyMemberships, { allowAdmin: true }),
+  asyncHandler(companyPageController.archive),
+);
+
+router.delete(
+  '/dashboard/pages/:pageId',
+  authenticate(),
+  requireMembership(companyMemberships, { allowAdmin: true }),
+  asyncHandler(companyPageController.destroy),
+);
   '/ai/auto-reply/overview',
   authenticate({ roles: ['company', 'admin'] }),
   asyncHandler(companyController.byokAutoReplyOverview),
