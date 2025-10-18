@@ -1,55 +1,52 @@
 export const COMPANY_DASHBOARD_MENU_SECTIONS = [
   {
-    label: 'Talent acquisition',
+    label: 'Home',
     items: [
       {
-        name: 'Hiring overview',
-        description: 'Pipeline health, hiring velocity, diversity metrics, and alerts.',
+        name: 'Overview',
         sectionId: 'hiring-overview',
-      },
-      {
-        name: 'Job lifecycle & ATS intelligence',
-        description:
-          'Run a modern applicant tracking system with collaborative job creation, smart sourcing, and full-funnel insights.',
-        tags: ['ATS'],
-        sectionId: 'job-lifecycle-ats-intelligence',
-        href: '/dashboard/company/ats',
-      },
-      {
-        name: 'Interview excellence & candidate experience',
-        description: 'Structured guides, scheduling automation, and feedback collaboration for every interview panel.',
-        sectionId: 'interview-excellence',
-      },
-      {
-        name: 'Offer & onboarding bridge',
-        description: 'Generate offers, track approvals, manage background checks, and orchestrate onboarding tasks.',
-        sectionId: 'offer-onboarding',
-      },
-      {
-        name: 'Candidate care center',
-        description: 'Monitor response times, candidate NPS, and inclusion metrics to deliver a world-class experience.',
-        sectionId: 'candidate-care-center',
+        name: 'Snapshot',
+        sectionId: 'company-overview',
+        href: '/dashboard/company',
       },
     ],
   },
   {
-    label: 'Design & sourcing',
+    label: 'Hire',
+    items: [
+      { name: 'Pipeline', sectionId: 'hiring-overview' },
+      {
+        name: 'Timeline',
+        sectionId: 'timeline-management',
+        href: '/dashboard/company/timeline',
+      },
+      {
+        name: 'Posts',
+        sectionId: 'timeline-management',
+        href: '/dashboard/company/timeline#posts',
+      },
+      {
+        name: 'Stats',
+        sectionId: 'timeline-management',
+        href: '/dashboard/company/timeline#analytics',
+      },
+    ],
+  },
+  {
+    label: 'ATS',
     items: [
       {
-        name: 'Job design studio',
-        description: 'Craft requisitions with intake surveys, leveling frameworks, compensation guidelines, and approvals.',
-        sectionId: 'job-design-studio',
+        name: 'Jobs',
+        sectionId: 'job-lifecycle-ats-intelligence',
+        href: '/dashboard/company/ats',
       },
       {
-        name: 'Multi-channel sourcing',
-        description:
-          'Publish to Gigvora, job boards, employee referrals, and talent pools with personalised landing pages and reporting.',
-        sectionId: 'multi-channel-sourcing',
+        name: 'Interview',
+        sectionId: 'interview-excellence',
       },
       {
-        name: 'Applicant relationship manager',
-        description: 'Segment candidates, send nurture campaigns, and manage compliance across GDPR, CCPA, and internal policies.',
-        sectionId: 'applicant-relationship-manager',
+        name: 'Offers',
+        sectionId: 'offer-onboarding',
       },
     ],
   },
@@ -71,103 +68,114 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
   },
   {
     label: 'Networking & community',
+    label: 'Network',
     items: [
       {
-        name: 'Networking sessions',
-        description: 'Launch and monitor speed networking programs with configurable rotations and join limits.',
+        name: 'Sessions',
         sectionId: 'networking-sessions',
         href: '/dashboard/company/networking',
       },
       {
-        name: 'Attendee experience',
-        description: 'Digital business cards, profile sharing, and chat tools keep every connection actionable.',
+        name: 'Guests',
         sectionId: 'networking-attendee-experience',
         href: '/dashboard/company/networking',
       },
       {
-        name: 'Attendance controls',
-        description: 'Automate penalties for repeated no-shows and manage eligibility for future sessions.',
+        name: 'Rules',
         sectionId: 'networking-attendance-controls',
         href: '/dashboard/company/networking',
       },
     ],
   },
   {
-    label: 'Analytics & planning',
+    label: 'Analytics',
     items: [
       {
-        name: 'Analytics & forecasting',
-        description: 'Predict time-to-fill, offer acceptance, and pipeline conversion to forecast headcount.',
+        name: 'Summary',
         sectionId: 'analytics-forecasting',
         href: '/dashboard/company/analytics',
       },
       {
-        name: 'Workforce analytics',
-        description: 'Blend hiring and HRIS data to uncover attrition risks, mobility opportunities, and skill gaps.',
+        name: 'Workforce',
         sectionId: 'workforce-analytics',
         href: '/dashboard/company/analytics#workforce',
       },
       {
-        name: 'Scenario planning',
-        description: 'Model hiring freezes or acceleration plans with interactive dashboards by department, level, or location.',
+        name: 'Scenarios',
         sectionId: 'scenario-planning',
         href: '/dashboard/company/analytics#scenarios',
       },
     ],
   },
   {
-    label: 'Partnerships & sourcing',
+    label: 'Settings',
     items: [
       {
-        name: 'Headhunter program',
-        description: 'Invite headhunters, share briefs, score performance, and manage commissions.',
-        sectionId: 'partnerships-headhunter-program',
+        name: 'Integrations',
+        name: 'ATS',
+        sectionId: 'job-lifecycle-ats-intelligence',
+        href: '/dashboard/company/ats',
       },
+      { name: 'Interviews', sectionId: 'interview-excellence' },
+      { name: 'Offers', sectionId: 'offer-onboarding' },
+      { name: 'Care', sectionId: 'candidate-care-center' },
+    ],
+  },
+  {
+    label: 'Design',
+    items: [
+      { name: 'Roles', sectionId: 'job-design-studio' },
+      { name: 'Sourcing', sectionId: 'multi-channel-sourcing' },
+      { name: 'CRM', sectionId: 'applicant-relationship-manager' },
+    ],
+  },
+  {
+    label: 'Finance & treasury',
+    items: [
       {
-        name: 'Talent pools',
-        description: 'Maintain silver medalists, alumni, referrals, and campus relationships.',
-        sectionId: 'partnerships-talent-pools',
-      },
-      {
-        name: 'Agency collaboration',
-        description: 'Coordinate with partner agencies on SLAs, billing, and compliance.',
-        sectionId: 'partnerships-agency-collaboration',
-      },
-      {
-        name: 'Partner performance manager',
-        description: 'Compare agencies, headhunters, and recruiters with leaderboards, SLAs, and ROI analytics.',
-        sectionId: 'partner-performance-manager',
+        name: 'Wallet management',
+        description: 'Manage balances, funding sources, payouts, and access controls for every company wallet.',
+        sectionId: 'wallet-management',
+        href: '/dashboard/company/wallets',
+        tags: ['finance'],
       },
     ],
   },
   {
-    label: 'Brand & people',
+    label: 'Analytics & planning',
+    label: 'Network',
     items: [
-      {
-        name: 'Employer brand & workforce intelligence',
-        description: 'Promote your culture, understand workforce trends, and connect hiring with employee experience data.',
-        sectionId: 'employer-brand-workforce',
-      },
-      {
-        name: 'Employer brand studio',
-        description: 'Company profile, culture stories, benefits, and employer marketing assets.',
-        sectionId: 'employer-brand-studio',
-      },
-      {
-        name: 'Employee journeys',
-        description: 'Onboarding, internal mobility, and performance snapshots for HR teams.',
-        sectionId: 'employee-journeys',
-      },
-      {
-        name: 'Settings & governance',
-        description: 'Calendar sync, permissions, integrations, compliance, and approvals.',
-        sectionId: 'settings-governance',
-      },
+      { name: 'Sessions', sectionId: 'networking-sessions', href: '/dashboard/company/networking' },
+      { name: 'Attendees', sectionId: 'networking-attendee-experience', href: '/dashboard/company/networking' },
+      { name: 'Controls', sectionId: 'networking-attendance-controls', href: '/dashboard/company/networking' },
     ],
   },
   {
-    label: 'Operations & governance',
+    label: 'Intel',
     items: [
+      { name: 'Reports', sectionId: 'analytics-forecasting', href: '/dashboard/company/analytics' },
+      { name: 'Workforce', sectionId: 'workforce-analytics', href: '/dashboard/company/analytics#workforce' },
+      { name: 'Scenarios', sectionId: 'scenario-planning', href: '/dashboard/company/analytics#scenarios' },
+    ],
+  },
+  {
+    label: 'Partners',
+    items: [
+      { name: 'Headhunters', sectionId: 'partnerships-headhunter-program' },
+      { name: 'Pools', sectionId: 'partnerships-talent-pools' },
+      { name: 'Agencies', sectionId: 'partnerships-agency-collaboration' },
+      { name: 'Performance', sectionId: 'partner-performance-manager' },
+    ],
+  },
+  {
+    label: 'People',
+    items: [
+      {
+        name: 'Project workspace',
+        description: 'Coordinate budgets, tasks, meetings, files, and staffing for each project.',
+        sectionId: 'project-workspace',
+        href: '/dashboard/company/workspace',
+      },
       {
         name: 'Calendar & communications',
         description: 'Sync recruiting calendars, digests, integrations, and cross-functional updates.',
@@ -177,21 +185,40 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
         name: 'Settings & governance',
         description: 'Permissions, integrations, compliance, and approval workflows.',
         sectionId: 'settings-governance',
+        href: '/dashboard/company/integrations',
       },
       {
-        name: 'Integration command center',
-        description: 'Dedicated console for Salesforce, monday.com, Slack, HubSpot, Google Drive, and BYOK AI connectors.',
+        name: 'Permissions',
         sectionId: 'settings-governance',
-        href: '/dashboard/company/integrations',
-        tags: ['integrations'],
+      },
+      {
+        name: 'Compliance',
+        name: 'Disputes',
+        sectionId: 'dispute-management',
+        href: '/dashboard/company/disputes',
+        tags: ['trust'],
       },
       {
         name: 'Governance & compliance',
         description: 'Maintain GDPR/CCPA compliance, accessibility standards, and equitable hiring policies.',
         sectionId: 'governance-compliance',
       },
+      { name: 'Insight', sectionId: 'employer-brand-workforce' },
+      { name: 'Brand', sectionId: 'employer-brand-studio' },
+      { name: 'Journeys', sectionId: 'employee-journeys' },
+      { name: 'Governance', sectionId: 'settings-governance' },
+    ],
+  },
+  {
+    label: 'Communications & support',
+    items: [
+      {
+        name: 'Inbox',
+        description: 'Messaging hub for conversations, support cases, and call workflows.',
+        sectionId: 'communications-inbox',
+        href: '/dashboard/company/inbox',
+        tags: ['messaging'],
+      },
     ],
   },
 ];
-
-export default COMPANY_DASHBOARD_MENU_SECTIONS;
