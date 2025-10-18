@@ -4,6 +4,7 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
     items: [
       {
         name: 'Overview',
+        description: 'Pipeline, conversion, and alerts.',
         sectionId: 'hiring-overview',
         name: 'Snapshot',
         sectionId: 'company-overview',
@@ -36,16 +37,29 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
     label: 'ATS',
     items: [
       {
+        name: 'Lifecycle',
+        description: 'Plan requisitions and ATS automations.',
+        tags: ['ATS'],
         name: 'Jobs',
         sectionId: 'job-lifecycle-ats-intelligence',
         href: '/dashboard/company/ats',
       },
       {
+        name: 'Jobs',
+        description: 'Openings, pipeline, and actions.',
+        sectionId: 'job-operations-command-center',
+        tags: ['ATS', 'Operations'],
+        href: '/dashboard/company/job-management',
+      },
+      {
+        name: 'Interviews',
+        description: 'Panels, scorecards, and feedback.',
         name: 'Interview',
         sectionId: 'interview-excellence',
       },
       {
         name: 'Offers',
+        description: 'Approvals and onboarding tasks.',
         sectionId: 'offer-onboarding',
       },
     ],
@@ -60,6 +74,9 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
         tags: ['projects'],
       },
       {
+        name: 'Care',
+        description: 'Candidate comms and experience.',
+        sectionId: 'candidate-care-center',
         name: 'Vendors',
         sectionId: 'projects-vendors',
         href: '/dashboard/company/projects#projects-vendors',

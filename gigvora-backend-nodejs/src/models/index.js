@@ -2852,6 +2852,149 @@ Job.searchByTerm = async function searchByTerm(term) {
   });
 };
 
+export const JobAdvert = sequelize.define(
+  'JobAdvert',
+  {
+    jobId: { type: DataTypes.INTEGER, allowNull: false, unique: true },
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    status: {
+      type: DataTypes.ENUM('draft', 'open', 'paused', 'closed', 'archived'),
+      allowNull: false,
+      defaultValue: 'draft',
+    },
+    openings: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
+    remoteType: {
+      type: DataTypes.ENUM('onsite', 'hybrid', 'remote'),
+      allowNull: false,
+      defaultValue: 'remote',
+    },
+    currencyCode: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    compensationMin: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    compensationMax: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    hiringManagerId: { type: DataTypes.INTEGER, allowNull: true },
+    publishedAt: { type: DataTypes.DATE, allowNull: true },
+    expiresAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'job_adverts',
+    indexes: [
+      { unique: true, fields: ['jobId'] },
+      { fields: ['workspaceId'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+export const JobFavorite = sequelize.define(
+  'JobFavorite',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    jobId: { type: DataTypes.INTEGER, allowNull: false },
+    userId: { type: DataTypes.INTEGER, allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  {
+    tableName: 'job_favorites',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['jobId'] },
+      { fields: ['userId'] },
+      { unique: true, fields: ['workspaceId', 'jobId', 'userId'] },
+    ],
+  },
+);
+
+export const JobKeyword = sequelize.define(
+  'JobKeyword',
+  {
+    jobId: { type: DataTypes.INTEGER, allowNull: false },
+    keyword: { type: DataTypes.STRING(120), allowNull: false },
+    weight: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 1 },
+  },
+  {
+    tableName: 'job_keywords',
+    indexes: [
+      { fields: ['jobId'] },
+      { fields: ['keyword'] },
+    ],
+  },
+);
+
+export const JobAdvertHistory = sequelize.define(
+  'JobAdvertHistory',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    jobId: { type: DataTypes.INTEGER, allowNull: false },
+    actorId: { type: DataTypes.INTEGER, allowNull: true },
+    changeType: { type: DataTypes.STRING(120), allowNull: false },
+    summary: { type: DataTypes.STRING(255), allowNull: true },
+    payload: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'job_advert_history',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['jobId'] },
+      { fields: ['changeType'] },
+    ],
+  },
+);
+
+export const JobCandidateResponse = sequelize.define(
+  'JobCandidateResponse',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    jobId: { type: DataTypes.INTEGER, allowNull: false },
+    applicationId: { type: DataTypes.INTEGER, allowNull: true },
+    respondentId: { type: DataTypes.INTEGER, allowNull: true },
+    respondentName: { type: DataTypes.STRING(255), allowNull: true },
+    channel: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'message' },
+    direction: { type: DataTypes.ENUM('inbound', 'outbound'), allowNull: false, defaultValue: 'inbound' },
+    message: { type: DataTypes.TEXT, allowNull: false },
+    sentAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'job_candidate_responses',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['jobId'] },
+      { fields: ['applicationId'] },
+      { fields: ['sentAt'] },
+    ],
+  },
+);
+
+export const JobCandidateNote = sequelize.define(
+  'JobCandidateNote',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    jobId: { type: DataTypes.INTEGER, allowNull: false },
+    applicationId: { type: DataTypes.INTEGER, allowNull: false },
+    authorId: { type: DataTypes.INTEGER, allowNull: true },
+    stage: { type: DataTypes.STRING(120), allowNull: true },
+    sentiment: {
+      type: DataTypes.ENUM('positive', 'neutral', 'concern'),
+      allowNull: false,
+      defaultValue: 'neutral',
+    },
+    summary: { type: DataTypes.STRING(255), allowNull: false },
+    nextSteps: { type: DataTypes.TEXT, allowNull: true },
+    attachments: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'job_candidate_notes',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['jobId'] },
+      { fields: ['applicationId'] },
+      { fields: ['stage'] },
+    ],
+  },
+);
+
 CommunitySpotlight.prototype.toPublicObject = function toPublicObject() {
   const plain = this.get({ plain: true });
   return {
@@ -19185,6 +19328,41 @@ JobApprovalWorkflow.belongsTo(Job, { foreignKey: 'jobId', as: 'job' });
 
 Job.hasMany(JobCampaignPerformance, { foreignKey: 'jobId', as: 'campaignPerformance' });
 JobCampaignPerformance.belongsTo(Job, { foreignKey: 'jobId', as: 'job' });
+
+Job.hasOne(JobAdvert, { foreignKey: 'jobId', as: 'advert' });
+JobAdvert.belongsTo(Job, { foreignKey: 'jobId', as: 'job' });
+JobAdvert.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+JobAdvert.hasMany(JobFavorite, { foreignKey: 'jobId', sourceKey: 'jobId', as: 'favorites' });
+JobAdvert.hasMany(JobKeyword, { foreignKey: 'jobId', sourceKey: 'jobId', as: 'keywords' });
+JobAdvert.hasMany(JobAdvertHistory, { foreignKey: 'jobId', sourceKey: 'jobId', as: 'history' });
+JobAdvert.hasMany(JobCandidateResponse, { foreignKey: 'jobId', sourceKey: 'jobId', as: 'candidateResponses' });
+JobAdvert.hasMany(JobCandidateNote, { foreignKey: 'jobId', sourceKey: 'jobId', as: 'candidateNotes' });
+
+Job.hasMany(JobFavorite, { foreignKey: 'jobId', as: 'favorites' });
+JobFavorite.belongsTo(Job, { foreignKey: 'jobId', as: 'job' });
+JobFavorite.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+JobFavorite.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+JobFavorite.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+
+Job.hasMany(JobKeyword, { foreignKey: 'jobId', as: 'keywords' });
+JobKeyword.belongsTo(Job, { foreignKey: 'jobId', as: 'job' });
+
+Job.hasMany(JobAdvertHistory, { foreignKey: 'jobId', as: 'history' });
+JobAdvertHistory.belongsTo(Job, { foreignKey: 'jobId', as: 'job' });
+JobAdvertHistory.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+JobAdvertHistory.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
+
+Job.hasMany(JobCandidateResponse, { foreignKey: 'jobId', as: 'candidateResponses' });
+JobCandidateResponse.belongsTo(Job, { foreignKey: 'jobId', as: 'job' });
+JobCandidateResponse.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });
+JobCandidateResponse.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+JobCandidateResponse.belongsTo(User, { foreignKey: 'respondentId', as: 'respondent' });
+
+Application.hasMany(JobCandidateNote, { foreignKey: 'applicationId', as: 'jobNotes' });
+JobCandidateNote.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });
+JobCandidateNote.belongsTo(Job, { foreignKey: 'jobId', as: 'job' });
+JobCandidateNote.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+JobCandidateNote.belongsTo(User, { foreignKey: 'authorId', as: 'author' });
 
 ExperienceLaunchpad.hasMany(ExperienceLaunchpadApplication, { foreignKey: 'launchpadId', as: 'applications' });
 ExperienceLaunchpadApplication.belongsTo(ExperienceLaunchpad, { foreignKey: 'launchpadId', as: 'launchpad' });
