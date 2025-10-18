@@ -208,6 +208,14 @@ export const ID_VERIFICATION_STATUSES = [
   'rejected',
   'expired',
 ];
+export const IDENTITY_VERIFICATION_EVENT_TYPES = [
+  'submission_created',
+  'status_changed',
+  'assignment_updated',
+  'document_updated',
+  'note_recorded',
+  'metadata_updated',
+];
 export const CORPORATE_VERIFICATION_STATUSES = [
   'pending',
   'submitted',

@@ -52,6 +52,7 @@ import CompanyDashboardPage from './pages/dashboards/CompanyDashboardPage.jsx';
 import CompanyAtsOperationsPage from './pages/dashboards/CompanyAtsOperationsPage.jsx';
 import CompanyAnalyticsPage from './pages/dashboards/CompanyAnalyticsPage.jsx';
 import CompanyIntegrationsPage from './pages/dashboards/CompanyIntegrationsPage.jsx';
+import CompanyIdVerificationPage from './pages/dashboards/CompanyIdVerificationPage.jsx';
 import CompanyCalendarPage from './pages/dashboards/CompanyCalendarPage.jsx';
 import CompanyCreationStudioPage from './pages/dashboards/CompanyCreationStudioPage.jsx';
 import CompanyJobManagementPage from './pages/dashboards/CompanyJobManagementPage.jsx';
@@ -395,6 +396,10 @@ export default function App() {
       />
 
       <Route
+        path="dashboard/company/id-verification"
+        element={
+          <RequireRole allowedRoles={['company']}>
+            <CompanyIdVerificationPage />
         path="dashboard/company/volunteering"
         element={
           <RequireRole allowedRoles={['company']}>
