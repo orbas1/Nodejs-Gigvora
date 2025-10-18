@@ -51,6 +51,7 @@ import ProtectedRoute from './components/routing/ProtectedRoute.jsx';
 import RoleProtectedRoute from './components/auth/RoleProtectedRoute.jsx';
 import MembershipGate from './components/auth/MembershipGate.jsx';
 import RequireRole from './components/routing/RequireRole.jsx';
+import AdminMentoringSessionManagementPage from './pages/dashboards/admin/AdminMentoringSessionManagementPage.jsx';
 import { LAUNCHPAD_ALLOWED_MEMBERSHIPS, SECURITY_ALLOWED_MEMBERSHIPS } from './constants/access.js';
 
 const COMMUNITY_ACCESS_MEMBERSHIPS = Object.freeze([
@@ -259,6 +260,15 @@ export default function App() {
         element={
           <RequireRole allowedRoles={['admin']}>
             <AdminDashboardPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
+        path="dashboard/admin/mentoring"
+        element={
+          <RequireRole allowedRoles={['admin']}>
+            <AdminMentoringSessionManagementPage />
           </RequireRole>
         }
       />

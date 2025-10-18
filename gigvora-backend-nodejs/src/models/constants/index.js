@@ -283,6 +283,9 @@ export const GIG_ORDER_ESCROW_STATUSES = [
 export const LEARNING_COURSE_DIFFICULTIES = ['beginner', 'intermediate', 'advanced', 'expert'];
 export const LEARNING_ENROLLMENT_STATUSES = ['not_started', 'in_progress', 'completed', 'archived'];
 export const PEER_MENTORING_STATUSES = ['requested', 'scheduled', 'completed', 'cancelled'];
+export const MENTORING_SESSION_NOTE_VISIBILITIES = ['internal', 'mentor', 'mentee', 'public'];
+export const MENTORING_SESSION_ACTION_STATUSES = ['pending', 'in_progress', 'completed', 'cancelled'];
+export const MENTORING_SESSION_ACTION_PRIORITIES = ['low', 'normal', 'high', 'urgent'];
 export const CERTIFICATION_STATUSES = ['active', 'expiring_soon', 'expired', 'revoked'];
 export const LAUNCHPAD_STATUSES = ['draft', 'recruiting', 'active', 'archived'];
 

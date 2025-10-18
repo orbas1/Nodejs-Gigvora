@@ -51,6 +51,12 @@ const MENU_SECTIONS = [
         description: 'Service desk load, SLAs, and sentiment guardrails.',
       },
       {
+        name: 'Mentoring',
+        description: 'Manage mentor schedules and feedback.',
+        tags: ['learning', 'mentors'],
+        href: '/dashboard/admin/mentoring',
+      },
+      {
         name: 'Engagement & comms',
         description: 'Platform analytics, event telemetry, and notification delivery.',
       },
