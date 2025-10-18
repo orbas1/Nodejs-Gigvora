@@ -8,6 +8,7 @@ import ConsentGovernancePanel from '../../components/admin/ConsentGovernancePane
 import RbacMatrixPanel from '../../components/admin/RbacMatrixPanel.jsx';
 import GigvoraAdsConsole from '../../components/ads/GigvoraAdsConsole.jsx';
 import AdminGroupManagementPanel from './admin/AdminGroupManagementPanel.jsx';
+import AdminMobileAppManagementPanel from './admin/AdminMobileAppManagementPanel.jsx';
 import { ADMIN_MENU_SECTIONS } from './admin/menuSections.js';
 import useSession from '../../hooks/useSession.js';
 import useRuntimeHealthSnapshot from '../../hooks/useRuntimeHealthSnapshot.js';
@@ -71,6 +72,12 @@ const MENU_SECTIONS = [
       {
         name: 'Support operations',
         description: 'Service desk load, SLAs, and sentiment guardrails.',
+      },
+      {
+        name: 'Mobile app management',
+        description: 'Coordinate mobile releases, listings, and feature flags.',
+        tags: ['mobile'],
+        sectionId: 'admin-mobile-apps',
       },
       {
         name: 'Engagement & comms',
@@ -2655,6 +2662,7 @@ export default function AdminDashboardPage() {
       />
       <AdCouponManager />
       <AdminGroupManagementPanel />
+      <AdminMobileAppManagementPanel />
       <ConsentGovernancePanel />
       <RbacMatrixPanel />
 
