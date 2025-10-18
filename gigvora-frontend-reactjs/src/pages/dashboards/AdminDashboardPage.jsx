@@ -1,6 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowPathIcon, CurrencyDollarIcon, LifebuoyIcon, ShieldCheckIcon, UsersIcon } from '@heroicons/react/24/outline';
+import {
+  ArrowPathIcon,
+  CalendarDaysIcon,
+  CurrencyDollarIcon,
+  LifebuoyIcon,
+  ShieldCheckIcon,
+  UsersIcon,
+} from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import AdCouponManager from '../../components/admin/AdCouponManager.jsx';
 import RuntimeTelemetryPanel from '../../components/admin/RuntimeTelemetryPanel.jsx';
@@ -24,6 +31,13 @@ const MENU_SECTIONS = [
         description: 'Service readiness, dependency posture, and rate-limit utilisation for the API perimeter.',
         tags: ['ops', 'security'],
         sectionId: 'admin-runtime-health',
+      },
+      {
+        name: 'Calendar',
+        description: 'Manage scheduling, types, and events.',
+        tags: ['ops', 'scheduling'],
+        href: '/dashboard/admin/calendar',
+        icon: CalendarDaysIcon,
       },
       {
         name: 'Data governance',
@@ -2831,6 +2845,26 @@ export default function AdminDashboardPage() {
     </div>
   ) : null;
 
+  const handleMenuSelect = useCallback(
+    (itemId, item) => {
+      if (!item) {
+        return;
+      }
+      if (item.href) {
+        navigate(item.href);
+        return;
+      }
+      const targetId = item.sectionId ?? item.targetId ?? itemId;
+      if (targetId && typeof document !== 'undefined') {
+        const targetElement = document.getElementById(targetId);
+        if (targetElement) {
+          targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    },
+    [navigate],
+  );
+
   let gatingView = null;
   if (!isAuthenticated) {
     gatingView = (
@@ -2874,6 +2908,7 @@ export default function AdminDashboardPage() {
           'agency',
           'headhunter',
         ]}
+        onMenuItemSelect={handleMenuSelect}
       >
         {gatingView}
       </DashboardLayout>
@@ -2908,7 +2943,7 @@ export default function AdminDashboardPage() {
       currentDashboard="admin"
       title="Gigvora Admin Control Tower"
       subtitle="Enterprise governance & compliance"
-      description="Centralize every lever that powers Gigvora—from member growth and financial operations to trust, support, analytics, and the launchpad." 
+      description="Centralize every lever that powers Gigvora—from member growth and financial operations to trust, support, analytics, and the launchpad."
       menuSections={MENU_SECTIONS}
       sections={[]}
       profile={profile}
@@ -2920,6 +2955,7 @@ export default function AdminDashboardPage() {
         'agency',
         'headhunter',
       ]}
+      onMenuItemSelect={handleMenuSelect}
     >
       {renderContent}
     </DashboardLayout>
