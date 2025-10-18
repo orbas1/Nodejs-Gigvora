@@ -192,3 +192,124 @@ export const affiliateSettingsBodySchema = z
   })
   .strip();
 
+const TWO_FACTOR_METHODS = ['email', 'app', 'sms', 'security_key', 'backup_codes'];
+const TWO_FACTOR_ROLES = ['admin', 'staff', 'company', 'freelancer', 'agency', 'mentor', 'headhunter', 'all'];
+const TWO_FACTOR_ENFORCEMENT = ['optional', 'recommended', 'required'];
+const TWO_FACTOR_BYPASS_STATUSES = ['pending', 'approved', 'denied', 'revoked'];
+
+const optionalLowerEnum = (values) =>
+  z
+    .preprocess((value) => {
+      if (value == null || value === '') {
+        return undefined;
+      }
+      return `${value}`.trim().toLowerCase();
+    }, z.enum(values))
+    .optional();
+
+const optionalDateTime = z.preprocess((value) => {
+  if (value == null || value === '') {
+    return undefined;
+  }
+  if (value instanceof Date) {
+    return value;
+  }
+  const parsed = Date.parse(`${value}`);
+  if (Number.isNaN(parsed)) {
+    return value;
+  }
+  return new Date(parsed);
+}, z.date().optional());
+
+const twoFactorMethodsArray = optionalStringArray({ maxItemLength: 40 })
+  .transform((values) => values?.map((value) => value.toLowerCase()))
+  .refine(
+    (values) => !values || values.every((value) => TWO_FACTOR_METHODS.includes(value)),
+    `allowedMethods must be one of: ${TWO_FACTOR_METHODS.join(', ')}.`,
+  )
+  .refine((values) => !values || values.length > 0, 'allowedMethods must include at least one method.');
+
+const ipAllowlistArray = optionalStringArray({ maxItemLength: 120 }).transform((values) => values ?? undefined);
+
+export const adminTwoFactorOverviewQuerySchema = z
+  .object({
+    lookbackDays: optionalNumber({ min: 1, max: 365, precision: 0, integer: true }).transform((value) => value ?? undefined),
+  })
+  .strip();
+
+export const adminTwoFactorPolicyBodySchema = z
+  .object({
+    name: requiredTrimmedString({ max: 150 }),
+    description: optionalTrimmedString({ max: 2000 }),
+    appliesToRole: optionalLowerEnum(TWO_FACTOR_ROLES),
+    enforcementLevel: optionalLowerEnum(TWO_FACTOR_ENFORCEMENT),
+    allowedMethods: twoFactorMethodsArray,
+    fallbackCodes: optionalNumber({ min: 0, max: 20, precision: 0, integer: true }).transform((value) => value ?? undefined),
+    sessionDurationMinutes: optionalNumber({
+      min: 5,
+      max: 10_080,
+      precision: 0,
+      integer: true,
+    }).transform((value) => value ?? undefined),
+    requireForSensitiveActions: optionalBoolean(),
+    enforced: optionalBoolean(),
+    ipAllowlist: ipAllowlistArray,
+    notes: optionalTrimmedString({ max: 2000 }),
+  })
+  .strip();
+
+export const adminTwoFactorPolicyUpdateBodySchema = adminTwoFactorPolicyBodySchema.partial().strip();
+
+export const adminTwoFactorPolicyParamsSchema = z
+  .object({
+    policyId: requiredTrimmedString({ max: 160 }),
+  })
+  .strip();
+
+export const adminTwoFactorBypassBodySchema = z
+  .object({
+    userId: optionalNumber({ min: 1, precision: 0, integer: true }).transform((value) => value ?? undefined),
+    userEmail: optionalTrimmedString({ max: 255 }).transform((value) => value?.toLowerCase()),
+    reason: optionalTrimmedString({ max: 500 }),
+    notes: optionalTrimmedString({ max: 2000 }),
+    expiresAt: optionalDateTime,
+    status: optionalLowerEnum(TWO_FACTOR_BYPASS_STATUSES),
+  })
+  .strip()
+  .superRefine((data, ctx) => {
+    if (!data.userId && !data.userEmail) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Either userId or userEmail is required.',
+        path: ['userId'],
+      });
+    }
+  });
+
+export const adminTwoFactorBypassUpdateBodySchema = z
+  .object({
+    status: optionalLowerEnum(TWO_FACTOR_BYPASS_STATUSES),
+    expiresAt: optionalDateTime,
+    notes: optionalTrimmedString({ max: 2000 }),
+  })
+  .strip();
+
+export const adminTwoFactorBypassParamsSchema = z
+  .object({
+    bypassId: requiredTrimmedString({ max: 160 }),
+  })
+  .strip();
+
+export const adminTwoFactorEnrollmentParamsSchema = z
+  .object({
+    enrollmentId: requiredTrimmedString({ max: 160 }),
+  })
+  .strip();
+
+export const adminTwoFactorEnrollmentActionBodySchema = z
+  .object({
+    note: optionalTrimmedString({ max: 1000 }),
+    reason: optionalTrimmedString({ max: 1000 }),
+  })
+  .strip();
+

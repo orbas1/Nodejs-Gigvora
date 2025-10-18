@@ -8,6 +8,7 @@ import ConsentGovernancePanel from '../../components/admin/ConsentGovernancePane
 import RbacMatrixPanel from '../../components/admin/RbacMatrixPanel.jsx';
 import GigvoraAdsConsole from '../../components/ads/GigvoraAdsConsole.jsx';
 import AdminGroupManagementPanel from './admin/AdminGroupManagementPanel.jsx';
+import { ADMIN_MENU_SECTIONS } from './admin/menuSections.js';
 import useSession from '../../hooks/useSession.js';
 import useRuntimeHealthSnapshot from '../../hooks/useRuntimeHealthSnapshot.js';
 import useDomainGovernanceSummaries from '../../hooks/useDomainGovernanceSummaries.js';
@@ -15,110 +16,7 @@ import { fetchAdminDashboard } from '../../services/admin.js';
 import { fetchPlatformSettings, updatePlatformSettings } from '../../services/platformSettings.js';
 import { fetchAffiliateSettings, updateAffiliateSettings } from '../../services/affiliateSettings.js';
 
-const MENU_SECTIONS = [
-  {
-    label: 'Command modules',
-    items: [
-      {
-        name: 'Runtime health',
-        description: 'Service readiness, dependency posture, and rate-limit utilisation for the API perimeter.',
-        tags: ['ops', 'security'],
-        sectionId: 'admin-runtime-health',
-      },
-      {
-        name: 'Data governance',
-        description: 'PII inventory, retention policies, and audit cadence across bounded contexts.',
-        tags: ['compliance', 'data'],
-        sectionId: 'admin-domain-governance',
-      },
-      {
-        name: 'Member health',
-        description: 'Growth, activation, and readiness scores across the Gigvora network.',
-        tags: ['growth', 'activation'],
-      },
-      {
-        name: 'Financial governance',
-        description: 'Escrow flows, fee capture, and treasury risk posture.',
-        tags: ['finance'],
-      },
-      {
-        name: 'Risk & trust',
-        description: 'Dispute lifecycle, escalations, and marketplace safety monitoring.',
-        tags: ['compliance'],
-      },
-      {
-        name: 'Support operations',
-        description: 'Service desk load, SLAs, and sentiment guardrails.',
-      },
-      {
-        name: 'Engagement & comms',
-        description: 'Platform analytics, event telemetry, and notification delivery.',
-      },
-      {
-        name: 'Gigvora Ads',
-        description: 'Campaign coverage, targeting telemetry, and creative governance.',
-        tags: ['ads', 'monetisation'],
-        sectionId: 'gigvora-ads',
-      },
-      {
-        name: 'Launchpad performance',
-        description: 'Talent placements, interview runway, and employer demand.',
-      },
-    ],
-  },
-  {
-    label: 'Quick tools',
-    items: [
-      {
-        name: 'Data exports',
-        description: 'Pull CSV snapshots or schedule secure S3 drops.',
-        tags: ['csv', 'api'],
-      },
-      {
-        name: 'Incident response',
-        description: 'Runbooks for security, privacy, and marketplace outages.',
-      },
-      {
-        name: 'Audit center',
-        description: 'Trace admin actions, approvals, and configuration changes.',
-      },
-    ],
-  },
-  {
-    label: 'Configuration stack',
-      items: [
-        {
-          name: 'All platform settings',
-          description: 'Govern application defaults, commission policies, and feature gates.',
-          tags: ['settings'],
-          sectionId: 'admin-settings-overview',
-        },
-        {
-          name: 'Affiliate economics',
-          description: 'Tiered commissions, payout cadences, and partner compliance.',
-          tags: ['affiliate'],
-          sectionId: 'admin-affiliate-settings',
-        },
-        {
-          name: 'CMS controls',
-          description: 'Editorial workflow, restricted features, and monetisation toggles.',
-        sectionId: 'admin-settings-cms',
-      },
-      {
-        name: 'Environment & secrets',
-        description: 'Runtime environment, storage credentials, and database endpoints.',
-        sectionId: 'admin-settings-environment',
-        tags: ['ops'],
-      },
-      {
-        name: 'API & notifications',
-        description: 'REST endpoints, payment gateways, and outbound email security.',
-        sectionId: 'admin-settings-api',
-        tags: ['api'],
-      },
-    ],
-  },
-];
+const MENU_SECTIONS = ADMIN_MENU_SECTIONS;
 
 const GOVERNANCE_STATUS_STYLES = {
   approved: {
@@ -2323,6 +2221,12 @@ export default function AdminDashboardPage() {
             <p className="mt-4 text-xs text-slate-500">
               Align these requirements with your compliance team to ensure audit-ready payout processes.
             </p>
+            <Link
+              to="/dashboard/admin/security/two-factor"
+              className="mt-4 inline-flex items-center justify-center rounded-full border border-blue-200 px-4 py-2 text-xs font-semibold text-blue-600 transition hover:border-blue-300 hover:text-blue-700"
+            >
+              Open 2FA control centre
+            </Link>
           </div>
         </div>
       </div>

@@ -126,6 +126,11 @@ export { RbacPolicyAuditEvent } from './rbacPolicyAuditEvent.js';
 
 const PIPELINE_OWNER_TYPES = ['freelancer', 'agency', 'company'];
 const TWO_FACTOR_METHODS = ['email', 'app', 'sms'];
+const TWO_FACTOR_POLICY_ROLES = ['admin', 'staff', 'company', 'freelancer', 'agency', 'mentor', 'headhunter', 'all'];
+const TWO_FACTOR_ENFORCEMENT_LEVELS = ['optional', 'recommended', 'required'];
+const TWO_FACTOR_ENROLLMENT_METHODS = ['email', 'app', 'sms', 'security_key'];
+const TWO_FACTOR_ENROLLMENT_STATUSES = ['pending', 'active', 'revoked'];
+const TWO_FACTOR_BYPASS_STATUSES = ['pending', 'approved', 'denied', 'revoked'];
 const GIG_MEDIA_TYPES = ['image', 'video', 'embed', 'document'];
 const GIG_PREVIEW_DEVICE_TYPES = ['desktop', 'tablet', 'mobile'];
 const FEATURE_FLAG_ROLLOUT_TYPES = ['global', 'percentage', 'cohort'];
@@ -5670,6 +5675,109 @@ export const TwoFactorToken = sequelize.define(
     indexes: [
       { fields: ['email'] },
       { fields: ['expiresAt'] },
+    ],
+  },
+);
+
+export const TwoFactorPolicy = sequelize.define(
+  'TwoFactorPolicy',
+  {
+    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    name: { type: DataTypes.STRING(150), allowNull: false, unique: true },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    appliesToRole: { type: DataTypes.ENUM(...TWO_FACTOR_POLICY_ROLES), allowNull: false, defaultValue: 'admin' },
+    enforcementLevel: { type: DataTypes.ENUM(...TWO_FACTOR_ENFORCEMENT_LEVELS), allowNull: false, defaultValue: 'required' },
+    enforced: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    allowedMethods: { type: jsonType, allowNull: false, defaultValue: [] },
+    fallbackCodes: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 5 },
+    sessionDurationMinutes: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1440 },
+    requireForSensitiveActions: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    ipAllowlist: { type: jsonType, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    createdBy: { type: DataTypes.INTEGER, allowNull: true },
+    updatedBy: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  {
+    tableName: 'two_factor_policies',
+    timestamps: true,
+    indexes: [
+      { fields: ['appliesToRole'] },
+      { fields: ['enforcementLevel'] },
+      { fields: ['enforced'] },
+    ],
+  },
+);
+
+export const TwoFactorEnrollment = sequelize.define(
+  'TwoFactorEnrollment',
+  {
+    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    label: { type: DataTypes.STRING(120), allowNull: true },
+    method: { type: DataTypes.ENUM(...TWO_FACTOR_ENROLLMENT_METHODS), allowNull: false, defaultValue: 'app' },
+    status: { type: DataTypes.ENUM(...TWO_FACTOR_ENROLLMENT_STATUSES), allowNull: false, defaultValue: 'pending' },
+    metadata: { type: jsonType, allowNull: true },
+    lastUsedAt: { type: DataTypes.DATE, allowNull: true },
+    activatedAt: { type: DataTypes.DATE, allowNull: true },
+    createdBy: { type: DataTypes.INTEGER, allowNull: true },
+    reviewedBy: { type: DataTypes.INTEGER, allowNull: true },
+    reviewedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'two_factor_enrollments',
+    timestamps: true,
+    indexes: [
+      { fields: ['userId'] },
+      { fields: ['status'] },
+      { fields: ['method'] },
+    ],
+  },
+);
+
+export const TwoFactorBypass = sequelize.define(
+  'TwoFactorBypass',
+  {
+    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    requestedBy: { type: DataTypes.INTEGER, allowNull: true },
+    approvedBy: { type: DataTypes.INTEGER, allowNull: true },
+    status: { type: DataTypes.ENUM(...TWO_FACTOR_BYPASS_STATUSES), allowNull: false, defaultValue: 'pending' },
+    reason: { type: DataTypes.STRING(500), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    expiresAt: { type: DataTypes.DATE, allowNull: true },
+    issuedAt: { type: DataTypes.DATE, allowNull: true },
+    resolvedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'two_factor_bypasses',
+    timestamps: true,
+    indexes: [
+      { fields: ['userId'] },
+      { fields: ['status'] },
+      { fields: ['expiresAt'] },
+    ],
+  },
+);
+
+export const TwoFactorAuditLog = sequelize.define(
+  'TwoFactorAuditLog',
+  {
+    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    actorId: { type: DataTypes.INTEGER, allowNull: true },
+    action: { type: DataTypes.STRING(120), allowNull: false },
+    targetType: { type: DataTypes.STRING(120), allowNull: true },
+    targetId: { type: DataTypes.STRING(120), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    notes: { type: DataTypes.STRING(500), allowNull: true },
+  },
+  {
+    tableName: 'two_factor_audit_logs',
+    timestamps: true,
+    updatedAt: false,
+    indexes: [
+      { fields: ['action'] },
+      { fields: ['targetType'] },
+      { fields: ['createdAt'] },
     ],
   },
 );
@@ -14163,6 +14271,28 @@ User.hasMany(CorporateVerification, { foreignKey: 'userId', as: 'corporateVerifi
 User.hasMany(CorporateVerification, { foreignKey: 'reviewerId', as: 'reviewedCorporateVerifications' });
 
 User.hasMany(UserLoginAudit, { foreignKey: 'userId', as: 'loginAudits', onDelete: 'CASCADE' });
+User.hasMany(TwoFactorEnrollment, { foreignKey: 'userId', as: 'twoFactorEnrollments' });
+User.hasMany(TwoFactorEnrollment, { foreignKey: 'createdBy', as: 'twoFactorEnrollmentsCreated' });
+User.hasMany(TwoFactorEnrollment, { foreignKey: 'reviewedBy', as: 'twoFactorEnrollmentsReviewed' });
+User.hasMany(TwoFactorBypass, { foreignKey: 'userId', as: 'twoFactorBypasses' });
+User.hasMany(TwoFactorBypass, { foreignKey: 'requestedBy', as: 'twoFactorBypassesRequested' });
+User.hasMany(TwoFactorBypass, { foreignKey: 'approvedBy', as: 'twoFactorBypassesApproved' });
+User.hasMany(TwoFactorPolicy, { foreignKey: 'createdBy', as: 'twoFactorPoliciesCreated' });
+User.hasMany(TwoFactorPolicy, { foreignKey: 'updatedBy', as: 'twoFactorPoliciesUpdated' });
+User.hasMany(TwoFactorAuditLog, { foreignKey: 'actorId', as: 'twoFactorAuditEvents' });
+
+TwoFactorEnrollment.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+TwoFactorEnrollment.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+TwoFactorEnrollment.belongsTo(User, { foreignKey: 'reviewedBy', as: 'reviewer' });
+
+TwoFactorBypass.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+TwoFactorBypass.belongsTo(User, { foreignKey: 'requestedBy', as: 'requester' });
+TwoFactorBypass.belongsTo(User, { foreignKey: 'approvedBy', as: 'approver' });
+
+TwoFactorPolicy.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+TwoFactorPolicy.belongsTo(User, { foreignKey: 'updatedBy', as: 'updater' });
+
+TwoFactorAuditLog.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
 User.hasMany(UserConsent, { foreignKey: 'userId', as: 'consents', onDelete: 'CASCADE' });
 UserConsent.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 UserLoginAudit.belongsTo(User, { foreignKey: 'userId', as: 'user' });
