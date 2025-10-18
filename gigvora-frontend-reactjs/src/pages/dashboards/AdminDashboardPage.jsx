@@ -14,6 +14,7 @@ import useDomainGovernanceSummaries from '../../hooks/useDomainGovernanceSummari
 import { fetchAdminDashboard } from '../../services/admin.js';
 import { fetchPlatformSettings, updatePlatformSettings } from '../../services/platformSettings.js';
 import { fetchAffiliateSettings, updateAffiliateSettings } from '../../services/affiliateSettings.js';
+import { ADMIN_MENU_SECTIONS } from '../../constants/adminMenuSections.js';
 
 const MENU_SECTIONS = [
   {
@@ -2870,7 +2871,7 @@ export default function AdminDashboardPage() {
         title="Gigvora Admin Control Tower"
         subtitle="Enterprise governance & compliance"
         description="Centralize every lever that powers Gigvora—from member growth and financial operations to trust, support, analytics, and the launchpad."
-        menuSections={MENU_SECTIONS}
+        menuSections={ADMIN_MENU_SECTIONS}
         sections={[]}
         profile={profile}
         availableDashboards={[
@@ -2916,7 +2917,7 @@ export default function AdminDashboardPage() {
       title="Gigvora Admin Control Tower"
       subtitle="Enterprise governance & compliance"
       description="Centralize every lever that powers Gigvora—from member growth and financial operations to trust, support, analytics, and the launchpad." 
-      menuSections={MENU_SECTIONS}
+      menuSections={ADMIN_MENU_SECTIONS}
       sections={[]}
       profile={profile}
       availableDashboards={[

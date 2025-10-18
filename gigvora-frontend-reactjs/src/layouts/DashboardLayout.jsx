@@ -450,8 +450,11 @@ export default function DashboardLayout({
     }
 
     if (item.href) {
-      if (item.href.startsWith('http')) {
+      if (/^https?:\/\//i.test(item.href)) {
         window.open(item.href, item.target ?? '_blank', 'noreferrer');
+      } else if (item.href.startsWith('/')) {
+        navigate(item.href);
+        setMobileOpen(false);
         setMobileOpen(false);
         return;
       }

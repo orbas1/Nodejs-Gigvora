@@ -95,6 +95,7 @@ import LaunchpadOperationsPage from './pages/dashboards/LaunchpadOperationsPage.
 import AdminDashboardPage from './pages/dashboards/AdminDashboardPage.jsx';
 import AdminAdsSettingsPage from './pages/dashboards/admin/AdminAdsSettingsPage.jsx';
 import AdminBlogManagementPage from './pages/admin/AdminBlogManagementPage.jsx';
+import AdminSeoSettingsPage from './pages/dashboards/admin/AdminSeoSettingsPage.jsx';
 import AdminProfileManagementPage from './pages/admin/AdminProfileManagementPage.jsx';
 import FreelancerReviewsPreviewPage from './pages/previews/FreelancerReviewsPreviewPage.jsx';
 import ProtectedRoute from './components/routing/ProtectedRoute.jsx';
@@ -697,6 +698,10 @@ export default function App() {
       />
 
       <Route
+        path="dashboard/admin/seo"
+        element={
+          <RequireRole allowedRoles={['admin']}>
+            <AdminSeoSettingsPage />
         path="dashboard/admin/profiles"
         element={
           <RequireRole allowedRoles={['admin']}>

@@ -9,6 +9,7 @@ import {
   adminDashboardQuerySchema,
   affiliateSettingsBodySchema,
   platformSettingsBodySchema,
+  seoSettingsBodySchema,
 } from '../validation/schemas/adminSchemas.js';
 import adminRuntimeRoutes from './adminRuntimeRoutes.js';
 import adminConsentRoutes from './adminConsentRoutes.js';
@@ -36,6 +37,12 @@ router.put(
   '/affiliate-settings',
   validateRequest({ body: affiliateSettingsBodySchema }),
   asyncHandler(adminController.persistAffiliateSettings),
+);
+router.get('/seo-settings', asyncHandler(adminController.fetchSeoSettings));
+router.put(
+  '/seo-settings',
+  validateRequest({ body: seoSettingsBodySchema }),
+  asyncHandler(adminController.persistSeoSettings),
 );
 
 router.use('/ads/coupons', adminAdRoutes);
