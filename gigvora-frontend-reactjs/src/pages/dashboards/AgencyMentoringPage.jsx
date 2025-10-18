@@ -1,26 +1,24 @@
-import useSession from '../../hooks/useSession.js';
-import MentoringWorkspace from '../../components/dashboard/agency/mentoring/MentoringWorkspace.jsx';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 
-function resolveWorkspace(session) {
-  if (!session) {
-    return { id: null, slug: null };
-  }
-  const workspace = session.workspace || session.agencyWorkspace || null;
-  if (workspace && typeof workspace === 'object') {
-    return {
-      id: workspace.id ?? null,
-      slug: workspace.slug ?? null,
-    };
-  }
-  return {
-    id: session.workspaceId ?? null,
-    slug: session.workspaceSlug ?? null,
-  };
-}
+const SECTIONS = [
+  {
+    id: 'overview',
+    title: 'Agency Mentoring',
+    description: 'This dashboard view is being prepared.',
+  },
+];
 
 export default function AgencyMentoringPage() {
-  const { session } = useSession();
-  const workspace = resolveWorkspace(session);
-
-  return <MentoringWorkspace workspaceId={workspace.id} workspaceSlug={workspace.slug} />;
+  return (
+    <DashboardLayout
+      currentDashboard="dashboard"
+      title="Agency Mentoring"
+      description="Stay tuned for a fully interactive experience."
+      sections={SECTIONS}
+    >
+      <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-6 text-slate-600 shadow-sm">
+        <p className="text-sm">We're building out the agency mentoring dashboard. Key actions and insights will appear here soon.</p>
+      </div>
+    </DashboardLayout>
+  );
 }

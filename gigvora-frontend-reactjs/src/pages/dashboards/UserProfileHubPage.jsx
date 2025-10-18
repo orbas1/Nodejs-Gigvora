@@ -1,78 +1,23 @@
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
-import useCachedResource from '../../hooks/useCachedResource.js';
-import useSession from '../../hooks/useSession.js';
-import DataStatus from '../../components/DataStatus.jsx';
-import ProfileHubWorkspace from '../../components/profileHub/workspace/ProfileHubWorkspace.jsx';
-import { fetchProfile } from '../../services/profile.js';
-import { fetchProfileHub } from '../../services/profileHub.js';
 
-const MENU_SECTIONS = [
+const SECTIONS = [
   {
-    label: 'Profile',
-    items: [
-      { id: 'profile-hub', name: 'Workspace', sectionId: 'profile-hub', href: '/dashboard/user/profile' },
-    ],
+    id: 'overview',
+    title: 'User Profile Hub',
+    description: 'This dashboard view is being prepared.',
   },
 ];
 
-const AVAILABLE_DASHBOARDS = ['user', 'freelancer', 'agency', 'company', 'headhunter'];
-
-function resolveUserId(session) {
-  if (!session) {
-    return null;
-  }
-  return session.userId ?? session.user?.id ?? session.id ?? null;
-}
-
 export default function UserProfileHubPage() {
-  const { session, isAuthenticated } = useSession();
-  const userId = resolveUserId(session);
-  const enabled = Boolean(isAuthenticated && userId);
-
-  const { data, loading, error, fromCache, lastUpdated, refresh } = useCachedResource(
-    userId ? `profile-hub:workspace:${userId}` : 'profile-hub:workspace:none',
-    async ({ signal }) => {
-      if (!userId) {
-        throw new Error('A userId is required.');
-      }
-      const [profileOverview, profileHub] = await Promise.all([
-        fetchProfile(userId, { signal, force: true }),
-        fetchProfileHub(userId, { signal, fresh: true }),
-      ]);
-      return { profileOverview, profileHub };
-    },
-    { dependencies: [userId], enabled },
-  );
-
-  const profileOverview = data?.profileOverview ?? null;
-  const profileHub = data?.profileHub ?? null;
-
   return (
     <DashboardLayout
-      currentDashboard="user"
-      title="Profile Hub"
-      subtitle="Workspace"
-      menuSections={MENU_SECTIONS}
-      sections={[]}
-      availableDashboards={AVAILABLE_DASHBOARDS}
-      activeMenuItem="profile-hub"
+      currentDashboard="dashboard"
+      title="User Profile Hub"
+      description="Stay tuned for a fully interactive experience."
+      sections={SECTIONS}
     >
-      <div className="space-y-6">
-        <DataStatus
-          loading={loading}
-          error={error?.message}
-          fromCache={fromCache}
-          lastUpdated={lastUpdated}
-          onRetry={() => refresh({ force: true })}
-        />
-        {profileOverview && profileHub ? (
-          <ProfileHubWorkspace
-            userId={userId}
-            profileOverview={profileOverview}
-            profileHub={profileHub}
-            onRefresh={() => refresh({ force: true })}
-          />
-        ) : null}
+      <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-6 text-slate-600 shadow-sm">
+        <p className="text-sm">We're building out the user profile hub dashboard. Key actions and insights will appear here soon.</p>
       </div>
     </DashboardLayout>
   );

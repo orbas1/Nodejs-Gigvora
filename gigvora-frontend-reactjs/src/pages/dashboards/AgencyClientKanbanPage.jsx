@@ -1,83 +1,24 @@
-import { useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
-import useSession from '../../hooks/useSession.js';
-import useAgencyClientKanban from '../../hooks/useAgencyClientKanban.js';
-import ClientKanbanBoard from '../../components/agency/clientKanban/ClientKanbanBoard.jsx';
-import { AGENCY_DASHBOARD_MENU_SECTIONS } from '../../constants/agencyDashboardMenu.js';
+
+const SECTIONS = [
+  {
+    id: 'overview',
+    title: 'Agency Client Kanban',
+    description: 'This dashboard view is being prepared.',
+  },
+];
 
 export default function AgencyClientKanbanPage() {
-  const { session } = useSession();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const workspaceParam = searchParams.get('workspaceId');
-  const workspaceId = useMemo(() => {
-    if (!workspaceParam || !Number.isFinite(Number.parseInt(workspaceParam, 10))) {
-      return null;
-    }
-    return Number.parseInt(workspaceParam, 10);
-  }, [workspaceParam]);
-
-  const { data, loading, error, actions } = useAgencyClientKanban({ workspaceId, enabled: true });
-
-  const handleWorkspaceChange = (event) => {
-    const value = event.target.value;
-    const next = new URLSearchParams(searchParams);
-    if (value) {
-      next.set('workspaceId', value);
-    } else {
-      next.delete('workspaceId');
-    }
-    setSearchParams(next, { replace: true });
-  };
-
-  const workspaceOptions = useMemo(() => {
-    const memberships = Array.isArray(session?.memberships) ? session.memberships : [];
-    const workspaces = memberships
-      .map((membership) => {
-        if (membership && typeof membership === 'object') {
-          return {
-            id: membership.id ?? membership.workspaceId ?? null,
-            label: membership.name ?? membership.label ?? membership.slug ?? 'Workspace',
-          };
-        }
-        return null;
-      })
-      .filter((item) => item?.id);
-    return workspaces;
-  }, [session?.memberships]);
-
   return (
     <DashboardLayout
-      currentDashboard="agency"
-      title="Client Kanban"
-      subtitle="Run delivery in real time."
-      description={null}
-      menuSections={AGENCY_DASHBOARD_MENU_SECTIONS}
-      activeMenuItem="agency-client-kanban"
+      currentDashboard="dashboard"
+      title="Agency Client Kanban"
+      description="Stay tuned for a fully interactive experience."
+      sections={SECTIONS}
     >
-      {workspaceOptions.length ? (
-        <div className="flex flex-wrap items-center gap-3 rounded-3xl border border-slate-200 bg-white px-5 py-3 shadow-sm">
-          <label className="text-xs font-semibold text-slate-500" htmlFor="workspace-select">
-            Workspace
-          </label>
-          <select
-            id="workspace-select"
-            value={workspaceId ?? ''}
-            onChange={handleWorkspaceChange}
-            className="min-w-[200px] rounded-full border border-slate-200 px-3 py-1.5 text-sm text-slate-900 shadow-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-          >
-            <option value="">Primary agency workspace</option>
-            {workspaceOptions.map((workspace) => (
-              <option key={workspace.id} value={workspace.id}>
-                {workspace.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      ) : null}
-
-      <ClientKanbanBoard data={data} loading={loading} error={error} actions={actions} />
+      <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-6 text-slate-600 shadow-sm">
+        <p className="text-sm">We're building out the agency client kanban dashboard. Key actions and insights will appear here soon.</p>
+      </div>
     </DashboardLayout>
   );
 }
-

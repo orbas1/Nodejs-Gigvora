@@ -52,7 +52,10 @@ export async function fetchThreadMessages(threadId, { page = 1, pageSize = 50, i
   return apiClient.get(`/messaging/threads/${threadId}/messages`, { params });
 }
 
-export async function sendMessage(threadId, { userId, messageType = 'text', body, attachments = [], metadata = {} } = {}) {
+export async function sendMessage(
+  threadId,
+  { userId, messageType = 'text', body, attachments = [], metadata = {} } = {},
+) {
   return apiClient.post(`/messaging/threads/${threadId}/messages`, {
     userId,
     messageType,
@@ -87,11 +90,11 @@ export async function markThreadRead(threadId, { userId } = {}) {
   });
 }
 
-export async function updateThreadState(threadId, { state } = {}) {
+export async function updateThreadState(threadId, { state, userId } = {}) {
   if (!state) {
     throw new Error('state is required to update a thread.');
   }
-  return apiClient.post(`/messaging/threads/${threadId}/state`, { state });
+  return apiClient.post(`/messaging/threads/${threadId}/state`, { state, userId });
 }
 
 export async function muteThread(threadId, { userId, until } = {}) {
@@ -101,16 +104,10 @@ export async function muteThread(threadId, { userId, until } = {}) {
   });
 }
 
-export async function escalateThread(threadId, { userId, reason, priority = 'medium', metadata = {} } = {}) {
-export async function updateThreadState(threadId, { state, userId } = {}) {
-  return apiClient.post(`/messaging/threads/${threadId}/state`, { state, userId });
-}
-
-export async function muteThread(threadId, { userId, until } = {}) {
-  return apiClient.post(`/messaging/threads/${threadId}/mute`, { userId, until });
-}
-
-export async function escalateThread(threadId, { userId, reason, priority, metadata } = {}) {
+export async function escalateThread(
+  threadId,
+  { userId, reason, priority = 'medium', metadata = {} } = {},
+) {
   return apiClient.post(`/messaging/threads/${threadId}/escalate`, {
     userId,
     reason,
@@ -119,11 +116,10 @@ export async function escalateThread(threadId, { userId, reason, priority, metad
   });
 }
 
-export async function assignSupportAgent(
+export async function assignSupport(
   threadId,
   { userId, agentId, assignedBy, notifyAgent = true } = {},
 ) {
-export async function assignSupport(threadId, { userId, agentId, assignedBy, notifyAgent } = {}) {
   return apiClient.post(`/messaging/threads/${threadId}/assign-support`, {
     userId,
     agentId,
@@ -132,11 +128,14 @@ export async function assignSupport(threadId, { userId, agentId, assignedBy, not
   });
 }
 
+export async function assignSupportAgent(threadId, params = {}) {
+  return assignSupport(threadId, params);
+}
+
 export async function updateSupportStatus(
   threadId,
   { userId, status, resolutionSummary, metadata = {} } = {},
 ) {
-export async function updateSupportStatus(threadId, { userId, status, resolutionSummary, metadata } = {}) {
   return apiClient.post(`/messaging/threads/${threadId}/support-status`, {
     userId,
     status,
@@ -145,17 +144,10 @@ export async function updateSupportStatus(threadId, { userId, status, resolution
   });
 }
 
-export async function assignSupportAgent(threadId, { userId, agentId, notifyAgent = true } = {}) {
-  return apiClient.post(`/messaging/threads/${threadId}/assign-support`, {
-    userId,
-    agentId,
-    notifyAgent,
-  });
-}
-
-export async function updateThreadState(threadId, { state } = {}) {
-  return apiClient.post(`/messaging/threads/${threadId}/state`, { state });
-export async function updateThreadSettings(threadId, { userId, subject, channelType, metadataPatch, metadata } = {}) {
+export async function updateThreadSettings(
+  threadId,
+  { userId, subject, channelType, metadataPatch, metadata } = {},
+) {
   return apiClient.post(`/messaging/threads/${threadId}/settings`, {
     userId,
     subject,
@@ -164,7 +156,7 @@ export async function updateThreadSettings(threadId, { userId, subject, channelT
   });
 }
 
-export async function addThreadParticipants(threadId, { userId, participantIds } = {}) {
+export async function addThreadParticipants(threadId, { userId, participantIds = [] } = {}) {
   return apiClient.post(`/messaging/threads/${threadId}/participants`, {
     userId,
     participantIds,
@@ -185,17 +177,11 @@ export default {
   createThread,
   createCallSession,
   markThreadRead,
-  updateSupportStatus,
-  assignSupportAgent,
-  updateThreadState,
   updateThreadState,
   muteThread,
   escalateThread,
   assignSupport,
-  updateSupportStatus,
   assignSupportAgent,
-  updateSupportStatus,
-  assignSupport,
   updateSupportStatus,
   updateThreadSettings,
   addThreadParticipants,

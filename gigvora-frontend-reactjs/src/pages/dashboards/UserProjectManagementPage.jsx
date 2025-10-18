@@ -1,86 +1,24 @@
-import { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
-import useSession from '../../hooks/useSession.js';
-import DataStatus from '../../components/DataStatus.jsx';
-import UserProjectsWorkspace from './user/projects/UserProjectsWorkspace.jsx';
 
-const AVAILABLE_DASHBOARDS = [
-  { id: 'user', label: 'User', href: '/dashboard/user' },
-  { id: 'freelancer', label: 'Freelancer', href: '/dashboard/freelancer' },
-  { id: 'agency', label: 'Agency', href: '/dashboard/agency' },
-  { id: 'company', label: 'Company', href: '/dashboard/company' },
-  { id: 'headhunter', label: 'Headhunter', href: '/dashboard/headhunter' },
-];
-
-const MENU_SECTIONS = [
+const SECTIONS = [
   {
-    label: 'Projects',
-    items: [
-      { id: 'overview', name: 'Overview', sectionId: 'user-projects-overview' },
-      { id: 'board', name: 'Board', sectionId: 'user-projects-board' },
-      { id: 'gigs', name: 'Gigs', sectionId: 'user-projects-operations' },
-    ],
+    id: 'overview',
+    title: 'User Project Management',
+    description: 'This dashboard view is being prepared.',
   },
 ];
 
-function resolveUserId(session) {
-  if (!session) {
-    return null;
-  }
-  return session.userId ?? session.user?.id ?? session.id ?? null;
-}
-
 export default function UserProjectManagementPage() {
-  const navigate = useNavigate();
-  const { session, isAuthenticated } = useSession();
-  const userId = useMemo(() => resolveUserId(session), [session]);
-
-  const handleMenuSelect = (itemId, item) => {
-    if (item?.href) {
-      navigate(item.href);
-      return;
-    }
-    const targetId = item?.sectionId ?? itemId;
-    if (!targetId || typeof document === 'undefined') {
-      return;
-    }
-    const element = document.getElementById(targetId);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  };
-
-  if (!isAuthenticated || !userId) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10">
-        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 text-center shadow-sm">
-          <DataStatus
-            loading={false}
-            error={{ message: 'Sign in to manage your projects.' }}
-            fromCache={false}
-            onRefresh={null}
-          />
-        </div>
-      </main>
-    );
-  }
-
   return (
     <DashboardLayout
-      currentDashboard="user"
-      title="Projects"
-      subtitle="Command centre for every build"
-      description="Launch, coordinate, and review gigs without leaving the dashboard."
-      menuSections={MENU_SECTIONS}
-      availableDashboards={AVAILABLE_DASHBOARDS}
-      activeMenuItem="overview"
-      onMenuItemSelect={handleMenuSelect}
+      currentDashboard="dashboard"
+      title="User Project Management"
+      description="Stay tuned for a fully interactive experience."
+      sections={SECTIONS}
     >
-      <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <UserProjectsWorkspace userId={userId} session={session} />
+      <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-6 text-slate-600 shadow-sm">
+        <p className="text-sm">We're building out the user project management dashboard. Key actions and insights will appear here soon.</p>
       </div>
     </DashboardLayout>
   );
 }
-

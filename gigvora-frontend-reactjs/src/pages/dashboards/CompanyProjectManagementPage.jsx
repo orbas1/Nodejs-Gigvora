@@ -1,69 +1,24 @@
-import { useMemo } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
-import ProjectGigManagementContainer from '../../components/projectGigManagement/ProjectGigManagementContainer.jsx';
-import useSession from '../../hooks/useSession.js';
 
-const MENU_SECTIONS = [
+const SECTIONS = [
   {
-    label: 'Plan',
-    items: [
-      { name: 'Templates', sectionId: 'projects-create' },
-      { name: 'Open', sectionId: 'projects-open' },
-      { name: 'Closed', sectionId: 'projects-closed' },
-    ],
-  },
-  {
-    label: 'Run',
-    items: [
-      { name: 'Board', sectionId: 'projects-board' },
-      { name: 'Assets', sectionId: 'projects-assets' },
-      { name: 'Vendors', sectionId: 'projects-vendors' },
-      { name: 'Stories', sectionId: 'projects-stories' },
-    ],
+    id: 'overview',
+    title: 'Company Project Management',
+    description: 'This dashboard view is being prepared.',
   },
 ];
 
-const AVAILABLE_DASHBOARDS = ['company', 'agency', 'user', 'freelancer'];
-
 export default function CompanyProjectManagementPage() {
-  const { session } = useSession();
-  const userId = useMemo(() => {
-    const parsed = Number.parseInt(session?.id, 10);
-    return Number.isFinite(parsed) ? parsed : null;
-  }, [session?.id]);
-
-  const sections = useMemo(
-    () => [
-      { id: 'projects-create', label: 'Templates' },
-      { id: 'projects-open', label: 'Open' },
-      { id: 'projects-closed', label: 'Closed' },
-      { id: 'projects-board', label: 'Board' },
-      { id: 'projects-assets', label: 'Assets' },
-      { id: 'projects-vendors', label: 'Vendors' },
-      { id: 'projects-stories', label: 'Stories' },
-    ],
-    [],
-  );
-
   return (
     <DashboardLayout
-      currentDashboard="company"
-      title="Project hub"
-      subtitle="Create, track, and close company projects in one view."
-      menuSections={MENU_SECTIONS}
-      sections={sections}
-      availableDashboards={AVAILABLE_DASHBOARDS}
+      currentDashboard="dashboard"
+      title="Company Project Management"
+      description="Stay tuned for a fully interactive experience."
+      sections={SECTIONS}
     >
-      <div className="mx-auto w-full max-w-6xl space-y-12 px-6 py-10">
-        {userId ? (
-          <ProjectGigManagementContainer userId={userId} />
-        ) : (
-          <div className="rounded-3xl border border-rose-200 bg-rose-50/80 p-6 text-sm text-rose-700">
-            We could not resolve your workspace owner. Refresh the page or sign in again to manage projects.
-          </div>
-        )}
+      <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-6 text-slate-600 shadow-sm">
+        <p className="text-sm">We're building out the company project management dashboard. Key actions and insights will appear here soon.</p>
       </div>
     </DashboardLayout>
   );
 }
-

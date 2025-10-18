@@ -1,22 +1,24 @@
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
-import useSession from '../../hooks/useSession.js';
-import { MENU_GROUPS, AVAILABLE_DASHBOARDS } from './freelancer/menuConfig.js';
-import PlannerWorkspace from './freelancer/planner/PlannerWorkspace.jsx';
+
+const SECTIONS = [
+  {
+    id: 'overview',
+    title: 'Freelancer Planner',
+    description: 'This dashboard view is being prepared.',
+  },
+];
 
 export default function FreelancerPlannerPage() {
-  const { session } = useSession();
-
   return (
     <DashboardLayout
-      currentDashboard="freelancer"
-      title="Planner"
-      subtitle="Unified schedule hub"
-      description="Track gigs, interviews, mentorship, and volunteering in one focused workspace."
-      menuSections={MENU_GROUPS}
-      availableDashboards={AVAILABLE_DASHBOARDS}
-      activeMenuItem="planning"
+      currentDashboard="dashboard"
+      title="Freelancer Planner"
+      description="Stay tuned for a fully interactive experience."
+      sections={SECTIONS}
     >
-      <PlannerWorkspace session={session} />
+      <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-6 text-slate-600 shadow-sm">
+        <p className="text-sm">We're building out the freelancer planner dashboard. Key actions and insights will appear here soon.</p>
+      </div>
     </DashboardLayout>
   );
 }
