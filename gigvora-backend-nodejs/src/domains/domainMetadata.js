@@ -44,6 +44,11 @@ export const domainMetadata = {
         retention: '6 years',
         justification: 'Identity evidence retained for Know Your Customer regulations.',
       },
+      IdentityVerificationEvent: {
+        fields: ['previousStatus', 'newStatus', 'notes', 'metadata'],
+        retention: '6 years',
+        justification: 'Audit trail of identity reviews maintained for regulatory reporting.',
+      },
       CorporateVerification: {
         fields: ['companyNumber', 'registrationCountry', 'complianceNotes'],
         retention: '6 years',
@@ -54,6 +59,26 @@ export const domainMetadata = {
         retention: '30 days',
         justification: 'Temporary cache to rate limit OTP delivery.',
       },
+      TwoFactorPolicy: {
+        fields: ['allowedMethods', 'ipAllowlist', 'notes'],
+        retention: 'Policy lifetime + 3 years',
+        justification: 'Records MFA enforcement rules for compliance and incident response audits.',
+      },
+      TwoFactorEnrollment: {
+        fields: ['metadata'],
+        retention: 'Device lifetime + 12 months',
+        justification: 'Proof of possession for hardware tokens and authenticator approvals.',
+      },
+      TwoFactorBypass: {
+        fields: ['reason', 'notes'],
+        retention: '90 days',
+        justification: 'Temporary MFA exceptions tracked for fraud and abuse investigations.',
+      },
+      TwoFactorAuditLog: {
+        fields: ['metadata', 'notes'],
+        retention: '3 years',
+        justification: 'Supports change-management evidence for identity controls.',
+      },
     },
     fieldDescriptions: {
       User: {
@@ -62,6 +87,17 @@ export const domainMetadata = {
       },
       IdentityVerification: {
         complianceNotes: 'Analyst-supplied remediation notes recorded during manual verification.',
+      },
+      TwoFactorPolicy: {
+        ipAllowlist: 'Trusted CIDR ranges that may bypass additional challenges.',
+      },
+      TwoFactorEnrollment: {
+        metadata: 'Hardware attestation or context captured during device review.',
+      },
+      TwoFactorBypass: {
+        reason: 'Business justification captured when issuing temporary MFA bypass tokens.',
+      IdentityVerificationEvent: {
+        metadata: 'Structured payload with reviewer assignments, file references, and automation signals.',
       },
     },
   },
@@ -198,6 +234,21 @@ export const domainMetadata = {
         fields: ['reference', 'externalReference'],
         retention: 'Financial year + 10 years',
         justification: 'Ledger entries form the system of record for payouts and disputes.',
+      },
+      WalletFundingSource: {
+        fields: ['externalReference', 'lastFour', 'provider'],
+        retention: 'Financial year + 10 years',
+        justification: 'Funding source fingerprints are required for audit trails and consent revocation.',
+      },
+      WalletTransferRule: {
+        fields: ['name', 'metadata'],
+        retention: 'Active membership + 7 years',
+        justification: 'Automation policies demonstrate payout approvals during compliance reviews.',
+      },
+      WalletTransferRequest: {
+        fields: ['reference', 'notes'],
+        retention: 'Financial year + 10 years',
+        justification: 'Transfer requests underpin dispute resolution and tax evidence.',
       },
       EscrowAccount: {
         fields: ['providerEscrowId', 'status'],
