@@ -46,6 +46,12 @@ import { ADMIN_MENU_SECTIONS } from '../../constants/adminMenuSections.js';
 const MENU_SECTIONS = ADMIN_MENU_SECTIONS;
 const MENU_SECTIONS = [
   {
+    label: 'Dash',
+    items: [
+      { name: 'Ops', sectionId: 'admin-runtime-health' },
+      { name: 'Data', sectionId: 'admin-domain-governance' },
+      { name: 'Projects', href: '/dashboard/admin/projects' },
+      { name: 'Ads', sectionId: 'gigvora-ads' },
     label: 'Home',
     items: [
       { name: 'Start', sectionId: 'overview-home' },
@@ -149,8 +155,15 @@ const MENU_SECTIONS = [
     ],
   },
   {
-    label: 'Quick tools',
+    label: 'Config',
     items: [
+      { name: 'Settings', sectionId: 'admin-settings-overview' },
+      { name: 'Affiliates', sectionId: 'admin-affiliate-settings' },
+    ],
+  },
+  {
+    label: 'Tools',
+    items: [{ name: 'Blog', sectionId: 'admin-blog' }],
       {
         name: 'Inbox workspace',
         description: 'Manage escalations, labels, and assignments in the dedicated inbox.',
@@ -2075,6 +2088,36 @@ export default function AdminDashboardPage() {
     </div>
   );
 
+  const projectSummary = data?.projectManagement?.summary;
+  const projectSummaryCards = projectSummary
+    ? [
+        {
+          label: 'Projects',
+          value: formatNumber(projectSummary.totalProjects ?? 0),
+          caption: `${formatNumber(projectSummary.activeProjects ?? 0)} active`,
+          icon: UsersIcon,
+        },
+        {
+          label: 'At risk',
+          value: formatNumber(projectSummary.atRiskProjects ?? 0),
+          caption: `${formatNumber(projectSummary.completedProjects ?? 0)} completed`,
+          icon: ShieldCheckIcon,
+        },
+        {
+          label: 'Budget',
+          value: formatCurrency(projectSummary.budgetAllocated ?? 0),
+          caption: `Spent ${formatCurrency(projectSummary.budgetSpent ?? 0)}`,
+          icon: CurrencyDollarIcon,
+        },
+        {
+          label: 'Progress',
+          value: formatPercent(projectSummary.averageProgress ?? 0),
+          caption: 'Portfolio average',
+          icon: LifebuoyIcon,
+        },
+      ]
+    : [];
+
   const renderDashboardSections = data ? (
     <div className="space-y-10">
       <RuntimeTelemetryPanel
@@ -2091,7 +2134,29 @@ export default function AdminDashboardPage() {
       <ConsentGovernancePanel />
       <RbacMatrixPanel />
 
-      <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
+      <section id="admin-projects" className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Projects</h2>
+            <p className="mt-1 text-sm text-slate-600">Review health and jump into the workspace for full control.</p>
+          </div>
+          <Link
+            to="/dashboard/admin/projects"
+            className="inline-flex items-center justify-center rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
+          >
+            Open workspace
+          </Link>
+        </div>
+        {projectSummaryCards.length ? (
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {projectSummaryCards.map((card) => (
+              <SummaryCard key={card.label} {...card} />
+            ))}
+          </div>
+        ) : null}
+      </section>
+
+      <section id="admin-blog" className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Job post management</h2>

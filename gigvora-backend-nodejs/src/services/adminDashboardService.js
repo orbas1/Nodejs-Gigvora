@@ -21,6 +21,7 @@ import {
 import { getLaunchpadDashboard } from './launchpadService.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
 import { getAdDashboardSnapshot } from './adService.js';
+import { getProjectPortfolioSummary } from './adminProjectManagementService.js';
 import { getProfileOverview, updateProfile } from './profileService.js';
 import { getCurrentWeather } from './weatherService.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
@@ -254,6 +255,7 @@ export async function getAdminDashboardSnapshot(options = {}) {
       notificationStatusRows,
       criticalNotificationsCount,
       launchpadDashboard,
+      projectPortfolioSummary,
     ] = await Promise.all([
       User.findAll({
         attributes: ['userType', [fn('COUNT', col('id')), 'count']],
@@ -375,6 +377,7 @@ export async function getAdminDashboardSnapshot(options = {}) {
       }),
       Notification.count({ where: { priority: 'critical', status: { [Op.ne]: 'read' } } }),
       getLaunchpadDashboard(undefined, { lookbackDays: Math.max(lookbackDays, 60) }),
+      getProjectPortfolioSummary(),
     ]);
 
     const userBreakdown = ensureAllKeys(normaliseCounts(userBreakdownRows, 'userType'), [
@@ -539,6 +542,7 @@ export async function getAdminDashboardSnapshot(options = {}) {
         criticalOpen: parseInteger(criticalNotificationsCount),
       },
       launchpad: launchpadDashboard,
+      projectManagement: projectPortfolioSummary,
       ads,
       overview: adminOverview,
     };

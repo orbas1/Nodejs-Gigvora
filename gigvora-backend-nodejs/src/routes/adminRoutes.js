@@ -18,6 +18,7 @@ import {
 import adminRuntimeRoutes from './adminRuntimeRoutes.js';
 import adminConsentRoutes from './adminConsentRoutes.js';
 import adminRbacRoutes from './adminRbacRoutes.js';
+import adminProjectManagementRoutes from './adminProjectManagementRoutes.js';
 import adminMessagingRoutes from './adminMessagingRoutes.js';
 import adminJobPostRoutes from './adminJobPostRoutes.js';
 import adminJobApplicationRoutes from './adminJobApplicationRoutes.js';
@@ -93,6 +94,7 @@ router.use('/ads/settings', adminAdSettingsRoutes);
 router.use('/runtime', adminRuntimeRoutes);
 router.use('/governance/consents', adminConsentRoutes);
 router.use('/governance/rbac', adminRbacRoutes);
+router.use('/project-management', adminProjectManagementRoutes);
 router.use('/messaging', adminMessagingRoutes);
 router.use('/jobs', adminJobPostRoutes);
 router.use('/job-applications', adminJobApplicationRoutes);
