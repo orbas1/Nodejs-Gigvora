@@ -70,6 +70,7 @@ import CompanyNetworkingHubPage from './pages/networking/CompanyNetworkingHubPag
 import NetworkingSessionsPage from './pages/networking/NetworkingSessionsPage.jsx';
 import CompanyProjectManagementPage from './pages/dashboards/CompanyProjectManagementPage.jsx';
 import CompanyDisputeManagementPage from './pages/dashboards/company/CompanyDisputeManagementPage.jsx';
+import CompanyEscrowManagementPage from './pages/dashboards/CompanyEscrowManagementPage.jsx';
 import AgencyDashboardPage from './pages/dashboards/AgencyDashboardPage.jsx';
 import AgencyCalendarPage from './pages/dashboards/agency/AgencyCalendarPage.jsx';
 import AgencyEventManagementPage from './pages/dashboards/agency/AgencyEventManagementPage.jsx';
@@ -96,7 +97,6 @@ import AdminDashboardPage from './pages/dashboards/AdminDashboardPage.jsx';
 import AdminFinancialManagementPage from './pages/dashboards/admin/AdminFinancialManagementPage.jsx';
 import AdminInterviewManagementPage from './pages/dashboards/AdminInterviewManagementPage.jsx';
 import AdminInboxPage from './pages/dashboards/AdminInboxPage.jsx';
-import CompanyEscrowManagementPage from './pages/dashboards/CompanyEscrowManagementPage.jsx';
 import AdminTimelineManagementPage from './pages/dashboards/admin/AdminTimelineManagementPage.jsx';
 import AdminAppearanceManagementPage from './pages/dashboards/admin/AdminAppearanceManagementPage.jsx';
 import AdminStorageManagementPage from './pages/dashboards/admin/AdminStorageManagementPage.jsx';
@@ -132,6 +132,7 @@ import RoleProtectedRoute from './components/auth/RoleProtectedRoute.jsx';
 import MembershipGate from './components/auth/MembershipGate.jsx';
 import RequireRole from './components/routing/RequireRole.jsx';
 import AdminMentoringSessionManagementPage from './pages/dashboards/admin/AdminMentoringSessionManagementPage.jsx';
+import AdminSpeedNetworkingManagementPage from './pages/dashboards/admin/AdminSpeedNetworkingManagementPage.jsx';
 import { LAUNCHPAD_ALLOWED_MEMBERSHIPS, SECURITY_ALLOWED_MEMBERSHIPS } from './constants/access.js';
 
 const COMMUNITY_ACCESS_MEMBERSHIPS = Object.freeze([
@@ -153,14 +154,14 @@ export default function App() {
         <Route path="register" element={<RegisterPage />} />
         <Route path="register/company" element={<CompanyRegisterPage />} />
         <Route path="profile/:id" element={<ProfilePage />} />
-        <Route path="terms" element={<TermsPage />} />
-        <Route path="privacy" element={<PrivacyPage />} />
-        <Route path="about" element={<AboutPage />} />
         <Route path="preview/freelancer-reviews" element={<FreelancerReviewsPreviewPage />} />
         <Route path="blog" element={<BlogPage />} />
         <Route path="blog/:slug" element={<BlogArticlePage />} />
+        <Route path="terms" element={<TermsPage />} />
+        <Route path="privacy" element={<PrivacyPage />} />
+        <Route path="about" element={<AboutPage />} />
 
-        <Route element={<ProtectedRoute requiredMemberships={COMMUNITY_ACCESS_MEMBERSHIPS} />}> 
+        <Route element={<ProtectedRoute requiredMemberships={COMMUNITY_ACCESS_MEMBERSHIPS} />}>
           <Route path="feed" element={<FeedPage />} />
           <Route path="search" element={<SearchPage />} />
           <Route path="jobs" element={<JobsPage />} />
@@ -181,50 +182,19 @@ export default function App() {
           <Route path="finance" element={<FinanceHubPage />} />
         </Route>
 
-        <Route element={<ProtectedRoute requiredMemberships={VOLUNTEER_ACCESS_MEMBERSHIPS} />}> 
+        <Route element={<ProtectedRoute requiredMemberships={VOLUNTEER_ACCESS_MEMBERSHIPS} />}>
           <Route path="volunteering" element={<VolunteeringPage />} />
         </Route>
 
-        <Route element={<ProtectedRoute requiredMemberships={LAUNCHPAD_ALLOWED_MEMBERSHIPS} />}> 
+        <Route element={<ProtectedRoute requiredMemberships={LAUNCHPAD_ALLOWED_MEMBERSHIPS} />}>
           <Route path="experience-launchpad" element={<LaunchpadPage />} />
         </Route>
 
-        <Route path="mentors" element={<MentorsPage />} />
-        <Route path="search" element={<SearchPage />} />
-        <Route path="jobs" element={<JobsPage />} />
-        <Route path="gigs" element={<GigsPage />} />
-        <Route path="projects" element={<ProjectsPage />} />
-        <Route path="projects/new" element={<ProjectCreatePage />} />
-        <Route path="projects/:projectId" element={<ProjectDetailPage />} />
-        <Route path="projects/:projectId/auto-match" element={<ProjectAutoMatchPage />} />
-
-        <Route element={<ProtectedRoute requiredMemberships={LAUNCHPAD_ALLOWED_MEMBERSHIPS} />}>  
-          <Route path="experience-launchpad" element={<LaunchpadPage />} />
-        </Route>
-
-        <Route path="mentors" element={<MentorsPage />} />
-        <Route path="volunteering" element={<VolunteeringPage />} />
-
-        <Route element={<ProtectedRoute requiredMemberships={COMMUNITY_ACCESS_MEMBERSHIPS} />}>  
-          <Route path="groups" element={<GroupsPage />} />
-          <Route path="groups/:groupId" element={<GroupProfilePage />} />
-          <Route path="pages" element={<PagesPage />} />
-          <Route path="connections" element={<ConnectionsPage />} />
-          <Route path="notifications" element={<NotificationsPage />} />
-          <Route path="inbox" element={<InboxPage />} />
-        </Route>
-
-        <Route element={<ProtectedRoute requiredMemberships={SECURITY_ALLOWED_MEMBERSHIPS} />}>  
+        <Route element={<ProtectedRoute requiredMemberships={SECURITY_ALLOWED_MEMBERSHIPS} />}>
           <Route path="security-operations" element={<SecurityOperationsPage />} />
         </Route>
 
-        <Route path="trust-center" element={<TrustCenterPage />} />
-        <Route path="finance" element={<FinanceHubPage />} />
-        <Route path="auto-assign" element={<AutoAssignQueuePage />} />
-        <Route path="terms" element={<TermsPage />} />
-        <Route path="privacy" element={<PrivacyPage />} />
-        <Route path="settings" element={<SettingsPage />} />
-        <Route path="about" element={<AboutPage />} />
+        <Route path="mentors" element={<MentorsPage />} />
       </Route>
 
       <Route
@@ -247,7 +217,6 @@ export default function App() {
           </RoleProtectedRoute>
         }
       />
-
       <Route
         path="dashboard/user/projects"
         element={
@@ -268,7 +237,6 @@ export default function App() {
           </RoleProtectedRoute>
         }
       />
-
       <Route
         path="dashboard/user/calendar"
         element={
@@ -279,7 +247,6 @@ export default function App() {
           </RoleProtectedRoute>
         }
       />
-
       <Route
         path="dashboard/user/profile"
         element={
@@ -299,71 +266,14 @@ export default function App() {
           </RequireRole>
         }
       />
-
-      <Route path="dashboard/freelancer/volunteer" element={<FreelancerVolunteerPage />} />
-
-      <Route
-        path="dashboard/freelancer/planner"
-        element={
-          <RequireRole allowedRoles={['freelancer']}>
-            <FreelancerPlannerPage />
-          </RequireRole>
-        }
-      />
-
-      <Route
-        path="dashboard/freelancer/automatch"
-        element={
-          <RequireRole allowedRoles={['freelancer']}>
-            <FreelancerAutoMatchPage />
-          </RequireRole>
-        }
-      />
-
-      <Route
-        path="dashboard/freelancer/pipeline"
-        element={
-          <RequireRole allowedRoles={['freelancer']}>
-            <FreelancerPipelinePage />
-          </RequireRole>
-        }
-      />
-
-      <Route
-        path="dashboard/freelancer/portfolio"
-        element={
-          <RequireRole allowedRoles={['freelancer']}>
-            <FreelancerPortfolioPage />
-          </RequireRole>
-        }
-      />
-
-      <Route
-        path="dashboard/freelancer/creation-studio"
-        element={
-          <RequireRole allowedRoles={['freelancer']}>
-            <FreelancerCreationStudioPage />
-          </RequireRole>
-        }
-      />
-
-      <Route
-        path="dashboard/freelancer/networking"
-        element={
-          <RequireRole allowedRoles={['freelancer']}>
-            <FreelancerNetworkingPage />
-          </RequireRole>
-        }
-      />
-
-      <Route
-        path="dashboard/freelancer/disputes"
-        element={
-          <RequireRole allowedRoles={['freelancer']}>
-            <FreelancerDisputesPage />
-          </RequireRole>
-        }
-      />
+      <Route path="dashboard/freelancer/volunteer" element={<RequireRole allowedRoles={['freelancer']}><FreelancerVolunteerPage /></RequireRole>} />
+      <Route path="dashboard/freelancer/planner" element={<RequireRole allowedRoles={['freelancer']}><FreelancerPlannerPage /></RequireRole>} />
+      <Route path="dashboard/freelancer/automatch" element={<RequireRole allowedRoles={['freelancer']}><FreelancerAutoMatchPage /></RequireRole>} />
+      <Route path="dashboard/freelancer/pipeline" element={<RequireRole allowedRoles={['freelancer']}><FreelancerPipelinePage /></RequireRole>} />
+      <Route path="dashboard/freelancer/portfolio" element={<RequireRole allowedRoles={['freelancer']}><FreelancerPortfolioPage /></RequireRole>} />
+      <Route path="dashboard/freelancer/creation-studio" element={<RequireRole allowedRoles={['freelancer']}><FreelancerCreationStudioPage /></RequireRole>} />
+      <Route path="dashboard/freelancer/networking" element={<RequireRole allowedRoles={['freelancer']}><FreelancerNetworkingPage /></RequireRole>} />
+      <Route path="dashboard/freelancer/disputes" element={<RequireRole allowedRoles={['freelancer']}><FreelancerDisputesPage /></RequireRole>} />
 
       <Route
         path="dashboard/company"
@@ -373,139 +283,28 @@ export default function App() {
           </RequireRole>
         }
       />
-
-      <Route
-        path="dashboard/company/profile"
-        element={
-          <RequireRole allowedRoles={['company']}>
-            <CompanyProfileWorkspacePage />
-        path="dashboard/company/creation-studio"
-        element={
-          <RequireRole allowedRoles={['company']}>
-            <CompanyCreationStudioPage />
-        path="dashboard/company/wallets"
-        element={
-          <RequireRole allowedRoles={['company']}>
-            <CompanyWalletManagementPage />
-          </RequireRole>
-        }
-      />
-
-      <Route
-        path="dashboard/company/analytics"
-        element={
-          <RequireRole allowedRoles={['company']}>
-            <CompanyAnalyticsPage />
-          </RequireRole>
-        }
-      />
-
-      <Route
-        path="dashboard/company/projects"
-        element={
-          <RequireRole allowedRoles={['company']}>
-            <CompanyProjectManagementPage />
-        path="dashboard/company/inbox"
-        element={
-          <RequireRole allowedRoles={['company']}>
-            <CompanyInboxPage />
-        path="dashboard/company/timeline"
-        element={
-          <RequireRole allowedRoles={['company']}>
-            <CompanyTimelineManagementPage />
-          </RequireRole>
-        }
-      />
-
-      <Route
-        path="dashboard/company/ats"
-        element={
-          <RequireRole allowedRoles={['company']}>
-            <CompanyAtsOperationsPage />
-          </RequireRole>
-        }
-      />
-
-      <Route
-        path="dashboard/company/calendar"
-        element={
-          <RequireRole allowedRoles={['company']}>
-            <CompanyCalendarPage />
-        path="dashboard/company/job-management"
-        element={
-          <RequireRole allowedRoles={['company']}>
-            <CompanyJobManagementPage />
-        path="dashboard/company/groups"
-        element={
-          <RequireRole allowedRoles={['company']}>
-            <CompanyGroupManagementPage />
-        path="dashboard/company/workspace"
-        element={
-          <RequireRole allowedRoles={['company']}>
-            <CompanyProjectWorkspacePage />
-          </RequireRole>
-        }
-      />
-
-      <Route
-        path="dashboard/company/integrations"
-        element={
-          <RequireRole allowedRoles={['company']}>
-            <CompanyIntegrationsPage />
-          </RequireRole>
-        }
-      />
-
-      <Route
-        path="dashboard/company/escrow"
-        element={
-          <RequireRole allowedRoles={['company']}>
-            <CompanyEscrowManagementPage />
-        path="dashboard/company/pages"
-        element={
-          <RequireRole allowedRoles={['company']}>
-            <CompanyPagesManagementPage />
-        path="dashboard/company/id-verification"
-        element={
-          <RequireRole allowedRoles={['company']}>
-            <CompanyIdVerificationPage />
-        path="dashboard/company/volunteering"
-        element={
-          <RequireRole allowedRoles={['company']}>
-            <CompanyVolunteeringManagementPage />
-        path="dashboard/company/integrations/crm"
-        element={
-          <RequireRole allowedRoles={['company']}>
-            <CompanyCrmIntegrationsPage />
-        path="dashboard/company/ai-auto-reply"
-        element={
-          <RequireRole allowedRoles={['company']}>
-            <CompanyByokAutoReplyPage />
-        path="dashboard/company/disputes"
-        element={
-          <RequireRole allowedRoles={['company']}>
-            <CompanyDisputeManagementPage />
-          </RequireRole>
-        }
-      />
-
-      <Route
-        path="dashboard/company/networking"
-        element={
-          <RequireRole allowedRoles={['company']}>
-            <CompanyNetworkingHubPage />
-          </RequireRole>
-        }
-      />
-
-      <Route
-        path="dashboard/company/networking/sessions"
-        element={
-          <RequireRole allowedRoles={['company']}>
-            <NetworkingSessionsPage />
-          </RequireRole>
-        }
-      />
+      <Route path="dashboard/company/profile" element={<RequireRole allowedRoles={['company']}><CompanyProfileWorkspacePage /></RequireRole>} />
+      <Route path="dashboard/company/creation-studio" element={<RequireRole allowedRoles={['company']}><CompanyCreationStudioPage /></RequireRole>} />
+      <Route path="dashboard/company/wallets" element={<RequireRole allowedRoles={['company']}><CompanyWalletManagementPage /></RequireRole>} />
+      <Route path="dashboard/company/analytics" element={<RequireRole allowedRoles={['company']}><CompanyAnalyticsPage /></RequireRole>} />
+      <Route path="dashboard/company/projects" element={<RequireRole allowedRoles={['company']}><CompanyProjectManagementPage /></RequireRole>} />
+      <Route path="dashboard/company/inbox" element={<RequireRole allowedRoles={['company']}><CompanyInboxPage /></RequireRole>} />
+      <Route path="dashboard/company/timeline" element={<RequireRole allowedRoles={['company']}><CompanyTimelineManagementPage /></RequireRole>} />
+      <Route path="dashboard/company/ats" element={<RequireRole allowedRoles={['company']}><CompanyAtsOperationsPage /></RequireRole>} />
+      <Route path="dashboard/company/calendar" element={<RequireRole allowedRoles={['company']}><CompanyCalendarPage /></RequireRole>} />
+      <Route path="dashboard/company/job-management" element={<RequireRole allowedRoles={['company']}><CompanyJobManagementPage /></RequireRole>} />
+      <Route path="dashboard/company/groups" element={<RequireRole allowedRoles={['company']}><CompanyGroupManagementPage /></RequireRole>} />
+      <Route path="dashboard/company/workspace" element={<RequireRole allowedRoles={['company']}><CompanyProjectWorkspacePage /></RequireRole>} />
+      <Route path="dashboard/company/integrations" element={<RequireRole allowedRoles={['company']}><CompanyIntegrationsPage /></RequireRole>} />
+      <Route path="dashboard/company/escrow" element={<RequireRole allowedRoles={['company']}><CompanyEscrowManagementPage /></RequireRole>} />
+      <Route path="dashboard/company/pages" element={<RequireRole allowedRoles={['company']}><CompanyPagesManagementPage /></RequireRole>} />
+      <Route path="dashboard/company/id-verification" element={<RequireRole allowedRoles={['company']}><CompanyIdVerificationPage /></RequireRole>} />
+      <Route path="dashboard/company/volunteering" element={<RequireRole allowedRoles={['company']}><CompanyVolunteeringManagementPage /></RequireRole>} />
+      <Route path="dashboard/company/integrations/crm" element={<RequireRole allowedRoles={['company']}><CompanyCrmIntegrationsPage /></RequireRole>} />
+      <Route path="dashboard/company/ai-auto-reply" element={<RequireRole allowedRoles={['company']}><CompanyByokAutoReplyPage /></RequireRole>} />
+      <Route path="dashboard/company/disputes" element={<RequireRole allowedRoles={['company']}><CompanyDisputeManagementPage /></RequireRole>} />
+      <Route path="dashboard/company/networking" element={<RequireRole allowedRoles={['company']}><CompanyNetworkingHubPage /></RequireRole>} />
+      <Route path="dashboard/company/networking/sessions" element={<RequireRole allowedRoles={['company']}><NetworkingSessionsPage /></RequireRole>} />
 
       <Route
         path="dashboard/agency"
@@ -515,168 +314,24 @@ export default function App() {
           </RequireRole>
         }
       />
-
-      <Route
-        path="dashboard/agency/disputes"
-        element={
-          <RequireRole allowedRoles={['agency']}>
-            <DisputeManagementPage />
-          </RequireRole>
-        }
-      />
-
-      <Route
-        path="dashboard/agency/networking"
-        element={
-          <RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}>
-            <AgencyNetworkingManagementPage />
-          </RequireRole>
-        }
-      />
-
-      <Route
-        path="dashboard/agency/escrow"
-        element={
-          <RequireRole allowedRoles={['agency']}>
-            <AgencyEscrowManagementPage />
-          </RequireRole>
-        }
-      />
-
-      <Route
-        path="dashboard/agency/crm"
-        element={
-          <RequireRole allowedRoles={['agency', 'agency_admin']}>
-            <AgencyCrmPipelinePage />
-          </RequireRole>
-        }
-      />
-
-      <Route
-        path="dashboard/agency/integrations"
-        element={
-          <RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}>
-            <AgencyIntegrationsPage />
-          </RequireRole>
-        }
-      />
-
-      <Route
-        path="dashboard/agency/ai"
-        element={
-          <RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}>
-            <AgencyAiAutomationPage />
-          </RequireRole>
-        }
-      />
-
-      <Route
-        path="dashboard/agency/profile"
-        element={
-          <RequireRole allowedRoles={['agency', 'agency_admin']}>
-            <AgencyProfileManagementPage />
-          </RequireRole>
-        }
-      />
-
-      <Route
-        path="dashboard/agency/client-kanban"
-        element={
-          <RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}>
-            <AgencyClientKanbanPage />
-          </RequireRole>
-        }
-      />
-
-      <Route
-        path="dashboard/agency/wallet"
-        element={
-          <RequireRole allowedRoles={['agency']}>
-            <AgencyWalletManagementPage />
-          </RequireRole>
-        }
-      />
-
-      <Route
-        path="dashboard/agency/timeline"
-        element={
-          <RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}>
-            <AgencyTimelineDashboardPage />
-          </RequireRole>
-        }
-      />
-
-      <Route
-        path="dashboard/agency/blog"
-        element={
-          <RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}>
-            <AgencyBlogManagementPage />
-          </RequireRole>
-        }
-      />
-
-      <Route
-        path="dashboard/agency/inbox"
-        element={
-          <RequireRole allowedRoles={['agency']}>
-            <AgencyInboxPage />
-          </RequireRole>
-        }
-      />
-
-      <Route
-        path="dashboard/agency/workspace"
-        element={
-          <RequireRole allowedRoles={['agency']}>
-            <ProjectWorkspacePage />
-          </RequireRole>
-        }
-      />
-
-      <Route
-        path="dashboard/agency/projects"
-        element={
-          <RequireRole allowedRoles={['agency']}>
-            <AgencyProjectManagementPage />
-          </RequireRole>
-        }
-      />
-
-      <Route
-        path="dashboard/agency/mentoring"
-        element={
-          <RequireRole allowedRoles={['agency']}>
-            <AgencyMentoringPage />
-          </RequireRole>
-        }
-      />
-
-      <Route
-        path="dashboard/agency/job-management"
-        element={
-          <RequireRole allowedRoles={['agency']}>
-            <AgencyJobManagementPage />
-          </RequireRole>
-        }
-      />
-
-      <Route
-        path="dashboard/agency/calendar"
-        element={
-          <RequireRole allowedRoles={['agency']}>
-            <AgencyCalendarPage />
-          </RequireRole>
-        }
-      />
-
-      <Route
-        path="dashboard/agency/events"
-        element={
-          <RequireRole allowedRoles={['agency']}>
-            <AgencyEventManagementPage />
-          </RequireRole>
-        }
-      />
+      <Route path="dashboard/agency/disputes" element={<RequireRole allowedRoles={['agency']}><DisputeManagementPage /></RequireRole>} />
+      <Route path="dashboard/agency/networking" element={<RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}><AgencyNetworkingManagementPage /></RequireRole>} />
+      <Route path="dashboard/agency/escrow" element={<RequireRole allowedRoles={['agency']}><AgencyEscrowManagementPage /></RequireRole>} />
+      <Route path="dashboard/agency/crm" element={<RequireRole allowedRoles={['agency', 'agency_admin']}><AgencyCrmPipelinePage /></RequireRole>} />
+      <Route path="dashboard/agency/integrations" element={<RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}><AgencyIntegrationsPage /></RequireRole>} />
+      <Route path="dashboard/agency/ai" element={<RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}><AgencyAiAutomationPage /></RequireRole>} />
+      <Route path="dashboard/agency/profile" element={<RequireRole allowedRoles={['agency', 'agency_admin']}><AgencyProfileManagementPage /></RequireRole>} />
+      <Route path="dashboard/agency/client-kanban" element={<RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}><AgencyClientKanbanPage /></RequireRole>} />
+      <Route path="dashboard/agency/wallet" element={<RequireRole allowedRoles={['agency']}><AgencyWalletManagementPage /></RequireRole>} />
+      <Route path="dashboard/agency/timeline" element={<RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}><AgencyTimelineDashboardPage /></RequireRole>} />
+      <Route path="dashboard/agency/blog" element={<RequireRole allowedRoles={['agency', 'agency_admin', 'admin']}><AgencyBlogManagementPage /></RequireRole>} />
+      <Route path="dashboard/agency/inbox" element={<RequireRole allowedRoles={['agency']}><AgencyInboxPage /></RequireRole>} />
+      <Route path="dashboard/agency/workspace" element={<RequireRole allowedRoles={['agency']}><ProjectWorkspacePage /></RequireRole>} />
+      <Route path="dashboard/agency/projects" element={<RequireRole allowedRoles={['agency']}><AgencyProjectManagementPage /></RequireRole>} />
+      <Route path="dashboard/agency/mentoring" element={<RequireRole allowedRoles={['agency']}><AgencyMentoringPage /></RequireRole>} />
+      <Route path="dashboard/agency/job-management" element={<RequireRole allowedRoles={['agency']}><AgencyJobManagementPage /></RequireRole>} />
+      <Route path="dashboard/agency/calendar" element={<RequireRole allowedRoles={['agency']}><AgencyCalendarPage /></RequireRole>} />
+      <Route path="dashboard/agency/events" element={<RequireRole allowedRoles={['agency']}><AgencyEventManagementPage /></RequireRole>} />
 
       <Route
         path="dashboard/headhunter"
@@ -686,7 +341,6 @@ export default function App() {
           </RequireRole>
         }
       />
-
       <Route
         path="dashboard/mentor"
         element={
@@ -695,7 +349,6 @@ export default function App() {
           </RequireRole>
         }
       />
-
       <Route
         path="dashboard/launchpad"
         element={
@@ -704,6 +357,7 @@ export default function App() {
           </RequireRole>
         }
       />
+
       <Route
         path="dashboard/admin"
         element={
@@ -712,6 +366,39 @@ export default function App() {
           </RequireRole>
         }
       />
+      <Route path="dashboard/admin/interviews" element={<RequireRole allowedRoles={['admin']}><AdminInterviewManagementPage /></RequireRole>} />
+      <Route path="dashboard/admin/volunteering" element={<RequireRole allowedRoles={['admin']}><AdminVolunteeringPage /></RequireRole>} />
+      <Route path="dashboard/admin/mentoring" element={<RequireRole allowedRoles={['admin']}><AdminMentoringSessionManagementPage /></RequireRole>} />
+      <Route path="dashboard/admin/inbox" element={<RequireRole allowedRoles={['admin']}><AdminInboxPage /></RequireRole>} />
+      <Route path="dashboard/admin/job-applications" element={<RequireRole allowedRoles={['admin']}><AdminJobApplicationsPage /></RequireRole>} />
+      <Route path="dashboard/admin/identity-verification" element={<RequireRole allowedRoles={['admin']}><AdminIdentityVerificationPage /></RequireRole>} />
+      <Route path="dashboard/admin/timelines" element={<RequireRole allowedRoles={['admin']}><AdminTimelineManagementPage /></RequireRole>} />
+      <Route path="dashboard/admin/wallets" element={<RequireRole allowedRoles={['admin']}><AdminWalletManagementPage /></RequireRole>} />
+      <Route path="dashboard/admin/disputes" element={<RequireRole allowedRoles={['admin']}><AdminDisputeManagementPage /></RequireRole>} />
+      <Route path="dashboard/admin/escrow" element={<RequireRole allowedRoles={['admin']}><AdminEscrowManagementPage /></RequireRole>} />
+      <Route path="dashboard/admin/mobile-apps" element={<RequireRole allowedRoles={['admin']}><AdminMobileAppManagementPage /></RequireRole>} />
+      <Route path="dashboard/admin/system-settings" element={<RequireRole allowedRoles={['admin']}><AdminSystemSettingsPage /></RequireRole>} />
+      <Route path="dashboard/admin/homepage" element={<RequireRole allowedRoles={['admin']}><AdminHomepageSettingsPage /></RequireRole>} />
+      <Route path="dashboard/admin/pages" element={<RequireRole allowedRoles={['admin']}><AdminPagesSettingsPage /></RequireRole>} />
+      <Route path="dashboard/admin/site" element={<RequireRole allowedRoles={['admin']}><AdminSiteManagementPage /></RequireRole>} />
+      <Route path="dashboard/admin/appearance" element={<RequireRole allowedRoles={['admin']}><AdminAppearanceManagementPage /></RequireRole>} />
+      <Route path="dashboard/admin/policies" element={<RequireRole allowedRoles={['admin']}><AdminPolicyManagementPage /></RequireRole>} />
+      <Route path="dashboard/admin/storage" element={<RequireRole allowedRoles={['admin']}><AdminStorageManagementPage /></RequireRole>} />
+      <Route path="dashboard/admin/email" element={<RequireRole allowedRoles={['admin']}><AdminEmailManagementPage /></RequireRole>} />
+      <Route path="dashboard/admin/security/two-factor" element={<RequireRole allowedRoles={['admin']}><AdminTwoFactorManagementPage /></RequireRole>} />
+      <Route path="dashboard/admin/database" element={<RequireRole allowedRoles={['admin']}><AdminDatabaseSettingsPage /></RequireRole>} />
+      <Route path="dashboard/admin/gdpr" element={<RequireRole allowedRoles={['admin']}><AdminGdprSettingsPage /></RequireRole>} />
+      <Route path="dashboard/admin/ads-settings" element={<RequireRole allowedRoles={['admin']}><AdminAdsSettingsPage /></RequireRole>} />
+      <Route path="dashboard/admin/blog" element={<RequireRole allowedRoles={['admin']}><AdminBlogManagementPage /></RequireRole>} />
+      <Route path="dashboard/admin/users" element={<RequireRole allowedRoles={['admin']}><AdminUserManagementPage /></RequireRole>} />
+      <Route path="dashboard/admin/api-management" element={<RequireRole allowedRoles={['admin']}><AdminApiManagementPage /></RequireRole>} />
+      <Route path="dashboard/admin/seo" element={<RequireRole allowedRoles={['admin']}><AdminSeoSettingsPage /></RequireRole>} />
+      <Route path="dashboard/admin/profiles" element={<RequireRole allowedRoles={['admin']}><AdminProfileManagementPage /></RequireRole>} />
+      <Route path="dashboard/admin/calendar" element={<RequireRole allowedRoles={['admin']}><AdminCalendarPage /></RequireRole>} />
+      <Route path="dashboard/admin/jobs" element={<RequireRole allowedRoles={['admin']}><AdminJobPostManagementPage /></RequireRole>} />
+      <Route path="dashboard/admin/gig-management" element={<RequireRole allowedRoles={['admin']}><AdminGigManagementPage /></RequireRole>} />
+      <Route path="dashboard/admin/projects" element={<RequireRole allowedRoles={['admin']}><AdminProjectsPage /></RequireRole>} />
+      <Route path="dashboard/admin/speed-networking" element={<RequireRole allowedRoles={['admin']}><AdminSpeedNetworkingManagementPage /></RequireRole>} />
 
       <Route
         path="dashboard/admin/finance"
