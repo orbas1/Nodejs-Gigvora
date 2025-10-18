@@ -26,6 +26,7 @@ import UserCalendarSection from '../../components/calendar/UserCalendarSection.j
 import CreationStudioSummary from '../../components/creationStudio/CreationStudioSummary.jsx';
 import UserNetworkingSection from '../../components/userNetworking/UserNetworkingSection.jsx';
 import VolunteeringManagementSection from '../../components/volunteeringManagement/VolunteeringManagementSection.jsx';
+import CommunityManagementSection from '../../components/communityManagement/CommunityManagementSection.jsx';
 import { DashboardInboxWorkspace } from '../../features/inbox/index.js';
 import WebsitePreferencesSection from '../../components/websitePreferences/WebsitePreferencesSection.jsx';
 import ProfileSettingsSection from '../../components/profileSettings/ProfileSettingsSection.jsx';
@@ -200,6 +201,13 @@ function buildMenuSections(data) {
   const jobApplicationsWorkspace = data?.jobApplicationsWorkspace ?? {};
   const jobApplicationsSummary = jobApplicationsWorkspace.summary ?? {};
   const projectGigManagement = data?.projectGigManagement ?? {};
+  const communityManagement = data?.communityManagement ?? {};
+  const communityGroupStats = communityManagement.groups?.stats ?? {};
+  const communityPageStats = communityManagement.pages?.stats ?? {};
+  const communityManagedGroups = Number(communityGroupStats.managed ?? 0);
+  const communityManagedPages = Number(communityPageStats.managed ?? 0);
+  const communityPendingInvites =
+    Number(communityGroupStats.pendingInvites ?? 0) + Number(communityPageStats.pendingInvites ?? 0);
   const mentoring = data?.mentoring ?? {};
   const mentoringSummary = mentoring.summary ?? {};
   const projectWorkspace = data?.projectWorkspace ?? {};
@@ -664,6 +672,14 @@ function buildMenuSections(data) {
       label: 'Community',
       items: [
         {
+          name: 'Community management',
+          description: `${formatNumber(communityManagedGroups)} groups · ${formatNumber(communityManagedPages)} pages · ${formatNumber(
+            communityPendingInvites,
+          )} invites`,
+          tags: ['groups', 'pages'],
+          sectionId: 'community-management',
+        },
+        {
           name: 'Volunteer',
           description: 'Applications, contracts, spend, and reviews together.',
           tags: ['volunteering', 'community'],
@@ -820,6 +836,7 @@ export default function UserDashboardPage() {
   const mentoring = data?.mentoring ?? null;
   const websitePreferences = data?.websitePreferences ?? null;
   const escrowManagement = data?.escrowManagement ?? null;
+  const communityManagement = data?.communityManagement ?? null;
   const notifications = Array.isArray(data?.notifications?.recent) ? data.notifications.recent : [];
   const notificationsUnreadCount = Number(data?.notifications?.unreadCount ?? 0);
   const notificationPreferences = data?.notifications?.preferences ?? null;
@@ -2102,6 +2119,13 @@ export default function UserDashboardPage() {
           data={data?.volunteeringManagement}
           onRefresh={() => refresh({ force: true })}
         />
+        {userId ? (
+          <CommunityManagementSection
+            userId={userId}
+            data={communityManagement}
+            onRefresh={() => refresh({ force: true })}
+          />
+        ) : null}
         {escrowManagement ? (
           <EscrowManagementSection
             data={escrowManagement}
