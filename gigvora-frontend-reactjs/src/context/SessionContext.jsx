@@ -29,79 +29,81 @@ function normalizeStringList(value) {
   return Array.from(unique);
 }
 
+function normalizeMemberships(value) {
+  const source = Array.isArray(value) ? value : value ? [value] : [];
+  const normalized = source
+    .map((item) => (typeof item === 'string' ? item.trim() : ''))
+    .filter(Boolean);
+  if (!normalized.length) {
+    return ['user'];
+  }
+  return Array.from(new Set(normalized));
+}
+
+function extractProfileMeta(subject) {
+  const profile = subject?.Profile ?? subject?.profile ?? subject?.userProfile ?? null;
+  return {
+    avatarUrl: profile?.avatarUrl ?? null,
+    avatarSeed: profile?.avatarSeed ?? null,
+  };
+}
+
 function normalizeSessionValue(value) {
   if (!value || typeof value !== 'object') {
     return null;
   }
 
-  const normalizedRoles = normalizeStringList(value.roles ?? value.memberships);
-  const normalizedMemberships = normalizeStringList(value.memberships);
-  const normalizedPermissions = normalizeStringList(value.permissions);
-  const normalizedCapabilities = normalizeStringList(value.capabilities);
+  const roles = normalizeStringList(value.roles ?? value.memberships ?? []);
+  const memberships = normalizeMemberships(value.memberships ?? roles);
+  const permissions = normalizeStringList(value.permissions ?? []);
+  const capabilities = normalizeStringList(value.capabilities ?? []);
 
-  const session = {
+  let primaryDashboard = typeof value.primaryDashboard === 'string' ? value.primaryDashboard.trim() : '';
+  if (!primaryDashboard) {
+    primaryDashboard = memberships[0] ?? 'user';
+  }
+
+  const email = value.email ?? null;
+  const derivedName = [value.firstName, value.lastName].filter(Boolean).join(' ').trim();
+  const name = value.name ?? (derivedName || email || 'Gigvora member');
+
+  const profileMeta = extractProfileMeta(value);
+  const tokens = value.tokens ??
+    (value.accessToken || value.refreshToken
+      ? {
+          accessToken: value.accessToken ?? null,
+          refreshToken: value.refreshToken ?? null,
+          expiresAt: value.tokenExpiresAt ?? value.expiresAt ?? null,
+        }
+      : null);
+
+  const normalized = {
     ...value,
-    roles: normalizedRoles,
-    permissions: normalizedPermissions,
-    capabilities: normalizedCapabilities,
-    memberships: normalizedMemberships,
+    name,
+    email,
+    roles,
+    permissions,
+    capabilities,
+    memberships,
+    primaryDashboard,
+    avatarUrl: value.avatarUrl ?? profileMeta.avatarUrl ?? null,
+    avatarSeed: value.avatarSeed ?? profileMeta.avatarSeed ?? name ?? email ?? 'Gigvora member',
+    tokens,
+    accessToken: tokens?.accessToken ?? value.accessToken ?? null,
+    refreshToken: tokens?.refreshToken ?? value.refreshToken ?? null,
+    tokenExpiresAt: tokens?.expiresAt ?? value.tokenExpiresAt ?? value.expiresAt ?? null,
+    isAuthenticated: value.isAuthenticated !== false,
   };
 
-  if (typeof session.primaryDashboard === 'string') {
-    const trimmed = session.primaryDashboard.trim();
-    if (trimmed && !session.memberships.includes(trimmed)) {
-      session.memberships = [trimmed, ...session.memberships];
-    }
+  if (normalized.primaryDashboard && !normalized.memberships.includes(normalized.primaryDashboard)) {
+    normalized.memberships = [normalized.primaryDashboard, ...normalized.memberships];
   }
 
-  if (!session.memberships.length) {
-    session.memberships = normalizedRoles.length ? normalizedRoles : ['user'];
-  } else {
-    session.memberships = normalizeStringList(session.memberships);
-  }
-
-  session.isAuthenticated = Boolean(session.isAuthenticated);
-
-  return session;
-}
-
-const SessionContext = createContext(defaultValue);
-
-function readStoredSession() {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return null;
-    }
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === 'object') {
-      if (parsed.tokens) {
-        apiClient.setAuthTokens(parsed.tokens);
-      }
-      return parsed;
-      return normalizeSessionValue(parsed);
-    }
-    return null;
-  } catch (error) {
-    console.warn('Unable to read stored session', error);
-    return null;
-  }
-}
-
-function normalizeMemberships(value) {
-  const source = Array.isArray(value) ? value : value ? [value] : [];
-  const unique = [...new Set(source.filter(Boolean))];
-  if (unique.length === 0) {
-    unique.push('user');
-  }
-  return unique;
+  return normalized;
 }
 
 function normalizeSessionPayload(payload) {
-  if (!payload) {
+  if (!payload || typeof payload !== 'object') {
     return null;
   }
 
@@ -110,45 +112,80 @@ function normalizeSessionPayload(payload) {
   }
 
   const user = payload.user ?? payload;
-  if (!user) {
-    return null;
-  }
-
-  const firstName = user.firstName ?? payload.firstName;
-  const lastName = user.lastName ?? payload.lastName;
+  const firstName = user.firstName ?? payload.firstName ?? null;
+  const lastName = user.lastName ?? payload.lastName ?? null;
   const email = user.email ?? payload.email ?? null;
-    const derivedName = [firstName, lastName].filter(Boolean).join(' ').trim();
-    const name = user.name ?? (derivedName || email || 'Gigvora member');
+  const displayName = user.name ?? payload.name ?? [firstName, lastName].filter(Boolean).join(' ').trim();
   const memberships = normalizeMemberships(user.memberships ?? payload.memberships ?? user.userType ?? payload.userType);
   const primaryDashboard = user.primaryDashboard ?? payload.primaryDashboard ?? memberships[0];
-  const tokens = payload.tokens ?? (payload.accessToken || payload.refreshToken
-    ? {
-        accessToken: payload.accessToken,
-        refreshToken: payload.refreshToken,
-        expiresAt: payload.expiresAt ?? null,
-      }
-    : null);
+  const profileMeta = extractProfileMeta(user) ?? extractProfileMeta(payload);
+
+  const tokens = payload.tokens ??
+    (payload.accessToken || payload.refreshToken
+      ? {
+          accessToken: payload.accessToken ?? null,
+          refreshToken: payload.refreshToken ?? null,
+          expiresAt: payload.expiresAt ?? payload.tokenExpiresAt ?? null,
+        }
+      : null);
 
   const session = {
     id: user.id ?? payload.id ?? null,
     email,
     firstName,
     lastName,
-    name,
+    name: displayName || email || 'Gigvora member',
     userType: user.userType ?? payload.userType ?? memberships[0] ?? 'user',
     memberships,
     primaryDashboard,
-    avatarSeed: user.avatarSeed ?? payload.avatarSeed ?? name,
+    avatarUrl: user.avatarUrl ?? profileMeta.avatarUrl ?? payload.avatarUrl ?? null,
+    avatarSeed:
+      user.avatarSeed ?? profileMeta.avatarSeed ?? payload.avatarSeed ?? displayName ?? email ?? 'Gigvora member',
     title: user.title ?? payload.title ?? null,
     location: user.location ?? payload.location ?? null,
-    twoFactorEnabled: user.twoFactorEnabled ?? payload.twoFactorEnabled ?? true,
-    twoFactorMethod: user.twoFactorMethod ?? payload.twoFactorMethod ?? 'email',
-    lastLoginAt: user.lastLoginAt ?? payload.lastLoginAt ?? null,
+    roles: normalizeStringList(payload.roles ?? user.roles ?? []),
+    permissions: normalizeStringList(payload.permissions ?? user.permissions ?? []),
+    capabilities: normalizeStringList(payload.capabilities ?? user.capabilities ?? []),
     tokens,
+    accessToken: tokens?.accessToken ?? payload.accessToken ?? null,
+    refreshToken: tokens?.refreshToken ?? payload.refreshToken ?? null,
+    tokenExpiresAt: tokens?.expiresAt ?? payload.expiresAt ?? payload.tokenExpiresAt ?? null,
     isAuthenticated: true,
   };
 
-  return session;
+  return normalizeSessionValue(session);
+}
+
+function readStoredSession() {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') {
+      return null;
+    }
+
+    if (parsed.tokens) {
+      apiClient.setAuthTokens(parsed.tokens);
+    } else if (parsed.accessToken || parsed.refreshToken) {
+      apiClient.setAuthTokens({
+        accessToken: parsed.accessToken ?? null,
+        refreshToken: parsed.refreshToken ?? null,
+        expiresAt: parsed.tokenExpiresAt ?? null,
+      });
+    }
+
+    return normalizeSessionValue(parsed);
+  } catch (error) {
+    console.warn('Unable to read stored session', error);
+    return null;
+  }
 }
 
 function persistSession(value) {
@@ -166,116 +203,75 @@ function persistSession(value) {
   }
 }
 
+const SessionContext = createContext(defaultValue);
+
 export function SessionProvider({ children }) {
   const [session, setSession] = useState(() => readStoredSession());
-
-  useEffect(() => {
-    setSession((previous) => previous ?? readStoredSession());
-  }, []);
 
   useEffect(() => {
     persistSession(session);
   }, [session]);
 
   useEffect(() => {
-    const accessToken = session?.accessToken ?? null;
-    if (accessToken) {
-      apiClient.setAccessToken(accessToken);
-    } else {
-      apiClient.clearAccessToken();
-    }
+    const tokens = session?.tokens ??
+      (session?.accessToken || session?.refreshToken || session?.tokenExpiresAt
+        ? {
+            accessToken: session?.accessToken ?? null,
+            refreshToken: session?.refreshToken ?? null,
+            expiresAt: session?.tokenExpiresAt ?? null,
+          }
+        : null);
 
-    const refreshToken = session?.refreshToken ?? null;
-    if (refreshToken) {
-      apiClient.setRefreshToken(refreshToken);
+    if (tokens && (tokens.accessToken || tokens.refreshToken || tokens.expiresAt)) {
+      apiClient.setAuthTokens(tokens);
     } else {
-      apiClient.clearRefreshToken();
+      apiClient.clearAuthTokens();
     }
-  }, [session?.accessToken, session?.refreshToken]);
+  }, [session?.tokens, session?.accessToken, session?.refreshToken, session?.tokenExpiresAt]);
 
   const value = useMemo(
     () => ({
       session,
       isAuthenticated: Boolean(session?.isAuthenticated),
       login: (payload = {}) => {
-        const { accessToken, refreshToken, ...rest } = payload;
-        if (accessToken) {
-          apiClient.setAccessToken(accessToken);
-        }
-        if (refreshToken) {
-          apiClient.setRefreshToken(refreshToken);
-        }
-
         const normalized = normalizeSessionPayload(payload);
         if (!normalized) {
           return null;
         }
         setSession(normalized);
-        if (normalized.tokens) {
-          apiClient.setAuthTokens(normalized.tokens);
-        } else {
-          apiClient.clearAuthTokens();
-        }
         return normalized;
       },
       logout: () => {
+        apiClient.clearAuthTokens();
         apiClient.clearAccessToken();
         apiClient.clearRefreshToken();
-        apiClient.clearAuthTokens();
         setSession(null);
         if (typeof window !== 'undefined') {
           window.localStorage.removeItem('gigvora:web:auth:accessToken');
         }
-        apiClient.clearAccessToken();
       },
       updateSession: (updates = {}) => {
         setSession((previous) => {
-          const next = previous ? { ...previous } : { isAuthenticated: true };
-
-          if (Object.prototype.hasOwnProperty.call(updates, 'accessToken')) {
-            const nextAccess = updates.accessToken;
-            if (nextAccess) {
-              apiClient.setAccessToken(nextAccess);
-            } else {
-              apiClient.clearAccessToken();
-            }
-            next.accessToken = nextAccess;
-          }
-
-          if (Object.prototype.hasOwnProperty.call(updates, 'refreshToken')) {
-            const nextRefresh = updates.refreshToken;
-            if (nextRefresh) {
-              apiClient.setRefreshToken(nextRefresh);
-            } else {
-              apiClient.clearRefreshToken();
-            }
-            next.refreshToken = nextRefresh;
-          }
-
-          return { ...next, ...updates };
           const base = previous ?? { isAuthenticated: true };
-          const merged = normalizeSessionPayload({ ...base, ...updates });
-          if (merged?.tokens) {
-            apiClient.setAuthTokens(merged.tokens);
-          } else {
-            apiClient.clearAuthTokens();
-          }
-          return merged;
-          return normalizeSessionValue({ ...base, ...updates }) ?? base;
-          if (!previous) {
-            if (updates.accessToken) {
-              apiClient.storeAccessToken(updates.accessToken);
-            } else if (updates.accessToken === null) {
-              apiClient.clearAccessToken();
-            }
-            return { isAuthenticated: true, ...updates };
-          }
-          if (updates.accessToken) {
-            apiClient.storeAccessToken(updates.accessToken);
-          } else if (updates.accessToken === null) {
-            apiClient.clearAccessToken();
-          }
-          return { ...previous, ...updates };
+          const tokens =
+            updates.tokens ??
+            base.tokens ??
+            (updates.accessToken || updates.refreshToken || updates.tokenExpiresAt
+              ? {
+                  accessToken: updates.accessToken ?? base.accessToken ?? null,
+                  refreshToken: updates.refreshToken ?? base.refreshToken ?? null,
+                  expiresAt: updates.tokenExpiresAt ?? base.tokenExpiresAt ?? null,
+                }
+              : null);
+
+          return normalizeSessionValue({
+            ...base,
+            ...updates,
+            tokens,
+            accessToken: tokens?.accessToken ?? updates.accessToken ?? base.accessToken ?? null,
+            refreshToken: tokens?.refreshToken ?? updates.refreshToken ?? base.refreshToken ?? null,
+            tokenExpiresAt: tokens?.expiresAt ?? updates.tokenExpiresAt ?? base.tokenExpiresAt ?? null,
+          });
         });
       },
     }),
