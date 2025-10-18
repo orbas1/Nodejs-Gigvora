@@ -67,6 +67,26 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
     ],
   },
   {
+    label: 'Networking',
+    items: [
+      {
+        name: 'Plan',
+        sectionId: 'network-plan',
+        href: '/dashboard/company/networking/sessions#plan',
+      },
+      {
+        name: 'Spend',
+        sectionId: 'network-spend',
+        href: '/dashboard/company/networking/sessions#spend',
+      },
+      {
+        name: 'Follow',
+        sectionId: 'network-follow',
+        href: '/dashboard/company/networking/sessions#follow',
+      },
+      {
+        name: 'Hub',
+        sectionId: 'network-hub',
     label: 'Networking & community',
     label: 'Network',
     items: [

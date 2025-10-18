@@ -61,6 +61,7 @@ import CompanyInboxPage from './pages/dashboards/CompanyInboxPage.jsx';
 import CompanyTimelineManagementPage from './pages/dashboards/CompanyTimelineManagementPage.jsx';
 import CompanyWalletManagementPage from './pages/dashboards/CompanyWalletManagementPage.jsx';
 import CompanyNetworkingHubPage from './pages/networking/CompanyNetworkingHubPage.jsx';
+import NetworkingSessionsPage from './pages/networking/NetworkingSessionsPage.jsx';
 import CompanyProjectManagementPage from './pages/dashboards/CompanyProjectManagementPage.jsx';
 import CompanyDisputeManagementPage from './pages/dashboards/company/CompanyDisputeManagementPage.jsx';
 import AgencyDashboardPage from './pages/dashboards/AgencyDashboardPage.jsx';
@@ -404,6 +405,15 @@ export default function App() {
         element={
           <RequireRole allowedRoles={['company']}>
             <CompanyNetworkingHubPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
+        path="dashboard/company/networking/sessions"
+        element={
+          <RequireRole allowedRoles={['company']}>
+            <NetworkingSessionsPage />
           </RequireRole>
         }
       />
