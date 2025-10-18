@@ -10,6 +10,16 @@ export const GROUP_VISIBILITIES = ['public', 'private', 'secret'];
 export const GROUP_MEMBER_POLICIES = ['open', 'request', 'invite'];
 export const GROUP_MEMBERSHIP_STATUSES = ['pending', 'active', 'invited', 'suspended'];
 export const GROUP_MEMBERSHIP_ROLES = ['owner', 'moderator', 'member', 'observer'];
+export const GROUP_POST_STATUSES = ['draft', 'scheduled', 'published', 'archived'];
+export const GROUP_POST_VISIBILITIES = ['public', 'members', 'admins'];
+
+export const PAGE_VISIBILITIES = ['public', 'members', 'private'];
+export const PAGE_MEMBER_ROLES = ['owner', 'admin', 'editor', 'moderator', 'author', 'viewer'];
+export const PAGE_MEMBER_STATUSES = ['active', 'invited', 'pending', 'suspended'];
+export const PAGE_POST_STATUSES = ['draft', 'scheduled', 'published', 'archived'];
+export const PAGE_POST_VISIBILITIES = ['public', 'followers', 'members', 'private'];
+
+export const COMMUNITY_INVITE_STATUSES = ['pending', 'accepted', 'declined', 'expired'];
 
 export const EMPLOYER_BRAND_SECTION_TYPES = [
   'culture_video',

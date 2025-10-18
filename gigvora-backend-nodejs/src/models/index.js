@@ -57,7 +57,9 @@ import {
   PROFILE_VISIBILITY_OPTIONS,
   PROFILE_NETWORK_VISIBILITY_OPTIONS,
   PROFILE_FOLLOWERS_VISIBILITY_OPTIONS,
-  GROUP_VISIBILITIES, GROUP_MEMBER_POLICIES, GROUP_MEMBERSHIP_STATUSES, GROUP_MEMBERSHIP_ROLES,
+  GROUP_VISIBILITIES, GROUP_MEMBER_POLICIES, GROUP_MEMBERSHIP_STATUSES, GROUP_MEMBERSHIP_ROLES, GROUP_POST_STATUSES,
+  GROUP_POST_VISIBILITIES, PAGE_VISIBILITIES, PAGE_MEMBER_ROLES, PAGE_MEMBER_STATUSES, PAGE_POST_STATUSES,
+  PAGE_POST_VISIBILITIES, COMMUNITY_INVITE_STATUSES,
   EMPLOYER_BRAND_SECTION_TYPES, EMPLOYER_BRAND_SECTION_STATUSES, EMPLOYER_BRAND_CAMPAIGN_STATUSES, WORKFORCE_COHORT_TYPES,
   INTERNAL_JOB_POSTING_STATUSES, EMPLOYEE_REFERRAL_STATUSES, CAREER_PATHING_STATUSES, COMPLIANCE_POLICY_STATUSES,
   COMPLIANCE_AUDIT_STATUSES, ACCESSIBILITY_AUDIT_STATUSES, APPLICATION_TARGET_TYPES, APPLICATION_STATUSES,
@@ -8022,6 +8024,22 @@ function normalizeGroupColour(value) {
   return /^#([0-9a-f]{6})$/.test(colour) ? colour : '#2563eb';
 }
 
+function slugifyCommunityContent(value, fallback = 'post') {
+  return slugifyGroup(value, fallback);
+}
+
+function slugifyPage(value, fallback = 'page') {
+  return slugifyGroup(value, fallback);
+}
+
+function normalizePageColour(value) {
+  if (!value) {
+    return '#0f172a';
+  }
+  const colour = value.toString().trim().toLowerCase();
+  return /^#([0-9a-f]{6})$/.test(colour) ? colour : '#0f172a';
+}
+
 export const Group = sequelize.define(
   'Group',
   {
@@ -8095,6 +8113,251 @@ GroupMembership.addHook('beforeSave', (membership) => {
   if (!membership) return;
   if (membership.status === 'active' && !membership.joinedAt) {
     membership.joinedAt = new Date();
+  }
+});
+
+export const GroupInvite = sequelize.define(
+  'GroupInvite',
+  {
+    groupId: { type: DataTypes.INTEGER, allowNull: false },
+    email: { type: DataTypes.STRING(255), allowNull: false, validate: { isEmail: true } },
+    role: {
+      type: DataTypes.ENUM(...GROUP_MEMBERSHIP_ROLES),
+      allowNull: false,
+      defaultValue: 'member',
+      validate: { isIn: [GROUP_MEMBERSHIP_ROLES] },
+    },
+    status: {
+      type: DataTypes.ENUM(...COMMUNITY_INVITE_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+      validate: { isIn: [COMMUNITY_INVITE_STATUSES] },
+    },
+    token: { type: DataTypes.UUID, allowNull: false, defaultValue: DataTypes.UUIDV4 },
+    invitedById: { type: DataTypes.INTEGER, allowNull: true },
+    message: { type: DataTypes.TEXT, allowNull: true },
+    expiresAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'group_invites' },
+);
+
+GroupInvite.addHook('beforeValidate', (invite) => {
+  if (!invite) return;
+  if (invite.email) {
+    invite.email = invite.email.toString().trim().toLowerCase();
+  }
+});
+
+export const GroupPost = sequelize.define(
+  'GroupPost',
+  {
+    groupId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    slug: { type: DataTypes.STRING(160), allowNull: false, unique: true },
+    summary: { type: DataTypes.STRING(280), allowNull: true },
+    content: { type: DataTypes.TEXT, allowNull: false },
+    attachments: { type: jsonType, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...GROUP_POST_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [GROUP_POST_STATUSES] },
+    },
+    visibility: {
+      type: DataTypes.ENUM(...GROUP_POST_VISIBILITIES),
+      allowNull: false,
+      defaultValue: 'members',
+      validate: { isIn: [GROUP_POST_VISIBILITIES] },
+    },
+    scheduledAt: { type: DataTypes.DATE, allowNull: true },
+    publishedAt: { type: DataTypes.DATE, allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: false },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'group_posts' },
+);
+
+GroupPost.addHook('beforeValidate', (post) => {
+  if (!post) return;
+  const base = slugifyCommunityContent(post.slug || post.title, 'group-post');
+  if (post.isNewRecord || !post.slug) {
+    const uniqueSuffix = Math.random().toString(36).slice(2, 8);
+    post.slug = `${base}-${uniqueSuffix}`.slice(0, 160);
+  } else {
+    post.slug = base.slice(0, 160);
+  }
+});
+
+GroupPost.addHook('beforeSave', (post) => {
+  if (!post) return;
+  if (post.status === 'published' && !post.publishedAt) {
+    post.publishedAt = new Date();
+  }
+  if (post.status !== 'published' && post.publishedAt && post.changed('status')) {
+    post.publishedAt = null;
+  }
+});
+
+export const Page = sequelize.define(
+  'Page',
+  {
+    name: { type: DataTypes.STRING(255), allowNull: false },
+    slug: { type: DataTypes.STRING(120), allowNull: false, unique: true },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    category: { type: DataTypes.STRING(120), allowNull: true },
+    websiteUrl: { type: DataTypes.STRING(255), allowNull: true },
+    contactEmail: { type: DataTypes.STRING(255), allowNull: true },
+    visibility: {
+      type: DataTypes.ENUM(...PAGE_VISIBILITIES),
+      allowNull: false,
+      defaultValue: 'public',
+      validate: { isIn: [PAGE_VISIBILITIES] },
+    },
+    avatarColor: { type: DataTypes.STRING(7), allowNull: false, defaultValue: '#0f172a' },
+    bannerImageUrl: { type: DataTypes.STRING(255), allowNull: true },
+    callToAction: { type: DataTypes.STRING(255), allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+    settings: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pages' },
+);
+
+Page.addHook('beforeValidate', (page) => {
+  if (!page) return;
+  if (page.name && !page.slug) {
+    page.slug = slugifyPage(page.name);
+  }
+  if (page.slug) {
+    page.slug = slugifyPage(page.slug);
+  }
+  if (page.contactEmail) {
+    page.contactEmail = page.contactEmail.toString().trim().toLowerCase();
+  }
+  page.avatarColor = normalizePageColour(page.avatarColor);
+});
+
+Page.addHook('beforeSave', (page) => {
+  if (!page) return;
+  page.avatarColor = normalizePageColour(page.avatarColor);
+});
+
+export const PageMembership = sequelize.define(
+  'PageMembership',
+  {
+    pageId: { type: DataTypes.INTEGER, allowNull: false },
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    role: {
+      type: DataTypes.ENUM(...PAGE_MEMBER_ROLES),
+      allowNull: false,
+      defaultValue: 'viewer',
+      validate: { isIn: [PAGE_MEMBER_ROLES] },
+    },
+    status: {
+      type: DataTypes.ENUM(...PAGE_MEMBER_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+      validate: { isIn: [PAGE_MEMBER_STATUSES] },
+    },
+    invitedById: { type: DataTypes.INTEGER, allowNull: true },
+    joinedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  { tableName: 'page_memberships' },
+);
+
+PageMembership.addHook('beforeSave', (membership) => {
+  if (!membership) return;
+  if (membership.status === 'active' && !membership.joinedAt) {
+    membership.joinedAt = new Date();
+  }
+});
+
+export const PageInvite = sequelize.define(
+  'PageInvite',
+  {
+    pageId: { type: DataTypes.INTEGER, allowNull: false },
+    email: { type: DataTypes.STRING(255), allowNull: false, validate: { isEmail: true } },
+    role: {
+      type: DataTypes.ENUM(...PAGE_MEMBER_ROLES),
+      allowNull: false,
+      defaultValue: 'editor',
+      validate: { isIn: [PAGE_MEMBER_ROLES] },
+    },
+    status: {
+      type: DataTypes.ENUM(...COMMUNITY_INVITE_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+      validate: { isIn: [COMMUNITY_INVITE_STATUSES] },
+    },
+    token: { type: DataTypes.UUID, allowNull: false, defaultValue: DataTypes.UUIDV4 },
+    invitedById: { type: DataTypes.INTEGER, allowNull: true },
+    message: { type: DataTypes.TEXT, allowNull: true },
+    expiresAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'page_invites' },
+);
+
+PageInvite.addHook('beforeValidate', (invite) => {
+  if (!invite) return;
+  if (invite.email) {
+    invite.email = invite.email.toString().trim().toLowerCase();
+  }
+});
+
+export const PagePost = sequelize.define(
+  'PagePost',
+  {
+    pageId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    slug: { type: DataTypes.STRING(160), allowNull: false, unique: true },
+    summary: { type: DataTypes.STRING(280), allowNull: true },
+    content: { type: DataTypes.TEXT, allowNull: false },
+    attachments: { type: jsonType, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...PAGE_POST_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [PAGE_POST_STATUSES] },
+    },
+    visibility: {
+      type: DataTypes.ENUM(...PAGE_POST_VISIBILITIES),
+      allowNull: false,
+      defaultValue: 'public',
+      validate: { isIn: [PAGE_POST_VISIBILITIES] },
+    },
+    scheduledAt: { type: DataTypes.DATE, allowNull: true },
+    publishedAt: { type: DataTypes.DATE, allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: false },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'page_posts' },
+);
+
+PagePost.addHook('beforeValidate', (post) => {
+  if (!post) return;
+  const base = slugifyCommunityContent(post.slug || post.title, 'page-post');
+  if (post.isNewRecord || !post.slug) {
+    const uniqueSuffix = Math.random().toString(36).slice(2, 8);
+    post.slug = `${base}-${uniqueSuffix}`.slice(0, 160);
+  } else {
+    post.slug = base.slice(0, 160);
+  }
+});
+
+PagePost.addHook('beforeSave', (post) => {
+  if (!post) return;
+  if (post.status === 'published' && !post.publishedAt) {
+    post.publishedAt = new Date();
+  }
+  if (post.status !== 'published' && post.publishedAt && post.changed('status')) {
+    post.publishedAt = null;
   }
 });
 
@@ -18060,6 +18323,38 @@ GroupMembership.belongsTo(User, { foreignKey: 'invitedById', as: 'invitedBy' });
 Group.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
 Group.belongsTo(User, { foreignKey: 'updatedById', as: 'updatedBy' });
 User.hasMany(GroupMembership, { foreignKey: 'userId', as: 'groupMemberships' });
+
+Group.hasMany(GroupInvite, { foreignKey: 'groupId', as: 'invites' });
+GroupInvite.belongsTo(Group, { foreignKey: 'groupId', as: 'group' });
+GroupInvite.belongsTo(User, { foreignKey: 'invitedById', as: 'invitedBy' });
+User.hasMany(GroupInvite, { foreignKey: 'invitedById', as: 'groupInvitesSent' });
+
+Group.hasMany(GroupPost, { foreignKey: 'groupId', as: 'posts' });
+GroupPost.belongsTo(Group, { foreignKey: 'groupId', as: 'group' });
+GroupPost.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+GroupPost.belongsTo(User, { foreignKey: 'updatedById', as: 'updatedBy' });
+User.hasMany(GroupPost, { foreignKey: 'createdById', as: 'groupPostsAuthored' });
+
+Page.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+Page.belongsTo(User, { foreignKey: 'updatedById', as: 'updatedBy' });
+User.hasMany(Page, { foreignKey: 'createdById', as: 'pagesCreated' });
+
+Page.hasMany(PageMembership, { foreignKey: 'pageId', as: 'memberships' });
+PageMembership.belongsTo(Page, { foreignKey: 'pageId', as: 'page' });
+PageMembership.belongsTo(User, { foreignKey: 'userId', as: 'member' });
+PageMembership.belongsTo(User, { foreignKey: 'invitedById', as: 'invitedBy' });
+User.hasMany(PageMembership, { foreignKey: 'userId', as: 'pageMemberships' });
+
+Page.hasMany(PageInvite, { foreignKey: 'pageId', as: 'invites' });
+PageInvite.belongsTo(Page, { foreignKey: 'pageId', as: 'page' });
+PageInvite.belongsTo(User, { foreignKey: 'invitedById', as: 'invitedBy' });
+User.hasMany(PageInvite, { foreignKey: 'invitedById', as: 'pageInvitesSent' });
+
+Page.hasMany(PagePost, { foreignKey: 'pageId', as: 'posts' });
+PagePost.belongsTo(Page, { foreignKey: 'pageId', as: 'page' });
+PagePost.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+PagePost.belongsTo(User, { foreignKey: 'updatedById', as: 'updatedBy' });
+User.hasMany(PagePost, { foreignKey: 'createdById', as: 'pagePostsAuthored' });
 
 User.belongsToMany(User, {
   through: Connection,
