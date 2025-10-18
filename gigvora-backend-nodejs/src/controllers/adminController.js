@@ -6,6 +6,14 @@ import {
   updateHomepageSettings,
 } from '../services/platformSettingsService.js';
 import { getAffiliateSettings, updateAffiliateSettings } from '../services/affiliateSettingsService.js';
+import {
+  listPageSettings,
+  createPageSetting,
+  updatePageSetting,
+  deletePageSetting,
+} from '../services/pageSettingsService.js';
+import { getGdprSettings, updateGdprSettings } from '../services/gdprSettingsService.js';
+import { getSeoSettings, updateSeoSettings } from '../services/seoSettingsService.js';
 import { getRuntimeOperationalSnapshot } from '../services/runtimeObservabilityService.js';
 import {
   sanitizeAdminDashboardFilters,
@@ -53,6 +61,44 @@ export async function persistAffiliateSettings(req, res) {
   res.json(settings);
 }
 
+export async function fetchPageSettings(req, res) {
+  const { limit, offset } = req.query ?? {};
+  const result = await listPageSettings({ limit, offset });
+  res.json(result);
+}
+
+export async function createAdminPageSetting(req, res) {
+  const record = await createPageSetting(req.body ?? {}, { actorId: req.user?.id });
+  res.status(201).json(record);
+}
+
+export async function persistPageSetting(req, res) {
+  const { pageId } = req.params;
+  const record = await updatePageSetting(pageId, req.body ?? {}, { actorId: req.user?.id });
+  res.json(record);
+}
+
+export async function removePageSetting(req, res) {
+  const { pageId } = req.params;
+  await deletePageSetting(pageId);
+  res.status(204).send();
+export async function fetchGdprSettings(req, res) {
+  const settings = await getGdprSettings();
+  res.json(settings);
+}
+
+export async function persistGdprSettings(req, res) {
+  const settings = await updateGdprSettings(req.body ?? {});
+export async function fetchSeoSettings(req, res) {
+  const settings = await getSeoSettings();
+  res.json(settings);
+}
+
+export async function persistSeoSettings(req, res) {
+  const settings = await updateSeoSettings(req.body ?? {});
+  res.json(settings);
+}
+
 export async function runtimeHealth(req, res) {
   const snapshot = await getRuntimeOperationalSnapshot();
   res.json(snapshot);
@@ -66,5 +112,13 @@ export default {
   persistHomepageSettings,
   fetchAffiliateSettings,
   persistAffiliateSettings,
+  fetchPageSettings,
+  createAdminPageSetting,
+  persistPageSetting,
+  removePageSetting,
+  fetchGdprSettings,
+  persistGdprSettings,
+  fetchSeoSettings,
+  persistSeoSettings,
   runtimeHealth,
 };
