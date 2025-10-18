@@ -243,6 +243,90 @@ SupportCase.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+export const MessageLabel = sequelize.define(
+  'MessageLabel',
+  {
+    name: { type: DataTypes.STRING(120), allowNull: false },
+    slug: { type: DataTypes.STRING(160), allowNull: false, unique: true },
+    color: { type: DataTypes.STRING(32), allowNull: false, defaultValue: '#2563eb' },
+    description: { type: DataTypes.STRING(400), allowNull: true },
+    createdBy: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'message_labels',
+    indexes: [
+      { unique: true, fields: ['slug'] },
+      { fields: ['createdBy'] },
+    ],
+  },
+);
+
+MessageLabel.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    name: plain.name,
+    slug: plain.slug,
+    color: plain.color,
+    description: plain.description,
+    createdBy: plain.createdBy,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const MessageThreadLabel = sequelize.define(
+  'MessageThreadLabel',
+  {
+    threadId: { type: DataTypes.INTEGER, allowNull: false },
+    labelId: { type: DataTypes.INTEGER, allowNull: false },
+    appliedBy: { type: DataTypes.INTEGER, allowNull: true },
+    appliedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'message_thread_labels',
+    indexes: [
+      { unique: true, fields: ['threadId', 'labelId'] },
+      { fields: ['labelId'] },
+      { fields: ['threadId'] },
+    ],
+  },
+);
+
+MessageThreadLabel.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    threadId: plain.threadId,
+    labelId: plain.labelId,
+    appliedBy: plain.appliedBy,
+    appliedAt: plain.appliedAt,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+MessageLabel.belongsToMany(MessageThread, {
+  through: MessageThreadLabel,
+  foreignKey: 'labelId',
+  otherKey: 'threadId',
+  as: 'threads',
+});
+
+MessageThread.belongsToMany(MessageLabel, {
+  through: MessageThreadLabel,
+  foreignKey: 'threadId',
+  otherKey: 'labelId',
+  as: 'labels',
+});
+
+MessageThreadLabel.belongsTo(MessageThread, { foreignKey: 'threadId', as: 'thread' });
+MessageThreadLabel.belongsTo(MessageLabel, { foreignKey: 'labelId', as: 'label' });
+
 export const UserAiProviderSetting = sequelize.define(
   'UserAiProviderSetting',
   {

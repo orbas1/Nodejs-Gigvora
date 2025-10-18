@@ -450,6 +450,16 @@ export default function DashboardLayout({
     if (item.href) {
       if (item.href.startsWith('http')) {
         window.open(item.href, item.target ?? '_blank', 'noreferrer');
+        setMobileOpen(false);
+        return;
+      }
+      if (typeof window !== 'undefined') {
+        if (item.target === '_blank') {
+          window.open(item.href, '_blank', 'noopener');
+        } else {
+          window.location.assign(item.href);
+        }
+        setMobileOpen(false);
       }
       return;
     }

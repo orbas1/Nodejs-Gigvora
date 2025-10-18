@@ -79,7 +79,23 @@ function assertSupportPriority(priority) {
   }
 }
 
-function sanitizeParticipant(participant) {
+function sanitizeLabel(label) {
+  if (!label) return null;
+  const plain = label.get ? label.get({ plain: true }) : label;
+  return {
+    id: plain.id,
+    name: plain.name,
+    slug: plain.slug,
+    color: plain.color,
+    description: plain.description,
+    createdBy: plain.createdBy,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+}
+
+export function sanitizeParticipant(participant) {
   if (!participant) return null;
   const plain = participant.get({ plain: true });
   return {
@@ -103,7 +119,7 @@ function sanitizeParticipant(participant) {
   };
 }
 
-function sanitizeThread(thread) {
+export function sanitizeThread(thread) {
   if (!thread) return null;
   const plain = thread.get({ plain: true });
   return {
@@ -120,6 +136,7 @@ function sanitizeThread(thread) {
       ? Object.fromEntries(Object.entries(plain.metadata).filter(([key]) => !/^(_|internal|private)/i.test(key)))
       : null,
     participants: Array.isArray(thread.participants) ? thread.participants.map((p) => sanitizeParticipant(p)) : undefined,
+    labels: Array.isArray(thread.labels) ? thread.labels.map((label) => sanitizeLabel(label)) : undefined,
     supportCase: thread.supportCase ? sanitizeSupportCase(thread.supportCase) : undefined,
   };
 }
@@ -136,7 +153,7 @@ function sanitizeAttachment(attachment) {
   };
 }
 
-function sanitizeMessage(message) {
+export function sanitizeMessage(message) {
   if (!message) return null;
   const base = message.toPublicObject();
   return {
@@ -169,7 +186,7 @@ function scheduleAutoReplies(threadId, message, senderId) {
     .catch(() => {});
 }
 
-function sanitizeSupportCase(supportCase) {
+export function sanitizeSupportCase(supportCase) {
   if (!supportCase) return null;
   const plain = supportCase.get ? supportCase.get({ plain: true }) : supportCase;
   const sanitizedMetadata = plain.metadata && typeof plain.metadata === 'object'

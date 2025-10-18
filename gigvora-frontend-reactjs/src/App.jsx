@@ -46,6 +46,7 @@ import HeadhunterDashboardPage from './pages/dashboards/HeadhunterDashboardPage.
 import MentorDashboardPage from './pages/dashboards/MentorDashboardPage.jsx';
 import LaunchpadOperationsPage from './pages/dashboards/LaunchpadOperationsPage.jsx';
 import AdminDashboardPage from './pages/dashboards/AdminDashboardPage.jsx';
+import AdminInboxPage from './pages/dashboards/AdminInboxPage.jsx';
 import AdminBlogManagementPage from './pages/admin/AdminBlogManagementPage.jsx';
 import ProtectedRoute from './components/routing/ProtectedRoute.jsx';
 import RoleProtectedRoute from './components/auth/RoleProtectedRoute.jsx';
@@ -259,6 +260,15 @@ export default function App() {
         element={
           <RequireRole allowedRoles={['admin']}>
             <AdminDashboardPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
+        path="dashboard/admin/inbox"
+        element={
+          <RequireRole allowedRoles={['admin']}>
+            <AdminInboxPage />
           </RequireRole>
         }
       />
