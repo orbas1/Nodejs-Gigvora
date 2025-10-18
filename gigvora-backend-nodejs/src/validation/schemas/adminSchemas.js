@@ -68,11 +68,23 @@ const escrowSettingsSchema = z
   })
   .strip();
 
+const escrowControlSettingsSchema = z
+  .object({
+    defaultHoldPeriodHours: optionalNumber({ min: 0, precision: 0, integer: true }),
+    autoReleaseHours: optionalNumber({ min: 0, precision: 0, integer: true }),
+    requireManualApproval: optionalBoolean(),
+    manualApprovalThreshold: optionalNumber({ min: 0, precision: 2 }),
+    notificationEmails: optionalStringArray({ maxItemLength: 255 }),
+    statementDescriptor: optionalTrimmedString({ max: 160 }),
+  })
+  .strip();
+
 const paymentSettingsSchema = z
   .object({
     provider: optionalTrimmedString({ max: 50 }),
     stripe: stripeSettingsSchema.optional(),
     escrow_com: escrowSettingsSchema.optional(),
+    escrowControls: escrowControlSettingsSchema.optional(),
   })
   .strip();
 

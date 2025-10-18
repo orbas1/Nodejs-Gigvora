@@ -47,6 +47,7 @@ import {
   AGENCY_ALLIANCE_REVENUE_SPLIT_STATUSES, AGENCY_COLLABORATION_STATUSES, AGENCY_COLLABORATION_TYPES, AGENCY_INVITATION_STATUSES,
   AGENCY_RATE_CARD_STATUSES, AGENCY_RATE_CARD_ITEM_UNIT_TYPES, AGENCY_RETAINER_NEGOTIATION_STATUSES, AGENCY_RETAINER_NEGOTIATION_STAGES,
   AGENCY_RETAINER_EVENT_ACTOR_TYPES, AGENCY_RETAINER_EVENT_TYPES, ESCROW_ACCOUNT_STATUSES, ESCROW_TRANSACTION_TYPES,
+  ESCROW_RELEASE_POLICY_TYPES, ESCROW_RELEASE_POLICY_STATUSES, ESCROW_FEE_TIER_STATUSES,
   HEADHUNTER_INVITE_STATUSES, HEADHUNTER_BRIEF_STATUSES, HEADHUNTER_ASSIGNMENT_STATUSES, HEADHUNTER_COMMISSION_STATUSES,
   TALENT_POOL_TYPES, TALENT_POOL_STATUSES, TALENT_POOL_MEMBER_STATUSES, TALENT_POOL_MEMBER_SOURCE_TYPES,
   TALENT_POOL_ENGAGEMENT_TYPES, AGENCY_BILLING_STATUSES, ESCROW_TRANSACTION_STATUSES, ID_VERIFICATION_STATUSES,
@@ -9279,6 +9280,104 @@ export const EscrowTransaction = sequelize.define(
   },
 );
 
+export const EscrowReleasePolicy = sequelize.define(
+  'EscrowReleasePolicy',
+  {
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    policyType: {
+      type: DataTypes.ENUM(...ESCROW_RELEASE_POLICY_TYPES),
+      allowNull: false,
+      defaultValue: 'auto_release_after_hours',
+    },
+    status: {
+      type: DataTypes.ENUM(...ESCROW_RELEASE_POLICY_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+    },
+    thresholdAmount: { type: DataTypes.DECIMAL(18, 4), allowNull: true },
+    thresholdHours: { type: DataTypes.INTEGER, allowNull: true },
+    requiresComplianceHold: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    requiresManualApproval: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    notifyEmails: { type: jsonType, allowNull: false, defaultValue: [] },
+    description: { type: DataTypes.STRING(500), allowNull: true },
+    orderIndex: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    metadata: { type: jsonType, allowNull: false, defaultValue: {} },
+  },
+  {
+    tableName: 'escrow_release_policies',
+    indexes: [
+      { fields: ['status'] },
+      { fields: ['policyType'] },
+      { fields: ['orderIndex'] },
+    ],
+  },
+);
+
+EscrowReleasePolicy.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    name: plain.name,
+    policyType: plain.policyType,
+    status: plain.status,
+    thresholdAmount: plain.thresholdAmount != null ? Number.parseFloat(plain.thresholdAmount) : null,
+    thresholdHours: plain.thresholdHours != null ? Number.parseInt(plain.thresholdHours, 10) : null,
+    requiresComplianceHold: Boolean(plain.requiresComplianceHold),
+    requiresManualApproval: Boolean(plain.requiresManualApproval),
+    notifyEmails: Array.isArray(plain.notifyEmails) ? plain.notifyEmails : [],
+    description: plain.description,
+    orderIndex: Number.parseInt(plain.orderIndex ?? 0, 10) || 0,
+    metadata: plain.metadata ?? {},
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const EscrowFeeTier = sequelize.define(
+  'EscrowFeeTier',
+  {
+    provider: { type: DataTypes.STRING(80), allowNull: false, defaultValue: 'stripe' },
+    currencyCode: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    minimumAmount: { type: DataTypes.DECIMAL(18, 4), allowNull: false, defaultValue: 0 },
+    maximumAmount: { type: DataTypes.DECIMAL(18, 4), allowNull: true },
+    percentFee: { type: DataTypes.DECIMAL(6, 3), allowNull: false, defaultValue: 0 },
+    flatFee: { type: DataTypes.DECIMAL(12, 2), allowNull: false, defaultValue: 0 },
+    status: {
+      type: DataTypes.ENUM(...ESCROW_FEE_TIER_STATUSES),
+      allowNull: false,
+      defaultValue: 'active',
+    },
+    label: { type: DataTypes.STRING(160), allowNull: true },
+    metadata: { type: jsonType, allowNull: false, defaultValue: {} },
+  },
+  {
+    tableName: 'escrow_fee_tiers',
+    indexes: [
+      { fields: ['provider'] },
+      { fields: ['currencyCode'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+EscrowFeeTier.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    provider: plain.provider,
+    currencyCode: plain.currencyCode,
+    minimumAmount: Number.parseFloat(plain.minimumAmount ?? 0),
+    maximumAmount: plain.maximumAmount != null ? Number.parseFloat(plain.maximumAmount) : null,
+    percentFee: Number.parseFloat(plain.percentFee ?? 0),
+    flatFee: Number.parseFloat(plain.flatFee ?? 0),
+    status: plain.status,
+    label: plain.label,
+    metadata: plain.metadata ?? {},
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 export const HeadhunterPipelineStage = sequelize.define(
   'HeadhunterPipelineStage',
   {
@@ -16436,6 +16535,8 @@ export default {
   WorkspaceCalendarConnection,
   EscrowAccount,
   EscrowTransaction,
+  EscrowReleasePolicy,
+  EscrowFeeTier,
   DisputeCase,
   DisputeEvent,
   SearchSubscription,
