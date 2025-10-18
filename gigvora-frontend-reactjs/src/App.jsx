@@ -93,6 +93,7 @@ import HeadhunterDashboardPage from './pages/dashboards/HeadhunterDashboardPage.
 import MentorDashboardPage from './pages/dashboards/MentorDashboardPage.jsx';
 import LaunchpadOperationsPage from './pages/dashboards/LaunchpadOperationsPage.jsx';
 import AdminDashboardPage from './pages/dashboards/AdminDashboardPage.jsx';
+import CompanyEscrowManagementPage from './pages/dashboards/CompanyEscrowManagementPage.jsx';
 import AdminTimelineManagementPage from './pages/dashboards/admin/AdminTimelineManagementPage.jsx';
 import AdminAppearanceManagementPage from './pages/dashboards/admin/AdminAppearanceManagementPage.jsx';
 import AdminStorageManagementPage from './pages/dashboards/admin/AdminStorageManagementPage.jsx';
@@ -445,6 +446,10 @@ export default function App() {
       />
 
       <Route
+        path="dashboard/company/escrow"
+        element={
+          <RequireRole allowedRoles={['company']}>
+            <CompanyEscrowManagementPage />
         path="dashboard/company/pages"
         element={
           <RequireRole allowedRoles={['company']}>
