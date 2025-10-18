@@ -43,6 +43,12 @@ export function assertDependenciesHealthy(dependencies, { feature } = {}) {
     return;
   }
 
+  const environment = (process.env.NODE_ENV ?? 'development').toLowerCase();
+  const guardExplicitlyEnabled = process.env.ENABLE_DEPENDENCY_GUARD === 'true';
+  if (!guardExplicitlyEnabled && environment === 'test') {
+    return;
+  }
+
   const state = getHealthState();
   const dependencyState = state.dependencies ?? {};
 

@@ -21,9 +21,14 @@ export async function updateAdCoupon(couponId, payload = {}) {
   return apiClient.put(`/admin/ads/coupons/${couponId}`, payload);
 }
 
+export async function updateAdminOverview(payload = {}) {
+  return apiClient.put('/admin/dashboard/overview', payload);
+}
+
 export default {
   fetchAdminDashboard,
   fetchAdCoupons,
   createAdCoupon,
   updateAdCoupon,
+  updateAdminOverview,
 };

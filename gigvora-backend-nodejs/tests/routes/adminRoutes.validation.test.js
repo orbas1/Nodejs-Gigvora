@@ -9,6 +9,8 @@ process.env.LOG_LEVEL = 'silent';
 const getAdminDashboardSnapshot = jest.fn().mockResolvedValue({ metrics: [] });
 const getPlatformSettings = jest.fn().mockResolvedValue({});
 const updatePlatformSettings = jest.fn().mockImplementation(async (payload) => payload);
+const getHomepageSettings = jest.fn().mockResolvedValue({});
+const updateHomepageSettings = jest.fn().mockImplementation(async (payload) => payload);
 const getAffiliateSettings = jest.fn().mockResolvedValue({});
 const updateAffiliateSettings = jest.fn().mockImplementation(async (payload) => payload);
 
@@ -24,6 +26,8 @@ jest.unstable_mockModule(adminDashboardModuleUrl.pathname, () => ({
 jest.unstable_mockModule(platformSettingsModuleUrl.pathname, () => ({
   getPlatformSettings,
   updatePlatformSettings,
+  getHomepageSettings,
+  updateHomepageSettings,
 }));
 
 jest.unstable_mockModule(affiliateSettingsModuleUrl.pathname, () => ({
@@ -56,6 +60,8 @@ beforeEach(() => {
   getAdminDashboardSnapshot.mockClear();
   getPlatformSettings.mockClear();
   updatePlatformSettings.mockClear();
+  getHomepageSettings.mockClear();
+  updateHomepageSettings.mockClear();
   getAffiliateSettings.mockClear();
   updateAffiliateSettings.mockClear();
 });
@@ -139,6 +145,57 @@ describe('PUT /api/admin/platform-settings', () => {
           escrow_com: expect.objectContaining({ sandbox: false }),
         }),
         smtp: expect.objectContaining({ port: 2525, secure: true }),
+      }),
+    );
+  });
+});
+
+describe('PUT /api/admin/homepage-settings', () => {
+  it('enforces shape of hero stats', async () => {
+    const response = await request(app)
+      .put('/api/admin/homepage-settings')
+      .set('Authorization', `Bearer ${buildAdminToken()}`)
+      .send({ hero: { stats: [{ label: '', value: 'abc' }] } });
+
+    expect(response.status).toBe(422);
+    expect(updateHomepageSettings).not.toHaveBeenCalled();
+  });
+
+  it('normalises nested homepage payloads', async () => {
+    const payload = {
+      announcementBar: { enabled: 'false', message: '  Welcome ', ctaLabel: ' Learn more ', ctaHref: '/about ' },
+      hero: {
+        title: ' Hero ',
+        primaryCtaLabel: 'Start',
+        primaryCtaHref: '/start',
+        overlayOpacity: '0.4',
+        stats: [{ id: 'visits', label: 'Visits', value: '15', suffix: '+' }],
+      },
+      valueProps: [{ title: 'Secure', description: '  Hardened ' }],
+      featureSections: [
+        {
+          title: 'Blocks',
+          bullets: [{ text: 'First' }, { text: 'Second' }],
+        },
+      ],
+      testimonials: [{ quote: 'Great', authorName: 'Lee' }],
+      faqs: [{ question: 'Q1', answer: 'A1' }],
+      quickLinks: [{ label: 'Live', href: '/', target: '_BLANK' }],
+      seo: { title: 'Homepage', description: 'Desc', keywords: ['a', 'b'], ogImageUrl: 'https://cdn.test/og.png' },
+    };
+
+    const response = await request(app)
+      .put('/api/admin/homepage-settings')
+      .set('Authorization', `Bearer ${buildAdminToken()}`)
+      .send(payload);
+
+    expect(response.status).toBe(200);
+    expect(updateHomepageSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        announcementBar: expect.objectContaining({ enabled: false, message: 'Welcome', ctaHref: '/about' }),
+        hero: expect.objectContaining({ title: 'Hero', overlayOpacity: 0.4 }),
+        valueProps: expect.arrayContaining([expect.objectContaining({ title: 'Secure' })]),
+        quickLinks: expect.arrayContaining([expect.objectContaining({ target: '_blank' })]),
       }),
     );
   });
