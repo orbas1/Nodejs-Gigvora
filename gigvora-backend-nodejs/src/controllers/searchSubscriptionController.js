@@ -5,6 +5,7 @@ import {
   createSubscription as createSubscriptionService,
   updateSubscription as updateSubscriptionService,
   deleteSubscription as deleteSubscriptionService,
+  runSubscription as runSubscriptionService,
 } from '../services/searchSubscriptionService.js';
 
 export async function listSubscriptions(req, res) {
@@ -47,9 +48,20 @@ export async function deleteSubscription(req, res) {
   res.json(result);
 }
 
+export async function runSubscription(req, res) {
+  const userId = resolveRequestUserId(req);
+  if (!userId) {
+    throw new ValidationError('An authenticated userId is required to trigger a saved search.');
+  }
+
+  const subscription = await runSubscriptionService(req.params.id, userId);
+  res.json(subscription);
+}
+
 export default {
   listSubscriptions,
   createSubscription,
   updateSubscription,
   deleteSubscription,
+  runSubscription,
 };
