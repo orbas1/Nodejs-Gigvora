@@ -11,6 +11,9 @@ import {
   assignSupportAgent,
   updateSupportCaseStatus,
   startOrJoinCall,
+  updateThreadSettings as updateThreadSettingsService,
+  addParticipantsToThread,
+  removeParticipantFromThread,
 } from '../services/messagingService.js';
 import { ValidationError } from '../utils/errors.js';
 
@@ -69,6 +72,7 @@ export async function listInbox(req, res) {
     unreadOnly,
     includeParticipants,
     includeSupport,
+    includeLabels,
     page,
     pageSize,
   } = req.query;
@@ -82,6 +86,7 @@ export async function listInbox(req, res) {
       unreadOnly: String(unreadOnly ?? '').toLowerCase() === 'true',
       includeParticipants: String(includeParticipants ?? '').toLowerCase() !== 'false',
       includeSupport: String(includeSupport ?? '').toLowerCase() !== 'false',
+      includeLabels: String(includeLabels ?? '').toLowerCase() === 'true',
     },
     { page, pageSize },
   );
@@ -94,6 +99,7 @@ export async function openThread(req, res) {
   const thread = await getThread(Number(threadId), {
     withParticipants: String(req.query.includeParticipants ?? '').toLowerCase() !== 'false',
     includeSupportCase: String(req.query.includeSupport ?? '').toLowerCase() !== 'false',
+    includeLabels: String(req.query.includeLabels ?? '').toLowerCase() === 'true',
   });
   res.json(thread);
 }
@@ -217,6 +223,39 @@ export async function createCallSession(req, res) {
   res.status(session.isNew ? 201 : 200).json(session);
 }
 
+export async function updateThreadSettings(req, res) {
+  const actorId = resolveActorId(req);
+  const { threadId } = req.params;
+  const { subject, channelType, metadataPatch, metadata } = req.body ?? {};
+
+  const thread = await updateThreadSettingsService(Number(threadId), actorId, {
+    subject,
+    channelType,
+    metadataPatch: metadataPatch && typeof metadataPatch === 'object' ? metadataPatch : metadata,
+  });
+
+  res.json(thread);
+}
+
+export async function addParticipants(req, res) {
+  const actorId = resolveActorId(req);
+  const { threadId } = req.params;
+  const participants = Array.isArray(req.body?.participantIds)
+    ? req.body.participantIds
+    : [req.body?.participantId].filter(Boolean);
+
+  const thread = await addParticipantsToThread(Number(threadId), actorId, participants);
+  res.status(201).json(thread);
+}
+
+export async function removeParticipant(req, res) {
+  const actorId = resolveActorId(req);
+  const { threadId, participantId } = req.params;
+
+  const thread = await removeParticipantFromThread(Number(threadId), Number(participantId), actorId);
+  res.json(thread);
+}
+
 export default {
   listInbox,
   openThread,
@@ -229,4 +268,7 @@ export default {
   escalateThread,
   assignSupport,
   updateSupportStatus,
+  updateThreadSettings,
+  addParticipants,
+  removeParticipant,
 };
