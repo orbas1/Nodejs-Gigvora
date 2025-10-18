@@ -8,12 +8,14 @@ import ConsentGovernancePanel from '../../components/admin/ConsentGovernancePane
 import RbacMatrixPanel from '../../components/admin/RbacMatrixPanel.jsx';
 import GigvoraAdsConsole from '../../components/ads/GigvoraAdsConsole.jsx';
 import AdminGroupManagementPanel from './admin/AdminGroupManagementPanel.jsx';
+import VolunteerInsightsPanel from '../../components/admin/volunteering/VolunteerInsightsPanel.jsx';
 import useSession from '../../hooks/useSession.js';
 import useRuntimeHealthSnapshot from '../../hooks/useRuntimeHealthSnapshot.js';
 import useDomainGovernanceSummaries from '../../hooks/useDomainGovernanceSummaries.js';
 import { fetchAdminDashboard } from '../../services/admin.js';
 import { fetchPlatformSettings, updatePlatformSettings } from '../../services/platformSettings.js';
 import { fetchAffiliateSettings, updateAffiliateSettings } from '../../services/affiliateSettings.js';
+import { fetchVolunteerInsights } from '../../services/adminVolunteering.js';
 
 const MENU_SECTIONS = [
   {
@@ -53,6 +55,13 @@ const MENU_SECTIONS = [
       {
         name: 'Engagement & comms',
         description: 'Platform analytics, event telemetry, and notification delivery.',
+      },
+      {
+        name: 'Volunteering management',
+        description: 'Programmes, scheduling, and impact reporting for volunteers.',
+        tags: ['community'],
+        sectionId: 'admin-volunteering',
+        href: '/dashboard/admin/volunteering',
       },
       {
         name: 'Gigvora Ads',
@@ -628,6 +637,10 @@ export default function AdminDashboardPage() {
   const [affiliateLastSavedAt, setAffiliateLastSavedAt] = useState(null);
   const [lastSavedAt, setLastSavedAt] = useState(null);
   const [restrictedFeaturesInput, setRestrictedFeaturesInput] = useState('');
+  const [volunteeringInsights, setVolunteeringInsights] = useState(null);
+  const [volunteeringLoading, setVolunteeringLoading] = useState(false);
+  const [volunteeringError, setVolunteeringError] = useState('');
+  const [volunteeringRefreshIndex, setVolunteeringRefreshIndex] = useState(0);
 
   const governanceRows = useMemo(
     () =>
@@ -670,6 +683,10 @@ export default function AdminDashboardPage() {
       setAffiliateSaving(false);
       setAffiliateStatus('');
       setAffiliateLastSavedAt(null);
+      setVolunteeringInsights(null);
+      setVolunteeringLoading(false);
+      setVolunteeringError('');
+      setVolunteeringRefreshIndex(0);
       return;
     }
     if (!hasAdminAccess) {
@@ -691,6 +708,9 @@ export default function AdminDashboardPage() {
       setAffiliateError(null);
       setAffiliateStatus('');
       setAffiliateLastSavedAt(null);
+      setVolunteeringInsights(null);
+      setVolunteeringLoading(false);
+      setVolunteeringError('');
       return;
     }
 
@@ -814,6 +834,48 @@ export default function AdminDashboardPage() {
       abortController.abort();
     };
   }, [refreshIndex, canAccessDashboard, hasAdminAccess]);
+
+  useEffect(() => {
+    if (!canAccessDashboard || !hasAdminAccess) {
+      setVolunteeringInsights(null);
+      setVolunteeringLoading(false);
+      if (!canAccessDashboard) {
+        setVolunteeringError('');
+      }
+      return;
+    }
+
+    let isActive = true;
+    const controller = new AbortController();
+    setVolunteeringLoading(true);
+    setVolunteeringError('');
+
+    fetchVolunteerInsights({ signal: controller.signal })
+      .then((snapshot) => {
+        if (!isActive) return;
+        setVolunteeringInsights(snapshot);
+      })
+      .catch((error) => {
+        if (!isActive || error?.name === 'AbortError') return;
+        const message =
+          error?.message ||
+          (error?.status === 403
+            ? 'Admin access required to review volunteering telemetry.'
+            : 'Unable to load volunteering insights.');
+        setVolunteeringError(message);
+        setVolunteeringInsights(null);
+      })
+      .finally(() => {
+        if (isActive) {
+          setVolunteeringLoading(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
+  }, [canAccessDashboard, hasAdminAccess, volunteeringRefreshIndex, refreshIndex]);
 
   const profile = useMemo(() => {
     const totals = data?.summary?.totals ?? {};
@@ -2334,6 +2396,10 @@ export default function AdminDashboardPage() {
     setRefreshIndex((index) => index + 1);
   };
 
+  const refreshVolunteeringInsights = () => {
+    setVolunteeringRefreshIndex((index) => index + 1);
+  };
+
   const renderAccessDenied = (
     <div className="rounded-3xl border border-amber-200 bg-amber-50 p-8 text-amber-900">
       <h2 className="text-xl font-semibold text-amber-900">Admin role required</h2>
@@ -2403,6 +2469,20 @@ export default function AdminDashboardPage() {
       />
       <AdCouponManager />
       <AdminGroupManagementPanel />
+      <div id="admin-volunteering" className="space-y-3">
+        {volunteeringError ? (
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{volunteeringError}</div>
+        ) : null}
+        <VolunteerInsightsPanel
+          insights={volunteeringInsights}
+          loading={volunteeringLoading}
+          compact
+          title="Volunteering overview"
+          description="Live visibility into open roles, shifts, and impact."
+          onManage={() => navigate('/dashboard/admin/volunteering')}
+          onRefresh={refreshVolunteeringInsights}
+        />
+      </div>
       <ConsentGovernancePanel />
       <RbacMatrixPanel />
 

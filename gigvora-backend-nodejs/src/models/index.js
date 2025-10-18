@@ -118,6 +118,18 @@ const sequelize = sequelizeClient;
 const dialect = sequelize.getDialect();
 const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB : DataTypes.JSON;
 
+export const VOLUNTEER_PROGRAM_STATUSES = ['draft', 'active', 'paused', 'archived'];
+export const VOLUNTEER_ROLE_STATUSES = ['draft', 'open', 'paused', 'filled', 'archived'];
+export const VOLUNTEER_SHIFT_STATUSES = ['planned', 'open', 'locked', 'complete', 'cancelled'];
+export const VOLUNTEER_ASSIGNMENT_STATUSES = [
+  'invited',
+  'confirmed',
+  'checked_in',
+  'checked_out',
+  'declined',
+  'no_show',
+];
+
 export * from './constants/index.js';
 export { BlogCategory, BlogMedia, BlogPost, BlogPostMedia, BlogPostTag, BlogTag } from './blogModels.js';
 export { ConsentPolicy, ConsentPolicyVersion, UserConsent, ConsentAuditEvent } from './consentModels.js';
@@ -5065,24 +5077,132 @@ export const Volunteering = sequelize.define(
   {
     title: { type: DataTypes.STRING(255), allowNull: false },
     organization: { type: DataTypes.STRING(255), allowNull: false },
+    summary: { type: DataTypes.TEXT, allowNull: true },
     description: { type: DataTypes.TEXT, allowNull: false },
     location: { type: DataTypes.STRING(255), allowNull: true },
     geoLocation: { type: jsonType, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...VOLUNTEER_ROLE_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [VOLUNTEER_ROLE_STATUSES] },
+    },
+    remoteType: { type: DataTypes.STRING(20), allowNull: true },
+    commitmentHours: { type: DataTypes.DECIMAL(6, 2), allowNull: true },
+    applicationUrl: { type: DataTypes.STRING(500), allowNull: true },
+    applicationDeadline: { type: DataTypes.DATE, allowNull: true },
+    spots: { type: DataTypes.INTEGER, allowNull: true },
+    skills: { type: jsonType, allowNull: true },
+    requirements: { type: jsonType, allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    imageUrl: { type: DataTypes.STRING(500), allowNull: true },
+    programId: { type: DataTypes.INTEGER, allowNull: true },
+    publishedAt: { type: DataTypes.DATE, allowNull: true },
+    accessRoles: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
   },
   { tableName: 'volunteering_roles' },
 );
 
-Volunteering.searchByTerm = async function searchByTerm(term) {
+Volunteering.searchByTerm = async function searchByTerm(term, options = {}) {
   if (!term) return [];
   const sanitizedTerm = term.trim();
   if (!sanitizedTerm) return [];
 
+  const status = options.status && VOLUNTEER_ROLE_STATUSES.includes(options.status) ? options.status : null;
+
   return Volunteering.findAll({
-    where: { title: { [Op.iLike ?? Op.like]: `%${sanitizedTerm}%` } },
+    where: {
+      ...(status ? { status } : {}),
+      title: { [Op.iLike ?? Op.like]: `%${sanitizedTerm}%` },
+    },
     limit: 20,
     order: [['title', 'ASC']],
   });
 };
+
+export const VolunteerProgram = sequelize.define(
+  'VolunteerProgram',
+  {
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...VOLUNTEER_PROGRAM_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [VOLUNTEER_PROGRAM_STATUSES] },
+    },
+    contactEmail: { type: DataTypes.STRING(255), allowNull: true },
+    contactPhone: { type: DataTypes.STRING(40), allowNull: true },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    startsAt: { type: DataTypes.DATE, allowNull: true },
+    endsAt: { type: DataTypes.DATE, allowNull: true },
+    maxVolunteers: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'volunteer_programs' },
+);
+
+export const VolunteerShift = sequelize.define(
+  'VolunteerShift',
+  {
+    programId: { type: DataTypes.INTEGER, allowNull: true },
+    roleId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(160), allowNull: false },
+    shiftDate: { type: DataTypes.DATEONLY, allowNull: false },
+    startTime: { type: DataTypes.TIME, allowNull: true },
+    endTime: { type: DataTypes.TIME, allowNull: true },
+    timezone: { type: DataTypes.STRING(120), allowNull: true },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    requirements: { type: jsonType, allowNull: true },
+    capacity: { type: DataTypes.INTEGER, allowNull: true },
+    reserved: { type: DataTypes.INTEGER, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...VOLUNTEER_SHIFT_STATUSES),
+      allowNull: false,
+      defaultValue: 'planned',
+      validate: { isIn: [VOLUNTEER_SHIFT_STATUSES] },
+    },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  { tableName: 'volunteer_shifts' },
+);
+
+export const VolunteerAssignment = sequelize.define(
+  'VolunteerAssignment',
+  {
+    shiftId: { type: DataTypes.INTEGER, allowNull: false },
+    volunteerId: { type: DataTypes.INTEGER, allowNull: true },
+    fullName: { type: DataTypes.STRING(160), allowNull: true },
+    email: { type: DataTypes.STRING(255), allowNull: true },
+    phone: { type: DataTypes.STRING(40), allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...VOLUNTEER_ASSIGNMENT_STATUSES),
+      allowNull: false,
+      defaultValue: 'invited',
+      validate: { isIn: [VOLUNTEER_ASSIGNMENT_STATUSES] },
+    },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    checkInAt: { type: DataTypes.DATE, allowNull: true },
+    checkOutAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'volunteer_assignments' },
+);
+
+VolunteerProgram.hasMany(Volunteering, { as: 'roles', foreignKey: 'programId' });
+Volunteering.belongsTo(VolunteerProgram, { as: 'program', foreignKey: 'programId' });
+
+VolunteerProgram.hasMany(VolunteerShift, { as: 'shifts', foreignKey: 'programId' });
+VolunteerShift.belongsTo(VolunteerProgram, { as: 'program', foreignKey: 'programId' });
+
+Volunteering.hasMany(VolunteerShift, { as: 'shifts', foreignKey: 'roleId' });
+VolunteerShift.belongsTo(Volunteering, { as: 'role', foreignKey: 'roleId' });
+
+VolunteerShift.hasMany(VolunteerAssignment, { as: 'assignments', foreignKey: 'shiftId' });
+VolunteerAssignment.belongsTo(VolunteerShift, { as: 'shift', foreignKey: 'shiftId' });
+VolunteerAssignment.belongsTo(User, { as: 'volunteer', foreignKey: 'volunteerId' });
 
 export const OpportunityTaxonomy = sequelize.define(
   'OpportunityTaxonomy',
