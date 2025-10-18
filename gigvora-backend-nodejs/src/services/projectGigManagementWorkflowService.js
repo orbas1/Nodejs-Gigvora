@@ -35,6 +35,7 @@ import {
   PROJECT_RISK_LEVELS,
   PROJECT_COLLABORATOR_STATUSES,
   GIG_ORDER_STATUSES,
+  GIG_REQUIREMENT_STATUSES,
   PROJECT_BID_STATUSES,
   PROJECT_INVITATION_STATUSES,
   AUTO_MATCH_STATUS,
@@ -554,6 +555,17 @@ function sanitizeRequirement(requirementInstance) {
   };
 }
 
+  const templates = await ProjectTemplate.findAll({ order: [['createdAt', 'DESC']] });
+  const templateRecords = templates.map((template) => template.get({ plain: true }));
+  const orders = await GigOrder.findAll({
+    where: { ownerId },
+    include: [
+      { model: GigOrderRequirement, as: 'requirements' },
+      { model: GigOrderRevision, as: 'revisions', order: [['roundNumber', 'ASC']] },
+      { model: GigVendorScorecard, as: 'scorecard' },
+    ],
+    order: [['createdAt', 'DESC']],
+  });
 function sanitizeRevision(revisionInstance) {
   const revision = toPlain(revisionInstance) ?? {};
   return {
@@ -594,6 +606,13 @@ function sanitizeScorecard(scorecardInstance) {
   };
 }
 
+  const summary = {
+    totalProjects: projects.length,
+    activeProjects: projects.filter((project) => project.status !== 'completed').length,
+    budgetInPlay: projects.reduce((acc, project) => acc + normalizeNumber(project.budgetAllocated), 0),
+    gigsInDelivery: orders.filter((order) => !['completed', 'cancelled'].includes(order.status)).length,
+    templatesAvailable: templateRecords.length,
+    assetsSecured: brandAssets.length,
 function sanitizeEscrowCheckpoint(checkpointInstance) {
   const checkpoint = toPlain(checkpointInstance) ?? {};
   return {
@@ -633,6 +652,19 @@ function normalizeAttachments(attachments) {
 function sanitizeMessage(messageInstance) {
   const message = toPlain(messageInstance) ?? {};
   return {
+    summary,
+    projects: sanitizedProjects,
+    projectCreation: { projects: sanitizedProjects, templates: templateRecords },
+    assets: { items: assets, summary: assetSummary, brandAssets },
+    board,
+    managementBoard: board,
+    purchasedGigs: {
+      orders,
+      reminders,
+      stats: vendorStats,
+    },
+    storytelling,
+    templates: templateRecords,
     ...message,
     attachments: normalizeAttachments(message.attachments),
     postedAt: message.postedAt ? new Date(message.postedAt).toISOString() : null,
@@ -2815,6 +2847,13 @@ export async function updateGigOrder(ownerId, orderId, payload) {
   }
   const dueAt = ensureDate(payload.dueAt, { label: 'Delivery due date' });
 
+  const currentMetadata = order.metadata && typeof order.metadata === 'object' ? { ...order.metadata } : {};
+  const nextMetadata =
+    payload.metadata === null
+      ? null
+      : payload.metadata
+      ? { ...currentMetadata, ...payload.metadata }
+      : currentMetadata;
   const currency = payload.currency ?? order.currency;
   let nextMetadata = order.metadata ?? {};
   if (
@@ -2889,6 +2928,56 @@ export async function updateGigOrder(ownerId, orderId, payload) {
     }
   }
 
+  if (Array.isArray(payload.requirements)) {
+    const existingRequirements = new Map(
+      (order.requirements ?? []).map((requirement) => [Number(requirement.id), requirement]),
+    );
+
+    await Promise.all(
+      payload.requirements.map(async (requirementPayload) => {
+        if (!requirementPayload) return;
+        const requirementId = requirementPayload.id != null ? Number(requirementPayload.id) : null;
+        const normalizedStatus = requirementPayload.status ?? existingRequirements.get(requirementId)?.status ?? 'pending';
+
+        if (!GIG_REQUIREMENT_STATUSES.includes(normalizedStatus)) {
+          throw new ValidationError('Invalid requirement status provided.');
+        }
+
+        const updatePayload = {
+          title: requirementPayload.title?.trim() || existingRequirements.get(requirementId)?.title,
+          status: normalizedStatus,
+          dueAt: ensureDate(requirementPayload.dueAt, { label: 'Requirement due date' }) ?? null,
+          notes: requirementPayload.notes ?? existingRequirements.get(requirementId)?.notes ?? null,
+        };
+
+        if (requirementId && existingRequirements.has(requirementId)) {
+          await existingRequirements.get(requirementId).update(updatePayload);
+        } else if (updatePayload.title) {
+          await GigOrderRequirement.create({
+            orderId: order.id,
+            ...updatePayload,
+          });
+        }
+      }),
+    );
+  }
+
+  if (Array.isArray(payload.removeRequirementIds) && payload.removeRequirementIds.length) {
+    const removableIds = payload.removeRequirementIds
+      .map((id) => Number(id))
+      .filter((id) => Number.isInteger(id) && order.requirements.some((req) => req.id === id));
+    if (removableIds.length) {
+      await GigOrderRequirement.destroy({ where: { id: removableIds } });
+    }
+  }
+
+  return order.reload({
+    include: [
+      { model: GigOrderRequirement, as: 'requirements' },
+      { model: GigOrderRevision, as: 'revisions' },
+      { model: GigVendorScorecard, as: 'scorecard' },
+    ],
+  });
   await order.reload();
   return sanitizeGigOrder(order);
 }

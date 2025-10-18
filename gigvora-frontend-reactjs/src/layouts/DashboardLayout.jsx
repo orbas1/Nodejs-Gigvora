@@ -477,6 +477,9 @@ export default function DashboardLayout({
         }
       if (/^https?:\/\//i.test(item.href)) {
         window.open(item.href, item.target ?? '_blank', 'noreferrer');
+      } else {
+        navigate(item.href);
+      }
       } else if (item.target === '_blank') {
         window.open(item.href, '_blank');
       } else if (typeof window !== 'undefined') {

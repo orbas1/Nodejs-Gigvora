@@ -151,6 +151,12 @@ const MENU_SECTIONS = [
     label: 'Quick tools',
     items: [
       {
+        name: 'Gigs',
+        description: 'Projects, orders, and assets.',
+        tags: ['projects'],
+        href: '/dashboard/admin/gig-management',
+      },
+      {
         name: 'Data exports',
         description: 'Pull CSV snapshots or schedule secure S3 drops.',
         tags: ['csv', 'api'],
