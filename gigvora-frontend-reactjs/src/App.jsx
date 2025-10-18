@@ -47,6 +47,7 @@ import MentorDashboardPage from './pages/dashboards/MentorDashboardPage.jsx';
 import LaunchpadOperationsPage from './pages/dashboards/LaunchpadOperationsPage.jsx';
 import AdminDashboardPage from './pages/dashboards/AdminDashboardPage.jsx';
 import AdminBlogManagementPage from './pages/admin/AdminBlogManagementPage.jsx';
+import AdminWalletManagementPage from './pages/dashboards/admin/AdminWalletManagementPage.jsx';
 import ProtectedRoute from './components/routing/ProtectedRoute.jsx';
 import RoleProtectedRoute from './components/auth/RoleProtectedRoute.jsx';
 import MembershipGate from './components/auth/MembershipGate.jsx';
@@ -259,6 +260,15 @@ export default function App() {
         element={
           <RequireRole allowedRoles={['admin']}>
             <AdminDashboardPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
+        path="dashboard/admin/wallets"
+        element={
+          <RequireRole allowedRoles={['admin']}>
+            <AdminWalletManagementPage />
           </RequireRole>
         }
       />

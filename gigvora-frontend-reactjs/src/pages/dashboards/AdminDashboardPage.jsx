@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowPathIcon, CurrencyDollarIcon, LifebuoyIcon, ShieldCheckIcon, UsersIcon } from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
@@ -40,6 +40,13 @@ const MENU_SECTIONS = [
         name: 'Financial governance',
         description: 'Escrow flows, fee capture, and treasury risk posture.',
         tags: ['finance'],
+      },
+      {
+        name: 'Wallets',
+        description: 'Manage wallet accounts and ledger.',
+        tags: ['finance', 'compliance'],
+        href: '/dashboard/admin/wallets',
+        id: 'wallet-management',
       },
       {
         name: 'Risk & trust',
@@ -547,6 +554,22 @@ function RecentList({ title, rows, columns, emptyLabel }) {
 
 export default function AdminDashboardPage() {
   const navigate = useNavigate();
+  const handleMenuItemSelect = useCallback(
+    (itemId, item) => {
+      if (item?.href) {
+        navigate(item.href);
+        return;
+      }
+      const targetId = item?.sectionId ?? item?.id;
+      if (targetId && typeof document !== 'undefined') {
+        const element = document.getElementById(targetId);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    },
+    [navigate],
+  );
   const { session, isAuthenticated } = useSession();
   const {
     data: runtimeSnapshot,
@@ -2874,6 +2897,7 @@ export default function AdminDashboardPage() {
           'agency',
           'headhunter',
         ]}
+        onMenuItemSelect={handleMenuItemSelect}
       >
         {gatingView}
       </DashboardLayout>
@@ -2908,7 +2932,7 @@ export default function AdminDashboardPage() {
       currentDashboard="admin"
       title="Gigvora Admin Control Tower"
       subtitle="Enterprise governance & compliance"
-      description="Centralize every lever that powers Gigvora—from member growth and financial operations to trust, support, analytics, and the launchpad." 
+      description="Centralize every lever that powers Gigvora—from member growth and financial operations to trust, support, analytics, and the launchpad."
       menuSections={MENU_SECTIONS}
       sections={[]}
       profile={profile}
@@ -2920,6 +2944,7 @@ export default function AdminDashboardPage() {
         'agency',
         'headhunter',
       ]}
+      onMenuItemSelect={handleMenuItemSelect}
     >
       {renderContent}
     </DashboardLayout>

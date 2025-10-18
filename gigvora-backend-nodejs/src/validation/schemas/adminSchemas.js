@@ -6,6 +6,12 @@ import {
   optionalTrimmedString,
   requiredTrimmedString,
 } from '../primitives.js';
+import {
+  WALLET_ACCOUNT_STATUSES,
+  WALLET_ACCOUNT_TYPES,
+  ESCROW_INTEGRATION_PROVIDERS,
+  WALLET_LEDGER_ENTRY_TYPES,
+} from '../../models/constants/index.js';
 
 const integerDaySchema = optionalNumber({ min: 1, max: 365, precision: 0, integer: true }).transform(
   (value) => value ?? undefined,
@@ -191,4 +197,138 @@ export const affiliateSettingsBodySchema = z
     compliance: complianceSettingsSchema.optional(),
   })
   .strip();
+
+const optionalMetadataSchema = z
+  .union([z.record(z.any()), z.undefined()])
+  .refine((value) => value === undefined || value === null || !Array.isArray(value), {
+    message: 'metadata must be an object.',
+  })
+  .transform((value) => (value === undefined ? undefined : value ?? null));
+
+const walletAccountFilterBaseSchema = z
+  .object({
+    page: optionalNumber({ min: 1, max: 500, precision: 0, integer: true }),
+    pageSize: optionalNumber({ min: 1, max: 100, precision: 0, integer: true }),
+    status: optionalTrimmedString({ max: 40, toLowerCase: true }).refine(
+      (value) => value == null || WALLET_ACCOUNT_STATUSES.includes(value),
+      { message: `status must be one of: ${WALLET_ACCOUNT_STATUSES.join(', ')}.` },
+    ),
+    accountType: optionalTrimmedString({ max: 40, toLowerCase: true }).refine(
+      (value) => value == null || WALLET_ACCOUNT_TYPES.includes(value),
+      { message: `accountType must be one of: ${WALLET_ACCOUNT_TYPES.join(', ')}.` },
+    ),
+    custodyProvider: optionalTrimmedString({ max: 60, toLowerCase: true }).refine(
+      (value) => value == null || ESCROW_INTEGRATION_PROVIDERS.includes(value),
+      {
+        message: `custodyProvider must be one of: ${ESCROW_INTEGRATION_PROVIDERS.join(', ')}.`,
+      },
+    ),
+    currency: optionalTrimmedString({ max: 3, toUpperCase: true }),
+    userId: optionalNumber({ min: 1, precision: 0, integer: true }),
+    profileId: optionalNumber({ min: 1, precision: 0, integer: true }),
+    search: optionalTrimmedString({ max: 160 }),
+    sort: optionalTrimmedString({ max: 40, toLowerCase: true }),
+  })
+  .strip();
+
+export const walletAccountListQuerySchema = walletAccountFilterBaseSchema.transform((value) => ({
+  ...value,
+  page: value.page ?? 1,
+  pageSize: value.pageSize ?? 25,
+}));
+
+export const walletAccountCreateSchema = z
+  .object({
+    userId: optionalNumber({ min: 1, precision: 0, integer: true }),
+    profileId: optionalNumber({ min: 1, precision: 0, integer: true }),
+    accountType: requiredTrimmedString({ max: 40, toLowerCase: true }),
+    custodyProvider: optionalTrimmedString({ max: 60, toLowerCase: true }),
+    status: optionalTrimmedString({ max: 40, toLowerCase: true }),
+    currencyCode: optionalTrimmedString({ max: 3, toUpperCase: true }),
+    providerAccountId: optionalTrimmedString({ max: 160 }),
+    metadata: optionalMetadataSchema,
+    lastReconciledAt: optionalTrimmedString({ max: 40 }),
+  })
+  .strip()
+  .superRefine((value, ctx) => {
+    if (!value.userId) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['userId'], message: 'userId is required.' });
+    }
+    if (!value.profileId) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['profileId'], message: 'profileId is required.' });
+    }
+    if (!WALLET_ACCOUNT_TYPES.includes(value.accountType)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['accountType'], message: 'Invalid accountType.' });
+    }
+    if (value.status && !WALLET_ACCOUNT_STATUSES.includes(value.status)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['status'], message: 'Invalid status.' });
+    }
+    if (value.custodyProvider && !ESCROW_INTEGRATION_PROVIDERS.includes(value.custodyProvider)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['custodyProvider'], message: 'Invalid custodyProvider.' });
+    }
+  });
+
+export const walletAccountUpdateSchema = z
+  .object({
+    status: optionalTrimmedString({ max: 40, toLowerCase: true }).refine(
+      (value) => value == null || WALLET_ACCOUNT_STATUSES.includes(value),
+      { message: 'Invalid status.' },
+    ),
+    custodyProvider: optionalTrimmedString({ max: 60, toLowerCase: true }).refine(
+      (value) => value == null || ESCROW_INTEGRATION_PROVIDERS.includes(value),
+      { message: 'Invalid custodyProvider.' },
+    ),
+    currencyCode: optionalTrimmedString({ max: 3, toUpperCase: true }),
+    providerAccountId: optionalTrimmedString({ max: 160 }),
+    metadata: optionalMetadataSchema,
+    lastReconciledAt: optionalTrimmedString({ max: 40 }),
+  })
+  .strip();
+
+const positiveAmountSchema = z.preprocess((value) => {
+  if (value == null || value === '') {
+    return undefined;
+  }
+  const numeric = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(numeric)) {
+    return Number.NaN;
+  }
+  return Math.round(numeric * 10000) / 10000;
+}, z.number().gt(0, { message: 'amount must be greater than zero.' }));
+
+export const walletLedgerEntryCreateSchema = z
+  .object({
+    entryType: requiredTrimmedString({ max: 40, toLowerCase: true }).refine(
+      (value) => WALLET_LEDGER_ENTRY_TYPES.includes(value),
+      { message: `entryType must be one of: ${WALLET_LEDGER_ENTRY_TYPES.join(', ')}.` },
+    ),
+    amount: positiveAmountSchema,
+    currencyCode: optionalTrimmedString({ max: 3, toUpperCase: true }),
+    reference: optionalTrimmedString({ max: 160 }),
+    externalReference: optionalTrimmedString({ max: 160 }),
+    description: optionalTrimmedString({ max: 500 }),
+    occurredAt: optionalTrimmedString({ max: 40 }),
+    metadata: optionalMetadataSchema,
+    initiatedById: optionalNumber({ min: 1, precision: 0, integer: true }),
+  })
+  .strip();
+
+export const walletLedgerQuerySchema = z
+  .object({
+    page: optionalNumber({ min: 1, max: 500, precision: 0, integer: true }),
+    pageSize: optionalNumber({ min: 1, max: 100, precision: 0, integer: true }),
+    entryType: optionalTrimmedString({ max: 40, toLowerCase: true }).refine(
+      (value) => value == null || WALLET_LEDGER_ENTRY_TYPES.includes(value),
+      { message: 'Invalid entryType.' },
+    ),
+    search: optionalTrimmedString({ max: 160 }),
+    startDate: optionalTrimmedString({ max: 40 }),
+    endDate: optionalTrimmedString({ max: 40 }),
+  })
+  .strip()
+  .transform((value) => ({
+    ...value,
+    page: value.page ?? 1,
+    pageSize: value.pageSize ?? 25,
+  }));
 
