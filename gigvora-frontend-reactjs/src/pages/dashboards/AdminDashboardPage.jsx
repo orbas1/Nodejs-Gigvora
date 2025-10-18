@@ -164,6 +164,10 @@ const MENU_SECTIONS = [
         tags: ['api'],
       },
       {
+        name: 'Appearance management',
+        description: 'Themes, brand assets, and layout presets.',
+        href: '/dashboard/admin/appearance',
+        tags: ['brand'],
         name: 'API management',
         description: 'Provision API clients, rotate secrets, and review audit trails.',
         href: '/dashboard/admin/api-management',
@@ -1367,6 +1371,12 @@ export default function AdminDashboardPage() {
           >
             {settingsSaving ? 'Saving…' : 'Save changes'}
           </button>
+          <Link
+            to="/dashboard/admin/appearance"
+            className="inline-flex items-center justify-center rounded-full border border-blue-200 bg-blue-50 px-5 py-2 text-sm font-semibold text-blue-700 transition hover:border-blue-300 hover:bg-blue-100"
+          >
+            Appearance console
+          </Link>
         </div>
       </div>
       {settingsError ? (
@@ -3085,6 +3095,7 @@ export default function AdminDashboardPage() {
         profile={profile}
         availableDashboards={[
           'admin',
+          { id: 'admin-appearance', label: 'Appearance', href: '/dashboard/admin/appearance' },
           { id: 'admin-gdpr', label: 'GDPR Settings', href: '/dashboard/admin/gdpr' },
           'user',
           'freelancer',
@@ -3136,6 +3147,7 @@ export default function AdminDashboardPage() {
       profile={profile}
       availableDashboards={[
         'admin',
+        { id: 'admin-appearance', label: 'Appearance', href: '/dashboard/admin/appearance' },
         { id: 'admin-gdpr', label: 'GDPR Settings', href: '/dashboard/admin/gdpr' },
         'user',
         'freelancer',

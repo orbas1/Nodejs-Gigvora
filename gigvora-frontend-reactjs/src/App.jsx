@@ -93,6 +93,7 @@ import HeadhunterDashboardPage from './pages/dashboards/HeadhunterDashboardPage.
 import MentorDashboardPage from './pages/dashboards/MentorDashboardPage.jsx';
 import LaunchpadOperationsPage from './pages/dashboards/LaunchpadOperationsPage.jsx';
 import AdminDashboardPage from './pages/dashboards/AdminDashboardPage.jsx';
+import AdminAppearanceManagementPage from './pages/dashboards/admin/AdminAppearanceManagementPage.jsx';
 import AdminStorageManagementPage from './pages/dashboards/admin/AdminStorageManagementPage.jsx';
 import AdminDatabaseSettingsPage from './pages/dashboards/AdminDatabaseSettingsPage.jsx';
 import AdminGdprSettingsPage from './pages/dashboards/admin/AdminGdprSettingsPage.jsx';
@@ -687,6 +688,10 @@ export default function App() {
       />
 
       <Route
+        path="dashboard/admin/appearance"
+        element={
+          <RequireRole allowedRoles={['admin']}>
+            <AdminAppearanceManagementPage />
         path="dashboard/admin/policies"
         element={
           <RequireRole allowedRoles={['admin']}>

@@ -15,6 +15,7 @@ import {
 import adminRuntimeRoutes from './adminRuntimeRoutes.js';
 import adminConsentRoutes from './adminConsentRoutes.js';
 import adminRbacRoutes from './adminRbacRoutes.js';
+import adminAppearanceRoutes from './adminAppearanceRoutes.js';
 import adminPolicyRoutes from './adminPolicyRoutes.js';
 import adminApiRoutes from './adminApiRoutes.js';
 import adminStorageRoutes from './adminStorageRoutes.js';
@@ -62,6 +63,7 @@ router.use('/ads/settings', adminAdSettingsRoutes);
 router.use('/runtime', adminRuntimeRoutes);
 router.use('/governance/consents', adminConsentRoutes);
 router.use('/governance/rbac', adminRbacRoutes);
+router.use('/appearance', adminAppearanceRoutes);
 router.use('/governance/policies', adminPolicyRoutes);
 router.use('/api', adminApiRoutes);
 router.use('/storage', adminStorageRoutes);
