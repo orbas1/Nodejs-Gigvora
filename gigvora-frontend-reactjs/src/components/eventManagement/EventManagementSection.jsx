@@ -6,6 +6,7 @@ import EventSummaryBar from './EventSummaryBar.jsx';
 import EventLibrary from './EventLibrary.jsx';
 import EventWorkspace from './EventWorkspace.jsx';
 import EventWizard from './EventWizard.jsx';
+import EventTemplateGallery from './EventTemplateGallery.jsx';
 
 function Notice({ tone = 'info', message, onDismiss }) {
   if (!message) return null;
@@ -91,6 +92,8 @@ export default function EventManagementSection({ data, userId, onRefresh }) {
   const {
     overview,
     events,
+    settings,
+    templates,
     canManage,
     selectedEvent,
     selectEvent,
@@ -120,6 +123,15 @@ export default function EventManagementSection({ data, userId, onRefresh }) {
   const [workspaceOpen, setWorkspaceOpen] = useState(false);
 
   const hasEvents = useMemo(() => events?.length > 0, [events]);
+  const defaultWizardValues = useMemo(
+    () => ({
+      format: settings?.defaultFormat ?? 'in_person',
+      visibility: settings?.defaultVisibility ?? 'invite_only',
+      timezone: settings?.defaultTimezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+      status: 'planned',
+    }),
+    [settings?.defaultFormat, settings?.defaultTimezone, settings?.defaultVisibility],
+  );
   const eventMap = useMemo(() => {
     const map = new Map();
     (events ?? []).forEach((item) => {
@@ -160,6 +172,43 @@ export default function EventManagementSection({ data, userId, onRefresh }) {
     openCreateWizard();
   };
 
+  const handleUseTemplate = (template) => {
+    if (!template) return;
+    const now = new Date();
+    const start = new Date(now);
+    start.setDate(now.getDate() + 7);
+    start.setMinutes(0, 0, 0);
+    const durationMinutes = Number(template.durationHours ?? 120);
+    const end = new Date(start.getTime() + durationMinutes * 60000);
+    const highlights = Array.isArray(template.highlights) ? template.highlights : [];
+    const agenda = highlights.map((highlight, index) => {
+      const slotStart = new Date(start.getTime() + index * 1800000);
+      return {
+        title: highlight,
+        description: null,
+        startAt: slotStart.toISOString(),
+        endAt: new Date(slotStart.getTime() + 1800000).toISOString(),
+        ownerName: null,
+        ownerEmail: null,
+        location: null,
+        orderIndex: index,
+      };
+    });
+    openCreateWizard({
+      title: template.name,
+      description: highlights.join('\n'),
+      format: template.format ?? defaultWizardValues.format,
+      visibility: defaultWizardValues.visibility,
+      startAt: start.toISOString(),
+      endAt: end.toISOString(),
+      agenda,
+      metadata: {
+        templateId: template.id,
+        techStack: template.techStack ?? [],
+      },
+    });
+  };
+
   return (
     <section id="event-management" className="flex flex-col gap-6">
       <header className="flex flex-col gap-2">
@@ -167,6 +216,7 @@ export default function EventManagementSection({ data, userId, onRefresh }) {
         <p className="text-sm text-slate-500">Plan, publish, and run every moment from one place.</p>
       </header>
       <EventSummaryBar overview={overview} onCreate={canManage ? handleCreateEvent : undefined} canManage={canManage} />
+      <EventTemplateGallery templates={templates} onUseTemplate={canManage ? handleUseTemplate : undefined} canManage={canManage} />
       {feedback ? <Notice tone={feedback.tone ?? 'success'} message={feedback.message} onDismiss={closeFeedback} /> : null}
       {error ? <Notice tone="error" message={error} onDismiss={closeError} /> : null}
       <EventLibrary
@@ -193,6 +243,7 @@ export default function EventManagementSection({ data, userId, onRefresh }) {
         assetApi={assetApi}
         checklistApi={checklistApi}
         canManage={canManage}
+        workspaceSettings={settings}
       />
       <EventWizard
         open={wizardState.open}
@@ -201,6 +252,7 @@ export default function EventManagementSection({ data, userId, onRefresh }) {
         onClose={closeWizard}
         onSubmit={saveEvent}
         busy={busy}
+        defaults={defaultWizardValues}
       />
       <ConfirmDialog
         open={confirmState.open}

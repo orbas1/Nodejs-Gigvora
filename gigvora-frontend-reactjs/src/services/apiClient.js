@@ -175,15 +175,10 @@ async function request(method, path, { body, params, signal, headers } = {}) {
     ...headers,
   };
 
-  const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
   if (isFormData) {
     delete requestHeaders['Content-Type'];
   }
 
-  const response = await fetch(url, {
-    method,
-    headers: requestHeaders,
-    body: body == null ? undefined : isFormData ? body : JSON.stringify(body),
   const fetchOptions = {
     method,
     headers: requestHeaders,

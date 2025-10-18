@@ -26,6 +26,7 @@ import UserCalendarSection from '../../components/calendar/UserCalendarSection.j
 import CreationStudioSummary from '../../components/creationStudio/CreationStudioSummary.jsx';
 import UserNetworkingSection from '../../components/userNetworking/UserNetworkingSection.jsx';
 import VolunteeringManagementSection from '../../components/volunteeringManagement/VolunteeringManagementSection.jsx';
+import CommunityManagementSection from '../../components/communityManagement/CommunityManagementSection.jsx';
 import { DashboardInboxWorkspace } from '../../features/inbox/index.js';
 import WebsitePreferencesSection from '../../components/websitePreferences/WebsitePreferencesSection.jsx';
 import ProfileSettingsSection from '../../components/profileSettings/ProfileSettingsSection.jsx';
@@ -33,6 +34,7 @@ import WalletManagementSection from '../../components/wallet/WalletManagementSec
 import DashboardNotificationCenterSection from '../../components/notifications/DashboardNotificationCenterSection.jsx';
 import useSavedSearches from '../../hooks/useSavedSearches.js';
 import { TopSearchSection, UserIdentityVerificationSection } from './user/sections/index.js';
+import { TopSearchSection, UserTimelineManagementSection } from './user/sections/index.js';
 
 const DEFAULT_USER_ID = 1;
 const availableDashboards = ['user', 'freelancer', 'agency', 'company', 'headhunter'];
@@ -200,6 +202,13 @@ function buildMenuSections(data) {
   const jobApplicationsWorkspace = data?.jobApplicationsWorkspace ?? {};
   const jobApplicationsSummary = jobApplicationsWorkspace.summary ?? {};
   const projectGigManagement = data?.projectGigManagement ?? {};
+  const communityManagement = data?.communityManagement ?? {};
+  const communityGroupStats = communityManagement.groups?.stats ?? {};
+  const communityPageStats = communityManagement.pages?.stats ?? {};
+  const communityManagedGroups = Number(communityGroupStats.managed ?? 0);
+  const communityManagedPages = Number(communityPageStats.managed ?? 0);
+  const communityPendingInvites =
+    Number(communityGroupStats.pendingInvites ?? 0) + Number(communityPageStats.pendingInvites ?? 0);
   const mentoring = data?.mentoring ?? {};
   const mentoringSummary = mentoring.summary ?? {};
   const projectWorkspace = data?.projectWorkspace ?? {};
@@ -466,6 +475,12 @@ function buildMenuSections(data) {
           sectionId: 'project-gig-operations',
         },
         {
+          name: 'Timeline management',
+          description: 'Plan posts, share updates, and review analytics.',
+          tags: ['timeline', 'posts'],
+          sectionId: 'client-timeline-management',
+        },
+        {
           name: 'CV-ready storytelling',
           description: `Convert ${formatNumber(storytelling.achievements?.length ?? 0)} outcomes into resume bullets & LinkedIn stories.`,
           tags: ['storytelling', 'ai'],
@@ -670,6 +685,14 @@ function buildMenuSections(data) {
       label: 'Community',
       items: [
         {
+          name: 'Community management',
+          description: `${formatNumber(communityManagedGroups)} groups · ${formatNumber(communityManagedPages)} pages · ${formatNumber(
+            communityPendingInvites,
+          )} invites`,
+          tags: ['groups', 'pages'],
+          sectionId: 'community-management',
+        },
+        {
           name: 'Volunteer',
           description: 'Applications, contracts, spend, and reviews together.',
           tags: ['volunteering', 'community'],
@@ -825,6 +848,7 @@ export default function UserDashboardPage() {
   const mentoring = data?.mentoring ?? null;
   const websitePreferences = data?.websitePreferences ?? null;
   const escrowManagement = data?.escrowManagement ?? null;
+  const communityManagement = data?.communityManagement ?? null;
   const notifications = Array.isArray(data?.notifications?.recent) ? data.notifications.recent : [];
   const notificationsUnreadCount = Number(data?.notifications?.unreadCount ?? 0);
   const notificationPreferences = data?.notifications?.preferences ?? null;
@@ -2102,11 +2126,19 @@ export default function UserDashboardPage() {
         ) : null}
 
         <ProjectGigManagementContainer userId={userId} />
+        <UserTimelineManagementSection userId={userId} />
         <VolunteeringManagementSection
           userId={userId}
           data={data?.volunteeringManagement}
           onRefresh={() => refresh({ force: true })}
         />
+        {userId ? (
+          <CommunityManagementSection
+            userId={userId}
+            data={communityManagement}
+            onRefresh={() => refresh({ force: true })}
+          />
+        ) : null}
         {escrowManagement ? (
           <EscrowManagementSection
             data={escrowManagement}
