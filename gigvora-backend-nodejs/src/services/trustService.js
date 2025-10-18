@@ -5,6 +5,8 @@ import {
   EscrowTransaction,
   DisputeCase,
   DisputeEvent,
+  DisputeWorkflowSetting,
+  DisputeTemplate,
   User,
   ESCROW_ACCOUNT_STATUSES,
   ESCROW_TRANSACTION_TYPES,
@@ -12,6 +14,7 @@ import {
   DISPUTE_STATUSES,
   DISPUTE_STAGES,
   DISPUTE_PRIORITIES,
+  DISPUTE_REASON_CODES,
 } from '../models/index.js';
 import { ValidationError, NotFoundError, ConflictError } from '../utils/errors.js';
 import r2Client from '../utils/r2Client.js';
@@ -39,6 +42,47 @@ function buildAuditTrail(existingTrail, entry) {
   return trail;
 }
 
+function normaliseInteger(value, { min, max, fallback }) {
+  const numeric = Number.parseInt(value, 10);
+  if (Number.isNaN(numeric)) {
+    return fallback;
+  }
+  if (numeric < min) {
+    return min;
+  }
+  if (numeric > max) {
+    return max;
+  }
+  return numeric;
+}
+
+function normaliseOptionalInteger(value, { min, max }) {
+  if (value == null || value === '') {
+    return null;
+  }
+  const numeric = Number.parseInt(value, 10);
+  if (Number.isNaN(numeric)) {
+    return null;
+  }
+  if (numeric < min) {
+    return min;
+  }
+  if (numeric > max) {
+    return max;
+  }
+  return numeric;
+}
+
+function normaliseList(value) {
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => (entry == null ? '' : `${entry}`.trim()))
+      .filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    return value
+      .split(/[\n,]/)
+      .map((entry) => entry.trim())
 function coerceInteger(value) {
   if (value == null || value === '') {
     return null;
@@ -66,6 +110,72 @@ function normalizeArrayInput(value) {
   return [];
 }
 
+function toDisputeCaseDto(caseRecord) {
+  if (!caseRecord) {
+    return null;
+  }
+  const dispute = caseRecord.toPublicObject();
+  if (caseRecord.transaction?.toPublicObject) {
+    dispute.transaction = caseRecord.transaction.toPublicObject();
+  }
+  if (Array.isArray(caseRecord.events)) {
+    dispute.events = caseRecord.events.map((event) => event.toPublicObject());
+  }
+  return dispute;
+}
+
+function aggregateCountRows(rows, key) {
+  const aggregate = {};
+  for (const row of rows ?? []) {
+    const label = row?.get ? row.get(key) : row?.[key];
+    if (!label) {
+      continue;
+    }
+    const countRaw = row?.get ? row.get('count') : row?.count;
+    const count = Number.parseInt(countRaw, 10);
+    aggregate[label] = Number.isNaN(count) ? 0 : count;
+  }
+  return aggregate;
+}
+
+function normaliseChecklist(value) {
+  return normaliseList(value);
+}
+
+function escapeLikeTerm(value) {
+  return value.replace(/[\\%_]/g, '\\$&');
+}
+
+function buildTransactionInclude({ attributes, required = false } = {}) {
+  return {
+    model: EscrowTransaction,
+    as: 'transaction',
+    required,
+    attributes:
+      attributes ?? ['id', 'reference', 'amount', 'currencyCode', 'status', 'scheduledReleaseAt'],
+  };
+}
+
+function buildEventInclude(limit = 5) {
+  return {
+    model: DisputeEvent,
+    as: 'events',
+    separate: true,
+    limit,
+    order: [['eventAt', 'DESC']],
+    attributes: ['id', 'actorId', 'actorType', 'actionType', 'notes', 'eventAt', 'evidenceFileName', 'evidenceUrl'],
+  };
+}
+
+const DEFAULT_WORKFLOW_SETTINGS = Object.freeze({
+  responseSlaHours: 24,
+  resolutionSlaHours: 120,
+  autoEscalateHours: 48,
+  autoCloseHours: 72,
+  evidenceRequirements: [],
+  notificationEmails: [],
+  defaultAssigneeId: null,
+});
 function buildWhereFromConditions(conditions = []) {
   if (!Array.isArray(conditions) || conditions.length === 0) {
     return {};
@@ -273,6 +383,66 @@ export async function ensureEscrowAccount({ userId, provider, currencyCode = 'US
   return account.toPublicObject();
 }
 
+export async function updateEscrowAccount(accountId, payload = {}) {
+  const id = Number.parseInt(accountId, 10);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new ValidationError('A valid accountId is required to update an escrow account');
+  }
+
+  const account = await EscrowAccount.findByPk(id);
+  if (!account) {
+    throw new NotFoundError('Escrow account not found');
+  }
+
+  const updates = {};
+
+  if (payload.status) {
+    if (!ESCROW_ACCOUNT_STATUSES.includes(payload.status)) {
+      throw new ValidationError(`Status must be one of: ${ESCROW_ACCOUNT_STATUSES.join(', ')}`);
+    }
+    updates.status = payload.status;
+  }
+
+  if (payload.currencyCode) {
+    updates.currencyCode = payload.currencyCode;
+  }
+
+  if (payload.externalId !== undefined) {
+    updates.externalId = payload.externalId || null;
+  }
+
+  if (payload.walletAccountId !== undefined) {
+    updates.walletAccountId = payload.walletAccountId || null;
+  }
+
+  if (payload.lastReconciledAt !== undefined) {
+    if (payload.lastReconciledAt === null || payload.lastReconciledAt === '') {
+      updates.lastReconciledAt = null;
+    } else {
+      const reconciledAt = new Date(payload.lastReconciledAt);
+      if (Number.isNaN(reconciledAt.getTime())) {
+        throw new ValidationError('Invalid reconciliation timestamp supplied');
+      }
+      updates.lastReconciledAt = reconciledAt;
+    }
+  }
+
+  if (payload.metadata !== undefined) {
+    if (payload.metadata == null || typeof payload.metadata === 'object') {
+      updates.metadata = payload.metadata ?? null;
+    } else {
+      throw new ValidationError('Metadata must be an object when updating escrow accounts');
+    }
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return account.toPublicObject();
+  }
+
+  await account.update(updates);
+  return account.toPublicObject();
+}
+
 async function loadTransactionWithAccount(transactionId, trx) {
   const transactionRecord = await EscrowTransaction.findByPk(transactionId, {
     transaction: trx,
@@ -405,6 +575,141 @@ export async function initiateEscrowTransaction(payload, { transaction: external
   });
 }
 
+export async function updateEscrowTransaction(
+  transactionId,
+  payload = {},
+  { transaction: externalTransaction } = {},
+) {
+  const id = Number.parseInt(transactionId, 10);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new ValidationError('A valid transactionId is required to update an escrow transaction');
+  }
+
+  return withTransaction(externalTransaction, async (trx) => {
+    const transactionRecord = await EscrowTransaction.findByPk(id, {
+      transaction: trx,
+      lock: trx?.LOCK?.UPDATE,
+    });
+
+    if (!transactionRecord) {
+      throw new NotFoundError('Escrow transaction not found');
+    }
+
+    const updates = {};
+
+    if (payload.reference && payload.reference !== transactionRecord.reference) {
+      const existing = await EscrowTransaction.findOne({
+        where: { reference: payload.reference },
+        transaction: trx,
+        lock: trx?.LOCK?.UPDATE,
+      });
+
+      if (existing) {
+        throw new ConflictError('Another escrow transaction already uses this reference');
+      }
+
+      updates.reference = payload.reference;
+    }
+
+    if (payload.status) {
+      if (!ESCROW_TRANSACTION_STATUSES.includes(payload.status)) {
+        throw new ValidationError(
+          `Status must be one of: ${ESCROW_TRANSACTION_STATUSES.join(', ')}`,
+        );
+      }
+      updates.status = payload.status;
+
+      if (payload.status === 'released' && !transactionRecord.releasedAt) {
+        const releasedAt = payload.releasedAt ? new Date(payload.releasedAt) : new Date();
+        if (Number.isNaN(releasedAt.getTime())) {
+          throw new ValidationError('releasedAt must be a valid datetime');
+        }
+        updates.releasedAt = releasedAt;
+      }
+
+      if (payload.status === 'refunded' && !transactionRecord.refundedAt) {
+        const refundedAt = payload.refundedAt ? new Date(payload.refundedAt) : new Date();
+        if (Number.isNaN(refundedAt.getTime())) {
+          throw new ValidationError('refundedAt must be a valid datetime');
+        }
+        updates.refundedAt = refundedAt;
+      }
+
+      if (payload.status === 'cancelled' && !transactionRecord.cancelledAt) {
+        updates.cancelledAt = new Date();
+      }
+    }
+
+    if (payload.milestoneLabel !== undefined) {
+      updates.milestoneLabel = payload.milestoneLabel || null;
+    }
+
+    if (payload.scheduledReleaseAt !== undefined) {
+      if (payload.scheduledReleaseAt === null || payload.scheduledReleaseAt === '') {
+        updates.scheduledReleaseAt = null;
+      } else {
+        const scheduledAt = new Date(payload.scheduledReleaseAt);
+        if (Number.isNaN(scheduledAt.getTime())) {
+          throw new ValidationError('scheduledReleaseAt must be a valid datetime');
+        }
+        updates.scheduledReleaseAt = scheduledAt;
+      }
+    }
+
+    if (payload.metadata !== undefined) {
+      if (payload.metadata == null || typeof payload.metadata === 'object') {
+        updates.metadata = payload.metadata ?? null;
+      } else {
+        throw new ValidationError('Metadata must be an object when updating transactions');
+      }
+    }
+
+    const amountUpdated = payload.amount !== undefined;
+    const feeUpdated = payload.feeAmount !== undefined;
+
+    if (amountUpdated) {
+      const amount = normaliseAmount(payload.amount);
+      if (amount <= 0) {
+        throw new ValidationError('Escrow amount must be greater than zero');
+      }
+      updates.amount = amount;
+    }
+
+    if (feeUpdated) {
+      const fee = normaliseAmount(payload.feeAmount);
+      if (fee < 0) {
+        throw new ValidationError('Fee amount cannot be negative');
+      }
+      updates.feeAmount = fee;
+    }
+
+    if (amountUpdated || feeUpdated) {
+      const gross = amountUpdated ? updates.amount : normaliseAmount(transactionRecord.amount);
+      const fee = feeUpdated ? updates.feeAmount : normaliseAmount(transactionRecord.feeAmount ?? 0);
+      if (fee > gross) {
+        throw new ValidationError('Fee amount cannot exceed the escrow amount');
+      }
+      updates.netAmount = Number.parseFloat((gross - fee).toFixed(4));
+    } else if (payload.netAmount !== undefined) {
+      const net = normaliseAmount(payload.netAmount);
+      updates.netAmount = net;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return transactionRecord.toPublicObject();
+    }
+
+    updates.auditTrail = buildAuditTrail(transactionRecord.auditTrail, {
+      type: 'update',
+      actorId: payload.actorId ?? null,
+      metadata: { fields: Object.keys(updates) },
+    });
+
+    await transactionRecord.update(updates, { transaction: trx });
+    return transactionRecord.toPublicObject();
+  });
+}
+
 export async function releaseEscrowTransaction(transactionId, payload = {}, options = {}) {
   const { actorId = null, notes, metadata } = payload;
   return withTransaction(options.transaction, async (trx) => {
@@ -520,6 +825,10 @@ export async function createDisputeCase(payload, options = {}) {
 
   if (!DISPUTE_PRIORITIES.includes(priority)) {
     throw new ValidationError(`priority must be one of: ${DISPUTE_PRIORITIES.join(', ')}`);
+  }
+
+  if (!DISPUTE_REASON_CODES.includes(reasonCode)) {
+    throw new ValidationError(`reasonCode must be one of: ${DISPUTE_REASON_CODES.join(', ')}`);
   }
 
   return withTransaction(options.transaction, async (trx) => {
@@ -688,6 +997,114 @@ export async function appendDisputeEvent(disputeCaseId, payload, options = {}) {
       });
     }
 
+    const { dispute: updatedDispute } = await getDisputeCaseById(disputeCaseId, { transaction: trx });
+
+    return {
+      dispute: updatedDispute,
+      event: event.toPublicObject(),
+    };
+  });
+}
+
+export async function listDisputeCases(options = {}) {
+  const {
+    status,
+    stage,
+    priority,
+    assignedToId,
+    openedById,
+    search,
+    limit = 20,
+    offset = 0,
+    sort = 'recent',
+    includeEvents = true,
+  } = options;
+
+  const pageSize = normaliseInteger(limit, { min: 1, max: 100, fallback: 20 });
+  const pageOffset = Math.max(0, Number.parseInt(offset, 10) || 0);
+
+  const toArray = (value) => {
+    if (value == null) {
+      return [];
+    }
+    if (Array.isArray(value)) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      return value
+        .split(',')
+        .map((entry) => entry.trim())
+        .filter(Boolean);
+    }
+    return [`${value}`];
+  };
+
+  const where = {};
+  const applyEnumFilter = (field, value, allowed) => {
+    const entries = toArray(value)
+      .map((entry) => `${entry}`.trim())
+      .filter(Boolean);
+    if (!entries.length) {
+      return;
+    }
+    const invalid = entries.some((entry) => !allowed.includes(entry));
+    if (invalid) {
+      throw new ValidationError(`${field} must be one of: ${allowed.join(', ')}`);
+    }
+    where[field] = entries.length === 1 ? entries[0] : { [Op.in]: entries };
+  };
+
+  applyEnumFilter('status', status, DISPUTE_STATUSES);
+  applyEnumFilter('stage', stage, DISPUTE_STAGES);
+  applyEnumFilter('priority', priority, DISPUTE_PRIORITIES);
+
+  if (assignedToId !== undefined) {
+    if (assignedToId === null || assignedToId === '' || assignedToId === 'null') {
+      where.assignedToId = null;
+    } else {
+      const parsed = Number.parseInt(assignedToId, 10);
+      if (Number.isNaN(parsed)) {
+        throw new ValidationError('assignedToId must be numeric when provided');
+      }
+      where.assignedToId = parsed;
+    }
+  }
+
+  if (openedById !== undefined && openedById !== null && openedById !== '') {
+    const parsed = Number.parseInt(openedById, 10);
+    if (!Number.isNaN(parsed)) {
+      where.openedById = parsed;
+    }
+  }
+
+  const searchTerm = typeof search === 'string' ? search.trim() : '';
+  const include = [buildTransactionInclude()];
+  if (includeEvents) {
+    include.push(buildEventInclude(5));
+  }
+
+  if (searchTerm) {
+    const dialect = sequelize.getDialect();
+    const operator = ['postgres', 'postgresql'].includes(dialect) ? Op.iLike : Op.like;
+    const likeValue = `%${escapeLikeTerm(searchTerm)}%`;
+    where[Op.or] = [
+      { reasonCode: { [operator]: likeValue } },
+      { summary: { [operator]: likeValue } },
+      sequelize.where(sequelize.col('transaction.reference'), { [operator]: likeValue }),
+    ];
+  }
+
+  const order = [];
+  if (sort === 'priority') {
+    order.push(['priority', 'DESC']);
+  } else if (sort === 'oldest') {
+    order.push(['updatedAt', 'ASC']);
+  } else if (sort === 'deadline') {
+    order.push(['providerDeadlineAt', 'ASC']);
+  } else {
+    order.push(['updatedAt', 'DESC']);
+  }
+  order.push(['id', 'DESC']);
     const [reloadedDispute, eventWithActor] = await Promise.all([
       DisputeCase.findByPk(dispute.id, {
         transaction: trx,
@@ -826,6 +1243,69 @@ export async function listDisputeCases(query = {}) {
   const { rows, count } = await DisputeCase.findAndCountAll({
     where,
     include,
+    distinct: true,
+    limit: pageSize,
+    offset: pageOffset,
+    order,
+  });
+
+  const disputes = rows.map(toDisputeCaseDto);
+  const totalCount = typeof count === 'number' ? count : count?.length ?? 0;
+  const page = Math.floor(pageOffset / pageSize) + 1;
+  const pageCount = Math.max(1, Math.ceil(totalCount / pageSize));
+
+  const summaryCases = await DisputeCase.findAll({
+    where,
+    include: [buildTransactionInclude()],
+    attributes: ['id', 'status', 'stage', 'priority', 'openedAt', 'resolvedAt'],
+  });
+
+  const totalsByStatus = {};
+  const totalsByStage = {};
+  const totalsByPriority = {};
+  const openAmountsByCurrency = {};
+  let resolutionTotalHours = 0;
+  let resolvedCount = 0;
+
+  for (const record of summaryCases) {
+    totalsByStatus[record.status] = (totalsByStatus[record.status] ?? 0) + 1;
+    totalsByStage[record.stage] = (totalsByStage[record.stage] ?? 0) + 1;
+    totalsByPriority[record.priority] = (totalsByPriority[record.priority] ?? 0) + 1;
+
+    if (record.resolvedAt && record.openedAt) {
+      const opened = new Date(record.openedAt).getTime();
+      const resolved = new Date(record.resolvedAt).getTime();
+      if (Number.isFinite(opened) && Number.isFinite(resolved) && resolved >= opened) {
+        resolutionTotalHours += (resolved - opened) / (1000 * 60 * 60);
+        resolvedCount += 1;
+      }
+    }
+
+    if (['open', 'awaiting_customer', 'under_review'].includes(record.status)) {
+      const transaction = record.transaction?.toPublicObject?.();
+      if (transaction) {
+        const currency = transaction.currencyCode || 'USD';
+        const amount = Number.parseFloat(transaction.amount ?? 0);
+        if (!Number.isNaN(amount)) {
+          openAmountsByCurrency[currency] = (openAmountsByCurrency[currency] ?? 0) + amount;
+        }
+      }
+    }
+  }
+
+  const averageResolutionHours =
+    resolvedCount > 0 ? Number((resolutionTotalHours / resolvedCount).toFixed(2)) : null;
+
+  return {
+    disputes,
+    pagination: { total: totalCount, limit: pageSize, offset: pageOffset, page, pageCount },
+    summary: {
+      totalsByStatus,
+      totalsByStage,
+      totalsByPriority,
+      openAmountsByCurrency,
+      averageResolutionHours,
+      lastUpdated: new Date().toISOString(),
     limit: normalizedPageSize,
     offset,
     order,
@@ -904,6 +1384,9 @@ export async function listDisputeCases(query = {}) {
 }
 
 export async function getDisputeCaseById(disputeCaseId, options = {}) {
+  const dispute = await DisputeCase.findByPk(disputeCaseId, {
+    transaction: options.transaction,
+    include: [buildTransactionInclude(), buildEventInclude(20)],
   const disputeId = coerceInteger(disputeCaseId);
   if (!disputeId) {
     throw new ValidationError('A valid dispute identifier is required');
@@ -918,6 +1401,17 @@ export async function getDisputeCaseById(disputeCaseId, options = {}) {
     throw new NotFoundError('Dispute case not found');
   }
 
+  return { dispute: toDisputeCaseDto(dispute) };
+}
+
+export async function updateDisputeCase(disputeCaseId, payload, options = {}) {
+  const {
+    assignedToId,
+    priority,
+    stage,
+    status,
+    reasonCode,
+    summary,
   return formatDisputeRecord(dispute, { includeEvents: true });
 }
 
@@ -938,6 +1432,10 @@ export async function updateDisputeCase(disputeCaseId, payload = {}, options = {
     providerDeadlineAt,
     resolutionNotes,
     metadata,
+  } = payload ?? {};
+
+  return withTransaction(options.transaction, async (trx) => {
+    const dispute = await DisputeCase.findByPk(disputeCaseId, {
   } = payload;
 
   return withTransaction(options.transaction, async (trx) => {
@@ -952,6 +1450,293 @@ export async function updateDisputeCase(disputeCaseId, payload = {}, options = {
 
     const updates = {};
 
+    if (assignedToId !== undefined) {
+      if (assignedToId === null || assignedToId === '' || assignedToId === 'null') {
+        updates.assignedToId = null;
+      } else {
+        const parsed = Number.parseInt(assignedToId, 10);
+        if (Number.isNaN(parsed)) {
+          throw new ValidationError('assignedToId must be numeric when provided');
+        }
+        updates.assignedToId = parsed;
+      }
+    }
+
+    if (priority !== undefined) {
+      if (!DISPUTE_PRIORITIES.includes(priority)) {
+        throw new ValidationError(`priority must be one of: ${DISPUTE_PRIORITIES.join(', ')}`);
+      }
+      updates.priority = priority;
+    }
+
+    if (stage !== undefined) {
+      if (!DISPUTE_STAGES.includes(stage)) {
+        throw new ValidationError(`stage must be one of: ${DISPUTE_STAGES.join(', ')}`);
+      }
+      updates.stage = stage;
+    }
+
+    if (status !== undefined) {
+      if (!DISPUTE_STATUSES.includes(status)) {
+        throw new ValidationError(`status must be one of: ${DISPUTE_STATUSES.join(', ')}`);
+      }
+      updates.status = status;
+      if (['settled', 'closed'].includes(status)) {
+        updates.resolvedAt = new Date();
+      } else if (['open', 'awaiting_customer', 'under_review'].includes(status)) {
+        updates.resolvedAt = null;
+      }
+    }
+
+    if (reasonCode !== undefined) {
+      if (!reasonCode || `${reasonCode}`.trim().length === 0) {
+        throw new ValidationError('reasonCode cannot be empty');
+      }
+      updates.reasonCode = `${reasonCode}`.trim();
+    }
+
+    if (summary !== undefined) {
+      if (!summary || `${summary}`.trim().length === 0) {
+        throw new ValidationError('summary cannot be empty');
+      }
+      updates.summary = `${summary}`.trim();
+    }
+
+    if (customerDeadlineAt !== undefined) {
+      updates.customerDeadlineAt = customerDeadlineAt ? new Date(customerDeadlineAt) : null;
+    }
+
+    if (providerDeadlineAt !== undefined) {
+      updates.providerDeadlineAt = providerDeadlineAt ? new Date(providerDeadlineAt) : null;
+    }
+
+    if (resolutionNotes !== undefined) {
+      updates.resolutionNotes = resolutionNotes ?? null;
+    }
+
+    if (metadata !== undefined) {
+      updates.metadata = metadata ?? null;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await dispute.update(updates, { transaction: trx });
+    }
+
+    return (await getDisputeCaseById(disputeCaseId, { transaction: trx })).dispute;
+  });
+}
+
+export async function getDisputeWorkflowSettings({ workspaceId } = {}) {
+  if (!workspaceId) {
+    return { settings: { ...DEFAULT_WORKFLOW_SETTINGS } };
+  }
+
+  const record = await DisputeWorkflowSetting.findOne({ where: { workspaceId } });
+
+  if (!record) {
+    return { settings: { ...DEFAULT_WORKFLOW_SETTINGS, workspaceId } };
+  }
+
+  return { settings: { ...DEFAULT_WORKFLOW_SETTINGS, ...record.toPublicObject() } };
+}
+
+export async function saveDisputeWorkflowSettings(payload, options = {}) {
+  const { workspaceId } = payload ?? {};
+  if (!workspaceId) {
+    throw new ValidationError('workspaceId is required to update dispute workflow settings');
+  }
+
+  const defaultAssigneeId =
+    payload.defaultAssigneeId === null || payload.defaultAssigneeId === '' || payload.defaultAssigneeId === 'null'
+      ? null
+      : Number.parseInt(payload.defaultAssigneeId, 10);
+
+  if (defaultAssigneeId != null && Number.isNaN(defaultAssigneeId)) {
+    throw new ValidationError('defaultAssigneeId must be numeric when provided');
+  }
+
+  const updates = {
+    defaultAssigneeId,
+    responseSlaHours: normaliseInteger(payload.responseSlaHours, {
+      min: 1,
+      max: 720,
+      fallback: DEFAULT_WORKFLOW_SETTINGS.responseSlaHours,
+    }),
+    resolutionSlaHours: normaliseInteger(payload.resolutionSlaHours, {
+      min: 1,
+      max: 1440,
+      fallback: DEFAULT_WORKFLOW_SETTINGS.resolutionSlaHours,
+    }),
+    autoEscalateHours: normaliseOptionalInteger(payload.autoEscalateHours, { min: 1, max: 720 }),
+    autoCloseHours: normaliseOptionalInteger(payload.autoCloseHours, { min: 1, max: 1440 }),
+    evidenceRequirements: normaliseChecklist(payload.evidenceRequirements),
+    notificationEmails: normaliseList(payload.notificationEmails),
+    metadata: payload.metadata ?? null,
+  };
+
+  return withTransaction(options.transaction, async (trx) => {
+    const [record] = await DisputeWorkflowSetting.findOrCreate({
+      where: { workspaceId },
+      defaults: { workspaceId, ...updates },
+      transaction: trx,
+      lock: trx?.LOCK?.UPDATE,
+    });
+
+    await record.update(updates, { transaction: trx });
+
+    return { settings: { ...DEFAULT_WORKFLOW_SETTINGS, ...record.toPublicObject() } };
+  });
+}
+
+export async function listDisputeTemplates({ workspaceId, includeGlobal = true } = {}) {
+  const where = {};
+
+  if (workspaceId) {
+    where[Op.or] = includeGlobal ? [{ workspaceId }, { workspaceId: null }] : [{ workspaceId }];
+  } else if (!includeGlobal) {
+    where.workspaceId = null;
+  }
+
+  const templates = await DisputeTemplate.findAll({
+    where,
+    order: [
+      ['active', 'DESC'],
+      ['workspaceId', 'ASC'],
+      ['name', 'ASC'],
+    ],
+  });
+
+  return { templates: templates.map((template) => template.toPublicObject()) };
+}
+
+export async function createDisputeTemplate(payload, options = {}) {
+  const {
+    workspaceId = null,
+    name,
+    reasonCode = null,
+    defaultStage = 'intake',
+    defaultPriority = 'medium',
+    guidance = null,
+    checklist,
+    active = true,
+    createdById = null,
+    metadata = null,
+  } = payload ?? {};
+
+  if (!name || `${name}`.trim().length === 0) {
+    throw new ValidationError('Template name is required');
+  }
+
+  if (!DISPUTE_STAGES.includes(defaultStage)) {
+    throw new ValidationError(`defaultStage must be one of: ${DISPUTE_STAGES.join(', ')}`);
+  }
+
+  if (!DISPUTE_PRIORITIES.includes(defaultPriority)) {
+    throw new ValidationError(`defaultPriority must be one of: ${DISPUTE_PRIORITIES.join(', ')}`);
+  }
+
+  return withTransaction(options.transaction, async (trx) => {
+    const template = await DisputeTemplate.create(
+      {
+        workspaceId,
+        name: `${name}`.trim(),
+        reasonCode: reasonCode ? `${reasonCode}`.trim() : null,
+        defaultStage,
+        defaultPriority,
+        guidance: guidance ?? null,
+        checklist: normaliseChecklist(checklist),
+        active: Boolean(active),
+        createdById: createdById ?? null,
+        updatedById: createdById ?? null,
+        metadata: metadata ?? null,
+      },
+      { transaction: trx },
+    );
+
+    return { template: template.toPublicObject() };
+  });
+}
+
+export async function updateDisputeTemplate(templateId, payload, options = {}) {
+  return withTransaction(options.transaction, async (trx) => {
+    const template = await DisputeTemplate.findByPk(templateId, {
+      transaction: trx,
+      lock: trx?.LOCK?.UPDATE,
+    });
+
+    if (!template) {
+      throw new NotFoundError('Dispute template not found');
+    }
+
+    const updates = {};
+
+    if (payload.name !== undefined) {
+      if (!payload.name || `${payload.name}`.trim().length === 0) {
+        throw new ValidationError('Template name cannot be empty');
+      }
+      updates.name = `${payload.name}`.trim();
+    }
+
+    if (payload.reasonCode !== undefined) {
+      updates.reasonCode = payload.reasonCode ? `${payload.reasonCode}`.trim() : null;
+    }
+
+    if (payload.defaultStage !== undefined) {
+      if (!DISPUTE_STAGES.includes(payload.defaultStage)) {
+        throw new ValidationError(`defaultStage must be one of: ${DISPUTE_STAGES.join(', ')}`);
+      }
+      updates.defaultStage = payload.defaultStage;
+    }
+
+    if (payload.defaultPriority !== undefined) {
+      if (!DISPUTE_PRIORITIES.includes(payload.defaultPriority)) {
+        throw new ValidationError(`defaultPriority must be one of: ${DISPUTE_PRIORITIES.join(', ')}`);
+      }
+      updates.defaultPriority = payload.defaultPriority;
+    }
+
+    if (payload.guidance !== undefined) {
+      updates.guidance = payload.guidance ?? null;
+    }
+
+    if (payload.checklist !== undefined) {
+      updates.checklist = normaliseChecklist(payload.checklist);
+    }
+
+    if (payload.active !== undefined) {
+      updates.active = Boolean(payload.active);
+    }
+
+    if (payload.updatedById !== undefined) {
+      updates.updatedById = payload.updatedById ?? null;
+    }
+
+    if (payload.metadata !== undefined) {
+      updates.metadata = payload.metadata ?? null;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await template.update(updates, { transaction: trx });
+    }
+
+    return { template: template.toPublicObject() };
+  });
+}
+
+export async function deleteDisputeTemplate(templateId, options = {}) {
+  return withTransaction(options.transaction, async (trx) => {
+    const template = await DisputeTemplate.findByPk(templateId, {
+      transaction: trx,
+      lock: trx?.LOCK?.UPDATE,
+    });
+
+    if (!template) {
+      throw new NotFoundError('Dispute template not found');
+    }
+
+    await template.destroy({ transaction: trx });
+
+    return { success: true };
     if (nextAssignedToId !== undefined) {
       const nextAssigned = coerceInteger(nextAssignedToId);
       updates.assignedToId = nextAssigned;
@@ -1134,7 +1919,9 @@ export async function getTrustOverview() {
 
 export default {
   ensureEscrowAccount,
+  updateEscrowAccount,
   initiateEscrowTransaction,
+  updateEscrowTransaction,
   releaseEscrowTransaction,
   refundEscrowTransaction,
   createDisputeCase,
@@ -1142,5 +1929,11 @@ export default {
   listDisputeCases,
   getDisputeCaseById,
   updateDisputeCase,
+  getDisputeWorkflowSettings,
+  saveDisputeWorkflowSettings,
+  listDisputeTemplates,
+  createDisputeTemplate,
+  updateDisputeTemplate,
+  deleteDisputeTemplate,
   getTrustOverview,
 };

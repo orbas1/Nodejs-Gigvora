@@ -174,6 +174,7 @@ export default function DashboardLayout({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openDrawers, setOpenDrawers] = useState(() => new Set());
+  const navigate = useNavigate();
 
   const normalizedMenuSections = useMemo(() => normalizeMenuSections(menuSections), [menuSections]);
   const allMenuItems = useMemo(() => {
@@ -449,6 +450,12 @@ export default function DashboardLayout({
     }
 
     if (item.href) {
+      if (item.href.startsWith('http')) {
+        window.open(item.href, item.target ?? '_blank', 'noreferrer');
+        setMobileOpen(false);
+        return;
+      }
+      navigate(item.href);
       const href = item.href.trim();
       const isExternal = /^https?:\/\//i.test(href);
       if (isExternal) {

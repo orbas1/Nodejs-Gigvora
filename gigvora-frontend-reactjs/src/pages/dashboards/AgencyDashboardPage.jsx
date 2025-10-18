@@ -1,3 +1,57 @@
+import { useEffect, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import useSession from '../../hooks/useSession.js';
+import { AGENCY_DASHBOARD_MENU_SECTIONS } from '../../constants/agencyDashboardMenu.js';
+import OverviewSection from './agency/sections/OverviewSection.jsx';
+import { useAgencyOverview } from '../../hooks/useAgencyOverview.js';
+
+const sections = [
+  {
+    id: 'agency-overview',
+    title: 'Home',
+    description: 'Daily snapshot',
+import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import AgencyProfileWorkspace from '../../components/dashboard/agency/AgencyProfileWorkspace.jsx';
+import { useMemo } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import useSession from '../../hooks/useSession.js';
+import AgencyIdVerificationSection from '../../components/agency/id-verification/AgencyIdVerificationSection.jsx';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import useSession from '../../hooks/useSession.js';
+import { fetchAgencyDashboard } from '../../services/agency.js';
+import AgencyOverviewPanel from './agency/AgencyOverviewPanel.jsx';
+import AgencyAdsManagementPanel from './agency/AgencyAdsManagementPanel.jsx';
+
+const menuSections = [
+  {
+    id: 'main',
+    label: 'Main',
+    items: [
+      { id: 'overview', name: 'Overview', sectionId: 'agency-overview' },
+      { id: 'ads', name: 'Ads', sectionId: 'agency-ads' },
+import useSession from '../../hooks/useSession.js';
+import AgencyDashboardLayout from './agency/AgencyDashboardLayout.jsx';
+import AgencyOverview from './agency/AgencyOverview.jsx';
+import { useMemo } from 'react';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import CreationStudioSection from '../../components/agencyCreationStudio/CreationStudioSection.jsx';
+import { AGENCY_DASHBOARD_MENU_SECTIONS } from '../../constants/agencyDashboardMenu.js';
+import { useCallback, useMemo } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import useSession from '../../hooks/useSession.js';
+import VolunteeringWorkspace from '../../components/agency/volunteering/VolunteeringWorkspace.jsx';
+import { AGENCY_DASHBOARD_MENU_SECTIONS } from '../../constants/agencyDashboardMenu.js';
+
+const OVERVIEW_CARDS = [
+  { id: 'programmes', label: 'Programmes', value: 7 },
+  { id: 'active-volunteers', label: 'Volunteers', value: 42 },
+  { id: 'deployments', label: 'Deployments', value: 5 },
+  { id: 'responses', label: 'Replies today', value: 18 },
 import useSession from '../../hooks/useSession.js';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import AgencyOverviewContent from '../../components/agency/AgencyOverviewContent.jsx';
@@ -6,9 +60,14 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import useSession from '../../hooks/useSession.js';
+import AgencyDashboardSidebar from '../../components/dashboard/agency/AgencyDashboardSidebar.jsx';
+import MentoringSessionManagement from '../../components/dashboard/agency/MentoringSessionManagement.jsx';
 import { AGENCY_DASHBOARD_MENU_SECTIONS } from '../../constants/agencyDashboardMenu.js';
 
 const OVERVIEW_METRICS = [
+  { id: 'clients', label: 'Clients', value: 18, hint: '4 onboarding' },
+  { id: 'projects', label: 'Projects', value: 42, hint: '8 in kickoff' },
+  { id: 'talent', label: 'Bench', value: '63%', hint: '120 hours open' },
   { id: 'clients', label: 'Active clients', value: 18, hint: '4 onboarding this month' },
   { id: 'projects', label: 'Managed projects', value: 42, hint: '8 in kickoff' },
   { id: 'talent', label: 'Bench capacity', value: '63%', hint: '120 hours open' },
@@ -31,6 +90,87 @@ import {
   GigChatSection,
 } from './agency/sections/index.js';
 
+const TEAM_REMINDERS = [
+  { id: 'checkins', label: 'Client check-in · 10:00' },
+  { id: 'onboarding', label: 'Onboard three mentors' },
+  { id: 'reports', label: 'Send weekly summary' },
+];
+
+const QUICK_LINKS = [
+  { id: 'inbox', label: 'Inbox', to: '/inbox' },
+  { id: 'finance', label: 'Finance', to: '/finance' },
+  { id: 'settings', label: 'Settings', to: '/settings' },
+];
+
+const VOL_PANES = new Set(['overview', 'applications', 'responses', 'contracts', 'spend']);
+const VOL_MENU_TO_PANE = Object.freeze({
+  'volunteer-home': 'overview',
+  'volunteer-deals': 'contracts',
+  'volunteer-apply': 'applications',
+  'volunteer-replies': 'responses',
+  'volunteer-spend': 'spend',
+});
+
+function parseWorkspaceId(rawValue) {
+  if (!rawValue) {
+    return undefined;
+  }
+  const numeric = Number.parseInt(rawValue, 10);
+  return Number.isNaN(numeric) ? undefined : numeric;
+}
+
+function normalizePane(value) {
+  if (!value) {
+    return 'overview';
+  }
+  return VOL_PANES.has(value) ? value : 'overview';
+}
+
+export default function AgencyDashboardPage() {
+  const { session } = useSession();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const workspaceIdParam = searchParams.get('workspaceId');
+  const workspaceSlugParam = searchParams.get('workspaceSlug');
+  const volPaneParam = normalizePane(searchParams.get('volPane'));
+
+  const workspaceId = parseWorkspaceId(workspaceIdParam);
+  const workspaceSlug = workspaceSlugParam || undefined;
+
+  const menuSections = useMemo(
+    () =>
+      AGENCY_DASHBOARD_MENU_SECTIONS.map((section) => ({
+        ...section,
+        items: section.items.map((item) => ({ ...item })),
+      })),
+    [],
+  );
+  const availableDashboards = useMemo(() => ['agency', 'company', 'headhunter', 'user', 'freelancer'], []);
+const TEAM_TASKS = [
+  { id: 'advocacy', title: 'Client sync', description: 'Check health scores and follow-ups.' },
+  { id: 'payments', title: 'Finance sweep', description: 'Approve payouts and invoices.' },
+  { id: 'growth', title: 'Pipeline huddle', description: 'Confirm demos and outreach.' },
+];
+
+const BENCH_SIGNALS = [
+  { id: 'design', label: 'Design pod', tone: 'emerald', status: 'Room to book' },
+  { id: 'marketing', label: 'Growth squad', tone: 'amber', status: 'Watch load' },
+  { id: 'engineering', label: 'Build team', tone: 'rose', status: 'At limit' },
+];
+
+const BENCH_TONE_CLASSES = {
+  emerald: 'bg-emerald-100 text-emerald-700',
+  amber: 'bg-amber-100 text-amber-700',
+  rose: 'bg-rose-100 text-rose-700',
+};
+
+const FINANCE_SUMMARY = [
+  { id: 'run-rate', label: 'Run rate', value: '$1.84M', hint: '+12% QoQ' },
+  { id: 'invoiced', label: 'Invoiced', value: '$310K', hint: '3 awaiting sign-off' },
+  { id: 'payouts', label: 'Payouts', value: '$245K', hint: 'Cleared overnight' },
+  { id: 'advocacy', title: 'Client sync', hint: 'Review NPS and set follow-ups.' },
+  { id: 'payments', title: 'Finance check', hint: 'Clear payouts and vendor bills.' },
+  { id: 'growth', title: 'Growth standup', hint: 'Align on next demo targets.' },
 const DEFAULT_SECTION = 'manage';
 import { Link } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
@@ -158,10 +298,337 @@ const FINANCE_SNAPSHOT = [
   { id: 'payouts', label: 'Payouts processed', value: '$245K', helper: 'Cleared overnight' },
 ];
 
+const MENU_SECTIONS = [
+  {
+    label: 'Ops',
+    items: [
+      {
+        name: 'Control',
+        sectionId: 'agency-overview',
+      },
+      {
+        name: 'Bench',
+        sectionId: 'agency-bench',
+      },
+    ],
+  },
+  {
+    label: 'Talent',
+    items: [
+      {
+        name: 'Jobs',
+        href: '/dashboard/agency/job-management',
+      },
+    ],
+  },
+];
 const availableDashboards = ['agency', 'company', 'freelancer', 'user'];
+
+const availableDashboards = ['agency', 'company', 'freelancer', 'user'];
+
+function normalizeRoles(memberships = []) {
+  return memberships.map((role) => `${role}`.toLowerCase());
+}
+
+export default function AgencyDashboardPage() {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { session, isAuthenticated } = useSession();
+
+  const memberships = useMemo(() => normalizeRoles(session?.memberships ?? session?.roles ?? []), [session?.memberships, session?.roles]);
+  const isAgencyMember = memberships.some((role) => ['agency', 'agency_admin', 'admin'].includes(role));
+  const canManageOverview = memberships.some((role) => ['agency_admin', 'admin'].includes(role));
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+    if (!isAgencyMember) {
+      const fallback = session?.primaryDashboard || memberships.find((role) => role !== 'agency') || 'user';
+      navigate(`/dashboard/${fallback}`, { replace: true });
+    }
+  }, [isAuthenticated, isAgencyMember, navigate, session?.primaryDashboard, memberships]);
+
+  const workspaceIdParam = searchParams.get('workspaceId');
+  const workspaceSlugParam = searchParams.get('workspaceSlug');
+
+  const {
+    data,
+    loading,
+    error,
+    fromCache,
+    lastUpdated,
+    refresh,
+    save,
+    saving,
+  } = useAgencyOverview({
+    workspaceId: workspaceIdParam,
+    workspaceSlug: workspaceSlugParam,
+    enabled: isAuthenticated && isAgencyMember,
+  });
+
+  useEffect(() => {
+    const selectedWorkspaceId = data?.meta?.selectedWorkspaceId;
+    if (!workspaceIdParam && selectedWorkspaceId) {
+      setSearchParams((previous) => {
+        const next = new URLSearchParams(previous);
+        next.set('workspaceId', `${selectedWorkspaceId}`);
+        next.delete('workspaceSlug');
+        return next;
+      }, { replace: true });
+    }
+  }, [data?.meta?.selectedWorkspaceId, setSearchParams, workspaceIdParam]);
+
+  const workspaceOptions = data?.meta?.availableWorkspaces ?? [];
+  const selectedWorkspaceId = workspaceIdParam || (data?.workspace?.id ? `${data.workspace.id}` : workspaceOptions[0]?.id ?? '');
+
+  const handleWorkspaceChange = (event) => {
+    const nextId = event.target.value;
+    setSearchParams((previous) => {
+      const next = new URLSearchParams(previous);
+      if (nextId) {
+        next.set('workspaceId', nextId);
+        next.delete('workspaceSlug');
+      } else {
+        next.delete('workspaceId');
+      }
+      return next;
+    }, { replace: true });
+  };
+
+  const overview = data?.overview ?? null;
+  const workspace = data?.workspace ?? null;
+
+  return (
+    <DashboardLayout
+      currentDashboard="agency"
+      title="Agency"
+      subtitle={workspace?.name || 'Home'}
+      description="Daily snapshot"
+      menuSections={AGENCY_DASHBOARD_MENU_SECTIONS}
+      sections={sections}
+      availableDashboards={availableDashboards}
+      activeMenuItem="home"
+      adSurface="agency_dashboard"
+    >
+      <div className="space-y-10">
+        <OverviewSection
+          overview={overview}
+          workspace={workspace}
+          loading={loading}
+          error={error}
+          onRefresh={refresh}
+          fromCache={fromCache}
+          lastUpdated={lastUpdated}
+          onSave={save}
+          saving={saving}
+          canManage={canManageOverview}
+          workspaceOptions={workspaceOptions}
+          selectedWorkspaceId={selectedWorkspaceId}
+          onWorkspaceChange={workspaceOptions.length > 1 ? handleWorkspaceChange : undefined}
+          currentDate={data?.currentDate}
+        />
+      </div>
+const sections = [
+  { id: 'agency-overview', label: 'Overview' },
+  { id: 'agency-ads', label: 'Ads' },
+];
+const availableDashboards = ['agency', 'company', 'freelancer', 'user', 'mentor', 'headhunter'];
+
+const availableDashboards = ['agency', 'company', 'user', 'freelancer'];
+
+const AVAILABLE_DASHBOARDS = ['agency', 'company', 'headhunter', 'user'];
+
+function parseWorkspaceId(value) {
+  if (!value) {
+    return undefined;
+  }
+  const numeric = Number.parseInt(value, 10);
+  if (!Number.isFinite(numeric)) {
+    return undefined;
+  }
+  return numeric;
+}
+
+const NAV_ITEMS = [
+  {
+    id: 'profile',
+    label: 'Profile',
+  },
+  {
+    id: 'control-tower',
+    label: 'Ops',
+  },
+];
+
+function ControlTowerSection() {
+  return (
+    <div className="space-y-8">
+      <section className="space-y-6">
+        <div className="grid gap-4 sm:grid-cols-3">
+          {OVERVIEW_METRICS.map((metric) => (
+            <div
+              key={metric.id}
+              className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft transition hover:-translate-y-0.5 hover:border-accent/60"
+            >
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">{metric.label}</p>
+              <p className="mt-3 text-3xl font-semibold text-slate-900">{metric.value}</p>
+              <p className="mt-2 text-xs text-slate-500">{metric.hint}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="grid gap-8 lg:grid-cols-[1.35fr_1fr]">
+        <div className="space-y-6">
+          <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-slate-900">Team focus</h2>
+              <Link to="/inbox" className="text-sm font-semibold text-accent hover:text-accentDark">
+                Share update
+              </Link>
+            </div>
+            <ol className="mt-6 space-y-4">
+              {TEAM_TASKS.map((task, index) => (
+                <li key={task.id} className="flex gap-4 rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-sm font-semibold text-white">
+                    {index + 1}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">{task.title}</p>
+                    <p className="text-xs text-slate-500">{task.description}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
+            <h2 className="text-xl font-semibold text-slate-900">Bench signals</h2>
+            <div className="mt-4 space-y-3">
+              <div className="flex items-center justify-between rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-3">
+                <p className="text-sm text-slate-600">Product design squad</p>
+                <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">Under capacity</span>
+              </div>
+              <div className="flex items-center justify-between rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-3">
+                <p className="text-sm text-slate-600">Growth marketing</p>
+                <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">Monitor</span>
+              </div>
+              <div className="flex items-center justify-between rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-3">
+                <p className="text-sm text-slate-600">Engineering guild</p>
+                <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">Over capacity</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside className="space-y-6">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
+            <h2 className="text-lg font-semibold text-slate-900">Finance snapshot</h2>
+            <ul className="mt-4 space-y-3">
+              {FINANCE_SUMMARY.map((item) => (
+                <li key={item.id} className="rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
+                  <p className="text-sm font-semibold text-slate-900">{item.label}</p>
+                  <p className="mt-1 text-lg font-semibold text-slate-900">{item.value}</p>
+                  <p className="text-xs text-slate-500">{item.hint}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-accent/10 via-white to-blue-100 p-6 shadow-soft">
+            <h2 className="text-lg font-semibold text-slate-900">Need support?</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Coordinate with finance or compliance in the shared channel. We’ll help unblock vendors, approvals, or contract questions within the hour.
+            </p>
+            <Link
+              to="/inbox"
+              className="mt-4 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+            >
+              Message operations
+            </Link>
+          </div>
+        </aside>
+      </section>
+    </div>
+  );
+}
 
 export default function AgencyDashboardPage() {
   const { session } = useSession();
+  const [searchParams] = useSearchParams();
+  const workspaceIdParam = searchParams.get('workspaceId');
+  const workspaceSlug = searchParams.get('workspaceSlug') ?? undefined;
+
+  const workspaceId = useMemo(() => parseWorkspaceId(workspaceIdParam), [workspaceIdParam]);
+  const [activeMenuItem, setActiveMenuItem] = useState('overview');
+  const [dashboardData, setDashboardData] = useState(null);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [dashboardError, setDashboardError] = useState(null);
+
+  const loadDashboard = useCallback(async () => {
+    setDashboardLoading(true);
+    setDashboardError(null);
+    try {
+      const response = await fetchAgencyDashboard();
+      setDashboardData(response);
+    } catch (error) {
+      console.error('Failed to load agency dashboard', error);
+      setDashboardError(error);
+    } finally {
+      setDashboardLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
+
+  const workspace = useMemo(() => {
+    return dashboardData?.workspace ?? dashboardData?.meta?.workspace ?? null;
+  }, [dashboardData]);
+
+  const displayName = useMemo(() => {
+    return session?.name || session?.firstName || 'Agency team';
+  }, [session]);
+
+  const handleMenuItemSelect = useCallback(
+    (itemId) => {
+      setActiveMenuItem(itemId);
+      const targetId = itemId === 'overview' ? 'agency-overview' : itemId === 'ads' ? 'agency-ads' : itemId;
+      if (typeof window !== 'undefined') {
+        const target = document.getElementById(targetId);
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    },
+    [],
+  );
+
+  return (
+    <DashboardLayout
+      currentDashboard="agency"
+      title="Agency Control Tower"
+      subtitle={`Welcome back, ${displayName}`}
+      description="Monitor operations, steer growth initiatives, and manage campaigns without leaving the workspace."
+      menuSections={menuSections}
+      sections={sections}
+      availableDashboards={availableDashboards}
+      activeMenuItem={activeMenuItem}
+      onMenuItemSelect={handleMenuItemSelect}
+      adSurface="agency_dashboard"
+    >
+      <div className="space-y-10">
+        <AgencyOverviewPanel
+          data={dashboardData}
+          loading={dashboardLoading}
+          error={dashboardError}
+          onRefresh={loadDashboard}
+        />
+        <AgencyAdsManagementPanel workspace={workspace} />
+      </div>
+  const displayName = useMemo(() => session?.name ?? session?.firstName ?? 'Agency team', [session]);
   const [activeSection, setActiveSection] = useState(DEFAULT_SECTION);
 
   const {
@@ -375,6 +842,9 @@ export default function AgencyDashboardPage() {
     }
   };
   const displayName = session?.name || session?.firstName || 'Agency team';
+  const [activeSection, setActiveSection] = useState('profile');
+
+  const navigationItems = useMemo(() => NAV_ITEMS, []);
   const availableDashboards = ['agency', 'company', 'freelancer', 'user'];
   const [searchParams] = useSearchParams();
   const workspaceIdParam = searchParams.get('workspaceId');
@@ -481,9 +951,162 @@ export default function AgencyDashboardPage() {
 
   const profile = buildProfile(displayName);
 
+  const sidebarSections = [
+    { id: 'agency-overview', label: 'Overview' },
+    { id: 'agency-focus', label: 'Focus' },
+    { id: 'agency-bench', label: 'Bench' },
+    { id: 'agency-finance', label: 'Finance' },
+    { href: '/dashboard/agency/mentoring', label: 'Mentor' },
+  ];
+
+  const handleVolunteeringPaneChange = useCallback(
+    (nextPane) => {
+      setSearchParams(
+        (current) => {
+          const next = new URLSearchParams(current);
+          if (nextPane === 'overview') {
+            next.delete('volPane');
+          } else {
+            next.set('volPane', nextPane);
+          }
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const handleDashboardMenuSelect = useCallback(
+    (itemId, item) => {
+      if (!item) {
+        return;
+      }
+
+      const pane = VOL_MENU_TO_PANE[itemId];
+      if (pane) {
+        handleVolunteeringPaneChange(pane);
+        if (typeof document !== 'undefined') {
+          const target = document.getElementById('volunteering-home');
+          if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }
+        return;
+      }
+
+      if (item.href) {
+        if (typeof window !== 'undefined') {
+          if (item.href.startsWith('http')) {
+            window.open(item.href, item.target ?? '_blank', 'noreferrer');
+          } else {
+            window.location.href = item.href;
+          }
+        }
+        return;
+      }
+
+      const targetId = item.sectionId || item.targetId || item.id;
+      if (targetId && typeof document !== 'undefined') {
+        const targetElement = document.getElementById(targetId);
+        if (targetElement) {
+          targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    },
+    [handleVolunteeringPaneChange],
+  );
+
   return (
     <DashboardLayout
       currentDashboard="agency"
+      title="Agency control tower"
+      subtitle={`Hello, ${displayName}`}
+      description="Track client health, revenue momentum, compliance guardrails, and the team’s next actions."
+      menuSections={AGENCY_DASHBOARD_MENU_SECTIONS}
+      availableDashboards={AVAILABLE_DASHBOARDS}
+    >
+      <div className="space-y-16">
+        <section
+          id="agency-overview"
+          className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8 lg:py-12 space-y-10"
+        >
+          <header className="flex flex-col gap-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
+            <div>
+              <p className="text-sm uppercase tracking-[0.4em] text-slate-500">Agency control tower</p>
+              <h1 className="mt-2 text-3xl font-semibold text-slate-900">Hello, {displayName}</h1>
+              <p className="mt-3 max-w-3xl text-sm text-slate-600">
+                Track client health, revenue momentum, and the team’s next actions. Keep the bench balanced and highlight wins to
+                leadership.
+              </p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              {OVERVIEW_METRICS.map((metric) => (
+                <div
+                  key={metric.id}
+                  className="rounded-3xl border border-slate-200 bg-slate-50 p-6 shadow-inner transition hover:-translate-y-0.5 hover:border-accent/60"
+                >
+                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">{metric.label}</p>
+                  <p className="mt-3 text-3xl font-semibold text-slate-900">{metric.value}</p>
+                  <p className="mt-2 text-xs text-slate-500">{metric.hint}</p>
+    <AgencyDashboardLayout activeItem="overview">
+      <AgencyOverview displayName={displayName} />
+    </AgencyDashboardLayout>
+    <DashboardLayout
+      currentDashboard="agency"
+      title="Agency hub"
+      subtitle="Operate launches, teams, and cash flow"
+      description=""
+      menuSections={AGENCY_DASHBOARD_MENU_SECTIONS}
+      availableDashboards={availableDashboards}
+    >
+      <div className="mx-auto w-full max-w-7xl space-y-12 px-6 py-10">
+        <section id="agency-overview" className="space-y-6">
+          <div className="flex flex-col gap-2">
+            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Welcome</p>
+            <h1 className="text-3xl font-semibold text-slate-900">Hello, {displayName}</h1>
+            <p className="max-w-2xl text-sm text-slate-600">Your live pulse on clients, delivery, launches, and cash.</p>
+      title="Agency control tower"
+      subtitle="Client success & bench management"
+      description="Track client health, revenue momentum, and the team’s next actions. Keep the bench balanced and highlight wins to leadership."
+      menuSections={MENU_SECTIONS}
+      availableDashboards={['agency', 'user', 'freelancer', 'company', 'headhunter']}
+    >
+      <section id="agency-overview" className="space-y-12">
+        <header className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
+      title="Agency"
+      subtitle="Operations"
+      description="Control contracts, teams, and volunteering programmes from one screen."
+      menuSections={menuSections}
+      availableDashboards={availableDashboards}
+      onMenuItemSelect={handleDashboardMenuSelect}
+    >
+      <div className="space-y-10">
+        <section
+          id="agency-overview"
+          className="rounded-3xl border border-slate-200 bg-white px-8 py-10 shadow-soft"
+        >
+          <div className="flex flex-wrap items-end justify-between gap-6">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500">Workspace</p>
+              <h1 className="mt-2 text-3xl font-semibold text-slate-900">Welcome back, {displayName}</h1>
+            </div>
+            <div className="flex gap-3">
+              <Link
+                to="/dashboard/company"
+                className="inline-flex items-center justify-center rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+              >
+                Switch board
+              </Link>
+            </div>
+          </div>
+
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {OVERVIEW_CARDS.map((card) => (
+              <div key={card.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-6 text-center">
+                <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500">{card.label}</p>
+                <p className="mt-3 text-3xl font-semibold text-slate-900">{card.value}</p>
+              </div>
       title="Agency control tower"
       subtitle="Visibility across clients, teams, and delivery."
       description="Monitor delivery, balance the bench, and collaborate with clients in real time."
@@ -647,10 +1270,44 @@ export default function AgencyDashboardPage() {
           <p className="text-sm uppercase tracking-[0.4em] text-slate-500">Workspace pulse</p>
           <div className="mt-6 grid gap-4 sm:grid-cols-3">
     <div className="min-h-screen bg-surfaceMuted pb-16">
+      <div className="mx-auto max-w-7xl px-4 pt-10 sm:px-6 lg:px-8">
+        <header className="flex flex-col gap-4 border-b border-slate-200 pb-6">
       <div className="mx-auto max-w-6xl px-4 pt-12 sm:px-6 lg:px-8">
+        <div className="lg:grid lg:grid-cols-[260px_1fr] lg:gap-10">
+          <AgencyDashboardSidebar sections={sidebarSections} />
+          <div className="space-y-10">
+            <section id="agency-overview" className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
+              <div className="flex flex-col gap-4">
+                <div>
+                  <p className="text-sm uppercase tracking-[0.4em] text-slate-500">Agency control tower</p>
+                  <h1 className="mt-2 text-3xl font-semibold text-slate-900">Hello, {displayName}</h1>
+                  <p className="mt-3 max-w-3xl text-sm text-slate-600">
+                    Track health at a glance and jump straight into the work that needs attention.
+                  </p>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  {OVERVIEW_METRICS.map((metric) => (
+                    <div
+                      key={metric.id}
+                      className="rounded-3xl border border-slate-200 bg-slate-50 p-6 transition hover:-translate-y-0.5 hover:border-accent/60"
+                    >
+                      <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">{metric.label}</p>
+                      <p className="mt-3 text-3xl font-semibold text-slate-900">{metric.value}</p>
+                      <p className="mt-2 text-xs text-slate-500">{metric.hint}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            <section id="agency-focus" className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-slate-900">Focus</h2>
+                <Link to="/inbox" className="text-sm font-semibold text-accent hover:text-accentDark">
+                  Update
         <header className="flex flex-col gap-4 border-b border-slate-200 pb-8">
           <div>
-            <p className="text-sm uppercase tracking-[0.4em] text-slate-500">Agency control tower</p>
+            <p className="text-xs uppercase tracking-[0.4em] text-slate-500">Agency</p>
             <h1 className="mt-2 text-3xl font-semibold text-slate-900">Hello, {displayName}</h1>
             <p className="mt-3 max-w-3xl text-sm text-slate-600">
               Track client health, revenue momentum, and the team’s next actions. Keep the bench balanced and highlight wins to leadership.
@@ -713,6 +1370,23 @@ export default function AgencyDashboardPage() {
           </div>
         </section>
 
+        <CreationStudioSection />
+
+        <section id="team-focus" className="grid gap-6 lg:grid-cols-2">
+          <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-slate-900">Team focus</h2>
+              <span className="text-xs uppercase tracking-wide text-slate-400">Weekly rhythm</span>
+            </div>
+            <ol className="mt-6 space-y-4">
+              {TEAM_TASKS.map((task, index) => (
+                <li key={task.id} className="flex gap-4 rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-sm font-semibold text-white">
+                    {index + 1}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">{task.title}</p>
+                    <p className="text-xs text-slate-500">{task.description}</p>
 
         <section id="team-focus" className="grid gap-8 lg:grid-cols-[1.35fr_1fr]">
 
@@ -773,6 +1447,38 @@ export default function AgencyDashboardPage() {
           ))}
         </div>
 
+        <div className="mt-10 grid gap-8 lg:grid-cols-[260px_1fr]">
+          <aside>
+            <nav className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+              <ul className="space-y-2">
+                {navigationItems.map((item) => {
+                  const isActive = activeSection === item.id;
+                  return (
+                    <li key={item.id}>
+                      <button
+                        type="button"
+                        onClick={() => setActiveSection(item.id)}
+                        aria-current={isActive ? 'page' : undefined}
+                        className={`w-full rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition ${
+                          isActive
+                            ? 'border-accent bg-accent/10 text-accent'
+                            : 'border-transparent text-slate-600 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-900'
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </nav>
+          </aside>
+
+          <main className="space-y-10">
+            {activeSection === 'profile' ? <AgencyProfileWorkspace /> : null}
+            {activeSection === 'control-tower' ? <ControlTowerSection /> : null}
+          </main>
+        </div>
         <div className="grid gap-8 lg:grid-cols-[1.35fr_1fr]">
         <section className="grid gap-8 lg:grid-cols-[1.35fr_1fr]">
           <div className="space-y-6">
@@ -788,20 +1494,22 @@ export default function AgencyDashboardPage() {
                   Assign owner
                 </Link>
               </div>
-              <ol className="mt-6 space-y-4">
+              <ol className="mt-6 grid gap-4 sm:grid-cols-3">
                 {TEAM_TASKS.map((task, index) => (
-                  <li key={task.id} className="flex gap-4 rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-sm font-semibold text-white">
-                      {index + 1}
+                  <li key={task.id} className="flex flex-col gap-2 rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
+                    <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
+                      <span>{String(index + 1).padStart(2, '0')}</span>
+                      <span>Today</span>
                     </div>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">{task.title}</p>
-                      <p className="text-xs text-slate-500">{task.description}</p>
-                    </div>
+                    <p className="text-sm font-semibold text-slate-900">{task.title}</p>
+                    <p className="text-xs text-slate-500">{task.hint}</p>
                   </li>
                 ))}
               </ol>
             </section>
+
+            <section id="agency-bench" className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
+              <h2 className="text-xl font-semibold text-slate-900">Bench</h2>
 
             <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft" aria-labelledby="bench-signals-heading">
               <h2 id="bench-signals-heading" className="text-xl font-semibold text-slate-900">
@@ -849,6 +1557,38 @@ export default function AgencyDashboardPage() {
             </ol>
           </div>
 
+          <div id="bench-signals" className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
+            <h2 className="text-xl font-semibold text-slate-900">Bench signals</h2>
+            <div className="mt-4 space-y-3">
+              {BENCH_SIGNALS.map((signal) => (
+                <div
+                  key={signal.id}
+                  className="flex items-center justify-between rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-3"
+                >
+                  <p className="text-sm text-slate-600">{signal.label}</p>
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                      BENCH_TONE_CLASSES[signal.tone] ?? 'bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    {signal.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="finance-snapshot" className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
+            <h2 className="text-lg font-semibold text-slate-900">Finance snapshot</h2>
+            <ul className="mt-4 space-y-3">
+              {FINANCE_SUMMARY.map((item) => (
+                <li key={item.id} className="rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
+                  <p className="text-sm font-semibold text-slate-900">{item.label}</p>
+                  <p className="mt-1 text-lg font-semibold text-slate-900">{item.value}</p>
+                  <p className="text-xs text-slate-500">{item.hint}</p>
+            <div id="agency-bench" className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
             <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
               <h2 className="text-xl font-semibold text-slate-900">Bench capacity</h2>
             <div id="overview-bench-signals" className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
@@ -859,13 +1599,49 @@ export default function AgencyDashboardPage() {
                   <p className="text-sm text-slate-600">Product design squad</p>
                   <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">Under capacity</span>
                 </div>
-                <div className="flex items-center justify-between rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-3">
-                  <p className="text-sm text-slate-600">Growth marketing</p>
-                  <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">Monitor</span>
+              ))}
+            </div>
+          </header>
+
+          <div className="grid gap-8 lg:grid-cols-[1.35fr_1fr]">
+            <div className="space-y-6">
+              <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold text-slate-900">Team focus</h2>
+                  <Link to="/inbox" className="text-sm font-semibold text-accent transition hover:text-accentDark">
+                    Share update
+                  </Link>
                 </div>
-                <div className="flex items-center justify-between rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-3">
-                  <p className="text-sm text-slate-600">Engineering guild</p>
-                  <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">Over capacity</span>
+                <ol className="mt-6 space-y-4">
+                  {TEAM_TASKS.map((task, index) => (
+                    <li key={task.id} className="flex gap-4 rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-sm font-semibold text-white">
+                        {index + 1}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">{task.title}</p>
+                        <p className="text-xs text-slate-500">{task.description}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+
+              <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
+                <h2 className="text-xl font-semibold text-slate-900">Bench signals</h2>
+                <div className="mt-4 space-y-3">
+                  <div className="flex items-center justify-between rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-3">
+                    <p className="text-sm text-slate-600">Product design squad</p>
+                    <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">Under capacity</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-3">
+                    <p className="text-sm text-slate-600">Growth marketing</p>
+                    <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">Monitor</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-3">
+                    <p className="text-sm text-slate-600">Engineering guild</p>
+                    <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">Over capacity</span>
+                  </div>
                 </div>
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-slate-900">Bench signals</h2>
@@ -874,7 +1650,74 @@ export default function AgencyDashboardPage() {
                 <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Product design squad</p>
                 <p className="mt-2 text-sm text-emerald-700">Under capacity · 24 hours open</p>
               </div>
+            </div>
+
+            <aside className="space-y-6">
+              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
+                <h2 className="text-lg font-semibold text-slate-900">Finance snapshot</h2>
+                <ul className="mt-4 space-y-3">
+                  {FINANCE_SUMMARY.map((item) => (
+                    <li key={item.id} className="rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
+                      <p className="text-sm font-semibold text-slate-900">{item.label}</p>
+                      <p className="mt-1 text-lg font-semibold text-slate-900">{item.value}</p>
+                      <p className="text-xs text-slate-500">{item.hint}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-accent/10 via-white to-blue-100 p-6 shadow-soft">
+                <h2 className="text-lg font-semibold text-slate-900">Need support?</h2>
+                <p className="mt-2 text-sm text-slate-600">
+                  Coordinate with finance or compliance in the shared channel. We’ll help unblock vendors, approvals, or contract
+                  questions within the hour.
+                </p>
+                <Link
+                  to="/inbox"
+                  className="mt-4 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+                >
+                  Message operations
+                </Link>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <AgencyIdVerificationSection workspaceId={workspaceId} workspaceSlug={workspaceSlug} />
+      </div>
             </section>
+
+            <section id="agency-finance" className="grid gap-6 lg:grid-cols-[1.35fr_1fr]">
+              <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
+                <h2 className="text-xl font-semibold text-slate-900">Finance</h2>
+                <ul className="mt-4 space-y-3">
+                  {FINANCE_SUMMARY.map((item) => (
+                    <li key={item.id} className="rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
+                      <p className="text-sm font-semibold text-slate-900">{item.label}</p>
+                      <p className="mt-1 text-lg font-semibold text-slate-900">{item.value}</p>
+                      <p className="text-xs text-slate-500">{item.hint}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-accent/10 via-white to-blue-100 p-6 shadow-soft">
+                <h2 className="text-lg font-semibold text-slate-900">Need support?</h2>
+                <p className="mt-2 text-sm text-slate-600">
+                  Coordinate with finance or compliance in the shared channel. We’ll help unblock vendors, approvals, or contract
+                  questions within the hour.
+                </p>
+                <Link
+                  to="/inbox"
+                  className="mt-4 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+                >
+                  Message operations
+                </Link>
+              </div>
+            </section>
+
+            <MentoringSessionManagement />
+          </div>
+        </div>
               <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Growth marketing pod</p>
                 <p className="mt-2 text-sm text-amber-700">Monitor utilisation · 6 hours variance</p>
@@ -887,6 +1730,33 @@ export default function AgencyDashboardPage() {
           </div>
         </div>
 
+          <div className="mt-10 grid gap-6 lg:grid-cols-[1.5fr_1fr]">
+            <article className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
+              <h2 className="text-lg font-semibold text-slate-900">Today</h2>
+              <ul className="mt-4 space-y-3 text-sm text-slate-600">
+                {TEAM_REMINDERS.map((item) => (
+                  <li key={item.id} className="rounded-2xl border border-slate-100 bg-white px-4 py-3">
+                    {item.label}
+                  </li>
+                ))}
+              </ul>
+            </article>
+            <article className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
+              <h2 className="text-lg font-semibold text-slate-900">Shortcuts</h2>
+              <ul className="mt-4 space-y-3 text-sm text-slate-600">
+                {QUICK_LINKS.map((link) => (
+                  <li key={link.id}>
+                    <Link
+                      to={link.to}
+                      className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white px-4 py-3 font-semibold text-slate-900 transition hover:border-slate-300 hover:text-slate-700"
+                    >
+                      {link.label}
+                      <span className="text-xs font-medium uppercase tracking-wide text-slate-400">Open</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </article>
           <aside className="space-y-6">
             <div id="finance-oversight" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
             <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft" aria-labelledby="finance-snapshot-heading">
@@ -920,6 +1790,100 @@ export default function AgencyDashboardPage() {
               ))}
             </ul>
           </div>
+          <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-accent/10 via-white to-blue-100 p-6 shadow-soft">
+            <h2 className="text-lg font-semibold text-slate-900">Need support?</h2>
+            <p className="mt-2 text-sm text-slate-600">Ping ops for finance or compliance help in the shared channel.</p>
+            <a
+              href="/inbox"
+              className="mt-4 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+            >
+              Message operations
+            </a>
+          </div>
+        </section>
+
+        <section id="marketplace-leadership" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Marketplace leadership</h2>
+              <p className="text-sm text-slate-600">Quick checks on studios, partners, advocacy, and automation.</p>
+            </div>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">Pulse report</span>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <div className="rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
+              <p className="text-sm font-semibold text-slate-900">Studio pipeline</p>
+              <p className="mt-1 text-xs text-slate-500">13 briefs in discovery · 6 awaiting client approval</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
+              <p className="text-sm font-semibold text-slate-900">Advocacy flywheel</p>
+              <p className="mt-1 text-xs text-slate-500">5 stories ready for spotlight · 9 referrals pending nurture</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
+              <p className="text-sm font-semibold text-slate-900">Partner programs</p>
+              <p className="mt-1 text-xs text-slate-500">4 alliances activated · 3 in due diligence</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
+              <p className="text-sm font-semibold text-slate-900">Marketing automation</p>
+              <p className="mt-1 text-xs text-slate-500">Next campaign: Launchpad momentum · send scheduled tomorrow</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="ads-operations" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Gigvora ads</h2>
+              <p className="text-sm text-slate-600">Track pacing, tests, and channel mix for paid work.</p>
+            </div>
+            <a
+              href="/dashboard/agency#creation-studio"
+              className="text-xs font-semibold text-accent transition hover:text-accentDark"
+            >
+              Manage placements
+            </a>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Active campaigns</p>
+              <p className="mt-1 text-xl font-semibold text-slate-900">7</p>
+              <p className="text-xs text-slate-500">3 prospecting · 4 retargeting</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Spend this week</p>
+              <p className="mt-1 text-xl font-semibold text-slate-900">$8.4K</p>
+              <p className="text-xs text-slate-500">32% pacing vs budget</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Top performer</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">Launchpad success carousel</p>
+              <p className="text-xs text-slate-500">CTR 4.2% · CPL $38</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="projects-workspace" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
+          <div className="flex flex-col gap-2">
+            <h2 className="text-lg font-semibold text-slate-900">Project workspaces</h2>
+            <p className="text-sm text-slate-600">
+              Monitor delivery pods, dependencies, and client experience. Surface risks before they become blockers.
+            </p>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">In delivery</p>
+              <p className="mt-1 text-xl font-semibold text-slate-900">24</p>
+              <p className="text-xs text-slate-500">3 marked at risk</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Next retros</p>
+              <p className="mt-1 text-xl font-semibold text-slate-900">5</p>
+              <p className="text-xs text-slate-500">Auto-generated for Friday</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Budget in play</p>
+              <p className="mt-1 text-xl font-semibold text-slate-900">$420K</p>
+              <p className="text-xs text-slate-500">Spending velocity on track</p>
 
             <section className="rounded-3xl border border-slate-200 bg-gradient-to-br from-accent/10 via-white to-blue-100 p-6 shadow-soft" aria-labelledby="support-heading">
               <h2 id="support-heading" className="text-lg font-semibold text-slate-900">
@@ -973,6 +1937,40 @@ export default function AgencyDashboardPage() {
           </div>
         </section>
 
+        <section id="gig-programs" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
+          <h2 className="text-lg font-semibold text-slate-900">Gig programs</h2>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <div className="rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
+              <p className="text-sm font-semibold text-slate-900">Studio pipeline</p>
+              <p className="text-xs text-slate-500">11 briefs in scope review · 5 fulfilment in progress</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
+              <p className="text-sm font-semibold text-slate-900">Marketplace health</p>
+              <p className="text-xs text-slate-500">CSAT 4.7 · Avg. SLA 36h</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="payments-distribution" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
+          <h2 className="text-lg font-semibold text-slate-900">Payments distribution</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Keep escrow balances, payout batches, and vendor invoices on time with automated reconciliations.
+          </p>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Upcoming batches</p>
+              <p className="mt-1 text-xl font-semibold text-slate-900">3</p>
+              <p className="text-xs text-slate-500">Clears within 48h</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Escrow balance</p>
+              <p className="mt-1 text-xl font-semibold text-slate-900">$612K</p>
+              <p className="text-xs text-slate-500">$92K earmarked for vendors</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Invoices pending</p>
+              <p className="mt-1 text-xl font-semibold text-slate-900">7</p>
+              <p className="text-xs text-slate-500">Send approvals today</p>
         <section id="agency-automation" className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
@@ -998,6 +1996,13 @@ export default function AgencyDashboardPage() {
             </div>
           </div>
         </section>
+
+        <VolunteeringWorkspace
+          workspaceId={workspaceId}
+          workspaceSlug={workspaceSlug}
+          initialPane={volPaneParam}
+          onPaneChange={handleVolunteeringPaneChange}
+        />
       </div>
     </AgencyDashboardLayout>
           <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-accent/10 via-white to-blue-100 p-6 shadow-sm">
@@ -1017,3 +2022,4 @@ export default function AgencyDashboardPage() {
     </DashboardLayout>
   );
 }
+

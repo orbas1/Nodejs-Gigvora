@@ -1,3 +1,48 @@
+export const AGENCY_DASHBOARD_MENU_SECTIONS = [
+  {
+    label: 'Agency',
+    items: [
+      {
+    id: 'ops',
+    label: 'Ops',
+    label: 'Main',
+    items: [
+      { id: 'agency-overview', name: 'Home', sectionId: 'agency-overview' },
+      { id: 'creation-studio', name: 'Create', sectionId: 'creation-studio' },
+      { id: 'team-focus', name: 'Teams', sectionId: 'team-focus' },
+      { id: 'bench-signals', name: 'Bench', sectionId: 'bench-signals' },
+      { id: 'finance-snapshot', name: 'Money', sectionId: 'finance-snapshot' },
+    ],
+  },
+  {
+    label: 'Growth',
+    items: [
+      { id: 'marketplace-leadership', name: 'Market', sectionId: 'marketplace-leadership' },
+      { id: 'ads-operations', name: 'Ads', sectionId: 'ads-operations' },
+      { id: 'networking', name: 'Meets', href: '/dashboard/company/networking' },
+    ],
+  },
+  {
+    label: 'Delivery',
+    items: [
+      { id: 'projects-workspace', name: 'Projects', sectionId: 'projects-workspace' },
+      { id: 'gig-programs', name: 'Gigs', sectionId: 'gig-programs' },
+      { id: 'payments-distribution', name: 'Payouts', sectionId: 'payments-distribution' },
+    id: 'agency-section',
+    label: 'Agency',
+    items: [
+      { id: 'agency-home', name: 'Home', sectionId: 'agency-overview' },
+      { id: 'volunteer-home', name: 'Volunteer', sectionId: 'volunteering-home' },
+    ],
+  },
+  {
+    id: 'volunteer-section',
+    label: 'Volunteer',
+    items: [
+      { id: 'volunteer-deals', name: 'Deals', sectionId: 'volunteering-home' },
+      { id: 'volunteer-apply', name: 'Apply', sectionId: 'volunteering-home' },
+      { id: 'volunteer-replies', name: 'Replies', sectionId: 'volunteering-home' },
+      { id: 'volunteer-spend', name: 'Spend', sectionId: 'volunteering-home' },
 export const AGENCY_DASHBOARD_MENU = [
   {
     id: 'agency-workspace',
@@ -6,6 +51,21 @@ export const AGENCY_DASHBOARD_MENU = [
       {
         id: 'agency-overview',
         name: 'Home',
+        sectionId: 'agency-overview',
+      },
+    ],
+  },
+];
+
+export default AGENCY_DASHBOARD_MENU_SECTIONS;
+  {
+    id: 'risk',
+    label: 'Risk',
+    items: [
+      {
+        id: 'agency-id-verification',
+        name: 'IDs',
+        sectionId: 'agency-id-verification',
         href: '/dashboard/agency',
       },
       {

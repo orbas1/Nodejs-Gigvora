@@ -7,7 +7,11 @@ import { ValidationError, NotFoundError } from '../utils/errors.js';
 import { buildLocationDetails } from '../utils/location.js';
 
 import { getAdDashboardSnapshot } from './adService.js';
+import { getCreationStudioOverview } from './creationStudioService.js';
+import { getVolunteeringDashboard as getCompanyVolunteeringDashboard } from './volunteeringManagementService.js';
+import { getTimelineManagementSnapshot } from './companyTimelineService.js';
 import { getCompanyDashboardOverview } from './companyDashboardOverviewService.js';
+import { getWorkspacePageSnapshot } from './companyPageService.js';
 import { fetchWeatherSummary } from './weatherService.js';
 
 function withDefaultModel(model) {
@@ -709,6 +713,14 @@ function sanitizeProfile(companyProfile) {
     location: plain.location ?? null,
     geoLocation: plain.geoLocation ?? null,
     locationDetails: buildLocationDetails(plain.location, plain.geoLocation),
+    tagline: plain.tagline ?? null,
+    logoUrl: plain.logoUrl ?? null,
+    bannerUrl: plain.bannerUrl ?? null,
+    contactEmail: plain.contactEmail ?? null,
+    contactPhone: plain.contactPhone ?? null,
+    socialLinks: Array.isArray(plain.socialLinks)
+      ? plain.socialLinks.map((entry) => ({ label: entry?.label ?? null, url: entry?.url ?? null }))
+      : [],
   };
 }
 
@@ -4887,7 +4899,7 @@ function buildGovernanceSummary({ approvals, alerts, workspace }) {
   };
 }
 
-function buildEmployerBrandStudioSummary({ profile, assets, stories, benefits }) {
+function buildEmployerBrandStudioSummary({ profile, assets, stories, benefits, pages }) {
   const normalizeName = (record) => {
     const profileRecord = record?.profile ?? record;
     const parts = [profileRecord?.firstName, profileRecord?.lastName].filter(Boolean);
@@ -4943,6 +4955,27 @@ function buildEmployerBrandStudioSummary({ profile, assets, stories, benefits })
     highlights.push('Document employee benefits to power offer and onboarding content.');
   }
 
+  const pagesSnapshot = pages || {};
+  const pagesMetrics = {
+    live: pagesSnapshot.statusCounts?.published ?? pagesSnapshot.statusCounts?.live ?? 0,
+    inReview: pagesSnapshot.statusCounts?.in_review ?? 0,
+    drafts: pagesSnapshot.statusCounts?.draft ?? 0,
+    scheduled: pagesSnapshot.scheduledCount ?? 0,
+    averageConversionRate: pagesSnapshot.averageConversionRate ?? null,
+    totalFollowers: pagesSnapshot.totalFollowers ?? 0,
+    lastPublishedAt: pagesSnapshot.lastPublishedAt ?? null,
+  };
+
+  if (pagesMetrics.live > 0) {
+    highlights.push(`${pagesMetrics.live} public pages are live and driving discovery.`);
+  }
+  if (pagesMetrics.inReview > 0) {
+    highlights.push(`${pagesMetrics.inReview} pages are awaiting reviewer approval.`);
+  }
+  if ((pagesSnapshot.governance?.heroImageRequired ?? 0) > 0) {
+    highlights.push('Add hero imagery to drafts before publishing.');
+  }
+
   return {
     profileCompleteness,
     publishedAssets: publishedAssets.length,
@@ -4974,6 +5007,17 @@ function buildEmployerBrandStudioSummary({ profile, assets, stories, benefits })
       categories: Array.from(benefitCategories.entries()).map(([category, count]) => ({ category, count })),
     },
     highlights,
+    pages: {
+      metrics: pagesMetrics,
+      upcomingLaunches: (pagesSnapshot.upcomingLaunches ?? []).map((launch) => ({
+        id: launch.id,
+        title: launch.title,
+        launchDate: launch.launchDate ? new Date(launch.launchDate).toISOString() : null,
+        status: launch.status,
+        owner: launch.owner ?? null,
+      })),
+      governance: pagesSnapshot.governance ?? {},
+    },
   };
 }
 
@@ -5583,13 +5627,22 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
     const workspace = await fetchWorkspace(selector);
     const since = new Date(Date.now() - lookback * 24 * 60 * 60 * 1000);
 
-    const [members, invites, notes, companyProfile, availableWorkspaces, storedOverview] = await Promise.all([
+    const [
+      members,
+      invites,
+      notes,
+      companyProfile,
+      availableWorkspaces,
+      storedOverview,
+      pagesSnapshot,
+    ] = await Promise.all([
       fetchMembers(workspace.id),
       fetchInvites(workspace.id),
       fetchNotes(workspace.id),
       CompanyProfile.findOne({ where: { userId: workspace.ownerId } }),
       listAvailableWorkspaces(),
       getCompanyDashboardOverview({ workspaceId: workspace.id }).catch(() => null),
+      getWorkspacePageSnapshot({ workspaceId: workspace.id }).catch(() => null),
     ]);
 
     const [
@@ -5869,6 +5922,11 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       slaSnapshots: agencySlaSnapshots,
       billingEvents: agencyBillingEvents,
     });
+    const timelineManagement = await getTimelineManagementSnapshot({
+      workspaceId: workspace.id,
+      lookbackDays: lookback,
+      workspace,
+    });
     const plainBrandAssets = brandAssets.map((asset) => (asset?.get ? asset.get({ plain: true }) : asset));
     const plainBrandSections = brandSections.map((section) => (section?.get ? section.get({ plain: true }) : section));
     const plainBrandCampaigns = brandCampaigns.map((campaign) => (campaign?.get ? campaign.get({ plain: true }) : campaign));
@@ -5904,6 +5962,7 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       assets: plainBrandAssets,
       stories: plainBrandStories,
       benefits: plainBenefits,
+      pages: pagesSnapshot ?? undefined,
     });
     const employeeJourneysSummary = buildEmployeeJourneysSummary({
       journeys: plainEmployeeJourneys,
@@ -5921,6 +5980,8 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       inviteSummary,
       alerts: alertsSummary,
     });
+    const creationStudio = await getCreationStudioOverview({ workspaceId: workspace.id, limit: 16 });
+
     const brandAndPeople = {
       employerBrandStudio,
       employeeJourneys: employeeJourneysSummary,
@@ -5968,6 +6029,24 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
         return Number.isInteger(Number(value)) ? Number(value) : null;
       })
       .filter((value) => value != null);
+
+    let volunteeringSummary = null;
+    try {
+      const volunteeringSnapshot = await getCompanyVolunteeringDashboard({
+        workspaceId: workspace.id,
+        lookbackDays: lookback,
+      });
+      volunteeringSummary = {
+        summary: volunteeringSnapshot.summary,
+        totals: volunteeringSnapshot.totals,
+        permissions: volunteeringSnapshot.permissions,
+        posts: (volunteeringSnapshot.posts ?? []).slice(0, 10),
+      };
+    } catch (error) {
+      if (process.env.NODE_ENV !== 'test') {
+        console.warn('Failed to load volunteering dashboard snapshot', error);
+      }
+    }
 
     const ads = await getAdDashboardSnapshot({
       surfaces: ['company_dashboard', 'global_dashboard'],
@@ -6105,11 +6184,14 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
         talentPools: talentPoolSummary,
         agencyCollaboration: agencyCollaborationInsights,
       },
+      volunteering: volunteeringSummary,
       brandIntelligence,
+      creationStudio,
       employerBrandWorkforce,
       governance,
       calendar: calendarDigest,
       networking,
+      timelineManagement,
       brandAndPeople,
       reviews: {
         total: reviews.length,

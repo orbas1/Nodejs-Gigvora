@@ -37,6 +37,12 @@ const MENU_SECTIONS = [
         tags: ['growth', 'activation'],
       },
       {
+        name: 'Profile management',
+        description: 'Provision accounts, edit public profiles, and capture trust annotations.',
+        tags: ['members'],
+        href: '/dashboard/admin/profiles',
+      },
+      {
         name: 'Financial governance',
         description: 'Escrow flows, fee capture, and treasury risk posture.',
         tags: ['finance'],
