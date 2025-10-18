@@ -199,6 +199,13 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
         tags: ['trust'],
       },
       {
+        name: 'BYOK',
+        description: 'Manage OpenAI keys, reply rules, and logs.',
+        sectionId: 'automation-byok-openai',
+        href: '/dashboard/company/ai-auto-reply',
+        tags: ['ai', 'automation'],
+      },
+      {
         name: 'Governance & compliance',
         description: 'Maintain GDPR/CCPA compliance, accessibility standards, and equitable hiring policies.',
         sectionId: 'governance-compliance',
