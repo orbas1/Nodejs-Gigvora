@@ -558,6 +558,7 @@ export * from './agencyJobModels.js';
 export { ConsentPolicy, ConsentPolicyVersion, UserConsent, ConsentAuditEvent } from './consentModels.js';
 export { RuntimeSecurityAuditEvent } from './runtimeSecurityAuditEvent.js';
 export { RbacPolicyAuditEvent } from './rbacPolicyAuditEvent.js';
+export { EmailSmtpConfig, EmailTemplate } from './emailModels.js';
 export {
   CreationStudioItem,
   CREATION_STUDIO_ITEM_TYPES,

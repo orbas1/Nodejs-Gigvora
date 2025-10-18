@@ -101,6 +101,22 @@ const MENU_SECTIONS = [
   },
   {
     label: 'Configuration stack',
+    items: [
+      {
+        name: 'All platform settings',
+        description: 'Govern application defaults, commission policies, and feature gates.',
+        tags: ['settings'],
+        sectionId: 'admin-settings-overview',
+      },
+      {
+        name: 'Affiliate economics',
+        description: 'Tiered commissions, payout cadences, and partner compliance.',
+        tags: ['affiliate'],
+        sectionId: 'admin-affiliate-settings',
+      },
+      {
+        name: 'CMS controls',
+        description: 'Editorial workflow, restricted features, and monetisation toggles.',
       items: [
         {
           name: 'All platform settings',
@@ -136,6 +152,12 @@ const MENU_SECTIONS = [
         description: 'REST endpoints, payment gateways, and outbound email security.',
         sectionId: 'admin-settings-api',
         tags: ['api'],
+      },
+      {
+        name: 'Email',
+        description: '',
+        tags: ['email'],
+        href: '/dashboard/admin/email',
       },
     ],
   },
