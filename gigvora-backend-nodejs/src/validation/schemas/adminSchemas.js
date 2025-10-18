@@ -133,6 +133,120 @@ const featureToggleSchema = z
   })
   .strip();
 
+const homepageStatSchema = z
+  .object({
+    id: optionalTrimmedString({ max: 120 }),
+    label: optionalTrimmedString({ max: 120 }),
+    value: optionalNumber({ min: 0, max: 1_000_000_000, precision: 2 }),
+    suffix: optionalTrimmedString({ max: 16 }),
+  })
+  .strip();
+
+const homepageValuePropSchema = z
+  .object({
+    id: optionalTrimmedString({ max: 120 }),
+    title: optionalTrimmedString({ max: 160 }),
+    description: optionalTrimmedString({ max: 320 }),
+    icon: optionalTrimmedString({ max: 120 }),
+    ctaLabel: optionalTrimmedString({ max: 120 }),
+    ctaHref: optionalTrimmedString({ max: 2048 }),
+    mediaUrl: optionalTrimmedString({ max: 2048 }),
+    mediaAlt: optionalTrimmedString({ max: 255 }),
+  })
+  .strip();
+
+const homepageBulletSchema = z
+  .object({
+    id: optionalTrimmedString({ max: 120 }),
+    text: optionalTrimmedString({ max: 280 }),
+  })
+  .strip();
+
+const homepageFeatureSchema = z
+  .object({
+    id: optionalTrimmedString({ max: 120 }),
+    title: optionalTrimmedString({ max: 160 }),
+    description: optionalTrimmedString({ max: 320 }),
+    mediaType: optionalTrimmedString({ max: 32 }).transform((value) => value?.toLowerCase()),
+    mediaUrl: optionalTrimmedString({ max: 2048 }),
+    mediaAlt: optionalTrimmedString({ max: 255 }),
+    bullets: z.array(homepageBulletSchema).optional(),
+  })
+  .strip();
+
+const homepageTestimonialSchema = z
+  .object({
+    id: optionalTrimmedString({ max: 120 }),
+    quote: optionalTrimmedString({ max: 500 }),
+    authorName: optionalTrimmedString({ max: 160 }),
+    authorRole: optionalTrimmedString({ max: 160 }),
+    avatarUrl: optionalTrimmedString({ max: 2048 }),
+    highlight: optionalBoolean(),
+  })
+  .strip();
+
+const homepageFaqSchema = z
+  .object({
+    id: optionalTrimmedString({ max: 120 }),
+    question: optionalTrimmedString({ max: 240 }),
+    answer: optionalTrimmedString({ max: 1000 }),
+  })
+  .strip();
+
+const homepageQuickLinkSchema = z
+  .object({
+    id: optionalTrimmedString({ max: 120 }),
+    label: optionalTrimmedString({ max: 120 }),
+    href: optionalTrimmedString({ max: 2048 }),
+    target: optionalTrimmedString({ max: 16 }).transform((value) => value?.toLowerCase()),
+  })
+  .strip();
+
+const homepageSeoSchema = z
+  .object({
+    title: optionalTrimmedString({ max: 160 }),
+    description: optionalTrimmedString({ max: 320 }),
+    keywords: optionalStringArray({ maxItemLength: 60 }),
+    ogImageUrl: optionalTrimmedString({ max: 2048 }),
+  })
+  .strip();
+
+const homepageAnnouncementSchema = z
+  .object({
+    enabled: optionalBoolean(),
+    message: optionalTrimmedString({ max: 240 }),
+    ctaLabel: optionalTrimmedString({ max: 120 }),
+    ctaHref: optionalTrimmedString({ max: 2048 }),
+  })
+  .strip();
+
+export const homepageSettingsBodySchema = z
+  .object({
+    announcementBar: homepageAnnouncementSchema.optional(),
+    hero: z
+      .object({
+        title: optionalTrimmedString({ max: 160 }),
+        subtitle: optionalTrimmedString({ max: 320 }),
+        primaryCtaLabel: optionalTrimmedString({ max: 120 }),
+        primaryCtaHref: optionalTrimmedString({ max: 2048 }),
+        secondaryCtaLabel: optionalTrimmedString({ max: 120 }),
+        secondaryCtaHref: optionalTrimmedString({ max: 2048 }),
+        backgroundImageUrl: optionalTrimmedString({ max: 2048 }),
+        backgroundImageAlt: optionalTrimmedString({ max: 255 }),
+        overlayOpacity: optionalNumber({ min: 0, max: 1, precision: 2 }),
+        stats: z.array(homepageStatSchema).optional(),
+      })
+      .strip()
+      .optional(),
+    valueProps: z.array(homepageValuePropSchema).max(6).optional(),
+    featureSections: z.array(homepageFeatureSchema).max(6).optional(),
+    testimonials: z.array(homepageTestimonialSchema).max(8).optional(),
+    faqs: z.array(homepageFaqSchema).max(12).optional(),
+    quickLinks: z.array(homepageQuickLinkSchema).max(10).optional(),
+    seo: homepageSeoSchema.optional(),
+  })
+  .strip();
+
 export const platformSettingsBodySchema = z
   .object({
     commissions: commissionSettingsSchema.optional(),
@@ -143,6 +257,7 @@ export const platformSettingsBodySchema = z
     app: appSettingsSchema.optional(),
     database: databaseSettingsSchema.optional(),
     featureToggles: featureToggleSchema.optional(),
+    homepage: homepageSettingsBodySchema.optional(),
   })
   .strip();
 

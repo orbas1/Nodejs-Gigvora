@@ -15,6 +15,7 @@ import useDomainGovernanceSummaries from '../../hooks/useDomainGovernanceSummari
 import { fetchAdminDashboard } from '../../services/admin.js';
 import { fetchPlatformSettings, updatePlatformSettings } from '../../services/platformSettings.js';
 import { fetchAffiliateSettings, updateAffiliateSettings } from '../../services/affiliateSettings.js';
+import ADMIN_MENU_SECTIONS from '../../constants/adminMenu.js';
 import { listDatabaseConnections } from '../../services/databaseSettings.js';
 import { ADMIN_DASHBOARD_MENU_SECTIONS } from '../../constants/adminDashboardMenu.js';
 import { DATABASE_STATUS_STYLES } from '../../constants/databaseStatusStyles.js';

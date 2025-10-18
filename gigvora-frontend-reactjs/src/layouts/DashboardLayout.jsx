@@ -449,6 +449,9 @@ export default function DashboardLayout({
       return;
     }
 
+  if (item.href) {
+    if (item.href.startsWith('http')) {
+      window.open(item.href, item.target ?? '_blank', 'noreferrer');
     if (item.href) {
       if (typeof window !== 'undefined') {
         if (item.href.startsWith('http')) {
@@ -499,8 +502,12 @@ export default function DashboardLayout({
       setMobileOpen(false);
       return;
     }
+    navigate(item.href);
+    setMobileOpen(false);
+    return;
+  }
 
-    const targetId = item.sectionId ?? item.targetId ?? slugify(item.name);
+  const targetId = item.sectionId ?? item.targetId ?? slugify(item.name);
     if (targetId && typeof document !== 'undefined') {
       const targetElement = document.getElementById(targetId);
       if (targetElement) {

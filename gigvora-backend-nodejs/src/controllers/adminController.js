@@ -1,5 +1,10 @@
 import { getAdminDashboardSnapshot } from '../services/adminDashboardService.js';
-import { getPlatformSettings, updatePlatformSettings } from '../services/platformSettingsService.js';
+import {
+  getPlatformSettings,
+  updatePlatformSettings,
+  getHomepageSettings,
+  updateHomepageSettings,
+} from '../services/platformSettingsService.js';
 import { getAffiliateSettings, updateAffiliateSettings } from '../services/affiliateSettingsService.js';
 import {
   listPageSettings,
@@ -10,21 +15,16 @@ import {
 import { getGdprSettings, updateGdprSettings } from '../services/gdprSettingsService.js';
 import { getSeoSettings, updateSeoSettings } from '../services/seoSettingsService.js';
 import { getRuntimeOperationalSnapshot } from '../services/runtimeObservabilityService.js';
-
-function parseInteger(value, fallback) {
-  if (value == null || value === '') {
-    return fallback;
-  }
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
-}
+import {
+  sanitizeAdminDashboardFilters,
+  sanitizePlatformSettingsInput,
+  sanitizeHomepageSettingsInput,
+  sanitizeAffiliateSettingsInput,
+} from '../utils/adminSanitizers.js';
 
 export async function dashboard(req, res) {
-  const { lookbackDays, eventWindowDays } = req.query ?? {};
-  const snapshot = await getAdminDashboardSnapshot({
-    lookbackDays: parseInteger(lookbackDays, undefined),
-    eventWindowDays: parseInteger(eventWindowDays, undefined),
-  });
+  const filters = sanitizeAdminDashboardFilters(req.query ?? {});
+  const snapshot = await getAdminDashboardSnapshot(filters);
   res.json(snapshot);
 }
 
@@ -34,7 +34,19 @@ export async function fetchPlatformSettings(req, res) {
 }
 
 export async function persistPlatformSettings(req, res) {
-  const settings = await updatePlatformSettings(req.body ?? {});
+  const payload = sanitizePlatformSettingsInput(req.body ?? {});
+  const settings = await updatePlatformSettings(payload);
+  res.json(settings);
+}
+
+export async function fetchHomepageSettings(req, res) {
+  const settings = await getHomepageSettings();
+  res.json(settings);
+}
+
+export async function persistHomepageSettings(req, res) {
+  const payload = sanitizeHomepageSettingsInput(req.body ?? {});
+  const settings = await updateHomepageSettings(payload);
   res.json(settings);
 }
 
@@ -44,7 +56,8 @@ export async function fetchAffiliateSettings(req, res) {
 }
 
 export async function persistAffiliateSettings(req, res) {
-  const settings = await updateAffiliateSettings(req.body ?? {});
+  const payload = sanitizeAffiliateSettingsInput(req.body ?? {});
+  const settings = await updateAffiliateSettings(payload);
   res.json(settings);
 }
 
@@ -95,6 +108,8 @@ export default {
   dashboard,
   fetchPlatformSettings,
   persistPlatformSettings,
+  fetchHomepageSettings,
+  persistHomepageSettings,
   fetchAffiliateSettings,
   persistAffiliateSettings,
   fetchPageSettings,
