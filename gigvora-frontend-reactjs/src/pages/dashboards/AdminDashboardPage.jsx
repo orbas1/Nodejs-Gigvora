@@ -15,7 +15,7 @@ import { fetchAdminDashboard } from '../../services/admin.js';
 import { fetchPlatformSettings, updatePlatformSettings } from '../../services/platformSettings.js';
 import { fetchAffiliateSettings, updateAffiliateSettings } from '../../services/affiliateSettings.js';
 
-const MENU_SECTIONS = [
+export const ADMIN_MENU_SECTIONS = [
   {
     label: 'Command modules',
     items: [
@@ -61,6 +61,13 @@ const MENU_SECTIONS = [
         sectionId: 'gigvora-ads',
       },
       {
+        name: 'Site',
+        description: 'Brand, pages, menu.',
+        tags: ['marketing'],
+        href: '/dashboard/admin/site',
+        sectionId: 'admin-site-management',
+      },
+      {
         name: 'Launchpad performance',
         description: 'Talent placements, interview runway, and employer demand.',
       },
@@ -101,7 +108,7 @@ const MENU_SECTIONS = [
         },
         {
           name: 'CMS controls',
-          description: 'Editorial workflow, restricted features, and monetisation toggles.',
+        description: 'Editorial workflow, restricted features, and monetisation toggles.',
         sectionId: 'admin-settings-cms',
       },
       {
@@ -2863,7 +2870,7 @@ export default function AdminDashboardPage() {
         title="Gigvora Admin Control Tower"
         subtitle="Enterprise governance & compliance"
         description="Centralize every lever that powers Gigvora—from member growth and financial operations to trust, support, analytics, and the launchpad."
-        menuSections={MENU_SECTIONS}
+        menuSections={ADMIN_MENU_SECTIONS}
         sections={[]}
         profile={profile}
         availableDashboards={[
@@ -2909,7 +2916,7 @@ export default function AdminDashboardPage() {
       title="Gigvora Admin Control Tower"
       subtitle="Enterprise governance & compliance"
       description="Centralize every lever that powers Gigvora—from member growth and financial operations to trust, support, analytics, and the launchpad." 
-      menuSections={MENU_SECTIONS}
+      menuSections={ADMIN_MENU_SECTIONS}
       sections={[]}
       profile={profile}
       availableDashboards={[

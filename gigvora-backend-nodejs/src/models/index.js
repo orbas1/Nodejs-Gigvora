@@ -3,6 +3,7 @@ import DomainRegistry from '../domains/domainRegistry.js';
 import { domainMetadata } from '../domains/domainMetadata.js';
 import logger from '../utils/logger.js';
 import { PlatformSetting } from './platformSetting.js';
+import { SiteSetting, SitePage, SiteNavigationLink, SITE_PAGE_STATUSES } from './siteManagementModels.js';
 import { RuntimeSecurityAuditEvent } from './runtimeSecurityAuditEvent.js';
 import { RbacPolicyAuditEvent } from './rbacPolicyAuditEvent.js';
 import { RuntimeAnnouncement } from './runtimeAnnouncement.js';
@@ -123,6 +124,7 @@ export { BlogCategory, BlogMedia, BlogPost, BlogPostMedia, BlogPostTag, BlogTag 
 export { ConsentPolicy, ConsentPolicyVersion, UserConsent, ConsentAuditEvent } from './consentModels.js';
 export { RuntimeSecurityAuditEvent } from './runtimeSecurityAuditEvent.js';
 export { RbacPolicyAuditEvent } from './rbacPolicyAuditEvent.js';
+export { SiteSetting, SitePage, SiteNavigationLink, SITE_PAGE_STATUSES } from './siteManagementModels.js';
 
 const PIPELINE_OWNER_TYPES = ['freelancer', 'agency', 'company'];
 const TWO_FACTOR_METHODS = ['email', 'app', 'sms'];
