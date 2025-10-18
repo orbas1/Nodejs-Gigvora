@@ -99,6 +99,7 @@ import AdminDatabaseSettingsPage from './pages/dashboards/AdminDatabaseSettingsP
 import AdminGdprSettingsPage from './pages/dashboards/admin/AdminGdprSettingsPage.jsx';
 import AdminAdsSettingsPage from './pages/dashboards/admin/AdminAdsSettingsPage.jsx';
 import AdminBlogManagementPage from './pages/admin/AdminBlogManagementPage.jsx';
+import AdminUserManagementPage from './pages/dashboards/admin/AdminUserManagementPage.jsx';
 import AdminSiteManagementPage from './pages/dashboards/admin/AdminSiteManagementPage.jsx';
 import AdminPolicyManagementPage from './pages/dashboards/admin/AdminPolicyManagementPage.jsx';
 import AdminApiManagementPage from './pages/admin/AdminApiManagementPage.jsx';
@@ -734,6 +735,14 @@ export default function App() {
         element={
           <RequireRole allowedRoles={['admin']}>
             <AdminBlogManagementPage />
+          </RequireRole>
+        }
+      />
+      <Route
+        path="dashboard/admin/users"
+        element={
+          <RequireRole allowedRoles={['admin']}>
+            <AdminUserManagementPage />
           </RequireRole>
         }
       />

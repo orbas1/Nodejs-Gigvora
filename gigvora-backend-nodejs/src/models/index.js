@@ -572,6 +572,7 @@ export { AgencyAiConfiguration, AgencyAutoBidTemplate } from './agencyAiModels.j
 
 const PIPELINE_OWNER_TYPES = ['freelancer', 'agency', 'company'];
 const TWO_FACTOR_METHODS = ['email', 'app', 'sms'];
+export const USER_STATUSES = ['invited', 'active', 'suspended', 'archived'];
 const TWO_FACTOR_POLICY_ROLES = ['admin', 'staff', 'company', 'freelancer', 'agency', 'mentor', 'headhunter', 'all'];
 const TWO_FACTOR_ENFORCEMENT_LEVELS = ['optional', 'recommended', 'required'];
 const TWO_FACTOR_ENROLLMENT_METHODS = ['email', 'app', 'sms', 'security_key'];
@@ -620,6 +621,11 @@ export const User = sequelize.define(
     location: { type: DataTypes.STRING(255), allowNull: true },
     geoLocation: { type: jsonType, allowNull: true },
     age: { type: DataTypes.INTEGER, allowNull: true, validate: { min: 13 } },
+    phoneNumber: { type: DataTypes.STRING(30), allowNull: true },
+    jobTitle: { type: DataTypes.STRING(120), allowNull: true },
+    avatarUrl: { type: DataTypes.STRING(2048), allowNull: true },
+    status: { type: DataTypes.ENUM(...USER_STATUSES), allowNull: false, defaultValue: 'active' },
+    lastSeenAt: { type: DataTypes.DATE, allowNull: true },
     userType: {
       type: DataTypes.ENUM('user', 'company', 'freelancer', 'agency', 'admin'),
       allowNull: false,
@@ -638,7 +644,11 @@ export const User = sequelize.define(
   },
   {
     tableName: 'users',
-    indexes: [{ fields: ['email'] }],
+    indexes: [
+      { fields: ['email'] },
+      { fields: ['status'] },
+      { fields: ['userType'] },
+    ],
   },
 );
 
@@ -742,6 +752,7 @@ User.searchByTerm = async function searchByTerm(term) {
         { firstName: { [Op.iLike ?? Op.like]: `%${sanitizedTerm}%` } },
         { lastName: { [Op.iLike ?? Op.like]: `%${sanitizedTerm}%` } },
         { email: { [Op.iLike ?? Op.like]: `%${sanitizedTerm}%` } },
+        { phoneNumber: { [Op.iLike ?? Op.like]: `%${sanitizedTerm}%` } },
       ],
     },
     limit: 20,
@@ -782,6 +793,46 @@ UserLoginAudit.prototype.toPublicObject = function toPublicObject() {
     createdAt: plain.createdAt,
   };
 };
+
+export const UserRole = sequelize.define(
+  'UserRole',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    role: { type: DataTypes.STRING(80), allowNull: false },
+    assignedBy: { type: DataTypes.INTEGER, allowNull: true },
+    assignedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+  },
+  {
+    tableName: 'user_roles',
+    indexes: [
+      { unique: true, fields: ['userId', 'role'] },
+      { fields: ['role'] },
+    ],
+  },
+);
+
+export const UserNote = sequelize.define(
+  'UserNote',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    authorId: { type: DataTypes.INTEGER, allowNull: true },
+    visibility: {
+      type: DataTypes.ENUM('internal', 'restricted'),
+      allowNull: false,
+      defaultValue: 'internal',
+    },
+    body: { type: DataTypes.TEXT, allowNull: false },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'user_notes',
+    indexes: [
+      { fields: ['userId'] },
+      { fields: ['authorId'] },
+      { fields: ['createdAt'] },
+    ],
+  },
+);
 
 export const Profile = sequelize.define(
   'Profile',
@@ -19435,6 +19486,12 @@ User.hasMany(CorporateVerification, { foreignKey: 'userId', as: 'corporateVerifi
 User.hasMany(CorporateVerification, { foreignKey: 'reviewerId', as: 'reviewedCorporateVerifications' });
 
 User.hasMany(UserLoginAudit, { foreignKey: 'userId', as: 'loginAudits', onDelete: 'CASCADE' });
+User.hasMany(UserRole, { foreignKey: 'userId', as: 'roleAssignments', onDelete: 'CASCADE' });
+UserRole.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+UserRole.belongsTo(User, { foreignKey: 'assignedBy', as: 'assignedBy' });
+User.hasMany(UserNote, { foreignKey: 'userId', as: 'notes', onDelete: 'CASCADE' });
+UserNote.belongsTo(User, { foreignKey: 'userId', as: 'subject' });
+UserNote.belongsTo(User, { foreignKey: 'authorId', as: 'author' });
 User.hasMany(TwoFactorEnrollment, { foreignKey: 'userId', as: 'twoFactorEnrollments' });
 User.hasMany(TwoFactorEnrollment, { foreignKey: 'createdBy', as: 'twoFactorEnrollmentsCreated' });
 User.hasMany(TwoFactorEnrollment, { foreignKey: 'reviewedBy', as: 'twoFactorEnrollmentsReviewed' });
