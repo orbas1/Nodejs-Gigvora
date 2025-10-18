@@ -138,17 +138,23 @@ const MENU_SECTIONS = [
         name: 'CMS controls',
         description: 'Editorial workflow, restricted features, and monetisation toggles.',
       items: [
-        {
-          name: 'All platform settings',
-          description: 'Govern application defaults, commission policies, and feature gates.',
-          tags: ['settings'],
-          sectionId: 'admin-settings-overview',
-        },
-        {
-          name: 'Affiliate economics',
-          description: 'Tiered commissions, payout cadences, and partner compliance.',
-          tags: ['affiliate'],
-          sectionId: 'admin-affiliate-settings',
+      {
+        name: 'All platform settings',
+        description: 'Govern application defaults, commission policies, and feature gates.',
+        tags: ['settings'],
+        sectionId: 'admin-settings-overview',
+      },
+      {
+        name: 'Pages workspace',
+        description: 'Edit CMS pages, hero modules, SEO, and navigation content.',
+        tags: ['pages'],
+        href: '/dashboard/admin/pages',
+      },
+      {
+        name: 'Affiliate economics',
+        description: 'Tiered commissions, payout cadences, and partner compliance.',
+        tags: ['affiliate'],
+        sectionId: 'admin-affiliate-settings',
         },
         {
           name: 'Legal',
@@ -1337,6 +1343,7 @@ export default function AdminDashboardPage() {
   };
 
   const disableAffiliateInputs = affiliateLoading || affiliateSaving || (!affiliateDraft && !affiliateSettings);
+
 
   const renderSettingsSection = (
     <section
