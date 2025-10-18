@@ -15,6 +15,7 @@ import {
 import adminRuntimeRoutes from './adminRuntimeRoutes.js';
 import adminConsentRoutes from './adminConsentRoutes.js';
 import adminRbacRoutes from './adminRbacRoutes.js';
+import adminDatabaseRoutes from './adminDatabaseRoutes.js';
 import adminProfileRoutes from './adminProfileRoutes.js';
 
 const router = Router();
@@ -56,6 +57,7 @@ router.use('/ads/settings', adminAdSettingsRoutes);
 router.use('/runtime', adminRuntimeRoutes);
 router.use('/governance/consents', adminConsentRoutes);
 router.use('/governance/rbac', adminRbacRoutes);
+router.use('/database-settings', adminDatabaseRoutes);
 router.use('/profiles', adminProfileRoutes);
 
 export default router;
