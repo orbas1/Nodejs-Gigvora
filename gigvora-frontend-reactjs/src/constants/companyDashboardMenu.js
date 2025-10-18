@@ -170,6 +170,12 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
         tags: ['integrations'],
       },
       {
+        name: 'Disputes',
+        sectionId: 'dispute-management',
+        href: '/dashboard/company/disputes',
+        tags: ['trust'],
+      },
+      {
         name: 'Governance & compliance',
         description: 'Maintain GDPR/CCPA compliance, accessibility standards, and equitable hiring policies.',
         sectionId: 'governance-compliance',

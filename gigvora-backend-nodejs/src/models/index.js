@@ -9596,6 +9596,100 @@ DisputeEvent.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+export const DisputeWorkflowSetting = sequelize.define(
+  'DisputeWorkflowSetting',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    defaultAssigneeId: { type: DataTypes.INTEGER, allowNull: true },
+    responseSlaHours: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 24 },
+    resolutionSlaHours: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 120 },
+    autoEscalateHours: { type: DataTypes.INTEGER, allowNull: true },
+    autoCloseHours: { type: DataTypes.INTEGER, allowNull: true },
+    evidenceRequirements: { type: jsonType, allowNull: true },
+    notificationEmails: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'dispute_workflow_settings',
+    indexes: [
+      { fields: ['workspaceId'] },
+    ],
+  },
+);
+
+DisputeWorkflowSetting.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    defaultAssigneeId: plain.defaultAssigneeId,
+    responseSlaHours: plain.responseSlaHours,
+    resolutionSlaHours: plain.resolutionSlaHours,
+    autoEscalateHours: plain.autoEscalateHours,
+    autoCloseHours: plain.autoCloseHours,
+    evidenceRequirements: plain.evidenceRequirements ?? [],
+    notificationEmails: plain.notificationEmails ?? [],
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const DisputeTemplate = sequelize.define(
+  'DisputeTemplate',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: true },
+    name: { type: DataTypes.STRING(120), allowNull: false },
+    reasonCode: { type: DataTypes.STRING(80), allowNull: true },
+    defaultStage: {
+      type: DataTypes.ENUM(...DISPUTE_STAGES),
+      allowNull: false,
+      defaultValue: 'intake',
+      validate: { isIn: [DISPUTE_STAGES] },
+    },
+    defaultPriority: {
+      type: DataTypes.ENUM(...DISPUTE_PRIORITIES),
+      allowNull: false,
+      defaultValue: 'medium',
+      validate: { isIn: [DISPUTE_PRIORITIES] },
+    },
+    guidance: { type: DataTypes.TEXT, allowNull: true },
+    checklist: { type: jsonType, allowNull: true },
+    active: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'dispute_templates',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['active'] },
+      { fields: ['reasonCode'] },
+    ],
+  },
+);
+
+DisputeTemplate.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    name: plain.name,
+    reasonCode: plain.reasonCode,
+    defaultStage: plain.defaultStage,
+    defaultPriority: plain.defaultPriority,
+    guidance: plain.guidance,
+    checklist: plain.checklist ?? [],
+    active: Boolean(plain.active),
+    createdById: plain.createdById,
+    updatedById: plain.updatedById,
+    metadata: plain.metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 HeadhunterPipelineStage.prototype.toPublicObject = function toPublicObject() {
   const plain = this.get({ plain: true });
   return {
@@ -16183,6 +16277,15 @@ DisputeCase.hasMany(DisputeEvent, { foreignKey: 'disputeCaseId', as: 'events' })
 DisputeEvent.belongsTo(DisputeCase, { foreignKey: 'disputeCaseId', as: 'disputeCase' });
 DisputeEvent.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
 
+ProviderWorkspace.hasOne(DisputeWorkflowSetting, { foreignKey: 'workspaceId', as: 'disputeWorkflowSetting' });
+DisputeWorkflowSetting.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+DisputeWorkflowSetting.belongsTo(User, { foreignKey: 'defaultAssigneeId', as: 'defaultAssignee' });
+
+ProviderWorkspace.hasMany(DisputeTemplate, { foreignKey: 'workspaceId', as: 'disputeTemplates' });
+DisputeTemplate.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+DisputeTemplate.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+DisputeTemplate.belongsTo(User, { foreignKey: 'updatedById', as: 'updatedBy' });
+
 User.hasMany(GigOrder, { foreignKey: 'freelancerId', as: 'gigOrders' });
 
 GigOrder.hasMany(GigOrderRequirementForm, { foreignKey: 'orderId', as: 'requirementForms' });
@@ -16438,6 +16541,8 @@ export default {
   EscrowTransaction,
   DisputeCase,
   DisputeEvent,
+  DisputeWorkflowSetting,
+  DisputeTemplate,
   SearchSubscription,
   FreelancerAssignmentMetric,
   FreelancerFinanceMetric,
