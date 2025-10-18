@@ -22,6 +22,7 @@ import RuntimeTelemetryPanel from '../../components/admin/RuntimeTelemetryPanel.
 import ConsentGovernancePanel from '../../components/admin/ConsentGovernancePanel.jsx';
 import RbacMatrixPanel from '../../components/admin/RbacMatrixPanel.jsx';
 import GigvoraAdsConsole from '../../components/ads/GigvoraAdsConsole.jsx';
+import AdminInboxQueueSnapshot from '../../components/admin/inbox/AdminInboxQueueSnapshot.jsx';
 import AdminGroupManagementPanel from './admin/AdminGroupManagementPanel.jsx';
 import AdminMobileAppManagementPanel from './admin/AdminMobileAppManagementPanel.jsx';
 import { ADMIN_MENU_SECTIONS } from './admin/menuSections.js';
@@ -151,6 +152,10 @@ const MENU_SECTIONS = [
     label: 'Quick tools',
     items: [
       {
+        name: 'Inbox workspace',
+        description: 'Manage escalations, labels, and assignments in the dedicated inbox.',
+        tags: ['support', 'messaging'],
+        href: '/dashboard/admin/inbox',
         name: 'Gigs',
         description: 'Projects, orders, and assets.',
         tags: ['projects'],
@@ -2340,35 +2345,46 @@ export default function AdminDashboardPage() {
 
       {/* Support operations */}
       <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg shadow-blue-100/40 sm:p-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Support operations</h2>
+            <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Support inbox</h2>
             <p className="mt-2 max-w-3xl text-sm text-slate-600">
-              SLA adherence, backlog shape, and latest escalations ensure every member receives timely responses.
+              Monitor escalations, ownership, and response speed. Take action on conversations directly from this dashboard.
             </p>
           </div>
-          <div className="rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-blue-700">
-            {formatNumber(data.support?.openCases ?? 0)} cases in flight
+          <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end lg:flex-col lg:items-end">
+            <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-blue-700">
+              <LifebuoyIcon className="h-4 w-4" /> {formatNumber(data.support?.openCases ?? 0)} cases active
+            </div>
+            <Link
+              to="/dashboard/admin/inbox"
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-blue-200 px-4 py-2 text-xs font-semibold text-blue-700 transition hover:border-blue-300 hover:bg-blue-50"
+            >
+              Open inbox workspace
+            </Link>
           </div>
         </div>
-        <div className="mt-6 grid gap-4 lg:grid-cols-2">
-          <StatusList title="Cases by status" items={calculatePercentages(data.support?.casesByStatus ?? {})} />
-          <StatusList title="Cases by priority" items={calculatePercentages(data.support?.casesByPriority ?? {})} />
-        </div>
-        <div className="mt-6 grid gap-4 lg:grid-cols-2">
-          <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-5 shadow-sm">
-            <p className="text-sm font-semibold text-slate-700">Service levels</p>
-            <dl className="mt-4 space-y-3">
-              <div>
-                <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Average first response</dt>
-                <dd className="mt-1 text-xl font-semibold text-slate-900">{formatDurationMinutes(data.support?.averageFirstResponseMinutes)}</dd>
-              </div>
-              <div>
-                <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Average resolution</dt>
-                <dd className="mt-1 text-xl font-semibold text-slate-900">{formatDurationMinutes(data.support?.averageResolutionMinutes)}</dd>
-              </div>
-            </dl>
+        <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.2fr),minmax(0,0.8fr)]">
+          <AdminInboxQueueSnapshot />
+          <div className="space-y-4">
+            <StatusList title="Cases by status" items={calculatePercentages(data.support?.casesByStatus ?? {})} />
+            <StatusList title="Cases by priority" items={calculatePercentages(data.support?.casesByPriority ?? {})} />
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-5 shadow-sm">
+              <p className="text-sm font-semibold text-slate-700">Service levels</p>
+              <dl className="mt-4 space-y-3">
+                <div>
+                  <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Average first response</dt>
+                  <dd className="mt-1 text-xl font-semibold text-slate-900">{formatDurationMinutes(data.support?.averageFirstResponseMinutes)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Average resolution</dt>
+                  <dd className="mt-1 text-xl font-semibold text-slate-900">{formatDurationMinutes(data.support?.averageResolutionMinutes)}</dd>
+                </div>
+              </dl>
+            </div>
           </div>
+        </div>
+        <div className="mt-6">
           <RecentList
             title="Recent escalations"
             rows={(data.support?.recentCases ?? []).map((supportCase) => ({

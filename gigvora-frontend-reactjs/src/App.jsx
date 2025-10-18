@@ -93,6 +93,7 @@ import HeadhunterDashboardPage from './pages/dashboards/HeadhunterDashboardPage.
 import MentorDashboardPage from './pages/dashboards/MentorDashboardPage.jsx';
 import LaunchpadOperationsPage from './pages/dashboards/LaunchpadOperationsPage.jsx';
 import AdminDashboardPage from './pages/dashboards/AdminDashboardPage.jsx';
+import AdminInboxPage from './pages/dashboards/AdminInboxPage.jsx';
 import CompanyEscrowManagementPage from './pages/dashboards/CompanyEscrowManagementPage.jsx';
 import AdminTimelineManagementPage from './pages/dashboards/admin/AdminTimelineManagementPage.jsx';
 import AdminAppearanceManagementPage from './pages/dashboards/admin/AdminAppearanceManagementPage.jsx';
@@ -708,6 +709,10 @@ export default function App() {
       />
 
       <Route
+        path="dashboard/admin/inbox"
+        element={
+          <RequireRole allowedRoles={['admin']}>
+            <AdminInboxPage />
         path="dashboard/admin/job-applications"
         element={
           <RequireRole allowedRoles={['admin']}>

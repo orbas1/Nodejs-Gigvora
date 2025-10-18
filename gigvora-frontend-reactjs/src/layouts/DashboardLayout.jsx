@@ -477,6 +477,16 @@ export default function DashboardLayout({
         }
       if (/^https?:\/\//i.test(item.href)) {
         window.open(item.href, item.target ?? '_blank', 'noreferrer');
+        setMobileOpen(false);
+        return;
+      }
+      if (typeof window !== 'undefined') {
+        if (item.target === '_blank') {
+          window.open(item.href, '_blank', 'noopener');
+        } else {
+          window.location.assign(item.href);
+        }
+        setMobileOpen(false);
       } else {
         navigate(item.href);
       }
