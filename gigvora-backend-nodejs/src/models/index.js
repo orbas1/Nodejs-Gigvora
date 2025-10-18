@@ -63,6 +63,17 @@ import {
 } from './blogModels.js';
 import { AgencyAiConfiguration, AgencyAutoBidTemplate } from './agencyAiModels.js';
 import {
+  AdminTimeline,
+  AdminTimelineEvent,
+  ADMIN_TIMELINE_EVENT_STATUSES,
+  ADMIN_TIMELINE_EVENT_TYPES,
+  ADMIN_TIMELINE_STATUSES,
+  ADMIN_TIMELINE_VISIBILITIES,
+  registerAdminTimelineAssociations,
+} from './adminTimelineModels.js';
+import {
+  PROFILE_AVAILABILITY_STATUSES, PROFILE_APPRECIATION_TYPES, PROFILE_FOLLOWER_STATUSES, PROFILE_ENGAGEMENT_JOB_STATUSES,
+  GROUP_VISIBILITIES, GROUP_MEMBER_POLICIES, GROUP_MEMBERSHIP_STATUSES, GROUP_MEMBERSHIP_ROLES,
   PROFILE_AVAILABILITY_STATUSES,
   PROFILE_APPRECIATION_TYPES,
   PROFILE_FOLLOWER_STATUSES,
@@ -562,6 +573,14 @@ export { ConsentPolicy, ConsentPolicyVersion, UserConsent, ConsentAuditEvent } f
 export { LegalDocument, LegalDocumentVersion, LegalDocumentAuditEvent } from './legalDocumentModels.js';
 export { RuntimeSecurityAuditEvent } from './runtimeSecurityAuditEvent.js';
 export { RbacPolicyAuditEvent } from './rbacPolicyAuditEvent.js';
+export {
+  AdminTimeline,
+  AdminTimelineEvent,
+  ADMIN_TIMELINE_STATUSES,
+  ADMIN_TIMELINE_VISIBILITIES,
+  ADMIN_TIMELINE_EVENT_STATUSES,
+  ADMIN_TIMELINE_EVENT_TYPES,
+} from './adminTimelineModels.js';
 export { SiteSetting, SitePage, SiteNavigationLink, SITE_PAGE_STATUSES } from './siteManagementModels.js';
 export { EmailSmtpConfig, EmailTemplate } from './emailModels.js';
 export {
@@ -22805,6 +22824,8 @@ export default {
   NetworkingSessionOrder,
   NetworkingConnection,
   MemberBrandingMetric,
+  AdminTimeline,
+  AdminTimelineEvent,
   BlogCategory,
   BlogTag,
   BlogMedia,
@@ -22813,6 +22834,8 @@ export default {
   BlogPostMedia,
 };
 
+registerBlogAssociations({ User });
+registerAdminTimelineAssociations({ User });
 registerBlogAssociations({ User, ProviderWorkspace });
 
 const domainRegistry = new DomainRegistry({
@@ -22925,7 +22948,15 @@ domainRegistry.registerContext({
   name: 'platform',
   displayName: 'Platform Controls',
   description: 'Platform-wide configuration including feature flags and platform settings.',
-  models: ['FeatureFlag', 'FeatureFlagAssignment', 'PlatformSetting', 'RuntimeSecurityAuditEvent', 'RuntimeAnnouncement'],
+  models: [
+    'FeatureFlag',
+    'FeatureFlagAssignment',
+    'PlatformSetting',
+    'RuntimeSecurityAuditEvent',
+    'RuntimeAnnouncement',
+    'AdminTimeline',
+    'AdminTimelineEvent',
+  ],
   metadata: domainMetadata.platform,
 });
 

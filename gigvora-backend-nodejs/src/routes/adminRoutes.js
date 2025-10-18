@@ -17,6 +17,7 @@ import {
 import adminRuntimeRoutes from './adminRuntimeRoutes.js';
 import adminConsentRoutes from './adminConsentRoutes.js';
 import adminRbacRoutes from './adminRbacRoutes.js';
+import adminTimelineRoutes from './adminTimelineRoutes.js';
 import adminWalletRoutes from './adminWalletRoutes.js';
 import adminEscrowRoutes from './adminEscrowRoutes.js';
 import adminPageSettingsRoutes from './adminPageSettingsRoutes.js';
@@ -81,6 +82,7 @@ router.use('/ads/settings', adminAdSettingsRoutes);
 router.use('/runtime', adminRuntimeRoutes);
 router.use('/governance/consents', adminConsentRoutes);
 router.use('/governance/rbac', adminRbacRoutes);
+router.use('/timelines', adminTimelineRoutes);
 router.use('/wallets', adminWalletRoutes);
 router.use('/finance/escrow', adminEscrowRoutes);
 router.use('/page-settings', adminPageSettingsRoutes);

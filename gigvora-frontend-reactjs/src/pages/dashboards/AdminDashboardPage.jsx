@@ -16,6 +16,7 @@ import useDomainGovernanceSummaries from '../../hooks/useDomainGovernanceSummari
 import { fetchAdminDashboard } from '../../services/admin.js';
 import { fetchPlatformSettings, updatePlatformSettings } from '../../services/platformSettings.js';
 import { fetchAffiliateSettings, updateAffiliateSettings } from '../../services/affiliateSettings.js';
+import ADMIN_MENU_SECTIONS from './admin/adminMenuConfig.js';
 import ADMIN_MENU_SECTIONS from '../../constants/adminMenu.js';
 import { listDatabaseConnections } from '../../services/databaseSettings.js';
 import { ADMIN_DASHBOARD_MENU_SECTIONS } from '../../constants/adminDashboardMenu.js';
@@ -755,6 +756,7 @@ export default function AdminDashboardPage() {
   const [settingsDirty, setSettingsDirty] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsStatus, setSettingsStatus] = useState('');
+  const [activeMenuItem, setActiveMenuItem] = useState(null);
   const [affiliateSettings, setAffiliateSettings] = useState(null);
   const [affiliateDraft, setAffiliateDraft] = useState(null);
   const [affiliateLoading, setAffiliateLoading] = useState(false);
@@ -794,6 +796,23 @@ export default function AdminDashboardPage() {
       };
     }
   }, [canAccessDashboard]);
+
+  const handleMenuSelect = useCallback(
+    (itemId, item) => {
+      if (item?.href) {
+        navigate(item.href);
+        return;
+      }
+      setActiveMenuItem(itemId);
+      if (item?.sectionId && typeof document !== 'undefined') {
+        const target = document.getElementById(item.sectionId);
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    },
+    [navigate],
+  );
 
   const governanceRows = useMemo(
     () =>
@@ -3173,6 +3192,8 @@ export default function AdminDashboardPage() {
           'agency',
           'headhunter',
         ]}
+        activeMenuItem={activeMenuItem}
+        onMenuItemSelect={handleMenuSelect}
         onMenuItemSelect={handleMenuItemSelect}
       >
         {gatingView}
@@ -3225,6 +3246,8 @@ export default function AdminDashboardPage() {
         'agency',
         'headhunter',
       ]}
+      activeMenuItem={activeMenuItem}
+      onMenuItemSelect={handleMenuSelect}
       onMenuItemSelect={handleMenuItemSelect}
     >
       {renderContent}
