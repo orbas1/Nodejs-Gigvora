@@ -1,3 +1,4 @@
+import { Op, fn, col } from 'sequelize';
 import {
   sequelize,
   Notification,
@@ -11,6 +12,17 @@ import { ValidationError, NotFoundError } from '../utils/errors.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
 
 const LIST_CACHE_TTL = 20;
+
+const DEFAULT_PREFERENCES = {
+  emailEnabled: true,
+  pushEnabled: true,
+  smsEnabled: false,
+  inAppEnabled: true,
+  digestFrequency: 'immediate',
+  quietHoursStart: null,
+  quietHoursEnd: null,
+  metadata: {},
+};
 
 function assertCategory(category) {
   if (!NOTIFICATION_CATEGORIES.includes(category)) {
@@ -81,6 +93,32 @@ function sanitizeNotification(notification) {
   return notification.toPublicObject();
 }
 
+function sanitizePreference(record, userId) {
+  if (!record) {
+    return {
+      userId: userId ?? null,
+      ...DEFAULT_PREFERENCES,
+    };
+  }
+
+  const plain = record.get?.({ plain: true }) ?? record;
+  return {
+    userId: plain.userId ?? userId ?? null,
+    emailEnabled:
+      plain.emailEnabled == null ? DEFAULT_PREFERENCES.emailEnabled : Boolean(plain.emailEnabled),
+    pushEnabled:
+      plain.pushEnabled == null ? DEFAULT_PREFERENCES.pushEnabled : Boolean(plain.pushEnabled),
+    smsEnabled: plain.smsEnabled == null ? DEFAULT_PREFERENCES.smsEnabled : Boolean(plain.smsEnabled),
+    inAppEnabled:
+      plain.inAppEnabled == null ? DEFAULT_PREFERENCES.inAppEnabled : Boolean(plain.inAppEnabled),
+    digestFrequency: plain.digestFrequency ?? DEFAULT_PREFERENCES.digestFrequency,
+    quietHoursStart: plain.quietHoursStart ?? DEFAULT_PREFERENCES.quietHoursStart,
+    quietHoursEnd: plain.quietHoursEnd ?? DEFAULT_PREFERENCES.quietHoursEnd,
+    metadata:
+      plain.metadata && typeof plain.metadata === 'object' ? { ...plain.metadata } : { ...DEFAULT_PREFERENCES.metadata },
+  };
+}
+
 function flushNotificationCache(userId) {
   appCache.flushByPrefix(`notifications:list:${userId}`);
 }
@@ -146,8 +184,15 @@ export async function listNotifications(userId, filters = {}, pagination = {}) {
       where.category = filters.category;
     }
     if (filters.status) {
-      assertStatus(filters.status);
-      where.status = filters.status;
+      if (filters.status === 'unread') {
+        where.status = { [Op.in]: ['pending', 'delivered'] };
+        where.readAt = { [Op.is]: null };
+      } else if (filters.status === 'archived') {
+        where.status = 'dismissed';
+      } else {
+        assertStatus(filters.status);
+        where.status = filters.status;
+      }
     }
 
     const { rows, count } = await Notification.findAndCountAll({
@@ -233,7 +278,91 @@ export async function upsertPreferences(userId, patch) {
 
   flushNotificationCache(userId);
 
-  return preference.get({ plain: true });
+  return sanitizePreference(preference, userId);
+}
+
+export async function getPreferences(userId) {
+  if (!userId) {
+    throw new ValidationError('userId is required.');
+  }
+
+  const record = await NotificationPreference.findOne({ where: { userId } });
+  return sanitizePreference(record, userId);
+}
+
+export async function getStats(userId) {
+  if (!userId) {
+    throw new ValidationError('userId is required.');
+  }
+
+  const [
+    total,
+    unread,
+    read,
+    delivered,
+    dismissed,
+    pending,
+    byCategoryRows,
+    lastActivityAt,
+  ] = await Promise.all([
+    Notification.count({ where: { userId } }),
+    Notification.count({
+      where: {
+        userId,
+        readAt: { [Op.is]: null },
+        status: { [Op.in]: ['pending', 'delivered'] },
+      },
+    }),
+    Notification.count({ where: { userId, status: 'read' } }),
+    Notification.count({ where: { userId, status: 'delivered' } }),
+    Notification.count({ where: { userId, status: 'dismissed' } }),
+    Notification.count({ where: { userId, status: 'pending' } }),
+    Notification.findAll({
+      attributes: ['category', [fn('COUNT', col('category')), 'count']],
+      where: { userId },
+      group: ['category'],
+    }),
+    Notification.max('createdAt', { where: { userId } }),
+  ]);
+
+  const byCategory = {};
+  byCategoryRows.forEach((row) => {
+    const plain = row.get?.({ plain: true }) ?? row;
+    if (plain?.category) {
+      byCategory[plain.category] = Number(plain.count) || 0;
+    }
+  });
+
+  return {
+    total,
+    unread,
+    read,
+    delivered,
+    dismissed,
+    pending,
+    byCategory,
+    lastActivityAt: lastActivityAt ? new Date(lastActivityAt).toISOString() : null,
+  };
+}
+
+export async function markAllAsRead(userId) {
+  if (!userId) {
+    throw new ValidationError('userId is required.');
+  }
+
+  await Notification.update(
+    { status: 'read', readAt: new Date() },
+    {
+      where: {
+        userId,
+        readAt: { [Op.is]: null },
+        status: { [Op.in]: ['pending', 'delivered'] },
+      },
+    },
+  );
+
+  flushNotificationCache(userId);
+  return getStats(userId);
 }
 
 export default {
@@ -242,4 +371,7 @@ export default {
   markAsRead,
   dismissNotification,
   upsertPreferences,
+  getPreferences,
+  getStats,
+  markAllAsRead,
 };
