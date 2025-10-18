@@ -225,6 +225,7 @@ export const AD_SURFACE_TYPES = [
   'admin_dashboard',
   'pipeline_dashboard',
 ];
+export const AD_SURFACE_LAYOUT_MODES = ['inline', 'hero', 'carousel', 'grid'];
 export const AD_POSITION_TYPES = ['hero', 'sidebar', 'inline', 'footer'];
 export const AD_KEYWORD_INTENTS = ['awareness', 'consideration', 'conversion', 'retention'];
 export const AD_OPPORTUNITY_TYPES = ['awareness', 'acquisition', 'retention', 'upsell'];

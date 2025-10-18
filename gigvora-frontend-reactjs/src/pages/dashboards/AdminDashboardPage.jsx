@@ -59,6 +59,7 @@ const MENU_SECTIONS = [
         description: 'Campaign coverage, targeting telemetry, and creative governance.',
         tags: ['ads', 'monetisation'],
         sectionId: 'gigvora-ads',
+        href: '/dashboard/admin/ads-settings',
       },
       {
         name: 'Launchpad performance',
