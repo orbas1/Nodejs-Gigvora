@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   AdjustmentsHorizontalIcon,
   ArrowLeftOnRectangleIcon,
@@ -170,6 +170,7 @@ export default function DashboardLayout({
   onMenuItemSelect,
   adSurface,
 }) {
+  const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openDrawers, setOpenDrawers] = useState(() => new Set());
@@ -450,7 +451,10 @@ export default function DashboardLayout({
     if (item.href) {
       if (item.href.startsWith('http')) {
         window.open(item.href, item.target ?? '_blank', 'noreferrer');
+      } else {
+        navigate(item.href);
       }
+      setMobileOpen(false);
       return;
     }
 

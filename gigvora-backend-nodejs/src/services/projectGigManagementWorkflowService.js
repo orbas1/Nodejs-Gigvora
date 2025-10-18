@@ -17,6 +17,7 @@ import {
   PROJECT_STATUSES,
   PROJECT_RISK_LEVELS,
   GIG_ORDER_STATUSES,
+  GIG_REQUIREMENT_STATUSES,
   syncProjectGigManagementModels,
 } from '../models/projectGigManagementModels.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
@@ -314,6 +315,7 @@ export async function getProjectGigManagementOverview(ownerId) {
   });
 
   const templates = await ProjectTemplate.findAll({ order: [['createdAt', 'DESC']] });
+  const templateRecords = templates.map((template) => template.get({ plain: true }));
   const orders = await GigOrder.findAll({
     where: { ownerId },
     include: [
@@ -332,7 +334,7 @@ export async function getProjectGigManagementOverview(ownerId) {
     activeProjects: projects.filter((project) => project.status !== 'completed').length,
     budgetInPlay: projects.reduce((acc, project) => acc + normalizeNumber(project.budgetAllocated), 0),
     gigsInDelivery: orders.filter((order) => !['completed', 'cancelled'].includes(order.status)).length,
-    templatesAvailable: templates.length,
+    templatesAvailable: templateRecords.length,
     assetsSecured: brandAssets.length,
   };
 
@@ -359,8 +361,10 @@ export async function getProjectGigManagementOverview(ownerId) {
 
   return {
     summary,
-    projectCreation: { projects: sanitizedProjects, templates },
+    projects: sanitizedProjects,
+    projectCreation: { projects: sanitizedProjects, templates: templateRecords },
     assets: { items: assets, summary: assetSummary, brandAssets },
+    board,
     managementBoard: board,
     purchasedGigs: {
       orders,
@@ -368,6 +372,7 @@ export async function getProjectGigManagementOverview(ownerId) {
       stats: vendorStats,
     },
     storytelling,
+    templates: templateRecords,
   };
 }
 
@@ -632,12 +637,20 @@ export async function updateGigOrder(ownerId, orderId, payload) {
   }
   const dueAt = ensureDate(payload.dueAt, { label: 'Delivery due date' });
 
+  const currentMetadata = order.metadata && typeof order.metadata === 'object' ? { ...order.metadata } : {};
+  const nextMetadata =
+    payload.metadata === null
+      ? null
+      : payload.metadata
+      ? { ...currentMetadata, ...payload.metadata }
+      : currentMetadata;
+
   await order.update({
     status: payload.status ?? order.status,
     progressPercent:
       payload.progressPercent != null ? Number(payload.progressPercent) : order.progressPercent,
     dueAt: dueAt ?? order.dueAt,
-    metadata: payload.metadata ?? order.metadata,
+    metadata: nextMetadata,
   });
 
   if (Array.isArray(payload.newRevisions)) {
@@ -676,7 +689,56 @@ export async function updateGigOrder(ownerId, orderId, payload) {
     }
   }
 
-  return order.reload();
+  if (Array.isArray(payload.requirements)) {
+    const existingRequirements = new Map(
+      (order.requirements ?? []).map((requirement) => [Number(requirement.id), requirement]),
+    );
+
+    await Promise.all(
+      payload.requirements.map(async (requirementPayload) => {
+        if (!requirementPayload) return;
+        const requirementId = requirementPayload.id != null ? Number(requirementPayload.id) : null;
+        const normalizedStatus = requirementPayload.status ?? existingRequirements.get(requirementId)?.status ?? 'pending';
+
+        if (!GIG_REQUIREMENT_STATUSES.includes(normalizedStatus)) {
+          throw new ValidationError('Invalid requirement status provided.');
+        }
+
+        const updatePayload = {
+          title: requirementPayload.title?.trim() || existingRequirements.get(requirementId)?.title,
+          status: normalizedStatus,
+          dueAt: ensureDate(requirementPayload.dueAt, { label: 'Requirement due date' }) ?? null,
+          notes: requirementPayload.notes ?? existingRequirements.get(requirementId)?.notes ?? null,
+        };
+
+        if (requirementId && existingRequirements.has(requirementId)) {
+          await existingRequirements.get(requirementId).update(updatePayload);
+        } else if (updatePayload.title) {
+          await GigOrderRequirement.create({
+            orderId: order.id,
+            ...updatePayload,
+          });
+        }
+      }),
+    );
+  }
+
+  if (Array.isArray(payload.removeRequirementIds) && payload.removeRequirementIds.length) {
+    const removableIds = payload.removeRequirementIds
+      .map((id) => Number(id))
+      .filter((id) => Number.isInteger(id) && order.requirements.some((req) => req.id === id));
+    if (removableIds.length) {
+      await GigOrderRequirement.destroy({ where: { id: removableIds } });
+    }
+  }
+
+  return order.reload({
+    include: [
+      { model: GigOrderRequirement, as: 'requirements' },
+      { model: GigOrderRevision, as: 'revisions' },
+      { model: GigVendorScorecard, as: 'scorecard' },
+    ],
+  });
 }
 
 export default {
