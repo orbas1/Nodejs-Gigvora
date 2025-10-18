@@ -102,6 +102,7 @@ import AdminDatabaseSettingsPage from './pages/dashboards/AdminDatabaseSettingsP
 import AdminGdprSettingsPage from './pages/dashboards/admin/AdminGdprSettingsPage.jsx';
 import AdminAdsSettingsPage from './pages/dashboards/admin/AdminAdsSettingsPage.jsx';
 import AdminBlogManagementPage from './pages/admin/AdminBlogManagementPage.jsx';
+import AdminVolunteeringPage from './pages/dashboards/admin/AdminVolunteeringPage.jsx';
 import AdminProjectsPage from './pages/admin/AdminProjectsPage.jsx';
 import AdminGigManagementPage from './pages/admin/AdminGigManagementPage.jsx';
 import AdminJobPostManagementPage from './pages/dashboards/admin/AdminJobPostManagementPage.jsx';
@@ -711,6 +712,10 @@ export default function App() {
       />
 
       <Route
+        path="dashboard/admin/volunteering"
+        element={
+          <RequireRole allowedRoles={['admin']}>
+            <AdminVolunteeringPage />
         path="dashboard/admin/mentoring"
         element={
           <RequireRole allowedRoles={['admin']}>
