@@ -6,6 +6,8 @@ import {
   MessageParticipant,
   Message,
   MessageAttachment,
+  MessageLabel,
+  MessageThreadLabel,
   SupportCase,
   User,
   MESSAGE_CHANNEL_TYPES,
@@ -33,6 +35,7 @@ import { createCallTokens, getDefaultAgoraExpiry } from './agoraService.js';
 const THREAD_CACHE_TTL = 60;
 const MESSAGE_CACHE_TTL = 15;
 const INBOX_CACHE_TTL = 30;
+const LABEL_CACHE_TTL = 60;
 const SUPPORT_ESCALATION_NOTIFY_USER_IDS = (process.env.SUPPORT_ESCALATION_NOTIFY_USER_IDS ?? '')
   .split(',')
   .map((value) => Number.parseInt(value.trim(), 10))
@@ -79,6 +82,56 @@ function assertSupportPriority(priority) {
   }
 }
 
+function slugifyLabelName(name) {
+  return name
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 120);
+}
+
+function normalizeLabelColor(color) {
+  if (!color) {
+    return '#0f172a';
+  }
+  const trimmed = color.toString().trim();
+  if (!trimmed) {
+    return '#0f172a';
+  }
+  const prefixed = trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
+  const sanitized = prefixed.replace(/[^#a-fA-F0-9]/g, '').slice(0, 9);
+  if (!/^#[0-9a-fA-F]{3,8}$/.test(sanitized)) {
+    return '#0f172a';
+  }
+  return sanitized.toLowerCase();
+}
+
+function sanitizeLabel(label) {
+  if (!label) return null;
+  const plain = label.get ? label.get({ plain: true }) : label;
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    name: plain.name,
+    slug: plain.slug,
+    color: plain.color,
+    description: plain.description ?? null,
+    createdBy: plain.createdBy ?? null,
+    metadata: plain.metadata && typeof plain.metadata === 'object' ? plain.metadata : null,
+    createdAt: plain.createdAt ?? null,
+    updatedAt: plain.updatedAt ?? null,
+  };
+}
+
+function buildLabelCacheKey(workspaceId, search) {
+  const normalizedWorkspaceId = Number(workspaceId) || 0;
+  const tokenBase = search ? slugifyLabelName(search) : 'all';
+  const token = tokenBase || 'search';
+  return `messaging:labels:${normalizedWorkspaceId}:${token}`;
+}
+
 function sanitizeParticipant(participant) {
   if (!participant) return null;
   const plain = participant.get({ plain: true });
@@ -120,6 +173,7 @@ function sanitizeThread(thread) {
       ? Object.fromEntries(Object.entries(plain.metadata).filter(([key]) => !/^(_|internal|private)/i.test(key)))
       : null,
     participants: Array.isArray(thread.participants) ? thread.participants.map((p) => sanitizeParticipant(p)) : undefined,
+    labels: Array.isArray(thread.labels) ? thread.labels.map((label) => sanitizeLabel(label)) : undefined,
     supportCase: thread.supportCase ? sanitizeSupportCase(thread.supportCase) : undefined,
   };
 }
@@ -705,8 +759,11 @@ export async function listMessages(threadId, pagination = {}, { includeSystem = 
   });
 }
 
-export async function getThread(threadId, { withParticipants = false, includeSupportCase = false } = {}) {
-  const cacheKey = `messaging:thread:${threadId}:${withParticipants ? 'withParticipants' : 'base'}:${includeSupportCase ? 'withSupport' : 'noSupport'}`;
+export async function getThread(
+  threadId,
+  { withParticipants = false, includeSupportCase = false, includeLabels = false } = {},
+) {
+  const cacheKey = `messaging:thread:${threadId}:${withParticipants ? 'withParticipants' : 'base'}:${includeSupportCase ? 'withSupport' : 'noSupport'}:${includeLabels ? 'withLabels' : 'noLabels'}`;
   return appCache.remember(cacheKey, THREAD_CACHE_TTL, async () => {
     const thread = await MessageThread.findByPk(threadId, {
       include: [
@@ -732,6 +789,15 @@ export async function getThread(threadId, { withParticipants = false, includeSup
               },
             ]
           : []),
+        ...(includeLabels
+          ? [
+              {
+                model: MessageLabel,
+                as: 'labels',
+                through: { attributes: [] },
+              },
+            ]
+          : []),
       ],
     });
 
@@ -745,7 +811,15 @@ export async function getThread(threadId, { withParticipants = false, includeSup
 
 export async function listThreadsForUser(
   userId,
-  { channelTypes, states, search, unreadOnly = false, includeParticipants = true, includeSupport = true } = {},
+  {
+    channelTypes,
+    states,
+    search,
+    unreadOnly = false,
+    includeParticipants = true,
+    includeSupport = true,
+    includeLabels = false,
+  } = {},
   pagination = {},
 ) {
   if (!userId) {
@@ -774,6 +848,7 @@ export async function listThreadsForUser(
       unreadOnly,
       includeParticipants,
       includeSupport,
+      includeLabels,
     },
     page: safePage,
     pageSize: safeSize,
@@ -808,6 +883,10 @@ export async function listThreadsForUser(
           { model: User, as: 'resolvedByUser', attributes: ['id', 'firstName', 'lastName', 'email'] },
         ],
       });
+    }
+
+    if (includeLabels) {
+      include.push({ model: MessageLabel, as: 'labels', through: { attributes: [] } });
     }
 
     const where = {};
@@ -1259,6 +1338,209 @@ export async function updateSupportCaseStatus(
   return sanitized;
 }
 
+export async function listWorkspaceLabels(workspaceId, { search } = {}) {
+  if (!workspaceId) {
+    throw new ValidationError('workspaceId is required to list messaging labels.');
+  }
+  const sanitizedSearch = search?.trim() ?? '';
+  const cacheKey = buildLabelCacheKey(workspaceId, sanitizedSearch);
+
+  return appCache.remember(cacheKey, LABEL_CACHE_TTL, async () => {
+    const where = { workspaceId };
+    if (sanitizedSearch) {
+      const likeOperator = Op.iLike ?? Op.like;
+      const searchSlug = slugifyLabelName(sanitizedSearch);
+      where[Op.or] = [
+        { name: { [likeOperator]: `%${sanitizedSearch}%` } },
+        ...(searchSlug
+          ? [{ slug: { [likeOperator]: `%${searchSlug}%` } }]
+          : []),
+      ];
+    }
+
+    const labels = await MessageLabel.findAll({
+      where,
+      order: [
+        ['name', 'ASC'],
+        ['id', 'ASC'],
+      ],
+    });
+    return labels.map((label) => sanitizeLabel(label));
+  });
+}
+
+export async function createWorkspaceLabel({
+  workspaceId,
+  name,
+  color,
+  description,
+  createdBy,
+  metadata,
+} = {}) {
+  if (!workspaceId) {
+    throw new ValidationError('workspaceId is required to create a messaging label.');
+  }
+  if (!name || !name.trim()) {
+    throw new ValidationError('name is required to create a messaging label.');
+  }
+
+  const normalizedName = name.trim();
+  const baseSlug = slugifyLabelName(normalizedName) || `label-${Date.now()}`;
+  let slug = baseSlug;
+  let suffix = 1;
+  while (await MessageLabel.findOne({ where: { workspaceId, slug } })) {
+    slug = `${baseSlug}-${suffix}`;
+    suffix += 1;
+  }
+
+  const payload = {
+    workspaceId,
+    name: normalizedName,
+    slug,
+    color: normalizeLabelColor(color),
+    description: description?.trim() ? description.trim() : null,
+    createdBy: createdBy ?? null,
+    metadata: metadata ? normalizeMetadata(metadata, 'Label') : null,
+  };
+
+  const label = await MessageLabel.create(payload);
+  appCache.flushByPrefix(`messaging:labels:${Number(workspaceId)}`);
+  return sanitizeLabel(label);
+}
+
+export async function updateWorkspaceLabel(labelId, updates = {}) {
+  if (!labelId) {
+    throw new ValidationError('labelId is required to update a messaging label.');
+  }
+
+  const label = await MessageLabel.findByPk(labelId);
+  if (!label) {
+    throw new NotFoundError('Messaging label not found.');
+  }
+
+  if (updates.workspaceId && Number(updates.workspaceId) !== Number(label.workspaceId)) {
+    throw new AuthorizationError('Cannot reassign a label to a different workspace.');
+  }
+
+  const patch = {};
+  if (typeof updates.name === 'string' && updates.name.trim()) {
+    const normalizedName = updates.name.trim();
+    const baseSlug = slugifyLabelName(normalizedName) || `label-${label.id}`;
+    let slug = baseSlug;
+    let suffix = 1;
+    while (
+      await MessageLabel.findOne({
+        where: {
+          workspaceId: label.workspaceId,
+          slug,
+          id: { [Op.ne]: label.id },
+        },
+      })
+    ) {
+      slug = `${baseSlug}-${suffix}`;
+      suffix += 1;
+    }
+    patch.name = normalizedName;
+    patch.slug = slug;
+  }
+
+  if (updates.color !== undefined) {
+    patch.color = normalizeLabelColor(updates.color);
+  }
+
+  if (updates.description !== undefined) {
+    patch.description = updates.description?.trim() ? updates.description.trim() : null;
+  }
+
+  if (updates.metadata !== undefined) {
+    patch.metadata = updates.metadata ? normalizeMetadata(updates.metadata, 'Label') : null;
+  }
+
+  if (Object.keys(patch).length > 0) {
+    await label.update(patch);
+    appCache.flushByPrefix(`messaging:labels:${Number(label.workspaceId)}`);
+    appCache.flushByPrefix('messaging:thread:');
+  }
+
+  return sanitizeLabel(label);
+}
+
+export async function deleteWorkspaceLabel(labelId, { workspaceId } = {}) {
+  if (!labelId) {
+    throw new ValidationError('labelId is required to delete a messaging label.');
+  }
+
+  const label = await MessageLabel.findByPk(labelId);
+  if (!label) {
+    return false;
+  }
+
+  if (workspaceId && Number(workspaceId) !== Number(label.workspaceId)) {
+    throw new AuthorizationError('Cannot delete a label from a different workspace.');
+  }
+
+  await MessageThreadLabel.destroy({ where: { labelId } });
+  await label.destroy();
+  appCache.flushByPrefix(`messaging:labels:${Number(label.workspaceId)}`);
+  appCache.flushByPrefix('messaging:thread:');
+  appCache.flushByPrefix('messaging:inbox:');
+  return true;
+}
+
+export async function setThreadLabels(threadId, labelIds = [], { workspaceId, actorId } = {}) {
+  if (!threadId) {
+    throw new ValidationError('threadId is required to update thread labels.');
+  }
+  if (!workspaceId) {
+    throw new ValidationError('workspaceId is required to update thread labels.');
+  }
+
+  const normalizedIds = Array.from(
+    new Set(
+      (Array.isArray(labelIds) ? labelIds : [])
+        .map((value) => Number(value))
+        .filter((value) => Number.isInteger(value) && value > 0),
+    ),
+  );
+
+  const labels = await MessageLabel.findAll({
+    where: {
+      workspaceId,
+      ...(normalizedIds.length ? { id: { [Op.in]: normalizedIds } } : {}),
+    },
+  });
+
+  if (normalizedIds.length !== labels.length) {
+    throw new NotFoundError('One or more labels were not found for this workspace.');
+  }
+
+  await sequelize.transaction(async (trx) => {
+    await MessageThreadLabel.destroy({ where: { threadId }, transaction: trx });
+
+    if (labels.length) {
+      await MessageThreadLabel.bulkCreate(
+        labels.map((label) => ({
+          threadId,
+          labelId: label.id,
+          appliedBy: actorId ?? null,
+          appliedAt: new Date(),
+        })),
+        { transaction: trx },
+      );
+    }
+  });
+
+  appCache.flushByPrefix(`messaging:thread:${threadId}`);
+  appCache.flushByPrefix('messaging:inbox:');
+  appCache.flushByPrefix(`messaging:labels:${Number(workspaceId)}`);
+
+  return getThread(threadId, {
+    withParticipants: true,
+    includeSupportCase: true,
+    includeLabels: true,
+  });
+}
+
 export default {
   createThread,
   appendMessage,
@@ -1271,4 +1553,9 @@ export default {
   escalateThreadToSupport,
   assignSupportAgent,
   updateSupportCaseStatus,
+  listWorkspaceLabels,
+  createWorkspaceLabel,
+  updateWorkspaceLabel,
+  deleteWorkspaceLabel,
+  setThreadLabels,
 };

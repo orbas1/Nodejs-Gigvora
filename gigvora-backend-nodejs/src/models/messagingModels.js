@@ -279,6 +279,63 @@ UserAiProviderSetting.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+export const MessageLabel = sequelize.define(
+  'MessageLabel',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(80), allowNull: false },
+    slug: { type: DataTypes.STRING(120), allowNull: false },
+    color: { type: DataTypes.STRING(20), allowNull: false, defaultValue: '#0f172a' },
+    description: { type: DataTypes.STRING(255), allowNull: true },
+    createdBy: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'message_labels',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['slug'] },
+      { unique: true, fields: ['workspaceId', 'slug'] },
+    ],
+  },
+);
+
+MessageLabel.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    name: plain.name,
+    slug: plain.slug,
+    color: plain.color,
+    description: plain.description,
+    createdBy: plain.createdBy,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const MessageThreadLabel = sequelize.define(
+  'MessageThreadLabel',
+  {
+    threadId: { type: DataTypes.INTEGER, allowNull: false },
+    labelId: { type: DataTypes.INTEGER, allowNull: false },
+    appliedBy: { type: DataTypes.INTEGER, allowNull: true },
+    appliedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+  },
+  {
+    tableName: 'message_thread_labels',
+    indexes: [
+      { fields: ['threadId'] },
+      { fields: ['labelId'] },
+      { unique: true, fields: ['threadId', 'labelId'] },
+    ],
+  },
+);
+
+MessageThreadLabel.belongsTo(User, { as: 'appliedByUser', foreignKey: 'appliedBy' });
+
 MessageThread.hasMany(MessageParticipant, { as: 'participants', foreignKey: 'threadId' });
 MessageThread.hasMany(MessageParticipant, { as: 'viewerParticipants', foreignKey: 'threadId' });
 MessageParticipant.belongsTo(MessageThread, { as: 'thread', foreignKey: 'threadId' });
@@ -290,6 +347,19 @@ Message.belongsTo(User, { as: 'sender', foreignKey: 'senderId' });
 
 Message.hasMany(MessageAttachment, { as: 'attachments', foreignKey: 'messageId' });
 MessageAttachment.belongsTo(Message, { as: 'message', foreignKey: 'messageId' });
+
+MessageThread.belongsToMany(MessageLabel, {
+  through: MessageThreadLabel,
+  as: 'labels',
+  foreignKey: 'threadId',
+  otherKey: 'labelId',
+});
+MessageLabel.belongsToMany(MessageThread, {
+  through: MessageThreadLabel,
+  as: 'threads',
+  foreignKey: 'labelId',
+  otherKey: 'threadId',
+});
 
 MessageThread.hasOne(SupportCase, { as: 'supportCase', foreignKey: 'threadId' });
 SupportCase.belongsTo(MessageThread, { as: 'thread', foreignKey: 'threadId' });
@@ -312,6 +382,8 @@ export default {
   MessageParticipant,
   Message,
   MessageAttachment,
+  MessageLabel,
+  MessageThreadLabel,
   SupportCase,
   UserAiProviderSetting,
 };

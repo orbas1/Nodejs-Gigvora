@@ -69,6 +69,7 @@ export async function listInbox(req, res) {
     unreadOnly,
     includeParticipants,
     includeSupport,
+    includeLabels,
     page,
     pageSize,
   } = req.query;
@@ -82,6 +83,7 @@ export async function listInbox(req, res) {
       unreadOnly: String(unreadOnly ?? '').toLowerCase() === 'true',
       includeParticipants: String(includeParticipants ?? '').toLowerCase() !== 'false',
       includeSupport: String(includeSupport ?? '').toLowerCase() !== 'false',
+      includeLabels: String(includeLabels ?? '').toLowerCase() === 'true',
     },
     { page, pageSize },
   );
@@ -94,6 +96,7 @@ export async function openThread(req, res) {
   const thread = await getThread(Number(threadId), {
     withParticipants: String(req.query.includeParticipants ?? '').toLowerCase() !== 'false',
     includeSupportCase: String(req.query.includeSupport ?? '').toLowerCase() !== 'false',
+    includeLabels: String(req.query.includeLabels ?? '').toLowerCase() === 'true',
   });
   res.json(thread);
 }
