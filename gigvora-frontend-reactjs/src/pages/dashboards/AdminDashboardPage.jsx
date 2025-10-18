@@ -33,6 +33,175 @@ import useDomainGovernanceSummaries from '../../hooks/useDomainGovernanceSummari
 import { fetchAdminDashboard } from '../../services/admin.js';
 import { fetchPlatformSettings, updatePlatformSettings } from '../../services/platformSettings.js';
 import { fetchAffiliateSettings, updateAffiliateSettings } from '../../services/affiliateSettings.js';
+import { ADMIN_DASHBOARD_MENU_SECTIONS } from '../../constants/adminMenu.js';
+import {
+  ADMIN_ACCESS_ALIASES,
+  normalizeToLowercaseArray,
+  normalizeToLowercaseString,
+} from '../../utils/adminAccess.js';
+
+const GOVERNANCE_STATUS_STYLES = {
+  approved: {
+    label: 'Approved',
+    className: 'bg-emerald-100 text-emerald-700',
+  },
+  remediation_required: {
+    label: 'Remediation required',
+    className: 'bg-amber-100 text-amber-700',
+  },
+  in_progress: {
+    label: 'In progress',
+    className: 'bg-sky-100 text-sky-700',
+  },
+  unknown: {
+    label: 'Unknown',
+    className: 'bg-slate-100 text-slate-600',
+  },
+};
+
+const USER_TYPE_LABELS = {
+  user: 'Members',
+  company: 'Companies',
+  freelancer: 'Freelancers',
+  agency: 'Agencies',
+  admin: 'Admins',
+};
+
+const numberFormatter = new Intl.NumberFormat('en-US');
+
+function formatNumber(value) {
+  const numeric = Number(value ?? 0);
+  if (!Number.isFinite(numeric)) {
+    return '0';
+  }
+  return numberFormatter.format(Math.round(numeric));
+}
+
+function formatCurrency(value, currency = 'USD') {
+  const numeric = Number(value ?? 0);
+  if (!Number.isFinite(numeric)) {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+    }).format(0);
+  }
+  const formatter = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: numeric >= 1000 ? 0 : 2,
+  });
+  return formatter.format(numeric);
+}
+
+function formatPercent(value, fractionDigits = 1) {
+  const numeric = Number(value ?? 0);
+  if (!Number.isFinite(numeric)) {
+    return '0%';
+  }
+  return `${numeric.toFixed(fractionDigits)}%`;
+}
+
+function formatDurationMinutes(minutes) {
+  const numeric = Number(minutes ?? 0);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return '—';
+  }
+  if (numeric >= 1440) {
+    return `${(numeric / 1440).toFixed(1)} days`;
+  }
+  if (numeric >= 60) {
+    return `${(numeric / 60).toFixed(1)} hrs`;
+  }
+  return `${numeric.toFixed(0)} mins`;
+}
+
+function humanizeLabel(value) {
+  if (!value) return '—';
+  return value
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function formatDateTime(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  return date.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function formatDate(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function formatRelativeTime(value) {
+  if (!value) {
+    return 'moments ago';
+  }
+  const timestamp = new Date(value);
+  const diffMs = Date.now() - timestamp.getTime();
+  const diffMinutes = Math.round(diffMs / (1000 * 60));
+  if (diffMinutes < 1) {
+    return 'moments ago';
+  }
+  if (diffMinutes < 60) {
+    return `${diffMinutes}m ago`;
+  }
+  const diffHours = Math.round(diffMinutes / 60);
+  if (diffHours < 24) {
+    return `${diffHours}h ago`;
+  }
+  const diffDays = Math.round(diffHours / 24);
+  if (diffDays < 7) {
+    return `${diffDays}d ago`;
+  }
+  return timestamp.toLocaleDateString();
+}
+
+function calculatePercentages(dictionary = {}) {
+  const entries = Object.entries(dictionary);
+  const total = entries.reduce((sum, [, value]) => sum + Number(value ?? 0), 0);
+  return entries.map(([key, value]) => {
+    const numeric = Number(value ?? 0);
+    const percent = total > 0 ? Math.round((numeric / total) * 100) : 0;
+    return { key, value: numeric, percent, label: humanizeLabel(key) };
+  });
+}
+
+function cloneDeep(value) {
+  if (value == null) {
+    return value;
+  }
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch (error) {
+    console.warn('Unable to clone value', error);
+    return value;
+  }
+}
+
+function getNestedValue(source, path, fallback = '') {
+  if (!Array.isArray(path) || path.length === 0) {
+    return fallback;
+  }
+  const result = path.reduce((accumulator, key) => {
+    if (accumulator == null) {
+      return undefined;
+    }
+    return accumulator[key];
+  }, source);
+  return result ?? fallback;
+}
+
+function setNestedValue(source, path, value) {
+  if (!Array.isArray(path) || path.length === 0) {
+    return value;
 import { fetchVolunteerInsights } from '../../services/adminVolunteering.js';
 
 import { ADMIN_DASHBOARD_MENU_SECTIONS } from '../../constants/adminDashboardMenu.js';
