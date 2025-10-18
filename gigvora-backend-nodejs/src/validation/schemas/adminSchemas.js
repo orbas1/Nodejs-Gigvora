@@ -192,3 +192,99 @@ export const affiliateSettingsBodySchema = z
   })
   .strip();
 
+const seoMetaTagSchema = z
+  .object({
+    attribute: optionalTrimmedString({ max: 20 })
+      .transform((value) => value?.toLowerCase())
+      .refine((value) => !value || value === 'name' || value === 'property', {
+        message: 'attribute must be "name" or "property".',
+      }),
+    key: requiredTrimmedString({ max: 120 }),
+    value: requiredTrimmedString({ max: 500 }),
+  })
+  .strip();
+
+const seoVerificationSchema = z
+  .object({
+    google: optionalTrimmedString({ max: 255 }),
+    bing: optionalTrimmedString({ max: 255 }),
+    yandex: optionalTrimmedString({ max: 255 }),
+    pinterest: optionalTrimmedString({ max: 255 }),
+    baidu: optionalTrimmedString({ max: 255 }),
+  })
+  .strip();
+
+const seoSocialDefaultsSchema = z
+  .object({
+    ogTitle: optionalTrimmedString({ max: 180 }),
+    ogDescription: optionalTrimmedString({ max: 5000 }),
+    ogImageUrl: optionalTrimmedString({ max: 2048 }),
+    ogImageAlt: optionalTrimmedString({ max: 255 }),
+    twitterHandle: optionalTrimmedString({ max: 80 }),
+    twitterTitle: optionalTrimmedString({ max: 180 }),
+    twitterDescription: optionalTrimmedString({ max: 5000 }),
+    twitterCardType: optionalTrimmedString({ max: 64 }).transform((value) => value?.toLowerCase()),
+    twitterImageUrl: optionalTrimmedString({ max: 2048 }),
+  })
+  .strip();
+
+const seoOrganizationSchema = z
+  .object({
+    name: optionalTrimmedString({ max: 255 }),
+    url: optionalTrimmedString({ max: 2048 }),
+    logoUrl: optionalTrimmedString({ max: 2048 }),
+    contactEmail: optionalTrimmedString({ max: 255 }),
+    sameAs: optionalStringArray({ maxItemLength: 2048, maxLength: 50 }).optional(),
+  })
+  .strip();
+
+const structuredDataJsonSchema = z.union([z.record(z.any()), z.array(z.any())]);
+
+const seoStructuredDataSchema = z
+  .object({
+    organization: seoOrganizationSchema.optional(),
+    customJson: structuredDataJsonSchema.optional(),
+  })
+  .strip();
+
+const seoOverrideSchema = z
+  .object({
+    id: optionalNumber({ min: 1, precision: 0, integer: true }),
+    path: requiredTrimmedString({ max: 255 }),
+    title: optionalTrimmedString({ max: 180 }),
+    description: optionalTrimmedString({ max: 5000 }),
+    keywords: optionalStringArray({ maxItemLength: 120, maxLength: 64 }),
+    canonicalUrl: optionalTrimmedString({ max: 2048 }),
+    ogTitle: optionalTrimmedString({ max: 180 }),
+    ogDescription: optionalTrimmedString({ max: 5000 }),
+    ogImageUrl: optionalTrimmedString({ max: 2048 }),
+    ogImageAlt: optionalTrimmedString({ max: 255 }),
+    twitterTitle: optionalTrimmedString({ max: 180 }),
+    twitterDescription: optionalTrimmedString({ max: 5000 }),
+    twitterCardType: optionalTrimmedString({ max: 64 }).transform((value) => value?.toLowerCase()),
+    twitterImageUrl: optionalTrimmedString({ max: 2048 }),
+    twitterHandle: optionalTrimmedString({ max: 80 }),
+    metaTags: z.array(seoMetaTagSchema).optional(),
+    structuredData: seoStructuredDataSchema.optional(),
+    noindex: optionalBoolean(),
+  })
+  .strip();
+
+export const seoSettingsBodySchema = z
+  .object({
+    siteName: requiredTrimmedString({ max: 180 }),
+    defaultTitle: optionalTrimmedString({ max: 180 }),
+    defaultDescription: optionalTrimmedString({ max: 5000 }),
+    defaultKeywords: optionalStringArray({ maxItemLength: 120, maxLength: 64 }),
+    canonicalBaseUrl: optionalTrimmedString({ max: 2048 }),
+    sitemapUrl: optionalTrimmedString({ max: 2048 }),
+    allowIndexing: optionalBoolean(),
+    robotsPolicy: optionalTrimmedString({ max: 12000 }),
+    noindexPaths: optionalStringArray({ maxItemLength: 2048, maxLength: 200 }),
+    verificationCodes: seoVerificationSchema.optional(),
+    socialDefaults: seoSocialDefaultsSchema.optional(),
+    structuredData: seoStructuredDataSchema.optional(),
+    pageOverrides: z.array(seoOverrideSchema).optional(),
+  })
+  .strip();
+
