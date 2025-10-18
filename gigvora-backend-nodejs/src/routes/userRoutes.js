@@ -13,6 +13,7 @@ import userCalendarRoutes from './userCalendarRoutes.js';
 import userNetworkingRoutes from './userNetworkingRoutes.js';
 import userVolunteeringRoutes from './userVolunteeringRoutes.js';
 import walletRoutes from './walletRoutes.js';
+import userTimelineRoutes from './userTimelineRoutes.js';
 import * as notificationController from '../controllers/notificationController.js';
 import userGroupRoutes from './userGroupRoutes.js';
 import userPageRoutes from './userPageRoutes.js';
@@ -158,6 +159,13 @@ router.use(
   walletRoutes,
 );
 
+router.use(
+  '/:id/timeline',
+  authenticate({
+    roles: ['user', 'freelancer', 'agency', 'company', 'headhunter', 'admin'],
+    matchParam: 'id',
+  }),
+  userTimelineRoutes,
 const COMMUNITY_ROLES = ['user', 'freelancer', 'agency', 'company', 'mentor', 'headhunter', 'admin'];
 
 router.use(
