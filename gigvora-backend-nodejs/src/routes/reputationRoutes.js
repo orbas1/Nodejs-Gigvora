@@ -28,5 +28,25 @@ router.post(
   asyncHandler(reputationController.postReviewWidget),
 );
 
+router.get(
+  '/freelancers/:freelancerId/reviews',
+  asyncHandler(reputationController.getFreelancerReviews),
+);
+
+router.post(
+  '/freelancers/:freelancerId/reviews',
+  asyncHandler(reputationController.postFreelancerReview),
+);
+
+router.put(
+  '/freelancers/:freelancerId/reviews/:reviewId',
+  asyncHandler(reputationController.putFreelancerReview),
+);
+
+router.delete(
+  '/freelancers/:freelancerId/reviews/:reviewId',
+  asyncHandler(reputationController.removeFreelancerReview),
+);
+
 export default router;
 
