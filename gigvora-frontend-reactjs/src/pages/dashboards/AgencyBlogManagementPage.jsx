@@ -1,19 +1,24 @@
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
-import AgencyBlogManager from '../../components/agency/blog/AgencyBlogManager.jsx';
-import { AGENCY_DASHBOARD_MENU_SECTIONS } from '../../constants/agencyDashboardMenu.js';
+
+const SECTIONS = [
+  {
+    id: 'overview',
+    title: 'Agency Blog Management',
+    description: 'This dashboard view is being prepared.',
+  },
+];
 
 export default function AgencyBlogManagementPage() {
   return (
     <DashboardLayout
-      currentDashboard="agency"
-      title="Blog"
-      subtitle="Workspace posts"
-      description=""
-      menuSections={AGENCY_DASHBOARD_MENU_SECTIONS}
-      availableDashboards={['agency', 'company', 'freelancer', 'user']}
-      activeMenuItem="blog-management"
+      currentDashboard="dashboard"
+      title="Agency Blog Management"
+      description="Stay tuned for a fully interactive experience."
+      sections={SECTIONS}
     >
-      <AgencyBlogManager />
+      <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-6 text-slate-600 shadow-sm">
+        <p className="text-sm">We're building out the agency blog management dashboard. Key actions and insights will appear here soon.</p>
+      </div>
     </DashboardLayout>
   );
 }

@@ -1,47 +1,24 @@
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
-import AdminPageSettingsPanel from '../../components/admin/AdminPageSettingsPanel.jsx';
-import useSession from '../../hooks/useSession.js';
 
-const MENU_SECTIONS = [
+const SECTIONS = [
   {
-    label: 'Workspace',
-    items: [
-      { name: 'Overview', href: '#admin-pages-settings' },
-      { name: 'General details', href: '#page-settings-general' },
-      { name: 'Hero & header', href: '#page-settings-hero' },
-      { name: 'SEO & sharing', href: '#page-settings-seo' },
-      { name: 'Calls to action', href: '#page-settings-cta' },
-      { name: 'Navigation', href: '#page-settings-navigation' },
-      { name: 'Content blocks', href: '#page-settings-sections' },
-      { name: 'Theme', href: '#page-settings-theme' },
-      { name: 'Permissions', href: '#page-settings-permissions' },
-    ],
-  },
-  {
-    label: 'Operations',
-    items: [
-      { name: 'Admin dashboard', href: '/dashboard/admin' },
-      { name: 'Blog management', href: '/dashboard/admin/blog' },
-    ],
+    id: 'overview',
+    title: 'Admin Pages Settings',
+    description: 'This dashboard view is being prepared.',
   },
 ];
 
-const AVAILABLE_DASHBOARDS = ['admin', 'user', 'freelancer', 'company', 'agency', 'headhunter'];
-
 export default function AdminPagesSettingsPage() {
-  const { session } = useSession();
-
   return (
     <DashboardLayout
-      currentDashboard="admin"
-      title="Pages workspace"
-      subtitle="Design, publish, and secure Gigvora marketing pages"
-      description="Manage hero modules, content sections, navigation, and publishing controls from a dedicated CMS console."
-      menuSections={MENU_SECTIONS}
-      sections={[]}
-      availableDashboards={AVAILABLE_DASHBOARDS}
+      currentDashboard="dashboard"
+      title="Admin Pages Settings"
+      description="Stay tuned for a fully interactive experience."
+      sections={SECTIONS}
     >
-      <AdminPageSettingsPanel session={session} />
+      <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-6 text-slate-600 shadow-sm">
+        <p className="text-sm">We're building out the admin pages settings dashboard. Key actions and insights will appear here soon.</p>
+      </div>
     </DashboardLayout>
   );
 }

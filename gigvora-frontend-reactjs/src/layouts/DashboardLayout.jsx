@@ -9,7 +9,7 @@ import {
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 import PropTypes from 'prop-types';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import gigvoraWordmark from '../../images/Gigvora Logo.png';
 import MessagingDock from '../components/messaging/MessagingDock.jsx';
 import AdPlacementRail from '../components/ads/AdPlacementRail.jsx';
@@ -360,33 +360,6 @@ export default function DashboardLayout({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [customizerOpen, setCustomizerOpen] = useState(false);
   const [openSectionIds, setOpenSectionIds] = useState(new Set());
-  const [openDrawers, setOpenDrawers] = useState(() => new Set());
-
-  const normalizedMenuSections = useMemo(() => normalizeMenuSections(menuSections), [menuSections]);
-  const allMenuItems = useMemo(() => {
-    return normalizedMenuSections.flatMap((section) =>
-      section.items.map((item) => ({
-        id: String(item.id),
-        name: item.name,
-        description: item.description,
-        sectionId: item.sectionId,
-        parentSectionId: item.parentSectionId ?? section.id,
-        parentSectionLabel: item.parentSectionLabel ?? section.label,
-        orderIndex: item.orderIndex ?? 0,
-        sectionOrderIndex: item.sectionOrderIndex ?? section.orderIndex ?? 0,
-        href: item.href,
-        icon: item.icon,
-        target: item.target,
-      })),
-    );
-  }, [normalizedMenuSections]);
-  const menuItemLookup = useMemo(() => {
-    const map = new Map();
-    allMenuItems.forEach((item) => {
-      map.set(item.id, item);
-    });
-    return map;
-  }, [allMenuItems]);
 
   const normalizedSections = useMemo(
     () => normalizeMenuSections(menuSections?.length ? menuSections : sections),
@@ -536,6 +509,52 @@ export default function DashboardLayout({
 
   const activeDashboardId = slugify(currentDashboard) || dashboards[0]?.id;
   const surface = adSurface || DEFAULT_AD_SURFACE_BY_DASHBOARD[activeDashboardId] || 'global_dashboard';
+  const activeItemId = activeMenuItem ?? null;
+  const hasMenuCustomization = allMenuItems.length > 0;
+
+  const sidebarContent = (
+    <div className="flex h-full flex-col gap-6 overflow-y-auto px-6 py-6">
+      <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between'} gap-4`}>
+        <Link to="/" className="inline-flex items-center">
+          <img src={gigvoraWordmark} alt="Gigvora" className="h-9 w-auto" />
+        </Link>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-4 pb-6">
+        <DashboardSwitcher dashboards={dashboards} currentId={activeDashboardId} onNavigate={navigate} />
+        <div className="mt-4 space-y-6">
+          {customizedSections.map((section) => (
+            <MenuSection
+              key={section.id}
+              section={section}
+              isOpen={openSectionIds.has(section.id)}
+              onToggle={handleToggleSection}
+              onItemClick={handleMenuItemClick}
+              activeItemId={activeItemId}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="border-t border-slate-200 px-5 py-4">
+        <button
+          type="button"
+          onClick={() => setSidebarCollapsed((previous) => !previous)}
+          className="flex w-full items-center justify-between rounded-2xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+        >
+          <span>{sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}</span>
+          <ChevronRightIcon className={`h-4 w-4 transition ${sidebarCollapsed ? '' : 'rotate-90 text-accent'}`} />
+        </button>
+        <a
+          href="/logout"
+          className="mt-3 flex items-center justify-center gap-2 rounded-2xl border border-transparent bg-slate-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+        >
+          <ArrowLeftOnRectangleIcon className="h-5 w-5" />
+          Log out
+        </a>
+      </div>
+    </div>
+  );
 
   return (
     <div className="relative flex min-h-screen bg-slate-50">
@@ -556,84 +575,15 @@ export default function DashboardLayout({
             </span>
           </button>
           <div className="flex items-center gap-2">
-  const handleMenuClick = (item) => {
-    if (!item) {
-      return;
-    }
-
-    if (typeof onMenuItemSelect === 'function') {
-      onMenuItemSelect(item.id, item);
-      setMobileOpen(false);
-      return;
-    }
-
-    if (!item.href) {
-      const targetId = item.sectionId ?? item.targetId ?? slugify(item.name);
-      if (targetId && typeof document !== 'undefined') {
-        const targetElement = document.getElementById(targetId);
-        if (targetElement) {
-          targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }
-      setMobileOpen(false);
-      return;
-    }
-
-    const href = item.href.trim();
-    if (!href) {
-      setMobileOpen(false);
-      return;
-    }
-
-    if (href.startsWith('#')) {
-      const targetId = href.slice(1);
-      if (targetId && typeof document !== 'undefined') {
-        const targetElement = document.getElementById(targetId);
-        if (targetElement) {
-          targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }
-      setMobileOpen(false);
-      return;
-    }
-
-    const isExternal = /^https?:\/\//i.test(href);
-    if (isExternal) {
-      if (typeof window !== 'undefined') {
-        window.open(href, item.target ?? '_blank', 'noopener,noreferrer');
-      }
-      setMobileOpen(false);
-      return;
-    }
-
-    if (item.target === '_blank' && typeof window !== 'undefined') {
-      window.open(href, '_blank', 'noopener');
-      setMobileOpen(false);
-      return;
-    }
-
-    navigate(href);
-    setMobileOpen(false);
-  };
-
-  const activeItemId = activeMenuItem ?? null;
-  const dashboards = normalizeAvailableDashboards(availableDashboards);
-
-  const sidebarContent = (
-    <div className="flex h-full flex-col gap-6 overflow-y-auto px-6 py-6">
-      <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between'} gap-4`}>
-        <Link to="/" className="inline-flex items-center">
-          <img src={gigvoraWordmark} alt="Gigvora" className="h-9 w-auto" />
-        </Link>
-        <div className="flex items-center gap-2">
-          {hasMenuCustomization ? (
-            <button
-              type="button"
-              onClick={() => setCustomizerOpen(true)}
-              className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-slate-300 hover:text-slate-800"
-            >
-              <AdjustmentsHorizontalIcon className="h-5 w-5" />
-            </button>
+            {hasMenuCustomization ? (
+              <button
+                type="button"
+                onClick={() => setCustomizerOpen(true)}
+                className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-slate-300 hover:text-slate-800"
+              >
+                <AdjustmentsHorizontalIcon className="h-5 w-5" />
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => setMobileOpen(false)}
@@ -644,39 +594,7 @@ export default function DashboardLayout({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 pb-6">
-          <DashboardSwitcher dashboards={dashboards} currentId={activeDashboardId} onNavigate={navigate} />
-          <div className="mt-4 space-y-6">
-            {customizedSections.map((section) => (
-              <MenuSection
-                key={section.id}
-                section={section}
-                isOpen={openSectionIds.has(section.id)}
-                onToggle={handleToggleSection}
-                onItemClick={handleMenuItemClick}
-                activeItemId={activeMenuItem}
-              />
-            ))}
-          </div>
-        </div>
-
-        <div className="border-t border-slate-200 px-5 py-4">
-          <button
-            type="button"
-            onClick={() => setSidebarCollapsed((previous) => !previous)}
-            className="flex w-full items-center justify-between rounded-2xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
-          >
-            <span>{sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}</span>
-            <ChevronRightIcon className={`h-4 w-4 transition ${sidebarCollapsed ? '' : 'rotate-90 text-accent'}`} />
-          </button>
-          <a
-            href="/logout"
-            className="mt-3 flex items-center justify-center gap-2 rounded-2xl border border-transparent bg-slate-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
-          >
-            <ArrowLeftOnRectangleIcon className="h-5 w-5" />
-            Log out
-          </a>
-        </div>
+        {sidebarContent}
       </div>
 
       <div className="flex w-full flex-col lg:ml-80">
@@ -738,6 +656,7 @@ export default function DashboardLayout({
       <MessagingDock />
     </div>
   );
+
 }
 
 DashboardLayout.propTypes = {

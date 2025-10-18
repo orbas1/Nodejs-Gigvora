@@ -80,10 +80,16 @@ export async function createBlogCategory(payload, { signal } = {}) {
 }
 
 export async function updateBlogCategory(categoryId, payload, { signal } = {}) {
+  if (!categoryId) {
+    throw new Error('A category id is required.');
+  }
   return apiClient.put(`/admin/blog/categories/${categoryId}`, payload, { signal });
 }
 
 export async function deleteBlogCategory(categoryId, { signal } = {}) {
+  if (!categoryId) {
+    throw new Error('A category id is required.');
+  }
   return apiClient.delete(`/admin/blog/categories/${categoryId}`, { signal });
 }
 
@@ -92,10 +98,16 @@ export async function createBlogTag(payload, { signal } = {}) {
 }
 
 export async function updateBlogTag(tagId, payload, { signal } = {}) {
+  if (!tagId) {
+    throw new Error('A tag id is required.');
+  }
   return apiClient.put(`/admin/blog/tags/${tagId}`, payload, { signal });
 }
 
 export async function deleteBlogTag(tagId, { signal } = {}) {
+  if (!tagId) {
+    throw new Error('A tag id is required.');
+  }
   return apiClient.delete(`/admin/blog/tags/${tagId}`, { signal });
 }
 
@@ -122,7 +134,10 @@ export async function updateAdminBlogPostMetrics(postId, payload, { signal } = {
   return apiClient.put(`/admin/blog/posts/${postId}/metrics`, payload, { signal });
 }
 
-export async function fetchAdminBlogComments({ postId, status, page = 1, pageSize = 25 } = {}, { signal } = {}) {
+export async function fetchAdminBlogComments(
+  { postId, status, page = 1, pageSize = 25 } = {},
+  { signal } = {},
+) {
   const params = {
     postId,
     status,
@@ -154,6 +169,8 @@ export async function deleteAdminBlogComment(commentId, { signal } = {}) {
     throw new Error('A comment id is required.');
   }
   return apiClient.delete(`/admin/blog/comments/${commentId}`, { signal });
+}
+
 export async function fetchAgencyBlogWorkspaces({ signal } = {}) {
   const data = await apiClient.get('/agency/blog/workspaces', { signal });
   return data?.results ?? [];

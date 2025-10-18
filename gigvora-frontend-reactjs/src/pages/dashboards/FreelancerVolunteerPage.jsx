@@ -1,27 +1,24 @@
-import RequireRole from '../../components/routing/RequireRole.jsx';
-import VolunteeringManagementSection from './freelancer/sections/volunteering/VolunteeringManagementSection.jsx';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 
-function VolunteerContent() {
-  return (
-    <div className="min-h-screen bg-surfaceMuted pb-20">
-      <div className="mx-auto max-w-6xl space-y-10 px-4 pt-12 sm:px-6 lg:px-8">
-        <header className="space-y-3 border-b border-slate-200 pb-8">
-          <p className="text-sm uppercase tracking-[0.4em] text-slate-500">Volunteer</p>
-          <h1 className="text-3xl font-semibold text-slate-900">Run pro bono engagements with confidence</h1>
-          <p className="max-w-3xl text-sm text-slate-600">
-            Track every application, response, agreement, and expense in one workspace built for high-trust volunteering.
-          </p>
-        </header>
-        <VolunteeringManagementSection />
-      </div>
-    </div>
-  );
-}
+const SECTIONS = [
+  {
+    id: 'overview',
+    title: 'Freelancer Volunteer',
+    description: 'This dashboard view is being prepared.',
+  },
+];
 
 export default function FreelancerVolunteerPage() {
   return (
-    <RequireRole allowedRoles={['freelancer']}>
-      <VolunteerContent />
-    </RequireRole>
+    <DashboardLayout
+      currentDashboard="dashboard"
+      title="Freelancer Volunteer"
+      description="Stay tuned for a fully interactive experience."
+      sections={SECTIONS}
+    >
+      <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-6 text-slate-600 shadow-sm">
+        <p className="text-sm">We're building out the freelancer volunteer dashboard. Key actions and insights will appear here soon.</p>
+      </div>
+    </DashboardLayout>
   );
 }
