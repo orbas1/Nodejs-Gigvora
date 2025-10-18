@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import asyncHandler from '../utils/asyncHandler.js';
 import companyController from '../controllers/companyController.js';
+import companyCalendarRoutes from './companyCalendarRoutes.js';
 import authenticate from '../middleware/authenticate.js';
 import companyInboxController from '../controllers/companyInboxController.js';
 import { authenticate } from '../middleware/authentication.js';
@@ -69,6 +70,8 @@ router.post(
   authenticate({ roles: ['company', 'admin'] }),
   asyncHandler(companyController.previewByokAutoReply),
 );
+
+router.use('/calendar', companyCalendarRoutes);
 
 export default router;
 
