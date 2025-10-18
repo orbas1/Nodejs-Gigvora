@@ -41,6 +41,15 @@ function resolveUserId(req) {
   return parsed;
 }
 
+function resolveDocumentId(req) {
+  const param = req.params?.documentId ?? req.params?.id;
+  const parsed = Number(param);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new ValidationError('documentId must be a positive number.');
+  }
+  return parsed;
+}
+
 export async function getWorkspace(req, res, next) {
   try {
     const userId = resolveUserId(req);
@@ -76,13 +85,97 @@ export async function createDocument(req, res, next) {
 export async function uploadVersion(req, res, next) {
   try {
     const userId = resolveUserId(req);
-    const documentId = Number(req.params?.documentId);
-    if (!Number.isFinite(documentId) || documentId <= 0) {
-      throw new ValidationError('documentId must be a positive number.');
-    }
+    const documentId = resolveDocumentId(req);
     const { actorId, actorRoles } = extractActor(req);
     const payload = req.body || {};
     const document = await careerDocumentService.uploadCvVersion({
+      userId,
+      documentId,
+      actorId,
+      actorRoles,
+      payload,
+    });
+    res.status(201).json(document);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getCoverLetterWorkspace(req, res, next) {
+  try {
+    const userId = resolveUserId(req);
+    const { actorId, actorRoles } = extractActor(req);
+    const workspace = await careerDocumentService.getCoverLetterWorkspace({
+      userId,
+      actorId,
+      actorRoles,
+    });
+    res.json(workspace);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createCoverLetter(req, res, next) {
+  try {
+    const userId = resolveUserId(req);
+    const { actorId, actorRoles } = extractActor(req);
+    const payload = req.body || {};
+    const document = await careerDocumentService.createCoverLetter({
+      userId,
+      actorId,
+      actorRoles,
+      payload,
+    });
+    res.status(201).json(document);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function uploadCoverLetterVersion(req, res, next) {
+  try {
+    const userId = resolveUserId(req);
+    const documentId = resolveDocumentId(req);
+    const { actorId, actorRoles } = extractActor(req);
+    const payload = req.body || {};
+    const document = await careerDocumentService.uploadCoverLetterVersion({
+      userId,
+      documentId,
+      actorId,
+      actorRoles,
+      payload,
+    });
+    res.status(201).json(document);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createStoryBlock(req, res, next) {
+  try {
+    const userId = resolveUserId(req);
+    const { actorId, actorRoles } = extractActor(req);
+    const payload = req.body || {};
+    const document = await careerDocumentService.createStoryBlock({
+      userId,
+      actorId,
+      actorRoles,
+      payload,
+    });
+    res.status(201).json(document);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function uploadStoryBlockVersion(req, res, next) {
+  try {
+    const userId = resolveUserId(req);
+    const documentId = resolveDocumentId(req);
+    const { actorId, actorRoles } = extractActor(req);
+    const payload = req.body || {};
+    const document = await careerDocumentService.uploadStoryBlockVersion({
       userId,
       documentId,
       actorId,
@@ -99,4 +192,9 @@ export default {
   getWorkspace,
   createDocument,
   uploadVersion,
+  getCoverLetterWorkspace,
+  createCoverLetter,
+  uploadCoverLetterVersion,
+  createStoryBlock,
+  uploadStoryBlockVersion,
 };

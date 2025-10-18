@@ -48,6 +48,7 @@ import FreelancerPortfolioPage from './pages/dashboards/FreelancerPortfolioPage.
 import FreelancerCreationStudioPage from './pages/dashboards/FreelancerCreationStudioPage.jsx';
 import FreelancerNetworkingPage from './pages/dashboards/freelancer/FreelancerNetworkingPage.jsx';
 import FreelancerDisputesPage from './pages/dashboards/freelancer/FreelancerDisputesPage.jsx';
+import FreelancerDocumentsPage from './pages/dashboards/freelancer/FreelancerDocumentsPage.jsx';
 import CompanyDashboardPage from './pages/dashboards/CompanyDashboardPage.jsx';
 import CompanyAtsOperationsPage from './pages/dashboards/CompanyAtsOperationsPage.jsx';
 import CompanyAnalyticsPage from './pages/dashboards/CompanyAnalyticsPage.jsx';
@@ -143,13 +144,243 @@ const COMMUNITY_ACCESS_MEMBERSHIPS = Object.freeze([
   'mentor',
   'headhunter',
 ]);
+
 const VOLUNTEER_ACCESS_MEMBERSHIPS = Object.freeze(['volunteer', 'mentor', 'admin']);
+
+const userRoles = ['user', 'freelancer', 'agency', 'company', 'headhunter'];
+
+const PUBLIC_ROUTES = [
+  { path: 'login', element: <LoginPage /> },
+  { path: 'register', element: <RegisterPage /> },
+  { path: 'register/company', element: <CompanyRegisterPage /> },
+  { path: 'profile/:id', element: <ProfilePage /> },
+  { path: 'terms', element: <TermsPage /> },
+  { path: 'privacy', element: <PrivacyPage /> },
+  { path: 'about', element: <AboutPage /> },
+  { path: 'preview/freelancer-reviews', element: <FreelancerReviewsPreviewPage /> },
+  { path: 'blog', element: <BlogPage /> },
+  { path: 'blog/:slug', element: <BlogArticlePage /> },
+  { path: 'mentors', element: <MentorsPage /> },
+];
+
+const COMMUNITY_ROUTES = [
+  { path: 'feed', element: <FeedPage /> },
+  { path: 'search', element: <SearchPage /> },
+  { path: 'jobs', element: <JobsPage /> },
+  { path: 'gigs', element: <GigsPage /> },
+  { path: 'projects', element: <ProjectsPage /> },
+  { path: 'projects/new', element: <ProjectCreatePage /> },
+  { path: 'projects/:projectId', element: <ProjectDetailPage /> },
+  { path: 'projects/:projectId/auto-match', element: <ProjectAutoMatchPage /> },
+  { path: 'groups', element: <GroupsPage /> },
+  { path: 'groups/:groupId', element: <GroupProfilePage /> },
+  { path: 'pages', element: <PagesPage /> },
+  { path: 'connections', element: <ConnectionsPage /> },
+  { path: 'notifications', element: <NotificationsPage /> },
+  { path: 'trust-center', element: <TrustCenterPage /> },
+  { path: 'auto-assign', element: <AutoAssignQueuePage /> },
+  { path: 'inbox', element: <InboxPage /> },
+  { path: 'settings', element: <SettingsPage /> },
+  { path: 'finance', element: <FinanceHubPage /> },
+];
+
+const VOLUNTEER_ROUTES = [{ path: 'volunteering', element: <VolunteeringPage /> }];
+
+const LAUNCHPAD_ROUTES = [{ path: 'experience-launchpad', element: <LaunchpadPage /> }];
+
+const SECURITY_ROUTES = [{ path: 'security-operations', element: <SecurityOperationsPage /> }];
+
+const userDashboardRoutes = [
+  { path: 'dashboard/user', element: <UserDashboardPage /> },
+  { path: 'dashboard/user/creation-studio', element: <UserCreationStudioPage /> },
+  { path: 'dashboard/user/projects', element: <UserProjectManagementPage /> },
+  { path: 'dashboard/user/disputes', element: <UserDisputesPage /> },
+  { path: 'dashboard/user/calendar', element: <UserCalendarPage /> },
+  { path: 'dashboard/user/profile', element: <UserProfileHubPage /> },
+];
+
+const freelancerRoutes = [
+  { path: 'dashboard/freelancer', element: <FreelancerDashboardPage /> },
+  { path: 'dashboard/freelancer/volunteer', element: <FreelancerVolunteerPage /> },
+  { path: 'dashboard/freelancer/planner', element: <FreelancerPlannerPage /> },
+  { path: 'dashboard/freelancer/automatch', element: <FreelancerAutoMatchPage /> },
+  { path: 'dashboard/freelancer/pipeline', element: <FreelancerPipelinePage /> },
+  { path: 'dashboard/freelancer/portfolio', element: <FreelancerPortfolioPage /> },
+  { path: 'dashboard/freelancer/creation-studio', element: <FreelancerCreationStudioPage /> },
+  { path: 'dashboard/freelancer/documents', element: <FreelancerDocumentsPage /> },
+  { path: 'dashboard/freelancer/networking', element: <FreelancerNetworkingPage /> },
+  { path: 'dashboard/freelancer/disputes', element: <FreelancerDisputesPage /> },
+];
+
+const companyRoutes = [
+  { path: 'dashboard/company', element: <CompanyDashboardPage /> },
+  { path: 'dashboard/company/profile', element: <CompanyProfileWorkspacePage /> },
+  { path: 'dashboard/company/creation-studio', element: <CompanyCreationStudioPage /> },
+  { path: 'dashboard/company/wallets', element: <CompanyWalletManagementPage /> },
+  { path: 'dashboard/company/analytics', element: <CompanyAnalyticsPage /> },
+  { path: 'dashboard/company/projects', element: <CompanyProjectManagementPage /> },
+  { path: 'dashboard/company/workspace', element: <CompanyProjectWorkspacePage /> },
+  { path: 'dashboard/company/inbox', element: <CompanyInboxPage /> },
+  { path: 'dashboard/company/timeline', element: <CompanyTimelineManagementPage /> },
+  { path: 'dashboard/company/ats', element: <CompanyAtsOperationsPage /> },
+  { path: 'dashboard/company/calendar', element: <CompanyCalendarPage /> },
+  { path: 'dashboard/company/job-management', element: <CompanyJobManagementPage /> },
+  { path: 'dashboard/company/groups', element: <CompanyGroupManagementPage /> },
+  { path: 'dashboard/company/integrations', element: <CompanyIntegrationsPage /> },
+  { path: 'dashboard/company/escrow', element: <CompanyEscrowManagementPage /> },
+  { path: 'dashboard/company/pages', element: <CompanyPagesManagementPage /> },
+  { path: 'dashboard/company/id-verification', element: <CompanyIdVerificationPage /> },
+  { path: 'dashboard/company/volunteering', element: <CompanyVolunteeringManagementPage /> },
+  { path: 'dashboard/company/integrations/crm', element: <CompanyCrmIntegrationsPage /> },
+  { path: 'dashboard/company/ai-auto-reply', element: <CompanyByokAutoReplyPage /> },
+  { path: 'dashboard/company/disputes', element: <CompanyDisputeManagementPage /> },
+  { path: 'dashboard/company/networking', element: <CompanyNetworkingHubPage /> },
+  { path: 'dashboard/company/networking/sessions', element: <NetworkingSessionsPage /> },
+];
+
+const agencyRoutes = [
+  { path: 'dashboard/agency', element: <AgencyDashboardPage />, roles: ['agency', 'agency_admin', 'admin'] },
+  { path: 'dashboard/agency/disputes', element: <DisputeManagementPage />, roles: ['agency'] },
+  { path: 'dashboard/agency/escrow', element: <AgencyEscrowManagementPage />, roles: ['agency'] },
+  { path: 'dashboard/agency/crm', element: <AgencyCrmPipelinePage />, roles: ['agency', 'agency_admin'] },
+  { path: 'dashboard/agency/integrations', element: <AgencyIntegrationsPage />, roles: ['agency', 'agency_admin', 'admin'] },
+  { path: 'dashboard/agency/ai', element: <AgencyAiAutomationPage />, roles: ['agency', 'agency_admin', 'admin'] },
+  { path: 'dashboard/agency/profile', element: <AgencyProfileManagementPage />, roles: ['agency', 'agency_admin'] },
+  { path: 'dashboard/agency/client-kanban', element: <AgencyClientKanbanPage />, roles: ['agency', 'agency_admin', 'admin'] },
+  { path: 'dashboard/agency/wallet', element: <AgencyWalletManagementPage />, roles: ['agency'] },
+  { path: 'dashboard/agency/timeline', element: <AgencyTimelineDashboardPage />, roles: ['agency', 'agency_admin', 'admin'] },
+  { path: 'dashboard/agency/blog', element: <AgencyBlogManagementPage />, roles: ['agency', 'agency_admin', 'admin'] },
+  { path: 'dashboard/agency/inbox', element: <AgencyInboxPage />, roles: ['agency'] },
+  { path: 'dashboard/agency/workspace', element: <ProjectWorkspacePage />, roles: ['agency'] },
+  { path: 'dashboard/agency/projects', element: <AgencyProjectManagementPage />, roles: ['agency'] },
+  { path: 'dashboard/agency/mentoring', element: <AgencyMentoringPage />, roles: ['agency'] },
+  { path: 'dashboard/agency/job-management', element: <AgencyJobManagementPage />, roles: ['agency'] },
+  { path: 'dashboard/agency/calendar', element: <AgencyCalendarPage />, roles: ['agency'] },
+  { path: 'dashboard/agency/events', element: <AgencyEventManagementPage />, roles: ['agency'] },
+  { path: 'dashboard/agency/networking', element: <AgencyNetworkingManagementPage />, roles: ['agency', 'agency_admin', 'admin'] },
+];
+
+const headhunterRoutes = [{ path: 'dashboard/headhunter', element: <HeadhunterDashboardPage />, roles: ['headhunter'] }];
+
+const mentorRoutes = [{ path: 'dashboard/mentor', element: <MentorDashboardPage />, roles: ['mentor'] }];
+
+const launchpadRoutes = [{ path: 'dashboard/launchpad', element: <LaunchpadOperationsPage />, roles: ['admin', 'mentor'] }];
+
+const adminRoutes = [
+  { path: 'dashboard/admin', element: <AdminDashboardPage /> },
+  { path: 'dashboard/admin/interviews', element: <AdminInterviewManagementPage /> },
+  { path: 'dashboard/admin/inbox', element: <AdminInboxPage /> },
+  { path: 'dashboard/admin/timelines', element: <AdminTimelineManagementPage /> },
+  { path: 'dashboard/admin/appearance', element: <AdminAppearanceManagementPage /> },
+  { path: 'dashboard/admin/storage', element: <AdminStorageManagementPage /> },
+  { path: 'dashboard/admin/database', element: <AdminDatabaseSettingsPage /> },
+  { path: 'dashboard/admin/gdpr', element: <AdminGdprSettingsPage /> },
+  { path: 'dashboard/admin/ads-settings', element: <AdminAdsSettingsPage /> },
+  { path: 'dashboard/admin/blog', element: <AdminBlogManagementPage /> },
+  { path: 'dashboard/admin/volunteering', element: <AdminVolunteeringPage /> },
+  { path: 'dashboard/admin/projects', element: <AdminProjectsPage /> },
+  { path: 'dashboard/admin/gigs', element: <AdminGigManagementPage /> },
+  { path: 'dashboard/admin/jobs', element: <AdminJobPostManagementPage /> },
+  { path: 'dashboard/admin/job-applications', element: <AdminJobApplicationsPage /> },
+  { path: 'dashboard/admin/calendar', element: <AdminCalendarPage /> },
+  { path: 'dashboard/admin/identity-verification', element: <AdminIdentityVerificationPage /> },
+  { path: 'dashboard/admin/wallets', element: <AdminWalletManagementPage /> },
+  { path: 'dashboard/admin/disputes', element: <AdminDisputeManagementPage /> },
+  { path: 'dashboard/admin/escrow', element: <AdminEscrowManagementPage /> },
+  { path: 'dashboard/admin/mobile-apps', element: <AdminMobileAppManagementPage /> },
+  { path: 'dashboard/admin/system-settings', element: <AdminSystemSettingsPage /> },
+  { path: 'dashboard/admin/homepage', element: <AdminHomepageSettingsPage /> },
+  { path: 'dashboard/admin/pages', element: <AdminPagesSettingsPage /> },
+  { path: 'dashboard/admin/users', element: <AdminUserManagementPage /> },
+  { path: 'dashboard/admin/site', element: <AdminSiteManagementPage /> },
+  { path: 'dashboard/admin/policies', element: <AdminPolicyManagementPage /> },
+  { path: 'dashboard/admin/api-management', element: <AdminApiManagementPage /> },
+  { path: 'dashboard/admin/email', element: <AdminEmailManagementPage /> },
+  { path: 'dashboard/admin/security/two-factor', element: <AdminTwoFactorManagementPage /> },
+  { path: 'dashboard/admin/seo', element: <AdminSeoSettingsPage /> },
+  { path: 'dashboard/admin/profiles', element: <AdminProfileManagementPage /> },
+  { path: 'dashboard/admin/mentoring', element: <AdminMentoringSessionManagementPage /> },
+];
+
+function renderRoutes(routes) {
+  return routes.map((route) => (
+    <Route key={route.path} path={route.path} element={route.element} />
+  ));
+}
+
+function renderRequireRoleRoutes(routes) {
+  return routes.map((route) => (
+    <Route
+      key={route.path}
+      path={route.path}
+      element={<RequireRole allowedRoles={route.roles}>{route.element}</RequireRole>}
+    />
+  ));
+}
+
+function renderAdminRoutes(routes) {
+  return routes.map((route) => (
+    <Route
+      key={route.path}
+      path={route.path}
+      element={<RequireRole allowedRoles={['admin']}>{route.element}</RequireRole>}
+    />
+  ));
+}
 
 export default function App() {
   return (
     <Routes>
       <Route element={<MainLayout />}>
         <Route index element={<HomePage />} />
+        {renderRoutes(PUBLIC_ROUTES)}
+        <Route element={<ProtectedRoute requiredMemberships={COMMUNITY_ACCESS_MEMBERSHIPS} />}>
+          {renderRoutes(COMMUNITY_ROUTES)}
+        </Route>
+        <Route element={<ProtectedRoute requiredMemberships={VOLUNTEER_ACCESS_MEMBERSHIPS} />}>
+          {renderRoutes(VOLUNTEER_ROUTES)}
+        </Route>
+        <Route element={<ProtectedRoute requiredMemberships={LAUNCHPAD_ALLOWED_MEMBERSHIPS} />}>
+          {renderRoutes(LAUNCHPAD_ROUTES)}
+        </Route>
+        <Route element={<ProtectedRoute requiredMemberships={SECURITY_ALLOWED_MEMBERSHIPS} />}>
+          {renderRoutes(SECURITY_ROUTES)}
+        </Route>
+      </Route>
+
+      {userDashboardRoutes.map((route) => (
+        <Route
+          key={route.path}
+          path={route.path}
+          element={
+            <RoleProtectedRoute allowedRoles={userRoles}>
+              <MembershipGate allowedMemberships={userRoles}>{route.element}</MembershipGate>
+            </RoleProtectedRoute>
+          }
+        />
+      ))}
+
+      {freelancerRoutes.map((route) => (
+        <Route
+          key={route.path}
+          path={route.path}
+          element={<RequireRole allowedRoles={['freelancer']}>{route.element}</RequireRole>}
+        />
+      ))}
+
+      {companyRoutes.map((route) => (
+        <Route
+          key={route.path}
+          path={route.path}
+          element={<RequireRole allowedRoles={['company']}>{route.element}</RequireRole>}
+        />
+      ))}
+
+      {renderRequireRoleRoutes(agencyRoutes)}
+      {renderRequireRoleRoutes(headhunterRoutes)}
+      {renderRequireRoleRoutes(mentorRoutes)}
+      {renderRequireRoleRoutes(launchpadRoutes)}
+      {renderAdminRoutes(adminRoutes)}
         <Route path="login" element={<LoginPage />} />
         <Route path="register" element={<RegisterPage />} />
         <Route path="register/company" element={<CompanyRegisterPage />} />

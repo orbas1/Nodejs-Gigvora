@@ -201,6 +201,32 @@ router.post(
 );
 
 router.get(
+  '/:id/cover-letters/workspace',
+  authenticate({ roles: DOCUMENT_ROLES, matchParam: 'id' }),
+  asyncHandler(careerDocumentController.getCoverLetterWorkspace),
+);
+router.post(
+  '/:id/cover-letters',
+  authenticate({ roles: DOCUMENT_ROLES, matchParam: 'id' }),
+  asyncHandler(careerDocumentController.createCoverLetter),
+);
+router.post(
+  '/:id/cover-letters/:documentId/upload',
+  authenticate({ roles: DOCUMENT_ROLES, matchParam: 'id' }),
+  asyncHandler(careerDocumentController.uploadCoverLetterVersion),
+);
+router.post(
+  '/:id/story-blocks',
+  authenticate({ roles: DOCUMENT_ROLES, matchParam: 'id' }),
+  asyncHandler(careerDocumentController.createStoryBlock),
+);
+router.post(
+  '/:id/story-blocks/:documentId/upload',
+  authenticate({ roles: DOCUMENT_ROLES, matchParam: 'id' }),
+  asyncHandler(careerDocumentController.uploadStoryBlockVersion),
+);
+
+router.get(
   '/:id/creation-studio',
   authenticate({ roles: CREATION_STUDIO_ROLES, matchParam: 'id' }),
   asyncHandler(creationStudioController.getWorkspace),
