@@ -8,28 +8,47 @@ const router = Router();
 
 router.get('/discover', authenticate({ optional: true }), asyncHandler(groupController.discover));
 
-router.get('/', authenticate(), requireRoles('admin', 'agency'), asyncHandler(groupController.index));
-router.post('/', authenticate(), requireRoles('admin', 'agency'), asyncHandler(groupController.create));
+router.get('/', authenticate(), requireRoles('admin', 'agency', 'company'), asyncHandler(groupController.index));
+router.post('/', authenticate(), requireRoles('admin', 'agency', 'company'), asyncHandler(groupController.create));
 
-router.get('/:groupId', authenticate(), requireRoles('admin', 'agency'), asyncHandler(groupController.show));
-router.put('/:groupId', authenticate(), requireRoles('admin', 'agency'), asyncHandler(groupController.update));
+router.get('/:groupId', authenticate(), requireRoles('admin', 'agency', 'company'), asyncHandler(groupController.show));
+router.put('/:groupId', authenticate(), requireRoles('admin', 'agency', 'company'), asyncHandler(groupController.update));
 
 router.post(
   '/manage/:groupId/memberships',
   authenticate(),
-  requireRoles('admin', 'agency'),
+  requireRoles('admin', 'agency', 'company'),
   asyncHandler(groupController.addMember),
 );
 router.patch(
   '/manage/:groupId/memberships/:membershipId',
   authenticate(),
-  requireRoles('admin', 'agency'),
+  requireRoles('admin', 'agency', 'company'),
   asyncHandler(groupController.updateMember),
 );
 router.delete(
   '/manage/:groupId/memberships/:membershipId',
   authenticate(),
-  requireRoles('admin', 'agency'),
+  requireRoles('admin', 'agency', 'company'),
+  asyncHandler(groupController.removeMember),
+);
+
+router.post(
+  '/:groupId/memberships',
+  authenticate(),
+  requireRoles('admin', 'agency', 'company'),
+  asyncHandler(groupController.addMember),
+);
+router.patch(
+  '/:groupId/memberships/:membershipId',
+  authenticate(),
+  requireRoles('admin', 'agency', 'company'),
+  asyncHandler(groupController.updateMember),
+);
+router.delete(
+  '/:groupId/memberships/:membershipId',
+  authenticate(),
+  requireRoles('admin', 'agency', 'company'),
   asyncHandler(groupController.removeMember),
 );
 
