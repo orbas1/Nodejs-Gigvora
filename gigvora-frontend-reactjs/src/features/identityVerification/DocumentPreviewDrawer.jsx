@@ -1,4 +1,5 @@
 import { Fragment } from 'react';
+import PropTypes from 'prop-types';
 import { Dialog, Transition } from '@headlessui/react';
 import { ArrowDownTrayIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
@@ -108,3 +109,25 @@ export default function DocumentPreviewDrawer({ open, onClose, document }) {
     </Transition>
   );
 }
+
+DocumentPreviewDrawer.propTypes = {
+  open: PropTypes.bool,
+  onClose: PropTypes.func,
+  document: PropTypes.shape({
+    label: PropTypes.string,
+    key: PropTypes.string,
+    fileName: PropTypes.string,
+    data: PropTypes.string,
+    contentType: PropTypes.string,
+    loading: PropTypes.bool,
+    error: PropTypes.shape({
+      message: PropTypes.string,
+    }),
+  }),
+};
+
+DocumentPreviewDrawer.defaultProps = {
+  open: false,
+  onClose: () => {},
+  document: null,
+};

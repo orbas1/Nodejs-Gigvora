@@ -1,3 +1,5 @@
+import PropTypes from 'prop-types';
+
 export default function IdentityDetailsForm({
   values,
   onFieldChange,
@@ -218,3 +220,39 @@ export default function IdentityDetailsForm({
     </div>
   );
 }
+
+IdentityDetailsForm.propTypes = {
+  values: PropTypes.shape({
+    fullName: PropTypes.string,
+    dateOfBirth: PropTypes.string,
+    typeOfId: PropTypes.string,
+    idNumberLast4: PropTypes.string,
+    issuingCountry: PropTypes.string,
+    issuedAt: PropTypes.string,
+    expiresAt: PropTypes.string,
+    country: PropTypes.string,
+    addressLine1: PropTypes.string,
+    addressLine2: PropTypes.string,
+    city: PropTypes.string,
+    state: PropTypes.string,
+    postalCode: PropTypes.string,
+  }).isRequired,
+  onFieldChange: PropTypes.func.isRequired,
+  idOptions: PropTypes.arrayOf(
+    PropTypes.shape({
+      value: PropTypes.string,
+      label: PropTypes.string,
+    }),
+  ),
+  countryOptions: PropTypes.arrayOf(
+    PropTypes.shape({
+      value: PropTypes.string,
+      label: PropTypes.string,
+    }),
+  ),
+};
+
+IdentityDetailsForm.defaultProps = {
+  idOptions: [],
+  countryOptions: [],
+};

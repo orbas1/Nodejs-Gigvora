@@ -129,6 +129,7 @@ function buildProfile(session) {
 import { Link } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import useSession from '../../hooks/useSession.js';
+import { IdentityVerificationSection } from '../../features/identityVerification/index.js';
 import InboxSection from './freelancer/sections/InboxSection.jsx';
 import IdentityVerificationSection from './freelancer/sections/identity/IdentityVerificationSection.jsx';
 import { ReviewManagementSection } from './freelancer/sections/index.js';
