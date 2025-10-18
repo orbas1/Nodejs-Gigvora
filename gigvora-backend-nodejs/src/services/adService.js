@@ -7,6 +7,7 @@ const {
   AdCampaign,
   AdCreative,
   AdPlacement,
+  AdSurfaceSetting,
   AdCoupon,
   AdPlacementCoupon,
   AdKeyword,
@@ -17,6 +18,7 @@ const {
 } = models;
 
 const DEFAULT_SURFACES = ['global_dashboard'];
+const SURFACE_SETTINGS_CACHE_KEY = 'ads:surface-settings';
 const DASHBOARD_CACHE_TTL_SECONDS = 45;
 const MAX_PLACEMENTS_PER_SURFACE = 3;
 const TRAFFIC_LOOKBACK_DAYS = 21;
@@ -49,6 +51,57 @@ const DEFAULT_TRAFFIC_BASELINE = {
     { source: 'community', share: 0.07 },
   ],
 };
+
+function toSurfaceSettingsMap(records = []) {
+  const map = new Map();
+  records.forEach((record) => {
+    const plain = record?.get ? record.get({ plain: true }) : record;
+    if (plain?.surface) {
+      map.set(plain.surface, plain);
+    }
+  });
+  return map;
+}
+
+async function loadSurfaceSettings({ includeInactive = false } = {}) {
+  if (!AdSurfaceSetting?.findAll) {
+    return [];
+  }
+
+  const cacheKey = buildCacheKey(SURFACE_SETTINGS_CACHE_KEY, { includeInactive });
+  const resolver = async () => {
+    const where = includeInactive ? {} : { isActive: true };
+    const records = await AdSurfaceSetting.findAll({ where, order: [['surface', 'ASC']] });
+    return records.map((record) => record.get({ plain: true }));
+  };
+
+  if (typeof appCache?.remember === 'function') {
+    return appCache.remember(cacheKey, 30, resolver);
+  }
+
+  return resolver();
+}
+
+function resolveSurfaceLabel(surface, surfaceSettingsMap) {
+  if (!surface) {
+    return 'Unknown surface';
+  }
+  const settings = surfaceSettingsMap.get(surface);
+  if (settings?.name) {
+    return settings.name;
+  }
+  return SURFACE_LABELS[surface] ?? surface;
+}
+
+function resolveActiveSurfaceSlugs(surfaceSettingsMap) {
+  const active = [];
+  surfaceSettingsMap.forEach((settings, surface) => {
+    if (settings?.isActive !== false) {
+      active.push(surface);
+    }
+  });
+  return active;
+}
 
 function sumNumbers(values = []) {
   return values.reduce((total, value) => total + (Number(value) || 0), 0);
@@ -643,7 +696,7 @@ function scorePlacement(placement, contextSets, now) {
   return baseWeight + recencyBonus + taxonomyBonus + keywordBonus + timeBonus;
 }
 
-function decoratePlacement(placement, contextSets, now) {
+function decoratePlacement(placement, contextSets, now, surfaceSettingsMap) {
   const plain = placement.get({ plain: true });
   const score = scorePlacement(plain, contextSets, now);
   const keywords = collectPlacementKeywords(plain);
@@ -690,6 +743,7 @@ function decoratePlacement(placement, contextSets, now) {
   return {
     id: plain.id,
     surface: plain.surface,
+    surfaceLabel: resolveSurfaceLabel(plain.surface, surfaceSettingsMap),
     position: plain.position,
     status: plain.status,
     weight: Number(plain.weight ?? 0),
@@ -713,7 +767,7 @@ function decoratePlacement(placement, contextSets, now) {
   };
 }
 
-async function loadPlacementRecords({ surfaces, status }) {
+async function loadPlacementRecords({ surfaces, status, campaignId, ownerId }) {
   if (!AdPlacement?.findAll) {
     return [];
   }
@@ -727,11 +781,10 @@ async function loadPlacementRecords({ surfaces, status }) {
   }
   const include = [];
   if (AdCreative) {
-    include.push({
+    const creativeInclude = {
       model: AdCreative,
       as: 'creative',
       include: [
-        AdCampaign ? { model: AdCampaign, as: 'campaign' } : null,
         AdKeywordAssignment
           ? {
               model: AdKeywordAssignment,
@@ -743,7 +796,23 @@ async function loadPlacementRecords({ surfaces, status }) {
             }
           : null,
       ].filter(Boolean),
-    });
+    };
+
+    if (campaignId != null) {
+      creativeInclude.where = { ...(creativeInclude.where ?? {}), campaignId };
+      creativeInclude.required = true;
+    }
+
+    if (AdCampaign) {
+      const campaignInclude = { model: AdCampaign, as: 'campaign' };
+      if (ownerId != null) {
+        campaignInclude.where = { ...(campaignInclude.where ?? {}), ownerId };
+        campaignInclude.required = true;
+      }
+      creativeInclude.include.push(campaignInclude);
+    }
+
+    include.push(creativeInclude);
   }
   if (AdPlacementCoupon) {
     include.push({
@@ -807,7 +876,7 @@ function buildContextSets(context) {
   return { keywordSet, taxonomySet };
 }
 
-function buildOverview({ placements, surfaces, now, context }) {
+function buildOverview({ placements, surfaces, now, context, surfaceSettingsMap }) {
   const campaigns = new Set();
   const surfaceSummaries = new Map();
   const keywordWeights = new Map();
@@ -838,7 +907,7 @@ function buildOverview({ placements, surfaces, now, context }) {
     }
     const surfaceSummary = surfaceSummaries.get(placement.surface) ?? {
       surface: placement.surface,
-      label: SURFACE_LABELS[placement.surface] ?? placement.surface,
+      label: resolveSurfaceLabel(placement.surface, surfaceSettingsMap),
       total: 0,
       active: 0,
       upcoming: 0,
@@ -966,8 +1035,10 @@ export async function listPlacements({ surfaces, status, now = new Date() } = {}
   const resolvedSurfaces = normalizedSurfaces.length ? normalizedSurfaces : DEFAULT_SURFACES;
   const placements = await loadPlacementRecords({ surfaces: resolvedSurfaces, status });
   const contextSets = buildContextSets({ keywordHints: [], taxonomySlugs: [] });
+  const surfaceRecords = await loadSurfaceSettings({ includeInactive: true });
+  const surfaceSettingsMap = toSurfaceSettingsMap(surfaceRecords);
 
-  return placements.map((placement) => decoratePlacement(placement, contextSets, now));
+  return placements.map((placement) => decoratePlacement(placement, contextSets, now, surfaceSettingsMap));
 }
 
 export async function getAdDashboardSnapshot({
@@ -977,8 +1048,15 @@ export async function getAdDashboardSnapshot({
   now = new Date(),
   bypassCache = false,
 } = {}) {
-  const normalizedSurfaces = normaliseSurfaceList(surfaces);
-  const resolvedSurfaces = normalizedSurfaces.length ? normalizedSurfaces : DEFAULT_SURFACES;
+  const surfaceRecords = await loadSurfaceSettings({ includeInactive: true });
+  const surfaceSettingsMap = toSurfaceSettingsMap(surfaceRecords);
+  const normalizedSurfaces = normaliseSurfaceList(surfaces).filter((surface) => surfaceSettingsMap.has(surface));
+  const activeSurfaces = resolveActiveSurfaceSlugs(surfaceSettingsMap);
+  const resolvedSurfaces = normalizedSurfaces.length
+    ? normalizedSurfaces
+    : activeSurfaces.length
+    ? activeSurfaces
+    : DEFAULT_SURFACES;
   const sanitizedContext = sanitizeContext(context);
   const cacheKey = buildCacheKey('ads:dashboard', {
     surfaces: resolvedSurfaces.slice().sort().join('|'),
@@ -1003,7 +1081,9 @@ export async function getAdDashboardSnapshot({
     loadPlacementRecords({ surfaces: resolvedSurfaces }),
     loadTrafficSignals({ now }),
   ]);
-  const decoratedPlacements = placements.map((placement) => decoratePlacement(placement, contextSets, now));
+  const decoratedPlacements = placements.map((placement) =>
+    decoratePlacement(placement, contextSets, now, surfaceSettingsMap),
+  );
 
   const groupedBySurface = new Map();
   resolvedSurfaces.forEach((surface) => {
@@ -1020,7 +1100,7 @@ export async function getAdDashboardSnapshot({
     const sorted = items.sort((a, b) => b.score - a.score);
     return {
       surface,
-      label: SURFACE_LABELS[surface] ?? surface,
+      label: resolveSurfaceLabel(surface, surfaceSettingsMap),
       placements: sorted.slice(0, limitPerSurface),
       totalPlacements: sorted.length,
       upcomingPlacements: sorted.filter((item) => item.isUpcoming).length,
@@ -1035,6 +1115,7 @@ export async function getAdDashboardSnapshot({
       keywordHints: sanitizedContext.keywordHints,
       taxonomySlugs,
     },
+    surfaceSettingsMap,
   });
 
   const recommendations = buildRecommendations({
@@ -1080,8 +1161,96 @@ export async function getPlacementsForSurface(surface, options = {}) {
   return results;
 }
 
+export async function listDecoratedPlacements({
+  surfaces,
+  status,
+  campaignId,
+  ownerId,
+  context,
+  now = new Date(),
+} = {}) {
+  const normalizedSurfaces = normaliseSurfaceList(surfaces);
+  const sanitizedContext = sanitizeContext(context);
+  const taxonomyAssignments = await loadContextTaxonomies(sanitizedContext.opportunityTargets);
+  const taxonomySlugs = taxonomyAssignments.map((assignment) => assignment.taxonomy.slug);
+  const contextSets = buildContextSets({
+    keywordHints: sanitizedContext.keywordHints,
+    taxonomySlugs,
+  });
+
+  const placements = await loadPlacementRecords({
+    surfaces: normalizedSurfaces.length ? normalizedSurfaces : undefined,
+    status,
+    campaignId,
+    ownerId,
+  });
+
+  if (!placements.length) {
+    return [];
+  }
+
+  return placements.map((placement) => decoratePlacement(placement, contextSets, now));
+}
+
+export async function summarizePlacements({ placements = [], context, now = new Date() } = {}) {
+  const resolvedNow = now instanceof Date ? new Date(now) : new Date(now);
+  const sanitizedContext = sanitizeContext(context);
+
+  if (!placements.length) {
+    const trafficSignals = await loadTrafficSignals({ now: resolvedNow });
+    return {
+      overview: buildOverview({ placements: [], surfaces: [], now: resolvedNow, context: sanitizedContext }),
+      forecast: null,
+      surfaces: [],
+      traffic: trafficSignals,
+    };
+  }
+
+  const surfaceMap = new Map();
+  placements.forEach((placement) => {
+    const key = placement.surface ?? 'unknown';
+    const existing = surfaceMap.get(key) ?? {
+      surface: key,
+      label: SURFACE_LABELS[key] ?? key,
+      placements: [],
+      totalPlacements: 0,
+      upcomingPlacements: 0,
+      activePlacements: 0,
+    };
+    existing.placements.push(placement);
+    existing.totalPlacements += 1;
+    if (placement.isUpcoming) {
+      existing.upcomingPlacements += 1;
+    }
+    if (placement.isActive) {
+      existing.activePlacements += 1;
+    }
+    surfaceMap.set(key, existing);
+  });
+
+  const surfaces = Array.from(surfaceMap.values());
+  const surfaceKeys = surfaces.map((entry) => entry.surface);
+  const overview = buildOverview({
+    placements,
+    surfaces: surfaceKeys,
+    now: resolvedNow,
+    context: sanitizedContext,
+  });
+  const trafficSignals = await loadTrafficSignals({ now: resolvedNow });
+  const forecast = buildForecast({ placements, surfaces, overview, trafficSignals, now: resolvedNow });
+
+  return {
+    overview,
+    forecast,
+    surfaces,
+    traffic: trafficSignals,
+  };
+}
+
 export default {
   listPlacements,
   getPlacementsForSurface,
   getAdDashboardSnapshot,
+  listDecoratedPlacements,
+  summarizePlacements,
 };

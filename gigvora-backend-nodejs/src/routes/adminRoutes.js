@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as adminController from '../controllers/adminController.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import adminAdRoutes from './adminAdRoutes.js';
+import adminAdSettingsRoutes from './adminAdSettingsRoutes.js';
 import { requireAdmin } from '../middleware/authenticate.js';
 import validateRequest from '../middleware/validateRequest.js';
 import {
@@ -13,6 +14,7 @@ import {
 import adminRuntimeRoutes from './adminRuntimeRoutes.js';
 import adminConsentRoutes from './adminConsentRoutes.js';
 import adminRbacRoutes from './adminRbacRoutes.js';
+import adminProfileRoutes from './adminProfileRoutes.js';
 
 const router = Router();
 
@@ -44,8 +46,10 @@ router.put(
 );
 
 router.use('/ads/coupons', adminAdRoutes);
+router.use('/ads/settings', adminAdSettingsRoutes);
 router.use('/runtime', adminRuntimeRoutes);
 router.use('/governance/consents', adminConsentRoutes);
 router.use('/governance/rbac', adminRbacRoutes);
+router.use('/profiles', adminProfileRoutes);
 
 export default router;
