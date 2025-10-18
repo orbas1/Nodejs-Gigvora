@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import * as messagingController from '../controllers/messagingController.js';
+import * as inboxController from '../controllers/inboxController.js';
 import asyncHandler from '../utils/asyncHandler.js';
 
 const router = Router();
@@ -22,5 +23,14 @@ router.delete(
   '/threads/:threadId/participants/:participantId',
   asyncHandler(messagingController.removeParticipant),
 );
+
+router.get('/inbox/workspace', asyncHandler(inboxController.workspace));
+router.put('/inbox/preferences', asyncHandler(inboxController.savePreferences));
+router.post('/inbox/saved-replies', asyncHandler(inboxController.createReply));
+router.patch('/inbox/saved-replies/:replyId', asyncHandler(inboxController.updateReply));
+router.delete('/inbox/saved-replies/:replyId', asyncHandler(inboxController.removeReply));
+router.post('/inbox/routing-rules', asyncHandler(inboxController.createRule));
+router.patch('/inbox/routing-rules/:ruleId', asyncHandler(inboxController.updateRule));
+router.delete('/inbox/routing-rules/:ruleId', asyncHandler(inboxController.removeRule));
 
 export default router;

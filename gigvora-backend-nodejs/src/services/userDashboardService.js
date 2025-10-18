@@ -77,6 +77,7 @@ import { getUserWebsitePreferences } from './userWebsitePreferenceService.js';
 import userDisputeService from './userDisputeService.js';
 import eventManagementService from './eventManagementService.js';
 import notificationService from './notificationService.js';
+import communityManagementService from './communityManagementService.js';
 
 const CACHE_NAMESPACE = 'dashboard:user';
 const CACHE_TTL_SECONDS = 60;
@@ -3039,6 +3040,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     raw: true,
   });
   const topSearchModulePromise = loadTopSearchModule(userId);
+  const communityManagementPromise = communityManagementService.getCommunityManagementSnapshot(userId);
 
   const mentoringDashboardPromise = userMentoringService.getMentoringDashboard(userId, { bypassCache });
 
@@ -3078,6 +3080,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     notificationPreferences,
     notificationStats,
     topSearchModule,
+    communityManagement,
   ] = await Promise.all([
     applicationQuery,
     pipelineQuery,
@@ -3112,6 +3115,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     notificationService.getPreferences(userId),
     notificationService.getStats(userId),
     topSearchModulePromise,
+    communityManagementPromise,
   ]);
 
   const sanitizedStoryPrompts = storyBlocks.map((block) => sanitizeStoryBlock(block)).filter(Boolean);
@@ -3489,6 +3493,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     careerPipelineAutomation,
     ads,
     volunteeringManagement,
+    communityManagement,
     websitePreferences,
     topSearch: topSearchModule,
   };

@@ -10,6 +10,7 @@ import {
   archiveProject,
   restoreProject,
   createGigOrder,
+  updateGigOrder as updateGigOrderRequest,
   updateGigOrder,
   createProjectBid,
   updateProjectBid,
@@ -176,6 +177,7 @@ export default function useProjectGigManagement(userId) {
       if (data?.access?.canManage === false) {
         throw new Error('You do not have permission to manage gig orders.');
       }
+      await updateGigOrderRequest(userId, orderId, payload);
       const response = await updateGigOrder(userId, orderId, payload);
       await load();
       return response;

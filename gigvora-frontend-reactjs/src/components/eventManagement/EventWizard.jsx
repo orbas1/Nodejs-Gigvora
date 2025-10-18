@@ -29,25 +29,41 @@ const defaultValues = {
   registrationUrl: '',
 };
 
-export default function EventWizard({ open, mode, initialValues, onClose, onSubmit, busy }) {
+export default function EventWizard({ open, mode, initialValues, onClose, onSubmit, busy, defaults }) {
   const [stepIndex, setStepIndex] = useState(0);
   const [formValues, setFormValues] = useState(defaultValues);
+
+  const mergedDefaults = useMemo(() => {
+    const base = { ...defaultValues };
+    if (defaults) {
+      if (defaults.format) base.format = defaults.format;
+      if (defaults.visibility) base.visibility = defaults.visibility;
+      if (defaults.timezone) base.timezone = defaults.timezone;
+      if (defaults.status) base.status = defaults.status;
+    }
+    return base;
+  }, [defaults]);
 
   useEffect(() => {
     if (open) {
       setStepIndex(0);
-      setFormValues((current) => ({
-        ...defaultValues,
-        ...initialValues,
-        startAt: initialValues?.startAt ? initialValues.startAt.slice(0, 16) : '',
-        endAt: initialValues?.endAt ? initialValues.endAt.slice(0, 16) : '',
-        capacity:
-          initialValues?.capacity != null && !Number.isNaN(Number(initialValues.capacity))
-            ? String(initialValues.capacity)
-            : '',
-      }));
+      setFormValues(() => {
+        const seed = initialValues ?? {};
+        const next = {
+          ...mergedDefaults,
+          ...seed,
+          startAt: seed.startAt ? seed.startAt.slice(0, 16) : '',
+          endAt: seed.endAt ? seed.endAt.slice(0, 16) : '',
+          capacity:
+            seed.capacity != null && !Number.isNaN(Number(seed.capacity)) ? String(seed.capacity) : '',
+        };
+        if (!next.timezone) {
+          next.timezone = mergedDefaults.timezone;
+        }
+        return next;
+      });
     }
-  }, [initialValues, open]);
+  }, [initialValues, mergedDefaults, open]);
 
   const step = useMemo(() => steps[stepIndex] ?? steps[0], [stepIndex]);
 

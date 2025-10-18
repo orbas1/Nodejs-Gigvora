@@ -15,6 +15,8 @@ import userVolunteeringRoutes from './userVolunteeringRoutes.js';
 import walletRoutes from './walletRoutes.js';
 import userTimelineRoutes from './userTimelineRoutes.js';
 import * as notificationController from '../controllers/notificationController.js';
+import userGroupRoutes from './userGroupRoutes.js';
+import userPageRoutes from './userPageRoutes.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -164,6 +166,18 @@ router.use(
     matchParam: 'id',
   }),
   userTimelineRoutes,
+const COMMUNITY_ROLES = ['user', 'freelancer', 'agency', 'company', 'mentor', 'headhunter', 'admin'];
+
+router.use(
+  '/:id/groups',
+  authenticate({ roles: COMMUNITY_ROLES, matchParam: 'id' }),
+  userGroupRoutes,
+);
+
+router.use(
+  '/:id/pages',
+  authenticate({ roles: COMMUNITY_ROLES, matchParam: 'id' }),
+  userPageRoutes,
 );
 
 const DOCUMENT_ROLES = ['user', 'freelancer', 'agency', 'company', 'headhunter', 'mentor', 'admin'];

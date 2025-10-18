@@ -10,6 +10,16 @@ export const GROUP_VISIBILITIES = ['public', 'private', 'secret'];
 export const GROUP_MEMBER_POLICIES = ['open', 'request', 'invite'];
 export const GROUP_MEMBERSHIP_STATUSES = ['pending', 'active', 'invited', 'suspended'];
 export const GROUP_MEMBERSHIP_ROLES = ['owner', 'moderator', 'member', 'observer'];
+export const GROUP_POST_STATUSES = ['draft', 'scheduled', 'published', 'archived'];
+export const GROUP_POST_VISIBILITIES = ['public', 'members', 'admins'];
+
+export const PAGE_VISIBILITIES = ['public', 'members', 'private'];
+export const PAGE_MEMBER_ROLES = ['owner', 'admin', 'editor', 'moderator', 'author', 'viewer'];
+export const PAGE_MEMBER_STATUSES = ['active', 'invited', 'pending', 'suspended'];
+export const PAGE_POST_STATUSES = ['draft', 'scheduled', 'published', 'archived'];
+export const PAGE_POST_VISIBILITIES = ['public', 'followers', 'members', 'private'];
+
+export const COMMUNITY_INVITE_STATUSES = ['pending', 'accepted', 'declined', 'expired'];
 
 export const EMPLOYER_BRAND_SECTION_TYPES = [
   'culture_video',
@@ -207,6 +217,14 @@ export const ID_VERIFICATION_STATUSES = [
   'verified',
   'rejected',
   'expired',
+];
+export const IDENTITY_VERIFICATION_EVENT_TYPES = [
+  'submission_created',
+  'status_changed',
+  'assignment_updated',
+  'document_updated',
+  'note_recorded',
+  'metadata_updated',
 ];
 export const CORPORATE_VERIFICATION_STATUSES = [
   'pending',
@@ -418,6 +436,13 @@ export const EMPLOYEE_JOURNEY_HEALTH_STATUSES = ['on_track', 'at_risk', 'off_tra
 export const WORKSPACE_INTEGRATION_CATEGORIES = ['calendar', 'hris', 'communication', 'ats', 'productivity', 'other'];
 export const WORKSPACE_INTEGRATION_STATUSES = ['connected', 'disconnected', 'error', 'pending'];
 export const WORKSPACE_INTEGRATION_SYNC_FREQUENCIES = ['manual', 'hourly', 'daily', 'weekly'];
+export const WORKSPACE_INTEGRATION_AUTH_TYPES = ['oauth', 'api_key', 'service_account'];
+export const WORKSPACE_INTEGRATION_ENVIRONMENTS = ['production', 'sandbox', 'staging'];
+export const WORKSPACE_INTEGRATION_SYNC_STATUSES = ['pending', 'success', 'warning', 'error'];
+export const WORKSPACE_INTEGRATION_CREDENTIAL_TYPES = ['oauth_refresh_token', 'api_key', 'service_account'];
+export const WORKSPACE_INTEGRATION_INCIDENT_SEVERITIES = ['low', 'medium', 'high', 'critical'];
+export const WORKSPACE_INTEGRATION_INCIDENT_STATUSES = ['open', 'monitoring', 'resolved'];
+export const WORKSPACE_INTEGRATION_SYNC_RUN_STATUSES = ['queued', 'running', 'success', 'warning', 'error'];
 export const WORKSPACE_INTEGRATION_SECRET_TYPES = ['api_key', 'oauth_token', 'webhook_secret', 'custom'];
 export const WORKSPACE_INTEGRATION_WEBHOOK_STATUSES = ['active', 'paused', 'disabled'];
 export const WORKSPACE_INTEGRATION_AUDIT_EVENT_TYPES = [

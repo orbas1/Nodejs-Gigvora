@@ -14,6 +14,8 @@ router.use(
 
 router.get('/', asyncHandler(eventManagementController.listEventManagement));
 router.post('/', asyncHandler(eventManagementController.createEvent));
+router.get('/settings', asyncHandler(eventManagementController.getSettings));
+router.patch('/settings', asyncHandler(eventManagementController.updateSettings));
 router.get('/:eventId', asyncHandler(eventManagementController.getEvent));
 router.patch('/:eventId', asyncHandler(eventManagementController.updateEvent));
 router.delete('/:eventId', asyncHandler(eventManagementController.deleteEvent));

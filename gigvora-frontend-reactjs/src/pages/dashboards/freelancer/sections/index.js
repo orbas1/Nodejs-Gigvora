@@ -1,10 +1,12 @@
 export { default as AutomationSection } from './AutomationSection.jsx';
 export { default as DeliveryOperationsSection } from './DeliveryOperationsSection.jsx';
 export { default as FinanceComplianceSection } from './FinanceComplianceSection.jsx';
+export { default as EscrowManagementSection } from './EscrowManagementSection.jsx';
 export { default as DisputeManagementSection } from './DisputeManagementSection.jsx';
 export { default as GigMarketplaceOperationsSection } from './GigMarketplaceOperationsSection.jsx';
 export { default as GigStudioSection } from './GigStudioSection.jsx';
 export { default as GrowthPartnershipSection } from './GrowthPartnershipSection.jsx';
+export { default as InboxSection } from './InboxSection.jsx';
 export { default as NetworkSection } from './NetworkSection.jsx';
 export { default as OperationalQuickAccessSection } from './OperationalQuickAccessSection.jsx';
 export { default as OperationsHQSection } from './OperationsHQSection.jsx';
@@ -24,3 +26,4 @@ export { default as TaskManagementSection } from './TaskManagementSection.jsx';
 export { default as IdentityVerificationSection } from './identity/IdentityVerificationSection.jsx';
 export { default as VolunteeringManagementSection } from './volunteering/VolunteeringManagementSection.jsx';
 export { default as TimelineManagementSection } from './timeline/TimelineManagementSection.jsx';
+export { default as MentoringSection } from './mentoring/FreelancerMentoringSection.jsx';
