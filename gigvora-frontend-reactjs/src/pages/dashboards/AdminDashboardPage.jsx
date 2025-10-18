@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowPathIcon, CurrencyDollarIcon, LifebuoyIcon, ShieldCheckIcon, UsersIcon } from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
@@ -14,111 +14,11 @@ import useDomainGovernanceSummaries from '../../hooks/useDomainGovernanceSummari
 import { fetchAdminDashboard } from '../../services/admin.js';
 import { fetchPlatformSettings, updatePlatformSettings } from '../../services/platformSettings.js';
 import { fetchAffiliateSettings, updateAffiliateSettings } from '../../services/affiliateSettings.js';
+import { listDatabaseConnections } from '../../services/databaseSettings.js';
+import { ADMIN_DASHBOARD_MENU_SECTIONS } from '../../constants/adminDashboardMenu.js';
+import { DATABASE_STATUS_STYLES } from '../../constants/databaseStatusStyles.js';
 
-const MENU_SECTIONS = [
-  {
-    label: 'Command modules',
-    items: [
-      {
-        name: 'Runtime health',
-        description: 'Service readiness, dependency posture, and rate-limit utilisation for the API perimeter.',
-        tags: ['ops', 'security'],
-        sectionId: 'admin-runtime-health',
-      },
-      {
-        name: 'Data governance',
-        description: 'PII inventory, retention policies, and audit cadence across bounded contexts.',
-        tags: ['compliance', 'data'],
-        sectionId: 'admin-domain-governance',
-      },
-      {
-        name: 'Member health',
-        description: 'Growth, activation, and readiness scores across the Gigvora network.',
-        tags: ['growth', 'activation'],
-      },
-      {
-        name: 'Financial governance',
-        description: 'Escrow flows, fee capture, and treasury risk posture.',
-        tags: ['finance'],
-      },
-      {
-        name: 'Risk & trust',
-        description: 'Dispute lifecycle, escalations, and marketplace safety monitoring.',
-        tags: ['compliance'],
-      },
-      {
-        name: 'Support operations',
-        description: 'Service desk load, SLAs, and sentiment guardrails.',
-      },
-      {
-        name: 'Engagement & comms',
-        description: 'Platform analytics, event telemetry, and notification delivery.',
-      },
-      {
-        name: 'Gigvora Ads',
-        description: 'Campaign coverage, targeting telemetry, and creative governance.',
-        tags: ['ads', 'monetisation'],
-        sectionId: 'gigvora-ads',
-      },
-      {
-        name: 'Launchpad performance',
-        description: 'Talent placements, interview runway, and employer demand.',
-      },
-    ],
-  },
-  {
-    label: 'Quick tools',
-    items: [
-      {
-        name: 'Data exports',
-        description: 'Pull CSV snapshots or schedule secure S3 drops.',
-        tags: ['csv', 'api'],
-      },
-      {
-        name: 'Incident response',
-        description: 'Runbooks for security, privacy, and marketplace outages.',
-      },
-      {
-        name: 'Audit center',
-        description: 'Trace admin actions, approvals, and configuration changes.',
-      },
-    ],
-  },
-  {
-    label: 'Configuration stack',
-      items: [
-        {
-          name: 'All platform settings',
-          description: 'Govern application defaults, commission policies, and feature gates.',
-          tags: ['settings'],
-          sectionId: 'admin-settings-overview',
-        },
-        {
-          name: 'Affiliate economics',
-          description: 'Tiered commissions, payout cadences, and partner compliance.',
-          tags: ['affiliate'],
-          sectionId: 'admin-affiliate-settings',
-        },
-        {
-          name: 'CMS controls',
-          description: 'Editorial workflow, restricted features, and monetisation toggles.',
-        sectionId: 'admin-settings-cms',
-      },
-      {
-        name: 'Environment & secrets',
-        description: 'Runtime environment, storage credentials, and database endpoints.',
-        sectionId: 'admin-settings-environment',
-        tags: ['ops'],
-      },
-      {
-        name: 'API & notifications',
-        description: 'REST endpoints, payment gateways, and outbound email security.',
-        sectionId: 'admin-settings-api',
-        tags: ['api'],
-      },
-    ],
-  },
-];
+const MENU_SECTIONS = ADMIN_DASHBOARD_MENU_SECTIONS;
 
 const GOVERNANCE_STATUS_STYLES = {
   approved: {
@@ -628,6 +528,35 @@ export default function AdminDashboardPage() {
   const [affiliateLastSavedAt, setAffiliateLastSavedAt] = useState(null);
   const [lastSavedAt, setLastSavedAt] = useState(null);
   const [restrictedFeaturesInput, setRestrictedFeaturesInput] = useState('');
+  const [databaseOverview, setDatabaseOverview] = useState({
+    loading: false,
+    items: [],
+    summary: null,
+    error: null,
+  });
+
+  const fetchDatabaseOverview = useCallback(async () => {
+    if (!canAccessDashboard) {
+      return { items: [], summary: null, error: null };
+    }
+    try {
+      const response = await listDatabaseConnections();
+      return {
+        items: Array.isArray(response?.items) ? response.items : [],
+        summary: response?.summary ?? null,
+        error: null,
+      };
+    } catch (fetchError) {
+      return {
+        items: [],
+        summary: null,
+        error:
+          fetchError instanceof Error
+            ? fetchError
+            : new Error('Unable to load database overview.'),
+      };
+    }
+  }, [canAccessDashboard]);
 
   const governanceRows = useMemo(
     () =>
@@ -815,6 +744,50 @@ export default function AdminDashboardPage() {
     };
   }, [refreshIndex, canAccessDashboard, hasAdminAccess]);
 
+  useEffect(() => {
+    let active = true;
+    if (!canAccessDashboard) {
+      setDatabaseOverview({ loading: false, items: [], summary: null, error: null });
+      return () => {
+        active = false;
+      };
+    }
+
+    setDatabaseOverview((previous) => ({ ...previous, loading: true, error: null }));
+
+    fetchDatabaseOverview().then((result) => {
+      if (!active) {
+        return;
+      }
+      setDatabaseOverview({
+        loading: false,
+        items: result.items,
+        summary: result.summary,
+        error: result.error,
+      });
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [canAccessDashboard, fetchDatabaseOverview, refreshIndex]);
+
+  const handleRefreshDatabase = useCallback(async () => {
+    if (!canAccessDashboard) {
+      return;
+    }
+
+    setDatabaseOverview((previous) => ({ ...previous, loading: true, error: null }));
+
+    const result = await fetchDatabaseOverview();
+    setDatabaseOverview((previous) => ({
+      loading: false,
+      items: result.error ? previous.items : result.items,
+      summary: result.error ? previous.summary : result.summary,
+      error: result.error,
+    }));
+  }, [canAccessDashboard, fetchDatabaseOverview]);
+
   const profile = useMemo(() => {
     const totals = data?.summary?.totals ?? {};
     const support = data?.support ?? {};
@@ -905,6 +878,21 @@ export default function AdminDashboardPage() {
   const normalizedAffiliateTiers = Array.isArray(normalizedAffiliate.tiers)
     ? normalizedAffiliate.tiers
     : [];
+
+  const databaseSummary = useMemo(() => {
+    const items = Array.isArray(databaseOverview.items) ? databaseOverview.items : [];
+    const summary = databaseOverview.summary ?? {};
+    const byStatus = summary.byStatus ?? {};
+    return {
+      total: summary.total ?? items.length,
+      byStatus: {
+        healthy: byStatus.healthy ?? 0,
+        warning: byStatus.warning ?? 0,
+        error: byStatus.error ?? 0,
+        unknown: byStatus.unknown ?? 0,
+      },
+    };
+  }, [databaseOverview]);
 
   const updateSettingsDraft = (path, value) => {
     setSettingsDraft((current) => {
@@ -1568,80 +1556,114 @@ export default function AdminDashboardPage() {
               </div>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-6 shadow-sm">
-              <h3 className="text-lg font-semibold text-slate-900">Database & credentials</h3>
-              <p className="mt-1 text-sm text-slate-600">
-                Securely manage database endpoints and connection secrets with instant rollback support.
-              </p>
-              <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <label htmlFor="databaseHost" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Database host
-                  </label>
-                  <input
-                    id="databaseHost"
-                    value={getNestedValue(settingsDraft, ['database', 'host'], settings?.database?.host ?? '')}
-                    onChange={handleTextChange(['database', 'host'])}
-                    disabled={disableSettingsInputs}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-                  />
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900">Database infrastructure</h3>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Manage connection profiles, read replicas, and credential rotation from the database console.
+                  </p>
                 </div>
-                <div className="space-y-2">
-                  <label htmlFor="databasePort" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Port
-                  </label>
-                  <input
-                    id="databasePort"
-                    type="number"
-                    min="0"
-                    value={getNestedValue(settingsDraft, ['database', 'port'], settings?.database?.port ?? '')}
-                    onChange={handleTextChange(['database', 'port'])}
-                    disabled={disableSettingsInputs}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-                  />
+                <div className="flex items-center gap-2 self-start">
+                  <button
+                    type="button"
+                    onClick={handleRefreshDatabase}
+                    disabled={databaseOverview.loading}
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-400 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <ArrowPathIcon className={`h-4 w-4 ${databaseOverview.loading ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </button>
+                  <Link
+                    to="/dashboard/admin/database"
+                    className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-accent/90 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-1"
+                  >
+                    Open console
+                  </Link>
                 </div>
-                <div className="space-y-2">
-                  <label htmlFor="databaseName" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Database name
-                  </label>
-                  <input
-                    id="databaseName"
-                    value={getNestedValue(settingsDraft, ['database', 'name'], settings?.database?.name ?? '')}
-                    onChange={handleTextChange(['database', 'name'])}
-                    disabled={disableSettingsInputs}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-                  />
+              </div>
+              {databaseOverview.error ? (
+                <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                  {databaseOverview.error.message || 'Unable to load database overview. Try refreshing or check API access.'}
                 </div>
-                <div className="space-y-2">
-                  <label htmlFor="databaseUser" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Username
-                  </label>
-                  <input
-                    id="databaseUser"
-                    value={getNestedValue(settingsDraft, ['database', 'username'], settings?.database?.username ?? '')}
-                    onChange={handleTextChange(['database', 'username'])}
-                    disabled={disableSettingsInputs}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-                  />
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <label htmlFor="databasePassword" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Password
-                  </label>
-                  <input
-                    id="databasePassword"
-                    type="password"
-                    value={getNestedValue(settingsDraft, ['database', 'password'], settings?.database?.password ?? '')}
-                    onChange={handleTextChange(['database', 'password'])}
-                    disabled={disableSettingsInputs}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-                  />
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Secret fingerprints</p>
-                  <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
-                    DB password • {maskSecret(getNestedValue(settingsDraft, ['database', 'password'], settings?.database?.password ?? ''))}
+              ) : null}
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {[
+                  {
+                    key: 'total',
+                    label: 'Connections',
+                    value: formatNumber(databaseSummary.total ?? 0),
+                    helper: 'Profiles tracked',
+                  },
+                  {
+                    key: 'healthy',
+                    label: 'Healthy',
+                    value: formatNumber(databaseSummary.byStatus.healthy ?? 0),
+                    helper: 'Passing checks',
+                  },
+                  {
+                    key: 'warning',
+                    label: 'Slow',
+                    value: formatNumber(databaseSummary.byStatus.warning ?? 0),
+                    helper: 'Latency warnings',
+                  },
+                  {
+                    key: 'error',
+                    label: 'Errors',
+                    value: formatNumber(databaseSummary.byStatus.error ?? 0),
+                    helper: 'Failing checks',
+                  },
+                ].map((metric) => (
+                  <div key={metric.key} className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{metric.label}</p>
+                    <p className="mt-1 text-2xl font-semibold text-slate-900">{metric.value}</p>
+                    <p className="mt-1 text-xs text-slate-500">{metric.helper}</p>
                   </div>
-                </div>
+                ))}
+              </div>
+              <div className="mt-6">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Recent checks</p>
+                {databaseOverview.loading && databaseOverview.items.length === 0 ? (
+                  <div className="mt-3 animate-pulse rounded-2xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
+                    Checking database connections…
+                  </div>
+                ) : (
+                  <ul className="mt-3 space-y-3">
+                    {databaseOverview.items.slice(0, 4).map((connection) => {
+                      const statusKey = connection.status && DATABASE_STATUS_STYLES[connection.status]
+                        ? connection.status
+                        : 'unknown';
+                      const statusStyle = DATABASE_STATUS_STYLES[statusKey];
+                      return (
+                        <li
+                          key={connection.id}
+                          className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                        >
+                          <div>
+                            <p className="text-sm font-semibold text-slate-900">{connection.name}</p>
+                            <p className="text-xs text-slate-500">
+                              {connection.environment} • {connection.role} • {connection.host}:{connection.port}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-400">
+                              {connection.lastTestedAt
+                                ? `Last test ${formatDateTime(connection.lastTestedAt)}`
+                                : 'Not yet tested'}
+                            </p>
+                          </div>
+                          <span
+                            className={`inline-flex w-max items-center rounded-full px-3 py-1 text-xs font-medium ${statusStyle.className}`}
+                          >
+                            {statusStyle.label}
+                          </span>
+                        </li>
+                      );
+                    })}
+                    {databaseOverview.items.length === 0 && !databaseOverview.loading ? (
+                      <li className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-500">
+                        No database connections have been configured yet.
+                      </li>
+                    ) : null}
+                  </ul>
+                )}
               </div>
             </div>
             <div
