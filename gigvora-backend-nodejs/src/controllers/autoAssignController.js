@@ -69,7 +69,8 @@ export async function listQueue(req, res) {
 
 export async function updateQueueEntryStatus(req, res) {
   const { entryId } = req.params;
-  const { status, freelancerId, rating, completionValue } = req.body ?? {};
+  const { status, freelancerId, rating, completionValue, reasonCode, reasonLabel, responseNotes, metadata } =
+    req.body ?? {};
   const actor = req.user;
   if (!actor) {
     throw new AuthorizationError('Authentication required.');
@@ -83,6 +84,10 @@ export async function updateQueueEntryStatus(req, res) {
     actorId: actor.id,
     rating: rating == null ? undefined : Number(rating),
     completionValue: completionValue == null ? undefined : Number(completionValue),
+    reasonCode,
+    reasonLabel,
+    responseNotes,
+    metadata,
   });
   res.json(result);
 }

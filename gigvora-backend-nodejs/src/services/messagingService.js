@@ -1042,6 +1042,164 @@ export async function muteThread(threadId, userId, until) {
   return { success: true };
 }
 
+export async function updateThreadSettings(threadId, actorId, { subject, channelType, metadataPatch } = {}) {
+  if (!threadId) {
+    throw new ValidationError('threadId is required to update thread settings.');
+  }
+  if (!actorId) {
+    throw new ValidationError('userId is required to update thread settings.');
+  }
+
+  const sanitizedMetadata = metadataPatch ? normalizeMetadata(metadataPatch, 'Thread settings') : null;
+  if (channelType) {
+    assertChannelType(channelType);
+  }
+
+  let participantIds = [];
+  await sequelize.transaction(async (trx) => {
+    await ensureParticipant(threadId, actorId, trx);
+
+    const thread = await MessageThread.findByPk(threadId, { transaction: trx, lock: trx.LOCK.UPDATE });
+    if (!thread) {
+      throw new NotFoundError('Thread not found.');
+    }
+
+    if (subject !== undefined) {
+      const trimmed = typeof subject === 'string' ? subject.trim() : '';
+      thread.subject = trimmed ? trimmed.slice(0, 255) : null;
+    }
+
+    if (channelType) {
+      thread.channelType = channelType;
+    }
+
+    if (sanitizedMetadata && Object.keys(sanitizedMetadata).length) {
+      const existingMetadata =
+        thread.metadata && typeof thread.metadata === 'object' ? { ...thread.metadata } : {};
+      thread.metadata = { ...existingMetadata, ...sanitizedMetadata };
+    }
+
+    await thread.save({ transaction: trx });
+    participantIds = await getParticipantUserIds(threadId, trx);
+  });
+
+  flushThreadCache(threadId, participantIds);
+  return getThread(threadId, { withParticipants: true, includeSupportCase: true });
+}
+
+export async function addParticipantsToThread(threadId, actorId, participantIds = []) {
+  if (!threadId) {
+    throw new ValidationError('threadId is required to add participants.');
+  }
+  if (!actorId) {
+    throw new ValidationError('userId is required to add participants.');
+  }
+
+  const normalizedIds = Array.from(
+    new Set(
+      (Array.isArray(participantIds) ? participantIds : [participantIds])
+        .map((value) => Number.parseInt(value, 10))
+        .filter((value) => Number.isInteger(value) && value > 0),
+    ),
+  ).filter((value) => value !== actorId);
+
+  if (!normalizedIds.length) {
+    return getThread(threadId, { withParticipants: true, includeSupportCase: true });
+  }
+
+  let updatedParticipantIds = [];
+  await sequelize.transaction(async (trx) => {
+    await ensureParticipant(threadId, actorId, trx);
+
+    const existingParticipants = await MessageParticipant.findAll({
+      where: { threadId },
+      attributes: ['userId'],
+      transaction: trx,
+      lock: trx.LOCK.UPDATE,
+    });
+
+    const existingIds = new Set(existingParticipants.map((participant) => participant.userId));
+    const candidates = normalizedIds.filter((id) => !existingIds.has(id));
+
+    if (!candidates.length) {
+      updatedParticipantIds = await getParticipantUserIds(threadId, trx);
+      return;
+    }
+
+    const users = await User.findAll({
+      where: { id: { [Op.in]: candidates } },
+      attributes: ['id'],
+      transaction: trx,
+    });
+
+    if (!users.length) {
+      throw new ValidationError('No valid users were provided to add to the conversation.');
+    }
+
+    await Promise.all(
+      users.map((user) =>
+        MessageParticipant.create(
+          {
+            threadId,
+            userId: user.id,
+            role: 'participant',
+          },
+          { transaction: trx },
+        ),
+      ),
+    );
+
+    updatedParticipantIds = await getParticipantUserIds(threadId, trx);
+  });
+
+  flushThreadCache(threadId, updatedParticipantIds);
+  return getThread(threadId, { withParticipants: true, includeSupportCase: true });
+}
+
+export async function removeParticipantFromThread(threadId, participantUserId, actorId) {
+  if (!threadId) {
+    throw new ValidationError('threadId is required to remove a participant.');
+  }
+  if (!actorId) {
+    throw new ValidationError('userId is required to remove a participant.');
+  }
+  if (!participantUserId || !Number.isInteger(Number(participantUserId))) {
+    throw new ValidationError('participantId must be a valid integer.');
+  }
+
+  const targetUserId = Number(participantUserId);
+  let updatedParticipantIds = [];
+
+  await sequelize.transaction(async (trx) => {
+    await ensureParticipant(threadId, actorId, trx);
+
+    const target = await MessageParticipant.findOne({
+      where: { threadId, userId: targetUserId },
+      transaction: trx,
+      lock: trx.LOCK.UPDATE,
+    });
+
+    if (!target) {
+      throw new NotFoundError('Participant not found in this conversation.');
+    }
+
+    if (target.role === 'owner') {
+      throw new AuthorizationError('Conversation owners cannot be removed.');
+    }
+
+    const participantCount = await MessageParticipant.count({ where: { threadId }, transaction: trx });
+    if (participantCount <= 1) {
+      throw new ValidationError('At least one participant must remain in the conversation.');
+    }
+
+    await target.destroy({ transaction: trx });
+    updatedParticipantIds = await getParticipantUserIds(threadId, trx);
+  });
+
+  flushThreadCache(threadId, updatedParticipantIds);
+  return getThread(threadId, { withParticipants: true, includeSupportCase: true });
+}
+
 export async function escalateThreadToSupport(
   threadId,
   userId,
@@ -1550,6 +1708,9 @@ export default {
   markThreadRead,
   updateThreadState,
   muteThread,
+  updateThreadSettings,
+  addParticipantsToThread,
+  removeParticipantFromThread,
   escalateThreadToSupport,
   assignSupportAgent,
   updateSupportCaseStatus,
