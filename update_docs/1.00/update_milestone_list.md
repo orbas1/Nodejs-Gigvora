@@ -1,6 +1,7 @@
 # Version 1.00 Milestone List
 
-## Milestone 1 – Platform Hardening Foundations (0%)
+## Milestone 1 – Platform Hardening Foundations (100%)
+**Status:** Completed. Runtime orchestrator, authenticated health endpoints, configuration console, logging hardening, and operator runbooks are live in staging.
 **Covers:** Task 1 – Platform Bootstrap & Security Hardening.
 
 - **Objectives:** Stabilise lifecycle bootstrap, secure health/metrics endpoints, enforce schema-validated configuration, and publish operator tooling before feature work begins.
