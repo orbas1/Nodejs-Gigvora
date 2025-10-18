@@ -59,6 +59,26 @@ export const domainMetadata = {
         retention: '30 days',
         justification: 'Temporary cache to rate limit OTP delivery.',
       },
+      TwoFactorPolicy: {
+        fields: ['allowedMethods', 'ipAllowlist', 'notes'],
+        retention: 'Policy lifetime + 3 years',
+        justification: 'Records MFA enforcement rules for compliance and incident response audits.',
+      },
+      TwoFactorEnrollment: {
+        fields: ['metadata'],
+        retention: 'Device lifetime + 12 months',
+        justification: 'Proof of possession for hardware tokens and authenticator approvals.',
+      },
+      TwoFactorBypass: {
+        fields: ['reason', 'notes'],
+        retention: '90 days',
+        justification: 'Temporary MFA exceptions tracked for fraud and abuse investigations.',
+      },
+      TwoFactorAuditLog: {
+        fields: ['metadata', 'notes'],
+        retention: '3 years',
+        justification: 'Supports change-management evidence for identity controls.',
+      },
     },
     fieldDescriptions: {
       User: {
@@ -68,6 +88,14 @@ export const domainMetadata = {
       IdentityVerification: {
         complianceNotes: 'Analyst-supplied remediation notes recorded during manual verification.',
       },
+      TwoFactorPolicy: {
+        ipAllowlist: 'Trusted CIDR ranges that may bypass additional challenges.',
+      },
+      TwoFactorEnrollment: {
+        metadata: 'Hardware attestation or context captured during device review.',
+      },
+      TwoFactorBypass: {
+        reason: 'Business justification captured when issuing temporary MFA bypass tokens.',
       IdentityVerificationEvent: {
         metadata: 'Structured payload with reviewer assignments, file references, and automation signals.',
       },
