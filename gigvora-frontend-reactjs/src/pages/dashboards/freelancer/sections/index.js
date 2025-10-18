@@ -26,3 +26,4 @@ export { default as TaskManagementSection } from './TaskManagementSection.jsx';
 export { default as IdentityVerificationSection } from './identity/IdentityVerificationSection.jsx';
 export { default as VolunteeringManagementSection } from './volunteering/VolunteeringManagementSection.jsx';
 export { default as TimelineManagementSection } from './timeline/TimelineManagementSection.jsx';
+export { default as MentoringSection } from './mentoring/FreelancerMentoringSection.jsx';

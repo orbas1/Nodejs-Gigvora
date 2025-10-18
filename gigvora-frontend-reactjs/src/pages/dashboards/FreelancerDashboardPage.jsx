@@ -132,6 +132,7 @@ import useSession from '../../hooks/useSession.js';
 import InboxSection from './freelancer/sections/InboxSection.jsx';
 import IdentityVerificationSection from './freelancer/sections/identity/IdentityVerificationSection.jsx';
 import { ReviewManagementSection } from './freelancer/sections/index.js';
+import { MentoringSection, VolunteeringManagementSection } from './freelancer/sections/index.js';
 import { MENU_GROUPS, AVAILABLE_DASHBOARDS } from './freelancer/menuConfig.js';
 import { DEFAULT_PROFILE } from './freelancer/sampleData.js';
 import {
@@ -418,6 +419,8 @@ const SECTION_COMPONENTS = {
   'workspace-settings': WorkspaceSettingsSection,
   'profile-showcase': ProfileShowcaseSection,
   references: ReferencesSection,
+  mentoring: MentoringSection,
+  'volunteering-management': VolunteeringManagementSection,
   'timeline-management': TimelineManagementSection,
   network: NetworkSection,
   'growth-partnerships': GrowthPartnershipSection,
