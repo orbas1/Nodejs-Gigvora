@@ -6,6 +6,7 @@ import { requireAdmin } from '../middleware/authenticate.js';
 import validateRequest from '../middleware/validateRequest.js';
 import {
   adminDashboardQuerySchema,
+  adminOverviewUpdateSchema,
   affiliateSettingsBodySchema,
   platformSettingsBodySchema,
 } from '../validation/schemas/adminSchemas.js';
@@ -21,6 +22,11 @@ router.get(
   '/dashboard',
   validateRequest({ query: adminDashboardQuerySchema }),
   asyncHandler(adminController.dashboard),
+);
+router.put(
+  '/dashboard/overview',
+  validateRequest({ body: adminOverviewUpdateSchema }),
+  asyncHandler(adminController.persistAdminOverview),
 );
 router.get('/runtime/health', asyncHandler(adminController.runtimeHealth));
 router.get('/platform-settings', asyncHandler(adminController.fetchPlatformSettings));

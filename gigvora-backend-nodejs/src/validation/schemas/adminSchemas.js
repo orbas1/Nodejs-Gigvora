@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import {
   optionalBoolean,
+  optionalGeoLocation,
+  optionalLocationString,
   optionalNumber,
   optionalStringArray,
   optionalTrimmedString,
@@ -189,6 +191,20 @@ export const affiliateSettingsBodySchema = z
     payouts: payoutSettingsSchema.optional(),
     tiers: z.array(affiliateTierSchema).optional(),
     compliance: complianceSettingsSchema.optional(),
+  })
+  .strip();
+
+export const adminOverviewUpdateSchema = z
+  .object({
+    firstName: optionalTrimmedString({ max: 120 }),
+    lastName: optionalTrimmedString({ max: 120 }),
+    headline: optionalTrimmedString({ max: 255 }),
+    missionStatement: optionalTrimmedString({ max: 2000 }),
+    bio: optionalTrimmedString({ max: 5000 }),
+    avatarSeed: optionalTrimmedString({ max: 255 }),
+    location: optionalLocationString({ max: 255 }),
+    geoLocation: optionalGeoLocation(),
+    timezone: optionalTrimmedString({ max: 120 }),
   })
   .strip();
 

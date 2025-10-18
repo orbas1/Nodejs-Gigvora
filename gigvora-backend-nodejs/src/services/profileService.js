@@ -1044,6 +1044,7 @@ function buildProfilePayload({ user, groups, connectionsCount, complianceSnapsho
     userId: plainUser.id,
     firstName: plainUser.firstName,
     lastName: plainUser.lastName,
+    title: plainUser.title ?? null,
     name: `${plainUser.firstName} ${plainUser.lastName}`.trim(),
     email: plainUser.email,
     userType: plainUser.userType,

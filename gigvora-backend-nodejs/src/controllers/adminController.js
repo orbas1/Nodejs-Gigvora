@@ -1,4 +1,4 @@
-import { getAdminDashboardSnapshot } from '../services/adminDashboardService.js';
+import { getAdminDashboardSnapshot, updateAdminOverview } from '../services/adminDashboardService.js';
 import { getPlatformSettings, updatePlatformSettings } from '../services/platformSettingsService.js';
 import { getAffiliateSettings, updateAffiliateSettings } from '../services/affiliateSettingsService.js';
 import { getRuntimeOperationalSnapshot } from '../services/runtimeObservabilityService.js';
@@ -16,6 +16,7 @@ export async function dashboard(req, res) {
   const snapshot = await getAdminDashboardSnapshot({
     lookbackDays: parseInteger(lookbackDays, undefined),
     eventWindowDays: parseInteger(eventWindowDays, undefined),
+    adminUserId: req.user?.id ?? null,
   });
   res.json(snapshot);
 }
@@ -45,6 +46,12 @@ export async function runtimeHealth(req, res) {
   res.json(snapshot);
 }
 
+export async function persistAdminOverview(req, res) {
+  const adminId = req.user?.id ?? null;
+  const overview = await updateAdminOverview(adminId, req.body ?? {});
+  res.json(overview);
+}
+
 export default {
   dashboard,
   fetchPlatformSettings,
@@ -52,4 +59,5 @@ export default {
   fetchAffiliateSettings,
   persistAffiliateSettings,
   runtimeHealth,
+  persistAdminOverview,
 };
