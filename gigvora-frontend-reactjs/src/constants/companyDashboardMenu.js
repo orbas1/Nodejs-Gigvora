@@ -71,6 +71,14 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
     label: 'Network',
     items: [
       {
+        name: 'Groups',
+        description: 'Organise workspace circles and approvals.',
+        sectionId: 'company-group-management',
+        href: '/dashboard/company/groups',
+      },
+      {
+        name: 'Networking sessions',
+        description: 'Launch and monitor speed networking programs with configurable rotations and join limits.',
         name: 'Sessions',
         sectionId: 'networking-sessions',
         href: '/dashboard/company/networking',
