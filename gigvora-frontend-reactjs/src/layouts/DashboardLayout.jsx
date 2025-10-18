@@ -458,6 +458,11 @@ export default function DashboardLayout({
         }
       if (/^https?:\/\//i.test(item.href)) {
         window.open(item.href, item.target ?? '_blank', 'noreferrer');
+      } else if (item.target === '_blank') {
+        window.open(item.href, '_blank');
+      } else if (typeof window !== 'undefined') {
+        window.location.assign(item.href);
+      }
       } else {
         navigate(item.href);
       }

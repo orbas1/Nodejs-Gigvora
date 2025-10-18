@@ -19,6 +19,7 @@ import { listDatabaseConnections } from '../../services/databaseSettings.js';
 import { ADMIN_DASHBOARD_MENU_SECTIONS } from '../../constants/adminDashboardMenu.js';
 import { DATABASE_STATUS_STYLES } from '../../constants/databaseStatusStyles.js';
 
+export const ADMIN_MENU_SECTIONS = [
 const MENU_SECTIONS = ADMIN_DASHBOARD_MENU_SECTIONS;
 import { ADMIN_MENU_SECTIONS } from '../../constants/adminMenuSections.js';
 
@@ -74,6 +75,13 @@ const MENU_SECTIONS = [
         tags: ['ads', 'monetisation'],
         sectionId: 'gigvora-ads',
         href: '/dashboard/admin/ads-settings',
+      },
+      {
+        name: 'Site',
+        description: 'Brand, pages, menu.',
+        tags: ['marketing'],
+        href: '/dashboard/admin/site',
+        sectionId: 'admin-site-management',
       },
       {
         name: 'Launchpad performance',
@@ -148,7 +156,7 @@ const MENU_SECTIONS = [
         },
         {
           name: 'CMS controls',
-          description: 'Editorial workflow, restricted features, and monetisation toggles.',
+        description: 'Editorial workflow, restricted features, and monetisation toggles.',
         sectionId: 'admin-settings-cms',
       },
       {
