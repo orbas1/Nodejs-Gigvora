@@ -93,6 +93,7 @@ import HeadhunterDashboardPage from './pages/dashboards/HeadhunterDashboardPage.
 import MentorDashboardPage from './pages/dashboards/MentorDashboardPage.jsx';
 import LaunchpadOperationsPage from './pages/dashboards/LaunchpadOperationsPage.jsx';
 import AdminDashboardPage from './pages/dashboards/AdminDashboardPage.jsx';
+import AdminAdsSettingsPage from './pages/dashboards/admin/AdminAdsSettingsPage.jsx';
 import AdminBlogManagementPage from './pages/admin/AdminBlogManagementPage.jsx';
 import AdminProfileManagementPage from './pages/admin/AdminProfileManagementPage.jsx';
 import FreelancerReviewsPreviewPage from './pages/previews/FreelancerReviewsPreviewPage.jsx';
@@ -673,6 +674,15 @@ export default function App() {
         element={
           <RequireRole allowedRoles={['admin']}>
             <AdminDashboardPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
+        path="dashboard/admin/ads-settings"
+        element={
+          <RequireRole allowedRoles={['admin']}>
+            <AdminAdsSettingsPage />
           </RequireRole>
         }
       />

@@ -249,6 +249,8 @@ import {
   ESCROW_INTEGRATION_PROVIDERS, DISPUTE_STAGES, DISPUTE_STATUSES,
   DISPUTE_PRIORITIES, DISPUTE_ACTION_TYPES, DISPUTE_ACTOR_TYPES, NETWORKING_SESSION_STATUSES,
   NETWORKING_SESSION_ACCESS_TYPES, NETWORKING_SESSION_VISIBILITIES, NETWORKING_SESSION_SIGNUP_STATUSES, NETWORKING_SESSION_SIGNUP_SOURCES,
+  NETWORKING_BUSINESS_CARD_STATUSES, NETWORKING_ROTATION_STATUSES, OPPORTUNITY_TAXONOMY_TYPES, AD_TYPES,
+  AD_STATUSES, AD_PACING_MODES, AD_OBJECTIVES, AD_SURFACE_TYPES, AD_SURFACE_LAYOUT_MODES,
   NETWORKING_BUSINESS_CARD_STATUSES, NETWORKING_ROTATION_STATUSES, NETWORKING_SESSION_ORDER_STATUSES,
   NETWORKING_CONNECTION_FOLLOW_STATUSES, OPPORTUNITY_TAXONOMY_TYPES, AD_TYPES,
   NETWORKING_BUSINESS_CARD_STATUSES, NETWORKING_ROTATION_STATUSES, NETWORKING_SIGNUP_PAYMENT_STATUSES,
@@ -8938,6 +8940,61 @@ AdPlacement.prototype.toPublicObject = function toPublicObject() {
     priority: plain.priority,
     metadata: plain.metadata ?? null,
     creative: creativePlain ? { ...creativePlain } : null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const AdSurfaceSetting = sequelize.define(
+  'AdSurfaceSetting',
+  {
+    surface: {
+      type: DataTypes.STRING(80),
+      allowNull: false,
+      unique: true,
+      validate: { isIn: [AD_SURFACE_TYPES] },
+    },
+    name: { type: DataTypes.STRING(120), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    heroImageUrl: { type: DataTypes.STRING(1024), allowNull: true },
+    layoutMode: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'inline',
+      validate: { isIn: [AD_SURFACE_LAYOUT_MODES] },
+    },
+    isActive: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    supportsCoupons: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    placementLimit: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 3 },
+    defaultPosition: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'inline',
+      validate: { isIn: [AD_POSITION_TYPES] },
+    },
+    metadata: { type: jsonType, allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  { tableName: 'ad_surface_settings' },
+);
+
+AdSurfaceSetting.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    surface: plain.surface,
+    name: plain.name,
+    description: plain.description ?? null,
+    heroImageUrl: plain.heroImageUrl ?? null,
+    layoutMode: plain.layoutMode,
+    isActive: Boolean(plain.isActive),
+    supportsCoupons: Boolean(plain.supportsCoupons),
+    placementLimit: Number(plain.placementLimit ?? 0),
+    defaultPosition: plain.defaultPosition,
+    metadata: plain.metadata ?? null,
+    createdById: plain.createdById ?? null,
+    updatedById: plain.updatedById ?? null,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };
@@ -22200,6 +22257,7 @@ export default {
   AdCampaign,
   AdCreative,
   AdPlacement,
+  AdSurfaceSetting,
   AdCoupon,
   AdPlacementCoupon,
   AdKeyword,
