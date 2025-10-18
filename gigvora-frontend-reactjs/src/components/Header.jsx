@@ -139,7 +139,7 @@ export default function Header() {
         { id: 'feed', label: 'Live feed', to: '/feed', icon: RssIcon },
         { id: 'explorer', label: 'Explorer', to: '/search', icon: Squares2X2Icon },
         { id: 'dashboard', label: 'Dashboard', to: dashboardPath, icon: HomeIcon },
-        { id: 'studio', label: 'Creation Studio', to: '/projects/new', icon: SparklesIcon },
+        { id: 'studio', label: 'Studio', to: '/dashboard/user/creation-studio', icon: SparklesIcon },
         { id: 'shopfronts', label: 'Shopfronts', to: '/pages', icon: BuildingStorefrontIcon },
         { id: 'messages', label: 'Messages', to: '/inbox', icon: ChatBubbleLeftRightIcon },
         { id: 'notifications', label: 'Notifications', to: '/notifications', icon: BellIcon },
