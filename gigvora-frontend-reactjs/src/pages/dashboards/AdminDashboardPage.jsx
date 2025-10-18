@@ -137,6 +137,10 @@ const MENU_SECTIONS = [
           sectionId: 'admin-affiliate-settings',
         },
         {
+          name: 'Legal',
+          description: 'Policies',
+          tags: ['legal', 'compliance'],
+          href: '/dashboard/admin/policies',
           name: 'GDPR settings',
           description: 'Configure DPO contact, data subject workflows, retention, and processor governance.',
           tags: ['privacy', 'compliance'],

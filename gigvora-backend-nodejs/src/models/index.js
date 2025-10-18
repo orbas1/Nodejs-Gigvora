@@ -556,6 +556,7 @@ export {
 } from './companyPageModels.js';
 export * from './agencyJobModels.js';
 export { ConsentPolicy, ConsentPolicyVersion, UserConsent, ConsentAuditEvent } from './consentModels.js';
+export { LegalDocument, LegalDocumentVersion, LegalDocumentAuditEvent } from './legalDocumentModels.js';
 export { RuntimeSecurityAuditEvent } from './runtimeSecurityAuditEvent.js';
 export { RbacPolicyAuditEvent } from './rbacPolicyAuditEvent.js';
 export { EmailSmtpConfig, EmailTemplate } from './emailModels.js';

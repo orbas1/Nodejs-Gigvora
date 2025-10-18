@@ -26,6 +26,7 @@ export { default as freelancerAllianceService } from './freelancerAllianceServic
 export { default as reputationService } from './reputationService.js';
 export { default as complianceLockerService } from './complianceLockerService.js';
 export { default as consentService } from './consentService.js';
+export { default as legalPolicyService } from './legalPolicyService.js';
 export { default as catalogInsightsService } from './catalogInsightsService.js';
 export { default as clientSuccessService } from './clientSuccessService.js';
 export { default as freelancerOrderPipelineService } from './freelancerOrderPipelineService.js';
