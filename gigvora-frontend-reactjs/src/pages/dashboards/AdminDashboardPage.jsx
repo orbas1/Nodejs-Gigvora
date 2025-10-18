@@ -100,6 +100,12 @@ const MENU_SECTIONS = [
           sectionId: 'admin-affiliate-settings',
         },
         {
+          name: 'Legal',
+          description: 'Policies',
+          tags: ['legal', 'compliance'],
+          href: '/dashboard/admin/policies',
+        },
+        {
           name: 'CMS controls',
           description: 'Editorial workflow, restricted features, and monetisation toggles.',
         sectionId: 'admin-settings-cms',

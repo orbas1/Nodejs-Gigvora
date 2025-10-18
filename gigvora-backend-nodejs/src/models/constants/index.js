@@ -27,6 +27,10 @@ export const COMPLIANCE_POLICY_STATUSES = ['draft', 'active', 'under_review', 'a
 export const COMPLIANCE_AUDIT_STATUSES = ['open', 'in_progress', 'completed', 'closed'];
 export const ACCESSIBILITY_AUDIT_STATUSES = ['pending', 'in_progress', 'remediation', 'verified'];
 
+export const LEGAL_DOCUMENT_CATEGORIES = ['terms', 'privacy', 'data_processing', 'cookie'];
+export const LEGAL_DOCUMENT_STATUSES = ['draft', 'active', 'archived'];
+export const LEGAL_DOCUMENT_VERSION_STATUSES = ['draft', 'in_review', 'approved', 'published', 'archived'];
+
 
 export const APPLICATION_TARGET_TYPES = ['job', 'gig', 'project', 'launchpad', 'volunteer'];
 export const APPLICATION_STATUSES = [
