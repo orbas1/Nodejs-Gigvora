@@ -42,6 +42,107 @@ function buildAuditTrail(existingTrail, entry) {
   return trail;
 }
 
+const LIKE_OPERATOR = Op.iLike ?? Op.like;
+const ACTIVE_DISPUTE_STATUSES = new Set(['open', 'awaiting_customer', 'under_review']);
+
+function normalizeList(value) {
+  if (value == null) {
+    return [];
+  }
+
+  if (Array.isArray(value)) {
+    return Array.from(
+      new Set(
+        value
+          .map((item) => (item == null ? '' : String(item)))
+          .map((item) => item.trim())
+          .filter(Boolean),
+      ),
+    );
+  }
+
+  return normalizeList(String(value).split(','));
+}
+
+function parseInteger(value, fallback = null) {
+  if (value == null || value === '') {
+    return fallback;
+  }
+  const numeric = Number.parseInt(value, 10);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
+function parseDate(value) {
+  if (!value) {
+    return null;
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function computeOpenDurationHours(openedAt, resolvedAt) {
+  const start = parseDate(openedAt);
+  const end = resolvedAt ? parseDate(resolvedAt) : new Date();
+  if (!start || !end) {
+    return null;
+  }
+  const diff = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+  if (!Number.isFinite(diff)) {
+    return null;
+  }
+  return Number(diff.toFixed(2));
+}
+
+function isOverdueCase(dispute) {
+  if (!dispute || ACTIVE_DISPUTE_STATUSES.has(dispute.status) === false) {
+    return false;
+  }
+
+  const now = Date.now();
+  const deadlines = [dispute.customerDeadlineAt, dispute.providerDeadlineAt]
+    .map((deadline) => (deadline ? new Date(deadline).getTime() : null))
+    .filter((timestamp) => Number.isFinite(timestamp));
+
+  if (!deadlines.length) {
+    return false;
+  }
+
+  return deadlines.some((timestamp) => timestamp < now);
+}
+
+function isDueSoonCase(dispute, windowHours = 48) {
+  if (!dispute || ACTIVE_DISPUTE_STATUSES.has(dispute.status) === false) {
+    return false;
+  }
+
+  const now = Date.now();
+  const threshold = now + windowHours * 60 * 60 * 1000;
+  const deadlines = [dispute.customerDeadlineAt, dispute.providerDeadlineAt]
+    .map((deadline) => (deadline ? new Date(deadline).getTime() : null))
+    .filter((timestamp) => Number.isFinite(timestamp));
+
+  if (!deadlines.length) {
+    return false;
+  }
+
+  return deadlines.some((timestamp) => timestamp >= now && timestamp <= threshold);
+}
+
+function formatUserSummary(instance) {
+  if (!instance) {
+    return null;
+  }
+
+  const plain = instance.toPublicObject?.() ?? instance.get?.({ plain: true }) ?? instance;
+  const fullName = [plain.firstName, plain.lastName].filter(Boolean).join(' ').trim();
+
+  return {
+    id: plain.id ?? null,
+    firstName: plain.firstName ?? null,
+    lastName: plain.lastName ?? null,
+    email: plain.email ?? null,
+    avatarUrl: plain.avatarUrl ?? plain.profileImageUrl ?? null,
+    displayName: plain.displayName ?? (fullName || plain.email || null),
 function normaliseInteger(value, { min, max, fallback }) {
   const numeric = Number.parseInt(value, 10);
   if (Number.isNaN(numeric)) {
@@ -236,6 +337,16 @@ function formatDisputeEventRecord(record) {
     return null;
   }
 
+  const base = record.toPublicObject?.() ?? record;
+  const actorInstance = record.get?.('actor') ?? record.actor;
+
+  return {
+    ...base,
+    actor: formatUserSummary(actorInstance),
+  };
+}
+
+function formatDisputeCaseRecord(record, { includeEvents = false } = {}) {
   const base = typeof record.toPublicObject === 'function' ? record.toPublicObject() : record;
   const actorInstance = record.get?.('actor') ?? record.actor ?? null;
   const actor = formatUserRecord(actorInstance);
@@ -251,6 +362,190 @@ function formatDisputeRecord(record, { includeEvents = false } = {}) {
     return null;
   }
 
+  const base = record.toPublicObject();
+  const transactionInstance = record.get?.('transaction') ?? record.transaction ?? null;
+  const openedByInstance = record.get?.('openedBy') ?? record.openedBy ?? null;
+  const assignedToInstance = record.get?.('assignedTo') ?? record.assignedTo ?? null;
+  const rawEvents = Array.isArray(record.get?.('events')) ? record.get('events') : Array.isArray(record.events) ? record.events : [];
+
+  const sortedEvents = rawEvents
+    .map((event) => event)
+    .sort((a, b) => {
+      const aTime = new Date(a.eventAt ?? a.createdAt ?? a.updatedAt ?? 0).getTime();
+      const bTime = new Date(b.eventAt ?? b.createdAt ?? b.updatedAt ?? 0).getTime();
+      return aTime - bTime;
+    });
+
+  const latestEventRecord = sortedEvents.length ? sortedEvents[sortedEvents.length - 1] : null;
+
+  const transaction = transactionInstance?.toPublicObject?.() ?? transactionInstance ?? null;
+
+  const payload = {
+    ...base,
+    transaction,
+    openedBy: formatUserSummary(openedByInstance),
+    assignedTo: formatUserSummary(assignedToInstance),
+    latestEvent: formatDisputeEventRecord(latestEventRecord),
+    openDurationHours: computeOpenDurationHours(base.openedAt, base.resolvedAt),
+    overdue: isOverdueCase(base),
+    dueSoon: isDueSoonCase(base),
+  };
+
+  if (includeEvents) {
+    payload.events = sortedEvents.map((event) => formatDisputeEventRecord(event));
+  }
+
+  return payload;
+}
+
+function cloneInclude(include = []) {
+  return include.map((item) => {
+    const cloned = { ...item };
+    if (item.include) {
+      cloned.include = cloneInclude(item.include);
+    }
+    return cloned;
+  });
+}
+
+function combineWhere(baseWhere, additionalWhere) {
+  if (!additionalWhere || !Object.keys(additionalWhere).length) {
+    return baseWhere;
+  }
+
+  if (!baseWhere || !Object.keys(baseWhere).length) {
+    return additionalWhere;
+  }
+
+  return {
+    [Op.and]: [baseWhere, additionalWhere],
+  };
+}
+
+function buildDisputeQueryComponents(filters = {}) {
+  const where = {};
+  const include = [];
+  const aggregateInclude = [];
+  const normalizedFilters = {};
+
+  const normalizedStages = normalizeList(filters.stage).filter((value) => DISPUTE_STAGES.includes(value));
+  if (normalizedStages.length) {
+    where.stage = normalizedStages.length === 1 ? normalizedStages[0] : { [Op.in]: normalizedStages };
+    normalizedFilters.stage = normalizedStages;
+  }
+
+  const normalizedStatuses = normalizeList(filters.status).filter((value) => DISPUTE_STATUSES.includes(value));
+  if (normalizedStatuses.length) {
+    where.status = normalizedStatuses.length === 1 ? normalizedStatuses[0] : { [Op.in]: normalizedStatuses };
+    normalizedFilters.status = normalizedStatuses;
+  }
+
+  const normalizedPriorities = normalizeList(filters.priority).filter((value) => DISPUTE_PRIORITIES.includes(value));
+  if (normalizedPriorities.length) {
+    where.priority = normalizedPriorities.length === 1 ? normalizedPriorities[0] : { [Op.in]: normalizedPriorities };
+    normalizedFilters.priority = normalizedPriorities;
+  }
+
+  if (filters.assignedToId !== undefined) {
+    if (filters.assignedToId === null || filters.assignedToId === 'null' || filters.assignedToId === 'unassigned') {
+      where.assignedToId = null;
+      normalizedFilters.assignedToId = null;
+    } else {
+      const parsed = parseInteger(filters.assignedToId);
+      if (parsed != null) {
+        where.assignedToId = parsed;
+        normalizedFilters.assignedToId = parsed;
+      }
+    }
+  }
+
+  if (filters.openedById !== undefined) {
+    const parsed = parseInteger(filters.openedById);
+    if (parsed != null) {
+      where.openedById = parsed;
+      normalizedFilters.openedById = parsed;
+    }
+  }
+
+  if (!normalizedStatuses.length && (filters.openOnly === true || filters.openOnly === 'true')) {
+    where.status = { [Op.notIn]: ['settled', 'closed'] };
+    normalizedFilters.openOnly = true;
+  }
+
+  if (filters.reasonCode) {
+    const reason = String(filters.reasonCode).trim();
+    if (reason) {
+      where.reasonCode = reason;
+      normalizedFilters.reasonCode = reason;
+    }
+  }
+
+  const searchTerm = typeof filters.search === 'string' ? filters.search.trim() : '';
+  let requireTransactionJoin = true;
+  if (searchTerm) {
+    normalizedFilters.search = searchTerm;
+    const sanitized = searchTerm.replace(/[%_]/g, '\\$&');
+    const searchConditions = [
+      { summary: { [LIKE_OPERATOR]: `%${sanitized}%` } },
+      { reasonCode: { [LIKE_OPERATOR]: `%${sanitized}%` } },
+      { '$transaction.reference$': { [LIKE_OPERATOR]: `%${sanitized}%` } },
+    ];
+    if (/^#?\d+$/.test(searchTerm)) {
+      const numeric = parseInteger(searchTerm.replace('#', ''));
+      if (numeric != null) {
+        searchConditions.push({ id: numeric });
+      }
+    }
+    where[Op.or] = searchConditions;
+    requireTransactionJoin = true;
+  }
+
+  const normalizedTransactionStatuses = normalizeList(filters.transactionStatus).filter((value) =>
+    ESCROW_TRANSACTION_STATUSES.includes(value),
+  );
+  const transactionInclude = {
+    model: EscrowTransaction,
+    as: 'transaction',
+    attributes: [
+      'id',
+      'reference',
+      'status',
+      'type',
+      'amount',
+      'netAmount',
+      'currencyCode',
+      'scheduledReleaseAt',
+      'releasedAt',
+      'refundedAt',
+    ],
+    required: requireTransactionJoin || normalizedTransactionStatuses.length > 0,
+  };
+
+  if (normalizedTransactionStatuses.length) {
+    transactionInclude.where =
+      normalizedTransactionStatuses.length === 1
+        ? { status: normalizedTransactionStatuses[0] }
+        : { status: { [Op.in]: normalizedTransactionStatuses } };
+    normalizedFilters.transactionStatus = normalizedTransactionStatuses;
+  }
+
+  include.push(transactionInclude);
+  aggregateInclude.push({ ...transactionInclude, attributes: [], separate: undefined, limit: undefined });
+
+  include.push(
+    {
+      model: User,
+      as: 'openedBy',
+      attributes: ['id', 'firstName', 'lastName', 'email', 'avatarUrl'],
+    },
+    {
+      model: User,
+      as: 'assignedTo',
+      attributes: ['id', 'firstName', 'lastName', 'email', 'avatarUrl'],
+    },
+  );
+
+  return { where, include, aggregateInclude, normalizedFilters };
   const base = typeof record.toPublicObject === 'function' ? record.toPublicObject() : record;
   const transactionInstance = record.get?.('transaction') ?? record.transaction ?? null;
   const openedByInstance = record.get?.('openedBy') ?? record.openedBy ?? null;
@@ -888,6 +1183,52 @@ export async function createDisputeCase(payload, options = {}) {
       { transaction: trx },
     );
 
+    const detailedDispute = await DisputeCase.findByPk(dispute.id, {
+      transaction: trx,
+      include: [
+        {
+          model: EscrowTransaction,
+          as: 'transaction',
+          attributes: [
+            'id',
+            'reference',
+            'status',
+            'type',
+            'amount',
+            'netAmount',
+            'currencyCode',
+            'scheduledReleaseAt',
+            'releasedAt',
+            'refundedAt',
+          ],
+        },
+        {
+          model: User,
+          as: 'openedBy',
+          attributes: ['id', 'firstName', 'lastName', 'email', 'avatarUrl'],
+        },
+        {
+          model: User,
+          as: 'assignedTo',
+          attributes: ['id', 'firstName', 'lastName', 'email', 'avatarUrl'],
+        },
+        {
+          model: DisputeEvent,
+          as: 'events',
+          separate: true,
+          order: [['eventAt', 'ASC']],
+          include: [
+            {
+              model: User,
+              as: 'actor',
+              attributes: ['id', 'firstName', 'lastName', 'email', 'avatarUrl'],
+            },
+          ],
+        },
+      ],
+    });
+
+    return formatDisputeCaseRecord(detailedDispute, { includeEvents: true });
     const created = await DisputeCase.findByPk(dispute.id, {
       transaction: trx,
       include: buildDisputeInclude(),
@@ -997,6 +1338,596 @@ export async function appendDisputeEvent(disputeCaseId, payload, options = {}) {
       });
     }
 
+    await event.reload({
+      transaction: trx,
+      include: [
+        {
+          model: User,
+          as: 'actor',
+          attributes: ['id', 'firstName', 'lastName', 'email', 'avatarUrl'],
+        },
+      ],
+    });
+
+    const detailedDispute = await DisputeCase.findByPk(dispute.id, {
+      transaction: trx,
+      include: [
+        {
+          model: EscrowTransaction,
+          as: 'transaction',
+          attributes: [
+            'id',
+            'reference',
+            'status',
+            'type',
+            'amount',
+            'netAmount',
+            'currencyCode',
+            'scheduledReleaseAt',
+            'releasedAt',
+            'refundedAt',
+          ],
+        },
+        {
+          model: User,
+          as: 'openedBy',
+          attributes: ['id', 'firstName', 'lastName', 'email', 'avatarUrl'],
+        },
+        {
+          model: User,
+          as: 'assignedTo',
+          attributes: ['id', 'firstName', 'lastName', 'email', 'avatarUrl'],
+        },
+        {
+          model: DisputeEvent,
+          as: 'events',
+          separate: true,
+          order: [['eventAt', 'ASC']],
+          include: [
+            {
+              model: User,
+              as: 'actor',
+              attributes: ['id', 'firstName', 'lastName', 'email', 'avatarUrl'],
+            },
+          ],
+        },
+      ],
+    });
+
+    return {
+      dispute: formatDisputeCaseRecord(detailedDispute, { includeEvents: true }),
+      event: formatDisputeEventRecord(event),
+    };
+  });
+}
+
+export async function listDisputeCases(filters = {}) {
+  const rawPage = parseInteger(filters.page, 1) ?? 1;
+  const rawPageSize = parseInteger(filters.pageSize, 25) ?? 25;
+  const page = Math.max(1, rawPage);
+  const pageSize = Math.min(100, Math.max(1, rawPageSize));
+  const offset = (page - 1) * pageSize;
+
+  const { where, include, aggregateInclude, normalizedFilters } = buildDisputeQueryComponents(filters);
+
+  const sortBy = typeof filters.sortBy === 'string' ? filters.sortBy.trim().toLowerCase() : 'updatedat';
+  const rawDirection = typeof filters.sortDirection === 'string' ? filters.sortDirection.trim().toLowerCase() : filters.sortDirection;
+  const sortDirection = rawDirection === 'asc' || rawDirection === 'ascending' ? 'ASC' : 'DESC';
+
+  const order = [];
+  switch (sortBy) {
+    case 'priority':
+      order.push(['priority', sortDirection]);
+      order.push(['updatedAt', 'DESC']);
+      break;
+    case 'stage':
+      order.push(['stage', sortDirection]);
+      order.push(['updatedAt', 'DESC']);
+      break;
+    case 'status':
+      order.push(['status', sortDirection]);
+      order.push(['updatedAt', 'DESC']);
+      break;
+    case 'openedat':
+      order.push(['openedAt', sortDirection]);
+      break;
+    case 'amount':
+      order.push([{ model: EscrowTransaction, as: 'transaction' }, 'amount', sortDirection]);
+      order.push(['updatedAt', 'DESC']);
+      break;
+    default:
+      order.push(['updatedAt', sortDirection]);
+      break;
+  }
+
+  const eventInclude = {
+    model: DisputeEvent,
+    as: 'events',
+    attributes: ['id', 'actorId', 'actorType', 'actionType', 'notes', 'evidenceFileName', 'eventAt', 'createdAt', 'updatedAt'],
+    include: [
+      {
+        model: User,
+        as: 'actor',
+        attributes: ['id', 'firstName', 'lastName', 'email', 'avatarUrl'],
+      },
+    ],
+    separate: true,
+    limit: 1,
+    order: [['eventAt', 'DESC']],
+  };
+
+  const queryInclude = [...include, eventInclude];
+
+  const { rows, count } = await DisputeCase.findAndCountAll({
+    where,
+    include: queryInclude,
+    limit: pageSize,
+    offset,
+    order,
+    distinct: true,
+  });
+
+  const items = rows.map((record) => formatDisputeCaseRecord(record, { includeEvents: false }));
+  const totalPages = Math.max(1, Math.ceil(count / pageSize));
+
+  const aggregatesInclude = cloneInclude(aggregateInclude);
+  const now = new Date();
+  const soon = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+
+  const [
+    stageRows,
+    priorityRows,
+    statusRows,
+    overdueCount,
+    dueSoonCount,
+    unassignedCount,
+    awaitingCustomerCount,
+    totalHeldRaw,
+  ] = await Promise.all([
+    DisputeCase.findAll({
+      attributes: [
+        'stage',
+        [sequelize.fn('COUNT', sequelize.col('DisputeCase.id')), 'count'],
+      ],
+      where,
+      include: aggregatesInclude,
+      group: ['DisputeCase.stage'],
+      raw: true,
+    }),
+    DisputeCase.findAll({
+      attributes: [
+        'priority',
+        [sequelize.fn('COUNT', sequelize.col('DisputeCase.id')), 'count'],
+      ],
+      where,
+      include: aggregatesInclude,
+      group: ['DisputeCase.priority'],
+      raw: true,
+    }),
+    DisputeCase.findAll({
+      attributes: [
+        'status',
+        [sequelize.fn('COUNT', sequelize.col('DisputeCase.id')), 'count'],
+      ],
+      where,
+      include: aggregatesInclude,
+      group: ['DisputeCase.status'],
+      raw: true,
+    }),
+    DisputeCase.count({
+      where: combineWhere(where, {
+        status: { [Op.notIn]: ['settled', 'closed'] },
+        [Op.or]: [
+          { customerDeadlineAt: { [Op.lt]: now } },
+          { providerDeadlineAt: { [Op.lt]: now } },
+        ],
+      }),
+      include: aggregatesInclude,
+      distinct: true,
+    }),
+    DisputeCase.count({
+      where: combineWhere(where, {
+        status: { [Op.notIn]: ['settled', 'closed'] },
+        [Op.or]: [
+          { customerDeadlineAt: { [Op.between]: [now, soon] } },
+          { providerDeadlineAt: { [Op.between]: [now, soon] } },
+        ],
+      }),
+      include: aggregatesInclude,
+      distinct: true,
+    }),
+    DisputeCase.count({
+      where: combineWhere(where, {
+        assignedToId: null,
+        status: { [Op.notIn]: ['settled', 'closed'] },
+      }),
+      include: aggregatesInclude,
+      distinct: true,
+    }),
+    DisputeCase.count({
+      where: combineWhere(where, { status: 'awaiting_customer' }),
+      include: aggregatesInclude,
+      distinct: true,
+    }),
+    DisputeCase.findOne({
+      attributes: [[sequelize.fn('COALESCE', sequelize.fn('SUM', sequelize.col('transaction.amount')), 0), 'totalAmount']],
+      where: combineWhere(where, { status: { [Op.notIn]: ['settled', 'closed'] } }),
+      include: cloneInclude(aggregateInclude).map((item) =>
+        item.as === 'transaction' ? { ...item, required: true } : item,
+      ),
+      raw: true,
+    }),
+  ]);
+
+  const totalsByStage = stageRows.reduce((acc, row) => {
+    if (row.stage) {
+      acc[row.stage] = Number.parseInt(row.count, 10) || 0;
+    }
+    return acc;
+  }, {});
+
+  const totalsByPriority = priorityRows.reduce((acc, row) => {
+    if (row.priority) {
+      acc[row.priority] = Number.parseInt(row.count, 10) || 0;
+    }
+    return acc;
+  }, {});
+
+  const totalsByStatus = statusRows.reduce((acc, row) => {
+    if (row.status) {
+      acc[row.status] = Number.parseInt(row.count, 10) || 0;
+    }
+    return acc;
+  }, {});
+
+  const openCount = Object.entries(totalsByStatus).reduce((sum, [status, value]) => {
+    return ACTIVE_DISPUTE_STATUSES.has(status) ? sum + value : sum;
+  }, 0);
+
+  const totalHeldAmount = Number.parseFloat(totalHeldRaw?.totalAmount ?? 0);
+
+  return {
+    items,
+    pagination: {
+      page,
+      pageSize,
+      totalItems: count,
+      totalPages,
+    },
+    summary: {
+      totalsByStage,
+      totalsByPriority,
+      totalsByStatus,
+      openCount,
+      overdueCount,
+      dueSoonCount,
+      unassignedCount,
+      awaitingCustomerCount,
+      totalHeldAmount: Number.isFinite(totalHeldAmount) ? Number(totalHeldAmount.toFixed(2)) : 0,
+    },
+    filters: normalizedFilters,
+  };
+}
+
+export async function getDisputeCaseDetail(disputeCaseId) {
+  const id = parseInteger(disputeCaseId);
+  if (id == null) {
+    throw new ValidationError('A valid disputeCaseId is required');
+  }
+
+  const dispute = await DisputeCase.findByPk(id, {
+    include: [
+      {
+        model: EscrowTransaction,
+        as: 'transaction',
+        attributes: [
+          'id',
+          'reference',
+          'status',
+          'type',
+          'amount',
+          'netAmount',
+          'currencyCode',
+          'scheduledReleaseAt',
+          'releasedAt',
+          'refundedAt',
+        ],
+      },
+      {
+        model: User,
+        as: 'openedBy',
+        attributes: ['id', 'firstName', 'lastName', 'email', 'avatarUrl'],
+      },
+      {
+        model: User,
+        as: 'assignedTo',
+        attributes: ['id', 'firstName', 'lastName', 'email', 'avatarUrl'],
+      },
+      {
+        model: DisputeEvent,
+        as: 'events',
+        separate: true,
+        order: [['eventAt', 'ASC']],
+        include: [
+          {
+            model: User,
+            as: 'actor',
+            attributes: ['id', 'firstName', 'lastName', 'email', 'avatarUrl'],
+          },
+        ],
+      },
+    ],
+  });
+
+  if (!dispute) {
+    throw new NotFoundError('Dispute case not found');
+  }
+
+  return formatDisputeCaseRecord(dispute, { includeEvents: true });
+}
+
+export async function updateDisputeCase(disputeCaseId, payload, options = {}) {
+  const id = parseInteger(disputeCaseId);
+  if (id == null) {
+    throw new ValidationError('A valid disputeCaseId is required');
+  }
+
+  const {
+    actorId = null,
+    actorType = 'admin',
+    notes,
+    actionType,
+    stage,
+    status,
+    priority,
+    assignedToId,
+    reasonCode,
+    summary,
+    customerDeadlineAt,
+    providerDeadlineAt,
+    resolutionNotes,
+    metadata,
+    transactionResolution,
+  } = payload;
+
+  return withTransaction(options.transaction, async (trx) => {
+    const dispute = await DisputeCase.findByPk(id, {
+      transaction: trx,
+      lock: trx?.LOCK?.UPDATE,
+      include: [
+        {
+          model: EscrowTransaction,
+          as: 'transaction',
+          attributes: ['id', 'reference', 'status'],
+        },
+      ],
+    });
+
+    if (!dispute) {
+      throw new NotFoundError('Dispute case not found');
+    }
+
+    const updates = {};
+
+    if (stage !== undefined) {
+      if (!stage) {
+        throw new ValidationError('Stage cannot be empty');
+      }
+      if (!DISPUTE_STAGES.includes(stage)) {
+        throw new ValidationError(`Stage must be one of: ${DISPUTE_STAGES.join(', ')}`);
+      }
+      if (stage !== dispute.stage) {
+        updates.stage = stage;
+      }
+    }
+
+    if (status !== undefined) {
+      if (!status) {
+        throw new ValidationError('Status cannot be empty');
+      }
+      if (!DISPUTE_STATUSES.includes(status)) {
+        throw new ValidationError(`Status must be one of: ${DISPUTE_STATUSES.join(', ')}`);
+      }
+      if (status !== dispute.status) {
+        updates.status = status;
+        if (['settled', 'closed'].includes(status)) {
+          updates.resolvedAt = new Date();
+        } else if (dispute.resolvedAt) {
+          updates.resolvedAt = null;
+        }
+      }
+    }
+
+    if (priority !== undefined) {
+      if (!priority) {
+        throw new ValidationError('Priority cannot be empty');
+      }
+      if (!DISPUTE_PRIORITIES.includes(priority)) {
+        throw new ValidationError(`Priority must be one of: ${DISPUTE_PRIORITIES.join(', ')}`);
+      }
+      if (priority !== dispute.priority) {
+        updates.priority = priority;
+      }
+    }
+
+    if (assignedToId !== undefined) {
+      if (assignedToId === null || assignedToId === 'null' || assignedToId === 'unassigned') {
+        updates.assignedToId = null;
+      } else {
+        const parsedAssigned = parseInteger(assignedToId);
+        if (parsedAssigned == null) {
+          throw new ValidationError('assignedToId must be a numeric identifier or null');
+        }
+        updates.assignedToId = parsedAssigned;
+      }
+    }
+
+    if (reasonCode !== undefined) {
+      const normalizedReason = reasonCode == null ? null : String(reasonCode).trim();
+      if (!normalizedReason) {
+        throw new ValidationError('reasonCode cannot be empty');
+      }
+      if (normalizedReason !== dispute.reasonCode) {
+        updates.reasonCode = normalizedReason;
+      }
+    }
+
+    if (summary !== undefined) {
+      const normalizedSummary = summary == null ? '' : String(summary).trim();
+      if (!normalizedSummary) {
+        throw new ValidationError('summary cannot be empty');
+      }
+      if (normalizedSummary !== dispute.summary) {
+        updates.summary = normalizedSummary;
+      }
+    }
+
+    if (customerDeadlineAt !== undefined) {
+      updates.customerDeadlineAt = customerDeadlineAt ? parseDate(customerDeadlineAt) : null;
+    }
+
+    if (providerDeadlineAt !== undefined) {
+      updates.providerDeadlineAt = providerDeadlineAt ? parseDate(providerDeadlineAt) : null;
+    }
+
+    if (resolutionNotes !== undefined) {
+      updates.resolutionNotes = resolutionNotes ?? null;
+    }
+
+    if (metadata !== undefined) {
+      if (metadata === null) {
+        updates.metadata = null;
+      } else if (typeof metadata === 'object' && !Array.isArray(metadata)) {
+        updates.metadata = metadata;
+      } else {
+        throw new ValidationError('metadata must be an object or null');
+      }
+    }
+
+    if (Object.keys(updates).length) {
+      await dispute.update(updates, { transaction: trx });
+    }
+
+    if (transactionResolution) {
+      if (!['release', 'refund'].includes(transactionResolution)) {
+        throw new ValidationError('transactionResolution must be release or refund');
+      }
+      if (transactionResolution === 'release') {
+        await releaseEscrowTransaction(
+          dispute.escrowTransactionId,
+          { actorId, notes: 'Released from dispute workspace' },
+          { transaction: trx },
+        );
+      } else if (transactionResolution === 'refund') {
+        await refundEscrowTransaction(
+          dispute.escrowTransactionId,
+          { actorId, notes: 'Refunded from dispute workspace' },
+          { transaction: trx },
+        );
+      }
+    }
+
+    let eventRecord = null;
+    const eventMetadata = {};
+    if (Object.keys(updates).length) {
+      eventMetadata.updates = updates;
+    }
+    if (transactionResolution) {
+      eventMetadata.transactionResolution = transactionResolution;
+    }
+
+    if (notes || Object.keys(updates).length || transactionResolution) {
+      let derivedActionType = actionType;
+      if (!derivedActionType) {
+        if (transactionResolution) {
+          derivedActionType = 'system_notice';
+        } else if (updates.status) {
+          derivedActionType = 'status_change';
+        } else if (updates.stage) {
+          derivedActionType = 'stage_advanced';
+        } else if (updates.customerDeadlineAt || updates.providerDeadlineAt) {
+          derivedActionType = 'deadline_adjusted';
+        } else {
+          derivedActionType = 'comment';
+        }
+      }
+
+      eventRecord = await DisputeEvent.create(
+        {
+          disputeCaseId: dispute.id,
+          actorId: actorId ?? null,
+          actorType: actorType ?? 'admin',
+          actionType: derivedActionType,
+          notes: notes ?? null,
+          metadata: Object.keys(eventMetadata).length ? eventMetadata : null,
+        },
+        { transaction: trx },
+      );
+    }
+
+    const reloadedDispute = await DisputeCase.findByPk(dispute.id, {
+      transaction: trx,
+      include: [
+        {
+          model: EscrowTransaction,
+          as: 'transaction',
+          attributes: [
+            'id',
+            'reference',
+            'status',
+            'type',
+            'amount',
+            'netAmount',
+            'currencyCode',
+            'scheduledReleaseAt',
+            'releasedAt',
+            'refundedAt',
+          ],
+        },
+        {
+          model: User,
+          as: 'openedBy',
+          attributes: ['id', 'firstName', 'lastName', 'email', 'avatarUrl'],
+        },
+        {
+          model: User,
+          as: 'assignedTo',
+          attributes: ['id', 'firstName', 'lastName', 'email', 'avatarUrl'],
+        },
+        {
+          model: DisputeEvent,
+          as: 'events',
+          separate: true,
+          order: [['eventAt', 'ASC']],
+          include: [
+            {
+              model: User,
+              as: 'actor',
+              attributes: ['id', 'firstName', 'lastName', 'email', 'avatarUrl'],
+            },
+          ],
+        },
+      ],
+    });
+
+    let formattedEvent = null;
+    if (eventRecord) {
+      await eventRecord.reload({
+        transaction: trx,
+        include: [
+          {
+            model: User,
+            as: 'actor',
+            attributes: ['id', 'firstName', 'lastName', 'email', 'avatarUrl'],
+          },
+        ],
+      });
+      formattedEvent = formatDisputeEventRecord(eventRecord);
+    }
+
+    return {
+      dispute: formatDisputeCaseRecord(reloadedDispute, { includeEvents: true }),
+      event: formattedEvent,
     const { dispute: updatedDispute } = await getDisputeCaseById(disputeCaseId, { transaction: trx });
 
     return {
@@ -1927,6 +2858,8 @@ export default {
   createDisputeCase,
   appendDisputeEvent,
   listDisputeCases,
+  getDisputeCaseDetail,
+  updateDisputeCase,
   getDisputeCaseById,
   updateDisputeCase,
   getDisputeWorkflowSettings,

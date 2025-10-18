@@ -157,6 +157,26 @@ function buildSnapshot({
   };
 }
 
+function shouldBypassDependencyGuard() {
+  return process.env.DISABLE_RUNTIME_DEPENDENCY_GUARD === 'true' || process.env.NODE_ENV === 'test';
+}
+
+function buildBypassedSnapshot(dependency) {
+  return buildSnapshot({
+    dependency,
+    status: 'ok',
+    provider: 'bypassed',
+    reason: null,
+    metadata: { bypassed: true },
+  });
+}
+
+async function evaluatePaymentDependency({ forceRefresh = false, log } = {}) {
+  if (shouldBypassDependencyGuard()) {
+    const snapshot = buildBypassedSnapshot('paymentsGateway');
+    dependencyCache.payments.snapshot = snapshot;
+    dependencyCache.payments.expiresAt = Date.now() + CACHE_TTL_MS;
+    return snapshot;
 function isDependencyGuardDisabled() {
   return process.env.DISABLE_DEPENDENCY_GUARD === 'true' || process.env.NODE_ENV === 'test';
 }
@@ -303,6 +323,11 @@ async function evaluatePaymentDependency({ forceRefresh = false, log } = {}) {
 }
 
 async function evaluateComplianceDependency({ forceRefresh = false, log } = {}) {
+  if (shouldBypassDependencyGuard()) {
+    const snapshot = buildBypassedSnapshot('complianceProviders');
+    dependencyCache.compliance.snapshot = snapshot;
+    dependencyCache.compliance.expiresAt = Date.now() + CACHE_TTL_MS;
+    return snapshot;
   if (isDependencyGuardDisabled()) {
     return buildSnapshot({
       dependency: 'complianceProviders',

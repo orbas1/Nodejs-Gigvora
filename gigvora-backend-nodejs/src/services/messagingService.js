@@ -113,6 +113,18 @@ function sanitizeLabel(label) {
   const plain = label.get ? label.get({ plain: true }) : label;
   return {
     id: plain.id,
+    name: plain.name,
+    slug: plain.slug,
+    color: plain.color,
+    description: plain.description,
+    createdBy: plain.createdBy,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+}
+
+export function sanitizeParticipant(participant) {
     workspaceId: plain.workspaceId,
     name: plain.name,
     slug: plain.slug,
@@ -156,7 +168,7 @@ function sanitizeParticipant(participant) {
   };
 }
 
-function sanitizeThread(thread) {
+export function sanitizeThread(thread) {
   if (!thread) return null;
   const plain = thread.get({ plain: true });
   return {
@@ -190,7 +202,7 @@ function sanitizeAttachment(attachment) {
   };
 }
 
-function sanitizeMessage(message) {
+export function sanitizeMessage(message) {
   if (!message) return null;
   const base = message.toPublicObject();
   return {
@@ -223,7 +235,7 @@ function scheduleAutoReplies(threadId, message, senderId) {
     .catch(() => {});
 }
 
-function sanitizeSupportCase(supportCase) {
+export function sanitizeSupportCase(supportCase) {
   if (!supportCase) return null;
   const plain = supportCase.get ? supportCase.get({ plain: true }) : supportCase;
   const sanitizedMetadata = plain.metadata && typeof plain.metadata === 'object'

@@ -66,13 +66,6 @@ export async function downloadIdentityDocument({ key }) {
   return apiClient.get('/compliance/identity/documents', { params: { key } });
 }
 
-export default {
-  fetchIdentityVerification,
-  saveIdentityVerification,
-  submitIdentityVerification,
-  reviewIdentityVerification,
-  uploadIdentityDocument,
-  downloadIdentityDocument,
 export async function listIdentityVerifications(params = {}, { signal } = {}) {
   return apiClient.get('/agency/id-verifications', { params, signal });
 }
@@ -101,7 +94,13 @@ export async function updateIdentityVerificationSettings(payload, { signal } = {
   return apiClient.patch('/agency/id-verifications/settings', payload, { signal });
 }
 
-export default {
+const identityVerificationService = {
+  fetchIdentityVerification,
+  saveIdentityVerification,
+  submitIdentityVerification,
+  reviewIdentityVerification,
+  uploadIdentityDocument,
+  downloadIdentityDocument,
   listIdentityVerifications,
   fetchIdentityVerificationSummary,
   createIdentityVerification,
@@ -110,3 +109,5 @@ export default {
   fetchIdentityVerificationSettings,
   updateIdentityVerificationSettings,
 };
+
+export default identityVerificationService;

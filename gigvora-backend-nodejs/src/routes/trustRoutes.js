@@ -40,6 +40,7 @@ router.post('/disputes/templates', createDisputeTemplate);
 router.patch('/disputes/templates/:templateId', updateDisputeTemplate);
 router.delete('/disputes/templates/:templateId', deleteDisputeTemplate);
 router.post('/disputes', createDispute);
+router.get('/disputes', listDisputes);
 router.get('/disputes/:disputeId', getDispute);
 router.patch('/disputes/:disputeId', updateDispute);
 router.post('/disputes/:disputeId/events', appendDisputeEvent);

@@ -319,6 +319,7 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
       },
       { name: 'Insight', sectionId: 'employer-brand-workforce' },
       { name: 'Brand', sectionId: 'employer-brand-studio' },
+      { name: 'Pages studio', sectionId: 'pages-studio', href: '/dashboard/company/pages' },
       { name: 'Journeys', sectionId: 'employee-journeys' },
       { name: 'Governance', sectionId: 'settings-governance' },
     ],
@@ -332,6 +333,16 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
         sectionId: 'communications-inbox',
         href: '/dashboard/company/inbox',
         tags: ['messaging'],
+      },
+    ],
+  },
+  {
+    label: 'Finance',
+    items: [
+      {
+        name: 'Escrow',
+        sectionId: 'escrow-management',
+        href: '/dashboard/company/escrow',
       },
     ],
   },

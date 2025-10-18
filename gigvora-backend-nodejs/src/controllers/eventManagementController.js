@@ -2,7 +2,9 @@ import eventManagementService from '../services/eventManagementService.js';
 
 export async function listEventManagement(req, res) {
   const { userId } = req.params;
-  const includeArchived = req.query.includeArchived === 'true';
+  const includeArchivedParam = req.query.includeArchived;
+  const includeArchived =
+    includeArchivedParam === undefined ? undefined : includeArchivedParam === 'true';
   const limitParam = req.query.limit != null ? Number(req.query.limit) : undefined;
   const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : undefined;
   const payload = await eventManagementService.getUserEventManagement(userId, {
@@ -10,6 +12,18 @@ export async function listEventManagement(req, res) {
     limit,
   });
   res.json(payload);
+}
+
+export async function getSettings(req, res) {
+  const { userId } = req.params;
+  const settings = await eventManagementService.getWorkspaceSettings(userId);
+  res.json(settings);
+}
+
+export async function updateSettings(req, res) {
+  const { userId } = req.params;
+  const settings = await eventManagementService.updateWorkspaceSettings(userId, req.body ?? {});
+  res.json(settings);
 }
 
 export async function createEvent(req, res) {
@@ -168,4 +182,6 @@ export default {
   createChecklistItem,
   updateChecklistItem,
   deleteChecklistItem,
+  getSettings,
+  updateSettings,
 };

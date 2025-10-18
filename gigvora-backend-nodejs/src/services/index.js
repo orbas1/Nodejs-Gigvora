@@ -26,6 +26,7 @@ export { default as freelancerAllianceService } from './freelancerAllianceServic
 export { default as reputationService } from './reputationService.js';
 export { default as complianceLockerService } from './complianceLockerService.js';
 export { default as consentService } from './consentService.js';
+export { default as legalPolicyService } from './legalPolicyService.js';
 export { default as catalogInsightsService } from './catalogInsightsService.js';
 export { default as clientSuccessService } from './clientSuccessService.js';
 export { default as freelancerOrderPipelineService } from './freelancerOrderPipelineService.js';
@@ -45,3 +46,6 @@ export { default as careerDocumentService } from './careerDocumentService.js';
 export { default as creationStudioService } from './creationStudioService.js';
 export { default as runtimeMaintenanceService } from './runtimeMaintenanceService.js';
 export { default as runtimeObservabilityService } from './runtimeObservabilityService.js';
+export { default as adminMessagingService } from './adminMessagingService.js';
+export { default as adminUserService } from './adminUserService.js';
+export { default as gdprSettingsService } from './gdprSettingsService.js';

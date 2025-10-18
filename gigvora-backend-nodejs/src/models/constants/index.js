@@ -10,6 +10,16 @@ export const GROUP_VISIBILITIES = ['public', 'private', 'secret'];
 export const GROUP_MEMBER_POLICIES = ['open', 'request', 'invite'];
 export const GROUP_MEMBERSHIP_STATUSES = ['pending', 'active', 'invited', 'suspended'];
 export const GROUP_MEMBERSHIP_ROLES = ['owner', 'moderator', 'member', 'observer'];
+export const GROUP_POST_STATUSES = ['draft', 'scheduled', 'published', 'archived'];
+export const GROUP_POST_VISIBILITIES = ['public', 'members', 'admins'];
+
+export const PAGE_VISIBILITIES = ['public', 'members', 'private'];
+export const PAGE_MEMBER_ROLES = ['owner', 'admin', 'editor', 'moderator', 'author', 'viewer'];
+export const PAGE_MEMBER_STATUSES = ['active', 'invited', 'pending', 'suspended'];
+export const PAGE_POST_STATUSES = ['draft', 'scheduled', 'published', 'archived'];
+export const PAGE_POST_VISIBILITIES = ['public', 'followers', 'members', 'private'];
+
+export const COMMUNITY_INVITE_STATUSES = ['pending', 'accepted', 'declined', 'expired'];
 
 export const EMPLOYER_BRAND_SECTION_TYPES = [
   'culture_video',
@@ -29,6 +39,10 @@ export const CAREER_PATHING_STATUSES = ['draft', 'active', 'completed', 'paused'
 export const COMPLIANCE_POLICY_STATUSES = ['draft', 'active', 'under_review', 'archived'];
 export const COMPLIANCE_AUDIT_STATUSES = ['open', 'in_progress', 'completed', 'closed'];
 export const ACCESSIBILITY_AUDIT_STATUSES = ['pending', 'in_progress', 'remediation', 'verified'];
+
+export const LEGAL_DOCUMENT_CATEGORIES = ['terms', 'privacy', 'data_processing', 'cookie'];
+export const LEGAL_DOCUMENT_STATUSES = ['draft', 'active', 'archived'];
+export const LEGAL_DOCUMENT_VERSION_STATUSES = ['draft', 'in_review', 'approved', 'published', 'archived'];
 
 
 export const APPLICATION_TARGET_TYPES = ['job', 'gig', 'project', 'launchpad', 'volunteer'];
@@ -181,6 +195,14 @@ export const AGENCY_TIMELINE_DISTRIBUTION_CHANNELS = [
 ];
 export const ESCROW_ACCOUNT_STATUSES = ['pending', 'active', 'suspended', 'closed'];
 export const ESCROW_TRANSACTION_TYPES = ['project', 'gig', 'milestone', 'retainer'];
+export const ESCROW_RELEASE_POLICY_TYPES = [
+  'auto_release_after_hours',
+  'client_confirmation',
+  'milestone_approval',
+  'manual_review',
+];
+export const ESCROW_RELEASE_POLICY_STATUSES = ['draft', 'active', 'disabled'];
+export const ESCROW_FEE_TIER_STATUSES = ['active', 'inactive'];
 export const HEADHUNTER_INVITE_STATUSES = ['pending', 'accepted', 'declined', 'expired', 'revoked'];
 export const HEADHUNTER_BRIEF_STATUSES = ['draft', 'shared', 'in_progress', 'filled', 'closed'];
 export const HEADHUNTER_ASSIGNMENT_STATUSES = ['invited', 'accepted', 'submitted', 'shortlisted', 'placed', 'closed'];
@@ -208,6 +230,13 @@ export const ID_VERIFICATION_STATUSES = [
   'rejected',
   'expired',
 ];
+export const ID_VERIFICATION_EVENT_TYPES = [
+  'status_change',
+  'note',
+  'assignment',
+  'document_request',
+  'escalation',
+  'reminder',
 export const IDENTITY_VERIFICATION_EVENT_TYPES = [
   'submission_created',
   'status_changed',
@@ -290,6 +319,7 @@ export const AD_SURFACE_TYPES = [
   'admin_dashboard',
   'pipeline_dashboard',
 ];
+export const AD_SURFACE_LAYOUT_MODES = ['inline', 'hero', 'carousel', 'grid'];
 export const AD_POSITION_TYPES = ['hero', 'sidebar', 'inline', 'footer'];
 export const AD_KEYWORD_INTENTS = ['awareness', 'consideration', 'conversion', 'retention'];
 export const AD_OPPORTUNITY_TYPES = ['awareness', 'acquisition', 'retention', 'upsell'];
@@ -357,6 +387,9 @@ export const GIG_ORDER_ESCROW_STATUSES = [
 export const LEARNING_COURSE_DIFFICULTIES = ['beginner', 'intermediate', 'advanced', 'expert'];
 export const LEARNING_ENROLLMENT_STATUSES = ['not_started', 'in_progress', 'completed', 'archived'];
 export const PEER_MENTORING_STATUSES = ['requested', 'scheduled', 'completed', 'cancelled'];
+export const MENTORING_SESSION_NOTE_VISIBILITIES = ['internal', 'mentor', 'mentee', 'public'];
+export const MENTORING_SESSION_ACTION_STATUSES = ['pending', 'in_progress', 'completed', 'cancelled'];
+export const MENTORING_SESSION_ACTION_PRIORITIES = ['low', 'normal', 'high', 'urgent'];
 export const MENTORSHIP_ORDER_STATUSES = ['pending', 'active', 'completed', 'cancelled'];
 export const CERTIFICATION_STATUSES = ['active', 'expiring_soon', 'expired', 'revoked'];
 export const LAUNCHPAD_STATUSES = ['draft', 'recruiting', 'active', 'archived'];
@@ -676,6 +709,11 @@ export const FREELANCER_CALENDAR_RELATED_TYPES = [
   'other',
 ];
 export const CALENDAR_EVENT_SOURCES = ['manual', 'google', 'outlook', 'gigvora'];
+export const ADMIN_CALENDAR_SYNC_STATUSES = ['connected', 'syncing', 'needs_attention', 'disconnected'];
+export const ADMIN_CALENDAR_EVENT_STATUSES = ['draft', 'scheduled', 'published', 'cancelled'];
+export const ADMIN_CALENDAR_VISIBILITIES = ['internal', 'external', 'private'];
+export const ADMIN_CALENDAR_EVENT_TYPES = ['ops_review', 'training', 'launch', 'webinar', 'support', 'governance'];
+export const FOCUS_SESSION_TYPES = ['interview_prep', 'networking', 'application', 'deep_work', 'wellbeing'];
 export const CALENDAR_EVENT_VISIBILITIES = ['private', 'shared', 'public'];
 export const CALENDAR_DEFAULT_VIEWS = ['agenda', 'week', 'month'];
 export const FOCUS_SESSION_TYPES = [

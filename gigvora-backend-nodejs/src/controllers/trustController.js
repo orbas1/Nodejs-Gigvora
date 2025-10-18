@@ -45,6 +45,12 @@ export const appendDisputeEvent = asyncHandler(async (req, res) => {
 });
 
 export const listDisputes = asyncHandler(async (req, res) => {
+  const disputes = await trustService.listDisputeCases(req.query ?? {});
+  res.json({ disputes });
+});
+
+export const getDispute = asyncHandler(async (req, res) => {
+  const dispute = await trustService.getDisputeCaseDetail(req.params.disputeId);
   const result = await trustService.listDisputeCases(req.query ?? {});
   res.json(result);
 });
@@ -55,6 +61,8 @@ export const getDispute = asyncHandler(async (req, res) => {
 });
 
 export const updateDispute = asyncHandler(async (req, res) => {
+  const result = await trustService.updateDisputeCase(req.params.disputeId, req.body);
+  res.json(result);
   const dispute = await trustService.updateDisputeCase(Number.parseInt(req.params.disputeId, 10), req.body ?? {});
   res.json({ dispute });
 });

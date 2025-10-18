@@ -3,11 +3,19 @@ import DomainRegistry from '../domains/domainRegistry.js';
 import { domainMetadata } from '../domains/domainMetadata.js';
 import logger from '../utils/logger.js';
 import { PlatformSetting } from './platformSetting.js';
+import { SiteSetting, SitePage, SiteNavigationLink, SITE_PAGE_STATUSES } from './siteManagementModels.js';
 import { RuntimeSecurityAuditEvent } from './runtimeSecurityAuditEvent.js';
 export { AdminTreasuryPolicy, AdminFeeRule, AdminPayoutSchedule, AdminEscrowAdjustment } from './adminFinanceModels.js';
 import './agencyWorkforceModels.js';
 import { RbacPolicyAuditEvent } from './rbacPolicyAuditEvent.js';
 import { RuntimeAnnouncement } from './runtimeAnnouncement.js';
+import {
+  CompanyPage,
+  CompanyPageSection,
+  CompanyPageRevision,
+  CompanyPageCollaborator,
+  CompanyPageMedia,
+} from './companyPageModels.js';
 import {
   UserEvent,
   UserEventAgendaItem,
@@ -40,7 +48,6 @@ import {
   CREATION_STUDIO_VISIBILITIES,
 } from './creationStudioModels.js';
 
-import { UserConsent } from './consentModels.js';
 import { buildLocationDetails } from '../utils/location.js';
 
 import {
@@ -57,6 +64,32 @@ import {
 } from './blogModels.js';
 import { AgencyAiConfiguration, AgencyAutoBidTemplate } from './agencyAiModels.js';
 import {
+  AdminTimeline,
+  AdminTimelineEvent,
+  ADMIN_TIMELINE_EVENT_STATUSES,
+  ADMIN_TIMELINE_EVENT_TYPES,
+  ADMIN_TIMELINE_STATUSES,
+  ADMIN_TIMELINE_VISIBILITIES,
+  registerAdminTimelineAssociations,
+} from './adminTimelineModels.js';
+import {
+  JobApplication,
+  JobApplicationDocument,
+  JobApplicationInterview,
+  JobApplicationNote,
+  JobApplicationStageHistory,
+  JOB_APPLICATION_INTERVIEW_STATUSES,
+  JOB_APPLICATION_INTERVIEW_TYPES,
+  JOB_APPLICATION_PRIORITIES,
+  JOB_APPLICATION_SOURCES,
+  JOB_APPLICATION_STAGES,
+  JOB_APPLICATION_STATUSES,
+  JOB_APPLICATION_VISIBILITIES,
+} from './jobApplicationModels.js';
+import { User } from './messagingModels.js';
+import {
+  PROFILE_AVAILABILITY_STATUSES, PROFILE_APPRECIATION_TYPES, PROFILE_FOLLOWER_STATUSES, PROFILE_ENGAGEMENT_JOB_STATUSES,
+  GROUP_VISIBILITIES, GROUP_MEMBER_POLICIES, GROUP_MEMBERSHIP_STATUSES, GROUP_MEMBERSHIP_ROLES,
   PROFILE_AVAILABILITY_STATUSES,
   PROFILE_APPRECIATION_TYPES,
   PROFILE_FOLLOWER_STATUSES,
@@ -64,10 +97,28 @@ import {
   PROFILE_VISIBILITY_OPTIONS,
   PROFILE_NETWORK_VISIBILITY_OPTIONS,
   PROFILE_FOLLOWERS_VISIBILITY_OPTIONS,
-  GROUP_VISIBILITIES, GROUP_MEMBER_POLICIES, GROUP_MEMBERSHIP_STATUSES, GROUP_MEMBERSHIP_ROLES,
+  GROUP_VISIBILITIES, GROUP_MEMBER_POLICIES, GROUP_MEMBERSHIP_STATUSES, GROUP_MEMBERSHIP_ROLES, GROUP_POST_STATUSES,
+  GROUP_POST_VISIBILITIES, PAGE_VISIBILITIES, PAGE_MEMBER_ROLES, PAGE_MEMBER_STATUSES, PAGE_POST_STATUSES,
+  PAGE_POST_VISIBILITIES, COMMUNITY_INVITE_STATUSES,
   EMPLOYER_BRAND_SECTION_TYPES, EMPLOYER_BRAND_SECTION_STATUSES, EMPLOYER_BRAND_CAMPAIGN_STATUSES, WORKFORCE_COHORT_TYPES,
   INTERNAL_JOB_POSTING_STATUSES, EMPLOYEE_REFERRAL_STATUSES, CAREER_PATHING_STATUSES, COMPLIANCE_POLICY_STATUSES,
   COMPLIANCE_AUDIT_STATUSES, ACCESSIBILITY_AUDIT_STATUSES, APPLICATION_TARGET_TYPES, APPLICATION_STATUSES,
+  GROUP_VISIBILITIES,
+  GROUP_MEMBER_POLICIES,
+  GROUP_MEMBERSHIP_STATUSES,
+  GROUP_MEMBERSHIP_ROLES,
+  EMPLOYER_BRAND_SECTION_TYPES,
+  EMPLOYER_BRAND_SECTION_STATUSES,
+  EMPLOYER_BRAND_CAMPAIGN_STATUSES,
+  WORKFORCE_COHORT_TYPES,
+  INTERNAL_JOB_POSTING_STATUSES,
+  EMPLOYEE_REFERRAL_STATUSES,
+  CAREER_PATHING_STATUSES,
+  COMPLIANCE_POLICY_STATUSES,
+  COMPLIANCE_AUDIT_STATUSES,
+  ACCESSIBILITY_AUDIT_STATUSES,
+  APPLICATION_TARGET_TYPES,
+  APPLICATION_STATUSES,
   APPLICATION_REVIEW_STAGES,
   APPLICATION_REVIEW_DECISIONS,
   VOLUNTEER_APPLICATION_STATUSES,
@@ -75,6 +126,126 @@ import {
   VOLUNTEER_CONTRACT_STATUSES,
   VOLUNTEER_SPEND_CATEGORIES,
   AUTO_ASSIGN_STATUSES,
+  GIG_MILESTONE_STATUSES,
+  GIG_BUNDLE_STATUSES,
+  GIG_UPSELL_STATUSES,
+  GIG_CATALOG_STATUSES,
+  MESSAGE_CHANNEL_TYPES,
+  MESSAGE_THREAD_STATES,
+  MESSAGE_TYPES,
+  SUPPORT_CASE_STATUSES,
+  SUPPORT_CASE_PRIORITIES,
+  SUPPORT_PLAYBOOK_STAGES,
+  SUPPORT_PLAYBOOK_PERSONAS,
+  SUPPORT_PLAYBOOK_CHANNELS,
+  SUPPORT_CASE_PLAYBOOK_STATUSES,
+  SUPPORT_CASE_LINK_TYPES,
+  SUPPORT_CASE_SATISFACTION_SUBMITTER_TYPES,
+  SUPPORT_KNOWLEDGE_CATEGORIES,
+  SUPPORT_KNOWLEDGE_AUDIENCES,
+  NOTIFICATION_CATEGORIES,
+  NOTIFICATION_PRIORITIES,
+  NOTIFICATION_STATUSES,
+  DIGEST_FREQUENCIES,
+  PROSPECT_SIGNAL_INTENT_LEVELS,
+  PROSPECT_SEARCH_ALERT_STATUSES,
+  PROSPECT_SEARCH_ALERT_CHANNELS,
+  PROSPECT_SEARCH_ALERT_CADENCES,
+  PROSPECT_CAMPAIGN_STATUSES,
+  PROSPECT_CAMPAIGN_AB_TEST_GROUPS,
+  PROSPECT_TASK_STATUSES,
+  PROSPECT_TASK_PRIORITIES,
+  PROSPECT_NOTE_VISIBILITIES,
+  PROSPECT_RELOCATION_STATUSES,
+  ANALYTICS_ACTOR_TYPES,
+  PROVIDER_WORKSPACE_TYPES,
+  PROVIDER_WORKSPACE_MEMBER_ROLES,
+  PROVIDER_WORKSPACE_MEMBER_STATUSES,
+  PROVIDER_WORKSPACE_INVITE_STATUSES,
+  PROVIDER_CONTACT_NOTE_VISIBILITIES,
+  PARTNER_COMMISSION_STATUSES,
+  PARTNER_AGREEMENT_STATUSES,
+  PARTNER_COMPLIANCE_STATUSES,
+  PARTNER_COLLABORATION_EVENT_TYPES,
+  AGENCY_ALLIANCE_STATUSES,
+  AGENCY_ALLIANCE_TYPES,
+  AGENCY_ALLIANCE_MEMBER_ROLES,
+  AGENCY_ALLIANCE_MEMBER_STATUSES,
+  AGENCY_ALLIANCE_POD_TYPES,
+  AGENCY_ALLIANCE_POD_STATUSES,
+  AGENCY_ALLIANCE_RATE_CARD_STATUSES,
+  AGENCY_ALLIANCE_RATE_CARD_APPROVAL_STATUSES,
+  AGENCY_ALLIANCE_REVENUE_SPLIT_TYPES,
+  AGENCY_ALLIANCE_REVENUE_SPLIT_STATUSES,
+  AGENCY_COLLABORATION_STATUSES,
+  AGENCY_COLLABORATION_TYPES,
+  AGENCY_INVITATION_STATUSES,
+  AGENCY_RATE_CARD_STATUSES,
+  AGENCY_RATE_CARD_ITEM_UNIT_TYPES,
+  AGENCY_RETAINER_NEGOTIATION_STATUSES,
+  AGENCY_RETAINER_NEGOTIATION_STAGES,
+  AGENCY_RETAINER_EVENT_ACTOR_TYPES,
+  AGENCY_RETAINER_EVENT_TYPES,
+  AGENCY_MENTORING_SESSION_STATUSES,
+  AGENCY_MENTORING_PURCHASE_STATUSES,
+  AGENCY_MENTOR_PREFERENCE_LEVELS,
+  ESCROW_ACCOUNT_STATUSES,
+  ESCROW_TRANSACTION_TYPES,
+  AGENCY_TIMELINE_POST_STATUSES,
+  AGENCY_TIMELINE_VISIBILITIES,
+  AGENCY_TIMELINE_DISTRIBUTION_CHANNELS,
+  HEADHUNTER_INVITE_STATUSES,
+  HEADHUNTER_BRIEF_STATUSES,
+  HEADHUNTER_ASSIGNMENT_STATUSES,
+  HEADHUNTER_COMMISSION_STATUSES,
+  TALENT_POOL_TYPES,
+  TALENT_POOL_STATUSES,
+  TALENT_POOL_MEMBER_STATUSES,
+  TALENT_POOL_MEMBER_SOURCE_TYPES,
+  TALENT_POOL_ENGAGEMENT_TYPES,
+  AGENCY_BILLING_STATUSES,
+  ESCROW_TRANSACTION_STATUSES,
+  ID_VERIFICATION_STATUSES,
+  CORPORATE_VERIFICATION_STATUSES,
+  QUALIFICATION_CREDENTIAL_STATUSES,
+  WALLET_ACCOUNT_TYPES,
+  WALLET_ACCOUNT_STATUSES,
+  WALLET_LEDGER_ENTRY_TYPES,
+  ESCROW_INTEGRATION_PROVIDERS,
+  DISPUTE_STAGES,
+  DISPUTE_STATUSES,
+  DISPUTE_PRIORITIES,
+  DISPUTE_REASON_CODES,
+  DISPUTE_ACTION_TYPES,
+  DISPUTE_ACTOR_TYPES,
+  NETWORKING_SESSION_STATUSES,
+  WALLET_FUNDING_SOURCE_TYPES,
+  WALLET_FUNDING_SOURCE_STATUSES,
+  WALLET_TRANSFER_RULE_CADENCES,
+  WALLET_TRANSFER_RULE_STATUSES,
+  WALLET_TRANSFER_TYPES,
+  WALLET_TRANSFER_STATUSES,
+  NETWORKING_SESSION_ACCESS_TYPES,
+  NETWORKING_SESSION_VISIBILITIES,
+  NETWORKING_SESSION_SIGNUP_STATUSES,
+  NETWORKING_SESSION_SIGNUP_SOURCES,
+  NETWORKING_BUSINESS_CARD_STATUSES,
+  NETWORKING_ROTATION_STATUSES,
+  NETWORKING_SESSION_ORDER_STATUSES,
+  NETWORKING_CONNECTION_FOLLOW_STATUSES,
+  OPPORTUNITY_TAXONOMY_TYPES,
+  AD_TYPES,
+  NETWORKING_SIGNUP_PAYMENT_STATUSES,
+  NETWORKING_CONNECTION_STATUSES,
+  NETWORKING_CONNECTION_TYPES,
+  AD_STATUSES,
+  AD_PACING_MODES,
+  AD_OBJECTIVES,
+  AD_SURFACE_TYPES,
+  AD_POSITION_TYPES,
+  AD_KEYWORD_INTENTS,
+  AD_OPPORTUNITY_TYPES,
+  AD_COUPON_STATUSES,
   GIG_MILESTONE_STATUSES, GIG_BUNDLE_STATUSES,
   GIG_UPSELL_STATUSES, GIG_CATALOG_STATUSES, MESSAGE_CHANNEL_TYPES, MESSAGE_THREAD_STATES,
   MESSAGE_TYPES, SUPPORT_CASE_STATUSES, SUPPORT_CASE_PRIORITIES, SUPPORT_PLAYBOOK_STAGES,
@@ -90,12 +261,19 @@ import {
   AGENCY_ALLIANCE_POD_STATUSES, AGENCY_ALLIANCE_RATE_CARD_STATUSES, AGENCY_ALLIANCE_RATE_CARD_APPROVAL_STATUSES, AGENCY_ALLIANCE_REVENUE_SPLIT_TYPES,
   AGENCY_ALLIANCE_REVENUE_SPLIT_STATUSES, AGENCY_COLLABORATION_STATUSES, AGENCY_COLLABORATION_TYPES, AGENCY_INVITATION_STATUSES,
   AGENCY_RATE_CARD_STATUSES, AGENCY_RATE_CARD_ITEM_UNIT_TYPES, AGENCY_RETAINER_NEGOTIATION_STATUSES, AGENCY_RETAINER_NEGOTIATION_STAGES,
+  AGENCY_RETAINER_EVENT_ACTOR_TYPES, AGENCY_RETAINER_EVENT_TYPES, ESCROW_ACCOUNT_STATUSES, ESCROW_TRANSACTION_TYPES,
+  ESCROW_RELEASE_POLICY_TYPES, ESCROW_RELEASE_POLICY_STATUSES, ESCROW_FEE_TIER_STATUSES,
   AGENCY_RETAINER_EVENT_ACTOR_TYPES, AGENCY_RETAINER_EVENT_TYPES, AGENCY_MENTORING_SESSION_STATUSES, AGENCY_MENTORING_PURCHASE_STATUSES,
   AGENCY_MENTOR_PREFERENCE_LEVELS, ESCROW_ACCOUNT_STATUSES, ESCROW_TRANSACTION_TYPES,
   AGENCY_RETAINER_EVENT_ACTOR_TYPES, AGENCY_RETAINER_EVENT_TYPES, AGENCY_TIMELINE_POST_STATUSES,
   AGENCY_TIMELINE_VISIBILITIES, AGENCY_TIMELINE_DISTRIBUTION_CHANNELS, ESCROW_ACCOUNT_STATUSES, ESCROW_TRANSACTION_TYPES,
   HEADHUNTER_INVITE_STATUSES, HEADHUNTER_BRIEF_STATUSES, HEADHUNTER_ASSIGNMENT_STATUSES, HEADHUNTER_COMMISSION_STATUSES,
   TALENT_POOL_TYPES, TALENT_POOL_STATUSES, TALENT_POOL_MEMBER_STATUSES, TALENT_POOL_MEMBER_SOURCE_TYPES,
+  TALENT_POOL_ENGAGEMENT_TYPES,
+  AGENCY_BILLING_STATUSES,
+  ESCROW_TRANSACTION_STATUSES,
+  ID_VERIFICATION_STATUSES,
+  ID_VERIFICATION_EVENT_TYPES,
   TALENT_POOL_ENGAGEMENT_TYPES, AGENCY_BILLING_STATUSES, ESCROW_TRANSACTION_STATUSES, ID_VERIFICATION_STATUSES,
   IDENTITY_VERIFICATION_EVENT_TYPES,
   CORPORATE_VERIFICATION_STATUSES, QUALIFICATION_CREDENTIAL_STATUSES, WALLET_ACCOUNT_TYPES, WALLET_ACCOUNT_STATUSES,
@@ -106,6 +284,8 @@ import {
   ESCROW_INTEGRATION_PROVIDERS, DISPUTE_STAGES, DISPUTE_STATUSES,
   DISPUTE_PRIORITIES, DISPUTE_ACTION_TYPES, DISPUTE_ACTOR_TYPES, NETWORKING_SESSION_STATUSES,
   NETWORKING_SESSION_ACCESS_TYPES, NETWORKING_SESSION_VISIBILITIES, NETWORKING_SESSION_SIGNUP_STATUSES, NETWORKING_SESSION_SIGNUP_SOURCES,
+  NETWORKING_BUSINESS_CARD_STATUSES, NETWORKING_ROTATION_STATUSES, OPPORTUNITY_TAXONOMY_TYPES, AD_TYPES,
+  AD_STATUSES, AD_PACING_MODES, AD_OBJECTIVES, AD_SURFACE_TYPES, AD_SURFACE_LAYOUT_MODES,
   NETWORKING_BUSINESS_CARD_STATUSES, NETWORKING_ROTATION_STATUSES, NETWORKING_SESSION_ORDER_STATUSES,
   NETWORKING_CONNECTION_FOLLOW_STATUSES, OPPORTUNITY_TAXONOMY_TYPES, AD_TYPES,
   NETWORKING_BUSINESS_CARD_STATUSES, NETWORKING_ROTATION_STATUSES, NETWORKING_SIGNUP_PAYMENT_STATUSES,
@@ -115,7 +295,175 @@ import {
   AD_COUPON_DISCOUNT_TYPES,
   GIG_ORDER_REQUIREMENT_FORM_STATUSES,
   GIG_ORDER_ESCROW_STATUSES, LEARNING_COURSE_DIFFICULTIES, LEARNING_ENROLLMENT_STATUSES, PEER_MENTORING_STATUSES,
+  MENTORING_SESSION_NOTE_VISIBILITIES, MENTORING_SESSION_ACTION_STATUSES, MENTORING_SESSION_ACTION_PRIORITIES,
+  GIG_ORDER_ESCROW_STATUSES,
+  LEARNING_COURSE_DIFFICULTIES,
+  LEARNING_ENROLLMENT_STATUSES,
+  PEER_MENTORING_STATUSES,
   MENTORSHIP_ORDER_STATUSES,
+  CERTIFICATION_STATUSES,
+  LAUNCHPAD_STATUSES,
+  CLIENT_SUCCESS_PLAYBOOK_TRIGGERS,
+  CLIENT_SUCCESS_STEP_TYPES,
+  CLIENT_SUCCESS_STEP_CHANNELS,
+  CLIENT_SUCCESS_ENROLLMENT_STATUSES,
+  CLIENT_SUCCESS_EVENT_STATUSES,
+  CLIENT_SUCCESS_REFERRAL_STATUSES,
+  CLIENT_SUCCESS_REVIEW_NUDGE_STATUSES,
+  CLIENT_SUCCESS_AFFILIATE_STATUSES,
+  LAUNCHPAD_APPLICATION_STATUSES,
+  LAUNCHPAD_EMPLOYER_REQUEST_STATUSES,
+  LAUNCHPAD_PLACEMENT_STATUSES,
+  LAUNCHPAD_TARGET_TYPES,
+  LAUNCHPAD_OPPORTUNITY_SOURCES,
+  WORKSPACE_TEMPLATE_STATUSES,
+  TALENT_CANDIDATE_TYPES,
+  TALENT_CANDIDATE_STATUSES,
+  TALENT_INTERVIEW_STATUSES,
+  TALENT_OFFER_STATUSES,
+  PEOPLE_OPS_POLICY_STATUSES,
+  PEOPLE_OPS_PERFORMANCE_STATUSES,
+  PEOPLE_OPS_WELLBEING_RISKS,
+  INTERNAL_OPPORTUNITY_STATUSES,
+  INTERNAL_OPPORTUNITY_CATEGORIES,
+  INTERNAL_MATCH_STATUSES,
+  BRANDING_ASSET_TYPES,
+  BRANDING_ASSET_STATUSES,
+  BRANDING_APPROVAL_STATUSES,
+  EMPLOYER_BRAND_STORY_TYPES,
+  EMPLOYER_BRAND_STORY_STATUSES,
+  EMPLOYER_BENEFIT_CATEGORIES,
+  EMPLOYEE_JOURNEY_PROGRAM_TYPES,
+  EMPLOYEE_JOURNEY_HEALTH_STATUSES,
+  WORKSPACE_INTEGRATION_CATEGORIES,
+  WORKSPACE_INTEGRATION_STATUSES,
+  WORKSPACE_INTEGRATION_SYNC_FREQUENCIES,
+  WORKSPACE_INTEGRATION_SECRET_TYPES,
+  WORKSPACE_INTEGRATION_WEBHOOK_STATUSES,
+  WORKSPACE_INTEGRATION_AUDIT_EVENT_TYPES,
+  WORKSPACE_CALENDAR_CONNECTION_STATUSES,
+  CAREER_DOCUMENT_TYPES,
+  CAREER_DOCUMENT_STATUSES,
+  CAREER_DOCUMENT_VERSION_APPROVAL_STATUSES,
+  CAREER_DOCUMENT_COLLABORATOR_ROLES,
+  CAREER_DOCUMENT_EXPORT_FORMATS,
+  CAREER_DOCUMENT_ANALYTICS_VIEWER_TYPES,
+  CAREER_STORY_BLOCK_TONES,
+  CAREER_STORY_BLOCK_STATUSES,
+  CAREER_BRAND_ASSET_TYPES,
+  CAREER_BRAND_ASSET_STATUSES,
+  CAREER_BRAND_ASSET_APPROVAL_STATUSES,
+  CAREER_PIPELINE_STAGE_TYPES,
+  CAREER_PIPELINE_STAGE_OUTCOMES,
+  CAREER_OPPORTUNITY_FOLLOW_UP_STATUSES,
+  CAREER_COMPLIANCE_STATUSES,
+  CAREER_CANDIDATE_BRIEF_STATUSES,
+  CAREER_INTERVIEW_WORKSPACE_STATUSES,
+  CAREER_INTERVIEW_TASK_STATUSES,
+  CAREER_INTERVIEW_TASK_PRIORITIES,
+  CAREER_INTERVIEW_RECOMMENDATIONS,
+  JOB_INTERVIEW_TYPES,
+  JOB_INTERVIEW_STATUSES,
+  JOB_APPLICATION_FAVOURITE_PRIORITIES,
+  JOB_APPLICATION_RESPONSE_DIRECTIONS,
+  JOB_APPLICATION_RESPONSE_CHANNELS,
+  JOB_APPLICATION_RESPONSE_STATUSES,
+  CAREER_NUDGE_SEVERITIES,
+  CAREER_NUDGE_CHANNELS,
+  CAREER_OFFER_STATUSES,
+  CAREER_OFFER_DECISIONS,
+  CAREER_AUTO_APPLY_RULE_STATUSES,
+  CAREER_AUTO_APPLY_TEST_STATUSES,
+  WORKSPACE_TEMPLATE_VISIBILITIES,
+  WORKSPACE_TEMPLATE_STAGE_TYPES,
+  WORKSPACE_TEMPLATE_RESOURCE_TYPES,
+  EXECUTIVE_METRIC_CATEGORIES,
+  EXECUTIVE_METRIC_UNITS,
+  EXECUTIVE_METRIC_TRENDS,
+  EXECUTIVE_SCENARIO_TYPES,
+  EXECUTIVE_SCENARIO_DIMENSION_TYPES,
+  GOVERNANCE_RISK_CATEGORIES,
+  GOVERNANCE_RISK_STATUSES,
+  LEADERSHIP_RITUAL_CADENCES,
+  LEADERSHIP_DECISION_STATUSES,
+  LEADERSHIP_OKR_STATUSES,
+  LEADERSHIP_BRIEFING_STATUSES,
+  INNOVATION_INITIATIVE_STAGES,
+  INNOVATION_INITIATIVE_PRIORITIES,
+  INNOVATION_INITIATIVE_CATEGORIES,
+  INNOVATION_FUNDING_EVENT_TYPES,
+  GIG_ORDER_STATUSES,
+  GIG_ORDER_REQUIREMENT_STATUSES,
+  GIG_ORDER_REQUIREMENT_PRIORITIES,
+  GIG_ORDER_REVISION_WORKFLOW_STATUSES,
+  GIG_ORDER_REVISION_SEVERITIES,
+  GIG_ORDER_PAYOUT_STATUSES,
+  GIG_ORDER_ACTIVITY_TYPES,
+  PROJECT_BLUEPRINT_HEALTH_STATUSES,
+  PROJECT_SPRINT_STATUSES,
+  PROJECT_DEPENDENCY_TYPES,
+  PROJECT_DEPENDENCY_STATUSES,
+  PROJECT_DEPENDENCY_RISK_LEVELS,
+  PROJECT_RISK_STATUSES,
+  PROJECT_BILLING_TYPES,
+  PROJECT_BILLING_STATUSES,
+  CLIENT_PORTAL_STATUSES,
+  CLIENT_PORTAL_TIMELINE_STATUSES,
+  CLIENT_PORTAL_SCOPE_STATUSES,
+  CLIENT_PORTAL_DECISION_VISIBILITIES,
+  CLIENT_PORTAL_INSIGHT_TYPES,
+  CLIENT_PORTAL_INSIGHT_VISIBILITIES,
+  CLIENT_ENGAGEMENT_CONTRACT_STATUSES,
+  CLIENT_ENGAGEMENT_MILESTONE_KINDS,
+  CLIENT_ENGAGEMENT_MILESTONE_STATUSES,
+  CLIENT_ENGAGEMENT_PORTAL_STATUSES,
+  ENGAGEMENT_SCHEDULE_SCOPES,
+  ENGAGEMENT_SCHEDULE_VISIBILITIES,
+  ISSUE_RESOLUTION_CASE_STATUSES,
+  ISSUE_RESOLUTION_SEVERITIES,
+  ISSUE_RESOLUTION_PRIORITIES,
+  ISSUE_RESOLUTION_EVENT_TYPES,
+  FREELANCER_EXPERTISE_STATUSES,
+  FREELANCER_SUCCESS_TRENDS,
+  FREELANCER_TESTIMONIAL_STATUSES,
+  FREELANCER_HERO_BANNER_STATUSES,
+  FINANCE_VALUE_UNITS,
+  FINANCE_CHANGE_UNITS,
+  FINANCE_TRENDS,
+  FREELANCER_PAYOUT_STATUSES,
+  FREELANCER_TAX_ESTIMATE_STATUSES,
+  FREELANCER_FILING_STATUSES,
+  SPRINT_STATUSES,
+  SPRINT_TASK_STATUSES,
+  SPRINT_TASK_PRIORITIES,
+  SPRINT_RISK_IMPACTS,
+  SPRINT_RISK_STATUSES,
+  CHANGE_REQUEST_STATUSES,
+  COLLABORATION_SPACE_STATUSES,
+  COLLABORATION_PERMISSION_LEVELS,
+  COLLABORATION_PARTICIPANT_ROLES,
+  COLLABORATION_PARTICIPANT_STATUSES,
+  COLLABORATION_ROOM_TYPES,
+  COLLABORATION_ASSET_TYPES,
+  COLLABORATION_ASSET_STATUSES,
+  COLLABORATION_ANNOTATION_TYPES,
+  COLLABORATION_ANNOTATION_STATUSES,
+  COLLABORATION_REPOSITORY_STATUSES,
+  COLLABORATION_AI_SESSION_TYPES,
+  COLLABORATION_AI_SESSION_STATUSES,
+  DELIVERABLE_VAULT_WATERMARK_MODES,
+  DELIVERABLE_ITEM_STATUSES,
+  DELIVERABLE_ITEM_WATERMARK_MODES,
+  DELIVERABLE_ITEM_NDA_STATUSES,
+  DELIVERABLE_RETENTION_POLICIES,
+  FINANCE_REVENUE_TYPES,
+  FINANCE_REVENUE_STATUSES,
+  FINANCE_EXPENSE_STATUSES,
+  FINANCE_SAVINGS_STATUSES,
+  FINANCE_AUTOMATION_TYPES,
+  FINANCE_PAYOUT_STATUSES,
+  FINANCE_FORECAST_SCENARIO_TYPES,
+  FINANCE_TAX_EXPORT_STATUSES,
   CERTIFICATION_STATUSES, LAUNCHPAD_STATUSES, CLIENT_SUCCESS_PLAYBOOK_TRIGGERS, CLIENT_SUCCESS_STEP_TYPES,
   CLIENT_SUCCESS_STEP_CHANNELS, CLIENT_SUCCESS_ENROLLMENT_STATUSES, CLIENT_SUCCESS_EVENT_STATUSES, CLIENT_SUCCESS_REFERRAL_STATUSES,
   CLIENT_SUCCESS_REVIEW_NUDGE_STATUSES, CLIENT_SUCCESS_AFFILIATE_STATUSES, LAUNCHPAD_APPLICATION_STATUSES, LAUNCHPAD_EMPLOYER_REQUEST_STATUSES,
@@ -169,9 +517,10 @@ import {
   CALENDAR_INTEGRATION_STATUSES,
   CALENDAR_EVENT_TYPES,
   CALENDAR_EVENT_SOURCES,
-  FREELANCER_CALENDAR_EVENT_TYPES,
-  FREELANCER_CALENDAR_EVENT_STATUSES,
-  FREELANCER_CALENDAR_RELATED_TYPES,
+  ADMIN_CALENDAR_SYNC_STATUSES,
+  ADMIN_CALENDAR_EVENT_STATUSES,
+  ADMIN_CALENDAR_VISIBILITIES,
+  ADMIN_CALENDAR_EVENT_TYPES,
   FOCUS_SESSION_TYPES, ADVISOR_COLLABORATION_STATUSES, ADVISOR_COLLABORATION_MEMBER_ROLES, ADVISOR_COLLABORATION_MEMBER_STATUSES,
   DOCUMENT_ROOM_STATUSES, SUPPORT_AUTOMATION_STATUSES, COMPLIANCE_DOCUMENT_TYPES, COMPLIANCE_DOCUMENT_STATUSES,
   COMPLIANCE_REMINDER_STATUSES, COMPLIANCE_OBLIGATION_STATUSES, COMPLIANCE_STORAGE_PROVIDERS, REPUTATION_TESTIMONIAL_SOURCES,
@@ -180,6 +529,41 @@ import {
   PIPELINE_CAMPAIGN_STATUSES, PIPELINE_PROPOSAL_STATUSES, HEADHUNTER_PIPELINE_STAGE_TYPES, HEADHUNTER_PIPELINE_ITEM_STATUSES,
   HEADHUNTER_PIPELINE_NOTE_VISIBILITIES, HEADHUNTER_INTERVIEW_TYPES, HEADHUNTER_INTERVIEW_STATUSES, HEADHUNTER_PASS_ON_TARGET_TYPES,
   HEADHUNTER_PASS_ON_STATUSES, HEADHUNTER_CONSENT_STATUSES,
+  CALENDAR_EVENT_VISIBILITIES,
+  CALENDAR_DEFAULT_VIEWS,
+  FOCUS_SESSION_TYPES,
+  ADVISOR_COLLABORATION_STATUSES,
+  ADVISOR_COLLABORATION_MEMBER_ROLES,
+  ADVISOR_COLLABORATION_MEMBER_STATUSES,
+  FREELANCER_CALENDAR_EVENT_TYPES,
+  FREELANCER_CALENDAR_EVENT_STATUSES,
+  FREELANCER_CALENDAR_RELATED_TYPES,
+  DOCUMENT_ROOM_STATUSES,
+  SUPPORT_AUTOMATION_STATUSES,
+  COMPLIANCE_DOCUMENT_TYPES,
+  COMPLIANCE_DOCUMENT_STATUSES,
+  COMPLIANCE_REMINDER_STATUSES,
+  COMPLIANCE_OBLIGATION_STATUSES,
+  COMPLIANCE_STORAGE_PROVIDERS,
+  REPUTATION_TESTIMONIAL_SOURCES,
+  REPUTATION_TESTIMONIAL_STATUSES,
+  REPUTATION_SUCCESS_STORY_STATUSES,
+  REPUTATION_METRIC_TREND_DIRECTIONS,
+  REPUTATION_REVIEW_WIDGET_STATUSES,
+  PIPELINE_BOARD_GROUPINGS,
+  PIPELINE_STAGE_CATEGORIES,
+  PIPELINE_DEAL_STATUSES,
+  PIPELINE_FOLLOW_UP_STATUSES,
+  PIPELINE_CAMPAIGN_STATUSES,
+  PIPELINE_PROPOSAL_STATUSES,
+  HEADHUNTER_PIPELINE_STAGE_TYPES,
+  HEADHUNTER_PIPELINE_ITEM_STATUSES,
+  HEADHUNTER_PIPELINE_NOTE_VISIBILITIES,
+  HEADHUNTER_INTERVIEW_TYPES,
+  HEADHUNTER_INTERVIEW_STATUSES,
+  HEADHUNTER_PASS_ON_TARGET_TYPES,
+  HEADHUNTER_PASS_ON_STATUSES,
+  HEADHUNTER_CONSENT_STATUSES,
 } from './constants/index.js';
 import sequelizeClient from './sequelizeClient.js';
 
@@ -190,6 +574,17 @@ const sequelize = sequelizeClient;
 const dialect = sequelize.getDialect();
 const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB : DataTypes.JSON;
 
+export const VOLUNTEER_PROGRAM_STATUSES = ['draft', 'active', 'paused', 'archived'];
+export const VOLUNTEER_ROLE_STATUSES = ['draft', 'open', 'paused', 'filled', 'archived'];
+export const VOLUNTEER_SHIFT_STATUSES = ['planned', 'open', 'locked', 'complete', 'cancelled'];
+export const VOLUNTEER_ASSIGNMENT_STATUSES = [
+  'invited',
+  'confirmed',
+  'checked_in',
+  'checked_out',
+  'declined',
+  'no_show',
+];
 export const COMPANY_TIMELINE_EVENT_STATUSES = ['planned', 'in_progress', 'completed', 'blocked'];
 export const COMPANY_TIMELINE_POST_STATUSES = ['draft', 'scheduled', 'published', 'archived'];
 export const COMPANY_TIMELINE_POST_VISIBILITIES = ['workspace', 'public', 'private'];
@@ -206,11 +601,48 @@ export {
   BlogTag,
   BLOG_COMMENT_STATUSES,
 } from './blogModels.js';
+export {
+  CompanyPage,
+  CompanyPageSection,
+  CompanyPageRevision,
+  CompanyPageCollaborator,
+  CompanyPageMedia,
+  COMPANY_PAGE_STATUSES,
+  COMPANY_PAGE_VISIBILITIES,
+  COMPANY_PAGE_SECTION_VARIANTS,
+  COMPANY_PAGE_COLLABORATOR_ROLES,
+  COMPANY_PAGE_COLLABORATOR_STATUSES,
+  COMPANY_PAGE_MEDIA_TYPES,
+} from './companyPageModels.js';
 export * from './agencyJobModels.js';
-export { BlogCategory, BlogMedia, BlogPost, BlogPostMedia, BlogPostTag, BlogTag } from './blogModels.js';
 export { ConsentPolicy, ConsentPolicyVersion, UserConsent, ConsentAuditEvent } from './consentModels.js';
+export { LegalDocument, LegalDocumentVersion, LegalDocumentAuditEvent } from './legalDocumentModels.js';
 export { RuntimeSecurityAuditEvent } from './runtimeSecurityAuditEvent.js';
 export { RbacPolicyAuditEvent } from './rbacPolicyAuditEvent.js';
+export {
+  JobApplication,
+  JobApplicationDocument,
+  JobApplicationInterview,
+  JobApplicationNote,
+  JobApplicationStageHistory,
+  JOB_APPLICATION_INTERVIEW_STATUSES,
+  JOB_APPLICATION_INTERVIEW_TYPES,
+  JOB_APPLICATION_PRIORITIES,
+  JOB_APPLICATION_SOURCES,
+  JOB_APPLICATION_STAGES,
+  JOB_APPLICATION_STATUSES,
+  JOB_APPLICATION_VISIBILITIES,
+} from './jobApplicationModels.js';
+export { User } from './messagingModels.js';
+  AdminTimeline,
+  AdminTimelineEvent,
+  ADMIN_TIMELINE_STATUSES,
+  ADMIN_TIMELINE_VISIBILITIES,
+  ADMIN_TIMELINE_EVENT_STATUSES,
+  ADMIN_TIMELINE_EVENT_TYPES,
+} from './adminTimelineModels.js';
+export { SiteSetting, SitePage, SiteNavigationLink, SITE_PAGE_STATUSES } from './siteManagementModels.js';
+export { EmailSmtpConfig, EmailTemplate } from './emailModels.js';
 export {
   CreationStudioItem,
   CREATION_STUDIO_ITEM_TYPES,
@@ -221,6 +653,12 @@ export { AgencyAiConfiguration, AgencyAutoBidTemplate } from './agencyAiModels.j
 
 const PIPELINE_OWNER_TYPES = ['freelancer', 'agency', 'company'];
 const TWO_FACTOR_METHODS = ['email', 'app', 'sms'];
+export const USER_STATUSES = ['invited', 'active', 'suspended', 'archived'];
+const TWO_FACTOR_POLICY_ROLES = ['admin', 'staff', 'company', 'freelancer', 'agency', 'mentor', 'headhunter', 'all'];
+const TWO_FACTOR_ENFORCEMENT_LEVELS = ['optional', 'recommended', 'required'];
+const TWO_FACTOR_ENROLLMENT_METHODS = ['email', 'app', 'sms', 'security_key'];
+const TWO_FACTOR_ENROLLMENT_STATUSES = ['pending', 'active', 'revoked'];
+const TWO_FACTOR_BYPASS_STATUSES = ['pending', 'approved', 'denied', 'revoked'];
 const GIG_MEDIA_TYPES = ['image', 'video', 'embed', 'document'];
 const GIG_PREVIEW_DEVICE_TYPES = ['desktop', 'tablet', 'mobile'];
 const FEATURE_FLAG_ROLLOUT_TYPES = ['global', 'percentage', 'cohort'];
@@ -253,6 +691,14 @@ export const AGENCY_CREATION_VISIBILITIES = ['internal', 'restricted', 'public']
 export const AGENCY_CREATION_ASSET_TYPES = ['image', 'video', 'document', 'link'];
 export const AGENCY_CREATION_COLLABORATOR_STATUSES = ['invited', 'active', 'declined', 'removed'];
 
+JobApplication.belongsTo(User, { foreignKey: 'assignedRecruiterId', as: 'assignedRecruiter' });
+User.hasMany(JobApplication, { foreignKey: 'assignedRecruiterId', as: 'assignedApplications' });
+JobApplicationNote.belongsTo(User, { foreignKey: 'authorId', as: 'author' });
+User.hasMany(JobApplicationNote, { foreignKey: 'authorId', as: 'jobApplicationNotes' });
+JobApplicationDocument.belongsTo(User, { foreignKey: 'uploadedById', as: 'uploadedBy' });
+User.hasMany(JobApplicationDocument, { foreignKey: 'uploadedById', as: 'jobApplicationDocuments' });
+JobApplicationInterview.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+User.hasMany(JobApplicationInterview, { foreignKey: 'createdById', as: 'jobApplicationInterviews' });
 export const User = sequelize.define(
   'User',
   {
@@ -264,6 +710,11 @@ export const User = sequelize.define(
     location: { type: DataTypes.STRING(255), allowNull: true },
     geoLocation: { type: jsonType, allowNull: true },
     age: { type: DataTypes.INTEGER, allowNull: true, validate: { min: 13 } },
+    phoneNumber: { type: DataTypes.STRING(30), allowNull: true },
+    jobTitle: { type: DataTypes.STRING(120), allowNull: true },
+    avatarUrl: { type: DataTypes.STRING(2048), allowNull: true },
+    status: { type: DataTypes.ENUM(...USER_STATUSES), allowNull: false, defaultValue: 'active' },
+    lastSeenAt: { type: DataTypes.DATE, allowNull: true },
     userType: {
       type: DataTypes.ENUM('user', 'company', 'freelancer', 'agency', 'admin'),
       allowNull: false,
@@ -277,10 +728,16 @@ export const User = sequelize.define(
     },
     lastLoginAt: { type: DataTypes.DATE, allowNull: true },
     googleId: { type: DataTypes.STRING(255), allowNull: true },
+    memberships: { type: jsonType, allowNull: false, defaultValue: [] },
+    primaryDashboard: { type: DataTypes.STRING(60), allowNull: true },
   },
   {
     tableName: 'users',
-    indexes: [{ fields: ['email'] }],
+    indexes: [
+      { fields: ['email'] },
+      { fields: ['status'] },
+      { fields: ['userType'] },
+    ],
   },
 );
 
@@ -384,6 +841,7 @@ User.searchByTerm = async function searchByTerm(term) {
         { firstName: { [Op.iLike ?? Op.like]: `%${sanitizedTerm}%` } },
         { lastName: { [Op.iLike ?? Op.like]: `%${sanitizedTerm}%` } },
         { email: { [Op.iLike ?? Op.like]: `%${sanitizedTerm}%` } },
+        { phoneNumber: { [Op.iLike ?? Op.like]: `%${sanitizedTerm}%` } },
       ],
     },
     limit: 20,
@@ -424,6 +882,46 @@ UserLoginAudit.prototype.toPublicObject = function toPublicObject() {
     createdAt: plain.createdAt,
   };
 };
+
+export const UserRole = sequelize.define(
+  'UserRole',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    role: { type: DataTypes.STRING(80), allowNull: false },
+    assignedBy: { type: DataTypes.INTEGER, allowNull: true },
+    assignedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+  },
+  {
+    tableName: 'user_roles',
+    indexes: [
+      { unique: true, fields: ['userId', 'role'] },
+      { fields: ['role'] },
+    ],
+  },
+);
+
+export const UserNote = sequelize.define(
+  'UserNote',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    authorId: { type: DataTypes.INTEGER, allowNull: true },
+    visibility: {
+      type: DataTypes.ENUM('internal', 'restricted'),
+      allowNull: false,
+      defaultValue: 'internal',
+    },
+    body: { type: DataTypes.TEXT, allowNull: false },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'user_notes',
+    indexes: [
+      { fields: ['userId'] },
+      { fields: ['authorId'] },
+      { fields: ['createdAt'] },
+    ],
+  },
+);
 
 export const Profile = sequelize.define(
   'Profile',
@@ -589,6 +1087,49 @@ export const ProfileEngagementJob = sequelize.define(
     ],
   },
 );
+
+const PROFILE_ADMIN_NOTE_VISIBILITIES = ['internal', 'shared'];
+
+export const ProfileAdminNote = sequelize.define(
+  'ProfileAdminNote',
+  {
+    profileId: { type: DataTypes.INTEGER, allowNull: false },
+    authorId: { type: DataTypes.INTEGER, allowNull: true },
+    visibility: {
+      type: DataTypes.ENUM(...PROFILE_ADMIN_NOTE_VISIBILITIES),
+      allowNull: false,
+      defaultValue: 'internal',
+      validate: { isIn: [PROFILE_ADMIN_NOTE_VISIBILITIES] },
+    },
+    pinned: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    body: { type: DataTypes.TEXT, allowNull: false },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'profile_admin_notes',
+    defaultScope: {
+      order: [
+        ['pinned', 'DESC'],
+        ['createdAt', 'DESC'],
+      ],
+    },
+  },
+);
+
+ProfileAdminNote.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    profileId: plain.profileId,
+    authorId: plain.authorId ?? null,
+    visibility: plain.visibility,
+    pinned: Boolean(plain.pinned),
+    body: plain.body,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt ? new Date(plain.createdAt).toISOString() : null,
+    updatedAt: plain.updatedAt ? new Date(plain.updatedAt).toISOString() : null,
+  };
+};
 
 export const CompanyProfile = sequelize.define(
   'CompanyProfile',
@@ -1176,6 +1717,50 @@ IdentityVerification.prototype.toPublicObject = function toPublicObject() {
 
 export const IdentityVerificationEvent = sequelize.define(
   'IdentityVerificationEvent',
+  {
+    identityVerificationId: { type: DataTypes.INTEGER, allowNull: false },
+    eventType: {
+      type: DataTypes.ENUM(...ID_VERIFICATION_EVENT_TYPES),
+      allowNull: false,
+      defaultValue: 'note',
+      validate: { isIn: [ID_VERIFICATION_EVENT_TYPES] },
+    },
+    actorId: { type: DataTypes.INTEGER, allowNull: true },
+    actorRole: { type: DataTypes.STRING(80), allowNull: true },
+    fromStatus: { type: DataTypes.STRING(60), allowNull: true },
+    toStatus: { type: DataTypes.STRING(60), allowNull: true },
+    note: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'identity_verification_events',
+    indexes: [
+      { fields: ['identityVerificationId'] },
+      { fields: ['eventType'] },
+      { fields: ['createdAt'] },
+    ],
+  },
+);
+
+IdentityVerificationEvent.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    identityVerificationId: plain.identityVerificationId,
+    eventType: plain.eventType,
+    actorId: plain.actorId,
+    actorRole: plain.actorRole,
+    fromStatus: plain.fromStatus,
+    toStatus: plain.toStatus,
+    note: plain.note,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const CorporateVerification = sequelize.define(
+  'CorporateVerification',
   {
     identityVerificationId: { type: DataTypes.INTEGER, allowNull: false },
     eventType: {
@@ -4023,6 +4608,63 @@ export const SprintTaskDependency = sequelize.define(
   { tableName: 'sprint_task_dependencies' },
 );
 
+Job.searchByTerm = async function searchByTerm(term) {
+  if (!term) return [];
+  const sanitizedTerm = term.trim();
+  if (!sanitizedTerm) return [];
+
+  return Job.findAll({
+    where: { title: { [Op.iLike ?? Op.like]: `%${sanitizedTerm}%` } },
+    limit: 20,
+    order: [['title', 'ASC']],
+  });
+};
+
+export const JobPostAdminDetail = sequelize.define(
+  'JobPostAdminDetail',
+  {
+    jobId: { type: DataTypes.INTEGER, allowNull: false },
+    slug: { type: DataTypes.STRING(160), allowNull: false, unique: true },
+    status: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'draft' },
+    visibility: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'public' },
+    workflowStage: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'draft' },
+    approvalStatus: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'pending_review' },
+    approvalNotes: { type: DataTypes.TEXT, allowNull: true },
+    applicationUrl: { type: DataTypes.STRING(2048), allowNull: true },
+    applicationEmail: { type: DataTypes.STRING(255), allowNull: true },
+    applicationInstructions: { type: DataTypes.TEXT, allowNull: true },
+    salaryMin: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    salaryMax: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    currency: { type: DataTypes.STRING(3), allowNull: true },
+    compensationType: { type: DataTypes.STRING(40), allowNull: true },
+    workplaceType: { type: DataTypes.STRING(40), allowNull: true },
+    contractType: { type: DataTypes.STRING(40), allowNull: true },
+    experienceLevel: { type: DataTypes.STRING(40), allowNull: true },
+    department: { type: DataTypes.STRING(120), allowNull: true },
+    team: { type: DataTypes.STRING(120), allowNull: true },
+    hiringManagerName: { type: DataTypes.STRING(120), allowNull: true },
+    hiringManagerEmail: { type: DataTypes.STRING(255), allowNull: true },
+    recruiterName: { type: DataTypes.STRING(120), allowNull: true },
+    recruiterEmail: { type: DataTypes.STRING(255), allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    benefits: { type: jsonType, allowNull: true },
+    responsibilities: { type: jsonType, allowNull: true },
+    requirements: { type: jsonType, allowNull: true },
+    attachments: { type: jsonType, allowNull: true },
+    promotionFlags: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    publishedAt: { type: DataTypes.DATE, allowNull: true },
+    expiresAt: { type: DataTypes.DATE, allowNull: true },
+    archivedAt: { type: DataTypes.DATE, allowNull: true },
+    archiveReason: { type: DataTypes.STRING(255), allowNull: true },
+    externalReference: { type: DataTypes.STRING(120), allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  { tableName: 'job_post_admin_details' },
+);
+
+CommunitySpotlight.prototype.toPublicObject = function toPublicObject() {
 SprintTaskDependency.prototype.toPublicObject = function toPublicObject() {
   const plain = this.get({ plain: true });
   return {
@@ -8183,6 +8825,31 @@ VolunteerContractSpend.prototype.toPublicObject = function toPublicObject() {
 export const VolunteerContractReview = sequelize.define(
   'VolunteerContractReview',
   {
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    organization: { type: DataTypes.STRING(255), allowNull: false },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    description: { type: DataTypes.TEXT, allowNull: false },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    geoLocation: { type: jsonType, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...VOLUNTEER_ROLE_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [VOLUNTEER_ROLE_STATUSES] },
+    },
+    remoteType: { type: DataTypes.STRING(20), allowNull: true },
+    commitmentHours: { type: DataTypes.DECIMAL(6, 2), allowNull: true },
+    applicationUrl: { type: DataTypes.STRING(500), allowNull: true },
+    applicationDeadline: { type: DataTypes.DATE, allowNull: true },
+    spots: { type: DataTypes.INTEGER, allowNull: true },
+    skills: { type: jsonType, allowNull: true },
+    requirements: { type: jsonType, allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    imageUrl: { type: DataTypes.STRING(500), allowNull: true },
+    programId: { type: DataTypes.INTEGER, allowNull: true },
+    publishedAt: { type: DataTypes.DATE, allowNull: true },
+    accessRoles: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
     contractId: { type: DataTypes.INTEGER, allowNull: false },
     reviewerId: { type: DataTypes.INTEGER, allowNull: false },
     rating: { type: DataTypes.INTEGER, allowNull: false, validate: { min: 1, max: 5 } },
@@ -8205,6 +8872,21 @@ export const VolunteerContractReview = sequelize.define(
   },
 );
 
+Volunteering.searchByTerm = async function searchByTerm(term, options = {}) {
+  if (!term) return [];
+  const sanitizedTerm = term.trim();
+  if (!sanitizedTerm) return [];
+
+  const status = options.status && VOLUNTEER_ROLE_STATUSES.includes(options.status) ? options.status : null;
+
+  return Volunteering.findAll({
+    where: {
+      ...(status ? { status } : {}),
+      title: { [Op.iLike ?? Op.like]: `%${sanitizedTerm}%` },
+    },
+    limit: 20,
+    order: [['title', 'ASC']],
+  });
 VolunteerContractReview.prototype.toPublicObject = function toPublicObject() {
   const plain = this.get({ plain: true });
   return {
@@ -8221,6 +8903,89 @@ VolunteerContractReview.prototype.toPublicObject = function toPublicObject() {
     updatedAt: plain.updatedAt,
   };
 };
+
+export const VolunteerProgram = sequelize.define(
+  'VolunteerProgram',
+  {
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...VOLUNTEER_PROGRAM_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [VOLUNTEER_PROGRAM_STATUSES] },
+    },
+    contactEmail: { type: DataTypes.STRING(255), allowNull: true },
+    contactPhone: { type: DataTypes.STRING(40), allowNull: true },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    startsAt: { type: DataTypes.DATE, allowNull: true },
+    endsAt: { type: DataTypes.DATE, allowNull: true },
+    maxVolunteers: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'volunteer_programs' },
+);
+
+export const VolunteerShift = sequelize.define(
+  'VolunteerShift',
+  {
+    programId: { type: DataTypes.INTEGER, allowNull: true },
+    roleId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(160), allowNull: false },
+    shiftDate: { type: DataTypes.DATEONLY, allowNull: false },
+    startTime: { type: DataTypes.TIME, allowNull: true },
+    endTime: { type: DataTypes.TIME, allowNull: true },
+    timezone: { type: DataTypes.STRING(120), allowNull: true },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    requirements: { type: jsonType, allowNull: true },
+    capacity: { type: DataTypes.INTEGER, allowNull: true },
+    reserved: { type: DataTypes.INTEGER, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...VOLUNTEER_SHIFT_STATUSES),
+      allowNull: false,
+      defaultValue: 'planned',
+      validate: { isIn: [VOLUNTEER_SHIFT_STATUSES] },
+    },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  { tableName: 'volunteer_shifts' },
+);
+
+export const VolunteerAssignment = sequelize.define(
+  'VolunteerAssignment',
+  {
+    shiftId: { type: DataTypes.INTEGER, allowNull: false },
+    volunteerId: { type: DataTypes.INTEGER, allowNull: true },
+    fullName: { type: DataTypes.STRING(160), allowNull: true },
+    email: { type: DataTypes.STRING(255), allowNull: true },
+    phone: { type: DataTypes.STRING(40), allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...VOLUNTEER_ASSIGNMENT_STATUSES),
+      allowNull: false,
+      defaultValue: 'invited',
+      validate: { isIn: [VOLUNTEER_ASSIGNMENT_STATUSES] },
+    },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    checkInAt: { type: DataTypes.DATE, allowNull: true },
+    checkOutAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'volunteer_assignments' },
+);
+
+VolunteerProgram.hasMany(Volunteering, { as: 'roles', foreignKey: 'programId' });
+Volunteering.belongsTo(VolunteerProgram, { as: 'program', foreignKey: 'programId' });
+
+VolunteerProgram.hasMany(VolunteerShift, { as: 'shifts', foreignKey: 'programId' });
+VolunteerShift.belongsTo(VolunteerProgram, { as: 'program', foreignKey: 'programId' });
+
+Volunteering.hasMany(VolunteerShift, { as: 'shifts', foreignKey: 'roleId' });
+VolunteerShift.belongsTo(Volunteering, { as: 'role', foreignKey: 'roleId' });
+
+VolunteerShift.hasMany(VolunteerAssignment, { as: 'assignments', foreignKey: 'shiftId' });
+VolunteerAssignment.belongsTo(VolunteerShift, { as: 'shift', foreignKey: 'shiftId' });
+VolunteerAssignment.belongsTo(User, { as: 'volunteer', foreignKey: 'volunteerId' });
 
 export const OpportunityTaxonomy = sequelize.define(
   'OpportunityTaxonomy',
@@ -8553,6 +9318,61 @@ AdPlacement.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+export const AdSurfaceSetting = sequelize.define(
+  'AdSurfaceSetting',
+  {
+    surface: {
+      type: DataTypes.STRING(80),
+      allowNull: false,
+      unique: true,
+      validate: { isIn: [AD_SURFACE_TYPES] },
+    },
+    name: { type: DataTypes.STRING(120), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    heroImageUrl: { type: DataTypes.STRING(1024), allowNull: true },
+    layoutMode: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'inline',
+      validate: { isIn: [AD_SURFACE_LAYOUT_MODES] },
+    },
+    isActive: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    supportsCoupons: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    placementLimit: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 3 },
+    defaultPosition: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'inline',
+      validate: { isIn: [AD_POSITION_TYPES] },
+    },
+    metadata: { type: jsonType, allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  { tableName: 'ad_surface_settings' },
+);
+
+AdSurfaceSetting.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    surface: plain.surface,
+    name: plain.name,
+    description: plain.description ?? null,
+    heroImageUrl: plain.heroImageUrl ?? null,
+    layoutMode: plain.layoutMode,
+    isActive: Boolean(plain.isActive),
+    supportsCoupons: Boolean(plain.supportsCoupons),
+    placementLimit: Number(plain.placementLimit ?? 0),
+    defaultPosition: plain.defaultPosition,
+    metadata: plain.metadata ?? null,
+    createdById: plain.createdById ?? null,
+    updatedById: plain.updatedById ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 export const AdCoupon = sequelize.define(
   'AdCoupon',
   {
@@ -8695,6 +9515,22 @@ function normalizeGroupColour(value) {
   return /^#([0-9a-f]{6})$/.test(colour) ? colour : '#2563eb';
 }
 
+function slugifyCommunityContent(value, fallback = 'post') {
+  return slugifyGroup(value, fallback);
+}
+
+function slugifyPage(value, fallback = 'page') {
+  return slugifyGroup(value, fallback);
+}
+
+function normalizePageColour(value) {
+  if (!value) {
+    return '#0f172a';
+  }
+  const colour = value.toString().trim().toLowerCase();
+  return /^#([0-9a-f]{6})$/.test(colour) ? colour : '#0f172a';
+}
+
 export const Group = sequelize.define(
   'Group',
   {
@@ -8771,6 +9607,251 @@ GroupMembership.addHook('beforeSave', (membership) => {
   }
 });
 
+export const GroupInvite = sequelize.define(
+  'GroupInvite',
+  {
+    groupId: { type: DataTypes.INTEGER, allowNull: false },
+    email: { type: DataTypes.STRING(255), allowNull: false, validate: { isEmail: true } },
+    role: {
+      type: DataTypes.ENUM(...GROUP_MEMBERSHIP_ROLES),
+      allowNull: false,
+      defaultValue: 'member',
+      validate: { isIn: [GROUP_MEMBERSHIP_ROLES] },
+    },
+    status: {
+      type: DataTypes.ENUM(...COMMUNITY_INVITE_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+      validate: { isIn: [COMMUNITY_INVITE_STATUSES] },
+    },
+    token: { type: DataTypes.UUID, allowNull: false, defaultValue: DataTypes.UUIDV4 },
+    invitedById: { type: DataTypes.INTEGER, allowNull: true },
+    message: { type: DataTypes.TEXT, allowNull: true },
+    expiresAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'group_invites' },
+);
+
+GroupInvite.addHook('beforeValidate', (invite) => {
+  if (!invite) return;
+  if (invite.email) {
+    invite.email = invite.email.toString().trim().toLowerCase();
+  }
+});
+
+export const GroupPost = sequelize.define(
+  'GroupPost',
+  {
+    groupId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    slug: { type: DataTypes.STRING(160), allowNull: false, unique: true },
+    summary: { type: DataTypes.STRING(280), allowNull: true },
+    content: { type: DataTypes.TEXT, allowNull: false },
+    attachments: { type: jsonType, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...GROUP_POST_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [GROUP_POST_STATUSES] },
+    },
+    visibility: {
+      type: DataTypes.ENUM(...GROUP_POST_VISIBILITIES),
+      allowNull: false,
+      defaultValue: 'members',
+      validate: { isIn: [GROUP_POST_VISIBILITIES] },
+    },
+    scheduledAt: { type: DataTypes.DATE, allowNull: true },
+    publishedAt: { type: DataTypes.DATE, allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: false },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'group_posts' },
+);
+
+GroupPost.addHook('beforeValidate', (post) => {
+  if (!post) return;
+  const base = slugifyCommunityContent(post.slug || post.title, 'group-post');
+  if (post.isNewRecord || !post.slug) {
+    const uniqueSuffix = Math.random().toString(36).slice(2, 8);
+    post.slug = `${base}-${uniqueSuffix}`.slice(0, 160);
+  } else {
+    post.slug = base.slice(0, 160);
+  }
+});
+
+GroupPost.addHook('beforeSave', (post) => {
+  if (!post) return;
+  if (post.status === 'published' && !post.publishedAt) {
+    post.publishedAt = new Date();
+  }
+  if (post.status !== 'published' && post.publishedAt && post.changed('status')) {
+    post.publishedAt = null;
+  }
+});
+
+export const Page = sequelize.define(
+  'Page',
+  {
+    name: { type: DataTypes.STRING(255), allowNull: false },
+    slug: { type: DataTypes.STRING(120), allowNull: false, unique: true },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    category: { type: DataTypes.STRING(120), allowNull: true },
+    websiteUrl: { type: DataTypes.STRING(255), allowNull: true },
+    contactEmail: { type: DataTypes.STRING(255), allowNull: true },
+    visibility: {
+      type: DataTypes.ENUM(...PAGE_VISIBILITIES),
+      allowNull: false,
+      defaultValue: 'public',
+      validate: { isIn: [PAGE_VISIBILITIES] },
+    },
+    avatarColor: { type: DataTypes.STRING(7), allowNull: false, defaultValue: '#0f172a' },
+    bannerImageUrl: { type: DataTypes.STRING(255), allowNull: true },
+    callToAction: { type: DataTypes.STRING(255), allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+    settings: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pages' },
+);
+
+Page.addHook('beforeValidate', (page) => {
+  if (!page) return;
+  if (page.name && !page.slug) {
+    page.slug = slugifyPage(page.name);
+  }
+  if (page.slug) {
+    page.slug = slugifyPage(page.slug);
+  }
+  if (page.contactEmail) {
+    page.contactEmail = page.contactEmail.toString().trim().toLowerCase();
+  }
+  page.avatarColor = normalizePageColour(page.avatarColor);
+});
+
+Page.addHook('beforeSave', (page) => {
+  if (!page) return;
+  page.avatarColor = normalizePageColour(page.avatarColor);
+});
+
+export const PageMembership = sequelize.define(
+  'PageMembership',
+  {
+    pageId: { type: DataTypes.INTEGER, allowNull: false },
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    role: {
+      type: DataTypes.ENUM(...PAGE_MEMBER_ROLES),
+      allowNull: false,
+      defaultValue: 'viewer',
+      validate: { isIn: [PAGE_MEMBER_ROLES] },
+    },
+    status: {
+      type: DataTypes.ENUM(...PAGE_MEMBER_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+      validate: { isIn: [PAGE_MEMBER_STATUSES] },
+    },
+    invitedById: { type: DataTypes.INTEGER, allowNull: true },
+    joinedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  { tableName: 'page_memberships' },
+);
+
+PageMembership.addHook('beforeSave', (membership) => {
+  if (!membership) return;
+  if (membership.status === 'active' && !membership.joinedAt) {
+    membership.joinedAt = new Date();
+  }
+});
+
+export const PageInvite = sequelize.define(
+  'PageInvite',
+  {
+    pageId: { type: DataTypes.INTEGER, allowNull: false },
+    email: { type: DataTypes.STRING(255), allowNull: false, validate: { isEmail: true } },
+    role: {
+      type: DataTypes.ENUM(...PAGE_MEMBER_ROLES),
+      allowNull: false,
+      defaultValue: 'editor',
+      validate: { isIn: [PAGE_MEMBER_ROLES] },
+    },
+    status: {
+      type: DataTypes.ENUM(...COMMUNITY_INVITE_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+      validate: { isIn: [COMMUNITY_INVITE_STATUSES] },
+    },
+    token: { type: DataTypes.UUID, allowNull: false, defaultValue: DataTypes.UUIDV4 },
+    invitedById: { type: DataTypes.INTEGER, allowNull: true },
+    message: { type: DataTypes.TEXT, allowNull: true },
+    expiresAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'page_invites' },
+);
+
+PageInvite.addHook('beforeValidate', (invite) => {
+  if (!invite) return;
+  if (invite.email) {
+    invite.email = invite.email.toString().trim().toLowerCase();
+  }
+});
+
+export const PagePost = sequelize.define(
+  'PagePost',
+  {
+    pageId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    slug: { type: DataTypes.STRING(160), allowNull: false, unique: true },
+    summary: { type: DataTypes.STRING(280), allowNull: true },
+    content: { type: DataTypes.TEXT, allowNull: false },
+    attachments: { type: jsonType, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...PAGE_POST_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [PAGE_POST_STATUSES] },
+    },
+    visibility: {
+      type: DataTypes.ENUM(...PAGE_POST_VISIBILITIES),
+      allowNull: false,
+      defaultValue: 'public',
+      validate: { isIn: [PAGE_POST_VISIBILITIES] },
+    },
+    scheduledAt: { type: DataTypes.DATE, allowNull: true },
+    publishedAt: { type: DataTypes.DATE, allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: false },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'page_posts' },
+);
+
+PagePost.addHook('beforeValidate', (post) => {
+  if (!post) return;
+  const base = slugifyCommunityContent(post.slug || post.title, 'page-post');
+  if (post.isNewRecord || !post.slug) {
+    const uniqueSuffix = Math.random().toString(36).slice(2, 8);
+    post.slug = `${base}-${uniqueSuffix}`.slice(0, 160);
+  } else {
+    post.slug = base.slice(0, 160);
+  }
+});
+
+PagePost.addHook('beforeSave', (post) => {
+  if (!post) return;
+  if (post.status === 'published' && !post.publishedAt) {
+    post.publishedAt = new Date();
+  }
+  if (post.status !== 'published' && post.publishedAt && post.changed('status')) {
+    post.publishedAt = null;
+  }
+});
+
 export const Connection = sequelize.define(
   'Connection',
   {
@@ -8819,6 +9900,109 @@ export const TwoFactorToken = sequelize.define(
     indexes: [
       { fields: ['email'] },
       { fields: ['expiresAt'] },
+    ],
+  },
+);
+
+export const TwoFactorPolicy = sequelize.define(
+  'TwoFactorPolicy',
+  {
+    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    name: { type: DataTypes.STRING(150), allowNull: false, unique: true },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    appliesToRole: { type: DataTypes.ENUM(...TWO_FACTOR_POLICY_ROLES), allowNull: false, defaultValue: 'admin' },
+    enforcementLevel: { type: DataTypes.ENUM(...TWO_FACTOR_ENFORCEMENT_LEVELS), allowNull: false, defaultValue: 'required' },
+    enforced: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    allowedMethods: { type: jsonType, allowNull: false, defaultValue: [] },
+    fallbackCodes: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 5 },
+    sessionDurationMinutes: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1440 },
+    requireForSensitiveActions: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    ipAllowlist: { type: jsonType, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    createdBy: { type: DataTypes.INTEGER, allowNull: true },
+    updatedBy: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  {
+    tableName: 'two_factor_policies',
+    timestamps: true,
+    indexes: [
+      { fields: ['appliesToRole'] },
+      { fields: ['enforcementLevel'] },
+      { fields: ['enforced'] },
+    ],
+  },
+);
+
+export const TwoFactorEnrollment = sequelize.define(
+  'TwoFactorEnrollment',
+  {
+    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    label: { type: DataTypes.STRING(120), allowNull: true },
+    method: { type: DataTypes.ENUM(...TWO_FACTOR_ENROLLMENT_METHODS), allowNull: false, defaultValue: 'app' },
+    status: { type: DataTypes.ENUM(...TWO_FACTOR_ENROLLMENT_STATUSES), allowNull: false, defaultValue: 'pending' },
+    metadata: { type: jsonType, allowNull: true },
+    lastUsedAt: { type: DataTypes.DATE, allowNull: true },
+    activatedAt: { type: DataTypes.DATE, allowNull: true },
+    createdBy: { type: DataTypes.INTEGER, allowNull: true },
+    reviewedBy: { type: DataTypes.INTEGER, allowNull: true },
+    reviewedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'two_factor_enrollments',
+    timestamps: true,
+    indexes: [
+      { fields: ['userId'] },
+      { fields: ['status'] },
+      { fields: ['method'] },
+    ],
+  },
+);
+
+export const TwoFactorBypass = sequelize.define(
+  'TwoFactorBypass',
+  {
+    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    requestedBy: { type: DataTypes.INTEGER, allowNull: true },
+    approvedBy: { type: DataTypes.INTEGER, allowNull: true },
+    status: { type: DataTypes.ENUM(...TWO_FACTOR_BYPASS_STATUSES), allowNull: false, defaultValue: 'pending' },
+    reason: { type: DataTypes.STRING(500), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    expiresAt: { type: DataTypes.DATE, allowNull: true },
+    issuedAt: { type: DataTypes.DATE, allowNull: true },
+    resolvedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'two_factor_bypasses',
+    timestamps: true,
+    indexes: [
+      { fields: ['userId'] },
+      { fields: ['status'] },
+      { fields: ['expiresAt'] },
+    ],
+  },
+);
+
+export const TwoFactorAuditLog = sequelize.define(
+  'TwoFactorAuditLog',
+  {
+    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    actorId: { type: DataTypes.INTEGER, allowNull: true },
+    action: { type: DataTypes.STRING(120), allowNull: false },
+    targetType: { type: DataTypes.STRING(120), allowNull: true },
+    targetId: { type: DataTypes.STRING(120), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    notes: { type: DataTypes.STRING(500), allowNull: true },
+  },
+  {
+    tableName: 'two_factor_audit_logs',
+    timestamps: true,
+    updatedAt: false,
+    indexes: [
+      { fields: ['action'] },
+      { fields: ['targetType'] },
+      { fields: ['createdAt'] },
     ],
   },
 );
@@ -12135,6 +13319,168 @@ CandidateCalendarEvent.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+export const AdminCalendarAccount = sequelize.define(
+  'AdminCalendarAccount',
+  {
+    provider: { type: DataTypes.STRING(80), allowNull: false },
+    accountEmail: { type: DataTypes.STRING(160), allowNull: false, unique: true },
+    displayName: { type: DataTypes.STRING(120), allowNull: true },
+    syncStatus: {
+      type: DataTypes.ENUM(...ADMIN_CALENDAR_SYNC_STATUSES),
+      allowNull: false,
+      defaultValue: 'connected',
+    },
+    lastSyncedAt: { type: DataTypes.DATE, allowNull: true },
+    syncError: { type: DataTypes.TEXT, allowNull: true },
+    timezone: { type: DataTypes.STRING(120), allowNull: true },
+    metadata: { type: jsonType, allowNull: false, defaultValue: {} },
+  },
+  {
+    tableName: 'admin_calendar_accounts',
+    indexes: [
+      { fields: ['provider'] },
+      { fields: ['syncStatus'] },
+    ],
+  },
+);
+
+AdminCalendarAccount.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    ...plain,
+    metadata: plain.metadata ?? {},
+  };
+};
+
+export const AdminCalendarTemplate = sequelize.define(
+  'AdminCalendarTemplate',
+  {
+    name: { type: DataTypes.STRING(120), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    durationMinutes: { type: DataTypes.INTEGER, allowNull: true },
+    defaultEventType: {
+      type: DataTypes.ENUM(...ADMIN_CALENDAR_EVENT_TYPES),
+      allowNull: false,
+      defaultValue: 'ops_review',
+    },
+    defaultVisibility: {
+      type: DataTypes.ENUM(...ADMIN_CALENDAR_VISIBILITIES),
+      allowNull: false,
+      defaultValue: 'internal',
+    },
+    defaultLocation: { type: DataTypes.STRING(255), allowNull: true },
+    defaultMeetingUrl: { type: DataTypes.STRING(2048), allowNull: true },
+    defaultAllowedRoles: { type: jsonType, allowNull: false, defaultValue: [] },
+    reminderMinutes: { type: jsonType, allowNull: false, defaultValue: [] },
+    instructions: { type: DataTypes.TEXT, allowNull: true },
+    bannerImageUrl: { type: DataTypes.STRING(1024), allowNull: true },
+    isActive: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    metadata: { type: jsonType, allowNull: false, defaultValue: {} },
+    createdBy: { type: DataTypes.STRING(120), allowNull: true },
+    updatedBy: { type: DataTypes.STRING(120), allowNull: true },
+  },
+  {
+    tableName: 'admin_calendar_templates',
+    indexes: [
+      { fields: ['isActive'] },
+      { fields: ['defaultEventType'] },
+    ],
+  },
+);
+
+AdminCalendarTemplate.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    ...plain,
+    defaultAllowedRoles: Array.isArray(plain.defaultAllowedRoles) ? plain.defaultAllowedRoles : [],
+    reminderMinutes: Array.isArray(plain.reminderMinutes) ? plain.reminderMinutes : [],
+    metadata: plain.metadata ?? {},
+  };
+};
+
+export const AdminCalendarEvent = sequelize.define(
+  'AdminCalendarEvent',
+  {
+    calendarAccountId: { type: DataTypes.INTEGER, allowNull: true },
+    templateId: { type: DataTypes.INTEGER, allowNull: true },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    eventType: {
+      type: DataTypes.ENUM(...ADMIN_CALENDAR_EVENT_TYPES),
+      allowNull: false,
+      defaultValue: 'ops_review',
+    },
+    status: {
+      type: DataTypes.ENUM(...ADMIN_CALENDAR_EVENT_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+    },
+    visibility: {
+      type: DataTypes.ENUM(...ADMIN_CALENDAR_VISIBILITIES),
+      allowNull: false,
+      defaultValue: 'internal',
+    },
+    meetingUrl: { type: DataTypes.STRING(2048), allowNull: true },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    startsAt: { type: DataTypes.DATE, allowNull: false },
+    endsAt: { type: DataTypes.DATE, allowNull: true },
+    invitees: { type: jsonType, allowNull: false, defaultValue: [] },
+    attachments: { type: jsonType, allowNull: false, defaultValue: [] },
+    allowedRoles: { type: jsonType, allowNull: false, defaultValue: [] },
+    coverImageUrl: { type: DataTypes.STRING(1024), allowNull: true },
+    createdBy: { type: DataTypes.STRING(120), allowNull: true },
+    updatedBy: { type: DataTypes.STRING(120), allowNull: true },
+    metadata: { type: jsonType, allowNull: false, defaultValue: {} },
+  },
+  {
+    tableName: 'admin_calendar_events',
+    indexes: [
+      { fields: ['startsAt'] },
+      { fields: ['status'] },
+      { fields: ['eventType'] },
+    ],
+  },
+);
+
+AdminCalendarEvent.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    ...plain,
+    invitees: Array.isArray(plain.invitees) ? plain.invitees : [],
+    attachments: Array.isArray(plain.attachments) ? plain.attachments : [],
+    allowedRoles: Array.isArray(plain.allowedRoles) ? plain.allowedRoles : [],
+    metadata: plain.metadata ?? {},
+  };
+};
+
+export const AdminCalendarAvailabilityWindow = sequelize.define(
+  'AdminCalendarAvailabilityWindow',
+  {
+    calendarAccountId: { type: DataTypes.INTEGER, allowNull: false },
+    dayOfWeek: { type: DataTypes.INTEGER, allowNull: false },
+    startTimeMinutes: { type: DataTypes.INTEGER, allowNull: false },
+    endTimeMinutes: { type: DataTypes.INTEGER, allowNull: false },
+    timezone: { type: DataTypes.STRING(120), allowNull: true },
+    isActive: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    metadata: { type: jsonType, allowNull: false, defaultValue: {} },
+  },
+  {
+    tableName: 'admin_calendar_availability_windows',
+    indexes: [
+      { fields: ['calendarAccountId'] },
+      { fields: ['dayOfWeek'] },
+    ],
+  },
+);
+
+AdminCalendarAvailabilityWindow.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    ...plain,
+    metadata: plain.metadata ?? {},
+  };
+};
+
 export const FocusSession = sequelize.define(
   'FocusSession',
   {
@@ -13358,6 +14704,104 @@ export const EscrowTransaction = sequelize.define(
     ],
   },
 );
+
+export const EscrowReleasePolicy = sequelize.define(
+  'EscrowReleasePolicy',
+  {
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    policyType: {
+      type: DataTypes.ENUM(...ESCROW_RELEASE_POLICY_TYPES),
+      allowNull: false,
+      defaultValue: 'auto_release_after_hours',
+    },
+    status: {
+      type: DataTypes.ENUM(...ESCROW_RELEASE_POLICY_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+    },
+    thresholdAmount: { type: DataTypes.DECIMAL(18, 4), allowNull: true },
+    thresholdHours: { type: DataTypes.INTEGER, allowNull: true },
+    requiresComplianceHold: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    requiresManualApproval: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    notifyEmails: { type: jsonType, allowNull: false, defaultValue: [] },
+    description: { type: DataTypes.STRING(500), allowNull: true },
+    orderIndex: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    metadata: { type: jsonType, allowNull: false, defaultValue: {} },
+  },
+  {
+    tableName: 'escrow_release_policies',
+    indexes: [
+      { fields: ['status'] },
+      { fields: ['policyType'] },
+      { fields: ['orderIndex'] },
+    ],
+  },
+);
+
+EscrowReleasePolicy.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    name: plain.name,
+    policyType: plain.policyType,
+    status: plain.status,
+    thresholdAmount: plain.thresholdAmount != null ? Number.parseFloat(plain.thresholdAmount) : null,
+    thresholdHours: plain.thresholdHours != null ? Number.parseInt(plain.thresholdHours, 10) : null,
+    requiresComplianceHold: Boolean(plain.requiresComplianceHold),
+    requiresManualApproval: Boolean(plain.requiresManualApproval),
+    notifyEmails: Array.isArray(plain.notifyEmails) ? plain.notifyEmails : [],
+    description: plain.description,
+    orderIndex: Number.parseInt(plain.orderIndex ?? 0, 10) || 0,
+    metadata: plain.metadata ?? {},
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const EscrowFeeTier = sequelize.define(
+  'EscrowFeeTier',
+  {
+    provider: { type: DataTypes.STRING(80), allowNull: false, defaultValue: 'stripe' },
+    currencyCode: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+    minimumAmount: { type: DataTypes.DECIMAL(18, 4), allowNull: false, defaultValue: 0 },
+    maximumAmount: { type: DataTypes.DECIMAL(18, 4), allowNull: true },
+    percentFee: { type: DataTypes.DECIMAL(6, 3), allowNull: false, defaultValue: 0 },
+    flatFee: { type: DataTypes.DECIMAL(12, 2), allowNull: false, defaultValue: 0 },
+    status: {
+      type: DataTypes.ENUM(...ESCROW_FEE_TIER_STATUSES),
+      allowNull: false,
+      defaultValue: 'active',
+    },
+    label: { type: DataTypes.STRING(160), allowNull: true },
+    metadata: { type: jsonType, allowNull: false, defaultValue: {} },
+  },
+  {
+    tableName: 'escrow_fee_tiers',
+    indexes: [
+      { fields: ['provider'] },
+      { fields: ['currencyCode'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
+EscrowFeeTier.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    provider: plain.provider,
+    currencyCode: plain.currencyCode,
+    minimumAmount: Number.parseFloat(plain.minimumAmount ?? 0),
+    maximumAmount: plain.maximumAmount != null ? Number.parseFloat(plain.maximumAmount) : null,
+    percentFee: Number.parseFloat(plain.percentFee ?? 0),
+    flatFee: Number.parseFloat(plain.flatFee ?? 0),
+    status: plain.status,
+    label: plain.label,
+    metadata: plain.metadata ?? {},
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
 
 export const HeadhunterPipelineStage = sequelize.define(
   'HeadhunterPipelineStage',
@@ -18402,6 +19846,10 @@ Profile.hasMany(ProfileReference, { as: 'references', foreignKey: 'profileId', o
 ProfileReference.belongsTo(Profile, { as: 'profile', foreignKey: 'profileId' });
 Profile.hasMany(ProfileAppreciation, { as: 'appreciations', foreignKey: 'profileId', onDelete: 'CASCADE' });
 ProfileAppreciation.belongsTo(Profile, { as: 'profile', foreignKey: 'profileId' });
+Profile.hasMany(ProfileAdminNote, { as: 'adminNotes', foreignKey: 'profileId', onDelete: 'CASCADE' });
+ProfileAdminNote.belongsTo(Profile, { as: 'profile', foreignKey: 'profileId' });
+ProfileAdminNote.belongsTo(User, { as: 'author', foreignKey: 'authorId' });
+User.hasMany(ProfileAdminNote, { as: 'authoredProfileNotes', foreignKey: 'authorId' });
 ProfileAppreciation.belongsTo(User, { as: 'actor', foreignKey: 'actorId' });
 Profile.hasMany(ProfileFollower, { as: 'followers', foreignKey: 'profileId', onDelete: 'CASCADE' });
 ProfileFollower.belongsTo(Profile, { as: 'profile', foreignKey: 'profileId' });
@@ -18422,6 +19870,7 @@ IdentityVerification.hasMany(IdentityVerificationEvent, {
 });
 IdentityVerificationEvent.belongsTo(IdentityVerification, {
   foreignKey: 'identityVerificationId',
+  as: 'verification',
   as: 'identityVerification',
 });
 IdentityVerificationEvent.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
@@ -18611,6 +20060,34 @@ User.hasMany(CorporateVerification, { foreignKey: 'userId', as: 'corporateVerifi
 User.hasMany(CorporateVerification, { foreignKey: 'reviewerId', as: 'reviewedCorporateVerifications' });
 
 User.hasMany(UserLoginAudit, { foreignKey: 'userId', as: 'loginAudits', onDelete: 'CASCADE' });
+User.hasMany(UserRole, { foreignKey: 'userId', as: 'roleAssignments', onDelete: 'CASCADE' });
+UserRole.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+UserRole.belongsTo(User, { foreignKey: 'assignedBy', as: 'assignedBy' });
+User.hasMany(UserNote, { foreignKey: 'userId', as: 'notes', onDelete: 'CASCADE' });
+UserNote.belongsTo(User, { foreignKey: 'userId', as: 'subject' });
+UserNote.belongsTo(User, { foreignKey: 'authorId', as: 'author' });
+User.hasMany(TwoFactorEnrollment, { foreignKey: 'userId', as: 'twoFactorEnrollments' });
+User.hasMany(TwoFactorEnrollment, { foreignKey: 'createdBy', as: 'twoFactorEnrollmentsCreated' });
+User.hasMany(TwoFactorEnrollment, { foreignKey: 'reviewedBy', as: 'twoFactorEnrollmentsReviewed' });
+User.hasMany(TwoFactorBypass, { foreignKey: 'userId', as: 'twoFactorBypasses' });
+User.hasMany(TwoFactorBypass, { foreignKey: 'requestedBy', as: 'twoFactorBypassesRequested' });
+User.hasMany(TwoFactorBypass, { foreignKey: 'approvedBy', as: 'twoFactorBypassesApproved' });
+User.hasMany(TwoFactorPolicy, { foreignKey: 'createdBy', as: 'twoFactorPoliciesCreated' });
+User.hasMany(TwoFactorPolicy, { foreignKey: 'updatedBy', as: 'twoFactorPoliciesUpdated' });
+User.hasMany(TwoFactorAuditLog, { foreignKey: 'actorId', as: 'twoFactorAuditEvents' });
+
+TwoFactorEnrollment.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+TwoFactorEnrollment.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+TwoFactorEnrollment.belongsTo(User, { foreignKey: 'reviewedBy', as: 'reviewer' });
+
+TwoFactorBypass.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+TwoFactorBypass.belongsTo(User, { foreignKey: 'requestedBy', as: 'requester' });
+TwoFactorBypass.belongsTo(User, { foreignKey: 'approvedBy', as: 'approver' });
+
+TwoFactorPolicy.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+TwoFactorPolicy.belongsTo(User, { foreignKey: 'updatedBy', as: 'updater' });
+
+TwoFactorAuditLog.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
 User.hasMany(UserConsent, { foreignKey: 'userId', as: 'consents', onDelete: 'CASCADE' });
 UserConsent.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 UserLoginAudit.belongsTo(User, { foreignKey: 'userId', as: 'user' });
@@ -18791,6 +20268,18 @@ CalendarIntegration.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasMany(CandidateCalendarEvent, { foreignKey: 'userId', as: 'calendarEvents' });
 CandidateCalendarEvent.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
+AdminCalendarAccount.hasMany(AdminCalendarEvent, { foreignKey: 'calendarAccountId', as: 'events' });
+AdminCalendarEvent.belongsTo(AdminCalendarAccount, { foreignKey: 'calendarAccountId', as: 'calendarAccount' });
+AdminCalendarTemplate.hasMany(AdminCalendarEvent, { foreignKey: 'templateId', as: 'events' });
+AdminCalendarEvent.belongsTo(AdminCalendarTemplate, { foreignKey: 'templateId', as: 'template' });
+AdminCalendarAccount.hasMany(AdminCalendarAvailabilityWindow, {
+  foreignKey: 'calendarAccountId',
+  as: 'availabilityWindows',
+});
+AdminCalendarAvailabilityWindow.belongsTo(AdminCalendarAccount, {
+  foreignKey: 'calendarAccountId',
+  as: 'calendarAccount',
+});
 User.hasOne(UserCalendarSetting, { foreignKey: 'userId', as: 'calendarSettings' });
 UserCalendarSetting.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
@@ -19410,6 +20899,38 @@ Group.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
 Group.belongsTo(User, { foreignKey: 'updatedById', as: 'updatedBy' });
 User.hasMany(GroupMembership, { foreignKey: 'userId', as: 'groupMemberships' });
 
+Group.hasMany(GroupInvite, { foreignKey: 'groupId', as: 'invites' });
+GroupInvite.belongsTo(Group, { foreignKey: 'groupId', as: 'group' });
+GroupInvite.belongsTo(User, { foreignKey: 'invitedById', as: 'invitedBy' });
+User.hasMany(GroupInvite, { foreignKey: 'invitedById', as: 'groupInvitesSent' });
+
+Group.hasMany(GroupPost, { foreignKey: 'groupId', as: 'posts' });
+GroupPost.belongsTo(Group, { foreignKey: 'groupId', as: 'group' });
+GroupPost.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+GroupPost.belongsTo(User, { foreignKey: 'updatedById', as: 'updatedBy' });
+User.hasMany(GroupPost, { foreignKey: 'createdById', as: 'groupPostsAuthored' });
+
+Page.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+Page.belongsTo(User, { foreignKey: 'updatedById', as: 'updatedBy' });
+User.hasMany(Page, { foreignKey: 'createdById', as: 'pagesCreated' });
+
+Page.hasMany(PageMembership, { foreignKey: 'pageId', as: 'memberships' });
+PageMembership.belongsTo(Page, { foreignKey: 'pageId', as: 'page' });
+PageMembership.belongsTo(User, { foreignKey: 'userId', as: 'member' });
+PageMembership.belongsTo(User, { foreignKey: 'invitedById', as: 'invitedBy' });
+User.hasMany(PageMembership, { foreignKey: 'userId', as: 'pageMemberships' });
+
+Page.hasMany(PageInvite, { foreignKey: 'pageId', as: 'invites' });
+PageInvite.belongsTo(Page, { foreignKey: 'pageId', as: 'page' });
+PageInvite.belongsTo(User, { foreignKey: 'invitedById', as: 'invitedBy' });
+User.hasMany(PageInvite, { foreignKey: 'invitedById', as: 'pageInvitesSent' });
+
+Page.hasMany(PagePost, { foreignKey: 'pageId', as: 'posts' });
+PagePost.belongsTo(Page, { foreignKey: 'pageId', as: 'page' });
+PagePost.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+PagePost.belongsTo(User, { foreignKey: 'updatedById', as: 'updatedBy' });
+User.hasMany(PagePost, { foreignKey: 'createdById', as: 'pagePostsAuthored' });
+
 User.belongsToMany(User, {
   through: Connection,
   as: 'connections',
@@ -19480,6 +21001,8 @@ JobApprovalWorkflow.belongsTo(Job, { foreignKey: 'jobId', as: 'job' });
 Job.hasMany(JobCampaignPerformance, { foreignKey: 'jobId', as: 'campaignPerformance' });
 JobCampaignPerformance.belongsTo(Job, { foreignKey: 'jobId', as: 'job' });
 
+Job.hasOne(JobPostAdminDetail, { foreignKey: 'jobId', as: 'adminDetail', onDelete: 'CASCADE' });
+JobPostAdminDetail.belongsTo(Job, { foreignKey: 'jobId', as: 'job' });
 Job.hasOne(JobAdvert, { foreignKey: 'jobId', as: 'advert' });
 JobAdvert.belongsTo(Job, { foreignKey: 'jobId', as: 'job' });
 JobAdvert.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
@@ -19719,6 +21242,13 @@ export const PeerMentoringSession = sequelize.define(
     meetingType: { type: DataTypes.STRING(80), allowNull: true },
     recordingUrl: { type: DataTypes.STRING(255), allowNull: true },
     notes: { type: DataTypes.TEXT, allowNull: true },
+    adminOwnerId: { type: DataTypes.INTEGER, allowNull: true },
+    followUpAt: { type: DataTypes.DATE, allowNull: true },
+    feedbackRating: { type: DataTypes.DECIMAL(4, 2), allowNull: true },
+    feedbackSummary: { type: DataTypes.TEXT, allowNull: true },
+    cancellationReason: { type: DataTypes.TEXT, allowNull: true },
+    meetingProvider: { type: DataTypes.STRING(120), allowNull: true },
+    resourceLinks: { type: jsonType, allowNull: true },
     pricePaid: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
     currency: { type: DataTypes.STRING(3), allowNull: true },
     cancelledAt: { type: DataTypes.DATE, allowNull: true },
@@ -19728,6 +21258,44 @@ export const PeerMentoringSession = sequelize.define(
   { tableName: 'peer_mentoring_sessions' },
 );
 
+export const MentoringSessionNote = sequelize.define(
+  'MentoringSessionNote',
+  {
+    sessionId: { type: DataTypes.INTEGER, allowNull: false },
+    authorId: { type: DataTypes.INTEGER, allowNull: true },
+    visibility: {
+      type: DataTypes.ENUM(...MENTORING_SESSION_NOTE_VISIBILITIES),
+      allowNull: false,
+      defaultValue: 'internal',
+    },
+    body: { type: DataTypes.TEXT, allowNull: false },
+    attachments: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'mentoring_session_notes' },
+);
+
+export const MentoringSessionActionItem = sequelize.define(
+  'MentoringSessionActionItem',
+  {
+    sessionId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(200), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...MENTORING_SESSION_ACTION_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+    },
+    priority: {
+      type: DataTypes.ENUM(...MENTORING_SESSION_ACTION_PRIORITIES),
+      allowNull: false,
+      defaultValue: 'normal',
+    },
+    dueAt: { type: DataTypes.DATE, allowNull: true },
+    assigneeId: { type: DataTypes.INTEGER, allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    completedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  { tableName: 'mentoring_session_action_items' },
 export const MentorshipOrder = sequelize.define(
   'MentorshipOrder',
   {
@@ -19980,6 +21548,7 @@ User.hasMany(LearningCourseEnrollment, { foreignKey: 'userId', as: 'learningEnro
 PeerMentoringSession.belongsTo(ServiceLine, { foreignKey: 'serviceLineId', as: 'serviceLine' });
 PeerMentoringSession.belongsTo(User, { foreignKey: 'mentorId', as: 'mentor' });
 PeerMentoringSession.belongsTo(User, { foreignKey: 'menteeId', as: 'mentee' });
+PeerMentoringSession.belongsTo(User, { foreignKey: 'adminOwnerId', as: 'adminOwner' });
 PeerMentoringSession.belongsTo(MentorshipOrder, { foreignKey: 'orderId', as: 'order' });
 User.hasMany(PeerMentoringSession, { foreignKey: 'mentorId', as: 'mentoringSessionsLed' });
 User.hasMany(PeerMentoringSession, { foreignKey: 'menteeId', as: 'mentoringSessions' });
@@ -20023,6 +21592,18 @@ ProviderWorkspace.hasMany(AgencyMentorPreference, { foreignKey: 'workspaceId', a
 AgencyMentorPreference.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 AgencyMentorPreference.belongsTo(User, { foreignKey: 'mentorId', as: 'mentor' });
 AgencyMentorPreference.belongsTo(User, { foreignKey: 'createdBy', as: 'createdByUser' });
+
+PeerMentoringSession.hasMany(MentoringSessionNote, { foreignKey: 'sessionId', as: 'sessionNotes' });
+MentoringSessionNote.belongsTo(PeerMentoringSession, { foreignKey: 'sessionId', as: 'session' });
+MentoringSessionNote.belongsTo(User, { foreignKey: 'authorId', as: 'author' });
+User.hasMany(MentoringSessionNote, { foreignKey: 'authorId', as: 'authoredMentoringNotes' });
+
+PeerMentoringSession.hasMany(MentoringSessionActionItem, { foreignKey: 'sessionId', as: 'actionItems' });
+MentoringSessionActionItem.belongsTo(PeerMentoringSession, { foreignKey: 'sessionId', as: 'session' });
+MentoringSessionActionItem.belongsTo(User, { foreignKey: 'assigneeId', as: 'assignee' });
+MentoringSessionActionItem.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+User.hasMany(MentoringSessionActionItem, { foreignKey: 'assigneeId', as: 'assignedMentoringActions' });
+User.hasMany(MentoringSessionActionItem, { foreignKey: 'createdById', as: 'createdMentoringActions' });
 
 SkillGapDiagnostic.belongsTo(ServiceLine, { foreignKey: 'serviceLineId', as: 'serviceLine' });
 SkillGapDiagnostic.belongsTo(User, { foreignKey: 'userId', as: 'user' });
@@ -20684,6 +22265,22 @@ CompanyDashboardOverview.belongsTo(User, {
   foreignKey: 'lastEditedById',
   as: 'lastEditedBy',
 });
+ProviderWorkspace.hasMany(CompanyPage, { foreignKey: 'workspaceId', as: 'companyPages' });
+CompanyPage.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+User.hasMany(CompanyPage, { foreignKey: 'createdById', as: 'createdCompanyPages' });
+User.hasMany(CompanyPage, { foreignKey: 'updatedById', as: 'updatedCompanyPages' });
+User.hasMany(CompanyPage, { foreignKey: 'lastEditedById', as: 'touchedCompanyPages' });
+CompanyPage.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+CompanyPage.belongsTo(User, { foreignKey: 'updatedById', as: 'updatedBy' });
+CompanyPage.belongsTo(User, { foreignKey: 'lastEditedById', as: 'lastEditedBy' });
+User.hasMany(CompanyPageRevision, { foreignKey: 'createdById', as: 'authoredCompanyPageRevisions' });
+CompanyPageRevision.belongsTo(User, { foreignKey: 'createdById', as: 'author' });
+User.hasMany(CompanyPageCollaborator, { foreignKey: 'collaboratorId', as: 'companyPageCollaborations' });
+User.hasMany(CompanyPageCollaborator, { foreignKey: 'invitedById', as: 'invitedCompanyPageCollaborators' });
+CompanyPageCollaborator.belongsTo(User, { foreignKey: 'collaboratorId', as: 'collaborator' });
+CompanyPageCollaborator.belongsTo(User, { foreignKey: 'invitedById', as: 'invitedBy' });
+User.hasMany(CompanyPageMedia, { foreignKey: 'uploadedById', as: 'uploadedCompanyPageMedia' });
+CompanyPageMedia.belongsTo(User, { foreignKey: 'uploadedById', as: 'uploadedBy' });
 ProviderWorkspace.hasMany(ProviderWorkspaceInvite, { foreignKey: 'workspaceId', as: 'invites' });
 ProviderWorkspace.hasMany(ProviderContactNote, { foreignKey: 'workspaceId', as: 'contactNotes' });
 ProviderWorkspace.hasMany(CompanyTimelineEvent, { foreignKey: 'workspaceId', as: 'timelineEvents' });
@@ -21368,6 +22965,7 @@ export default {
   ProfileAppreciation,
   ProfileFollower,
   ProfileEngagementJob,
+  ProfileAdminNote,
   CompanyProfile,
   CompanyProfileFollower,
   CompanyProfileConnection,
@@ -21395,6 +22993,7 @@ export default {
   FreelancerTimelineEntry,
   FreelancerTimelinePostMetric,
   Job,
+  JobPostAdminDetail,
   Gig,
   GigPackage,
   GigAddon,
@@ -21496,6 +23095,7 @@ export default {
   AdCampaign,
   AdCreative,
   AdPlacement,
+  AdSurfaceSetting,
   AdCoupon,
   AdPlacementCoupon,
   AdKeyword,
@@ -21650,6 +23250,8 @@ export default {
   WorkspaceCalendarConnection,
   EscrowAccount,
   EscrowTransaction,
+  EscrowReleasePolicy,
+  EscrowFeeTier,
   DisputeCase,
   DisputeEvent,
   DisputeWorkflowSetting,
@@ -21750,6 +23352,8 @@ export default {
   NetworkingSessionOrder,
   NetworkingConnection,
   MemberBrandingMetric,
+  AdminTimeline,
+  AdminTimelineEvent,
   BlogCategory,
   BlogTag,
   BlogMedia,
@@ -21758,6 +23362,8 @@ export default {
   BlogPostMedia,
 };
 
+registerBlogAssociations({ User });
+registerAdminTimelineAssociations({ User });
 registerBlogAssociations({ User, ProviderWorkspace });
 
 const domainRegistry = new DomainRegistry({
@@ -21795,6 +23401,14 @@ domainRegistry.registerContext({
       /^CommunitySpotlight/.test(modelName) ||
       /^PeerMentoring/.test(modelName),
   ],
+  metadata: domainMetadata.talent,
+});
+
+domainRegistry.registerContext({
+  name: 'talent_acquisition',
+  displayName: 'Talent Acquisition',
+  description: 'Job applications, interviews, stage history, and recruiter workflows.',
+  include: [(modelName) => /^JobApplication/.test(modelName)],
   metadata: domainMetadata.talent,
 });
 
@@ -21870,7 +23484,19 @@ domainRegistry.registerContext({
   name: 'platform',
   displayName: 'Platform Controls',
   description: 'Platform-wide configuration including feature flags and platform settings.',
-  models: ['FeatureFlag', 'FeatureFlagAssignment', 'PlatformSetting', 'RuntimeSecurityAuditEvent', 'RuntimeAnnouncement'],
+  models: [
+    'FeatureFlag',
+    'FeatureFlagAssignment',
+    'PlatformSetting',
+    'RuntimeSecurityAuditEvent',
+    'RuntimeAnnouncement',
+    'AdminCalendarAccount',
+    'AdminCalendarTemplate',
+    'AdminCalendarEvent',
+    'AdminCalendarAvailabilityWindow',
+    'AdminTimeline',
+    'AdminTimelineEvent',
+  ],
   metadata: domainMetadata.platform,
 });
 

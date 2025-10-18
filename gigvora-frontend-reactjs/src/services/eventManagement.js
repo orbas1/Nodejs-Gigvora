@@ -1,16 +1,33 @@
 import { apiClient } from './apiClient.js';
 
-export async function fetchEventManagement(userId, { includeArchived = false, signal } = {}) {
+export async function fetchEventManagement(userId, { includeArchived, limit, signal } = {}) {
   if (!userId) {
     throw new Error('userId is required to load event management data.');
   }
   const params = new URLSearchParams();
-  if (includeArchived) {
-    params.set('includeArchived', 'true');
+  if (includeArchived !== undefined) {
+    params.set('includeArchived', includeArchived ? 'true' : 'false');
+  }
+  if (limit != null) {
+    params.set('limit', String(limit));
   }
   const query = params.toString();
   const url = query ? `/users/${userId}/events?${query}` : `/users/${userId}/events`;
   return apiClient.get(url, { signal });
+}
+
+export async function fetchEventSettings(userId) {
+  if (!userId) {
+    throw new Error('userId is required to load event settings.');
+  }
+  return apiClient.get(`/users/${userId}/events/settings`);
+}
+
+export async function updateEventSettings(userId, payload) {
+  if (!userId) {
+    throw new Error('userId is required to update event settings.');
+  }
+  return apiClient.patch(`/users/${userId}/events/settings`, payload ?? {});
 }
 
 export async function createEvent(userId, payload) {
@@ -137,4 +154,6 @@ export default {
   createChecklistItem,
   updateChecklistItem,
   deleteChecklistItem,
+  fetchEventSettings,
+  updateEventSettings,
 };
