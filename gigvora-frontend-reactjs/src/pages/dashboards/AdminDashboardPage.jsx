@@ -77,6 +77,10 @@ const MENU_SECTIONS = [
         tags: ['growth', 'activation'],
       },
       {
+        name: 'Hiring',
+        description: '',
+        tags: ['talent'],
+        href: '/dashboard/admin/job-applications',
         name: 'Escrow',
         description: '',
         name: 'Profile management',

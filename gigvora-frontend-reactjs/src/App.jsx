@@ -101,6 +101,7 @@ import AdminDatabaseSettingsPage from './pages/dashboards/AdminDatabaseSettingsP
 import AdminGdprSettingsPage from './pages/dashboards/admin/AdminGdprSettingsPage.jsx';
 import AdminAdsSettingsPage from './pages/dashboards/admin/AdminAdsSettingsPage.jsx';
 import AdminBlogManagementPage from './pages/admin/AdminBlogManagementPage.jsx';
+import AdminJobApplicationsPage from './pages/dashboards/admin/AdminJobApplicationsPage.jsx';
 import AdminCalendarPage from './pages/admin/AdminCalendarPage.jsx';
 import AdminIdentityVerificationPage from './pages/dashboards/admin/AdminIdentityVerificationPage.jsx';
 import AdminWalletManagementPage from './pages/dashboards/admin/AdminWalletManagementPage.jsx';
@@ -705,6 +706,10 @@ export default function App() {
       />
 
       <Route
+        path="dashboard/admin/job-applications"
+        element={
+          <RequireRole allowedRoles={['admin']}>
+            <AdminJobApplicationsPage />
         path="dashboard/admin/identity-verification"
         element={
           <RequireRole allowedRoles={['admin']}>

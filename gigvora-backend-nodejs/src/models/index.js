@@ -72,6 +72,21 @@ import {
   registerAdminTimelineAssociations,
 } from './adminTimelineModels.js';
 import {
+  JobApplication,
+  JobApplicationDocument,
+  JobApplicationInterview,
+  JobApplicationNote,
+  JobApplicationStageHistory,
+  JOB_APPLICATION_INTERVIEW_STATUSES,
+  JOB_APPLICATION_INTERVIEW_TYPES,
+  JOB_APPLICATION_PRIORITIES,
+  JOB_APPLICATION_SOURCES,
+  JOB_APPLICATION_STAGES,
+  JOB_APPLICATION_STATUSES,
+  JOB_APPLICATION_VISIBILITIES,
+} from './jobApplicationModels.js';
+import { User } from './messagingModels.js';
+import {
   PROFILE_AVAILABILITY_STATUSES, PROFILE_APPRECIATION_TYPES, PROFILE_FOLLOWER_STATUSES, PROFILE_ENGAGEMENT_JOB_STATUSES,
   GROUP_VISIBILITIES, GROUP_MEMBER_POLICIES, GROUP_MEMBERSHIP_STATUSES, GROUP_MEMBERSHIP_ROLES,
   PROFILE_AVAILABILITY_STATUSES,
@@ -591,6 +606,20 @@ export { LegalDocument, LegalDocumentVersion, LegalDocumentAuditEvent } from './
 export { RuntimeSecurityAuditEvent } from './runtimeSecurityAuditEvent.js';
 export { RbacPolicyAuditEvent } from './rbacPolicyAuditEvent.js';
 export {
+  JobApplication,
+  JobApplicationDocument,
+  JobApplicationInterview,
+  JobApplicationNote,
+  JobApplicationStageHistory,
+  JOB_APPLICATION_INTERVIEW_STATUSES,
+  JOB_APPLICATION_INTERVIEW_TYPES,
+  JOB_APPLICATION_PRIORITIES,
+  JOB_APPLICATION_SOURCES,
+  JOB_APPLICATION_STAGES,
+  JOB_APPLICATION_STATUSES,
+  JOB_APPLICATION_VISIBILITIES,
+} from './jobApplicationModels.js';
+export { User } from './messagingModels.js';
   AdminTimeline,
   AdminTimelineEvent,
   ADMIN_TIMELINE_STATUSES,
@@ -648,6 +677,14 @@ export const AGENCY_CREATION_VISIBILITIES = ['internal', 'restricted', 'public']
 export const AGENCY_CREATION_ASSET_TYPES = ['image', 'video', 'document', 'link'];
 export const AGENCY_CREATION_COLLABORATOR_STATUSES = ['invited', 'active', 'declined', 'removed'];
 
+JobApplication.belongsTo(User, { foreignKey: 'assignedRecruiterId', as: 'assignedRecruiter' });
+User.hasMany(JobApplication, { foreignKey: 'assignedRecruiterId', as: 'assignedApplications' });
+JobApplicationNote.belongsTo(User, { foreignKey: 'authorId', as: 'author' });
+User.hasMany(JobApplicationNote, { foreignKey: 'authorId', as: 'jobApplicationNotes' });
+JobApplicationDocument.belongsTo(User, { foreignKey: 'uploadedById', as: 'uploadedBy' });
+User.hasMany(JobApplicationDocument, { foreignKey: 'uploadedById', as: 'jobApplicationDocuments' });
+JobApplicationInterview.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+User.hasMany(JobApplicationInterview, { foreignKey: 'createdById', as: 'jobApplicationInterviews' });
 export const User = sequelize.define(
   'User',
   {
@@ -23109,6 +23146,14 @@ domainRegistry.registerContext({
       /^CommunitySpotlight/.test(modelName) ||
       /^PeerMentoring/.test(modelName),
   ],
+  metadata: domainMetadata.talent,
+});
+
+domainRegistry.registerContext({
+  name: 'talent_acquisition',
+  displayName: 'Talent Acquisition',
+  description: 'Job applications, interviews, stage history, and recruiter workflows.',
+  include: [(modelName) => /^JobApplication/.test(modelName)],
   metadata: domainMetadata.talent,
 });
 
