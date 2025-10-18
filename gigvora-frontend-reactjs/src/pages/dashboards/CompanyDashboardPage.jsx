@@ -22,6 +22,7 @@ import { useCompanyDashboard } from '../../hooks/useCompanyDashboard.js';
 import { useSession } from '../../context/SessionContext.jsx';
 import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
 import { COMPANY_DASHBOARD_MENU_SECTIONS } from '../../constants/companyDashboardMenu.js';
+import TimelineManagementSection from '../../components/company/TimelineManagementSection.jsx';
 
 const menuSections = COMPANY_DASHBOARD_MENU_SECTIONS;
 
@@ -1007,6 +1008,7 @@ export default function CompanyDashboardPage() {
   const sections = useMemo(() => buildSections(data), [data]);
   const profile = useMemo(() => buildProfile(data, summaryCards), [data, summaryCards]);
   const workspaceOptions = data?.meta?.availableWorkspaces ?? [];
+  const activeWorkspaceId = data?.meta?.selectedWorkspaceId ?? workspaceIdParam ?? data?.workspace?.id ?? null;
   const memberships = data?.memberships ?? data?.meta?.memberships ?? membershipsList;
   const enrichedSummaryCards = useMemo(() => summaryCards ?? [], [summaryCards]);
 
@@ -1178,6 +1180,14 @@ export default function CompanyDashboardPage() {
             />
           </div>
         </section>
+
+        <TimelineManagementSection
+          id="timeline-management"
+          workspaceId={activeWorkspaceId}
+          lookbackDays={lookbackDays}
+          data={data?.timelineManagement}
+          onRefresh={refresh}
+        />
 
         <BrandAndPeopleSection data={data} />
 
