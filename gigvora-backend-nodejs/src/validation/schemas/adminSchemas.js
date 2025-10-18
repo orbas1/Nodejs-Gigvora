@@ -192,3 +192,112 @@ export const affiliateSettingsBodySchema = z
   })
   .strip();
 
+const pageNavigationLinkSchema = z
+  .object({
+    id: optionalTrimmedString({ max: 120 }),
+    label: requiredTrimmedString({ max: 80 }),
+    url: requiredTrimmedString({ max: 2048 }),
+    external: optionalBoolean(),
+  })
+  .strip();
+
+const pageHeroSchema = z
+  .object({
+    title: optionalTrimmedString({ max: 200 }),
+    subtitle: optionalTrimmedString({ max: 480 }),
+    badge: optionalTrimmedString({ max: 80 }),
+    mediaType: optionalTrimmedString({ max: 32 }).transform((value) => value?.toLowerCase()),
+    mediaUrl: optionalTrimmedString({ max: 2048 }),
+    backgroundImageUrl: optionalTrimmedString({ max: 2048 }),
+    accentColor: optionalTrimmedString({ max: 20 }),
+    alignment: optionalTrimmedString({ max: 16 }).transform((value) => value?.toLowerCase()),
+  })
+  .strip();
+
+const pageSeoSchema = z
+  .object({
+    title: optionalTrimmedString({ max: 200 }),
+    description: optionalTrimmedString({ max: 320 }),
+    keywords: optionalStringArray({ maxItemLength: 50 }),
+  })
+  .strip();
+
+const pageCtaSchema = z
+  .object({
+    label: optionalTrimmedString({ max: 80 }),
+    url: optionalTrimmedString({ max: 2048 }),
+    external: optionalBoolean(),
+  })
+  .strip();
+
+const pageSectionSchema = z
+  .object({
+    id: optionalTrimmedString({ max: 120 }),
+    title: requiredTrimmedString({ max: 160 }),
+    type: optionalTrimmedString({ max: 60 }).transform((value) => value?.toLowerCase()),
+    enabled: optionalBoolean(),
+    summary: optionalTrimmedString({ max: 600 }),
+    media: z
+      .object({
+        type: optionalTrimmedString({ max: 32 }).transform((value) => value?.toLowerCase()),
+        url: optionalTrimmedString({ max: 2048 }),
+        altText: optionalTrimmedString({ max: 255 }),
+      })
+      .strip()
+      .optional(),
+    cta: pageCtaSchema.optional(),
+    order: optionalNumber({ min: 0, max: 999, precision: 0, integer: true }),
+  })
+  .strip();
+
+export const pageSettingsBodySchema = z
+  .object({
+    name: requiredTrimmedString({ max: 160 }),
+    slug: optionalTrimmedString({ max: 180 }),
+    description: optionalTrimmedString({ max: 480 }),
+    status: optionalTrimmedString({ max: 32 }).transform((value) => value?.toLowerCase()),
+    visibility: optionalTrimmedString({ max: 32 }).transform((value) => value?.toLowerCase()),
+    layout: optionalTrimmedString({ max: 32 }).transform((value) => value?.toLowerCase()),
+    hero: pageHeroSchema.optional(),
+    seo: pageSeoSchema.optional(),
+    callToAction: z
+      .object({
+        primary: pageCtaSchema.optional(),
+        secondary: pageCtaSchema.optional(),
+      })
+      .strip()
+      .optional(),
+    navigation: z
+      .object({
+        header: z.array(pageNavigationLinkSchema).optional(),
+        footer: z.array(pageNavigationLinkSchema).optional(),
+      })
+      .strip()
+      .optional(),
+    sections: z.array(pageSectionSchema).optional(),
+    theme: z
+      .object({
+        accent: optionalTrimmedString({ max: 20 }),
+        background: optionalTrimmedString({ max: 20 }),
+        text: optionalTrimmedString({ max: 20 }),
+      })
+      .strip()
+      .optional(),
+    allowedRoles: optionalStringArray({ maxItemLength: 60 }),
+    media: z.record(z.any()).optional(),
+  })
+  .strip();
+
+export const pageSettingsQuerySchema = z
+  .object({
+    limit: optionalNumber({ min: 1, max: 100, precision: 0, integer: true }),
+    offset: optionalNumber({ min: 0, max: 10_000, precision: 0, integer: true }),
+  })
+  .strip();
+
+export const pageSettingsParamsSchema = z
+  .object({
+    pageId: requiredTrimmedString({ max: 180 }),
+  })
+  .strip();
+
