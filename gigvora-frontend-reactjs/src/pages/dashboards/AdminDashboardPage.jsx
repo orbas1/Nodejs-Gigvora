@@ -17,106 +17,24 @@ import { fetchAffiliateSettings, updateAffiliateSettings } from '../../services/
 
 const MENU_SECTIONS = [
   {
-    label: 'Command modules',
+    label: 'Dash',
     items: [
-      {
-        name: 'Runtime health',
-        description: 'Service readiness, dependency posture, and rate-limit utilisation for the API perimeter.',
-        tags: ['ops', 'security'],
-        sectionId: 'admin-runtime-health',
-      },
-      {
-        name: 'Data governance',
-        description: 'PII inventory, retention policies, and audit cadence across bounded contexts.',
-        tags: ['compliance', 'data'],
-        sectionId: 'admin-domain-governance',
-      },
-      {
-        name: 'Member health',
-        description: 'Growth, activation, and readiness scores across the Gigvora network.',
-        tags: ['growth', 'activation'],
-      },
-      {
-        name: 'Financial governance',
-        description: 'Escrow flows, fee capture, and treasury risk posture.',
-        tags: ['finance'],
-      },
-      {
-        name: 'Risk & trust',
-        description: 'Dispute lifecycle, escalations, and marketplace safety monitoring.',
-        tags: ['compliance'],
-      },
-      {
-        name: 'Support operations',
-        description: 'Service desk load, SLAs, and sentiment guardrails.',
-      },
-      {
-        name: 'Engagement & comms',
-        description: 'Platform analytics, event telemetry, and notification delivery.',
-      },
-      {
-        name: 'Gigvora Ads',
-        description: 'Campaign coverage, targeting telemetry, and creative governance.',
-        tags: ['ads', 'monetisation'],
-        sectionId: 'gigvora-ads',
-      },
-      {
-        name: 'Launchpad performance',
-        description: 'Talent placements, interview runway, and employer demand.',
-      },
+      { name: 'Ops', sectionId: 'admin-runtime-health' },
+      { name: 'Data', sectionId: 'admin-domain-governance' },
+      { name: 'Projects', href: '/dashboard/admin/projects' },
+      { name: 'Ads', sectionId: 'gigvora-ads' },
     ],
   },
   {
-    label: 'Quick tools',
+    label: 'Config',
     items: [
-      {
-        name: 'Data exports',
-        description: 'Pull CSV snapshots or schedule secure S3 drops.',
-        tags: ['csv', 'api'],
-      },
-      {
-        name: 'Incident response',
-        description: 'Runbooks for security, privacy, and marketplace outages.',
-      },
-      {
-        name: 'Audit center',
-        description: 'Trace admin actions, approvals, and configuration changes.',
-      },
+      { name: 'Settings', sectionId: 'admin-settings-overview' },
+      { name: 'Affiliates', sectionId: 'admin-affiliate-settings' },
     ],
   },
   {
-    label: 'Configuration stack',
-      items: [
-        {
-          name: 'All platform settings',
-          description: 'Govern application defaults, commission policies, and feature gates.',
-          tags: ['settings'],
-          sectionId: 'admin-settings-overview',
-        },
-        {
-          name: 'Affiliate economics',
-          description: 'Tiered commissions, payout cadences, and partner compliance.',
-          tags: ['affiliate'],
-          sectionId: 'admin-affiliate-settings',
-        },
-        {
-          name: 'CMS controls',
-          description: 'Editorial workflow, restricted features, and monetisation toggles.',
-        sectionId: 'admin-settings-cms',
-      },
-      {
-        name: 'Environment & secrets',
-        description: 'Runtime environment, storage credentials, and database endpoints.',
-        sectionId: 'admin-settings-environment',
-        tags: ['ops'],
-      },
-      {
-        name: 'API & notifications',
-        description: 'REST endpoints, payment gateways, and outbound email security.',
-        sectionId: 'admin-settings-api',
-        tags: ['api'],
-      },
-    ],
+    label: 'Tools',
+    items: [{ name: 'Blog', sectionId: 'admin-blog' }],
   },
 ];
 
@@ -2391,6 +2309,36 @@ export default function AdminDashboardPage() {
     </div>
   );
 
+  const projectSummary = data?.projectManagement?.summary;
+  const projectSummaryCards = projectSummary
+    ? [
+        {
+          label: 'Projects',
+          value: formatNumber(projectSummary.totalProjects ?? 0),
+          caption: `${formatNumber(projectSummary.activeProjects ?? 0)} active`,
+          icon: UsersIcon,
+        },
+        {
+          label: 'At risk',
+          value: formatNumber(projectSummary.atRiskProjects ?? 0),
+          caption: `${formatNumber(projectSummary.completedProjects ?? 0)} completed`,
+          icon: ShieldCheckIcon,
+        },
+        {
+          label: 'Budget',
+          value: formatCurrency(projectSummary.budgetAllocated ?? 0),
+          caption: `Spent ${formatCurrency(projectSummary.budgetSpent ?? 0)}`,
+          icon: CurrencyDollarIcon,
+        },
+        {
+          label: 'Progress',
+          value: formatPercent(projectSummary.averageProgress ?? 0),
+          caption: 'Portfolio average',
+          icon: LifebuoyIcon,
+        },
+      ]
+    : [];
+
   const renderDashboardSections = data ? (
     <div className="space-y-10">
       <RuntimeTelemetryPanel
@@ -2406,7 +2354,29 @@ export default function AdminDashboardPage() {
       <ConsentGovernancePanel />
       <RbacMatrixPanel />
 
-      <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
+      <section id="admin-projects" className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Projects</h2>
+            <p className="mt-1 text-sm text-slate-600">Review health and jump into the workspace for full control.</p>
+          </div>
+          <Link
+            to="/dashboard/admin/projects"
+            className="inline-flex items-center justify-center rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
+          >
+            Open workspace
+          </Link>
+        </div>
+        {projectSummaryCards.length ? (
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {projectSummaryCards.map((card) => (
+              <SummaryCard key={card.label} {...card} />
+            ))}
+          </div>
+        ) : null}
+      </section>
+
+      <section id="admin-blog" className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Blog operations</h2>
