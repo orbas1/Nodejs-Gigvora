@@ -47,6 +47,12 @@ const MENU_SECTIONS = [
         tags: ['compliance'],
       },
       {
+        name: 'Users',
+        description: 'Manage accounts and access.',
+        tags: ['identity'],
+        href: '/dashboard/admin/users',
+      },
+      {
         name: 'Support operations',
         description: 'Service desk load, SLAs, and sentiment guardrails.',
       },

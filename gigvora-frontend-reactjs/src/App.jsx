@@ -47,6 +47,7 @@ import MentorDashboardPage from './pages/dashboards/MentorDashboardPage.jsx';
 import LaunchpadOperationsPage from './pages/dashboards/LaunchpadOperationsPage.jsx';
 import AdminDashboardPage from './pages/dashboards/AdminDashboardPage.jsx';
 import AdminBlogManagementPage from './pages/admin/AdminBlogManagementPage.jsx';
+import AdminUserManagementPage from './pages/dashboards/admin/AdminUserManagementPage.jsx';
 import ProtectedRoute from './components/routing/ProtectedRoute.jsx';
 import RoleProtectedRoute from './components/auth/RoleProtectedRoute.jsx';
 import MembershipGate from './components/auth/MembershipGate.jsx';
@@ -268,6 +269,14 @@ export default function App() {
         element={
           <RequireRole allowedRoles={['admin']}>
             <AdminBlogManagementPage />
+          </RequireRole>
+        }
+      />
+      <Route
+        path="dashboard/admin/users"
+        element={
+          <RequireRole allowedRoles={['admin']}>
+            <AdminUserManagementPage />
           </RequireRole>
         }
       />
