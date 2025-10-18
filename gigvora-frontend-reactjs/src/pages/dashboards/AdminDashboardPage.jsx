@@ -100,6 +100,12 @@ const MENU_SECTIONS = [
           sectionId: 'admin-affiliate-settings',
         },
         {
+          name: 'GDPR settings',
+          description: 'Configure DPO contact, data subject workflows, retention, and processor governance.',
+          tags: ['privacy', 'compliance'],
+          href: '/dashboard/admin/gdpr',
+        },
+        {
           name: 'CMS controls',
           description: 'Editorial workflow, restricted features, and monetisation toggles.',
         sectionId: 'admin-settings-cms',
@@ -2334,6 +2340,20 @@ export default function AdminDashboardPage() {
     setRefreshIndex((index) => index + 1);
   };
 
+  const handleMenuItemSelect = (itemId, item) => {
+    if (item?.href) {
+      navigate(item.href);
+      return;
+    }
+    const targetId = item?.sectionId ?? item?.targetId ?? itemId;
+    if (targetId && typeof document !== 'undefined') {
+      const el = document.getElementById(targetId);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  };
+
   const renderAccessDenied = (
     <div className="rounded-3xl border border-amber-200 bg-amber-50 p-8 text-amber-900">
       <h2 className="text-xl font-semibold text-amber-900">Admin role required</h2>
@@ -2868,12 +2888,14 @@ export default function AdminDashboardPage() {
         profile={profile}
         availableDashboards={[
           'admin',
+          { id: 'admin-gdpr', label: 'GDPR Settings', href: '/dashboard/admin/gdpr' },
           'user',
           'freelancer',
           'company',
           'agency',
           'headhunter',
         ]}
+        onMenuItemSelect={handleMenuItemSelect}
       >
         {gatingView}
       </DashboardLayout>
@@ -2908,18 +2930,20 @@ export default function AdminDashboardPage() {
       currentDashboard="admin"
       title="Gigvora Admin Control Tower"
       subtitle="Enterprise governance & compliance"
-      description="Centralize every lever that powers Gigvora—from member growth and financial operations to trust, support, analytics, and the launchpad." 
+      description="Centralize every lever that powers Gigvora—from member growth and financial operations to trust, support, analytics, and the launchpad."
       menuSections={MENU_SECTIONS}
       sections={[]}
       profile={profile}
       availableDashboards={[
         'admin',
+        { id: 'admin-gdpr', label: 'GDPR Settings', href: '/dashboard/admin/gdpr' },
         'user',
         'freelancer',
         'company',
         'agency',
         'headhunter',
       ]}
+      onMenuItemSelect={handleMenuItemSelect}
     >
       {renderContent}
     </DashboardLayout>

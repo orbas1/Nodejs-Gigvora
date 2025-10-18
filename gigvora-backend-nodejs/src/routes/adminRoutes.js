@@ -7,6 +7,7 @@ import validateRequest from '../middleware/validateRequest.js';
 import {
   adminDashboardQuerySchema,
   affiliateSettingsBodySchema,
+  gdprSettingsBodySchema,
   platformSettingsBodySchema,
 } from '../validation/schemas/adminSchemas.js';
 import adminRuntimeRoutes from './adminRuntimeRoutes.js';
@@ -34,6 +35,12 @@ router.put(
   '/affiliate-settings',
   validateRequest({ body: affiliateSettingsBodySchema }),
   asyncHandler(adminController.persistAffiliateSettings),
+);
+router.get('/gdpr-settings', asyncHandler(adminController.fetchGdprSettings));
+router.put(
+  '/gdpr-settings',
+  validateRequest({ body: gdprSettingsBodySchema }),
+  asyncHandler(adminController.persistGdprSettings),
 );
 
 router.use('/ads/coupons', adminAdRoutes);
