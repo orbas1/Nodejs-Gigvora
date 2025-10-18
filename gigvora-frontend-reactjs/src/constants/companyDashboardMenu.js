@@ -1,5 +1,13 @@
 export const COMPANY_DASHBOARD_MENU_SECTIONS = [
   {
+    label: 'Profile',
+    items: [
+      {
+        name: 'Profile',
+        description: 'Manage brand, fans, and partners.',
+        sectionId: 'profile-workspace',
+        href: '/dashboard/company/profile',
+        tags: ['profile'],
     label: 'Studio',
     items: [
       {

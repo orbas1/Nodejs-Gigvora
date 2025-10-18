@@ -712,6 +712,14 @@ function sanitizeProfile(companyProfile) {
     location: plain.location ?? null,
     geoLocation: plain.geoLocation ?? null,
     locationDetails: buildLocationDetails(plain.location, plain.geoLocation),
+    tagline: plain.tagline ?? null,
+    logoUrl: plain.logoUrl ?? null,
+    bannerUrl: plain.bannerUrl ?? null,
+    contactEmail: plain.contactEmail ?? null,
+    contactPhone: plain.contactPhone ?? null,
+    socialLinks: Array.isArray(plain.socialLinks)
+      ? plain.socialLinks.map((entry) => ({ label: entry?.label ?? null, url: entry?.url ?? null }))
+      : [],
   };
 }
 

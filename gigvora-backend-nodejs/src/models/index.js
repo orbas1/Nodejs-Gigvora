@@ -598,10 +598,63 @@ export const CompanyProfile = sequelize.define(
     website: { type: DataTypes.STRING(255), allowNull: true },
     location: { type: DataTypes.STRING(255), allowNull: true },
     geoLocation: { type: jsonType, allowNull: true },
+    tagline: { type: DataTypes.STRING(255), allowNull: true },
+    logoUrl: { type: DataTypes.STRING(500), allowNull: true },
+    bannerUrl: { type: DataTypes.STRING(500), allowNull: true },
+    contactEmail: { type: DataTypes.STRING(255), allowNull: true },
+    contactPhone: { type: DataTypes.STRING(60), allowNull: true },
+    socialLinks: { type: jsonType, allowNull: true },
   },
   { tableName: 'company_profiles' },
 );
 
+export const CompanyProfileFollower = sequelize.define(
+  'CompanyProfileFollower',
+  {
+    companyProfileId: { type: DataTypes.INTEGER, allowNull: false },
+    followerId: { type: DataTypes.INTEGER, allowNull: false },
+    status: {
+      type: DataTypes.ENUM('pending', 'active', 'blocked'),
+      allowNull: false,
+      defaultValue: 'active',
+    },
+    notificationsEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'company_profile_followers',
+    indexes: [
+      { fields: ['companyProfileId'] },
+      { fields: ['followerId'] },
+      { unique: true, fields: ['companyProfileId', 'followerId'] },
+    ],
+  },
+);
+
+export const CompanyProfileConnection = sequelize.define(
+  'CompanyProfileConnection',
+  {
+    companyProfileId: { type: DataTypes.INTEGER, allowNull: false },
+    targetUserId: { type: DataTypes.INTEGER, allowNull: false },
+    targetCompanyProfileId: { type: DataTypes.INTEGER, allowNull: true },
+    relationshipType: { type: DataTypes.STRING(120), allowNull: true },
+    status: {
+      type: DataTypes.ENUM('pending', 'active', 'archived', 'blocked'),
+      allowNull: false,
+      defaultValue: 'pending',
+    },
+    contactEmail: { type: DataTypes.STRING(255), allowNull: true },
+    contactPhone: { type: DataTypes.STRING(60), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    lastInteractedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'company_profile_connections',
+    indexes: [
+      { fields: ['companyProfileId'] },
+      { fields: ['targetUserId'] },
+      { unique: true, fields: ['companyProfileId', 'targetUserId'] },
 export const CompanyDashboardOverview = sequelize.define(
   'CompanyDashboardOverview',
   {
@@ -18459,6 +18512,28 @@ CompanyProfile.hasMany(CorporateVerification, {
   onDelete: 'CASCADE',
 });
 CorporateVerification.belongsTo(CompanyProfile, { foreignKey: 'companyProfileId', as: 'companyProfile' });
+
+CompanyProfile.hasMany(CompanyProfileFollower, {
+  foreignKey: 'companyProfileId',
+  as: 'followers',
+  onDelete: 'CASCADE',
+});
+CompanyProfileFollower.belongsTo(CompanyProfile, { foreignKey: 'companyProfileId', as: 'companyProfile' });
+CompanyProfileFollower.belongsTo(User, { foreignKey: 'followerId', as: 'follower' });
+User.hasMany(CompanyProfileFollower, { foreignKey: 'followerId', as: 'companyFollowMemberships' });
+
+CompanyProfile.hasMany(CompanyProfileConnection, {
+  foreignKey: 'companyProfileId',
+  as: 'connections',
+  onDelete: 'CASCADE',
+});
+CompanyProfileConnection.belongsTo(CompanyProfile, { foreignKey: 'companyProfileId', as: 'companyProfile' });
+CompanyProfileConnection.belongsTo(User, { foreignKey: 'targetUserId', as: 'targetUser' });
+CompanyProfileConnection.belongsTo(CompanyProfile, {
+  foreignKey: 'targetCompanyProfileId',
+  as: 'targetCompanyProfile',
+});
+User.hasMany(CompanyProfileConnection, { foreignKey: 'targetUserId', as: 'incomingCompanyConnections' });
 AgencyProfile.hasMany(CorporateVerification, {
   foreignKey: 'agencyProfileId',
   as: 'corporateVerifications',
@@ -21293,6 +21368,8 @@ export default {
   ProfileFollower,
   ProfileEngagementJob,
   CompanyProfile,
+  CompanyProfileFollower,
+  CompanyProfileConnection,
   AgencyProfile,
   AgencyDashboardOverview,
   FreelancerProfile,
