@@ -341,7 +341,9 @@ function sanitiseMetadata(metadata = {}) {
   }
   const cloneMetadata = { ...metadata };
   if (cloneMetadata.headers) {
-    const { authorization, cookie, ...restHeaders } = cloneMetadata.headers;
+    const restHeaders = { ...cloneMetadata.headers };
+    delete restHeaders.authorization;
+    delete restHeaders.cookie;
     cloneMetadata.headers = restHeaders;
   }
   return cloneMetadata;
