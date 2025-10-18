@@ -19,6 +19,7 @@ import {
   USER_EVENT_ASSET_TYPES,
   USER_EVENT_ASSET_VISIBILITIES,
 } from '../models/index.js';
+import { UserEventWorkspaceSetting } from '../models/eventManagement.js';
 import { ValidationError, NotFoundError, AuthorizationError } from '../utils/errors.js';
 
 const DEFAULT_EVENT_LIMIT = 20;
@@ -116,6 +117,113 @@ const EVENT_INCLUDES = [
     ],
   },
 ];
+
+function sanitizeSettings(record) {
+  if (!record) {
+    return {
+      includeArchivedByDefault: false,
+      autoArchiveAfterDays: 90,
+      defaultFormat: 'virtual',
+      defaultVisibility: 'invite_only',
+      defaultTimezone: 'UTC',
+      requireCheckInNotes: false,
+      allowedRoles: [...DEFAULT_ALLOWED_ROLES],
+      metadata: null,
+      createdAt: null,
+      updatedAt: null,
+    };
+  }
+
+  const plain = record.toPublicObject ? record.toPublicObject() : record;
+  const allowedRoles = Array.isArray(plain.allowedRoles) && plain.allowedRoles.length
+    ? Array.from(
+        new Set(
+          plain.allowedRoles
+            .map((role) => (typeof role === 'string' ? role.trim() : null))
+            .filter((role) => role),
+        ),
+      )
+    : [...DEFAULT_ALLOWED_ROLES];
+
+  return {
+    includeArchivedByDefault: Boolean(plain.includeArchivedByDefault),
+    autoArchiveAfterDays: plain.autoArchiveAfterDays ?? 90,
+    defaultFormat: plain.defaultFormat ?? 'virtual',
+    defaultVisibility: plain.defaultVisibility ?? 'invite_only',
+    defaultTimezone: plain.defaultTimezone ?? 'UTC',
+    requireCheckInNotes: Boolean(plain.requireCheckInNotes),
+    allowedRoles,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt ?? null,
+    updatedAt: plain.updatedAt ?? null,
+  };
+}
+
+async function getOrCreateWorkspaceSettings(ownerId, { transaction } = {}) {
+  const [record] = await UserEventWorkspaceSetting.findOrCreate({
+    where: { ownerId },
+    defaults: {
+      includeArchivedByDefault: false,
+      autoArchiveAfterDays: 90,
+      defaultFormat: 'virtual',
+      defaultVisibility: 'invite_only',
+      defaultTimezone: 'UTC',
+      requireCheckInNotes: false,
+      allowedRoles: DEFAULT_ALLOWED_ROLES,
+    },
+    transaction,
+  });
+
+  return record;
+}
+
+function normalizeAutoArchiveDays(value) {
+  if (value == null || value === '') {
+    return undefined;
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    throw new ValidationError('autoArchiveAfterDays must be numeric.');
+  }
+  const rounded = Math.max(0, Math.round(numeric));
+  if (rounded > 3650) {
+    throw new ValidationError('autoArchiveAfterDays cannot exceed 3650 days.');
+  }
+  return rounded;
+}
+
+function normalizeTimezone(value) {
+  if (value == null || value === '') {
+    return undefined;
+  }
+  const candidate = value.toString().trim();
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: candidate }).format(new Date());
+  } catch (error) {
+    throw new ValidationError('defaultTimezone must be a valid IANA time zone.');
+  }
+  return candidate;
+}
+
+function normalizeAllowedRoles(value) {
+  if (value == null) {
+    return undefined;
+  }
+  if (!Array.isArray(value)) {
+    throw new ValidationError('allowedRoles must be an array of roles.');
+  }
+  const roles = Array.from(
+    new Set(
+      value
+        .map((role) => (typeof role === 'string' ? role.trim().toLowerCase() : null))
+        .filter(Boolean),
+    ),
+  );
+  if (!roles.length) {
+    throw new ValidationError('allowedRoles must include at least one role.');
+  }
+  return roles;
+}
 
 function normalizeIdentifier(value, label) {
   const numeric = Number(value);
@@ -850,10 +958,14 @@ async function ensureEventOwnership(userId, eventId, { transaction } = {}) {
   return event;
 }
 
-export async function getUserEventManagement(userId, { includeArchived = false, limit = DEFAULT_EVENT_LIMIT } = {}) {
+export async function getUserEventManagement(userId, { includeArchived, limit = DEFAULT_EVENT_LIMIT } = {}) {
   const normalizedUserId = normalizeUserId(userId);
+  const settingsRecord = await getOrCreateWorkspaceSettings(normalizedUserId);
+  const workspaceSettings = sanitizeSettings(settingsRecord);
+  const includeArchivedFlag = includeArchived ?? workspaceSettings.includeArchivedByDefault;
+
   const where = { ownerId: normalizedUserId };
-  if (!includeArchived) {
+  if (!includeArchivedFlag) {
     where.status = { [Op.ne]: 'archived' };
   }
 
@@ -878,14 +990,17 @@ export async function getUserEventManagement(userId, { includeArchived = false, 
     templates: EVENT_TEMPLATES,
     permissions: {
       canManage: true,
-      allowedRoles: DEFAULT_ALLOWED_ROLES,
+      allowedRoles: workspaceSettings.allowedRoles,
     },
+    settings: workspaceSettings,
   };
 }
 
 export async function createEvent(userId, payload = {}) {
   const normalizedUserId = normalizeUserId(userId);
   const data = normalizeEventPayload(payload, { partial: false });
+  const settingsRecord = await getOrCreateWorkspaceSettings(normalizedUserId);
+  const workspaceSettings = sanitizeSettings(settingsRecord);
 
   return sequelize.transaction(async (transaction) => {
     const slug = data.slug || (await generateUniqueSlug(normalizedUserId, data.title, { transaction }));
@@ -895,9 +1010,9 @@ export async function createEvent(userId, payload = {}) {
         title: data.title,
         slug,
         status: data.status ?? 'draft',
-        format: data.format ?? 'virtual',
-        visibility: data.visibility ?? 'invite_only',
-        timezone: data.timezone ?? null,
+        format: data.format ?? workspaceSettings.defaultFormat ?? 'virtual',
+        visibility: data.visibility ?? workspaceSettings.defaultVisibility ?? 'invite_only',
+        timezone: data.timezone ?? workspaceSettings.defaultTimezone ?? null,
         locationLabel: data.locationLabel ?? null,
         locationAddress: data.locationAddress ?? null,
         locationDetails: data.locationDetails ?? null,
@@ -1046,6 +1161,51 @@ export async function updateEvent(userId, eventId, payload = {}) {
 
     const updated = await loadEventForUser(userId, eventId, { transaction });
     return sanitizeEvent(updated);
+  });
+}
+
+export async function getWorkspaceSettings(userId) {
+  const normalizedUserId = normalizeUserId(userId);
+  const record = await getOrCreateWorkspaceSettings(normalizedUserId);
+  return sanitizeSettings(record);
+}
+
+export async function updateWorkspaceSettings(userId, payload = {}) {
+  const normalizedUserId = normalizeUserId(userId);
+  const updates = {};
+
+  if (payload.includeArchivedByDefault != null) {
+    updates.includeArchivedByDefault = Boolean(payload.includeArchivedByDefault);
+  }
+  const autoArchiveAfterDays = normalizeAutoArchiveDays(payload.autoArchiveAfterDays);
+  if (autoArchiveAfterDays != null) {
+    updates.autoArchiveAfterDays = autoArchiveAfterDays;
+  }
+  if (payload.defaultFormat != null) {
+    updates.defaultFormat = ensureAllowed(payload.defaultFormat, USER_EVENT_FORMATS, 'defaultFormat');
+  }
+  if (payload.defaultVisibility != null) {
+    updates.defaultVisibility = ensureAllowed(payload.defaultVisibility, USER_EVENT_VISIBILITIES, 'defaultVisibility');
+  }
+  const defaultTimezone = normalizeTimezone(payload.defaultTimezone);
+  if (defaultTimezone != null) {
+    updates.defaultTimezone = defaultTimezone;
+  }
+  if (payload.requireCheckInNotes != null) {
+    updates.requireCheckInNotes = Boolean(payload.requireCheckInNotes);
+  }
+  const allowedRoles = normalizeAllowedRoles(payload.allowedRoles);
+  if (allowedRoles != null) {
+    updates.allowedRoles = allowedRoles;
+  }
+  if (payload.metadata != null) {
+    updates.metadata = normalizeMetadata(payload.metadata);
+  }
+
+  return sequelize.transaction(async (transaction) => {
+    const record = await getOrCreateWorkspaceSettings(normalizedUserId, { transaction });
+    await record.update(updates, { transaction });
+    return sanitizeSettings(record);
   });
 }
 
@@ -1314,4 +1474,6 @@ export default {
   createChecklistItem,
   updateChecklistItem,
   deleteChecklistItem,
+  getWorkspaceSettings,
+  updateWorkspaceSettings,
 };

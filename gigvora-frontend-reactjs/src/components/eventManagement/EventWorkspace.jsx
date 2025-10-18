@@ -207,6 +207,7 @@ export default function EventWorkspace({
   assetApi,
   checklistApi,
   canManage,
+  workspaceSettings = null,
 }) {
   const [activeTab, setActiveTab] = useState('Plan');
   const [formState, setFormState] = useState({ open: false, entity: null, mode: 'create', initialValues: {} });
@@ -325,6 +326,30 @@ export default function EventWorkspace({
         await run(() => checklistApi.create(eventId, payload), 'Item added');
       }
     }
+  };
+
+  const handleCheckInGuest = (guest) => {
+    if (!eventId) return;
+    let metadata = guest.metadata ?? {};
+    if (workspaceSettings?.requireCheckInNotes) {
+      const note = window.prompt('Add a quick note for this guest check-in:', '');
+      if (note === null) {
+        return;
+      }
+      const trimmed = note.trim();
+      if (trimmed) {
+        metadata = { ...metadata, checkInNote: trimmed };
+      }
+    }
+    mutateEvent(
+      () =>
+        guestApi.update(eventId, guest.id, {
+          status: 'checked_in',
+          checkedInAt: new Date().toISOString(),
+          metadata,
+        }),
+      { successMessage: 'Guest checked in' },
+    );
   };
 
   const openDeleteConfirm = (title, description, handler, actionLabel = 'Remove') => {
@@ -451,6 +476,11 @@ export default function EventWorkspace({
           ) : null
         }
       />
+      {workspaceSettings?.requireCheckInNotes ? (
+        <p className="rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800">
+          Check-in notes are required. Capture on-site context whenever someone arrives.
+        </p>
+      ) : null}
       {guests.length ? (
         <div className="overflow-hidden rounded-3xl border border-slate-200">
           <table className="min-w-full divide-y divide-slate-100 text-sm">
@@ -481,14 +511,7 @@ export default function EventWorkspace({
                     {canManage ? (
                       <div className="flex items-center justify-end gap-2">
                         {guest.status !== 'checked_in' ? (
-                          <SecondaryButton
-                            onClick={() =>
-                              mutateEvent(
-                                () => guestApi.update(eventId, guest.id, { status: 'checked_in', checkedInAt: new Date().toISOString() }),
-                                { successMessage: 'Guest checked in' },
-                              )
-                            }
-                          >
+                          <SecondaryButton onClick={() => handleCheckInGuest(guest)}>
                             Check in
                           </SecondaryButton>
                         ) : null}

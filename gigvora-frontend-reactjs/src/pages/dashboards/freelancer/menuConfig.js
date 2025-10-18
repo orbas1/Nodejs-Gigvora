@@ -20,6 +20,8 @@ import {
   ClipboardDocumentListIcon,
   ClipboardDocumentCheckIcon,
   Cog6ToothIcon,
+  LockClosedIcon,
+  InboxStackIcon,
   FolderIcon,
   DocumentTextIcon,
   GlobeAltIcon,
@@ -300,6 +302,12 @@ export const MENU_GROUPS = [
         icon: HeartIcon,
         href: '/dashboard/freelancer/volunteer',
       },
+      {
+        id: 'inbox',
+        name: 'Inbox & communications',
+        description: 'Messages, saved replies, routing rules, and support cases.',
+        icon: InboxStackIcon,
+      },
     ],
   },
   {
@@ -373,6 +381,10 @@ export const MENU_GROUPS = [
         icon: BanknotesIcon,
       },
       {
+        id: 'escrow-management',
+        name: 'Escrow',
+        description: 'Accounts, releases, disputes.',
+        icon: LockClosedIcon,
         id: 'dispute-management',
         name: 'Disputes',
         description: null,

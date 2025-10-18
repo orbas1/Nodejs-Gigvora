@@ -16,13 +16,16 @@ import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import DataStatus from '../../components/DataStatus.jsx';
 import PartnershipsSourcingSection from '../../components/dashboard/PartnershipsSourcingSection.jsx';
 import JobLifecycleSection from '../../components/company/JobLifecycleSection.jsx';
+import CreationStudioSummary from '../../components/company/CreationStudioSummary.jsx';
 import InterviewExperienceSection from '../../components/dashboard/InterviewExperienceSection.jsx';
 import AccessDeniedPanel from '../../components/dashboard/AccessDeniedPanel.jsx';
 import CompanyDashboardOverviewSection from '../../components/company/CompanyDashboardOverviewSection.jsx';
+import CompanyPagesManagementSection from '../../components/company/CompanyPagesManagementSection.jsx';
 import { useCompanyDashboard } from '../../hooks/useCompanyDashboard.js';
 import { useSession } from '../../context/SessionContext.jsx';
 import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
 import { COMPANY_DASHBOARD_MENU_SECTIONS } from '../../constants/companyDashboardMenu.js';
+import TimelineManagementSection from '../../components/company/TimelineManagementSection.jsx';
 
 const menuSections = COMPANY_DASHBOARD_MENU_SECTIONS;
 
@@ -265,7 +268,6 @@ function buildSections(data) {
   const workforce = data.employerBrandWorkforce?.workforceAnalytics ?? {};
   const mobility = data.employerBrandWorkforce?.internalMobility ?? {};
   const scenarioPlanning = analyticsForecasting.scenarios ?? {};
-  const networking = data.networking ?? {};
   const governance = data.governance ?? {};
   const calendar = data.calendar ?? {};
   const candidateExperience = data.candidateExperience ?? {};
@@ -285,10 +287,6 @@ function buildSections(data) {
         .slice(0, 4)
         .map((item) => `${item.title ?? item.type ?? 'Alert'} • ${formatRelativeTime(item.detectedAt)}`)
     : ['No active alerts detected in this window.'];
-
-  const networkingSessions = networking.sessions ?? {};
-  const networkingExperience = networking.attendeeExperience ?? {};
-  const networkingPenalties = networking.penalties ?? {};
 
   return [
     {
@@ -423,47 +421,6 @@ function buildSections(data) {
             scenarioPlanning.nextReviewAt
               ? `Next review: ${formatAbsolute(scenarioPlanning.nextReviewAt)}`
               : 'Schedule scenario reviews to align exec decisions.',
-          ],
-        },
-      ],
-    },
-    {
-      id: 'networking-sessions',
-      title: 'Networking & community',
-      description: 'Activate company-hosted networking with end-to-end attendee experience controls.',
-      features: [
-        {
-          name: 'Session operations',
-          sectionId: 'networking-sessions',
-          bulletPoints: [
-            `Active sessions: ${formatNumber(networkingSessions.active)}`,
-            `Upcoming sessions: ${formatNumber(networkingSessions.upcoming)}`,
-            `Join limit: ${formatNumber(networkingSessions.defaultJoinLimit ?? networkingSessions.joinLimit)}`,
-            networkingSessions.rotationDurationMinutes
-              ? `Rotation cadence: ${formatNumber(networkingSessions.rotationDurationMinutes, { suffix: ' min' })}`
-              : 'Configure 2–5 minute rotations to keep meetings balanced.',
-          ],
-        },
-        {
-          name: 'Attendee experience',
-          sectionId: 'networking-attendee-experience',
-          bulletPoints: [
-            `Digital cards created: ${formatNumber(networkingExperience.digitalBusinessCardsCreated)}`,
-            `Average satisfaction: ${formatPercent(networkingExperience.averageSatisfaction)}`,
-            `Saved matches: ${formatNumber(networkingExperience.matchesSaved)}`,
-            `Follow-up nudges sent: ${formatNumber(networkingExperience.followUpsSent)}`,
-          ],
-        },
-        {
-          name: 'Attendance controls',
-          sectionId: 'networking-attendance-controls',
-          bulletPoints: [
-            `No-show rate: ${formatPercent(networkingPenalties.noShowRate)}`,
-            `Active penalties: ${formatNumber(networkingPenalties.activePenalties)}`,
-            `Restricted attendees: ${formatNumber(networkingPenalties.restrictedParticipants)}`,
-            networkingPenalties.cooldownDays
-              ? `Cooldown window: ${formatNumber(networkingPenalties.cooldownDays, { suffix: ' days' })}`
-              : 'Set cooldown windows to auto-manage repeat no-shows.',
           ],
         },
       ],
@@ -611,32 +568,6 @@ function BrandAndPeopleSection({ data }) {
     off_track: 'bg-rose-50 text-rose-600 border border-rose-200',
   };
 
-  const pageMetrics = [
-    {
-      label: 'Pages live',
-      value: formatNumber(pageWorkspace?.live ?? pageWorkspace?.published ?? 0),
-      helper: 'Publicly available',
-    },
-    {
-      label: 'Drafts in review',
-      value: formatNumber(pageWorkspace?.inReview ?? pageWorkspace?.drafts ?? 0),
-      helper: 'Awaiting approvals',
-    },
-    {
-      label: 'Avg conversion',
-      value: formatPercent(pageWorkspace?.averageConversionRate ?? pageWorkspace?.conversionRate ?? 0),
-      helper: 'Explorer to lead',
-    },
-    {
-      label: 'Follower reach',
-      value: formatNumber(pageWorkspace?.totalFollowers ?? pageWorkspace?.followers ?? 0),
-      helper: 'Across all pages',
-    },
-  ];
-
-  const upcomingPageLaunches = pageWorkspace?.upcomingLaunches ?? pageWorkspace?.upcoming ?? [];
-  const governanceSignals = pageWorkspace?.governance ?? {};
-
   return (
     <section
       id="brand-and-people"
@@ -711,92 +642,11 @@ function BrandAndPeopleSection({ data }) {
             ) : null}
           </div>
 
-          <div id="brand-pages" className="space-y-4 rounded-3xl border border-indigo-100 bg-indigo-50/40 p-5">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h3 className="text-xl font-semibold text-indigo-900">Public pages studio</h3>
-                <p className="text-sm text-indigo-700">
-                  Publish high-converting company and program destinations with approval workflows and analytics baked in.
-                </p>
-                {pageWorkspace?.lastPublishedAt ? (
-                  <p className="mt-1 text-xs text-indigo-600">
-                    Last launch {formatRelativeTime(pageWorkspace.lastPublishedAt)}
-                  </p>
-                ) : null}
-              </div>
-              <Link
-                to="/pages"
-                className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-white/70 px-4 py-2 text-xs font-semibold text-indigo-700 transition hover:border-indigo-400 hover:text-indigo-900"
-              >
-                Open page studio
-              </Link>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {pageMetrics.map((metric) => (
-                <div key={metric.label} className="rounded-2xl bg-white/80 p-4 shadow-sm">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">{metric.label}</p>
-                  <p className="mt-2 text-xl font-semibold text-indigo-900">{metric.value}</p>
-                  <p className="mt-1 text-xs text-indigo-600">{metric.helper}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="grid gap-4 lg:grid-cols-2">
-              <div className="rounded-2xl border border-indigo-100 bg-white/80 p-4">
-                <h4 className="text-sm font-semibold uppercase tracking-wide text-indigo-700">Upcoming launches</h4>
-                <ul className="mt-3 space-y-3 text-sm text-indigo-800">
-                  {upcomingPageLaunches.slice(0, 4).map((item, index) => (
-                    <li
-                      key={item.id ?? item.slug ?? index}
-                      className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-3"
-                    >
-                      <p className="text-sm font-semibold text-indigo-900">{item.title ?? item.name ?? 'Launch'}</p>
-                      <p className="mt-1 text-xs text-indigo-600">
-                        {item.launchDate ? `Launch ${formatAbsolute(item.launchDate)}` : 'Scheduling in progress'}
-                        {item.owner ? ` • Owner ${item.owner}` : ''}
-                      </p>
-                      {item.status ? (
-                        <span className="mt-2 inline-flex rounded-full bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-indigo-700">
-                          {item.status.replace(/_/g, ' ')}
-                        </span>
-                      ) : null}
-                    </li>
-                  ))}
-                  {!upcomingPageLaunches.length ? (
-                    <li className="rounded-2xl border border-dashed border-indigo-200 bg-white/70 p-4 text-xs text-indigo-600">
-                      No launches queued—create a page to start capturing demand.
-                    </li>
-                  ) : null}
-                </ul>
-              </div>
-
-              <div className="rounded-2xl border border-indigo-100 bg-white/80 p-4">
-                <h4 className="text-sm font-semibold uppercase tracking-wide text-indigo-700">Governance guardrails</h4>
-                <ul className="mt-3 space-y-2 text-sm text-indigo-700">
-                  <li className="flex gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-500" />
-                    Brand compliance status: {governanceSignals.brand ?? 'Aligned'}
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-500" />
-                    Accessibility automation: {governanceSignals.accessibility ?? 'AA contrast checks active'}
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-500" />
-                    Privacy reviews pending: {formatNumber(governanceSignals.privacyPending ?? 0)}
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-500" />
-                    Approvers assigned: {formatNumber(governanceSignals.approvers ?? governanceSignals.reviewers ?? 0)}
-                  </li>
-                </ul>
-                <p className="mt-3 text-xs text-indigo-600">
-                  Guardrails sync with Trust Centre policies and automatically enforce on every publish.
-                </p>
-              </div>
-            </div>
-          </div>
+          <CompanyPagesManagementSection
+            workspaceId={companyWorkspaceId}
+            variant="inline"
+            onOpenFullStudio={() => navigate('/dashboard/company/pages')}
+          />
         </div>
       </div>
 
@@ -1007,9 +857,27 @@ export default function CompanyDashboardPage() {
 
   const sections = useMemo(() => buildSections(data), [data]);
   const profile = useMemo(() => buildProfile(data, summaryCards), [data, summaryCards]);
+  const companyWorkspaceId = useMemo(() => {
+    const metaId = data?.meta?.selectedWorkspaceId;
+    const paramId = workspaceIdParam ? Number.parseInt(workspaceIdParam, 10) : null;
+    const fallbackId = data?.workspace?.id ?? null;
+    return metaId ?? paramId ?? fallbackId ?? null;
+  }, [data?.meta?.selectedWorkspaceId, data?.workspace?.id, workspaceIdParam]);
   const workspaceOptions = data?.meta?.availableWorkspaces ?? [];
+  const activeWorkspaceId = data?.meta?.selectedWorkspaceId ?? workspaceIdParam ?? data?.workspace?.id ?? null;
   const memberships = data?.memberships ?? data?.meta?.memberships ?? membershipsList;
   const enrichedSummaryCards = useMemo(() => summaryCards ?? [], [summaryCards]);
+  const selectedWorkspaceId = useMemo(() => {
+    const metaId = Number(data?.meta?.selectedWorkspaceId);
+    if (Number.isFinite(metaId)) {
+      return metaId;
+    }
+    const paramId = Number(workspaceIdParam);
+    if (Number.isFinite(paramId)) {
+      return paramId;
+    }
+    return undefined;
+  }, [data?.meta?.selectedWorkspaceId, workspaceIdParam]);
 
   const networkingCta = {
     href: '/dashboard/company/networking',
@@ -1133,6 +1001,15 @@ export default function CompanyDashboardPage() {
 
         <SummaryCardGrid cards={enrichedSummaryCards} />
 
+        {data?.creationStudio ? (
+          <CreationStudioSummary
+            overview={data.creationStudio}
+            ctaTo="/dashboard/company/creation-studio"
+            ctaLabel="Open creation studio"
+            compact
+          />
+        ) : null}
+
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-900">Workspace memberships</h2>
           <p className="mt-1 text-sm text-slate-600">
@@ -1144,6 +1021,32 @@ export default function CompanyDashboardPage() {
         </div>
 
         <PartnershipsSourcingSection data={data?.partnerships} />
+
+        <section
+          id="networking-session-management"
+          className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+        >
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-2xl font-semibold text-slate-900">Networking sessions</h2>
+              <p className="text-sm text-slate-600">Plan, spend, and follow up from the streamlined workspace.</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <a
+                href="/dashboard/company/networking/sessions"
+                className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500"
+              >
+                Open sessions
+              </a>
+              <a
+                href="/dashboard/company/networking"
+                className="inline-flex items-center gap-2 rounded-full border border-blue-200 px-4 py-2 text-sm font-semibold text-blue-600 transition hover:border-blue-400 hover:bg-blue-50"
+              >
+                Live hub
+              </a>
+            </div>
+          </div>
+        </section>
 
         {data ? (
           <JobLifecycleSection
@@ -1186,6 +1089,14 @@ export default function CompanyDashboardPage() {
             />
           </div>
         </section>
+
+        <TimelineManagementSection
+          id="timeline-management"
+          workspaceId={activeWorkspaceId}
+          lookbackDays={lookbackDays}
+          data={data?.timelineManagement}
+          onRefresh={refresh}
+        />
 
         <BrandAndPeopleSection data={data} />
 
