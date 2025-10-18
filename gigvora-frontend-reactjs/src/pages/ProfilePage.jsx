@@ -484,7 +484,13 @@ export default function ProfilePage() {
           ) : null}
         <div className="grid items-start gap-10 rounded-4xl border border-slate-200/70 bg-white/80 p-10 shadow-xl backdrop-blur lg:grid-cols-[auto,1fr]">
           <div className="space-y-4 text-center lg:text-left">
-            <UserAvatar name={profile.name} seed={profile.avatarSeed} size="lg" className="mx-auto lg:mx-0" />
+            <UserAvatar
+              name={profile.name}
+              imageUrl={profile.avatarUrl}
+              seed={profile.avatarSeed}
+              size="lg"
+              className="mx-auto lg:mx-0"
+            />
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent/80">Profile #{id}</p>
               <h1 className="mt-2 text-3xl font-bold text-slate-900">{profile.name}</h1>
@@ -903,6 +909,7 @@ export default function ProfilePage() {
                     >
                       <UserAvatar
                         name={collaborator.name}
+                        imageUrl={collaborator.avatarUrl}
                         seed={collaborator.avatarSeed ?? collaborator.name}
                         size="xs"
                         showGlow={false}
