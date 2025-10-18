@@ -62,6 +62,22 @@ export const UserEvent = sequelize.define(
   },
 );
 
+export const UserEventWorkspaceSetting = sequelize.define(
+  'UserEventWorkspaceSetting',
+  {
+    ownerId: { type: DataTypes.INTEGER, allowNull: false, unique: true },
+    includeArchivedByDefault: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    autoArchiveAfterDays: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 90 },
+    defaultFormat: { type: DataTypes.ENUM(...USER_EVENT_FORMATS), allowNull: false, defaultValue: 'virtual' },
+    defaultVisibility: { type: DataTypes.ENUM(...USER_EVENT_VISIBILITIES), allowNull: false, defaultValue: 'invite_only' },
+    defaultTimezone: { type: DataTypes.STRING(80), allowNull: false, defaultValue: 'UTC' },
+    requireCheckInNotes: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    allowedRoles: { type: jsonType, allowNull: false, defaultValue: [] },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'user_event_workspace_settings', indexes: [{ fields: ['ownerId'], unique: true }] },
+);
+
 export const UserEventAgendaItem = sequelize.define(
   'UserEventAgendaItem',
   {
@@ -170,6 +186,8 @@ export function registerEventManagementAssociations({ User } = {}) {
     User.hasMany(UserEvent, { as: 'events', foreignKey: 'ownerId' });
     UserEvent.belongsTo(User, { as: 'owner', foreignKey: 'ownerId' });
     UserEventTask.belongsTo(User, { as: 'assignee', foreignKey: 'assigneeId' });
+    User.hasOne(UserEventWorkspaceSetting, { as: 'eventWorkspaceSetting', foreignKey: 'ownerId', onDelete: 'CASCADE' });
+    UserEventWorkspaceSetting.belongsTo(User, { as: 'owner', foreignKey: 'ownerId' });
   }
 
   UserEvent.hasMany(UserEventAgendaItem, { as: 'agenda', foreignKey: 'eventId', onDelete: 'CASCADE' });
@@ -205,6 +223,24 @@ UserEvent.prototype.toPublicObject = function toPublicObject() {
       label: plain.locationLabel,
       address: plain.locationAddress,
     }),
+  };
+};
+
+UserEventWorkspaceSetting.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    ownerId: plain.ownerId,
+    includeArchivedByDefault: Boolean(plain.includeArchivedByDefault),
+    autoArchiveAfterDays: plain.autoArchiveAfterDays,
+    defaultFormat: plain.defaultFormat,
+    defaultVisibility: plain.defaultVisibility,
+    defaultTimezone: plain.defaultTimezone,
+    requireCheckInNotes: Boolean(plain.requireCheckInNotes),
+    allowedRoles: Array.isArray(plain.allowedRoles) ? plain.allowedRoles : [],
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
   };
 };
 

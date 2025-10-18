@@ -8,6 +8,8 @@ export const MESSAGE_THREAD_STATES = ['active', 'archived', 'locked'];
 export const MESSAGE_TYPES = ['text', 'file', 'system', 'event'];
 export const SUPPORT_CASE_STATUSES = ['triage', 'in_progress', 'waiting_on_customer', 'resolved', 'closed'];
 export const SUPPORT_CASE_PRIORITIES = ['low', 'medium', 'high', 'urgent'];
+export const AUTO_REPLY_TEMPLATE_STATUSES = ['draft', 'active', 'disabled'];
+export const AUTO_REPLY_RUN_STATUSES = ['success', 'error', 'skipped'];
 
 const dialect = sequelize.getDialect();
 const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB : DataTypes.JSON;
@@ -243,6 +245,128 @@ SupportCase.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+export const SavedReply = sequelize.define(
+  'SavedReply',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(160), allowNull: false },
+    body: { type: DataTypes.TEXT, allowNull: false },
+    category: { type: DataTypes.STRING(80), allowNull: true },
+    shortcut: { type: DataTypes.STRING(40), allowNull: true },
+    isDefault: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    metadata: { type: jsonType, allowNull: true },
+    orderIndex: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  },
+  {
+    tableName: 'saved_replies',
+    indexes: [
+      { fields: ['userId'] },
+      { unique: true, fields: ['userId', 'shortcut'] },
+      { fields: ['userId', 'isDefault'] },
+    ],
+  },
+);
+
+SavedReply.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    title: plain.title,
+    body: plain.body,
+    category: plain.category,
+    shortcut: plain.shortcut,
+    isDefault: Boolean(plain.isDefault),
+    orderIndex: Number(plain.orderIndex ?? 0),
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const InboxPreference = sequelize.define(
+  'InboxPreference',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false, unique: true },
+    timezone: { type: DataTypes.STRING(80), allowNull: false, defaultValue: 'UTC' },
+    workingHours: { type: jsonType, allowNull: true },
+    notificationsEmail: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    notificationsPush: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    autoArchiveAfterDays: { type: DataTypes.INTEGER, allowNull: true },
+    autoResponderEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    autoResponderMessage: { type: DataTypes.TEXT, allowNull: true },
+    escalationKeywords: { type: jsonType, allowNull: true },
+    defaultSavedReplyId: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  {
+    tableName: 'inbox_preferences',
+    indexes: [
+      { unique: true, fields: ['userId'] },
+    ],
+  },
+);
+
+InboxPreference.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    timezone: plain.timezone,
+    workingHours: plain.workingHours ?? null,
+    notificationsEmail: Boolean(plain.notificationsEmail),
+    notificationsPush: Boolean(plain.notificationsPush),
+    autoArchiveAfterDays:
+      plain.autoArchiveAfterDays != null ? Number(plain.autoArchiveAfterDays) : null,
+    autoResponderEnabled: Boolean(plain.autoResponderEnabled),
+    autoResponderMessage: plain.autoResponderMessage ?? null,
+    escalationKeywords: plain.escalationKeywords ?? null,
+    defaultSavedReplyId: plain.defaultSavedReplyId ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const InboxRoutingRule = sequelize.define(
+  'InboxRoutingRule',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    matchType: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'keyword' },
+    criteria: { type: jsonType, allowNull: true },
+    action: { type: jsonType, allowNull: true },
+    enabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    stopProcessing: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    priority: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  },
+  {
+    tableName: 'inbox_routing_rules',
+    indexes: [
+      { fields: ['userId'] },
+      { fields: ['userId', 'enabled'] },
+      { fields: ['userId', 'priority'] },
+    ],
+  },
+);
+
+InboxRoutingRule.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    name: plain.name,
+    description: plain.description ?? null,
+    matchType: plain.matchType,
+    criteria: plain.criteria ?? null,
+    action: plain.action ?? null,
+    enabled: Boolean(plain.enabled),
+    stopProcessing: Boolean(plain.stopProcessing),
+    priority: Number(plain.priority ?? 0),
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 export const UserAiProviderSetting = sequelize.define(
   'UserAiProviderSetting',
   {
@@ -279,6 +403,158 @@ UserAiProviderSetting.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+export const AiAutoReplyTemplate = sequelize.define(
+  'AiAutoReplyTemplate',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: true },
+    ownerId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(120), allowNull: false },
+    summary: { type: DataTypes.STRING(280), allowNull: true },
+    tone: { type: DataTypes.STRING(40), allowNull: true },
+    model: { type: DataTypes.STRING(120), allowNull: true },
+    temperature: { type: DataTypes.FLOAT, allowNull: false, defaultValue: 0.35 },
+    channels: { type: jsonType, allowNull: true },
+    instructions: { type: DataTypes.TEXT, allowNull: false },
+    sampleReply: { type: DataTypes.TEXT, allowNull: true },
+    isDefault: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    status: {
+      type: DataTypes.ENUM(...AUTO_REPLY_TEMPLATE_STATUSES),
+      allowNull: false,
+      defaultValue: 'active',
+    },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'ai_auto_reply_templates',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['ownerId'] },
+      { fields: ['status'] },
+      { fields: ['isDefault'] },
+    ],
+  },
+);
+
+AiAutoReplyTemplate.prototype.toPublicObject = function toPublicObject() {
+export const MessageLabel = sequelize.define(
+  'MessageLabel',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(80), allowNull: false },
+    slug: { type: DataTypes.STRING(120), allowNull: false },
+    color: { type: DataTypes.STRING(20), allowNull: false, defaultValue: '#0f172a' },
+    description: { type: DataTypes.STRING(255), allowNull: true },
+    createdBy: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'message_labels',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['slug'] },
+      { unique: true, fields: ['workspaceId', 'slug'] },
+    ],
+  },
+);
+
+MessageLabel.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    ownerId: plain.ownerId,
+    title: plain.title,
+    summary: plain.summary ?? null,
+    tone: plain.tone ?? null,
+    model: plain.model ?? null,
+    temperature: plain.temperature ?? 0.35,
+    channels: Array.isArray(plain.channels) ? plain.channels : [],
+    instructions: plain.instructions ?? '',
+    sampleReply: plain.sampleReply ?? null,
+    isDefault: Boolean(plain.isDefault),
+    status: plain.status,
+    name: plain.name,
+    slug: plain.slug,
+    color: plain.color,
+    description: plain.description,
+    createdBy: plain.createdBy,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const AiAutoReplyRun = sequelize.define(
+  'AiAutoReplyRun',
+  {
+    templateId: { type: DataTypes.INTEGER, allowNull: true },
+    workspaceId: { type: DataTypes.INTEGER, allowNull: true },
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    threadId: { type: DataTypes.INTEGER, allowNull: true },
+    messageId: { type: DataTypes.INTEGER, allowNull: true },
+    provider: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'openai' },
+    model: { type: DataTypes.STRING(120), allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...AUTO_REPLY_RUN_STATUSES),
+      allowNull: false,
+      defaultValue: 'success',
+    },
+    responseLatencyMs: { type: DataTypes.INTEGER, allowNull: true },
+    responsePreview: { type: DataTypes.STRING(280), allowNull: true },
+    errorMessage: { type: DataTypes.STRING(500), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'ai_auto_reply_runs',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['userId'] },
+      { fields: ['status'] },
+      { fields: ['createdAt'] },
+    ],
+  },
+);
+
+AiAutoReplyRun.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    templateId: plain.templateId,
+    workspaceId: plain.workspaceId,
+    userId: plain.userId,
+    threadId: plain.threadId,
+    messageId: plain.messageId,
+    provider: plain.provider,
+    model: plain.model,
+    status: plain.status,
+    responseLatencyMs: plain.responseLatencyMs,
+    responsePreview: plain.responsePreview ?? null,
+    errorMessage: plain.errorMessage ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+export const MessageThreadLabel = sequelize.define(
+  'MessageThreadLabel',
+  {
+    threadId: { type: DataTypes.INTEGER, allowNull: false },
+    labelId: { type: DataTypes.INTEGER, allowNull: false },
+    appliedBy: { type: DataTypes.INTEGER, allowNull: true },
+    appliedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+  },
+  {
+    tableName: 'message_thread_labels',
+    indexes: [
+      { fields: ['threadId'] },
+      { fields: ['labelId'] },
+      { unique: true, fields: ['threadId', 'labelId'] },
+    ],
+  },
+);
+
+MessageThreadLabel.belongsTo(User, { as: 'appliedByUser', foreignKey: 'appliedBy' });
+
 MessageThread.hasMany(MessageParticipant, { as: 'participants', foreignKey: 'threadId' });
 MessageThread.hasMany(MessageParticipant, { as: 'viewerParticipants', foreignKey: 'threadId' });
 MessageParticipant.belongsTo(MessageThread, { as: 'thread', foreignKey: 'threadId' });
@@ -291,6 +567,19 @@ Message.belongsTo(User, { as: 'sender', foreignKey: 'senderId' });
 Message.hasMany(MessageAttachment, { as: 'attachments', foreignKey: 'messageId' });
 MessageAttachment.belongsTo(Message, { as: 'message', foreignKey: 'messageId' });
 
+MessageThread.belongsToMany(MessageLabel, {
+  through: MessageThreadLabel,
+  as: 'labels',
+  foreignKey: 'threadId',
+  otherKey: 'labelId',
+});
+MessageLabel.belongsToMany(MessageThread, {
+  through: MessageThreadLabel,
+  as: 'threads',
+  foreignKey: 'labelId',
+  otherKey: 'threadId',
+});
+
 MessageThread.hasOne(SupportCase, { as: 'supportCase', foreignKey: 'threadId' });
 SupportCase.belongsTo(MessageThread, { as: 'thread', foreignKey: 'threadId' });
 SupportCase.belongsTo(User, { as: 'escalatedByUser', foreignKey: 'escalatedBy' });
@@ -299,6 +588,22 @@ SupportCase.belongsTo(User, { as: 'assignedByUser', foreignKey: 'assignedBy' });
 SupportCase.belongsTo(User, { as: 'resolvedByUser', foreignKey: 'resolvedBy' });
 UserAiProviderSetting.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasMany(UserAiProviderSetting, { foreignKey: 'userId', as: 'aiProviderSettings' });
+AiAutoReplyTemplate.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
+User.hasMany(AiAutoReplyTemplate, { foreignKey: 'ownerId', as: 'autoReplyTemplates' });
+AiAutoReplyRun.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+AiAutoReplyRun.belongsTo(AiAutoReplyTemplate, { foreignKey: 'templateId', as: 'template' });
+AiAutoReplyTemplate.hasMany(AiAutoReplyRun, { foreignKey: 'templateId', as: 'runs' });
+
+
+SavedReply.belongsTo(User, { as: 'owner', foreignKey: 'userId' });
+User.hasMany(SavedReply, { as: 'savedReplies', foreignKey: 'userId' });
+
+InboxPreference.belongsTo(User, { as: 'user', foreignKey: 'userId' });
+InboxPreference.belongsTo(SavedReply, { as: 'defaultSavedReply', foreignKey: 'defaultSavedReplyId' });
+User.hasOne(InboxPreference, { as: 'inboxPreference', foreignKey: 'userId' });
+
+InboxRoutingRule.belongsTo(User, { as: 'owner', foreignKey: 'userId' });
+User.hasMany(InboxRoutingRule, { as: 'inboxRoutingRules', foreignKey: 'userId' });
 
 export default {
   sequelize,
@@ -312,6 +617,13 @@ export default {
   MessageParticipant,
   Message,
   MessageAttachment,
+  MessageLabel,
+  MessageThreadLabel,
   SupportCase,
+  SavedReply,
+  InboxPreference,
+  InboxRoutingRule,
   UserAiProviderSetting,
+  AiAutoReplyTemplate,
+  AiAutoReplyRun,
 };

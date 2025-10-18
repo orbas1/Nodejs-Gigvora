@@ -2,6 +2,7 @@ export { default as authService } from './authService.js';
 export { default as twoFactorService } from './twoFactorService.js';
 export { default as applicationService } from './applicationService.js';
 export { default as messagingService } from './messagingService.js';
+export { default as inboxWorkspaceService } from './inboxWorkspaceService.js';
 export { default as notificationService } from './notificationService.js';
 export { default as analyticsService } from './analyticsService.js';
 export { default as providerWorkspaceService } from './providerWorkspaceService.js';
@@ -36,6 +37,7 @@ export { default as freelancerDashboardOverviewService } from './freelancerDashb
 export { default as gigManagerService } from './gigManagerService.js';
 export { default as workspaceTemplateService } from './workspaceTemplateService.js';
 export { default as companyDashboardService } from './companyDashboardService.js';
+export { default as companyInboxService } from './companyInboxService.js';
 export { default as agencyOverviewService } from './agencyOverviewService.js';
 export { default as agencyTimelineService } from './agencyTimelineService.js';
 export { default as blogService } from './blogService.js';
