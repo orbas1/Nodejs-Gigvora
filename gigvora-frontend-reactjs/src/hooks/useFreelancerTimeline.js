@@ -13,6 +13,19 @@ import {
   recordFreelancerTimelinePostMetrics,
 } from '../services/freelancerTimeline.js';
 
+const DEFAULT_TIMELINE_SERVICES = Object.freeze({
+  fetchWorkspace: fetchFreelancerTimelineWorkspace,
+  updateSettings: updateFreelancerTimelineSettings,
+  createEntry: createFreelancerTimelineEntry,
+  updateEntry: updateFreelancerTimelineEntry,
+  deleteEntry: deleteFreelancerTimelineEntry,
+  createPost: createFreelancerTimelinePost,
+  updatePost: updateFreelancerTimelinePost,
+  deletePost: deleteFreelancerTimelinePost,
+  publishPost: publishFreelancerTimelinePost,
+  recordMetrics: recordFreelancerTimelinePostMetrics,
+});
+
 const FALLBACK_WORKSPACE = {
   id: 'demo-workspace',
   freelancerId: 'demo-freelancer',
@@ -181,7 +194,7 @@ const FALLBACK_ENTRIES = [
   },
 ];
 
-function computeAnalyticsFromClient(posts, entries) {
+export function computeTimelineAnalyticsFromClient(posts, entries) {
   const safePosts = Array.isArray(posts) ? posts : [];
   const safeEntries = Array.isArray(entries) ? entries : [];
 
@@ -315,36 +328,87 @@ function computeAnalyticsFromClient(posts, entries) {
   };
 }
 
-const FALLBACK_ANALYTICS = computeAnalyticsFromClient(FALLBACK_POSTS, FALLBACK_ENTRIES);
+const FALLBACK_ANALYTICS = computeTimelineAnalyticsFromClient(FALLBACK_POSTS, FALLBACK_ENTRIES);
 
-export function useFreelancerTimeline({ freelancerId, enabled = true } = {}) {
-  const safeId = freelancerId ?? 'demo-freelancer';
+export function useFreelancerTimeline({
+  freelancerId,
+  enabled = true,
+  resourceKeyPrefix = 'freelancer:timeline',
+  demoOwnerId = 'demo-freelancer',
+  fallbackWorkspace = FALLBACK_WORKSPACE,
+  fallbackPosts = FALLBACK_POSTS,
+  fallbackEntries = FALLBACK_ENTRIES,
+  fallbackAnalytics,
+  services: serviceOverrides,
+} = {}) {
+  const {
+    fetchWorkspace: fetchWorkspaceService,
+    updateSettings: updateSettingsService,
+    createEntry: createEntryService,
+    updateEntry: updateEntryService,
+    deleteEntry: deleteEntryService,
+    createPost: createPostService,
+    updatePost: updatePostService,
+    deletePost: deletePostService,
+    publishPost: publishPostService,
+    recordMetrics: recordMetricsService,
+  } = useMemo(
+    () => ({ ...DEFAULT_TIMELINE_SERVICES, ...(serviceOverrides ?? {}) }),
+    [serviceOverrides],
+  );
+
+  const fallbackState = useMemo(() => {
+    const workspaceFallback = fallbackWorkspace ?? FALLBACK_WORKSPACE;
+    const postsFallback = fallbackPosts ?? FALLBACK_POSTS;
+    const entriesFallback = fallbackEntries ?? FALLBACK_ENTRIES;
+    const analyticsFallback = fallbackAnalytics
+      ?? (postsFallback === FALLBACK_POSTS && entriesFallback === FALLBACK_ENTRIES
+        ? FALLBACK_ANALYTICS
+        : computeTimelineAnalyticsFromClient(postsFallback, entriesFallback));
+    return {
+      workspace: workspaceFallback,
+      posts: postsFallback,
+      entries: entriesFallback,
+      analytics: analyticsFallback,
+    };
+  }, [fallbackAnalytics, fallbackEntries, fallbackPosts, fallbackWorkspace]);
+
+  const safeId = freelancerId ?? demoOwnerId ?? 'demo-freelancer';
   const isNetworkEnabled = Boolean(freelancerId);
-  const [workspace, setWorkspace] = useState(FALLBACK_WORKSPACE);
-  const [posts, setPosts] = useState(FALLBACK_POSTS);
-  const [entries, setEntries] = useState(FALLBACK_ENTRIES);
-  const [analytics, setAnalytics] = useState(FALLBACK_ANALYTICS);
+  const [workspace, setWorkspace] = useState(fallbackState.workspace);
+  const [posts, setPosts] = useState(fallbackState.posts);
+  const [entries, setEntries] = useState(fallbackState.entries);
+  const [analytics, setAnalytics] = useState(fallbackState.analytics);
   const [savingState, setSavingState] = useState({ settings: false, post: false, entry: false, metrics: false });
   const [actionError, setActionError] = useState(null);
+
+  useEffect(() => {
+    if (!isNetworkEnabled) {
+      setWorkspace(fallbackState.workspace);
+      setPosts(fallbackState.posts);
+      setEntries(fallbackState.entries);
+      setAnalytics(fallbackState.analytics);
+    }
+  }, [fallbackState, isNetworkEnabled]);
 
   const fetcher = useCallback(
     async ({ signal } = {}) => {
       if (!isNetworkEnabled) {
         return {
-          workspace: FALLBACK_WORKSPACE,
-          timelineEntries: FALLBACK_ENTRIES,
-          posts: FALLBACK_POSTS,
-          analytics: FALLBACK_ANALYTICS,
+          workspace: fallbackState.workspace,
+          timelineEntries: fallbackState.entries,
+          posts: fallbackState.posts,
+          analytics: fallbackState.analytics,
         };
       }
-      return fetchFreelancerTimelineWorkspace(freelancerId, { signal });
+      return fetchWorkspaceService(freelancerId, { signal });
     },
-    [freelancerId, isNetworkEnabled],
+    [fallbackState, fetchWorkspaceService, freelancerId, isNetworkEnabled],
   );
 
-  const resource = useCachedResource(`freelancer:timeline:${safeId}`, fetcher, {
+  const resource = useCachedResource(`${resourceKeyPrefix}:${safeId}`, fetcher, {
     enabled: enabled !== false,
-    dependencies: [safeId],
+    dependencies: [safeId, resourceKeyPrefix],
     ttl: 1000 * 60,
   });
 
@@ -352,21 +416,22 @@ export function useFreelancerTimeline({ freelancerId, enabled = true } = {}) {
     if (!resource.data) {
       return;
     }
-    const nextWorkspace = resource.data.workspace ?? FALLBACK_WORKSPACE;
-    const nextEntries = resource.data.timelineEntries ?? FALLBACK_ENTRIES;
-    const nextPosts = resource.data.posts ?? FALLBACK_POSTS;
-    const nextAnalytics = resource.data.analytics ?? computeAnalyticsFromClient(nextPosts, nextEntries);
+    const nextWorkspace = resource.data.workspace ?? fallbackState.workspace;
+    const nextEntries = resource.data.timelineEntries ?? fallbackState.entries;
+    const nextPosts = resource.data.posts ?? fallbackState.posts;
+    const nextAnalytics =
+      resource.data.analytics ?? computeTimelineAnalyticsFromClient(nextPosts, nextEntries);
     setWorkspace(nextWorkspace);
     setEntries(nextEntries);
     setPosts(nextPosts);
     setAnalytics(nextAnalytics);
-  }, [resource.data]);
+  }, [fallbackState.entries, fallbackState.posts, fallbackState.workspace, resource.data]);
 
   const refresh = resource.refresh;
 
   const recomputeAnalytics = useCallback(
     (nextPosts, nextEntries) => {
-      setAnalytics(computeAnalyticsFromClient(nextPosts, nextEntries));
+      setAnalytics(computeTimelineAnalyticsFromClient(nextPosts, nextEntries));
     },
     [],
   );
@@ -387,7 +452,7 @@ export function useFreelancerTimeline({ freelancerId, enabled = true } = {}) {
           setWorkspace(localSettings);
           return localSettings;
         }
-        const result = await updateFreelancerTimelineSettings(freelancerId, nextSettings);
+        const result = await updateSettingsService(freelancerId, nextSettings);
         setWorkspace(result);
         await refresh({ force: true });
         return result;
@@ -399,7 +464,7 @@ export function useFreelancerTimeline({ freelancerId, enabled = true } = {}) {
         setSavingState((state) => ({ ...state, settings: false }));
       }
     },
-    [freelancerId, isNetworkEnabled, refresh, workspace],
+    [freelancerId, isNetworkEnabled, refresh, updateSettingsService, workspace],
   );
 
   const createPost = useCallback(
@@ -451,7 +516,7 @@ export function useFreelancerTimeline({ freelancerId, enabled = true } = {}) {
           recomputeAnalytics(nextPosts, entries);
           return localPost;
         }
-        const result = await createFreelancerTimelinePost(freelancerId, payload);
+        const result = await createPostService(freelancerId, payload);
         await refresh({ force: true });
         return result;
       } catch (error) {
@@ -462,7 +527,17 @@ export function useFreelancerTimeline({ freelancerId, enabled = true } = {}) {
         setSavingState((state) => ({ ...state, post: false }));
       }
     },
-    [entries, freelancerId, isNetworkEnabled, posts, recomputeAnalytics, refresh, safeId, workspace],
+    [
+      createPostService,
+      entries,
+      freelancerId,
+      isNetworkEnabled,
+      posts,
+      recomputeAnalytics,
+      refresh,
+      safeId,
+      workspace,
+    ],
   );
 
   const updatePost = useCallback(
@@ -520,7 +595,7 @@ export function useFreelancerTimeline({ freelancerId, enabled = true } = {}) {
           recomputeAnalytics(nextPosts, nextEntries);
           return nextPosts.find((post) => post.id === postId) ?? null;
         }
-        const result = await updateFreelancerTimelinePost(freelancerId, postId, payload);
+        const result = await updatePostService(freelancerId, postId, payload);
         await refresh({ force: true });
         return result;
       } catch (error) {
@@ -531,7 +606,7 @@ export function useFreelancerTimeline({ freelancerId, enabled = true } = {}) {
         setSavingState((state) => ({ ...state, post: false }));
       }
     },
-    [entries, freelancerId, isNetworkEnabled, posts, recomputeAnalytics, refresh],
+    [entries, freelancerId, isNetworkEnabled, posts, recomputeAnalytics, refresh, updatePostService],
   );
 
   const removePost = useCallback(
@@ -551,7 +626,7 @@ export function useFreelancerTimeline({ freelancerId, enabled = true } = {}) {
           recomputeAnalytics(nextPosts, nextEntries);
           return { success: true };
         }
-        const result = await deleteFreelancerTimelinePost(freelancerId, postId);
+        const result = await deletePostService(freelancerId, postId);
         await refresh({ force: true });
         return result;
       } catch (error) {
@@ -562,7 +637,7 @@ export function useFreelancerTimeline({ freelancerId, enabled = true } = {}) {
         setSavingState((state) => ({ ...state, post: false }));
       }
     },
-    [entries, freelancerId, isNetworkEnabled, posts, recomputeAnalytics, refresh],
+    [deletePostService, entries, freelancerId, isNetworkEnabled, posts, recomputeAnalytics, refresh],
   );
 
   const publishPost = useCallback(
@@ -577,7 +652,7 @@ export function useFreelancerTimeline({ freelancerId, enabled = true } = {}) {
             publishedAt: payload.publishedAt ?? new Date().toISOString(),
           });
         }
-        const result = await publishFreelancerTimelinePost(freelancerId, postId, payload);
+        const result = await publishPostService(freelancerId, postId, payload);
         await refresh({ force: true });
         return result;
       } catch (error) {
@@ -588,7 +663,7 @@ export function useFreelancerTimeline({ freelancerId, enabled = true } = {}) {
         setSavingState((state) => ({ ...state, post: false }));
       }
     },
-    [freelancerId, isNetworkEnabled, refresh, updatePost],
+    [freelancerId, isNetworkEnabled, publishPostService, refresh, updatePost],
   );
 
   const createEntry = useCallback(
@@ -626,7 +701,7 @@ export function useFreelancerTimeline({ freelancerId, enabled = true } = {}) {
           recomputeAnalytics(posts, nextEntries);
           return localEntry;
         }
-        const result = await createFreelancerTimelineEntry(freelancerId, payload);
+        const result = await createEntryService(freelancerId, payload);
         await refresh({ force: true });
         return result;
       } catch (error) {
@@ -637,7 +712,17 @@ export function useFreelancerTimeline({ freelancerId, enabled = true } = {}) {
         setSavingState((state) => ({ ...state, entry: false }));
       }
     },
-    [entries, freelancerId, isNetworkEnabled, posts, recomputeAnalytics, refresh, safeId, workspace.id],
+    [
+      createEntryService,
+      entries,
+      freelancerId,
+      isNetworkEnabled,
+      posts,
+      recomputeAnalytics,
+      refresh,
+      safeId,
+      workspace.id,
+    ],
   );
 
   const updateEntry = useCallback(
@@ -667,7 +752,7 @@ export function useFreelancerTimeline({ freelancerId, enabled = true } = {}) {
           recomputeAnalytics(posts, nextEntries);
           return nextEntries.find((entry) => entry.id === entryId) ?? null;
         }
-        const result = await updateFreelancerTimelineEntry(freelancerId, entryId, payload);
+        const result = await updateEntryService(freelancerId, entryId, payload);
         await refresh({ force: true });
         return result;
       } catch (error) {
@@ -678,7 +763,7 @@ export function useFreelancerTimeline({ freelancerId, enabled = true } = {}) {
         setSavingState((state) => ({ ...state, entry: false }));
       }
     },
-    [entries, freelancerId, isNetworkEnabled, posts, recomputeAnalytics, refresh],
+    [entries, freelancerId, isNetworkEnabled, posts, recomputeAnalytics, refresh, updateEntryService],
   );
 
   const removeEntry = useCallback(
@@ -692,7 +777,7 @@ export function useFreelancerTimeline({ freelancerId, enabled = true } = {}) {
           recomputeAnalytics(posts, nextEntries);
           return { success: true };
         }
-        const result = await deleteFreelancerTimelineEntry(freelancerId, entryId);
+        const result = await deleteEntryService(freelancerId, entryId);
         await refresh({ force: true });
         return result;
       } catch (error) {
@@ -703,7 +788,7 @@ export function useFreelancerTimeline({ freelancerId, enabled = true } = {}) {
         setSavingState((state) => ({ ...state, entry: false }));
       }
     },
-    [entries, freelancerId, isNetworkEnabled, posts, recomputeAnalytics, refresh],
+    [deleteEntryService, entries, freelancerId, isNetworkEnabled, posts, recomputeAnalytics, refresh],
   );
 
   const recordMetrics = useCallback(
@@ -757,7 +842,7 @@ export function useFreelancerTimeline({ freelancerId, enabled = true } = {}) {
           recomputeAnalytics(nextPosts, entries);
           return nextPosts.find((post) => post.id === postId)?.metrics ?? null;
         }
-        const result = await recordFreelancerTimelinePostMetrics(freelancerId, postId, payload);
+        const result = await recordMetricsService(freelancerId, postId, payload);
         await refresh({ force: true });
         return result;
       } catch (error) {
@@ -768,7 +853,7 @@ export function useFreelancerTimeline({ freelancerId, enabled = true } = {}) {
         setSavingState((state) => ({ ...state, metrics: false }));
       }
     },
-    [entries, freelancerId, isNetworkEnabled, posts, recomputeAnalytics, refresh],
+    [entries, freelancerId, isNetworkEnabled, posts, recomputeAnalytics, recordMetricsService, refresh],
   );
 
   const state = useMemo(

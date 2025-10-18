@@ -32,7 +32,7 @@ import ProfileSettingsSection from '../../components/profileSettings/ProfileSett
 import WalletManagementSection from '../../components/wallet/WalletManagementSection.jsx';
 import DashboardNotificationCenterSection from '../../components/notifications/DashboardNotificationCenterSection.jsx';
 import useSavedSearches from '../../hooks/useSavedSearches.js';
-import { TopSearchSection } from './user/sections/index.js';
+import { TopSearchSection, UserTimelineManagementSection } from './user/sections/index.js';
 
 const DEFAULT_USER_ID = 1;
 const availableDashboards = ['user', 'freelancer', 'agency', 'company', 'headhunter'];
@@ -458,6 +458,12 @@ function buildMenuSections(data) {
           description: 'Timeline, chat, escrow, and reviews in one place.',
           tags: ['timeline', 'chat'],
           sectionId: 'project-gig-operations',
+        },
+        {
+          name: 'Timeline management',
+          description: 'Plan posts, share updates, and review analytics.',
+          tags: ['timeline', 'posts'],
+          sectionId: 'client-timeline-management',
         },
         {
           name: 'CV-ready storytelling',
@@ -2097,6 +2103,7 @@ export default function UserDashboardPage() {
         ) : null}
 
         <ProjectGigManagementContainer userId={userId} />
+        <UserTimelineManagementSection userId={userId} />
         <VolunteeringManagementSection
           userId={userId}
           data={data?.volunteeringManagement}

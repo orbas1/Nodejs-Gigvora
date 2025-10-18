@@ -13,6 +13,7 @@ import userCalendarRoutes from './userCalendarRoutes.js';
 import userNetworkingRoutes from './userNetworkingRoutes.js';
 import userVolunteeringRoutes from './userVolunteeringRoutes.js';
 import walletRoutes from './walletRoutes.js';
+import userTimelineRoutes from './userTimelineRoutes.js';
 import * as notificationController from '../controllers/notificationController.js';
 
 const router = Router();
@@ -154,6 +155,15 @@ router.use(
     matchParam: 'id',
   }),
   walletRoutes,
+);
+
+router.use(
+  '/:id/timeline',
+  authenticate({
+    roles: ['user', 'freelancer', 'agency', 'company', 'headhunter', 'admin'],
+    matchParam: 'id',
+  }),
+  userTimelineRoutes,
 );
 
 const DOCUMENT_ROLES = ['user', 'freelancer', 'agency', 'company', 'headhunter', 'mentor', 'admin'];
