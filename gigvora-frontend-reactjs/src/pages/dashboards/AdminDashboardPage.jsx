@@ -37,9 +37,10 @@ const MENU_SECTIONS = [
         tags: ['growth', 'activation'],
       },
       {
-        name: 'Financial governance',
-        description: 'Escrow flows, fee capture, and treasury risk posture.',
+        name: 'Financial management',
+        description: 'Treasury controls, payout automation, and fee governance.',
         tags: ['finance'],
+        href: '/dashboard/admin/finance',
       },
       {
         name: 'Risk & trust',
@@ -2507,55 +2508,21 @@ export default function AdminDashboardPage() {
         </div>
       </section>
 
-      {/* Financial governance */}
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg shadow-blue-100/40 sm:p-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <section className="rounded-3xl border border-slate-200 bg-gradient-to-br from-blue-500/5 via-white to-white p-6 shadow-lg shadow-blue-100/40 sm:p-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Financial governance</h2>
+            <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Financial management workspace</h2>
             <p className="mt-2 max-w-3xl text-sm text-slate-600">
-              Escrow balances, fee capture, and transaction mix to monitor marketplace liquidity and treasury performance.
+              Orchestrate treasury operations, automation schedules, and fee policies from the dedicated financial management dashboard.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={handleRefresh}
-            className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-blue-700 transition hover:border-blue-300 hover:bg-white"
+          <Link
+            to="/dashboard/admin/finance"
+            className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500"
           >
-            <ArrowPathIcon className="h-4 w-4" /> Refresh data
-          </button>
+            Open financial management
+          </Link>
         </div>
-        <div className="mt-6 grid gap-4 lg:grid-cols-2">
-          <StatusList
-            title="Transactions by status"
-            items={calculatePercentages(data.financials?.transactionsByStatus ?? {})}
-            emptyLabel="No transactions recorded yet."
-          />
-          <StatusList
-            title="Escrow accounts"
-            items={calculatePercentages(data.financials?.accountsByStatus ?? {})}
-            emptyLabel="No accounts created yet."
-          />
-        </div>
-        <RecentList
-          title="Recent escrow activity"
-          rows={(data.financials?.recentTransactions ?? []).map((txn) => ({
-            reference: txn.reference,
-            type: humanizeLabel(txn.type),
-            status: humanizeLabel(txn.status),
-            amount: formatCurrency(txn.amount, txn.currencyCode ?? 'USD'),
-            netAmount: formatCurrency(txn.netAmount, txn.currencyCode ?? 'USD'),
-            createdAt: formatDateTime(txn.createdAt),
-          }))}
-          columns={[
-            { key: 'reference', label: 'Reference' },
-            { key: 'type', label: 'Type' },
-            { key: 'status', label: 'Status' },
-            { key: 'amount', label: 'Gross' },
-            { key: 'netAmount', label: 'Net' },
-            { key: 'createdAt', label: 'Created' },
-          ]}
-          emptyLabel="Escrow activity will appear here once transactions are initiated."
-        />
       </section>
 
       {/* Trust and safety */}
