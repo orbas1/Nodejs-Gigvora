@@ -1,6 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
+import { ArrowPathIcon, LockClosedIcon } from '@heroicons/react/24/outline';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import AdminOverviewPanel from '../../components/admin/AdminOverviewPanel.jsx';
+import useSession from '../../hooks/useSession.js';
+import { fetchAdminDashboard, updateAdminOverview as persistAdminOverview } from '../../services/admin.js';
+
+const ADMIN_ACCESS_ALIASES = new Set(['admin', 'administrator', 'super-admin', 'superadmin']);
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowPathIcon, CurrencyDollarIcon, LifebuoyIcon, ShieldCheckIcon, UsersIcon } from '@heroicons/react/24/outline';
+import {
+  ArrowPathIcon,
+  CalendarDaysIcon,
+  CurrencyDollarIcon,
+  LifebuoyIcon,
+  ShieldCheckIcon,
+  UsersIcon,
+} from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import AdCouponManager from '../../components/admin/AdCouponManager.jsx';
 import RuntimeTelemetryPanel from '../../components/admin/RuntimeTelemetryPanel.jsx';
@@ -8,15 +23,33 @@ import ConsentGovernancePanel from '../../components/admin/ConsentGovernancePane
 import RbacMatrixPanel from '../../components/admin/RbacMatrixPanel.jsx';
 import GigvoraAdsConsole from '../../components/ads/GigvoraAdsConsole.jsx';
 import AdminGroupManagementPanel from './admin/AdminGroupManagementPanel.jsx';
+import AdminMobileAppManagementPanel from './admin/AdminMobileAppManagementPanel.jsx';
+import { ADMIN_MENU_SECTIONS } from './admin/menuSections.js';
 import useSession from '../../hooks/useSession.js';
 import useRuntimeHealthSnapshot from '../../hooks/useRuntimeHealthSnapshot.js';
 import useDomainGovernanceSummaries from '../../hooks/useDomainGovernanceSummaries.js';
 import { fetchAdminDashboard } from '../../services/admin.js';
 import { fetchPlatformSettings, updatePlatformSettings } from '../../services/platformSettings.js';
 import { fetchAffiliateSettings, updateAffiliateSettings } from '../../services/affiliateSettings.js';
+import { ADMIN_DASHBOARD_MENU_SECTIONS } from '../../constants/adminDashboardMenu.js';
+import ADMIN_MENU_SECTIONS from './admin/adminMenuConfig.js';
+import ADMIN_MENU_SECTIONS from '../../constants/adminMenu.js';
+import { listDatabaseConnections } from '../../services/databaseSettings.js';
+import { ADMIN_DASHBOARD_MENU_SECTIONS } from '../../constants/adminDashboardMenu.js';
+import { DATABASE_STATUS_STYLES } from '../../constants/databaseStatusStyles.js';
 
+export const ADMIN_MENU_SECTIONS = [
+const MENU_SECTIONS = ADMIN_DASHBOARD_MENU_SECTIONS;
+import { ADMIN_MENU_SECTIONS } from '../../constants/adminMenuSections.js';
+
+const MENU_SECTIONS = ADMIN_MENU_SECTIONS;
 const MENU_SECTIONS = [
   {
+    label: 'Home',
+    items: [
+      { name: 'Start', sectionId: 'overview-home' },
+      { name: 'Profile', sectionId: 'overview-profile' },
+      { name: 'Stats', sectionId: 'overview-metrics' },
     label: 'Command modules',
     items: [
       {
@@ -24,6 +57,13 @@ const MENU_SECTIONS = [
         description: 'Service readiness, dependency posture, and rate-limit utilisation for the API perimeter.',
         tags: ['ops', 'security'],
         sectionId: 'admin-runtime-health',
+      },
+      {
+        name: 'Calendar',
+        description: 'Manage scheduling, types, and events.',
+        tags: ['ops', 'scheduling'],
+        href: '/dashboard/admin/calendar',
+        icon: CalendarDaysIcon,
       },
       {
         name: 'Data governance',
@@ -37,18 +77,51 @@ const MENU_SECTIONS = [
         tags: ['growth', 'activation'],
       },
       {
+        name: 'Hiring',
+        description: '',
+        tags: ['talent'],
+        href: '/dashboard/admin/job-applications',
+        name: 'Escrow',
+        description: '',
+        name: 'Profile management',
+        description: 'Provision accounts, edit public profiles, and capture trust annotations.',
+        tags: ['members'],
+        href: '/dashboard/admin/profiles',
+      },
+      {
         name: 'Financial governance',
         description: 'Escrow flows, fee capture, and treasury risk posture.',
         tags: ['finance'],
+        href: '/dashboard/admin/escrow',
+      },
+      {
+        name: 'Wallets',
+        description: 'Manage wallet accounts and ledger.',
+        tags: ['finance', 'compliance'],
+        href: '/dashboard/admin/wallets',
+        id: 'wallet-management',
       },
       {
         name: 'Risk & trust',
         description: 'Dispute lifecycle, escalations, and marketplace safety monitoring.',
         tags: ['compliance'],
+        href: '/dashboard/admin/disputes',
+      },
+      {
+        name: 'Users',
+        description: 'Manage accounts and access.',
+        tags: ['identity'],
+        href: '/dashboard/admin/users',
       },
       {
         name: 'Support operations',
         description: 'Service desk load, SLAs, and sentiment guardrails.',
+      },
+      {
+        name: 'Mobile app management',
+        description: 'Coordinate mobile releases, listings, and feature flags.',
+        tags: ['mobile'],
+        sectionId: 'admin-mobile-apps',
       },
       {
         name: 'Engagement & comms',
@@ -59,6 +132,14 @@ const MENU_SECTIONS = [
         description: 'Campaign coverage, targeting telemetry, and creative governance.',
         tags: ['ads', 'monetisation'],
         sectionId: 'gigvora-ads',
+        href: '/dashboard/admin/ads-settings',
+      },
+      {
+        name: 'Site',
+        description: 'Brand, pages, menu.',
+        tags: ['marketing'],
+        href: '/dashboard/admin/site',
+        sectionId: 'admin-site-management',
       },
       {
         name: 'Launchpad performance',
@@ -92,22 +173,65 @@ const MENU_SECTIONS = [
   },
   {
     label: 'Configuration stack',
+    items: [
+      {
+        name: 'System settings',
+        description: 'Global runtime defaults, security posture, and incident workflows.',
+        tags: ['operations'],
+        sectionId: 'admin-system-settings',
+        href: '/dashboard/admin/system-settings',
+        name: 'Storage management',
+        description: 'Configure object storage endpoints, lifecycle automation, and upload governance.',
+        tags: ['storage'],
+        href: '/dashboard/admin/storage',
+      },
+      {
+        name: 'All platform settings',
+        description: 'Govern application defaults, commission policies, and feature gates.',
+        tags: ['settings'],
+        sectionId: 'admin-settings-overview',
+      },
+      {
+        name: 'Affiliate economics',
+        description: 'Tiered commissions, payout cadences, and partner compliance.',
+        tags: ['affiliate'],
+        sectionId: 'admin-affiliate-settings',
+      },
+      {
+        name: 'CMS controls',
+        description: 'Editorial workflow, restricted features, and monetisation toggles.',
       items: [
-        {
-          name: 'All platform settings',
-          description: 'Govern application defaults, commission policies, and feature gates.',
-          tags: ['settings'],
-          sectionId: 'admin-settings-overview',
+      {
+        name: 'All platform settings',
+        description: 'Govern application defaults, commission policies, and feature gates.',
+        tags: ['settings'],
+        sectionId: 'admin-settings-overview',
+      },
+      {
+        name: 'Pages workspace',
+        description: 'Edit CMS pages, hero modules, SEO, and navigation content.',
+        tags: ['pages'],
+        href: '/dashboard/admin/pages',
+      },
+      {
+        name: 'Affiliate economics',
+        description: 'Tiered commissions, payout cadences, and partner compliance.',
+        tags: ['affiliate'],
+        sectionId: 'admin-affiliate-settings',
         },
         {
-          name: 'Affiliate economics',
-          description: 'Tiered commissions, payout cadences, and partner compliance.',
-          tags: ['affiliate'],
-          sectionId: 'admin-affiliate-settings',
+          name: 'Legal',
+          description: 'Policies',
+          tags: ['legal', 'compliance'],
+          href: '/dashboard/admin/policies',
+          name: 'GDPR settings',
+          description: 'Configure DPO contact, data subject workflows, retention, and processor governance.',
+          tags: ['privacy', 'compliance'],
+          href: '/dashboard/admin/gdpr',
         },
         {
           name: 'CMS controls',
-          description: 'Editorial workflow, restricted features, and monetisation toggles.',
+        description: 'Editorial workflow, restricted features, and monetisation toggles.',
         sectionId: 'admin-settings-cms',
       },
       {
@@ -122,437 +246,82 @@ const MENU_SECTIONS = [
         sectionId: 'admin-settings-api',
         tags: ['api'],
       },
+      {
+        name: 'Appearance management',
+        description: 'Themes, brand assets, and layout presets.',
+        href: '/dashboard/admin/appearance',
+        tags: ['brand'],
+        name: 'API management',
+        description: 'Provision API clients, rotate secrets, and review audit trails.',
+        href: '/dashboard/admin/api-management',
+        tags: ['api', 'security'],
+        name: 'Email',
+        description: '',
+        tags: ['email'],
+        href: '/dashboard/admin/email',
+      },
     ],
   },
 ];
 
-const GOVERNANCE_STATUS_STYLES = {
-  approved: {
-    label: 'Approved',
-    className: 'bg-emerald-100 text-emerald-700',
-  },
-  remediation_required: {
-    label: 'Remediation required',
-    className: 'bg-amber-100 text-amber-700',
-  },
-  in_progress: {
-    label: 'In progress',
-    className: 'bg-sky-100 text-sky-700',
-  },
-  unknown: {
-    label: 'Unknown',
-    className: 'bg-slate-100 text-slate-600',
-  },
-};
+const SECTIONS = [
+  { id: 'overview-home', title: 'Start' },
+  { id: 'overview-profile', title: 'Profile' },
+  { id: 'overview-metrics', title: 'Stats' },
+];
 
-const USER_TYPE_LABELS = {
-  user: 'Members',
-  company: 'Companies',
-  freelancer: 'Freelancers',
-  agency: 'Agencies',
-  admin: 'Admins',
-};
-
-const numberFormatter = new Intl.NumberFormat('en-US');
-
-const ADMIN_ACCESS_ALIASES = new Set(['admin', 'administrator', 'super-admin', 'superadmin']);
-
-function formatNumber(value) {
-  const numeric = Number(value ?? 0);
-  if (!Number.isFinite(numeric)) {
-    return '0';
-  }
-  return numberFormatter.format(Math.round(numeric));
-}
-
-function formatCurrency(value, currency = 'USD') {
-  const numeric = Number(value ?? 0);
-  if (!Number.isFinite(numeric)) {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency,
-    }).format(0);
-  }
-  const formatter = new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: numeric >= 1000 ? 0 : 2,
-  });
-  return formatter.format(numeric);
-}
-
-function formatPercent(value, fractionDigits = 1) {
-  const numeric = Number(value ?? 0);
-  if (!Number.isFinite(numeric)) {
-    return '0%';
-  }
-  return `${numeric.toFixed(fractionDigits)}%`;
-}
-
-function formatDurationMinutes(minutes) {
-  const numeric = Number(minutes ?? 0);
-  if (!Number.isFinite(numeric) || numeric <= 0) {
-    return '—';
-  }
-  if (numeric >= 1440) {
-    return `${(numeric / 1440).toFixed(1)} days`;
-  }
-  if (numeric >= 60) {
-    return `${(numeric / 60).toFixed(1)} hrs`;
-  }
-  return `${numeric.toFixed(0)} mins`;
-}
-
-function humanizeLabel(value) {
-  if (!value) return '—';
-  return value
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
-
-function formatDateTime(value) {
-  if (!value) return '—';
-  const date = new Date(value);
-  return date.toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-function formatDate(value) {
-  if (!value) return '—';
-  const date = new Date(value);
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
-
-function formatRelativeTime(value) {
-  if (!value) {
-    return 'moments ago';
-  }
-  const timestamp = new Date(value);
-  const diffMs = Date.now() - timestamp.getTime();
-  const diffMinutes = Math.round(diffMs / (1000 * 60));
-  if (diffMinutes < 1) {
-    return 'moments ago';
-  }
-  if (diffMinutes < 60) {
-    return `${diffMinutes}m ago`;
-  }
-  const diffHours = Math.round(diffMinutes / 60);
-  if (diffHours < 24) {
-    return `${diffHours}h ago`;
-  }
-  const diffDays = Math.round(diffHours / 24);
-  if (diffDays < 7) {
-    return `${diffDays}d ago`;
-  }
-  return timestamp.toLocaleDateString();
-}
-
-function calculatePercentages(dictionary = {}) {
-  const entries = Object.entries(dictionary);
-  const total = entries.reduce((sum, [, value]) => sum + Number(value ?? 0), 0);
-  return entries.map(([key, value]) => {
-    const numeric = Number(value ?? 0);
-    const percent = total > 0 ? Math.round((numeric / total) * 100) : 0;
-    return { key, value: numeric, percent, label: humanizeLabel(key) };
-  });
-}
-
-function normalizeToLowercaseArray(value) {
-  if (!Array.isArray(value)) {
+function normalizeRoles(roles) {
+  if (!Array.isArray(roles)) {
     return [];
   }
-
-  return value
-    .map((item) => {
-      if (typeof item !== 'string') {
-        return null;
-      }
-      const trimmed = item.trim();
-      return trimmed ? trimmed.toLowerCase() : null;
-    })
+  return roles
+    .map((role) => (role == null ? null : `${role}`.trim().toLowerCase()))
     .filter(Boolean);
 }
 
-function normalizeToLowercaseString(value) {
-  if (value == null) {
-    return '';
+function hasAdminAccess(session) {
+  if (!session) {
+    return false;
   }
-
-  return `${value}`.trim().toLowerCase();
-}
-
-function cloneDeep(value) {
-  if (value == null) {
-    return value;
+  const roleCandidates = [session.userType, session.primaryDashboard];
+  if (Array.isArray(session.roles)) {
+    roleCandidates.push(...session.roles);
   }
-  try {
-    return JSON.parse(JSON.stringify(value));
-  } catch (error) {
-    console.warn('Unable to clone value', error);
-    return value;
+  if (Array.isArray(session.accountTypes)) {
+    roleCandidates.push(...session.accountTypes);
   }
-}
-
-function getNestedValue(source, path, fallback = '') {
-  if (!Array.isArray(path) || path.length === 0) {
-    return fallback;
+  if (Array.isArray(session.memberships)) {
+    roleCandidates.push(...session.memberships);
   }
-  const result = path.reduce((accumulator, key) => {
-    if (accumulator == null) {
-      return undefined;
-    }
-    return accumulator[key];
-  }, source);
-  return result ?? fallback;
-}
-
-function setNestedValue(source, path, value) {
-  if (!Array.isArray(path) || path.length === 0) {
-    return value;
-  }
-  const [head, ...rest] = path;
-  const current = source && typeof source === 'object' ? source : {};
-  const clone = Array.isArray(current) ? [...current] : { ...current };
-  clone[head] = rest.length ? setNestedValue(current?.[head], rest, value) : value;
-  return clone;
-}
-
-function maskSecret(value) {
-  if (!value) {
-    return '—';
-  }
-  const stringValue = String(value);
-  if (stringValue.length <= 4) {
-    return '•'.repeat(stringValue.length);
-  }
-  return `${'•'.repeat(stringValue.length - 4)}${stringValue.slice(-4)}`;
-}
-
-function buildSettingsOverview(settings = {}) {
-  const app = settings?.app ?? {};
-  const commissions = settings?.commissions ?? {};
-  const featureToggles = settings?.featureToggles ?? {};
-  const subscriptions = settings?.subscriptions ?? {};
-  const payments = settings?.payments ?? {};
-  const stripe = payments?.stripe ?? {};
-  const escrow = payments?.escrow_com ?? {};
-  const smtp = settings?.smtp ?? {};
-  const storage = settings?.storage ?? {};
-  const storageR2 = storage?.cloudflare_r2 ?? {};
-  const database = settings?.database ?? {};
-
-  const toggleValues = Object.values(featureToggles);
-  const activeToggleCount = toggleValues.filter(Boolean).length;
-  const totalToggleCount = Object.keys(featureToggles).length;
-
-  return {
-    overviewMetrics: [
-      {
-        label: 'Workspace name',
-        value: app.name || 'Gigvora',
-        caption: app.clientUrl ? `Client URL ${app.clientUrl}` : null,
-      },
-      {
-        label: 'Runtime environment',
-        value: (app.environment || 'development').toUpperCase(),
-        caption: app.apiUrl ? `API ${app.apiUrl}` : 'API URL not configured',
-      },
-      {
-        label: 'Active feature toggles',
-        value: activeToggleCount,
-        caption: `${totalToggleCount} total toggles`,
-      },
-      {
-        label: 'Platform commission',
-        value: `${commissions.rate ?? 0}% ${commissions.currency ?? 'USD'}`,
-        caption: commissions.enabled
-          ? commissions.providerControlsServicemanPay
-            ? `Providers manage serviceman pay${
-                commissions.servicemanMinimumRate
-                  ? ` • ${commissions.servicemanMinimumRate}% minimum`
-                  : ''
-              }`
-            : 'Platform-managed serviceman pay'
-          : 'Disabled',
-      },
-    ],
-    cms: {
-      subscriptionsEnabled: Boolean(subscriptions.enabled),
-      restrictedFeatures: Array.isArray(subscriptions.restrictedFeatures)
-        ? subscriptions.restrictedFeatures
-        : [],
-      plans: Array.isArray(subscriptions.plans) ? subscriptions.plans : [],
-      featureToggles,
-      commissions,
-    },
-    environment: {
-      environmentName: app.environment ?? 'development',
-      clientUrl: app.clientUrl ?? '',
-      appName: app.name ?? '',
-      storageProvider: storage.provider ?? 'cloudflare_r2',
-      storageBucket: storageR2.bucket ?? '',
-      storageEndpoint: storageR2.endpoint ?? '',
-      storagePublicBaseUrl: storageR2.publicBaseUrl ?? '',
-      databaseHost: database.host ?? '',
-      databasePort: database.port ?? '',
-      databaseName: database.name ?? '',
-      databaseUser: database.username ?? '',
-    },
-    api: {
-      apiUrl: app.apiUrl ?? '',
-      paymentProvider: payments.provider ?? 'stripe',
-      stripePublishableKey: stripe.publishableKey ?? '',
-      stripeWebhookSecret: stripe.webhookSecret ?? '',
-      stripeAccountId: stripe.accountId ?? '',
-      escrowSandbox: escrow.sandbox ?? true,
-      escrowApiKey: escrow.apiKey ?? '',
-      escrowApiSecret: escrow.apiSecret ?? '',
-      smtpHost: smtp.host ?? '',
-      smtpPort: smtp.port ?? '',
-      smtpSecure: Boolean(smtp.secure),
-      smtpUsername: smtp.username ?? '',
-      smtpFromAddress: smtp.fromAddress ?? '',
-      smtpFromName: smtp.fromName ?? '',
-    },
-  };
-}
-
-function computeInitials(name, fallback = 'GV') {
-  if (!name) return fallback;
-  const letters = name
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase());
-  if (letters.length === 0) {
-    return fallback;
-  }
-  return letters.slice(0, 2).join('').padEnd(2, fallback.charAt(0) || 'G');
-}
-
-function AccessNotice({ title, message, onPrimaryAction, primaryLabel, secondaryHref, secondaryLabel }) {
-  return (
-    <div className="py-20">
-      <div className="mx-auto max-w-2xl rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-soft">
-        <h2 className="text-2xl font-semibold text-slate-900">{title}</h2>
-        <p className="mt-3 text-sm text-slate-600">{message}</p>
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
-          {primaryLabel ? (
-            <button
-              type="button"
-              onClick={onPrimaryAction}
-              className="inline-flex items-center justify-center rounded-full bg-accent px-6 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
-            >
-              {primaryLabel}
-            </button>
-          ) : null}
-          {secondaryHref && secondaryLabel ? (
-            <a
-              href={secondaryHref}
-              className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-6 py-2 text-sm font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
-            >
-              {secondaryLabel}
-            </a>
-          ) : null}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SummaryCard({ label, value, caption, delta, icon: Icon }) {
-  return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-blue-100/40">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-medium text-slate-500">{label}</p>
-          <p className="mt-2 text-2xl font-semibold text-slate-900">{value}</p>
-          {delta ? <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-blue-600">{delta}</p> : null}
-          {caption ? <p className="mt-2 text-xs text-slate-500">{caption}</p> : null}
-        </div>
-        {Icon ? (
-          <div className="rounded-2xl bg-blue-50 p-3 text-blue-600">
-            <Icon className="h-6 w-6" />
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function StatusList({ title, items, emptyLabel = 'No data yet.' }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <p className="text-sm font-semibold text-slate-700">{title}</p>
-      <div className="mt-4 space-y-3">
-        {items.length ? (
-          items.map((item) => (
-            <div key={item.key} className="space-y-1">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-600">{item.label}</span>
-                <span className="font-semibold text-slate-900">{formatNumber(item.value)}</span>
-              </div>
-              <div className="relative h-2 overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className="absolute inset-y-0 left-0 rounded-full bg-blue-500"
-                  style={{ width: `${Math.min(item.percent, 100)}%` }}
-                />
-              </div>
-              <p className="text-right text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                {item.percent}% share
-              </p>
-            </div>
-          ))
-        ) : (
-          <p className="text-sm text-slate-500">{emptyLabel}</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function RecentList({ title, rows, columns, emptyLabel }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <p className="text-sm font-semibold text-slate-700">{title}</p>
-      {rows.length ? (
-        <div className="mt-4 overflow-x-auto">
-          <table className="min-w-full text-left text-sm text-slate-600">
-            <thead>
-              <tr className="text-xs uppercase tracking-wide text-slate-400">
-                {columns.map((column) => (
-                  <th key={column.key} className="whitespace-nowrap px-3 py-2 font-semibold">
-                    {column.label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, rowIndex) => (
-                <tr key={rowIndex} className="border-t border-slate-100">
-                  {columns.map((column) => (
-                    <td key={column.key} className="whitespace-nowrap px-3 py-2 text-slate-600">
-                      {column.render ? column.render(row[column.key], row) : row[column.key] ?? '—'}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <p className="mt-4 text-sm text-slate-500">{emptyLabel}</p>
-      )}
-    </div>
-  );
+  const normalised = normalizeRoles(roleCandidates);
+  return normalised.some((role) => ADMIN_ACCESS_ALIASES.has(role));
 }
 
 export default function AdminDashboardPage() {
+  const { session, loading: sessionLoading } = useSession();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [data, setData] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [overviewStatus, setOverviewStatus] = useState('');
+  const [overviewError, setOverviewError] = useState('');
   const navigate = useNavigate();
+  const handleMenuItemSelect = useCallback(
+    (itemId, item) => {
+      if (item?.href) {
+        navigate(item.href);
+        return;
+      }
+      const targetId = item?.sectionId ?? item?.id;
+      if (targetId && typeof document !== 'undefined') {
+        const element = document.getElementById(targetId);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    },
+    [navigate],
+  );
   const { session, isAuthenticated } = useSession();
   const {
     data: runtimeSnapshot,
@@ -617,6 +386,22 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshIndex, setRefreshIndex] = useState(0);
+
+  const handleMenuSelect = useCallback(
+    (itemId, item) => {
+      if (item?.href) {
+        navigate(item.href);
+        return;
+      }
+      const targetId = item?.sectionId ?? item?.targetId ?? itemId;
+      if (!targetId) return;
+      const element = document.getElementById(targetId);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    },
+    [navigate],
+  );
   const [settings, setSettings] = useState(null);
   const [settingsDraft, setSettingsDraft] = useState(null);
   const [settingsLoading, setSettingsLoading] = useState(false);
@@ -624,6 +409,7 @@ export default function AdminDashboardPage() {
   const [settingsDirty, setSettingsDirty] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsStatus, setSettingsStatus] = useState('');
+  const [activeMenuItem, setActiveMenuItem] = useState(null);
   const [affiliateSettings, setAffiliateSettings] = useState(null);
   const [affiliateDraft, setAffiliateDraft] = useState(null);
   const [affiliateLoading, setAffiliateLoading] = useState(false);
@@ -634,6 +420,52 @@ export default function AdminDashboardPage() {
   const [affiliateLastSavedAt, setAffiliateLastSavedAt] = useState(null);
   const [lastSavedAt, setLastSavedAt] = useState(null);
   const [restrictedFeaturesInput, setRestrictedFeaturesInput] = useState('');
+  const [databaseOverview, setDatabaseOverview] = useState({
+    loading: false,
+    items: [],
+    summary: null,
+    error: null,
+  });
+
+  const fetchDatabaseOverview = useCallback(async () => {
+    if (!canAccessDashboard) {
+      return { items: [], summary: null, error: null };
+    }
+    try {
+      const response = await listDatabaseConnections();
+      return {
+        items: Array.isArray(response?.items) ? response.items : [],
+        summary: response?.summary ?? null,
+        error: null,
+      };
+    } catch (fetchError) {
+      return {
+        items: [],
+        summary: null,
+        error:
+          fetchError instanceof Error
+            ? fetchError
+            : new Error('Unable to load database overview.'),
+      };
+    }
+  }, [canAccessDashboard]);
+
+  const handleMenuSelect = useCallback(
+    (itemId, item) => {
+      if (item?.href) {
+        navigate(item.href);
+        return;
+      }
+      setActiveMenuItem(itemId);
+      if (item?.sectionId && typeof document !== 'undefined') {
+        const target = document.getElementById(item.sectionId);
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    },
+    [navigate],
+  );
 
   const governanceRows = useMemo(
     () =>
@@ -653,57 +485,23 @@ export default function AdminDashboardPage() {
     [domainGovernance.contexts],
   );
 
-  const canAccessDashboard = isAuthenticated && hasAdminSeat;
+  const adminAllowed = useMemo(() => hasAdminAccess(session), [session]);
 
-  useEffect(() => {
-    if (!canAccessDashboard) {
-      setLoading(false);
-      setData(null);
-      setError(null);
-      setSettings(null);
-      setSettingsDraft(null);
-      setSettingsLoading(false);
-      setSettingsError(null);
-      setSettingsDirty(false);
-      setSettingsSaving(false);
-      setSettingsStatus('');
-      setLastSavedAt(null);
-      setAffiliateSettings(null);
-      setAffiliateDraft(null);
-      setAffiliateLoading(false);
-      setAffiliateError(null);
-      setAffiliateDirty(false);
-      setAffiliateSaving(false);
-      setAffiliateStatus('');
-      setAffiliateLastSavedAt(null);
+  const loadDashboard = async () => {
+    if (!adminAllowed) {
       return;
     }
-    if (!hasAdminAccess) {
-      setData(null);
-      setSettings(null);
-      setSettingsDraft(null);
-      setSettingsDirty(false);
-      setLoading(false);
-      setSettingsLoading(false);
-      setError(null);
-      setSettingsError(null);
-      setSettingsStatus('');
-      setLastSavedAt(null);
-      setAffiliateSettings(null);
-      setAffiliateDraft(null);
-      setAffiliateDirty(false);
-      setAffiliateLoading(false);
-      setAffiliateSaving(false);
-      setAffiliateError(null);
-      setAffiliateStatus('');
-      setAffiliateLastSavedAt(null);
-      return;
-    }
-
-    const abortController = new AbortController();
-    let isActive = true;
-
     setLoading(true);
+    setError('');
+    try {
+      const response = await fetchAdminDashboard();
+      setData(response);
+    } catch (err) {
+      const message = err?.body?.message || (err instanceof Error ? err.message : 'Unable to load admin overview.');
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
     setSettingsLoading(true);
     setError(null);
     setSettingsError(null);
@@ -821,6 +619,50 @@ export default function AdminDashboardPage() {
     };
   }, [refreshIndex, canAccessDashboard, hasAdminAccess]);
 
+  useEffect(() => {
+    let active = true;
+    if (!canAccessDashboard) {
+      setDatabaseOverview({ loading: false, items: [], summary: null, error: null });
+      return () => {
+        active = false;
+      };
+    }
+
+    setDatabaseOverview((previous) => ({ ...previous, loading: true, error: null }));
+
+    fetchDatabaseOverview().then((result) => {
+      if (!active) {
+        return;
+      }
+      setDatabaseOverview({
+        loading: false,
+        items: result.items,
+        summary: result.summary,
+        error: result.error,
+      });
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [canAccessDashboard, fetchDatabaseOverview, refreshIndex]);
+
+  const handleRefreshDatabase = useCallback(async () => {
+    if (!canAccessDashboard) {
+      return;
+    }
+
+    setDatabaseOverview((previous) => ({ ...previous, loading: true, error: null }));
+
+    const result = await fetchDatabaseOverview();
+    setDatabaseOverview((previous) => ({
+      loading: false,
+      items: result.error ? previous.items : result.items,
+      summary: result.error ? previous.summary : result.summary,
+      error: result.error,
+    }));
+  }, [canAccessDashboard, fetchDatabaseOverview]);
+
   const profile = useMemo(() => {
     const totals = data?.summary?.totals ?? {};
     const support = data?.support ?? {};
@@ -912,6 +754,21 @@ export default function AdminDashboardPage() {
     ? normalizedAffiliate.tiers
     : [];
 
+  const databaseSummary = useMemo(() => {
+    const items = Array.isArray(databaseOverview.items) ? databaseOverview.items : [];
+    const summary = databaseOverview.summary ?? {};
+    const byStatus = summary.byStatus ?? {};
+    return {
+      total: summary.total ?? items.length,
+      byStatus: {
+        healthy: byStatus.healthy ?? 0,
+        warning: byStatus.warning ?? 0,
+        error: byStatus.error ?? 0,
+        unknown: byStatus.unknown ?? 0,
+      },
+    };
+  }, [databaseOverview]);
+
   const updateSettingsDraft = (path, value) => {
     setSettingsDraft((current) => {
       const baseline = current ?? cloneDeep(settings ?? {});
@@ -946,209 +803,63 @@ export default function AdminDashboardPage() {
     updateAffiliateDraft(path, event.target.value);
   };
 
-  const handleAffiliateNumberChange = (path) => (event) => {
-    const raw = event.target.value;
-    updateAffiliateDraft(path, raw === '' ? '' : Number(raw));
+  useEffect(() => {
+    if (sessionLoading) {
+      return;
+    }
+    if (!session) {
+      setLoading(false);
+      setError('Sign in to view the admin dashboard.');
+      return;
+    }
+    if (!adminAllowed) {
+      setLoading(false);
+      setError('Admin access required.');
+      return;
+    }
+    loadDashboard();
+  }, [sessionLoading, session, adminAllowed]);
+
+  const adminOverview = data?.overview ?? null;
+
+  const handleRefresh = () => {
+    if (loading || saving) {
+      return;
+    }
+    loadDashboard();
   };
 
-  const handleAffiliateToggleChange = (path) => (event) => {
-    updateAffiliateDraft(path, event.target.checked);
-  };
-
-  const handleAffiliateRecurrenceChange = (event) => {
-    updateAffiliateDraft(['payouts', 'recurrence', 'type'], event.target.value);
-  };
-
-  const handleAffiliateRecurrenceLimitChange = (event) => {
-    const raw = event.target.value;
-    updateAffiliateDraft(['payouts', 'recurrence', 'limit'], raw === '' ? '' : Number(raw));
-  };
-
-  const handleAffiliateTierChange = (index, field) => (event) => {
-    const raw = event.target.value;
-    setAffiliateDraft((current) => {
-      const baseline = cloneDeep(current ?? affiliateSettings ?? {});
-      const tiers = Array.isArray(baseline.tiers) ? [...baseline.tiers] : [];
-      if (!tiers[index]) {
-        tiers[index] = { id: `tier-${index + 1}`, name: `Tier ${index + 1}`, minValue: 0, maxValue: null, rate: 0 };
-      }
-      const tier = { ...tiers[index] };
-      if (field === 'rate' || field === 'minValue' || field === 'maxValue') {
-        tier[field] = raw === '' ? '' : Number(raw);
-      } else {
-        tier[field] = raw;
-      }
-      if (!tier.id) {
-        tier.id = `tier-${index + 1}`;
-      }
-      tiers[index] = tier;
-      baseline.tiers = tiers;
-      setAffiliateDirty(true);
-      return baseline;
-    });
-  };
-
-  const handleAffiliateRemoveTier = (index) => () => {
-    setAffiliateDraft((current) => {
-      const baseline = cloneDeep(current ?? affiliateSettings ?? {});
-      const tiers = Array.isArray(baseline.tiers) ? [...baseline.tiers] : [];
-      if (index < 0 || index >= tiers.length) {
-        return baseline;
-      }
-      tiers.splice(index, 1);
-      baseline.tiers = tiers;
-      setAffiliateDirty(true);
-      return baseline;
-    });
-  };
-
-  const handleAffiliateAddTier = () => {
-    setAffiliateDraft((current) => {
-      const baseline = cloneDeep(current ?? affiliateSettings ?? {});
-      const tiers = Array.isArray(baseline.tiers) ? [...baseline.tiers] : [];
-      const nextIndex = tiers.length + 1;
-      const lastMax = tiers.length ? tiers[tiers.length - 1].maxValue : null;
-      tiers.push({
-        id: `tier-${Date.now()}-${nextIndex}`,
-        name: `Tier ${nextIndex}`,
-        minValue: typeof lastMax === 'number' ? lastMax : 0,
-        maxValue: null,
-        rate: 5,
+  const handleOverviewSave = async (payload = {}) => {
+    if (!payload || typeof payload !== 'object') {
+      return;
+    }
+    setSaving(true);
+    setOverviewError('');
+    setOverviewStatus('');
+    try {
+      const response = await persistAdminOverview(payload);
+      setData((previous) => {
+        if (!previous) {
+          return { overview: response };
+        }
+        return { ...previous, overview: response };
       });
-      baseline.tiers = tiers;
-      setAffiliateDirty(true);
-      return baseline;
-    });
-  };
-
-  const handleRestrictedFeaturesChange = (value) => {
-    setRestrictedFeaturesInput(value);
-    const features = value
-      .split(',')
-      .map((item) => item.trim())
-      .filter((item) => item.length > 0);
-    updateSettingsDraft(['subscriptions', 'restrictedFeatures'], features);
-  };
-
-  const handleAffiliateDocumentsChange = (event) => {
-    const value = event.target.value;
-    const documents = value
-      .split(',')
-      .map((item) => item.trim())
-      .filter((item) => item.length > 0);
-    updateAffiliateDraft(['compliance', 'requiredDocuments'], documents);
-  };
-
-  const handleSaveSettings = async () => {
-    if (!settingsDraft || settingsSaving) {
-      return;
-    }
-    setSettingsSaving(true);
-    setSettingsError(null);
-    setSettingsStatus('');
-    try {
-      const payload = cloneDeep(settingsDraft);
-      if (Array.isArray(payload?.subscriptions?.restrictedFeatures)) {
-        payload.subscriptions.restrictedFeatures = payload.subscriptions.restrictedFeatures
-          .map((item) => (typeof item === 'string' ? item.trim() : ''))
-          .filter((item) => item.length > 0);
-      }
-      const response = await updatePlatformSettings(payload);
-      setSettings(response);
-      const draft = cloneDeep(response);
-      setSettingsDraft(draft);
-      setRestrictedFeaturesInput(
-        Array.isArray(response?.subscriptions?.restrictedFeatures)
-          ? response.subscriptions.restrictedFeatures.join(', ')
-          : '',
-      );
-      setSettingsDirty(false);
-      setSettingsStatus('Platform settings updated successfully.');
-      setLastSavedAt(new Date().toISOString());
+      setOverviewStatus('Profile updated.');
     } catch (err) {
-      setSettingsError(err?.message || 'Failed to update platform settings.');
+      const message = err?.body?.message || (err instanceof Error ? err.message : 'Failed to update profile.');
+      setOverviewError(message);
     } finally {
-      setSettingsSaving(false);
+      setSaving(false);
     }
   };
 
-  const handleResetSettings = () => {
-    if (!settings) {
-      setSettingsDraft(null);
-      setSettingsDirty(false);
-      setRestrictedFeaturesInput('');
-      return;
-    }
-    const baseline = cloneDeep(settings);
-    setSettingsDraft(baseline);
-    setRestrictedFeaturesInput(
-      Array.isArray(baseline?.subscriptions?.restrictedFeatures)
-        ? baseline.subscriptions.restrictedFeatures.join(', ')
-        : '',
-    );
-    setSettingsDirty(false);
-    setSettingsError(null);
-    setSettingsStatus('Draft reset to last saved configuration.');
-  };
-
-  const disableSettingsInputs = settingsLoading || settingsSaving || !settingsDraft;
-
-  const handleSaveAffiliateSettings = async () => {
-    if (!affiliateDraft || affiliateSaving) {
-      return;
-    }
-    setAffiliateSaving(true);
-    setAffiliateError(null);
-    setAffiliateStatus('');
-    try {
-      const payload = cloneDeep(affiliateDraft);
-      if (Array.isArray(payload?.tiers)) {
-        payload.tiers = payload.tiers.map((tier, index) => ({
-          id: tier.id ?? `tier-${index + 1}`,
-          name: tier.name ?? `Tier ${index + 1}`,
-          minValue:
-            tier.minValue === '' || tier.minValue == null ? 0 : Number.isFinite(Number(tier.minValue)) ? Number(tier.minValue) : 0,
-          maxValue:
-            tier.maxValue === '' || tier.maxValue == null
-              ? null
-              : Number.isFinite(Number(tier.maxValue))
-              ? Number(tier.maxValue)
-              : null,
-          rate:
-            tier.rate === '' || tier.rate == null ? 0 : Number.isFinite(Number(tier.rate)) ? Number(tier.rate) : 0,
-        }));
-      }
-      if (payload?.payouts) {
-        const recurrence = payload.payouts.recurrence ?? {};
-        if (recurrence.type !== 'finite') {
-          recurrence.limit = null;
-        } else if (recurrence.limit === '') {
-          recurrence.limit = null;
-        }
-        payload.payouts.recurrence = recurrence;
-        if (payload.payouts.minimumPayoutThreshold === '') {
-          payload.payouts.minimumPayoutThreshold = 0;
-        }
-      }
-      if (payload.defaultCommissionRate === '') {
-        payload.defaultCommissionRate = 0;
-      }
-      if (payload.referralWindowDays === '') {
-        payload.referralWindowDays = 0;
-      }
-      const response = await updateAffiliateSettings(payload);
-      setAffiliateSettings(response);
-      setAffiliateDraft(cloneDeep(response));
-      setAffiliateDirty(false);
-      setAffiliateStatus('Affiliate settings updated successfully.');
-      setAffiliateLastSavedAt(new Date().toISOString());
-    } catch (err) {
-      setAffiliateError(err?.message || 'Failed to update affiliate settings.');
-    } finally {
-      setAffiliateSaving(false);
-    }
-  };
-
+  const renderState = () => {
+    if (!adminAllowed) {
+      return (
+        <div className="flex flex-col items-center justify-center rounded-3xl border border-amber-200 bg-amber-50 p-12 text-center text-amber-900">
+          <LockClosedIcon className="h-10 w-10" aria-hidden="true" />
+          <h2 className="mt-4 text-xl font-semibold">Restricted</h2>
+          <p className="mt-2 text-sm">Switch to an admin account to open this dashboard.</p>
   const handleResetAffiliateSettings = () => {
     if (!affiliateSettings) {
       setAffiliateDraft(null);
@@ -1164,6 +875,7 @@ export default function AdminDashboardPage() {
   };
 
   const disableAffiliateInputs = affiliateLoading || affiliateSaving || (!affiliateDraft && !affiliateSettings);
+
 
   const renderSettingsSection = (
     <section
@@ -1212,6 +924,12 @@ export default function AdminDashboardPage() {
           >
             {settingsSaving ? 'Saving…' : 'Save changes'}
           </button>
+          <Link
+            to="/dashboard/admin/appearance"
+            className="inline-flex items-center justify-center rounded-full border border-blue-200 bg-blue-50 px-5 py-2 text-sm font-semibold text-blue-700 transition hover:border-blue-300 hover:bg-blue-100"
+          >
+            Appearance console
+          </Link>
         </div>
       </div>
       {settingsError ? (
@@ -1574,80 +1292,114 @@ export default function AdminDashboardPage() {
               </div>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-6 shadow-sm">
-              <h3 className="text-lg font-semibold text-slate-900">Database & credentials</h3>
-              <p className="mt-1 text-sm text-slate-600">
-                Securely manage database endpoints and connection secrets with instant rollback support.
-              </p>
-              <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <label htmlFor="databaseHost" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Database host
-                  </label>
-                  <input
-                    id="databaseHost"
-                    value={getNestedValue(settingsDraft, ['database', 'host'], settings?.database?.host ?? '')}
-                    onChange={handleTextChange(['database', 'host'])}
-                    disabled={disableSettingsInputs}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-                  />
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900">Database infrastructure</h3>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Manage connection profiles, read replicas, and credential rotation from the database console.
+                  </p>
                 </div>
-                <div className="space-y-2">
-                  <label htmlFor="databasePort" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Port
-                  </label>
-                  <input
-                    id="databasePort"
-                    type="number"
-                    min="0"
-                    value={getNestedValue(settingsDraft, ['database', 'port'], settings?.database?.port ?? '')}
-                    onChange={handleTextChange(['database', 'port'])}
-                    disabled={disableSettingsInputs}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-                  />
+                <div className="flex items-center gap-2 self-start">
+                  <button
+                    type="button"
+                    onClick={handleRefreshDatabase}
+                    disabled={databaseOverview.loading}
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-400 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <ArrowPathIcon className={`h-4 w-4 ${databaseOverview.loading ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </button>
+                  <Link
+                    to="/dashboard/admin/database"
+                    className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-accent/90 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-1"
+                  >
+                    Open console
+                  </Link>
                 </div>
-                <div className="space-y-2">
-                  <label htmlFor="databaseName" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Database name
-                  </label>
-                  <input
-                    id="databaseName"
-                    value={getNestedValue(settingsDraft, ['database', 'name'], settings?.database?.name ?? '')}
-                    onChange={handleTextChange(['database', 'name'])}
-                    disabled={disableSettingsInputs}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-                  />
+              </div>
+              {databaseOverview.error ? (
+                <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                  {databaseOverview.error.message || 'Unable to load database overview. Try refreshing or check API access.'}
                 </div>
-                <div className="space-y-2">
-                  <label htmlFor="databaseUser" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Username
-                  </label>
-                  <input
-                    id="databaseUser"
-                    value={getNestedValue(settingsDraft, ['database', 'username'], settings?.database?.username ?? '')}
-                    onChange={handleTextChange(['database', 'username'])}
-                    disabled={disableSettingsInputs}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-                  />
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <label htmlFor="databasePassword" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Password
-                  </label>
-                  <input
-                    id="databasePassword"
-                    type="password"
-                    value={getNestedValue(settingsDraft, ['database', 'password'], settings?.database?.password ?? '')}
-                    onChange={handleTextChange(['database', 'password'])}
-                    disabled={disableSettingsInputs}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-                  />
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Secret fingerprints</p>
-                  <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
-                    DB password • {maskSecret(getNestedValue(settingsDraft, ['database', 'password'], settings?.database?.password ?? ''))}
+              ) : null}
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {[
+                  {
+                    key: 'total',
+                    label: 'Connections',
+                    value: formatNumber(databaseSummary.total ?? 0),
+                    helper: 'Profiles tracked',
+                  },
+                  {
+                    key: 'healthy',
+                    label: 'Healthy',
+                    value: formatNumber(databaseSummary.byStatus.healthy ?? 0),
+                    helper: 'Passing checks',
+                  },
+                  {
+                    key: 'warning',
+                    label: 'Slow',
+                    value: formatNumber(databaseSummary.byStatus.warning ?? 0),
+                    helper: 'Latency warnings',
+                  },
+                  {
+                    key: 'error',
+                    label: 'Errors',
+                    value: formatNumber(databaseSummary.byStatus.error ?? 0),
+                    helper: 'Failing checks',
+                  },
+                ].map((metric) => (
+                  <div key={metric.key} className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{metric.label}</p>
+                    <p className="mt-1 text-2xl font-semibold text-slate-900">{metric.value}</p>
+                    <p className="mt-1 text-xs text-slate-500">{metric.helper}</p>
                   </div>
-                </div>
+                ))}
+              </div>
+              <div className="mt-6">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Recent checks</p>
+                {databaseOverview.loading && databaseOverview.items.length === 0 ? (
+                  <div className="mt-3 animate-pulse rounded-2xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
+                    Checking database connections…
+                  </div>
+                ) : (
+                  <ul className="mt-3 space-y-3">
+                    {databaseOverview.items.slice(0, 4).map((connection) => {
+                      const statusKey = connection.status && DATABASE_STATUS_STYLES[connection.status]
+                        ? connection.status
+                        : 'unknown';
+                      const statusStyle = DATABASE_STATUS_STYLES[statusKey];
+                      return (
+                        <li
+                          key={connection.id}
+                          className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                        >
+                          <div>
+                            <p className="text-sm font-semibold text-slate-900">{connection.name}</p>
+                            <p className="text-xs text-slate-500">
+                              {connection.environment} • {connection.role} • {connection.host}:{connection.port}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-400">
+                              {connection.lastTestedAt
+                                ? `Last test ${formatDateTime(connection.lastTestedAt)}`
+                                : 'Not yet tested'}
+                            </p>
+                          </div>
+                          <span
+                            className={`inline-flex w-max items-center rounded-full px-3 py-1 text-xs font-medium ${statusStyle.className}`}
+                          >
+                            {statusStyle.label}
+                          </span>
+                        </li>
+                      );
+                    })}
+                    {databaseOverview.items.length === 0 && !databaseOverview.loading ? (
+                      <li className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-500">
+                        No database connections have been configured yet.
+                      </li>
+                    ) : null}
+                  </ul>
+                )}
               </div>
             </div>
             <div
@@ -2033,117 +1785,18 @@ export default function AdminDashboardPage() {
             {affiliateSaving ? 'Saving…' : 'Save affiliate settings'}
           </button>
         </div>
-      </div>
+      );
+    }
 
-      {affiliateError ? (
-        <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{affiliateError}</p>
-      ) : null}
-      {affiliateStatus ? (
-        <p className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          {affiliateStatus}
-        </p>
-      ) : null}
-
-      <div className="mt-6 grid gap-6 xl:grid-cols-3">
-        <div className="space-y-6 xl:col-span-2">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-              <span className="font-semibold text-slate-800">Programme enabled</span>
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                checked={Boolean(normalizedAffiliate.enabled)}
-                onChange={handleAffiliateToggleChange(['enabled'])}
-                disabled={disableAffiliateInputs}
-              />
-            </label>
-            <label className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-              <span className="font-semibold text-slate-800">Auto-approve payouts</span>
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                checked={Boolean(normalizedAffiliate.payouts?.autoApprove)}
-                onChange={handleAffiliateToggleChange(['payouts', 'autoApprove'])}
-                disabled={disableAffiliateInputs}
-              />
-            </label>
-            <label className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-              <span className="font-semibold text-slate-800">Two-factor required</span>
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                checked={Boolean(normalizedAffiliate.compliance?.twoFactorRequired)}
-                onChange={handleAffiliateToggleChange(['compliance', 'twoFactorRequired'])}
-                disabled={disableAffiliateInputs}
-              />
-            </label>
-            <label className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-              <span className="font-semibold text-slate-800">KYC verification</span>
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                checked={Boolean(normalizedAffiliate.compliance?.payoutKyc)}
-                onChange={handleAffiliateToggleChange(['compliance', 'payoutKyc'])}
-                disabled={disableAffiliateInputs}
-              />
-            </label>
+    if (loading && !adminOverview) {
+      return (
+        <div className="space-y-6">
+          <div className="rounded-3xl border border-dashed border-blue-200 bg-blue-50/60 p-10 text-center text-sm text-blue-700">
+            Loading your overview…
           </div>
-
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="flex flex-col gap-2 text-sm text-slate-700">
-              <span className="font-semibold text-slate-800">Default commission rate (%)</span>
-              <input
-                type="number"
-                min="0"
-                max="100"
-                step="0.1"
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-2"
-                value={normalizedAffiliate.defaultCommissionRate ?? ''}
-                onChange={handleAffiliateNumberChange(['defaultCommissionRate'])}
-                disabled={disableAffiliateInputs}
-              />
-            </label>
-            <label className="flex flex-col gap-2 text-sm text-slate-700">
-              <span className="font-semibold text-slate-800">Referral attribution window (days)</span>
-              <input
-                type="number"
-                min="1"
-                max="365"
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-2"
-                value={normalizedAffiliate.referralWindowDays ?? ''}
-                onChange={handleAffiliateNumberChange(['referralWindowDays'])}
-                disabled={disableAffiliateInputs}
-              />
-            </label>
-            <label className="flex flex-col gap-2 text-sm text-slate-700">
-              <span className="font-semibold text-slate-800">Payout frequency</span>
-              <select
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-2"
-                value={normalizedAffiliate.payouts?.frequency ?? 'monthly'}
-                onChange={handleAffiliateTextChange(['payouts', 'frequency'])}
-                disabled={disableAffiliateInputs}
-              >
-                <option value="weekly">Weekly</option>
-                <option value="biweekly">Bi-weekly</option>
-                <option value="monthly">Monthly</option>
-                <option value="quarterly">Quarterly</option>
-              </select>
-            </label>
-            <label className="flex flex-col gap-2 text-sm text-slate-700">
-              <span className="font-semibold text-slate-800">Minimum payout threshold ({normalizedAffiliate.currency ?? 'USD'})</span>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-2"
-                value={normalizedAffiliate.payouts?.minimumPayoutThreshold ?? ''}
-                onChange={handleAffiliateNumberChange(['payouts', 'minimumPayoutThreshold'])}
-                disabled={disableAffiliateInputs}
-              />
-            </label>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
+            {[...Array(4)].map((_, index) => (
+              <div key={index} className="h-32 rounded-3xl bg-slate-100" />
             <label className="flex flex-col gap-2 text-sm text-slate-700">
               <span className="font-semibold text-slate-800">Recurrence model</span>
               <select
@@ -2329,6 +1982,12 @@ export default function AdminDashboardPage() {
             <p className="mt-4 text-xs text-slate-500">
               Align these requirements with your compliance team to ensure audit-ready payout processes.
             </p>
+            <Link
+              to="/dashboard/admin/security/two-factor"
+              className="mt-4 inline-flex items-center justify-center rounded-full border border-blue-200 px-4 py-2 text-xs font-semibold text-blue-600 transition hover:border-blue-300 hover:text-blue-700"
+            >
+              Open 2FA control centre
+            </Link>
           </div>
         </div>
       </div>
@@ -2338,6 +1997,20 @@ export default function AdminDashboardPage() {
 
   const handleRefresh = () => {
     setRefreshIndex((index) => index + 1);
+  };
+
+  const handleMenuItemSelect = (itemId, item) => {
+    if (item?.href) {
+      navigate(item.href);
+      return;
+    }
+    const targetId = item?.sectionId ?? item?.targetId ?? itemId;
+    if (targetId && typeof document !== 'undefined') {
+      const el = document.getElementById(targetId);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
   };
 
   const renderAccessDenied = (
@@ -2409,8 +2082,48 @@ export default function AdminDashboardPage() {
       />
       <AdCouponManager />
       <AdminGroupManagementPanel />
+      <AdminMobileAppManagementPanel />
       <ConsentGovernancePanel />
       <RbacMatrixPanel />
+
+      <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Job post management</h2>
+            <p className="mt-1 max-w-2xl text-sm text-slate-600">
+              Launch, govern, and monitor every role published across Gigvora. The job workspace supports full CRUD controls,
+              workflow gates, attachments, distribution toggles, and publishing automation.
+            </p>
+          </div>
+          <Link
+            to="/dashboard/admin/jobs"
+            className="inline-flex items-center justify-center rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-slate-700"
+          >
+            Open job workspace
+          </Link>
+        </div>
+        <div className="mt-4 grid gap-3 lg:grid-cols-3">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-600">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Operational coverage</p>
+            <p className="mt-2">
+              Manage job basics, compensation, hiring contacts, metadata, and publishing states with granular validation and audit
+              trails.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-600">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Workflow automation</p>
+            <p className="mt-2">
+              Trigger lifecycle transitions, archive or duplicate postings, and push updates to partner surfaces instantly.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-600">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Distribution readiness</p>
+            <p className="mt-2">
+              Attach creative assets, set promotion flags, and prepare analytics hooks for campaign monitoring.
+            </p>
+          </div>
+        </div>
+      </section>
 
       <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -2453,7 +2166,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Member health */}
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg shadow-blue-100/40 sm:p-8">
+      <section id="admin-risk-trust" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg shadow-blue-100/40 sm:p-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Member health</h2>
@@ -2511,24 +2224,46 @@ export default function AdminDashboardPage() {
             ))}
           </div>
         </div>
-      </section>
+      );
+    }
 
+    if (error && !adminOverview) {
+      return (
+        <div className="flex flex-col items-center justify-center rounded-3xl border border-rose-200 bg-rose-50 p-10 text-center text-rose-700">
+          <p className="text-base font-semibold">{error}</p>
+          <button
+            type="button"
+            onClick={handleRefresh}
+            className="mt-4 inline-flex items-center gap-2 rounded-full border border-rose-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-rose-700 transition hover:border-rose-300 hover:bg-rose-50"
+          >
+            <ArrowPathIcon className="h-4 w-4" /> Try again
+          </button>
+        </div>
+      );
       {/* Financial governance */}
       <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg shadow-blue-100/40 sm:p-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Financial governance</h2>
             <p className="mt-2 max-w-3xl text-sm text-slate-600">
-              Escrow balances, fee capture, and transaction mix to monitor marketplace liquidity and treasury performance.
+              Snapshot of escrow balances, recent activity, and fee capture. Use the escrow management console for full control.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={handleRefresh}
-            className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-blue-700 transition hover:border-blue-300 hover:bg-white"
-          >
-            <ArrowPathIcon className="h-4 w-4" /> Refresh data
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              to="/dashboard/admin/escrow"
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 transition hover:border-blue-300 hover:text-blue-700"
+            >
+              Open escrow console
+            </Link>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-blue-700 transition hover:border-blue-300 hover:bg-white"
+            >
+              <ArrowPathIcon className="h-4 w-4" /> Refresh data
+            </button>
+          </div>
         </div>
         <div className="mt-6 grid gap-4 lg:grid-cols-2">
           <StatusList
@@ -2837,6 +2572,26 @@ export default function AdminDashboardPage() {
     </div>
   ) : null;
 
+  const handleMenuSelect = useCallback(
+    (itemId, item) => {
+      if (!item) {
+        return;
+      }
+      if (item.href) {
+        navigate(item.href);
+        return;
+      }
+      const targetId = item.sectionId ?? item.targetId ?? itemId;
+      if (targetId && typeof document !== 'undefined') {
+        const targetElement = document.getElementById(targetId);
+        if (targetElement) {
+          targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    },
+    [navigate],
+  );
+
   let gatingView = null;
   if (!isAuthenticated) {
     gatingView = (
@@ -2869,17 +2624,26 @@ export default function AdminDashboardPage() {
         title="Gigvora Admin Control Tower"
         subtitle="Enterprise governance & compliance"
         description="Centralize every lever that powers Gigvora—from member growth and financial operations to trust, support, analytics, and the launchpad."
+        menuSections={ADMIN_DASHBOARD_MENU_SECTIONS}
         menuSections={MENU_SECTIONS}
+        onMenuItemSelect={handleMenuSelect}
+        menuSections={ADMIN_MENU_SECTIONS}
         sections={[]}
         profile={profile}
         availableDashboards={[
           'admin',
+          { id: 'admin-appearance', label: 'Appearance', href: '/dashboard/admin/appearance' },
+          { id: 'admin-gdpr', label: 'GDPR Settings', href: '/dashboard/admin/gdpr' },
           'user',
           'freelancer',
           'company',
           'agency',
           'headhunter',
         ]}
+        onMenuItemSelect={handleMenuSelect}
+        activeMenuItem={activeMenuItem}
+        onMenuItemSelect={handleMenuSelect}
+        onMenuItemSelect={handleMenuItemSelect}
       >
         {gatingView}
       </DashboardLayout>
@@ -2901,47 +2665,55 @@ export default function AdminDashboardPage() {
     }
 
     return (
-      <div className="space-y-10">
-        {renderSettingsSection}
-        {renderAffiliateSettingsSection}
-        {dashboardContent}
-      </div>
+      <AdminOverviewPanel
+        overview={adminOverview}
+        saving={saving}
+        status={overviewStatus}
+        error={overviewError || error}
+        onSave={handleOverviewSave}
+        onRefresh={handleRefresh}
+      />
     );
-  })();
+  };
 
   return (
     <DashboardLayout
       currentDashboard="admin"
+      title="Admin Overview"
+      subtitle="Realtime snapshot"
+      description="Stay on top of member sentiment, trust, and weather cues at a glance."
+      menuSections={MENU_SECTIONS}
+      sections={SECTIONS}
+      availableDashboards={['admin', 'user', 'freelancer', 'company', 'agency', 'headhunter']}
       title="Gigvora Admin Control Tower"
       subtitle="Enterprise governance & compliance"
       description="Centralize every lever that powers Gigvora—from member growth and financial operations to trust, support, analytics, and the launchpad." 
+      menuSections={ADMIN_DASHBOARD_MENU_SECTIONS}
+      description="Centralize every lever that powers Gigvora—from member growth and financial operations to trust, support, analytics, and the launchpad."
       menuSections={MENU_SECTIONS}
+      onMenuItemSelect={handleMenuSelect}
+      description="Centralize every lever that powers Gigvora—from member growth and financial operations to trust, support, analytics, and the launchpad." 
+      menuSections={ADMIN_MENU_SECTIONS}
       sections={[]}
       profile={profile}
       availableDashboards={[
         'admin',
+        { id: 'admin-appearance', label: 'Appearance', href: '/dashboard/admin/appearance' },
+        { id: 'admin-gdpr', label: 'GDPR Settings', href: '/dashboard/admin/gdpr' },
         'user',
         'freelancer',
         'company',
         'agency',
         'headhunter',
       ]}
+      onMenuItemSelect={handleMenuSelect}
+      activeMenuItem={activeMenuItem}
+      onMenuItemSelect={handleMenuSelect}
+      onMenuItemSelect={handleMenuItemSelect}
     >
-      {renderContent}
+      <div className="space-y-10">
+        {renderState()}
+      </div>
     </DashboardLayout>
-  );
-}
-
-function GovernanceStatusBadge({ status }) {
-  const normalized = typeof status === 'string' ? status.toLowerCase() : 'unknown';
-  const config = GOVERNANCE_STATUS_STYLES[normalized] ?? GOVERNANCE_STATUS_STYLES.unknown;
-
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${config.className}`}
-      aria-label={`Review status: ${config.label}`}
-    >
-      {config.label}
-    </span>
   );
 }

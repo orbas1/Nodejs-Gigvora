@@ -91,6 +91,159 @@ const tagsArray = z
   .transform((value) => (value ? value.map((tag) => tag.trim()).filter(Boolean) : undefined));
 
 const metadataRecord = z.record(z.any()).optional();
+const stringArray = z
+  .preprocess((value) => {
+    if (value == null) {
+      return [];
+    }
+    if (Array.isArray(value)) {
+      return value;
+    }
+    return `${value}`
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  }, z.array(z.string().min(1).max(120)))
+  .optional()
+  .transform((value) => value ?? []);
+
+const ID_VERIFICATION_STATUS_VALUES = ['pending', 'submitted', 'in_review', 'verified', 'rejected', 'expired'];
+
+const isoDateString = z
+  .string()
+  .trim()
+  .min(1)
+  .refine((value) => !Number.isNaN(new Date(value).getTime()), { message: 'Must be a valid ISO date string.' });
+
+const countryCode = z
+  .string()
+  .trim()
+  .min(2)
+  .max(4)
+  .transform((value) => value.toUpperCase());
+
+const idTypeString = z
+  .string()
+  .trim()
+  .min(2)
+  .max(120);
+
+const addressLine = z
+  .string()
+  .trim()
+  .min(1)
+  .max(255);
+
+const optionalAddressLine = z
+  .string()
+  .trim()
+  .optional()
+  .refine((value) => (value == null ? true : value.length <= 255), {
+    message: 'Must be 255 characters or fewer.',
+  });
+
+export const identityVerificationQuerySchema = z
+  .object({
+    userId: positiveInteger,
+    profileId: positiveInteger.optional(),
+    includeHistory: optionalBoolean.default(true),
+    actorRoles: stringArray.default([]),
+  })
+  .transform((value) => ({
+    ...value,
+    actorRoles: value.actorRoles ?? [],
+  }));
+
+const identityVerificationBaseBody = z
+  .object({
+    userId: positiveInteger,
+    profileId: positiveInteger,
+    actorId: positiveInteger.optional(),
+    actorRoles: stringArray.default([]),
+    status: z
+      .string()
+      .trim()
+      .optional()
+      .transform((value) => (value ? value.toLowerCase() : undefined))
+      .refine((value) => value == null || ID_VERIFICATION_STATUS_VALUES.includes(value), {
+        message: 'Invalid identity verification status.',
+      }),
+    verificationProvider: nullableTrimmedString(80),
+    typeOfId: idTypeString,
+    idNumberLast4: nullableTrimmedString(16),
+    issuingCountry: z.string().trim().max(4).optional().transform((value) => (value ? value.toUpperCase() : undefined)),
+    issuedAt: optionalDateString,
+    expiresAt: optionalDateString,
+    documentFrontKey: nullableTrimmedString(500),
+    documentBackKey: nullableTrimmedString(500),
+    selfieKey: nullableTrimmedString(500),
+    fullName: optionalTrimmedString(255),
+    dateOfBirth: isoDateString,
+    addressLine1: addressLine,
+    addressLine2: optionalAddressLine,
+    city: z.string().trim().min(1).max(120),
+    state: nullableTrimmedString(120),
+    postalCode: z.string().trim().min(1).max(40),
+    country: countryCode,
+    reviewNotes: nullableTrimmedString(2000),
+    declinedReason: nullableTrimmedString(2000),
+    submittedAt: optionalDateString,
+    reviewedAt: optionalDateString,
+    metadata: metadataRecord,
+  })
+  .passthrough();
+
+export const identityVerificationBodySchema = identityVerificationBaseBody;
+
+export const identityVerificationSubmitBodySchema = identityVerificationBaseBody.extend({
+  status: z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) => (value ? value.toLowerCase() : 'submitted'))
+    .refine((value) => ID_VERIFICATION_STATUS_VALUES.includes(value), {
+      message: 'Invalid identity verification status.',
+    }),
+  submittedAt: optionalDateString,
+});
+
+export const identityVerificationReviewBodySchema = z
+  .object({
+    userId: positiveInteger,
+    profileId: positiveInteger,
+    actorId: positiveInteger.optional(),
+    actorRoles: stringArray.default([]),
+    reviewerId: positiveInteger,
+    status: z
+      .string()
+      .trim()
+      .transform((value) => value.toLowerCase())
+      .refine((value) => ID_VERIFICATION_STATUS_VALUES.includes(value), {
+        message: 'Invalid identity verification status.',
+      }),
+    reviewNotes: nullableTrimmedString(2000),
+    declinedReason: nullableTrimmedString(2000),
+    reviewedAt: optionalDateString,
+    metadata: metadataRecord,
+  })
+  .passthrough();
+
+export const identityDocumentUploadSchema = z
+  .object({
+    actorId: positiveInteger.optional(),
+    data: z.string().min(1),
+    fileName: optionalTrimmedString(255),
+    contentType: optionalTrimmedString(120),
+  })
+  .passthrough();
+
+export const identityDocumentQuerySchema = z
+  .object({
+    key: optionalTrimmedString(500),
+  })
+  .transform((value) => ({
+    key: value.key,
+  }));
 
 export const complianceLockerQuerySchema = z
   .object({
