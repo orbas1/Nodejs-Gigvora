@@ -393,6 +393,20 @@ export const MENTORING_SESSION_ACTION_PRIORITIES = ['low', 'normal', 'high', 'ur
 export const MENTORSHIP_ORDER_STATUSES = ['pending', 'active', 'completed', 'cancelled'];
 export const CERTIFICATION_STATUSES = ['active', 'expiring_soon', 'expired', 'revoked'];
 export const LAUNCHPAD_STATUSES = ['draft', 'recruiting', 'active', 'archived'];
+export const SPEED_NETWORKING_SESSION_STATUSES = ['draft', 'scheduled', 'in_progress', 'completed', 'cancelled', 'archived'];
+export const SPEED_NETWORKING_ACCESS_LEVELS = ['public', 'invite_only', 'restricted'];
+export const SPEED_NETWORKING_VISIBILITIES = ['internal', 'network', 'external'];
+export const SPEED_NETWORKING_MATCHING_STRATEGIES = ['round_robin', 'interest_based', 'randomised', 'mentor_focus'];
+export const SPEED_NETWORKING_PARTICIPANT_ROLES = ['attendee', 'mentor', 'moderator', 'sponsor', 'observer'];
+export const SPEED_NETWORKING_PARTICIPANT_STATUSES = [
+  'invited',
+  'confirmed',
+  'checked_in',
+  'active',
+  'completed',
+  'no_show',
+  'removed',
+];
 
 export const CLIENT_SUCCESS_PLAYBOOK_TRIGGERS = [
   'gig_purchase',

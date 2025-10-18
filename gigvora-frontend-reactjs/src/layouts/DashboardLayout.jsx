@@ -174,7 +174,6 @@ export default function DashboardLayout({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openDrawers, setOpenDrawers] = useState(() => new Set());
-  const navigate = useNavigate();
 
   const normalizedMenuSections = useMemo(() => normalizeMenuSections(menuSections), [menuSections]);
   const allMenuItems = useMemo(() => {
@@ -442,107 +441,62 @@ export default function DashboardLayout({
   };
 
   const handleMenuClick = (item) => {
-    if (!item) return;
+    if (!item) {
+      return;
+    }
+
     if (typeof onMenuItemSelect === 'function') {
       onMenuItemSelect(item.id, item);
       setMobileOpen(false);
       return;
     }
 
-  if (item.href) {
-    if (item.href.startsWith('http')) {
-      window.open(item.href, item.target ?? '_blank', 'noreferrer');
-    if (item.href) {
-      const trimmedHref = item.href.trim();
-      if (!trimmedHref) {
-        setMobileOpen(false);
-        return;
-      }
-      if (/^https?:\/\//i.test(trimmedHref)) {
-        window.open(trimmedHref, item.target ?? '_blank', 'noreferrer');
-      } else {
-        navigate(trimmedHref);
-      }
-      if (/^[a-zA-Z]+:\/\//.test(item.href)) {
-        window.open(item.href, item.target ?? '_blank', 'noreferrer');
-        setMobileOpen(false);
-        return;
-      }
-      navigate(item.href);
-      if (typeof window !== 'undefined') {
-        if (item.href.startsWith('http')) {
-          window.open(item.href, item.target ?? '_blank', 'noreferrer');
-        } else {
-          window.location.assign(item.href);
+    if (!item.href) {
+      const targetId = item.sectionId ?? item.targetId ?? slugify(item.name);
+      if (targetId && typeof document !== 'undefined') {
+        const targetElement = document.getElementById(targetId);
+        if (targetElement) {
+          targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
-      if (/^https?:\/\//i.test(item.href)) {
-        window.open(item.href, item.target ?? '_blank', 'noreferrer');
-        setMobileOpen(false);
-        return;
       }
-      if (typeof window !== 'undefined') {
-        if (item.target === '_blank') {
-          window.open(item.href, '_blank', 'noopener');
-        } else {
-          window.location.assign(item.href);
-        }
-        setMobileOpen(false);
-      } else {
-        navigate(item.href);
-      }
-      } else if (item.target === '_blank') {
-        window.open(item.href, '_blank');
-      } else if (typeof window !== 'undefined') {
-        window.location.assign(item.href);
-      }
-      } else {
-        navigate(item.href);
-      }
-      }
-      }
-      } else if (item.href.startsWith('/')) {
-        navigate(item.href);
-        setMobileOpen(false);
-        setMobileOpen(false);
-        return;
-      }
-      navigate(item.href);
-      const href = item.href.trim();
-      const isExternal = /^https?:\/\//i.test(href);
-      if (isExternal) {
-        window.open(href, item.target ?? '_blank', 'noreferrer');
-        setMobileOpen(false);
-        return;
-      }
-
-      if (href.startsWith('#')) {
-        const targetId = href.slice(1);
-        if (targetId && typeof document !== 'undefined') {
-          const targetElement = document.getElementById(targetId);
-          if (targetElement) {
-            targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
-        }
-        setMobileOpen(false);
-        return;
-      }
-
-      navigate(href, { replace: false });
       setMobileOpen(false);
       return;
     }
-    navigate(item.href);
-    setMobileOpen(false);
-    return;
-  }
 
-  const targetId = item.sectionId ?? item.targetId ?? slugify(item.name);
-    if (targetId && typeof document !== 'undefined') {
-      const targetElement = document.getElementById(targetId);
-      if (targetElement) {
-        targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
+    const href = item.href.trim();
+    if (!href) {
+      setMobileOpen(false);
+      return;
     }
+
+    if (href.startsWith('#')) {
+      const targetId = href.slice(1);
+      if (targetId && typeof document !== 'undefined') {
+        const targetElement = document.getElementById(targetId);
+        if (targetElement) {
+          targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+      setMobileOpen(false);
+      return;
+    }
+
+    const isExternal = /^https?:\/\//i.test(href);
+    if (isExternal) {
+      if (typeof window !== 'undefined') {
+        window.open(href, item.target ?? '_blank', 'noopener,noreferrer');
+      }
+      setMobileOpen(false);
+      return;
+    }
+
+    if (item.target === '_blank' && typeof window !== 'undefined') {
+      window.open(href, '_blank', 'noopener');
+      setMobileOpen(false);
+      return;
+    }
+
+    navigate(href);
     setMobileOpen(false);
   };
 
