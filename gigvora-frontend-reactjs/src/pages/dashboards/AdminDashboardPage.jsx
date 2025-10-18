@@ -160,6 +160,10 @@ const MENU_SECTIONS = [
         tags: ['api'],
       },
       {
+        name: 'API management',
+        description: 'Provision API clients, rotate secrets, and review audit trails.',
+        href: '/dashboard/admin/api-management',
+        tags: ['api', 'security'],
         name: 'Email',
         description: '',
         tags: ['email'],
@@ -660,6 +664,22 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshIndex, setRefreshIndex] = useState(0);
+
+  const handleMenuSelect = useCallback(
+    (itemId, item) => {
+      if (item?.href) {
+        navigate(item.href);
+        return;
+      }
+      const targetId = item?.sectionId ?? item?.targetId ?? itemId;
+      if (!targetId) return;
+      const element = document.getElementById(targetId);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    },
+    [navigate],
+  );
   const [settings, setSettings] = useState(null);
   const [settingsDraft, setSettingsDraft] = useState(null);
   const [settingsLoading, setSettingsLoading] = useState(false);
@@ -3054,6 +3074,8 @@ export default function AdminDashboardPage() {
         title="Gigvora Admin Control Tower"
         subtitle="Enterprise governance & compliance"
         description="Centralize every lever that powers Gigvora—from member growth and financial operations to trust, support, analytics, and the launchpad."
+        menuSections={MENU_SECTIONS}
+        onMenuItemSelect={handleMenuSelect}
         menuSections={ADMIN_MENU_SECTIONS}
         sections={[]}
         profile={profile}
@@ -3103,6 +3125,7 @@ export default function AdminDashboardPage() {
       subtitle="Enterprise governance & compliance"
       description="Centralize every lever that powers Gigvora—from member growth and financial operations to trust, support, analytics, and the launchpad."
       menuSections={MENU_SECTIONS}
+      onMenuItemSelect={handleMenuSelect}
       description="Centralize every lever that powers Gigvora—from member growth and financial operations to trust, support, analytics, and the launchpad." 
       menuSections={ADMIN_MENU_SECTIONS}
       sections={[]}
