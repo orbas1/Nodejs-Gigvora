@@ -453,6 +453,16 @@ export default function DashboardLayout({
     if (item.href.startsWith('http')) {
       window.open(item.href, item.target ?? '_blank', 'noreferrer');
     if (item.href) {
+      const trimmedHref = item.href.trim();
+      if (!trimmedHref) {
+        setMobileOpen(false);
+        return;
+      }
+      if (/^https?:\/\//i.test(trimmedHref)) {
+        window.open(trimmedHref, item.target ?? '_blank', 'noreferrer');
+      } else {
+        navigate(trimmedHref);
+      }
       if (/^[a-zA-Z]+:\/\//.test(item.href)) {
         window.open(item.href, item.target ?? '_blank', 'noreferrer');
         setMobileOpen(false);

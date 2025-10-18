@@ -253,6 +253,11 @@ import {
   AGENCY_TIMELINE_VISIBILITIES, AGENCY_TIMELINE_DISTRIBUTION_CHANNELS, ESCROW_ACCOUNT_STATUSES, ESCROW_TRANSACTION_TYPES,
   HEADHUNTER_INVITE_STATUSES, HEADHUNTER_BRIEF_STATUSES, HEADHUNTER_ASSIGNMENT_STATUSES, HEADHUNTER_COMMISSION_STATUSES,
   TALENT_POOL_TYPES, TALENT_POOL_STATUSES, TALENT_POOL_MEMBER_STATUSES, TALENT_POOL_MEMBER_SOURCE_TYPES,
+  TALENT_POOL_ENGAGEMENT_TYPES,
+  AGENCY_BILLING_STATUSES,
+  ESCROW_TRANSACTION_STATUSES,
+  ID_VERIFICATION_STATUSES,
+  ID_VERIFICATION_EVENT_TYPES,
   TALENT_POOL_ENGAGEMENT_TYPES, AGENCY_BILLING_STATUSES, ESCROW_TRANSACTION_STATUSES, ID_VERIFICATION_STATUSES,
   IDENTITY_VERIFICATION_EVENT_TYPES,
   CORPORATE_VERIFICATION_STATUSES, QUALIFICATION_CREDENTIAL_STATUSES, WALLET_ACCOUNT_TYPES, WALLET_ACCOUNT_STATUSES,
@@ -1649,6 +1654,50 @@ IdentityVerification.prototype.toPublicObject = function toPublicObject() {
 
 export const IdentityVerificationEvent = sequelize.define(
   'IdentityVerificationEvent',
+  {
+    identityVerificationId: { type: DataTypes.INTEGER, allowNull: false },
+    eventType: {
+      type: DataTypes.ENUM(...ID_VERIFICATION_EVENT_TYPES),
+      allowNull: false,
+      defaultValue: 'note',
+      validate: { isIn: [ID_VERIFICATION_EVENT_TYPES] },
+    },
+    actorId: { type: DataTypes.INTEGER, allowNull: true },
+    actorRole: { type: DataTypes.STRING(80), allowNull: true },
+    fromStatus: { type: DataTypes.STRING(60), allowNull: true },
+    toStatus: { type: DataTypes.STRING(60), allowNull: true },
+    note: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'identity_verification_events',
+    indexes: [
+      { fields: ['identityVerificationId'] },
+      { fields: ['eventType'] },
+      { fields: ['createdAt'] },
+    ],
+  },
+);
+
+IdentityVerificationEvent.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    identityVerificationId: plain.identityVerificationId,
+    eventType: plain.eventType,
+    actorId: plain.actorId,
+    actorRole: plain.actorRole,
+    fromStatus: plain.fromStatus,
+    toStatus: plain.toStatus,
+    note: plain.note,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const CorporateVerification = sequelize.define(
+  'CorporateVerification',
   {
     identityVerificationId: { type: DataTypes.INTEGER, allowNull: false },
     eventType: {
@@ -19416,6 +19465,7 @@ IdentityVerification.hasMany(IdentityVerificationEvent, {
 });
 IdentityVerificationEvent.belongsTo(IdentityVerification, {
   foreignKey: 'identityVerificationId',
+  as: 'verification',
   as: 'identityVerification',
 });
 IdentityVerificationEvent.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
