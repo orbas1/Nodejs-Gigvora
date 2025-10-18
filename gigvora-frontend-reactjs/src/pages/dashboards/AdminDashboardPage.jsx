@@ -62,6 +62,13 @@ const MENU_SECTIONS = [
         href: '/dashboard/admin/escrow',
       },
       {
+        name: 'Wallets',
+        description: 'Manage wallet accounts and ledger.',
+        tags: ['finance', 'compliance'],
+        href: '/dashboard/admin/wallets',
+        id: 'wallet-management',
+      },
+      {
         name: 'Risk & trust',
         description: 'Dispute lifecycle, escalations, and marketplace safety monitoring.',
         tags: ['compliance'],
@@ -645,6 +652,22 @@ function RecentList({ title, rows, columns, emptyLabel }) {
 
 export default function AdminDashboardPage() {
   const navigate = useNavigate();
+  const handleMenuItemSelect = useCallback(
+    (itemId, item) => {
+      if (item?.href) {
+        navigate(item.href);
+        return;
+      }
+      const targetId = item?.sectionId ?? item?.id;
+      if (targetId && typeof document !== 'undefined') {
+        const element = document.getElementById(targetId);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    },
+    [navigate],
+  );
   const { session, isAuthenticated } = useSession();
   const {
     data: runtimeSnapshot,
