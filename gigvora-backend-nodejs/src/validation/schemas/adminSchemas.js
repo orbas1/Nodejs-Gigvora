@@ -192,6 +192,94 @@ export const affiliateSettingsBodySchema = z
   })
   .strip();
 
+const gdprDpoSchema = z
+  .object({
+    name: optionalTrimmedString({ max: 180 }),
+    email: optionalTrimmedString({ max: 255 }),
+    phone: optionalTrimmedString({ max: 64 }),
+    officeLocation: optionalTrimmedString({ max: 255 }),
+    address: optionalTrimmedString({ max: 500 }),
+    timezone: optionalTrimmedString({ max: 120 }),
+    availability: optionalTrimmedString({ max: 255 }),
+  })
+  .strip();
+
+const gdprDataSubjectRequestsSchema = z
+  .object({
+    contactEmail: optionalTrimmedString({ max: 255 }),
+    escalationEmail: optionalTrimmedString({ max: 255 }),
+    slaDays: optionalNumber({ min: 1, max: 180, precision: 0, integer: true }),
+    automatedIntake: optionalBoolean(),
+    intakeChannels: optionalStringArray({ maxItemLength: 120 }),
+    privacyPortalUrl: optionalTrimmedString({ max: 2048 }),
+    exportFormats: optionalStringArray({ maxItemLength: 120 }),
+    statusDashboardUrl: optionalTrimmedString({ max: 2048 }),
+  })
+  .strip();
+
+const gdprRetentionPolicySchema = z
+  .object({
+    id: optionalTrimmedString({ max: 120 }),
+    name: optionalTrimmedString({ max: 180 }),
+    dataCategories: optionalStringArray({ maxItemLength: 120 }),
+    retentionDays: optionalNumber({ min: 1, max: 3650, precision: 0, integer: true }),
+    notes: optionalTrimmedString({ max: 1000 }),
+    legalBasis: optionalTrimmedString({ max: 180 }),
+    appliesTo: optionalStringArray({ maxItemLength: 120 }),
+    reviewer: optionalTrimmedString({ max: 180 }),
+    autoDelete: optionalBoolean(),
+  })
+  .strip();
+
+const gdprProcessorSchema = z
+  .object({
+    id: optionalTrimmedString({ max: 120 }),
+    name: optionalTrimmedString({ max: 180 }),
+    purpose: optionalTrimmedString({ max: 255 }),
+    dataCategories: optionalStringArray({ maxItemLength: 120 }),
+    dataTransferMechanism: optionalTrimmedString({ max: 180 }),
+    region: optionalTrimmedString({ max: 120 }),
+    dpaSigned: optionalBoolean(),
+    securityReviewDate: optionalTrimmedString({ max: 40 }),
+    status: optionalTrimmedString({ max: 120 }),
+    contactEmail: optionalTrimmedString({ max: 255 }),
+    subprocessor: optionalBoolean(),
+  })
+  .strip();
+
+const gdprBreachResponseSchema = z
+  .object({
+    notificationWindowHours: optionalNumber({ min: 1, max: 168, precision: 0, integer: true }),
+    onCallContact: optionalTrimmedString({ max: 255 }),
+    incidentRunbookUrl: optionalTrimmedString({ max: 2048 }),
+    tabletopLastRun: optionalTrimmedString({ max: 40 }),
+    tooling: optionalStringArray({ maxItemLength: 120 }),
+    legalCounsel: optionalTrimmedString({ max: 255 }),
+    communicationsContact: optionalTrimmedString({ max: 255 }),
+  })
+  .strip();
+
+const gdprConsentFrameworkSchema = z
+  .object({
+    marketingOptInDefault: optionalBoolean(),
+    cookieBannerEnabled: optionalBoolean(),
+    cookieRefreshMonths: optionalNumber({ min: 1, max: 36, precision: 0, integer: true }),
+    consentLogRetentionDays: optionalNumber({ min: 30, max: 3650, precision: 0, integer: true }),
+    withdrawalChannels: optionalStringArray({ maxItemLength: 120 }),
+    guardianContactEmail: optionalTrimmedString({ max: 255 }),
+    cookiePolicyUrl: optionalTrimmedString({ max: 2048 }),
+    preferenceCenterUrl: optionalTrimmedString({ max: 2048 }),
+  })
+  .strip();
+
+export const gdprSettingsBodySchema = z
+  .object({
+    dpo: gdprDpoSchema.optional(),
+    dataSubjectRequests: gdprDataSubjectRequestsSchema.optional(),
+    retentionPolicies: z.array(gdprRetentionPolicySchema).optional(),
+    processors: z.array(gdprProcessorSchema).optional(),
+    breachResponse: gdprBreachResponseSchema.optional(),
+    consentFramework: gdprConsentFrameworkSchema.optional(),
 const seoMetaTagSchema = z
   .object({
     attribute: optionalTrimmedString({ max: 20 })

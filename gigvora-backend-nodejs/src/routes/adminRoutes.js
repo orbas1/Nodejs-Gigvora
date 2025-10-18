@@ -8,6 +8,7 @@ import validateRequest from '../middleware/validateRequest.js';
 import {
   adminDashboardQuerySchema,
   affiliateSettingsBodySchema,
+  gdprSettingsBodySchema,
   platformSettingsBodySchema,
   seoSettingsBodySchema,
 } from '../validation/schemas/adminSchemas.js';
@@ -38,6 +39,11 @@ router.put(
   validateRequest({ body: affiliateSettingsBodySchema }),
   asyncHandler(adminController.persistAffiliateSettings),
 );
+router.get('/gdpr-settings', asyncHandler(adminController.fetchGdprSettings));
+router.put(
+  '/gdpr-settings',
+  validateRequest({ body: gdprSettingsBodySchema }),
+  asyncHandler(adminController.persistGdprSettings),
 router.get('/seo-settings', asyncHandler(adminController.fetchSeoSettings));
 router.put(
   '/seo-settings',

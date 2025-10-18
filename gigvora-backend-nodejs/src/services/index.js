@@ -45,3 +45,4 @@ export { default as careerDocumentService } from './careerDocumentService.js';
 export { default as creationStudioService } from './creationStudioService.js';
 export { default as runtimeMaintenanceService } from './runtimeMaintenanceService.js';
 export { default as runtimeObservabilityService } from './runtimeObservabilityService.js';
+export { default as gdprSettingsService } from './gdprSettingsService.js';
