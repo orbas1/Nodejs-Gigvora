@@ -499,6 +499,18 @@ import {
   CALENDAR_INTEGRATION_STATUSES,
   CALENDAR_EVENT_TYPES,
   CALENDAR_EVENT_SOURCES,
+  ADMIN_CALENDAR_SYNC_STATUSES,
+  ADMIN_CALENDAR_EVENT_STATUSES,
+  ADMIN_CALENDAR_VISIBILITIES,
+  ADMIN_CALENDAR_EVENT_TYPES,
+  FOCUS_SESSION_TYPES, ADVISOR_COLLABORATION_STATUSES, ADVISOR_COLLABORATION_MEMBER_ROLES, ADVISOR_COLLABORATION_MEMBER_STATUSES,
+  DOCUMENT_ROOM_STATUSES, SUPPORT_AUTOMATION_STATUSES, COMPLIANCE_DOCUMENT_TYPES, COMPLIANCE_DOCUMENT_STATUSES,
+  COMPLIANCE_REMINDER_STATUSES, COMPLIANCE_OBLIGATION_STATUSES, COMPLIANCE_STORAGE_PROVIDERS, REPUTATION_TESTIMONIAL_SOURCES,
+  REPUTATION_TESTIMONIAL_STATUSES, REPUTATION_SUCCESS_STORY_STATUSES, REPUTATION_METRIC_TREND_DIRECTIONS, REPUTATION_REVIEW_WIDGET_STATUSES,
+  PIPELINE_BOARD_GROUPINGS, PIPELINE_STAGE_CATEGORIES, PIPELINE_DEAL_STATUSES, PIPELINE_FOLLOW_UP_STATUSES,
+  PIPELINE_CAMPAIGN_STATUSES, PIPELINE_PROPOSAL_STATUSES, HEADHUNTER_PIPELINE_STAGE_TYPES, HEADHUNTER_PIPELINE_ITEM_STATUSES,
+  HEADHUNTER_PIPELINE_NOTE_VISIBILITIES, HEADHUNTER_INTERVIEW_TYPES, HEADHUNTER_INTERVIEW_STATUSES, HEADHUNTER_PASS_ON_TARGET_TYPES,
+  HEADHUNTER_PASS_ON_STATUSES, HEADHUNTER_CONSENT_STATUSES,
   CALENDAR_EVENT_VISIBILITIES,
   CALENDAR_DEFAULT_VIEWS,
   FOCUS_SESSION_TYPES,
@@ -13076,6 +13088,168 @@ CandidateCalendarEvent.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+export const AdminCalendarAccount = sequelize.define(
+  'AdminCalendarAccount',
+  {
+    provider: { type: DataTypes.STRING(80), allowNull: false },
+    accountEmail: { type: DataTypes.STRING(160), allowNull: false, unique: true },
+    displayName: { type: DataTypes.STRING(120), allowNull: true },
+    syncStatus: {
+      type: DataTypes.ENUM(...ADMIN_CALENDAR_SYNC_STATUSES),
+      allowNull: false,
+      defaultValue: 'connected',
+    },
+    lastSyncedAt: { type: DataTypes.DATE, allowNull: true },
+    syncError: { type: DataTypes.TEXT, allowNull: true },
+    timezone: { type: DataTypes.STRING(120), allowNull: true },
+    metadata: { type: jsonType, allowNull: false, defaultValue: {} },
+  },
+  {
+    tableName: 'admin_calendar_accounts',
+    indexes: [
+      { fields: ['provider'] },
+      { fields: ['syncStatus'] },
+    ],
+  },
+);
+
+AdminCalendarAccount.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    ...plain,
+    metadata: plain.metadata ?? {},
+  };
+};
+
+export const AdminCalendarTemplate = sequelize.define(
+  'AdminCalendarTemplate',
+  {
+    name: { type: DataTypes.STRING(120), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    durationMinutes: { type: DataTypes.INTEGER, allowNull: true },
+    defaultEventType: {
+      type: DataTypes.ENUM(...ADMIN_CALENDAR_EVENT_TYPES),
+      allowNull: false,
+      defaultValue: 'ops_review',
+    },
+    defaultVisibility: {
+      type: DataTypes.ENUM(...ADMIN_CALENDAR_VISIBILITIES),
+      allowNull: false,
+      defaultValue: 'internal',
+    },
+    defaultLocation: { type: DataTypes.STRING(255), allowNull: true },
+    defaultMeetingUrl: { type: DataTypes.STRING(2048), allowNull: true },
+    defaultAllowedRoles: { type: jsonType, allowNull: false, defaultValue: [] },
+    reminderMinutes: { type: jsonType, allowNull: false, defaultValue: [] },
+    instructions: { type: DataTypes.TEXT, allowNull: true },
+    bannerImageUrl: { type: DataTypes.STRING(1024), allowNull: true },
+    isActive: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    metadata: { type: jsonType, allowNull: false, defaultValue: {} },
+    createdBy: { type: DataTypes.STRING(120), allowNull: true },
+    updatedBy: { type: DataTypes.STRING(120), allowNull: true },
+  },
+  {
+    tableName: 'admin_calendar_templates',
+    indexes: [
+      { fields: ['isActive'] },
+      { fields: ['defaultEventType'] },
+    ],
+  },
+);
+
+AdminCalendarTemplate.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    ...plain,
+    defaultAllowedRoles: Array.isArray(plain.defaultAllowedRoles) ? plain.defaultAllowedRoles : [],
+    reminderMinutes: Array.isArray(plain.reminderMinutes) ? plain.reminderMinutes : [],
+    metadata: plain.metadata ?? {},
+  };
+};
+
+export const AdminCalendarEvent = sequelize.define(
+  'AdminCalendarEvent',
+  {
+    calendarAccountId: { type: DataTypes.INTEGER, allowNull: true },
+    templateId: { type: DataTypes.INTEGER, allowNull: true },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    eventType: {
+      type: DataTypes.ENUM(...ADMIN_CALENDAR_EVENT_TYPES),
+      allowNull: false,
+      defaultValue: 'ops_review',
+    },
+    status: {
+      type: DataTypes.ENUM(...ADMIN_CALENDAR_EVENT_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+    },
+    visibility: {
+      type: DataTypes.ENUM(...ADMIN_CALENDAR_VISIBILITIES),
+      allowNull: false,
+      defaultValue: 'internal',
+    },
+    meetingUrl: { type: DataTypes.STRING(2048), allowNull: true },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    startsAt: { type: DataTypes.DATE, allowNull: false },
+    endsAt: { type: DataTypes.DATE, allowNull: true },
+    invitees: { type: jsonType, allowNull: false, defaultValue: [] },
+    attachments: { type: jsonType, allowNull: false, defaultValue: [] },
+    allowedRoles: { type: jsonType, allowNull: false, defaultValue: [] },
+    coverImageUrl: { type: DataTypes.STRING(1024), allowNull: true },
+    createdBy: { type: DataTypes.STRING(120), allowNull: true },
+    updatedBy: { type: DataTypes.STRING(120), allowNull: true },
+    metadata: { type: jsonType, allowNull: false, defaultValue: {} },
+  },
+  {
+    tableName: 'admin_calendar_events',
+    indexes: [
+      { fields: ['startsAt'] },
+      { fields: ['status'] },
+      { fields: ['eventType'] },
+    ],
+  },
+);
+
+AdminCalendarEvent.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    ...plain,
+    invitees: Array.isArray(plain.invitees) ? plain.invitees : [],
+    attachments: Array.isArray(plain.attachments) ? plain.attachments : [],
+    allowedRoles: Array.isArray(plain.allowedRoles) ? plain.allowedRoles : [],
+    metadata: plain.metadata ?? {},
+  };
+};
+
+export const AdminCalendarAvailabilityWindow = sequelize.define(
+  'AdminCalendarAvailabilityWindow',
+  {
+    calendarAccountId: { type: DataTypes.INTEGER, allowNull: false },
+    dayOfWeek: { type: DataTypes.INTEGER, allowNull: false },
+    startTimeMinutes: { type: DataTypes.INTEGER, allowNull: false },
+    endTimeMinutes: { type: DataTypes.INTEGER, allowNull: false },
+    timezone: { type: DataTypes.STRING(120), allowNull: true },
+    isActive: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    metadata: { type: jsonType, allowNull: false, defaultValue: {} },
+  },
+  {
+    tableName: 'admin_calendar_availability_windows',
+    indexes: [
+      { fields: ['calendarAccountId'] },
+      { fields: ['dayOfWeek'] },
+    ],
+  },
+);
+
+AdminCalendarAvailabilityWindow.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    ...plain,
+    metadata: plain.metadata ?? {},
+  };
+};
+
 export const FocusSession = sequelize.define(
   'FocusSession',
   {
@@ -19863,6 +20037,18 @@ CalendarIntegration.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasMany(CandidateCalendarEvent, { foreignKey: 'userId', as: 'calendarEvents' });
 CandidateCalendarEvent.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
+AdminCalendarAccount.hasMany(AdminCalendarEvent, { foreignKey: 'calendarAccountId', as: 'events' });
+AdminCalendarEvent.belongsTo(AdminCalendarAccount, { foreignKey: 'calendarAccountId', as: 'calendarAccount' });
+AdminCalendarTemplate.hasMany(AdminCalendarEvent, { foreignKey: 'templateId', as: 'events' });
+AdminCalendarEvent.belongsTo(AdminCalendarTemplate, { foreignKey: 'templateId', as: 'template' });
+AdminCalendarAccount.hasMany(AdminCalendarAvailabilityWindow, {
+  foreignKey: 'calendarAccountId',
+  as: 'availabilityWindows',
+});
+AdminCalendarAvailabilityWindow.belongsTo(AdminCalendarAccount, {
+  foreignKey: 'calendarAccountId',
+  as: 'calendarAccount',
+});
 User.hasOne(UserCalendarSetting, { foreignKey: 'userId', as: 'calendarSettings' });
 UserCalendarSetting.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
@@ -23004,6 +23190,10 @@ domainRegistry.registerContext({
     'PlatformSetting',
     'RuntimeSecurityAuditEvent',
     'RuntimeAnnouncement',
+    'AdminCalendarAccount',
+    'AdminCalendarTemplate',
+    'AdminCalendarEvent',
+    'AdminCalendarAvailabilityWindow',
     'AdminTimeline',
     'AdminTimelineEvent',
   ],

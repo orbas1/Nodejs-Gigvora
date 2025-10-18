@@ -18,6 +18,7 @@ import {
 import adminRuntimeRoutes from './adminRuntimeRoutes.js';
 import adminConsentRoutes from './adminConsentRoutes.js';
 import adminRbacRoutes from './adminRbacRoutes.js';
+import adminCalendarRoutes from './adminCalendarRoutes.js';
 import adminIdentityVerificationRoutes from './adminIdentityVerificationRoutes.js';
 import adminTimelineRoutes from './adminTimelineRoutes.js';
 import adminWalletRoutes from './adminWalletRoutes.js';
@@ -89,6 +90,7 @@ router.use('/ads/settings', adminAdSettingsRoutes);
 router.use('/runtime', adminRuntimeRoutes);
 router.use('/governance/consents', adminConsentRoutes);
 router.use('/governance/rbac', adminRbacRoutes);
+router.use('/calendar', adminCalendarRoutes);
 router.use('/verification/identity', adminIdentityVerificationRoutes);
 router.use('/timelines', adminTimelineRoutes);
 router.use('/wallets', adminWalletRoutes);

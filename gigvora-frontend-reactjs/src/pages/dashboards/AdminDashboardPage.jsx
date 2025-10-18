@@ -8,7 +8,14 @@ import { fetchAdminDashboard, updateAdminOverview as persistAdminOverview } from
 const ADMIN_ACCESS_ALIASES = new Set(['admin', 'administrator', 'super-admin', 'superadmin']);
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowPathIcon, CurrencyDollarIcon, LifebuoyIcon, ShieldCheckIcon, UsersIcon } from '@heroicons/react/24/outline';
+import {
+  ArrowPathIcon,
+  CalendarDaysIcon,
+  CurrencyDollarIcon,
+  LifebuoyIcon,
+  ShieldCheckIcon,
+  UsersIcon,
+} from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import AdCouponManager from '../../components/admin/AdCouponManager.jsx';
 import RuntimeTelemetryPanel from '../../components/admin/RuntimeTelemetryPanel.jsx';
@@ -50,6 +57,13 @@ const MENU_SECTIONS = [
         description: 'Service readiness, dependency posture, and rate-limit utilisation for the API perimeter.',
         tags: ['ops', 'security'],
         sectionId: 'admin-runtime-health',
+      },
+      {
+        name: 'Calendar',
+        description: 'Manage scheduling, types, and events.',
+        tags: ['ops', 'scheduling'],
+        href: '/dashboard/admin/calendar',
+        icon: CalendarDaysIcon,
       },
       {
         name: 'Data governance',
@@ -2509,6 +2523,26 @@ export default function AdminDashboardPage() {
     </div>
   ) : null;
 
+  const handleMenuSelect = useCallback(
+    (itemId, item) => {
+      if (!item) {
+        return;
+      }
+      if (item.href) {
+        navigate(item.href);
+        return;
+      }
+      const targetId = item.sectionId ?? item.targetId ?? itemId;
+      if (targetId && typeof document !== 'undefined') {
+        const targetElement = document.getElementById(targetId);
+        if (targetElement) {
+          targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    },
+    [navigate],
+  );
+
   let gatingView = null;
   if (!isAuthenticated) {
     gatingView = (
@@ -2557,6 +2591,7 @@ export default function AdminDashboardPage() {
           'agency',
           'headhunter',
         ]}
+        onMenuItemSelect={handleMenuSelect}
         activeMenuItem={activeMenuItem}
         onMenuItemSelect={handleMenuSelect}
         onMenuItemSelect={handleMenuItemSelect}
@@ -2622,6 +2657,7 @@ export default function AdminDashboardPage() {
         'agency',
         'headhunter',
       ]}
+      onMenuItemSelect={handleMenuSelect}
       activeMenuItem={activeMenuItem}
       onMenuItemSelect={handleMenuSelect}
       onMenuItemSelect={handleMenuItemSelect}

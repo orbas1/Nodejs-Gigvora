@@ -101,6 +101,7 @@ import AdminDatabaseSettingsPage from './pages/dashboards/AdminDatabaseSettingsP
 import AdminGdprSettingsPage from './pages/dashboards/admin/AdminGdprSettingsPage.jsx';
 import AdminAdsSettingsPage from './pages/dashboards/admin/AdminAdsSettingsPage.jsx';
 import AdminBlogManagementPage from './pages/admin/AdminBlogManagementPage.jsx';
+import AdminCalendarPage from './pages/admin/AdminCalendarPage.jsx';
 import AdminIdentityVerificationPage from './pages/dashboards/admin/AdminIdentityVerificationPage.jsx';
 import AdminWalletManagementPage from './pages/dashboards/admin/AdminWalletManagementPage.jsx';
 import AdminDisputeManagementPage from './pages/dashboards/admin/AdminDisputeManagementPage.jsx';
@@ -810,6 +811,15 @@ export default function App() {
         element={
           <RequireRole allowedRoles={['admin']}>
             <AdminProfileManagementPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
+        path="dashboard/admin/calendar"
+        element={
+          <RequireRole allowedRoles={['admin']}>
+            <AdminCalendarPage />
           </RequireRole>
         }
       />
