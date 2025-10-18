@@ -25,6 +25,15 @@ import {
   registerBlogAssociations,
 } from './blogModels.js';
 import {
+  AdminTimeline,
+  AdminTimelineEvent,
+  ADMIN_TIMELINE_EVENT_STATUSES,
+  ADMIN_TIMELINE_EVENT_TYPES,
+  ADMIN_TIMELINE_STATUSES,
+  ADMIN_TIMELINE_VISIBILITIES,
+  registerAdminTimelineAssociations,
+} from './adminTimelineModels.js';
+import {
   PROFILE_AVAILABILITY_STATUSES, PROFILE_APPRECIATION_TYPES, PROFILE_FOLLOWER_STATUSES, PROFILE_ENGAGEMENT_JOB_STATUSES,
   GROUP_VISIBILITIES, GROUP_MEMBER_POLICIES, GROUP_MEMBERSHIP_STATUSES, GROUP_MEMBERSHIP_ROLES,
   EMPLOYER_BRAND_SECTION_TYPES, EMPLOYER_BRAND_SECTION_STATUSES, EMPLOYER_BRAND_CAMPAIGN_STATUSES, WORKFORCE_COHORT_TYPES,
@@ -123,6 +132,14 @@ export { BlogCategory, BlogMedia, BlogPost, BlogPostMedia, BlogPostTag, BlogTag 
 export { ConsentPolicy, ConsentPolicyVersion, UserConsent, ConsentAuditEvent } from './consentModels.js';
 export { RuntimeSecurityAuditEvent } from './runtimeSecurityAuditEvent.js';
 export { RbacPolicyAuditEvent } from './rbacPolicyAuditEvent.js';
+export {
+  AdminTimeline,
+  AdminTimelineEvent,
+  ADMIN_TIMELINE_STATUSES,
+  ADMIN_TIMELINE_VISIBILITIES,
+  ADMIN_TIMELINE_EVENT_STATUSES,
+  ADMIN_TIMELINE_EVENT_TYPES,
+} from './adminTimelineModels.js';
 
 const PIPELINE_OWNER_TYPES = ['freelancer', 'agency', 'company'];
 const TWO_FACTOR_METHODS = ['email', 'app', 'sms'];
@@ -16520,6 +16537,8 @@ export default {
   NetworkingSessionSignup,
   NetworkingBusinessCard,
   MemberBrandingMetric,
+  AdminTimeline,
+  AdminTimelineEvent,
   BlogCategory,
   BlogTag,
   BlogMedia,
@@ -16529,6 +16548,7 @@ export default {
 };
 
 registerBlogAssociations({ User });
+registerAdminTimelineAssociations({ User });
 
 const domainRegistry = new DomainRegistry({
   sequelize,
@@ -16639,7 +16659,15 @@ domainRegistry.registerContext({
   name: 'platform',
   displayName: 'Platform Controls',
   description: 'Platform-wide configuration including feature flags and platform settings.',
-  models: ['FeatureFlag', 'FeatureFlagAssignment', 'PlatformSetting', 'RuntimeSecurityAuditEvent', 'RuntimeAnnouncement'],
+  models: [
+    'FeatureFlag',
+    'FeatureFlagAssignment',
+    'PlatformSetting',
+    'RuntimeSecurityAuditEvent',
+    'RuntimeAnnouncement',
+    'AdminTimeline',
+    'AdminTimelineEvent',
+  ],
   metadata: domainMetadata.platform,
 });
 
