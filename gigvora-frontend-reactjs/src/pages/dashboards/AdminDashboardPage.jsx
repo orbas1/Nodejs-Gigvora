@@ -86,22 +86,28 @@ const MENU_SECTIONS = [
   },
   {
     label: 'Configuration stack',
-      items: [
-        {
-          name: 'All platform settings',
-          description: 'Govern application defaults, commission policies, and feature gates.',
-          tags: ['settings'],
-          sectionId: 'admin-settings-overview',
-        },
-        {
-          name: 'Affiliate economics',
-          description: 'Tiered commissions, payout cadences, and partner compliance.',
-          tags: ['affiliate'],
-          sectionId: 'admin-affiliate-settings',
-        },
-        {
-          name: 'CMS controls',
-          description: 'Editorial workflow, restricted features, and monetisation toggles.',
+    items: [
+      {
+        name: 'Storage management',
+        description: 'Configure object storage endpoints, lifecycle automation, and upload governance.',
+        tags: ['storage'],
+        href: '/dashboard/admin/storage',
+      },
+      {
+        name: 'All platform settings',
+        description: 'Govern application defaults, commission policies, and feature gates.',
+        tags: ['settings'],
+        sectionId: 'admin-settings-overview',
+      },
+      {
+        name: 'Affiliate economics',
+        description: 'Tiered commissions, payout cadences, and partner compliance.',
+        tags: ['affiliate'],
+        sectionId: 'admin-affiliate-settings',
+      },
+      {
+        name: 'CMS controls',
+        description: 'Editorial workflow, restricted features, and monetisation toggles.',
         sectionId: 'admin-settings-cms',
       },
       {
