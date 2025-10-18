@@ -9,6 +9,7 @@ import {
   DisputeCase,
   AnalyticsEvent,
   Notification,
+  ReputationTestimonial,
   ESCROW_ACCOUNT_STATUSES,
   ESCROW_TRANSACTION_STATUSES,
   SUPPORT_CASE_STATUSES,
@@ -20,6 +21,9 @@ import {
 import { getLaunchpadDashboard } from './launchpadService.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
 import { getAdDashboardSnapshot } from './adService.js';
+import { getProfileOverview, updateProfile } from './profileService.js';
+import { getCurrentWeather } from './weatherService.js';
+import { ValidationError, NotFoundError } from '../utils/errors.js';
 
 const DASHBOARD_CACHE_TTL = 45; // seconds
 
@@ -34,6 +38,20 @@ function parseDecimal(value, precision = 2) {
     return 0;
   }
   return Number.parseFloat(number.toFixed(precision));
+}
+
+function coerceOptionalNumber(value, precision = 2) {
+  if (value == null || value === '') {
+    return null;
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+  if (typeof precision === 'number') {
+    return Number.parseFloat(numeric.toFixed(precision));
+  }
+  return numeric;
 }
 
 function normaliseCounts(rows, key) {
@@ -91,15 +109,121 @@ function buildDailyCounts(events) {
     .map(([date, count]) => ({ date, count }));
 }
 
+function normalizeRatingAggregate(row) {
+  if (!row) {
+    return { average: null, count: 0 };
+  }
+  const averageRaw =
+    row.averageRating ??
+    row.avgRating ??
+    row.rating ??
+    row.value ??
+    row.dataValues?.averageRating ??
+    row.dataValues?.avgRating ??
+    null;
+  const countRaw = row.reviewCount ?? row.count ?? row.total ?? row.dataValues?.count ?? 0;
+  return {
+    average: coerceOptionalNumber(averageRaw, 2),
+    count: parseInteger(countRaw),
+  };
+}
+
+async function buildAdminOverview(profile, { ratingAggregate, now }) {
+  if (!profile) {
+    return null;
+  }
+
+  const metrics = profile.metrics ?? {};
+  const availability = profile.availability ?? {};
+  const locationDetails = profile.locationDetails ?? profile.userLocationDetails ?? null;
+  const coordinates = locationDetails?.coordinates ?? null;
+
+  const weather = await getCurrentWeather({
+    latitude: coordinates?.latitude,
+    longitude: coordinates?.longitude,
+    locationName:
+      locationDetails?.displayName ??
+      locationDetails?.location ??
+      profile.location ??
+      profile.userLocation ??
+      null,
+  });
+
+  const rating = normalizeRatingAggregate(ratingAggregate);
+  const trustScore = coerceOptionalNumber(metrics.trustScore, 1);
+  const profileCompletion = coerceOptionalNumber(metrics.profileCompletion, 1);
+  const timezone = availability.timezone ?? locationDetails?.timezone ?? null;
+  const displayName =
+    profile.name ||
+    [profile.firstName, profile.lastName].filter(Boolean).join(' ').trim() ||
+    null;
+
+  return {
+    userId: profile.userId ?? profile.id ?? null,
+    profileId: profile.id ?? null,
+    displayName,
+    firstName: profile.firstName ?? null,
+    lastName: profile.lastName ?? null,
+    email: profile.email ?? null,
+    title: profile.title ?? null,
+    headline: profile.headline ?? null,
+    missionStatement: profile.missionStatement ?? null,
+    bio: profile.bio ?? null,
+    avatarSeed: profile.avatarSeed ?? null,
+    avatarUrl: profile.avatarUrl ?? null,
+    location: profile.location ?? null,
+    locationDetails,
+    timezone,
+    followersCount: parseInteger(profile.followersCount ?? metrics.followersCount ?? 0),
+    likesCount: parseInteger(profile.likesCount ?? metrics.likesCount ?? 0),
+    connectionsCount: parseInteger(metrics.connectionsCount ?? 0),
+    trustScore,
+    trustLevel: metrics.trustScoreLevel ?? null,
+    profileCompletion,
+    rating: rating.average,
+    ratingCount: rating.count,
+    weather,
+    currentDate: now.toISOString(),
+    metrics: {
+      likesCount: parseInteger(profile.likesCount ?? metrics.likesCount ?? 0),
+      followersCount: parseInteger(profile.followersCount ?? metrics.followersCount ?? 0),
+      connectionsCount: parseInteger(metrics.connectionsCount ?? 0),
+      trustScore,
+      profileCompletion,
+    },
+    editableProfile: {
+      firstName: profile.firstName ?? '',
+      lastName: profile.lastName ?? '',
+      title: profile.title ?? '',
+      headline: profile.headline ?? '',
+      missionStatement: profile.missionStatement ?? '',
+      bio: profile.bio ?? '',
+      avatarSeed: profile.avatarSeed ?? '',
+      location: profile.location ?? '',
+      geoLocation: locationDetails?.geoLocation ?? null,
+      timezone: timezone ?? '',
+    },
+  };
+}
+
 export async function getAdminDashboardSnapshot(options = {}) {
   const lookbackDays = Number.isFinite(options.lookbackDays) && options.lookbackDays > 0 ? options.lookbackDays : 30;
   const eventWindowDays = Number.isFinite(options.eventWindowDays) && options.eventWindowDays > 0 ? options.eventWindowDays : 7;
+  const adminUserIdCandidate =
+    options.adminUserId == null || options.adminUserId === ''
+      ? null
+      : Number.parseInt(options.adminUserId, 10);
+  const adminUserId = Number.isFinite(adminUserIdCandidate) ? adminUserIdCandidate : null;
 
   const now = new Date();
   const lookbackDate = new Date(now.getTime() - lookbackDays * 24 * 60 * 60 * 1000);
   const eventWindowDate = new Date(now.getTime() - eventWindowDays * 24 * 60 * 60 * 1000);
 
-  const cacheKey = buildCacheKey('admin:dashboard', { lookbackDays, eventWindowDays });
+  const cacheKey = buildCacheKey('admin:dashboard', {
+    lookbackDays,
+    eventWindowDays,
+    adminUserId: adminUserId ?? 'none',
+  });
 
   return appCache.remember(cacheKey, DASHBOARD_CACHE_TTL, async () => {
     const [
@@ -336,6 +460,29 @@ export async function getAdminDashboardSnapshot(options = {}) {
       context: { keywordHints: adKeywordHints },
     });
 
+    let adminOverview = null;
+    if (adminUserId) {
+      try {
+        const [profileOverview, ratingAggregate] = await Promise.all([
+          getProfileOverview(adminUserId, { bypassCache: true }),
+          ReputationTestimonial.findOne({
+            attributes: [
+              [fn('AVG', col('rating')), 'averageRating'],
+              [fn('COUNT', col('id')), 'reviewCount'],
+            ],
+            where: { freelancerId: adminUserId, rating: { [Op.ne]: null } },
+            raw: true,
+          }),
+        ]);
+        adminOverview = await buildAdminOverview(profileOverview, { ratingAggregate, now });
+      } catch (error) {
+        console.warn('Failed to build admin overview snapshot', {
+          adminUserId,
+          error: error.message,
+        });
+      }
+    }
+
     return {
       refreshedAt: new Date().toISOString(),
       lookbackDays,
@@ -393,10 +540,87 @@ export async function getAdminDashboardSnapshot(options = {}) {
       },
       launchpad: launchpadDashboard,
       ads,
+      overview: adminOverview,
     };
   });
 }
 
+function normalizeNameInput(value, fieldLabel) {
+  if (value == null) {
+    return undefined;
+  }
+  const text = `${value}`.trim();
+  if (!text) {
+    throw new ValidationError(`${fieldLabel} cannot be empty.`);
+  }
+  return text.length > 120 ? text.slice(0, 120) : text;
+}
+
+export async function updateAdminOverview(adminUserId, payload = {}) {
+  const numericIdCandidate = adminUserId == null ? null : Number.parseInt(adminUserId, 10);
+  const numericId = Number.isFinite(numericIdCandidate) ? numericIdCandidate : null;
+  if (!numericId) {
+    throw new ValidationError('A valid admin identifier is required.');
+  }
+
+  const user = await User.findByPk(numericId);
+  if (!user) {
+    throw new NotFoundError('Admin user not found.');
+  }
+
+  const userUpdates = {};
+  if (Object.prototype.hasOwnProperty.call(payload, 'firstName')) {
+    const firstName = normalizeNameInput(payload.firstName, 'First name');
+    if (firstName) {
+      userUpdates.firstName = firstName;
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'lastName')) {
+    const lastName = normalizeNameInput(payload.lastName, 'Last name');
+    if (lastName) {
+      userUpdates.lastName = lastName;
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'location')) {
+    userUpdates.location = payload.location ?? null;
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'geoLocation')) {
+    userUpdates.geoLocation = payload.geoLocation ?? null;
+  }
+
+  if (Object.keys(userUpdates).length > 0) {
+    await user.update(userUpdates);
+  }
+
+  const profilePayload = {};
+  ['headline', 'missionStatement', 'bio', 'avatarSeed', 'location', 'geoLocation', 'timezone'].forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(payload, key)) {
+      profilePayload[key] = payload[key];
+    }
+  });
+
+  const profileOverview = Object.keys(profilePayload).length
+    ? await updateProfile(numericId, profilePayload)
+    : await getProfileOverview(numericId, { bypassCache: true });
+
+  const ratingAggregate = await ReputationTestimonial.findOne({
+    attributes: [
+      [fn('AVG', col('rating')), 'averageRating'],
+      [fn('COUNT', col('id')), 'reviewCount'],
+    ],
+    where: { freelancerId: numericId, rating: { [Op.ne]: null } },
+    raw: true,
+  });
+
+  const overview = await buildAdminOverview(profileOverview, {
+    ratingAggregate,
+    now: new Date(),
+  });
+
+  return overview;
+}
+
 export default {
   getAdminDashboardSnapshot,
+  updateAdminOverview,
 };

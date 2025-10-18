@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
-import { getPlatformSettings, updatePlatformSettings } from '../../src/services/platformSettingsService.js';
+import {
+  getPlatformSettings,
+  updatePlatformSettings,
+  getHomepageSettings,
+  updateHomepageSettings,
+} from '../../src/services/platformSettingsService.js';
 import { PlatformSetting } from '../../src/models/platformSetting.js';
 import { ValidationError } from '../../src/utils/errors.js';
 
@@ -47,6 +52,8 @@ describe('platformSettingsService', () => {
     expect(settings.payments.provider).toBe('stripe');
     expect(settings.storage.cloudflare_r2.bucket).toBe('gigvora-dev-bucket');
     expect(settings.smtp.port).toBe(587);
+    expect(settings.homepage.hero.title).toContain('Build resilient');
+    expect(settings.homepage.quickLinks.length).toBeGreaterThan(0);
   });
 
   it('normalizes and persists administrative updates', async () => {
@@ -126,6 +133,7 @@ describe('platformSettingsService', () => {
     expect(fetched.subscriptions.enabled).toBe(false);
     expect(fetched.payments.provider).toBe('escrow_com');
     expect(fetched.storage.cloudflare_r2.publicBaseUrl).toBe('https://cdn.gigvora.dev');
+    expect(fetched.homepage.hero.title).toContain('Build resilient');
   });
 
   it('throws when commission percentages exceed policy boundaries', async () => {
@@ -136,5 +144,85 @@ describe('platformSettingsService', () => {
     await expect(
       updatePlatformSettings({ commissions: { rate: 80, servicemanMinimumRate: 40 } }),
     ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  describe('homepage settings', () => {
+    it('returns homepage defaults when none persisted', async () => {
+      const homepage = await getHomepageSettings();
+
+      expect(homepage.announcementBar.enabled).toBe(true);
+      expect(homepage.hero.stats).toHaveLength(4);
+      expect(homepage.valueProps.length).toBeGreaterThan(0);
+    });
+
+    it('normalizes and persists homepage updates', async () => {
+      const updated = await updateHomepageSettings({
+        announcementBar: {
+          enabled: false,
+          message: 'Welcome to the new control tower',
+          ctaLabel: 'View changelog',
+          ctaHref: '/blog',
+        },
+        hero: {
+          title: 'Operate with confidence',
+          subtitle: 'Every workflow, policy, and partner in one secure surface.',
+          primaryCtaLabel: 'Launch workspace',
+          primaryCtaHref: '/login',
+          overlayOpacity: 0.33,
+          stats: [
+            { id: 'launches', label: 'Launches this quarter', value: '42', suffix: '+' },
+            { label: 'Automations deployed', value: 12 },
+          ],
+        },
+        valueProps: [
+          {
+            id: 'ops',
+            title: 'Operations ready',
+            description: 'Provision squads with automated guardrails.',
+            ctaHref: '/dashboard/admin',
+          },
+        ],
+        featureSections: [
+          {
+            title: 'Preview homepage blocks',
+            description: 'Compose hero, highlights, and proof in minutes.',
+            bullets: [
+              { text: 'Drag-and-drop order management' },
+              { text: 'Role-gated publishing approvals' },
+            ],
+          },
+        ],
+        testimonials: [
+          {
+            quote: 'Publishing updates is now a two-minute workflow.',
+            authorName: 'Jamie Rivera',
+          },
+        ],
+        faqs: [
+          { question: 'Can we hide the announcement bar?', answer: 'Yes—toggle it off in the dashboard.' },
+        ],
+        quickLinks: [
+          { label: 'Open live site', href: '/', target: '_blank' },
+        ],
+        seo: {
+          title: 'Gigvora Homepage',
+          description: 'Curate the first impression with automated governance.',
+          keywords: ['gigvora', 'homepage'],
+          ogImageUrl: 'https://cdn.gigvora.com/assets/og/updated-home.png',
+        },
+      });
+
+      expect(updated.hero.title).toBe('Operate with confidence');
+      expect(updated.hero.stats[0].value).toBe(42);
+      expect(updated.hero.stats[0].suffix).toBe('+');
+      expect(updated.valueProps[0].title).toBe('Operations ready');
+      expect(updated.featureSections[0].bullets).toHaveLength(2);
+      expect(updated.quickLinks[0].target).toBe('_blank');
+
+      const fetched = await getHomepageSettings();
+      expect(fetched.hero.title).toBe('Operate with confidence');
+      expect(fetched.announcementBar.enabled).toBe(false);
+      expect(fetched.seo.title).toBe('Gigvora Homepage');
+    });
   });
 });
