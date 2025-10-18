@@ -192,3 +192,107 @@ export const affiliateSettingsBodySchema = z
   })
   .strip();
 
+
+const optionalLooseString = (max) =>
+  z
+    .preprocess((value) => {
+      if (value == null) {
+        return undefined;
+      }
+      const stringValue = `${value}`;
+      if (!stringValue.length) {
+        return undefined;
+      }
+      return stringValue;
+    }, z.string().max(max));
+
+const requiredLooseString = (max) =>
+  z.preprocess((value) => {
+    if (value == null) {
+      return value;
+    }
+    return `${value}`;
+  }, z.string().min(1).max(max));
+
+const emailVariableSchema = z
+  .object({
+    key: optionalTrimmedString({ max: 160 }),
+    label: optionalTrimmedString({ max: 160 }),
+    description: optionalTrimmedString({ max: 400 }),
+    required: optionalBoolean(),
+    sampleValue: optionalTrimmedString({ max: 200 }),
+  })
+  .strip();
+
+const emailTemplateSharedSchema = z
+  .object({
+    slug: optionalTrimmedString({ max: 160 }),
+    name: requiredTrimmedString({ max: 160 }),
+    description: optionalTrimmedString({ max: 1000 }),
+    category: optionalTrimmedString({ max: 80 }).transform((value) => value?.toLowerCase()),
+    subject: requiredTrimmedString({ max: 255 }),
+    preheader: optionalTrimmedString({ max: 255 }),
+    fromName: optionalTrimmedString({ max: 120 }),
+    fromAddress: optionalTrimmedString({ max: 255 }),
+    replyToAddress: optionalTrimmedString({ max: 255 }),
+    heroImageUrl: optionalTrimmedString({ max: 500 }),
+    layout: optionalTrimmedString({ max: 120 }),
+    tags: optionalStringArray({ maxItemLength: 80 }),
+    variables: z.array(emailVariableSchema).optional(),
+    enabled: optionalBoolean(),
+    metadata: z.record(z.any()).optional(),
+  })
+  .strip();
+
+export const adminEmailTemplateCreateSchema = emailTemplateSharedSchema
+  .extend({
+    htmlBody: requiredLooseString(20000),
+    textBody: optionalLooseString(20000).optional(),
+  })
+  .strip();
+
+export const adminEmailTemplateUpdateSchema = emailTemplateSharedSchema
+  .extend({
+    htmlBody: requiredLooseString(20000),
+    textBody: optionalLooseString(20000).optional(),
+  })
+  .strip();
+
+export const adminEmailSmtpBodySchema = z
+  .object({
+    label: optionalTrimmedString({ max: 120 }),
+    host: requiredTrimmedString({ max: 255 }),
+    port: optionalNumber({ min: 1, max: 65535, precision: 0, integer: true }),
+    secure: optionalBoolean(),
+    username: optionalTrimmedString({ max: 255 }),
+    password: optionalTrimmedString({ max: 255 }),
+    fromName: optionalTrimmedString({ max: 120 }),
+    fromAddress: requiredTrimmedString({ max: 255 }),
+    replyToAddress: optionalTrimmedString({ max: 255 }),
+    bccAuditRecipients: optionalStringArray({ maxItemLength: 255 }),
+    rateLimitPerMinute: optionalNumber({ min: 1, max: 10000, precision: 0, integer: true }),
+    metadata: z.record(z.any()).optional(),
+  })
+  .strip();
+
+export const adminEmailTestBodySchema = z
+  .object({
+    recipients: optionalStringArray({ maxItemLength: 255 }),
+    to: optionalStringArray({ maxItemLength: 255 }),
+    subject: optionalTrimmedString({ max: 255 }),
+    htmlBody: optionalLooseString(20000).optional(),
+    textBody: optionalLooseString(20000).optional(),
+    templateId: optionalNumber({ min: 1, precision: 0, integer: true }),
+  })
+  .strip()
+  .superRefine((data, ctx) => {
+    const recipientCount = (Array.isArray(data.recipients) ? data.recipients.length : 0) +
+      (Array.isArray(data.to) ? data.to.length : 0);
+    if (recipientCount === 0) {
+      ctx.addIssue({
+        path: ['recipients'],
+        code: z.ZodIssueCode.custom,
+        message: 'At least one recipient email is required.',
+      });
+    }
+  });
