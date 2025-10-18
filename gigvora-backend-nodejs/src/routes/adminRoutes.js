@@ -2,17 +2,22 @@ import { Router } from 'express';
 import * as adminController from '../controllers/adminController.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import adminAdRoutes from './adminAdRoutes.js';
+import adminAdSettingsRoutes from './adminAdSettingsRoutes.js';
 import { requireAdmin } from '../middleware/authenticate.js';
 import validateRequest from '../middleware/validateRequest.js';
 import {
   adminDashboardQuerySchema,
   affiliateSettingsBodySchema,
+  gdprSettingsBodySchema,
   platformSettingsBodySchema,
+  seoSettingsBodySchema,
 } from '../validation/schemas/adminSchemas.js';
 import adminRuntimeRoutes from './adminRuntimeRoutes.js';
 import adminConsentRoutes from './adminConsentRoutes.js';
 import adminRbacRoutes from './adminRbacRoutes.js';
 import adminTwoFactorRoutes from './adminTwoFactorRoutes.js';
+import adminDatabaseRoutes from './adminDatabaseRoutes.js';
+import adminProfileRoutes from './adminProfileRoutes.js';
 
 const router = Router();
 
@@ -36,11 +41,25 @@ router.put(
   validateRequest({ body: affiliateSettingsBodySchema }),
   asyncHandler(adminController.persistAffiliateSettings),
 );
+router.get('/gdpr-settings', asyncHandler(adminController.fetchGdprSettings));
+router.put(
+  '/gdpr-settings',
+  validateRequest({ body: gdprSettingsBodySchema }),
+  asyncHandler(adminController.persistGdprSettings),
+router.get('/seo-settings', asyncHandler(adminController.fetchSeoSettings));
+router.put(
+  '/seo-settings',
+  validateRequest({ body: seoSettingsBodySchema }),
+  asyncHandler(adminController.persistSeoSettings),
+);
 
 router.use('/ads/coupons', adminAdRoutes);
+router.use('/ads/settings', adminAdSettingsRoutes);
 router.use('/runtime', adminRuntimeRoutes);
 router.use('/governance/consents', adminConsentRoutes);
 router.use('/governance/rbac', adminRbacRoutes);
 router.use('/security/two-factor', adminTwoFactorRoutes);
+router.use('/database-settings', adminDatabaseRoutes);
+router.use('/profiles', adminProfileRoutes);
 
 export default router;

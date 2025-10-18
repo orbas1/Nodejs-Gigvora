@@ -44,6 +44,11 @@ export const domainMetadata = {
         retention: '6 years',
         justification: 'Identity evidence retained for Know Your Customer regulations.',
       },
+      IdentityVerificationEvent: {
+        fields: ['previousStatus', 'newStatus', 'notes', 'metadata'],
+        retention: '6 years',
+        justification: 'Audit trail of identity reviews maintained for regulatory reporting.',
+      },
       CorporateVerification: {
         fields: ['companyNumber', 'registrationCountry', 'complianceNotes'],
         retention: '6 years',
@@ -91,6 +96,8 @@ export const domainMetadata = {
       },
       TwoFactorBypass: {
         reason: 'Business justification captured when issuing temporary MFA bypass tokens.',
+      IdentityVerificationEvent: {
+        metadata: 'Structured payload with reviewer assignments, file references, and automation signals.',
       },
     },
   },
@@ -227,6 +234,21 @@ export const domainMetadata = {
         fields: ['reference', 'externalReference'],
         retention: 'Financial year + 10 years',
         justification: 'Ledger entries form the system of record for payouts and disputes.',
+      },
+      WalletFundingSource: {
+        fields: ['externalReference', 'lastFour', 'provider'],
+        retention: 'Financial year + 10 years',
+        justification: 'Funding source fingerprints are required for audit trails and consent revocation.',
+      },
+      WalletTransferRule: {
+        fields: ['name', 'metadata'],
+        retention: 'Active membership + 7 years',
+        justification: 'Automation policies demonstrate payout approvals during compliance reviews.',
+      },
+      WalletTransferRequest: {
+        fields: ['reference', 'notes'],
+        retention: 'Financial year + 10 years',
+        justification: 'Transfer requests underpin dispute resolution and tax evidence.',
       },
       EscrowAccount: {
         fields: ['providerEscrowId', 'status'],
