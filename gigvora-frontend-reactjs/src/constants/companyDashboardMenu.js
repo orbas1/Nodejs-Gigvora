@@ -51,6 +51,23 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
     ],
   },
   {
+    label: 'Project ops',
+    items: [
+      {
+        name: 'Projects',
+        sectionId: 'projects-open',
+        href: '/dashboard/company/projects',
+        tags: ['projects'],
+      },
+      {
+        name: 'Vendors',
+        sectionId: 'projects-vendors',
+        href: '/dashboard/company/projects#projects-vendors',
+      },
+    ],
+  },
+  {
+    label: 'Networking & community',
     label: 'Network',
     items: [
       {

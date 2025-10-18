@@ -57,6 +57,7 @@ import CompanyInboxPage from './pages/dashboards/CompanyInboxPage.jsx';
 import CompanyTimelineManagementPage from './pages/dashboards/CompanyTimelineManagementPage.jsx';
 import CompanyWalletManagementPage from './pages/dashboards/CompanyWalletManagementPage.jsx';
 import CompanyNetworkingHubPage from './pages/networking/CompanyNetworkingHubPage.jsx';
+import CompanyProjectManagementPage from './pages/dashboards/CompanyProjectManagementPage.jsx';
 import CompanyDisputeManagementPage from './pages/dashboards/company/CompanyDisputeManagementPage.jsx';
 import AgencyDashboardPage from './pages/dashboards/AgencyDashboardPage.jsx';
 import AgencyCalendarPage from './pages/dashboards/agency/AgencyCalendarPage.jsx';
@@ -326,6 +327,10 @@ export default function App() {
       />
 
       <Route
+        path="dashboard/company/projects"
+        element={
+          <RequireRole allowedRoles={['company']}>
+            <CompanyProjectManagementPage />
         path="dashboard/company/inbox"
         element={
           <RequireRole allowedRoles={['company']}>
