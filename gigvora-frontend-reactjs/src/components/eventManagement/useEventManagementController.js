@@ -79,6 +79,9 @@ export default function useEventManagementController({ data, userId, onRefresh }
 
   const overview = useMemo(() => localData?.overview ?? DEFAULT_OVERVIEW, [localData]);
   const events = useMemo(() => normalizeEvents(localData), [localData]);
+  const settings = useMemo(() => localData?.settings ?? null, [localData]);
+  const templates = useMemo(() => localData?.templates ?? [], [localData]);
+  const recommendations = useMemo(() => localData?.recommendations ?? [], [localData]);
   const permissions = useMemo(
     () => localData?.permissions ?? { canManage: true, allowedRoles: [] },
     [localData?.permissions],
@@ -301,6 +304,9 @@ export default function useEventManagementController({ data, userId, onRefresh }
     events,
     permissions,
     canManage,
+    settings,
+    templates,
+    recommendations,
     selectedEvent,
     selectEvent: setSelectedEventId,
     wizardState,
