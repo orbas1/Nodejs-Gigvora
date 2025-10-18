@@ -448,8 +448,12 @@ export default function DashboardLayout({
     }
 
     if (item.href) {
-      if (item.href.startsWith('http')) {
-        window.open(item.href, item.target ?? '_blank', 'noreferrer');
+      if (typeof window !== 'undefined') {
+        if (item.href.startsWith('http')) {
+          window.open(item.href, item.target ?? '_blank', 'noreferrer');
+        } else {
+          window.location.assign(item.href);
+        }
       }
       return;
     }

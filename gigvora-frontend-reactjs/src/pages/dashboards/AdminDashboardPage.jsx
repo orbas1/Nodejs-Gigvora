@@ -86,22 +86,22 @@ const MENU_SECTIONS = [
   },
   {
     label: 'Configuration stack',
-      items: [
-        {
-          name: 'All platform settings',
-          description: 'Govern application defaults, commission policies, and feature gates.',
-          tags: ['settings'],
-          sectionId: 'admin-settings-overview',
-        },
-        {
-          name: 'Affiliate economics',
-          description: 'Tiered commissions, payout cadences, and partner compliance.',
-          tags: ['affiliate'],
-          sectionId: 'admin-affiliate-settings',
-        },
-        {
-          name: 'CMS controls',
-          description: 'Editorial workflow, restricted features, and monetisation toggles.',
+    items: [
+      {
+        name: 'All platform settings',
+        description: 'Govern application defaults, commission policies, and feature gates.',
+        tags: ['settings'],
+        sectionId: 'admin-settings-overview',
+      },
+      {
+        name: 'Affiliate economics',
+        description: 'Tiered commissions, payout cadences, and partner compliance.',
+        tags: ['affiliate'],
+        sectionId: 'admin-affiliate-settings',
+      },
+      {
+        name: 'CMS controls',
+        description: 'Editorial workflow, restricted features, and monetisation toggles.',
         sectionId: 'admin-settings-cms',
       },
       {
@@ -115,6 +115,12 @@ const MENU_SECTIONS = [
         description: 'REST endpoints, payment gateways, and outbound email security.',
         sectionId: 'admin-settings-api',
         tags: ['api'],
+      },
+      {
+        name: 'Appearance management',
+        description: 'Themes, brand assets, and layout presets.',
+        href: '/dashboard/admin/appearance',
+        tags: ['brand'],
       },
     ],
   },
@@ -1206,6 +1212,12 @@ export default function AdminDashboardPage() {
           >
             {settingsSaving ? 'Saving…' : 'Save changes'}
           </button>
+          <Link
+            to="/dashboard/admin/appearance"
+            className="inline-flex items-center justify-center rounded-full border border-blue-200 bg-blue-50 px-5 py-2 text-sm font-semibold text-blue-700 transition hover:border-blue-300 hover:bg-blue-100"
+          >
+            Appearance console
+          </Link>
         </div>
       </div>
       {settingsError ? (
@@ -2868,6 +2880,7 @@ export default function AdminDashboardPage() {
         profile={profile}
         availableDashboards={[
           'admin',
+          { id: 'admin-appearance', label: 'Appearance', href: '/dashboard/admin/appearance' },
           'user',
           'freelancer',
           'company',
@@ -2914,6 +2927,7 @@ export default function AdminDashboardPage() {
       profile={profile}
       availableDashboards={[
         'admin',
+        { id: 'admin-appearance', label: 'Appearance', href: '/dashboard/admin/appearance' },
         'user',
         'freelancer',
         'company',
