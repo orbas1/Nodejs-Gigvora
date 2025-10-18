@@ -176,6 +176,16 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
       },
     ],
   },
+  {
+    label: 'Finance',
+    items: [
+      {
+        name: 'Escrow',
+        sectionId: 'escrow-management',
+        href: '/dashboard/company/escrow',
+      },
+    ],
+  },
 ];
 
 export default COMPANY_DASHBOARD_MENU_SECTIONS;
