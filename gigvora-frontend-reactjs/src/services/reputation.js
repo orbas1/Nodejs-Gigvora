@@ -37,6 +37,45 @@ export async function createReviewWidget(freelancerId, body, options = {}) {
   return apiClient.post(`/reputation/freelancers/${freelancerId}/widgets`, body, options);
 }
 
+export async function fetchFreelancerReviews(freelancerId, params = {}, options = {}) {
+  if (!freelancerId) {
+    throw new Error('freelancerId is required to load reviews.');
+  }
+
+  const { signal } = options;
+  const normalizedParams = { ...params };
+
+  if (Array.isArray(normalizedParams.tags)) {
+    normalizedParams.tags = normalizedParams.tags.join(',');
+  }
+
+  return apiClient.get(`/reputation/freelancers/${freelancerId}/reviews`, {
+    params: normalizedParams,
+    signal,
+  });
+}
+
+export async function createFreelancerReview(freelancerId, body, options = {}) {
+  if (!freelancerId) {
+    throw new Error('freelancerId is required to create a review.');
+  }
+  return apiClient.post(`/reputation/freelancers/${freelancerId}/reviews`, body, options);
+}
+
+export async function updateFreelancerReview(freelancerId, reviewId, body, options = {}) {
+  if (!freelancerId || !reviewId) {
+    throw new Error('freelancerId and reviewId are required to update a review.');
+  }
+  return apiClient.put(`/reputation/freelancers/${freelancerId}/reviews/${reviewId}`, body, options);
+}
+
+export async function deleteFreelancerReview(freelancerId, reviewId, options = {}) {
+  if (!freelancerId || !reviewId) {
+    throw new Error('freelancerId and reviewId are required to delete a review.');
+  }
+  return apiClient.delete(`/reputation/freelancers/${freelancerId}/reviews/${reviewId}`, options);
+}
+
 export async function updateReferenceSettings(freelancerId, settings, options = {}) {
   if (!freelancerId) {
     throw new Error('freelancerId is required to update reference settings.');
@@ -66,6 +105,10 @@ export default {
   upsertMetric,
   createBadge,
   createReviewWidget,
+  fetchFreelancerReviews,
+  createFreelancerReview,
+  updateFreelancerReview,
+  deleteFreelancerReview,
   updateReferenceSettings,
   requestReferenceInvite,
   verifyReference,
