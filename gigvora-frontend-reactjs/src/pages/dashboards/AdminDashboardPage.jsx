@@ -125,6 +125,10 @@ const MENU_SECTIONS = [
         description: 'Service desk load, SLAs, and sentiment guardrails.',
       },
       {
+        name: 'Mentoring',
+        description: 'Manage mentor schedules and feedback.',
+        tags: ['learning', 'mentors'],
+        href: '/dashboard/admin/mentoring',
         name: 'Mobile app management',
         description: 'Coordinate mobile releases, listings, and feature flags.',
         tags: ['mobile'],
