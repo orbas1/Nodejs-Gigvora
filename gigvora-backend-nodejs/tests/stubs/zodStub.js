@@ -84,7 +84,7 @@ const zFactory = new Proxy(
         return new Proxy(
           {},
           {
-            get(__target, key) {
+            get() {
               return () => createChainable();
             },
           },
