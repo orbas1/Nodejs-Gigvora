@@ -1,1 +1,0 @@
-Placeholder for Screens__Update_widget_types.md

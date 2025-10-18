@@ -1,1 +1,0 @@
-- Updated `src/services/index.js` to export `profileEngagementService`, making aggregation helpers available to other modules and future controller wiring.

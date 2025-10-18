@@ -1,1 +1,0 @@
-- Added engagement aggregation worker bootstrap (skipped in `NODE_ENV=test`) ensuring profile likes/followers metrics stay fresh without impacting integration tests.

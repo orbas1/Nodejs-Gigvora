@@ -1,1 +1,0 @@
-Placeholder for component_functions.md
