@@ -32,6 +32,12 @@ import {
   UserConsent,
   ConsentAuditEvent,
 } from './consentModels.js';
+import {
+  CreationStudioItem,
+  CREATION_STUDIO_ITEM_TYPES,
+  CREATION_STUDIO_ITEM_STATUSES,
+  CREATION_STUDIO_VISIBILITIES,
+} from './creationStudioModels.js';
 
 import { UserConsent } from './consentModels.js';
 import { buildLocationDetails } from '../utils/location.js';
@@ -203,6 +209,12 @@ export { BlogCategory, BlogMedia, BlogPost, BlogPostMedia, BlogPostTag, BlogTag 
 export { ConsentPolicy, ConsentPolicyVersion, UserConsent, ConsentAuditEvent } from './consentModels.js';
 export { RuntimeSecurityAuditEvent } from './runtimeSecurityAuditEvent.js';
 export { RbacPolicyAuditEvent } from './rbacPolicyAuditEvent.js';
+export {
+  CreationStudioItem,
+  CREATION_STUDIO_ITEM_TYPES,
+  CREATION_STUDIO_ITEM_STATUSES,
+  CREATION_STUDIO_VISIBILITIES,
+};
 export { AgencyAiConfiguration, AgencyAutoBidTemplate } from './agencyAiModels.js';
 
 const PIPELINE_OWNER_TYPES = ['freelancer', 'agency', 'company'];
@@ -20627,6 +20639,7 @@ ProviderWorkspace.hasMany(ProspectResearchNote, { foreignKey: 'workspaceId', as:
 ProviderWorkspace.hasMany(ProspectResearchTask, { foreignKey: 'workspaceId', as: 'prospectResearchTasks' });
 ProviderWorkspace.hasMany(EmployerBrandSection, { foreignKey: 'workspaceId', as: 'employerBrandSections' });
 ProviderWorkspace.hasMany(EmployerBrandCampaign, { foreignKey: 'workspaceId', as: 'employerBrandCampaigns' });
+ProviderWorkspace.hasMany(CreationStudioItem, { foreignKey: 'workspaceId', as: 'creationStudioItems' });
 ProviderWorkspace.hasMany(WorkforceAnalyticsSnapshot, { foreignKey: 'workspaceId', as: 'workforceSnapshots' });
 ProviderWorkspace.hasMany(WorkforceCohortMetric, { foreignKey: 'workspaceId', as: 'workforceCohorts' });
 ProviderWorkspace.hasMany(InternalJobPosting, { foreignKey: 'workspaceId', as: 'internalJobPostings' });
@@ -20952,11 +20965,14 @@ ProspectResearchTask.belongsTo(User, { foreignKey: 'assigneeId', as: 'assignee' 
 ProspectResearchTask.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
 EmployerBrandSection.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 EmployerBrandCampaign.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+CreationStudioItem.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+CreationStudioItem.belongsTo(User, { foreignKey: 'createdById', as: 'creator' });
 WorkforceAnalyticsSnapshot.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 WorkforceCohortMetric.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 InternalJobPosting.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 EmployeeReferral.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 EmployeeReferral.belongsTo(User, { foreignKey: 'referrerId', as: 'referrer' });
+User.hasMany(CreationStudioItem, { foreignKey: 'createdById', as: 'creationStudioItems' });
 CareerPathingPlan.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 CareerPathingPlan.belongsTo(User, { foreignKey: 'employeeId', as: 'employee' });
 CompliancePolicy.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
