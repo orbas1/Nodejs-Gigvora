@@ -7,6 +7,7 @@ import { ValidationError, NotFoundError } from '../utils/errors.js';
 import { buildLocationDetails } from '../utils/location.js';
 
 import { getAdDashboardSnapshot } from './adService.js';
+import { getTimelineManagementSnapshot } from './companyTimelineService.js';
 import { getCompanyDashboardOverview } from './companyDashboardOverviewService.js';
 import { fetchWeatherSummary } from './weatherService.js';
 
@@ -5869,6 +5870,11 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       slaSnapshots: agencySlaSnapshots,
       billingEvents: agencyBillingEvents,
     });
+    const timelineManagement = await getTimelineManagementSnapshot({
+      workspaceId: workspace.id,
+      lookbackDays: lookback,
+      workspace,
+    });
     const plainBrandAssets = brandAssets.map((asset) => (asset?.get ? asset.get({ plain: true }) : asset));
     const plainBrandSections = brandSections.map((section) => (section?.get ? section.get({ plain: true }) : section));
     const plainBrandCampaigns = brandCampaigns.map((campaign) => (campaign?.get ? campaign.get({ plain: true }) : campaign));
@@ -6110,6 +6116,7 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       governance,
       calendar: calendarDigest,
       networking,
+      timelineManagement,
       brandAndPeople,
       reviews: {
         total: reviews.length,

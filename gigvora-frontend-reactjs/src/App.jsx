@@ -52,6 +52,7 @@ import CompanyDashboardPage from './pages/dashboards/CompanyDashboardPage.jsx';
 import CompanyAtsOperationsPage from './pages/dashboards/CompanyAtsOperationsPage.jsx';
 import CompanyAnalyticsPage from './pages/dashboards/CompanyAnalyticsPage.jsx';
 import CompanyIntegrationsPage from './pages/dashboards/CompanyIntegrationsPage.jsx';
+import CompanyTimelineManagementPage from './pages/dashboards/CompanyTimelineManagementPage.jsx';
 import CompanyWalletManagementPage from './pages/dashboards/CompanyWalletManagementPage.jsx';
 import CompanyNetworkingHubPage from './pages/networking/CompanyNetworkingHubPage.jsx';
 import CompanyDisputeManagementPage from './pages/dashboards/company/CompanyDisputeManagementPage.jsx';
@@ -318,6 +319,15 @@ export default function App() {
         element={
           <RequireRole allowedRoles={['company']}>
             <CompanyAnalyticsPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
+        path="dashboard/company/timeline"
+        element={
+          <RequireRole allowedRoles={['company']}>
+            <CompanyTimelineManagementPage />
           </RequireRole>
         }
       />

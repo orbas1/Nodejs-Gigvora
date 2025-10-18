@@ -178,6 +178,10 @@ const sequelize = sequelizeClient;
 const dialect = sequelize.getDialect();
 const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB : DataTypes.JSON;
 
+export const COMPANY_TIMELINE_EVENT_STATUSES = ['planned', 'in_progress', 'completed', 'blocked'];
+export const COMPANY_TIMELINE_POST_STATUSES = ['draft', 'scheduled', 'published', 'archived'];
+export const COMPANY_TIMELINE_POST_VISIBILITIES = ['workspace', 'public', 'private'];
+
 export * from './constants/index.js';
 export {
   BlogCategory,
@@ -11755,6 +11759,189 @@ ProviderContactNote.prototype.toPublicObject = function toPublicObject() {
   return this.get({ plain: true });
 };
 
+export const CompanyTimelineEvent = sequelize.define(
+  'CompanyTimelineEvent',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    ownerId: { type: DataTypes.INTEGER, allowNull: true },
+    title: { type: DataTypes.STRING(200), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...COMPANY_TIMELINE_EVENT_STATUSES),
+      allowNull: false,
+      defaultValue: 'planned',
+      validate: { isIn: [COMPANY_TIMELINE_EVENT_STATUSES] },
+    },
+    category: { type: DataTypes.STRING(80), allowNull: true },
+    startDate: { type: DataTypes.DATE, allowNull: true },
+    dueDate: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'company_timeline_events',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['status'] },
+      { fields: ['startDate'] },
+      { fields: ['dueDate'] },
+    ],
+  },
+);
+
+CompanyTimelineEvent.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  const metadata = plain.metadata && typeof plain.metadata === 'object' ? plain.metadata : {};
+  const ownerInstance = this.owner ?? this.get?.('owner');
+  const owner = ownerInstance
+    ? {
+        id: ownerInstance.id,
+        firstName: ownerInstance.firstName,
+        lastName: ownerInstance.lastName,
+        email: ownerInstance.email,
+      }
+    : null;
+
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    ownerId: plain.ownerId,
+    title: plain.title,
+    description: plain.description,
+    status: plain.status,
+    category: plain.category,
+    startDate: plain.startDate,
+    dueDate: plain.dueDate,
+    metadata,
+    owner,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const CompanyTimelinePost = sequelize.define(
+  'CompanyTimelinePost',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    authorId: { type: DataTypes.INTEGER, allowNull: true },
+    title: { type: DataTypes.STRING(200), allowNull: false },
+    summary: { type: DataTypes.STRING(280), allowNull: true },
+    body: { type: DataTypes.TEXT, allowNull: true },
+    heroImageUrl: { type: DataTypes.STRING(500), allowNull: true },
+    ctaUrl: { type: DataTypes.STRING(500), allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...COMPANY_TIMELINE_POST_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [COMPANY_TIMELINE_POST_STATUSES] },
+    },
+    visibility: {
+      type: DataTypes.ENUM(...COMPANY_TIMELINE_POST_VISIBILITIES),
+      allowNull: false,
+      defaultValue: 'workspace',
+      validate: { isIn: [COMPANY_TIMELINE_POST_VISIBILITIES] },
+    },
+    scheduledFor: { type: DataTypes.DATE, allowNull: true },
+    publishedAt: { type: DataTypes.DATE, allowNull: true },
+    expiresAt: { type: DataTypes.DATE, allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'company_timeline_posts',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['status'] },
+      { fields: ['visibility'] },
+      { fields: ['scheduledFor'] },
+      { fields: ['publishedAt'] },
+    ],
+  },
+);
+
+CompanyTimelinePost.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  const tags = Array.isArray(plain.tags)
+    ? plain.tags
+    : plain.tags && typeof plain.tags === 'object'
+    ? Object.values(plain.tags)
+    : [];
+  const metadata = plain.metadata && typeof plain.metadata === 'object' ? plain.metadata : {};
+  const authorInstance = this.author ?? this.get?.('author');
+  const author = authorInstance
+    ? {
+        id: authorInstance.id,
+        firstName: authorInstance.firstName,
+        lastName: authorInstance.lastName,
+        email: authorInstance.email,
+      }
+    : null;
+
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    authorId: plain.authorId,
+    title: plain.title,
+    summary: plain.summary,
+    body: plain.body,
+    heroImageUrl: plain.heroImageUrl,
+    ctaUrl: plain.ctaUrl,
+    status: plain.status,
+    visibility: plain.visibility,
+    scheduledFor: plain.scheduledFor,
+    publishedAt: plain.publishedAt,
+    expiresAt: plain.expiresAt,
+    tags,
+    metadata,
+    author,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const CompanyTimelinePostMetric = sequelize.define(
+  'CompanyTimelinePostMetric',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    postId: { type: DataTypes.INTEGER, allowNull: false },
+    metricDate: { type: DataTypes.DATEONLY, allowNull: false },
+    impressions: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    clicks: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    reactions: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    comments: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    shares: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    saves: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'company_timeline_post_metrics',
+    indexes: [
+      { unique: true, fields: ['postId', 'metricDate'] },
+      { fields: ['workspaceId'] },
+      { fields: ['metricDate'] },
+    ],
+  },
+);
+
+CompanyTimelinePostMetric.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  const metadata = plain.metadata && typeof plain.metadata === 'object' ? plain.metadata : {};
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    postId: plain.postId,
+    metricDate: plain.metricDate,
+    impressions: Number.parseInt(plain.impressions ?? 0, 10) || 0,
+    clicks: Number.parseInt(plain.clicks ?? 0, 10) || 0,
+    reactions: Number.parseInt(plain.reactions ?? 0, 10) || 0,
+    comments: Number.parseInt(plain.comments ?? 0, 10) || 0,
+    shares: Number.parseInt(plain.shares ?? 0, 10) || 0,
+    saves: Number.parseInt(plain.saves ?? 0, 10) || 0,
+    metadata,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 export const AgencyCollaboration = sequelize.define(
   'AgencyCollaboration',
   {
@@ -19396,6 +19583,9 @@ CompanyDashboardOverview.belongsTo(User, {
 });
 ProviderWorkspace.hasMany(ProviderWorkspaceInvite, { foreignKey: 'workspaceId', as: 'invites' });
 ProviderWorkspace.hasMany(ProviderContactNote, { foreignKey: 'workspaceId', as: 'contactNotes' });
+ProviderWorkspace.hasMany(CompanyTimelineEvent, { foreignKey: 'workspaceId', as: 'timelineEvents' });
+ProviderWorkspace.hasMany(CompanyTimelinePost, { foreignKey: 'workspaceId', as: 'timelinePosts' });
+ProviderWorkspace.hasMany(CompanyTimelinePostMetric, { foreignKey: 'workspaceId', as: 'timelinePostMetrics' });
 ProviderWorkspace.hasMany(ExecutiveIntelligenceMetric, { foreignKey: 'workspaceId', as: 'executiveMetrics' });
 ProviderWorkspace.hasMany(ExecutiveScenarioPlan, { foreignKey: 'workspaceId', as: 'executiveScenarioPlans' });
 ProviderWorkspace.hasOne(AgencyDashboardOverview, { foreignKey: 'workspaceId', as: 'dashboardOverview' });
@@ -19663,6 +19853,13 @@ ProviderWorkspaceInvite.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId'
 ProviderWorkspaceInvite.belongsTo(User, { foreignKey: 'invitedById', as: 'inviter' });
 
 ProviderContactNote.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+CompanyTimelineEvent.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+CompanyTimelineEvent.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
+CompanyTimelinePost.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+CompanyTimelinePost.belongsTo(User, { foreignKey: 'authorId', as: 'author' });
+CompanyTimelinePost.hasMany(CompanyTimelinePostMetric, { foreignKey: 'postId', as: 'metrics' });
+CompanyTimelinePostMetric.belongsTo(CompanyTimelinePost, { foreignKey: 'postId', as: 'post' });
+CompanyTimelinePostMetric.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 ExecutiveIntelligenceMetric.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 ExecutiveScenarioPlan.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 ExecutiveScenarioPlan.hasMany(ExecutiveScenarioBreakdown, {
@@ -20411,6 +20608,9 @@ export default {
   InternalOpportunityMatch,
   MemberBrandingAsset,
   MemberBrandingApproval,
+  CompanyTimelineEvent,
+  CompanyTimelinePost,
+  CompanyTimelinePostMetric,
   NetworkingSession,
   NetworkingSessionRotation,
   NetworkingSessionSignup,
