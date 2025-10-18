@@ -7,6 +7,7 @@ import { ValidationError, NotFoundError } from '../utils/errors.js';
 import { buildLocationDetails } from '../utils/location.js';
 
 import { getAdDashboardSnapshot } from './adService.js';
+import { getVolunteeringDashboard as getCompanyVolunteeringDashboard } from './volunteeringManagementService.js';
 import { getTimelineManagementSnapshot } from './companyTimelineService.js';
 import { getCompanyDashboardOverview } from './companyDashboardOverviewService.js';
 import { fetchWeatherSummary } from './weatherService.js';
@@ -5975,6 +5976,24 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       })
       .filter((value) => value != null);
 
+    let volunteeringSummary = null;
+    try {
+      const volunteeringSnapshot = await getCompanyVolunteeringDashboard({
+        workspaceId: workspace.id,
+        lookbackDays: lookback,
+      });
+      volunteeringSummary = {
+        summary: volunteeringSnapshot.summary,
+        totals: volunteeringSnapshot.totals,
+        permissions: volunteeringSnapshot.permissions,
+        posts: (volunteeringSnapshot.posts ?? []).slice(0, 10),
+      };
+    } catch (error) {
+      if (process.env.NODE_ENV !== 'test') {
+        console.warn('Failed to load volunteering dashboard snapshot', error);
+      }
+    }
+
     const ads = await getAdDashboardSnapshot({
       surfaces: ['company_dashboard', 'global_dashboard'],
       context: {
@@ -6111,6 +6130,7 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
         talentPools: talentPoolSummary,
         agencyCollaboration: agencyCollaborationInsights,
       },
+      volunteering: volunteeringSummary,
       brandIntelligence,
       employerBrandWorkforce,
       governance,

@@ -133,6 +133,31 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
     label: 'Finance & treasury',
     items: [
       {
+        name: 'Volunteer',
+        description: 'Publish volunteer opportunities, manage applicants, and track contracts & stipend spend.',
+        sectionId: 'volunteering-management',
+        href: '/dashboard/company/volunteering',
+        tags: ['community'],
+      },
+      {
+        name: 'Employer brand & workforce intelligence',
+        description: 'Promote your culture, understand workforce trends, and connect hiring with employee experience data.',
+        sectionId: 'employer-brand-workforce',
+      },
+      {
+        name: 'Employer brand studio',
+        description: 'Company profile, culture stories, benefits, and employer marketing assets.',
+        sectionId: 'employer-brand-studio',
+      },
+      {
+        name: 'Employee journeys',
+        description: 'Onboarding, internal mobility, and performance snapshots for HR teams.',
+        sectionId: 'employee-journeys',
+      },
+      {
+        name: 'Settings & governance',
+        description: 'Calendar sync, permissions, integrations, compliance, and approvals.',
+        sectionId: 'settings-governance',
         name: 'Wallet management',
         description: 'Manage balances, funding sources, payouts, and access controls for every company wallet.',
         sectionId: 'wallet-management',
