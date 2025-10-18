@@ -37,6 +37,12 @@ const MENU_SECTIONS = [
         tags: ['growth', 'activation'],
       },
       {
+        name: 'Hiring',
+        description: '',
+        tags: ['talent'],
+        href: '/dashboard/admin/job-applications',
+      },
+      {
         name: 'Financial governance',
         description: 'Escrow flows, fee capture, and treasury risk posture.',
         tags: ['finance'],

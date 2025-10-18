@@ -25,6 +25,21 @@ import {
   registerBlogAssociations,
 } from './blogModels.js';
 import {
+  JobApplication,
+  JobApplicationDocument,
+  JobApplicationInterview,
+  JobApplicationNote,
+  JobApplicationStageHistory,
+  JOB_APPLICATION_INTERVIEW_STATUSES,
+  JOB_APPLICATION_INTERVIEW_TYPES,
+  JOB_APPLICATION_PRIORITIES,
+  JOB_APPLICATION_SOURCES,
+  JOB_APPLICATION_STAGES,
+  JOB_APPLICATION_STATUSES,
+  JOB_APPLICATION_VISIBILITIES,
+} from './jobApplicationModels.js';
+import { User } from './messagingModels.js';
+import {
   PROFILE_AVAILABILITY_STATUSES, PROFILE_APPRECIATION_TYPES, PROFILE_FOLLOWER_STATUSES, PROFILE_ENGAGEMENT_JOB_STATUSES,
   GROUP_VISIBILITIES, GROUP_MEMBER_POLICIES, GROUP_MEMBERSHIP_STATUSES, GROUP_MEMBERSHIP_ROLES,
   EMPLOYER_BRAND_SECTION_TYPES, EMPLOYER_BRAND_SECTION_STATUSES, EMPLOYER_BRAND_CAMPAIGN_STATUSES, WORKFORCE_COHORT_TYPES,
@@ -123,6 +138,21 @@ export { BlogCategory, BlogMedia, BlogPost, BlogPostMedia, BlogPostTag, BlogTag 
 export { ConsentPolicy, ConsentPolicyVersion, UserConsent, ConsentAuditEvent } from './consentModels.js';
 export { RuntimeSecurityAuditEvent } from './runtimeSecurityAuditEvent.js';
 export { RbacPolicyAuditEvent } from './rbacPolicyAuditEvent.js';
+export {
+  JobApplication,
+  JobApplicationDocument,
+  JobApplicationInterview,
+  JobApplicationNote,
+  JobApplicationStageHistory,
+  JOB_APPLICATION_INTERVIEW_STATUSES,
+  JOB_APPLICATION_INTERVIEW_TYPES,
+  JOB_APPLICATION_PRIORITIES,
+  JOB_APPLICATION_SOURCES,
+  JOB_APPLICATION_STAGES,
+  JOB_APPLICATION_STATUSES,
+  JOB_APPLICATION_VISIBILITIES,
+} from './jobApplicationModels.js';
+export { User } from './messagingModels.js';
 
 const PIPELINE_OWNER_TYPES = ['freelancer', 'agency', 'company'];
 const TWO_FACTOR_METHODS = ['email', 'app', 'sms'];
@@ -132,36 +162,14 @@ const FEATURE_FLAG_ROLLOUT_TYPES = ['global', 'percentage', 'cohort'];
 const FEATURE_FLAG_STATUSES = ['draft', 'active', 'disabled'];
 const FEATURE_FLAG_AUDIENCE_TYPES = ['user', 'workspace', 'membership', 'domain'];
 
-export const User = sequelize.define(
-  'User',
-  {
-    firstName: { type: DataTypes.STRING(120), allowNull: false },
-    lastName: { type: DataTypes.STRING(120), allowNull: false },
-    email: { type: DataTypes.STRING(255), unique: true, allowNull: false, validate: { isEmail: true } },
-    password: { type: DataTypes.STRING(255), allowNull: false },
-    address: { type: DataTypes.STRING(255), allowNull: true },
-    location: { type: DataTypes.STRING(255), allowNull: true },
-    geoLocation: { type: jsonType, allowNull: true },
-    age: { type: DataTypes.INTEGER, allowNull: true, validate: { min: 13 } },
-    userType: {
-      type: DataTypes.ENUM('user', 'company', 'freelancer', 'agency', 'admin'),
-      allowNull: false,
-      defaultValue: 'user',
-    },
-    twoFactorEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
-    twoFactorMethod: {
-      type: DataTypes.ENUM(...TWO_FACTOR_METHODS),
-      allowNull: false,
-      defaultValue: 'email',
-    },
-    lastLoginAt: { type: DataTypes.DATE, allowNull: true },
-    googleId: { type: DataTypes.STRING(255), allowNull: true },
-  },
-  {
-    tableName: 'users',
-    indexes: [{ fields: ['email'] }],
-  },
-);
+JobApplication.belongsTo(User, { foreignKey: 'assignedRecruiterId', as: 'assignedRecruiter' });
+User.hasMany(JobApplication, { foreignKey: 'assignedRecruiterId', as: 'assignedApplications' });
+JobApplicationNote.belongsTo(User, { foreignKey: 'authorId', as: 'author' });
+User.hasMany(JobApplicationNote, { foreignKey: 'authorId', as: 'jobApplicationNotes' });
+JobApplicationDocument.belongsTo(User, { foreignKey: 'uploadedById', as: 'uploadedBy' });
+User.hasMany(JobApplicationDocument, { foreignKey: 'uploadedById', as: 'jobApplicationDocuments' });
+JobApplicationInterview.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+User.hasMany(JobApplicationInterview, { foreignKey: 'createdById', as: 'jobApplicationInterviews' });
 
 User.searchByTerm = async function searchByTerm(term) {
   if (!term) return [];
@@ -16565,6 +16573,14 @@ domainRegistry.registerContext({
       /^CommunitySpotlight/.test(modelName) ||
       /^PeerMentoring/.test(modelName),
   ],
+  metadata: domainMetadata.talent,
+});
+
+domainRegistry.registerContext({
+  name: 'talent_acquisition',
+  displayName: 'Talent Acquisition',
+  description: 'Job applications, interviews, stage history, and recruiter workflows.',
+  include: [(modelName) => /^JobApplication/.test(modelName)],
   metadata: domainMetadata.talent,
 });
 
