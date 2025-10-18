@@ -330,6 +330,187 @@ export const databaseConnectionTestSchema = z
     password: optionalTrimmedString({ max: 255 }),
     sslMode: optionalTrimmedString({ max: 32 }).transform((value) => value?.toLowerCase()),
     options: databaseConnectionOptionsSchema.optional(),
+const gdprDpoSchema = z
+  .object({
+    name: optionalTrimmedString({ max: 180 }),
+    email: optionalTrimmedString({ max: 255 }),
+    phone: optionalTrimmedString({ max: 64 }),
+    officeLocation: optionalTrimmedString({ max: 255 }),
+    address: optionalTrimmedString({ max: 500 }),
+    timezone: optionalTrimmedString({ max: 120 }),
+    availability: optionalTrimmedString({ max: 255 }),
+  })
+  .strip();
+
+const gdprDataSubjectRequestsSchema = z
+  .object({
+    contactEmail: optionalTrimmedString({ max: 255 }),
+    escalationEmail: optionalTrimmedString({ max: 255 }),
+    slaDays: optionalNumber({ min: 1, max: 180, precision: 0, integer: true }),
+    automatedIntake: optionalBoolean(),
+    intakeChannels: optionalStringArray({ maxItemLength: 120 }),
+    privacyPortalUrl: optionalTrimmedString({ max: 2048 }),
+    exportFormats: optionalStringArray({ maxItemLength: 120 }),
+    statusDashboardUrl: optionalTrimmedString({ max: 2048 }),
+  })
+  .strip();
+
+const gdprRetentionPolicySchema = z
+  .object({
+    id: optionalTrimmedString({ max: 120 }),
+    name: optionalTrimmedString({ max: 180 }),
+    dataCategories: optionalStringArray({ maxItemLength: 120 }),
+    retentionDays: optionalNumber({ min: 1, max: 3650, precision: 0, integer: true }),
+    notes: optionalTrimmedString({ max: 1000 }),
+    legalBasis: optionalTrimmedString({ max: 180 }),
+    appliesTo: optionalStringArray({ maxItemLength: 120 }),
+    reviewer: optionalTrimmedString({ max: 180 }),
+    autoDelete: optionalBoolean(),
+  })
+  .strip();
+
+const gdprProcessorSchema = z
+  .object({
+    id: optionalTrimmedString({ max: 120 }),
+    name: optionalTrimmedString({ max: 180 }),
+    purpose: optionalTrimmedString({ max: 255 }),
+    dataCategories: optionalStringArray({ maxItemLength: 120 }),
+    dataTransferMechanism: optionalTrimmedString({ max: 180 }),
+    region: optionalTrimmedString({ max: 120 }),
+    dpaSigned: optionalBoolean(),
+    securityReviewDate: optionalTrimmedString({ max: 40 }),
+    status: optionalTrimmedString({ max: 120 }),
+    contactEmail: optionalTrimmedString({ max: 255 }),
+    subprocessor: optionalBoolean(),
+  })
+  .strip();
+
+const gdprBreachResponseSchema = z
+  .object({
+    notificationWindowHours: optionalNumber({ min: 1, max: 168, precision: 0, integer: true }),
+    onCallContact: optionalTrimmedString({ max: 255 }),
+    incidentRunbookUrl: optionalTrimmedString({ max: 2048 }),
+    tabletopLastRun: optionalTrimmedString({ max: 40 }),
+    tooling: optionalStringArray({ maxItemLength: 120 }),
+    legalCounsel: optionalTrimmedString({ max: 255 }),
+    communicationsContact: optionalTrimmedString({ max: 255 }),
+  })
+  .strip();
+
+const gdprConsentFrameworkSchema = z
+  .object({
+    marketingOptInDefault: optionalBoolean(),
+    cookieBannerEnabled: optionalBoolean(),
+    cookieRefreshMonths: optionalNumber({ min: 1, max: 36, precision: 0, integer: true }),
+    consentLogRetentionDays: optionalNumber({ min: 30, max: 3650, precision: 0, integer: true }),
+    withdrawalChannels: optionalStringArray({ maxItemLength: 120 }),
+    guardianContactEmail: optionalTrimmedString({ max: 255 }),
+    cookiePolicyUrl: optionalTrimmedString({ max: 2048 }),
+    preferenceCenterUrl: optionalTrimmedString({ max: 2048 }),
+  })
+  .strip();
+
+export const gdprSettingsBodySchema = z
+  .object({
+    dpo: gdprDpoSchema.optional(),
+    dataSubjectRequests: gdprDataSubjectRequestsSchema.optional(),
+    retentionPolicies: z.array(gdprRetentionPolicySchema).optional(),
+    processors: z.array(gdprProcessorSchema).optional(),
+    breachResponse: gdprBreachResponseSchema.optional(),
+    consentFramework: gdprConsentFrameworkSchema.optional(),
+const seoMetaTagSchema = z
+  .object({
+    attribute: optionalTrimmedString({ max: 20 })
+      .transform((value) => value?.toLowerCase())
+      .refine((value) => !value || value === 'name' || value === 'property', {
+        message: 'attribute must be "name" or "property".',
+      }),
+    key: requiredTrimmedString({ max: 120 }),
+    value: requiredTrimmedString({ max: 500 }),
+  })
+  .strip();
+
+const seoVerificationSchema = z
+  .object({
+    google: optionalTrimmedString({ max: 255 }),
+    bing: optionalTrimmedString({ max: 255 }),
+    yandex: optionalTrimmedString({ max: 255 }),
+    pinterest: optionalTrimmedString({ max: 255 }),
+    baidu: optionalTrimmedString({ max: 255 }),
+  })
+  .strip();
+
+const seoSocialDefaultsSchema = z
+  .object({
+    ogTitle: optionalTrimmedString({ max: 180 }),
+    ogDescription: optionalTrimmedString({ max: 5000 }),
+    ogImageUrl: optionalTrimmedString({ max: 2048 }),
+    ogImageAlt: optionalTrimmedString({ max: 255 }),
+    twitterHandle: optionalTrimmedString({ max: 80 }),
+    twitterTitle: optionalTrimmedString({ max: 180 }),
+    twitterDescription: optionalTrimmedString({ max: 5000 }),
+    twitterCardType: optionalTrimmedString({ max: 64 }).transform((value) => value?.toLowerCase()),
+    twitterImageUrl: optionalTrimmedString({ max: 2048 }),
+  })
+  .strip();
+
+const seoOrganizationSchema = z
+  .object({
+    name: optionalTrimmedString({ max: 255 }),
+    url: optionalTrimmedString({ max: 2048 }),
+    logoUrl: optionalTrimmedString({ max: 2048 }),
+    contactEmail: optionalTrimmedString({ max: 255 }),
+    sameAs: optionalStringArray({ maxItemLength: 2048, maxLength: 50 }).optional(),
+  })
+  .strip();
+
+const structuredDataJsonSchema = z.union([z.record(z.any()), z.array(z.any())]);
+
+const seoStructuredDataSchema = z
+  .object({
+    organization: seoOrganizationSchema.optional(),
+    customJson: structuredDataJsonSchema.optional(),
+  })
+  .strip();
+
+const seoOverrideSchema = z
+  .object({
+    id: optionalNumber({ min: 1, precision: 0, integer: true }),
+    path: requiredTrimmedString({ max: 255 }),
+    title: optionalTrimmedString({ max: 180 }),
+    description: optionalTrimmedString({ max: 5000 }),
+    keywords: optionalStringArray({ maxItemLength: 120, maxLength: 64 }),
+    canonicalUrl: optionalTrimmedString({ max: 2048 }),
+    ogTitle: optionalTrimmedString({ max: 180 }),
+    ogDescription: optionalTrimmedString({ max: 5000 }),
+    ogImageUrl: optionalTrimmedString({ max: 2048 }),
+    ogImageAlt: optionalTrimmedString({ max: 255 }),
+    twitterTitle: optionalTrimmedString({ max: 180 }),
+    twitterDescription: optionalTrimmedString({ max: 5000 }),
+    twitterCardType: optionalTrimmedString({ max: 64 }).transform((value) => value?.toLowerCase()),
+    twitterImageUrl: optionalTrimmedString({ max: 2048 }),
+    twitterHandle: optionalTrimmedString({ max: 80 }),
+    metaTags: z.array(seoMetaTagSchema).optional(),
+    structuredData: seoStructuredDataSchema.optional(),
+    noindex: optionalBoolean(),
+  })
+  .strip();
+
+export const seoSettingsBodySchema = z
+  .object({
+    siteName: requiredTrimmedString({ max: 180 }),
+    defaultTitle: optionalTrimmedString({ max: 180 }),
+    defaultDescription: optionalTrimmedString({ max: 5000 }),
+    defaultKeywords: optionalStringArray({ maxItemLength: 120, maxLength: 64 }),
+    canonicalBaseUrl: optionalTrimmedString({ max: 2048 }),
+    sitemapUrl: optionalTrimmedString({ max: 2048 }),
+    allowIndexing: optionalBoolean(),
+    robotsPolicy: optionalTrimmedString({ max: 12000 }),
+    noindexPaths: optionalStringArray({ maxItemLength: 2048, maxLength: 200 }),
+    verificationCodes: seoVerificationSchema.optional(),
+    socialDefaults: seoSocialDefaultsSchema.optional(),
+    structuredData: seoStructuredDataSchema.optional(),
+    pageOverrides: z.array(seoOverrideSchema).optional(),
   })
   .strip();
 

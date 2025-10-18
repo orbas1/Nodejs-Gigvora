@@ -5,6 +5,8 @@ import {
   Project,
   FreelancerAssignmentMetric,
   AutoAssignQueueEntry,
+  AutoAssignResponse,
+  FreelancerAutoMatchPreference,
   APPLICATION_TARGET_TYPES,
   AUTO_ASSIGN_STATUSES,
 } from '../models/index.js';
@@ -94,6 +96,23 @@ function sanitizeUser(userInstance) {
     email: plain.email,
     createdAt: plain.createdAt,
   };
+}
+
+const ALLOWED_AVAILABILITY_STATUSES = ['available', 'snoozed', 'offline'];
+const ALLOWED_AVAILABILITY_MODES = ['always_on', 'business_hours', 'manual'];
+
+async function ensureAutoMatchPreference(freelancerId, { transaction } = {}) {
+  const [preference] = await FreelancerAutoMatchPreference.findOrCreate({
+    where: { freelancerId },
+    defaults: {
+      availabilityStatus: 'available',
+      availabilityMode: 'always_on',
+      receiveEmailNotifications: true,
+      receiveInAppNotifications: true,
+    },
+    transaction,
+  });
+  return preference;
 }
 
 function normalizeProjectValue(input) {
@@ -410,7 +429,10 @@ export async function listFreelancerQueue({ freelancerId, page = 1, pageSize = 1
   const offset = (safePage - 1) * safePageSize;
   const { rows, count } = await AutoAssignQueueEntry.findAndCountAll({
     where: { freelancerId, status: { [Op.in]: statusFilter } },
-    include: [{ model: User, as: 'freelancer' }],
+    include: [
+      { model: User, as: 'freelancer' },
+      { model: AutoAssignResponse, as: 'response' },
+    ],
     order: [
       ['status', 'ASC'],
       ['priorityBucket', 'ASC'],
@@ -428,6 +450,7 @@ export async function listFreelancerQueue({ freelancerId, page = 1, pageSize = 1
       freelancer: sanitizeUser(entry.freelancer),
       breakdown: entry.metadata?.breakdown ?? null,
       projectName: entry.metadata?.projectName ?? null,
+      response: entry.response ? entry.response.toPublicObject() : null,
     })),
     pagination: {
       page: safePage,
@@ -438,7 +461,72 @@ export async function listFreelancerQueue({ freelancerId, page = 1, pageSize = 1
   };
 }
 
-export async function resolveQueueEntry(entryId, status, { freelancerId, actorId, rating, completionValue } = {}) {
+export async function listFreelancerMatches({
+  freelancerId,
+  page = 1,
+  pageSize = 10,
+  statuses,
+  includeHistorical = false,
+} = {}) {
+  if (!freelancerId) {
+    throw new ValidationError('freelancerId is required.');
+  }
+
+  const safePage = Math.max(1, Number(page) || 1);
+  const safePageSize = Math.max(1, Math.min(Number(pageSize) || 10, 50));
+  let statusFilter;
+
+  if (Array.isArray(statuses) && statuses.length) {
+    statusFilter = statuses.filter((status) => AUTO_ASSIGN_STATUSES.includes(status));
+  }
+
+  if (!statusFilter || !statusFilter.length) {
+    statusFilter = includeHistorical
+      ? AUTO_ASSIGN_STATUSES
+      : ['pending', 'notified', 'accepted', 'declined'];
+  }
+
+  const offset = (safePage - 1) * safePageSize;
+  const { rows, count } = await AutoAssignQueueEntry.findAndCountAll({
+    where: { freelancerId, status: { [Op.in]: statusFilter } },
+    include: [
+      { model: User, as: 'freelancer' },
+      { model: AutoAssignResponse, as: 'response' },
+    ],
+    order: [
+      ['status', 'ASC'],
+      ['resolvedAt', 'DESC'],
+      ['priorityBucket', 'ASC'],
+      ['score', 'DESC'],
+      ['createdAt', 'DESC'],
+    ],
+    limit: safePageSize,
+    offset,
+  });
+
+  return {
+    entries: rows.map((entry, index) => ({
+      ...entry.toPublicObject(),
+      position: offset + index + 1,
+      freelancer: sanitizeUser(entry.freelancer),
+      breakdown: entry.metadata?.breakdown ?? null,
+      projectName: entry.metadata?.projectName ?? null,
+      response: entry.response ? entry.response.toPublicObject() : null,
+    })),
+    pagination: {
+      page: safePage,
+      pageSize: safePageSize,
+      totalEntries: count,
+      totalPages: Math.ceil(count / safePageSize) || 1,
+    },
+  };
+}
+
+export async function resolveQueueEntry(
+  entryId,
+  status,
+  { freelancerId, actorId, rating, completionValue, reasonCode, reasonLabel, responseNotes, metadata: extraMetadata } = {},
+) {
   if (!entryId) {
     throw new ValidationError('entryId is required.');
   }
@@ -466,13 +554,39 @@ export async function resolveQueueEntry(entryId, status, { freelancerId, actorId
     }
 
     const now = new Date();
+    const responseTimeSeconds = Math.max(0, Math.round((now.getTime() - new Date(entry.createdAt).getTime()) / 1000));
+
     const updatedMetadata = {
       ...(entry.metadata ?? {}),
       resolvedBy: actorId ?? freelancerId ?? null,
       resolvedAt: now.toISOString(),
+      resolution: {
+        status,
+        rating: rating == null ? null : Number(rating),
+        completionValue: completionValue == null ? null : Number(completionValue),
+        reasonCode: reasonCode ?? null,
+        reasonLabel: reasonLabel ?? null,
+        responseNotes: responseNotes ?? null,
+      },
     };
 
-    await entry.update({ status, resolvedAt: now, metadata: updatedMetadata }, { transaction });
+    const updatedResponseMetadata = {
+      ...(entry.responseMetadata ?? {}),
+      responseTimeSeconds,
+      reasonCode: reasonCode ?? null,
+      reasonLabel: reasonLabel ?? null,
+      responseNotes: responseNotes ?? null,
+      updatedAt: now.toISOString(),
+      actorId: actorId ?? freelancerId ?? null,
+      rating: rating == null ? null : Number(rating),
+      completionValue: completionValue == null ? null : Number(completionValue),
+      extra: extraMetadata ?? null,
+    };
+
+    await entry.update(
+      { status, resolvedAt: now, metadata: updatedMetadata, responseMetadata: updatedResponseMetadata },
+      { transaction },
+    );
 
     const metric = await FreelancerAssignmentMetric.findOne({
       where: { freelancerId: entry.freelancerId },
@@ -515,6 +629,36 @@ export async function resolveQueueEntry(entryId, status, { freelancerId, actorId
       }
     }
 
+    let responseRecord = await AutoAssignResponse.findOne({
+      where: { queueEntryId: entry.id },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    const responsePayload = {
+      queueEntryId: entry.id,
+      freelancerId: entry.freelancerId,
+      status,
+      respondedBy: actorId ?? freelancerId ?? null,
+      respondedAt: now,
+      reasonCode: reasonCode ?? null,
+      reasonLabel: reasonLabel ?? null,
+      responseNotes: responseNotes ?? null,
+      metadata: {
+        ...(responseRecord?.metadata ?? {}),
+        responseTimeSeconds,
+        rating: rating == null ? null : Number(rating),
+        completionValue: completionValue == null ? null : Number(completionValue),
+        extra: extraMetadata ?? null,
+      },
+    };
+
+    if (responseRecord) {
+      await responseRecord.update(responsePayload, { transaction });
+    } else {
+      responseRecord = await AutoAssignResponse.create(responsePayload, { transaction });
+    }
+
     const nextEntry = await AutoAssignQueueEntry.findOne({
       where: {
         targetType: entry.targetType,
@@ -534,9 +678,19 @@ export async function resolveQueueEntry(entryId, status, { freelancerId, actorId
       await nextEntry.update({ status: 'notified', notifiedAt: now }, { transaction });
     }
 
+    await entry.reload({
+      include: [
+        { model: User, as: 'freelancer' },
+        { model: AutoAssignResponse, as: 'response' },
+      ],
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
     return {
       ...entry.toPublicObject(),
       freelancer: sanitizeUser(entry.freelancer),
+      response: responseRecord ? responseRecord.toPublicObject() : entry.response?.toPublicObject?.() ?? null,
     };
   });
 }
@@ -551,7 +705,10 @@ export async function getProjectQueue(targetType = 'project', targetId) {
 
   const entries = await AutoAssignQueueEntry.findAll({
     where: { targetType, targetId },
-    include: [{ model: User, as: 'freelancer' }],
+    include: [
+      { model: User, as: 'freelancer' },
+      { model: AutoAssignResponse, as: 'response' },
+    ],
     order: [
       ['status', 'ASC'],
       ['priorityBucket', 'ASC'],
@@ -566,13 +723,228 @@ export async function getProjectQueue(targetType = 'project', targetId) {
     freelancer: sanitizeUser(entry.freelancer),
     breakdown: entry.metadata?.breakdown ?? null,
     projectName: entry.metadata?.projectName ?? null,
+    response: entry.response ? entry.response.toPublicObject() : null,
   }));
+}
+
+export async function getFreelancerAutoMatchOverview(freelancerId) {
+  if (!freelancerId) {
+    throw new ValidationError('freelancerId is required.');
+  }
+
+  const preference = await ensureAutoMatchPreference(freelancerId);
+
+  const [activeQueue, metrics, totalResponses, acceptedResponses, declinedResponses, recentResponses, historyEntries] =
+    await Promise.all([
+      AutoAssignQueueEntry.findAll({
+        where: { freelancerId, status: { [Op.in]: ['pending', 'notified'] } },
+        include: [
+          { model: User, as: 'freelancer' },
+          { model: AutoAssignResponse, as: 'response' },
+        ],
+        order: [
+          ['status', 'ASC'],
+          ['priorityBucket', 'ASC'],
+          ['score', 'DESC'],
+          ['createdAt', 'ASC'],
+        ],
+      }),
+      FreelancerAssignmentMetric.findOne({ where: { freelancerId } }),
+      AutoAssignResponse.count({ where: { freelancerId } }),
+      AutoAssignResponse.count({ where: { freelancerId, status: 'accepted' } }),
+      AutoAssignResponse.count({ where: { freelancerId, status: 'declined' } }),
+      AutoAssignResponse.findAll({
+        where: { freelancerId },
+        order: [['respondedAt', 'DESC']],
+        limit: 10,
+      }),
+      AutoAssignQueueEntry.findAll({
+        where: { freelancerId, status: { [Op.in]: ['accepted', 'declined', 'completed', 'reassigned', 'expired'] } },
+        include: [{ model: AutoAssignResponse, as: 'response' }],
+        order: [
+          ['resolvedAt', 'DESC'],
+          ['updatedAt', 'DESC'],
+        ],
+        limit: 6,
+      }),
+    ]);
+
+  const responseDurationsSeconds = recentResponses
+    .map((response) => Number(response.metadata?.responseTimeSeconds))
+    .filter((value) => Number.isFinite(value) && value >= 0);
+
+  const averageResponseMinutes = responseDurationsSeconds.length
+    ? Number((responseDurationsSeconds.reduce((sum, value) => sum + value, 0) / responseDurationsSeconds.length / 60).toFixed(1))
+    : null;
+
+  const activeEntries = activeQueue.map((entry, index) => ({
+    ...entry.toPublicObject(),
+    position: index + 1,
+    freelancer: sanitizeUser(entry.freelancer),
+    breakdown: entry.metadata?.breakdown ?? null,
+    projectName: entry.metadata?.projectName ?? null,
+    response: entry.response ? entry.response.toPublicObject() : null,
+  }));
+
+  const recentDecisions = historyEntries.map((entry) => ({
+    ...entry.toPublicObject(),
+    response: entry.response ? entry.response.toPublicObject() : null,
+  }));
+
+  const summary = {
+    queueSize: activeEntries.length,
+    liveInvites: activeEntries.filter((entry) => entry.status === 'notified').length,
+    pendingDecisions: activeEntries.filter((entry) => entry.status === 'pending').length,
+  };
+
+  const acceptanceRate = totalResponses ? Number(((acceptedResponses / totalResponses) * 100).toFixed(1)) : null;
+  const declineRate = totalResponses ? Number(((declinedResponses / totalResponses) * 100).toFixed(1)) : null;
+
+  return {
+    freelancerId,
+    preference: preference.toPublicObject(),
+    metrics: metrics
+      ? {
+          totalAssigned: metrics.totalAssigned,
+          totalCompleted: metrics.totalCompleted,
+          lastAssignedAt: metrics.lastAssignedAt,
+          lastCompletedAt: metrics.lastCompletedAt,
+          rating: metrics.rating,
+          completionRate: metrics.completionRate,
+        }
+      : null,
+    summary,
+    stats: {
+      totalResponses,
+      acceptanceRate,
+      declineRate,
+      averageResponseMinutes,
+      lastRespondedAt: recentResponses[0]?.respondedAt ?? null,
+    },
+    activeMatches: activeEntries,
+    recentDecisions,
+  };
+}
+
+export async function updateFreelancerAutoMatchPreferences(
+  freelancerId,
+  updates = {},
+  { actorId } = {},
+) {
+  if (!freelancerId) {
+    throw new ValidationError('freelancerId is required.');
+  }
+
+  const payload = {};
+
+  if (updates.availabilityStatus) {
+    if (!ALLOWED_AVAILABILITY_STATUSES.includes(updates.availabilityStatus)) {
+      throw new ValidationError('availabilityStatus is invalid.');
+    }
+    payload.availabilityStatus = updates.availabilityStatus;
+  }
+
+  if (updates.availabilityMode) {
+    if (!ALLOWED_AVAILABILITY_MODES.includes(updates.availabilityMode)) {
+      throw new ValidationError('availabilityMode is invalid.');
+    }
+    payload.availabilityMode = updates.availabilityMode;
+  }
+
+  if (updates.timezone != null) {
+    payload.timezone = updates.timezone || null;
+  }
+
+  if (updates.dailyMatchLimit != null) {
+    const limit = Number(updates.dailyMatchLimit);
+    if (!Number.isFinite(limit) || limit < 0) {
+      throw new ValidationError('dailyMatchLimit must be a positive number.');
+    }
+    payload.dailyMatchLimit = limit === 0 ? null : Math.round(limit);
+  }
+
+  if (updates.autoAcceptThreshold != null) {
+    const threshold = Number(updates.autoAcceptThreshold);
+    if (!Number.isFinite(threshold) || threshold < 0 || threshold > 100) {
+      throw new ValidationError('autoAcceptThreshold must be between 0 and 100.');
+    }
+    payload.autoAcceptThreshold = threshold;
+  }
+
+  const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
+  if (updates.quietHoursStart != null) {
+    if (updates.quietHoursStart && !timePattern.test(updates.quietHoursStart)) {
+      throw new ValidationError('quietHoursStart must be in HH:mm format.');
+    }
+    payload.quietHoursStart = updates.quietHoursStart || null;
+  }
+  if (updates.quietHoursEnd != null) {
+    if (updates.quietHoursEnd && !timePattern.test(updates.quietHoursEnd)) {
+      throw new ValidationError('quietHoursEnd must be in HH:mm format.');
+    }
+    payload.quietHoursEnd = updates.quietHoursEnd || null;
+  }
+
+  if (updates.snoozedUntil !== undefined) {
+    if (updates.snoozedUntil === null || updates.snoozedUntil === '') {
+      payload.snoozedUntil = null;
+    } else {
+      const parsed = new Date(updates.snoozedUntil);
+      if (Number.isNaN(parsed.getTime())) {
+        throw new ValidationError('snoozedUntil must be a valid date.');
+      }
+      payload.snoozedUntil = parsed;
+    }
+  }
+
+  if (updates.receiveEmailNotifications != null) {
+    payload.receiveEmailNotifications = Boolean(updates.receiveEmailNotifications);
+  }
+  if (updates.receiveInAppNotifications != null) {
+    payload.receiveInAppNotifications = Boolean(updates.receiveInAppNotifications);
+  }
+
+  if (updates.escalationContact !== undefined) {
+    payload.escalationContact = updates.escalationContact || null;
+  }
+
+  if (updates.notes !== undefined) {
+    payload.notes = updates.notes || null;
+  }
+
+  const metadataUpdates =
+    updates.metadata && typeof updates.metadata === 'object' && !Array.isArray(updates.metadata)
+      ? updates.metadata
+      : null;
+
+  return sequelize.transaction(async (transaction) => {
+    const preference = await ensureAutoMatchPreference(freelancerId, { transaction });
+    const nextMetadata = {
+      ...(preference.metadata ?? {}),
+      audit: {
+        ...(preference.metadata?.audit ?? {}),
+        lastUpdatedBy: actorId ?? freelancerId ?? null,
+        lastUpdatedAt: new Date().toISOString(),
+      },
+    };
+
+    if (metadataUpdates) {
+      nextMetadata.settings = { ...(nextMetadata.settings ?? {}), ...metadataUpdates };
+    }
+
+    await preference.update({ ...payload, metadata: nextMetadata }, { transaction });
+    await preference.reload({ transaction });
+    return preference.toPublicObject();
+  });
 }
 
 export default {
   buildAssignmentQueue,
   listFreelancerQueue,
+  listFreelancerMatches,
   resolveQueueEntry,
   getProjectQueue,
+  getFreelancerAutoMatchOverview,
+  updateFreelancerAutoMatchPreferences,
   scoreFreelancerForProject,
 };

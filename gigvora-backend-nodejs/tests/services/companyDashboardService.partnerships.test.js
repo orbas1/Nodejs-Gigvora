@@ -10,6 +10,7 @@ const mockBuildCacheKey = jest.fn(() => 'cache-key');
 
 const cacheModulePath = path.resolve(__dirname, '../../src/utils/cache.js');
 const modelsModulePath = path.resolve(__dirname, '../../src/models/index.js');
+const messagingModelsModulePath = path.resolve(__dirname, '../../src/models/messagingModels.js');
 
 const ProviderWorkspace = { findOne: jest.fn(), findAll: jest.fn() };
 const ProviderWorkspaceMember = { findAll: jest.fn() };
@@ -47,6 +48,8 @@ const AgencySlaSnapshot = { findAll: jest.fn() };
 const AgencyBillingEvent = { findAll: jest.fn() };
 const RecruitingCalendarEvent = { findAll: jest.fn() };
 const EmployerBrandAsset = { findAll: jest.fn() };
+const MessageThread = { findAll: jest.fn() };
+const Message = {};
 
 await jest.unstable_mockModule(cacheModulePath, () => ({
   buildCacheKey: mockBuildCacheKey,
@@ -90,6 +93,11 @@ await jest.unstable_mockModule(modelsModulePath, () => ({
   AgencyBillingEvent,
   RecruitingCalendarEvent,
   EmployerBrandAsset,
+}));
+
+await jest.unstable_mockModule(messagingModelsModulePath, () => ({
+  MessageThread,
+  Message,
 }));
 
 const { getCompanyDashboard } = await import('../../src/services/companyDashboardService.js');
@@ -175,6 +183,7 @@ function resetModelMocks() {
   AgencyBillingEvent.findAll.mockResolvedValue([]);
   RecruitingCalendarEvent.findAll.mockResolvedValue([]);
   EmployerBrandAsset.findAll.mockResolvedValue([]);
+  MessageThread.findAll.mockResolvedValue([]);
 }
 
 describe('getCompanyDashboard partnerships integration', () => {
