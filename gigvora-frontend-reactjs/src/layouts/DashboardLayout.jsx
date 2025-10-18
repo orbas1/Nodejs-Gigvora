@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   AdjustmentsHorizontalIcon,
   ArrowLeftOnRectangleIcon,
@@ -170,9 +170,11 @@ export default function DashboardLayout({
   onMenuItemSelect,
   adSurface,
 }) {
+  const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openDrawers, setOpenDrawers] = useState(() => new Set());
+  const navigate = useNavigate();
 
   const normalizedMenuSections = useMemo(() => normalizeMenuSections(menuSections), [menuSections]);
   const allMenuItems = useMemo(() => {
@@ -454,7 +456,42 @@ export default function DashboardLayout({
         } else {
           window.location.assign(item.href);
         }
+      if (/^https?:\/\//i.test(item.href)) {
+        window.open(item.href, item.target ?? '_blank', 'noreferrer');
+      } else {
+        navigate(item.href);
       }
+      }
+      }
+      } else if (item.href.startsWith('/')) {
+        navigate(item.href);
+        setMobileOpen(false);
+        setMobileOpen(false);
+        return;
+      }
+      navigate(item.href);
+      const href = item.href.trim();
+      const isExternal = /^https?:\/\//i.test(href);
+      if (isExternal) {
+        window.open(href, item.target ?? '_blank', 'noreferrer');
+        setMobileOpen(false);
+        return;
+      }
+
+      if (href.startsWith('#')) {
+        const targetId = href.slice(1);
+        if (targetId && typeof document !== 'undefined') {
+          const targetElement = document.getElementById(targetId);
+          if (targetElement) {
+            targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }
+        setMobileOpen(false);
+        return;
+      }
+
+      navigate(href, { replace: false });
+      setMobileOpen(false);
       return;
     }
 

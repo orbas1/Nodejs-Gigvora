@@ -2,11 +2,24 @@ export const PROFILE_AVAILABILITY_STATUSES = ['available', 'limited', 'unavailab
 export const PROFILE_APPRECIATION_TYPES = ['like', 'celebrate', 'support', 'endorse', 'applause'];
 export const PROFILE_FOLLOWER_STATUSES = ['active', 'muted', 'blocked'];
 export const PROFILE_ENGAGEMENT_JOB_STATUSES = ['pending', 'completed', 'failed'];
+export const PROFILE_VISIBILITY_OPTIONS = ['public', 'members', 'private'];
+export const PROFILE_NETWORK_VISIBILITY_OPTIONS = ['public', 'connections', 'private'];
+export const PROFILE_FOLLOWERS_VISIBILITY_OPTIONS = ['public', 'connections', 'private'];
 
 export const GROUP_VISIBILITIES = ['public', 'private', 'secret'];
 export const GROUP_MEMBER_POLICIES = ['open', 'request', 'invite'];
 export const GROUP_MEMBERSHIP_STATUSES = ['pending', 'active', 'invited', 'suspended'];
 export const GROUP_MEMBERSHIP_ROLES = ['owner', 'moderator', 'member', 'observer'];
+export const GROUP_POST_STATUSES = ['draft', 'scheduled', 'published', 'archived'];
+export const GROUP_POST_VISIBILITIES = ['public', 'members', 'admins'];
+
+export const PAGE_VISIBILITIES = ['public', 'members', 'private'];
+export const PAGE_MEMBER_ROLES = ['owner', 'admin', 'editor', 'moderator', 'author', 'viewer'];
+export const PAGE_MEMBER_STATUSES = ['active', 'invited', 'pending', 'suspended'];
+export const PAGE_POST_STATUSES = ['draft', 'scheduled', 'published', 'archived'];
+export const PAGE_POST_VISIBILITIES = ['public', 'followers', 'members', 'private'];
+
+export const COMMUNITY_INVITE_STATUSES = ['pending', 'accepted', 'declined', 'expired'];
 
 export const EMPLOYER_BRAND_SECTION_TYPES = [
   'culture_video',
@@ -27,8 +40,32 @@ export const COMPLIANCE_POLICY_STATUSES = ['draft', 'active', 'under_review', 'a
 export const COMPLIANCE_AUDIT_STATUSES = ['open', 'in_progress', 'completed', 'closed'];
 export const ACCESSIBILITY_AUDIT_STATUSES = ['pending', 'in_progress', 'remediation', 'verified'];
 
+export const LEGAL_DOCUMENT_CATEGORIES = ['terms', 'privacy', 'data_processing', 'cookie'];
+export const LEGAL_DOCUMENT_STATUSES = ['draft', 'active', 'archived'];
+export const LEGAL_DOCUMENT_VERSION_STATUSES = ['draft', 'in_review', 'approved', 'published', 'archived'];
+
 
 export const APPLICATION_TARGET_TYPES = ['job', 'gig', 'project', 'launchpad', 'volunteer'];
+export const VOLUNTEER_APPLICATION_STATUSES = [
+  'draft',
+  'submitted',
+  'in_review',
+  'interview',
+  'offered',
+  'accepted',
+  'rejected',
+  'withdrawn',
+];
+export const VOLUNTEER_RESPONSE_TYPES = ['message', 'request_info', 'approval', 'rejection', 'update'];
+export const VOLUNTEER_CONTRACT_STATUSES = ['draft', 'awaiting_signature', 'active', 'on_hold', 'completed', 'cancelled'];
+export const VOLUNTEER_SPEND_CATEGORIES = [
+  'travel',
+  'stipend',
+  'equipment',
+  'training',
+  'operations',
+  'other',
+];
 export const APPLICATION_STATUSES = [
   'draft',
   'submitted',
@@ -42,6 +79,12 @@ export const APPLICATION_STATUSES = [
 ];
 export const APPLICATION_REVIEW_STAGES = ['screen', 'interview', 'assessment', 'final', 'offer'];
 export const APPLICATION_REVIEW_DECISIONS = ['pending', 'advance', 'reject', 'hold', 'withdrawn'];
+export const JOB_APPLICATION_FAVOURITE_PRIORITIES = ['watching', 'warm', 'hot'];
+export const JOB_INTERVIEW_TYPES = ['phone', 'video', 'onsite', 'panel', 'assignment', 'other'];
+export const JOB_INTERVIEW_STATUSES = ['scheduled', 'completed', 'cancelled', 'rescheduled', 'no_show'];
+export const JOB_APPLICATION_RESPONSE_DIRECTIONS = ['incoming', 'outgoing', 'system'];
+export const JOB_APPLICATION_RESPONSE_CHANNELS = ['email', 'phone', 'portal', 'message', 'sms'];
+export const JOB_APPLICATION_RESPONSE_STATUSES = ['pending', 'sent', 'received', 'acknowledged', 'needs_follow_up'];
 export const AUTO_ASSIGN_STATUSES = [
   'pending',
   'notified',
@@ -132,6 +175,24 @@ export const AGENCY_RETAINER_NEGOTIATION_STATUSES = ['draft', 'in_discussion', '
 export const AGENCY_RETAINER_NEGOTIATION_STAGES = ['qualification', 'scoping', 'commercials', 'legal', 'kickoff'];
 export const AGENCY_RETAINER_EVENT_ACTOR_TYPES = ['freelancer', 'agency', 'system'];
 export const AGENCY_RETAINER_EVENT_TYPES = ['note', 'term_update', 'document_shared', 'meeting', 'status_change'];
+export const AGENCY_MENTORING_SESSION_STATUSES = [
+  'scheduled',
+  'in_progress',
+  'completed',
+  'cancelled',
+  'no_show',
+];
+export const AGENCY_MENTORING_PURCHASE_STATUSES = ['active', 'exhausted', 'expired', 'refunded'];
+export const AGENCY_MENTOR_PREFERENCE_LEVELS = ['watch', 'consider', 'preferred', 'primary'];
+export const AGENCY_TIMELINE_POST_STATUSES = ['draft', 'scheduled', 'published', 'archived'];
+export const AGENCY_TIMELINE_VISIBILITIES = ['internal', 'client', 'public'];
+export const AGENCY_TIMELINE_DISTRIBUTION_CHANNELS = [
+  'gigvora_feed',
+  'email',
+  'slack',
+  'client_portal',
+  'social',
+];
 export const ESCROW_ACCOUNT_STATUSES = ['pending', 'active', 'suspended', 'closed'];
 export const ESCROW_TRANSACTION_TYPES = ['project', 'gig', 'milestone', 'retainer'];
 export const HEADHUNTER_INVITE_STATUSES = ['pending', 'accepted', 'declined', 'expired', 'revoked'];
@@ -161,6 +222,14 @@ export const ID_VERIFICATION_STATUSES = [
   'rejected',
   'expired',
 ];
+export const IDENTITY_VERIFICATION_EVENT_TYPES = [
+  'submission_created',
+  'status_changed',
+  'assignment_updated',
+  'document_updated',
+  'note_recorded',
+  'metadata_updated',
+];
 export const CORPORATE_VERIFICATION_STATUSES = [
   'pending',
   'submitted',
@@ -179,10 +248,24 @@ export const QUALIFICATION_CREDENTIAL_STATUSES = [
 export const WALLET_ACCOUNT_TYPES = ['user', 'freelancer', 'company', 'agency'];
 export const WALLET_ACCOUNT_STATUSES = ['pending', 'active', 'suspended', 'closed'];
 export const WALLET_LEDGER_ENTRY_TYPES = ['credit', 'debit', 'hold', 'release', 'adjustment'];
+export const WALLET_FUNDING_SOURCE_TYPES = ['bank_account', 'card', 'manual_bank_transfer', 'digital_wallet', 'other'];
+export const WALLET_FUNDING_SOURCE_STATUSES = ['pending', 'verified', 'failed', 'disabled'];
+export const WALLET_TRANSFER_RULE_CADENCES = ['daily', 'weekly', 'biweekly', 'monthly', 'quarterly'];
+export const WALLET_TRANSFER_RULE_STATUSES = ['active', 'paused', 'archived'];
+export const WALLET_TRANSFER_TYPES = ['payout', 'escrow_reserve', 'escrow_release', 'top_up', 'refund'];
+export const WALLET_TRANSFER_STATUSES = ['pending', 'scheduled', 'processing', 'completed', 'failed', 'cancelled'];
 export const ESCROW_INTEGRATION_PROVIDERS = ['stripe', 'escrow_com'];
 export const DISPUTE_STAGES = ['intake', 'mediation', 'arbitration', 'resolved'];
 export const DISPUTE_STATUSES = ['open', 'awaiting_customer', 'under_review', 'settled', 'closed'];
 export const DISPUTE_PRIORITIES = ['low', 'medium', 'high', 'urgent'];
+export const DISPUTE_REASON_CODES = [
+  'quality_issue',
+  'scope_disagreement',
+  'missed_deadline',
+  'communication_breakdown',
+  'fraud_concern',
+  'payment_issue',
+];
 export const DISPUTE_ACTION_TYPES = [
   'comment',
   'evidence_upload',
@@ -198,8 +281,13 @@ export const NETWORKING_SESSION_ACCESS_TYPES = ['free', 'paid', 'invite_only'];
 export const NETWORKING_SESSION_VISIBILITIES = ['private', 'workspace', 'public'];
 export const NETWORKING_SESSION_SIGNUP_STATUSES = ['registered', 'waitlisted', 'checked_in', 'no_show', 'removed', 'completed'];
 export const NETWORKING_SESSION_SIGNUP_SOURCES = ['self', 'host', 'admin', 'import'];
+export const NETWORKING_SIGNUP_PAYMENT_STATUSES = ['unpaid', 'pending', 'paid', 'refunded'];
+export const NETWORKING_CONNECTION_STATUSES = ['new', 'follow_up', 'connected', 'archived'];
+export const NETWORKING_CONNECTION_TYPES = ['follow', 'connect', 'collaboration'];
 export const NETWORKING_BUSINESS_CARD_STATUSES = ['draft', 'published', 'archived'];
 export const NETWORKING_ROTATION_STATUSES = ['scheduled', 'in_progress', 'completed', 'cancelled'];
+export const NETWORKING_SESSION_ORDER_STATUSES = ['pending', 'paid', 'refunded', 'cancelled'];
+export const NETWORKING_CONNECTION_FOLLOW_STATUSES = ['saved', 'requested', 'following', 'connected', 'archived'];
 
 export const OPPORTUNITY_TAXONOMY_TYPES = ['job', 'gig', 'freelance', 'volunteering', 'launchpad'];
 export const AD_TYPES = ['video', 'display', 'text'];
@@ -216,6 +304,7 @@ export const AD_SURFACE_TYPES = [
   'admin_dashboard',
   'pipeline_dashboard',
 ];
+export const AD_SURFACE_LAYOUT_MODES = ['inline', 'hero', 'carousel', 'grid'];
 export const AD_POSITION_TYPES = ['hero', 'sidebar', 'inline', 'footer'];
 export const AD_KEYWORD_INTENTS = ['awareness', 'consideration', 'conversion', 'retention'];
 export const AD_OPPORTUNITY_TYPES = ['awareness', 'acquisition', 'retention', 'upsell'];
@@ -283,6 +372,7 @@ export const GIG_ORDER_ESCROW_STATUSES = [
 export const LEARNING_COURSE_DIFFICULTIES = ['beginner', 'intermediate', 'advanced', 'expert'];
 export const LEARNING_ENROLLMENT_STATUSES = ['not_started', 'in_progress', 'completed', 'archived'];
 export const PEER_MENTORING_STATUSES = ['requested', 'scheduled', 'completed', 'cancelled'];
+export const MENTORSHIP_ORDER_STATUSES = ['pending', 'active', 'completed', 'cancelled'];
 export const CERTIFICATION_STATUSES = ['active', 'expiring_soon', 'expired', 'revoked'];
 export const LAUNCHPAD_STATUSES = ['draft', 'recruiting', 'active', 'archived'];
 
@@ -351,6 +441,26 @@ export const EMPLOYEE_JOURNEY_HEALTH_STATUSES = ['on_track', 'at_risk', 'off_tra
 export const WORKSPACE_INTEGRATION_CATEGORIES = ['calendar', 'hris', 'communication', 'ats', 'productivity', 'other'];
 export const WORKSPACE_INTEGRATION_STATUSES = ['connected', 'disconnected', 'error', 'pending'];
 export const WORKSPACE_INTEGRATION_SYNC_FREQUENCIES = ['manual', 'hourly', 'daily', 'weekly'];
+export const WORKSPACE_INTEGRATION_AUTH_TYPES = ['oauth', 'api_key', 'service_account'];
+export const WORKSPACE_INTEGRATION_ENVIRONMENTS = ['production', 'sandbox', 'staging'];
+export const WORKSPACE_INTEGRATION_SYNC_STATUSES = ['pending', 'success', 'warning', 'error'];
+export const WORKSPACE_INTEGRATION_CREDENTIAL_TYPES = ['oauth_refresh_token', 'api_key', 'service_account'];
+export const WORKSPACE_INTEGRATION_INCIDENT_SEVERITIES = ['low', 'medium', 'high', 'critical'];
+export const WORKSPACE_INTEGRATION_INCIDENT_STATUSES = ['open', 'monitoring', 'resolved'];
+export const WORKSPACE_INTEGRATION_SYNC_RUN_STATUSES = ['queued', 'running', 'success', 'warning', 'error'];
+export const WORKSPACE_INTEGRATION_SECRET_TYPES = ['api_key', 'oauth_token', 'webhook_secret', 'custom'];
+export const WORKSPACE_INTEGRATION_WEBHOOK_STATUSES = ['active', 'paused', 'disabled'];
+export const WORKSPACE_INTEGRATION_AUDIT_EVENT_TYPES = [
+  'integration_created',
+  'integration_updated',
+  'secret_created',
+  'secret_rotated',
+  'webhook_created',
+  'webhook_updated',
+  'webhook_deleted',
+  'connection_tested',
+  'sync_triggered',
+];
 export const WORKSPACE_CALENDAR_CONNECTION_STATUSES = ['connected', 'sync_error', 'disconnected', 'pending'];
 export const CAREER_DOCUMENT_TYPES = ['cv', 'cover_letter', 'portfolio', 'brand_asset', 'story_block'];
 export const CAREER_DOCUMENT_STATUSES = ['draft', 'in_review', 'approved', 'archived'];
@@ -540,9 +650,58 @@ export const FINANCE_TAX_EXPORT_STATUSES = ['generating', 'available', 'archived
 
 export const CAREER_ANALYTICS_TREND_DIRECTIONS = ['up', 'down', 'flat'];
 export const CALENDAR_INTEGRATION_STATUSES = ['connected', 'syncing', 'error', 'disconnected'];
+export const CALENDAR_EVENT_TYPES = [
+  'interview',
+  'job_interview',
+  'networking',
+  'project',
+  'project_milestone',
+  'gig',
+  'mentorship',
+  'volunteering',
+  'event',
+  'wellbeing',
+  'deadline',
+  'ritual',
 export const CALENDAR_EVENT_TYPES = ['interview', 'networking', 'project', 'wellbeing', 'deadline', 'ritual'];
+export const FREELANCER_CALENDAR_EVENT_TYPES = [
+  'project',
+  'gig',
+  'job_interview',
+  'mentorship',
+  'volunteering',
+  'client_meeting',
+  'other',
+];
+export const FREELANCER_CALENDAR_EVENT_STATUSES = [
+  'tentative',
+  'confirmed',
+  'in_progress',
+  'completed',
+  'cancelled',
+];
+export const FREELANCER_CALENDAR_RELATED_TYPES = [
+  'project',
+  'gig',
+  'job',
+  'mentorship',
+  'volunteering',
+  'client',
+  'community',
+  'other',
+];
 export const CALENDAR_EVENT_SOURCES = ['manual', 'google', 'outlook', 'gigvora'];
-export const FOCUS_SESSION_TYPES = ['interview_prep', 'networking', 'application', 'deep_work', 'wellbeing'];
+export const CALENDAR_EVENT_VISIBILITIES = ['private', 'shared', 'public'];
+export const CALENDAR_DEFAULT_VIEWS = ['agenda', 'week', 'month'];
+export const FOCUS_SESSION_TYPES = [
+  'interview_prep',
+  'networking',
+  'application',
+  'deep_work',
+  'wellbeing',
+  'mentorship',
+  'volunteering',
+];
 export const ADVISOR_COLLABORATION_STATUSES = ['draft', 'active', 'paused', 'archived'];
 export const ADVISOR_COLLABORATION_MEMBER_ROLES = ['mentor', 'agency', 'coach', 'observer', 'teammate'];
 export const ADVISOR_COLLABORATION_MEMBER_STATUSES = ['invited', 'active', 'revoked'];
