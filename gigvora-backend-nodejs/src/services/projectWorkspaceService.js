@@ -1,5 +1,4 @@
 import {
-  sequelize,
   Project,
   ProjectWorkspace,
   ProjectWorkspaceBrief,
@@ -71,16 +70,49 @@ function normalizeAttachments(input) {
   }
   if (typeof input === 'string') {
     return normalizeStringList(input).map((label) => ({ label, url: null }));
+  ProjectCollaborator,
+  projectGigManagementSequelize,
+} from '../models/projectGigManagementModels.js';
+import {
+  ProjectBudgetLine,
+  ProjectDeliverable,
+  ProjectTask,
+  ProjectTaskAssignment,
+  ProjectTaskDependency,
+  ProjectChatChannel,
+  ProjectChatMessage,
+  ProjectTimelineEntry,
+  ProjectMeeting,
+  ProjectMeetingAttendee,
+  ProjectCalendarEvent,
+  ProjectRoleDefinition,
+  ProjectRoleAssignment,
+  ProjectSubmission,
+  ProjectFile,
+  ProjectInvitation,
+  ProjectHrRecord,
+} from '../models/projectWorkspaceModels.js';
+import { ValidationError, NotFoundError, AuthorizationError } from '../utils/errors.js';
+
+function pick(input, allowed) {
+  if (!input || typeof input !== 'object') {
+    return {};
   }
-  return [];
+  const payload = {};
+  allowed.forEach((field) => {
+    if (Object.prototype.hasOwnProperty.call(input, field) && input[field] !== undefined) {
+      payload[field] = input[field];
+    }
+  });
+  return payload;
 }
 
-function parseDateValue(value, fieldName) {
-  if (value === undefined) {
-    return undefined;
+async function ensureProject(ownerId, projectId, { include } = {}) {
+  if (!ownerId) {
+    throw new ValidationError('Owner id is required.');
   }
-  if (value === null || value === '') {
-    return null;
+  if (!projectId) {
+    throw new ValidationError('Project id is required.');
   }
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -230,246 +262,244 @@ function computeWorkspaceMetrics(workspace, {
     if (snapshot[key] != null) {
       metrics[key] = snapshot[key];
     }
+  const project = await Project.findOne({
+    where: { id: projectId, ownerId },
+    include,
   });
-
-  return metrics;
+  if (!project) {
+    throw new NotFoundError('Project not found.');
+  }
+  return project;
 }
 
-async function ensureWorkspaceArtifacts(workspace, { project, actorId, transaction }) {
-  if (!workspace) {
+async function ensureTask(ownerId, projectId, taskId) {
+  const project = await ensureProject(ownerId, projectId);
+  const task = await ProjectTask.findOne({ where: { id: taskId, projectId } });
+  if (!task) {
+    throw new NotFoundError('Task not found.');
+  }
+  return { project, task };
+}
+
+async function ensureChannel(ownerId, projectId, channelId) {
+  await ensureProject(ownerId, projectId);
+  const channel = await ProjectChatChannel.findOne({ where: { id: channelId, projectId } });
+  if (!channel) {
+    throw new NotFoundError('Chat channel not found.');
+  }
+  return channel;
+}
+
+async function ensureDefaultChannel(projectId, { transaction } = {}) {
+  const existing = await ProjectChatChannel.findOne({ where: { projectId, name: 'general' }, transaction });
+  if (existing) {
+    return existing;
+  }
+  return ProjectChatChannel.create(
+    {
+      projectId,
+      name: 'general',
+      topic: 'General project coordination',
+      metadata: { systemGenerated: true },
+    },
+    { transaction },
+  );
+}
+
+export async function initializeWorkspaceForProject(project, { transaction, actorId } = {}) {
+  if (!project) {
+    throw new ValidationError('Project instance is required.');
+  }
+
+  const projectId = project.id ?? project.get?.('id');
+  if (!projectId) {
+    throw new ValidationError('Project instance must include an id.');
+  }
+
+  const workspace = await ProjectWorkspace.findOrCreate({
+    where: { projectId },
+    defaults: {
+      status: 'planning',
+      progressPercent: 0,
+      riskLevel: 'low',
+      metrics: { initializedBy: actorId ?? null },
+    },
+    transaction,
+  });
+
+  await ensureDefaultChannel(projectId, { transaction });
+
+  return workspace[0];
+}
+
+function sanitizeRecord(record) {
+  if (!record) return null;
+  if (typeof record.toJSON === 'function') {
+    return record.toJSON();
+  }
+  if (typeof record.get === 'function') {
+    return record.get({ plain: true });
+  }
+  if (record && typeof record === 'object') {
+    return { ...record };
+  }
+  return record;
+}
+
+async function buildProjectPayload(project) {
+  const plain = sanitizeRecord(project);
+  if (!plain) {
     return null;
   }
 
-  const now = new Date();
-
-  const brief = await ProjectWorkspaceBrief.findOne({
-    where: { workspaceId: workspace.id },
-    transaction,
-    lock: transaction?.LOCK?.UPDATE,
+  const channels = Array.isArray(plain.chatChannels) ? plain.chatChannels : [];
+  const messages = [];
+  channels.forEach((channel) => {
+    if (Array.isArray(channel.messages)) {
+      channel.messages
+        .slice()
+        .sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0))
+        .forEach((message) => {
+          messages.push({ ...message, channelId: channel.id });
+        });
+    }
   });
 
-  if (!brief) {
-    await ProjectWorkspaceBrief.create(
-      {
-        workspaceId: workspace.id,
-        title: `${project.title} workspace brief`,
-        summary: project.description,
-        objectives: [
-          'Align on client goals and constraints',
-          'Map delivery milestones with stakeholders',
-        ],
-        deliverables: [
-          'Kickoff workshop assets',
-          'Integrated delivery roadmap',
-          'Weekly performance digest template',
-        ],
-        successMetrics: ['NPS ≥ 45', 'Delivery variance < 10%', 'Revision turnaround < 24h'],
-        clientStakeholders: ['Client sponsor', 'Operations lead', 'Finance approver'],
-        lastUpdatedById: actorId ?? null,
-      },
-      { transaction },
-    );
-  }
+  const tasks = Array.isArray(plain.tasks)
+    ? plain.tasks.map((task) => ({
+        ...task,
+        assignments: Array.isArray(task.assignments) ? task.assignments : [],
+        dependencies: Array.isArray(task.dependencies) ? task.dependencies : [],
+      }))
+    : [];
 
-  const whiteboardCount = await ProjectWorkspaceWhiteboard.count({
-    where: { workspaceId: workspace.id },
-    transaction,
+  return {
+    ...plain,
+    chat: {
+      channels: channels.map((channel) => ({
+        id: channel.id,
+        name: channel.name,
+        topic: channel.topic,
+        isPrivate: channel.isPrivate,
+        metadata: channel.metadata ?? null,
+        createdAt: channel.createdAt,
+        updatedAt: channel.updatedAt,
+      })),
+      messages,
+    },
+    tasks,
+  };
+}
+
+function buildSummary(projects) {
+  const aggregate = {
+    projectCount: 0,
+    budgetLines: 0,
+    totalBudgetPlanned: 0,
+    totalBudgetActual: 0,
+    taskCount: 0,
+    completedTasks: 0,
+    meetingCount: 0,
+    upcomingMeetings: 0,
+    invitationCount: 0,
+    activeCollaborators: 0,
+    submissionCount: 0,
+  };
+
+  projects.forEach((project) => {
+    aggregate.projectCount += 1;
+    const budgetLines = project.budgetLines ?? [];
+    aggregate.budgetLines += budgetLines.length;
+    budgetLines.forEach((line) => {
+      aggregate.totalBudgetPlanned += Number(line.plannedAmount ?? 0);
+      aggregate.totalBudgetActual += Number(line.actualAmount ?? 0);
+    });
+
+    const tasks = project.tasks ?? [];
+    aggregate.taskCount += tasks.length;
+    aggregate.completedTasks += tasks.filter((task) => task.status === 'completed').length;
+
+    const meetings = project.meetings ?? [];
+    aggregate.meetingCount += meetings.length;
+    aggregate.upcomingMeetings += meetings.filter((meeting) => new Date(meeting.scheduledAt) > new Date()).length;
+
+    const invitations = project.invitations ?? [];
+    aggregate.invitationCount += invitations.length;
+
+    const assignments = project.roleDefinitions?.flatMap((role) => role.assignments ?? []) ?? [];
+    aggregate.activeCollaborators += assignments.filter((assignment) => assignment.status === 'active').length;
+
+    const submissions = project.submissions ?? [];
+    aggregate.submissionCount += submissions.length;
   });
 
-  if (whiteboardCount === 0) {
-    await ProjectWorkspaceWhiteboard.bulkCreate(
-      [
-        {
-          workspaceId: workspace.id,
-          title: 'Strategy canvas',
-          status: 'active',
-          ownerName: 'Engagement Lead',
-          activeCollaborators: ['Design', 'Product', 'Client sponsor'],
-          tags: ['briefing', 'insights'],
-          lastEditedAt: now,
-        },
-        {
-          workspaceId: workspace.id,
-          title: 'Sprint plan storyboard',
-          status: 'pending_review',
-          ownerName: 'Delivery Manager',
-          activeCollaborators: ['Engineering', 'QA'],
-          tags: ['execution'],
-          lastEditedAt: new Date(now.getTime() - 1000 * 60 * 45),
-        },
-      ],
-      { transaction },
-    );
+  aggregate.totalBudgetPlanned = Number(aggregate.totalBudgetPlanned.toFixed(2));
+  aggregate.totalBudgetActual = Number(aggregate.totalBudgetActual.toFixed(2));
+
+  return aggregate;
+}
+
+export async function getProjectWorkspaceOverview(ownerId, { includeDetails = true } = {}) {
+  if (!ownerId) {
+    throw new ValidationError('Owner id is required.');
   }
 
-  const fileCount = await ProjectWorkspaceFile.count({ where: { workspaceId: workspace.id }, transaction });
-
-  if (fileCount === 0) {
-    await ProjectWorkspaceFile.bulkCreate(
-      [
+  const include = [
+    { model: ProjectWorkspace, as: 'workspace' },
+    { model: ProjectBudgetLine, as: 'budgetLines' },
+    { model: ProjectDeliverable, as: 'deliverables' },
+    {
+      model: ProjectTask,
+      as: 'tasks',
+      include: [
+        { model: ProjectTaskAssignment, as: 'assignments' },
+        { model: ProjectTaskDependency, as: 'dependencies', include: [{ model: ProjectTask, as: 'prerequisite' }] },
+      ],
+    },
+    {
+      model: ProjectChatChannel,
+      as: 'chatChannels',
+      include: [
         {
-          workspaceId: workspace.id,
-          name: 'Client brief v1.2.pdf',
-          category: 'brief',
-          fileType: 'application/pdf',
-          storageProvider: 's3',
-          storagePath: `/projects/${project.id}/briefs/client-brief-v1-2.pdf`,
-          version: '1.2',
-          sizeBytes: 5242880,
-          tags: ['client', 'brief'],
-          permissions: {
-            visibility: 'client_internal',
-            allowedRoles: ['owner', 'mentor', 'client_sponsor'],
-            allowDownload: false,
-            shareableLink: false,
-          },
-          watermarkSettings: {
-            enabled: true,
-            pattern: 'diagonal',
-            label: 'Gigvora Confidential',
-            appliedAt: new Date(now.getTime() - 1000 * 60 * 60 * 18),
-          },
-          uploadedAt: new Date(now.getTime() - 1000 * 60 * 90),
-        },
-        {
-          workspaceId: workspace.id,
-          name: 'Wireframes-round-2.fig',
-          category: 'design',
-          fileType: 'application/octet-stream',
-          storageProvider: 'figma',
-          storagePath: 'https://www.figma.com/file/abc123',
-          version: '2.0',
-          sizeBytes: 7340032,
-          tags: ['design', 'whiteboard'],
-          permissions: {
-            visibility: 'project_team',
-            allowedRoles: ['design', 'product', 'owner'],
-            allowDownload: true,
-            shareableLink: true,
-          },
-          watermarkSettings: {
-            enabled: false,
-            pattern: null,
-            label: null,
-            appliedAt: null,
-          },
-          uploadedAt: new Date(now.getTime() - 1000 * 60 * 60 * 6),
-        },
-        {
-          workspaceId: workspace.id,
-          name: 'QA-checklist.xlsx',
-          category: 'operations',
-          fileType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          storageProvider: 'drive',
-          storagePath: `/projects/${project.id}/ops/qa-checklist.xlsx`,
-          version: '1.0',
-          sizeBytes: 1048576,
-          tags: ['qa', 'operations'],
-          permissions: {
-            visibility: 'internal_only',
-            allowedRoles: ['owner', 'operations', 'qa'],
-            allowDownload: true,
-            shareableLink: false,
-          },
-          watermarkSettings: {
-            enabled: true,
-            pattern: 'horizontal',
-            label: 'For QA Eyes Only',
-            appliedAt: new Date(now.getTime() - 1000 * 60 * 60 * 3),
-          },
-          uploadedAt: new Date(now.getTime() - 1000 * 60 * 30),
+          model: ProjectChatMessage,
+          as: 'messages',
+          separate: true,
+          limit: 50,
+          order: [['createdAt', 'DESC']],
         },
       ],
-      { transaction },
-    );
-  }
+    },
+    { model: ProjectTimelineEntry, as: 'timelineEntries' },
+    { model: ProjectMeeting, as: 'meetings', include: [{ model: ProjectMeetingAttendee, as: 'attendees' }] },
+    { model: ProjectCalendarEvent, as: 'calendarEvents' },
+    { model: ProjectRoleDefinition, as: 'roleDefinitions', include: [{ model: ProjectRoleAssignment, as: 'assignments' }] },
+    { model: ProjectSubmission, as: 'submissions' },
+    { model: ProjectFile, as: 'files' },
+    { model: ProjectInvitation, as: 'invitations' },
+    { model: ProjectHrRecord, as: 'hrRecords' },
+  ];
 
-  const conversationCount = await ProjectWorkspaceConversation.count({
-    where: { workspaceId: workspace.id },
-    transaction,
+  const projects = await Project.findAll({
+    where: { ownerId },
+    include: includeDetails ? include : [{ model: ProjectWorkspace, as: 'workspace' }],
+    order: [
+      ['updatedAt', 'DESC'],
+      [{ model: ProjectTask, as: 'tasks' }, 'dueDate', 'ASC'],
+    ],
   });
 
-  if (conversationCount === 0) {
-    await ProjectWorkspaceConversation.bulkCreate(
-      [
-        {
-          workspaceId: workspace.id,
-          channelType: 'project',
-          topic: 'Daily delivery standup',
-          priority: 'normal',
-          unreadCount: 3,
-          lastMessagePreview: 'Reminder: client demo rehearsal tomorrow at 10am ET',
-          lastMessageAt: new Date(now.getTime() - 1000 * 60 * 15),
-          participants: ['Delivery Manager', 'Client sponsor', 'QA lead'],
-        },
-        {
-          workspaceId: workspace.id,
-          channelType: 'client',
-          topic: 'Feedback loop',
-          priority: 'high',
-          unreadCount: 1,
-          lastMessagePreview: 'Client uploaded annotated deck—need revised assets by Friday',
-          lastMessageAt: new Date(now.getTime() - 1000 * 60 * 50),
-          participants: ['Engagement Lead', 'Design Director'],
-        },
-        {
-          workspaceId: workspace.id,
-          channelType: 'ops',
-          topic: 'Billing & procurement',
-          priority: 'low',
-          unreadCount: 0,
-          lastMessagePreview: 'PO submitted to finance—awaiting receipt confirmation',
-          lastMessageAt: new Date(now.getTime() - 1000 * 60 * 120),
-          participants: ['Operations', 'Finance'],
-        },
-      ],
-      { transaction },
-    );
-  }
+  await Promise.all(projects.map((project) => ensureDefaultChannel(project.id)));
 
-  const approvalCount = await ProjectWorkspaceApproval.count({
-    where: { workspaceId: workspace.id },
-    transaction,
-  });
-
-  if (approvalCount === 0) {
-    await ProjectWorkspaceApproval.bulkCreate(
-      [
-        {
-          workspaceId: workspace.id,
-          title: 'Creative direction sign-off',
-          stage: 'discovery',
-          status: 'in_review',
-          ownerName: 'Design Director',
-          approverEmail: 'client.creative@example.com',
-          dueAt: new Date(now.getTime() + 1000 * 60 * 60 * 48),
-          submittedAt: new Date(now.getTime() - 1000 * 60 * 60 * 12),
-          metadata: { round: 2 },
-        },
-        {
-          workspaceId: workspace.id,
-          title: 'Automation workflow approval',
-          stage: 'build',
-          status: 'pending',
-          ownerName: 'Automation PM',
-          approverEmail: 'client.ops@example.com',
-          dueAt: new Date(now.getTime() + 1000 * 60 * 60 * 72),
-          metadata: { checklist: 'ops-automation' },
-        },
-        {
-          workspaceId: workspace.id,
-          title: 'Launch readiness',
-          stage: 'launch',
-          status: 'changes_requested',
-          ownerName: 'Delivery Manager',
-          approverEmail: 'client.pm@example.com',
-          dueAt: new Date(now.getTime() + 1000 * 60 * 60 * 96),
-          submittedAt: new Date(now.getTime() - 1000 * 60 * 60 * 6),
-          decisionNotes: 'Need updated risk register before approval',
-        },
-      ],
-      { transaction },
-    );
+  if (!includeDetails) {
+    return {
+      projects: projects.map((project) => ({
+        id: project.id,
+        title: project.title,
+        status: project.status,
+        workspace: sanitizeRecord(project.workspace),
+      })),
+      summary: buildSummary(projects.map((project) => sanitizeRecord(project))),
+    };
   }
 
   const budgetCount = await ProjectWorkspaceBudget.count({ where: { workspaceId: workspace.id }, transaction });
@@ -863,70 +893,163 @@ async function ensureWorkspaceArtifacts(workspace, { project, actorId, transacti
   }
 }
 
-export async function initializeWorkspaceForProject(projectOrId, { actorId, transaction } = {}) {
-  const project =
-    projectOrId && typeof projectOrId === 'object' && projectOrId.id
-      ? projectOrId
-      : await Project.findByPk(projectOrId, { transaction });
+  const payload = await Promise.all(projects.map((project) => buildProjectPayload(project)));
+  const summary = buildSummary(payload);
 
-  if (!project) {
-    throw new NotFoundError('Project not found.');
-  }
-
-  const existing = await ProjectWorkspace.findOne({
-    where: { projectId: project.id },
-    transaction,
-    lock: transaction?.LOCK?.UPDATE,
-  });
-
-  if (existing) {
-    await ensureWorkspaceArtifacts(existing, { project, actorId, transaction });
-    return existing;
-  }
-
-  const now = new Date();
-  const workspace = await ProjectWorkspace.create(
-    {
-      projectId: project.id,
-      status: 'briefing',
-      healthScore: 78.5,
-      velocityScore: 72.4,
-      riskLevel: 'low',
-      progressPercent: 18.2,
-      clientSatisfaction: 91.0,
-      automationCoverage: 42.5,
-      billingStatus: 'deposit_cleared',
-      nextMilestone: 'Kickoff workshop',
-      nextMilestoneDueAt: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 5),
-      metricsSnapshot: {
-        automationRuns: 8,
-        activeStreams: 4,
-        deliverablesInProgress: 6,
-        teamUtilization: 0.78,
-      },
-      lastActivityAt: now,
-      updatedById: actorId ?? null,
-    },
-    { transaction },
-  );
-
-  await ensureWorkspaceArtifacts(workspace, { project, actorId, transaction });
-  await workspace.reload({ transaction });
-  return workspace;
+  return {
+    projects: payload,
+    summary,
+  };
 }
 
-export async function getWorkspaceDashboard(projectId) {
-  if (!projectId) {
-    throw new ValidationError('projectId is required.');
+export async function getProjectWorkspaceSummary(ownerId) {
+  const overview = await getProjectWorkspaceOverview(ownerId, { includeDetails: true });
+  return overview.summary;
+}
+
+export async function createWorkspaceProject(ownerId, payload) {
+  if (!ownerId) {
+    throw new ValidationError('Owner id is required to create a project workspace.');
+  }
+  if (!payload?.title) {
+    throw new ValidationError('A project title is required.');
+  }
+  if (!payload?.description) {
+    throw new ValidationError('Project description is required.');
   }
 
-  const project = await Project.findByPk(projectId);
-  if (!project) {
-    throw new NotFoundError('Project not found.');
-  }
+  return projectGigManagementSequelize.transaction(async (transaction) => {
+    const project = await Project.create(
+      {
+        ownerId,
+        title: payload.title,
+        description: payload.description,
+        status: payload.status ?? 'planning',
+        startDate: payload.startDate ?? null,
+        dueDate: payload.dueDate ?? null,
+        budgetCurrency: payload.budgetCurrency ?? 'USD',
+        budgetAllocated: payload.budgetAllocated ?? 0,
+        budgetSpent: 0,
+        workspace: {
+          status: payload.workspace?.status ?? 'planning',
+          progressPercent: payload.workspace?.progressPercent ?? 0,
+          riskLevel: payload.workspace?.riskLevel ?? 'low',
+          nextMilestone: payload.workspace?.nextMilestone ?? null,
+          nextMilestoneDueAt: payload.workspace?.nextMilestoneDueAt ?? null,
+          notes: payload.workspace?.notes ?? null,
+          metrics: payload.workspace?.metrics ?? null,
+        },
+      },
+      { include: [{ model: ProjectWorkspace, as: 'workspace' }], transaction },
+    );
 
-  const workspace = await initializeWorkspaceForProject(project);
-  await workspace.reload();
+    await ensureDefaultChannel(project.id, { transaction });
+
+    if (Array.isArray(payload.budgetLines) && payload.budgetLines.length) {
+      await ProjectBudgetLine.bulkCreate(
+        payload.budgetLines.map((line) => ({
+          projectId: project.id,
+          ...pick(line, [
+            'label',
+            'category',
+            'plannedAmount',
+            'actualAmount',
+            'currency',
+            'status',
+            'ownerId',
+            'notes',
+            'metadata',
+          ]),
+        })),
+        { transaction },
+      );
+    }
+
+    return sanitizeRecord(project);
+  });
+}
+
+export async function updateProjectDetails(ownerId, projectId, payload) {
+  const project = await ensureProject(ownerId, projectId);
+  const updates = pick(payload, [
+    'title',
+    'description',
+    'status',
+    'startDate',
+    'dueDate',
+    'budgetAllocated',
+    'budgetCurrency',
+    'budgetSpent',
+  ]);
+  if (Object.keys(updates).length === 0) {
+    return sanitizeRecord(project);
+  }
+  await project.update(updates);
+  if (payload.workspace) {
+    const workspace = await project.getWorkspace();
+    if (workspace) {
+      await workspace.update(
+        pick(payload.workspace, [
+          'status',
+          'progressPercent',
+          'riskLevel',
+          'nextMilestone',
+          'nextMilestoneDueAt',
+          'notes',
+          'metrics',
+        ]),
+      );
+    }
+  }
+  return sanitizeRecord(await project.reload({ include: [{ model: ProjectWorkspace, as: 'workspace' }] }));
+}
+
+export async function createBudgetLine(ownerId, projectId, payload) {
+  await ensureProject(ownerId, projectId);
+  if (!payload?.label) {
+    throw new ValidationError('Budget label is required.');
+  }
+  if (!payload?.category) {
+    throw new ValidationError('Budget category is required.');
+  }
+  const line = await ProjectBudgetLine.create({
+    projectId,
+    ...pick(payload, [
+      'label',
+      'category',
+      'plannedAmount',
+      'actualAmount',
+      'currency',
+      'status',
+      'ownerId',
+      'notes',
+      'metadata',
+    ]),
+  });
+  return sanitizeRecord(line);
+}
+
+export async function updateBudgetLine(ownerId, projectId, budgetLineId, payload) {
+  await ensureProject(ownerId, projectId);
+  const line = await ProjectBudgetLine.findOne({ where: { id: budgetLineId, projectId } });
+  if (!line) {
+    throw new NotFoundError('Budget line not found.');
+  }
+  await line.update(
+    pick(payload, [
+      'label',
+      'category',
+      'plannedAmount',
+      'actualAmount',
+      'currency',
+      'status',
+      'ownerId',
+      'notes',
+      'metadata',
+    ]),
+  );
+  return sanitizeRecord(line);
+}
 
   const [
     brief,
@@ -1100,213 +1223,524 @@ export async function getWorkspaceDashboard(projectId) {
       hrRecords: hrRecordsPayload,
     }),
   };
+export async function deleteBudgetLine(ownerId, projectId, budgetLineId) {
+  await ensureProject(ownerId, projectId);
+  await ProjectBudgetLine.destroy({ where: { id: budgetLineId, projectId } });
 }
 
-export async function updateWorkspaceBrief(projectId, payload = {}, { actorId } = {}) {
-  if (!projectId) {
-    throw new ValidationError('projectId is required.');
+export async function createDeliverable(ownerId, projectId, payload) {
+  await ensureProject(ownerId, projectId);
+  if (!payload?.title) {
+    throw new ValidationError('Deliverable title is required.');
   }
+  const deliverable = await ProjectDeliverable.create({
+    projectId,
+    ...pick(payload, ['title', 'description', 'status', 'dueDate', 'submissionUrl', 'metadata']),
+  });
+  return sanitizeRecord(deliverable);
+}
 
-  await sequelize.transaction(async (transaction) => {
-    const project = await Project.findByPk(projectId, { transaction, lock: transaction.LOCK.UPDATE });
-    if (!project) {
-      throw new NotFoundError('Project not found.');
+export async function updateDeliverable(ownerId, projectId, deliverableId, payload) {
+  await ensureProject(ownerId, projectId);
+  const deliverable = await ProjectDeliverable.findOne({ where: { id: deliverableId, projectId } });
+  if (!deliverable) {
+    throw new NotFoundError('Deliverable not found.');
+  }
+  await deliverable.update(pick(payload, ['title', 'description', 'status', 'dueDate', 'submissionUrl', 'metadata']));
+  return sanitizeRecord(deliverable);
+}
+
+export async function deleteDeliverable(ownerId, projectId, deliverableId) {
+  await ensureProject(ownerId, projectId);
+  await ProjectDeliverable.destroy({ where: { id: deliverableId, projectId } });
+}
+
+export async function createTask(ownerId, projectId, payload) {
+  await ensureProject(ownerId, projectId);
+  if (!payload?.title) {
+    throw new ValidationError('Task title is required.');
+  }
+  const task = await ProjectTask.create({
+    projectId,
+    ...pick(payload, [
+      'title',
+      'description',
+      'status',
+      'priority',
+      'startDate',
+      'dueDate',
+      'estimatedHours',
+      'completedAt',
+      'metadata',
+    ]),
+  });
+  return sanitizeRecord(task);
+}
+
+export async function updateTask(ownerId, projectId, taskId, payload) {
+  const { task } = await ensureTask(ownerId, projectId, taskId);
+  await task.update(
+    pick(payload, [
+      'title',
+      'description',
+      'status',
+      'priority',
+      'startDate',
+      'dueDate',
+      'estimatedHours',
+      'completedAt',
+      'metadata',
+    ]),
+  );
+  return sanitizeRecord(task);
+}
+
+export async function deleteTask(ownerId, projectId, taskId) {
+  await ensureTask(ownerId, projectId, taskId);
+  await ProjectTask.destroy({ where: { id: taskId, projectId } });
+}
+
+export async function assignTask(ownerId, projectId, taskId, payload) {
+  const { task } = await ensureTask(ownerId, projectId, taskId);
+  if (!payload?.assigneeName) {
+    throw new ValidationError('Assignee name is required.');
+  }
+  const assignment = await ProjectTaskAssignment.create({
+    taskId: task.id,
+    ...pick(payload, ['assigneeName', 'assigneeEmail', 'assigneeRole', 'allocationHours', 'status', 'metadata']),
+  });
+  return sanitizeRecord(assignment);
+}
+
+export async function updateTaskAssignment(ownerId, projectId, taskId, assignmentId, payload) {
+  await ensureTask(ownerId, projectId, taskId);
+  const assignment = await ProjectTaskAssignment.findOne({ where: { id: assignmentId, taskId } });
+  if (!assignment) {
+    throw new NotFoundError('Task assignment not found.');
+  }
+  await assignment.update(
+    pick(payload, ['assigneeName', 'assigneeEmail', 'assigneeRole', 'allocationHours', 'status', 'metadata']),
+  );
+  return sanitizeRecord(assignment);
+}
+
+export async function removeTaskAssignment(ownerId, projectId, taskId, assignmentId) {
+  await ensureTask(ownerId, projectId, taskId);
+  await ProjectTaskAssignment.destroy({ where: { id: assignmentId, taskId } });
+}
+
+export async function createTaskDependency(ownerId, projectId, taskId, payload) {
+  const { task } = await ensureTask(ownerId, projectId, taskId);
+  const dependsOnTaskId = Number(payload?.dependsOnTaskId);
+  if (!dependsOnTaskId) {
+    throw new ValidationError('dependsOnTaskId is required.');
+  }
+  if (dependsOnTaskId === task.id) {
+    throw new ValidationError('A task cannot depend on itself.');
+  }
+  const targetTask = await ProjectTask.findOne({ where: { id: dependsOnTaskId, projectId } });
+  if (!targetTask) {
+    throw new ValidationError('Dependency task must belong to the same project.');
+  }
+  const dependency = await ProjectTaskDependency.create({
+    taskId: task.id,
+    dependsOnTaskId,
+    lagDays: payload?.lagDays ?? 0,
+  });
+  return sanitizeRecord(dependency);
+}
+
+export async function removeTaskDependency(ownerId, projectId, taskId, dependencyId) {
+  await ensureTask(ownerId, projectId, taskId);
+  await ProjectTaskDependency.destroy({ where: { id: dependencyId, taskId } });
+}
+
+export async function postChatMessage(ownerId, projectId, payload) {
+  const channelId = payload?.channelId;
+  if (!channelId) {
+    throw new ValidationError('Channel id is required to post a message.');
+  }
+  const channel = await ensureChannel(ownerId, projectId, channelId);
+  if (!payload?.authorName || !payload.body) {
+    throw new ValidationError('Author name and body are required.');
+  }
+  const message = await ProjectChatMessage.create({
+    channelId: channel.id,
+    ...pick(payload, ['authorName', 'authorRole', 'body', 'pinned', 'metadata']),
+  });
+  return sanitizeRecord(message);
+}
+
+export async function updateChatMessage(ownerId, projectId, messageId, payload) {
+  const message = await ProjectChatMessage.findByPk(messageId, { include: [{ model: ProjectChatChannel, as: 'channel' }] });
+  if (!message) {
+    throw new NotFoundError('Message not found.');
+  }
+  if (message.channel.projectId !== Number(projectId)) {
+    throw new AuthorizationError('You can only edit messages for this project.');
+  }
+  await ensureProject(ownerId, projectId);
+  await message.update(pick(payload, ['body', 'pinned', 'metadata']));
+  return sanitizeRecord(message);
+}
+
+export async function deleteChatMessage(ownerId, projectId, messageId) {
+  const message = await ProjectChatMessage.findByPk(messageId, { include: [{ model: ProjectChatChannel, as: 'channel' }] });
+  if (!message) {
+    return;
+  }
+  if (message.channel.projectId !== Number(projectId)) {
+    throw new AuthorizationError('You can only remove messages for this project.');
+  }
+  await ensureProject(ownerId, projectId);
+  await message.destroy();
+}
+
+export async function createTimelineEntry(ownerId, projectId, payload) {
+  await ensureProject(ownerId, projectId);
+  if (!payload?.title) {
+    throw new ValidationError('Timeline title is required.');
+  }
+  const entry = await ProjectTimelineEntry.create({
+    projectId,
+    ...pick(payload, ['title', 'entryType', 'occurredAt', 'notes', 'workspaceId', 'metadata']),
+  });
+  return sanitizeRecord(entry);
+}
+
+export async function updateTimelineEntry(ownerId, projectId, entryId, payload) {
+  await ensureProject(ownerId, projectId);
+  const entry = await ProjectTimelineEntry.findOne({ where: { id: entryId, projectId } });
+  if (!entry) {
+    throw new NotFoundError('Timeline entry not found.');
+  }
+  await entry.update(pick(payload, ['title', 'entryType', 'occurredAt', 'notes', 'workspaceId', 'metadata']));
+  return sanitizeRecord(entry);
+}
+
+export async function deleteTimelineEntry(ownerId, projectId, entryId) {
+  await ensureProject(ownerId, projectId);
+  await ProjectTimelineEntry.destroy({ where: { id: entryId, projectId } });
+}
+
+export async function scheduleMeeting(ownerId, projectId, payload) {
+  await ensureProject(ownerId, projectId);
+  if (!payload?.title) {
+    throw new ValidationError('Meeting title is required.');
+  }
+  if (!payload?.scheduledAt) {
+    throw new ValidationError('Meeting scheduled time is required.');
+  }
+  return projectGigManagementSequelize.transaction(async (transaction) => {
+    const meeting = await ProjectMeeting.create(
+      {
+        projectId,
+        ...pick(payload, [
+          'title',
+          'agenda',
+          'scheduledAt',
+          'durationMinutes',
+          'location',
+          'meetingLink',
+          'status',
+          'notes',
+        ]),
+      },
+      { transaction },
+    );
+
+    if (Array.isArray(payload.attendees) && payload.attendees.length) {
+      await ProjectMeetingAttendee.bulkCreate(
+        payload.attendees.map((attendee) => ({
+          meetingId: meeting.id,
+          ...pick(attendee, ['name', 'email', 'role', 'responseStatus']),
+        })),
+        { transaction },
+      );
     }
 
-    const workspace = await initializeWorkspaceForProject(project, { transaction, actorId });
-    const brief = await ProjectWorkspaceBrief.findOne({
-      where: { workspaceId: workspace.id },
+    return sanitizeRecord(await meeting.reload({ include: [{ model: ProjectMeetingAttendee, as: 'attendees' }] }));
+  });
+}
+
+export async function updateMeeting(ownerId, projectId, meetingId, payload) {
+  await ensureProject(ownerId, projectId);
+  return projectGigManagementSequelize.transaction(async (transaction) => {
+    const meeting = await ProjectMeeting.findOne({
+      where: { id: meetingId, projectId },
+      include: [{ model: ProjectMeetingAttendee, as: 'attendees' }],
       transaction,
       lock: transaction.LOCK.UPDATE,
     });
-
-    if (!brief) {
-      throw new NotFoundError('Workspace brief not found.');
+    if (!meeting) {
+      throw new NotFoundError('Meeting not found.');
     }
 
-    const updates = {};
+    await meeting.update(
+      pick(payload, ['title', 'agenda', 'scheduledAt', 'durationMinutes', 'location', 'meetingLink', 'status', 'notes']),
+      { transaction },
+    );
 
-    if (payload.title !== undefined) {
-      const title = typeof payload.title === 'string' ? payload.title.trim() : '';
-      if (!title) {
-        throw new ValidationError('title cannot be empty.');
+    if (Array.isArray(payload.attendees)) {
+      await ProjectMeetingAttendee.destroy({ where: { meetingId }, transaction });
+      if (payload.attendees.length) {
+        await ProjectMeetingAttendee.bulkCreate(
+          payload.attendees.map((attendee) => ({
+            meetingId,
+            ...pick(attendee, ['name', 'email', 'role', 'responseStatus']),
+          })),
+          { transaction },
+        );
       }
-      updates.title = title;
     }
 
-    if (payload.summary !== undefined) {
-      const summary = typeof payload.summary === 'string' ? payload.summary.trim() : null;
-      updates.summary = summary || null;
-    }
-
-    const objectives = normalizeStringList(payload.objectives ?? payload.objectivesText);
-    if (objectives !== undefined) {
-      updates.objectives = objectives;
-    }
-
-    const deliverables = normalizeStringList(payload.deliverables ?? payload.deliverablesText);
-    if (deliverables !== undefined) {
-      updates.deliverables = deliverables;
-    }
-
-    const successMetrics = normalizeStringList(payload.successMetrics ?? payload.successMetricsText);
-    if (successMetrics !== undefined) {
-      updates.successMetrics = successMetrics;
-    }
-
-    const stakeholders = normalizeStringList(payload.clientStakeholders ?? payload.stakeholders);
-    if (stakeholders !== undefined) {
-      updates.clientStakeholders = stakeholders;
-    }
-
-    if (Object.keys(updates).length > 0) {
-      updates.lastUpdatedById = actorId ?? null;
-      await brief.update(updates, { transaction });
-      await workspace.update({ lastActivityAt: new Date(), updatedById: actorId ?? null }, { transaction });
-    }
+    return sanitizeRecord(await meeting.reload({ include: [{ model: ProjectMeetingAttendee, as: 'attendees' }] }));
   });
-
-  return getWorkspaceDashboard(projectId);
 }
 
-export async function updateWorkspaceApproval(projectId, approvalId, payload = {}, { actorId } = {}) {
-  if (!projectId) {
-    throw new ValidationError('projectId is required.');
-  }
-  if (!approvalId) {
-    throw new ValidationError('approvalId is required.');
-  }
-
-  await sequelize.transaction(async (transaction) => {
-    const project = await Project.findByPk(projectId, { transaction, lock: transaction.LOCK.UPDATE });
-    if (!project) {
-      throw new NotFoundError('Project not found.');
-    }
-
-    const workspace = await initializeWorkspaceForProject(project, { transaction, actorId });
-    const approval = await ProjectWorkspaceApproval.findOne({
-      where: { id: approvalId, workspaceId: workspace.id },
-      transaction,
-      lock: transaction.LOCK.UPDATE,
-    });
-
-    if (!approval) {
-      throw new NotFoundError('Approval not found.');
-    }
-
-    const updates = {};
-
-    if (payload.status !== undefined) {
-      if (!WORKSPACE_APPROVAL_STATUSES.includes(payload.status)) {
-        throw new ValidationError('Invalid approval status.');
-      }
-      updates.status = payload.status;
-      if (['approved', 'rejected', 'changes_requested'].includes(payload.status) && payload.decidedAt === undefined) {
-        updates.decidedAt = new Date();
-      }
-    }
-
-    if (payload.stage !== undefined) {
-      const stage = typeof payload.stage === 'string' ? payload.stage.trim() : '';
-      if (!stage) {
-        throw new ValidationError('stage cannot be empty.');
-      }
-      updates.stage = stage;
-    }
-
-    if (payload.ownerName !== undefined) {
-      updates.ownerName = payload.ownerName ? String(payload.ownerName).trim() : null;
-    }
-
-    if (payload.approverEmail !== undefined) {
-      updates.approverEmail = payload.approverEmail ? String(payload.approverEmail).trim() : null;
-    }
-
-    const dueAt = parseDateValue(payload.dueAt, 'dueAt');
-    if (dueAt !== undefined) {
-      updates.dueAt = dueAt;
-    }
-
-    const submittedAt = parseDateValue(payload.submittedAt, 'submittedAt');
-    if (submittedAt !== undefined) {
-      updates.submittedAt = submittedAt;
-    }
-
-    const decidedAt = parseDateValue(payload.decidedAt, 'decidedAt');
-    if (decidedAt !== undefined) {
-      updates.decidedAt = decidedAt;
-    }
-
-    if (payload.decisionNotes !== undefined) {
-      updates.decisionNotes = payload.decisionNotes ? String(payload.decisionNotes).trim() : null;
-    }
-
-    const attachments = normalizeAttachments(payload.attachments);
-    if (attachments !== undefined) {
-      updates.attachments = attachments;
-    }
-
-    if (payload.metadata !== undefined) {
-      updates.metadata = payload.metadata ?? null;
-    }
-
-    if (Object.keys(updates).length === 0) {
-      return;
-    }
-
-    await approval.update(updates, { transaction });
-    await workspace.update({ lastActivityAt: new Date(), updatedById: actorId ?? null }, { transaction });
-  });
-
-  return getWorkspaceDashboard(projectId);
+export async function deleteMeeting(ownerId, projectId, meetingId) {
+  await ensureProject(ownerId, projectId);
+  await ProjectMeeting.destroy({ where: { id: meetingId, projectId } });
 }
 
-export async function acknowledgeWorkspaceConversation(projectId, conversationId, payload = {}, { actorId } = {}) {
-  if (!projectId) {
-    throw new ValidationError('projectId is required.');
+export async function createCalendarEvent(ownerId, projectId, payload) {
+  await ensureProject(ownerId, projectId);
+  if (!payload?.title) {
+    throw new ValidationError('Event title is required.');
   }
-  if (!conversationId) {
-    throw new ValidationError('conversationId is required.');
+  if (!payload?.startAt) {
+    throw new ValidationError('Event start date is required.');
   }
-
-  await sequelize.transaction(async (transaction) => {
-    const project = await Project.findByPk(projectId, { transaction, lock: transaction.LOCK.UPDATE });
-    if (!project) {
-      throw new NotFoundError('Project not found.');
-    }
-
-    const workspace = await initializeWorkspaceForProject(project, { transaction, actorId });
-    const conversation = await ProjectWorkspaceConversation.findOne({
-      where: { id: conversationId, workspaceId: workspace.id },
-      transaction,
-      lock: transaction.LOCK.UPDATE,
-    });
-
-    if (!conversation) {
-      throw new NotFoundError('Conversation not found.');
-    }
-
-    const updates = {
-      unreadCount: 0,
-      lastReadAt: new Date(),
-    };
-
-    if (payload.priority !== undefined) {
-      if (!WORKSPACE_CONVERSATION_PRIORITIES.includes(payload.priority)) {
-        throw new ValidationError('Invalid conversation priority.');
-      }
-      updates.priority = payload.priority;
-    }
-
-    if (payload.externalLink !== undefined) {
-      updates.externalLink = payload.externalLink ? String(payload.externalLink).trim() : null;
-    }
-
-    await conversation.update(updates, { transaction });
-    await workspace.update({ lastActivityAt: new Date(), updatedById: actorId ?? null }, { transaction });
+  const event = await ProjectCalendarEvent.create({
+    projectId,
+    ...pick(payload, ['title', 'category', 'startAt', 'endAt', 'allDay', 'location', 'metadata']),
   });
+  return sanitizeRecord(event);
+}
 
-  return getWorkspaceDashboard(projectId);
+export async function updateCalendarEvent(ownerId, projectId, eventId, payload) {
+  await ensureProject(ownerId, projectId);
+  const event = await ProjectCalendarEvent.findOne({ where: { id: eventId, projectId } });
+  if (!event) {
+    throw new NotFoundError('Calendar event not found.');
+  }
+  await event.update(pick(payload, ['title', 'category', 'startAt', 'endAt', 'allDay', 'location', 'metadata']));
+  return sanitizeRecord(event);
+}
+
+export async function deleteCalendarEvent(ownerId, projectId, eventId) {
+  await ensureProject(ownerId, projectId);
+  await ProjectCalendarEvent.destroy({ where: { id: eventId, projectId } });
+}
+
+export async function createRoleDefinition(ownerId, projectId, payload) {
+  await ensureProject(ownerId, projectId);
+  if (!payload?.name) {
+    throw new ValidationError('Role name is required.');
+  }
+  const role = await ProjectRoleDefinition.create({
+    projectId,
+    ...pick(payload, ['name', 'description', 'seatLimit', 'permissions']),
+  });
+  return sanitizeRecord(role);
+}
+
+export async function updateRoleDefinition(ownerId, projectId, roleId, payload) {
+  await ensureProject(ownerId, projectId);
+  const role = await ProjectRoleDefinition.findOne({ where: { id: roleId, projectId } });
+  if (!role) {
+    throw new NotFoundError('Role not found.');
+  }
+  await role.update(pick(payload, ['name', 'description', 'seatLimit', 'permissions']));
+  return sanitizeRecord(role);
+}
+
+export async function deleteRoleDefinition(ownerId, projectId, roleId) {
+  await ensureProject(ownerId, projectId);
+  await ProjectRoleDefinition.destroy({ where: { id: roleId, projectId } });
+}
+
+export async function assignRole(ownerId, projectId, roleId, payload) {
+  await ensureProject(ownerId, projectId);
+  const role = await ProjectRoleDefinition.findOne({ where: { id: roleId, projectId } });
+  if (!role) {
+    throw new NotFoundError('Role not found.');
+  }
+  if (!payload?.collaboratorName) {
+    throw new ValidationError('Collaborator name is required.');
+  }
+
+  let collaboratorId = payload.collaboratorId ?? null;
+  if (!collaboratorId && payload.collaboratorEmail) {
+    const collaborator = await ProjectCollaborator.findOne({
+      where: { projectId, email: payload.collaboratorEmail },
+    });
+    collaboratorId = collaborator?.id ?? null;
+  }
+
+  const assignment = await ProjectRoleAssignment.create({
+    roleId,
+    collaboratorId,
+    ...pick(payload, ['collaboratorName', 'collaboratorEmail', 'status']),
+  });
+  return sanitizeRecord(assignment);
+}
+
+export async function updateRoleAssignment(ownerId, projectId, roleId, assignmentId, payload) {
+  await ensureProject(ownerId, projectId);
+  const role = await ProjectRoleDefinition.findOne({ where: { id: roleId, projectId } });
+  if (!role) {
+    throw new NotFoundError('Role not found.');
+  }
+  const assignment = await ProjectRoleAssignment.findOne({ where: { id: assignmentId, roleId } });
+  if (!assignment) {
+    throw new NotFoundError('Role assignment not found.');
+  }
+  await assignment.update(pick(payload, ['collaboratorName', 'collaboratorEmail', 'status', 'collaboratorId']));
+  return sanitizeRecord(assignment);
+}
+
+export async function removeRoleAssignment(ownerId, projectId, roleId, assignmentId) {
+  await ensureProject(ownerId, projectId);
+  const role = await ProjectRoleDefinition.findOne({ where: { id: roleId, projectId } });
+  if (!role) {
+    throw new NotFoundError('Role not found.');
+  }
+  await ProjectRoleAssignment.destroy({ where: { id: assignmentId, roleId } });
+}
+
+export async function createSubmission(ownerId, projectId, payload) {
+  await ensureProject(ownerId, projectId);
+  if (!payload?.title) {
+    throw new ValidationError('Submission title is required.');
+  }
+  const submission = await ProjectSubmission.create({
+    projectId,
+    ...pick(payload, ['title', 'description', 'status', 'submittedAt', 'submissionUrl', 'notes']),
+  });
+  return sanitizeRecord(submission);
+}
+
+export async function updateSubmission(ownerId, projectId, submissionId, payload) {
+  await ensureProject(ownerId, projectId);
+  const submission = await ProjectSubmission.findOne({ where: { id: submissionId, projectId } });
+  if (!submission) {
+    throw new NotFoundError('Submission not found.');
+  }
+  await submission.update(pick(payload, ['title', 'description', 'status', 'submittedAt', 'submissionUrl', 'notes']));
+  return sanitizeRecord(submission);
+}
+
+export async function deleteSubmission(ownerId, projectId, submissionId) {
+  await ensureProject(ownerId, projectId);
+  await ProjectSubmission.destroy({ where: { id: submissionId, projectId } });
+}
+
+export async function createFile(ownerId, projectId, payload) {
+  await ensureProject(ownerId, projectId);
+  if (!payload?.label || !payload?.storageUrl) {
+    throw new ValidationError('File label and storage URL are required.');
+  }
+  const file = await ProjectFile.create({
+    projectId,
+    ...pick(payload, ['label', 'storageUrl', 'sizeBytes', 'fileType', 'uploadedBy', 'visibility', 'metadata']),
+  });
+  return sanitizeRecord(file);
+}
+
+export async function updateFile(ownerId, projectId, fileId, payload) {
+  await ensureProject(ownerId, projectId);
+  const file = await ProjectFile.findOne({ where: { id: fileId, projectId } });
+  if (!file) {
+    throw new NotFoundError('File not found.');
+  }
+  await file.update(pick(payload, ['label', 'storageUrl', 'sizeBytes', 'fileType', 'uploadedBy', 'visibility', 'metadata']));
+  return sanitizeRecord(file);
+}
+
+export async function deleteFile(ownerId, projectId, fileId) {
+  await ensureProject(ownerId, projectId);
+  await ProjectFile.destroy({ where: { id: fileId, projectId } });
+}
+
+export async function createInvitation(ownerId, projectId, payload) {
+  await ensureProject(ownerId, projectId);
+  if (!payload?.email) {
+    throw new ValidationError('Invite email is required.');
+  }
+  if (!payload?.role) {
+    throw new ValidationError('Invite role is required.');
+  }
+  const invitation = await ProjectInvitation.create({
+    projectId,
+    ...pick(payload, ['email', 'role', 'status', 'token', 'invitedBy', 'expiresAt', 'metadata']),
+  });
+  return sanitizeRecord(invitation);
+}
+
+export async function updateInvitation(ownerId, projectId, invitationId, payload) {
+  await ensureProject(ownerId, projectId);
+  const invitation = await ProjectInvitation.findOne({ where: { id: invitationId, projectId } });
+  if (!invitation) {
+    throw new NotFoundError('Invitation not found.');
+  }
+  await invitation.update(pick(payload, ['email', 'role', 'status', 'token', 'invitedBy', 'expiresAt', 'metadata']));
+  return sanitizeRecord(invitation);
+}
+
+export async function deleteInvitation(ownerId, projectId, invitationId) {
+  await ensureProject(ownerId, projectId);
+  await ProjectInvitation.destroy({ where: { id: invitationId, projectId } });
+}
+
+export async function createHrRecord(ownerId, projectId, payload) {
+  await ensureProject(ownerId, projectId);
+  if (!payload?.fullName) {
+    throw new ValidationError('Full name is required.');
+  }
+  if (!payload?.position) {
+    throw new ValidationError('Position is required.');
+  }
+  const record = await ProjectHrRecord.create({
+    projectId,
+    ...pick(payload, [
+      'fullName',
+      'position',
+      'status',
+      'startDate',
+      'endDate',
+      'compensation',
+      'allocationPercent',
+      'metadata',
+    ]),
+  });
+  return sanitizeRecord(record);
+}
+
+export async function updateHrRecord(ownerId, projectId, hrRecordId, payload) {
+  await ensureProject(ownerId, projectId);
+  const record = await ProjectHrRecord.findOne({ where: { id: hrRecordId, projectId } });
+  if (!record) {
+    throw new NotFoundError('HR record not found.');
+  }
+  await record.update(
+    pick(payload, [
+      'fullName',
+      'position',
+      'status',
+      'startDate',
+      'endDate',
+      'compensation',
+      'allocationPercent',
+      'metadata',
+    ]),
+  );
+  return sanitizeRecord(record);
+}
+
+export async function deleteHrRecord(ownerId, projectId, hrRecordId) {
+  await ensureProject(ownerId, projectId);
+  await ProjectHrRecord.destroy({ where: { id: hrRecordId, projectId } });
 }
 
 export async function upsertWorkspaceBudget(projectId, budgetId, payload = {}, { actorId } = {}) {
@@ -2520,4 +2954,52 @@ export default {
   postWorkspaceConversationMessage,
   upsertWorkspaceFile,
   removeWorkspaceFile,
+  getProjectWorkspaceOverview,
+  getProjectWorkspaceSummary,
+  createWorkspaceProject,
+  updateProjectDetails,
+  createBudgetLine,
+  updateBudgetLine,
+  deleteBudgetLine,
+  createDeliverable,
+  updateDeliverable,
+  deleteDeliverable,
+  createTask,
+  updateTask,
+  deleteTask,
+  assignTask,
+  updateTaskAssignment,
+  removeTaskAssignment,
+  createTaskDependency,
+  removeTaskDependency,
+  postChatMessage,
+  updateChatMessage,
+  deleteChatMessage,
+  createTimelineEntry,
+  updateTimelineEntry,
+  deleteTimelineEntry,
+  scheduleMeeting,
+  updateMeeting,
+  deleteMeeting,
+  createCalendarEvent,
+  updateCalendarEvent,
+  deleteCalendarEvent,
+  createRoleDefinition,
+  updateRoleDefinition,
+  deleteRoleDefinition,
+  assignRole,
+  updateRoleAssignment,
+  removeRoleAssignment,
+  createSubmission,
+  updateSubmission,
+  deleteSubmission,
+  createFile,
+  updateFile,
+  deleteFile,
+  createInvitation,
+  updateInvitation,
+  deleteInvitation,
+  createHrRecord,
+  updateHrRecord,
+  deleteHrRecord,
 };
