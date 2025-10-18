@@ -52,6 +52,7 @@ import CompanyDashboardPage from './pages/dashboards/CompanyDashboardPage.jsx';
 import CompanyAtsOperationsPage from './pages/dashboards/CompanyAtsOperationsPage.jsx';
 import CompanyAnalyticsPage from './pages/dashboards/CompanyAnalyticsPage.jsx';
 import CompanyIntegrationsPage from './pages/dashboards/CompanyIntegrationsPage.jsx';
+import CompanyCrmIntegrationsPage from './pages/dashboards/CompanyCrmIntegrationsPage.jsx';
 import CompanyByokAutoReplyPage from './pages/dashboards/CompanyByokAutoReplyPage.jsx';
 import CompanyProjectWorkspacePage from './pages/dashboards/company/CompanyProjectWorkspacePage.jsx';
 import CompanyInboxPage from './pages/dashboards/CompanyInboxPage.jsx';
@@ -372,6 +373,10 @@ export default function App() {
       />
 
       <Route
+        path="dashboard/company/integrations/crm"
+        element={
+          <RequireRole allowedRoles={['company']}>
+            <CompanyCrmIntegrationsPage />
         path="dashboard/company/ai-auto-reply"
         element={
           <RequireRole allowedRoles={['company']}>

@@ -117,6 +117,10 @@ import {
   INTERNAL_OPPORTUNITY_CATEGORIES, INTERNAL_MATCH_STATUSES, BRANDING_ASSET_TYPES, BRANDING_ASSET_STATUSES,
   BRANDING_APPROVAL_STATUSES, EMPLOYER_BRAND_STORY_TYPES, EMPLOYER_BRAND_STORY_STATUSES, EMPLOYER_BENEFIT_CATEGORIES,
   EMPLOYEE_JOURNEY_PROGRAM_TYPES, EMPLOYEE_JOURNEY_HEALTH_STATUSES, WORKSPACE_INTEGRATION_CATEGORIES, WORKSPACE_INTEGRATION_STATUSES,
+  WORKSPACE_INTEGRATION_SYNC_FREQUENCIES, WORKSPACE_INTEGRATION_AUTH_TYPES, WORKSPACE_INTEGRATION_ENVIRONMENTS,
+  WORKSPACE_INTEGRATION_SYNC_STATUSES, WORKSPACE_INTEGRATION_CREDENTIAL_TYPES, WORKSPACE_INTEGRATION_INCIDENT_SEVERITIES,
+  WORKSPACE_INTEGRATION_INCIDENT_STATUSES, WORKSPACE_INTEGRATION_SYNC_RUN_STATUSES, WORKSPACE_CALENDAR_CONNECTION_STATUSES,
+  CAREER_DOCUMENT_TYPES, CAREER_DOCUMENT_STATUSES,
   WORKSPACE_INTEGRATION_SYNC_FREQUENCIES, WORKSPACE_INTEGRATION_SECRET_TYPES, WORKSPACE_INTEGRATION_WEBHOOK_STATUSES,
   WORKSPACE_INTEGRATION_AUDIT_EVENT_TYPES, WORKSPACE_CALENDAR_CONNECTION_STATUSES, CAREER_DOCUMENT_TYPES, CAREER_DOCUMENT_STATUSES,
   CAREER_DOCUMENT_VERSION_APPROVAL_STATUSES, CAREER_DOCUMENT_COLLABORATOR_ROLES, CAREER_DOCUMENT_EXPORT_FORMATS, CAREER_DOCUMENT_ANALYTICS_VIEWER_TYPES,
@@ -10925,13 +10929,31 @@ export const WorkspaceIntegration = sequelize.define(
       allowNull: false,
       defaultValue: 'pending',
     },
+    authType: {
+      type: DataTypes.ENUM(...WORKSPACE_INTEGRATION_AUTH_TYPES),
+      allowNull: false,
+      defaultValue: 'oauth',
+    },
+    environment: {
+      type: DataTypes.ENUM(...WORKSPACE_INTEGRATION_ENVIRONMENTS),
+      allowNull: false,
+      defaultValue: 'production',
+    },
     lastSyncedAt: { type: DataTypes.DATE, allowNull: true },
     syncFrequency: {
       type: DataTypes.ENUM(...WORKSPACE_INTEGRATION_SYNC_FREQUENCIES),
       allowNull: false,
       defaultValue: 'daily',
     },
+    connectedAt: { type: DataTypes.DATE, allowNull: true },
+    nextSyncAt: { type: DataTypes.DATE, allowNull: true },
+    lastSyncStatus: {
+      type: DataTypes.ENUM(...WORKSPACE_INTEGRATION_SYNC_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+    },
     metadata: { type: jsonType, allowNull: true },
+    settings: { type: jsonType, allowNull: true },
   },
   {
     tableName: 'workspace_integrations',
@@ -10940,10 +10962,270 @@ export const WorkspaceIntegration = sequelize.define(
       { fields: ['providerKey'] },
       { fields: ['category'] },
       { fields: ['status'] },
+      { fields: ['environment'] },
+      { fields: ['lastSyncStatus'] },
     ],
   },
 );
 
+WorkspaceIntegration.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    providerKey: plain.providerKey,
+    displayName: plain.displayName,
+    category: plain.category,
+    status: plain.status,
+    authType: plain.authType,
+    environment: plain.environment,
+    lastSyncedAt: plain.lastSyncedAt ?? null,
+    syncFrequency: plain.syncFrequency,
+    connectedAt: plain.connectedAt ?? null,
+    nextSyncAt: plain.nextSyncAt ?? null,
+    lastSyncStatus: plain.lastSyncStatus,
+    metadata: plain.metadata ?? null,
+    settings: plain.settings ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const WorkspaceIntegrationCredential = sequelize.define(
+  'WorkspaceIntegrationCredential',
+  {
+    integrationId: { type: DataTypes.INTEGER, allowNull: false },
+    credentialType: {
+      type: DataTypes.ENUM(...WORKSPACE_INTEGRATION_CREDENTIAL_TYPES),
+      allowNull: false,
+      defaultValue: 'api_key',
+    },
+    secretDigest: { type: DataTypes.STRING(128), allowNull: false },
+    fingerprint: { type: DataTypes.STRING(64), allowNull: true },
+    expiresAt: { type: DataTypes.DATE, allowNull: true },
+    lastRotatedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'workspace_integration_credentials',
+    indexes: [
+      { fields: ['integrationId'] },
+      { fields: ['credentialType'] },
+      { fields: ['fingerprint'] },
+    ],
+  },
+);
+
+WorkspaceIntegrationCredential.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    integrationId: plain.integrationId,
+    credentialType: plain.credentialType,
+    fingerprint: plain.fingerprint ?? null,
+    expiresAt: plain.expiresAt ?? null,
+    lastRotatedAt: plain.lastRotatedAt ?? null,
+    createdById: plain.createdById ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const WorkspaceIntegrationFieldMapping = sequelize.define(
+  'WorkspaceIntegrationFieldMapping',
+  {
+    integrationId: { type: DataTypes.INTEGER, allowNull: false },
+    externalObject: { type: DataTypes.STRING(80), allowNull: false },
+    localObject: { type: DataTypes.STRING(80), allowNull: false },
+    mapping: { type: jsonType, allowNull: false, defaultValue: {} },
+    isActive: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+  },
+  {
+    tableName: 'workspace_integration_field_mappings',
+    indexes: [
+      { fields: ['integrationId'] },
+      { fields: ['externalObject'] },
+    ],
+  },
+);
+
+WorkspaceIntegrationFieldMapping.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    integrationId: plain.integrationId,
+    externalObject: plain.externalObject,
+    localObject: plain.localObject,
+    mapping: plain.mapping ?? {},
+    isActive: Boolean(plain.isActive),
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const WorkspaceIntegrationRoleAssignment = sequelize.define(
+  'WorkspaceIntegrationRoleAssignment',
+  {
+    integrationId: { type: DataTypes.INTEGER, allowNull: false },
+    roleKey: { type: DataTypes.STRING(60), allowNull: false },
+    roleLabel: { type: DataTypes.STRING(120), allowNull: false },
+    assigneeName: { type: DataTypes.STRING(120), allowNull: true },
+    assigneeEmail: { type: DataTypes.STRING(160), allowNull: true },
+    userId: { type: DataTypes.INTEGER, allowNull: true },
+    permissions: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'workspace_integration_role_assignments',
+    indexes: [
+      { fields: ['integrationId'] },
+      { fields: ['roleKey'] },
+      { fields: ['assigneeEmail'] },
+    ],
+  },
+);
+
+WorkspaceIntegrationRoleAssignment.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    integrationId: plain.integrationId,
+    roleKey: plain.roleKey,
+    roleLabel: plain.roleLabel,
+    assigneeName: plain.assigneeName ?? null,
+    assigneeEmail: plain.assigneeEmail ?? null,
+    userId: plain.userId ?? null,
+    permissions: plain.permissions ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const WorkspaceIntegrationSyncRun = sequelize.define(
+  'WorkspaceIntegrationSyncRun',
+  {
+    integrationId: { type: DataTypes.INTEGER, allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...WORKSPACE_INTEGRATION_SYNC_RUN_STATUSES),
+      allowNull: false,
+      defaultValue: 'queued',
+    },
+    trigger: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'manual' },
+    triggeredById: { type: DataTypes.INTEGER, allowNull: true },
+    startedAt: { type: DataTypes.DATE, allowNull: true },
+    finishedAt: { type: DataTypes.DATE, allowNull: true },
+    recordsProcessed: { type: DataTypes.INTEGER, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'workspace_integration_sync_runs',
+    indexes: [
+      { fields: ['integrationId'] },
+      { fields: ['status'] },
+      { fields: ['triggeredById'] },
+    ],
+  },
+);
+
+WorkspaceIntegrationSyncRun.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    integrationId: plain.integrationId,
+    status: plain.status,
+    trigger: plain.trigger,
+    triggeredById: plain.triggeredById ?? null,
+    startedAt: plain.startedAt ?? null,
+    finishedAt: plain.finishedAt ?? null,
+    recordsProcessed: plain.recordsProcessed ?? null,
+    notes: plain.notes ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const WorkspaceIntegrationIncident = sequelize.define(
+  'WorkspaceIntegrationIncident',
+  {
+    integrationId: { type: DataTypes.INTEGER, allowNull: false },
+    severity: {
+      type: DataTypes.ENUM(...WORKSPACE_INTEGRATION_INCIDENT_SEVERITIES),
+      allowNull: false,
+      defaultValue: 'low',
+    },
+    status: {
+      type: DataTypes.ENUM(...WORKSPACE_INTEGRATION_INCIDENT_STATUSES),
+      allowNull: false,
+      defaultValue: 'open',
+    },
+    summary: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    openedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    resolvedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'workspace_integration_incidents',
+    indexes: [
+      { fields: ['integrationId'] },
+      { fields: ['status'] },
+      { fields: ['severity'] },
+    ],
+  },
+);
+
+WorkspaceIntegrationIncident.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    integrationId: plain.integrationId,
+    severity: plain.severity,
+    status: plain.status,
+    summary: plain.summary,
+    description: plain.description ?? null,
+    openedAt: plain.openedAt ?? null,
+    resolvedAt: plain.resolvedAt ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const WorkspaceIntegrationAuditEvent = sequelize.define(
+  'WorkspaceIntegrationAuditEvent',
+  {
+    integrationId: { type: DataTypes.INTEGER, allowNull: false },
+    action: { type: DataTypes.STRING(120), allowNull: false },
+    actorId: { type: DataTypes.INTEGER, allowNull: true },
+    actorName: { type: DataTypes.STRING(180), allowNull: true },
+    details: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'workspace_integration_audit_events',
+    indexes: [
+      { fields: ['integrationId'] },
+      { fields: ['action'] },
+      { fields: ['createdAt'] },
+    ],
+  },
+);
+
+WorkspaceIntegrationAuditEvent.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    integrationId: plain.integrationId,
+    action: plain.action,
+    actorId: plain.actorId ?? null,
+    actorName: plain.actorName ?? null,
+    details: plain.details ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
 export const WorkspaceIntegrationSecret = sequelize.define(
   'WorkspaceIntegrationSecret',
   {
@@ -20299,6 +20581,18 @@ User.hasMany(WorkspaceIntegrationSecret, { foreignKey: 'rotatedById', as: 'rotat
 User.hasMany(WorkspaceIntegrationWebhook, { foreignKey: 'createdById', as: 'createdIntegrationWebhooks' });
 User.hasMany(WorkspaceIntegrationAuditLog, { foreignKey: 'actorId', as: 'workspaceIntegrationAuditEvents' });
 ProviderWorkspace.hasMany(WorkspaceCalendarConnection, { foreignKey: 'workspaceId', as: 'calendarConnections' });
+WorkspaceIntegration.hasMany(WorkspaceIntegrationCredential, { foreignKey: 'integrationId', as: 'credentials' });
+WorkspaceIntegrationCredential.belongsTo(WorkspaceIntegration, { foreignKey: 'integrationId', as: 'integration' });
+WorkspaceIntegration.hasMany(WorkspaceIntegrationFieldMapping, { foreignKey: 'integrationId', as: 'fieldMappings' });
+WorkspaceIntegrationFieldMapping.belongsTo(WorkspaceIntegration, { foreignKey: 'integrationId', as: 'integration' });
+WorkspaceIntegration.hasMany(WorkspaceIntegrationRoleAssignment, { foreignKey: 'integrationId', as: 'roleAssignments' });
+WorkspaceIntegrationRoleAssignment.belongsTo(WorkspaceIntegration, { foreignKey: 'integrationId', as: 'integration' });
+WorkspaceIntegration.hasMany(WorkspaceIntegrationSyncRun, { foreignKey: 'integrationId', as: 'syncRuns' });
+WorkspaceIntegrationSyncRun.belongsTo(WorkspaceIntegration, { foreignKey: 'integrationId', as: 'integration' });
+WorkspaceIntegration.hasMany(WorkspaceIntegrationIncident, { foreignKey: 'integrationId', as: 'incidents' });
+WorkspaceIntegrationIncident.belongsTo(WorkspaceIntegration, { foreignKey: 'integrationId', as: 'integration' });
+WorkspaceIntegration.hasMany(WorkspaceIntegrationAuditEvent, { foreignKey: 'integrationId', as: 'auditEvents' });
+WorkspaceIntegrationAuditEvent.belongsTo(WorkspaceIntegration, { foreignKey: 'integrationId', as: 'integration' });
 
 ProviderWorkspace.hasMany(ClientEngagement, { foreignKey: 'workspaceId', as: 'clientEngagements' });
 ClientEngagement.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
@@ -21009,6 +21303,12 @@ export default {
   EmployerBenefit,
   EmployeeJourneyProgram,
   WorkspaceIntegration,
+  WorkspaceIntegrationCredential,
+  WorkspaceIntegrationFieldMapping,
+  WorkspaceIntegrationRoleAssignment,
+  WorkspaceIntegrationSyncRun,
+  WorkspaceIntegrationIncident,
+  WorkspaceIntegrationAuditEvent,
   WorkspaceIntegrationSecret,
   WorkspaceIntegrationWebhook,
   WorkspaceIntegrationAuditLog,

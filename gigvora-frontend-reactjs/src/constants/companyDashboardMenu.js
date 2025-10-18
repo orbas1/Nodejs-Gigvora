@@ -206,6 +206,13 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
         tags: ['ai', 'automation'],
       },
       {
+        name: 'CRM',
+        description: 'Connector controls.',
+        sectionId: 'settings-governance',
+        href: '/dashboard/company/integrations/crm',
+        tags: ['integrations'],
+      },
+      {
         name: 'Governance & compliance',
         description: 'Maintain GDPR/CCPA compliance, accessibility standards, and equitable hiring policies.',
         sectionId: 'governance-compliance',
