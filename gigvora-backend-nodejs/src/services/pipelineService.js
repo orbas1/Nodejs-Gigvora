@@ -9,6 +9,7 @@ import {
   PipelineFollowUp,
   PipelineCampaign,
   FreelancerProfile,
+  ProviderWorkspace,
 } from '../models/index.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
 import { getAdDashboardSnapshot } from './adService.js';
@@ -18,7 +19,7 @@ const STALE_DEAL_THRESHOLD_DAYS = 21;
 const FOLLOW_UP_LOOKAHEAD_DAYS = 14;
 const ENTERPRISE_MAX_RECOMMENDATIONS = 6;
 
-const DEFAULT_PIPELINE_STAGES = [
+const DEFAULT_FREELANCER_PIPELINE_STAGES = [
   { name: 'Lead In', winProbability: 10, statusCategory: 'open' },
   { name: 'Discovery Scheduled', winProbability: 25, statusCategory: 'open' },
   { name: 'Proposal Sent', winProbability: 45, statusCategory: 'open' },
@@ -27,7 +28,18 @@ const DEFAULT_PIPELINE_STAGES = [
   { name: 'Closed Lost', winProbability: 0, statusCategory: 'lost' },
 ];
 
-const DEFAULT_PROPOSAL_TEMPLATES = [
+const DEFAULT_AGENCY_PIPELINE_STAGES = [
+  { name: 'Inbound Lead', winProbability: 5, statusCategory: 'open' },
+  { name: 'Discovery Call', winProbability: 20, statusCategory: 'open' },
+  { name: 'Solution Design', winProbability: 40, statusCategory: 'open' },
+  { name: 'Proposal Review', winProbability: 55, statusCategory: 'open' },
+  { name: 'Negotiation', winProbability: 70, statusCategory: 'open' },
+  { name: 'Kickoff Scheduled', winProbability: 90, statusCategory: 'open' },
+  { name: 'Closed Won', winProbability: 100, statusCategory: 'won' },
+  { name: 'Closed Lost', winProbability: 0, statusCategory: 'lost' },
+];
+
+const DEFAULT_FREELANCER_PROPOSAL_TEMPLATES = [
   {
     name: 'Brand Retainer Growth Plan',
     description: 'Strategy, design, and campaign optimisation retainer with quarterly growth targets.',
@@ -81,6 +93,84 @@ const DEFAULT_PROPOSAL_TEMPLATES = [
   },
 ];
 
+const DEFAULT_AGENCY_PROPOSAL_TEMPLATES = [
+  {
+    name: 'Fractional Growth Retainer',
+    description:
+      'Monthly retainer covering growth leadership, experimentation pods, and executive reporting with shared OKRs.',
+    caseStudies: [
+      {
+        title: 'B2B SaaS pipeline expansion',
+        outcome: 'Generated $3.2M in influenced pipeline within 2 quarters',
+        link: 'https://example.com/case-studies/b2b-saas-expansion',
+      },
+    ],
+    roiCalculator: {
+      baselineMonthlyRevenue: 85000,
+      projectedMonthlyRevenue: 132000,
+      investment: 24000,
+    },
+    pricingModel: { type: 'retainer', amount: 24000, cadence: 'monthly' },
+  },
+  {
+    name: 'Product Launch Command Center',
+    description:
+      'Integrated go-to-market sprint with research, positioning, creative production, and lifecycle orchestration.',
+    caseStudies: [
+      {
+        title: 'Fintech product relaunch',
+        outcome: '20k waitlist conversions and 4.6 CSAT within 45 days',
+        link: 'https://example.com/case-studies/fintech-relaunch',
+      },
+    ],
+    roiCalculator: {
+      projectedNewUsers: 20000,
+      lifetimeValue: 145,
+      investment: 68000,
+    },
+    pricingModel: { type: 'project', amount: 68000, cadence: 'one_time' },
+  },
+  {
+    name: 'Revenue Operations Audit & Playbooks',
+    description:
+      '60-day audit of CRM, deal velocity, and enablement assets with prioritised playbooks and automation roadmap.',
+    caseStudies: [
+      {
+        title: 'Enterprise RevOps upgrade',
+        outcome: '31% lift in win rate and 18-day faster cycle times',
+        link: 'https://example.com/case-studies/revops-upgrade',
+      },
+    ],
+    roiCalculator: {
+      retainedCustomers: 1200,
+      incrementalMarginPerCustomer: 210,
+      investment: 42000,
+    },
+    pricingModel: { type: 'project', amount: 42000, cadence: 'one_time' },
+  },
+];
+
+const PIPELINE_OWNER_DEFAULTS = Object.freeze({
+  freelancer: {
+    boardName: 'Freelancer relationship pipeline',
+    grouping: 'industry',
+    stages: DEFAULT_FREELANCER_PIPELINE_STAGES,
+    templates: DEFAULT_FREELANCER_PROPOSAL_TEMPLATES,
+  },
+  agency: {
+    boardName: 'Agency client revenue pipeline',
+    grouping: 'industry',
+    stages: DEFAULT_AGENCY_PIPELINE_STAGES,
+    templates: DEFAULT_AGENCY_PROPOSAL_TEMPLATES,
+  },
+  company: {
+    boardName: 'Company partnership pipeline',
+    grouping: 'industry',
+    stages: DEFAULT_AGENCY_PIPELINE_STAGES,
+    templates: DEFAULT_AGENCY_PROPOSAL_TEMPLATES,
+  },
+});
+
 const PIPELINE_VIEW_DEFINITIONS = [
   {
     key: 'stage',
@@ -116,6 +206,17 @@ function normaliseOwnerId(ownerId) {
   return numeric;
 }
 
+function normaliseOwnerType(ownerType) {
+  const normalized = typeof ownerType === 'string' ? ownerType.toLowerCase().trim() : 'freelancer';
+  if (!normalized) {
+    return 'freelancer';
+  }
+  if (!Object.prototype.hasOwnProperty.call(PIPELINE_OWNER_DEFAULTS, normalized)) {
+    throw new ValidationError('Invalid pipeline owner type provided.');
+  }
+  return normalized;
+}
+
 function normaliseDealId(dealId) {
   const numeric = Number(dealId);
   if (!Number.isInteger(numeric) || numeric <= 0) {
@@ -132,15 +233,34 @@ function normaliseFollowUpId(followUpId) {
   return numeric;
 }
 
+function normaliseProposalId(proposalId) {
+  const numeric = Number(proposalId);
+  if (!Number.isInteger(numeric) || numeric <= 0) {
+    throw new ValidationError('proposalId must be a positive integer.');
+  }
+  return numeric;
+}
+
+function normaliseCampaignId(campaignId) {
+  const numeric = Number(campaignId);
+  if (!Number.isInteger(numeric) || numeric <= 0) {
+    throw new ValidationError('campaignId must be a positive integer.');
+  }
+  return numeric;
+}
+
 function pickAllowedFields(payload, allowed) {
   return Object.entries(payload ?? {})
     .filter(([key, value]) => allowed.includes(key) && value !== undefined)
     .reduce((accumulator, [key, value]) => ({ ...accumulator, [key]: value }), {});
 }
 
-async function ensureBoard(ownerId, { transaction } = {}) {
+async function ensureBoard(ownerId, ownerType = 'freelancer', { transaction } = {}) {
+  const normalizedOwnerType = normaliseOwnerType(ownerType);
+  const defaults = PIPELINE_OWNER_DEFAULTS[normalizedOwnerType] ?? PIPELINE_OWNER_DEFAULTS.freelancer;
+
   const existingBoard = await PipelineBoard.findOne({
-    where: { ownerId, ownerType: 'freelancer' },
+    where: { ownerId, ownerType: normalizedOwnerType },
     transaction,
   });
   if (existingBoard) {
@@ -151,15 +271,15 @@ async function ensureBoard(ownerId, { transaction } = {}) {
     const board = await PipelineBoard.create(
       {
         ownerId,
-        ownerType: 'freelancer',
-        name: 'Freelancer relationship pipeline',
-        grouping: 'industry',
+        ownerType: normalizedOwnerType,
+        name: defaults.boardName,
+        grouping: defaults.grouping,
       },
       { transaction: trx },
     );
 
     await PipelineStage.bulkCreate(
-      DEFAULT_PIPELINE_STAGES.map((stage, index) => ({
+      defaults.stages.map((stage, index) => ({
         ...stage,
         position: index,
         boardId: board.id,
@@ -168,15 +288,15 @@ async function ensureBoard(ownerId, { transaction } = {}) {
     );
 
     const existingTemplates = await PipelineProposalTemplate.count({
-      where: { ownerId, ownerType: 'freelancer' },
+      where: { ownerId, ownerType: normalizedOwnerType },
       transaction: trx,
     });
     if (existingTemplates === 0) {
       await PipelineProposalTemplate.bulkCreate(
-        DEFAULT_PROPOSAL_TEMPLATES.map((template) => ({
+        defaults.templates.map((template) => ({
           ...template,
           ownerId,
-          ownerType: 'freelancer',
+          ownerType: normalizedOwnerType,
         })),
         { transaction: trx },
       );
@@ -184,6 +304,25 @@ async function ensureBoard(ownerId, { transaction } = {}) {
 
     return board;
   });
+}
+
+async function recomputeDealNextFollowUp(dealId, ownerId, ownerType, { transaction } = {}) {
+  const nextPendingFollowUp = await PipelineFollowUp.findOne({
+    where: {
+      dealId,
+      ownerId,
+      ownerType,
+      status: 'scheduled',
+      dueAt: { [Op.gte]: new Date() },
+    },
+    order: [['dueAt', 'ASC']],
+    transaction,
+  });
+
+  await PipelineDeal.update(
+    { nextFollowUpAt: nextPendingFollowUp?.dueAt ?? null },
+    { where: { id: dealId }, transaction },
+  );
 }
 
 function sanitizeDeal(dealInstance) {
@@ -1198,9 +1337,10 @@ function buildEnterpriseInsights({ deals, summary }) {
   };
 }
 
-async function loadBoardContext(ownerId) {
+async function loadBoardContext(ownerId, ownerType = 'freelancer') {
+  const normalizedOwnerType = normaliseOwnerType(ownerType);
   const board = await PipelineBoard.findOne({
-    where: { ownerId, ownerType: 'freelancer' },
+    where: { ownerId, ownerType: normalizedOwnerType },
     include: [
       { model: PipelineStage, as: 'stages', separate: true, order: [['position', 'ASC']] },
     ],
@@ -1233,7 +1373,7 @@ async function loadBoardContext(ownerId) {
   const sanitizedDeals = deals.map((deal) => sanitizeDeal(deal));
 
   const campaigns = await PipelineCampaign.findAll({
-    where: { ownerId, ownerType: 'freelancer' },
+    where: { ownerId, ownerType: normalizedOwnerType },
     order: [
       ['status', 'ASC'],
       ['launchDate', 'DESC'],
@@ -1245,7 +1385,7 @@ async function loadBoardContext(ownerId) {
       {
         model: PipelineDeal,
         as: 'deal',
-        where: { ownerId, ownerType: 'freelancer' },
+        where: { ownerId, ownerType: normalizedOwnerType },
         attributes: ['id', 'title', 'clientName'],
       },
       { model: PipelineProposalTemplate, as: 'template' },
@@ -1254,14 +1394,14 @@ async function loadBoardContext(ownerId) {
   });
 
   const followUps = await PipelineFollowUp.findAll({
-    where: { ownerId, ownerType: 'freelancer' },
+    where: { ownerId, ownerType: normalizedOwnerType },
     include: [{ model: PipelineDeal, as: 'deal', attributes: ['id', 'title', 'clientName', 'status'] }],
     order: [['dueAt', 'ASC']],
     limit: 50,
   });
 
   const templates = await PipelineProposalTemplate.findAll({
-    where: { ownerId, ownerType: 'freelancer', isArchived: false },
+    where: { ownerId, ownerType: normalizedOwnerType, isArchived: false },
     order: [['name', 'ASC']],
   });
 
@@ -1283,19 +1423,29 @@ async function loadBoardContext(ownerId) {
   };
 }
 
-export async function getFreelancerPipelineDashboard(ownerId, { view = 'stage' } = {}) {
+export async function getFreelancerPipelineDashboard(ownerId, { view = 'stage', ownerType = 'freelancer' } = {}) {
   const normalizedOwnerId = normaliseOwnerId(ownerId);
-  await ensureBoard(normalizedOwnerId);
+  const normalizedOwnerType = normaliseOwnerType(ownerType);
+  await ensureBoard(normalizedOwnerId, normalizedOwnerType);
 
-  const context = await loadBoardContext(normalizedOwnerId);
+  const context = await loadBoardContext(normalizedOwnerId, normalizedOwnerType);
   if (!context) {
     throw new NotFoundError('Pipeline board could not be initialised.');
   }
 
-  const freelancerProfile = await FreelancerProfile.findOne({
-    where: { userId: normalizedOwnerId },
-    attributes: ['id', 'title', 'availability'],
-  });
+  let freelancerProfile = null;
+  let workspaceProfile = null;
+  if (normalizedOwnerType === 'freelancer') {
+    freelancerProfile = await FreelancerProfile.findOne({
+      where: { userId: normalizedOwnerId },
+      attributes: ['id', 'title', 'availability'],
+    });
+  } else if (normalizedOwnerType === 'agency' || normalizedOwnerType === 'company') {
+    workspaceProfile = await ProviderWorkspace.findOne({
+      where: { id: normalizedOwnerId },
+      attributes: ['id', 'name', 'slug', 'defaultCurrency'],
+    });
+  }
 
   const summary = calculateSummaryMetrics(context.deals);
   const enterprise = buildEnterpriseInsights({ deals: context.deals, summary });
@@ -1316,6 +1466,8 @@ export async function getFreelancerPipelineDashboard(ownerId, { view = 'stage' }
       ...context.templates.map((template) => template.name),
       freelancerProfile?.title,
       freelancerProfile?.availability,
+      workspaceProfile?.name,
+      workspaceProfile?.slug,
     ]
       .flat()
       .filter(Boolean)
@@ -1327,9 +1479,20 @@ export async function getFreelancerPipelineDashboard(ownerId, { view = 'stage' }
   if (freelancerProfile?.id) {
     opportunityTargets.push({ targetType: 'freelance', ids: [freelancerProfile.id] });
   }
+  if (workspaceProfile?.id) {
+    opportunityTargets.push({ targetType: 'workspace', ids: [workspaceProfile.id] });
+  }
+
+  const surfaces = new Set(['pipeline_dashboard']);
+  if (normalizedOwnerType === 'freelancer') {
+    surfaces.add('freelancer_dashboard');
+  }
+  if (normalizedOwnerType === 'agency') {
+    surfaces.add('agency_dashboard');
+  }
 
   const ads = await getAdDashboardSnapshot({
-    surfaces: ['pipeline_dashboard', 'freelancer_dashboard'],
+    surfaces: Array.from(surfaces),
     context: {
       keywordHints: Array.from(keywordHints),
       opportunityTargets,
@@ -1356,17 +1519,20 @@ export async function getFreelancerPipelineDashboard(ownerId, { view = 'stage' }
   };
 }
 
-export async function createPipelineDeal(ownerId, payload = {}) {
+export async function createPipelineDeal(ownerId, payload = {}, options = {}) {
   const normalizedOwnerId = normaliseOwnerId(ownerId);
+  const normalizedOwnerType = normaliseOwnerType(options.ownerType ?? payload.ownerType ?? 'freelancer');
+  const sanitizedPayload = { ...payload };
+  delete sanitizedPayload.ownerType;
   const requiredFields = ['title', 'clientName'];
   requiredFields.forEach((field) => {
-    if (!payload[field] || `${payload[field]}`.trim() === '') {
+    if (!sanitizedPayload[field] || `${sanitizedPayload[field]}`.trim() === '') {
       throw new ValidationError(`${field} is required to create a pipeline deal.`);
     }
   });
 
-  const board = await ensureBoard(normalizedOwnerId);
-  const stageId = payload.stageId ? Number(payload.stageId) : null;
+  const board = await ensureBoard(normalizedOwnerId, normalizedOwnerType);
+  const stageId = sanitizedPayload.stageId ? Number(sanitizedPayload.stageId) : null;
 
   return sequelize.transaction(async (transaction) => {
     let stage = null;
@@ -1376,7 +1542,7 @@ export async function createPipelineDeal(ownerId, payload = {}) {
         transaction,
       });
       if (!stage) {
-        throw new ValidationError('The provided stage does not exist on the freelancer pipeline.');
+        throw new ValidationError('The provided stage does not exist on this pipeline.');
       }
     } else {
       stage = await PipelineStage.findOne({
@@ -1386,7 +1552,7 @@ export async function createPipelineDeal(ownerId, payload = {}) {
       });
     }
     if (!stage) {
-      throw new ValidationError('Pipeline stages are not configured for this freelancer.');
+      throw new ValidationError('Pipeline stages are not configured for this workspace.');
     }
 
     const deal = await PipelineDeal.create(
@@ -1394,21 +1560,21 @@ export async function createPipelineDeal(ownerId, payload = {}) {
         boardId: board.id,
         stageId: stage.id,
         ownerId: normalizedOwnerId,
-        ownerType: 'freelancer',
-        campaignId: payload.campaignId ?? null,
-        title: payload.title,
-        clientName: payload.clientName,
-        industry: payload.industry ?? null,
-        retainerSize: payload.retainerSize ?? null,
-        pipelineValue: payload.pipelineValue ?? 0,
-        winProbability: payload.winProbability ?? stage.winProbability ?? 0,
-        status: resolveStatusFromStage(stage, payload.status ?? 'open'),
-        source: payload.source ?? null,
-        lastContactAt: payload.lastContactAt ?? null,
-        nextFollowUpAt: payload.nextFollowUpAt ?? null,
-        expectedCloseDate: payload.expectedCloseDate ?? null,
-        notes: payload.notes ?? null,
-        tags: payload.tags ?? null,
+        ownerType: normalizedOwnerType,
+        campaignId: sanitizedPayload.campaignId ?? null,
+        title: sanitizedPayload.title,
+        clientName: sanitizedPayload.clientName,
+        industry: sanitizedPayload.industry ?? null,
+        retainerSize: sanitizedPayload.retainerSize ?? null,
+        pipelineValue: sanitizedPayload.pipelineValue ?? 0,
+        winProbability: sanitizedPayload.winProbability ?? stage.winProbability ?? 0,
+        status: resolveStatusFromStage(stage, sanitizedPayload.status ?? 'open'),
+        source: sanitizedPayload.source ?? null,
+        lastContactAt: sanitizedPayload.lastContactAt ?? null,
+        nextFollowUpAt: sanitizedPayload.nextFollowUpAt ?? null,
+        expectedCloseDate: sanitizedPayload.expectedCloseDate ?? null,
+        notes: sanitizedPayload.notes ?? null,
+        tags: sanitizedPayload.tags ?? null,
       },
       { transaction },
     );
@@ -1431,20 +1597,23 @@ export async function createPipelineDeal(ownerId, payload = {}) {
   });
 }
 
-export async function updatePipelineDeal(ownerId, dealId, payload = {}) {
+export async function updatePipelineDeal(ownerId, dealId, payload = {}, options = {}) {
   const normalizedOwnerId = normaliseOwnerId(ownerId);
   const normalizedDealId = normaliseDealId(dealId);
+  const normalizedOwnerType = normaliseOwnerType(options.ownerType ?? payload.ownerType ?? 'freelancer');
+  const sanitizedPayload = { ...payload };
+  delete sanitizedPayload.ownerType;
 
   return sequelize.transaction(async (transaction) => {
     const deal = await PipelineDeal.findOne({
-      where: { id: normalizedDealId, ownerId: normalizedOwnerId, ownerType: 'freelancer' },
+      where: { id: normalizedDealId, ownerId: normalizedOwnerId, ownerType: normalizedOwnerType },
       transaction,
     });
     if (!deal) {
       throw new NotFoundError('The requested pipeline deal could not be found.');
     }
 
-    const update = pickAllowedFields(payload, [
+    const update = pickAllowedFields(sanitizedPayload, [
       'title',
       'clientName',
       'industry',
@@ -1482,11 +1651,11 @@ export async function updatePipelineDeal(ownerId, dealId, payload = {}) {
 
     if (update.campaignId) {
       const campaign = await PipelineCampaign.findOne({
-        where: { id: update.campaignId, ownerId: normalizedOwnerId, ownerType: 'freelancer' },
+        where: { id: update.campaignId, ownerId: normalizedOwnerId, ownerType: normalizedOwnerType },
         transaction,
       });
       if (!campaign) {
-        throw new ValidationError('The selected campaign is not owned by this freelancer.');
+        throw new ValidationError('The selected campaign is not owned by this pipeline workspace.');
       }
     }
 
@@ -1518,13 +1687,16 @@ export async function updatePipelineDeal(ownerId, dealId, payload = {}) {
   });
 }
 
-export async function createPipelineProposal(ownerId, payload = {}) {
+export async function createPipelineProposal(ownerId, payload = {}, options = {}) {
   const normalizedOwnerId = normaliseOwnerId(ownerId);
   const normalizedDealId = normaliseDealId(payload.dealId);
+  const normalizedOwnerType = normaliseOwnerType(options.ownerType ?? payload.ownerType ?? 'freelancer');
+  const sanitizedPayload = { ...payload };
+  delete sanitizedPayload.ownerType;
 
   return sequelize.transaction(async (transaction) => {
     const deal = await PipelineDeal.findOne({
-      where: { id: normalizedDealId, ownerId: normalizedOwnerId, ownerType: 'freelancer' },
+      where: { id: normalizedDealId, ownerId: normalizedOwnerId, ownerType: normalizedOwnerType },
       transaction,
     });
     if (!deal) {
@@ -1532,9 +1704,9 @@ export async function createPipelineProposal(ownerId, payload = {}) {
     }
 
     let template = null;
-    if (payload.templateId) {
+    if (sanitizedPayload.templateId) {
       template = await PipelineProposalTemplate.findOne({
-        where: { id: payload.templateId, ownerId: normalizedOwnerId, ownerType: 'freelancer' },
+        where: { id: sanitizedPayload.templateId, ownerId: normalizedOwnerId, ownerType: normalizedOwnerType },
         transaction,
       });
       if (!template) {
@@ -1547,15 +1719,15 @@ export async function createPipelineProposal(ownerId, payload = {}) {
       {
         dealId: deal.id,
         templateId: template?.id ?? null,
-        title: payload.title || `${deal.title} proposal`,
-        summary: payload.summary ?? template?.description ?? null,
-        status: payload.status ?? 'draft',
-        version: payload.version ?? 'v1',
-        pricing: payload.pricing ?? template?.pricingModel ?? null,
-        roiModel: payload.roiModel ?? template?.roiCalculator ?? null,
-        caseStudies: payload.caseStudies ?? template?.caseStudies ?? null,
-        sentAt: payload.sentAt ?? null,
-        acceptedAt: payload.acceptedAt ?? null,
+        title: sanitizedPayload.title || `${deal.title} proposal`,
+        summary: sanitizedPayload.summary ?? template?.description ?? null,
+        status: sanitizedPayload.status ?? 'draft',
+        version: sanitizedPayload.version ?? 'v1',
+        pricing: sanitizedPayload.pricing ?? template?.pricingModel ?? null,
+        roiModel: sanitizedPayload.roiModel ?? template?.roiCalculator ?? null,
+        caseStudies: sanitizedPayload.caseStudies ?? template?.caseStudies ?? null,
+        sentAt: sanitizedPayload.sentAt ?? null,
+        acceptedAt: sanitizedPayload.acceptedAt ?? null,
       },
       { transaction },
     );
@@ -1569,16 +1741,19 @@ export async function createPipelineProposal(ownerId, payload = {}) {
   });
 }
 
-export async function createPipelineFollowUp(ownerId, payload = {}) {
+export async function createPipelineFollowUp(ownerId, payload = {}, options = {}) {
   const normalizedOwnerId = normaliseOwnerId(ownerId);
   const normalizedDealId = normaliseDealId(payload.dealId);
-  if (!payload.dueAt) {
+  const normalizedOwnerType = normaliseOwnerType(options.ownerType ?? payload.ownerType ?? 'freelancer');
+  const sanitizedPayload = { ...payload };
+  delete sanitizedPayload.ownerType;
+  if (!sanitizedPayload.dueAt) {
     throw new ValidationError('dueAt is required to schedule a follow-up.');
   }
 
   return sequelize.transaction(async (transaction) => {
     const deal = await PipelineDeal.findOne({
-      where: { id: normalizedDealId, ownerId: normalizedOwnerId, ownerType: 'freelancer' },
+      where: { id: normalizedDealId, ownerId: normalizedOwnerId, ownerType: normalizedOwnerType },
       transaction,
     });
     if (!deal) {
@@ -1589,81 +1764,183 @@ export async function createPipelineFollowUp(ownerId, payload = {}) {
       {
         dealId: deal.id,
         ownerId: normalizedOwnerId,
-        ownerType: 'freelancer',
-        dueAt: payload.dueAt,
-        completedAt: payload.completedAt ?? null,
-        channel: payload.channel ?? null,
-        note: payload.note ?? null,
-        status: payload.status ?? 'scheduled',
+        ownerType: normalizedOwnerType,
+        dueAt: sanitizedPayload.dueAt,
+        completedAt: sanitizedPayload.completedAt ?? null,
+        channel: sanitizedPayload.channel ?? null,
+        note: sanitizedPayload.note ?? null,
+        status: sanitizedPayload.status ?? 'scheduled',
       },
       { transaction },
     );
 
-    await deal.update({ nextFollowUpAt: payload.status === 'completed' ? null : payload.dueAt }, { transaction });
+    await deal.update({ nextFollowUpAt: sanitizedPayload.status === 'completed' ? null : sanitizedPayload.dueAt }, { transaction });
 
     return sanitizeFollowUp(followUp);
   });
 }
 
-export async function updatePipelineFollowUp(ownerId, followUpId, payload = {}) {
+export async function updatePipelineFollowUp(ownerId, followUpId, payload = {}, options = {}) {
   const normalizedOwnerId = normaliseOwnerId(ownerId);
   const normalizedFollowUpId = normaliseFollowUpId(followUpId);
+  const normalizedOwnerType = normaliseOwnerType(options.ownerType ?? payload.ownerType ?? 'freelancer');
+  const sanitizedPayload = { ...payload };
+  delete sanitizedPayload.ownerType;
 
   return sequelize.transaction(async (transaction) => {
     const followUp = await PipelineFollowUp.findOne({
-      where: { id: normalizedFollowUpId, ownerId: normalizedOwnerId, ownerType: 'freelancer' },
+      where: { id: normalizedFollowUpId, ownerId: normalizedOwnerId, ownerType: normalizedOwnerType },
       transaction,
     });
     if (!followUp) {
       throw new NotFoundError('Follow-up not found.');
     }
 
-    const update = pickAllowedFields(payload, ['dueAt', 'completedAt', 'channel', 'note', 'status']);
+    const update = pickAllowedFields(sanitizedPayload, ['dueAt', 'completedAt', 'channel', 'note', 'status']);
 
     await followUp.update(update, { transaction });
 
     if (update.dueAt || update.status || update.completedAt) {
-      const deal = await PipelineDeal.findByPk(followUp.dealId, { transaction });
-      if (deal) {
-        const nextPendingFollowUp = await PipelineFollowUp.findOne({
-          where: {
-            dealId: followUp.dealId,
-            ownerId: normalizedOwnerId,
-            ownerType: 'freelancer',
-            status: 'scheduled',
-            dueAt: { [Op.gte]: new Date() },
-          },
-          order: [['dueAt', 'ASC']],
-          transaction,
-        });
-        await deal.update({ nextFollowUpAt: nextPendingFollowUp?.dueAt ?? null }, { transaction });
-      }
+      await recomputeDealNextFollowUp(followUp.dealId, normalizedOwnerId, normalizedOwnerType, { transaction });
     }
 
     return sanitizeFollowUp(followUp);
   });
 }
 
-export async function createPipelineCampaign(ownerId, payload = {}) {
+export async function createPipelineCampaign(ownerId, payload = {}, options = {}) {
   const normalizedOwnerId = normaliseOwnerId(ownerId);
-  if (!payload.name || `${payload.name}`.trim() === '') {
+  const normalizedOwnerType = normaliseOwnerType(options.ownerType ?? payload.ownerType ?? 'freelancer');
+  const sanitizedPayload = { ...payload };
+  delete sanitizedPayload.ownerType;
+  if (!sanitizedPayload.name || `${sanitizedPayload.name}`.trim() === '') {
     throw new ValidationError('Campaign name is required.');
   }
 
   const campaign = await PipelineCampaign.create({
     ownerId: normalizedOwnerId,
-    ownerType: 'freelancer',
-    name: payload.name,
-    description: payload.description ?? null,
-    targetService: payload.targetService ?? null,
-    status: payload.status ?? 'draft',
-    playbook: payload.playbook ?? null,
-    metrics: payload.metrics ?? null,
-    launchDate: payload.launchDate ?? null,
-    endDate: payload.endDate ?? null,
+    ownerType: normalizedOwnerType,
+    name: sanitizedPayload.name,
+    description: sanitizedPayload.description ?? null,
+    targetService: sanitizedPayload.targetService ?? null,
+    status: sanitizedPayload.status ?? 'draft',
+    playbook: sanitizedPayload.playbook ?? null,
+    metrics: sanitizedPayload.metrics ?? null,
+    launchDate: sanitizedPayload.launchDate ?? null,
+    endDate: sanitizedPayload.endDate ?? null,
   });
 
   return sanitizeCampaign(campaign);
+}
+
+export async function deletePipelineDeal(ownerId, dealId, options = {}) {
+  const normalizedOwnerId = normaliseOwnerId(ownerId);
+  const normalizedDealId = normaliseDealId(dealId);
+  const normalizedOwnerType = normaliseOwnerType(options.ownerType ?? 'freelancer');
+
+  return sequelize.transaction(async (transaction) => {
+    const deal = await PipelineDeal.findOne({
+      where: { id: normalizedDealId, ownerId: normalizedOwnerId, ownerType: normalizedOwnerType },
+      include: [
+        { model: PipelineStage, as: 'stage' },
+        { model: PipelineCampaign, as: 'campaign' },
+        { model: PipelineProposal, as: 'proposals', include: [{ model: PipelineProposalTemplate, as: 'template' }] },
+        { model: PipelineFollowUp, as: 'followUps' },
+      ],
+      transaction,
+    });
+
+    if (!deal) {
+      throw new NotFoundError('Pipeline deal not found.');
+    }
+
+    const sanitizedDeal = sanitizeDeal(deal);
+    await deal.destroy({ transaction });
+    return sanitizedDeal;
+  });
+}
+
+export async function deletePipelineFollowUp(ownerId, followUpId, options = {}) {
+  const normalizedOwnerId = normaliseOwnerId(ownerId);
+  const normalizedFollowUpId = normaliseFollowUpId(followUpId);
+  const normalizedOwnerType = normaliseOwnerType(options.ownerType ?? 'freelancer');
+
+  return sequelize.transaction(async (transaction) => {
+    const followUp = await PipelineFollowUp.findOne({
+      where: { id: normalizedFollowUpId, ownerId: normalizedOwnerId, ownerType: normalizedOwnerType },
+      transaction,
+    });
+
+    if (!followUp) {
+      throw new NotFoundError('Follow-up not found.');
+    }
+
+    const sanitizedFollowUp = sanitizeFollowUp(followUp);
+    const dealId = followUp.dealId;
+    await followUp.destroy({ transaction });
+    await recomputeDealNextFollowUp(dealId, normalizedOwnerId, normalizedOwnerType, { transaction });
+    return sanitizedFollowUp;
+  });
+}
+
+export async function deletePipelineProposal(ownerId, proposalId, options = {}) {
+  const normalizedOwnerId = normaliseOwnerId(ownerId);
+  const normalizedProposalId = normaliseProposalId(proposalId);
+  const normalizedOwnerType = normaliseOwnerType(options.ownerType ?? 'freelancer');
+
+  return sequelize.transaction(async (transaction) => {
+    const proposal = await PipelineProposal.findOne({
+      where: { id: normalizedProposalId },
+      include: [
+        {
+          model: PipelineDeal,
+          as: 'deal',
+          where: { ownerId: normalizedOwnerId, ownerType: normalizedOwnerType },
+          required: true,
+        },
+        { model: PipelineProposalTemplate, as: 'template' },
+      ],
+      transaction,
+    });
+
+    if (!proposal) {
+      throw new NotFoundError('Proposal not found.');
+    }
+
+    const sanitizedProposal = sanitizeProposal(proposal);
+    await proposal.destroy({ transaction });
+    return sanitizedProposal;
+  });
+}
+
+export async function deletePipelineCampaign(ownerId, campaignId, options = {}) {
+  const normalizedOwnerId = normaliseOwnerId(ownerId);
+  const normalizedCampaignId = normaliseCampaignId(campaignId);
+  const normalizedOwnerType = normaliseOwnerType(options.ownerType ?? 'freelancer');
+
+  return sequelize.transaction(async (transaction) => {
+    const campaign = await PipelineCampaign.findOne({
+      where: { id: normalizedCampaignId, ownerId: normalizedOwnerId, ownerType: normalizedOwnerType },
+      transaction,
+    });
+
+    if (!campaign) {
+      throw new NotFoundError('Campaign not found.');
+    }
+
+    const sanitizedCampaign = sanitizeCampaign(campaign);
+
+    await PipelineDeal.update(
+      { campaignId: null },
+      {
+        where: { campaignId: campaign.id, ownerId: normalizedOwnerId, ownerType: normalizedOwnerType },
+        transaction,
+      },
+    );
+
+    await campaign.destroy({ transaction });
+    return sanitizedCampaign;
+  });
 }
 
 export default {
@@ -1674,6 +1951,10 @@ export default {
   createPipelineFollowUp,
   updatePipelineFollowUp,
   createPipelineCampaign,
+  deletePipelineDeal,
+  deletePipelineFollowUp,
+  deletePipelineProposal,
+  deletePipelineCampaign,
 };
 
 export const __internals = {

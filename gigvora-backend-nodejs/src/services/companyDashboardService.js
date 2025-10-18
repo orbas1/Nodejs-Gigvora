@@ -8,6 +8,9 @@ import { buildLocationDetails } from '../utils/location.js';
 
 import { getAdDashboardSnapshot } from './adService.js';
 import { getVolunteeringDashboard as getCompanyVolunteeringDashboard } from './volunteeringManagementService.js';
+import { getTimelineManagementSnapshot } from './companyTimelineService.js';
+import { getCompanyDashboardOverview } from './companyDashboardOverviewService.js';
+import { fetchWeatherSummary } from './weatherService.js';
 
 function withDefaultModel(model) {
   if (model) {
@@ -5582,12 +5585,13 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
     const workspace = await fetchWorkspace(selector);
     const since = new Date(Date.now() - lookback * 24 * 60 * 60 * 1000);
 
-    const [members, invites, notes, companyProfile, availableWorkspaces] = await Promise.all([
+    const [members, invites, notes, companyProfile, availableWorkspaces, storedOverview] = await Promise.all([
       fetchMembers(workspace.id),
       fetchInvites(workspace.id),
       fetchNotes(workspace.id),
       CompanyProfile.findOne({ where: { userId: workspace.ownerId } }),
       listAvailableWorkspaces(),
+      getCompanyDashboardOverview({ workspaceId: workspace.id }).catch(() => null),
     ]);
 
     const [
@@ -5867,6 +5871,11 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       slaSnapshots: agencySlaSnapshots,
       billingEvents: agencyBillingEvents,
     });
+    const timelineManagement = await getTimelineManagementSnapshot({
+      workspaceId: workspace.id,
+      lookbackDays: lookback,
+      workspace,
+    });
     const plainBrandAssets = brandAssets.map((asset) => (asset?.get ? asset.get({ plain: true }) : asset));
     const plainBrandSections = brandSections.map((section) => (section?.get ? section.get({ plain: true }) : section));
     const plainBrandCampaigns = brandCampaigns.map((campaign) => (campaign?.get ? campaign.get({ plain: true }) : campaign));
@@ -5996,6 +6005,89 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       },
     });
 
+    const overviewPreferences = storedOverview?.preferences ?? {};
+    const locationPreference = overviewPreferences?.locationOverride
+      ? buildLocationDetails(
+          overviewPreferences.locationOverride.location ?? overviewPreferences.locationOverride.label ?? null,
+          overviewPreferences.locationOverride.geoLocation ?? overviewPreferences.locationOverride.coordinates ?? null,
+        )
+      : null;
+
+    const effectiveLocation = locationPreference ?? profile?.locationDetails ?? null;
+    const timezone = effectiveLocation?.timezone ?? workspaceSummary?.timezone ?? workspace.timezone ?? 'UTC';
+
+    let weatherSummary = null;
+    const coordinates = effectiveLocation?.coordinates;
+    if (coordinates?.latitude != null && coordinates?.longitude != null) {
+      weatherSummary = await fetchWeatherSummary({
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
+        timezone,
+      });
+    }
+
+    const now = new Date();
+    const formattedDate = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      dateStyle: 'full',
+      timeStyle: 'short',
+    }).format(now);
+
+    let resolvedFollowerCount = storedOverview?.followerCount;
+    if (resolvedFollowerCount == null) {
+      const campaignSummary = employerBrandWorkforce?.profileStudio?.campaignSummary;
+      if (campaignSummary?.totalFollowers != null) {
+        resolvedFollowerCount = Number(campaignSummary.totalFollowers);
+      }
+    }
+
+    const resolvedRating =
+      storedOverview?.rating != null
+        ? Number(storedOverview.rating)
+        : insights.averageReviewScore != null
+        ? Number(insights.averageReviewScore)
+        : null;
+
+    const ownerFullName =
+      [workspaceSummary?.owner?.firstName, workspaceSummary?.owner?.lastName].filter(Boolean).join(' ').trim() || null;
+
+    const resolvedGreetingName =
+      storedOverview?.displayName ?? profile?.companyName ?? ownerFullName ?? workspaceSummary.name;
+
+    const overviewPayload = {
+      workspaceId: workspaceSummary.id,
+      displayName: storedOverview?.displayName ?? profile?.companyName ?? workspaceSummary.name,
+      greetingName: resolvedGreetingName,
+      summary: storedOverview?.summary ?? null,
+      avatarUrl: storedOverview?.avatarUrl ?? null,
+      followerCount: Number.isFinite(Number(resolvedFollowerCount)) ? Number(resolvedFollowerCount) : 0,
+      trustScore: storedOverview?.trustScore != null ? Number(storedOverview.trustScore) : null,
+      rating: resolvedRating != null ? Number(resolvedRating.toFixed(2)) : null,
+      preferences: overviewPreferences,
+      location: effectiveLocation
+        ? {
+            displayName: effectiveLocation.displayName ?? effectiveLocation.location ?? null,
+            shortName: effectiveLocation.shortName ?? null,
+            timezone,
+            coordinates: effectiveLocation.coordinates ?? null,
+          }
+        : {
+            displayName: null,
+            shortName: null,
+            timezone,
+            coordinates: null,
+          },
+      weather: weatherSummary,
+      date: {
+        iso: now.toISOString(),
+        formatted: formattedDate,
+        timezone,
+      },
+      lastEditedBy: storedOverview?.lastEditedBy ?? null,
+      createdAt: storedOverview?.createdAt ?? null,
+      updatedAt: storedOverview?.updatedAt ?? null,
+    };
+
     return {
       meta: {
         lookbackDays: lookback,
@@ -6005,6 +6097,7 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       },
       workspace: workspaceSummary,
       profile,
+      overview: overviewPayload,
       memberSummary,
       inviteSummary,
       jobSummary,
@@ -6043,6 +6136,7 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       governance,
       calendar: calendarDigest,
       networking,
+      timelineManagement,
       brandAndPeople,
       reviews: {
         total: reviews.length,
