@@ -103,6 +103,61 @@ const adsService = {
   fetchAdDashboard,
   getAdsDashboard,
   listAdsPlacements,
+  listAgencyAdCampaigns,
+  createAgencyAdCampaign,
+  updateAgencyAdCampaign,
+  getAgencyAdCampaign,
+  createAgencyAdCreative,
+  updateAgencyAdCreative,
+  createAgencyAdPlacement,
+  updateAgencyAdPlacement,
+  getAgencyAdReferenceData,
 };
 
 export default adsService;
+
+export function listAgencyAdCampaigns({ workspaceId, status, search, page, pageSize, signal } = {}) {
+  const params = {
+    workspaceId,
+    status,
+    search,
+    page,
+    pageSize,
+  };
+  return apiClient.get('/agency/ads/campaigns', { params, signal });
+}
+
+export function createAgencyAdCampaign(payload, { signal } = {}) {
+  return apiClient.post('/agency/ads/campaigns', payload, { signal });
+}
+
+export function updateAgencyAdCampaign(campaignId, payload, { signal } = {}) {
+  return apiClient.put(`/agency/ads/campaigns/${campaignId}`, payload, { signal });
+}
+
+export function getAgencyAdCampaign(campaignId, { workspaceId, signal } = {}) {
+  const params = {
+    workspaceId,
+  };
+  return apiClient.get(`/agency/ads/campaigns/${campaignId}`, { params, signal });
+}
+
+export function createAgencyAdCreative(campaignId, payload, { signal } = {}) {
+  return apiClient.post(`/agency/ads/campaigns/${campaignId}/creatives`, payload, { signal });
+}
+
+export function updateAgencyAdCreative(creativeId, payload, { signal } = {}) {
+  return apiClient.put(`/agency/ads/creatives/${creativeId}`, payload, { signal });
+}
+
+export function createAgencyAdPlacement(campaignId, payload, { signal } = {}) {
+  return apiClient.post(`/agency/ads/campaigns/${campaignId}/placements`, payload, { signal });
+}
+
+export function updateAgencyAdPlacement(placementId, payload, { signal } = {}) {
+  return apiClient.put(`/agency/ads/placements/${placementId}`, payload, { signal });
+}
+
+export function getAgencyAdReferenceData({ signal } = {}) {
+  return apiClient.get('/agency/ads/reference-data', { signal });
+}
