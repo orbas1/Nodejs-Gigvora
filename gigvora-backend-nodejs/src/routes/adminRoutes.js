@@ -8,6 +8,7 @@ import {
   adminDashboardQuerySchema,
   affiliateSettingsBodySchema,
   platformSettingsBodySchema,
+  homepageSettingsBodySchema,
 } from '../validation/schemas/adminSchemas.js';
 import adminRuntimeRoutes from './adminRuntimeRoutes.js';
 import adminConsentRoutes from './adminConsentRoutes.js';
@@ -28,6 +29,12 @@ router.put(
   '/platform-settings',
   validateRequest({ body: platformSettingsBodySchema }),
   asyncHandler(adminController.persistPlatformSettings),
+);
+router.get('/homepage-settings', asyncHandler(adminController.fetchHomepageSettings));
+router.put(
+  '/homepage-settings',
+  validateRequest({ body: homepageSettingsBodySchema }),
+  asyncHandler(adminController.persistHomepageSettings),
 );
 router.get('/affiliate-settings', asyncHandler(adminController.fetchAffiliateSettings));
 router.put(
