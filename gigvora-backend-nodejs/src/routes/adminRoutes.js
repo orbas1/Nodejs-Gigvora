@@ -18,6 +18,7 @@ import {
 import adminRuntimeRoutes from './adminRuntimeRoutes.js';
 import adminConsentRoutes from './adminConsentRoutes.js';
 import adminRbacRoutes from './adminRbacRoutes.js';
+import adminFinanceRoutes from './adminFinanceRoutes.js';
 import adminVolunteeringRoutes from './adminVolunteeringRoutes.js';
 import adminMentoringRoutes from './adminMentoringRoutes.js';
 import adminSpeedNetworkingRoutes from './adminSpeedNetworkingRoutes.js';
@@ -97,6 +98,7 @@ router.use('/ads/settings', adminAdSettingsRoutes);
 router.use('/runtime', adminRuntimeRoutes);
 router.use('/governance/consents', adminConsentRoutes);
 router.use('/governance/rbac', adminRbacRoutes);
+router.use('/finance', adminFinanceRoutes);
 router.use('/volunteering', adminVolunteeringRoutes);
 router.use('/mentoring', adminMentoringRoutes);
 router.use('/speed-networking', adminSpeedNetworkingRoutes);

@@ -33,6 +33,112 @@ import useDomainGovernanceSummaries from '../../hooks/useDomainGovernanceSummari
 import { fetchAdminDashboard } from '../../services/admin.js';
 import { fetchPlatformSettings, updatePlatformSettings } from '../../services/platformSettings.js';
 import { fetchAffiliateSettings, updateAffiliateSettings } from '../../services/affiliateSettings.js';
+
+const MENU_SECTIONS = [
+  {
+    label: 'Command modules',
+    items: [
+      {
+        name: 'Runtime health',
+        description: 'Service readiness, dependency posture, and rate-limit utilisation for the API perimeter.',
+        tags: ['ops', 'security'],
+        sectionId: 'admin-runtime-health',
+      },
+      {
+        name: 'Data governance',
+        description: 'PII inventory, retention policies, and audit cadence across bounded contexts.',
+        tags: ['compliance', 'data'],
+        sectionId: 'admin-domain-governance',
+      },
+      {
+        name: 'Member health',
+        description: 'Growth, activation, and readiness scores across the Gigvora network.',
+        tags: ['growth', 'activation'],
+      },
+      {
+        name: 'Financial management',
+        description: 'Treasury controls, payout automation, and fee governance.',
+        tags: ['finance'],
+        href: '/dashboard/admin/finance',
+      },
+      {
+        name: 'Risk & trust',
+        description: 'Dispute lifecycle, escalations, and marketplace safety monitoring.',
+        tags: ['compliance'],
+      },
+      {
+        name: 'Support operations',
+        description: 'Service desk load, SLAs, and sentiment guardrails.',
+      },
+      {
+        name: 'Engagement & comms',
+        description: 'Platform analytics, event telemetry, and notification delivery.',
+      },
+      {
+        name: 'Gigvora Ads',
+        description: 'Campaign coverage, targeting telemetry, and creative governance.',
+        tags: ['ads', 'monetisation'],
+        sectionId: 'gigvora-ads',
+      },
+      {
+        name: 'Launchpad performance',
+        description: 'Talent placements, interview runway, and employer demand.',
+      },
+    ],
+  },
+  {
+    label: 'Quick tools',
+    items: [
+      {
+        name: 'Data exports',
+        description: 'Pull CSV snapshots or schedule secure S3 drops.',
+        tags: ['csv', 'api'],
+      },
+      {
+        name: 'Incident response',
+        description: 'Runbooks for security, privacy, and marketplace outages.',
+      },
+      {
+        name: 'Audit center',
+        description: 'Trace admin actions, approvals, and configuration changes.',
+      },
+    ],
+  },
+  {
+    label: 'Configuration stack',
+      items: [
+        {
+          name: 'All platform settings',
+          description: 'Govern application defaults, commission policies, and feature gates.',
+          tags: ['settings'],
+          sectionId: 'admin-settings-overview',
+        },
+        {
+          name: 'Affiliate economics',
+          description: 'Tiered commissions, payout cadences, and partner compliance.',
+          tags: ['affiliate'],
+          sectionId: 'admin-affiliate-settings',
+        },
+        {
+          name: 'CMS controls',
+          description: 'Editorial workflow, restricted features, and monetisation toggles.',
+        sectionId: 'admin-settings-cms',
+      },
+      {
+        name: 'Environment & secrets',
+        description: 'Runtime environment, storage credentials, and database endpoints.',
+        sectionId: 'admin-settings-environment',
+        tags: ['ops'],
+      },
+      {
+        name: 'API & notifications',
+        description: 'REST endpoints, payment gateways, and outbound email security.',
+        sectionId: 'admin-settings-api',
+        tags: ['api'],
+      },
+    ],
+  },
+];
 import { ADMIN_DASHBOARD_MENU_SECTIONS } from '../../constants/adminMenu.js';
 import {
   ADMIN_ACCESS_ALIASES,
@@ -2582,6 +2688,8 @@ export default function AdminDashboardPage() {
       );
     }
 
+      <section className="rounded-3xl border border-slate-200 bg-gradient-to-br from-blue-500/5 via-white to-white p-6 shadow-lg shadow-blue-100/40 sm:p-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
     if (error && !adminOverview) {
       return (
         <div className="flex flex-col items-center justify-center rounded-3xl border border-rose-200 bg-rose-50 p-10 text-center text-rose-700">
@@ -2599,8 +2707,17 @@ export default function AdminDashboardPage() {
       <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg shadow-blue-100/40 sm:p-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Financial governance</h2>
+            <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Financial management workspace</h2>
             <p className="mt-2 max-w-3xl text-sm text-slate-600">
+              Orchestrate treasury operations, automation schedules, and fee policies from the dedicated financial management dashboard.
+            </p>
+          </div>
+          <Link
+            to="/dashboard/admin/finance"
+            className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500"
+          >
+            Open financial management
+          </Link>
               Snapshot of escrow balances, recent activity, and fee capture. Use the escrow management console for full control.
             </p>
           </div>
@@ -2632,26 +2749,6 @@ export default function AdminDashboardPage() {
             emptyLabel="No accounts created yet."
           />
         </div>
-        <RecentList
-          title="Recent escrow activity"
-          rows={(data.financials?.recentTransactions ?? []).map((txn) => ({
-            reference: txn.reference,
-            type: humanizeLabel(txn.type),
-            status: humanizeLabel(txn.status),
-            amount: formatCurrency(txn.amount, txn.currencyCode ?? 'USD'),
-            netAmount: formatCurrency(txn.netAmount, txn.currencyCode ?? 'USD'),
-            createdAt: formatDateTime(txn.createdAt),
-          }))}
-          columns={[
-            { key: 'reference', label: 'Reference' },
-            { key: 'type', label: 'Type' },
-            { key: 'status', label: 'Status' },
-            { key: 'amount', label: 'Gross' },
-            { key: 'netAmount', label: 'Net' },
-            { key: 'createdAt', label: 'Created' },
-          ]}
-          emptyLabel="Escrow activity will appear here once transactions are initiated."
-        />
       </section>
 
       {/* Trust and safety */}
