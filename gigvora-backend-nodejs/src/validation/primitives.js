@@ -3,6 +3,8 @@ import { z } from 'zod';
 const BOOLEAN_TRUE_VALUES = new Set(['true', '1', 'yes', 'y', 'on']);
 const BOOLEAN_FALSE_VALUES = new Set(['false', '0', 'no', 'n', 'off']);
 
+export const nonEmptyString = z.string().trim().min(1);
+
 export function optionalTrimmedString({ max = 255, min = 1, toUpperCase = false } = {}) {
   const schema = z.preprocess((value) => {
     if (value == null) {

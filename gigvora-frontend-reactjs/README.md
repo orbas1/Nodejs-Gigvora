@@ -8,6 +8,7 @@ This Vite-powered React application delivers the Gigvora experience across landi
 - **Authentication** flows including stylized login, registration, company/agency onboarding, and dedicated admin console.
 - **Explorer surfaces** for jobs, gigs, projects, experience launchpad, volunteering, groups, followers, and connections.
 - **Freelancer dashboard reputation engine** that pulls live testimonials, success stories, metrics, badges, and shareable widgets from the Node API.
+- **Agency mission control** with modular layout, navigation, and a full calendar workspace for managing projects, gigs, interviews, mentorship, and volunteering cadences.
 - **Tailwind CSS** design tokens tuned to the Gigvora palette with the Inter font loaded globally.
 
 ## Getting Started
@@ -27,6 +28,8 @@ Set `VITE_API_BASE_URL` to your backend host and ensure the API is configured wi
 
 - `src/layouts/MainLayout.jsx` – Shared shell with header and footer.
 - `src/pages/*` – Individual feature pages (home, login, explorer, marketplace sections, admin console, etc.).
+- `src/pages/dashboards/agency/*` – Agency dashboard shell, overview, and calendar workspace surfaces.
+- `src/components/agency/*` – Calendar forms, drawers, and future reusable widgets for agency operations.
 - `src/components/*` – Reusable UI building blocks such as hero, feature cards, and CTAs.
 - `src/constants/branding.js` – Hosted logo and favicon references shared across the app.
 
