@@ -5,6 +5,7 @@ export const ADMIN_DASHBOARD_MENU_SECTIONS = [
     items: [
       { id: 'admin-home', name: 'Home', href: '/dashboard/admin' },
       { id: 'admin-interviews', name: 'Interviews', href: '/dashboard/admin/interviews' },
+      { id: 'admin-speed-networking', name: 'Speed networking', href: '/dashboard/admin/speed-networking' },
       { id: 'admin-blog', name: 'Blog', href: '/dashboard/admin/blog' },
     ],
   },

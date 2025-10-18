@@ -360,6 +360,33 @@ export default function DashboardLayout({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [customizerOpen, setCustomizerOpen] = useState(false);
   const [openSectionIds, setOpenSectionIds] = useState(new Set());
+  const [openDrawers, setOpenDrawers] = useState(() => new Set());
+
+  const normalizedMenuSections = useMemo(() => normalizeMenuSections(menuSections), [menuSections]);
+  const allMenuItems = useMemo(() => {
+    return normalizedMenuSections.flatMap((section) =>
+      section.items.map((item) => ({
+        id: String(item.id),
+        name: item.name,
+        description: item.description,
+        sectionId: item.sectionId,
+        parentSectionId: item.parentSectionId ?? section.id,
+        parentSectionLabel: item.parentSectionLabel ?? section.label,
+        orderIndex: item.orderIndex ?? 0,
+        sectionOrderIndex: item.sectionOrderIndex ?? section.orderIndex ?? 0,
+        href: item.href,
+        icon: item.icon,
+        target: item.target,
+      })),
+    );
+  }, [normalizedMenuSections]);
+  const menuItemLookup = useMemo(() => {
+    const map = new Map();
+    allMenuItems.forEach((item) => {
+      map.set(item.id, item);
+    });
+    return map;
+  }, [allMenuItems]);
 
   const normalizedSections = useMemo(
     () => normalizeMenuSections(menuSections?.length ? menuSections : sections),
@@ -529,6 +556,77 @@ export default function DashboardLayout({
             </span>
           </button>
           <div className="flex items-center gap-2">
+  const handleMenuClick = (item) => {
+    if (!item) {
+      return;
+    }
+
+    if (typeof onMenuItemSelect === 'function') {
+      onMenuItemSelect(item.id, item);
+      setMobileOpen(false);
+      return;
+    }
+
+    if (!item.href) {
+      const targetId = item.sectionId ?? item.targetId ?? slugify(item.name);
+      if (targetId && typeof document !== 'undefined') {
+        const targetElement = document.getElementById(targetId);
+        if (targetElement) {
+          targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+      setMobileOpen(false);
+      return;
+    }
+
+    const href = item.href.trim();
+    if (!href) {
+      setMobileOpen(false);
+      return;
+    }
+
+    if (href.startsWith('#')) {
+      const targetId = href.slice(1);
+      if (targetId && typeof document !== 'undefined') {
+        const targetElement = document.getElementById(targetId);
+        if (targetElement) {
+          targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+      setMobileOpen(false);
+      return;
+    }
+
+    const isExternal = /^https?:\/\//i.test(href);
+    if (isExternal) {
+      if (typeof window !== 'undefined') {
+        window.open(href, item.target ?? '_blank', 'noopener,noreferrer');
+      }
+      setMobileOpen(false);
+      return;
+    }
+
+    if (item.target === '_blank' && typeof window !== 'undefined') {
+      window.open(href, '_blank', 'noopener');
+      setMobileOpen(false);
+      return;
+    }
+
+    navigate(href);
+    setMobileOpen(false);
+  };
+
+  const activeItemId = activeMenuItem ?? null;
+  const dashboards = normalizeAvailableDashboards(availableDashboards);
+
+  const sidebarContent = (
+    <div className="flex h-full flex-col gap-6 overflow-y-auto px-6 py-6">
+      <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between'} gap-4`}>
+        <Link to="/" className="inline-flex items-center">
+          <img src={gigvoraWordmark} alt="Gigvora" className="h-9 w-auto" />
+        </Link>
+        <div className="flex items-center gap-2">
+          {hasMenuCustomization ? (
             <button
               type="button"
               onClick={() => setCustomizerOpen(true)}
