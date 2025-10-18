@@ -1,5 +1,4 @@
-import { Fragment } from 'react';
-import { IDENTITY_STEPS } from './constants.js';
+import PropTypes from 'prop-types';
 import StatusBadge from './StatusBadge.jsx';
 import { formatDisplayDate, titleCaseStatus } from './utils.js';
 
@@ -131,3 +130,36 @@ export default function IdentityReviewBoard({
     </div>
   );
 }
+
+IdentityReviewBoard.propTypes = {
+  snapshot: PropTypes.shape({
+    status: PropTypes.string,
+    submittedAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    reviewedAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    reviewerId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    reviewNotes: PropTypes.string,
+    declinedReason: PropTypes.string,
+  }),
+  reviewForm: PropTypes.shape({
+    status: PropTypes.string,
+    reviewNotes: PropTypes.string,
+    declinedReason: PropTypes.string,
+  }).isRequired,
+  onReviewFieldChange: PropTypes.func.isRequired,
+  onReview: PropTypes.func.isRequired,
+  reviewState: PropTypes.shape({
+    status: PropTypes.string,
+    error: PropTypes.oneOfType([PropTypes.instanceOf(Error), PropTypes.object]),
+  }),
+  canReview: PropTypes.bool,
+  allowedStatuses: PropTypes.arrayOf(PropTypes.string),
+  onOpenHistory: PropTypes.func,
+};
+
+IdentityReviewBoard.defaultProps = {
+  snapshot: null,
+  reviewState: { status: 'idle', error: null },
+  canReview: false,
+  allowedStatuses: [],
+  onOpenHistory: () => {},
+};

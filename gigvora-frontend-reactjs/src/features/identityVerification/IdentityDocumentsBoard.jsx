@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import PropTypes from 'prop-types';
 import { ArrowPathIcon, CloudArrowUpIcon, EyeIcon } from '@heroicons/react/24/outline';
 import { DOCUMENT_FIELDS } from './constants.js';
 
@@ -62,6 +63,27 @@ function DocumentCard({
   );
 }
 
+DocumentCard.propTypes = {
+  label: PropTypes.string.isRequired,
+  value: PropTypes.string,
+  onChange: PropTypes.func,
+  onUpload: PropTypes.func,
+  onPreview: PropTypes.func,
+  accept: PropTypes.string,
+  uploading: PropTypes.bool,
+  helper: PropTypes.string,
+};
+
+DocumentCard.defaultProps = {
+  value: '',
+  onChange: undefined,
+  onUpload: undefined,
+  onPreview: undefined,
+  accept: 'image/*,application/pdf',
+  uploading: false,
+  helper: undefined,
+};
+
 export default function IdentityDocumentsBoard({
   formValues,
   metadata,
@@ -109,3 +131,21 @@ export default function IdentityDocumentsBoard({
     </div>
   );
 }
+
+IdentityDocumentsBoard.propTypes = {
+  formValues: PropTypes.object.isRequired,
+  metadata: PropTypes.object,
+  onFieldChange: PropTypes.func.isRequired,
+  onMetadataChange: PropTypes.func.isRequired,
+  onUpload: PropTypes.func.isRequired,
+  onPreview: PropTypes.func.isRequired,
+  uploadState: PropTypes.shape({
+    status: PropTypes.string,
+    error: PropTypes.oneOfType([PropTypes.instanceOf(Error), PropTypes.object]),
+  }),
+};
+
+IdentityDocumentsBoard.defaultProps = {
+  metadata: {},
+  uploadState: { status: 'idle', error: null },
+};

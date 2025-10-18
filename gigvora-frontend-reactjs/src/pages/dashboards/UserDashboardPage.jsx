@@ -32,7 +32,7 @@ import ProfileSettingsSection from '../../components/profileSettings/ProfileSett
 import WalletManagementSection from '../../components/wallet/WalletManagementSection.jsx';
 import DashboardNotificationCenterSection from '../../components/notifications/DashboardNotificationCenterSection.jsx';
 import useSavedSearches from '../../hooks/useSavedSearches.js';
-import { TopSearchSection } from './user/sections/index.js';
+import { TopSearchSection, UserIdentityVerificationSection } from './user/sections/index.js';
 
 const DEFAULT_USER_ID = 1;
 const availableDashboards = ['user', 'freelancer', 'agency', 'company', 'headhunter'];
@@ -305,6 +305,12 @@ function buildMenuSections(data) {
         id: 'profile-connect',
         name: 'Connect',
         href: '/connections',
+      },
+      {
+        id: 'profile-id-verification',
+        name: 'ID Verification',
+        description: 'Upload documents and view review history.',
+        sectionId: 'identity-verification',
       },
     ],
   };
@@ -716,7 +722,6 @@ function buildMenuSections(data) {
     },
   ];
 
-  return sections;
   return [identitySection, ...sections];
 }
 
@@ -2690,6 +2695,10 @@ export default function UserDashboardPage() {
             </p>
           )}
         </section>
+        <section id="identity-verification" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <UserIdentityVerificationSection />
+        </section>
+
         {data?.profile ? (
           <ProfileSettingsSection
             profile={data.profile}

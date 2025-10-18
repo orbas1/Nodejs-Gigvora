@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import StatusBadge from './StatusBadge.jsx';
 import { IDENTITY_STEPS } from './constants.js';
 
@@ -68,3 +69,24 @@ export default function IdentityStepNav({ activeStep, onSelect, status, nextActi
     </div>
   );
 }
+
+IdentityStepNav.propTypes = {
+  activeStep: PropTypes.string.isRequired,
+  onSelect: PropTypes.func,
+  status: PropTypes.string,
+  nextActions: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      label: PropTypes.string,
+      priority: PropTypes.string,
+    }),
+  ),
+  onOpenHistory: PropTypes.func,
+};
+
+IdentityStepNav.defaultProps = {
+  onSelect: undefined,
+  status: 'pending',
+  nextActions: [],
+  onOpenHistory: () => {},
+};

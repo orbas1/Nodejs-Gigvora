@@ -1,4 +1,5 @@
 import { Fragment } from 'react';
+import PropTypes from 'prop-types';
 import { Dialog, Transition } from '@headlessui/react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import StatusBadge from './StatusBadge.jsx';
@@ -98,3 +99,28 @@ export default function HistoryDrawer({ open, onClose, history = [] }) {
     </Transition>
   );
 }
+
+HistoryDrawer.propTypes = {
+  open: PropTypes.bool,
+  onClose: PropTypes.func,
+  history: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      status: PropTypes.string,
+      reviewerId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      notes: PropTypes.string,
+      createdAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+      submittedAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+      reviewedAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+      declinedReason: PropTypes.string,
+      reviewNotes: PropTypes.string,
+      updatedAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    }),
+  ),
+};
+
+HistoryDrawer.defaultProps = {
+  open: false,
+  onClose: () => {},
+  history: [],
+};

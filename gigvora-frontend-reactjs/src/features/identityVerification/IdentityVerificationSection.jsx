@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import IdentityStepNav from './IdentityStepNav.jsx';
 import IdentityDetailsForm from './IdentityDetailsForm.jsx';
 import IdentityDocumentsBoard from './IdentityDocumentsBoard.jsx';
@@ -7,10 +8,10 @@ import DocumentPreviewDrawer from './DocumentPreviewDrawer.jsx';
 import HistoryDrawer from './HistoryDrawer.jsx';
 import { IDENTITY_STEPS } from './constants.js';
 import { normaliseIso } from './utils.js';
-import useSession from '../../../../../hooks/useSession.js';
-import useIdentityVerification from '../../../../../hooks/useIdentityVerification.js';
-import DataStatus from '../../../../../components/DataStatus.jsx';
-import { downloadIdentityDocument } from '../../../../../services/identityVerification.js';
+import useSession from '../../hooks/useSession.js';
+import useIdentityVerification from '../../hooks/useIdentityVerification.js';
+import DataStatus from '../../components/DataStatus.jsx';
+import { downloadIdentityDocument } from '../../services/identityVerification.js';
 
 const INITIAL_FORM = {
   status: 'pending',
@@ -48,10 +49,16 @@ function resolveFieldValue(values, field) {
   return values[field] ?? '';
 }
 
-export default function IdentityVerificationSection() {
+export default function IdentityVerificationSection({ identityResource = null } = {}) {
   const { session } = useSession();
   const derivedUserId = session?.id ?? session?.userId ?? null;
   const derivedProfileId = session?.profileId ?? session?.primaryProfileId ?? session?.freelancerProfileId ?? null;
+
+  const fallbackResource = useIdentityVerification({
+    userId: derivedUserId,
+    profileId: derivedProfileId,
+    enabled: !identityResource && Boolean(derivedUserId),
+  });
 
   const {
     data,
@@ -68,7 +75,7 @@ export default function IdentityVerificationSection() {
     submitState,
     reviewState,
     uploadState,
-  } = useIdentityVerification({ userId: derivedUserId, profileId: derivedProfileId, enabled: Boolean(derivedUserId) });
+  } = identityResource ?? fallbackResource;
 
   const [activeStep, setActiveStep] = useState(IDENTITY_STEPS[0].id);
   const [formValues, setFormValues] = useState(INITIAL_FORM);
@@ -347,3 +354,26 @@ export default function IdentityVerificationSection() {
     </div>
   );
 }
+
+IdentityVerificationSection.propTypes = {
+  identityResource: PropTypes.shape({
+    data: PropTypes.object,
+    loading: PropTypes.bool,
+    error: PropTypes.oneOfType([PropTypes.instanceOf(Error), PropTypes.object]),
+    fromCache: PropTypes.bool,
+    lastUpdated: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    refresh: PropTypes.func,
+    save: PropTypes.func,
+    submit: PropTypes.func,
+    review: PropTypes.func,
+    uploadDocument: PropTypes.func,
+    saveState: PropTypes.object,
+    submitState: PropTypes.object,
+    reviewState: PropTypes.object,
+    uploadState: PropTypes.object,
+  }),
+};
+
+IdentityVerificationSection.defaultProps = {
+  identityResource: null,
+};

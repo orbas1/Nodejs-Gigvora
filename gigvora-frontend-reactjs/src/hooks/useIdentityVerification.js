@@ -103,7 +103,7 @@ export default function useIdentityVerification({ userId, profileId, enabled = t
   const derivedUserId = userId ?? session?.id ?? session?.userId ?? session?.profileId ?? null;
   const derivedProfileId = profileId ?? session?.profileId ?? session?.primaryProfileId ?? session?.freelancerProfileId ?? null;
   const actorRoles = useMemo(() => normaliseRoles(session), [session]);
-  const cacheKey = useMemo(() => `freelancer:identity:${derivedUserId ?? 'guest'}`, [derivedUserId]);
+  const cacheKey = useMemo(() => `identity:${derivedUserId ?? 'guest'}`, [derivedUserId]);
   const [saveState, setSaveState] = useState({ status: 'idle', error: null });
   const [submitState, setSubmitState] = useState({ status: 'idle', error: null });
   const [reviewState, setReviewState] = useState({ status: 'idle', error: null });

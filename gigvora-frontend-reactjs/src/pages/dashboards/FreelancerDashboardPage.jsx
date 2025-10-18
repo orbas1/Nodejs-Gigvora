@@ -81,7 +81,7 @@ function buildProfile(session) {
 import { Link } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import useSession from '../../hooks/useSession.js';
-import IdentityVerificationSection from './freelancer/sections/identity/IdentityVerificationSection.jsx';
+import { IdentityVerificationSection } from '../../features/identityVerification/index.js';
 import { ReviewManagementSection } from './freelancer/sections/index.js';
 import { MENU_GROUPS, AVAILABLE_DASHBOARDS } from './freelancer/menuConfig.js';
 import { DEFAULT_PROFILE } from './freelancer/sampleData.js';
