@@ -32,6 +32,19 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
     ],
   },
   {
+    label: 'Finance & treasury',
+    items: [
+      {
+        name: 'Wallet management',
+        description: 'Manage balances, funding sources, payouts, and access controls for every company wallet.',
+        sectionId: 'wallet-management',
+        href: '/dashboard/company/wallets',
+        tags: ['finance'],
+      },
+    ],
+  },
+  {
+    label: 'Analytics & planning',
     label: 'Network',
     items: [
       { name: 'Sessions', sectionId: 'networking-sessions', href: '/dashboard/company/networking' },
