@@ -161,6 +161,14 @@ export const ID_VERIFICATION_STATUSES = [
   'rejected',
   'expired',
 ];
+export const ID_VERIFICATION_EVENT_TYPES = [
+  'status_change',
+  'note',
+  'assignment',
+  'document_request',
+  'escalation',
+  'reminder',
+];
 export const CORPORATE_VERIFICATION_STATUSES = [
   'pending',
   'submitted',
