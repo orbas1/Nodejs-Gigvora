@@ -20,3 +20,8 @@
 ## Creation Studio visibility
 - Exposed a high-visibility "Launch Creation Studio" action within the authenticated header to accelerate discoverability of the multi-surface creation wizard.
 - Ensured marketing navigation includes paths to Creation Studio artefacts, launchpad, and finance tooling to support enterprise evaluation journeys.
+
+## Admin moderation dashboard
+- Added a dedicated Admin Moderation workspace route backed by `AdminModerationDashboardPage.jsx` with queue pagination, severity filters, and SLA indicators.
+- Introduced overview cards summarising flag volumes, breach counts, and mute utilisation plus a tabular queue management view with inline resolution dialogs.
+- Surfaced an audit timeline component streaming realtime updates from the `/moderation` socket namespace and allowing administrators to acknowledge or resolve events with context notes.

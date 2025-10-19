@@ -117,8 +117,8 @@ All tasks derive from the feature requirements and remediation directives captur
 ### Subtasks (progress)
 1. Engineer socket.io infrastructure for role-based chat channels, voice/video rooms, event scheduling, and moderation tooling. **(100%)**
    - Realtime namespaces, connection registries, and test harness adjustments validated via `SKIP_SEQUELIZE_BOOTSTRAP=true npm test -- --runTestsByPath tests/realtime/channelRegistry.test.js tests/realtime/connectionRegistry.test.js`.
-2. Integrate Chatwoot floating bubble with dashboard inbox synchronization, conversation routing, and SLA escalation logic.
-3. Implement moderation heuristics, spam detection, and community management dashboards with audit trails and governance controls.
+2. Integrate Chatwoot floating bubble with dashboard inbox synchronization, conversation routing, and SLA escalation logic. **Status: Completed – authenticated widget loads post-login, syncs Chatwoot conversations into the inbox, and escalates breaches via SLA-aware support cases.**
+3. Implement moderation heuristics, spam detection, and community management dashboards with audit trails and governance controls. **Status: Completed – moderation service, realtime namespace, admin dashboard, and documentation updates landed with automated test coverage.**
 4. Synchronise live service telemetry (timeline, chat, inbox, events) with analytics dashboards and incident response playbooks.
 5. Conduct load, stress, and failure-mode testing for chat, media streaming, and support workflows across web and mobile surfaces.
 

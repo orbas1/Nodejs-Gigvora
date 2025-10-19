@@ -216,6 +216,59 @@ export const runtimeConfigSchema = z.object({
         moderation: { enabled: true },
       },
     }),
+  support: z
+    .object({
+      chatwoot: z
+        .object({
+          enabled: z.boolean().default(false),
+          baseUrl: z.string().url().optional(),
+          websiteToken: z.string().min(8).optional(),
+          hmacToken: z.string().min(8).optional(),
+          webhookToken: z.string().min(8).optional(),
+          inboxId: z.number().int().positive().optional(),
+          portalToken: z.string().optional(),
+          defaultLocale: z.string().min(2).max(10).default('en'),
+          sla: z
+            .object({
+              firstResponseMinutes: z.number().int().positive().default(30),
+              resolutionMinutes: z.number().int().positive().default(720),
+            })
+            .default({ firstResponseMinutes: 30, resolutionMinutes: 720 }),
+        })
+        .refine(
+          (value) =>
+            !value.enabled ||
+            (typeof value.baseUrl === 'string' && value.baseUrl.length > 0 &&
+              typeof value.websiteToken === 'string' && value.websiteToken.length > 0),
+          {
+            message: 'Chatwoot configuration requires baseUrl and websiteToken when enabled.',
+          },
+        )
+        .default({
+          enabled: false,
+          baseUrl: undefined,
+          websiteToken: undefined,
+          hmacToken: undefined,
+          webhookToken: undefined,
+          inboxId: undefined,
+          portalToken: undefined,
+          defaultLocale: 'en',
+          sla: { firstResponseMinutes: 30, resolutionMinutes: 720 },
+        }),
+    })
+    .default({
+      chatwoot: {
+        enabled: false,
+        baseUrl: undefined,
+        websiteToken: undefined,
+        hmacToken: undefined,
+        webhookToken: undefined,
+        inboxId: undefined,
+        portalToken: undefined,
+        defaultLocale: 'en',
+        sla: { firstResponseMinutes: 30, resolutionMinutes: 720 },
+      },
+    }),
 });
 
 const configEmitter = new EventEmitter();
@@ -267,6 +320,17 @@ function buildRawConfig(env) {
   const voiceRecordingRequired = parseBoolean(env.REALTIME_VOICE_RECORDING_REQUIRED, false);
   const eventsEnabled = parseBoolean(env.REALTIME_EVENTS_ENABLED, true);
   const moderationEnabled = parseBoolean(env.REALTIME_MODERATION_ENABLED, true);
+  const chatwootEnabled = parseBoolean(env.CHATWOOT_ENABLED ?? env.ENABLE_CHATWOOT, false);
+  const chatwootBaseUrl = env.CHATWOOT_BASE_URL || env.CHATWOOT_URL || undefined;
+  const chatwootWebsiteToken = env.CHATWOOT_WEBSITE_TOKEN || env.CHATWOOT_TOKEN || undefined;
+  const chatwootHmacToken = env.CHATWOOT_HMAC_TOKEN || env.CHATWOOT_HMAC_SECRET || undefined;
+  const chatwootWebhookToken =
+    env.CHATWOOT_WEBHOOK_TOKEN || env.CHATWOOT_WEBHOOK_SECRET || env.CHATWOOT_HMAC_TOKEN || undefined;
+  const chatwootInboxId = parseNumber(env.CHATWOOT_INBOX_ID, undefined);
+  const chatwootPortalToken = env.CHATWOOT_PORTAL_TOKEN || env.CHATWOOT_API_TOKEN || undefined;
+  const chatwootLocale = env.CHATWOOT_DEFAULT_LOCALE || 'en';
+  const chatwootFirstResponseMinutes = parseNumber(env.CHATWOOT_SLA_FIRST_RESPONSE_MINUTES, 30);
+  const chatwootResolutionMinutes = parseNumber(env.CHATWOOT_SLA_RESOLUTION_MINUTES, 720);
 
   return {
     env: env.NODE_ENV ?? 'development',
@@ -355,6 +419,28 @@ function buildRawConfig(env) {
         },
         events: { enabled: eventsEnabled },
         moderation: { enabled: moderationEnabled },
+      },
+    },
+    support: {
+      chatwoot: {
+        enabled: chatwootEnabled,
+        baseUrl: chatwootBaseUrl,
+        websiteToken: chatwootWebsiteToken,
+        hmacToken: chatwootHmacToken,
+        webhookToken: chatwootWebhookToken,
+        inboxId: chatwootInboxId && chatwootInboxId > 0 ? chatwootInboxId : undefined,
+        portalToken: chatwootPortalToken,
+        defaultLocale: chatwootLocale || 'en',
+        sla: {
+          firstResponseMinutes:
+            chatwootFirstResponseMinutes && chatwootFirstResponseMinutes > 0
+              ? chatwootFirstResponseMinutes
+              : 30,
+          resolutionMinutes:
+            chatwootResolutionMinutes && chatwootResolutionMinutes > 0
+              ? chatwootResolutionMinutes
+              : 720,
+        },
       },
     },
   };

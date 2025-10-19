@@ -44,6 +44,8 @@ async function loadCoreModels() {
     return;
   }
   if (process.env.SKIP_SEQUELIZE_BOOTSTRAP === 'true') {
+    await import('../src/models/messagingModels.js');
+    await import('../src/models/moderationModels.js');
     modelsLoaded = true;
     return;
   }
@@ -53,9 +55,6 @@ async function loadCoreModels() {
 
 async function resetDatabaseSchema() {
   await loadCoreModels();
-  if (process.env.SKIP_SEQUELIZE_BOOTSTRAP === 'true') {
-    return;
-  }
   await sequelize.sync({ force: true });
 }
 
@@ -117,7 +116,7 @@ beforeAll(async () => {
   if (skipBootstrap) {
     // eslint-disable-next-line no-console
     console.info('[tests] SKIP_SEQUELIZE_BOOTSTRAP enabled – skipping Sequelize sync for realtime-focused suites');
-    await loadCoreModels();
+    await resetDatabaseSchema();
     markCoreDependenciesHealthy();
   } else {
     await primeTestState();
@@ -127,7 +126,7 @@ beforeAll(async () => {
 beforeEach(async () => {
   appCache.store?.clear?.();
   if (skipBootstrap) {
-    await loadCoreModels();
+    await resetDatabaseSchema();
     markCoreDependenciesHealthy();
   } else {
     await primeTestState();

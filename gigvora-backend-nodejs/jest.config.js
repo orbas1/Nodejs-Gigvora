@@ -14,6 +14,7 @@ export default {
   collectCoverageFrom: [
     'src/**/*.js',
     '!src/server.js',
+    '!src/models/index.js',
   ],
   coverageDirectory: '<rootDir>/coverage',
 };

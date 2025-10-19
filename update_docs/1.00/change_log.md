@@ -7,3 +7,5 @@
 - Finalised Task 3 experience overhaul: launched a tokenised design system, deployed enterprise mega menus with role routing, rebranded the feed to “Timeline” across web, backend, docs, and mobile, and enforced legal acknowledgement workflows with persistent storage.
 - Initiated Task 4 live services rollout with a production-grade socket.io cluster, Redis-backed presence, role-aware namespaces for chat/voice/events/moderation, and automated onboarding hooks in the backend test harness.
 - Stabilised the realtime rollout by hardening the Jest bootstrap (Sequelize skip guard) and aligning channel access expectations, allowing the new socket suites to run cleanly while we proceed toward inbox and moderation deliverables.
+- Wired the Chatwoot support bubble into the hardened messaging stack, exposing an authenticated widget, synchronised inbox threads, and SLA-driven escalation telemetry across web, backend, and operator workflows.
+- Shipped the community moderation platform: heuristic scoring pipeline, event logging service, realtime moderation namespace, admin dashboard tooling, and supporting docs/tests to operationalise review queues and audit trails.

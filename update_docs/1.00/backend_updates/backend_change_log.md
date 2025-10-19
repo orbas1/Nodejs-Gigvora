@@ -10,3 +10,5 @@
 - Delivered namespaces for community chat, voice rooms, live events, and moderation control, each with role/permission guards, Agora token minting, and broadcast workflows for join/leave/activity signals.
 - Hardened the Jest test harness to prime realtime dependencies and added targeted unit tests covering channel access control and connection governance.
 - Updated the realtime channel registry so company war-room access keys off role membership instead of hidden permission grants and documented the SKIP_SEQUELIZE_BOOTSTRAP test harness guard to keep targeted suites isolated from legacy model definitions.
+- Introduced a Chatwoot integration surface: runtime-configured widget session API, webhook ingestion, and SLA-aware support case synchronisation that raises urgent notifications when response/resolution thresholds are breached.
+- Delivered a moderation pipeline spanning heuristic scoring, persistence via `ModerationEvent`, realtime queue broadcasting, and admin APIs so governance teams can triage, resolve, and audit community incidents.

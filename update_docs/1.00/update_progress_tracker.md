@@ -23,10 +23,10 @@ Percentages capture current progress for each task and subtask across required q
 |  | 4. Core workflow pages & screens | 100% | 100% | 100% | 100% | 100% | 100% | 100% |
 |  | 5. Policy & legal integration | 100% | 100% | 100% | 100% | 100% | 100% | 100% |
 |  | 6. Creation Studio Wizard 2.0 | 100% | 100% | 100% | 100% | 100% | 100% | 100% |
-| Task 4 – Community, Communication & Live Services | — | 25% | 25% | 25% | 25% | 40% | 35% | 29% |
+| Task 4 – Community, Communication & Live Services | — | 60% | 60% | 60% | 60% | 70% | 60% | 62% |
 |  | 1. Socket.io infrastructure | 100% | 100% | 100% | 100% | 100% | 100% | 100% |
-|  | 2. Chatwoot + inbox integration | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
-|  | 3. Moderation heuristics & dashboards | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
+|  | 2. Chatwoot + inbox integration | 100% | 100% | 100% | 100% | 100% | 100% | 100% |
+|  | 3. Moderation heuristics & dashboards | 100% | 100% | 100% | 100% | 100% | 100% | 100% |
 |  | 4. Live service telemetry sync | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
 |  | 5. Load/stress testing | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
 | Task 5 – Intelligence, Monetisation & Dashboard Unification | — | 0% | 0% | 0% | 0% | 0% | 0% | 0% |

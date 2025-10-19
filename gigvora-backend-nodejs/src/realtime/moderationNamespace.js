@@ -4,7 +4,14 @@ import {
   removeMessage,
   describeChannelState,
 } from '../services/communityChatService.js';
+import {
+  listModerationQueue,
+  listModerationEvents,
+  getModerationOverview,
+  resolveModerationEvent,
+} from '../services/communityModerationService.js';
 import { ApplicationError, AuthorizationError } from '../utils/errors.js';
+import moderationEvents, { MODERATION_EVENT_TYPES } from '../events/moderationEvents.js';
 
 function hasModerationAccess(actor) {
   const roleSet = new Set((actor?.roles ?? []).map((role) => String(role).toLowerCase()));
@@ -20,6 +27,17 @@ function hasModerationAccess(actor) {
 
 export function registerModerationNamespace(io, { logger }) {
   const namespace = io.of('/moderation');
+
+  const forwarders = [
+    [MODERATION_EVENT_TYPES.EVENT_CREATED, 'moderation:queue:event'],
+    [MODERATION_EVENT_TYPES.EVENT_UPDATED, 'moderation:queue:event'],
+  ];
+
+  forwarders.forEach(([type, eventName]) => {
+    moderationEvents.on(type, (payload) => {
+      namespace.emit(eventName, payload);
+    });
+  });
 
   namespace.use((socket, next) => {
     const actor = socket.data?.actor;
@@ -42,6 +60,56 @@ export function registerModerationNamespace(io, { logger }) {
 
     socket.on('moderation:channels', () => {
       socket.emit('moderation:channels:list', Array.from(moderationState.channels.values()));
+    });
+
+    socket.on('moderation:overview', async ({ days } = {}) => {
+      try {
+        const overview = await getModerationOverview({ days: Number.parseInt(days, 10) || 7 });
+        socket.emit('moderation:overview:result', overview);
+      } catch (error) {
+        modLogger?.warn({ err: error }, 'Failed to fetch moderation overview');
+        socket.emit('moderation:error', { message: error.message });
+      }
+    });
+
+    socket.on('moderation:queue', async ({ page, pageSize, severities, channels, status, search } = {}) => {
+      try {
+        const queue = await listModerationQueue({ page, pageSize, severities, channels, status, search });
+        socket.emit('moderation:queue:list', queue);
+      } catch (error) {
+        modLogger?.warn({ err: error }, 'Failed to fetch moderation queue');
+        socket.emit('moderation:error', { message: error.message });
+      }
+    });
+
+    socket.on('moderation:events', async ({ page, pageSize, status, actorId, channelSlug } = {}) => {
+      try {
+        const events = await listModerationEvents({ page, pageSize, status, actorId, channelSlug });
+        socket.emit('moderation:events:list', events);
+      } catch (error) {
+        modLogger?.warn({ err: error }, 'Failed to fetch moderation events');
+        socket.emit('moderation:error', { message: error.message });
+      }
+    });
+
+    socket.on('moderation:events:resolve', async ({ eventId, status, notes }) => {
+      try {
+        if (!eventId) {
+          throw new ApplicationError('eventId is required.');
+        }
+        const resolved = await resolveModerationEvent(eventId, {
+          status,
+          resolvedBy: actor.id,
+          resolutionNotes: notes,
+        });
+        if (!resolved) {
+          throw new ApplicationError('Event not found.');
+        }
+        socket.emit('moderation:events:resolved', resolved);
+      } catch (error) {
+        modLogger?.warn({ err: error, eventId }, 'Failed to resolve moderation event');
+        socket.emit('moderation:error', { message: error.message });
+      }
     });
 
     socket.on('moderation:channel:state', async ({ channel } = {}) => {

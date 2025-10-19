@@ -1114,6 +1114,10 @@ export const CompanyProfileConnection = sequelize.define(
       { fields: ['companyProfileId'] },
       { fields: ['targetUserId'] },
       { unique: true, fields: ['companyProfileId', 'targetUserId'] },
+    ],
+  },
+);
+
 export const CompanyDashboardOverview = sequelize.define(
   'CompanyDashboardOverview',
   {

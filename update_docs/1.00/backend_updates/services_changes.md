@@ -5,3 +5,5 @@
 - Enhanced the news aggregation service with execution telemetry (last run, last success, last error) to support health reporting and runbook diagnostics.
 - Introduced `communityChatService` to orchestrate community thread provisioning, participant state, message persistence, moderation actions, and delivery acknowledgements for socket-driven chat workflows.
 - Refined `channelRegistry` policies so role membership governs project operations access while maintaining privileged gates for moderation and provider namespaces.
+- Added `chatwootService` for authenticated widget provisioning, contact identity signing, webhook-driven thread mirroring, and SLA escalation that promotes support cases to urgent priority and queues notifications when thresholds are breached.
+- Implemented `communityModerationService` to centralise heuristic scoring, moderation event persistence, queue aggregation, SLA escalation hooks, and admin resolution workflows with realtime notifications.

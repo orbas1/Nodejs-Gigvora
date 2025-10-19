@@ -1,6 +1,11 @@
 import { MessageThread, MessageParticipant, Message, sequelize } from '../models/messagingModels.js';
 import { getChannelDefinition } from '../realtime/channelRegistry.js';
 import { ApplicationError, AuthorizationError } from '../utils/errors.js';
+import {
+  evaluateCommunityMessage,
+  recordMessageModeration,
+  recordModerationAction,
+} from './communityModerationService.js';
 
 const MAX_MESSAGE_LENGTH = 5_000;
 
@@ -101,15 +106,51 @@ export async function publishMessage({ channelSlug, userId, body, messageType = 
       throw new AuthorizationError('You are temporarily muted in this channel.');
     }
 
+    const evaluation = await evaluateCommunityMessage({
+      thread,
+      participant,
+      body: normalisedBody,
+      metadata,
+      transaction,
+    });
+
+    if (evaluation.decision === 'block') {
+      await recordMessageModeration({
+        threadId: thread.id,
+        messageId: null,
+        actorId: userId,
+        channelSlug,
+        decision: evaluation.decision,
+        severity: evaluation.severity,
+        signals: evaluation.signals,
+        score: evaluation.score,
+        metadata: evaluation.metadata,
+        transaction,
+      });
+      throw new ApplicationError(
+        'Your message violated community policies and was blocked. Please review the guidelines before posting again.',
+      );
+    }
+
+    const moderationMetadata = {
+      decision: evaluation.decision,
+      severity: evaluation.severity,
+      score: evaluation.score,
+      signals: evaluation.signals,
+      evaluatedAt: new Date().toISOString(),
+      status: evaluation.decision === 'review' ? 'pending_review' : 'approved',
+    };
+
     const message = await Message.create(
       {
         threadId: thread.id,
         senderId: userId,
         messageType,
-        body: messageType === 'text' ? normalisedBody : null,
+        body: messageType === 'text' ? evaluation.sanitisedBody : null,
         metadata: {
           ...(metadata ?? {}),
           channelSlug,
+          moderation: moderationMetadata,
         },
         deliveredAt: new Date(),
       },
@@ -121,6 +162,21 @@ export async function publishMessage({ channelSlug, userId, body, messageType = 
       { lastMessageAt: new Date(), lastMessagePreview: preview },
       { where: { id: thread.id }, transaction },
     );
+
+    if (evaluation.decision !== 'allow') {
+      await recordMessageModeration({
+        threadId: thread.id,
+        messageId: message.id,
+        actorId: userId,
+        channelSlug,
+        decision: evaluation.decision,
+        severity: evaluation.severity,
+        signals: evaluation.signals,
+        score: evaluation.score,
+        metadata: evaluation.metadata,
+        transaction,
+      });
+    }
 
     return message.toPublicObject ? message.toPublicObject() : message.get({ plain: true });
   });
@@ -145,42 +201,90 @@ export async function muteParticipant({ channelSlug, userId, mutedBy, mutedUntil
   if (untilDate && Number.isNaN(untilDate.getTime())) {
     throw new ApplicationError('Muted until must be a valid date string.');
   }
-  const { thread, participant } = await ensureParticipant({ channelSlug, userId });
-  const update = {
-    mutedUntil: untilDate,
-    metadata: {
-      ...(participant.metadata ?? {}),
-      moderation: {
-        ...(participant.metadata?.moderation ?? {}),
-        mutedBy,
-        mutedUntil: untilDate ? untilDate.toISOString() : null,
-        mutedAt: new Date().toISOString(),
+  return sequelize.transaction(async (transaction) => {
+    const { thread, participant } = await ensureParticipant({ channelSlug, userId, transaction });
+    const update = {
+      mutedUntil: untilDate,
+      metadata: {
+        ...(participant.metadata ?? {}),
+        moderation: {
+          ...(participant.metadata?.moderation ?? {}),
+          mutedBy,
+          mutedUntil: untilDate ? untilDate.toISOString() : null,
+          mutedAt: new Date().toISOString(),
+        },
       },
-    },
-  };
-  await participant.update(update);
-  return { threadId: thread.id, mutedUntil: update.mutedUntil };
+    };
+    await participant.update(update, { transaction });
+
+    const severity = untilDate ? 'medium' : 'low';
+    const reason = untilDate
+      ? `Member muted until ${untilDate.toISOString()}`
+      : 'Member mute cleared by moderator.';
+    await recordModerationAction({
+      threadId: thread.id,
+      messageId: null,
+      actorId: mutedBy,
+      channelSlug,
+      action: untilDate ? 'participant_muted' : 'status_change',
+      severity,
+      status: 'resolved',
+      reason,
+      metadata: {
+        targetUserId: userId,
+        mutedUntil: update.metadata.moderation.mutedUntil,
+      },
+      transaction,
+    });
+
+    return { threadId: thread.id, mutedUntil: update.mutedUntil };
+  });
 }
 
 export async function removeMessage({ channelSlug, messageId, moderatorId, reason }) {
-  const thread = await ensureThread(channelSlug);
-  const message = await Message.findOne({ where: { id: messageId, threadId: thread.id } });
-  if (!message) {
-    throw new ApplicationError('Message not found.');
-  }
-  await message.update({
-    messageType: 'system',
-    body: null,
-    metadata: {
-      ...(message.metadata ?? {}),
-      moderation: {
-        removedBy: moderatorId,
-        removedAt: new Date().toISOString(),
-        reason: reason ?? 'Removed by moderator',
+  return sequelize.transaction(async (transaction) => {
+    const thread = await ensureThread(channelSlug, { transaction });
+    const message = await Message.findOne({ where: { id: messageId, threadId: thread.id }, transaction });
+    if (!message) {
+      throw new ApplicationError('Message not found.');
+    }
+    const removalReason = reason ?? 'Removed by moderator';
+    const previousBody = message.body;
+    await message.update(
+      {
+        messageType: 'system',
+        body: null,
+        metadata: {
+          ...(message.metadata ?? {}),
+          moderation: {
+            ...(message.metadata?.moderation ?? {}),
+            removedBy: moderatorId,
+            removedAt: new Date().toISOString(),
+            reason: removalReason,
+          },
+        },
       },
-    },
+      { transaction },
+    );
+
+    await recordModerationAction({
+      threadId: thread.id,
+      messageId: message.id,
+      actorId: moderatorId,
+      channelSlug,
+      action: 'message_removed',
+      severity: 'high',
+      status: 'resolved',
+      reason: removalReason,
+      metadata: {
+        previousBody,
+        messageCreatedAt: message.createdAt,
+      },
+      transaction,
+    });
+
+    return message.toPublicObject ? message.toPublicObject() : message.get({ plain: true });
   });
-  return message.toPublicObject ? message.toPublicObject() : message.get({ plain: true });
 }
 
 export async function describeChannelState(channelSlug) {
