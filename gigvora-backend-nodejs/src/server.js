@@ -25,6 +25,7 @@ import {
   whenRuntimeConfigReady,
   onRuntimeConfigChange,
 } from './config/runtimeConfig.js';
+import { attachSocketServer, shutdownSocketServer } from './realtime/socketServer.js';
 
 dotenv.config();
 
@@ -71,6 +72,10 @@ export async function start({ port = DEFAULT_PORT } = {}) {
 
     httpServer = http.createServer(app);
 
+    await attachSocketServer(httpServer, {
+      logger: logger.child({ component: 'socket-server' }),
+    });
+
     const desiredPort = port ?? runtimeConfig?.http?.port ?? DEFAULT_PORT;
     const normalizedPort = Number.parseInt(desiredPort, 10);
     const listenPort = Number.isNaN(normalizedPort) ? DEFAULT_PORT : normalizedPort;
@@ -108,6 +113,11 @@ export async function start({ port = DEFAULT_PORT } = {}) {
     return httpServer;
   } catch (error) {
     try {
+      await shutdownSocketServer();
+    } catch (socketError) {
+      logger.warn({ err: socketError }, 'Socket server shutdown after startup failure encountered errors');
+    }
+    try {
       await shutdownDatabase({ reason: 'startup-failed', logger });
     } catch (shutdownError) {
       logger.warn({ err: shutdownError }, 'Database shutdown after startup failure encountered errors');
@@ -129,6 +139,12 @@ export async function stop({ reason = 'shutdown' } = {}) {
   }
 
   markHttpServerClosing({ reason });
+
+  try {
+    await shutdownSocketServer();
+  } catch (error) {
+    logger.warn({ err: error }, 'Socket server shutdown reported errors');
+  }
 
   await orchestrateHttpShutdown({
     httpServer,

@@ -111,11 +111,12 @@ All tasks derive from the feature requirements and remediation directives captur
 - Deliver comprehensive Figma/UX specs, accessibility test scripts, and visual QA checklists for every persona experience.
 - Produce dashboard-specific component libraries, annotated journeys for all primary pages, and motion guidelines for responsive screen transitions.
 
-## Task 4 – Community, Communication & Live Services (0%)
+## Task 4 – Community, Communication & Live Services (20%)
 **Goal:** Build the community chat suite, unified inbox/support hub, live sessions, and moderation console with robust observability and safeguards.
 
-### Subtasks (0% each)
-1. Engineer socket.io infrastructure for role-based chat channels, voice/video rooms, event scheduling, and moderation tooling.
+### Subtasks (progress)
+1. Engineer socket.io infrastructure for role-based chat channels, voice/video rooms, event scheduling, and moderation tooling. **(100%)**
+   - Realtime namespaces, connection registries, and test harness adjustments validated via `SKIP_SEQUELIZE_BOOTSTRAP=true npm test -- --runTestsByPath tests/realtime/channelRegistry.test.js tests/realtime/connectionRegistry.test.js`.
 2. Integrate Chatwoot floating bubble with dashboard inbox synchronization, conversation routing, and SLA escalation logic.
 3. Implement moderation heuristics, spam detection, and community management dashboards with audit trails and governance controls.
 4. Synchronise live service telemetry (timeline, chat, inbox, events) with analytics dashboards and incident response playbooks.

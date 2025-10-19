@@ -274,6 +274,9 @@ MessageLabel.prototype.toPublicObject = function toPublicObject() {
     description: plain.description,
     createdBy: plain.createdBy,
     metadata: plain.metadata,
+  };
+};
+
 export const SavedReply = sequelize.define(
   'SavedReply',
   {
@@ -341,6 +344,9 @@ MessageThreadLabel.prototype.toPublicObject = function toPublicObject() {
     appliedBy: plain.appliedBy,
     appliedAt: plain.appliedAt,
     metadata: plain.metadata,
+  };
+};
+
 export const InboxPreference = sequelize.define(
   'InboxPreference',
   {
@@ -509,6 +515,27 @@ export const AiAutoReplyTemplate = sequelize.define(
 );
 
 AiAutoReplyTemplate.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId ?? null,
+    ownerId: plain.ownerId,
+    title: plain.title,
+    summary: plain.summary ?? null,
+    tone: plain.tone ?? null,
+    model: plain.model ?? null,
+    temperature: typeof plain.temperature === 'number' ? plain.temperature : 0.35,
+    channels: Array.isArray(plain.channels) ? plain.channels : plain.channels ?? [],
+    instructions: plain.instructions,
+    sampleReply: plain.sampleReply ?? null,
+    isDefault: Boolean(plain.isDefault),
+    status: plain.status,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 export const MessageLabel = sequelize.define(
   'MessageLabel',
   {
