@@ -348,6 +348,18 @@ export default function App() {
         <Route element={<ProtectedRoute requiredMemberships={SECURITY_ALLOWED_MEMBERSHIPS} />}>
           {renderRoutes(SECURITY_ROUTES)}
         </Route>
+
+        <Route path="mentors" element={<MentorsPage />} />
+        <Route path="login" element={<LoginPage />} />
+        <Route path="register" element={<RegisterPage />} />
+        <Route path="register/company" element={<CompanyRegisterPage />} />
+        <Route path="profile/:id" element={<ProfilePage />} />
+        <Route path="preview/freelancer-reviews" element={<FreelancerReviewsPreviewPage />} />
+        <Route path="blog" element={<BlogPage />} />
+        <Route path="blog/:slug" element={<BlogArticlePage />} />
+        <Route path="terms" element={<TermsPage />} />
+        <Route path="privacy" element={<PrivacyPage />} />
+        <Route path="about" element={<AboutPage />} />
       </Route>
 
       {userDashboardRoutes.map((route) => (
@@ -383,52 +395,6 @@ export default function App() {
       {renderRequireRoleRoutes(mentorRoutes)}
       {renderRequireRoleRoutes(launchpadRoutes)}
       {renderAdminRoutes(adminRoutes)}
-        <Route path="login" element={<LoginPage />} />
-        <Route path="register" element={<RegisterPage />} />
-        <Route path="register/company" element={<CompanyRegisterPage />} />
-        <Route path="profile/:id" element={<ProfilePage />} />
-        <Route path="preview/freelancer-reviews" element={<FreelancerReviewsPreviewPage />} />
-        <Route path="blog" element={<BlogPage />} />
-        <Route path="blog/:slug" element={<BlogArticlePage />} />
-        <Route path="terms" element={<TermsPage />} />
-        <Route path="privacy" element={<PrivacyPage />} />
-        <Route path="about" element={<AboutPage />} />
-
-        <Route element={<ProtectedRoute requiredMemberships={COMMUNITY_ACCESS_MEMBERSHIPS} />}>
-          <Route path="feed" element={<FeedPage />} />
-          <Route path="search" element={<SearchPage />} />
-          <Route path="jobs" element={<JobsPage />} />
-          <Route path="gigs" element={<GigsPage />} />
-          <Route path="projects" element={<ProjectsPage />} />
-          <Route path="projects/new" element={<ProjectCreatePage />} />
-          <Route path="projects/:projectId" element={<ProjectDetailPage />} />
-          <Route path="projects/:projectId/auto-match" element={<ProjectAutoMatchPage />} />
-          <Route path="groups" element={<GroupsPage />} />
-          <Route path="groups/:groupId" element={<GroupProfilePage />} />
-          <Route path="pages" element={<PagesPage />} />
-          <Route path="connections" element={<ConnectionsPage />} />
-          <Route path="notifications" element={<NotificationsPage />} />
-          <Route path="trust-center" element={<TrustCenterPage />} />
-          <Route path="auto-assign" element={<AutoAssignQueuePage />} />
-          <Route path="inbox" element={<InboxPage />} />
-          <Route path="settings" element={<SettingsPage />} />
-          <Route path="finance" element={<FinanceHubPage />} />
-        </Route>
-
-        <Route element={<ProtectedRoute requiredMemberships={VOLUNTEER_ACCESS_MEMBERSHIPS} />}>
-          <Route path="volunteering" element={<VolunteeringPage />} />
-        </Route>
-
-        <Route element={<ProtectedRoute requiredMemberships={LAUNCHPAD_ALLOWED_MEMBERSHIPS} />}>
-          <Route path="experience-launchpad" element={<LaunchpadPage />} />
-        </Route>
-
-        <Route element={<ProtectedRoute requiredMemberships={SECURITY_ALLOWED_MEMBERSHIPS} />}>
-          <Route path="security-operations" element={<SecurityOperationsPage />} />
-        </Route>
-
-        <Route path="mentors" element={<MentorsPage />} />
-      </Route>
 
       <Route
         path="dashboard/user"
