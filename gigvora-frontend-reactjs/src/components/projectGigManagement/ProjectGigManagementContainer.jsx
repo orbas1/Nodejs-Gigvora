@@ -1,33 +1,23 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
-import useProjectGigManagement from '../../hooks/useProjectGigManagement.js';
 import DataStatus from '../DataStatus.jsx';
 import ProjectGigManagementSection from './ProjectGigManagementSection.jsx';
 import ProjectWorkspaceDrawer from './ProjectWorkspaceDrawer.jsx';
-import GigOrderDrawer from './GigOrderDrawer.jsx';
 import WorkspaceDetailDrawer from './WorkspaceDetailDrawer.jsx';
+import GigOperationsWorkspace from './GigOperationsWorkspace.jsx';
+import ProjectLifecyclePanel from './ProjectLifecyclePanel.jsx';
+import ProjectBidsPanel from './ProjectBidsPanel.jsx';
+import ProjectInvitationsPanel from './ProjectInvitationsPanel.jsx';
+import AutoMatchPanel from './AutoMatchPanel.jsx';
+import ProjectReviewsPanel from './ProjectReviewsPanel.jsx';
+import EscrowManagementPanel from './EscrowManagementPanel.jsx';
+import ProjectWizard from './ProjectWizard.jsx';
+import ActionDrawer from './ActionDrawer.jsx';
+import useProjectGigManagement from '../../hooks/useProjectGigManagement.js';
 import { useProjectManagementAccess } from '../../hooks/useAuthorization.js';
 import useSession from '../../hooks/useSession.js';
-import GigOperationsWorkspace from './GigOperationsWorkspace.jsx';
-import ProjectWizard from './ProjectWizard.jsx';
-import GigOrderComposer from './GigOrderComposer.jsx';
-import TimelineComposer from './TimelineComposer.jsx';
-import SubmissionComposer from './SubmissionComposer.jsx';
-import ChatComposer from './ChatComposer.jsx';
-import GigOrderDetailDrawer from './GigOrderDetailDrawer.jsx';
 
-const PROJECT_ACCESS_ROLES = ['Agency lead', 'Operations lead', 'Company operator', 'Workspace admin', 'Platform admin'];
-
-const NAV_TABS = [
-  { id: 'projects', label: 'Projects' },
-  { id: 'bids', label: 'Bids' },
-  { id: 'invites', label: 'Invites' },
-  { id: 'match', label: 'Match' },
-  { id: 'reviews', label: 'Reviews' },
-  { id: 'escrow', label: 'Escrow' },
-];
-
-const INITIAL_PROJECT_FORM = {
+const PROJECT_FORM_INITIAL = {
   title: '',
   description: '',
   budgetAllocated: '',
@@ -35,7 +25,7 @@ const INITIAL_PROJECT_FORM = {
   dueDate: '',
 };
 
-const INITIAL_GIG_FORM = {
+const GIG_FORM_INITIAL = {
   vendorName: '',
   serviceName: '',
   amount: '',
@@ -43,48 +33,48 @@ const INITIAL_GIG_FORM = {
   dueAt: '',
 };
 
-function parseNumber(value) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : undefined;
+function formatNumber(value) {
+  if (value == null || Number.isNaN(Number(value))) {
+    return '0';
+  }
+  return new Intl.NumberFormat('en-GB').format(Number(value));
 }
 
-function startOfToday() {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+function formatCurrency(value, currency = 'USD') {
+  if (value == null || Number.isNaN(Number(value))) {
+    return `${currency} 0`;
+  }
+  try {
+    return new Intl.NumberFormat('en-GB', {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 0,
+    }).format(Number(value));
+  } catch (error) {
+    return `${currency} ${formatNumber(value)}`;
+  }
 }
 
 function validateProjectForm(values) {
   const errors = {};
-  if (!values.title?.trim()) {
+  if (!values.title.trim()) {
     errors.title = 'Add a name.';
-    errors.title = 'Add a project name.';
   } else if (values.title.trim().length < 3) {
-    errors.title = 'Use at least three characters.';
+    errors.title = 'Too short.';
   }
-  if (!values.description?.trim()) {
+  if (!values.description.trim()) {
     errors.description = 'Add a summary.';
-    errors.description = 'Add a short project outline.';
   }
-  if (values.budgetAllocated !== '') {
-    const amount = parseNumber(values.budgetAllocated);
-    if (amount == null) {
-      errors.budgetAllocated = 'Use a number.';
-    } else if (amount < 0) {
-      errors.budgetAllocated = 'Must be positive.';
-      errors.budgetAllocated = 'Enter a number.';
-    } else if (amount < 0) {
-      errors.budgetAllocated = 'Budget cannot be negative.';
+  if (values.budgetAllocated) {
+    const parsed = Number(values.budgetAllocated);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      errors.budgetAllocated = 'Use a positive number.';
     }
   }
   if (values.dueDate) {
     const due = new Date(values.dueDate);
     if (Number.isNaN(due.getTime())) {
-      errors.dueDate = 'Pick a date.';
-    } else if (due < startOfToday()) {
-      errors.dueDate = 'Date has passed.';
-      errors.dueDate = 'Choose a valid date.';
-    } else if (due < startOfToday()) {
-      errors.dueDate = 'Use a future date.';
+      errors.dueDate = 'Pick a valid date.';
     }
   }
   return errors;
@@ -92,173 +82,26 @@ function validateProjectForm(values) {
 
 function validateGigForm(values) {
   const errors = {};
-  if (!values.vendorName?.trim()) {
-    errors.vendorName = 'Add a vendor.';
+  if (!values.vendorName.trim()) {
+    errors.vendorName = 'Add vendor.';
   }
-  if (!values.serviceName?.trim()) {
-    errors.serviceName = 'Add a service.';
-    errors.vendorName = 'Add the vendor name.';
+  if (!values.serviceName.trim()) {
+    errors.serviceName = 'Add service.';
   }
-  if (!values.serviceName?.trim()) {
-    errors.serviceName = 'Add the service.';
-  }
-  if (values.amount !== '') {
-    const amount = parseNumber(values.amount);
-    if (amount == null) {
-      errors.amount = 'Use a number.';
-      errors.amount = 'Enter a number.';
-    } else if (amount < 0) {
-      errors.amount = 'Must be positive.';
+  if (values.amount) {
+    const parsed = Number(values.amount);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      errors.amount = 'Invalid amount.';
     }
   }
   if (values.dueAt) {
     const due = new Date(values.dueAt);
     if (Number.isNaN(due.getTime())) {
-      errors.dueAt = 'Pick a date.';
-    } else if (due < startOfToday()) {
-      errors.dueAt = 'Date has passed.';
-      errors.dueAt = 'Choose a valid date.';
-    } else if (due < startOfToday()) {
-      errors.dueAt = 'Use a future date.';
+      errors.dueAt = 'Pick a valid date.';
     }
   }
   return errors;
 }
-const EMPTY_COMPOSER = { form: null, context: null };
-
-function Modal({ title, onClose, children, footer, width = 'max-w-2xl' }) {
-  if (!children) {
-    return null;
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-4 py-10">
-      <div
-        role="dialog"
-        aria-modal="true"
-        className={`w-full ${width} overflow-hidden rounded-3xl bg-white shadow-2xl`}
-      >
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700"
-            aria-label="Close"
-          >
-            ×
-          </button>
-        </div>
-        <div className="max-h-[70vh] overflow-y-auto px-6 py-5">{children}</div>
-        {footer ? <div className="border-t border-slate-100 px-6 py-4">{footer}</div> : null}
-      </div>
-    </div>
-  );
-}
-
-Modal.propTypes = {
-  title: PropTypes.string.isRequired,
-  onClose: PropTypes.func.isRequired,
-  children: PropTypes.node,
-  footer: PropTypes.node,
-  width: PropTypes.string,
-};
-
-Modal.defaultProps = {
-  children: null,
-  footer: null,
-  width: 'max-w-2xl',
-};
-
-function ProjectPreview({ project, onClose }) {
-  if (!project) {
-    return null;
-  }
-
-  const budget = project.budget ?? {};
-  const workspace = project.workspace ?? {};
-  const collaborators = project.collaborators ?? [];
-  const milestones = project.milestones ?? [];
-
-  return (
-    <Modal title={project.project?.title ?? project.title ?? 'Project'} onClose={onClose} width="max-w-3xl">
-      <div className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="rounded-2xl border border-slate-200 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Status</p>
-            <p className="mt-2 text-sm font-semibold text-slate-900">
-              {(workspace.status ?? project.status ?? 'planning').replace(/_/g, ' ')}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Progress</p>
-            <p className="mt-2 text-sm font-semibold text-slate-900">
-              {Number(workspace.progressPercent ?? 0).toFixed(0)}%
-            </p>
-          </div>
-        </div>
-        <div className="rounded-2xl border border-slate-200 p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Budget</p>
-          <div className="mt-2 grid gap-3 sm:grid-cols-3">
-            <div>
-              <p className="text-xs text-slate-500">Allocated</p>
-              <p className="text-sm font-semibold text-slate-900">
-                {budget.allocated != null ? `${budget.currency ?? 'USD'} ${Number(budget.allocated).toLocaleString()}` : '—'}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-500">Spent</p>
-              <p className="text-sm font-semibold text-slate-900">
-                {budget.spent != null ? `${budget.currency ?? 'USD'} ${Number(budget.spent).toLocaleString()}` : '—'}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-500">Burn</p>
-              <p className="text-sm font-semibold text-slate-900">
-                {budget.burnRatePercent != null ? `${Number(budget.burnRatePercent).toFixed(0)}%` : '—'}
-              </p>
-            </div>
-          </div>
-        </div>
-        {milestones.length ? (
-          <div className="rounded-2xl border border-slate-200 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Milestones</p>
-            <ul className="mt-2 space-y-2 text-sm text-slate-700">
-              {milestones.slice(0, 6).map((milestone) => (
-                <li key={milestone.id} className="flex items-center justify-between">
-                  <span>{milestone.title}</span>
-                  <span className="text-xs text-slate-500">{milestone.status?.replace(/_/g, ' ') ?? 'planned'}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-        {collaborators.length ? (
-          <div className="rounded-2xl border border-slate-200 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Team</p>
-            <ul className="mt-2 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
-              {collaborators.slice(0, 8).map((person) => (
-                <li key={person.id} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
-                  <p className="font-semibold text-slate-900">{person.fullName}</p>
-                  <p className="text-xs text-slate-500">{person.role}</p>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-      </div>
-    </Modal>
-  );
-}
-
-ProjectPreview.propTypes = {
-  project: PropTypes.object,
-  onClose: PropTypes.func.isRequired,
-};
-
-ProjectPreview.defaultProps = {
-  project: null,
-};
 
 function resolveProjectId(project) {
   if (!project) {
@@ -267,291 +110,463 @@ function resolveProjectId(project) {
   return project.project?.id ?? project.projectId ?? project.id ?? null;
 }
 
+function resolveDefaultAuthorName(session) {
+  if (!session) {
+    return null;
+  }
+  if (session.name) {
+    return session.name;
+  }
+  if (session.user?.name) {
+    return session.user.name;
+  }
+  const parts = [session.user?.firstName, session.user?.lastName].filter(Boolean);
+  if (parts.length) {
+    return parts.join(' ');
+  }
+  return session.email ?? session.user?.email ?? null;
+}
+
+function calculateGigStats(orders, fallbackCurrency = 'USD') {
+  let openCount = 0;
+  let closedCount = 0;
+  let escrowOutstanding = 0;
+  orders.forEach((order) => {
+    if (order?.isClosed === true || order?.status === 'closed') {
+      closedCount += 1;
+    } else {
+      openCount += 1;
+    }
+    const checkpoints = Array.isArray(order?.escrowCheckpoints) ? order.escrowCheckpoints : [];
+    checkpoints.forEach((checkpoint) => {
+      if (checkpoint?.status === 'released') {
+        return;
+      }
+      const amount = Number(checkpoint?.amount);
+      if (Number.isFinite(amount)) {
+        escrowOutstanding += amount;
+      }
+    });
+  });
+  return { openCount, closedCount, escrowOutstanding, currency: fallbackCurrency };
+}
+
 export default function ProjectGigManagementContainer({ userId }) {
   const { canManageProjects, denialReason } = useProjectManagementAccess();
   const { session } = useSession();
 
+  if (!userId) {
+    return (
+      <section className="rounded-3xl border border-rose-200 bg-rose-50/80 p-6 text-sm text-rose-700 shadow-sm">
+        <p className="text-base font-semibold text-rose-800">Workspace unavailable</p>
+        <p className="mt-2">We could not resolve your workspace owner. Sign in again to manage projects.</p>
+      </section>
+    );
+  }
+
   if (!canManageProjects) {
     return (
-      <section
-        id="projects-access"
-        className="rounded-3xl border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-white p-8 shadow-sm"
-      >
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] text-amber-500">
-            <span className="inline-block h-2 w-2 rounded-full bg-amber-500" />
-            Access blocked
-          </div>
-          <h2 className="text-2xl font-semibold text-slate-900">Project permission needed</h2>
-          <p className="text-sm text-slate-600">
-            {denialReason ?? 'Switch to an approved company or operations role to manage projects.'}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {PROJECT_ACCESS_ROLES.map((role) => (
-              <span
-                key={role}
-                className="inline-flex items-center rounded-full border border-amber-200 bg-white px-3 py-1 text-xs font-semibold text-amber-700"
-              >
-                {role}
-              </span>
-            ))}
-          </div>
-          <a
-            href="mailto:operations@gigvora.com?subject=Project%20workspace%20access"
-            className="inline-flex w-max items-center justify-center rounded-full bg-amber-500 px-5 py-2 text-sm font-semibold text-white transition hover:bg-amber-600"
-          >
-            Email operations@gigvora.com
-          </a>
-        </div>
-        id="project-workspace"
-        className="rounded-3xl border border-amber-200 bg-amber-50/70 p-8 shadow-sm"
-      >
-        <h2 className="text-lg font-semibold text-amber-900">Workspace access required</h2>
-        <p className="mt-2 text-sm text-amber-800">
-          Project controls are available to approved workspace roles only.
-        </p>
-        <p className="mt-3 text-xs uppercase tracking-wide text-amber-700">
-          Allowed roles: {PROJECT_MANAGEMENT_ROLE_LABELS.join(', ')}
-        </p>
-        <p className="mt-3 text-sm text-amber-800">{denialReason}</p>
-      <section className="rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">Access needed</h2>
-        <p className="mt-3 text-sm text-slate-600">{denialReason ?? 'Switch to a workspace role with project rights.'}</p>
+      <section className="rounded-3xl border border-amber-200 bg-amber-50/80 p-6 text-sm text-amber-800 shadow-sm">
+        <p className="text-base font-semibold text-amber-900">Access required</p>
+        <p className="mt-2">{denialReason ?? 'Switch to an approved workspace role to manage projects and gigs.'}</p>
       </section>
     );
   }
 
   const { data, loading, error, actions, reload } = useProjectGigManagement(userId);
   const [projectDrawerOpen, setProjectDrawerOpen] = useState(false);
-  const [gigDrawerOpen, setGigDrawerOpen] = useState(false);
-  const [selectedProject, setSelectedProject] = useState(null);
-  const [projectForm, setProjectForm] = useState(INITIAL_PROJECT_FORM);
-  const [gigForm, setGigForm] = useState(INITIAL_GIG_FORM);
-  const [projectErrors, setProjectErrors] = useState({});
-  const [gigErrors, setGigErrors] = useState({});
-  const [projectSubmitting, setProjectSubmitting] = useState(false);
-  const [gigSubmitting, setGigSubmitting] = useState(false);
-  const [activeTab, setActiveTab] = useState('projects');
-  const [projectForm, setProjectForm] = useState(INITIAL_PROJECT_FORM);
+  const [projectForm, setProjectForm] = useState(PROJECT_FORM_INITIAL);
   const [projectErrors, setProjectErrors] = useState({});
   const [projectFeedback, setProjectFeedback] = useState(null);
-  const [submittingProject, setSubmittingProject] = useState(false);
+  const [projectSubmitting, setProjectSubmitting] = useState(false);
 
-  const [gigForm, setGigForm] = useState(INITIAL_GIG_FORM);
+  const [gigDrawerOpen, setGigDrawerOpen] = useState(false);
+  const [gigForm, setGigForm] = useState(GIG_FORM_INITIAL);
   const [gigErrors, setGigErrors] = useState({});
   const [gigFeedback, setGigFeedback] = useState(null);
+  const [gigSubmitting, setGigSubmitting] = useState(false);
+
+  const [activeModuleId, setActiveModuleId] = useState(null);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [previewProjectId, setPreviewProjectId] = useState(null);
   const [detailSaving, setDetailSaving] = useState(false);
   const [detailError, setDetailError] = useState(null);
 
-  const access = data?.access ?? { canManage: false };
+  const meta = data?.meta ?? {};
+  const access = data?.access ?? {};
   const canManage = access.canManage !== false;
-  const viewOnlyNote = !canManage
-  const [submittingGig, setSubmittingGig] = useState(false);
-
-  const [projectDialogOpen, setProjectDialogOpen] = useState(false);
-  const [gigDialogOpen, setGigDialogOpen] = useState(false);
-  const [previewProjectId, setPreviewProjectId] = useState(null);
-
-  useEffect(() => {
-    if (!projectDialogOpen) {
-      setProjectForm(INITIAL_PROJECT_FORM);
-      setProjectErrors({});
-    }
-  }, [projectDialogOpen]);
-
-  useEffect(() => {
-    if (!gigDialogOpen) {
-      setGigForm(INITIAL_GIG_FORM);
-      setGigErrors({});
-    }
-  }, [gigDialogOpen]);
-
-  const access = data?.access ?? { canManage: false };
-  const canManage = access.canManage !== false;
-  const accessReason = !canManage ? access.reason : null;
-  const lastUpdated = data?.meta?.lastUpdated ?? null;
-  const fromCache = data?.meta?.fromCache ?? false;
-
-  const projects = data?.projectCreation?.projects ?? [];
-
-  const projectLookup = useMemo(() => {
-    const map = new Map();
-    projects.forEach((project) => {
-      map.set(project.id, project);
-    });
-    return map;
-  }, [projects]);
-
-  const selectedProject = previewProjectId ? projectLookup.get(previewProjectId) ?? null : null;
-  const [activeView, setActiveView] = useState('manage');
-  const [composer, setComposer] = useState(EMPTY_COMPOSER);
-  const [selectedOrderId, setSelectedOrderId] = useState(null);
-
-  const orders = useMemo(() => (Array.isArray(data?.purchasedGigs?.orders) ? data.purchasedGigs.orders : []), [data]);
-  const orderOptions = useMemo(
-    () =>
-      orders.map((order) => ({
-        value: order.id,
-        label: `${order.orderNumber ?? `Order ${order.id}`} · ${order.serviceName}`,
-      })),
-    [orders],
-  );
-  const selectedOrder = useMemo(
-    () => orders.find((order) => order.id === selectedOrderId) ?? null,
-    [orders, selectedOrderId],
-  );
-  const accessReason = hasSnapshot && !canManage
-    ? access.reason ??
-      (access.actorRole
-        ? `View only for ${access.actorRole.replace(/_/g, ' ')}`
-        : 'Current role is read only.')
-    : null;
+  const viewOnlyNote = !canManage ? access.reason ?? 'Workspace is read only for this role.' : null;
   const allowedRoles = useMemo(
-    () => access.allowedRoles?.filter(Boolean).map((role) => role.replace(/_/g, ' ')) ?? [],
+    () => access.allowedRoles?.map((role) => role.replace(/_/g, ' ')) ?? [],
     [access.allowedRoles],
   );
 
-  const meta = data?.meta ?? {};
-  const defaultAuthorName = useMemo(() => {
-    if (!session) {
-      return null;
-    }
-    if (session.name) {
-      return session.name;
-    }
-    const user = session.user ?? {};
-    if (user.name) {
-      return user.name;
-    }
-    const parts = [user.firstName, user.lastName].filter(Boolean);
-    if (parts.length) {
-      return parts.join(' ');
-    }
-    return session.email ?? session.user?.email ?? null;
-  }, [session]);
+  const summary = data?.summary ?? {};
+  const autoMatchSummary = data?.autoMatch?.summary ?? {};
+  const invitationStats = data?.invitations?.stats ?? {};
+  const bidsStats = data?.projectBids?.stats ?? {};
+  const reviewsSummary = data?.reviews?.summary ?? {};
+  const escrowAccount = data?.escrow?.account ?? {};
+  const escrowTransactions = data?.escrow?.transactions ?? [];
+  const projects = data?.projectCreation?.projects ?? [];
+  const templates = data?.projectCreation?.templates ?? [];
+  const orders = data?.purchasedGigs?.orders ?? [];
+  const gigStats = useMemo(
+    () => calculateGigStats(orders, data?.purchasedGigs?.currency ?? summary.currency ?? 'USD'),
+    [orders, data?.purchasedGigs?.currency, summary.currency],
+  );
 
-  const inputClassName = (hasError) =>
-    `rounded-xl border px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent ${
-      hasError ? 'border-rose-400 focus:ring-rose-200 focus:border-rose-500' : 'border-slate-200'
-    }`;
+  const defaultAuthorName = useMemo(() => resolveDefaultAuthorName(session), [session]);
+
+  const summaryCards = useMemo(() => {
+    const currency = summary.currency ?? data?.purchasedGigs?.currency ?? 'USD';
+    return [
+      { id: 'projects', label: 'Projects', value: formatNumber(summary.totalProjects) },
+      { id: 'active-projects', label: 'Active', value: formatNumber(summary.activeProjects) },
+      { id: 'open-gigs', label: 'Gigs', value: formatNumber(summary.openGigs ?? gigStats.openCount) },
+      { id: 'budget', label: 'Budget', value: formatCurrency(summary.budgetInPlay, currency) },
+      { id: 'matches', label: 'Matches', value: formatNumber(autoMatchSummary.totalMatches ?? autoMatchSummary.active ?? 0) },
+      {
+        id: 'invites',
+        label: 'Invites',
+        value: formatNumber(invitationStats.pending ?? invitationStats.total ?? 0),
+      },
+      { id: 'bids', label: 'Bids', value: formatNumber(bidsStats.total ?? 0) },
+      {
+        id: 'escrow',
+        label: 'Escrow',
+        value: formatCurrency(escrowAccount.availableBalance ?? summary.escrowBalance, escrowAccount.currency ?? currency),
+        tone: 'success',
+      },
+    ];
+  }, [summary, data?.purchasedGigs?.currency, autoMatchSummary, invitationStats, bidsStats, escrowAccount, gigStats.openCount]);
+
+  const projectsPreview = useMemo(() => {
+    const nextReview = summary.nextReviewAt ? new Date(summary.nextReviewAt) : null;
+    const formattedReview = nextReview && !Number.isNaN(nextReview.getTime()) ? nextReview.toLocaleDateString() : '—';
+    return (
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <p className="text-xs uppercase tracking-wide text-slate-500">Open</p>
+          <p className="mt-1 text-lg font-semibold text-slate-900">{formatNumber(summary.activeProjects)}</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <p className="text-xs uppercase tracking-wide text-slate-500">Next review</p>
+          <p className="mt-1 text-lg font-semibold text-slate-900">{formattedReview}</p>
+        </div>
+      </div>
+    );
+  }, [summary.activeProjects, summary.nextReviewAt]);
+
+  const bidsPreview = useMemo(() => (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+        <p className="text-xs uppercase tracking-wide text-slate-500">Total</p>
+        <p className="mt-1 text-lg font-semibold text-slate-900">{formatNumber(bidsStats.total ?? 0)}</p>
+      </div>
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+        <p className="text-xs uppercase tracking-wide text-slate-500">Shortlisted</p>
+        <p className="mt-1 text-lg font-semibold text-slate-900">{formatNumber(bidsStats.shortlisted ?? 0)}</p>
+      </div>
+    </div>
+  ), [bidsStats.total, bidsStats.shortlisted]);
+
+  const invitesPreview = useMemo(() => (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+        <p className="text-xs uppercase tracking-wide text-slate-500">Pending</p>
+        <p className="mt-1 text-lg font-semibold text-slate-900">{formatNumber(invitationStats.pending ?? 0)}</p>
+      </div>
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+        <p className="text-xs uppercase tracking-wide text-slate-500">Accepted</p>
+        <p className="mt-1 text-lg font-semibold text-slate-900">{formatNumber(invitationStats.accepted ?? 0)}</p>
+      </div>
+    </div>
+  ), [invitationStats.pending, invitationStats.accepted]);
+
+  const matchPreview = useMemo(() => (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+        <p className="text-xs uppercase tracking-wide text-slate-500">Active</p>
+        <p className="mt-1 text-lg font-semibold text-slate-900">{formatNumber(autoMatchSummary.active ?? 0)}</p>
+      </div>
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+        <p className="text-xs uppercase tracking-wide text-slate-500">Automation</p>
+        <p className="mt-1 text-lg font-semibold text-slate-900">
+          {autoMatchSummary.automationEnabled ? 'On' : 'Off'}
+        </p>
+      </div>
+    </div>
+  ), [autoMatchSummary.active, autoMatchSummary.automationEnabled]);
+
+  const reviewsPreview = useMemo(() => (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+        <p className="text-xs uppercase tracking-wide text-slate-500">Reviews</p>
+        <p className="mt-1 text-lg font-semibold text-slate-900">{formatNumber(reviewsSummary.total ?? 0)}</p>
+      </div>
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+        <p className="text-xs uppercase tracking-wide text-slate-500">Rating</p>
+        <p className="mt-1 text-lg font-semibold text-slate-900">
+          {(reviewsSummary.averageRating ?? 0).toFixed?.(1) ?? reviewsSummary.averageRating ?? '0.0'}
+        </p>
+      </div>
+    </div>
+  ), [reviewsSummary.total, reviewsSummary.averageRating]);
+
+  const escrowPreview = useMemo(() => (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+        <p className="text-xs uppercase tracking-wide text-slate-500">Balance</p>
+        <p className="mt-1 text-lg font-semibold text-slate-900">
+          {formatCurrency(escrowAccount.availableBalance ?? escrowAccount.balance, escrowAccount.currency ?? 'USD')}
+        </p>
+      </div>
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+        <p className="text-xs uppercase tracking-wide text-slate-500">Auto release</p>
+        <p className="mt-1 text-lg font-semibold text-slate-900">
+          {escrowAccount.autoReleaseDays != null ? `${escrowAccount.autoReleaseDays} days` : 'Manual'}
+        </p>
+      </div>
+    </div>
+  ), [escrowAccount.availableBalance, escrowAccount.balance, escrowAccount.currency, escrowAccount.autoReleaseDays]);
+
+  const operationsPreview = useMemo(() => (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+        <p className="text-xs uppercase tracking-wide text-slate-500">Open gigs</p>
+        <p className="mt-1 text-lg font-semibold text-slate-900">{formatNumber(gigStats.openCount)}</p>
+      </div>
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+        <p className="text-xs uppercase tracking-wide text-slate-500">Outstanding</p>
+        <p className="mt-1 text-lg font-semibold text-slate-900">
+          {formatCurrency(gigStats.escrowOutstanding, gigStats.currency)}
+        </p>
+      </div>
+    </div>
+  ), [gigStats.openCount, gigStats.escrowOutstanding, gigStats.currency]);
+
+  const modules = useMemo(
+    () => [
+      {
+        id: 'projects',
+        label: 'Projects',
+        preview: projectsPreview,
+        content: (
+          <ProjectLifecyclePanel
+            lifecycle={data?.projectLifecycle ?? { open: [], closed: [], stats: {} }}
+            onUpdateWorkspace={(projectId, payload) => actions.updateWorkspace(projectId, payload)}
+            canManage={canManage}
+            onPreviewProject={(projectId) => setPreviewProjectId(projectId)}
+          />
+        ),
+        width: 'max-w-4xl',
+      },
+      {
+        id: 'bids',
+        label: 'Bids',
+        preview: bidsPreview,
+        content: (
+          <ProjectBidsPanel
+            bids={data?.projectBids?.bids ?? []}
+            stats={data?.projectBids?.stats ?? {}}
+            projects={projects}
+            onCreateBid={actions.createProjectBid}
+            onUpdateBid={actions.updateProjectBid}
+            canManage={canManage}
+          />
+        ),
+        width: 'max-w-4xl',
+      },
+      {
+        id: 'invites',
+        label: 'Invites',
+        preview: invitesPreview,
+        content: (
+          <ProjectInvitationsPanel
+            entries={data?.invitations?.entries ?? []}
+            stats={data?.invitations?.stats ?? {}}
+            projects={projects}
+            onSendInvitation={actions.sendProjectInvitation}
+            onUpdateInvitation={actions.updateProjectInvitation}
+            canManage={canManage}
+          />
+        ),
+        width: 'max-w-4xl',
+      },
+      {
+        id: 'match',
+        label: 'Match',
+        preview: matchPreview,
+        content: (
+          <AutoMatchPanel
+            settings={data?.autoMatch?.settings ?? {}}
+            matches={data?.autoMatch?.matches ?? []}
+            summary={data?.autoMatch?.summary ?? {}}
+            projects={projects}
+            onUpdateSettings={actions.updateAutoMatchSettings}
+            onCreateMatch={actions.createAutoMatch}
+            onUpdateMatch={actions.updateAutoMatch}
+            canManage={canManage}
+          />
+        ),
+        width: 'max-w-4xl',
+      },
+      {
+        id: 'reviews',
+        label: 'Reviews',
+        preview: reviewsPreview,
+        content: (
+          <ProjectReviewsPanel
+            entries={data?.reviews?.entries ?? []}
+            summary={data?.reviews?.summary ?? {}}
+            projects={projects}
+            orders={orders}
+            onCreateReview={actions.createProjectReview}
+            canManage={canManage}
+          />
+        ),
+        width: 'max-w-4xl',
+      },
+      {
+        id: 'escrow',
+        label: 'Escrow',
+        preview: escrowPreview,
+        content: (
+          <EscrowManagementPanel
+            account={escrowAccount}
+            transactions={escrowTransactions}
+            onCreateTransaction={actions.createEscrowTransaction}
+            onUpdateSettings={actions.updateEscrowSettings}
+            canManage={canManage}
+          />
+        ),
+        width: 'max-w-4xl',
+      },
+      {
+        id: 'operations',
+        label: 'Gigs',
+        preview: operationsPreview,
+        content: (
+          <GigOperationsWorkspace
+            data={data ?? {}}
+            canManage={canManage}
+            onCreateOrder={actions.createGigOrder}
+            onUpdateOrder={actions.updateGigOrder}
+            onAddTimelineEvent={actions.addTimelineEvent}
+            onPostMessage={actions.postGigMessage}
+            onCreateEscrow={actions.createEscrowCheckpoint}
+            onUpdateEscrow={actions.updateEscrowCheckpoint}
+            onSubmitReview={(orderId, payload) => actions.updateGigOrder(orderId, payload)}
+            defaultAuthorName={defaultAuthorName}
+          />
+        ),
+        width: 'max-w-5xl',
+      },
+    ],
+    [
+      data,
+      actions,
+      canManage,
+      projects,
+      orders,
+      escrowAccount,
+      escrowTransactions,
+      defaultAuthorName,
+      projectsPreview,
+      bidsPreview,
+      invitesPreview,
+      matchPreview,
+      reviewsPreview,
+      escrowPreview,
+      operationsPreview,
+    ],
+  );
+
+  const activeModule = modules.find((module) => module.id === activeModuleId) ?? null;
+  const previewProject = useMemo(
+    () => projects.find((project) => resolveProjectId(project) === previewProjectId) ?? null,
+    [projects, previewProjectId],
+  );
 
   const handleProjectChange = (event) => {
     const { name, value } = event.target;
     setProjectForm((current) => ({ ...current, [name]: value }));
   };
 
-  const openComposer = (form, context = null) => {
-    setComposer({ form, context });
+  const handleGigChange = (event) => {
+    const { name, value } = event.target;
+    setGigForm((current) => ({ ...current, [name]: value }));
   };
 
-  const submitProject = async (event) => {
+  const handleProjectSubmit = async (event) => {
     event.preventDefault();
     const validation = validateProjectForm(projectForm);
     setProjectErrors(validation);
-    if (Object.keys(validation).length > 0) {
+    if (Object.keys(validation).length) {
       setProjectFeedback({ status: 'error', message: 'Fix the highlighted fields.' });
       return;
     }
     setProjectSubmitting(true);
-      setProjectFeedback({ tone: 'error', message: 'Fix the highlighted fields.' });
-      return;
-    }
-    setSubmittingProject(true);
     setProjectFeedback(null);
     try {
       await actions.createProject({
-        title: projectForm.title,
-        description: projectForm.description,
+        title: projectForm.title.trim(),
+        description: projectForm.description.trim(),
         budgetCurrency: projectForm.budgetCurrency,
-        budgetAllocated: parseNumber(projectForm.budgetAllocated) ?? 0,
+        budgetAllocated: projectForm.budgetAllocated ? Number(projectForm.budgetAllocated) : 0,
         dueDate: projectForm.dueDate || undefined,
-        workspace: { status: 'planning', progressPercent: 10 },
       });
-      setProjectForm(INITIAL_PROJECT_FORM);
-      setProjectErrors({});
       setProjectFeedback({ status: 'success', message: 'Project created.' });
+      setProjectForm(PROJECT_FORM_INITIAL);
       setProjectDrawerOpen(false);
     } catch (submitError) {
       setProjectFeedback({ status: 'error', message: submitError?.message ?? 'Unable to create project.' });
     } finally {
       setProjectSubmitting(false);
-        workspace: { status: 'planning', progressPercent: 5 },
-      });
-      setProjectForm(INITIAL_PROJECT_FORM);
-      setProjectErrors({});
-      setProjectFeedback({ tone: 'success', message: 'Project created.' });
-      setProjectDialogOpen(false);
-      setActiveTab('projects');
-    } catch (submitError) {
-      setProjectFeedback({ tone: 'error', message: submitError?.message ?? 'Unable to create the project.' });
-    } finally {
-      setSubmittingProject(false);
     }
   };
 
-  const submitGig = async (event) => {
+  const handleGigSubmit = async (event) => {
     event.preventDefault();
     const validation = validateGigForm(gigForm);
     setGigErrors(validation);
-    if (Object.keys(validation).length > 0) {
+    if (Object.keys(validation).length) {
       setGigFeedback({ status: 'error', message: 'Fix the highlighted fields.' });
-      setGigFeedback({ tone: 'error', message: 'Fix the highlighted fields.' });
       return;
     }
-    setSubmittingGig(true);
+    setGigSubmitting(true);
     setGigFeedback(null);
     try {
       await actions.createGigOrder({
-        vendorName: gigForm.vendorName,
-        serviceName: gigForm.serviceName,
-        amount: parseNumber(gigForm.amount) ?? 0,
+        vendorName: gigForm.vendorName.trim(),
+        serviceName: gigForm.serviceName.trim(),
+        amount: gigForm.amount ? Number(gigForm.amount) : 0,
         currency: gigForm.currency,
         dueAt: gigForm.dueAt || undefined,
       });
-      setGigForm(INITIAL_GIG_FORM);
-      setGigErrors({});
-      setGigFeedback({ status: 'success', message: 'Gig logged.' });
+      setGigFeedback({ status: 'success', message: 'Gig recorded.' });
+      setGigForm(GIG_FORM_INITIAL);
       setGigDrawerOpen(false);
     } catch (submitError) {
       setGigFeedback({ status: 'error', message: submitError?.message ?? 'Unable to save gig.' });
-        requirements: [{ title: 'Kickoff', status: 'pending' }],
-      });
-      setGigForm(INITIAL_GIG_FORM);
-      setGigErrors({});
-      setGigFeedback({ tone: 'success', message: 'Gig recorded.' });
-      setGigDialogOpen(false);
-    } catch (submitError) {
-      setGigFeedback({ tone: 'error', message: submitError?.message ?? 'Unable to save the gig.' });
     } finally {
-      setSubmittingGig(false);
+      setGigSubmitting(false);
     }
   };
 
-  const handleSelectProject = (project) => {
-    setSelectedProject(project);
-    setDetailError(null);
-  };
-
-  const handleCloseDetail = () => {
-    if (detailSaving) {
-      return;
+  const handleSaveWorkspace = async (payload) => {
+    if (!previewProject) {
+      throw new Error('Select a project.');
     }
-    setSelectedProject(null);
-    setDetailError(null);
-  };
-
-  const handleSaveWorkspace = async (values) => {
-    if (!selectedProject) {
-      throw new Error('Project reference missing.');
-    }
-    const projectId = resolveProjectId(selectedProject);
+    const projectId = resolveProjectId(previewProject);
     if (!projectId) {
       throw new Error('Project reference missing.');
     }
     setDetailSaving(true);
     setDetailError(null);
     try {
-      await actions.updateWorkspace(projectId, values);
+      await actions.updateWorkspace(projectId, payload);
     } catch (err) {
       const message = err?.message ?? 'Unable to update workspace.';
       setDetailError(message);
@@ -563,26 +578,50 @@ export default function ProjectGigManagementContainer({ userId }) {
 
   return (
     <>
-      <div className="space-y-6">
-        <DataStatus
-          loading={loading}
-          error={error}
-          lastUpdated={meta.lastUpdated}
-          fromCache={meta.fromCache}
-          onRefresh={reload}
-          statusLabel="Projects"
-        />
+      <div className="space-y-8">
+        <div className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold text-slate-900">Command centre</h2>
+            <DataStatus
+              loading={loading}
+              error={error}
+              fromCache={meta.fromCache}
+              lastUpdated={meta.lastUpdated}
+              onRefresh={() => reload({ force: true })}
+              statusLabel="Workspace data"
+            />
+          </div>
+        </div>
+
         <ProjectGigManagementSection
-          data={data}
-          loading={loading}
-          canManage={canManage}
+          summaryCards={summaryCards}
+          modules={modules}
+          onOpenModule={(moduleId) => setActiveModuleId(moduleId)}
+          onCreateProject={() => {
+            setProjectDrawerOpen(true);
+            setProjectFeedback(null);
+            setProjectErrors({});
+          }}
+          onCreateGig={() => {
+            setGigDrawerOpen(true);
+            setGigFeedback(null);
+            setGigErrors({});
+          }}
+          onLaunchWizard={templates.length ? () => setWizardOpen(true) : null}
           viewOnlyNote={viewOnlyNote}
           allowedRoles={allowedRoles}
-          onOpenCreate={() => setProjectDrawerOpen(true)}
-          onOpenGig={() => setGigDrawerOpen(true)}
-          onSelectProject={handleSelectProject}
         />
       </div>
+
+      <ActionDrawer
+        open={Boolean(activeModule)}
+        onClose={() => setActiveModuleId(null)}
+        title={activeModule?.label ?? 'Module'}
+        width={activeModule?.width ?? 'max-w-3xl'}
+      >
+        {activeModule?.content}
+      </ActionDrawer>
+
       <ProjectWorkspaceDrawer
         open={projectDrawerOpen}
         onClose={() => {
@@ -600,7 +639,8 @@ export default function ProjectGigManagementContainer({ userId }) {
         feedback={projectFeedback}
         canManage={canManage}
       />
-      <GigOrderDrawer
+
+      <ActionDrawer
         open={gigDrawerOpen}
         onClose={() => {
           if (!gigSubmitting) {
@@ -609,472 +649,150 @@ export default function ProjectGigManagementContainer({ userId }) {
             setGigErrors({});
           }
         }}
-        values={gigForm}
-        errors={gigErrors}
-        onChange={handleGigChange}
-        onSubmit={handleGigSubmit}
-        loading={gigSubmitting}
-        feedback={gigFeedback}
-        canManage={canManage}
-      />
+        title="Log gig order"
+      >
+        <form className="space-y-4" onSubmit={handleGigSubmit} noValidate>
+          {gigFeedback ? (
+            <div
+              className={`rounded-2xl border px-4 py-3 text-sm ${
+                gigFeedback.status === 'success'
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                  : 'border-rose-200 bg-rose-50 text-rose-700'
+              }`}
+            >
+              {gigFeedback.message}
+            </div>
+          ) : null}
+          <label className="flex flex-col gap-2 text-sm text-slate-700">
+            <span className="font-semibold text-slate-900">Vendor</span>
+            <input
+              name="vendorName"
+              value={gigForm.vendorName}
+              onChange={handleGigChange}
+              className={`rounded-xl border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/30 ${
+                gigErrors.vendorName ? 'border-rose-400 focus:ring-rose-200' : 'border-slate-200'
+              }`}
+              placeholder="Studio"
+              disabled={!canManage || gigSubmitting}
+            />
+            {gigErrors.vendorName ? <span className="text-xs font-semibold text-rose-600">{gigErrors.vendorName}</span> : null}
+          </label>
+          <label className="flex flex-col gap-2 text-sm text-slate-700">
+            <span className="font-semibold text-slate-900">Service</span>
+            <input
+              name="serviceName"
+              value={gigForm.serviceName}
+              onChange={handleGigChange}
+              className={`rounded-xl border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/30 ${
+                gigErrors.serviceName ? 'border-rose-400 focus:ring-rose-200' : 'border-slate-200'
+              }`}
+              placeholder="Brand refresh"
+              disabled={!canManage || gigSubmitting}
+            />
+            {gigErrors.serviceName ? <span className="text-xs font-semibold text-rose-600">{gigErrors.serviceName}</span> : null}
+          </label>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="flex flex-col gap-2 text-sm text-slate-700">
+              <span className="font-semibold text-slate-900">Amount</span>
+              <input
+                name="amount"
+                value={gigForm.amount}
+                onChange={handleGigChange}
+                type="number"
+                min="0"
+                className={`rounded-xl border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/30 ${
+                  gigErrors.amount ? 'border-rose-400 focus:ring-rose-200' : 'border-slate-200'
+                }`}
+                placeholder="2500"
+                disabled={!canManage || gigSubmitting}
+              />
+              {gigErrors.amount ? <span className="text-xs font-semibold text-rose-600">{gigErrors.amount}</span> : null}
+            </label>
+            <label className="flex flex-col gap-2 text-sm text-slate-700">
+              <span className="font-semibold text-slate-900">Currency</span>
+              <select
+                name="currency"
+                value={gigForm.currency}
+                onChange={handleGigChange}
+                className="rounded-xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/30"
+                disabled={!canManage || gigSubmitting}
+              >
+                <option value="USD">USD</option>
+                <option value="GBP">GBP</option>
+                <option value="EUR">EUR</option>
+              </select>
+            </label>
+          </div>
+          <label className="flex flex-col gap-2 text-sm text-slate-700">
+            <span className="font-semibold text-slate-900">Due date</span>
+            <input
+              type="date"
+              name="dueAt"
+              value={gigForm.dueAt}
+              onChange={handleGigChange}
+              className={`rounded-xl border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/30 ${
+                gigErrors.dueAt ? 'border-rose-400 focus:ring-rose-200' : 'border-slate-200'
+              }`}
+              disabled={!canManage || gigSubmitting}
+            />
+            {gigErrors.dueAt ? <span className="text-xs font-semibold text-rose-600">{gigErrors.dueAt}</span> : null}
+          </label>
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                if (!gigSubmitting) {
+                  setGigDrawerOpen(false);
+                }
+              }}
+              className="inline-flex items-center justify-center rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+              disabled={gigSubmitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="inline-flex items-center justify-center rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:bg-accentDark disabled:cursor-not-allowed disabled:bg-accent/60"
+              disabled={!canManage || gigSubmitting}
+            >
+              {gigSubmitting ? 'Saving…' : 'Save gig'}
+            </button>
+          </div>
+        </form>
+      </ActionDrawer>
+
       <WorkspaceDetailDrawer
-        open={Boolean(selectedProject)}
-        onClose={handleCloseDetail}
-        project={selectedProject}
+        open={Boolean(previewProject)}
+        onClose={() => {
+          if (!detailSaving) {
+            setPreviewProjectId(null);
+            setDetailError(null);
+          }
+        }}
+        project={previewProject}
         onSave={handleSaveWorkspace}
         saving={detailSaving}
         error={detailError}
         canManage={canManage}
       />
-    </>
-  const projectFormContent = projectDialogOpen ? (
-    <form className="grid gap-4" onSubmit={submitProject} noValidate>
-      {projectFeedback ? (
-        <div
-          className={`rounded-2xl border px-4 py-3 text-sm ${
-            projectFeedback.tone === 'success'
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-              : 'border-rose-200 bg-rose-50 text-rose-700'
-          }`}
-        >
-          {projectFeedback.message}
-        </div>
-      ) : null}
-      {!canManage ? (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          {accessReason ?? 'Project creation is limited.'}
-        </div>
-      ) : null}
-      <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
-        Name
-        <input
-          name="title"
-          value={projectForm.title}
-          onChange={handleProjectChange}
-          className={`rounded-xl border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/30 ${
-            projectErrors.title ? 'border-rose-400 focus:ring-rose-200' : 'border-slate-200'
-          }`}
-          placeholder="Launch"
-          required
-          disabled={!canManage || submittingProject}
-        />
-        {projectErrors.title ? <span className="text-xs text-rose-600">{projectErrors.title}</span> : null}
-      </label>
-      <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
-        Description
-        <textarea
-          name="description"
-          value={projectForm.description}
-          onChange={handleProjectChange}
-          className={`min-h-[120px] rounded-xl border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/30 ${
-            projectErrors.description ? 'border-rose-400 focus:ring-rose-200' : 'border-slate-200'
-          }`}
-          placeholder="Outline goals"
-          required
-          disabled={!canManage || submittingProject}
-        />
-        {projectErrors.description ? <span className="text-xs text-rose-600">{projectErrors.description}</span> : null}
-      </label>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
-          Budget
-          <input
-            name="budgetAllocated"
-            value={projectForm.budgetAllocated}
-            onChange={handleProjectChange}
-            className={`rounded-xl border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/30 ${
-              projectErrors.budgetAllocated ? 'border-rose-400 focus:ring-rose-200' : 'border-slate-200'
-            }`}
-            placeholder="25000"
-            type="number"
-            min="0"
-            disabled={!canManage || submittingProject}
-          />
-          {projectErrors.budgetAllocated ? (
-            <span className="text-xs text-rose-600">{projectErrors.budgetAllocated}</span>
-          ) : null}
-        </label>
-        <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
-          Currency
-          <select
-            name="budgetCurrency"
-            value={projectForm.budgetCurrency}
-            onChange={handleProjectChange}
-            className="rounded-xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/30"
-            disabled={!canManage || submittingProject}
-          >
-            <option value="USD">USD</option>
-            <option value="GBP">GBP</option>
-            <option value="EUR">EUR</option>
-          </select>
-        </label>
-      </div>
-      <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
-        Due date
-        <input
-          type="date"
-          name="dueDate"
-          value={projectForm.dueDate}
-          onChange={handleProjectChange}
-          className={`rounded-xl border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/30 ${
-            projectErrors.dueDate ? 'border-rose-400 focus:ring-rose-200' : 'border-slate-200'
-          }`}
-          min={new Date().toISOString().split('T')[0]}
-          disabled={!canManage || submittingProject}
-        />
-        {projectErrors.dueDate ? <span className="text-xs text-rose-600">{projectErrors.dueDate}</span> : null}
-      </label>
-      <button
-        type="submit"
-        className="inline-flex items-center justify-center rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:bg-accent/60"
-        disabled={submittingProject || !canManage}
-      >
-        {submittingProject ? 'Saving…' : 'Create project'}
-      </button>
-    </form>
-  ) : null;
-
-  const gigFormContent = gigDialogOpen ? (
-    <form className="grid gap-4" onSubmit={submitGig} noValidate>
-      {gigFeedback ? (
-        <div
-          className={`rounded-2xl border px-4 py-3 text-sm ${
-            gigFeedback.tone === 'success'
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-              : 'border-rose-200 bg-rose-50 text-rose-700'
-          }`}
-        >
-          {gigFeedback.message}
-        </div>
-      ) : null}
-      {!canManage ? (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          {accessReason ?? 'Gig tracking is limited.'}
-        </div>
-      ) : null}
-      <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
-        Vendor
-        <input
-          name="vendorName"
-          value={gigForm.vendorName}
-          onChange={handleGigChange}
-          className={`rounded-xl border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/30 ${
-            gigErrors.vendorName ? 'border-rose-400 focus:ring-rose-200' : 'border-slate-200'
-          }`}
-          placeholder="Studio"
-          required
-          disabled={!canManage || submittingGig}
-        />
-        {gigErrors.vendorName ? <span className="text-xs text-rose-600">{gigErrors.vendorName}</span> : null}
-      </label>
-      <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
-        Service
-        <input
-          name="serviceName"
-          value={gigForm.serviceName}
-          onChange={handleGigChange}
-          className={`rounded-xl border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/30 ${
-            gigErrors.serviceName ? 'border-rose-400 focus:ring-rose-200' : 'border-slate-200'
-          }`}
-          placeholder="Design"
-          required
-          disabled={!canManage || submittingGig}
-        />
-        {gigErrors.serviceName ? <span className="text-xs text-rose-600">{gigErrors.serviceName}</span> : null}
-      </label>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
-          Amount
-          <input
-            name="amount"
-            value={gigForm.amount}
-            onChange={handleGigChange}
-            className={`rounded-xl border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/30 ${
-              gigErrors.amount ? 'border-rose-400 focus:ring-rose-200' : 'border-slate-200'
-            }`}
-            placeholder="4800"
-            type="number"
-            min="0"
-            disabled={!canManage || submittingGig}
-          />
-          {gigErrors.amount ? <span className="text-xs text-rose-600">{gigErrors.amount}</span> : null}
-        </label>
-        <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
-          Currency
-          <select
-            name="currency"
-            value={gigForm.currency}
-            onChange={handleGigChange}
-            className="rounded-xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/30"
-            disabled={!canManage || submittingGig}
-          >
-            <option value="USD">USD</option>
-            <option value="GBP">GBP</option>
-            <option value="EUR">EUR</option>
-          </select>
-        </label>
-      </div>
-      <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
-        Delivery date
-        <input
-          type="date"
-          name="dueAt"
-          value={gigForm.dueAt}
-          onChange={handleGigChange}
-          className={`rounded-xl border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/30 ${
-            gigErrors.dueAt ? 'border-rose-400 focus:ring-rose-200' : 'border-slate-200'
-          }`}
-          min={new Date().toISOString().split('T')[0]}
-          disabled={!canManage || submittingGig}
-        />
-        {gigErrors.dueAt ? <span className="text-xs text-rose-600">{gigErrors.dueAt}</span> : null}
-      </label>
-      <button
-        type="submit"
-        className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-600"
-        disabled={submittingGig || !canManage}
-      >
-        {submittingGig ? 'Saving…' : 'Add gig'}
-      </button>
-    </form>
-  ) : null;
-
-  return (
-    <section id="project-workspace" className="flex min-h-[70vh] flex-col gap-6">
-      <header className="flex flex-col gap-3 border-b border-slate-200 pb-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-accent">Workspace</p>
-            <h1 className="text-2xl font-semibold text-slate-900">Project control</h1>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => { setProjectDialogOpen(true); setProjectFeedback(null); }}
-              className="inline-flex items-center justify-center rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:bg-accent/60"
-              disabled={!canManage}
-            >
-              New project
-            </button>
-            <button
-              type="button"
-              onClick={() => { setGigDialogOpen(true); setGigFeedback(null); }}
-              className="inline-flex items-center justify-center rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
-              disabled={!canManage}
-            >
-              New gig
-            </button>
-          </div>
-        </div>
-        <DataStatus loading={loading} error={error} fromCache={fromCache} lastUpdated={lastUpdated} onRefresh={reload} />
-      </header>
-
-      <div className="flex flex-1 flex-col gap-6 lg:flex-row">
-        <nav className="lg:w-48">
-          <ul className="flex gap-2 overflow-x-auto lg:flex-col">
-            {NAV_TABS.map((tab) => {
-              const isActive = activeTab === tab.id;
-              return (
-                <li key={tab.id} className="flex-shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`w-full rounded-full px-4 py-2 text-sm font-semibold transition lg:text-left ${
-                      isActive
-                        ? 'bg-slate-900 text-white shadow-sm'
-                        : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:text-slate-900'
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
-
-        <div className="flex-1">
-          {loading && !data ? (
-            <div className="grid gap-4 lg:grid-cols-2">
-              <div className="h-48 rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm">
-                <div className="h-full animate-pulse space-y-4">
-                  <div className="h-4 w-1/2 rounded bg-slate-200" />
-                  <div className="h-3 w-3/4 rounded bg-slate-200" />
-                  <div className="h-24 rounded-xl bg-slate-100" />
-                </div>
-              </div>
-              <div className="h-48 rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm">
-                <div className="h-full animate-pulse space-y-4">
-                  <div className="h-4 w-2/3 rounded bg-slate-200" />
-                  <div className="h-3 w-1/2 rounded bg-slate-200" />
-                  <div className="h-24 rounded-xl bg-slate-100" />
-                </div>
-              </div>
-  const closeComposer = () => {
-    setComposer(EMPTY_COMPOSER);
-  };
-
-  const handleOrderDetail = (orderId) => {
-    setSelectedOrderId(orderId ?? null);
-  };
-
-  return (
-    <section className="flex h-full flex-col gap-6">
-      <DataStatus
-        loading={loading}
-        error={error}
-        retry={reload}
-        className="rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm"
-      >
-        {data ? (
-          <ProjectGigManagementSection
-            data={data}
-            activeView={activeView}
-            onViewChange={setActiveView}
-            onOpenProject={() => openComposer('project')}
-            onOpenOrder={() => openComposer('order')}
-            onOpenOrderDetail={(orderId) => handleOrderDetail(orderId)}
-            onCreateTimeline={(orderId) => openComposer('timeline', { orderId })}
-            onEditTimeline={(orderId, event) => openComposer('timeline', { orderId, event })}
-            onLogSubmission={(orderId) => openComposer('submission', { orderId })}
-            onEditSubmission={(orderId, submission) => openComposer('submission', { orderId, submission })}
-            onStartChat={(orderId) => openComposer('chat', { orderId })}
-            onEditOrder={(order) => openComposer('order', { order })}
-          />
-        ) : null}
-      </DataStatus>
 
       <ProjectWizard
-        open={composer.form === 'project'}
-        templates={data?.projectCreation?.templates ?? []}
-        onClose={closeComposer}
-        onSubmit={(payload) => actions.createProject(payload)}
+        open={wizardOpen}
+        onClose={() => setWizardOpen(false)}
+        onSubmit={async (payload) => {
+          await actions.createProject(payload);
+          setWizardOpen(false);
+        }}
+        templates={templates}
       />
-
-      {loading && !data ? (
-        <div className="grid gap-6 md:grid-cols-2">
-          <div className="h-full rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm">
-            <div className="h-full animate-pulse space-y-4">
-              <div className="h-4 w-1/2 rounded bg-slate-200" />
-              <div className="h-3 w-3/4 rounded bg-slate-200" />
-              <div className="h-32 rounded-xl bg-slate-100" />
-              <div className="h-10 rounded-xl bg-slate-100" />
-            </div>
-          ) : null}
-
-          {data ? (
-            <ProjectGigManagementSection
-              data={data}
-              actions={actions}
-              activeTab={activeTab}
-              canManage={canManage}
-              onProjectPreview={(projectId) => setPreviewProjectId(projectId)}
-            />
-          ) : null}
-
-          {error && !data ? (
-            <div className="mt-4 rounded-3xl border border-rose-200 bg-rose-50/80 p-6 text-sm text-rose-700">
-              Unable to load workspace. Try again shortly.
-            </div>
-          ) : null}
-        </div>
-      </div>
-
-      {projectDialogOpen ? (
-        <Modal title="Create project" onClose={() => setProjectDialogOpen(false)}>{projectFormContent}</Modal>
-      ) : null}
-      {gigDialogOpen ? (
-        <Modal title="Add gig" onClose={() => setGigDialogOpen(false)}>{gigFormContent}</Modal>
-      ) : null}
-      {selectedProject ? (
-        <ProjectPreview project={selectedProject} onClose={() => setPreviewProjectId(null)} />
-      ) : null}
-          </div>
-        </div>
-      ) : (
-        <>
-          <div className="grid gap-6 md:grid-cols-2">
-            {renderProjectForm()}
-            {renderGigForm()}
-          </div>
-          {data ? (
-            <>
-              <ProjectGigManagementSection data={data} />
-              <GigOperationsWorkspace
-                data={data}
-                canManage={canManage}
-                onCreateOrder={actions.createGigOrder}
-                onUpdateOrder={actions.updateGigOrder}
-                onAddTimelineEvent={actions.addTimelineEvent}
-                onPostMessage={actions.postGigMessage}
-                onCreateEscrow={actions.createEscrowCheckpoint}
-                onUpdateEscrow={actions.updateEscrowCheckpoint}
-                onSubmitReview={(orderId, payload) => actions.updateGigOrder(orderId, payload)}
-                defaultAuthorName={defaultAuthorName}
-              />
-            </>
-          ) : null}
-        </>
-      )}
-      <GigOrderComposer
-        open={composer.form === 'order'}
-        order={composer.context?.order ?? null}
-        onClose={closeComposer}
-        onSubmit={(payload) =>
-          composer.context?.order
-            ? actions.updateGigOrder(composer.context.order.id, payload)
-            : actions.createGigOrder(payload)
-        }
-      />
-
-      <TimelineComposer
-        open={composer.form === 'timeline'}
-        onClose={closeComposer}
-        orderOptions={orderOptions}
-        context={composer.context}
-        onSubmit={({ orderId, payload, event }) =>
-          event
-            ? actions.updateGigTimelineEvent(orderId, event.id, payload)
-            : actions.createGigTimelineEvent(orderId, payload)
-        }
-      />
-
-      <SubmissionComposer
-        open={composer.form === 'submission'}
-        onClose={closeComposer}
-        orderOptions={orderOptions}
-        context={composer.context}
-        onSubmit={({ orderId, payload, submission }) =>
-          submission
-            ? actions.updateGigSubmission(orderId, submission.id, payload)
-            : actions.createGigSubmission(orderId, payload)
-        }
-      />
-
-      <ChatComposer
-        open={composer.form === 'chat'}
-        onClose={closeComposer}
-        orderOptions={orderOptions}
-        context={composer.context}
-        onSubmit={({ orderId, payload }) => actions.postGigChatMessage(orderId, payload)}
-      />
-
-      <GigOrderDetailDrawer
-        open={Boolean(selectedOrder)}
-        order={selectedOrder}
-        onClose={() => handleOrderDetail(null)}
-        onEditOrder={(order) => openComposer('order', { order })}
-        onAddTimeline={(orderId) => openComposer('timeline', { orderId })}
-        onEditTimeline={(orderId, event) => openComposer('timeline', { orderId, event })}
-        onLogSubmission={(orderId) => openComposer('submission', { orderId })}
-        onEditSubmission={(orderId, submission) => openComposer('submission', { orderId, submission })}
-        onStartChat={(orderId) => openComposer('chat', { orderId })}
-      />
-    </section>
+    </>
   );
 }
 
 ProjectGigManagementContainer.propTypes = {
-  userId: PropTypes.number,
-  userId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  userId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+};
+
+ProjectGigManagementContainer.defaultProps = {
+  userId: null,
 };
