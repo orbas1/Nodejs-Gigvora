@@ -684,6 +684,129 @@ export default function DashboardLayout({
   );
 }
 
+export default DashboardLayout;
+
+DashboardLayout.propTypes = {
+      <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between'} gap-4`}>
+        <Link to="/" className="inline-flex items-center">
+          <img src={gigvoraWordmark} alt="Gigvora" className="h-9 w-auto" />
+        </Link>
+        <div className="flex items-center gap-2">
+          {hasMenuCustomization && (
+            <button
+              type="button"
+              onClick={() => setCustomizerOpen(true)}
+              className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-slate-300 hover:text-slate-800"
+            >
+              <AdjustmentsHorizontalIcon className="h-5 w-5" />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setMobileOpen(false)}
+            className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-slate-300 hover:text-slate-800 lg:hidden"
+          >
+            <XMarkIcon className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+
+        <div className="flex-1 overflow-y-auto px-4 pb-6">
+          <DashboardSwitcher dashboards={dashboards} currentId={activeDashboardId} onNavigate={navigate} />
+          <div className="mt-4 space-y-6">
+            {customizedSections.map((section) => (
+              <MenuSection
+                key={section.id}
+                section={section}
+                isOpen={openSectionIds.has(section.id)}
+                onToggle={handleToggleSection}
+                onItemClick={handleMenuItemClick}
+                activeItemId={activeMenuItem}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="border-t border-slate-200 px-5 py-4">
+          <button
+            type="button"
+            onClick={() => setSidebarCollapsed((previous) => !previous)}
+            className="flex w-full items-center justify-between rounded-2xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+          >
+            <span>{sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}</span>
+            <ChevronRightIcon className={`h-4 w-4 transition ${sidebarCollapsed ? '' : 'rotate-90 text-accent'}`} />
+          </button>
+          <a
+            href="/logout"
+            className="mt-3 flex items-center justify-center gap-2 rounded-2xl border border-transparent bg-slate-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+          >
+            <ArrowLeftOnRectangleIcon className="h-5 w-5" />
+            Log out
+          </a>
+        </div>
+      </div>
+
+      <div className="flex w-full flex-col lg:ml-80">
+        <header className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white/80 px-6 py-4 backdrop-blur">
+          <div>
+            <h1 className="text-xl font-semibold text-slate-900">{title}</h1>
+            {subtitle ? <p className="text-sm font-medium text-accent">{subtitle}</p> : null}
+            {description ? <p className="text-sm text-slate-500">{description}</p> : null}
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setMobileOpen(true)}
+              className="flex items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900 lg:hidden"
+            >
+              <Bars3Icon className="h-5 w-5" /> Menu
+            </button>
+            <DashboardSwitcher dashboards={dashboards} currentId={activeDashboardId} onNavigate={navigate} />
+          </div>
+        </header>
+
+        <main className="flex-1 bg-slate-50/60">
+          <div className="mx-auto flex w-full max-w-7xl gap-6 px-4 py-8 sm:px-6 lg:px-10">
+            <div className="flex-1">{children}</div>
+            <aside className="hidden w-72 flex-shrink-0 lg:block">
+              <AdPlacementRail surface={surface} variant="desktop" />
+            </aside>
+          </div>
+        </main>
+
+        <footer className="border-t border-slate-200 bg-white/80 px-6 py-4 text-xs text-slate-500">
+          <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <span>© {new Date().getFullYear()} Gigvora. All rights reserved.</span>
+            <div className="flex flex-wrap gap-4">
+              <a href="/terms" className="transition hover:text-accent">
+                Terms
+              </a>
+              <a href="/privacy" className="transition hover:text-accent">
+                Privacy
+              </a>
+              <a href="/trust-center" className="transition hover:text-accent">
+                Trust Center
+              </a>
+            </div>
+          </div>
+        </footer>
+      </div>
+
+      <CustomizationPanel
+        open={customizerOpen}
+        items={allMenuItems}
+        order={orderedMenuItems}
+        hidden={hiddenItemIds}
+        onClose={() => setCustomizerOpen(false)}
+        onReorder={handleReorder}
+        onToggleVisibility={handleToggleHidden}
+      />
+
+      <MessagingDock />
+    </div>
+  );
+}
+
 DashboardLayout.propTypes = {
   currentDashboard: PropTypes.string,
   title: PropTypes.string,

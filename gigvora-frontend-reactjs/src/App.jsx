@@ -428,7 +428,6 @@ export default function App() {
         </Route>
 
         <Route path="mentors" element={<MentorsPage />} />
-      </Route>
 
       <Route
         path="dashboard/user"
@@ -642,94 +641,209 @@ export default function App() {
         element={
           <RequireRole allowedRoles={['admin']}>
             <AdminFinancialManagementPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/admin/interviews"
         element={
           <RequireRole allowedRoles={['admin']}>
             <AdminInterviewManagementPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/admin/volunteering"
         element={
           <RequireRole allowedRoles={['admin']}>
             <AdminVolunteeringPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/admin/mentoring"
         element={
           <RequireRole allowedRoles={['admin']}>
             <AdminMentoringSessionManagementPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/admin/inbox"
         element={
           <RequireRole allowedRoles={['admin']}>
             <AdminInboxPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/admin/job-applications"
         element={
           <RequireRole allowedRoles={['admin']}>
             <AdminJobApplicationsPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/admin/identity-verification"
         element={
           <RequireRole allowedRoles={['admin']}>
             <AdminIdentityVerificationPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/admin/timelines"
         element={
           <RequireRole allowedRoles={['admin']}>
             <AdminTimelineManagementPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/admin/wallets"
         element={
           <RequireRole allowedRoles={['admin']}>
             <AdminWalletManagementPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/admin/disputes"
         element={
           <RequireRole allowedRoles={['admin']}>
             <AdminDisputeManagementPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/admin/escrow"
         element={
           <RequireRole allowedRoles={['admin']}>
             <AdminEscrowManagementPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/admin/mobile-apps"
         element={
           <RequireRole allowedRoles={['admin']}>
             <AdminMobileAppManagementPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/admin/system-settings"
         element={
           <RequireRole allowedRoles={['admin']}>
             <AdminSystemSettingsPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/admin/homepage"
         element={
           <RequireRole allowedRoles={['admin']}>
             <AdminHomepageSettingsPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/admin/pages"
         element={
           <RequireRole allowedRoles={['admin']}>
             <AdminPagesSettingsPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/admin/site"
         element={
           <RequireRole allowedRoles={['admin']}>
             <AdminSiteManagementPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/admin/appearance"
         element={
           <RequireRole allowedRoles={['admin']}>
             <AdminAppearanceManagementPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/admin/policies"
         element={
           <RequireRole allowedRoles={['admin']}>
             <AdminPolicyManagementPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/admin/storage"
         element={
           <RequireRole allowedRoles={['admin']}>
             <AdminStorageManagementPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/admin/email"
         element={
           <RequireRole allowedRoles={['admin']}>
             <AdminEmailManagementPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/admin/security/two-factor"
         element={
           <RequireRole allowedRoles={['admin']}>
             <AdminTwoFactorManagementPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/admin/database"
         element={
           <RequireRole allowedRoles={['admin']}>
             <AdminDatabaseSettingsPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/admin/gdpr"
         element={
           <RequireRole allowedRoles={['admin']}>
             <AdminGdprSettingsPage />
+          </RequireRole>
+        }
+      />
+
+      <Route
         path="dashboard/admin/ads-settings"
         element={
           <RequireRole allowedRoles={['admin']}>
@@ -746,6 +860,7 @@ export default function App() {
           </RequireRole>
         }
       />
+
       <Route
         path="dashboard/admin/users"
         element={
@@ -756,14 +871,6 @@ export default function App() {
       />
 
       <Route
-        path="dashboard/admin/api-management"
-        element={
-          <RequireRole allowedRoles={['admin']}>
-            <AdminApiManagementPage />
-        path="dashboard/admin/seo"
-        element={
-          <RequireRole allowedRoles={['admin']}>
-            <AdminSeoSettingsPage />
         path="dashboard/admin/profiles"
         element={
           <RequireRole allowedRoles={['admin']}>
