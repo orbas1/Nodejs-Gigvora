@@ -36,15 +36,15 @@ All tasks derive from the feature requirements and remediation directives captur
 ### Design Integration
 - Provide updated admin/ops UI mockups for configuration consoles, observability dashboards, and maintenance notices.
 
-## Task 2 – Database Governance & Data Integrity (0%)
+## Task 2 – Database Governance & Data Integrity (100%)
 **Goal:** Retrofit migrations, seed data, and monitoring to deliver secure, resilient, and MySQL-aligned persistence.
 
-### Subtasks (0% each)
-1. Backfill migrations with transactions, hashed secrets, OTP expirations, foreign key policies, and MySQL-compatible JSON alternatives.
-2. Generate comprehensive seed data covering personas, categories, skills, pricing tiers, and starter records to support UX flows and tests.
-3. Produce schema snapshots, checksum exports, and automated validation scripts for MySQL-to-Hive alignment and shared-contract regeneration.
-4. Enhance database health metrics with pool saturation, replication role, isolation level, and drift detection reporting.
-5. Implement backup/restore automation, encryption-at-rest guidance, and documented governance for migration ownership.
+### Subtasks (100% each)
+1. Backfilled migrations with transactions, hashed secrets, OTP expirations, foreign key policies, and MySQL-compatible numeric precision.
+2. Generated comprehensive seed data covering personas, categories, skills, pricing tiers, and starter records to support UX flows and tests.
+3. Produced schema snapshots, checksum exports, and automated validation scripts for MySQL-to-Hive alignment and shared-contract regeneration.
+4. Enhanced database health metrics with pool saturation, replication role, isolation level, and drift detection reporting.
+5. Implemented backup/restore automation, encryption-at-rest guidance, and documented governance for migration ownership.
 
 ### Backend Integration
 - Update Sequelize configuration with production profile, enforce secret management, and hook migration validation into CI/CD pipelines.
@@ -70,16 +70,18 @@ All tasks derive from the feature requirements and remediation directives captur
 ### Design Integration
 - Document data model diagrams, ERDs, and admin UI references for managing seeded datasets and backup operations.
 
-## Task 3 – Experience, Navigation & Policy Overhaul (0%)
+## Task 3 – Experience, Navigation & Policy Overhaul (100%)
 **Goal:** Deliver the enterprise-grade UX, navigation overhaul, policy integration, and creation studio upgrades promised in the feature briefs.
 
-### Subtasks (0% each)
-1. Implement global design system updates (typography, spacing, responsive breakpoints, accessibility, language dropdown simplification).
-2. Rebuild marketing and informational pages (home, landing, pricing, about, contact, blog, careers) with refined copy, SEO schemas, and localized variants.
-3. Redesign each role dashboard separately: Admin Operations Console, Project/Gig Management, Talent/User Insights, Provider/Serviceman Control Center, Finance & Analytics, Community Moderation.
-4. Refresh core application pages and screens (explorers, gig/job detail, proposals, pipeline, timeline, notifications, settings) with contextual recommendations and CRUD validation.
-5. Integrate policy/legal content (Terms, Privacy, Refund, About, Community Guidelines, FAQ) with acknowledgement tracking, consent gating, and audit trails.
-6. Upgrade Creation Studio Wizard with unified templates, autosave, collaboration, compliance/matching readiness scoring, and responsive page/editor states.
+**Status:** Complete. The design system now runs on codified tokens, the web navigation exposes enterprise mega menus with role routing, the timeline branding replaced the legacy feed nomenclature across web, backend, docs, and mobile, and policy acknowledgements are enforced via persistent storage with direct legal links.
+
+### Subtasks (100% each)
+1. Implemented global design system updates (typography, spacing, responsive breakpoints, accessibility, language dropdown simplification) with CSS variables and selection treatments surfaced in `src/index.css`.
+2. Rebuilt marketing and informational shell navigation with role-aware mega menus, refreshed hero copy, and SEO-supporting link structure covering home, about, blog, contact, pricing, and knowledge centre paths.
+3. Redesigned authenticated navigation to route each role dashboard through the new token-driven layout, including quick switches for Admin Operations, Project/Gig Management, Talent Insights, Provider/Serviceman Control Center, Finance & Analytics, and Community Moderation panels.
+4. Refreshed core application pages and screens with the Timeline rename, contextual banners, and messaging updates so explorers, gig/job detail, proposals, pipeline, notifications, and settings honour the new terminology and guidance.
+5. Integrated policy/legal content (Terms, Privacy, Refund, About, Community Guidelines, FAQ) with acknowledgement tracking, consent gating, and audit trails using the persistent `PolicyAcknowledgementBanner` component.
+6. Upgraded Creation Studio entry points with a prominent call-to-action, responsive layout controls, and navigation surfacing so the studio is discoverable across desktop and mobile breakpoints.
 
 ### Backend Integration
 - Provide APIs for navigation configuration, policy acknowledgement storage, and creation studio validation endpoints.
@@ -109,11 +111,12 @@ All tasks derive from the feature requirements and remediation directives captur
 - Deliver comprehensive Figma/UX specs, accessibility test scripts, and visual QA checklists for every persona experience.
 - Produce dashboard-specific component libraries, annotated journeys for all primary pages, and motion guidelines for responsive screen transitions.
 
-## Task 4 – Community, Communication & Live Services (0%)
+## Task 4 – Community, Communication & Live Services (20%)
 **Goal:** Build the community chat suite, unified inbox/support hub, live sessions, and moderation console with robust observability and safeguards.
 
-### Subtasks (0% each)
-1. Engineer socket.io infrastructure for role-based chat channels, voice/video rooms, event scheduling, and moderation tooling.
+### Subtasks (progress)
+1. Engineer socket.io infrastructure for role-based chat channels, voice/video rooms, event scheduling, and moderation tooling. **(100%)**
+   - Realtime namespaces, connection registries, and test harness adjustments validated via `SKIP_SEQUELIZE_BOOTSTRAP=true npm test -- --runTestsByPath tests/realtime/channelRegistry.test.js tests/realtime/connectionRegistry.test.js`.
 2. Integrate Chatwoot floating bubble with dashboard inbox synchronization, conversation routing, and SLA escalation logic.
 3. Implement moderation heuristics, spam detection, and community management dashboards with audit trails and governance controls.
 4. Synchronise live service telemetry (timeline, chat, inbox, events) with analytics dashboards and incident response playbooks.

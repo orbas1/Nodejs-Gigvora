@@ -150,6 +150,72 @@ export const runtimeConfigSchema = z.object({
     configFile: z.string().optional(),
     hotReload: z.boolean().default(true),
   }),
+  realtime: z
+    .object({
+      enabled: z.boolean().default(true),
+      cors: z.object({ allowedOrigins: z.array(z.string()).default([]) }).default({ allowedOrigins: [] }),
+      connection: z
+        .object({
+          maxConnectionsPerUser: z.number().int().positive().default(6),
+          handshakeTimeoutMs: z.number().int().positive().default(45_000),
+          pingIntervalMs: z.number().int().positive().default(25_000),
+          pingTimeoutMs: z.number().int().positive().default(20_000),
+        })
+        .default({
+          maxConnectionsPerUser: 6,
+          handshakeTimeoutMs: 45_000,
+          pingIntervalMs: 25_000,
+          pingTimeoutMs: 20_000,
+        }),
+      redis: z
+        .object({
+          url: z.string().min(5).optional(),
+          tls: z.boolean().default(false),
+          keyPrefix: z.string().min(1).default('gigvora:realtime'),
+        })
+        .default({ url: undefined, tls: false, keyPrefix: 'gigvora:realtime' }),
+      namespaces: z
+        .object({
+          community: z
+            .object({
+              rateLimitPerMinute: z.number().int().positive().default(120),
+              historyLimit: z.number().int().positive().default(50),
+            })
+            .default({ rateLimitPerMinute: 120, historyLimit: 50 }),
+          voice: z
+            .object({
+              enabled: z.boolean().default(true),
+              maxParticipants: z.number().int().positive().default(100),
+              recordingRequired: z.boolean().default(false),
+            })
+            .default({ enabled: true, maxParticipants: 100, recordingRequired: false }),
+          events: z.object({ enabled: z.boolean().default(true) }).default({ enabled: true }),
+          moderation: z.object({ enabled: z.boolean().default(true) }).default({ enabled: true }),
+        })
+        .default({
+          community: { rateLimitPerMinute: 120, historyLimit: 50 },
+          voice: { enabled: true, maxParticipants: 100, recordingRequired: false },
+          events: { enabled: true },
+          moderation: { enabled: true },
+        }),
+    })
+    .default({
+      enabled: true,
+      cors: { allowedOrigins: [] },
+      connection: {
+        maxConnectionsPerUser: 6,
+        handshakeTimeoutMs: 45_000,
+        pingIntervalMs: 25_000,
+        pingTimeoutMs: 20_000,
+      },
+      redis: { url: undefined, tls: false, keyPrefix: 'gigvora:realtime' },
+      namespaces: {
+        community: { rateLimitPerMinute: 120, historyLimit: 50 },
+        voice: { enabled: true, maxParticipants: 100, recordingRequired: false },
+        events: { enabled: true },
+        moderation: { enabled: true },
+      },
+    }),
 });
 
 const configEmitter = new EventEmitter();
@@ -183,6 +249,24 @@ function buildRawConfig(env) {
   const metricsEnabled = parseBoolean(env.ENABLE_PROMETHEUS_METRICS, true);
   const requestBodyLimit = env.REQUEST_BODY_LIMIT ?? '1mb';
   const hotReload = parseBoolean(env.RUNTIME_CONFIG_HOT_RELOAD, true);
+  const realtimeEnabled = parseBoolean(env.REALTIME_ENABLED ?? env.SOCKET_IO_ENABLED, true);
+  const realtimeOrigins = parseList(env.REALTIME_ALLOWED_ORIGINS ?? env.SOCKET_ALLOWED_ORIGINS);
+  const realtimeAllowedOrigins = realtimeOrigins.length ? realtimeOrigins : allowedOrigins;
+  const maxConnectionsPerUser = parseNumber(env.REALTIME_MAX_CONNECTIONS_PER_USER, 6);
+  const handshakeTimeoutMs = parseNumber(env.REALTIME_HANDSHAKE_TIMEOUT_MS, 45_000);
+  const pingIntervalMs = parseNumber(env.REALTIME_PING_INTERVAL_MS, 25_000);
+  const pingTimeoutMs = parseNumber(env.REALTIME_PING_TIMEOUT_MS, 20_000);
+  const realtimeRedisUrl =
+    env.REALTIME_REDIS_URL || env.SOCKET_REDIS_URL || env.REDIS_URL || env.IO_REDIS_URL || undefined;
+  const realtimeRedisTls = parseBoolean(env.REALTIME_REDIS_TLS ?? env.SOCKET_REDIS_TLS, false);
+  const realtimeRedisPrefix = env.REALTIME_REDIS_PREFIX || env.SOCKET_REDIS_PREFIX || 'gigvora:realtime';
+  const communityRateLimitPerMinute = parseNumber(env.REALTIME_COMMUNITY_RATE_LIMIT_PER_MINUTE, 120);
+  const communityHistoryLimit = parseNumber(env.REALTIME_COMMUNITY_HISTORY_LIMIT, 50);
+  const voiceEnabled = parseBoolean(env.REALTIME_VOICE_ENABLED, true);
+  const voiceMaxParticipants = parseNumber(env.REALTIME_VOICE_MAX_PARTICIPANTS, 100);
+  const voiceRecordingRequired = parseBoolean(env.REALTIME_VOICE_RECORDING_REQUIRED, false);
+  const eventsEnabled = parseBoolean(env.REALTIME_EVENTS_ENABLED, true);
+  const moderationEnabled = parseBoolean(env.REALTIME_MODERATION_ENABLED, true);
 
   return {
     env: env.NODE_ENV ?? 'development',
@@ -244,6 +328,34 @@ function buildRawConfig(env) {
     runtime: {
       configFile: env.RUNTIME_CONFIG_FILE || env.RUNTIME_ENV_FILE || undefined,
       hotReload,
+    },
+    realtime: {
+      enabled: realtimeEnabled,
+      cors: { allowedOrigins: realtimeAllowedOrigins },
+      connection: {
+        maxConnectionsPerUser: maxConnectionsPerUser > 0 ? maxConnectionsPerUser : 6,
+        handshakeTimeoutMs: handshakeTimeoutMs > 1_000 ? handshakeTimeoutMs : 45_000,
+        pingIntervalMs: pingIntervalMs > 5_000 ? pingIntervalMs : 25_000,
+        pingTimeoutMs: pingTimeoutMs > 5_000 ? pingTimeoutMs : 20_000,
+      },
+      redis: {
+        url: realtimeRedisUrl,
+        tls: realtimeRedisTls,
+        keyPrefix: realtimeRedisPrefix,
+      },
+      namespaces: {
+        community: {
+          rateLimitPerMinute: communityRateLimitPerMinute > 0 ? communityRateLimitPerMinute : 120,
+          historyLimit: communityHistoryLimit > 0 ? communityHistoryLimit : 50,
+        },
+        voice: {
+          enabled: voiceEnabled,
+          maxParticipants: voiceMaxParticipants > 0 ? voiceMaxParticipants : 100,
+          recordingRequired: voiceRecordingRequired,
+        },
+        events: { enabled: eventsEnabled },
+        moderation: { enabled: moderationEnabled },
+      },
     },
   };
 }

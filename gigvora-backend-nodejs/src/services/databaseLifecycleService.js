@@ -1,11 +1,11 @@
+import { promises as fs } from 'fs';
+import path from 'path';
+import crypto from 'crypto';
+import { fileURLToPath } from 'url';
 import sequelize from '../models/sequelizeClient.js';
 import { DatabaseAuditEvent } from '../models/databaseAuditEvent.js';
 import logger from '../utils/logger.js';
-import {
-  markDependencyHealthy,
-  markDependencyUnavailable,
-  markDependencyDegraded,
-} from '../lifecycle/runtimeHealth.js';
+import { markDependencyHealthy, markDependencyUnavailable } from '../lifecycle/runtimeHealth.js';
 
 const poolState = {
   vendor: null,
@@ -20,6 +20,126 @@ const poolState = {
 };
 
 let instrumentationRegistered = false;
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const MIGRATIONS_DIRECTORY = path.resolve(__dirname, '../../database/migrations');
+
+async function listFilesystemMigrations() {
+  try {
+    const entries = await fs.readdir(MIGRATIONS_DIRECTORY, { withFileTypes: true });
+    return entries
+      .filter((entry) => entry.isFile() && /\.(cjs|js)$/.test(entry.name))
+      .map((entry) => entry.name)
+      .sort();
+  } catch (error) {
+    logger.warn?.({ err: error }, 'Failed to read migrations directory');
+    return [];
+  }
+}
+
+async function fetchAppliedMigrations(transaction) {
+  try {
+    const metaTable = sequelize.getQueryInterface().quoteTable('SequelizeMeta');
+    const [rows] = await sequelize.query(`SELECT name FROM ${metaTable} ORDER BY name ASC`, {
+      transaction,
+    });
+    if (!Array.isArray(rows)) {
+      return [];
+    }
+    return rows.map((row) => row.name).sort();
+  } catch (error) {
+    logger.warn?.({ err: error }, 'Unable to read applied migrations from SequelizeMeta');
+    return [];
+  }
+}
+
+async function detectMigrationDrift(transaction) {
+  const [filesystem, applied] = await Promise.all([
+    listFilesystemMigrations(),
+    fetchAppliedMigrations(transaction),
+  ]);
+
+  const pending = filesystem.filter((name) => !applied.includes(name));
+  const orphaned = applied.filter((name) => !filesystem.includes(name));
+  const checksum = crypto
+    .createHash('sha256')
+    .update(JSON.stringify({ filesystem, applied }))
+    .digest('hex');
+
+  return { filesystem, applied, pending, orphaned, checksum };
+}
+
+async function resolveIsolationLevel(transaction) {
+  const dialect = sequelize.getDialect();
+  try {
+    if (dialect === 'mysql' || dialect === 'mariadb') {
+      const [[row]] = await sequelize.query(
+        'SELECT @@transaction_isolation AS isolationLevel, @@global.read_only AS readOnly',
+        { transaction },
+      );
+      return {
+        isolationLevel: row?.isolationLevel ?? null,
+        readOnly: row?.readOnly === 1 || row?.readOnly === '1',
+      };
+    }
+    if (dialect === 'postgres' || dialect === 'postgresql') {
+      const [[row]] = await sequelize.query(
+        "SELECT current_setting('transaction_isolation') AS isolationLevel, current_setting('transaction_read_only') AS readOnly",
+        { transaction },
+      );
+      const iso = row?.isolationlevel ?? row?.isolation_level ?? row?.isolationLevel ?? null;
+      const roValue = row?.readonly ?? row?.read_only ?? row?.readOnly ?? null;
+      const readOnlyNormalized = typeof roValue === 'string' ? roValue.toLowerCase() : roValue;
+      const readOnly =
+        readOnlyNormalized === 'on' ||
+        readOnlyNormalized === 't' ||
+        readOnlyNormalized === 'true' ||
+        readOnlyNormalized === '1' ||
+        readOnlyNormalized === true;
+      return {
+        isolationLevel: iso,
+        readOnly,
+      };
+    }
+    if (dialect === 'sqlite') {
+      const [[row]] = await sequelize.query('PRAGMA journal_mode;', { transaction });
+      return {
+        isolationLevel: `sqlite/${row?.journal_mode ?? 'unknown'}`,
+        readOnly: false,
+      };
+    }
+  } catch (error) {
+    logger.warn?.({ err: error }, 'Failed to resolve isolation level');
+  }
+  return { isolationLevel: null, readOnly: null };
+}
+
+async function detectReplicationRole(transaction) {
+  const dialect = sequelize.getDialect();
+  try {
+    if (dialect === 'mysql' || dialect === 'mariadb') {
+      const [rows] = await sequelize.query('SHOW SLAVE STATUS', { transaction });
+      return Array.isArray(rows) && rows.length > 0 ? 'replica' : 'primary';
+    }
+    if (dialect === 'postgres' || dialect === 'postgresql') {
+      const [[row]] = await sequelize.query(
+        'SELECT pg_is_in_recovery() AS inRecovery',
+        { transaction },
+      );
+      const rawValue = row?.inrecovery ?? row?.in_recovery ?? row?.inRecovery ?? null;
+      if (rawValue == null) {
+        return 'unknown';
+      }
+      const normalized = typeof rawValue === 'string' ? rawValue.toLowerCase() : rawValue;
+      return normalized === true || normalized === 't' || normalized === 'true' || normalized === '1'
+        ? 'replica'
+        : 'primary';
+    }
+  } catch (error) {
+    logger.warn?.({ err: error }, 'Failed to resolve replication role');
+  }
+  return 'unknown';
+}
 
 function resolveLogger(candidate) {
   if (candidate && typeof candidate.info === 'function') {
@@ -116,16 +236,47 @@ export async function warmDatabaseConnections({ logger: candidateLogger, initiat
     const latencyMs = Number(finished - started) / 1_000_000;
     const snapshot = updatePoolSnapshot('warm');
 
+    const [isolation, replication, drift] = await Promise.all([
+      resolveIsolationLevel(),
+      detectReplicationRole(),
+      detectMigrationDrift(),
+    ]);
+
+    const borrowed = snapshot.borrowed ?? 0;
+    const max = snapshot.max ?? 0;
+    const saturation = max > 0 ? Number((borrowed / max).toFixed(2)) : null;
+
     markDependencyHealthy('database', {
       vendor,
       latencyMs: Number(latencyMs.toFixed(2)),
-      pool: snapshot,
+      pool: { ...snapshot, saturation },
+      isolationLevel: isolation.isolationLevel,
+      readOnly: isolation.readOnly,
+      replicationRole: replication,
+      migrations: drift,
     });
 
-    log.info({ vendor, latencyMs: Number(latencyMs.toFixed(2)), pool: snapshot }, 'Database connectivity verified');
+    log.info(
+      {
+        vendor,
+        latencyMs: Number(latencyMs.toFixed(2)),
+        pool: { ...snapshot, saturation },
+        isolationLevel: isolation.isolationLevel,
+        replicationRole: replication,
+        migrationChecksum: drift.checksum,
+        pendingMigrations: drift.pending.length,
+      },
+      'Database connectivity verified',
+    );
     await recordAuditEvent('startup', {
       initiatedBy,
-      metadata: { latencyMs: Number(latencyMs.toFixed(2)) },
+      metadata: {
+        latencyMs: Number(latencyMs.toFixed(2)),
+        isolationLevel: isolation.isolationLevel,
+        replicationRole: replication,
+        migrationChecksum: drift.checksum,
+        pendingMigrations: drift.pending,
+      },
     });
 
     return snapshot;
@@ -158,7 +309,12 @@ export async function drainDatabaseConnections({
   try {
     await sequelize.close();
     const snapshot = updatePoolSnapshot('shutdown_complete');
-    markDependencyDegraded('database', new Error('Database connections drained'), { reason, vendor: poolState.vendor });
+    markDependencyHealthy('database', {
+      vendor: poolState.vendor,
+      status: 'disconnected',
+      pool: snapshot,
+      reason,
+    });
     log.info({ reason }, 'Database connections closed');
     return { pool: snapshot, auditEvent };
   } catch (error) {

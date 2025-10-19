@@ -12,7 +12,10 @@
     "search:sync": "node scripts/syncMeilisearch.js",
     "schemas:sync": "node scripts/syncDomainSchemas.js",
     "schemas:clients": "node scripts/generateDomainClients.js",
-    "config:validate": "node scripts/validateRuntimeConfig.js .env.example"
+    "config:validate": "node scripts/validateRuntimeConfig.js .env.example",
+    "schema:export": "node scripts/generateSchemaArtifacts.js",
+    "db:backup": "node scripts/databaseBackup.js backup",
+    "db:verify": "node scripts/databaseBackup.js verify"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.590.0",
@@ -25,9 +28,12 @@
     "express-rate-limit": "^6.10.0",
     "compression": "^1.7.4",
     "fs-extra": "^11.3.2",
+    "ioredis": "^5.4.1",
     "google-auth-library": "^9.14.1",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
+    "@socket.io/redis-adapter": "^8.2.1",
+    "socket.io": "^4.7.5",
     "meilisearch": "^0.37.0",
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",

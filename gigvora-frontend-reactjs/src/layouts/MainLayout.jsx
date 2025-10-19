@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom';
 import Header from '../components/Header.jsx';
 import Footer from '../components/Footer.jsx';
 import MessagingDock from '../components/messaging/MessagingDock.jsx';
+import PolicyAcknowledgementBanner from '../components/policy/PolicyAcknowledgementBanner.jsx';
 import useSession from '../hooks/useSession.js';
 
 export default function MainLayout() {
@@ -21,6 +22,7 @@ export default function MainLayout() {
         </div>
       </div>
       <MessagingDock />
+      <PolicyAcknowledgementBanner />
     </>
   );
 }

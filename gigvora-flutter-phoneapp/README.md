@@ -1,6 +1,6 @@
 # Gigvora Mobile (Flutter)
 
-The Gigvora Flutter application mirrors the combined freelance marketplace and professional network experience for mobile users. It includes authentication flows, live feed, explorer search, and marketplace browsing aligned with the web platform.
+The Gigvora Flutter application mirrors the combined freelance marketplace and professional network experience for mobile users. It includes authentication flows, timeline, explorer search, and marketplace browsing aligned with the web platform.
 
 ## Project Overview
 

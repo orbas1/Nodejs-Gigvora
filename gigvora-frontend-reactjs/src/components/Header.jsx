@@ -2,12 +2,17 @@ import { Fragment, useMemo } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { Menu, Transition } from '@headlessui/react';
 import {
+  ArrowTopRightOnSquareIcon,
   Bars3Icon,
   BellIcon,
-  BuildingStorefrontIcon,
+  BriefcaseIcon,
+  BuildingOffice2Icon,
+  ChartBarIcon,
   ChatBubbleLeftRightIcon,
   HomeIcon,
+  PresentationChartBarIcon,
   RssIcon,
+  ShieldCheckIcon,
   SparklesIcon,
   Squares2X2Icon,
   UserCircleIcon,
@@ -16,6 +21,14 @@ import { LOGO_URL } from '../constants/branding.js';
 import useSession from '../hooks/useSession.js';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import LanguageSelector from './LanguageSelector.jsx';
+import MegaMenu from './navigation/MegaMenu.jsx';
+import RoleSwitcher from './navigation/RoleSwitcher.jsx';
+import {
+  marketingNavigation,
+  resolvePrimaryNavigation,
+  buildRoleOptions,
+  resolvePrimaryRoleKey,
+} from '../constants/navigation.js';
 
 function resolveInitials(name = '') {
   const source = name.trim();
@@ -98,25 +111,6 @@ function UserMenu({ session, onLogout }) {
   );
 }
 
-function resolveDashboardPath(session) {
-  const raw =
-    (session?.primaryDashboard || session?.primaryMembership || session?.memberships?.[0] || session?.userType || 'user')
-      ?.toString()
-      .toLowerCase();
-  const mapping = {
-    user: 'user',
-    freelancer: 'freelancer',
-    agency: 'agency',
-    company: 'company',
-    headhunter: 'headhunter',
-    mentor: 'mentor',
-    launchpad: 'launchpad',
-    admin: 'admin',
-  };
-  const resolved = mapping[raw] ?? 'user';
-  return `/dashboard/${resolved}`;
-}
-
 function classNames(...classes) {
   return classes.filter(Boolean).join(' ');
 }
@@ -131,69 +125,108 @@ export default function Header() {
     navigate('/login');
   };
 
-  const dashboardPath = resolveDashboardPath(session);
+  const roleKey = resolvePrimaryRoleKey(session);
+  const primaryNavigation = useMemo(() => resolvePrimaryNavigation(session), [session]);
+  const roleOptions = useMemo(() => buildRoleOptions(session), [session]);
 
-  const navigationItems = useMemo(
-    () =>
-      [
-        { id: 'feed', label: 'Live feed', to: '/feed', icon: RssIcon },
-        { id: 'explorer', label: 'Explorer', to: '/search', icon: Squares2X2Icon },
-        { id: 'dashboard', label: 'Dashboard', to: dashboardPath, icon: HomeIcon },
-        { id: 'studio', label: 'Studio', to: '/dashboard/user/creation-studio', icon: SparklesIcon },
-        { id: 'shopfronts', label: 'Shopfronts', to: '/pages', icon: BuildingStorefrontIcon },
-        { id: 'messages', label: 'Messages', to: '/inbox', icon: ChatBubbleLeftRightIcon },
-        { id: 'notifications', label: 'Notifications', to: '/notifications', icon: BellIcon },
-        { id: 'profile', label: 'Profile', to: '/profile/me', icon: UserCircleIcon },
-      ],
-    [dashboardPath],
+  const iconMap = useMemo(
+    () => ({
+      timeline: RssIcon,
+      explorer: Squares2X2Icon,
+      studio: SparklesIcon,
+      inbox: ChatBubbleLeftRightIcon,
+      notifications: BellIcon,
+      dashboard: HomeIcon,
+      policies: ShieldCheckIcon,
+      ats: BriefcaseIcon,
+      analytics: ChartBarIcon,
+      pipeline: PresentationChartBarIcon,
+      portfolio: BriefcaseIcon,
+      crm: BuildingOffice2Icon,
+      finance: ChartBarIcon,
+    }),
+    [],
   );
 
+  const marketingLinks = useMemo(() => {
+    return marketingNavigation.flatMap((entry) =>
+      entry.sections.flatMap((section) =>
+        section.items.map((item) => ({
+          id: `${entry.id}-${item.name}`,
+          label: item.name,
+          description: item.description,
+          to: item.to,
+        })),
+      ),
+    );
+  }, []);
+
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur">
       <div className="mx-auto flex h-20 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-3">
-          {isAuthenticated ? (
-            <Menu as="div" className="relative lg:hidden">
-              <Menu.Button className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white p-2 text-slate-600 shadow-sm transition hover:border-slate-300 hover:text-slate-900">
-                <span className="sr-only">Open navigation</span>
-                <Bars3Icon className="h-5 w-5" />
-              </Menu.Button>
-              <Transition
-                as={Fragment}
-                enter="transition ease-out duration-100"
-                enterFrom="transform opacity-0 scale-95"
-                enterTo="transform opacity-100 scale-100"
-                leave="transition ease-in duration-75"
-                leaveFrom="transform opacity-100 scale-100"
-                leaveTo="transform opacity-0 scale-95"
-              >
-                <Menu.Items className="absolute left-0 z-50 mt-3 w-64 origin-top-left space-y-1 rounded-3xl border border-slate-200/80 bg-white p-2 text-sm shadow-xl focus:outline-none">
-                  {navigationItems.map((item) => (
+          <Menu as="div" className="relative lg:hidden">
+            <Menu.Button className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white/95 p-2 text-slate-600 shadow-sm transition hover:border-slate-300 hover:text-slate-900">
+              <span className="sr-only">Open navigation</span>
+              <Bars3Icon className="h-5 w-5" />
+            </Menu.Button>
+            <Transition
+              as={Fragment}
+              enter="transition ease-out duration-100"
+              enterFrom="transform opacity-0 scale-95"
+              enterTo="transform opacity-100 scale-100"
+              leave="transition ease-in duration-75"
+              leaveFrom="transform opacity-100 scale-100"
+              leaveTo="transform opacity-0 scale-95"
+            >
+              <Menu.Items className="absolute left-0 z-50 mt-3 w-72 origin-top-left space-y-1 rounded-3xl border border-slate-200/80 bg-white/95 p-3 text-sm shadow-xl focus:outline-none">
+                {isAuthenticated ? (
+                  primaryNavigation.map((item) => {
+                    const Icon = iconMap[item.id] ?? Squares2X2Icon;
+                    return (
+                      <Menu.Item key={item.id}>
+                        {({ active }) => (
+                          <NavLink
+                            to={item.to}
+                            className={({ isActive }) =>
+                              classNames(
+                                'flex items-center gap-3 rounded-2xl px-3 py-2 font-medium transition',
+                                isActive
+                                  ? 'bg-slate-900 text-white shadow-sm'
+                                  : active
+                                    ? 'bg-slate-100 text-slate-900'
+                                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+                              )
+                            }
+                          >
+                            <Icon className="h-4 w-4" />
+                            {item.label}
+                          </NavLink>
+                        )}
+                      </Menu.Item>
+                    );
+                  })
+                ) : (
+                  marketingLinks.map((item) => (
                     <Menu.Item key={item.id}>
                       {({ active }) => (
-                        <NavLink
+                        <Link
                           to={item.to}
-                          className={({ isActive }) =>
-                            classNames(
-                              'flex items-center gap-2 rounded-2xl px-3 py-2 font-medium transition',
-                              isActive
-                                ? 'bg-slate-900 text-white shadow-sm'
-                                : active
-                                  ? 'bg-slate-100 text-slate-900'
-                                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
-                            )
-                          }
+                          className={classNames(
+                            'block rounded-2xl px-3 py-2 transition',
+                            active ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+                          )}
                         >
-                          <item.icon className="h-4 w-4" />
-                          {item.label}
-                        </NavLink>
+                          <p className="font-semibold">{item.label}</p>
+                          <p className="text-xs text-slate-500">{item.description}</p>
+                        </Link>
                       )}
                     </Menu.Item>
-                  ))}
-                </Menu.Items>
-              </Transition>
-            </Menu>
-          ) : null}
+                  ))
+                )}
+              </Menu.Items>
+            </Transition>
+          </Menu>
           <Link to="/" className="inline-flex items-center">
             <img src={LOGO_URL} alt="Gigvora" className="h-12 w-auto" />
           </Link>
@@ -201,32 +234,58 @@ export default function Header() {
 
         {isAuthenticated ? (
           <nav className="hidden flex-1 items-center justify-center gap-1 text-sm font-medium lg:flex">
-            {navigationItems.map((item) => (
-              <NavLink
-                key={item.id}
-                to={item.to}
-                className={({ isActive }) =>
-                  classNames(
-                    'inline-flex items-center gap-2 rounded-full border px-4 py-2 transition',
-                    isActive
-                      ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
-                      : 'border-transparent text-slate-600 hover:border-slate-300 hover:bg-white hover:text-slate-900',
-                  )
-                }
-              >
-                <item.icon className="h-4 w-4" />
-                {item.label}
-              </NavLink>
-            ))}
+            <RoleSwitcher options={roleOptions} currentKey={roleKey} />
+            {primaryNavigation.map((item) => {
+              const Icon = iconMap[item.id] ?? Squares2X2Icon;
+              return (
+                <NavLink
+                  key={item.id}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    classNames(
+                      'inline-flex items-center gap-2 rounded-full border px-4 py-2 transition',
+                      isActive
+                        ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
+                        : 'border-transparent text-slate-600 hover:border-slate-300 hover:bg-white hover:text-slate-900',
+                    )
+                  }
+                >
+                  <Icon className="h-4 w-4" />
+                  {item.label}
+                </NavLink>
+              );
+            })}
           </nav>
         ) : (
-          <div className="flex-1" />
+          <nav className="hidden flex-1 items-center justify-center gap-3 lg:flex">
+            {marketingNavigation.map((item) => (
+              <MegaMenu key={item.id} item={item} />
+            ))}
+          </nav>
         )}
 
         <div className="ml-auto flex items-center gap-3 sm:gap-4">
+          {!isAuthenticated ? (
+            <Link
+              to="/pages"
+              className="hidden items-center gap-1 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-500 transition hover:border-slate-300 hover:text-slate-900 lg:inline-flex"
+            >
+              <ArrowTopRightOnSquareIcon className="h-4 w-4" />
+              Demo tour
+            </Link>
+          ) : null}
           <LanguageSelector />
           {isAuthenticated ? (
-            <UserMenu session={session} onLogout={handleLogout} />
+            <div className="flex items-center gap-3">
+              <Link
+                to="/dashboard/user/creation-studio"
+                className="hidden items-center gap-2 rounded-full border border-accent/60 bg-accent px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-accent-strong lg:inline-flex"
+              >
+                <SparklesIcon className="h-4 w-4" />
+                Launch Creation Studio
+              </Link>
+              <UserMenu session={session} onLogout={handleLogout} />
+            </div>
           ) : (
             <div className="flex items-center gap-3 sm:gap-4">
               <Link

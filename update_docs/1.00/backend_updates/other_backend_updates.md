@@ -17,3 +17,4 @@
 ### Observability Notes
 - `/health/metrics` responds only when the bearer token is supplied; unauthenticated calls return `401` and disabled environments return `404` to prevent information leakage.
 - Worker telemetry samples queue depth and aggregation heartbeats at 15–60s intervals, enabling Grafana alerts without custom collectors.
+- Local or CI smoke suites that only exercise realtime modules may export `SKIP_SEQUELIZE_BOOTSTRAP=true` to bypass schema sync; the harness logs this mode so operators know when tests are running against the lightweight bootstrap path.

@@ -1,6 +1,6 @@
 # Gigvora Frontend (React + Tailwind)
 
-This Vite-powered React application delivers the Gigvora experience across landing, registration, marketplace search, live feed, and admin login flows. Tailwind CSS and the Inter font pair with a crisp white-and-blue aesthetic that mirrors the Gigvora brand.
+This Vite-powered React application delivers the Gigvora experience across landing, registration, marketplace search, timeline, and admin login flows. Tailwind CSS and the Inter font pair with a crisp white-and-blue aesthetic that mirrors the Gigvora brand.
 
 ## Highlights
 

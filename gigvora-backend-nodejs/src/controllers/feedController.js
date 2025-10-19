@@ -98,7 +98,7 @@ export async function listFeed(req, res) {
 export async function createPost(req, res) {
   const role = resolveRole(req);
   if (role && !AUTHORIZED_ROLES.has(role)) {
-    throw new AuthorizationError('You do not have permission to publish to the live feed.');
+    throw new AuthorizationError('You do not have permission to publish to the timeline.');
   }
 
   const { userId, content, visibility = 'public', type = 'update', link, title, summary } = req.body || {};

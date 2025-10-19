@@ -103,7 +103,7 @@ async function hydrateUser(user, payload) {
   };
 }
 
-async function resolveAuthenticatedUser(req, { optional }) {
+export async function resolveAuthenticatedUser(req, { optional }) {
   const token = extractToken(req);
   if (token) {
     const payload = jwt.verify(token, DEFAULT_SECRET);
@@ -170,7 +170,7 @@ export function authenticate(options = {}) {
   return authenticateRequest(options);
 }
 
-function extractRoleSet(user) {
+export function extractRoleSet(user) {
   const roles = new Set();
   if (!user) {
     return roles;

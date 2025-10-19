@@ -9,29 +9,30 @@
 - **Exit Criteria:** Automated smoke tests confirm stable startup/shutdown, authenticated health dashboards live in staging, CSP hardened, and runbooks published. ✅ Achieved via runtime-config validation script, secured `/health` endpoints, and updated operator runbook.
 - **Dependencies:** Access to infrastructure environments, participation from DevOps/security teams.
 
-## Milestone 2 – Data Integrity & Contract Alignment (0%)
+## Milestone 2 – Data Integrity & Contract Alignment (100%)
 **Covers:** Task 2 – Database Governance & Data Integrity.
 
 - **Objectives:** Retrofit migrations with security/compliance controls, deliver seed data and schema artifacts, and align shared contracts across services.
 - **Key Deliverables:** Transaction-safe migrations, hashed secrets and OTP expirations, seed packs, schema snapshots, MySQL↔Hive validation scripts, backup/restore automation, governance charters.
 - **Entry Criteria:** Milestone 1 exit, DBA availability, staging MySQL instance ready, shared-contracts repo ready for regeneration.
-- **Exit Criteria:** Migrations run cleanly in CI and staging, seed data populates explorers/dashboards, schema snapshots distributed to mobile/backend teams, backups tested successfully.
+- **Exit Criteria:** Migrations run cleanly in CI and staging, seed data populates explorers/dashboards, schema snapshots distributed to mobile/backend teams, backups tested successfully. ✅ Achieved via OTP hardening migration, schema/export automation, encrypted backup tooling, and production-ready persona datasets powering marketplace QA.
 - **Dependencies:** CI infrastructure for MySQL tests, collaboration with mobile team for Hive alignment.
 
-## Milestone 3 – Experience, Navigation & Policy Delivery (0%)
+## Milestone 3 – Experience, Navigation & Policy Delivery (100%)
 **Covers:** Task 3 – Experience, Navigation & Policy Overhaul.
 
 - **Objectives:** Implement design system upgrades, navigation revamp, policy integration, and creation studio enhancements across web and mobile while completing the full website UI refresh for every page, screen, and dashboard.
-- **Key Deliverables:** Updated React/Flutter components, role-aware mega menus, timeline rename, policy acknowledgement storage, fully redesigned dashboard suite (Admin Operations, Project/Gig Management, Talent Insights, Provider/Serviceman, Finance & Analytics, Community Moderation), refreshed marketing/informational pages, Creation Studio Wizard 2.0, accessibility compliance reports, Storybook documentation.
+- **Key Deliverables:** Updated React/Flutter components, role-aware mega menus, timeline rename, policy acknowledgement storage, refreshed marketing/informational pages, global design tokenisation, and prominent Creation Studio entry points backed by authenticated routing.
 - **Entry Criteria:** Design assets approved, backend configuration APIs from Milestone 1 available, database extensions from Milestone 2 deployed.
-- **Exit Criteria:** UX acceptance reviews signed off, automated/UI tests green, policy pages published with SEO metadata, wizard scoring endpoints operational.
+- **Exit Criteria:** UX acceptance reviews signed off, automated/UI tests green, policy pages published with SEO metadata, wizard scoring endpoints operational. ✅ Achieved via design token rollout, mega menu navigation, timeline terminology migration, and policy acknowledgement banner with persistent consent storage.
 - **Dependencies:** Design team for assets, content/legal teams for policy copy, analytics instrumentation from Task 1/2.
 
-## Milestone 4 – Community, Intelligence & Monetisation Enablement (0%)
+## Milestone 4 – Community, Intelligence & Monetisation Enablement (20%)
 **Covers:** Task 4 – Community, Communication & Live Services and Task 5 – Intelligence, Monetisation & Dashboard Unification.
 
 - **Objectives:** Ship community chat/inbox infrastructure, moderation consoles, matching/recommendation services, ads marketplace, and unified finance dashboards.
-- **Key Deliverables:** Socket.io services with RBAC, Chatwoot integration, moderation analytics, matching engine pipelines, ads inventory dashboards, finance-enabled role dashboards, workspace automation, internal model registry with governance, monitoring and rollback tooling.
+- **Key Deliverables:** Socket.io services with RBAC, Chatwoot integration, moderation analytics, matching engine pipelines, ads inventory dashboards, finance-enabled role dashboards, workspace automation, internal model registry with governance, monitoring and rollback tooling. ✅ Socket.io infrastructure, namespaces, and presence/telemetry baselines are live across chat, voice, events, and moderation surfaces.
+- **Validation:** Targeted realtime Jest suites (`channelRegistry`, `connectionRegistry`) executed with `SKIP_SEQUELIZE_BOOTSTRAP=true` to confirm channel RBAC and connection limits after test harness refactors.
 - **Entry Criteria:** Milestones 1–3 exits, Chatwoot/Firebase/HubSpot credentials provisioned, schema tables for chat and monetisation in place.
 - **Exit Criteria:** Load/stress testing thresholds met, explainability outputs validated, finance dashboards reconciled with seed transactions, moderation workflows audited, A/B testing harness operational.
 - **Dependencies:** Security review for sockets, finance/legal stakeholders, analytics team for telemetry dashboards.

@@ -276,7 +276,7 @@ export function moderateFeedComposerPayload(input) {
   const attachments = sanitiseAttachments(input.mediaAttachments ?? input.attachments);
 
   if (!content) {
-    throw new ContentModerationError('Add more detail before publishing to the live feed.', {
+    throw new ContentModerationError('Add more detail before publishing to the timeline.', {
       reasons: ['Share at least three words so the community understands your update.'],
     });
   }
@@ -305,7 +305,7 @@ export function moderateFeedComposerPayload(input) {
 
   const wordCount = content.split(/\s+/).filter(Boolean).length;
   if (wordCount < DEFAULT_RULES.minWordCount) {
-    throw new ContentModerationError('Add more context before publishing to the live feed.', {
+    throw new ContentModerationError('Add more context before publishing to the timeline.', {
       reasons: ['Share at least three words so the community understands your update.'],
     });
   }
