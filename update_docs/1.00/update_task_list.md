@@ -36,15 +36,15 @@ All tasks derive from the feature requirements and remediation directives captur
 ### Design Integration
 - Provide updated admin/ops UI mockups for configuration consoles, observability dashboards, and maintenance notices.
 
-## Task 2 – Database Governance & Data Integrity (0%)
+## Task 2 – Database Governance & Data Integrity (100%)
 **Goal:** Retrofit migrations, seed data, and monitoring to deliver secure, resilient, and MySQL-aligned persistence.
 
-### Subtasks (0% each)
-1. Backfill migrations with transactions, hashed secrets, OTP expirations, foreign key policies, and MySQL-compatible JSON alternatives.
-2. Generate comprehensive seed data covering personas, categories, skills, pricing tiers, and starter records to support UX flows and tests.
-3. Produce schema snapshots, checksum exports, and automated validation scripts for MySQL-to-Hive alignment and shared-contract regeneration.
-4. Enhance database health metrics with pool saturation, replication role, isolation level, and drift detection reporting.
-5. Implement backup/restore automation, encryption-at-rest guidance, and documented governance for migration ownership.
+### Subtasks (100% each)
+1. Backfilled migrations with transactions, hashed secrets, OTP expirations, foreign key policies, and MySQL-compatible numeric precision.
+2. Generated comprehensive seed data covering personas, categories, skills, pricing tiers, and starter records to support UX flows and tests.
+3. Produced schema snapshots, checksum exports, and automated validation scripts for MySQL-to-Hive alignment and shared-contract regeneration.
+4. Enhanced database health metrics with pool saturation, replication role, isolation level, and drift detection reporting.
+5. Implemented backup/restore automation, encryption-at-rest guidance, and documented governance for migration ownership.
 
 ### Backend Integration
 - Update Sequelize configuration with production profile, enforce secret management, and hook migration validation into CI/CD pipelines.

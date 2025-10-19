@@ -10,12 +10,12 @@ Percentages capture current progress for each task and subtask across required q
 |  | 3. Configuration management overhaul | 100% | 100% | 100% | 100% | 100% | 100% | 100% |
 |  | 4. Logging & correlation standardisation | 100% | 100% | 100% | 100% | 100% | 100% | 100% |
 |  | 5. Operator runbooks & CI gates | 100% | 100% | 100% | 100% | 100% | 100% | 100% |
-| Task 2 – Database Governance & Data Integrity | — | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
-|  | 1. Migration retrofits | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
-|  | 2. Seed data generation | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
-|  | 3. Schema snapshots & validation | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
-|  | 4. Enhanced health metrics | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
-|  | 5. Backup/restore governance | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
+| Task 2 – Database Governance & Data Integrity | — | 100% | 100% | 100% | 100% | 100% | 100% | 100% |
+|  | 1. Migration retrofits | 100% | 100% | 100% | 100% | 100% | 100% | 100% |
+|  | 2. Seed data generation | 100% | 100% | 100% | 100% | 100% | 100% | 100% |
+|  | 3. Schema snapshots & validation | 100% | 100% | 100% | 100% | 100% | 100% | 100% |
+|  | 4. Enhanced health metrics | 100% | 100% | 100% | 100% | 100% | 100% | 100% |
+|  | 5. Backup/restore governance | 100% | 100% | 100% | 100% | 100% | 100% | 100% |
 | Task 3 – Experience, Navigation & Policy Overhaul | — | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
 |  | 1. Design system updates | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
 |  | 2. Marketing & informational pages | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
@@ -45,3 +45,4 @@ Percentages capture current progress for each task and subtask across required q
 ## Notes
 - Overall percentage equals the arithmetic mean of the six tracked dimensions for each row. With all metrics at 0%, overall remains 0% until execution begins.
 - Update this tracker alongside implementation to reflect incremental progress, ensuring milestone readiness assessments remain data-driven.
+- Database schema snapshots are generated via `npm run schema:export`; encrypted backups can be produced and verified with `npm run db:backup` and `npm run db:verify`.
