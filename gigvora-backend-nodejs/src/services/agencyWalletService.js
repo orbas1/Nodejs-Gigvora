@@ -3,9 +3,9 @@ import {
   sequelize,
   WalletAccount,
   WalletLedgerEntry,
-  WalletFundingSource,
+  AgencyWalletFundingSource,
   WalletOperationalSetting,
-  WalletTransferRule,
+  AgencyWalletTransferRule,
   WalletPayoutRequest,
   ProviderWorkspace,
   User,
@@ -254,8 +254,8 @@ export async function getWalletOverview({ workspaceId } = {}, { roles } = {}) {
   );
 
   const [fundingSourceCount, activeTransferRules] = await Promise.all([
-    WalletFundingSource.count({ where: buildWorkspaceFilter(resolvedWorkspaceId) }),
-    WalletTransferRule.count({ where: { ...buildWorkspaceFilter(resolvedWorkspaceId), isActive: true } }),
+    AgencyWalletFundingSource.count({ where: buildWorkspaceFilter(resolvedWorkspaceId) }),
+    AgencyWalletTransferRule.count({ where: { ...buildWorkspaceFilter(resolvedWorkspaceId), isActive: true } }),
   ]);
 
   const ledgerWhere = {};
@@ -607,7 +607,7 @@ export async function createLedgerEntry(walletAccountId, payload, { actorId, rol
 export async function listFundingSources({ workspaceId } = {}, { roles } = {}) {
   assertWalletAccess(roles);
   const resolvedWorkspaceId = workspaceId == null ? null : parsePositiveInteger(workspaceId, 'workspaceId');
-  const sources = await WalletFundingSource.findAll({
+  const sources = await AgencyWalletFundingSource.findAll({
     where: buildWorkspaceFilter(resolvedWorkspaceId),
     include: [{ model: ProviderWorkspace, as: 'workspace', attributes: ['id', 'name', 'slug'] }],
     order: [['isPrimary', 'DESC'], ['label', 'ASC']],
@@ -626,7 +626,7 @@ export async function createFundingSource(payload, { actorId, roles } = {}) {
 
   const metadata = coerceMetadata(payload.metadata);
 
-  const source = await WalletFundingSource.create({
+  const source = await AgencyWalletFundingSource.create({
     workspaceId,
     label: payload.label,
     type: payload.type ? `${payload.type}`.toLowerCase() : 'bank_account',
@@ -640,14 +640,14 @@ export async function createFundingSource(payload, { actorId, roles } = {}) {
   });
 
   if (coerceBoolean(payload.isPrimary)) {
-    await WalletFundingSource.update(
+    await AgencyWalletFundingSource.update(
       { isPrimary: false },
       { where: { workspaceId, id: { [Op.ne]: source.id } } },
     );
     await source.update({ isPrimary: true });
   }
 
-  const fullSource = await WalletFundingSource.findByPk(source.id, {
+  const fullSource = await AgencyWalletFundingSource.findByPk(source.id, {
     include: [{ model: ProviderWorkspace, as: 'workspace', attributes: ['id', 'name', 'slug'] }],
   });
 
@@ -657,7 +657,7 @@ export async function createFundingSource(payload, { actorId, roles } = {}) {
 export async function updateFundingSource(sourceId, payload, { roles } = {}) {
   assertWalletAccess(roles);
   const id = parsePositiveInteger(sourceId, 'fundingSourceId');
-  const source = await WalletFundingSource.findByPk(id);
+  const source = await AgencyWalletFundingSource.findByPk(id);
   if (!source) {
     throw new NotFoundError('Funding source not found.');
   }
@@ -679,13 +679,13 @@ export async function updateFundingSource(sourceId, payload, { roles } = {}) {
   await source.update(updates);
 
   if (updates.isPrimary) {
-    await WalletFundingSource.update(
+    await AgencyWalletFundingSource.update(
       { isPrimary: false },
       { where: { workspaceId: source.workspaceId, id: { [Op.ne]: source.id } } },
     );
   }
 
-  const refreshed = await WalletFundingSource.findByPk(id, {
+  const refreshed = await AgencyWalletFundingSource.findByPk(id, {
     include: [{ model: ProviderWorkspace, as: 'workspace', attributes: ['id', 'name', 'slug'] }],
   });
 
@@ -712,7 +712,11 @@ export async function listPayoutRequests({ workspaceId, status } = {}, { roles }
           { model: ProviderWorkspace, as: 'workspace', attributes: ['id', 'name', 'slug'] },
         ],
       },
-      { model: WalletFundingSource, as: 'fundingSource', include: [{ model: ProviderWorkspace, as: 'workspace', attributes: ['id', 'name', 'slug'] }] },
+      {
+        model: AgencyWalletFundingSource,
+        as: 'fundingSource',
+        include: [{ model: ProviderWorkspace, as: 'workspace', attributes: ['id', 'name', 'slug'] }],
+      },
       { model: ProviderWorkspace, as: 'workspace', attributes: ['id', 'name', 'slug'] },
     ],
     order: [['requestedAt', 'DESC']],
@@ -741,7 +745,7 @@ export async function createPayoutRequest(payload, { actorId, roles } = {}) {
 
   const fundingSourceId = payload.fundingSourceId == null ? null : parsePositiveInteger(payload.fundingSourceId, 'fundingSourceId');
   if (fundingSourceId != null) {
-    const source = await WalletFundingSource.findByPk(fundingSourceId);
+    const source = await AgencyWalletFundingSource.findByPk(fundingSourceId);
     if (!source || source.workspaceId !== workspaceId) {
       throw new ValidationError('Funding source not found for the provided workspace.');
     }
@@ -776,7 +780,11 @@ export async function createPayoutRequest(payload, { actorId, roles } = {}) {
           { model: ProviderWorkspace, as: 'workspace', attributes: ['id', 'name', 'slug'] },
         ],
       },
-      { model: WalletFundingSource, as: 'fundingSource', include: [{ model: ProviderWorkspace, as: 'workspace', attributes: ['id', 'name', 'slug'] }] },
+      {
+        model: AgencyWalletFundingSource,
+        as: 'fundingSource',
+        include: [{ model: ProviderWorkspace, as: 'workspace', attributes: ['id', 'name', 'slug'] }],
+      },
       { model: ProviderWorkspace, as: 'workspace', attributes: ['id', 'name', 'slug'] },
     ],
   });
@@ -828,7 +836,11 @@ export async function updatePayoutRequest(requestId, payload, { roles } = {}) {
           { model: ProviderWorkspace, as: 'workspace', attributes: ['id', 'name', 'slug'] },
         ],
       },
-      { model: WalletFundingSource, as: 'fundingSource', include: [{ model: ProviderWorkspace, as: 'workspace', attributes: ['id', 'name', 'slug'] }] },
+      {
+        model: AgencyWalletFundingSource,
+        as: 'fundingSource',
+        include: [{ model: ProviderWorkspace, as: 'workspace', attributes: ['id', 'name', 'slug'] }],
+      },
       { model: ProviderWorkspace, as: 'workspace', attributes: ['id', 'name', 'slug'] },
     ],
   });

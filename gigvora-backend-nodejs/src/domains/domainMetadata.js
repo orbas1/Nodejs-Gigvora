@@ -240,10 +240,20 @@ export const domainMetadata = {
         retention: 'Financial year + 10 years',
         justification: 'Funding source fingerprints are required for audit trails and consent revocation.',
       },
+      AgencyWalletFundingSource: {
+        fields: ['accountNumberLast4', 'provider'],
+        retention: 'Financial year + 10 years',
+        justification: 'Workspace payout funding sources must be auditable for compliance and treasury reviews.',
+      },
       WalletTransferRule: {
         fields: ['name', 'metadata'],
         retention: 'Active membership + 7 years',
         justification: 'Automation policies demonstrate payout approvals during compliance reviews.',
+      },
+      AgencyWalletTransferRule: {
+        fields: ['name', 'metadata'],
+        retention: 'Active membership + 7 years',
+        justification: 'Workspace sweep automations evidence dual-control approvals for regulators.',
       },
       WalletTransferRequest: {
         fields: ['reference', 'notes'],
