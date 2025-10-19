@@ -1,12 +1,12 @@
 # Version 1.00 Milestone List
 
-## Milestone 1 – Platform Hardening Foundations (0%)
+## Milestone 1 – Platform Hardening Foundations (100%)
 **Covers:** Task 1 – Platform Bootstrap & Security Hardening.
 
 - **Objectives:** Stabilise lifecycle bootstrap, secure health/metrics endpoints, enforce schema-validated configuration, and publish operator tooling before feature work begins.
 - **Key Deliverables:** Single-pass bootstrap orchestration, authenticated readiness APIs, configuration console UI, logging/correlation upgrades, validated `.env` templates, and operator runbooks.
 - **Entry Criteria:** Stakeholder approval of task scope, environment inventory completed, credentials secured for required integrations.
-- **Exit Criteria:** Automated smoke tests confirm stable startup/shutdown, authenticated health dashboards live in staging, CSP hardened, and runbooks published.
+- **Exit Criteria:** Automated smoke tests confirm stable startup/shutdown, authenticated health dashboards live in staging, CSP hardened, and runbooks published. ✅ Achieved via runtime-config validation script, secured `/health` endpoints, and updated operator runbook.
 - **Dependencies:** Access to infrastructure environments, participation from DevOps/security teams.
 
 ## Milestone 2 – Data Integrity & Contract Alignment (0%)

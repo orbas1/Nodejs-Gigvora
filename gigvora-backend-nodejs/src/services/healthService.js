@@ -6,6 +6,9 @@ import {
   markDependencyUnavailable,
 } from '../lifecycle/runtimeHealth.js';
 import { getDatabasePoolSnapshot } from './databaseLifecycleService.js';
+import { collectWorkerTelemetry } from '../lifecycle/workerManager.js';
+import { ServiceUnavailableError } from '../utils/errors.js';
+import { getRuntimeConfig } from '../config/runtimeConfig.js';
 
 const DATABASE_CHECK_INTERVAL_MS = 30_000;
 
@@ -87,14 +90,106 @@ export async function verifyDatabaseConnectivity() {
   return cachedDatabaseStatus;
 }
 
-export async function getReadinessReport() {
-  await verifyDatabaseConnectivity();
-  const report = buildHealthReport();
-  report.checks = {
-    database: cachedDatabaseStatus,
+function paginate(entries, page, perPage) {
+  const safePerPage = perPage > 0 ? perPage : entries.length || 1;
+  const safePage = page > 0 ? page : 1;
+  const offset = (safePage - 1) * safePerPage;
+  return {
+    slice: entries.slice(offset, offset + safePerPage),
+    total: entries.length,
+    page: safePage,
+    perPage: safePerPage,
   };
-  report.httpStatus = readinessStatusToHttp(report.status);
-  return report;
+}
+
+function countStatuses(entries) {
+  return entries.reduce(
+    (acc, entry) => {
+      const status = entry.status ?? 'unknown';
+      acc[status] = (acc[status] ?? 0) + 1;
+      return acc;
+    },
+    { ok: 0, degraded: 0, error: 0, disabled: 0, unknown: 0 },
+  );
+}
+
+export async function getReadinessReport({
+  page = 1,
+  perPage = 10,
+  dependency = null,
+  forceRefresh = false,
+} = {}) {
+  await verifyDatabaseConnectivity();
+  const baseReport = buildHealthReport();
+  const state = getHealthState();
+
+  const dependencyEntries = Object.entries(state.dependencies).map(([name, info]) => ({
+    name,
+    status: info.status,
+    updatedAt: info.updatedAt,
+    error: info.error ?? null,
+    metadata: { ...info },
+  }));
+
+  const dependencyFilter = dependency ? dependency.trim() : null;
+  const filteredDependencies = dependencyFilter
+    ? dependencyEntries.filter((entry) => entry.name === dependencyFilter)
+    : dependencyEntries;
+
+  const pagination = paginate(filteredDependencies, page, perPage);
+
+  const workerTelemetrySnapshots = await collectWorkerTelemetry({ forceRefresh });
+  const workerEntries = Object.entries(state.workers).map(([name, info]) => {
+    const telemetry = workerTelemetrySnapshots.find((snapshot) => snapshot.name === name);
+    return {
+      name,
+      status: info.status,
+      updatedAt: info.updatedAt,
+      error: info.error ?? null,
+      metadata: { ...(info ?? {}), ...(telemetry?.metadata ?? {}) },
+      telemetry: telemetry?.metrics ?? null,
+      telemetryUpdatedAt: telemetry?.lastSampleAt ?? null,
+    };
+  });
+
+  const runtimeConfig = getRuntimeConfig();
+
+  const readiness = {
+    status: baseReport.status,
+    timestamp: baseReport.timestamp,
+    uptimeSeconds: baseReport.uptimeSeconds,
+    http: baseReport.http,
+    database: cachedDatabaseStatus,
+    dependencies: {
+      page: pagination.page,
+      perPage: pagination.perPage,
+      total: pagination.total,
+      counts: countStatuses(dependencyEntries),
+      nodes: pagination.slice,
+    },
+    workers: {
+      total: workerEntries.length,
+      counts: countStatuses(workerEntries),
+      nodes: workerEntries,
+    },
+    service: {
+      name: runtimeConfig?.serviceName ?? 'gigvora-backend',
+      environment: runtimeConfig?.env ?? process.env.NODE_ENV ?? 'development',
+    },
+  };
+
+  const httpStatus = readinessStatusToHttp(baseReport.status);
+  readiness.httpStatus = httpStatus;
+
+  if (httpStatus !== 200) {
+    const error = new ServiceUnavailableError('Gigvora platform is not ready', readiness);
+    error.status = httpStatus;
+    error.statusCode = httpStatus;
+    error.expose = true;
+    throw error;
+  }
+
+  return readiness;
 }
 
 export function readinessStatusToHttp(status) {

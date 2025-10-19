@@ -11,7 +11,8 @@
     "test:watch": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --watch",
     "search:sync": "node scripts/syncMeilisearch.js",
     "schemas:sync": "node scripts/syncDomainSchemas.js",
-    "schemas:clients": "node scripts/generateDomainClients.js"
+    "schemas:clients": "node scripts/generateDomainClients.js",
+    "config:validate": "node scripts/validateRuntimeConfig.js .env.example"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.590.0",
