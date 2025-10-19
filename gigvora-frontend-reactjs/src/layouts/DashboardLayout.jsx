@@ -9,17 +9,14 @@ import {
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 import PropTypes from 'prop-types';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import gigvoraWordmark from '../../images/Gigvora Logo.png';
 import MessagingDock from '../components/messaging/MessagingDock.jsx';
 import AdPlacementRail from '../components/ads/AdPlacementRail.jsx';
 
 function slugify(value) {
-  if (!value) {
-    return '';
-  }
-  return value
-    .toString()
+  if (!value) return '';
+  return String(value)
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
@@ -28,22 +25,23 @@ function slugify(value) {
 }
 
 function normalizeMenuSections(sections) {
-  return (Array.isArray(sections) ? sections : []).map((section, sectionIndex) => {
-    const sectionId = section.id ? String(section.id) : slugify(section.label) || `section-${sectionIndex + 1}`;
-    const label = section.label ?? `Section ${sectionIndex + 1}`;
-    const items = (Array.isArray(section.items) ? section.items : []).map((item, itemIndex) => {
-      const itemId = item.id ? String(item.id) : slugify(item.name) || `${sectionId}-item-${itemIndex + 1}`;
+  const safeSections = Array.isArray(sections) ? sections : [];
+  return safeSections.map((section, sectionIndex) => {
+    const sectionId = section?.id ? String(section.id) : slugify(section?.label) || `section-${sectionIndex + 1}`;
+    const label = section?.label ?? `Section ${sectionIndex + 1}`;
+    const items = (Array.isArray(section?.items) ? section.items : []).map((item, itemIndex) => {
+      const itemId = item?.id ? String(item.id) : slugify(item?.name) || `${sectionId}-item-${itemIndex + 1}`;
       return {
         ...item,
         id: itemId,
-        name: item.name ?? `Menu item ${itemIndex + 1}`,
-        description: item.description ?? '',
+        name: item?.name ?? `Menu item ${itemIndex + 1}`,
+        description: item?.description ?? '',
         sectionId,
         parentSectionId: sectionId,
         parentSectionLabel: label,
-        orderIndex: item.orderIndex ?? itemIndex,
-        sectionOrderIndex: section.orderIndex ?? sectionIndex,
-        href: typeof item.href === 'string' ? item.href.trim() : undefined,
+        orderIndex: item?.orderIndex ?? itemIndex,
+        sectionOrderIndex: section?.orderIndex ?? sectionIndex,
+        href: typeof item?.href === 'string' ? item.href.trim() : undefined,
       };
     });
 
@@ -52,68 +50,29 @@ function normalizeMenuSections(sections) {
       id: sectionId,
       label,
       items,
-      orderIndex: section.orderIndex ?? sectionIndex,
+      orderIndex: section?.orderIndex ?? sectionIndex,
     };
   });
 }
 
 function normalizeAvailableDashboards(availableDashboards) {
-  if (!Array.isArray(availableDashboards)) {
-    return [];
-  }
-
+  if (!Array.isArray(availableDashboards)) return [];
   return availableDashboards
     .map((entry, index) => {
-      if (!entry) {
-        return null;
-      }
-
+      if (!entry) return null;
       if (typeof entry === 'string') {
         const id = slugify(entry) || `dashboard-${index + 1}`;
         return { id, label: entry, href: `/dashboard/${id}` };
       }
-
       if (typeof entry === 'object') {
         const id = slugify(entry.id ?? entry.slug ?? entry.href) || `dashboard-${index + 1}`;
         const label = entry.label ?? entry.name ?? id;
         const href = entry.href ?? `/dashboard/${id}`;
         return { id, label, href };
       }
-
       return null;
     })
     .filter(Boolean);
-}
-
-function loadStoredCustomization(key) {
-  if (typeof window === 'undefined') {
-    return { order: [], hidden: [] };
-  }
-
-  try {
-    const stored = window.localStorage.getItem(key);
-    if (!stored) {
-      return { order: [], hidden: [] };
-    }
-    const parsed = JSON.parse(stored);
-    return {
-      order: Array.isArray(parsed?.order) ? parsed.order.map(String) : [],
-      hidden: Array.isArray(parsed?.hidden) ? parsed.hidden.map(String) : [],
-    };
-  } catch (error) {
-    return { order: [], hidden: [] };
-  }
-}
-
-function saveStoredCustomization(key, value) {
-  if (typeof window === 'undefined') {
-    return;
-  }
-  try {
-    window.localStorage.setItem(key, JSON.stringify(value));
-  } catch (error) {
-    // Non-blocking persistence failure.
-  }
 }
 
 const DEFAULT_AD_SURFACE_BY_DASHBOARD = {
@@ -126,10 +85,7 @@ const DEFAULT_AD_SURFACE_BY_DASHBOARD = {
 };
 
 function DashboardSwitcher({ dashboards, currentId, onNavigate }) {
-  if (!dashboards.length) {
-    return null;
-  }
-
+  if (!dashboards.length) return null;
   return (
     <div className="hidden items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm lg:flex">
       <Squares2X2Icon className="h-4 w-4 text-accent" />
@@ -157,11 +113,7 @@ function DashboardSwitcher({ dashboards, currentId, onNavigate }) {
 
 DashboardSwitcher.propTypes = {
   dashboards: PropTypes.arrayOf(
-    PropTypes.shape({
-      id: PropTypes.string.isRequired,
-      label: PropTypes.string.isRequired,
-      href: PropTypes.string.isRequired,
-    }),
+    PropTypes.shape({ id: PropTypes.string.isRequired, label: PropTypes.string.isRequired, href: PropTypes.string.isRequired }),
   ),
   currentId: PropTypes.string,
   onNavigate: PropTypes.func,
@@ -173,17 +125,8 @@ DashboardSwitcher.defaultProps = {
   onNavigate: undefined,
 };
 
-function MenuSection({
-  section,
-  isOpen,
-  onToggle,
-  onItemClick,
-  activeItemId,
-}) {
-  if (!section.items.length) {
-    return null;
-  }
-
+function MenuSection({ section, isOpen, onToggle, onItemClick, activeItemId }) {
+  if (!section.items.length) return null;
   return (
     <div className="space-y-2">
       <button
@@ -205,9 +148,7 @@ function MenuSection({
                 type="button"
                 onClick={() => onItemClick?.(item)}
                 className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left text-sm transition ${
-                  isActive
-                    ? 'bg-accent text-white shadow-sm'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  isActive ? 'bg-accent text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                 }`}
               >
                 {Icon ? <Icon className="h-5 w-5 flex-shrink-0" /> : null}
@@ -227,11 +168,7 @@ function MenuSection({
 }
 
 MenuSection.propTypes = {
-  section: PropTypes.shape({
-    id: PropTypes.string.isRequired,
-    label: PropTypes.string.isRequired,
-    items: PropTypes.arrayOf(PropTypes.object).isRequired,
-  }).isRequired,
+  section: PropTypes.shape({ id: PropTypes.string.isRequired, label: PropTypes.string.isRequired, items: PropTypes.arrayOf(PropTypes.object).isRequired }).isRequired,
   isOpen: PropTypes.bool,
   onToggle: PropTypes.func.isRequired,
   onItemClick: PropTypes.func,
@@ -242,104 +179,6 @@ MenuSection.defaultProps = {
   isOpen: true,
   onItemClick: undefined,
   activeItemId: undefined,
-};
-
-function CustomizationPanel({
-  open,
-  items,
-  order,
-  hidden,
-  onClose,
-  onReorder,
-  onToggleVisibility,
-}) {
-  if (!open) {
-    return null;
-  }
-
-  const orderedItems = order
-    .map((id) => items.find((item) => item.id === id))
-    .filter(Boolean);
-
-  return (
-    <div className="fixed inset-0 z-40 flex items-start justify-end bg-slate-900/40 backdrop-blur-sm">
-      <div className="h-full w-full max-w-md overflow-y-auto border-l border-slate-200 bg-white px-6 py-8 shadow-xl">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">Navigation designer</h2>
-            <p className="text-sm text-slate-500">Reorder and hide modules to tailor your workspace.</p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-slate-300 hover:text-slate-800"
-          >
-            <XMarkIcon className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="mt-6 space-y-3">
-          {orderedItems.map((item, index) => {
-            const isHidden = hidden.has(item.id);
-            return (
-              <div
-                key={item.id}
-                className={`flex items-center justify-between rounded-2xl border px-3 py-3 text-sm ${
-                  isHidden ? 'border-slate-200 bg-slate-100 text-slate-400' : 'border-slate-200 bg-white text-slate-700'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    {item.parentSectionLabel}
-                  </span>
-                  <span className="font-semibold text-slate-800">{item.name}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    className="rounded-full border border-slate-200 p-1 text-xs text-slate-500 transition hover:border-slate-300 hover:text-slate-800"
-                    onClick={() => onReorder(item.id, index - 1)}
-                    disabled={index === 0}
-                  >
-                    <ChevronRightIcon className="h-4 w-4 rotate-180" />
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-full border border-slate-200 p-1 text-xs text-slate-500 transition hover:border-slate-300 hover:text-slate-800"
-                    onClick={() => onReorder(item.id, index + 1)}
-                    disabled={index === orderedItems.length - 1}
-                  >
-                    <ChevronRightIcon className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                      isHidden
-                        ? 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
-                        : 'border-accent/40 bg-accent/10 text-accent hover:border-accent/60'
-                    }`}
-                    onClick={() => onToggleVisibility(item.id)}
-                  >
-                    {isHidden ? 'Show' : 'Hide'}
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-CustomizationPanel.propTypes = {
-  open: PropTypes.bool.isRequired,
-  items: PropTypes.arrayOf(PropTypes.object).isRequired,
-  order: PropTypes.arrayOf(PropTypes.string).isRequired,
-  hidden: PropTypes.instanceOf(Set).isRequired,
-  onClose: PropTypes.func.isRequired,
-  onReorder: PropTypes.func.isRequired,
-  onToggleVisibility: PropTypes.func.isRequired,
 };
 
 export default function DashboardLayout({
@@ -358,106 +197,18 @@ export default function DashboardLayout({
   const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [customizerOpen, setCustomizerOpen] = useState(false);
   const [openSectionIds, setOpenSectionIds] = useState(new Set());
-  const [openDrawers, setOpenDrawers] = useState(() => new Set());
-
-  const normalizedMenuSections = useMemo(() => normalizeMenuSections(menuSections), [menuSections]);
-  const allMenuItems = useMemo(() => {
-    return normalizedMenuSections.flatMap((section) =>
-      section.items.map((item) => ({
-        id: String(item.id),
-        name: item.name,
-        description: item.description,
-        sectionId: item.sectionId,
-        parentSectionId: item.parentSectionId ?? section.id,
-        parentSectionLabel: item.parentSectionLabel ?? section.label,
-        orderIndex: item.orderIndex ?? 0,
-        sectionOrderIndex: item.sectionOrderIndex ?? section.orderIndex ?? 0,
-        href: item.href,
-        icon: item.icon,
-        target: item.target,
-      })),
-    );
-  }, [normalizedMenuSections]);
-  const menuItemLookup = useMemo(() => {
-    const map = new Map();
-    allMenuItems.forEach((item) => {
-      map.set(item.id, item);
-    });
-    return map;
-  }, [allMenuItems]);
 
   const normalizedSections = useMemo(
-    () => normalizeMenuSections(menuSections?.length ? menuSections : sections),
+    () => normalizeMenuSections(menuSections?.length ? menuSections : sections || []),
     [menuSections, sections],
   );
+
+  const allMenuItems = useMemo(() => normalizedSections.flatMap((section) => section.items), [normalizedSections]);
 
   useEffect(() => {
     setOpenSectionIds(new Set(normalizedSections.map((section) => section.id)));
   }, [normalizedSections]);
-
-  const allMenuItems = useMemo(() => {
-    return normalizedSections.flatMap((section) => section.items);
-  }, [normalizedSections]);
-
-  const customizationKey = useMemo(() => {
-    const dashboardId = slugify(currentDashboard) || 'dashboard';
-    return `gigvora.dashboard.${dashboardId}.navigation`;
-  }, [currentDashboard]);
-
-  const [customOrder, setCustomOrder] = useState([]);
-  const [hiddenItemIds, setHiddenItemIds] = useState(new Set());
-
-  useEffect(() => {
-    const { order, hidden } = loadStoredCustomization(customizationKey);
-    setCustomOrder(order);
-    setHiddenItemIds(new Set(hidden));
-  }, [customizationKey]);
-
-  useEffect(() => {
-    const orderIds = customOrder.length ? customOrder : allMenuItems.map((item) => item.id);
-    saveStoredCustomization(customizationKey, { order: orderIds, hidden: [...hiddenItemIds] });
-  }, [customOrder, hiddenItemIds, customizationKey, allMenuItems]);
-
-  const orderedMenuItems = useMemo(() => {
-    const knownIds = new Set(allMenuItems.map((item) => item.id));
-    const primaryOrder = customOrder.filter((id) => knownIds.has(id));
-    const missing = allMenuItems
-      .map((item) => item.id)
-      .filter((id) => !primaryOrder.includes(id));
-    return [...primaryOrder, ...missing];
-  }, [allMenuItems, customOrder]);
-
-  const menuItemLookup = useMemo(() => {
-    const map = new Map();
-    allMenuItems.forEach((item) => map.set(item.id, item));
-    return map;
-  }, [allMenuItems]);
-
-  const customizedSections = useMemo(() => {
-    const visibleItemIds = orderedMenuItems.filter((id) => !hiddenItemIds.has(id));
-    const sectionItems = new Map();
-
-    visibleItemIds.forEach((itemId) => {
-      const item = menuItemLookup.get(itemId);
-      if (!item) return;
-      if (!sectionItems.has(item.parentSectionId)) {
-        sectionItems.set(item.parentSectionId, []);
-      }
-      sectionItems.get(item.parentSectionId).push(item);
-    });
-
-    return normalizedSections.map((section) => ({
-      ...section,
-      items: sectionItems.get(section.id) ?? [],
-    }));
-  }, [hiddenItemIds, menuItemLookup, normalizedSections, orderedMenuItems]);
-
-  const dashboards = useMemo(
-    () => normalizeAvailableDashboards(availableDashboards),
-    [availableDashboards],
-  );
 
   const handleMenuItemClick = useCallback(
     (item) => {
@@ -466,16 +217,21 @@ export default function DashboardLayout({
       setMobileOpen(false);
 
       if (!item.href) {
+        const targetId = item.sectionId ?? item.targetId ?? slugify(item.name);
+        if (targetId && typeof document !== 'undefined') {
+          const element = document.getElementById(targetId);
+          element?.scrollIntoView({ behavior: 'smooth' });
+        }
         return;
       }
 
       const href = item.href.trim();
-      if (!href) {
-        return;
-      }
+      if (!href) return;
 
       if (/^https?:\/\//i.test(href)) {
-        window.open(href, item.target ?? '_blank', 'noreferrer');
+        if (typeof window !== 'undefined') {
+          window.open(href, item.target ?? '_blank', 'noopener,noreferrer');
+        }
         return;
       }
 
@@ -493,147 +249,26 @@ export default function DashboardLayout({
     [navigate, onMenuItemSelect],
   );
 
-  const handleToggleSection = useCallback((sectionId) => {
-    setOpenSectionIds((previous) => {
-      const next = new Set(previous);
-      if (next.has(sectionId)) {
-        next.delete(sectionId);
-      } else {
-        next.add(sectionId);
-      }
-      return next;
-    });
-  }, []);
-
-  const handleReorder = useCallback((itemId, targetIndex) => {
-    setCustomOrder((previous) => {
-      const ids = previous.length ? [...previous] : allMenuItems.map((item) => item.id);
-      const currentIndex = ids.indexOf(itemId);
-      if (currentIndex === -1) {
-        return ids;
-      }
-      const boundedIndex = Math.max(0, Math.min(ids.length - 1, targetIndex));
-      if (currentIndex === boundedIndex) {
-        return ids;
-      }
-      ids.splice(currentIndex, 1);
-      ids.splice(boundedIndex, 0, itemId);
-      return ids;
-    });
-  }, [allMenuItems]);
-
-  const handleToggleHidden = useCallback((itemId) => {
-    setHiddenItemIds((previous) => {
-      const next = new Set(previous);
-      if (next.has(itemId)) {
-        next.delete(itemId);
-      } else {
-        next.add(itemId);
-      }
-      return next;
-    });
-  }, []);
-
+  const dashboards = useMemo(() => normalizeAvailableDashboards(availableDashboards), [availableDashboards]);
   const activeDashboardId = slugify(currentDashboard) || dashboards[0]?.id;
   const surface = adSurface || DEFAULT_AD_SURFACE_BY_DASHBOARD[activeDashboardId] || 'global_dashboard';
 
   return (
     <div className="relative flex min-h-screen bg-slate-50">
+      {/* Sidebar */}
       <div
         className={`fixed inset-y-0 left-0 z-30 flex w-80 flex-col border-r border-slate-200 bg-white/95 backdrop-blur lg:relative lg:translate-x-0 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         } transition-transform duration-300 lg:flex`}
       >
         <div className="flex items-center justify-between px-5 py-4">
-          <button
-            type="button"
-            className="flex items-center gap-3"
-            onClick={() => navigate('/')}
-          >
+          <button type="button" className="flex items-center gap-3" onClick={() => navigate('/') }>
             <img src={gigvoraWordmark} alt="Gigvora" className="h-8" />
             <span className="hidden text-sm font-semibold uppercase tracking-wide text-accent lg:block">
               {title || 'Dashboard'}
             </span>
           </button>
           <div className="flex items-center gap-2">
-  const handleMenuClick = (item) => {
-    if (!item) {
-      return;
-    }
-
-    if (typeof onMenuItemSelect === 'function') {
-      onMenuItemSelect(item.id, item);
-      setMobileOpen(false);
-      return;
-    }
-
-    if (!item.href) {
-      const targetId = item.sectionId ?? item.targetId ?? slugify(item.name);
-      if (targetId && typeof document !== 'undefined') {
-        const targetElement = document.getElementById(targetId);
-        if (targetElement) {
-          targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }
-      setMobileOpen(false);
-      return;
-    }
-
-    const href = item.href.trim();
-    if (!href) {
-      setMobileOpen(false);
-      return;
-    }
-
-    if (href.startsWith('#')) {
-      const targetId = href.slice(1);
-      if (targetId && typeof document !== 'undefined') {
-        const targetElement = document.getElementById(targetId);
-        if (targetElement) {
-          targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }
-      setMobileOpen(false);
-      return;
-    }
-
-    const isExternal = /^https?:\/\//i.test(href);
-    if (isExternal) {
-      if (typeof window !== 'undefined') {
-        window.open(href, item.target ?? '_blank', 'noopener,noreferrer');
-      }
-      setMobileOpen(false);
-      return;
-    }
-
-    if (item.target === '_blank' && typeof window !== 'undefined') {
-      window.open(href, '_blank', 'noopener');
-      setMobileOpen(false);
-      return;
-    }
-
-    navigate(href);
-    setMobileOpen(false);
-  };
-
-  const activeItemId = activeMenuItem ?? null;
-  const dashboards = normalizeAvailableDashboards(availableDashboards);
-
-  const sidebarContent = (
-    <div className="flex h-full flex-col gap-6 overflow-y-auto px-6 py-6">
-      <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between'} gap-4`}>
-        <Link to="/" className="inline-flex items-center">
-          <img src={gigvoraWordmark} alt="Gigvora" className="h-9 w-auto" />
-        </Link>
-        <div className="flex items-center gap-2">
-          {hasMenuCustomization ? (
-            <button
-              type="button"
-              onClick={() => setCustomizerOpen(true)}
-              className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-slate-300 hover:text-slate-800"
-            >
-              <AdjustmentsHorizontalIcon className="h-5 w-5" />
-            </button>
             <button
               type="button"
               onClick={() => setMobileOpen(false)}
@@ -647,12 +282,19 @@ export default function DashboardLayout({
         <div className="flex-1 overflow-y-auto px-4 pb-6">
           <DashboardSwitcher dashboards={dashboards} currentId={activeDashboardId} onNavigate={navigate} />
           <div className="mt-4 space-y-6">
-            {customizedSections.map((section) => (
+            {normalizedSections.map((section) => (
               <MenuSection
                 key={section.id}
                 section={section}
                 isOpen={openSectionIds.has(section.id)}
-                onToggle={handleToggleSection}
+                onToggle={(id) =>
+                  setOpenSectionIds((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(id)) next.delete(id);
+                    else next.add(id);
+                    return next;
+                  })
+                }
                 onItemClick={handleMenuItemClick}
                 activeItemId={activeMenuItem}
               />
@@ -663,7 +305,7 @@ export default function DashboardLayout({
         <div className="border-t border-slate-200 px-5 py-4">
           <button
             type="button"
-            onClick={() => setSidebarCollapsed((previous) => !previous)}
+            onClick={() => setSidebarCollapsed((prev) => !prev)}
             className="flex w-full items-center justify-between rounded-2xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
           >
             <span>{sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}</span>
@@ -679,6 +321,7 @@ export default function DashboardLayout({
         </div>
       </div>
 
+      {/* Main content */}
       <div className="flex w-full flex-col lg:ml-80">
         <header className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white/80 px-6 py-4 backdrop-blur">
           <div>
@@ -711,29 +354,19 @@ export default function DashboardLayout({
           <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <span>© {new Date().getFullYear()} Gigvora. All rights reserved.</span>
             <div className="flex flex-wrap gap-4">
-              <a href="/terms" className="transition hover:text-accent">
+              <Link to="/terms" className="transition hover:text-accent">
                 Terms
-              </a>
-              <a href="/privacy" className="transition hover:text-accent">
+              </Link>
+              <Link to="/privacy" className="transition hover:text-accent">
                 Privacy
-              </a>
-              <a href="/trust-center" className="transition hover:text-accent">
+              </Link>
+              <Link to="/trust-center" className="transition hover:text-accent">
                 Trust Center
-              </a>
+              </Link>
             </div>
           </div>
         </footer>
       </div>
-
-      <CustomizationPanel
-        open={customizerOpen}
-        items={allMenuItems}
-        order={orderedMenuItems}
-        hidden={hiddenItemIds}
-        onClose={() => setCustomizerOpen(false)}
-        onReorder={handleReorder}
-        onToggleVisibility={handleToggleHidden}
-      />
 
       <MessagingDock />
     </div>
