@@ -5,3 +5,4 @@
 - Locked `/health/metrics` behind the new bearer-token middleware and ensured unauthorised callers receive 401/403 responses instead of raw Prometheus output.
 - Introduced `/support/chatwoot/session` (authenticated) and `/support/chatwoot/webhook` (signed) to provision Chatwoot widget configuration and mirror conversation events into the messaging domain.
 - Added `/admin/moderation/queue`, `/admin/moderation/overview`, and `/admin/moderation/events/:id/resolve` endpoints secured by admin RBAC for driving the moderation dashboard workflows.
+- Published `/admin/runtime/telemetry/live-services` for RBAC-protected access to the new live service telemetry snapshot that powers admin observability dashboards and incident runbooks.

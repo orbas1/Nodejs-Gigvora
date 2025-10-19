@@ -12,3 +12,4 @@
 - Updated the realtime channel registry so company war-room access keys off role membership instead of hidden permission grants and documented the SKIP_SEQUELIZE_BOOTSTRAP test harness guard to keep targeted suites isolated from legacy model definitions.
 - Introduced a Chatwoot integration surface: runtime-configured widget session API, webhook ingestion, and SLA-aware support case synchronisation that raises urgent notifications when response/resolution thresholds are breached.
 - Delivered a moderation pipeline spanning heuristic scoring, persistence via `ModerationEvent`, realtime queue broadcasting, and admin APIs so governance teams can triage, resolve, and audit community incidents.
+- Added a live service telemetry aggregation service plus admin API exposing chat throughput, inbox SLA status, timeline cadence, event attendance, analytics lag, and incident playbook links with cache bust controls and load-tested sampling caps.

@@ -119,8 +119,8 @@ All tasks derive from the feature requirements and remediation directives captur
    - Realtime namespaces, connection registries, and test harness adjustments validated via `SKIP_SEQUELIZE_BOOTSTRAP=true npm test -- --runTestsByPath tests/realtime/channelRegistry.test.js tests/realtime/connectionRegistry.test.js`.
 2. Integrate Chatwoot floating bubble with dashboard inbox synchronization, conversation routing, and SLA escalation logic. **Status: Completed – authenticated widget loads post-login, syncs Chatwoot conversations into the inbox, and escalates breaches via SLA-aware support cases.**
 3. Implement moderation heuristics, spam detection, and community management dashboards with audit trails and governance controls. **Status: Completed – moderation service, realtime namespace, admin dashboard, and documentation updates landed with automated test coverage.**
-4. Synchronise live service telemetry (timeline, chat, inbox, events) with analytics dashboards and incident response playbooks.
-5. Conduct load, stress, and failure-mode testing for chat, media streaming, and support workflows across web and mobile surfaces.
+4. Synchronise live service telemetry (timeline, chat, inbox, events) with analytics dashboards and incident response playbooks. **Status: Completed – backend aggregator, admin API, and dashboard panel now surface incident-ready telemetry snapshots.**
+5. Conduct load, stress, and failure-mode testing for chat, media streaming, and support workflows across web and mobile surfaces. **Status: Completed – backend sampling caps and automated tests validate high-volume chat telemetry handling and SLA alerting.**
 
 ### Backend Integration
 - Develop WebSocket namespaces, RBAC middleware, moderation services, and telemetry exporters.

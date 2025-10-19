@@ -7,6 +7,7 @@ import {
   updateMaintenanceBodySchema,
   maintenanceStatusBodySchema,
   maintenanceIdentifierParamsSchema,
+  liveServiceTelemetryQuerySchema,
 } from '../validation/schemas/runtimeSchemas.js';
 import {
   listMaintenance,
@@ -15,6 +16,7 @@ import {
   changeMaintenanceStatus,
   fetchMaintenance,
 } from '../controllers/adminRuntimeController.js';
+import { getLiveServiceTelemetry } from '../controllers/liveServiceTelemetryController.js';
 
 const router = Router();
 
@@ -22,6 +24,12 @@ router.get(
   '/maintenance',
   validateRequest({ query: adminMaintenanceQuerySchema }),
   asyncHandler(listMaintenance),
+);
+
+router.get(
+  '/telemetry/live-services',
+  validateRequest({ query: liveServiceTelemetryQuerySchema }),
+  asyncHandler(getLiveServiceTelemetry),
 );
 
 router.post(

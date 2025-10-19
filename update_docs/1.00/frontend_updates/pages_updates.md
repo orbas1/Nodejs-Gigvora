@@ -25,3 +25,7 @@
 - Added a dedicated Admin Moderation workspace route backed by `AdminModerationDashboardPage.jsx` with queue pagination, severity filters, and SLA indicators.
 - Introduced overview cards summarising flag volumes, breach counts, and mute utilisation plus a tabular queue management view with inline resolution dialogs.
 - Surfaced an audit timeline component streaming realtime updates from the `/moderation` socket namespace and allowing administrators to acknowledge or resolve events with context notes.
+
+## Admin runtime overview
+- Augmented the admin home dashboard with a `LiveServiceTelemetryPanel` showcasing timeline velocity, chat moderation load, inbox SLA posture, and live session commitments sourced from the new backend telemetry API.
+- Added incident posture messaging with severity-aware styling and quick links to live service runbooks for on-call responders.

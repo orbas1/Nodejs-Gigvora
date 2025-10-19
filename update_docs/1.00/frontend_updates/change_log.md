@@ -6,3 +6,4 @@
 - Promoted Creation Studio access with new header CTAs and ensured timeline-first navigation flows by default for authenticated members.
 - Added `ChatwootWidget`/`useChatwoot` to MainLayout so authenticated members receive an SLA-aware support bubble that mirrors conversations into the dashboard inbox and respects runtime configuration toggles.
 - Built an admin moderation dashboard (`AdminModerationDashboardPage.jsx` plus supporting components/services) delivering live queue metrics, actionable tables, audit timelines, and resolution workflows wired into the realtime moderation namespace.
+- Extended the admin runtime overview with a `LiveServiceTelemetryPanel` that visualises chat throughput, inbox SLA posture, timeline cadence, event commitments, analytics freshness, and incident runbook shortcuts powered by the new backend API.

@@ -1286,6 +1286,7 @@ export const AgencyCreationCollaborator = sequelize.define(
     notes: { type: DataTypes.TEXT, allowNull: true },
   },
   { tableName: 'agency_creation_collaborators' },
+);
 export const AgencyTimelinePost = sequelize.define(
   'AgencyTimelinePost',
   {
@@ -1428,6 +1429,7 @@ export const FreelancerDashboardOverview = sequelize.define(
     metadata: { type: jsonType, allowNull: true },
   },
   { tableName: 'freelancer_dashboard_overviews' },
+);
 export const AgencyProfileMedia = sequelize.define(
   'AgencyProfileMedia',
   {
@@ -8460,6 +8462,7 @@ NetworkingConnection.prototype.toPublicObject = function toPublicObject() {
           ? [plain.tags]
           : [],
     metadata: plain.metadata ?? {},
+);
 export const NetworkingConnection = sequelize.define(
   'NetworkingConnection',
   {
@@ -21217,6 +21220,7 @@ export const MentoringSessionActionItem = sequelize.define(
     completedAt: { type: DataTypes.DATE, allowNull: true },
   },
   { tableName: 'mentoring_session_action_items' },
+);
 export const MentorshipOrder = sequelize.define(
   'MentorshipOrder',
   {
@@ -21384,6 +21388,7 @@ export const MentorReview = sequelize.define(
     isPublic: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
   },
   { tableName: 'mentor_reviews' },
+);
 export const AgencyMentoringSession = sequelize.define(
   'AgencyMentoringSession',
   {

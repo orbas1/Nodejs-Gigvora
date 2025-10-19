@@ -78,6 +78,13 @@ export const adminMaintenanceQuerySchema = z
   })
   .strip();
 
+export const liveServiceTelemetryQuerySchema = z
+  .object({
+    windowMinutes: optionalNumber({ min: 5, max: 24 * 60, precision: 0, integer: true }).transform((value) => value ?? undefined),
+    forceRefresh: optionalBoolean().transform((value) => value ?? undefined),
+  })
+  .strip();
+
 export const createMaintenanceBodySchema = z
   .object({
     slug: optionalTrimmedString({ max: 140 }).transform((value) => value?.toLowerCase()),
@@ -131,4 +138,5 @@ export default {
   updateMaintenanceBodySchema,
   maintenanceStatusBodySchema,
   maintenanceIdentifierParamsSchema,
+  liveServiceTelemetryQuerySchema,
 };

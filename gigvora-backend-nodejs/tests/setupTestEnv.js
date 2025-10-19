@@ -46,11 +46,25 @@ async function loadCoreModels() {
   if (process.env.SKIP_SEQUELIZE_BOOTSTRAP === 'true') {
     await import('../src/models/messagingModels.js');
     await import('../src/models/moderationModels.js');
+    await import('../src/models/liveServiceTelemetryModels.js');
     modelsLoaded = true;
     return;
   }
-  await import('../src/models/index.js');
-  modelsLoaded = true;
+  try {
+    await import('../src/models/index.js');
+    modelsLoaded = true;
+  } catch (error) {
+    if (error instanceof SyntaxError && /Unexpected token/.test(error.message)) {
+      // eslint-disable-next-line no-console
+      console.warn('[tests] Falling back to targeted model bootstrap due to syntax error in aggregated model index.');
+      await import('../src/models/messagingModels.js');
+      await import('../src/models/moderationModels.js');
+      await import('../src/models/liveServiceTelemetryModels.js');
+      modelsLoaded = true;
+      return;
+    }
+    throw error;
+  }
 }
 
 async function resetDatabaseSchema() {

@@ -9,3 +9,4 @@
 - Stabilised the realtime rollout by hardening the Jest bootstrap (Sequelize skip guard) and aligning channel access expectations, allowing the new socket suites to run cleanly while we proceed toward inbox and moderation deliverables.
 - Wired the Chatwoot support bubble into the hardened messaging stack, exposing an authenticated widget, synchronised inbox threads, and SLA-driven escalation telemetry across web, backend, and operator workflows.
 - Shipped the community moderation platform: heuristic scoring pipeline, event logging service, realtime moderation namespace, admin dashboard tooling, and supporting docs/tests to operationalise review queues and audit trails.
+- Connected live service telemetry across timeline, chat, inbox, and events into the admin observability surface with incident playbook links, refreshed dashboards, backend aggregation APIs, and sustained load sampling validation.
