@@ -9,18 +9,18 @@ import FavouriteForm from './forms/FavouriteForm.jsx';
 import ResponseForm from './forms/ResponseForm.jsx';
 import {
   fetchJobApplicationWorkspace,
-  createJobApplication,
-  updateJobApplication,
-  archiveJobApplication,
-  createJobApplicationInterview,
-  updateJobApplicationInterview,
-  deleteJobApplicationInterview,
-  createJobApplicationFavourite,
-  updateJobApplicationFavourite,
-  deleteJobApplicationFavourite,
-  createJobApplicationResponse,
-  updateJobApplicationResponse,
-  deleteJobApplicationResponse,
+  createWorkspaceJobApplication,
+  updateWorkspaceJobApplication,
+  archiveWorkspaceJobApplication,
+  createWorkspaceJobApplicationInterview,
+  updateWorkspaceJobApplicationInterview,
+  deleteWorkspaceJobApplicationInterview,
+  createWorkspaceJobApplicationFavourite,
+  updateWorkspaceJobApplicationFavourite,
+  deleteWorkspaceJobApplicationFavourite,
+  createWorkspaceJobApplicationResponse,
+  updateWorkspaceJobApplicationResponse,
+  deleteWorkspaceJobApplicationResponse,
 } from '../../services/jobApplications.js';
 
 const INITIAL_FORM_STATE = {
@@ -83,7 +83,7 @@ export default function JobApplicationWorkspaceContainer({ userId, initialData }
       if (!application) return;
       try {
         setActionError(null);
-        await archiveJobApplication(userId, application.id);
+        await archiveWorkspaceJobApplication(userId, application.id);
         await loadWorkspace();
       } catch (archiveError) {
         console.error('Failed to archive application', archiveError);
@@ -98,7 +98,7 @@ export default function JobApplicationWorkspaceContainer({ userId, initialData }
       if (!interview) return;
       try {
         setActionError(null);
-        await deleteJobApplicationInterview(userId, interview.applicationId, interview.id);
+        await deleteWorkspaceJobApplicationInterview(userId, interview.applicationId, interview.id);
         await loadWorkspace();
       } catch (deleteError) {
         console.error('Failed to delete interview', deleteError);
@@ -113,7 +113,7 @@ export default function JobApplicationWorkspaceContainer({ userId, initialData }
       if (!favourite) return;
       try {
         setActionError(null);
-        await deleteJobApplicationFavourite(userId, favourite.id);
+        await deleteWorkspaceJobApplicationFavourite(userId, favourite.id);
         await loadWorkspace();
       } catch (deleteError) {
         console.error('Failed to delete saved role', deleteError);
@@ -128,7 +128,7 @@ export default function JobApplicationWorkspaceContainer({ userId, initialData }
       if (!response) return;
       try {
         setActionError(null);
-        await deleteJobApplicationResponse(userId, response.applicationId, response.id);
+        await deleteWorkspaceJobApplicationResponse(userId, response.applicationId, response.id);
         await loadWorkspace();
       } catch (deleteError) {
         console.error('Failed to delete response', deleteError);
@@ -148,33 +148,43 @@ export default function JobApplicationWorkspaceContainer({ userId, initialData }
         switch (state.type) {
           case 'application':
             if (state.mode === 'edit' && state.record) {
-              await updateJobApplication(userId, state.record.id, values);
+              await updateWorkspaceJobApplication(userId, state.record.id, values);
             } else {
-              await createJobApplication(userId, values);
+              await createWorkspaceJobApplication(userId, values);
             }
             break;
           case 'interview': {
             const { applicationId, ...payload } = values;
             if (state.mode === 'edit' && state.record) {
-              await updateJobApplicationInterview(userId, state.record.applicationId, state.record.id, payload);
+              await updateWorkspaceJobApplicationInterview(
+                userId,
+                state.record.applicationId,
+                state.record.id,
+                payload,
+              );
             } else {
-              await createJobApplicationInterview(userId, applicationId, payload);
+              await createWorkspaceJobApplicationInterview(userId, applicationId, payload);
             }
             break;
           }
           case 'favourite':
             if (state.mode === 'edit' && state.record) {
-              await updateJobApplicationFavourite(userId, state.record.id, values);
+              await updateWorkspaceJobApplicationFavourite(userId, state.record.id, values);
             } else {
-              await createJobApplicationFavourite(userId, values);
+              await createWorkspaceJobApplicationFavourite(userId, values);
             }
             break;
           case 'response': {
             const { applicationId, ...payload } = values;
             if (state.mode === 'edit' && state.record) {
-              await updateJobApplicationResponse(userId, state.record.applicationId, state.record.id, payload);
+              await updateWorkspaceJobApplicationResponse(
+                userId,
+                state.record.applicationId,
+                state.record.id,
+                payload,
+              );
             } else {
-              await createJobApplicationResponse(userId, applicationId, payload);
+              await createWorkspaceJobApplicationResponse(userId, applicationId, payload);
             }
             break;
           }
