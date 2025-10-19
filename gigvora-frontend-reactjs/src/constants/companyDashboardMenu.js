@@ -8,6 +8,10 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
         sectionId: 'profile-workspace',
         href: '/dashboard/company/profile',
         tags: ['profile'],
+      },
+    ],
+  },
+  {
     label: 'Studio',
     items: [
       {
@@ -20,14 +24,11 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
     ],
   },
   {
-    label: 'Talent acquisition',
     label: 'Home',
     items: [
       {
-        name: 'Overview',
-        description: 'Pipeline, conversion, and alerts.',
-        sectionId: 'hiring-overview',
         name: 'Snapshot',
+        description: 'Pipeline, conversion, and alerts.',
         sectionId: 'company-overview',
         href: '/dashboard/company',
       },
@@ -58,10 +59,9 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
     label: 'ATS',
     items: [
       {
-        name: 'Lifecycle',
+        name: 'Jobs',
         description: 'Plan requisitions and ATS automations.',
         tags: ['ATS'],
-        name: 'Jobs',
         sectionId: 'job-lifecycle-ats-intelligence',
         href: '/dashboard/company/ats',
       },
@@ -73,9 +73,8 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
         href: '/dashboard/company/job-management',
       },
       {
-        name: 'Interviews',
-        description: 'Panels, scorecards, and feedback.',
         name: 'Interview',
+        description: 'Panels, scorecards, and feedback.',
         sectionId: 'interview-excellence',
       },
       {
@@ -95,10 +94,8 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
         tags: ['projects'],
       },
       {
-        name: 'Care',
-        description: 'Candidate comms and experience.',
-        sectionId: 'candidate-care-center',
         name: 'Vendors',
+        description: 'Candidate comms and experience.',
         sectionId: 'projects-vendors',
         href: '/dashboard/company/projects#projects-vendors',
       },
@@ -125,7 +122,11 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
       {
         name: 'Hub',
         sectionId: 'network-hub',
-    label: 'Networking & community',
+        href: '/dashboard/company/networking',
+      },
+    ],
+  },
+  {
     label: 'Network',
     items: [
       {
@@ -135,9 +136,8 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
         href: '/dashboard/company/groups',
       },
       {
-        name: 'Networking sessions',
-        description: 'Launch and monitor speed networking programs with configurable rotations and join limits.',
         name: 'Sessions',
+        description: 'Launch and monitor speed networking programs with configurable rotations and join limits.',
         sectionId: 'networking-sessions',
         href: '/dashboard/company/networking',
       },
@@ -177,7 +177,6 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
     label: 'Settings',
     items: [
       {
-        name: 'Integrations',
         name: 'ATS',
         sectionId: 'job-lifecycle-ats-intelligence',
         href: '/dashboard/company/ats',
@@ -221,9 +220,6 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
         sectionId: 'employee-journeys',
       },
       {
-        name: 'Settings & governance',
-        description: 'Calendar sync, permissions, integrations, compliance, and approvals.',
-        sectionId: 'settings-governance',
         name: 'Wallet management',
         description: 'Manage balances, funding sources, payouts, and access controls for every company wallet.',
         sectionId: 'wallet-management',
@@ -233,7 +229,6 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
     ],
   },
   {
-    label: 'Analytics & planning',
     label: 'Network',
     items: [
       { name: 'Sessions', sectionId: 'networking-sessions', href: '/dashboard/company/networking' },
@@ -286,13 +281,11 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
         tags: ['compliance'],
       },
       {
-        name: 'Integration command center',
-        description: 'Dedicated console for Salesforce, monday.com, Slack, HubSpot, Google Drive, and BYOK AI connectors.',
         name: 'Permissions',
+        description: 'Dedicated console for Salesforce, monday.com, Slack, HubSpot, Google Drive, and BYOK AI connectors.',
         sectionId: 'settings-governance',
       },
       {
-        name: 'Compliance',
         name: 'Disputes',
         sectionId: 'dispute-management',
         href: '/dashboard/company/disputes',

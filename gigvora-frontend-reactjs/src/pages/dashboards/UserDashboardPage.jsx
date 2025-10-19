@@ -510,7 +510,6 @@ function buildMenuSections(data) {
       ],
     },
     {
-      label: 'Career',
       label: 'Messaging & collaboration',
       items: [
         {
@@ -615,15 +614,12 @@ function buildMenuSections(data) {
           name: 'Connections',
         },
         {
-          name: 'Profile',
           name: 'Network',
           description: '',
           tags: ['networking'],
           sectionId: 'networking-management',
         },
         {
-          name: 'Profile settings',
-          description: 'Control availability, visibility, and launchpad eligibility signals.',
           name: 'Profile',
           description: 'Edit your profile, tags, and collaboration data in one workspace.',
           sectionId: 'profile',
@@ -869,25 +865,6 @@ export default function UserDashboardPage() {
 
   const [activeMenuItem, setActiveMenuItem] = useState(null);
   const [escrowView, setEscrowView] = useState('overview');
-
-  if (typeof window !== 'undefined') {
-    const item = {}; // placeholder for refactoring
-    if (item?.href && item.href.startsWith('http')) {
-        window.open(item.href, item.target ?? '_blank', 'noreferrer');
-      } else {
-        window.location.assign(item.href);
-      }
-      return;
-    }
-
-    const targetId = item?.sectionId ?? item?.targetId;
-    if (targetId && typeof document !== 'undefined') {
-      const targetElement = document.getElementById(targetId);
-      if (targetElement) {
-        targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }
-  };
 
   const handleEscrowViewChange = (view) => {
     setEscrowView(view);
@@ -2763,3 +2740,4 @@ export default function UserDashboardPage() {
     </DashboardAccessGuard>
   );
 }
+
