@@ -446,11 +446,6 @@ function toPlain(instance) {
   return instance;
 }
 
-function sanitizeRequirement(requirementInstance) {
-  const requirement = toPlain(requirementInstance) ?? {};
-  return {
-    ...requirement,
-    dueAt: requirement.dueAt ? new Date(requirement.dueAt).toISOString() : null,
 function parseTagList(value) {
   if (!value) {
     return [];
@@ -499,7 +494,8 @@ function buildLifecycleSnapshot(project) {
 
   const archivedAt = project.archivedAt ? new Date(project.archivedAt).toISOString() : null;
   const startDate = project.startDate ? new Date(project.startDate) : null;
-  const cycleTimeDays = archivedAt && startDate ? Math.max(Math.round((new Date(archivedAt) - startDate) / (1000 * 60 * 60 * 24)), 0) : null;
+  const cycleTimeDays =
+    archivedAt && startDate ? Math.max(Math.round((new Date(archivedAt) - startDate) / (1000 * 60 * 60 * 24)), 0) : null;
   const reopenedAt = metadata.lifecycle?.restoredAt ?? metadata.restoredAt ?? null;
   const lastStatusChange = metadata.lifecycle?.lastStatusChange ?? null;
 
@@ -539,56 +535,45 @@ function buildLifecycleSnapshot(project) {
     lastStatusChange,
     lastUpdatedAt: project.updatedAt ?? project.createdAt ?? null,
     healthScore,
-function sanitizeRequirement(requirementInstance) {
-  if (!requirementInstance) {
-    return null;
-  }
-  const requirement = requirementInstance.get ? requirementInstance.get({ plain: true }) : requirementInstance;
-  return {
-    id: requirement.id,
-    title: requirement.title,
-    status: requirement.status,
-    dueAt: requirement.dueAt,
-    notes: requirement.notes,
-    createdAt: requirement.createdAt,
-    updatedAt: requirement.updatedAt,
   };
 }
 
-  const templates = await ProjectTemplate.findAll({ order: [['createdAt', 'DESC']] });
-  const templateRecords = templates.map((template) => template.get({ plain: true }));
-  const orders = await GigOrder.findAll({
-    where: { ownerId },
-    include: [
-      { model: GigOrderRequirement, as: 'requirements' },
-      { model: GigOrderRevision, as: 'revisions', order: [['roundNumber', 'ASC']] },
-      { model: GigVendorScorecard, as: 'scorecard' },
-    ],
-    order: [['createdAt', 'DESC']],
-  });
-function sanitizeRevision(revisionInstance) {
-  const revision = toPlain(revisionInstance) ?? {};
+function sanitizeRequirement(requirementInstance) {
+  const requirement = toPlain(requirementInstance);
+  if (!requirement) {
+    return null;
+  }
+
   return {
-    ...revision,
+    id: requirement.id,
+    orderId: requirement.orderId ?? null,
+    title: requirement.title ?? null,
+    status: requirement.status ?? 'pending',
+    dueAt: requirement.dueAt ? new Date(requirement.dueAt).toISOString() : null,
+    notes: requirement.notes ?? null,
+    createdAt: requirement.createdAt ?? null,
+    updatedAt: requirement.updatedAt ?? null,
+  };
+}
+
+function sanitizeRevision(revisionInstance) {
+  const revision = toPlain(revisionInstance);
+  if (!revision) {
+    return null;
+  }
+
+  return {
+    id: revision.id,
+    orderId: revision.orderId ?? null,
+    roundNumber: revision.roundNumber != null ? Number(revision.roundNumber) : null,
+    status: revision.status ?? 'requested',
     requestedAt: revision.requestedAt ? new Date(revision.requestedAt).toISOString() : null,
     dueAt: revision.dueAt ? new Date(revision.dueAt).toISOString() : null,
     submittedAt: revision.submittedAt ? new Date(revision.submittedAt).toISOString() : null,
     approvedAt: revision.approvedAt ? new Date(revision.approvedAt).toISOString() : null,
-  if (!revisionInstance) {
-    return null;
-  }
-  const revision = revisionInstance.get ? revisionInstance.get({ plain: true }) : revisionInstance;
-  return {
-    id: revision.id,
-    roundNumber: revision.roundNumber,
-    status: revision.status,
-    requestedAt: revision.requestedAt,
-    dueAt: revision.dueAt,
-    submittedAt: revision.submittedAt,
-    approvedAt: revision.approvedAt,
-    summary: revision.summary,
-    createdAt: revision.createdAt,
-    updatedAt: revision.updatedAt,
+    summary: revision.summary ?? null,
+    createdAt: revision.createdAt ?? null,
+    updatedAt: revision.updatedAt ?? null,
   };
 }
 
@@ -597,29 +582,41 @@ function sanitizeScorecard(scorecardInstance) {
   if (!scorecard) {
     return null;
   }
+
   return {
-    ...scorecard,
+    id: scorecard.id,
+    orderId: scorecard.orderId ?? null,
     qualityScore: scorecard.qualityScore == null ? null : Number(scorecard.qualityScore),
     communicationScore: scorecard.communicationScore == null ? null : Number(scorecard.communicationScore),
     reliabilityScore: scorecard.reliabilityScore == null ? null : Number(scorecard.reliabilityScore),
     overallScore: scorecard.overallScore == null ? null : Number(scorecard.overallScore),
+    notes: scorecard.notes ?? null,
+    createdAt: scorecard.createdAt ?? null,
+    updatedAt: scorecard.updatedAt ?? null,
   };
 }
 
-  const summary = {
-    totalProjects: projects.length,
-    activeProjects: projects.filter((project) => project.status !== 'completed').length,
-    budgetInPlay: projects.reduce((acc, project) => acc + normalizeNumber(project.budgetAllocated), 0),
-    gigsInDelivery: orders.filter((order) => !['completed', 'cancelled'].includes(order.status)).length,
-    templatesAvailable: templateRecords.length,
-    assetsSecured: brandAssets.length,
 function sanitizeEscrowCheckpoint(checkpointInstance) {
-  const checkpoint = toPlain(checkpointInstance) ?? {};
+  const checkpoint = toPlain(checkpointInstance);
+  if (!checkpoint) {
+    return null;
+  }
+
   return {
-    ...checkpoint,
+    id: checkpoint.id,
+    orderId: checkpoint.orderId ?? null,
+    label: checkpoint.label ?? null,
     amount: checkpoint.amount == null ? 0 : Number(checkpoint.amount),
+    currency: checkpoint.currency ?? null,
+    status: checkpoint.status ?? null,
+    approvalRequirement: checkpoint.approvalRequirement ?? null,
     csatThreshold: checkpoint.csatThreshold == null ? null : Number(checkpoint.csatThreshold),
     releasedAt: checkpoint.releasedAt ? new Date(checkpoint.releasedAt).toISOString() : null,
+    releasedById: checkpoint.releasedById ?? null,
+    payoutReference: checkpoint.payoutReference ?? null,
+    notes: checkpoint.notes ?? null,
+    createdAt: checkpoint.createdAt ?? null,
+    updatedAt: checkpoint.updatedAt ?? null,
   };
 }
 
@@ -632,7 +629,7 @@ function sanitizeActivity(activityInstance) {
   };
 }
 
-function normalizeAttachments(attachments) {
+function normalizeMessageAttachments(attachments) {
   if (!attachments) {
     return [];
   }
@@ -650,24 +647,23 @@ function normalizeAttachments(attachments) {
 }
 
 function sanitizeMessage(messageInstance) {
-  const message = toPlain(messageInstance) ?? {};
+  const message = toPlain(messageInstance);
+  if (!message) {
+    return null;
+  }
+
   return {
-    summary,
-    projects: sanitizedProjects,
-    projectCreation: { projects: sanitizedProjects, templates: templateRecords },
-    assets: { items: assets, summary: assetSummary, brandAssets },
-    board,
-    managementBoard: board,
-    purchasedGigs: {
-      orders,
-      reminders,
-      stats: vendorStats,
-    },
-    storytelling,
-    templates: templateRecords,
-    ...message,
-    attachments: normalizeAttachments(message.attachments),
+    id: message.id,
+    orderId: message.orderId ?? null,
+    authorId: message.authorId ?? null,
+    authorName: message.authorName ?? null,
+    roleLabel: message.roleLabel ?? null,
+    body: message.body ?? null,
+    attachments: prepareMessageAttachments(message.attachments),
+    visibility: message.visibility ?? 'private',
     postedAt: message.postedAt ? new Date(message.postedAt).toISOString() : null,
+    createdAt: message.createdAt ?? null,
+    updatedAt: message.updatedAt ?? null,
   };
 }
 
@@ -693,7 +689,7 @@ function prepareMessageAttachments(input) {
       .filter((item) => item && item.url);
   }
   if (typeof input === 'string') {
-    return normalizeAttachments(input);
+    return normalizeMessageAttachments(input);
   }
   return [];
 }
@@ -816,144 +812,13 @@ function buildGigTimeline(order) {
   return events.sort((a, b) => new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime());
 }
 
-function sanitizeGigOrder(orderInstance) {
-  const order = toPlain(orderInstance) ?? {};
-  const requirements = (orderInstance.get?.('requirements') ?? order.requirements ?? []).map((requirement) =>
-    sanitizeRequirement(requirement),
-  );
-  const revisions = (orderInstance.get?.('revisions') ?? order.revisions ?? []).map((revision) =>
-    sanitizeRevision(revision),
-  );
-  const activities = (orderInstance.get?.('activities') ?? order.activities ?? []).map((activity) =>
-    sanitizeActivity(activity),
-  );
-  const messages = (orderInstance.get?.('messages') ?? order.messages ?? []).map((message) =>
-    sanitizeMessage(message),
-  );
-  const checkpoints = (orderInstance.get?.('escrowCheckpoints') ?? order.escrowCheckpoints ?? []).map((checkpoint) =>
-    sanitizeEscrowCheckpoint(checkpoint),
-  );
-  const scorecard = sanitizeScorecard(orderInstance.get?.('scorecard') ?? order.scorecard);
-
-  const outstandingRequirements = requirements.filter((item) => item.status === 'pending').length;
-  const activeRevisions = revisions.filter((item) => ['requested', 'in_progress', 'submitted'].includes(item.status)).length;
-  const nextRequirementDueAt = requirements
-    .filter((requirement) => requirement.status === 'pending' && requirement.dueAt)
-    .sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime())[0]?.dueAt;
-  const escrowSnapshot = computeEscrowSnapshot(checkpoints);
-
-  return {
-    ...order,
-    requirements,
-    revisions,
-    activities,
-    messages,
-    escrowCheckpoints: checkpoints,
-    scorecard,
-    outstandingRequirements,
-    activeRevisions,
-    nextRequirementDueAt: nextRequirementDueAt ?? null,
-    escrowPendingAmount: Number(escrowSnapshot.pendingAmount.toFixed(2)),
-    escrowReleasedAmount: Number(escrowSnapshot.releasedAmount.toFixed(2)),
-    escrowHeldAmount: Number(escrowSnapshot.heldAmount.toFixed(2)),
-    nextEscrowReleaseAt: escrowSnapshot.nextReleaseAt,
-    isClosed: ['completed', 'cancelled'].includes(order.status),
-    timeline: buildGigTimeline({
-      ...order,
-      requirements,
-      revisions,
-      activities,
-      messages,
-      escrowCheckpoints: checkpoints,
-    }),
-  if (!scorecardInstance) {
-    return null;
-  }
-  const scorecard = scorecardInstance.get ? scorecardInstance.get({ plain: true }) : scorecardInstance;
-  return {
-    id: scorecard.id,
-    qualityScore: scorecard.qualityScore != null ? Number(scorecard.qualityScore) : null,
-    communicationScore: scorecard.communicationScore != null ? Number(scorecard.communicationScore) : null,
-    reliabilityScore: scorecard.reliabilityScore != null ? Number(scorecard.reliabilityScore) : null,
-    overallScore: scorecard.overallScore != null ? Number(scorecard.overallScore) : null,
-    notes: scorecard.notes,
-    createdAt: scorecard.createdAt,
-    updatedAt: scorecard.updatedAt,
-  };
-}
-
-function sanitizeTimelineEvent(eventInstance) {
-  if (!eventInstance) {
-    return null;
-  }
-  const event = eventInstance.get ? eventInstance.get({ plain: true }) : eventInstance;
-  return {
-    id: event.id,
-    orderId: event.orderId,
-    eventType: event.eventType,
-    title: event.title,
-    summary: event.summary,
-    createdById: event.createdById,
-    visibility: event.visibility,
-    occurredAt: event.occurredAt,
-    metadata: event.metadata ?? {},
-    createdAt: event.createdAt,
-    updatedAt: event.updatedAt,
-  };
-}
-
-function sanitizeSubmission(submissionInstance) {
-  if (!submissionInstance) {
-    return null;
-  }
-  const submission = submissionInstance.get ? submissionInstance.get({ plain: true }) : submissionInstance;
-  return {
-    id: submission.id,
-    orderId: submission.orderId,
-    title: submission.title,
-    description: submission.description,
-    status: submission.status,
-    assetUrl: submission.assetUrl,
-    assetType: submission.assetType,
-    attachments: submission.attachments ?? [],
-    submittedAt: submission.submittedAt,
-    approvedAt: submission.approvedAt,
-    submittedById: submission.submittedById,
-    reviewedById: submission.reviewedById,
-    metadata: submission.metadata ?? {},
-    createdAt: submission.createdAt,
-    updatedAt: submission.updatedAt,
-  };
-}
-
-function sanitizeChatMessage(messageInstance) {
-  if (!messageInstance) {
-    return null;
-  }
-  const message = messageInstance.get ? messageInstance.get({ plain: true }) : messageInstance;
-  return {
-    id: message.id,
-    orderId: message.orderId,
-    senderId: message.senderId,
-    senderRole: message.senderRole,
-    body: message.body,
-    attachments: message.attachments ?? [],
-    visibility: message.visibility,
-    sentAt: message.sentAt,
-    acknowledgedAt: message.acknowledgedAt,
-    acknowledgedById: message.acknowledgedById,
-    metadata: message.metadata ?? {},
-    createdAt: message.createdAt,
-    updatedAt: message.updatedAt,
-  };
-}
-
 function sanitizeGigOrder(orderInstance, { includeAssociations = true } = {}) {
-  if (!orderInstance) {
+  const order = toPlain(orderInstance);
+  if (!order) {
     return null;
   }
-  const order = orderInstance.get ? orderInstance.get({ plain: true }) : orderInstance;
-  const sanitizedMetadata = sanitizeGigMetadata(order.metadata ?? {});
+
+  const metadata = sanitizeGigMetadata(order.metadata ?? {});
   const base = {
     id: order.id,
     ownerId: order.ownerId,
@@ -963,41 +828,86 @@ function sanitizeGigOrder(orderInstance, { includeAssociations = true } = {}) {
     status: order.status,
     progressPercent: order.progressPercent != null ? Number(order.progressPercent) : 0,
     amount: order.amount != null ? Number(order.amount) : 0,
-    currency: order.currency,
-    kickoffAt: order.kickoffAt,
-    dueAt: order.dueAt,
-    metadata: sanitizedMetadata,
-    classes: sanitizedMetadata.classes ?? [],
-    addons: sanitizedMetadata.addons ?? [],
-    tags: sanitizedMetadata.tags ?? [],
-    media: sanitizedMetadata.media ?? [],
-    faqs: sanitizedMetadata.faqs ?? [],
-    createdAt: order.createdAt,
-    updatedAt: order.updatedAt,
+    currency: order.currency ?? metadata.currency ?? null,
+    kickoffAt: order.kickoffAt ?? null,
+    dueAt: order.dueAt ?? null,
+    metadata,
+    classes: metadata.classes ?? [],
+    addons: metadata.addons ?? [],
+    tags: metadata.tags ?? [],
+    media: metadata.media ?? [],
+    faqs: metadata.faqs ?? [],
+    createdAt: order.createdAt ?? null,
+    updatedAt: order.updatedAt ?? null,
   };
 
   if (!includeAssociations) {
     return base;
   }
 
+  const requirementRecords = orderInstance?.get?.('requirements') ?? order.requirements ?? [];
+  const requirements = requirementRecords.map((requirement) => sanitizeRequirement(requirement)).filter(Boolean);
+
+  const revisionRecords = orderInstance?.get?.('revisions') ?? order.revisions ?? [];
+  const revisions = revisionRecords.map((revision) => sanitizeRevision(revision)).filter(Boolean);
+
+  const activityRecords = orderInstance?.get?.('activities') ?? order.activities ?? [];
+  const activities = activityRecords.map((activity) => sanitizeActivity(activity)).filter(Boolean);
+
+  const messageRecords = orderInstance?.get?.('messages') ?? order.messages ?? [];
+  const messages = messageRecords.map((message) => sanitizeMessage(message)).filter(Boolean);
+
+  const checkpointRecords = orderInstance?.get?.('escrowCheckpoints') ?? order.escrowCheckpoints ?? [];
+  const escrowCheckpoints = checkpointRecords.map((checkpoint) => sanitizeEscrowCheckpoint(checkpoint)).filter(Boolean);
+
+  const timelineRecords = orderInstance?.get?.('timelineEvents') ?? order.timelineEvents ?? order.timeline ?? [];
+  const timelineEvents = timelineRecords.map((event) => sanitizeTimelineEvent(event, base)).filter(Boolean);
+
+  const submissionRecords = orderInstance?.get?.('submissions') ?? order.submissions ?? [];
+  const submissions = submissionRecords.map((submission) => sanitizeSubmission(submission, base)).filter(Boolean);
+
+  const chatRecords = orderInstance?.get?.('chatMessages') ?? order.chatMessages ?? [];
+  const chatMessages = chatRecords.map((chat) => sanitizeChatMessage(chat, base)).filter(Boolean);
+
+  const scorecard = sanitizeScorecard(orderInstance?.get?.('scorecard') ?? order.scorecard);
+
+  const outstandingRequirements = requirements.filter((item) => item?.status === 'pending').length;
+  const activeRevisions = revisions.filter((item) => ['requested', 'in_progress', 'submitted'].includes(item?.status)).length;
+  const nextRequirementDueAt =
+    requirements
+      .filter((requirement) => requirement?.status === 'pending' && requirement?.dueAt)
+      .sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime())[0]?.dueAt ?? null;
+
+  const escrowSnapshot = computeEscrowSnapshot(escrowCheckpoints);
+
   return {
     ...base,
-    requirements: Array.isArray(order.requirements)
-      ? order.requirements.map((requirement) => sanitizeRequirement(requirement)).filter(Boolean)
-      : [],
-    revisions: Array.isArray(order.revisions)
-      ? order.revisions.map((revision) => sanitizeRevision(revision)).filter(Boolean)
-      : [],
-    scorecard: order.scorecard ? sanitizeScorecard(order.scorecard) : null,
-    timeline: Array.isArray(order.timeline)
-      ? order.timeline.map((event) => sanitizeTimelineEvent(event)).filter(Boolean)
-      : [],
-    submissions: Array.isArray(order.submissions)
-      ? order.submissions.map((submission) => sanitizeSubmission(submission)).filter(Boolean)
-      : [],
-    messages: Array.isArray(order.messages)
-      ? order.messages.map((message) => sanitizeChatMessage(message)).filter(Boolean)
-      : [],
+    requirements,
+    revisions,
+    activities,
+    messages,
+    escrowCheckpoints,
+    scorecard,
+    timelineEvents,
+    submissions,
+    chatMessages,
+    outstandingRequirements,
+    activeRevisions,
+    nextRequirementDueAt,
+    escrowPendingAmount: Number(escrowSnapshot.pendingAmount.toFixed(2)),
+    escrowReleasedAmount: Number(escrowSnapshot.releasedAmount.toFixed(2)),
+    escrowHeldAmount: Number(escrowSnapshot.heldAmount.toFixed(2)),
+    nextEscrowReleaseAt: escrowSnapshot.nextReleaseAt,
+    isClosed: ['completed', 'cancelled'].includes(base.status),
+    timeline: buildGigTimeline({
+      ...base,
+      requirements,
+      revisions,
+      activities,
+      messages,
+      escrowCheckpoints,
+      timelineEvents,
+    }),
   };
 }
 
@@ -1499,15 +1409,15 @@ export async function getProjectGigManagementOverview(ownerId) {
   await ensureInitialized();
 
   const [
-    projects,
-    templates,
-    orders,
-    storyBlocks,
-    brandAssets,
-    bids,
-    invitations,
-    matches,
-    reviews,
+    projectRecords,
+    templateRecords,
+    orderRecords,
+    storyBlockRecords,
+    brandAssetRecords,
+    bidRecords,
+    invitationRecords,
+    matchRecords,
+    reviewRecords,
   ] = await Promise.all([
     Project.findAll({
       where: { ownerId },
@@ -1529,10 +1439,54 @@ export async function getProjectGigManagementOverview(ownerId) {
     GigOrder.findAll({
       where: { ownerId },
       include: [
-        { model: GigOrderRequirement, as: 'requirements' },
-        { model: GigOrderRevision, as: 'revisions', order: [['roundNumber', 'ASC']] },
+        { model: GigOrderRequirement, as: 'requirements', separate: true, order: [['dueAt', 'ASC']] },
+        { model: GigOrderRevision, as: 'revisions', separate: true, order: [['roundNumber', 'ASC']] },
         { model: GigVendorScorecard, as: 'scorecard' },
-        { model: ProjectReview, as: 'orderReviews' },
+        {
+          model: GigOrderEscrowCheckpoint,
+          as: 'escrowCheckpoints',
+          separate: true,
+          order: [['createdAt', 'ASC']],
+        },
+        {
+          model: GigOrderActivity,
+          as: 'activities',
+          separate: true,
+          order: [['occurredAt', 'DESC']],
+        },
+        {
+          model: GigOrderMessage,
+          as: 'messages',
+          separate: true,
+          limit: 25,
+          order: [['postedAt', 'DESC']],
+        },
+        {
+          model: GigTimelineEvent,
+          as: 'timelineEvents',
+          separate: true,
+          order: [
+            ['scheduledAt', 'ASC'],
+            ['createdAt', 'ASC'],
+          ],
+        },
+        {
+          model: GigSubmission,
+          as: 'submissions',
+          separate: true,
+          include: [{ model: GigSubmissionAsset, as: 'assets' }],
+          order: [
+            ['submittedAt', 'DESC'],
+            ['createdAt', 'DESC'],
+          ],
+        },
+        {
+          model: GigChatMessage,
+          as: 'chatMessages',
+          separate: true,
+          order: [['sentAt', 'DESC']],
+          limit: 100,
+        },
       ],
       order: [['createdAt', 'DESC']],
     }),
@@ -1560,98 +1514,15 @@ export async function getProjectGigManagementOverview(ownerId) {
     limit: 25,
   });
 
-  const sanitizedProjects = projects.map((project) => sanitizeProject(project));
-  const templates = await ProjectTemplate.findAll({ order: [['createdAt', 'DESC']] });
-  const orderRecords = await GigOrder.findAll({
-    where: { ownerId },
-    include: [
-      { model: GigOrderRequirement, as: 'requirements', separate: true, order: [['dueAt', 'ASC']] },
-      { model: GigOrderRevision, as: 'revisions', separate: true, order: [['roundNumber', 'ASC']] },
-      { model: GigVendorScorecard, as: 'scorecard' },
-      {
-        model: GigOrderEscrowCheckpoint,
-        as: 'escrowCheckpoints',
-        separate: true,
-        order: [['createdAt', 'ASC']],
-      },
-      {
-        model: GigOrderActivity,
-        as: 'activities',
-        separate: true,
-        order: [['occurredAt', 'DESC']],
-      },
-      {
-        model: GigOrderMessage,
-        as: 'messages',
-        separate: true,
-        limit: 25,
-        order: [['postedAt', 'DESC']],
-        model: GigTimelineEvent,
-        as: 'timelineEvents',
-        separate: true,
-        order: [
-          ['scheduledAt', 'ASC'],
-          ['createdAt', 'ASC'],
-        ],
-      },
-      {
-        model: GigSubmission,
-        as: 'submissions',
-        separate: true,
-        include: [{ model: GigSubmissionAsset, as: 'assets' }],
-        order: [
-          ['submittedAt', 'DESC'],
-          ['createdAt', 'DESC'],
-        ],
-      },
-      {
-        model: GigChatMessage,
-        as: 'chatMessages',
-        separate: true,
-        order: [['sentAt', 'DESC']],
-        limit: 100,
-      },
-    ],
-    order: [['createdAt', 'DESC']],
-  });
+  const sanitizedProjects = projectRecords.map((project) => sanitizeProject(project));
+  const templates = templateRecords.map((template) => template.get({ plain: true }));
+  const sanitizedOrders = orderRecords.map((order) => sanitizeGigOrder(order));
+  const storyBlocks = storyBlockRecords.map((block) => block.get({ plain: true }));
+  const brandAssets = brandAssetRecords.map((asset) => asset.get({ plain: true }));
 
-  const storyBlocks = await StoryBlock.findAll({ where: { ownerId }, order: [['createdAt', 'DESC']] });
-  const brandAssets = await BrandAsset.findAll({ where: { ownerId }, order: [['createdAt', 'DESC']] });
-
-  const orders = orderRecords.map((order) => sanitizeGigOrder(order));
-
-  const summary = {
-    totalProjects: projects.length,
-    activeProjects: projects.filter((project) => project.status !== 'completed').length,
-    budgetInPlay: projects.reduce((acc, project) => acc + normalizeNumber(project.budgetAllocated), 0),
-    gigsInDelivery: orders.filter((order) => !order.isClosed).length,
-  const sanitizedProjects = projects.map((project) => sanitizeProject(project));
-  const openProjects = sanitizedProjects.filter((project) => {
-    const status = project.lifecycle?.workspaceStatus ?? project.status ?? 'planning';
-    return !project.archivedAt && status !== 'completed';
-  });
-  const closedProjects = sanitizedProjects.filter((project) => {
-    const status = project.lifecycle?.workspaceStatus ?? project.status ?? 'planning';
-    return project.archivedAt != null || status === 'completed';
-  });
-
-  const summary = {
-    totalProjects: sanitizedProjects.length,
-    activeProjects: openProjects.length,
-    closedProjects: closedProjects.length,
-    atRiskProjects: openProjects.filter((project) => project.lifecycle?.riskLevel === 'high').length,
-    budgetInPlay: openProjects.reduce(
-      (acc, project) => acc + normalizeNumber(project.budget?.allocated ?? project.budgetAllocated),
-      0,
-    ),
-    gigsInDelivery: orders.filter((order) => !['completed', 'cancelled'].includes(order.status)).length,
-    templatesAvailable: templates.length,
-    assetsSecured: brandAssets.length,
-  };
-  const sanitizedOrders = orders.map((order) => sanitizeOrder(order));
-  const assets = sanitizedProjects.flatMap((project) => project.assets);
+  const assets = sanitizedProjects.flatMap((project) => project.assets ?? []);
   const assetSummary = summarizeAssets(assets);
-  const orderBuckets = buildGigOrderBuckets(sanitizedOrders);
+
   const board = {
     lanes: buildBoardLanes(sanitizedProjects),
     metrics: buildBoardMetrics(sanitizedProjects),
@@ -1659,36 +1530,46 @@ export async function getProjectGigManagementOverview(ownerId) {
       status,
       integrations: sanitizedProjects
         .filter((project) => (project.workspace?.status ?? project.status) === status)
-        .flatMap((project) => project.integrations.map((integration) => integration.provider)),
+        .flatMap((project) => (project.integrations ?? []).map((integration) => integration.provider)),
     })),
     retrospectives: sanitizedProjects
-      .flatMap((project) => project.retrospectives.map((retro) => ({ ...retro, projectId: project.id, projectTitle: project.title })))
+      .flatMap((project) =>
+        (project.retrospectives ?? []).map((retro) => ({
+          ...retro,
+          projectId: project.id,
+          projectTitle: project.title,
+        })),
+      )
       .slice(0, 6),
   };
 
+  const orderBuckets = buildGigOrderBuckets(sanitizedOrders);
+  const vendorStats = buildVendorStats(sanitizedOrders);
+  const reminders = buildGigReminders(sanitizedOrders);
+  const storytelling = {
+    ...buildStorytelling(sanitizedProjects, sanitizedOrders, storyBlocks),
+    storyBlocks,
+  };
   const lifecycleStats = buildLifecycleStats(sanitizedProjects);
   const lifecyclePartition = partitionProjects(sanitizedProjects);
+  const timelineSummary = buildTimelineSummary(sanitizedOrders);
+  const submissionSummary = buildSubmissionSummary(sanitizedOrders);
+  const chatSummary = buildChatSummary(sanitizedOrders);
+  const lifecycleSnapshot = buildProjectLifecycleSnapshot(sanitizedProjects);
 
-  const orderSnapshots = orders.map((order) => {
-    const plain = order.get({ plain: true });
-    return {
-      ...plain,
-      amount: normalizeCurrency(plain.amount),
-      progressPercent: normalizeNumber(plain.progressPercent),
-    };
-  });
-
-  const bidRecords = bids.map((bid) => {
+  const bidEntries = bidRecords.map((bid) => {
     const plain = bid.get({ plain: true });
     return { ...plain, amount: normalizeCurrency(plain.amount) };
   });
 
-  const invitationRecords = invitations.map((invite) => invite.get({ plain: true }));
-  const autoMatchRecords = matches.map((match) => {
+  const invitationEntries = invitationRecords.map((invite) => invite.get({ plain: true }));
+
+  const autoMatchEntries = matchRecords.map((match) => {
     const plain = match.get({ plain: true });
     return { ...plain, matchScore: normalizeCurrency(plain.matchScore) ?? 0 };
   });
-  const reviewRecords = reviews.map((review) => {
+
+  const reviewEntries = reviewRecords.map((review) => {
     const plain = review.get({ plain: true });
     return {
       ...plain,
@@ -1699,32 +1580,6 @@ export async function getProjectGigManagementOverview(ownerId) {
     };
   });
 
-  const autoMatchSettingsPlain = autoMatchSettings.get({ plain: true });
-  const escrowAccountPlain = escrowAccount.get({ plain: true });
-  const escrowTransactionRecords = escrowTransactions.map((transaction) => {
-    const plain = transaction.get({ plain: true });
-    return { ...plain, amount: normalizeCurrency(plain.amount) ?? 0 };
-  });
-
-  const vendorStats = buildVendorStats(orderSnapshots);
-  const reminders = buildGigReminders(orderSnapshots);
-  const storytelling = buildStorytelling(sanitizedProjects, orderSnapshots, storyBlocks);
-
-  const summary = {
-    totalProjects: sanitizedProjects.length,
-    activeProjects: lifecycleStats.openCount,
-    budgetInPlay: sanitizedProjects.reduce((acc, project) => acc + normalizeNumber(project.budgetAllocated), 0),
-    gigsInDelivery: orderSnapshots.filter((order) => !['completed', 'cancelled'].includes(order.status)).length,
-    templatesAvailable: templates.length,
-    assetsSecured: brandAssets.length,
-    storiesReady: storytelling.achievements.length,
-  };
-  const vendorStats = buildVendorStats(sanitizedOrders);
-  const reminders = buildGigReminders(sanitizedOrders);
-  const storytelling = buildStorytelling(sanitizedProjects, sanitizedOrders, storyBlocks);
-  const timeline = buildTimelineSummary(sanitizedOrders);
-  const submissionsSummary = buildSubmissionSummary(sanitizedOrders);
-  const chatSummary = buildChatSummary(sanitizedOrders);
   const scorecards = sanitizedOrders
     .map((order) =>
       order.scorecard
@@ -1739,57 +1594,60 @@ export async function getProjectGigManagementOverview(ownerId) {
     )
     .filter(Boolean);
 
+  const autoMatchSettingsPlain = autoMatchSettings.get({ plain: true });
+  const escrowAccountPlain = escrowAccount.get({ plain: true });
+  const escrowTransactionEntries = escrowTransactions.map((transaction) => {
+    const plain = transaction.get({ plain: true });
+    return { ...plain, amount: normalizeCurrency(plain.amount) ?? 0 };
+  });
+
   const summary = {
     totalProjects: sanitizedProjects.length,
-    activeProjects: sanitizedProjects.filter((project) => project.status !== 'completed').length,
-    budgetInPlay: sanitizedProjects.reduce((acc, project) => acc + normalizeNumber(project.budgetAllocated), 0),
-    gigsInDelivery: orderBuckets.stats.openCount,
-    openGigs: orderBuckets.stats.openCount,
-    closedGigs: orderBuckets.stats.closedCount,
-    openGigValue: orderBuckets.stats.openValue,
+    activeProjects: lifecycleStats.openCount,
+    budgetInPlay: sanitizedProjects.reduce(
+      (acc, project) => acc + normalizeNumber(project.budget?.allocated ?? project.budgetAllocated),
+      0,
+    ),
+    gigsInDelivery: sanitizedOrders.filter((order) => !order.isClosed).length,
     templatesAvailable: templates.length,
     assetsSecured: brandAssets.length,
     storiesReady: storytelling.achievements.length,
-    vendorSatisfaction: vendorStats.averages?.overall ?? null,
+    vendorSatisfaction: vendorStats.averages.overall ?? null,
     currency: sanitizedOrders.find((order) => order.currency)?.currency ?? 'USD',
+    openGigValue: orderBuckets.stats.openValue,
+    closedGigValue: orderBuckets.stats.closedValue,
   };
-
-  const meta = {
-    lastUpdated: new Date().toISOString(),
-    fromCache: false,
-  };
-  const vendorStats = buildVendorStats(orders);
-  const reminders = buildGigReminders(orders);
-  const storytelling = buildStorytelling(sanitizedProjects, orders, storyBlocks);
-  const sanitizedOrders = orders.map((order) => sanitizeGigOrder(order, { includeAssociations: false }));
 
   return {
     summary,
+    meta: { lastUpdated: new Date().toISOString(), fromCache: false },
+    projects: sanitizedProjects,
+    templates,
     projectCreation: { projects: sanitizedProjects, templates },
     projectLifecycle: {
       open: lifecyclePartition.open,
       closed: lifecyclePartition.closed,
       stats: lifecycleStats,
+      snapshot: lifecycleSnapshot,
     },
-    projectBids: { bids: bidRecords, stats: buildBidStats(bidRecords) },
-    invitations: { entries: invitationRecords, stats: buildInvitationStats(invitationRecords) },
+    projectBids: { bids: bidEntries, stats: buildBidStats(bidEntries) },
+    invitations: { entries: invitationEntries, stats: buildInvitationStats(invitationEntries) },
     autoMatch: {
       settings: autoMatchSettingsPlain,
-      matches: autoMatchRecords,
-      summary: buildAutoMatchSummary(autoMatchRecords),
+      matches: autoMatchEntries,
+      summary: buildAutoMatchSummary(autoMatchEntries),
     },
-    reviews: { entries: reviewRecords, summary: buildReviewSummary(reviewRecords) },
+    reviews: { entries: reviewEntries, summary: buildReviewSummary(reviewEntries) },
     assets: { items: assets, summary: assetSummary, brandAssets },
-    managementBoard: board,
     board,
+    managementBoard: board,
     purchasedGigs: {
-      orders: orderSnapshots,
       orders: sanitizedOrders,
       reminders,
       stats: vendorStats,
       buckets: orderBuckets.stats,
-      timeline,
-      submissions: submissionsSummary,
+      timeline: timelineSummary,
+      submissions: submissionSummary,
       chat: chatSummary,
       scorecards,
     },
@@ -1799,9 +1657,9 @@ export async function getProjectGigManagementOverview(ownerId) {
         ...escrowAccountPlain,
         balance: normalizeCurrency(escrowAccountPlain.balance) ?? 0,
       },
-      transactions: escrowTransactionRecords,
+      transactions: escrowTransactionEntries,
     },
-    projectLifecycle: buildProjectLifecycleSnapshot(sanitizedProjects),
+    projectLifecycleSnapshot: lifecycleSnapshot,
   };
 }
 
