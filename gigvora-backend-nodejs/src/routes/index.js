@@ -20,7 +20,6 @@ import companyVolunteeringRoutes from './companyVolunteeringRoutes.js';
 import companyIntegrationRoutes from './companyIntegrationRoutes.js';
 import complianceRoutes from './complianceRoutes.js';
 import connectionRoutes from './connectionRoutes.js';
-import creationStudioRoutes from './creationStudioRoutes.js';
 import deliverableVaultRoutes from './deliverableVaultRoutes.js';
 import discoveryRoutes from './discoveryRoutes.js';
 import companyIdentityVerificationRoutes from './companyIdentityVerificationRoutes.js';
@@ -54,57 +53,63 @@ import eventManagementRoutes from './eventManagementRoutes.js';
 
 const router = Router();
 
-router.use('/ads', adRoutes);
-router.use('/admin/blog', blogAdminRoutes);
-router.use('/admin', adminRoutes);
-router.use('/agency/job-management', agencyJobManagementRoutes);
-router.use('/agency/wallet', agencyWalletRoutes);
-router.use('/agency', agencyRoutes);
-router.use('/agency/blog', agencyBlogRoutes);
-router.use('/analytics', analyticsRoutes);
-router.use('/auth', authRoutes);
-router.use('/auto-assign', autoAssignRoutes);
-router.use('/blog', blogRoutes);
-router.use('/client-portals', clientPortalRoutes);
-router.use('/collaboration', collaborationRoutes);
-router.use('/company/creation-studio', creationStudioRoutes);
-router.use('/company/jobs', companyJobRoutes);
-router.use('/company/volunteering', companyVolunteeringRoutes);
-router.use('/company/integrations', companyIntegrationRoutes);
-router.use('/company', companyRoutes);
-router.use('/compliance', complianceRoutes);
-router.use('/company/id-verifications', companyIdentityVerificationRoutes);
-router.use('/connections', connectionRoutes);
-router.use('/creation-studio', creationStudioRoutes);
-router.use('/deliverable-vault', deliverableVaultRoutes);
-router.use('/discovery', discoveryRoutes);
-router.use('/domains', domainRoutes);
-router.use('/feed', feedRoutes);
-router.use('/finance', financeRoutes);
-router.use('/freelancer', freelancerRoutes);
-router.use('/freelancers', freelancerRoutes);
-router.use('/groups', groupRoutes);
-router.use('/headhunter', headhunterRoutes);
-router.use('/interviews', interviewRoutes);
-router.use('/launchpad', launchpadRoutes);
-router.use('/learning-hub', learningHubRoutes);
-router.use('/mentors', mentorshipRoutes);
-router.use('/messaging', messagingRoutes);
-router.use('/networking', networkingRoutes);
-router.use('/pipeline', pipelineRoutes);
-router.use('/job-applications', jobApplicationRoutes);
-router.use('/projects', projectRoutes);
-router.use('/projects/:projectId/work-management', workManagementRoutes);
-router.use('/reputation', reputationRoutes);
-router.use('/search', searchRoutes);
-router.use('/trust', trustRoutes);
-router.use('/users', userRoutes);
-router.use('/users/:userId/mentoring', userMentoringRoutes);
-router.use('/users/:userId/project-gig-management', projectGigManagementRoutes);
-router.use('/users/:userId/project-workspace', projectWorkspaceRoutes);
-router.use('/users/:userId/events', eventManagementRoutes);
-router.use('/workspace-templates', workspaceTemplateRoutes);
-router.use('/runtime', runtimeRoutes);
-router.use('/docs', docsRoutes);
+const routeDefinitions = [
+  ['/ads', adRoutes],
+  ['/admin/blog', blogAdminRoutes],
+  ['/admin', adminRoutes],
+  ['/agency/job-management', agencyJobManagementRoutes],
+  ['/agency/wallet', agencyWalletRoutes],
+  ['/agency/blog', agencyBlogRoutes],
+  ['/agency', agencyRoutes],
+  ['/analytics', analyticsRoutes],
+  ['/auth', authRoutes],
+  ['/auto-assign', autoAssignRoutes],
+  ['/blog', blogRoutes],
+  ['/client-portals', clientPortalRoutes],
+  ['/collaboration', collaborationRoutes],
+  ['/company/creation-studio', creationStudioRoutes],
+  ['/company/id-verifications', companyIdentityVerificationRoutes],
+  ['/company/integrations', companyIntegrationRoutes],
+  ['/company/jobs', companyJobRoutes],
+  ['/company/volunteering', companyVolunteeringRoutes],
+  ['/company', companyRoutes],
+  ['/compliance', complianceRoutes],
+  ['/connections', connectionRoutes],
+  ['/creation-studio', creationStudioRoutes],
+  ['/deliverable-vault', deliverableVaultRoutes],
+  ['/discovery', discoveryRoutes],
+  ['/domains', domainRoutes],
+  ['/docs', docsRoutes],
+  ['/feed', feedRoutes],
+  ['/finance', financeRoutes],
+  ['/freelancer', freelancerRoutes],
+  ['/freelancers', freelancerRoutes],
+  ['/groups', groupRoutes],
+  ['/headhunter', headhunterRoutes],
+  ['/interviews', interviewRoutes],
+  ['/job-applications', jobApplicationRoutes],
+  ['/launchpad', launchpadRoutes],
+  ['/learning-hub', learningHubRoutes],
+  ['/mentors', mentorshipRoutes],
+  ['/messaging', messagingRoutes],
+  ['/networking', networkingRoutes],
+  ['/pipeline', pipelineRoutes],
+  ['/projects/:projectId/work-management', workManagementRoutes],
+  ['/projects', projectRoutes],
+  ['/reputation', reputationRoutes],
+  ['/runtime', runtimeRoutes],
+  ['/search', searchRoutes],
+  ['/trust', trustRoutes],
+  ['/users/:userId/mentoring', userMentoringRoutes],
+  ['/users/:userId/project-gig-management', projectGigManagementRoutes],
+  ['/users/:userId/project-workspace', projectWorkspaceRoutes],
+  ['/users/:userId/events', eventManagementRoutes],
+  ['/users', userRoutes],
+  ['/workspace-templates', workspaceTemplateRoutes],
+];
+
+routeDefinitions.forEach(([path, handler]) => {
+  router.use(path, handler);
+});
 
 export default router;

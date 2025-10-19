@@ -5,6 +5,10 @@ import compression from 'compression';
 import { recordBlockedOrigin } from '../observability/perimeterMetrics.js';
 import { recordRuntimeSecurityEvent } from '../services/securityAuditService.js';
 import logger from '../utils/logger.js';
+import {
+  getRuntimeConfig,
+  onRuntimeConfigChange,
+} from './runtimeConfig.js';
 
 const DEFAULT_ALLOWED_ORIGINS = [
   'https://app.gigvora.com',
@@ -13,12 +17,56 @@ const DEFAULT_ALLOWED_ORIGINS = [
   'https://gigvora.com',
   'https://www.gigvora.com',
   'http://localhost:3000',
+  'http://localhost:4000',
   'http://localhost:4173',
   'http://127.0.0.1:3000',
+  'http://127.0.0.1:4000',
   'http://127.0.0.1:4173',
 ];
 
 const AUDIT_THROTTLE_MS = 15 * 60 * 1000;
+
+let cachedAllowedOrigins = [...DEFAULT_ALLOWED_ORIGINS];
+let cachedCsp = {
+  scriptSrc: ["'self'"],
+  styleSrc: ["'self'", 'https:'],
+  connectSrc: ["'self'", ...DEFAULT_ALLOWED_ORIGINS],
+  imgSrc: ["'self'", 'data:', 'https:'],
+};
+
+function refreshSecurityConfig() {
+  const runtimeConfig = getRuntimeConfig();
+  if (runtimeConfig?.security?.cors?.allowedOrigins?.length) {
+    cachedAllowedOrigins = Array.from(
+      new Set(runtimeConfig.security.cors.allowedOrigins.map((origin) => origin.trim()).filter(Boolean)),
+    );
+  } else {
+    cachedAllowedOrigins = [...DEFAULT_ALLOWED_ORIGINS];
+  }
+
+  const csp = runtimeConfig?.security?.csp;
+  if (csp) {
+    cachedCsp = {
+      scriptSrc: csp.scriptSrc?.length ? csp.scriptSrc : ["'self'"],
+      styleSrc: csp.styleSrc?.length ? csp.styleSrc : ["'self'", 'https:'],
+      connectSrc: csp.connectSrc?.length ? csp.connectSrc : ["'self'", ...cachedAllowedOrigins],
+      imgSrc: csp.imgSrc?.length ? csp.imgSrc : ["'self'", 'data:', 'https:'],
+    };
+  } else {
+    cachedCsp = {
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", 'https:'],
+      connectSrc: ["'self'", ...cachedAllowedOrigins],
+      imgSrc: ["'self'", 'data:', 'https:'],
+    };
+  }
+}
+
+refreshSecurityConfig();
+
+onRuntimeConfigChange(() => {
+  refreshSecurityConfig();
+});
 
 function resolveLogger(candidate) {
   if (!candidate) {
@@ -87,26 +135,27 @@ function buildRule(origin) {
 }
 
 export function resolveAllowedOrigins(env = process.env) {
-  const sources = [
-    env.CLIENT_URL,
-    env.CLIENT_URLS,
-    env.ALLOWED_ORIGINS,
-    env.ADMIN_CLIENT_URL,
-    env.ADMIN_CLIENT_URLS,
-    env.TRUSTED_WEB_ORIGINS,
-  ];
-
-  const resolved = new Set(DEFAULT_ALLOWED_ORIGINS);
-  sources.forEach((source) => {
-    splitList(source).forEach((origin) => {
-      const normalised = normaliseOrigin(origin) ?? origin.trim();
-      if (normalised) {
-        resolved.add(normalised);
-      }
+  if (env && env !== process.env) {
+    const resolved = new Set(DEFAULT_ALLOWED_ORIGINS);
+    const sources = [
+      env.CLIENT_URL,
+      env.CLIENT_URLS,
+      env.ALLOWED_ORIGINS,
+      env.ADMIN_CLIENT_URL,
+      env.ADMIN_CLIENT_URLS,
+      env.TRUSTED_WEB_ORIGINS,
+    ];
+    sources.forEach((source) => {
+      splitList(source).forEach((origin) => {
+        const normalised = normaliseOrigin(origin) ?? origin.trim();
+        if (normalised) {
+          resolved.add(normalised);
+        }
+      });
     });
-  });
-
-  return Array.from(resolved);
+    return Array.from(resolved);
+  }
+  return [...cachedAllowedOrigins];
 }
 
 export function compileAllowedOriginRules(origins = []) {
@@ -236,10 +285,10 @@ export function applyHttpSecurity(app, { env = process.env, logger: providedLogg
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
-          scriptSrc: ["'self'"],
-          connectSrc: ["'self'", ...resolveAllowedOrigins(env)],
-          imgSrc: ["'self'", 'data:', 'https:'],
-          styleSrc: ["'self'", "'unsafe-inline'"],
+          scriptSrc: cachedCsp.scriptSrc,
+          connectSrc: cachedCsp.connectSrc,
+          imgSrc: cachedCsp.imgSrc,
+          styleSrc: cachedCsp.styleSrc,
         },
       },
       crossOriginEmbedderPolicy: false,

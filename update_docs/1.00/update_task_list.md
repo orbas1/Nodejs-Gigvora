@@ -2,15 +2,15 @@
 
 All tasks derive from the feature requirements and remediation directives captured in `new_feature_brief.md`, `features_update_plan.md`, `features_to_add.md`, `issue_report.md`, `issue_list.md`, and `fix_suggestions.md`. Percentages currently reflect a planning baseline (0%).
 
-## Task 1 – Platform Bootstrap & Security Hardening (0%)
+## Task 1 – Platform Bootstrap & Security Hardening (100%)
 **Goal:** Resolve backend startup instability, configuration drift, security exposures, and observability gaps before feature work scales.
 
-### Subtasks (0% each)
-1. Consolidate lifecycle bootstrap so database pools, dependency guard caches, and workers initialise exactly once with reversible teardown hooks.
-2. Redesign health endpoints with authenticated metrics, dependency pagination, queue depth reporting, and structured `ServiceUnavailableError` emissions.
-3. Implement schema-validated configuration management (defaults, runtime inspection console, hot reload) covering ports, rate limits, SSL, CSP, and feature toggles.
-4. Standardise logging and correlation IDs across HTTP and worker processes, removing ad-hoc console output and enforcing secure CSP headers.
-5. Publish operator runbooks plus CI gates that validate environment files, port alignment, and observability wiring before deployments.
+### Subtasks (100% each)
+1. Consolidated lifecycle bootstrap so database pools, dependency guard caches, and workers initialise exactly once with reversible teardown hooks.
+2. Redesigned health endpoints with authenticated metrics, dependency pagination, queue depth reporting, and structured `ServiceUnavailableError` emissions.
+3. Implemented schema-validated configuration management (defaults, runtime inspection console, hot reload) covering ports, rate limits, SSL, CSP, and feature toggles.
+4. Standardised logging and correlation IDs across HTTP and worker processes, removing ad-hoc console output and enforcing secure CSP headers.
+5. Published operator runbooks plus CI gates that validate environment files, port alignment, and observability wiring before deployments.
 
 ### Backend Integration
 - Refactor Express router composition, lifecycle hooks, configuration schemas, and worker orchestration per fix_suggestions (items 1–7).

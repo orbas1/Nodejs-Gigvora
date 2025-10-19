@@ -9,6 +9,7 @@ import { getVisibleAnnouncements } from './runtimeMaintenanceService.js';
 import { ServiceUnavailableError } from '../utils/errors.js';
 
 const CACHE_TTL_MS = 30_000;
+const BYPASS_ENV_FLAGS = ['DISABLE_RUNTIME_DEPENDENCY_GUARD', 'DISABLE_DEPENDENCY_GUARD'];
 
 const REQUIRED_PAYMENT_FIELDS = {
   stripe: [
@@ -39,9 +40,9 @@ const dependencyCache = {
 
 const maintenanceCache = { snapshot: null, expiresAt: 0, promise: null };
 
-function resolveLogger(provided) {
-  if (provided && typeof provided.info === 'function') {
-    return provided;
+function resolveLogger(candidate) {
+  if (candidate && typeof candidate.info === 'function') {
+    return candidate;
   }
   return logger;
 }
@@ -157,8 +158,11 @@ function buildSnapshot({
   };
 }
 
-function shouldBypassDependencyGuard() {
-  return process.env.DISABLE_RUNTIME_DEPENDENCY_GUARD === 'true' || process.env.NODE_ENV === 'test';
+function dependencyGuardDisabled() {
+  return (
+    BYPASS_ENV_FLAGS.some((flag) => process.env[flag] === 'true') ||
+    process.env.NODE_ENV === 'test'
+  );
 }
 
 function buildBypassedSnapshot(dependency) {
@@ -172,23 +176,11 @@ function buildBypassedSnapshot(dependency) {
 }
 
 async function evaluatePaymentDependency({ forceRefresh = false, log } = {}) {
-  if (shouldBypassDependencyGuard()) {
+  if (dependencyGuardDisabled()) {
     const snapshot = buildBypassedSnapshot('paymentsGateway');
     dependencyCache.payments.snapshot = snapshot;
     dependencyCache.payments.expiresAt = Date.now() + CACHE_TTL_MS;
     return snapshot;
-function isDependencyGuardDisabled() {
-  return process.env.DISABLE_DEPENDENCY_GUARD === 'true' || process.env.NODE_ENV === 'test';
-}
-
-async function evaluatePaymentDependency({ forceRefresh = false, log } = {}) {
-  if (isDependencyGuardDisabled()) {
-    return buildSnapshot({
-      dependency: 'paymentsGateway',
-      status: 'ok',
-      provider: 'test',
-      reason: null,
-    });
   }
   if (!forceRefresh && dependencyCache.payments.promise) {
     return dependencyCache.payments.promise;
@@ -323,18 +315,11 @@ async function evaluatePaymentDependency({ forceRefresh = false, log } = {}) {
 }
 
 async function evaluateComplianceDependency({ forceRefresh = false, log } = {}) {
-  if (shouldBypassDependencyGuard()) {
-    const snapshot = buildBypassedSnapshot('complianceProviders');
+  if (dependencyGuardDisabled()) {
+    const snapshot = buildBypassedSnapshot('complianceVault');
     dependencyCache.compliance.snapshot = snapshot;
     dependencyCache.compliance.expiresAt = Date.now() + CACHE_TTL_MS;
     return snapshot;
-  if (isDependencyGuardDisabled()) {
-    return buildSnapshot({
-      dependency: 'complianceProviders',
-      status: 'ok',
-      provider: 'test',
-      reason: null,
-    });
   }
   if (!forceRefresh && dependencyCache.compliance.promise) {
     return dependencyCache.compliance.promise;

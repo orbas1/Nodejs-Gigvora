@@ -12,6 +12,9 @@ let workerHandle = null;
 let isRunning = false;
 let latestPublishedAt = null;
 let workerLogger = console;
+let lastRunAt = null;
+let lastSuccessfulRunAt = null;
+let lastError = null;
 
 function decodeHtmlEntities(text = '') {
   return text
@@ -137,6 +140,7 @@ async function runCycle() {
     return;
   }
   isRunning = true;
+  lastRunAt = new Date();
   try {
     await ensureLatestPublishedAt();
     const articles = await fetchGuardianArticles();
@@ -160,8 +164,15 @@ async function runCycle() {
         }
       }
     }
+    lastSuccessfulRunAt = new Date();
+    lastError = null;
   } catch (error) {
     workerLogger?.error?.({ err: error }, 'Failed to aggregate Gigvora news');
+    lastError = {
+      message: error?.message || 'News aggregation failed',
+      code: error?.code ?? null,
+      timestamp: new Date().toISOString(),
+    };
   } finally {
     isRunning = false;
   }
@@ -189,8 +200,20 @@ export async function runNewsAggregationOnce() {
   await runCycle();
 }
 
+export function getNewsAggregationStatus() {
+  return {
+    isRunning,
+    latestPublishedAt: latestPublishedAt ? latestPublishedAt.toISOString() : null,
+    lastRunAt: lastRunAt ? lastRunAt.toISOString() : null,
+    lastSuccessfulRunAt: lastSuccessfulRunAt ? lastSuccessfulRunAt.toISOString() : null,
+    lastError,
+    intervalMs: FETCH_INTERVAL_MS,
+  };
+}
+
 export default {
   startNewsAggregationWorker,
   stopNewsAggregationWorker,
   runNewsAggregationOnce,
+  getNewsAggregationStatus,
 };

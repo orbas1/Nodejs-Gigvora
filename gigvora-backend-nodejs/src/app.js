@@ -8,6 +8,10 @@ import logger from './utils/logger.js';
 import createInstrumentedRateLimiter from './middleware/rateLimiter.js';
 import { applyHttpSecurity } from './config/httpSecurity.js';
 import createWebApplicationFirewall from './middleware/webApplicationFirewall.js';
+import {
+  getRuntimeConfig,
+  onRuntimeConfigChange,
+} from './config/runtimeConfig.js';
 
 const app = express();
 
@@ -22,10 +26,12 @@ app.use(
   }),
 );
 
-app.use(
+let runtimeConfig = getRuntimeConfig();
+
+const buildHttpLogger = () =>
   pinoHttp({
     logger: logger.child({ component: 'http' }),
-    autoLogging: process.env.NODE_ENV !== 'test',
+    autoLogging: runtimeConfig?.logging?.enableHttpLogging ?? process.env.NODE_ENV !== 'test',
     genReqId: (req) => req.id,
     customProps: (req) => ({
       requestId: req.id,
@@ -41,37 +47,43 @@ app.use(
       return 'info';
     },
     quietReqLogger: process.env.NODE_ENV === 'test',
-  }),
-);
+  });
 
-const bodyLimit = process.env.REQUEST_BODY_LIMIT || '1mb';
-app.use(express.json({ limit: bodyLimit }));
-app.use(express.urlencoded({ extended: true, limit: bodyLimit }));
+const buildJsonParser = () => express.json({ limit: runtimeConfig?.http?.requestBodyLimit || '1mb' });
+const buildUrlencodedParser = () =>
+  express.urlencoded({ extended: true, limit: runtimeConfig?.http?.requestBodyLimit || '1mb' });
 
-const windowMsCandidate = Number(process.env.RATE_LIMIT_WINDOW_MS ?? 60_000);
-const maxRequestsCandidate = Number(process.env.RATE_LIMIT_MAX_REQUESTS ?? 300);
-const resolvedWindowMs = Number.isFinite(windowMsCandidate) && windowMsCandidate > 0 ? windowMsCandidate : 60_000;
-const resolvedMaxRequests =
-  Number.isFinite(maxRequestsCandidate) && maxRequestsCandidate > 0 ? maxRequestsCandidate : 300;
+let httpLogger = buildHttpLogger();
+let jsonParser = buildJsonParser();
+let urlencodedParser = buildUrlencodedParser();
+
+onRuntimeConfigChange(({ config }) => {
+  runtimeConfig = config;
+  httpLogger = buildHttpLogger();
+  jsonParser = buildJsonParser();
+  urlencodedParser = buildUrlencodedParser();
+});
+
+app.use((req, res, next) => httpLogger(req, res, next));
+app.use((req, res, next) => jsonParser(req, res, next));
+app.use((req, res, next) => urlencodedParser(req, res, next));
 
 const shouldSkipRateLimit = (req) => {
   if (req.method && req.method.toUpperCase() === 'OPTIONS') {
     return true;
   }
   const path = req.path || req.originalUrl || '';
-  if (path.startsWith('/health')) {
-    return true;
-  }
-  if (path.startsWith('/api/admin/runtime/health')) {
-    return true;
-  }
-  return false;
+  const skipPrefixes = runtimeConfig?.http?.rateLimit?.skipPaths ?? ['/health'];
+  return skipPrefixes.some((prefix) => path.startsWith(prefix));
 };
+
+const resolveRateLimitWindow = () => runtimeConfig?.http?.rateLimit?.windowMs ?? 60_000;
+const resolveRateLimitMax = () => runtimeConfig?.http?.rateLimit?.maxRequests ?? 300;
 
 app.use(
   createInstrumentedRateLimiter({
-    windowMs: resolvedWindowMs,
-    max: resolvedMaxRequests,
+    windowMs: resolveRateLimitWindow(),
+    max: resolveRateLimitMax(),
     skip: shouldSkipRateLimit,
   }),
 );

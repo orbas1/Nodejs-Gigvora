@@ -440,6 +440,41 @@ export function stopProfileEngagementWorker() {
   }
 }
 
+export async function getProfileEngagementQueueSnapshot({
+  staleAfterSeconds = LOCK_TIMEOUT_SECONDS,
+} = {}) {
+  const now = new Date();
+  const staleThreshold = new Date(now.getTime() - staleAfterSeconds * 1000);
+
+  const [pending, stuck, failed, nextJob] = await Promise.all([
+    ProfileEngagementJob.count({ where: { status: 'pending' } }),
+    ProfileEngagementJob.count({
+      where: {
+        status: 'pending',
+        lockedAt: { [Op.not]: null, [Op.lt]: staleThreshold },
+      },
+    }),
+    ProfileEngagementJob.count({ where: { status: 'failed' } }),
+    ProfileEngagementJob.findOne({
+      where: { status: 'pending' },
+      order: [
+        ['scheduledAt', 'ASC'],
+        ['id', 'ASC'],
+      ],
+      attributes: ['scheduledAt'],
+    }),
+  ]);
+
+  return {
+    pending,
+    stuck,
+    failed,
+    intervalMs: WORKER_INTERVAL_MS,
+    nextScheduledAt: nextJob?.scheduledAt ? new Date(nextJob.scheduledAt).toISOString() : null,
+    generatedAt: new Date().toISOString(),
+  };
+}
+
 export default {
   aggregateProfileEngagement,
   recordProfileAppreciation,
@@ -450,4 +485,5 @@ export default {
   shouldRefreshEngagementMetrics,
   startProfileEngagementWorker,
   stopProfileEngagementWorker,
+  getProfileEngagementQueueSnapshot,
 };

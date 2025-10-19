@@ -3,7 +3,6 @@ import logger from '../utils/logger.js';
 export default function errorHandler(err, req, res, next) {
   const status = err.status ?? err.statusCode ?? 500;
   const message = err.message || 'Internal server error';
-  const details = err.details ?? null;
   const requestId = req?.id ?? null;
   const log = req?.log ?? logger;
 
@@ -22,9 +21,14 @@ export default function errorHandler(err, req, res, next) {
 
   log.error(errorPayload, 'Unhandled application error');
 
-  res.status(status).json({
+  const responseBody = {
     message,
-    details,
     requestId,
-  });
+  };
+
+  if (err.expose === true && err.details) {
+    responseBody.details = err.details;
+  }
+
+  res.status(status).json(responseBody);
 }

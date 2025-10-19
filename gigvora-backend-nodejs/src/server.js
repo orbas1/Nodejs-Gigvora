@@ -20,17 +20,29 @@ import { syncCriticalDependencies } from './observability/dependencyHealth.js';
 import { recordRuntimeSecurityEvent } from './services/securityAuditService.js';
 import orchestrateHttpShutdown from './lifecycle/httpShutdown.js';
 import { getMetricsStatus } from './observability/metricsRegistry.js';
+import {
+  getRuntimeConfig,
+  whenRuntimeConfigReady,
+  onRuntimeConfigChange,
+} from './config/runtimeConfig.js';
 
 dotenv.config();
 
-const DEFAULT_PORT = Number.parseInt(process.env.PORT ?? '5000', 10);
+const DEFAULT_PORT = 4000;
 let httpServer = null;
+let runtimeConfig = getRuntimeConfig();
+
+onRuntimeConfigChange(({ config }) => {
+  runtimeConfig = config;
+});
 
 export async function start({ port = DEFAULT_PORT } = {}) {
   if (httpServer) {
     logger.warn({ port: httpServer.address()?.port }, 'Gigvora API server already started');
     return httpServer;
   }
+
+  await whenRuntimeConfigReady();
 
   markHttpServerStarting();
   await warmDatabaseConnections({ logger });
@@ -40,7 +52,6 @@ export async function start({ port = DEFAULT_PORT } = {}) {
   } catch (error) {
     logger.warn({ err: error }, 'Failed to synchronise critical dependencies before startup');
   }
-  await startBackgroundWorkers({ logger });
   await warmRuntimeDependencyHealth({ logger, forceRefresh: true });
   try {
     getMetricsStatus();
@@ -50,11 +61,18 @@ export async function start({ port = DEFAULT_PORT } = {}) {
 
   try {
     await bootstrapDatabase({ logger });
-    await startBackgroundWorkers({ logger });
+    const workerResults = await startBackgroundWorkers({ logger });
+    logger.info(
+      {
+        workers: workerResults.map((worker) => ({ name: worker.name, started: worker.started !== false })),
+      },
+      'Background worker orchestration completed',
+    );
 
     httpServer = http.createServer(app);
 
-    const normalizedPort = Number.parseInt(port, 10);
+    const desiredPort = port ?? runtimeConfig?.http?.port ?? DEFAULT_PORT;
+    const normalizedPort = Number.parseInt(desiredPort, 10);
     const listenPort = Number.isNaN(normalizedPort) ? DEFAULT_PORT : normalizedPort;
 
     await new Promise((resolve, reject) => {
@@ -93,6 +111,11 @@ export async function start({ port = DEFAULT_PORT } = {}) {
       await shutdownDatabase({ reason: 'startup-failed', logger });
     } catch (shutdownError) {
       logger.warn({ err: shutdownError }, 'Database shutdown after startup failure encountered errors');
+    }
+    try {
+      await stopBackgroundWorkers({ logger });
+    } catch (workerError) {
+      logger.warn({ err: workerError }, 'Background worker shutdown after startup failure encountered errors');
     }
     markHttpServerStopped({ reason: 'failed' });
     throw error;
