@@ -1,5 +1,5 @@
 import { ChartBarSquareIcon, GlobeAltIcon, RectangleStackIcon } from '@heroicons/react/24/outline';
-import SectionShell from '../SectionShell.jsx';
+import SectionShell from '../../SectionShell.jsx';
 import { QUICK_ACCESS_COMMERCE, QUICK_ACCESS_GROWTH, QUICK_ACCESS_SECTIONS } from '../sampleData.js';
 
 export default function OperationalQuickAccessSection() {

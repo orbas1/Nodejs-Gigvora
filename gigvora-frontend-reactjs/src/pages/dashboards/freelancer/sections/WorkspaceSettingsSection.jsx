@@ -1,4 +1,4 @@
-import SectionShell from '../SectionShell.jsx';
+import SectionShell from '../../SectionShell.jsx';
 import { FEATURE_TOGGLES } from '../sampleData.js';
 
 export default function WorkspaceSettingsSection() {

@@ -1,4 +1,4 @@
-import SectionShell from '../SectionShell.jsx';
+import SectionShell from '../../SectionShell.jsx';
 import CreationStudioSnapshot from '../../../../components/creationStudio/CreationStudioSnapshot.jsx';
 
 export default function GigStudioSection() {

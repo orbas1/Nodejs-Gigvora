@@ -303,20 +303,6 @@ export default function ProjectGigManagementContainer({ userId }) {
             Email operations@gigvora.com
           </a>
         </div>
-        id="project-workspace"
-        className="rounded-3xl border border-amber-200 bg-amber-50/70 p-8 shadow-sm"
-      >
-        <h2 className="text-lg font-semibold text-amber-900">Workspace access required</h2>
-        <p className="mt-2 text-sm text-amber-800">
-          Project controls are available to approved workspace roles only.
-        </p>
-        <p className="mt-3 text-xs uppercase tracking-wide text-amber-700">
-          Allowed roles: {PROJECT_MANAGEMENT_ROLE_LABELS.join(', ')}
-        </p>
-        <p className="mt-3 text-sm text-amber-800">{denialReason}</p>
-      <section className="rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">Access needed</h2>
-        <p className="mt-3 text-sm text-slate-600">{denialReason ?? 'Switch to a workspace role with project rights.'}</p>
       </section>
     );
   }
@@ -332,35 +318,6 @@ export default function ProjectGigManagementContainer({ userId }) {
   const [projectSubmitting, setProjectSubmitting] = useState(false);
   const [gigSubmitting, setGigSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState('projects');
-  const [projectForm, setProjectForm] = useState(INITIAL_PROJECT_FORM);
-  const [projectErrors, setProjectErrors] = useState({});
-  const [projectFeedback, setProjectFeedback] = useState(null);
-  const [submittingProject, setSubmittingProject] = useState(false);
-
-  const [gigForm, setGigForm] = useState(INITIAL_GIG_FORM);
-  const [gigErrors, setGigErrors] = useState({});
-  const [gigFeedback, setGigFeedback] = useState(null);
-  const [detailSaving, setDetailSaving] = useState(false);
-  const [detailError, setDetailError] = useState(null);
-
-  const access = data?.access ?? { canManage: false };
-  const canManage = access.canManage !== false;
-  const viewOnlyNote = !canManage
-  const [submittingGig, setSubmittingGig] = useState(false);
-
-  const [projectDialogOpen, setProjectDialogOpen] = useState(false);
-  const [gigDialogOpen, setGigDialogOpen] = useState(false);
-  const [previewProjectId, setPreviewProjectId] = useState(null);
-
-  useEffect(() => {
-    if (!projectDialogOpen) {
-      setProjectForm(INITIAL_PROJECT_FORM);
-      setProjectErrors({});
-    }
-  }, [projectDialogOpen]);
-
-  useEffect(() => {
-    if (!gigDialogOpen) {
       setGigForm(INITIAL_GIG_FORM);
       setGigErrors({});
     }

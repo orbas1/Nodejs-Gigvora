@@ -8,7 +8,7 @@ import {
   SparklesIcon,
 } from '@heroicons/react/24/outline';
 import { StarIcon } from '@heroicons/react/24/solid';
-import SectionShell from '../SectionShell.jsx';
+import SectionShell from '../../SectionShell.jsx';
 import useSession from '../../../../hooks/useSession.js';
 import useFreelancerReferences from '../../../../hooks/useFreelancerReferences.js';
 

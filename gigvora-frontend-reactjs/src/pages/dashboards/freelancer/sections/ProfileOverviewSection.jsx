@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback } from 'react';
-import SectionShell from '../SectionShell.jsx';
+import SectionShell from '../../SectionShell.jsx';
 import {
   ProfileSummaryCard,
   AvailabilityCard,

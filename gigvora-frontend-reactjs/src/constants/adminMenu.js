@@ -124,4 +124,3 @@ export const ADMIN_MENU_SECTIONS = [
   },
 ];
 
-export default ADMIN_MENU_SECTIONS;

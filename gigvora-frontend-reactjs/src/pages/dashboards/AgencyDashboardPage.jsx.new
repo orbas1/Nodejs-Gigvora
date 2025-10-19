@@ -1,0 +1,124 @@
+import { useEffect, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import useSession from '../../hooks/useSession.js';
+import { AGENCY_DASHBOARD_MENU_SECTIONS } from '../../constants/agencyDashboardMenu.js';
+import OverviewSection from './agency/sections/OverviewSection.jsx';
+import { useAgencyOverview } from '../../hooks/useAgencyOverview.js';
+
+const sections = [
+  {
+    id: 'agency-overview',
+      title: 'Home',
+      description: 'Daily snapshot',
+    },
+  ];
+
+import { useCallback, useState } from 'react';
+import { Link } from 'react-router-dom';
+import AgencyProfileWorkspace from '../../components/dashboard/agency/AgencyProfileWorkspace.jsx';
+import AgencyIdVerificationSection from '../../components/agency/id-verification/AgencyIdVerificationSection.jsx';
+import { fetchAgencyDashboard } from '../../services/agency.js';
+import AgencyOverviewPanel from './agency/AgencyOverviewPanel.jsx';
+import AgencyAdsManagementPanel from './agency/AgencyAdsManagementPanel.jsx';
+
+const menuSections = [
+  {
+    id: 'main',
+    label: 'Main',
+    items: [
+      { id: 'overview', name: 'Overview', sectionId: 'agency-overview' },
+      { id: 'ads', name: 'Ads', sectionId: 'agency-ads' },
+    ],
+  },
+];
+import { useMemo } from 'react';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import CreationStudioSection from '../../components/agencyCreationStudio/CreationStudioSection.jsx';
+import { AGENCY_DASHBOARD_MENU_SECTIONS } from '../../constants/agencyDashboardMenu.js';
+import { useCallback, useMemo } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import useSession from '../../hooks/useSession.js';
+import VolunteeringWorkspace from '../../components/agency/volunteering/VolunteeringWorkspace.jsx';
+import { AGENCY_DASHBOARD_MENU_SECTIONS } from '../../constants/agencyDashboardMenu.js';
+
+const OVERVIEW_CARDS = [
+  { id: 'programmes', label: 'Programmes', value: 7 },
+  { id: 'active-volunteers', label: 'Volunteers', value: 42 },
+  { id: 'deployments', label: 'Deployments', value: 5 },
+  { id: 'responses', label: 'Replies today', value: 18 },
+import useSession from '../../hooks/useSession.js';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import AgencyOverviewContent from '../../components/agency/AgencyOverviewContent.jsx';
+import { AGENCY_AVAILABLE_DASHBOARDS, AGENCY_DASHBOARD_MENU } from '../../constants/agencyDashboardMenu.js';
+import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import useSession from '../../hooks/useSession.js';
+import AgencyDashboardSidebar from '../../components/dashboard/agency/AgencyDashboardSidebar.jsx';
+import MentoringSessionManagement from '../../components/dashboard/agency/MentoringSessionManagement.jsx';
+import { AGENCY_DASHBOARD_MENU_SECTIONS } from '../../constants/agencyDashboardMenu.js';
+
+const OVERVIEW_METRICS = [
+  { id: 'clients', label: 'Clients', value: 18, hint: '4 onboarding' },
+  { id: 'projects', label: 'Projects', value: 42, hint: '8 in kickoff' },
+  { id: 'talent', label: 'Bench', value: '63%', hint: '120 hours open' },
+  { id: 'clients', label: 'Active clients', value: 18, hint: '4 onboarding this month' },
+  { id: 'projects', label: 'Managed projects', value: 42, hint: '8 in kickoff' },
+  { id: 'talent', label: 'Bench capacity', value: '63%', hint: '120 hours open' },
+];
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import DataStatus from '../../components/DataStatus.jsx';
+import useSession from '../../hooks/useSession.js';
+import useAgencyDashboard from '../../hooks/useAgencyDashboard.js';
+import useProjectGigManagement from '../../hooks/useProjectGigManagement.js';
+import useGigOrderDetail from '../../hooks/useGigOrderDetail.js';
+import { MENU_GROUPS, AVAILABLE_DASHBOARDS } from './agency/menuConfig.js';
+import {
+  GigManagementSection,
+  GigTimelineSection,
+  GigCreationSection,
+  OpenGigsSection,
+  ClosedGigsSection,
+  GigSubmissionsSection,
+  GigChatSection,
+} from './agency/sections/index.js';
+
+const TEAM_REMINDERS = [
+  { id: 'checkins', label: 'Client check-in · 10:00' },
+  { id: 'onboarding', label: 'Onboard three mentors' },
+  { id: 'reports', label: 'Send weekly summary' },
+];
+
+const QUICK_LINKS = [
+  { id: 'inbox', label: 'Inbox', to: '/inbox' },
+  { id: 'finance', label: 'Finance', to: '/finance' },
+  { id: 'settings', label: 'Settings', to: '/settings' },
+];
+
+const VOL_PANES = new Set(['overview', 'applications', 'responses', 'contracts', 'spend']);
+const VOL_MENU_TO_PANE = Object.freeze({
+  'volunteer-home': 'overview',
+  'volunteer-deals': 'contracts',
+  'volunteer-apply': 'applications',
+  'volunteer-replies': 'responses',
+  'volunteer-spend': 'spend',
+});
+
+function parseWorkspaceId(rawValue) {
+  if (!rawValue) {
+    return undefined;
+  }
+  const numeric = Number.parseInt(rawValue, 10);
+  return Number.isNaN(numeric) ? undefined : numeric;
+}
+
+function normalizePane(value) {
+  if (!value) {
+    return 'overview';
+  }
+  return VOL_PANES.has(value) ? value : 'overview';
+}
+

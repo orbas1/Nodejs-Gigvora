@@ -1,5 +1,5 @@
 import { BanknotesIcon } from '@heroicons/react/24/outline';
-import SectionShell from '../SectionShell.jsx';
+import SectionShell from '../../SectionShell.jsx';
 import { FINANCE_COMPLIANCE_FEATURES } from '../sampleData.js';
 
 export default function FinanceComplianceSection() {

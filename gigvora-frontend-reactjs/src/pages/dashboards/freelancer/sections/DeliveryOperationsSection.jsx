@@ -10,7 +10,7 @@ import {
   PlusIcon,
   TrashIcon,
 } from '@heroicons/react/24/outline';
-import SectionShell from '../SectionShell.jsx';
+import SectionShell from '../../SectionShell.jsx';
 import DataStatus from '../../../../components/DataStatus.jsx';
 import useProjectGigManagement from '../../../../hooks/useProjectGigManagement.js';
 

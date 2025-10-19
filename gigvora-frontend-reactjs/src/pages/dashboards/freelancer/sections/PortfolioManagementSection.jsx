@@ -6,7 +6,7 @@ import {
   PlusIcon,
   TrashIcon,
 } from '@heroicons/react/24/outline';
-import SectionShell from '../SectionShell.jsx';
+import SectionShell from '../../SectionShell.jsx';
 import useFreelancerPortfolio from '../../../../hooks/useFreelancerPortfolio.js';
 import PortfolioEditorDrawer from './portfolio/PortfolioEditorDrawer.jsx';
 import PortfolioAssetDrawer from './portfolio/PortfolioAssetDrawer.jsx';

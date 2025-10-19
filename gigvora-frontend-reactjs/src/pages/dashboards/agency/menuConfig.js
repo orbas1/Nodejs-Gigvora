@@ -42,15 +42,15 @@ export const AGENCY_MENU_SECTIONS = [
         href: '/dashboard/agency/networking',
         sectionId: 'agency-networking',
       },
-  ChartBarIcon,
-  ChatBubbleLeftRightIcon,
-  CurrencyDollarIcon,
-  RocketLaunchIcon,
-  UsersIcon,
-  WrenchScrewdriverIcon,
-} from '@heroicons/react/24/outline';
+    ],
+  },
+];
 
 export const AGENCY_DASHBOARD_MENU_SECTIONS = [
+  {
+    id: 'main',
+    label: 'Main',
+    items: [
       { id: 'overview', name: 'Home', icon: HomeModernIcon, href: '/dashboard/agency', sectionId: 'overview' },
       { id: 'events', name: 'Events', icon: ClipboardDocumentListIcon, href: '/dashboard/agency/events', sectionId: 'agency-event-management' },
       { id: 'calendar', name: 'Schedule', icon: CalendarDaysIcon, href: '/dashboard/agency/calendar', sectionId: 'calendar' },
@@ -192,6 +192,5 @@ export const AGENCY_DASHBOARD_ALTERNATES = [
   { id: 'freelancer', label: 'Talent', href: '/dashboard/freelancer' },
 ];
 
-export const AGENCY_DASHBOARD_MENU_SECTIONS = AGENCY_MENU_SECTIONS;
 
 export default AGENCY_MENU_SECTIONS;

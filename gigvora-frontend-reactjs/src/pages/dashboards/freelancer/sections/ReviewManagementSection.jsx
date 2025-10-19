@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import SectionShell from '../SectionShell.jsx';
+import SectionShell from '../../SectionShell.jsx';
 import useSession from '../../../../hooks/useSession.js';
 import useFreelancerReviews from '../../../../hooks/useFreelancerReviews.js';
 import ReviewToolbar from './reviews/ReviewToolbar.jsx';

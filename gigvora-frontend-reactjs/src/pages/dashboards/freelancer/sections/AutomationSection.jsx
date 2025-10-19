@@ -1,4 +1,4 @@
-import SectionShell from '../SectionShell.jsx';
+import SectionShell from '../../SectionShell.jsx';
 import { SAMPLE_AUTOMATIONS } from '../sampleData.js';
 
 export default function AutomationSection() {
