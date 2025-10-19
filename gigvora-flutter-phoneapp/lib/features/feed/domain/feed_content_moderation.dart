@@ -147,7 +147,7 @@ class FeedContentModeration {
 
     if (sanitisedContent.isEmpty) {
       throw const FeedModerationException(
-        'Add more detail before publishing to the live feed.',
+        'Add more detail before publishing to the timeline.',
         reasons: <String>['Share at least three words so the community understands your update.'],
       );
     }
@@ -185,7 +185,7 @@ class FeedContentModeration {
     final words = sanitisedContent.split(RegExp(r'\s+')).where((word) => word.isNotEmpty).toList(growable: false);
     if (words.length < _minWordCount) {
       throw const FeedModerationException(
-        'Add more context before publishing to the live feed.',
+        'Add more context before publishing to the timeline.',
         reasons: <String>['Share at least three words so the community understands your update.'],
       );
     }

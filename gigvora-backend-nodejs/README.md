@@ -1,6 +1,6 @@
 # Gigvora Backend (Node.js)
 
-This Express + Sequelize service powers the Gigvora marketplace experience across web and mobile clients. It provides authentication with email 2FA, profile management, a LinkedIn-style live feed, and search endpoints spanning jobs, gigs, projects, launchpads, and volunteering opportunities.
+This Express + Sequelize service powers the Gigvora marketplace experience across web and mobile clients. It provides authentication with email 2FA, profile management, a LinkedIn-style timeline, and search endpoints spanning jobs, gigs, projects, launchpads, and volunteering opportunities.
 
 ## Getting Started
 
@@ -69,7 +69,7 @@ All values entered through the admin panel are validated and persisted to the ne
 - `POST /api/auth/register/agency` – Register an agency profile.
 - `POST /api/auth/login` – Begin login and request a 2FA email code.
 - `POST /api/auth/verify-2fa` – Complete login using the emailed code.
-- `GET /api/feed` – Fetch the live feed, similar to LinkedIn.
+- `GET /api/feed` – Fetch the timeline, similar to LinkedIn.
 - `POST /api/feed` – Create a new feed post.
 - `GET /api/users/:id` – Retrieve a unified profile page for any member.
 - `GET /api/search` – Explorer search endpoint returning jobs, gigs, projects, launchpads, volunteering, and people.

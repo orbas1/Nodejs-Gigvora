@@ -290,7 +290,7 @@ function createConnectionFromPost(post, session) {
     location: post.location || post?.User?.Profile?.location || 'Gigvora network',
     interests: [interest].filter(Boolean),
     mutualConnections: Math.max(1, Math.ceil(Math.random() * 3)),
-    reason: 'Recently active on the live feed — say hello while the thread is fresh.',
+    reason: 'Recently active on the timeline — say hello while the thread is fresh.',
   };
 }
 

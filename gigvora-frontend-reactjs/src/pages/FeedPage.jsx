@@ -579,7 +579,7 @@ function FeedComposer({ onCreate, session }) {
             <p className="text-xs text-slate-500">{selectedOption.description}</p>
             <div className="relative">
               <label htmlFor={textareaId} className="sr-only">
-                Compose live feed update
+                Compose timeline update
               </label>
               <textarea
                 id={textareaId}
@@ -717,7 +717,7 @@ function FeedComposer({ onCreate, session }) {
                 }`}
               >
                 {submitting ? <ArrowPathIcon className="h-4 w-4 animate-spin" /> : <ShareIcon className="h-4 w-4" />}
-                {submitting ? 'Publishing…' : 'Publish to live feed'}
+                {submitting ? 'Publishing…' : 'Publish to timeline'}
               </button>
             </div>
           </div>
@@ -1407,7 +1407,7 @@ export default function FeedPage() {
   const handleComposerCreate = useCallback(
     async (payload) => {
       if (!hasFeedAccess) {
-        throw new Error('Your current workspace role cannot publish to the live feed. Switch roles to continue.');
+        throw new Error('Your current workspace role cannot publish to the timeline. Switch roles to continue.');
       }
 
       if (!session?.id) {
@@ -1505,7 +1505,7 @@ export default function FeedPage() {
             composerError.body.details.reasons.length
           ) {
             throw new ContentModerationError(
-              composerError.body?.message || 'The live feed service rejected your update.',
+              composerError.body?.message || 'The timeline service rejected your update.',
               {
                 reasons: composerError.body.details.reasons,
                 signals: composerError.body.details.signals ?? [],
@@ -1514,11 +1514,11 @@ export default function FeedPage() {
           }
 
           throw new Error(
-            composerError.body?.message || 'The live feed service rejected your update. Please try again.',
+            composerError.body?.message || 'The timeline service rejected your update. Please try again.',
           );
         }
 
-        throw new Error('We were unable to reach the live feed service. Check your connection and retry.');
+        throw new Error('We were unable to reach the timeline service. Check your connection and retry.');
       }
     },
     [hasFeedAccess, session, refresh],
@@ -1547,7 +1547,7 @@ export default function FeedPage() {
     if (!posts.length) {
       return (
         <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
-          {loading ? 'Syncing feed…' : 'No live updates yet. Share something to start the conversation!'}
+          {loading ? 'Syncing timeline…' : 'No timeline updates yet. Share something to start the conversation!'}
         </div>
       );
     }
@@ -1573,9 +1573,9 @@ export default function FeedPage() {
         <div className="absolute -left-16 bottom-10 h-80 w-80 rounded-full bg-indigo-200/20 blur-[140px]" aria-hidden="true" />
         <div className="relative mx-auto max-w-4xl px-6">
           <PageHeader
-            eyebrow="Live feed"
+            eyebrow="Timeline"
             title="Switch to an eligible workspace"
-            description="Your current role does not grant access to the community feed. Swap to a user, freelancer, agency, mentor, headhunter, or company workspace to engage in real time."
+            description="Your current role does not grant access to the timeline. Swap to a user, freelancer, agency, mentor, headhunter, or company workspace to engage in real time."
             actions={
               <div className="flex flex-wrap gap-3">
                 <Link
@@ -1613,7 +1613,7 @@ export default function FeedPage() {
           <div className="mt-10 rounded-3xl border border-slate-200 bg-white/95 p-8 shadow-soft">
             <h2 className="text-base font-semibold text-slate-900">Why access is restricted</h2>
             <p className="mt-3 text-sm text-slate-600">
-              The live feed holds operating updates. Restricting access keeps launches safe. Switch to an eligible membership or contact support for a review.
+              The timeline hosts sensitive operating updates. Restricting access keeps launches safe. Switch to an eligible membership or contact support for a review.
             </p>
           </div>
         </div>
@@ -1628,7 +1628,7 @@ export default function FeedPage() {
       <div className="absolute -left-16 bottom-10 h-80 w-80 rounded-full bg-accent/10 blur-[140px]" aria-hidden="true" />
       <div className="relative mx-auto max-w-6xl px-6">
         <PageHeader
-          eyebrow="Live feed"
+          eyebrow="Timeline"
           title="Real-time stories and opportunity drops"
           description="Stay close to the community pulse. React, reply, and share launches, roles, gigs, volunteer missions, and Experience Launchpad cohorts as they happen."
           actions={

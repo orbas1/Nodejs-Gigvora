@@ -42,12 +42,12 @@ class FeedScreen extends ConsumerWidget {
 
     if (!isAuthenticated) {
       return GigvoraScaffold(
-        title: 'Live Feed',
+        title: 'Timeline',
         subtitle: 'Stories from the Gigvora community',
         body: Center(
           child: _FeedAccessCard(
             icon: Icons.lock_outline,
-            title: 'Sign in to engage with the live feed',
+            title: 'Sign in to engage with the timeline',
             message:
                 'Use your Gigvora credentials to view community updates, share wins, and react in real time.',
             primaryLabel: 'Sign in',
@@ -61,14 +61,14 @@ class FeedScreen extends ConsumerWidget {
 
     if (!hasFeedAccess) {
       return GigvoraScaffold(
-        title: 'Live Feed',
+        title: 'Timeline',
         subtitle: 'Stories from the Gigvora community',
         body: Center(
           child: _FeedAccessCard(
             icon: Icons.verified_user_outlined,
             title: 'Switch to an eligible workspace',
             message:
-                'Live feed access is reserved for user, freelancer, agency, company, mentor, headhunter, or admin workspaces. Switch roles or request an upgrade to continue.',
+                'Timeline access is reserved for user, freelancer, agency, company, mentor, headhunter, or admin workspaces. Switch roles or request an upgrade to continue.',
             primaryLabel: 'Manage memberships',
             onPrimary: () => context.go('/home'),
             secondaryLabel: 'View dashboards',
@@ -129,7 +129,7 @@ class FeedScreen extends ConsumerWidget {
           icon: Icons.sync,
           background: Color(0xFFF3E8FF),
           foreground: Color(0xFF6B21A8),
-          message: 'Reconnecting to the live feed stream…',
+          message: 'Reconnecting to the timeline stream…',
         ),
       );
       columnChildren.add(const SizedBox(height: 12));
@@ -235,7 +235,7 @@ class FeedScreen extends ConsumerWidget {
     );
 
     return GigvoraScaffold(
-      title: 'Live Feed',
+      title: 'Timeline',
       subtitle: 'Stories from the Gigvora community',
       actions: [
         IconButton(
@@ -506,7 +506,7 @@ class _FeedComposerState extends State<_FeedComposer> {
       setState(() => _selectedType = FeedPostType.update);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Your update is publishing to the live feed.'),
+          content: Text('Your update is publishing to the timeline.'),
           duration: Duration(seconds: 3),
         ),
       );
@@ -671,7 +671,7 @@ class _FeedComposerState extends State<_FeedComposer> {
             child: FilledButton.icon(
               onPressed: _submitting ? null : _handleSubmit,
               icon: const Icon(Icons.send_rounded),
-              label: Text(_submitting ? 'Publishing…' : 'Publish to live feed'),
+              label: Text(_submitting ? 'Publishing…' : 'Publish to timeline'),
             ),
           ),
         ],

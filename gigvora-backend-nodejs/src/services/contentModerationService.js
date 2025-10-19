@@ -293,7 +293,7 @@ export function evaluateFeedPostContent(input, options = {}) {
   if (!content) {
     return {
       decision: 'reject',
-      reasons: ['Add more detail before publishing to the live feed.'],
+      reasons: ['Add more detail before publishing to the timeline.'],
       signals: [],
       content,
       summary,
