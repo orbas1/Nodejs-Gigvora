@@ -1,103 +1,103 @@
 import { apiClient } from './apiClient.js';
 
-export async function listJobApplications(params = {}) {
+async function listJobApplications(params = {}) {
   return apiClient.get('/admin/job-applications', { params });
 }
 
-export async function fetchJobApplication(applicationId) {
+async function fetchJobApplication(applicationId) {
   if (!applicationId) {
     throw new Error('applicationId is required');
   }
   return apiClient.get(`/admin/job-applications/${applicationId}`);
 }
 
-export async function createJobApplication(payload = {}) {
+async function createAdminJobApplication(payload = {}) {
   return apiClient.post('/admin/job-applications', payload);
 }
 
-export async function updateJobApplication(applicationId, payload = {}) {
+async function updateAdminJobApplication(applicationId, payload = {}) {
   if (!applicationId) {
     throw new Error('applicationId is required');
   }
   return apiClient.put(`/admin/job-applications/${applicationId}`, payload);
 }
 
-export async function deleteJobApplication(applicationId) {
+async function deleteAdminJobApplication(applicationId) {
   if (!applicationId) {
     throw new Error('applicationId is required');
   }
   return apiClient.delete(`/admin/job-applications/${applicationId}`);
 }
 
-export async function createJobApplicationNote(applicationId, payload = {}) {
+async function createJobApplicationNote(applicationId, payload = {}) {
   if (!applicationId) {
     throw new Error('applicationId is required');
   }
   return apiClient.post(`/admin/job-applications/${applicationId}/notes`, payload);
 }
 
-export async function updateJobApplicationNote(applicationId, noteId, payload = {}) {
+async function updateJobApplicationNote(applicationId, noteId, payload = {}) {
   if (!applicationId || !noteId) {
     throw new Error('applicationId and noteId are required');
   }
   return apiClient.put(`/admin/job-applications/${applicationId}/notes/${noteId}`, payload);
 }
 
-export async function deleteJobApplicationNote(applicationId, noteId) {
+async function deleteJobApplicationNote(applicationId, noteId) {
   if (!applicationId || !noteId) {
     throw new Error('applicationId and noteId are required');
   }
   return apiClient.delete(`/admin/job-applications/${applicationId}/notes/${noteId}`);
 }
 
-export async function createJobApplicationInterview(applicationId, payload = {}) {
+async function createJobApplicationInterview(applicationId, payload = {}) {
   if (!applicationId) {
     throw new Error('applicationId is required');
   }
   return apiClient.post(`/admin/job-applications/${applicationId}/interviews`, payload);
 }
 
-export async function updateJobApplicationInterview(applicationId, interviewId, payload = {}) {
+async function updateJobApplicationInterview(applicationId, interviewId, payload = {}) {
   if (!applicationId || !interviewId) {
     throw new Error('applicationId and interviewId are required');
   }
   return apiClient.put(`/admin/job-applications/${applicationId}/interviews/${interviewId}`, payload);
 }
 
-export async function deleteJobApplicationInterview(applicationId, interviewId) {
+async function deleteJobApplicationInterview(applicationId, interviewId) {
   if (!applicationId || !interviewId) {
     throw new Error('applicationId and interviewId are required');
   }
   return apiClient.delete(`/admin/job-applications/${applicationId}/interviews/${interviewId}`);
 }
 
-export async function createJobApplicationDocument(applicationId, payload = {}) {
+async function createJobApplicationDocument(applicationId, payload = {}) {
   if (!applicationId) {
     throw new Error('applicationId is required');
   }
   return apiClient.post(`/admin/job-applications/${applicationId}/documents`, payload);
 }
 
-export async function updateJobApplicationDocument(applicationId, documentId, payload = {}) {
+async function updateJobApplicationDocument(applicationId, documentId, payload = {}) {
   if (!applicationId || !documentId) {
     throw new Error('applicationId and documentId are required');
   }
   return apiClient.put(`/admin/job-applications/${applicationId}/documents/${documentId}`, payload);
 }
 
-export async function deleteJobApplicationDocument(applicationId, documentId) {
+async function deleteJobApplicationDocument(applicationId, documentId) {
   if (!applicationId || !documentId) {
     throw new Error('applicationId and documentId are required');
   }
   return apiClient.delete(`/admin/job-applications/${applicationId}/documents/${documentId}`);
 }
 
-export default {
+const adminJobApplicationService = {
   listJobApplications,
   fetchJobApplication,
-  createJobApplication,
-  updateJobApplication,
-  deleteJobApplication,
+  createJobApplication: createAdminJobApplication,
+  updateJobApplication: updateAdminJobApplication,
+  deleteJobApplication: deleteAdminJobApplication,
   createJobApplicationNote,
   updateJobApplicationNote,
   deleteJobApplicationNote,
@@ -107,10 +107,16 @@ export default {
   createJobApplicationDocument,
   updateJobApplicationDocument,
   deleteJobApplicationDocument,
-export function fetchJobApplicationWorkspace(userId, { signal, limit } = {}) {
+};
+
+function assertUserId(userId, message) {
   if (!userId) {
-    throw new Error('userId is required to load the job application workspace.');
+    throw new Error(message);
   }
+}
+
+async function fetchJobApplicationWorkspace(userId, { signal, limit } = {}) {
+  assertUserId(userId, 'userId is required to load the job application workspace.');
   const params = { ownerId: userId };
   if (limit != null) {
     params.limit = limit;
@@ -118,47 +124,37 @@ export function fetchJobApplicationWorkspace(userId, { signal, limit } = {}) {
   return apiClient.get('/job-applications/workspace', { params, signal });
 }
 
-export function createJobApplication(userId, payload) {
-  if (!userId) {
-    throw new Error('userId is required to create a job application.');
-  }
+async function createWorkspaceJobApplication(userId, payload) {
+  assertUserId(userId, 'userId is required to create a job application.');
   return apiClient.post('/job-applications', { ...payload, ownerId: userId });
 }
 
-export function updateJobApplication(userId, applicationId, payload) {
-  if (!userId) {
-    throw new Error('userId is required to update a job application.');
-  }
+async function updateWorkspaceJobApplication(userId, applicationId, payload) {
+  assertUserId(userId, 'userId is required to update a job application.');
   if (!applicationId) {
     throw new Error('applicationId is required to update a job application.');
   }
   return apiClient.patch(`/job-applications/${applicationId}`, { ...payload, ownerId: userId });
 }
 
-export function archiveJobApplication(userId, applicationId) {
-  if (!userId) {
-    throw new Error('userId is required to archive a job application.');
-  }
+async function archiveWorkspaceJobApplication(userId, applicationId) {
+  assertUserId(userId, 'userId is required to archive a job application.');
   if (!applicationId) {
     throw new Error('applicationId is required to archive a job application.');
   }
   return apiClient.delete(`/job-applications/${applicationId}`, { params: { ownerId: userId } });
 }
 
-export function createJobApplicationInterview(userId, applicationId, payload) {
-  if (!userId) {
-    throw new Error('userId is required to create an interview.');
-  }
+async function createWorkspaceJobApplicationInterview(userId, applicationId, payload) {
+  assertUserId(userId, 'userId is required to create an interview.');
   if (!applicationId) {
     throw new Error('applicationId is required to create an interview.');
   }
   return apiClient.post(`/job-applications/${applicationId}/interviews`, { ...payload, ownerId: userId });
 }
 
-export function updateJobApplicationInterview(userId, applicationId, interviewId, payload) {
-  if (!userId) {
-    throw new Error('userId is required to update an interview.');
-  }
+async function updateWorkspaceJobApplicationInterview(userId, applicationId, interviewId, payload) {
+  assertUserId(userId, 'userId is required to update an interview.');
   if (!applicationId || !interviewId) {
     throw new Error('applicationId and interviewId are required to update an interview.');
   }
@@ -168,10 +164,8 @@ export function updateJobApplicationInterview(userId, applicationId, interviewId
   });
 }
 
-export function deleteJobApplicationInterview(userId, applicationId, interviewId) {
-  if (!userId) {
-    throw new Error('userId is required to delete an interview.');
-  }
+async function deleteWorkspaceJobApplicationInterview(userId, applicationId, interviewId) {
+  assertUserId(userId, 'userId is required to delete an interview.');
   if (!applicationId || !interviewId) {
     throw new Error('applicationId and interviewId are required to delete an interview.');
   }
@@ -180,47 +174,37 @@ export function deleteJobApplicationInterview(userId, applicationId, interviewId
   });
 }
 
-export function createJobApplicationFavourite(userId, payload) {
-  if (!userId) {
-    throw new Error('userId is required to create a favourite.');
-  }
+async function createWorkspaceJobApplicationFavourite(userId, payload) {
+  assertUserId(userId, 'userId is required to create a favourite.');
   return apiClient.post('/job-applications/favourites', { ...payload, ownerId: userId });
 }
 
-export function updateJobApplicationFavourite(userId, favouriteId, payload) {
-  if (!userId) {
-    throw new Error('userId is required to update a favourite.');
-  }
+async function updateWorkspaceJobApplicationFavourite(userId, favouriteId, payload) {
+  assertUserId(userId, 'userId is required to update a favourite.');
   if (!favouriteId) {
     throw new Error('favouriteId is required to update a favourite.');
   }
   return apiClient.patch(`/job-applications/favourites/${favouriteId}`, { ...payload, ownerId: userId });
 }
 
-export function deleteJobApplicationFavourite(userId, favouriteId) {
-  if (!userId) {
-    throw new Error('userId is required to delete a favourite.');
-  }
+async function deleteWorkspaceJobApplicationFavourite(userId, favouriteId) {
+  assertUserId(userId, 'userId is required to delete a favourite.');
   if (!favouriteId) {
     throw new Error('favouriteId is required to delete a favourite.');
   }
   return apiClient.delete(`/job-applications/favourites/${favouriteId}`, { params: { ownerId: userId } });
 }
 
-export function createJobApplicationResponse(userId, applicationId, payload) {
-  if (!userId) {
-    throw new Error('userId is required to log a response.');
-  }
+async function createWorkspaceJobApplicationResponse(userId, applicationId, payload) {
+  assertUserId(userId, 'userId is required to log a response.');
   if (!applicationId) {
     throw new Error('applicationId is required to log a response.');
   }
   return apiClient.post(`/job-applications/${applicationId}/responses`, { ...payload, ownerId: userId });
 }
 
-export function updateJobApplicationResponse(userId, applicationId, responseId, payload) {
-  if (!userId) {
-    throw new Error('userId is required to update a response.');
-  }
+async function updateWorkspaceJobApplicationResponse(userId, applicationId, responseId, payload) {
+  assertUserId(userId, 'userId is required to update a response.');
   if (!applicationId || !responseId) {
     throw new Error('applicationId and responseId are required to update a response.');
   }
@@ -230,10 +214,8 @@ export function updateJobApplicationResponse(userId, applicationId, responseId, 
   });
 }
 
-export function deleteJobApplicationResponse(userId, applicationId, responseId) {
-  if (!userId) {
-    throw new Error('userId is required to delete a response.');
-  }
+async function deleteWorkspaceJobApplicationResponse(userId, applicationId, responseId) {
+  assertUserId(userId, 'userId is required to delete a response.');
   if (!applicationId || !responseId) {
     throw new Error('applicationId and responseId are required to delete a response.');
   }
@@ -242,18 +224,58 @@ export function deleteJobApplicationResponse(userId, applicationId, responseId) 
   });
 }
 
-export default {
+const workspaceJobApplicationService = {
   fetchJobApplicationWorkspace,
-  createJobApplication,
-  updateJobApplication,
-  archiveJobApplication,
+  createJobApplication: createWorkspaceJobApplication,
+  updateJobApplication: updateWorkspaceJobApplication,
+  archiveJobApplication: archiveWorkspaceJobApplication,
+  createJobApplicationInterview: createWorkspaceJobApplicationInterview,
+  updateJobApplicationInterview: updateWorkspaceJobApplicationInterview,
+  deleteJobApplicationInterview: deleteWorkspaceJobApplicationInterview,
+  createJobApplicationFavourite: createWorkspaceJobApplicationFavourite,
+  updateJobApplicationFavourite: updateWorkspaceJobApplicationFavourite,
+  deleteJobApplicationFavourite: deleteWorkspaceJobApplicationFavourite,
+  createJobApplicationResponse: createWorkspaceJobApplicationResponse,
+  updateJobApplicationResponse: updateWorkspaceJobApplicationResponse,
+  deleteJobApplicationResponse: deleteWorkspaceJobApplicationResponse,
+};
+
+export { adminJobApplicationService, workspaceJobApplicationService };
+
+export {
+  listJobApplications,
+  fetchJobApplication,
+  createAdminJobApplication as createJobApplication,
+  updateAdminJobApplication as updateJobApplication,
+  deleteAdminJobApplication as deleteJobApplication,
+  createJobApplicationNote,
+  updateJobApplicationNote,
+  deleteJobApplicationNote,
   createJobApplicationInterview,
   updateJobApplicationInterview,
   deleteJobApplicationInterview,
-  createJobApplicationFavourite,
-  updateJobApplicationFavourite,
-  deleteJobApplicationFavourite,
-  createJobApplicationResponse,
-  updateJobApplicationResponse,
-  deleteJobApplicationResponse,
+  createJobApplicationDocument,
+  updateJobApplicationDocument,
+  deleteJobApplicationDocument,
+};
+
+export {
+  fetchJobApplicationWorkspace,
+  createWorkspaceJobApplication,
+  updateWorkspaceJobApplication,
+  archiveWorkspaceJobApplication,
+  createWorkspaceJobApplicationInterview,
+  updateWorkspaceJobApplicationInterview,
+  deleteWorkspaceJobApplicationInterview,
+  createWorkspaceJobApplicationFavourite,
+  updateWorkspaceJobApplicationFavourite,
+  deleteWorkspaceJobApplicationFavourite,
+  createWorkspaceJobApplicationResponse,
+  updateWorkspaceJobApplicationResponse,
+  deleteWorkspaceJobApplicationResponse,
+};
+
+export default {
+  admin: adminJobApplicationService,
+  workspace: workspaceJobApplicationService,
 };
