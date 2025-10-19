@@ -9,8 +9,11 @@ import { useAgencyOverview } from '../../hooks/useAgencyOverview.js';
 const sections = [
   {
     id: 'agency-overview',
-    title: 'Home',
-    description: 'Daily snapshot',
+      title: 'Home',
+      description: 'Daily snapshot',
+    },
+  ];
+
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import AgencyProfileWorkspace from '../../components/dashboard/agency/AgencyProfileWorkspace.jsx';

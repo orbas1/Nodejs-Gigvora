@@ -1,7 +1,7 @@
 import DashboardLayout from '../../../layouts/DashboardLayout.jsx';
 import useSession from '../../../hooks/useSession.js';
 import NetworkSection from './sections/NetworkSection.jsx';
-import { AVAILABLE_DASHBOARDS } from './freelancer/menuConfig.js';
+import { AVAILABLE_DASHBOARDS } from './menuConfig.js';
 
 const MENU_SECTIONS = [
   {
