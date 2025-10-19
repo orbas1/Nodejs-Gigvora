@@ -154,6 +154,8 @@ export async function deleteAdminBlogComment(commentId, { signal } = {}) {
     throw new Error('A comment id is required.');
   }
   return apiClient.delete(`/admin/blog/comments/${commentId}`, { signal });
+}
+
 export async function fetchAgencyBlogWorkspaces({ signal } = {}) {
   const data = await apiClient.get('/agency/blog/workspaces', { signal });
   return data?.results ?? [];

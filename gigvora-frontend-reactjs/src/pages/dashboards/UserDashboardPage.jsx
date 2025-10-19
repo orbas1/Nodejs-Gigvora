@@ -354,6 +354,10 @@ function buildMenuSections(data) {
           description: 'Messages',
           tags: ['comm'],
           sectionId: 'job-hub-replies',
+        },
+      ],
+    },
+    {
       label: 'Mentoring',
       items: [
         {
@@ -382,6 +386,10 @@ function buildMenuSections(data) {
           description: 'Feedback log for every mentor.',
           tags: ['insights'],
           sectionId: 'mentoring-reviews',
+        },
+      ],
+    },
+    {
       label: 'Projects',
       items: [
         {
@@ -389,6 +397,10 @@ function buildMenuSections(data) {
           description: `${formatNumber(openProjectsCount)} open · ${formatNumber(totalBids)} bids · ${formatNumber(totalInvitations)} invites`,
           href: '/dashboard/user/projects',
           sectionId: 'project-workspace',
+        },
+      ],
+    },
+    {
       label: 'Events',
       items: [
         {
@@ -457,7 +469,6 @@ function buildMenuSections(data) {
           sectionId: 'project-gig-purchased',
         },
         {
-          name: 'Stories',
           name: 'Gig hub',
           description: 'Timeline, chat, escrow, and reviews in one place.',
           tags: ['timeline', 'chat'],
@@ -651,6 +662,10 @@ function buildMenuSections(data) {
           description: 'Reserves overview',
           tags: ['escrow'],
           sectionId: 'wallet-escrow',
+        },
+      ],
+    },
+    {
       label: 'Alerts',
       items: [
         {
@@ -855,18 +870,9 @@ export default function UserDashboardPage() {
   const [activeMenuItem, setActiveMenuItem] = useState(null);
   const [escrowView, setEscrowView] = useState('overview');
 
-  const handleMenuSelect = (itemId, item) => {
-    setActiveMenuItem(itemId);
-    if (itemId === 'escrow-overview') {
-      setEscrowView('overview');
-    } else if (itemId === 'escrow-release') {
-      setEscrowView('release');
-    } else if (itemId === 'escrow-disputes') {
-      setEscrowView('disputes');
-    }
-
-    if (item?.href && typeof window !== 'undefined') {
-      if (item.href.startsWith('http')) {
+  if (typeof window !== 'undefined') {
+    const item = {}; // placeholder for refactoring
+    if (item?.href && item.href.startsWith('http')) {
         window.open(item.href, item.target ?? '_blank', 'noreferrer');
       } else {
         window.location.assign(item.href);
@@ -1044,10 +1050,8 @@ export default function UserDashboardPage() {
       sections={[]}
       profile={profileCard}
       availableDashboards={availableDashboards}
-      onMenuItemSelect={handleDashboardMenuSelect}
       activeMenuItem={activeMenuItemId}
-      activeMenuItem={activeMenuItem}
-      onMenuItemSelect={handleMenuSelect}
+      onMenuItemSelect={handleDashboardMenuSelect}
     >
       <div className="space-y-10">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -1103,6 +1107,7 @@ export default function UserDashboardPage() {
               setActiveMenuItemId(matchingItem.id);
             }
           }}
+        />
         <section id="messaging-inbox">
           <DashboardInboxWorkspace />
         </section>
@@ -2758,4 +2763,3 @@ export default function UserDashboardPage() {
     </DashboardAccessGuard>
   );
 }
-  const canEditMentoring = Boolean(isAuthenticated && userId);
