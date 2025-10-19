@@ -19,8 +19,6 @@ import {
 import { ValidationError, NotFoundError, ConflictError } from '../utils/errors.js';
 import r2Client from '../utils/r2Client.js';
 
-const USER_SAFE_ATTRIBUTES = ['id', 'firstName', 'lastName', 'email', 'userType'];
-
 function withTransaction(externalTransaction, handler) {
   if (externalTransaction) {
     return handler(externalTransaction);
@@ -42,10 +40,41 @@ function buildAuditTrail(existingTrail, entry) {
   return trail;
 }
 
+function normaliseInteger(value, { min, max, fallback }) {
+  const numeric = Number.parseInt(value, 10);
+  if (Number.isNaN(numeric)) {
+    return fallback;
+  }
+  if (numeric < min) {
+    return min;
+  }
+  if (numeric > max) {
+    return max;
+  }
+  return numeric;
+}
+
+function normaliseOptionalInteger(value, { min, max }) {
+  if (value == null || value === '') {
+    return null;
+  }
+  const numeric = Number.parseInt(value, 10);
+  if (Number.isNaN(numeric)) {
+    return null;
+  }
+  if (numeric < min) {
+    return min;
+  }
+  if (numeric > max) {
+    return max;
+  }
+  return numeric;
+}
+
 const LIKE_OPERATOR = Op.iLike ?? Op.like;
 const ACTIVE_DISPUTE_STATUSES = new Set(['open', 'awaiting_customer', 'under_review']);
 
-function normalizeList(value) {
+function normaliseList(value) {
   if (value == null) {
     return [];
   }
@@ -61,7 +90,11 @@ function normalizeList(value) {
     );
   }
 
-  return normalizeList(String(value).split(','));
+  return normaliseList(String(value).split(','));
+}
+
+function normaliseChecklist(value) {
+  return normaliseList(value);
 }
 
 function parseInteger(value, fallback = null) {
@@ -78,6 +111,25 @@ function parseDate(value) {
   }
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function normaliseDateInput(value) {
+  if (value == null || value === '') {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) {
+      throw new ValidationError('Invalid date supplied');
+    }
+    return value;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new ValidationError('Invalid date supplied');
+  }
+  return date;
 }
 
 function computeOpenDurationHours(openedAt, resolvedAt) {
@@ -128,6 +180,16 @@ function isDueSoonCase(dispute, windowHours = 48) {
   return deadlines.some((timestamp) => timestamp >= now && timestamp <= threshold);
 }
 
+const DEFAULT_WORKFLOW_SETTINGS = Object.freeze({
+  responseSlaHours: 24,
+  resolutionSlaHours: 120,
+  autoEscalateHours: 48,
+  autoCloseHours: 72,
+  evidenceRequirements: [],
+  notificationEmails: [],
+  defaultAssigneeId: null,
+});
+
 function formatUserSummary(instance) {
   if (!instance) {
     return null;
@@ -143,192 +205,6 @@ function formatUserSummary(instance) {
     email: plain.email ?? null,
     avatarUrl: plain.avatarUrl ?? plain.profileImageUrl ?? null,
     displayName: plain.displayName ?? (fullName || plain.email || null),
-function normaliseInteger(value, { min, max, fallback }) {
-  const numeric = Number.parseInt(value, 10);
-  if (Number.isNaN(numeric)) {
-    return fallback;
-  }
-  if (numeric < min) {
-    return min;
-  }
-  if (numeric > max) {
-    return max;
-  }
-  return numeric;
-}
-
-function normaliseOptionalInteger(value, { min, max }) {
-  if (value == null || value === '') {
-    return null;
-  }
-  const numeric = Number.parseInt(value, 10);
-  if (Number.isNaN(numeric)) {
-    return null;
-  }
-  if (numeric < min) {
-    return min;
-  }
-  if (numeric > max) {
-    return max;
-  }
-  return numeric;
-}
-
-function normaliseList(value) {
-  if (Array.isArray(value)) {
-    return value
-      .map((entry) => (entry == null ? '' : `${entry}`.trim()))
-      .filter(Boolean);
-  }
-  if (typeof value === 'string') {
-    return value
-      .split(/[\n,]/)
-      .map((entry) => entry.trim())
-function coerceInteger(value) {
-  if (value == null || value === '') {
-    return null;
-  }
-  const parsed = Number.parseInt(value, 10);
-  if (Number.isNaN(parsed)) {
-    return null;
-  }
-  return parsed;
-}
-
-function normalizeArrayInput(value) {
-  if (Array.isArray(value)) {
-    return value;
-  }
-  if (value == null) {
-    return [];
-  }
-  if (typeof value === 'string') {
-    return value
-      .split(',')
-      .map((item) => item.trim())
-      .filter(Boolean);
-  }
-  return [];
-}
-
-function toDisputeCaseDto(caseRecord) {
-  if (!caseRecord) {
-    return null;
-  }
-  const dispute = caseRecord.toPublicObject();
-  if (caseRecord.transaction?.toPublicObject) {
-    dispute.transaction = caseRecord.transaction.toPublicObject();
-  }
-  if (Array.isArray(caseRecord.events)) {
-    dispute.events = caseRecord.events.map((event) => event.toPublicObject());
-  }
-  return dispute;
-}
-
-function aggregateCountRows(rows, key) {
-  const aggregate = {};
-  for (const row of rows ?? []) {
-    const label = row?.get ? row.get(key) : row?.[key];
-    if (!label) {
-      continue;
-    }
-    const countRaw = row?.get ? row.get('count') : row?.count;
-    const count = Number.parseInt(countRaw, 10);
-    aggregate[label] = Number.isNaN(count) ? 0 : count;
-  }
-  return aggregate;
-}
-
-function normaliseChecklist(value) {
-  return normaliseList(value);
-}
-
-function escapeLikeTerm(value) {
-  return value.replace(/[\\%_]/g, '\\$&');
-}
-
-function buildTransactionInclude({ attributes, required = false } = {}) {
-  return {
-    model: EscrowTransaction,
-    as: 'transaction',
-    required,
-    attributes:
-      attributes ?? ['id', 'reference', 'amount', 'currencyCode', 'status', 'scheduledReleaseAt'],
-  };
-}
-
-function buildEventInclude(limit = 5) {
-  return {
-    model: DisputeEvent,
-    as: 'events',
-    separate: true,
-    limit,
-    order: [['eventAt', 'DESC']],
-    attributes: ['id', 'actorId', 'actorType', 'actionType', 'notes', 'eventAt', 'evidenceFileName', 'evidenceUrl'],
-  };
-}
-
-const DEFAULT_WORKFLOW_SETTINGS = Object.freeze({
-  responseSlaHours: 24,
-  resolutionSlaHours: 120,
-  autoEscalateHours: 48,
-  autoCloseHours: 72,
-  evidenceRequirements: [],
-  notificationEmails: [],
-  defaultAssigneeId: null,
-});
-function buildWhereFromConditions(conditions = []) {
-  if (!Array.isArray(conditions) || conditions.length === 0) {
-    return {};
-  }
-
-  if (conditions.length === 1) {
-    return conditions[0];
-  }
-
-  return { [Op.and]: conditions };
-}
-
-function normaliseDateInput(value) {
-  if (value == null || value === '') {
-    return null;
-  }
-
-  if (value instanceof Date) {
-    if (Number.isNaN(value.getTime())) {
-      throw new ValidationError('Invalid date supplied');
-    }
-    return value;
-  }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    throw new ValidationError('Invalid date supplied');
-  }
-  return date;
-}
-
-function formatUserRecord(record) {
-  if (!record) {
-    return null;
-  }
-
-  const plain = typeof record.get === 'function' ? record.get({ plain: true }) : record;
-  if (!plain || typeof plain !== 'object') {
-    return null;
-  }
-
-  const firstName = plain.firstName ?? null;
-  const lastName = plain.lastName ?? null;
-  const derivedName = [firstName, lastName].filter(Boolean).join(' ').trim();
-
-  return {
-    id: plain.id ?? null,
-    firstName,
-    lastName,
-    email: plain.email ?? null,
-    userType: plain.userType ?? null,
-    name: plain.name ?? (derivedName || plain.email || null),
   };
 }
 
@@ -347,17 +223,6 @@ function formatDisputeEventRecord(record) {
 }
 
 function formatDisputeCaseRecord(record, { includeEvents = false } = {}) {
-  const base = typeof record.toPublicObject === 'function' ? record.toPublicObject() : record;
-  const actorInstance = record.get?.('actor') ?? record.actor ?? null;
-  const actor = formatUserRecord(actorInstance);
-
-  return {
-    ...base,
-    actor,
-  };
-}
-
-function formatDisputeRecord(record, { includeEvents = false } = {}) {
   if (!record) {
     return null;
   }
@@ -428,19 +293,19 @@ function buildDisputeQueryComponents(filters = {}) {
   const aggregateInclude = [];
   const normalizedFilters = {};
 
-  const normalizedStages = normalizeList(filters.stage).filter((value) => DISPUTE_STAGES.includes(value));
+  const normalizedStages = normaliseList(filters.stage).filter((value) => DISPUTE_STAGES.includes(value));
   if (normalizedStages.length) {
     where.stage = normalizedStages.length === 1 ? normalizedStages[0] : { [Op.in]: normalizedStages };
     normalizedFilters.stage = normalizedStages;
   }
 
-  const normalizedStatuses = normalizeList(filters.status).filter((value) => DISPUTE_STATUSES.includes(value));
+  const normalizedStatuses = normaliseList(filters.status).filter((value) => DISPUTE_STATUSES.includes(value));
   if (normalizedStatuses.length) {
     where.status = normalizedStatuses.length === 1 ? normalizedStatuses[0] : { [Op.in]: normalizedStatuses };
     normalizedFilters.status = normalizedStatuses;
   }
 
-  const normalizedPriorities = normalizeList(filters.priority).filter((value) => DISPUTE_PRIORITIES.includes(value));
+  const normalizedPriorities = normaliseList(filters.priority).filter((value) => DISPUTE_PRIORITIES.includes(value));
   if (normalizedPriorities.length) {
     where.priority = normalizedPriorities.length === 1 ? normalizedPriorities[0] : { [Op.in]: normalizedPriorities };
     normalizedFilters.priority = normalizedPriorities;
@@ -500,7 +365,7 @@ function buildDisputeQueryComponents(filters = {}) {
     requireTransactionJoin = true;
   }
 
-  const normalizedTransactionStatuses = normalizeList(filters.transactionStatus).filter((value) =>
+  const normalizedTransactionStatuses = normaliseList(filters.transactionStatus).filter((value) =>
     ESCROW_TRANSACTION_STATUSES.includes(value),
   );
   const transactionInclude = {
@@ -546,115 +411,6 @@ function buildDisputeQueryComponents(filters = {}) {
   );
 
   return { where, include, aggregateInclude, normalizedFilters };
-  const base = typeof record.toPublicObject === 'function' ? record.toPublicObject() : record;
-  const transactionInstance = record.get?.('transaction') ?? record.transaction ?? null;
-  const openedByInstance = record.get?.('openedBy') ?? record.openedBy ?? null;
-  const assignedToInstance = record.get?.('assignedTo') ?? record.assignedTo ?? null;
-
-  let transaction = null;
-  if (transactionInstance) {
-    transaction =
-      typeof transactionInstance.toPublicObject === 'function'
-        ? transactionInstance.toPublicObject()
-        : transactionInstance;
-
-    const accountInstance = transactionInstance.get?.('account') ?? transactionInstance.account ?? null;
-    if (accountInstance) {
-      transaction.account =
-        typeof accountInstance.toPublicObject === 'function'
-          ? accountInstance.toPublicObject()
-          : accountInstance;
-    }
-
-    const initiatorInstance = transactionInstance.get?.('initiator') ?? transactionInstance.initiator ?? null;
-    if (initiatorInstance) {
-      transaction.initiator = formatUserRecord(initiatorInstance);
-    }
-
-    const counterpartyInstance = transactionInstance.get?.('counterparty') ?? transactionInstance.counterparty ?? null;
-    if (counterpartyInstance) {
-      transaction.counterparty = formatUserRecord(counterpartyInstance);
-    }
-  }
-
-  const openedBy = formatUserRecord(openedByInstance);
-  const assignedTo = formatUserRecord(assignedToInstance);
-
-  let events = undefined;
-  if (includeEvents) {
-    const eventRecords = Array.isArray(record.events) ? record.events : [];
-    events = eventRecords.map((eventRecord) => formatDisputeEventRecord(eventRecord));
-  }
-
-  return {
-    ...base,
-    transaction,
-    openedBy,
-    assignedTo,
-    events,
-  };
-}
-
-async function fetchGroupedCounts(groupKey, baseWhere, include = []) {
-  if (!groupKey) {
-    return {};
-  }
-
-  const rows = await DisputeCase.findAll({
-    where: baseWhere,
-    include,
-    attributes: [
-      [sequelize.col(`DisputeCase.${groupKey}`), groupKey],
-      [sequelize.fn('COUNT', sequelize.col('DisputeCase.id')), 'count'],
-    ],
-    group: [sequelize.col(`DisputeCase.${groupKey}`)],
-    raw: true,
-  });
-
-  const summary = {};
-  rows.forEach((row) => {
-    const bucket = row[groupKey];
-    if (bucket == null) {
-      return;
-    }
-    const value = Number.parseInt(row.count, 10);
-    summary[bucket] = Number.isNaN(value) ? 0 : value;
-  });
-
-  return summary;
-}
-
-function buildDisputeInclude({ transactionFilters = [], includeEvents = false } = {}) {
-  const include = [
-    {
-      model: EscrowTransaction,
-      as: 'transaction',
-      include: [
-        { model: EscrowAccount, as: 'account' },
-        { model: User, as: 'initiator', attributes: USER_SAFE_ATTRIBUTES },
-        { model: User, as: 'counterparty', attributes: USER_SAFE_ATTRIBUTES },
-      ],
-      required: Boolean(transactionFilters.length),
-    },
-    { model: User, as: 'openedBy', attributes: USER_SAFE_ATTRIBUTES },
-    { model: User, as: 'assignedTo', attributes: USER_SAFE_ATTRIBUTES },
-  ];
-
-  if (transactionFilters.length) {
-    include[0].where = { [Op.or]: transactionFilters };
-  }
-
-  if (includeEvents) {
-    include.push({
-      model: DisputeEvent,
-      as: 'events',
-      include: [{ model: User, as: 'actor', attributes: USER_SAFE_ATTRIBUTES }],
-      separate: true,
-      order: [['eventAt', 'ASC']],
-    });
-  }
-
-  return include;
 }
 
 export async function ensureEscrowAccount({ userId, provider, currencyCode = 'USD', metadata }) {
@@ -908,9 +664,7 @@ export async function updateEscrowTransaction(
 
     if (payload.status) {
       if (!ESCROW_TRANSACTION_STATUSES.includes(payload.status)) {
-        throw new ValidationError(
-          `Status must be one of: ${ESCROW_TRANSACTION_STATUSES.join(', ')}`,
-        );
+        throw new ValidationError(`Status must be one of: ${ESCROW_TRANSACTION_STATUSES.join(', ')}`);
       }
       updates.status = payload.status;
 
@@ -1122,7 +876,8 @@ export async function createDisputeCase(payload, options = {}) {
     throw new ValidationError(`priority must be one of: ${DISPUTE_PRIORITIES.join(', ')}`);
   }
 
-  if (!DISPUTE_REASON_CODES.includes(reasonCode)) {
+  const normalizedReasonCode = String(reasonCode).trim();
+  if (!DISPUTE_REASON_CODES.includes(normalizedReasonCode)) {
     throw new ValidationError(`reasonCode must be one of: ${DISPUTE_REASON_CODES.join(', ')}`);
   }
 
@@ -1148,7 +903,7 @@ export async function createDisputeCase(payload, options = {}) {
         openedById,
         assignedToId,
         priority,
-        reasonCode,
+        reasonCode: normalizedReasonCode,
         summary,
         customerDeadlineAt: customerDeadlineAt ?? null,
         providerDeadlineAt: providerDeadlineAt ?? null,
@@ -1165,7 +920,7 @@ export async function createDisputeCase(payload, options = {}) {
         auditTrail: buildAuditTrail(transactionRecord.auditTrail, {
           action: 'dispute_opened',
           actorId: openedById,
-          reasonCode,
+          reasonCode: normalizedReasonCode,
         }),
       },
       { transaction: trx },
@@ -1229,12 +984,6 @@ export async function createDisputeCase(payload, options = {}) {
     });
 
     return formatDisputeCaseRecord(detailedDispute, { includeEvents: true });
-    const created = await DisputeCase.findByPk(dispute.id, {
-      transaction: trx,
-      include: buildDisputeInclude(),
-    });
-
-    return formatDisputeRecord(created);
   });
 }
 
@@ -1666,6 +1415,64 @@ export async function getDisputeCaseDetail(disputeCaseId) {
   return formatDisputeCaseRecord(dispute, { includeEvents: true });
 }
 
+export async function getDisputeCaseById(disputeCaseId, options = {}) {
+  const id = parseInteger(disputeCaseId);
+  if (id == null) {
+    throw new ValidationError('A valid disputeCaseId is required');
+  }
+
+  const dispute = await DisputeCase.findByPk(id, {
+    transaction: options.transaction,
+    include: [
+      {
+        model: EscrowTransaction,
+        as: 'transaction',
+        attributes: [
+          'id',
+          'reference',
+          'status',
+          'type',
+          'amount',
+          'netAmount',
+          'currencyCode',
+          'scheduledReleaseAt',
+          'releasedAt',
+          'refundedAt',
+        ],
+      },
+      {
+        model: User,
+        as: 'openedBy',
+        attributes: ['id', 'firstName', 'lastName', 'email', 'avatarUrl'],
+      },
+      {
+        model: User,
+        as: 'assignedTo',
+        attributes: ['id', 'firstName', 'lastName', 'email', 'avatarUrl'],
+      },
+      {
+        model: DisputeEvent,
+        as: 'events',
+        separate: true,
+        order: [['eventAt', 'ASC']],
+        include: [
+          {
+            model: User,
+            as: 'actor',
+            attributes: ['id', 'firstName', 'lastName', 'email', 'avatarUrl'],
+          },
+        ],
+      },
+    ],
+  });
+
+  if (!dispute) {
+    throw new NotFoundError('Dispute case not found');
+  }
+
+  return { dispute: formatDisputeCaseRecord(dispute, { includeEvents: true }) };
+}
+
 export async function updateDisputeCase(disputeCaseId, payload, options = {}) {
   const id = parseInteger(disputeCaseId);
   if (id == null) {
@@ -1928,532 +1735,7 @@ export async function updateDisputeCase(disputeCaseId, payload, options = {}) {
     return {
       dispute: formatDisputeCaseRecord(reloadedDispute, { includeEvents: true }),
       event: formattedEvent,
-    const { dispute: updatedDispute } = await getDisputeCaseById(disputeCaseId, { transaction: trx });
-
-    return {
-      dispute: updatedDispute,
-      event: event.toPublicObject(),
     };
-  });
-}
-
-export async function listDisputeCases(options = {}) {
-  const {
-    status,
-    stage,
-    priority,
-    assignedToId,
-    openedById,
-    search,
-    limit = 20,
-    offset = 0,
-    sort = 'recent',
-    includeEvents = true,
-  } = options;
-
-  const pageSize = normaliseInteger(limit, { min: 1, max: 100, fallback: 20 });
-  const pageOffset = Math.max(0, Number.parseInt(offset, 10) || 0);
-
-  const toArray = (value) => {
-    if (value == null) {
-      return [];
-    }
-    if (Array.isArray(value)) {
-      return value;
-    }
-    if (typeof value === 'string') {
-      return value
-        .split(',')
-        .map((entry) => entry.trim())
-        .filter(Boolean);
-    }
-    return [`${value}`];
-  };
-
-  const where = {};
-  const applyEnumFilter = (field, value, allowed) => {
-    const entries = toArray(value)
-      .map((entry) => `${entry}`.trim())
-      .filter(Boolean);
-    if (!entries.length) {
-      return;
-    }
-    const invalid = entries.some((entry) => !allowed.includes(entry));
-    if (invalid) {
-      throw new ValidationError(`${field} must be one of: ${allowed.join(', ')}`);
-    }
-    where[field] = entries.length === 1 ? entries[0] : { [Op.in]: entries };
-  };
-
-  applyEnumFilter('status', status, DISPUTE_STATUSES);
-  applyEnumFilter('stage', stage, DISPUTE_STAGES);
-  applyEnumFilter('priority', priority, DISPUTE_PRIORITIES);
-
-  if (assignedToId !== undefined) {
-    if (assignedToId === null || assignedToId === '' || assignedToId === 'null') {
-      where.assignedToId = null;
-    } else {
-      const parsed = Number.parseInt(assignedToId, 10);
-      if (Number.isNaN(parsed)) {
-        throw new ValidationError('assignedToId must be numeric when provided');
-      }
-      where.assignedToId = parsed;
-    }
-  }
-
-  if (openedById !== undefined && openedById !== null && openedById !== '') {
-    const parsed = Number.parseInt(openedById, 10);
-    if (!Number.isNaN(parsed)) {
-      where.openedById = parsed;
-    }
-  }
-
-  const searchTerm = typeof search === 'string' ? search.trim() : '';
-  const include = [buildTransactionInclude()];
-  if (includeEvents) {
-    include.push(buildEventInclude(5));
-  }
-
-  if (searchTerm) {
-    const dialect = sequelize.getDialect();
-    const operator = ['postgres', 'postgresql'].includes(dialect) ? Op.iLike : Op.like;
-    const likeValue = `%${escapeLikeTerm(searchTerm)}%`;
-    where[Op.or] = [
-      { reasonCode: { [operator]: likeValue } },
-      { summary: { [operator]: likeValue } },
-      sequelize.where(sequelize.col('transaction.reference'), { [operator]: likeValue }),
-    ];
-  }
-
-  const order = [];
-  if (sort === 'priority') {
-    order.push(['priority', 'DESC']);
-  } else if (sort === 'oldest') {
-    order.push(['updatedAt', 'ASC']);
-  } else if (sort === 'deadline') {
-    order.push(['providerDeadlineAt', 'ASC']);
-  } else {
-    order.push(['updatedAt', 'DESC']);
-  }
-  order.push(['id', 'DESC']);
-    const [reloadedDispute, eventWithActor] = await Promise.all([
-      DisputeCase.findByPk(dispute.id, {
-        transaction: trx,
-        include: buildDisputeInclude(),
-      }),
-      DisputeEvent.findByPk(event.id, {
-        transaction: trx,
-        include: [{ model: User, as: 'actor', attributes: USER_SAFE_ATTRIBUTES }],
-      }),
-    ]);
-
-    return {
-      dispute: formatDisputeRecord(reloadedDispute),
-      event: formatDisputeEventRecord(eventWithActor),
-    };
-  });
-}
-
-export async function listDisputeCases(query = {}) {
-  const {
-    page = 1,
-    pageSize = 20,
-    stage,
-    stages,
-    status,
-    statuses,
-    priority,
-    priorities,
-    assignedToId,
-    openedById,
-    transactionReference,
-    search,
-    sortBy,
-    sortDirection,
-    includeClosed = false,
-  } = query;
-
-  const normalizedPage = Math.max(1, Number.parseInt(page, 10) || 1);
-  const normalizedPageSize = Math.min(100, Math.max(1, Number.parseInt(pageSize, 10) || 20));
-  const offset = (normalizedPage - 1) * normalizedPageSize;
-
-  const stageFilters = normalizeArrayInput(stages ?? stage).filter((value) => DISPUTE_STAGES.includes(value));
-  const statusFilters = normalizeArrayInput(statuses ?? status).filter((value) => DISPUTE_STATUSES.includes(value));
-  const priorityFilters = normalizeArrayInput(priorities ?? priority).filter((value) => DISPUTE_PRIORITIES.includes(value));
-  const assignedTo = coerceInteger(assignedToId);
-  const openedBy = coerceInteger(openedById);
-  const trimmedReference =
-    typeof transactionReference === 'string' && transactionReference.trim().length
-      ? transactionReference.trim()
-      : null;
-  const trimmedSearch = typeof search === 'string' ? search.trim() : '';
-  const likeOperator = Op.iLike ?? Op.like;
-
-  const baseConditions = [];
-
-  if (stageFilters.length === 1) {
-    baseConditions.push({ stage: stageFilters[0] });
-  } else if (stageFilters.length > 1) {
-    baseConditions.push({ stage: { [Op.in]: stageFilters } });
-  }
-
-  const includeClosedNormalized =
-    typeof includeClosed === 'string'
-      ? includeClosed.toLowerCase() === 'true'
-      : Boolean(includeClosed);
-
-  if (statusFilters.length === 1) {
-    baseConditions.push({ status: statusFilters[0] });
-  } else if (statusFilters.length > 1) {
-    baseConditions.push({ status: { [Op.in]: statusFilters } });
-  } else if (!includeClosedNormalized) {
-    baseConditions.push({ status: { [Op.notIn]: ['settled', 'closed'] } });
-  }
-
-  if (priorityFilters.length === 1) {
-    baseConditions.push({ priority: priorityFilters[0] });
-  } else if (priorityFilters.length > 1) {
-    baseConditions.push({ priority: { [Op.in]: priorityFilters } });
-  }
-
-  if (assignedTo !== null) {
-    baseConditions.push({ assignedToId: assignedTo });
-  }
-
-  if (openedBy !== null) {
-    baseConditions.push({ openedById: openedBy });
-  }
-
-  const transactionFilters = [];
-
-  if (trimmedReference) {
-    transactionFilters.push({ reference: trimmedReference });
-  }
-
-  if (trimmedSearch) {
-    const escaped = trimmedSearch.replace(/[\\%_]/g, '\\$&');
-    const pattern = `%${escaped}%`;
-    baseConditions.push({
-      [Op.or]: [
-        { summary: { [likeOperator]: pattern } },
-        { reasonCode: { [likeOperator]: pattern } },
-      ],
-    });
-    transactionFilters.push({ reference: { [likeOperator]: pattern } });
-  }
-
-  const where = buildWhereFromConditions(baseConditions);
-  const include = buildDisputeInclude({ transactionFilters });
-
-  const sortDirectionNormalized =
-    typeof sortDirection === 'string' && sortDirection.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-
-  const sortMap = {
-    openedAt: { column: 'openedAt' },
-    updatedAt: { column: 'updatedAt' },
-    priority: { column: 'priority' },
-    stage: { column: 'stage' },
-    status: { column: 'status' },
-    amount: { association: { model: EscrowTransaction, as: 'transaction' }, column: 'amount' },
-    reference: { association: { model: EscrowTransaction, as: 'transaction' }, column: 'reference' },
-  };
-
-  const sortConfig = sortMap[sortBy] ?? sortMap.updatedAt;
-  const order = [];
-
-  if (sortConfig.association) {
-    order.push([sortConfig.association, sortConfig.column, sortDirectionNormalized]);
-  } else {
-    order.push([sortConfig.column, sortDirectionNormalized]);
-  }
-
-  if (!order.some((entry) => Array.isArray(entry) && entry[0] === 'updatedAt')) {
-    order.push(['updatedAt', 'DESC']);
-  }
-
-  const { rows, count } = await DisputeCase.findAndCountAll({
-    where,
-    include,
-    distinct: true,
-    limit: pageSize,
-    offset: pageOffset,
-    order,
-  });
-
-  const disputes = rows.map(toDisputeCaseDto);
-  const totalCount = typeof count === 'number' ? count : count?.length ?? 0;
-  const page = Math.floor(pageOffset / pageSize) + 1;
-  const pageCount = Math.max(1, Math.ceil(totalCount / pageSize));
-
-  const summaryCases = await DisputeCase.findAll({
-    where,
-    include: [buildTransactionInclude()],
-    attributes: ['id', 'status', 'stage', 'priority', 'openedAt', 'resolvedAt'],
-  });
-
-  const totalsByStatus = {};
-  const totalsByStage = {};
-  const totalsByPriority = {};
-  const openAmountsByCurrency = {};
-  let resolutionTotalHours = 0;
-  let resolvedCount = 0;
-
-  for (const record of summaryCases) {
-    totalsByStatus[record.status] = (totalsByStatus[record.status] ?? 0) + 1;
-    totalsByStage[record.stage] = (totalsByStage[record.stage] ?? 0) + 1;
-    totalsByPriority[record.priority] = (totalsByPriority[record.priority] ?? 0) + 1;
-
-    if (record.resolvedAt && record.openedAt) {
-      const opened = new Date(record.openedAt).getTime();
-      const resolved = new Date(record.resolvedAt).getTime();
-      if (Number.isFinite(opened) && Number.isFinite(resolved) && resolved >= opened) {
-        resolutionTotalHours += (resolved - opened) / (1000 * 60 * 60);
-        resolvedCount += 1;
-      }
-    }
-
-    if (['open', 'awaiting_customer', 'under_review'].includes(record.status)) {
-      const transaction = record.transaction?.toPublicObject?.();
-      if (transaction) {
-        const currency = transaction.currencyCode || 'USD';
-        const amount = Number.parseFloat(transaction.amount ?? 0);
-        if (!Number.isNaN(amount)) {
-          openAmountsByCurrency[currency] = (openAmountsByCurrency[currency] ?? 0) + amount;
-        }
-      }
-    }
-  }
-
-  const averageResolutionHours =
-    resolvedCount > 0 ? Number((resolutionTotalHours / resolvedCount).toFixed(2)) : null;
-
-  return {
-    disputes,
-    pagination: { total: totalCount, limit: pageSize, offset: pageOffset, page, pageCount },
-    summary: {
-      totalsByStatus,
-      totalsByStage,
-      totalsByPriority,
-      openAmountsByCurrency,
-      averageResolutionHours,
-      lastUpdated: new Date().toISOString(),
-    limit: normalizedPageSize,
-    offset,
-    order,
-    distinct: true,
-  });
-
-  const disputes = rows.map((record) => formatDisputeRecord(record));
-  const totalItems =
-    typeof count === 'number'
-      ? count
-      : Array.isArray(count)
-        ? count.length
-        : Number.parseInt(count, 10) || 0;
-  const totalPages = Math.max(1, Math.ceil(totalItems / normalizedPageSize));
-
-  const aggregateInclude = transactionFilters.length
-    ? [
-        {
-          model: EscrowTransaction,
-          as: 'transaction',
-          required: true,
-          where: { [Op.or]: transactionFilters },
-        },
-      ]
-    : [];
-
-  const [countsByStage, countsByStatus, countsByPriority] = await Promise.all([
-    fetchGroupedCounts('stage', where, aggregateInclude),
-    fetchGroupedCounts('status', where, aggregateInclude),
-    fetchGroupedCounts('priority', where, aggregateInclude),
-  ]);
-
-  const openStatuses = new Set(['open', 'awaiting_customer', 'under_review']);
-  const openDisputes = Object.entries(countsByStatus).reduce((accumulator, [statusKey, value]) => {
-    if (openStatuses.has(statusKey)) {
-      return accumulator + value;
-    }
-    return accumulator;
-  }, 0);
-
-  const overdueConditions = [...baseConditions];
-  overdueConditions.push({
-    [Op.or]: [
-      { customerDeadlineAt: { [Op.lt]: new Date() } },
-      { providerDeadlineAt: { [Op.lt]: new Date() } },
-    ],
-  });
-  const overdueWhere = buildWhereFromConditions(overdueConditions);
-  const overdue = await DisputeCase.count({ where: overdueWhere, include: aggregateInclude });
-
-  return {
-    disputes,
-    pagination: {
-      page: normalizedPage,
-      pageSize: normalizedPageSize,
-      totalItems,
-      totalPages,
-    },
-    totals: {
-      byStage: countsByStage,
-      byStatus: countsByStatus,
-      byPriority: countsByPriority,
-      openDisputes,
-      overdue,
-    },
-    filters: {
-      stage: stageFilters,
-      status: statusFilters,
-      priority: priorityFilters,
-      assignedToId: assignedTo,
-      openedById: openedBy,
-      transactionReference: trimmedReference,
-      search: trimmedSearch || null,
-    },
-  };
-}
-
-export async function getDisputeCaseById(disputeCaseId, options = {}) {
-  const dispute = await DisputeCase.findByPk(disputeCaseId, {
-    transaction: options.transaction,
-    include: [buildTransactionInclude(), buildEventInclude(20)],
-  const disputeId = coerceInteger(disputeCaseId);
-  if (!disputeId) {
-    throw new ValidationError('A valid dispute identifier is required');
-  }
-
-  const dispute = await DisputeCase.findByPk(disputeId, {
-    transaction: options.transaction,
-    include: buildDisputeInclude({ includeEvents: true }),
-  });
-
-  if (!dispute) {
-    throw new NotFoundError('Dispute case not found');
-  }
-
-  return { dispute: toDisputeCaseDto(dispute) };
-}
-
-export async function updateDisputeCase(disputeCaseId, payload, options = {}) {
-  const {
-    assignedToId,
-    priority,
-    stage,
-    status,
-    reasonCode,
-    summary,
-  return formatDisputeRecord(dispute, { includeEvents: true });
-}
-
-export async function updateDisputeCase(disputeCaseId, payload = {}, options = {}) {
-  const disputeId = coerceInteger(disputeCaseId);
-  if (!disputeId) {
-    throw new ValidationError('A valid dispute identifier is required');
-  }
-
-  const {
-    assignedToId: nextAssignedToId,
-    priority,
-    stage,
-    status,
-    summary,
-    reasonCode,
-    customerDeadlineAt,
-    providerDeadlineAt,
-    resolutionNotes,
-    metadata,
-  } = payload ?? {};
-
-  return withTransaction(options.transaction, async (trx) => {
-    const dispute = await DisputeCase.findByPk(disputeCaseId, {
-  } = payload;
-
-  return withTransaction(options.transaction, async (trx) => {
-    const dispute = await DisputeCase.findByPk(disputeId, {
-      transaction: trx,
-      lock: trx?.LOCK?.UPDATE,
-    });
-
-    if (!dispute) {
-      throw new NotFoundError('Dispute case not found');
-    }
-
-    const updates = {};
-
-    if (assignedToId !== undefined) {
-      if (assignedToId === null || assignedToId === '' || assignedToId === 'null') {
-        updates.assignedToId = null;
-      } else {
-        const parsed = Number.parseInt(assignedToId, 10);
-        if (Number.isNaN(parsed)) {
-          throw new ValidationError('assignedToId must be numeric when provided');
-        }
-        updates.assignedToId = parsed;
-      }
-    }
-
-    if (priority !== undefined) {
-      if (!DISPUTE_PRIORITIES.includes(priority)) {
-        throw new ValidationError(`priority must be one of: ${DISPUTE_PRIORITIES.join(', ')}`);
-      }
-      updates.priority = priority;
-    }
-
-    if (stage !== undefined) {
-      if (!DISPUTE_STAGES.includes(stage)) {
-        throw new ValidationError(`stage must be one of: ${DISPUTE_STAGES.join(', ')}`);
-      }
-      updates.stage = stage;
-    }
-
-    if (status !== undefined) {
-      if (!DISPUTE_STATUSES.includes(status)) {
-        throw new ValidationError(`status must be one of: ${DISPUTE_STATUSES.join(', ')}`);
-      }
-      updates.status = status;
-      if (['settled', 'closed'].includes(status)) {
-        updates.resolvedAt = new Date();
-      } else if (['open', 'awaiting_customer', 'under_review'].includes(status)) {
-        updates.resolvedAt = null;
-      }
-    }
-
-    if (reasonCode !== undefined) {
-      if (!reasonCode || `${reasonCode}`.trim().length === 0) {
-        throw new ValidationError('reasonCode cannot be empty');
-      }
-      updates.reasonCode = `${reasonCode}`.trim();
-    }
-
-    if (summary !== undefined) {
-      if (!summary || `${summary}`.trim().length === 0) {
-        throw new ValidationError('summary cannot be empty');
-      }
-      updates.summary = `${summary}`.trim();
-    }
-
-    if (customerDeadlineAt !== undefined) {
-      updates.customerDeadlineAt = customerDeadlineAt ? new Date(customerDeadlineAt) : null;
-    }
-
-    if (providerDeadlineAt !== undefined) {
-      updates.providerDeadlineAt = providerDeadlineAt ? new Date(providerDeadlineAt) : null;
-    }
-
-    if (resolutionNotes !== undefined) {
-      updates.resolutionNotes = resolutionNotes ?? null;
-    }
-
-    if (metadata !== undefined) {
-      updates.metadata = metadata ?? null;
-    }
-
-    if (Object.keys(updates).length > 0) {
-      await dispute.update(updates, { transaction: trx });
-    }
-
-    return (await getDisputeCaseById(disputeCaseId, { transaction: trx })).dispute;
   });
 }
 
@@ -2668,91 +1950,6 @@ export async function deleteDisputeTemplate(templateId, options = {}) {
     await template.destroy({ transaction: trx });
 
     return { success: true };
-    if (nextAssignedToId !== undefined) {
-      const nextAssigned = coerceInteger(nextAssignedToId);
-      updates.assignedToId = nextAssigned;
-    }
-
-    if (priority !== undefined) {
-      if (priority && !DISPUTE_PRIORITIES.includes(priority)) {
-        throw new ValidationError(`priority must be one of: ${DISPUTE_PRIORITIES.join(', ')}`);
-      }
-      if (priority) {
-        updates.priority = priority;
-      }
-    }
-
-    if (stage !== undefined) {
-      if (stage && !DISPUTE_STAGES.includes(stage)) {
-        throw new ValidationError(`stage must be one of: ${DISPUTE_STAGES.join(', ')}`);
-      }
-      if (stage && stage !== dispute.stage) {
-        updates.stage = stage;
-      }
-    }
-
-    if (status !== undefined) {
-      if (status && !DISPUTE_STATUSES.includes(status)) {
-        throw new ValidationError(`status must be one of: ${DISPUTE_STATUSES.join(', ')}`);
-      }
-      if (status && status !== dispute.status) {
-        updates.status = status;
-        if (['settled', 'closed'].includes(status)) {
-          updates.resolvedAt = dispute.resolvedAt ?? new Date();
-        } else if (['settled', 'closed'].includes(dispute.status)) {
-          updates.resolvedAt = null;
-        }
-      }
-    }
-
-    if (summary !== undefined) {
-      if (summary == null || !String(summary).trim().length) {
-        throw new ValidationError('summary cannot be empty');
-      }
-      updates.summary = String(summary).trim();
-    }
-
-    if (reasonCode !== undefined) {
-      if (reasonCode == null || !String(reasonCode).trim().length) {
-        throw new ValidationError('reasonCode cannot be empty');
-      }
-      updates.reasonCode = String(reasonCode).trim();
-    }
-
-    if (customerDeadlineAt !== undefined) {
-      updates.customerDeadlineAt = normaliseDateInput(customerDeadlineAt);
-    }
-
-    if (providerDeadlineAt !== undefined) {
-      updates.providerDeadlineAt = normaliseDateInput(providerDeadlineAt);
-    }
-
-    if (resolutionNotes !== undefined) {
-      updates.resolutionNotes = resolutionNotes == null ? null : String(resolutionNotes);
-    }
-
-    if (metadata !== undefined) {
-      if (metadata === null) {
-        updates.metadata = null;
-      } else if (typeof metadata === 'object') {
-        updates.metadata = metadata;
-      } else {
-        throw new ValidationError('metadata must be an object or null');
-      }
-    }
-
-    if (Object.keys(updates).length === 0) {
-      return getDisputeCaseById(disputeId, { transaction: trx });
-    }
-
-    await dispute.update(updates, { transaction: trx });
-
-    const updated = await DisputeCase.findByPk(disputeId, {
-      transaction: trx,
-      include: buildDisputeInclude(),
-    });
-
-    return formatDisputeRecord(updated);
   });
 }
 
@@ -2859,7 +2056,6 @@ export default {
   appendDisputeEvent,
   listDisputeCases,
   getDisputeCaseDetail,
-  updateDisputeCase,
   getDisputeCaseById,
   updateDisputeCase,
   getDisputeWorkflowSettings,
