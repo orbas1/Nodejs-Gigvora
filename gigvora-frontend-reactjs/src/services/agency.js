@@ -109,6 +109,11 @@ export async function fetchAgencyProfile(
       followersLimit,
       followersOffset,
       userId,
+    },
+    signal,
+  });
+}
+
 export async function fetchAgencyCalendar(
   { workspaceSlug, workspaceId, types, status, from, to } = {},
   { signal } = {},
@@ -174,6 +179,8 @@ export async function respondToAgencyConnection(connectionId, decision, { signal
 
 export async function removeAgencyConnection(connectionId, { signal } = {}) {
   return apiClient.delete(`/agency/profile/connections/${connectionId}`, { signal });
+}
+
 export async function fetchAgencyCalendarEvent(eventId, { workspaceSlug, workspaceId } = {}, { signal } = {}) {
   return apiClient.get(`/agency/calendar/${eventId}`, {
     params: {
@@ -196,6 +203,8 @@ export async function fetchAgencyOverview({ workspaceSlug, workspaceId } = {}, {
 
 export async function updateAgencyOverview(payload, options = {}) {
   return apiClient.put('/agency/dashboard/overview', payload, options);
+}
+
 export async function createAgencyCalendarEvent(payload = {}, { signal } = {}) {
   return apiClient.post('/agency/calendar', payload, { signal });
 }
@@ -212,6 +221,8 @@ export async function deleteAgencyCalendarEvent(eventId, payload = {}, { signal 
     },
     signal,
   });
+}
+
 export function createAgencyVolunteeringContract(payload, options = {}) {
   return apiClient.post('/agency/volunteering/contracts', payload, options);
 }
