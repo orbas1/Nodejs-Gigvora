@@ -3,6 +3,10 @@ export default {
   verbose: false,
   clearMocks: true,
   setupFilesAfterEnv: ['<rootDir>/tests/setupTestEnv.js'],
+  transform: {
+    '^.+\\.js$': 'babel-jest',
+  },
+  extensionsToTreatAsEsm: [],
   moduleNameMapper: {
     '^pino-http$': '<rootDir>/tests/stubs/pinoHttpStub.js',
     '^pino$': '<rootDir>/tests/stubs/pinoStub.js',
@@ -14,6 +18,7 @@ export default {
   collectCoverageFrom: [
     'src/**/*.js',
     '!src/server.js',
+    '!src/models/index.js',
   ],
   coverageDirectory: '<rootDir>/coverage',
 };

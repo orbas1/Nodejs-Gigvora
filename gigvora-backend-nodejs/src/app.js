@@ -49,7 +49,16 @@ const buildHttpLogger = () =>
     quietReqLogger: process.env.NODE_ENV === 'test',
   });
 
-const buildJsonParser = () => express.json({ limit: runtimeConfig?.http?.requestBodyLimit || '1mb' });
+const buildJsonParser = () =>
+  express.json({
+    limit: runtimeConfig?.http?.requestBodyLimit || '1mb',
+    verify: (req, res, buf) => {
+      const path = req.originalUrl || req.url || '';
+      if (path.startsWith('/api/support/chatwoot/webhook')) {
+        req.rawBody = buf.toString();
+      }
+    },
+  });
 const buildUrlencodedParser = () =>
   express.urlencoded({ extended: true, limit: runtimeConfig?.http?.requestBodyLimit || '1mb' });
 

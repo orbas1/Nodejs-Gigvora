@@ -27,11 +27,11 @@
 - **Exit Criteria:** UX acceptance reviews signed off, automated/UI tests green, policy pages published with SEO metadata, wizard scoring endpoints operational. ✅ Achieved via design token rollout, mega menu navigation, timeline terminology migration, and policy acknowledgement banner with persistent consent storage.
 - **Dependencies:** Design team for assets, content/legal teams for policy copy, analytics instrumentation from Task 1/2.
 
-## Milestone 4 – Community, Intelligence & Monetisation Enablement (20%)
+## Milestone 4 – Community, Intelligence & Monetisation Enablement (40%)
 **Covers:** Task 4 – Community, Communication & Live Services and Task 5 – Intelligence, Monetisation & Dashboard Unification.
 
 - **Objectives:** Ship community chat/inbox infrastructure, moderation consoles, matching/recommendation services, ads marketplace, and unified finance dashboards.
-- **Key Deliverables:** Socket.io services with RBAC, Chatwoot integration, moderation analytics, matching engine pipelines, ads inventory dashboards, finance-enabled role dashboards, workspace automation, internal model registry with governance, monitoring and rollback tooling. ✅ Socket.io infrastructure, namespaces, and presence/telemetry baselines are live across chat, voice, events, and moderation surfaces.
+- **Key Deliverables:** Socket.io services with RBAC, Chatwoot integration, moderation analytics, matching engine pipelines, ads inventory dashboards, finance-enabled role dashboards, workspace automation, internal model registry with governance, monitoring and rollback tooling. ✅ Socket.io infrastructure, namespaces, presence/telemetry baselines, the moderation platform, and the new live service telemetry API/dashboard (with load-tested sampling safeguards) are now production-ready.
 - **Validation:** Targeted realtime Jest suites (`channelRegistry`, `connectionRegistry`) executed with `SKIP_SEQUELIZE_BOOTSTRAP=true` to confirm channel RBAC and connection limits after test harness refactors.
 - **Entry Criteria:** Milestones 1–3 exits, Chatwoot/Firebase/HubSpot credentials provisioned, schema tables for chat and monetisation in place.
 - **Exit Criteria:** Load/stress testing thresholds met, explainability outputs validated, finance dashboards reconciled with seed transactions, moderation workflows audited, A/B testing harness operational.

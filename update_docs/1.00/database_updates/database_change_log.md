@@ -13,3 +13,4 @@
 ## Operational Outcomes
 - Database lifecycle service now emits deterministic drift alerts when migration inventory diverges from filesystem, supporting deployment gates and incident response.
 - Backup metadata files include encryption fingerprints, file size, and SHA-256 digests so operations can attest to compliance requirements.
+- Defined the `ModerationEvent` model in preparation for upcoming migrations, ensuring queue/audit data lands in a dedicated `moderation_events` table with severity, status, and metadata columns.

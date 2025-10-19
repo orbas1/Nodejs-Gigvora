@@ -389,22 +389,6 @@ InboxPreference.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
-MessageLabel.belongsToMany(MessageThread, {
-  through: MessageThreadLabel,
-  foreignKey: 'labelId',
-  otherKey: 'threadId',
-  as: 'threads',
-});
-
-MessageThread.belongsToMany(MessageLabel, {
-  through: MessageThreadLabel,
-  foreignKey: 'threadId',
-  otherKey: 'labelId',
-  as: 'labels',
-});
-
-MessageThreadLabel.belongsTo(MessageThread, { foreignKey: 'threadId', as: 'thread' });
-MessageThreadLabel.belongsTo(MessageLabel, { foreignKey: 'labelId', as: 'label' });
 export const InboxRoutingRule = sequelize.define(
   'InboxRoutingRule',
   {
@@ -536,54 +520,6 @@ AiAutoReplyTemplate.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
-export const MessageLabel = sequelize.define(
-  'MessageLabel',
-  {
-    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
-    name: { type: DataTypes.STRING(80), allowNull: false },
-    slug: { type: DataTypes.STRING(120), allowNull: false },
-    color: { type: DataTypes.STRING(20), allowNull: false, defaultValue: '#0f172a' },
-    description: { type: DataTypes.STRING(255), allowNull: true },
-    createdBy: { type: DataTypes.INTEGER, allowNull: true },
-    metadata: { type: jsonType, allowNull: true },
-  },
-  {
-    tableName: 'message_labels',
-    indexes: [
-      { fields: ['workspaceId'] },
-      { fields: ['slug'] },
-      { unique: true, fields: ['workspaceId', 'slug'] },
-    ],
-  },
-);
-
-MessageLabel.prototype.toPublicObject = function toPublicObject() {
-  const plain = this.get({ plain: true });
-  return {
-    id: plain.id,
-    workspaceId: plain.workspaceId,
-    ownerId: plain.ownerId,
-    title: plain.title,
-    summary: plain.summary ?? null,
-    tone: plain.tone ?? null,
-    model: plain.model ?? null,
-    temperature: plain.temperature ?? 0.35,
-    channels: Array.isArray(plain.channels) ? plain.channels : [],
-    instructions: plain.instructions ?? '',
-    sampleReply: plain.sampleReply ?? null,
-    isDefault: Boolean(plain.isDefault),
-    status: plain.status,
-    name: plain.name,
-    slug: plain.slug,
-    color: plain.color,
-    description: plain.description,
-    createdBy: plain.createdBy,
-    metadata: plain.metadata ?? null,
-    createdAt: plain.createdAt,
-    updatedAt: plain.updatedAt,
-  };
-};
-
 export const AiAutoReplyRun = sequelize.define(
   'AiAutoReplyRun',
   {
@@ -635,25 +571,6 @@ AiAutoReplyRun.prototype.toPublicObject = function toPublicObject() {
     updatedAt: plain.updatedAt,
   };
 };
-export const MessageThreadLabel = sequelize.define(
-  'MessageThreadLabel',
-  {
-    threadId: { type: DataTypes.INTEGER, allowNull: false },
-    labelId: { type: DataTypes.INTEGER, allowNull: false },
-    appliedBy: { type: DataTypes.INTEGER, allowNull: true },
-    appliedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
-  },
-  {
-    tableName: 'message_thread_labels',
-    indexes: [
-      { fields: ['threadId'] },
-      { fields: ['labelId'] },
-      { unique: true, fields: ['threadId', 'labelId'] },
-    ],
-  },
-);
-
-MessageThreadLabel.belongsTo(User, { as: 'appliedByUser', foreignKey: 'appliedBy' });
 
 MessageThread.hasMany(MessageParticipant, { as: 'participants', foreignKey: 'threadId' });
 MessageThread.hasMany(MessageParticipant, { as: 'viewerParticipants', foreignKey: 'threadId' });
@@ -669,16 +586,21 @@ MessageAttachment.belongsTo(Message, { as: 'message', foreignKey: 'messageId' })
 
 MessageThread.belongsToMany(MessageLabel, {
   through: MessageThreadLabel,
-  as: 'labels',
   foreignKey: 'threadId',
   otherKey: 'labelId',
+  as: 'labels',
 });
+
 MessageLabel.belongsToMany(MessageThread, {
   through: MessageThreadLabel,
-  as: 'threads',
   foreignKey: 'labelId',
   otherKey: 'threadId',
+  as: 'threads',
 });
+
+MessageThreadLabel.belongsTo(MessageThread, { foreignKey: 'threadId', as: 'thread' });
+MessageThreadLabel.belongsTo(MessageLabel, { foreignKey: 'labelId', as: 'label' });
+MessageThreadLabel.belongsTo(User, { as: 'appliedByUser', foreignKey: 'appliedBy' });
 
 MessageThread.hasOne(SupportCase, { as: 'supportCase', foreignKey: 'threadId' });
 SupportCase.belongsTo(MessageThread, { as: 'thread', foreignKey: 'threadId' });
@@ -686,14 +608,16 @@ SupportCase.belongsTo(User, { as: 'escalatedByUser', foreignKey: 'escalatedBy' }
 SupportCase.belongsTo(User, { as: 'assignedAgent', foreignKey: 'assignedTo' });
 SupportCase.belongsTo(User, { as: 'assignedByUser', foreignKey: 'assignedBy' });
 SupportCase.belongsTo(User, { as: 'resolvedByUser', foreignKey: 'resolvedBy' });
+
 UserAiProviderSetting.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasMany(UserAiProviderSetting, { foreignKey: 'userId', as: 'aiProviderSettings' });
+
 AiAutoReplyTemplate.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
 User.hasMany(AiAutoReplyTemplate, { foreignKey: 'ownerId', as: 'autoReplyTemplates' });
+
 AiAutoReplyRun.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 AiAutoReplyRun.belongsTo(AiAutoReplyTemplate, { foreignKey: 'templateId', as: 'template' });
 AiAutoReplyTemplate.hasMany(AiAutoReplyRun, { foreignKey: 'templateId', as: 'runs' });
-
 
 SavedReply.belongsTo(User, { as: 'owner', foreignKey: 'userId' });
 User.hasMany(SavedReply, { as: 'savedReplies', foreignKey: 'userId' });

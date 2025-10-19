@@ -2,6 +2,7 @@ import { Router } from 'express';
 
 import adRoutes from './adRoutes.js';
 import adminRoutes from './adminRoutes.js';
+import adminModerationRoutes from './adminModerationRoutes.js';
 import agencyRoutes from './agencyRoutes.js';
 import agencyJobManagementRoutes from './agencyJobManagementRoutes.js';
 import agencyBlogRoutes from './agencyBlogRoutes.js';
@@ -50,12 +51,14 @@ import workManagementRoutes from './workManagementRoutes.js';
 import runtimeRoutes from './runtimeRoutes.js';
 import docsRoutes from './docsRoutes.js';
 import eventManagementRoutes from './eventManagementRoutes.js';
+import supportRoutes from './supportRoutes.js';
 
 const router = Router();
 
 const routeDefinitions = [
   ['/ads', adRoutes],
   ['/admin/blog', blogAdminRoutes],
+  ['/admin/moderation', adminModerationRoutes],
   ['/admin', adminRoutes],
   ['/agency/job-management', agencyJobManagementRoutes],
   ['/agency/wallet', agencyWalletRoutes],
@@ -99,6 +102,7 @@ const routeDefinitions = [
   ['/reputation', reputationRoutes],
   ['/runtime', runtimeRoutes],
   ['/search', searchRoutes],
+  ['/support', supportRoutes],
   ['/trust', trustRoutes],
   ['/users/:userId/mentoring', userMentoringRoutes],
   ['/users/:userId/project-gig-management', projectGigManagementRoutes],

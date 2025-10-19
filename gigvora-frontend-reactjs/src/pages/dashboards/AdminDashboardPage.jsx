@@ -19,6 +19,7 @@ import {
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import AdCouponManager from '../../components/admin/AdCouponManager.jsx';
 import RuntimeTelemetryPanel from '../../components/admin/RuntimeTelemetryPanel.jsx';
+import LiveServiceTelemetryPanel from '../../components/admin/LiveServiceTelemetryPanel.jsx';
 import ConsentGovernancePanel from '../../components/admin/ConsentGovernancePanel.jsx';
 import RbacMatrixPanel from '../../components/admin/RbacMatrixPanel.jsx';
 import GigvoraAdsConsole from '../../components/ads/GigvoraAdsConsole.jsx';
@@ -29,6 +30,7 @@ import AdminMobileAppManagementPanel from './admin/AdminMobileAppManagementPanel
 import { ADMIN_MENU_SECTIONS } from './admin/menuSections.js';
 import useSession from '../../hooks/useSession.js';
 import useRuntimeHealthSnapshot from '../../hooks/useRuntimeHealthSnapshot.js';
+import useLiveServiceTelemetry from '../../hooks/useLiveServiceTelemetry.js';
 import useDomainGovernanceSummaries from '../../hooks/useDomainGovernanceSummaries.js';
 import { fetchAdminDashboard } from '../../services/admin.js';
 import { fetchPlatformSettings, updatePlatformSettings } from '../../services/platformSettings.js';
@@ -638,6 +640,14 @@ export default function AdminDashboardPage() {
     lastUpdated: runtimeUpdatedAt,
     refresh: refreshRuntime,
   } = useRuntimeHealthSnapshot();
+  const {
+    data: liveTelemetry,
+    loading: liveTelemetryLoading,
+    refreshing: liveTelemetryRefreshing,
+    error: liveTelemetryError,
+    lastUpdated: liveTelemetryUpdatedAt,
+    refresh: refreshLiveTelemetry,
+  } = useLiveServiceTelemetry({ refreshIntervalMs: 60_000 });
   const domainGovernance = useDomainGovernanceSummaries({ refreshIntervalMs: 1000 * 60 * 10 });
   const normalizedMemberships = useMemo(() => normalizeToLowercaseArray(session?.memberships), [session?.memberships]);
   const normalizedRoles = useMemo(() => normalizeToLowercaseArray(session?.roles), [session?.roles]);
@@ -2504,6 +2514,14 @@ export default function AdminDashboardPage() {
         error={runtimeError}
         onRefresh={refreshRuntime}
         lastUpdated={runtimeUpdatedAt}
+      />
+      <LiveServiceTelemetryPanel
+        telemetry={liveTelemetry}
+        loading={liveTelemetryLoading}
+        refreshing={liveTelemetryRefreshing}
+        error={liveTelemetryError}
+        lastUpdated={liveTelemetryUpdatedAt}
+        onRefresh={refreshLiveTelemetry}
       />
       <AdCouponManager />
       <AdminGroupManagementPanel />

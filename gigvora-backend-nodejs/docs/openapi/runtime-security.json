@@ -6,19 +6,39 @@
     "description": "Operational health, maintenance, and authentication endpoints supporting Gigvora web and mobile clients."
   },
   "servers": [
-    { "url": "https://api.gigvora.com", "description": "Production" },
-    { "url": "https://staging-api.gigvora.com", "description": "Staging" },
-    { "url": "http://localhost:5000", "description": "Local development" }
+    {
+      "url": "https://api.gigvora.com",
+      "description": "Production"
+    },
+    {
+      "url": "https://staging-api.gigvora.com",
+      "description": "Staging"
+    },
+    {
+      "url": "http://localhost:5000",
+      "description": "Local development"
+    }
   ],
   "tags": [
-    { "name": "Health", "description": "Liveness and readiness probes" },
-    { "name": "Runtime Observability", "description": "Administrative telemetry surfaces" },
-    { "name": "Authentication", "description": "Session lifecycle and MFA" }
+    {
+      "name": "Health",
+      "description": "Liveness and readiness probes"
+    },
+    {
+      "name": "Runtime Observability",
+      "description": "Administrative telemetry surfaces"
+    },
+    {
+      "name": "Authentication",
+      "description": "Session lifecycle and MFA"
+    }
   ],
   "paths": {
     "/health/live": {
       "get": {
-        "tags": ["Health"],
+        "tags": [
+          "Health"
+        ],
         "summary": "Retrieve the service liveness probe",
         "operationId": "getLiveness",
         "responses": {
@@ -26,7 +46,9 @@
             "description": "Service is accepting connections",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/LivenessReport" }
+                "schema": {
+                  "$ref": "#/components/schemas/LivenessReport"
+                }
               }
             }
           },
@@ -34,7 +56,9 @@
             "description": "Service is shutting down or unavailable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/LivenessReport" }
+                "schema": {
+                  "$ref": "#/components/schemas/LivenessReport"
+                }
               }
             }
           }
@@ -43,7 +67,9 @@
     },
     "/health/ready": {
       "get": {
-        "tags": ["Health"],
+        "tags": [
+          "Health"
+        ],
         "summary": "Retrieve the readiness probe",
         "operationId": "getReadiness",
         "responses": {
@@ -51,7 +77,9 @@
             "description": "All critical dependencies are healthy",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ReadinessReport" }
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessReport"
+                }
               }
             }
           },
@@ -59,7 +87,9 @@
             "description": "One or more dependencies are degraded",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ReadinessReport" }
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessReport"
+                }
               }
             }
           }
@@ -68,18 +98,24 @@
     },
     "/api/admin/runtime/health": {
       "get": {
-        "tags": ["Runtime Observability"],
+        "tags": [
+          "Runtime Observability"
+        ],
         "summary": "Fetch the aggregated runtime telemetry snapshot",
         "operationId": "getRuntimeHealth",
         "security": [
-          { "BearerAuth": [] }
+          {
+            "BearerAuth": []
+          }
         ],
         "responses": {
           "200": {
             "description": "Runtime telemetry snapshot",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/RuntimeHealthSnapshot" }
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeHealthSnapshot"
+                }
               }
             }
           },
@@ -87,7 +123,9 @@
             "description": "Authentication required",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
@@ -95,7 +133,9 @@
             "description": "Insufficient permissions",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           }
@@ -104,7 +144,9 @@
     },
     "/api/docs/runtime-security": {
       "get": {
-        "tags": ["Runtime Observability"],
+        "tags": [
+          "Runtime Observability"
+        ],
         "summary": "Download the runtime and authentication OpenAPI document",
         "operationId": "downloadRuntimeSpec",
         "responses": {
@@ -112,24 +154,38 @@
             "description": "OpenAPI definition",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/OpenAPIDocument" }
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAPIDocument"
+                }
               }
             },
             "headers": {
-              "ETag": { "schema": { "type": "string" }, "description": "Checksum for cache validation" }
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Checksum for cache validation"
+              }
             }
           }
         }
       },
       "head": {
-        "tags": ["Runtime Observability"],
+        "tags": [
+          "Runtime Observability"
+        ],
         "summary": "Check the runtime OpenAPI document checksum",
         "operationId": "headRuntimeSpec",
         "responses": {
           "204": {
             "description": "Checksum headers returned",
             "headers": {
-              "ETag": { "schema": { "type": "string" }, "description": "Checksum for cache validation" }
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Checksum for cache validation"
+              }
             }
           }
         }
@@ -137,14 +193,18 @@
     },
     "/api/auth/register": {
       "post": {
-        "tags": ["Authentication"],
+        "tags": [
+          "Authentication"
+        ],
         "summary": "Register a consumer account",
         "operationId": "registerUser",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/RegisterUserRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/RegisterUserRequest"
+              }
             }
           }
         },
@@ -153,7 +213,9 @@
             "description": "Account created",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/RegistrationResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationResponse"
+                }
               }
             }
           },
@@ -161,7 +223,9 @@
             "description": "Validation error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           }
@@ -170,14 +234,18 @@
     },
     "/api/auth/register/company": {
       "post": {
-        "tags": ["Authentication"],
+        "tags": [
+          "Authentication"
+        ],
         "summary": "Register a company administrator",
         "operationId": "registerCompany",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/RegisterCompanyRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/RegisterCompanyRequest"
+              }
             }
           }
         },
@@ -186,7 +254,9 @@
             "description": "Company account created",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/RegistrationResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationResponse"
+                }
               }
             }
           },
@@ -194,7 +264,9 @@
             "description": "Validation error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           }
@@ -203,14 +275,18 @@
     },
     "/api/auth/register/agency": {
       "post": {
-        "tags": ["Authentication"],
+        "tags": [
+          "Authentication"
+        ],
         "summary": "Register an agency administrator",
         "operationId": "registerAgency",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/RegisterAgencyRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/RegisterAgencyRequest"
+              }
             }
           }
         },
@@ -219,7 +295,9 @@
             "description": "Agency account created",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/RegistrationResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationResponse"
+                }
               }
             }
           },
@@ -227,7 +305,9 @@
             "description": "Validation error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           }
@@ -236,14 +316,18 @@
     },
     "/api/auth/login": {
       "post": {
-        "tags": ["Authentication"],
+        "tags": [
+          "Authentication"
+        ],
         "summary": "Authenticate a user",
         "operationId": "login",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/LoginRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
             }
           }
         },
@@ -252,7 +336,9 @@
             "description": "Login accepted",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/LoginResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
               }
             }
           },
@@ -260,7 +346,9 @@
             "description": "Invalid credentials",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
@@ -268,7 +356,9 @@
             "description": "Validation error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           }
@@ -277,14 +367,18 @@
     },
     "/api/auth/verify-2fa": {
       "post": {
-        "tags": ["Authentication"],
+        "tags": [
+          "Authentication"
+        ],
         "summary": "Verify a two-factor authentication challenge",
         "operationId": "verifyTwoFactor",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/TwoFactorVerificationRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/TwoFactorVerificationRequest"
+              }
             }
           }
         },
@@ -293,7 +387,9 @@
             "description": "Two-factor verification successful",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/SessionEnvelope" }
+                "schema": {
+                  "$ref": "#/components/schemas/SessionEnvelope"
+                }
               }
             }
           },
@@ -301,7 +397,9 @@
             "description": "Invalid or expired code",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
@@ -309,7 +407,9 @@
             "description": "Validation error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           }
@@ -318,14 +418,18 @@
     },
     "/api/auth/two-factor/resend": {
       "post": {
-        "tags": ["Authentication"],
+        "tags": [
+          "Authentication"
+        ],
         "summary": "Resend a two-factor authentication code",
         "operationId": "resendTwoFactor",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/TwoFactorResendRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/TwoFactorResendRequest"
+              }
             }
           }
         },
@@ -334,7 +438,9 @@
             "description": "Challenge resent",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/TwoFactorChallenge" }
+                "schema": {
+                  "$ref": "#/components/schemas/TwoFactorChallenge"
+                }
               }
             }
           },
@@ -342,7 +448,9 @@
             "description": "Challenge expired",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
@@ -350,7 +458,9 @@
             "description": "Validation error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           }
@@ -359,14 +469,18 @@
     },
     "/api/auth/refresh": {
       "post": {
-        "tags": ["Authentication"],
+        "tags": [
+          "Authentication"
+        ],
         "summary": "Refresh an access token",
         "operationId": "refreshSession",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/RefreshRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              }
             }
           }
         },
@@ -375,7 +489,9 @@
             "description": "New session issued",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/SessionEnvelope" }
+                "schema": {
+                  "$ref": "#/components/schemas/SessionEnvelope"
+                }
               }
             }
           },
@@ -383,7 +499,9 @@
             "description": "Refresh token expired or invalid",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
@@ -391,7 +509,9 @@
             "description": "Account not found",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
@@ -399,7 +519,75 @@
             "description": "Validation error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/runtime/telemetry/live-services": {
+      "get": {
+        "tags": [
+          "Runtime Observability"
+        ],
+        "summary": "Retrieve live service telemetry covering chat, inbox, timeline, and events",
+        "operationId": "getLiveServiceTelemetry",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "windowMinutes",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 5,
+              "maximum": 1440
+            },
+            "description": "Size of the sampling window in minutes."
+          },
+          {
+            "name": "forceRefresh",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Set to true to bypass the cached snapshot."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Live service telemetry snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveServiceTelemetryResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           }
@@ -418,67 +606,187 @@
     "schemas": {
       "LivenessReport": {
         "type": "object",
-        "required": ["status", "timestamp", "uptimeSeconds", "http"],
+        "required": [
+          "status",
+          "timestamp",
+          "uptimeSeconds",
+          "http"
+        ],
         "properties": {
-          "status": { "type": "string", "enum": ["ok", "degraded"] },
-          "timestamp": { "type": "string", "format": "date-time" },
-          "uptimeSeconds": { "type": "number", "format": "double" },
-          "http": { "$ref": "#/components/schemas/HttpState" }
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "degraded"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "uptimeSeconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "http": {
+            "$ref": "#/components/schemas/HttpState"
+          }
         }
       },
       "HttpState": {
         "type": "object",
         "properties": {
-          "status": { "type": "string", "enum": ["starting", "ready", "closing", "stopped"] },
-          "port": { "type": ["integer", "null"], "format": "int32" },
-          "updatedAt": { "type": "string", "format": "date-time" },
-          "reason": { "type": ["string", "null"] }
+          "status": {
+            "type": "string",
+            "enum": [
+              "starting",
+              "ready",
+              "closing",
+              "stopped"
+            ]
+          },
+          "port": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
         }
       },
       "ReadinessReport": {
         "type": "object",
-        "required": ["status", "timestamp", "uptimeSeconds", "http", "dependencies", "workers", "checks", "httpStatus"],
+        "required": [
+          "status",
+          "timestamp",
+          "uptimeSeconds",
+          "http",
+          "dependencies",
+          "workers",
+          "checks",
+          "httpStatus"
+        ],
         "properties": {
-          "status": { "type": "string", "enum": ["ok", "starting", "degraded", "error"] },
-          "timestamp": { "type": "string", "format": "date-time" },
-          "uptimeSeconds": { "type": "number", "format": "double" },
-          "http": { "$ref": "#/components/schemas/HttpState" },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "starting",
+              "degraded",
+              "error"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "uptimeSeconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "http": {
+            "$ref": "#/components/schemas/HttpState"
+          },
           "dependencies": {
             "type": "object",
-            "additionalProperties": { "$ref": "#/components/schemas/DependencyStatus" }
+            "additionalProperties": {
+              "$ref": "#/components/schemas/DependencyStatus"
+            }
           },
           "workers": {
             "type": "object",
-            "additionalProperties": { "$ref": "#/components/schemas/DependencyStatus" }
+            "additionalProperties": {
+              "$ref": "#/components/schemas/DependencyStatus"
+            }
           },
           "checks": {
             "type": "object",
             "properties": {
-              "database": { "$ref": "#/components/schemas/DependencyStatus" }
+              "database": {
+                "$ref": "#/components/schemas/DependencyStatus"
+              }
             },
-            "additionalProperties": { "$ref": "#/components/schemas/DependencyStatus" }
+            "additionalProperties": {
+              "$ref": "#/components/schemas/DependencyStatus"
+            }
           },
-          "httpStatus": { "type": "integer", "format": "int32" }
+          "httpStatus": {
+            "type": "integer",
+            "format": "int32"
+          }
         }
       },
       "DependencyStatus": {
         "type": "object",
-        "required": ["status", "updatedAt"],
+        "required": [
+          "status",
+          "updatedAt"
+        ],
         "properties": {
-          "status": { "type": "string", "enum": ["ok", "degraded", "error", "disabled"] },
-          "updatedAt": { "type": "string", "format": "date-time" },
-          "vendor": { "type": ["string", "null"] },
-          "latencyMs": { "type": ["number", "null"], "format": "double" },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "degraded",
+              "error",
+              "disabled"
+            ]
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "vendor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "latencyMs": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
           "error": {
-            "type": ["object", "null"],
+            "type": [
+              "object",
+              "null"
+            ],
             "properties": {
-              "message": { "type": "string" },
-              "code": { "type": ["string", "null"] },
-              "status": { "type": ["integer", "null"], "format": "int32" }
+              "message": {
+                "type": "string"
+              },
+              "code": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "status": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int32"
+              }
             },
             "additionalProperties": true
           },
-          "pool": { "$ref": "#/components/schemas/DatabasePoolSnapshot" }
+          "pool": {
+            "$ref": "#/components/schemas/DatabasePoolSnapshot"
+          }
         }
       },
       "RuntimeHealthSnapshot": {
@@ -497,139 +805,372 @@
           "security"
         ],
         "properties": {
-          "generatedAt": { "type": "string", "format": "date-time" },
-          "environment": { "$ref": "#/components/schemas/EnvironmentSnapshot" },
-          "readiness": { "$ref": "#/components/schemas/ReadinessReport" },
-          "liveness": { "$ref": "#/components/schemas/LivenessReport" },
-          "rateLimit": { "$ref": "#/components/schemas/RateLimitSnapshot" },
-          "perimeter": { "$ref": "#/components/schemas/PerimeterSnapshot" },
-          "databasePool": { "$ref": "#/components/schemas/DatabasePoolSnapshot" },
-          "maintenance": { "$ref": "#/components/schemas/MaintenanceSummary" },
-          "scheduledMaintenance": { "$ref": "#/components/schemas/ScheduledMaintenance" },
-          "waf": { "$ref": "#/components/schemas/WebApplicationFirewallSnapshot" },
-          "security": { "$ref": "#/components/schemas/SecuritySnapshot" }
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "environment": {
+            "$ref": "#/components/schemas/EnvironmentSnapshot"
+          },
+          "readiness": {
+            "$ref": "#/components/schemas/ReadinessReport"
+          },
+          "liveness": {
+            "$ref": "#/components/schemas/LivenessReport"
+          },
+          "rateLimit": {
+            "$ref": "#/components/schemas/RateLimitSnapshot"
+          },
+          "perimeter": {
+            "$ref": "#/components/schemas/PerimeterSnapshot"
+          },
+          "databasePool": {
+            "$ref": "#/components/schemas/DatabasePoolSnapshot"
+          },
+          "maintenance": {
+            "$ref": "#/components/schemas/MaintenanceSummary"
+          },
+          "scheduledMaintenance": {
+            "$ref": "#/components/schemas/ScheduledMaintenance"
+          },
+          "waf": {
+            "$ref": "#/components/schemas/WebApplicationFirewallSnapshot"
+          },
+          "security": {
+            "$ref": "#/components/schemas/SecuritySnapshot"
+          }
         }
       },
       "EnvironmentSnapshot": {
         "type": "object",
         "properties": {
-          "nodeEnv": { "type": ["string", "null"] },
-          "releaseId": { "type": ["string", "null"] },
-          "region": { "type": ["string", "null"] },
-          "commit": { "type": ["string", "null"] },
-          "version": { "type": ["string", "null"] },
-          "uptimeSeconds": { "type": "number", "format": "double" },
-          "memory": { "$ref": "#/components/schemas/MemorySnapshot" },
-          "system": { "$ref": "#/components/schemas/SystemSnapshot" }
+          "nodeEnv": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "releaseId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "region": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "commit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "uptimeSeconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "memory": {
+            "$ref": "#/components/schemas/MemorySnapshot"
+          },
+          "system": {
+            "$ref": "#/components/schemas/SystemSnapshot"
+          }
         }
       },
       "MemorySnapshot": {
         "type": "object",
         "properties": {
-          "rss": { "type": "integer", "format": "int64" },
-          "heapUsed": { "type": "integer", "format": "int64" },
-          "heapTotal": { "type": "integer", "format": "int64" },
-          "external": { "type": "integer", "format": "int64" }
+          "rss": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "heapUsed": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "heapTotal": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "external": {
+            "type": "integer",
+            "format": "int64"
+          }
         }
       },
       "SystemSnapshot": {
         "type": "object",
         "properties": {
-          "platform": { "type": "string" },
-          "arch": { "type": "string" },
+          "platform": {
+            "type": "string"
+          },
+          "arch": {
+            "type": "string"
+          },
           "loadAverage": {
             "type": "array",
-            "items": { "type": "number", "format": "double" },
+            "items": {
+              "type": "number",
+              "format": "double"
+            },
             "maxItems": 3
           },
-          "totalMemory": { "type": "integer", "format": "int64" },
-          "freeMemory": { "type": "integer", "format": "int64" },
-          "cpuCount": { "type": ["integer", "null"], "format": "int32" }
+          "totalMemory": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "freeMemory": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "cpuCount": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          }
         }
       },
       "RateLimitSnapshot": {
         "type": "object",
-        "required": ["config", "currentWindow", "history", "lifetime", "topConsumers"],
+        "required": [
+          "config",
+          "currentWindow",
+          "history",
+          "lifetime",
+          "topConsumers"
+        ],
         "properties": {
           "config": {
             "type": "object",
             "properties": {
-              "windowMs": { "type": "integer", "format": "int32" },
-              "max": { "type": "integer", "format": "int32" }
+              "windowMs": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "max": {
+                "type": "integer",
+                "format": "int32"
+              }
             }
           },
-          "currentWindow": { "$ref": "#/components/schemas/RateLimitWindow" },
+          "currentWindow": {
+            "$ref": "#/components/schemas/RateLimitWindow"
+          },
           "history": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/RateLimitHistoryEntry" }
+            "items": {
+              "$ref": "#/components/schemas/RateLimitHistoryEntry"
+            }
           },
           "lifetime": {
             "type": "object",
             "properties": {
-              "hits": { "type": "integer", "format": "int64" },
-              "allowed": { "type": "integer", "format": "int64" },
-              "blocked": { "type": "integer", "format": "int64" },
-              "firstSeenAt": { "type": ["string", "null"], "format": "date-time" },
-              "lastSeenAt": { "type": ["string", "null"], "format": "date-time" },
-              "lastBlockedAt": { "type": ["string", "null"], "format": "date-time" }
+              "hits": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "allowed": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "blocked": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "firstSeenAt": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "lastSeenAt": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "lastBlockedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              }
             }
           },
           "topConsumers": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/RateLimitKeyRecord" }
+            "items": {
+              "$ref": "#/components/schemas/RateLimitKeyRecord"
+            }
           },
-          "lastLimitTriggeredAt": { "type": ["string", "null"], "format": "date-time" }
+          "lastLimitTriggeredAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
         }
       },
       "RateLimitWindow": {
         "type": "object",
-        "required": ["startedAt", "endsAt", "hits", "allowed", "blocked", "activeKeys"],
+        "required": [
+          "startedAt",
+          "endsAt",
+          "hits",
+          "allowed",
+          "blocked",
+          "activeKeys"
+        ],
         "properties": {
-          "startedAt": { "type": "string", "format": "date-time" },
-          "endsAt": { "type": "string", "format": "date-time" },
-          "hits": { "type": "integer", "format": "int64" },
-          "allowed": { "type": "integer", "format": "int64" },
-          "blocked": { "type": "integer", "format": "int64" },
-          "activeKeys": { "type": "integer", "format": "int32" },
-          "busiestKey": { "$ref": "#/components/schemas/RateLimitKeyRecord" },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "hits": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "allowed": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "blocked": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "activeKeys": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "busiestKey": {
+            "$ref": "#/components/schemas/RateLimitKeyRecord"
+          },
           "approachingLimit": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/RateLimitKeyRecord" }
+            "items": {
+              "$ref": "#/components/schemas/RateLimitKeyRecord"
+            }
           },
-          "blockedRatio": { "type": "number", "format": "double" },
-          "requestsPerSecond": { "type": "number", "format": "double" }
+          "blockedRatio": {
+            "type": "number",
+            "format": "double"
+          },
+          "requestsPerSecond": {
+            "type": "number",
+            "format": "double"
+          }
         }
       },
       "RateLimitHistoryEntry": {
         "type": "object",
         "properties": {
-          "startedAt": { "type": "string", "format": "date-time" },
-          "endedAt": { "type": "string", "format": "date-time" },
-          "hits": { "type": "integer", "format": "int64" },
-          "allowed": { "type": "integer", "format": "int64" },
-          "blocked": { "type": "integer", "format": "int64" },
-          "activeKeys": { "type": "integer", "format": "int32" }
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "hits": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "allowed": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "blocked": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "activeKeys": {
+            "type": "integer",
+            "format": "int32"
+          }
         }
       },
       "RateLimitKeyRecord": {
         "type": "object",
         "properties": {
-          "key": { "type": "string" },
-          "hits": { "type": "integer", "format": "int64" },
-          "allowed": { "type": "integer", "format": "int64" },
-          "blocked": { "type": "integer", "format": "int64" },
-          "firstSeenAt": { "type": ["string", "null"], "format": "date-time" },
-          "lastSeenAt": { "type": ["string", "null"], "format": "date-time" },
-          "lastBlockedAt": { "type": ["string", "null"], "format": "date-time" },
+          "key": {
+            "type": "string"
+          },
+          "hits": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "allowed": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "blocked": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "firstSeenAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "lastSeenAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "lastBlockedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
           "routes": {
             "type": "array",
             "items": {
               "type": "object",
               "properties": {
-                "route": { "type": "string" },
-                "hits": { "type": "integer", "format": "int32" },
-                "blocked": { "type": "integer", "format": "int32" },
-                "lastSeenAt": { "type": ["string", "null"], "format": "date-time" }
+                "route": {
+                  "type": "string"
+                },
+                "hits": {
+                  "type": "integer",
+                  "format": "int32"
+                },
+                "blocked": {
+                  "type": "integer",
+                  "format": "int32"
+                },
+                "lastSeenAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                }
               }
             }
           }
@@ -637,103 +1178,225 @@
       },
       "PerimeterSnapshot": {
         "type": "object",
-        "required": ["totalBlocked", "blockedOrigins"],
+        "required": [
+          "totalBlocked",
+          "blockedOrigins"
+        ],
         "properties": {
-          "totalBlocked": { "type": "integer", "format": "int64" },
-          "lastBlockedAt": { "type": ["string", "null"], "format": "date-time" },
+          "totalBlocked": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "lastBlockedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
           "blockedOrigins": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/BlockedOrigin" }
+            "items": {
+              "$ref": "#/components/schemas/BlockedOrigin"
+            }
           }
         }
       },
       "WebApplicationFirewallSnapshot": {
         "type": "object",
-        "required": ["evaluatedRequests", "blockedRequests", "recentBlocks"],
+        "required": [
+          "evaluatedRequests",
+          "blockedRequests",
+          "recentBlocks"
+        ],
         "properties": {
-          "evaluatedRequests": { "type": "integer", "format": "int64" },
-          "blockedRequests": { "type": "integer", "format": "int64" },
-          "lastBlockedAt": { "type": ["string", "null"], "format": "date-time" },
+          "evaluatedRequests": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "blockedRequests": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "lastBlockedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
           "blockedByRule": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/WafRuleBlockCount" }
+            "items": {
+              "$ref": "#/components/schemas/WafRuleBlockCount"
+            }
           },
           "blockedIps": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/WafIpBlockCount" }
+            "items": {
+              "$ref": "#/components/schemas/WafIpBlockCount"
+            }
           },
           "blockedAgents": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/WafAgentBlockCount" }
+            "items": {
+              "$ref": "#/components/schemas/WafAgentBlockCount"
+            }
           },
           "recentBlocks": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/WafBlockEvent" }
+            "items": {
+              "$ref": "#/components/schemas/WafBlockEvent"
+            }
           },
-          "autoBlock": { "$ref": "#/components/schemas/WafAutoBlockTelemetry" }
+          "autoBlock": {
+            "$ref": "#/components/schemas/WafAutoBlockTelemetry"
+          }
         }
       },
       "WafRuleBlockCount": {
         "type": "object",
         "properties": {
-          "ruleId": { "type": "string" },
-          "count": { "type": "integer", "format": "int32" }
+          "ruleId": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          }
         }
       },
       "WafIpBlockCount": {
         "type": "object",
         "properties": {
-          "ip": { "type": "string" },
-          "count": { "type": "integer", "format": "int32" }
+          "ip": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          }
         }
       },
       "WafAgentBlockCount": {
         "type": "object",
         "properties": {
-          "agent": { "type": "string" },
-          "count": { "type": "integer", "format": "int32" }
+          "agent": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          }
         }
       },
       "WafBlockEvent": {
         "type": "object",
         "properties": {
-          "referenceId": { "type": "string" },
-          "ip": { "type": ["string", "null"] },
-          "origin": { "type": ["string", "null"] },
-          "path": { "type": "string" },
-          "method": { "type": "string" },
-          "reason": { "type": "string" },
+          "referenceId": {
+            "type": "string"
+          },
+          "ip": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "origin": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
           "matchedRules": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/WafMatchedRule" }
+            "items": {
+              "$ref": "#/components/schemas/WafMatchedRule"
+            }
           },
-          "detectedAt": { "type": "string", "format": "date-time" },
-          "userAgent": { "type": ["string", "null"] }
+          "detectedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "userAgent": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
         }
       },
       "WafMatchedRule": {
         "type": "object",
         "properties": {
-          "id": { "type": ["string", "null"] },
-          "description": { "type": ["string", "null"] }
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
         }
       },
       "WafAutoBlockTelemetry": {
         "type": "object",
         "properties": {
-          "enabled": { "type": "boolean" },
-          "threshold": { "type": ["integer", "null"], "format": "int32" },
-          "windowSeconds": { "type": ["integer", "null"], "format": "int32" },
-          "ttlSeconds": { "type": ["integer", "null"], "format": "int32" },
-          "totalTriggered": { "type": "integer", "format": "int32" },
+          "enabled": {
+            "type": "boolean"
+          },
+          "threshold": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "windowSeconds": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "ttlSeconds": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "totalTriggered": {
+            "type": "integer",
+            "format": "int32"
+          },
           "active": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/WafAutoBlockRecord" }
+            "items": {
+              "$ref": "#/components/schemas/WafAutoBlockRecord"
+            }
           },
           "lastTriggered": {
             "anyOf": [
-              { "$ref": "#/components/schemas/WafAutoBlockRecord" },
-              { "type": "null" }
+              {
+                "$ref": "#/components/schemas/WafAutoBlockRecord"
+              },
+              {
+                "type": "null"
+              }
             ]
           }
         }
@@ -741,246 +1404,593 @@
       "WafAutoBlockRecord": {
         "type": "object",
         "properties": {
-          "ip": { "type": "string" },
-          "blockedAt": { "type": ["string", "null"], "format": "date-time" },
-          "expiresAt": { "type": ["string", "null"], "format": "date-time" },
-          "hits": { "type": "integer", "format": "int32" },
+          "ip": {
+            "type": "string"
+          },
+          "blockedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "hits": {
+            "type": "integer",
+            "format": "int32"
+          },
           "matchedRules": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/WafMatchedRule" }
+            "items": {
+              "$ref": "#/components/schemas/WafMatchedRule"
+            }
           }
         }
       },
       "BlockedOrigin": {
         "type": "object",
         "properties": {
-          "origin": { "type": "string" },
-          "attempts": { "type": "integer", "format": "int64" },
-          "firstBlockedAt": { "type": ["string", "null"], "format": "date-time" },
-          "lastBlockedAt": { "type": ["string", "null"], "format": "date-time" },
+          "origin": {
+            "type": "string"
+          },
+          "attempts": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "firstBlockedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "lastBlockedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
           "paths": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/BlockedRoute" }
+            "items": {
+              "$ref": "#/components/schemas/BlockedRoute"
+            }
           }
         }
       },
       "BlockedRoute": {
         "type": "object",
         "properties": {
-          "route": { "type": "string" },
-          "count": { "type": "integer", "format": "int32" },
-          "lastSeenAt": { "type": ["string", "null"], "format": "date-time" }
+          "route": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "lastSeenAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
         }
       },
       "DatabasePoolSnapshot": {
         "type": "object",
         "properties": {
-          "vendor": { "type": ["string", "null"] },
-          "max": { "type": "integer", "format": "int32" },
-          "min": { "type": "integer", "format": "int32" },
-          "size": { "type": "integer", "format": "int32" },
-          "available": { "type": "integer", "format": "int32" },
-          "pending": { "type": "integer", "format": "int32" },
-          "borrowed": { "type": "integer", "format": "int32" },
-          "updatedAt": { "type": ["string", "null"], "format": "date-time" },
-          "lastEvent": { "type": ["string", "null"] }
+          "vendor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "max": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "min": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "available": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pending": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "borrowed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "lastEvent": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
         }
       },
       "MaintenanceSummary": {
         "type": "object",
-        "required": ["generatedAt", "counts", "announcements"],
+        "required": [
+          "generatedAt",
+          "counts",
+          "announcements"
+        ],
         "properties": {
-          "generatedAt": { "type": "string", "format": "date-time" },
-          "windowMinutes": { "type": "integer", "format": "int32" },
-          "counts": { "$ref": "#/components/schemas/MaintenanceCounts" },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "windowMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/MaintenanceCounts"
+          },
           "highestSeverity": {
-            "type": ["object", "null"],
+            "type": [
+              "object",
+              "null"
+            ],
             "properties": {
-              "severity": { "type": "string" },
-              "slug": { "type": "string" },
-              "status": { "type": "string" }
+              "severity": {
+                "type": "string"
+              },
+              "slug": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              }
             }
           },
           "announcements": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/MaintenanceAnnouncement" }
+            "items": {
+              "$ref": "#/components/schemas/MaintenanceAnnouncement"
+            }
           }
         }
       },
       "MaintenanceCounts": {
         "type": "object",
         "properties": {
-          "total": { "type": "integer", "format": "int32" },
-          "active": { "type": "integer", "format": "int32" },
-          "scheduled": { "type": "integer", "format": "int32" },
-          "resolved": { "type": "integer", "format": "int32" }
+          "total": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "active": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "scheduled": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "resolved": {
+            "type": "integer",
+            "format": "int32"
+          }
         }
       },
       "MaintenanceAnnouncement": {
         "type": "object",
         "properties": {
-          "slug": { "type": "string" },
-          "title": { "type": "string" },
-          "message": { "type": "string" },
-          "severity": { "type": "string" },
-          "status": { "type": "string" },
+          "slug": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
           "audiences": {
             "type": "array",
-            "items": { "type": "string" }
+            "items": {
+              "type": "string"
+            }
           },
           "channels": {
             "type": "array",
-            "items": { "type": "string" }
+            "items": {
+              "type": "string"
+            }
           },
-          "dismissible": { "type": "boolean" },
-          "startsAt": { "type": ["string", "null"], "format": "date-time" },
-          "endsAt": { "type": ["string", "null"], "format": "date-time" },
-          "metadata": { "type": ["object", "null"], "additionalProperties": true }
+          "dismissible": {
+            "type": "boolean"
+          },
+          "startsAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "endsAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "metadata": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": true
+          }
         }
       },
       "ScheduledMaintenance": {
         "type": "object",
         "properties": {
-          "statusPageUrl": { "type": ["string", "null"], "format": "uri" },
-          "supportContact": { "type": "string" },
+          "statusPageUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "supportContact": {
+            "type": "string"
+          },
           "active": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/ScheduledWindow" }
+            "items": {
+              "$ref": "#/components/schemas/ScheduledWindow"
+            }
           },
           "upcoming": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/ScheduledWindow" }
+            "items": {
+              "$ref": "#/components/schemas/ScheduledWindow"
+            }
           },
-          "totalScheduled": { "type": "integer", "format": "int32" }
+          "totalScheduled": {
+            "type": "integer",
+            "format": "int32"
+          }
         }
       },
       "ScheduledWindow": {
         "type": "object",
         "properties": {
-          "id": { "type": ["string", "integer", "null"] },
-          "summary": { "type": "string" },
-          "impact": { "type": "string" },
-          "startAt": { "type": "string", "format": "date-time" },
-          "endAt": { "type": "string", "format": "date-time" },
-          "timezone": { "type": "string" },
-          "contact": { "type": "string" },
-          "publishedAt": { "type": ["string", "null"], "format": "date-time" }
+          "id": {
+            "type": [
+              "string",
+              "integer",
+              "null"
+            ]
+          },
+          "summary": {
+            "type": "string"
+          },
+          "impact": {
+            "type": "string"
+          },
+          "startAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "contact": {
+            "type": "string"
+          },
+          "publishedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
         }
       },
       "SecuritySnapshot": {
         "type": "object",
-        "required": ["events", "level"],
+        "required": [
+          "events",
+          "level"
+        ],
         "properties": {
           "events": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/SecurityEvent" }
+            "items": {
+              "$ref": "#/components/schemas/SecurityEvent"
+            }
           },
-          "level": { "type": "string", "enum": ["normal", "attention"] },
-          "latest": { "$ref": "#/components/schemas/SecurityEvent" },
-          "lastIncidentAt": { "type": ["string", "null"], "format": "date-time" }
+          "level": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "attention"
+            ]
+          },
+          "latest": {
+            "$ref": "#/components/schemas/SecurityEvent"
+          },
+          "lastIncidentAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
         }
       },
       "SecurityEvent": {
         "type": "object",
         "properties": {
-          "id": { "type": "integer", "format": "int32" },
-          "eventType": { "type": "string" },
-          "level": { "type": "string" },
-          "message": { "type": "string" },
-          "requestId": { "type": ["string", "null"] },
-          "triggeredBy": { "type": ["string", "null"] },
-          "metadata": { "type": ["object", "null"], "additionalProperties": true },
-          "createdAt": { "type": "string", "format": "date-time" },
-          "updatedAt": { "type": "string", "format": "date-time" }
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "eventType": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "triggeredBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "metadata": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
         }
       },
       "LoginRequest": {
         "type": "object",
-        "required": ["email", "password"],
+        "required": [
+          "email",
+          "password"
+        ],
         "properties": {
-          "email": { "type": "string", "format": "email" },
-          "password": { "type": "string", "minLength": 8 }
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8
+          }
         }
       },
       "LoginResponse": {
         "oneOf": [
           {
             "type": "object",
-            "required": ["requiresTwoFactor", "session"],
+            "required": [
+              "requiresTwoFactor",
+              "session"
+            ],
             "properties": {
-              "requiresTwoFactor": { "type": "boolean", "enum": [false] },
-              "session": { "$ref": "#/components/schemas/Session" }
+              "requiresTwoFactor": {
+                "type": "boolean",
+                "enum": [
+                  false
+                ]
+              },
+              "session": {
+                "$ref": "#/components/schemas/Session"
+              }
             }
           },
           {
             "type": "object",
-            "required": ["requiresTwoFactor", "challenge", "user"],
+            "required": [
+              "requiresTwoFactor",
+              "challenge",
+              "user"
+            ],
             "properties": {
-              "requiresTwoFactor": { "type": "boolean", "enum": [true] },
-              "challenge": { "$ref": "#/components/schemas/TwoFactorChallenge" },
-              "user": { "$ref": "#/components/schemas/UserProfile" }
+              "requiresTwoFactor": {
+                "type": "boolean",
+                "enum": [
+                  true
+                ]
+              },
+              "challenge": {
+                "$ref": "#/components/schemas/TwoFactorChallenge"
+              },
+              "user": {
+                "$ref": "#/components/schemas/UserProfile"
+              }
             }
           }
         ]
       },
       "TwoFactorChallenge": {
         "type": "object",
-        "required": ["tokenId", "deliveryMethod", "expiresAt", "maskedDestination"],
+        "required": [
+          "tokenId",
+          "deliveryMethod",
+          "expiresAt",
+          "maskedDestination"
+        ],
         "properties": {
-          "tokenId": { "type": "integer", "format": "int64" },
-          "email": { "type": "string", "format": "email" },
-          "deliveryMethod": { "type": "string", "enum": ["email", "sms", "app"] },
-          "expiresAt": { "type": "string", "format": "date-time" },
-          "maskedDestination": { "type": "string" }
+          "tokenId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "deliveryMethod": {
+            "type": "string",
+            "enum": [
+              "email",
+              "sms",
+              "app"
+            ]
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "maskedDestination": {
+            "type": "string"
+          }
         },
         "additionalProperties": false
       },
       "TwoFactorVerificationRequest": {
         "type": "object",
-        "required": ["email", "code", "tokenId"],
+        "required": [
+          "email",
+          "code",
+          "tokenId"
+        ],
         "properties": {
-          "email": { "type": "string", "format": "email" },
-          "code": { "type": "string", "minLength": 4 },
-          "tokenId": { "type": "integer", "format": "int64" }
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "code": {
+            "type": "string",
+            "minLength": 4
+          },
+          "tokenId": {
+            "type": "integer",
+            "format": "int64"
+          }
         }
       },
       "TwoFactorResendRequest": {
         "type": "object",
-        "required": ["tokenId"],
+        "required": [
+          "tokenId"
+        ],
         "properties": {
-          "tokenId": { "type": "integer", "format": "int64" }
+          "tokenId": {
+            "type": "integer",
+            "format": "int64"
+          }
         }
       },
       "RefreshRequest": {
         "type": "object",
-        "required": ["refreshToken"],
+        "required": [
+          "refreshToken"
+        ],
         "properties": {
-          "refreshToken": { "type": "string" }
+          "refreshToken": {
+            "type": "string"
+          }
         }
       },
       "SessionEnvelope": {
         "type": "object",
-        "required": ["session"],
+        "required": [
+          "session"
+        ],
         "properties": {
-          "session": { "$ref": "#/components/schemas/Session" }
+          "session": {
+            "$ref": "#/components/schemas/Session"
+          }
         }
       },
       "Session": {
         "type": "object",
-        "required": ["user", "accessToken", "refreshToken", "expiresAt"],
+        "required": [
+          "user",
+          "accessToken",
+          "refreshToken",
+          "expiresAt"
+        ],
         "properties": {
-          "user": { "$ref": "#/components/schemas/UserProfile" },
-          "accessToken": { "type": "string" },
-          "refreshToken": { "type": "string" },
-          "expiresAt": { "type": "string", "format": "date-time" },
+          "user": {
+            "$ref": "#/components/schemas/UserProfile"
+          },
+          "accessToken": {
+            "type": "string"
+          },
+          "refreshToken": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
           "featureFlags": {
             "type": "object",
             "additionalProperties": {
               "oneOf": [
-                { "type": "boolean" },
-                { "type": "string" },
-                { "type": "number" },
-                { "type": "object", "additionalProperties": true }
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": true
+                }
               ]
             }
           }
@@ -988,35 +1998,107 @@
       },
       "UserProfile": {
         "type": "object",
-        "required": ["id", "email", "name", "userType", "memberships"],
+        "required": [
+          "id",
+          "email",
+          "name",
+          "userType",
+          "memberships"
+        ],
         "properties": {
-          "id": { "type": "integer", "format": "int64" },
-          "email": { "type": "string", "format": "email" },
-          "firstName": { "type": ["string", "null"] },
-          "lastName": { "type": ["string", "null"] },
-          "name": { "type": "string" },
-          "address": { "type": ["string", "null"] },
-          "location": { "type": ["string", "null"] },
-          "geoLocation": { "$ref": "#/components/schemas/GeoLocation" },
-          "age": { "type": ["integer", "null"], "format": "int32" },
-          "userType": { "type": "string" },
-          "twoFactorEnabled": { "type": "boolean" },
-          "twoFactorMethod": { "type": "string" },
-          "lastLoginAt": { "type": ["string", "null"], "format": "date-time" },
-          "googleId": { "type": ["string", "null"] },
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "firstName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lastName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "location": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "geoLocation": {
+            "$ref": "#/components/schemas/GeoLocation"
+          },
+          "age": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "userType": {
+            "type": "string"
+          },
+          "twoFactorEnabled": {
+            "type": "boolean"
+          },
+          "twoFactorMethod": {
+            "type": "string"
+          },
+          "lastLoginAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "googleId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "memberships": {
             "type": "array",
-            "items": { "type": "string" }
+            "items": {
+              "type": "string"
+            }
           },
-          "primaryDashboard": { "type": "string" },
+          "primaryDashboard": {
+            "type": "string"
+          },
           "featureFlags": {
             "type": "object",
             "additionalProperties": {
               "oneOf": [
-                { "type": "boolean" },
-                { "type": "string" },
-                { "type": "number" },
-                { "type": "object", "additionalProperties": true }
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": true
+                }
               ]
             }
           }
@@ -1024,106 +2106,568 @@
       },
       "RegisterUserRequest": {
         "type": "object",
-        "required": ["email", "password", "firstName", "lastName"],
+        "required": [
+          "email",
+          "password",
+          "firstName",
+          "lastName"
+        ],
         "properties": {
-          "email": { "type": "string", "format": "email" },
-          "password": { "type": "string", "minLength": 8 },
-          "firstName": { "type": "string" },
-          "lastName": { "type": "string" },
-          "address": { "type": ["string", "null"] },
-          "location": { "type": ["string", "null"] },
-          "geoLocation": { "$ref": "#/components/schemas/GeoLocation" },
-          "age": { "type": ["integer", "null"], "format": "int32" },
-          "twoFactorEnabled": { "type": "boolean" },
-          "twoFactorMethod": { "type": "string", "enum": ["email", "sms", "app"] },
-          "signupChannel": { "type": ["string", "null"] }
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "location": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "geoLocation": {
+            "$ref": "#/components/schemas/GeoLocation"
+          },
+          "age": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "twoFactorEnabled": {
+            "type": "boolean"
+          },
+          "twoFactorMethod": {
+            "type": "string",
+            "enum": [
+              "email",
+              "sms",
+              "app"
+            ]
+          },
+          "signupChannel": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
         }
       },
       "RegisterCompanyRequest": {
         "allOf": [
-          { "$ref": "#/components/schemas/RegisterUserRequest" },
+          {
+            "$ref": "#/components/schemas/RegisterUserRequest"
+          },
           {
             "type": "object",
-            "required": ["companyName"],
+            "required": [
+              "companyName"
+            ],
             "properties": {
-              "companyName": { "type": "string" },
-              "description": { "type": ["string", "null"] },
-              "website": { "type": ["string", "null"], "format": "uri" }
+              "companyName": {
+                "type": "string"
+              },
+              "description": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "website": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "uri"
+              }
             }
           }
         ]
       },
       "RegisterAgencyRequest": {
         "allOf": [
-          { "$ref": "#/components/schemas/RegisterUserRequest" },
+          {
+            "$ref": "#/components/schemas/RegisterUserRequest"
+          },
           {
             "type": "object",
-            "required": ["agencyName"],
+            "required": [
+              "agencyName"
+            ],
             "properties": {
-              "agencyName": { "type": "string" },
-              "focusArea": { "type": ["string", "null"] },
-              "website": { "type": ["string", "null"], "format": "uri" }
+              "agencyName": {
+                "type": "string"
+              },
+              "focusArea": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "website": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "uri"
+              }
             }
           }
         ]
       },
       "RegistrationResponse": {
         "type": "object",
-        "required": ["id", "email", "featureFlags"],
+        "required": [
+          "id",
+          "email",
+          "featureFlags"
+        ],
         "properties": {
-          "id": { "type": "integer", "format": "int64" },
-          "email": { "type": "string", "format": "email" },
-          "firstName": { "type": ["string", "null"] },
-          "lastName": { "type": ["string", "null"] },
-          "userType": { "type": "string" },
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "firstName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lastName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "userType": {
+            "type": "string"
+          },
           "memberships": {
             "type": "array",
-            "items": { "type": "string" }
+            "items": {
+              "type": "string"
+            }
           },
           "featureFlags": {
             "type": "object",
             "additionalProperties": {
               "oneOf": [
-                { "type": "boolean" },
-                { "type": "string" },
-                { "type": "number" },
-                { "type": "object", "additionalProperties": true }
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": true
+                }
               ]
             }
           }
         }
       },
       "GeoLocation": {
-        "type": ["object", "null"],
+        "type": [
+          "object",
+          "null"
+        ],
         "properties": {
-          "label": { "type": "string" },
-          "city": { "type": "string" },
-          "region": { "type": "string" },
-          "country": { "type": "string" },
-          "postalCode": { "type": "string" },
-          "timezone": { "type": "string" },
-          "latitude": { "type": "number", "format": "double" },
-          "longitude": { "type": "number", "format": "double" },
-          "placeId": { "type": "string" },
-          "boundingBox": { "type": "object", "additionalProperties": true },
-          "raw": { "type": "object", "additionalProperties": true }
+          "label": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "postalCode": {
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "latitude": {
+            "type": "number",
+            "format": "double"
+          },
+          "longitude": {
+            "type": "number",
+            "format": "double"
+          },
+          "placeId": {
+            "type": "string"
+          },
+          "boundingBox": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "raw": {
+            "type": "object",
+            "additionalProperties": true
+          }
         },
         "additionalProperties": false
       },
-      "RefreshResponse": { "$ref": "#/components/schemas/SessionEnvelope" },
+      "RefreshResponse": {
+        "$ref": "#/components/schemas/SessionEnvelope"
+      },
       "ErrorResponse": {
         "type": "object",
         "properties": {
-          "error": { "type": "string" },
-          "message": { "type": "string" },
-          "status": { "type": "integer", "format": "int32" },
-          "details": { "type": ["array", "null"], "items": { "type": "string" } }
+          "error": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "details": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
         }
       },
       "OpenAPIDocument": {
         "type": "object",
         "description": "The OpenAPI JSON document (self-referential placeholder).",
         "additionalProperties": true
+      },
+      "LiveServiceTelemetryResponse": {
+        "type": "object",
+        "properties": {
+          "telemetry": {
+            "$ref": "#/components/schemas/LiveServiceTelemetry"
+          }
+        }
+      },
+      "LiveServiceTelemetry": {
+        "type": "object",
+        "properties": {
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "window": {
+            "type": "object",
+            "properties": {
+              "minutes": {
+                "type": "integer"
+              },
+              "since": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "until": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": [
+              "minutes",
+              "since",
+              "until"
+            ]
+          },
+          "timeline": {
+            "type": "object",
+            "properties": {
+              "windowPublished": {
+                "type": "integer"
+              },
+              "adminEventsRecorded": {
+                "type": "integer"
+              },
+              "scheduledNextHour": {
+                "type": "integer"
+              },
+              "overdue": {
+                "type": "integer"
+              },
+              "trendingEvents": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "eventName": {
+                      "type": "string"
+                    },
+                    "count": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "chat": {
+            "type": "object",
+            "properties": {
+              "totalMessages": {
+                "type": "integer"
+              },
+              "activeThreads": {
+                "type": "integer"
+              },
+              "sampleSize": {
+                "type": "integer"
+              },
+              "flaggedMessages": {
+                "type": "integer"
+              },
+              "flaggedRatio": {
+                "type": "number"
+              },
+              "moderationBacklog": {
+                "type": "integer"
+              },
+              "averageModerationScore": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "busiestChannels": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "threadId": {
+                      "type": "integer"
+                    },
+                    "channelSlug": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "channelName": {
+                      "type": "string"
+                    },
+                    "messageCount": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "inbox": {
+            "type": "object",
+            "properties": {
+              "openCases": {
+                "type": "integer"
+              },
+              "awaitingFirstResponse": {
+                "type": "integer"
+              },
+              "backlogByPriority": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "integer"
+                }
+              },
+              "breachedSlaCases": {
+                "type": "integer"
+              },
+              "escalationsLastWindow": {
+                "type": "integer"
+              },
+              "medianFirstResponseMinutes": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "sampleSize": {
+                "type": "integer"
+              }
+            }
+          },
+          "events": {
+            "type": "object",
+            "properties": {
+              "liveNow": {
+                "type": "integer"
+              },
+              "startingSoon": {
+                "type": "integer"
+              },
+              "cancellationsLastWindow": {
+                "type": "integer"
+              },
+              "tasksAtRisk": {
+                "type": "integer"
+              },
+              "upcoming": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "format": {
+                      "type": "string"
+                    },
+                    "visibility": {
+                      "type": "string"
+                    },
+                    "startAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "endAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "capacity": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "commitmentRate": {
+                      "type": "number"
+                    },
+                    "checkedIn": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "analytics": {
+            "type": "object",
+            "properties": {
+              "topEvents": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "eventName": {
+                      "type": "string"
+                    },
+                    "count": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              },
+              "ingestionLagSeconds": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            }
+          },
+          "incidentSignals": {
+            "type": "object",
+            "properties": {
+              "severity": {
+                "type": "string"
+              },
+              "notes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "runbooks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "slug": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "channel": {
+                  "type": "string"
+                },
+                "persona": {
+                  "type": "string"
+                },
+                "csatImpact": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "url": {
+                  "type": "string",
+                  "format": "uri"
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "generatedAt",
+          "window",
+          "timeline",
+          "chat",
+          "inbox",
+          "events",
+          "analytics",
+          "incidentSignals",
+          "runbooks"
+        ]
       }
     }
   }

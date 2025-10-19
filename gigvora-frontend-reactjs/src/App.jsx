@@ -101,6 +101,7 @@ import AdminInboxPage from './pages/dashboards/AdminInboxPage.jsx';
 import AdminTimelineManagementPage from './pages/dashboards/admin/AdminTimelineManagementPage.jsx';
 import AdminAppearanceManagementPage from './pages/dashboards/admin/AdminAppearanceManagementPage.jsx';
 import AdminStorageManagementPage from './pages/dashboards/admin/AdminStorageManagementPage.jsx';
+import AdminModerationDashboardPage from './pages/dashboards/admin/AdminModerationDashboardPage.jsx';
 import AdminDatabaseSettingsPage from './pages/dashboards/AdminDatabaseSettingsPage.jsx';
 import AdminGdprSettingsPage from './pages/dashboards/admin/AdminGdprSettingsPage.jsx';
 import AdminAdsSettingsPage from './pages/dashboards/admin/AdminAdsSettingsPage.jsx';
@@ -270,6 +271,7 @@ const adminRoutes = [
   { path: 'dashboard/admin', element: <AdminDashboardPage /> },
   { path: 'dashboard/admin/interviews', element: <AdminInterviewManagementPage /> },
   { path: 'dashboard/admin/inbox', element: <AdminInboxPage /> },
+  { path: 'dashboard/admin/moderation', element: <AdminModerationDashboardPage /> },
   { path: 'dashboard/admin/timelines', element: <AdminTimelineManagementPage /> },
   { path: 'dashboard/admin/appearance', element: <AdminAppearanceManagementPage /> },
   { path: 'dashboard/admin/storage', element: <AdminStorageManagementPage /> },
@@ -601,6 +603,10 @@ export default function App() {
       <Route path="dashboard/admin/volunteering" element={<RequireRole allowedRoles={['admin']}><AdminVolunteeringPage /></RequireRole>} />
       <Route path="dashboard/admin/mentoring" element={<RequireRole allowedRoles={['admin']}><AdminMentoringSessionManagementPage /></RequireRole>} />
       <Route path="dashboard/admin/inbox" element={<RequireRole allowedRoles={['admin']}><AdminInboxPage /></RequireRole>} />
+      <Route
+        path="dashboard/admin/moderation"
+        element={<RequireRole allowedRoles={['admin']}><AdminModerationDashboardPage /></RequireRole>}
+      />
       <Route path="dashboard/admin/job-applications" element={<RequireRole allowedRoles={['admin']}><AdminJobApplicationsPage /></RequireRole>} />
       <Route path="dashboard/admin/identity-verification" element={<RequireRole allowedRoles={['admin']}><AdminIdentityVerificationPage /></RequireRole>} />
       <Route path="dashboard/admin/timelines" element={<RequireRole allowedRoles={['admin']}><AdminTimelineManagementPage /></RequireRole>} />

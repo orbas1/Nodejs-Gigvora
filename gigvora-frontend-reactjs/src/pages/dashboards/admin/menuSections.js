@@ -34,6 +34,12 @@ export const ADMIN_MENU_SECTIONS = [
         description: 'Service desk load, SLAs, and sentiment guardrails.',
       },
       {
+        name: 'Community moderation',
+        description: 'Flag review queue, mute enforcement, and resolution timelines.',
+        tags: ['moderation', 'safety'],
+        sectionId: 'admin-moderation',
+      },
+      {
         name: 'Engagement & comms',
         description: 'Platform analytics, event telemetry, and notification delivery.',
       },
