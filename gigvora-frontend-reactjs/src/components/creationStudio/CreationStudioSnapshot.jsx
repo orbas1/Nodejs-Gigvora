@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { listCreationStudioItems } from '../../services/creationStudio.js';
+import { fetchCreationStudioItems } from '../../services/creationStudio.js';
 import useSession from '../../hooks/useSession.js';
 import { CREATION_TYPES } from './config.js';
 
@@ -10,7 +10,7 @@ export default function CreationStudioSnapshot() {
 
   useEffect(() => {
     let mounted = true;
-    listCreationStudioItems({ ownerId, pageSize: 5 })
+    fetchCreationStudioItems({ ownerId, pageSize: 5 })
       .then((response) => {
         if (mounted) {
           setItems(response?.items ?? []);

@@ -1,2 +1,20 @@
-// Temporarily disabled due to corruption
+// Temporarily disabled due to corruption - stub exports
 export const AGENCY_DASHBOARD_MENU_SECTIONS = [];
+export const AGENCY_DASHBOARD_MENU = [];
+export const AGENCY_AVAILABLE_DASHBOARDS = ['agency'];
+export const AGENCY_ESCROW_MENU = [];
+export const AGENCY_CRM_MENU_SECTIONS = [];
+export const AGENCY_PROJECT_MENU = [];
+export const AGENCY_INTEGRATIONS_MENU = [];
+export const AGENCY_AI_MENU = [];
+export const AGENCY_PROFILE_MENU = [];
+export const AGENCY_CLIENT_MENU = [];
+export const AGENCY_WALLET_MENU = [];
+export const AGENCY_TIMELINE_MENU = [];
+export const AGENCY_BLOG_MENU = [];
+export const AGENCY_INBOX_MENU = [];
+export const AGENCY_WORKSPACE_MENU = [];
+export const AGENCY_MENTORING_MENU = [];
+export const AGENCY_JOB_MENU = [];
+export const AGENCY_CALENDAR_MENU = [];
+export const AGENCY_EVENT_MENU = [];

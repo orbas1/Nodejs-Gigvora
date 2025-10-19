@@ -1,2 +1,5 @@
 // Temporarily disabled due to corruption
-export default function AdminDashboardPage() { return null; }
+export const ADMIN_MENU_SECTIONS = [];
+export default function AdminDashboardPage() { 
+  return null; 
+}

@@ -1,4 +1,4 @@
-import SectionShell from '../../SectionShell.jsx';
+import SectionShell from '../SectionShell.jsx';
 import ProjectWorkspaceModule from './project-workspace/ProjectWorkspaceModule.jsx';
 
 export default function ProjectWorkspaceExcellenceSection() {

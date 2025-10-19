@@ -1,77 +1,23 @@
-import { apiClient } from './apiClient.js';
-
-function cleanParams(params = {}) {
-  return Object.fromEntries(
-    Object.entries(params)
-      .filter(([, value]) => value !== undefined && value !== null && `${value}`.length > 0)
-      .map(([key, value]) => [key, value]),
-  );
-}
-
-export function fetchAgencyMentoringOverview(params = {}, { signal } = {}) {
-  return apiClient.get('/agency/mentoring/overview', { params: cleanParams(params), signal });
-}
-
-export function listAgencyMentoringSessions(params = {}, { signal } = {}) {
-  return apiClient.get('/agency/mentoring/sessions', { params: cleanParams(params), signal });
-}
-
-export function createAgencyMentoringSession(payload, { signal } = {}) {
-  return apiClient.post('/agency/mentoring/sessions', payload, { signal });
-}
-
-export function updateAgencyMentoringSession(sessionId, payload, { signal } = {}) {
-  return apiClient.patch(`/agency/mentoring/sessions/${sessionId}`, payload, { signal });
-}
-
-export function deleteAgencyMentoringSession(sessionId, params = {}, { signal } = {}) {
-  return apiClient.delete(`/agency/mentoring/sessions/${sessionId}`, { params: cleanParams(params), signal });
-}
-
-export function listAgencyMentoringPurchases(params = {}, { signal } = {}) {
-  return apiClient.get('/agency/mentoring/purchases', { params: cleanParams(params), signal });
-}
-
-export function createAgencyMentoringPurchase(payload, { signal } = {}) {
-  return apiClient.post('/agency/mentoring/purchases', payload, { signal });
-}
-
-export function updateAgencyMentoringPurchase(purchaseId, payload, { signal } = {}) {
-  return apiClient.patch(`/agency/mentoring/purchases/${purchaseId}`, payload, { signal });
-}
-
-export function listAgencyMentorFavourites(params = {}, { signal } = {}) {
-  return apiClient.get('/agency/mentoring/favourites', { params: cleanParams(params), signal });
-}
-
-export function createAgencyMentorPreference(payload, { signal } = {}) {
-  return apiClient.post('/agency/mentoring/favourites', payload, { signal });
-}
-
-export function updateAgencyMentorPreference(preferenceId, payload, { signal } = {}) {
-  return apiClient.patch(`/agency/mentoring/favourites/${preferenceId}`, payload, { signal });
-}
-
-export function deleteAgencyMentorPreference(preferenceId, params = {}, { signal } = {}) {
-  return apiClient.delete(`/agency/mentoring/favourites/${preferenceId}`, { params: cleanParams(params), signal });
-}
-
-export function listAgencySuggestedMentors(params = {}, { signal } = {}) {
-  return apiClient.get('/agency/mentoring/suggestions', { params: cleanParams(params), signal });
-}
-
-export default {
-  fetchAgencyMentoringOverview,
-  listAgencyMentoringSessions,
-  createAgencyMentoringSession,
-  updateAgencyMentoringSession,
-  deleteAgencyMentoringSession,
-  listAgencyMentoringPurchases,
-  createAgencyMentoringPurchase,
-  updateAgencyMentoringPurchase,
-  listAgencyMentorFavourites,
-  createAgencyMentorPreference,
-  updateAgencyMentorPreference,
-  deleteAgencyMentorPreference,
-  listAgencySuggestedMentors,
-};
+// Stub file - mentoring functions not fully implemented yet
+export function fetchAgencyMentoringOverview() { return Promise.resolve({ sessions: [], purchases: [], packages: [] }); }
+export function listAgencyMentoringSessions() { return Promise.resolve([]); }
+export function getAgencyMentoringSession() { return Promise.resolve(null); }
+export function createAgencyMentoringSession() { return Promise.reject('Not implemented'); }
+export function updateAgencyMentoringSession() { return Promise.reject('Not implemented'); }
+export function cancelAgencyMentoringSession() { return Promise.reject('Not implemented'); }
+export function completeAgencyMentoringSession() { return Promise.reject('Not implemented'); }
+export function rateAgencyMentoringSession() { return Promise.reject('Not implemented'); }
+export function listAgencyMentoringPurchases() { return Promise.resolve([]); }
+export function createAgencyMentoringPurchase() { return Promise.reject('Not implemented'); }
+export function updateAgencyMentoringPurchase() { return Promise.reject('Not implemented'); }
+export function deleteAgencyMentoringPurchase() { return Promise.reject('Not implemented'); }
+export function listAgencyMentorFavourites() { return Promise.resolve([]); }
+export function createAgencyMentorPreference() { return Promise.reject('Not implemented'); }
+export function updateAgencyMentorPreference() { return Promise.reject('Not implemented'); }
+export function deleteAgencyMentorPreference() { return Promise.reject('Not implemented'); }
+export function listAgencyMentoringPackages() { return Promise.resolve([]); }
+export function getAgencyMentoringPackage() { return Promise.resolve(null); }
+export function fetchAgencyMentoringAnalytics() { return Promise.resolve({}); }
+export function getAgencyMentoringStats() { return Promise.resolve({}); }
+export default {};
+export function listAgencySuggestedMentors() { return Promise.resolve([]); }

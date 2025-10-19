@@ -1,5 +1,5 @@
 import { HomeModernIcon } from '@heroicons/react/24/outline';
-import SectionShell from '../../SectionShell.jsx';
+import SectionShell from '../SectionShell.jsx';
 import { OPERATIONS_MEMBERSHIPS } from '../sampleData.js';
 
 export default function OperationsHQSection() {

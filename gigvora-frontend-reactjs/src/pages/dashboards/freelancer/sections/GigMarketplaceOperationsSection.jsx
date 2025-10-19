@@ -1,5 +1,5 @@
 import { MegaphoneIcon } from '@heroicons/react/24/outline';
-import SectionShell from '../../SectionShell.jsx';
+import SectionShell from '../SectionShell.jsx';
 import { GIG_MARKETPLACE_FEATURES } from '../sampleData.js';
 
 export default function GigMarketplaceOperationsSection() {

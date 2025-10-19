@@ -1,5 +1,5 @@
 import { CalendarDaysIcon, ChatBubbleBottomCenterTextIcon } from '@heroicons/react/24/outline';
-import SectionShell from '../../SectionShell.jsx';
+import SectionShell from '../SectionShell.jsx';
 
 export default function SupportSection() {
   return (

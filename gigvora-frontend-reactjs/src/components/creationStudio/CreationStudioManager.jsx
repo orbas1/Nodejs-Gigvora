@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  listCreationStudioItems,
+  fetchCreationStudioItems,
   getCreationStudioItem,
   createCreationStudioItem,
   updateCreationStudioItem,
@@ -33,7 +33,7 @@ export default function CreationStudioManager() {
     async (overrides = {}) => {
       setLoading(true);
       try {
-        const response = await listCreationStudioItems({ ownerId, ...filters, ...overrides });
+        const response = await fetchCreationStudioItems({ ownerId, ...filters, ...overrides });
         setItems(response?.items ?? []);
       } catch (error) {
         console.error('Failed to load creations', error);

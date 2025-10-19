@@ -8,7 +8,7 @@ import {
   PlusCircleIcon,
   TrashIcon,
 } from '@heroicons/react/24/outline';
-import SectionShell from '../../SectionShell.jsx';
+import SectionShell from '../SectionShell.jsx';
 
 const TONE_STYLES = {
   slate: 'border-slate-200 bg-slate-50 text-slate-600',

@@ -1,5 +1,5 @@
 import { ArrowTrendingUpIcon } from '@heroicons/react/24/outline';
-import SectionShell from '../../SectionShell.jsx';
+import SectionShell from '../SectionShell.jsx';
 import { GROWTH_PARTNERSHIP_FEATURES } from '../sampleData.js';
 
 export default function GrowthPartnershipSection() {

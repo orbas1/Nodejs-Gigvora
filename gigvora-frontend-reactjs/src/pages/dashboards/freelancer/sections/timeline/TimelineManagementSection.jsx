@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import SectionShell from '../../SectionShell.jsx';
-import DataStatus from '../../../../components/DataStatus.jsx';
-import useSession from '../../../../hooks/useSession.js';
-import useFreelancerTimeline from '../../../../hooks/useFreelancerTimeline.js';
+import DataStatus from '../../../../../components/DataStatus.jsx';
+import useSession from '../../../../../hooks/useSession.js';
+import useFreelancerTimeline from '../../../../../hooks/useFreelancerTimeline.js';
 import TimelineToolbar from './TimelineToolbar.jsx';
 import TimelinePlanView from './TimelinePlanView.jsx';
 import TimelinePostsView from './TimelinePostsView.jsx';

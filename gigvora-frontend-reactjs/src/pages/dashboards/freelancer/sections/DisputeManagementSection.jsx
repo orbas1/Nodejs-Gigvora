@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import useSession from '../../../../hooks/useSession.js';
 import { fetchDisputeDashboard } from '../../../../services/freelancerDisputes.js';
-import SectionShell from '../../SectionShell.jsx';
+import SectionShell from '../SectionShell.jsx';
 
 const METRICS = [
   { id: 'open', label: 'Open', field: 'openCases' },

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import SectionShell from '../../SectionShell.jsx';
+import SectionShell from '../SectionShell.jsx';
 import TaskSprintManager from '../../../../components/dashboard/TaskSprintManager.jsx';
 import useRoleAccess from '../../../../hooks/useRoleAccess.js';
 

@@ -95,6 +95,11 @@ export async function archiveCreationItem(userId, itemId, { signal } = {}) {
   return apiClient.delete(`/users/${userId}/creation-studio/${itemId}`, { signal });
 }
 
+export { 
+  fetchCreationStudioItems as listCreationStudioItems,
+  fetchCreationStudioOverview as getCreationStudioItem
+};
+
 export default {
   fetchCreationWorkspace,
   createCreationItem,

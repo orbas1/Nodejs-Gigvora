@@ -39,7 +39,7 @@ import {
   createThread,
   updateThreadState,
   escalateThread,
-  assignSupport,
+  assignSupportAgent,
   updateSupportStatus,
   markThreadRead,
 } from '../../services/messaging.js';
@@ -392,7 +392,7 @@ export default function CompanyInboxPage() {
   const handleAssignSupport = async (agentId) => {
     if (!selectedThreadId) return;
     try {
-      await assignSupport(selectedThreadId, {
+      await assignSupportAgent(selectedThreadId, {
         userId: actorId,
         agentId: agentId ?? null,
         notifyAgent: true,

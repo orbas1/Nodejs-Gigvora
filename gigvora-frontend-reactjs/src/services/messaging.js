@@ -150,6 +150,8 @@ export async function removeThreadParticipant(threadId, participantId, { userId 
   });
 }
 
+export { assignSupportAgent as assignSupport };
+
 export default {
   fetchInbox,
   fetchThread,

@@ -16,7 +16,7 @@ import {
   TrashIcon,
   UserGroupIcon,
 } from '@heroicons/react/24/outline';
-import SectionShell from '../../SectionShell.jsx';
+import SectionShell from '../SectionShell.jsx';
 import useSession from '../../../../hooks/useSession.js';
 import useFreelancerInboxWorkspace from '../../../../hooks/useFreelancerInboxWorkspace.js';
 import { resolveActorId } from '../../../../utils/session.js';
