@@ -263,12 +263,46 @@ export const QUALIFICATION_CREDENTIAL_STATUSES = [
 export const WALLET_ACCOUNT_TYPES = ['user', 'freelancer', 'company', 'agency'];
 export const WALLET_ACCOUNT_STATUSES = ['pending', 'active', 'suspended', 'closed'];
 export const WALLET_LEDGER_ENTRY_TYPES = ['credit', 'debit', 'hold', 'release', 'adjustment'];
-export const WALLET_FUNDING_SOURCE_TYPES = ['bank_account', 'card', 'manual_bank_transfer', 'digital_wallet', 'other'];
-export const WALLET_FUNDING_SOURCE_STATUSES = ['pending', 'verified', 'failed', 'disabled'];
+export const WALLET_FUNDING_SOURCE_TYPES = [
+  'bank_account',
+  'card',
+  'digital_wallet',
+  'manual_bank_transfer',
+  'virtual_account',
+  'wallet',
+  'other',
+];
+export const WALLET_FUNDING_SOURCE_STATUSES = [
+  'pending',
+  'verified',
+  'failed',
+  'disabled',
+  'active',
+  'inactive',
+  'pending_verification',
+];
+export const WALLET_TRANSFER_RULE_TRIGGER_TYPES = ['low_balance', 'schedule', 'manual'];
 export const WALLET_TRANSFER_RULE_CADENCES = ['daily', 'weekly', 'biweekly', 'monthly', 'quarterly'];
 export const WALLET_TRANSFER_RULE_STATUSES = ['active', 'paused', 'archived'];
 export const WALLET_TRANSFER_TYPES = ['payout', 'escrow_reserve', 'escrow_release', 'top_up', 'refund'];
-export const WALLET_TRANSFER_STATUSES = ['pending', 'scheduled', 'processing', 'completed', 'failed', 'cancelled'];
+export const WALLET_TRANSFER_STATUSES = [
+  'pending',
+  'scheduled',
+  'processing',
+  'completed',
+  'failed',
+  'cancelled',
+];
+export const WALLET_PAYOUT_REQUEST_STATUSES = [
+  'draft',
+  'pending_review',
+  'approved',
+  'scheduled',
+  'rejected',
+  'cancelled',
+  'completed',
+];
+export const WALLET_RISK_TIERS = ['low', 'medium', 'high', 'critical'];
 export const ESCROW_INTEGRATION_PROVIDERS = ['stripe', 'escrow_com'];
 export const DISPUTE_STAGES = ['intake', 'mediation', 'arbitration', 'resolved'];
 export const DISPUTE_STATUSES = ['open', 'awaiting_customer', 'under_review', 'settled', 'closed'];

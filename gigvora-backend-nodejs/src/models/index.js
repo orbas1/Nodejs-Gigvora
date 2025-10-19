@@ -458,9 +458,12 @@ import {
   WALLET_FUNDING_SOURCE_TYPES,
   WALLET_LEDGER_ENTRY_TYPES,
   WALLET_TRANSFER_RULE_CADENCES,
+  WALLET_TRANSFER_RULE_TRIGGER_TYPES,
   WALLET_TRANSFER_RULE_STATUSES,
   WALLET_TRANSFER_STATUSES,
   WALLET_TRANSFER_TYPES,
+  WALLET_PAYOUT_REQUEST_STATUSES,
+  WALLET_RISK_TIERS,
   WORKFORCE_COHORT_TYPES,
   WORKSPACE_CALENDAR_CONNECTION_STATUSES,
   WORKSPACE_INTEGRATION_AUDIT_EVENT_TYPES,
@@ -1685,57 +1688,6 @@ IdentityVerificationEvent.prototype.toPublicObject = function toPublicObject() {
 export const CorporateVerification = sequelize.define(
   'CorporateVerification',
   {
-    identityVerificationId: { type: DataTypes.INTEGER, allowNull: false },
-    eventType: {
-      type: DataTypes.ENUM(...IDENTITY_VERIFICATION_EVENT_TYPES),
-      allowNull: false,
-      defaultValue: 'note_recorded',
-      validate: { isIn: [IDENTITY_VERIFICATION_EVENT_TYPES] },
-    },
-    actorId: { type: DataTypes.INTEGER, allowNull: true },
-    previousStatus: {
-      type: DataTypes.ENUM(...ID_VERIFICATION_STATUSES),
-      allowNull: true,
-      validate: { isIn: [ID_VERIFICATION_STATUSES] },
-    },
-    newStatus: {
-      type: DataTypes.ENUM(...ID_VERIFICATION_STATUSES),
-      allowNull: true,
-      validate: { isIn: [ID_VERIFICATION_STATUSES] },
-    },
-    notes: { type: DataTypes.TEXT, allowNull: true },
-    metadata: { type: jsonType, allowNull: true },
-  },
-  {
-    tableName: 'identity_verification_events',
-    indexes: [
-      { fields: ['identityVerificationId'] },
-      { fields: ['eventType'] },
-      { fields: ['actorId'] },
-      { fields: ['createdAt'] },
-    ],
-  },
-);
-
-IdentityVerificationEvent.prototype.toPublicObject = function toPublicObject() {
-  const plain = this.get({ plain: true });
-  return {
-    id: plain.id,
-    identityVerificationId: plain.identityVerificationId,
-    eventType: plain.eventType,
-    actorId: plain.actorId,
-    previousStatus: plain.previousStatus,
-    newStatus: plain.newStatus,
-    notes: plain.notes,
-    metadata: plain.metadata ?? null,
-    createdAt: plain.createdAt,
-    updatedAt: plain.updatedAt,
-  };
-};
-
-export const CorporateVerification = sequelize.define(
-  'CorporateVerification',
-  {
     ownerType: {
       type: DataTypes.ENUM('company', 'agency'),
       allowNull: false,
@@ -2189,29 +2141,7 @@ WalletTransferRequest.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
-export const COMMUNITY_SPOTLIGHT_STATUSES = ['draft', 'scheduled', 'published', 'archived'];
-export const COMMUNITY_SPOTLIGHT_HIGHLIGHT_CATEGORIES = [
-  'speaking',
-  'open_source',
-  'contribution',
-  'press',
-  'mentorship',
-  'award',
-const WALLET_FUNDING_SOURCE_TYPES = ['bank_account', 'virtual_account', 'card', 'wallet'];
-const WALLET_FUNDING_SOURCE_STATUSES = ['active', 'inactive', 'pending_verification', 'disabled'];
-const WALLET_TRANSFER_RULE_TRIGGER_TYPES = ['low_balance', 'schedule', 'manual'];
-const WALLET_PAYOUT_REQUEST_STATUSES = [
-  'draft',
-  'pending_review',
-  'approved',
-  'scheduled',
-  'rejected',
-  'cancelled',
-  'completed',
-];
-const WALLET_RISK_TIERS = ['low', 'medium', 'high', 'critical'];
-
-export const WalletFundingSource = sequelize.define(
+export const AgencyWalletFundingSource = sequelize.define(
   'WalletFundingSource',
   {
     workspaceId: { type: DataTypes.INTEGER, allowNull: false },
@@ -2246,7 +2176,7 @@ export const WalletFundingSource = sequelize.define(
   },
 );
 
-WalletFundingSource.prototype.toPublicObject = function toPublicObject() {
+AgencyWalletFundingSource.prototype.toPublicObject = function toPublicObject() {
   const plain = this.get({ plain: true });
   return {
     id: plain.id,
@@ -2320,7 +2250,7 @@ WalletOperationalSetting.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
-export const WalletTransferRule = sequelize.define(
+export const AgencyWalletTransferRule = sequelize.define(
   'WalletTransferRule',
   {
     workspaceId: { type: DataTypes.INTEGER, allowNull: false },
@@ -2348,7 +2278,7 @@ export const WalletTransferRule = sequelize.define(
   },
 );
 
-WalletTransferRule.prototype.toPublicObject = function toPublicObject() {
+AgencyWalletTransferRule.prototype.toPublicObject = function toPublicObject() {
   const plain = this.get({ plain: true });
   return {
     id: plain.id,
@@ -19856,15 +19786,15 @@ User.hasMany(WalletTransferRequest, { foreignKey: 'requestedById', as: 'walletTr
 User.hasMany(WalletTransferRequest, { foreignKey: 'approvedById', as: 'approvedWalletTransfers' });
 ProviderWorkspace.hasMany(WalletAccount, { foreignKey: 'workspaceId', as: 'walletAccounts' });
 WalletAccount.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
-ProviderWorkspace.hasMany(WalletFundingSource, { foreignKey: 'workspaceId', as: 'walletFundingSources' });
-WalletFundingSource.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
-ProviderWorkspace.hasMany(WalletTransferRule, { foreignKey: 'workspaceId', as: 'walletTransferRules' });
-WalletTransferRule.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
-WalletTransferRule.belongsTo(WalletFundingSource, {
+ProviderWorkspace.hasMany(AgencyWalletFundingSource, { foreignKey: 'workspaceId', as: 'walletFundingSources' });
+AgencyWalletFundingSource.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+ProviderWorkspace.hasMany(AgencyWalletTransferRule, { foreignKey: 'workspaceId', as: 'walletTransferRules' });
+AgencyWalletTransferRule.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+AgencyWalletTransferRule.belongsTo(AgencyWalletFundingSource, {
   foreignKey: 'destinationFundingSourceId',
   as: 'destinationFundingSource',
 });
-WalletFundingSource.hasMany(WalletTransferRule, {
+AgencyWalletFundingSource.hasMany(AgencyWalletTransferRule, {
   foreignKey: 'destinationFundingSourceId',
   as: 'transferRules',
 });
@@ -19872,8 +19802,8 @@ ProviderWorkspace.hasMany(WalletPayoutRequest, { foreignKey: 'workspaceId', as: 
 WalletPayoutRequest.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 WalletPayoutRequest.belongsTo(WalletAccount, { foreignKey: 'walletAccountId', as: 'walletAccount' });
 WalletAccount.hasMany(WalletPayoutRequest, { foreignKey: 'walletAccountId', as: 'payoutRequests' });
-WalletPayoutRequest.belongsTo(WalletFundingSource, { foreignKey: 'fundingSourceId', as: 'fundingSource' });
-WalletFundingSource.hasMany(WalletPayoutRequest, { foreignKey: 'fundingSourceId', as: 'payoutRequests' });
+WalletPayoutRequest.belongsTo(AgencyWalletFundingSource, { foreignKey: 'fundingSourceId', as: 'fundingSource' });
+AgencyWalletFundingSource.hasMany(WalletPayoutRequest, { foreignKey: 'fundingSourceId', as: 'payoutRequests' });
 ProviderWorkspace.hasOne(WalletOperationalSetting, { foreignKey: 'workspaceId', as: 'walletSettings' });
 WalletOperationalSetting.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 
