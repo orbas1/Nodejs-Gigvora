@@ -1,13 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import {
   AcademicCapIcon,
+  ArrowPathIcon,
   BanknotesIcon,
   BoltIcon,
   BriefcaseIcon,
+  InboxStackIcon,
+  PlayCircleIcon,
   ShieldCheckIcon,
 } from '@heroicons/react/24/outline';
-import clsx from 'clsx';
 import Modal from '../ui/Modal.jsx';
 import {
   createProject,
@@ -17,45 +19,7 @@ import {
 import { createTransferRequest } from '../../services/walletManagement.js';
 import { createMentoringSession } from '../../services/userMentoring.js';
 
-const ACTIONS = [
-  {
-    id: 'project',
-    title: 'Launch a project',
-    description: 'Kick off a scoped engagement with budget, brief, and timelines.',
-    icon: BriefcaseIcon,
-    accent: 'bg-sky-50 border-sky-100',
-  },
-  {
-    id: 'gig-order',
-    title: 'Issue a gig order',
-    description: 'Engage a vendor with service scope, pricing, and deliverables.',
-    icon: BoltIcon,
-    accent: 'bg-violet-50 border-violet-100',
-  },
-  {
-    id: 'escrow',
-    title: 'Fund escrow milestone',
-    description: 'Secure a delivery by reserving funds and setting a release plan.',
-    icon: ShieldCheckIcon,
-    accent: 'bg-emerald-50 border-emerald-100',
-  },
-  {
-    id: 'wallet',
-    title: 'Schedule wallet transfer',
-    description: 'Move funds across sources, wallets, or payouts with confidence.',
-    icon: BanknotesIcon,
-    accent: 'bg-amber-50 border-amber-100',
-  },
-  {
-    id: 'mentoring',
-    title: 'Book a mentor',
-    description: 'Lock in a session with curated experts and attach a prep brief.',
-    icon: AcademicCapIcon,
-    accent: 'bg-indigo-50 border-indigo-100',
-  },
-];
-
-const CURRENCIES = [
+const DEFAULT_CURRENCIES = [
   { value: 'USD', label: 'USD — US Dollar' },
   { value: 'EUR', label: 'EUR — Euro' },
   { value: 'GBP', label: 'GBP — British Pound' },
@@ -63,1374 +27,1017 @@ const CURRENCIES = [
   { value: 'AUD', label: 'AUD — Australian Dollar' },
 ];
 
-const TRANSFER_TYPES = [
-  { value: 'instant', label: 'Instant payout' },
-  { value: 'scheduled', label: 'Scheduled transfer' },
-  { value: 'recurring', label: 'Recurring automation' },
-];
-
-const ACTION_WIZARDS = {
-  project: [
-    { title: 'Brief', description: 'Summarise the mandate, outcomes, and scope.' },
-    { title: 'Crew', description: 'Reference templates and collaborators to notify instantly.' },
-    { title: 'Timeline', description: 'Set due dates, kickoff links, and hero media.' },
-  ],
-  'gig-order': [
-    { title: 'Scope', description: 'Choose the project context and vendor service.' },
-    { title: 'Terms', description: 'Lock in amount, currency, and delivery windows.' },
-    { title: 'Handoff', description: 'Attach briefs or media so fulfilment begins immediately.' },
-  ],
-  escrow: [
-    { title: 'Reference', description: 'Link the milestone or gig order that is being secured.' },
-    { title: 'Safeguard', description: 'Allocate funds, account, and the release strategy.' },
-    { title: 'Signal', description: 'Notify all stakeholders for auditing and trust.' },
-  ],
-  wallet: [
-    { title: 'Source', description: 'Select wallet and funding source or enter manually.' },
-    { title: 'Destination', description: 'Define the receiving party, purpose, and cadence.' },
-    { title: 'Govern', description: 'Add treasury notes so reconciliation stays effortless.' },
-  ],
-  mentoring: [
-    { title: 'Mentor', description: 'Pick the expert or paste their handle to cross-invite.' },
-    { title: 'Session', description: 'Schedule, confirm duration, and share prep material.' },
-    { title: 'Enablement', description: 'Drop meeting links, recordings, and compliance signals.' },
-  ],
+const ACTION_CONFIG = {
+  project: {
+    id: 'project',
+    title: 'Launch a project workspace',
+    description: 'Spin up a scoped initiative with budget, collaborators, and timelines.',
+    icon: BriefcaseIcon,
+    accent: 'bg-sky-500/10 text-sky-700 border border-sky-100',
+    submitLabel: 'Launch project',
+    successMessage: 'Project created. We will refresh your dashboard momentarily.',
+    steps: [
+      { id: 'summary', label: 'Summary' },
+      { id: 'timeline', label: 'Timeline' },
+      { id: 'collaboration', label: 'Collaboration' },
+    ],
+  },
+  'gig-order': {
+    id: 'gig-order',
+    title: 'Issue a gig order',
+    description: 'Commission a vendor with scoped deliverables and payment terms.',
+    icon: BoltIcon,
+    accent: 'bg-violet-500/10 text-violet-700 border border-violet-100',
+    submitLabel: 'Send gig order',
+    successMessage: 'Gig order submitted successfully.',
+    steps: [
+      { id: 'context', label: 'Context' },
+      { id: 'commercials', label: 'Commercials' },
+      { id: 'handoff', label: 'Handoff' },
+    ],
+  },
+  escrow: {
+    id: 'escrow',
+    title: 'Fund an escrow milestone',
+    description: 'Secure delivery with a funded milestone and release guardrails.',
+    icon: ShieldCheckIcon,
+    accent: 'bg-emerald-500/10 text-emerald-700 border border-emerald-100',
+    submitLabel: 'Fund escrow',
+    successMessage: 'Escrow milestone funded.',
+    steps: [
+      { id: 'link', label: 'Reference' },
+      { id: 'funding', label: 'Funding' },
+      { id: 'notifications', label: 'Signals' },
+    ],
+  },
+  wallet: {
+    id: 'wallet',
+    title: 'Schedule a wallet transfer',
+    description: 'Move funds across wallets or schedule recurring treasury rules.',
+    icon: BanknotesIcon,
+    accent: 'bg-amber-500/10 text-amber-700 border border-amber-100',
+    submitLabel: 'Schedule transfer',
+    successMessage: 'Transfer scheduled.',
+    steps: [
+      { id: 'source', label: 'Source' },
+      { id: 'destination', label: 'Destination' },
+      { id: 'review', label: 'Governance' },
+    ],
+  },
+  mentoring: {
+    id: 'mentoring',
+    title: 'Book a mentor session',
+    description: 'Lock in expert support with agenda, meeting link, and materials.',
+    icon: AcademicCapIcon,
+    accent: 'bg-indigo-500/10 text-indigo-700 border border-indigo-100',
+    submitLabel: 'Book session',
+    successMessage: 'Mentor session booked.',
+    steps: [
+      { id: 'mentor', label: 'Mentor' },
+      { id: 'session', label: 'Session' },
+      { id: 'enablement', label: 'Enablement' },
+    ],
+  },
 };
 
-const DEFAULT_ACTIVITY_PLACEHOLDER = [
-  {
-    id: 'activity-project',
-    title: 'Onboarded new product launch project',
-    summary: 'Kickoff deck shared with design and growth pods.',
-    timestamp: new Date().toISOString(),
+const INITIAL_VALUES = {
+  project: {
+    title: '',
+    summary: '',
+    budget: '',
+    currency: 'USD',
+    startDate: '',
+    dueDate: '',
+    templateId: '',
+    collaborators: '',
+    briefUrl: '',
+    kickoffLink: '',
   },
-  {
-    id: 'activity-escrow',
-    title: 'Escrow milestone funded',
-    summary: 'USD 12,500 reserved for “Launch sprint” deliverable.',
-    timestamp: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
+  'gig-order': {
+    projectId: '',
+    vendorName: '',
+    serviceName: '',
+    amount: '',
+    currency: 'USD',
+    dueAt: '',
+    notes: '',
+    attachments: '',
   },
-  {
-    id: 'activity-mentor',
-    title: 'Mentor session confirmed',
-    summary: 'Booked with Jordan Wells for go-to-market rehearsal.',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
+  escrow: {
+    projectId: '',
+    milestoneName: '',
+    amount: '',
+    currency: 'USD',
+    accountId: '',
+    releaseDate: '',
+    releaseRule: '',
+    notifyEmails: '',
   },
-  {
-    id: 'activity-wallet',
-    title: 'Treasury automation executed',
-    summary: 'Recurring transfer pushed to growth wallet.',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(),
+  wallet: {
+    sourceId: '',
+    destination: '',
+    amount: '',
+    currency: 'USD',
+    transferDate: '',
+    cadence: 'once',
+    memo: '',
   },
+  mentoring: {
+    mentorId: '',
+    mentorHandle: '',
+    topic: '',
+    sessionDate: '',
+    sessionDuration: 60,
+    meetingLink: '',
+    prepNotes: '',
+    recordingPreference: 'allow',
+  },
+};
+
+const TRANSFER_CADENCE_OPTIONS = [
+  { value: 'once', label: 'One-off transfer' },
+  { value: 'weekly', label: 'Weekly automation' },
+  { value: 'monthly', label: 'Monthly automation' },
 ];
 
-function isValidUrl(value) {
-  if (!value) {
-    return true;
-  }
-  try {
-    const url = new URL(value);
-    return Boolean(url.protocol && url.host);
-  } catch (error) {
-    return false;
-  }
+function QuickActionStat({ icon: Icon, label, value }) {
+  return (
+    <div className="flex items-center gap-3 rounded-3xl border border-slate-200 bg-white/80 px-4 py-3 shadow-soft">
+      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900/90 text-white">
+        <Icon className="h-5 w-5" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-xs uppercase tracking-wide text-slate-400">{label}</p>
+        <p className="truncate text-lg font-semibold text-slate-900">{value}</p>
+      </div>
+    </div>
+  );
 }
 
-function isValidEmail(value) {
-  if (!value) {
-    return true;
-  }
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+QuickActionStat.propTypes = {
+  icon: PropTypes.elementType.isRequired,
+  label: PropTypes.string.isRequired,
+  value: PropTypes.string.isRequired,
+};
+
+function Stepper({ steps, activeIndex }) {
+  return (
+    <ol className="flex flex-wrap gap-3">
+      {steps.map((step, index) => {
+        const isActive = index === activeIndex;
+        const isCompleted = index < activeIndex;
+        return (
+          <li
+            key={step.id}
+            className={`flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold transition ${
+              isActive
+                ? 'bg-accent/10 text-accent'
+                : isCompleted
+                ? 'bg-emerald-100 text-emerald-700'
+                : 'bg-slate-100 text-slate-500'
+            }`}
+          >
+            <span
+              className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] ${
+                isCompleted ? 'bg-emerald-500 text-white' : 'bg-white text-slate-500'
+              }`}
+            >
+              {index + 1}
+            </span>
+            {step.label}
+          </li>
+        );
+      })}
+    </ol>
+  );
 }
 
-function splitEmails(value) {
-  if (!value) {
-    return [];
-  }
-  return value
-    .split(',')
-    .map((email) => email.trim())
-    .filter((email) => email.length > 0);
-}
+Stepper.propTypes = {
+  steps: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      label: PropTypes.string.isRequired,
+    }),
+  ).isRequired,
+  activeIndex: PropTypes.number.isRequired,
+};
 
-function formatNumber(value) {
-  if (value == null || Number.isNaN(Number(value))) {
-    return '0';
-  }
-  return new Intl.NumberFormat('en-GB').format(Number(value));
-}
-
-function formatCurrency(value, currency = 'USD') {
-  if (value == null || Number.isNaN(Number(value))) {
-    return `${currency} 0`;
-  }
-  try {
-    return new Intl.NumberFormat('en-GB', {
-      style: 'currency',
-      currency,
-      maximumFractionDigits: 0,
-    }).format(Number(value));
-  } catch (error) {
-    return `${currency} ${formatNumber(value)}`;
-  }
-}
-
-function formatDateTime(value) {
-  if (!value) {
-    return 'Just now';
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return 'Just now';
-  }
-  return date.toLocaleString('en-GB', {
-    hour: '2-digit',
-    minute: '2-digit',
-    day: 'numeric',
-    month: 'short',
-  });
-}
-
-function parseNumber(value) {
-  if (value === '' || value === null || value === undefined) {
+function ErrorMessage({ message }) {
+  if (!message) {
     return null;
   }
-  const numeric = Number(value);
-  if (Number.isNaN(numeric)) {
-    return null;
-  }
-  return numeric;
+  return <p className="text-sm font-medium text-rose-600">{message}</p>;
 }
 
-function toIsoDate(value) {
-  if (!value) {
-    return undefined;
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return undefined;
-  }
-  return date.toISOString();
+ErrorMessage.propTypes = {
+  message: PropTypes.string,
+};
+
+ErrorMessage.defaultProps = {
+  message: undefined,
+};
+
+function Fieldset({ legend, description, children }) {
+  return (
+    <fieldset className="space-y-3 rounded-3xl border border-slate-200 bg-white/80 p-5">
+      <legend className="text-sm font-semibold text-slate-900">{legend}</legend>
+      {description ? <p className="text-xs text-slate-500">{description}</p> : null}
+      <div className="space-y-4">{children}</div>
+    </fieldset>
+  );
 }
 
-function buildInitialForm(actionId) {
-  switch (actionId) {
-    case 'project':
-      return {
-        title: '',
-        description: '',
-        budget: '',
-        currency: 'USD',
-        dueDate: '',
-        templateId: '',
-        kickoffLink: '',
-        mediaUrl: '',
-      };
-    case 'gig-order':
-      return {
-        projectId: '',
-        vendorName: '',
-        serviceName: '',
-        amount: '',
-        currency: 'USD',
-        dueAt: '',
-        notes: '',
-        briefUrl: '',
-        attachmentUrl: '',
-      };
-    case 'escrow':
-      return {
-        escrowAccountId: '',
-        orderId: '',
-        amount: '',
-        currency: 'USD',
-        releaseAfter: '',
-        memo: '',
-        autoRelease: 'manual',
-        notificationEmails: '',
-      };
-    case 'wallet':
-      return {
-        walletAccountId: '',
-        fundingSourceId: '',
-        amount: '',
-        transferType: 'instant',
-        scheduledAt: '',
-        notes: '',
-        destination: '',
-        referenceCode: '',
-      };
-    case 'mentoring':
-      return {
-        mentorId: '',
-        topic: '',
-        scheduledAt: '',
-        durationMinutes: '60',
-        notes: '',
-        meetingUrl: '',
-        recordingConsent: 'allow',
-        preSessionVideoUrl: '',
-      };
-    default:
-      return {};
-  }
+Fieldset.propTypes = {
+  legend: PropTypes.string.isRequired,
+  description: PropTypes.string,
+  children: PropTypes.node,
+};
+
+Fieldset.defaultProps = {
+  description: undefined,
+  children: null,
+};
+
+function Input({ label, required, helper, error, ...rest }) {
+  const id = rest.id ?? rest.name;
+  return (
+    <label className="block text-sm font-medium text-slate-700" htmlFor={id}>
+      {label}
+      <input
+        {...rest}
+        id={id}
+        className={`mt-1 w-full rounded-2xl border px-3 py-2 text-sm shadow-inner focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30 ${
+          error ? 'border-rose-400' : 'border-slate-200'
+        }`}
+        required={required}
+      />
+      {helper ? <p className="mt-1 text-xs text-slate-500">{helper}</p> : null}
+      {error ? <ErrorMessage message={error} /> : null}
+    </label>
+  );
 }
 
-function validateForm(actionId, form) {
+Input.propTypes = {
+  label: PropTypes.string.isRequired,
+  required: PropTypes.bool,
+  helper: PropTypes.string,
+  error: PropTypes.string,
+  id: PropTypes.string,
+  name: PropTypes.string,
+};
+
+Input.defaultProps = {
+  required: false,
+  helper: undefined,
+  error: undefined,
+  id: undefined,
+  name: undefined,
+};
+
+function TextArea({ label, helper, error, rows = 4, ...rest }) {
+  const id = rest.id ?? rest.name;
+  return (
+    <label className="block text-sm font-medium text-slate-700" htmlFor={id}>
+      {label}
+      <textarea
+        {...rest}
+        id={id}
+        rows={rows}
+        className={`mt-1 w-full rounded-2xl border px-3 py-2 text-sm shadow-inner focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30 ${
+          error ? 'border-rose-400' : 'border-slate-200'
+        }`}
+      />
+      {helper ? <p className="mt-1 text-xs text-slate-500">{helper}</p> : null}
+      {error ? <ErrorMessage message={error} /> : null}
+    </label>
+  );
+}
+
+TextArea.propTypes = {
+  label: PropTypes.string.isRequired,
+  helper: PropTypes.string,
+  error: PropTypes.string,
+  rows: PropTypes.number,
+};
+
+TextArea.defaultProps = {
+  helper: undefined,
+  error: undefined,
+  rows: 4,
+};
+
+function Select({ label, options, helper, error, ...rest }) {
+  const id = rest.id ?? rest.name;
+  return (
+    <label className="block text-sm font-medium text-slate-700" htmlFor={id}>
+      {label}
+      <select
+        {...rest}
+        id={id}
+        className={`mt-1 w-full rounded-2xl border bg-white px-3 py-2 text-sm shadow-inner focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30 ${
+          error ? 'border-rose-400' : 'border-slate-200'
+        }`}
+      >
+        <option value="">Select…</option>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      {helper ? <p className="mt-1 text-xs text-slate-500">{helper}</p> : null}
+      {error ? <ErrorMessage message={error} /> : null}
+    </label>
+  );
+}
+
+Select.propTypes = {
+  label: PropTypes.string.isRequired,
+  options: PropTypes.arrayOf(
+    PropTypes.shape({
+      value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+      label: PropTypes.string.isRequired,
+    }),
+  ),
+  helper: PropTypes.string,
+  error: PropTypes.string,
+  id: PropTypes.string,
+  name: PropTypes.string,
+};
+
+Select.defaultProps = {
+  options: [],
+  helper: undefined,
+  error: undefined,
+  id: undefined,
+  name: undefined,
+};
+
+function buildError(message) {
+  return message ?? 'This field is required.';
+}
+
+function validate(actionId, values) {
   const errors = {};
   if (actionId === 'project') {
-    if (!form.title?.trim()) {
-      errors.title = 'Add a project name.';
-    }
-    if (!form.description?.trim()) {
-      errors.description = 'Add a project description.';
-    }
-    const budget = parseNumber(form.budget);
-    if (form.budget && (budget == null || budget <= 0)) {
-      errors.budget = 'Enter a valid amount.';
-    }
-    if (form.kickoffLink && !isValidUrl(form.kickoffLink)) {
-      errors.kickoffLink = 'Enter a valid kickoff URL.';
-    }
-    if (form.mediaUrl && !isValidUrl(form.mediaUrl)) {
-      errors.mediaUrl = 'Provide a valid media link.';
-    }
+    if (!values.title?.trim()) errors.title = buildError('Add a project name.');
+    if (!values.summary?.trim()) errors.summary = buildError('Share a short project summary.');
+    if (values.budget && Number.isNaN(Number(values.budget))) errors.budget = 'Enter a valid amount.';
+    if (values.startDate && Number.isNaN(new Date(values.startDate).getTime())) errors.startDate = 'Pick a valid date.';
+    if (values.dueDate && Number.isNaN(new Date(values.dueDate).getTime())) errors.dueDate = 'Pick a valid date.';
   }
   if (actionId === 'gig-order') {
-    if (!form.vendorName?.trim()) {
-      errors.vendorName = 'Enter the vendor or freelancer name.';
-    }
-    if (!form.serviceName?.trim()) {
-      errors.serviceName = 'Describe the service ordered.';
-    }
-    const amount = parseNumber(form.amount);
-    if (amount == null || amount <= 0) {
-      errors.amount = 'Add a positive amount.';
-    }
-    if (form.briefUrl && !isValidUrl(form.briefUrl)) {
-      errors.briefUrl = 'Enter a valid brief URL.';
-    }
-    if (form.attachmentUrl && !isValidUrl(form.attachmentUrl)) {
-      errors.attachmentUrl = 'Enter a valid attachment URL.';
-    }
+    if (!values.projectId) errors.projectId = buildError('Select a project context.');
+    if (!values.vendorName?.trim()) errors.vendorName = buildError('Add the vendor name.');
+    if (!values.serviceName?.trim()) errors.serviceName = buildError('Describe the service.');
+    if (!values.amount || Number.isNaN(Number(values.amount))) errors.amount = 'Enter a budget amount.';
   }
   if (actionId === 'escrow') {
-    if (!form.orderId?.trim()) {
-      errors.orderId = 'Reference the related gig order ID.';
-    }
-    const amount = parseNumber(form.amount);
-    if (amount == null || amount <= 0) {
-      errors.amount = 'Escrow requires a positive amount.';
-    }
-    const emails = splitEmails(form.notificationEmails);
-    if (emails.some((email) => !isValidEmail(email))) {
-      errors.notificationEmails = 'Fix the email list (comma separated).';
-    }
-    if (form.autoRelease && !['manual', 'date', 'milestone'].includes(form.autoRelease)) {
-      errors.autoRelease = 'Choose a valid release mode.';
-    }
+    if (!values.projectId) errors.projectId = buildError('Link to a project or gig order.');
+    if (!values.amount || Number.isNaN(Number(values.amount))) errors.amount = 'Enter the funded amount.';
+    if (!values.accountId) errors.accountId = buildError('Choose an escrow account.');
   }
   if (actionId === 'wallet') {
-    const amount = parseNumber(form.amount);
-    if (amount == null || amount <= 0) {
-      errors.amount = 'Enter an amount to transfer.';
-    }
-    if (!form.walletAccountId?.trim()) {
-      errors.walletAccountId = 'Wallet account ID is required.';
-    }
-    if (form.destination && form.destination.trim().length < 3) {
-      errors.destination = 'Describe where the transfer is headed.';
-    }
-    if (form.referenceCode && form.referenceCode.trim().length < 3) {
-      errors.referenceCode = 'Reference code is too short.';
-    }
+    if (!values.sourceId) errors.sourceId = buildError('Choose a source wallet.');
+    if (!values.destination?.trim()) errors.destination = buildError('Enter a destination or beneficiary.');
+    if (!values.amount || Number.isNaN(Number(values.amount))) errors.amount = 'Enter a transfer amount.';
   }
   if (actionId === 'mentoring') {
-    if (!form.mentorId?.trim()) {
-      errors.mentorId = 'Select a mentor.';
+    if (!values.mentorId && !values.mentorHandle?.trim()) {
+      errors.mentorId = buildError('Select or reference a mentor.');
     }
-    if (!form.topic?.trim()) {
-      errors.topic = 'Add a session focus.';
-    }
-    const duration = parseNumber(form.durationMinutes);
-    if (duration == null || duration <= 0) {
-      errors.durationMinutes = 'Duration must be positive.';
-    }
-    if (form.meetingUrl && !isValidUrl(form.meetingUrl)) {
-      errors.meetingUrl = 'Enter a valid meeting link.';
-    }
-    if (form.preSessionVideoUrl && !isValidUrl(form.preSessionVideoUrl)) {
-      errors.preSessionVideoUrl = 'Link to a valid prep video.';
-    }
-    if (form.recordingConsent && !['allow', 'deny'].includes(form.recordingConsent)) {
-      errors.recordingConsent = 'Select a consent option.';
+    if (!values.topic?.trim()) errors.topic = buildError('Outline the session focus.');
+    if (!values.sessionDate) errors.sessionDate = buildError('Pick a session date.');
+    if (!values.sessionDuration || Number.isNaN(Number(values.sessionDuration))) {
+      errors.sessionDuration = 'Add a duration in minutes.';
     }
   }
   return errors;
 }
 
-async function submitAction(actionId, userId, form) {
+function buildPayload(actionId, values) {
   switch (actionId) {
-    case 'project': {
-      const payload = {
-        title: form.title.trim(),
-        description: form.description.trim(),
-        budgetAllocated: parseNumber(form.budget) ?? undefined,
-        budgetCurrency: form.currency || 'USD',
-        dueDate: toIsoDate(form.dueDate),
+    case 'project':
+      return {
+        title: values.title?.trim(),
+        summary: values.summary?.trim(),
+        budget: values.budget ? Number(values.budget) : undefined,
+        currency: values.currency,
+        startsAt: values.startDate || undefined,
+        dueAt: values.dueDate || undefined,
+        templateId: values.templateId || undefined,
+        collaborators: values.collaborators
+          ? values.collaborators
+              .split(',')
+              .map((email) => email.trim())
+              .filter(Boolean)
+          : [],
+        briefUrl: values.briefUrl?.trim() || undefined,
+        kickoffLink: values.kickoffLink?.trim() || undefined,
       };
-      const metadata = {};
-      const templateId = form.templateId?.trim();
-      if (templateId) {
-        payload.templateId = templateId;
-        metadata.templateId = templateId;
-      }
-      const kickoffLink = form.kickoffLink?.trim();
-      if (kickoffLink) {
-        metadata.kickoffLink = kickoffLink;
-      }
-      const mediaUrl = form.mediaUrl?.trim();
-      if (mediaUrl) {
-        metadata.heroMedia = { url: mediaUrl };
-      }
-      if (Object.keys(metadata).length > 0) {
-        payload.metadata = metadata;
-      }
-      await createProject(userId, payload);
-      return 'Project created successfully.';
-    }
-    case 'gig-order': {
-      const payload = {
-        vendorName: form.vendorName.trim(),
-        serviceName: form.serviceName.trim(),
-        amount: parseNumber(form.amount),
-        currency: form.currency || 'USD',
-        dueAt: toIsoDate(form.dueAt),
-        notes: form.notes?.trim() || undefined,
+    case 'gig-order':
+      return {
+        projectId: values.projectId,
+        vendorName: values.vendorName?.trim(),
+        serviceName: values.serviceName?.trim(),
+        amount: Number(values.amount),
+        currency: values.currency,
+        dueAt: values.dueAt || undefined,
+        notes: values.notes?.trim() || undefined,
+        attachments: values.attachments?.split(',').map((item) => item.trim()).filter(Boolean) ?? [],
       };
-      const metadata = {};
-      const projectId = form.projectId?.trim();
-      if (projectId) {
-        payload.projectId = projectId;
-      }
-      const briefUrl = form.briefUrl?.trim();
-      if (briefUrl) {
-        metadata.briefUrl = briefUrl;
-      }
-      const attachmentUrl = form.attachmentUrl?.trim();
-      if (attachmentUrl) {
-        metadata.attachmentUrl = attachmentUrl;
-      }
-      if (Object.keys(metadata).length > 0) {
-        payload.metadata = metadata;
-      }
-      await createGigOrder(userId, payload);
-      return 'Gig order issued.';
-    }
-    case 'escrow': {
-      const payload = {
-        orderId: form.orderId.trim(),
-        amount: parseNumber(form.amount),
-        currency: form.currency || 'USD',
-        releaseAfter: toIsoDate(form.releaseAfter),
-        memo: form.memo?.trim() || undefined,
+    case 'escrow':
+      return {
+        projectId: values.projectId,
+        milestoneName: values.milestoneName?.trim() || 'Funded milestone',
+        amount: Number(values.amount),
+        currency: values.currency,
+        accountId: values.accountId,
+        releaseDate: values.releaseDate || undefined,
+        releaseRule: values.releaseRule?.trim() || undefined,
+        notifyEmails: values.notifyEmails
+          ? values.notifyEmails
+              .split(',')
+              .map((email) => email.trim())
+              .filter(Boolean)
+          : [],
       };
-      const metadata = {};
-      const escrowAccountId = form.escrowAccountId?.trim();
-      if (escrowAccountId) {
-        payload.escrowAccountId = escrowAccountId;
-      }
-      if (form.autoRelease && form.autoRelease !== 'manual') {
-        metadata.releaseStrategy = form.autoRelease;
-      }
-      const emails = splitEmails(form.notificationEmails);
-      if (emails.length) {
-        metadata.notificationEmails = emails;
-      }
-      if (Object.keys(metadata).length > 0) {
-        payload.metadata = metadata;
-      }
-      await createEscrowTransaction(userId, payload);
-      return 'Escrow funded for the order.';
-    }
-    case 'wallet': {
-      const payload = {
-        walletAccountId: form.walletAccountId.trim(),
-        fundingSourceId: form.fundingSourceId?.trim() || undefined,
-        amount: parseNumber(form.amount),
-        transferType: form.transferType || 'instant',
-        notes: form.notes?.trim() || undefined,
-        scheduledAt: toIsoDate(form.scheduledAt),
+    case 'wallet':
+      return {
+        sourceId: values.sourceId,
+        destination: values.destination?.trim(),
+        amount: Number(values.amount),
+        currency: values.currency,
+        transferDate: values.transferDate || undefined,
+        cadence: values.cadence,
+        memo: values.memo?.trim() || undefined,
       };
-      const metadata = {};
-      const destination = form.destination?.trim();
-      if (destination) {
-        metadata.destination = destination;
-      }
-      const referenceCode = form.referenceCode?.trim();
-      if (referenceCode) {
-        payload.referenceCode = referenceCode;
-      }
-      if (Object.keys(metadata).length > 0) {
-        payload.metadata = metadata;
-      }
-      await createTransferRequest(userId, payload);
-      return 'Wallet transfer scheduled.';
-    }
-    case 'mentoring': {
-      const payload = {
-        mentorId: form.mentorId.trim(),
-        topic: form.topic.trim(),
-        scheduledAt: toIsoDate(form.scheduledAt),
-        durationMinutes: parseNumber(form.durationMinutes) ?? 60,
-        notes: form.notes?.trim() || undefined,
+    case 'mentoring':
+      return {
+        mentorId: values.mentorId || undefined,
+        mentorHandle: values.mentorHandle?.trim() || undefined,
+        topic: values.topic?.trim(),
+        sessionDate: values.sessionDate,
+        sessionDuration: Number(values.sessionDuration),
+        meetingLink: values.meetingLink?.trim() || undefined,
+        prepNotes: values.prepNotes?.trim() || undefined,
+        recordingPreference: values.recordingPreference,
       };
-      const metadata = {};
-      const meetingUrl = form.meetingUrl?.trim();
-      if (meetingUrl) {
-        payload.meetingUrl = meetingUrl;
-      }
-      if (form.recordingConsent) {
-        payload.recordingConsent = form.recordingConsent;
-      }
-      const preSessionVideoUrl = form.preSessionVideoUrl?.trim();
-      if (preSessionVideoUrl) {
-        metadata.preSessionVideoUrl = preSessionVideoUrl;
-      }
-      if (Object.keys(metadata).length > 0) {
-        payload.metadata = metadata;
-      }
-      await createMentoringSession(userId, payload);
-      return 'Mentor session booked.';
-    }
     default:
-      return null;
+      return values;
   }
 }
 
-function Field({ label, error, children, required }) {
-  return (
-    <label className="flex flex-col gap-2 text-sm text-slate-700">
-      <span className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-        {label}
-        {required ? <span className="text-rose-500">*</span> : null}
-      </span>
-      {children}
-      {error ? <span className="text-xs font-medium text-rose-600">{error}</span> : null}
-    </label>
-  );
-}
-
-Field.propTypes = {
-  label: PropTypes.string.isRequired,
-  error: PropTypes.string,
-  children: PropTypes.node.isRequired,
-  required: PropTypes.bool,
-};
-
-Field.defaultProps = {
-  error: '',
-  required: false,
-};
-
-function StatusMessage({ status }) {
-  if (!status) {
-    return null;
+async function submitAction(actionId, userId, payload) {
+  switch (actionId) {
+    case 'project':
+      return createProject(userId, payload);
+    case 'gig-order':
+      return createGigOrder(userId, payload);
+    case 'escrow':
+      return createEscrowTransaction(userId, payload);
+    case 'wallet':
+      return createTransferRequest(userId, payload);
+    case 'mentoring':
+      return createMentoringSession(userId, payload);
+    default:
+      throw new Error(`Unsupported action: ${actionId}`);
   }
-  const tone = status.type === 'error'
-    ? 'border-rose-200 bg-rose-50 text-rose-600'
-    : 'border-emerald-200 bg-emerald-50 text-emerald-700';
-  return (
-    <div className={clsx('rounded-2xl border px-4 py-3 text-sm font-medium', tone)}>{status.message}</div>
-  );
 }
 
-StatusMessage.propTypes = {
-  status: PropTypes.shape({
-    type: PropTypes.oneOf(['error', 'success']).isRequired,
-    message: PropTypes.string.isRequired,
-  }),
-};
-
-StatusMessage.defaultProps = {
-  status: null,
-};
-
-function MetricCard({ label, value, hint }) {
-  return (
-    <div className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-soft">
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{label}</p>
-      <p className="mt-2 text-2xl font-semibold text-slate-900">{value}</p>
-      {hint ? <p className="mt-1 text-xs text-slate-500">{hint}</p> : null}
-    </div>
-  );
-}
-
-MetricCard.propTypes = {
-  label: PropTypes.string.isRequired,
-  value: PropTypes.node.isRequired,
-  hint: PropTypes.string,
-};
-
-MetricCard.defaultProps = {
-  hint: '',
-};
-
-function ActionWizard({ steps }) {
-  if (!steps || steps.length === 0) {
-    return null;
-  }
-  return (
-    <ol className="grid gap-3 rounded-3xl border border-slate-200 bg-slate-50/60 p-4 sm:grid-cols-3">
-      {steps.map((step, index) => (
-        <li key={step.title ?? index} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Step {index + 1}</p>
-          <p className="mt-2 text-sm font-semibold text-slate-900">{step.title}</p>
-          <p className="mt-1 text-xs text-slate-600">{step.description}</p>
-        </li>
-      ))}
-    </ol>
-  );
-}
-
-ActionWizard.propTypes = {
-  steps: PropTypes.arrayOf(
-    PropTypes.shape({
-      title: PropTypes.string.isRequired,
-      description: PropTypes.string.isRequired,
-    }),
-  ),
-};
-
-ActionWizard.defaultProps = {
-  steps: [],
-};
-
-function ActivityList({ items, mentorsUpcoming }) {
-  if (!items || items.length === 0) {
-    return null;
-  }
-  return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="text-lg font-semibold text-slate-900">Live activity feed</h3>
-        {mentorsUpcoming != null ? (
-          <span className="rounded-full bg-slate-900/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-slate-600">
-            {formatNumber(mentorsUpcoming)} mentor {mentorsUpcoming === 1 ? 'session' : 'sessions'}
-          </span>
-        ) : null}
-      </div>
-      <ul className="mt-4 space-y-3">
-        {items.map((item) => (
-          <li
-            key={item.id}
-            className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4 transition hover:border-slate-200 hover:bg-white"
-          >
-            <p className="text-sm font-semibold text-slate-900">{item.title}</p>
-            {item.summary ? <p className="mt-1 text-xs text-slate-600">{item.summary}</p> : null}
-            <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">
-              {formatDateTime(item.timestamp)}
-            </p>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-ActivityList.propTypes = {
-  items: PropTypes.arrayOf(
-    PropTypes.shape({
-      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-      title: PropTypes.string,
-      summary: PropTypes.string,
-      timestamp: PropTypes.oneOfType([PropTypes.string, PropTypes.number, PropTypes.instanceOf(Date)]),
-    }),
-  ),
-  mentorsUpcoming: PropTypes.number,
-};
-
-ActivityList.defaultProps = {
-  items: [],
-  mentorsUpcoming: null,
-};
-
-export default function UserDashboardQuickActions({ userId, onActionComplete, className, context }) {
-  const [activeAction, setActiveAction] = useState(null);
-  const [form, setForm] = useState(() => buildInitialForm(null));
+function QuickActionModal({ actionId, open, onClose, onCompleted, context, userId }) {
+  const config = actionId ? ACTION_CONFIG[actionId] : null;
+  const [step, setStep] = useState(0);
+  const [values, setValues] = useState(actionId ? INITIAL_VALUES[actionId] : {});
   const [errors, setErrors] = useState({});
+  const [feedback, setFeedback] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const [status, setStatus] = useState(null);
 
-  const {
-    projects = [],
-    projectTemplates = [],
-    walletAccounts = [],
-    fundingSources = [],
-    mentors = [],
-    escrowAccounts = [],
-    activityFeed = [],
-    metrics = {},
-  } = context ?? {};
-
-  const currency = metrics?.currency ?? 'USD';
-
+  const currencyOptions = context.currencies?.length ? context.currencies : DEFAULT_CURRENCIES;
   const projectOptions = useMemo(() => {
-    return projects
-      .map((project) => {
-        const meta = project?.project ?? project;
-        const id = project?.id ?? meta?.id ?? meta?.slug ?? meta?.code ?? null;
-        if (!id) {
-          return null;
-        }
-        const title = meta?.title ?? meta?.name ?? meta?.label ?? `Project ${id}`;
-        const statusLabel = project?.status ?? meta?.status ?? 'active';
-        return { id, title, status: statusLabel };
-      })
-      .filter(Boolean);
-  }, [projects]);
+    return (context.projects ?? []).map((project) => ({
+      value: String(project.id ?? project.projectId ?? project.slug ?? project.name),
+      label: project.name ?? project.title ?? `Project #${project.id ?? project.projectId ?? ''}`,
+    }));
+  }, [context.projects]);
 
   const templateOptions = useMemo(() => {
-    return projectTemplates
-      .map((template, index) => {
-        const id = template?.id ?? template?.slug ?? template?.code ?? template?.name ?? `template-${index}`;
-        const name = template?.name ?? template?.title ?? `Template ${index + 1}`;
-        const description = template?.description ?? template?.summary ?? '';
-        return { id, name, description };
-      })
-      .filter(Boolean);
-  }, [projectTemplates]);
-
-  const walletOptions = useMemo(() => {
-    return walletAccounts
-      .map((wallet, index) => {
-        const id = wallet?.id ?? wallet?.accountId ?? wallet?.slug ?? wallet?.code ?? `wallet-${index}`;
-        const label = wallet?.name ?? wallet?.label ?? wallet?.accountName ?? `Wallet ${index + 1}`;
-        const walletCurrency = wallet?.currency ?? currency;
-        const balance = wallet?.balance ?? wallet?.availableBalance ?? wallet?.currentBalance ?? 0;
-        return { id, label, currency: walletCurrency, balance };
-      })
-      .filter(Boolean);
-  }, [walletAccounts, currency]);
-
-  const fundingOptions = useMemo(() => {
-    return fundingSources
-      .map((source, index) => {
-        const id = source?.id ?? source?.sourceId ?? source?.slug ?? source?.code ?? `source-${index}`;
-        const label = source?.name ?? source?.label ?? source?.type ?? `Source ${index + 1}`;
-        return { id, label };
-      })
-      .filter(Boolean);
-  }, [fundingSources]);
-
-  const mentorOptions = useMemo(() => {
-    return mentors
-      .map((mentor, index) => {
-        const id = mentor?.id ?? mentor?.mentorId ?? mentor?.handle ?? mentor?.username ?? `mentor-${index}`;
-        const name =
-          mentor?.name ??
-          [mentor?.firstName, mentor?.lastName].filter(Boolean).join(' ') ??
-          mentor?.handle ??
-          `Mentor ${index + 1}`;
-        const headline = mentor?.headline ?? mentor?.title ?? mentor?.expertise ?? '';
-        return { id, name: name.trim(), headline };
-      })
-      .filter(Boolean);
-  }, [mentors]);
+    return (context.projectTemplates ?? []).map((template) => ({
+      value: String(template.id ?? template.slug ?? template.name),
+      label: template.name ?? template.title ?? 'Template',
+    }));
+  }, [context.projectTemplates]);
 
   const escrowOptions = useMemo(() => {
-    return escrowAccounts
-      .map((account, index) => {
-        const id = account?.id ?? account?.accountId ?? account?.slug ?? account?.code ?? `escrow-${index}`;
-        const name = account?.name ?? account?.label ?? account?.title ?? `Escrow ${index + 1}`;
-        const accountCurrency = account?.currency ?? currency;
-        return { id, name, currency: accountCurrency };
-      })
-      .filter(Boolean);
-  }, [escrowAccounts, currency]);
-
-  const resolvedActivity = useMemo(() => {
-    const base = Array.isArray(activityFeed) && activityFeed.length ? activityFeed : DEFAULT_ACTIVITY_PLACEHOLDER;
-    return base.slice(0, 6).map((item, index) => ({
-      id: item?.id ?? item?.activityId ?? `activity-${index}`,
-      title: item?.title ?? item?.name ?? item?.action ?? 'Activity update',
-      summary: item?.summary ?? item?.description ?? item?.details ?? '',
-      timestamp: item?.timestamp ?? item?.performedAt ?? item?.createdAt ?? item?.date ?? null,
+    return (context.escrowAccounts ?? []).map((account) => ({
+      value: String(account.id ?? account.accountId ?? account.reference),
+      label: account.name ?? account.label ?? account.reference ?? `Account ${account.id}`,
     }));
-  }, [activityFeed]);
+  }, [context.escrowAccounts]);
 
-  const mentorsUpcoming = metrics?.mentorsUpcoming ?? 0;
+  const walletOptions = useMemo(() => {
+    return (context.walletAccounts ?? []).map((wallet) => ({
+      value: String(wallet.id ?? wallet.accountId ?? wallet.slug ?? wallet.name),
+      label: wallet.name ?? wallet.label ?? wallet.accountNumber ?? 'Wallet account',
+    }));
+  }, [context.walletAccounts]);
 
-  const quickStats = useMemo(() => {
-    return [
-      {
-        id: 'projects',
-        label: 'Active projects',
-        value: formatNumber(metrics?.activeProjects ?? 0),
-        hint: 'Running now',
-      },
-      {
-        id: 'orders',
-        label: 'Open gig orders',
-        value: formatNumber(metrics?.openGigOrders ?? 0),
-        hint: 'Awaiting delivery',
-      },
-      {
-        id: 'escrow',
-        label: 'Escrow in flight',
-        value: formatCurrency(metrics?.escrowHeld ?? 0, currency),
-        hint: 'Secured funds',
-      },
-      {
-        id: 'wallet',
-        label: 'Wallet balance',
-        value: formatCurrency(metrics?.walletBalance ?? 0, currency),
-        hint: 'Ready to deploy',
-      },
-    ];
-  }, [currency, metrics?.activeProjects, metrics?.escrowHeld, metrics?.openGigOrders, metrics?.walletBalance]);
+  const mentorOptions = useMemo(() => {
+    return (context.mentors ?? []).map((mentor) => ({
+      value: String(mentor.id ?? mentor.mentorId ?? mentor.handle ?? mentor.email),
+      label: mentor.name ?? mentor.fullName ?? mentor.handle ?? mentor.email ?? 'Mentor',
+    }));
+  }, [context.mentors]);
 
-  const modalConfig = useMemo(() => ACTIONS.find((action) => action.id === activeAction), [activeAction]);
-
-  const openAction = (actionId) => {
-    setActiveAction(actionId);
-    setForm(buildInitialForm(actionId));
+  useEffect(() => {
+    if (!open || !actionId) {
+      return;
+    }
+    setValues((previous) => ({
+      ...INITIAL_VALUES[actionId],
+      currency: previous.currency ?? INITIAL_VALUES[actionId].currency,
+    }));
     setErrors({});
-    setStatus(null);
+    setFeedback(null);
+    setStep(0);
+  }, [open, actionId]);
+
+  if (!config) {
+    return null;
+  }
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setValues((previous) => ({ ...previous, [name]: value }));
   };
 
-  const closeModal = () => {
-    setActiveAction(null);
-    setStatus(null);
+  const goNext = () => {
+    const validation = validate(actionId, values);
+    setErrors(validation);
+    if (Object.keys(validation).length === 0) {
+      setStep((current) => Math.min(current + 1, config.steps.length - 1));
+    }
   };
 
-  const handleChange = (field) => (event) => {
-    const { value } = event.target;
-    setForm((prev) => ({ ...prev, [field]: value }));
+  const goBack = () => {
+    setStep((current) => Math.max(current - 1, 0));
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (!activeAction) {
-      return;
-    }
-    const validation = validateForm(activeAction, form);
+    const validation = validate(actionId, values);
     setErrors(validation);
     if (Object.keys(validation).length > 0) {
-      setStatus({ type: 'error', message: 'Review the highlighted fields.' });
       return;
     }
-    setSubmitting(true);
-    setStatus(null);
+
     try {
-      const message = await submitAction(activeAction, userId, form);
-      setStatus({ type: 'success', message: message ?? 'Action completed.' });
+      setSubmitting(true);
+      setFeedback(null);
+      const payload = buildPayload(actionId, values);
+      await submitAction(actionId, userId, payload);
+      setFeedback({ type: 'success', message: config.successMessage });
+      setValues(INITIAL_VALUES[actionId]);
       setErrors({});
-      onActionComplete?.(activeAction);
-      setTimeout(() => {
-        closeModal();
-      }, 1200);
+      onCompleted?.();
     } catch (error) {
-      setStatus({ type: 'error', message: error?.message ?? 'Unable to complete the action.' });
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        'We could not complete that action just now.';
+      setFeedback({ type: 'error', message });
     } finally {
       setSubmitting(false);
     }
   };
 
-  const renderForm = () => {
-    if (!activeAction) {
-      return null;
-    }
-    switch (activeAction) {
+  const renderStep = () => {
+    const stepId = config.steps[step]?.id;
+    switch (actionId) {
       case 'project':
-        return (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <ActionWizard steps={ACTION_WIZARDS.project} />
-            <StatusMessage status={status} />
-            <Field label="Project name" error={errors.title} required>
-              <input
-                type="text"
-                value={form.title}
-                onChange={handleChange('title')}
-                className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-                placeholder="Growth marketing sprint"
+        if (stepId === 'summary') {
+          return (
+            <Fieldset legend="Project summary" description="Outline the essentials for your delivery squad.">
+              <Input
+                label="Project name"
+                name="title"
+                placeholder="Brand launch operations"
+                value={values.title}
+                onChange={handleChange}
+                error={errors.title}
+                required
               />
-            </Field>
-            <Field label="Project description" error={errors.description} required>
-              <textarea
-                value={form.description}
-                onChange={handleChange('description')}
-                rows={4}
-                className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-                placeholder="Outline the outcomes, stakeholders, and timeline expectations."
+              <TextArea
+                label="Summary"
+                name="summary"
+                placeholder="Describe the mission, goals, and success metrics."
+                value={values.summary}
+                onChange={handleChange}
+                error={errors.summary}
               />
-            </Field>
-            {templateOptions.length > 0 ? (
-              <Field label="Starter template">
-                <select
-                  value={form.templateId}
-                  onChange={handleChange('templateId')}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-                >
-                  <option value="">Blank canvas</option>
-                  {templateOptions.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.name}
-                    </option>
-                  ))}
-                </select>
-                {form.templateId
-                  ? (() => {
-                      const selected = templateOptions.find((option) => option.id === form.templateId);
-                      return selected?.description ? (
-                        <p className="mt-1 text-xs text-slate-500">{selected.description}</p>
-                      ) : null;
-                    })()
-                  : null}
-              </Field>
-            ) : null}
-            <div className="grid gap-4 sm:grid-cols-3">
-              <Field label="Budget" error={errors.budget}>
-                <input
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Input
+                  label="Budget"
+                  name="budget"
                   type="number"
                   min="0"
-                  step="0.01"
-                  value={form.budget}
-                  onChange={handleChange('budget')}
-                  className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
                   placeholder="25000"
+                  value={values.budget}
+                  onChange={handleChange}
+                  error={errors.budget}
                 />
-              </Field>
-              <Field label="Currency">
-                <select
-                  value={form.currency}
-                  onChange={handleChange('currency')}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-                >
-                  {CURRENCIES.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Target go-live date">
-                <input
+                <Select
+                  label="Currency"
+                  name="currency"
+                  value={values.currency}
+                  onChange={handleChange}
+                  options={currencyOptions}
+                />
+              </div>
+            </Fieldset>
+          );
+        }
+        if (stepId === 'timeline') {
+          return (
+            <Fieldset legend="Timeline" description="Set the pacing so collaborators know what to expect.">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Input
+                  label="Kickoff"
+                  name="startDate"
                   type="date"
-                  value={form.dueDate}
-                  onChange={handleChange('dueDate')}
-                  className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
+                  value={values.startDate}
+                  onChange={handleChange}
+                  error={errors.startDate}
                 />
-              </Field>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Kickoff link" error={errors.kickoffLink}>
-                <input
-                  type="url"
-                  value={form.kickoffLink}
-                  onChange={handleChange('kickoffLink')}
-                  className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-                  placeholder="https://meet.gigvora.com/project-kickoff"
+                <Input
+                  label="Due date"
+                  name="dueDate"
+                  type="date"
+                  value={values.dueDate}
+                  onChange={handleChange}
+                  error={errors.dueDate}
                 />
-              </Field>
-              <Field label="Hero media" error={errors.mediaUrl}>
-                <input
-                  type="url"
-                  value={form.mediaUrl}
-                  onChange={handleChange('mediaUrl')}
-                  className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-                  placeholder="https://drive.google.com/file/..."
-                />
-              </Field>
-            </div>
-            <div className="flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={closeModal}
-                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white shadow-lg transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {submitting ? 'Saving...' : 'Create project'}
-              </button>
-            </div>
-          </form>
+              </div>
+              <Input
+                label="Kickoff meeting link"
+                name="kickoffLink"
+                type="url"
+                placeholder="https://meet..."
+                value={values.kickoffLink}
+                onChange={handleChange}
+              />
+              <Select
+                label="Use a template"
+                name="templateId"
+                value={values.templateId}
+                onChange={handleChange}
+                options={templateOptions}
+                helper={templateOptions.length ? 'Reuse a proven structure for milestones and tasks.' : 'No templates yet.'}
+              />
+            </Fieldset>
+          );
+        }
+        return (
+          <Fieldset legend="Collaboration" description="Share resources and notify the right collaborators.">
+            <Input
+              label="Brief URL"
+              name="briefUrl"
+              type="url"
+              placeholder="https://docs..."
+              value={values.briefUrl}
+              onChange={handleChange}
+            />
+            <TextArea
+              label="Collaborators"
+              name="collaborators"
+              placeholder="team@gigvora.com, studio@gigvora.com"
+              helper="Comma separated emails. Everyone receives a kickoff summary."
+              value={values.collaborators}
+              onChange={handleChange}
+            />
+          </Fieldset>
         );
       case 'gig-order':
-        return (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <ActionWizard steps={ACTION_WIZARDS['gig-order']} />
-            <StatusMessage status={status} />
-            {projectOptions.length > 0 ? (
-              <Field label="Link to project">
-                <select
-                  value={form.projectId}
-                  onChange={handleChange('projectId')}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-                >
-                  <option value="">Standalone order</option>
-                  {projectOptions.map((project) => (
-                    <option key={project.id} value={project.id}>
-                      {project.title} · {project.status}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            ) : null}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Vendor / partner" error={errors.vendorName} required>
-                <input
-                  type="text"
-                  value={form.vendorName}
-                  onChange={handleChange('vendorName')}
-                  className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-                  placeholder="Acme Studio"
-                />
-              </Field>
-              <Field label="Service" error={errors.serviceName} required>
-                <input
-                  type="text"
-                  value={form.serviceName}
-                  onChange={handleChange('serviceName')}
-                  className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-                  placeholder="Product design sprint"
-                />
-              </Field>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <Field label="Order value" error={errors.amount} required>
-                <input
+        if (stepId === 'context') {
+          return (
+            <Fieldset legend="Context" description="Tie this order back to an active project and vendor.">
+              <Select
+                label="Project"
+                name="projectId"
+                value={values.projectId}
+                onChange={handleChange}
+                options={projectOptions}
+                error={errors.projectId}
+              />
+              <Input
+                label="Vendor"
+                name="vendorName"
+                placeholder="Acme Studio"
+                value={values.vendorName}
+                onChange={handleChange}
+                error={errors.vendorName}
+              />
+              <Input
+                label="Service"
+                name="serviceName"
+                placeholder="Launch landing page build"
+                value={values.serviceName}
+                onChange={handleChange}
+                error={errors.serviceName}
+              />
+            </Fieldset>
+          );
+        }
+        if (stepId === 'commercials') {
+          return (
+            <Fieldset legend="Commercials" description="Clarify the pricing, currency, and deadlines.">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Input
+                  label="Amount"
+                  name="amount"
                   type="number"
                   min="0"
-                  step="0.01"
-                  value={form.amount}
-                  onChange={handleChange('amount')}
-                  className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-                  placeholder="9800"
+                  value={values.amount}
+                  onChange={handleChange}
+                  error={errors.amount}
                 />
-              </Field>
-              <Field label="Currency">
-                <select
-                  value={form.currency}
-                  onChange={handleChange('currency')}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-                >
-                  {CURRENCIES.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Delivery due">
-                <input
-                  type="date"
-                  value={form.dueAt}
-                  onChange={handleChange('dueAt')}
-                  className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
+                <Select
+                  label="Currency"
+                  name="currency"
+                  value={values.currency}
+                  onChange={handleChange}
+                  options={currencyOptions}
                 />
-              </Field>
-            </div>
-            <Field label="Delivery brief">
-              <textarea
-                value={form.notes}
-                onChange={handleChange('notes')}
-                rows={3}
-                className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-                placeholder="Outline deliverables, brand guardrails, or approval notes."
+              </div>
+              <Input
+                label="Delivery date"
+                name="dueAt"
+                type="date"
+                value={values.dueAt}
+                onChange={handleChange}
+                error={errors.dueAt}
               />
-            </Field>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Brief URL" error={errors.briefUrl}>
-                <input
-                  type="url"
-                  value={form.briefUrl}
-                  onChange={handleChange('briefUrl')}
-                  className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-                  placeholder="https://docs.gigvora.com/brief"
-                />
-              </Field>
-              <Field label="Attachment URL" error={errors.attachmentUrl}>
-                <input
-                  type="url"
-                  value={form.attachmentUrl}
-                  onChange={handleChange('attachmentUrl')}
-                  className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-                  placeholder="https://drive.google.com/file/..."
-                />
-              </Field>
-            </div>
-            <div className="flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={closeModal}
-                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white shadow-lg transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {submitting ? 'Publishing...' : 'Issue order'}
-              </button>
-            </div>
-          </form>
+              <TextArea
+                label="Payment notes"
+                name="notes"
+                placeholder="50% upfront, 50% once accepted"
+                value={values.notes}
+                onChange={handleChange}
+              />
+            </Fieldset>
+          );
+        }
+        return (
+          <Fieldset legend="Handoff" description="Attach references so fulfilment starts smoothly.">
+            <TextArea
+              label="Attachments"
+              name="attachments"
+              placeholder="https://drive..."
+              helper="Paste URLs separated by commas."
+              value={values.attachments}
+              onChange={handleChange}
+            />
+          </Fieldset>
         );
       case 'escrow':
-        return (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <ActionWizard steps={ACTION_WIZARDS.escrow} />
-            <StatusMessage status={status} />
-            {escrowOptions.length > 0 ? (
-              <Field label="Escrow account">
-                <select
-                  value={form.escrowAccountId}
-                  onChange={handleChange('escrowAccountId')}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-                >
-                  <option value="">Select account</option>
-                  {escrowOptions.map((account) => (
-                    <option key={account.id} value={account.id}>
-                      {account.name} · {account.currency}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            ) : null}
-            <Field label="Linked gig order" error={errors.orderId} required>
-              <input
-                type="text"
-                value={form.orderId}
-                onChange={handleChange('orderId')}
-                className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-                placeholder="ORDER-12345"
+        if (stepId === 'link') {
+          return (
+            <Fieldset legend="Reference" description="Point to the project or milestone this escrow protects.">
+              <Select
+                label="Project"
+                name="projectId"
+                value={values.projectId}
+                onChange={handleChange}
+                options={projectOptions}
+                error={errors.projectId}
               />
-            </Field>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <Field label="Amount" error={errors.amount} required>
-                <input
+              <Input
+                label="Milestone name"
+                name="milestoneName"
+                placeholder="Launch sprint"
+                value={values.milestoneName}
+                onChange={handleChange}
+              />
+            </Fieldset>
+          );
+        }
+        if (stepId === 'funding') {
+          return (
+            <Fieldset legend="Funding" description="Choose an escrow account and lock in the funded amount.">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Input
+                  label="Amount"
+                  name="amount"
                   type="number"
                   min="0"
-                  step="0.01"
-                  value={form.amount}
-                  onChange={handleChange('amount')}
-                  className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-                  placeholder="15000"
+                  value={values.amount}
+                  onChange={handleChange}
+                  error={errors.amount}
                 />
-              </Field>
-              <Field label="Currency">
-                <select
-                  value={form.currency}
-                  onChange={handleChange('currency')}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-                >
-                  {CURRENCIES.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Release on">
-                <input
-                  type="date"
-                  value={form.releaseAfter}
-                  onChange={handleChange('releaseAfter')}
-                  className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
+                <Select
+                  label="Currency"
+                  name="currency"
+                  value={values.currency}
+                  onChange={handleChange}
+                  options={currencyOptions}
                 />
-              </Field>
-            </div>
-            <Field label="Memorandum">
-              <textarea
-                value={form.memo}
-                onChange={handleChange('memo')}
-                rows={3}
-                className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-                placeholder="Describe what needs to be delivered for release."
+              </div>
+              <Select
+                label="Escrow account"
+                name="accountId"
+                value={values.accountId}
+                onChange={handleChange}
+                options={escrowOptions}
+                error={errors.accountId}
               />
-            </Field>
-            <Field label="Release strategy" error={errors.autoRelease}>
-              <select
-                value={form.autoRelease}
-                onChange={handleChange('autoRelease')}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-              >
-                <option value="manual">Manual approval</option>
-                <option value="date">Auto-release on date</option>
-                <option value="milestone">Auto-release on milestone</option>
-              </select>
-            </Field>
-            <Field label="Notify (emails)" error={errors.notificationEmails}>
-              <input
-                type="text"
-                value={form.notificationEmails}
-                onChange={handleChange('notificationEmails')}
-                className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-                placeholder="ops@gigvora.com, finance@gigvora.com"
+              <Input
+                label="Planned release"
+                name="releaseDate"
+                type="date"
+                value={values.releaseDate}
+                onChange={handleChange}
               />
-              <p className="mt-1 text-xs text-slate-500">Comma separated — each contact receives confirmation.</p>
-            </Field>
-            <div className="flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={closeModal}
-                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white shadow-lg transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {submitting ? 'Securing...' : 'Fund milestone'}
-              </button>
-            </div>
-          </form>
+              <TextArea
+                label="Release rule"
+                name="releaseRule"
+                placeholder="Auto-release once QA approved."
+                value={values.releaseRule}
+                onChange={handleChange}
+              />
+            </Fieldset>
+          );
+        }
+        return (
+          <Fieldset legend="Signals" description="Let the right stakeholders know funds are secured.">
+            <TextArea
+              label="Notify"
+              name="notifyEmails"
+              placeholder="finance@gigvora.com, vendor@gigvora.com"
+              helper="Comma separated emails receive instant release updates."
+              value={values.notifyEmails}
+              onChange={handleChange}
+            />
+          </Fieldset>
         );
       case 'wallet':
-        return (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <ActionWizard steps={ACTION_WIZARDS.wallet} />
-            <StatusMessage status={status} />
-            <Field label="Wallet account" error={errors.walletAccountId} required>
-              <input
-                type="text"
-                list="wallet-account-options"
-                value={form.walletAccountId}
-                onChange={handleChange('walletAccountId')}
-                className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-                placeholder="WALLET-OPS-01"
+        if (stepId === 'source') {
+          return (
+            <Fieldset legend="Source" description="Choose the wallet and amount you want to move.">
+              <Select
+                label="Source wallet"
+                name="sourceId"
+                value={values.sourceId}
+                onChange={handleChange}
+                options={walletOptions}
+                error={errors.sourceId}
               />
-              {walletOptions.length > 0 ? (
-                <datalist id="wallet-account-options">
-                  {walletOptions.map((wallet) => (
-                    <option key={wallet.id} value={wallet.id}>
-                      {wallet.label} · {formatCurrency(wallet.balance, wallet.currency)}
-                    </option>
-                  ))}
-                </datalist>
-              ) : null}
-            </Field>
-            <Field label="Funding source">
-              <input
-                type="text"
-                list="funding-source-options"
-                value={form.fundingSourceId}
-                onChange={handleChange('fundingSourceId')}
-                className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-                placeholder="Primary corporate card"
-              />
-              {fundingOptions.length > 0 ? (
-                <datalist id="funding-source-options">
-                  {fundingOptions.map((source) => (
-                    <option key={source.id} value={source.id}>
-                      {source.label}
-                    </option>
-                  ))}
-                </datalist>
-              ) : null}
-            </Field>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <Field label="Transfer amount" error={errors.amount} required>
-                <input
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Input
+                  label="Amount"
+                  name="amount"
                   type="number"
                   min="0"
-                  step="0.01"
-                  value={form.amount}
-                  onChange={handleChange('amount')}
-                  className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-                  placeholder="4500"
+                  value={values.amount}
+                  onChange={handleChange}
+                  error={errors.amount}
                 />
-              </Field>
-              <Field label="Transfer type">
-                <select
-                  value={form.transferType}
-                  onChange={handleChange('transferType')}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-                >
-                  {TRANSFER_TYPES.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Schedule on">
-                <input
-                  type="datetime-local"
-                  value={form.scheduledAt}
-                  onChange={handleChange('scheduledAt')}
-                  className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
+                <Select
+                  label="Currency"
+                  name="currency"
+                  value={values.currency}
+                  onChange={handleChange}
+                  options={currencyOptions}
                 />
-              </Field>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Destination / recipient" error={errors.destination}>
-                <input
-                  type="text"
-                  value={form.destination}
-                  onChange={handleChange('destination')}
-                  className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-                  placeholder="Growth wallet · vendor payout"
-                />
-              </Field>
-              <Field label="Reference code" error={errors.referenceCode}>
-                <input
-                  type="text"
-                  value={form.referenceCode}
-                  onChange={handleChange('referenceCode')}
-                  className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-                  placeholder="FIN-2024-APR-OPS"
-                />
-              </Field>
-            </div>
-            <Field label="Notes">
-              <textarea
-                value={form.notes}
-                onChange={handleChange('notes')}
-                rows={3}
-                className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-                placeholder="Add audit memo or internal approvals."
+              </div>
+            </Fieldset>
+          );
+        }
+        if (stepId === 'destination') {
+          return (
+            <Fieldset legend="Destination" description="Share where the funds are heading and why.">
+              <Input
+                label="Destination"
+                name="destination"
+                placeholder="Escrow account / Vendor payout"
+                value={values.destination}
+                onChange={handleChange}
+                error={errors.destination}
               />
-            </Field>
-            <div className="flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={closeModal}
-                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white shadow-lg transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {submitting ? 'Scheduling...' : 'Submit transfer'}
-              </button>
-            </div>
-          </form>
+              <Input
+                label="Transfer date"
+                name="transferDate"
+                type="date"
+                value={values.transferDate}
+                onChange={handleChange}
+              />
+              <Select
+                label="Cadence"
+                name="cadence"
+                value={values.cadence}
+                onChange={handleChange}
+                options={TRANSFER_CADENCE_OPTIONS}
+              />
+            </Fieldset>
+          );
+        }
+        return (
+          <Fieldset legend="Governance" description="Add treasury notes so reconciliation stays straightforward.">
+            <TextArea
+              label="Memo"
+              name="memo"
+              placeholder="Budget re-allocation for Q3 campaign."
+              value={values.memo}
+              onChange={handleChange}
+            />
+          </Fieldset>
         );
       case 'mentoring':
-        return (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <ActionWizard steps={ACTION_WIZARDS.mentoring} />
-            <StatusMessage status={status} />
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Mentor" error={errors.mentorId} required>
-                <input
-                  type="text"
-                  list="mentor-options"
-                  value={form.mentorId}
-                  onChange={handleChange('mentorId')}
-                  className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-                  placeholder="mentor_jordan_wells"
-                />
-                {mentorOptions.length > 0 ? (
-                  <datalist id="mentor-options">
-                    {mentorOptions.map((mentor) => (
-                      <option key={mentor.id} value={mentor.id}>
-                        {mentor.name}
-                        {mentor.headline ? ` — ${mentor.headline}` : ''}
-                      </option>
-                    ))}
-                  </datalist>
-                ) : null}
-              </Field>
-              <Field label="Session focus" error={errors.topic} required>
-                <input
-                  type="text"
-                  value={form.topic}
-                  onChange={handleChange('topic')}
-                  className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-                  placeholder="Pitch deck review"
-                />
-              </Field>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Scheduled for">
-                <input
+        if (stepId === 'mentor') {
+          return (
+            <Fieldset legend="Mentor" description="Pick an approved mentor or reference someone externally.">
+              <Select
+                label="Available mentors"
+                name="mentorId"
+                value={values.mentorId}
+                onChange={handleChange}
+                options={mentorOptions}
+                helper={mentorOptions.length ? 'Select from mentors you have access to.' : 'Invite by handle instead.'}
+              />
+              <Input
+                label="Mentor handle"
+                name="mentorHandle"
+                placeholder="@growth-mentor"
+                value={values.mentorHandle}
+                onChange={handleChange}
+                error={errors.mentorId}
+                helper="Provide a handle if you do not see them in the list."
+              />
+            </Fieldset>
+          );
+        }
+        if (stepId === 'session') {
+          return (
+            <Fieldset legend="Session" description="Lock in the timing and purpose of your mentoring slot.">
+              <TextArea
+                label="Topic"
+                name="topic"
+                placeholder="Mock launch review and positioning feedback"
+                value={values.topic}
+                onChange={handleChange}
+                error={errors.topic}
+              />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Input
+                  label="Session date"
+                  name="sessionDate"
                   type="datetime-local"
-                  value={form.scheduledAt}
-                  onChange={handleChange('scheduledAt')}
-                  className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
+                  value={values.sessionDate}
+                  onChange={handleChange}
+                  error={errors.sessionDate}
                 />
-              </Field>
-              <Field label="Duration (minutes)" error={errors.durationMinutes}>
-                <input
+                <Input
+                  label="Duration (minutes)"
+                  name="sessionDuration"
                   type="number"
                   min="15"
                   step="15"
-                  value={form.durationMinutes}
-                  onChange={handleChange('durationMinutes')}
-                  className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
+                  value={values.sessionDuration}
+                  onChange={handleChange}
+                  error={errors.sessionDuration}
                 />
-              </Field>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Meeting link" error={errors.meetingUrl}>
-                <input
-                  type="url"
-                  value={form.meetingUrl}
-                  onChange={handleChange('meetingUrl')}
-                  className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-                  placeholder="https://meet.gigvora.com/mentor-session"
-                />
-              </Field>
-              <Field label="Recording consent" error={errors.recordingConsent}>
-                <select
-                  value={form.recordingConsent}
-                  onChange={handleChange('recordingConsent')}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-                >
-                  <option value="allow">Recording allowed</option>
-                  <option value="deny">No recording</option>
-                </select>
-              </Field>
-            </div>
-            <Field label="Prep video" error={errors.preSessionVideoUrl}>
-              <input
-                type="url"
-                value={form.preSessionVideoUrl}
-                onChange={handleChange('preSessionVideoUrl')}
-                className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-                placeholder="https://loom.com/share/prep"
-              />
-            </Field>
-            <Field label="Prep notes">
-              <textarea
-                value={form.notes}
-                onChange={handleChange('notes')}
-                rows={3}
-                className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-0"
-                placeholder="Share agenda, links, or documents to review."
-              />
-            </Field>
-            <div className="flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={closeModal}
-                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white shadow-lg transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {submitting ? 'Booking...' : 'Book mentor'}
-              </button>
-            </div>
-          </form>
+              </div>
+            </Fieldset>
+          );
+        }
+        return (
+          <Fieldset legend="Enablement" description="Share meeting links and expectations ahead of time.">
+            <Input
+              label="Meeting link"
+              name="meetingLink"
+              type="url"
+              placeholder="https://meet..."
+              value={values.meetingLink}
+              onChange={handleChange}
+            />
+            <TextArea
+              label="Preparation notes"
+              name="prepNotes"
+              placeholder="Attach deck links or topics you want to cover."
+              value={values.prepNotes}
+              onChange={handleChange}
+            />
+            <Select
+              label="Recording preference"
+              name="recordingPreference"
+              value={values.recordingPreference}
+              onChange={handleChange}
+              options={[
+                { value: 'allow', label: 'Allow recording' },
+                { value: 'disallow', label: 'Do not record' },
+                { value: 'request', label: 'Request a recording for review' },
+              ]}
+            />
+          </Fieldset>
         );
       default:
         return null;
@@ -1438,161 +1045,286 @@ export default function UserDashboardQuickActions({ userId, onActionComplete, cl
   };
 
   return (
-    <div className={clsx('space-y-8', className)}>
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={config.title}
+      description={config.description}
+      wide
+    >
+      <form className="space-y-6" onSubmit={handleSubmit}>
+        <Stepper steps={config.steps} activeIndex={step} />
+        {feedback ? (
+          <div
+            className={`rounded-3xl border px-4 py-3 text-sm font-medium ${
+              feedback.type === 'success'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                : 'border-rose-200 bg-rose-50 text-rose-700'
+            }`}
+          >
+            {feedback.message}
+          </div>
+        ) : null}
+        {renderStep()}
+        <div className="flex items-center justify-between">
+          <div className="text-xs text-slate-400">Step {step + 1} of {config.steps.length}</div>
+          <div className="flex items-center gap-3">
+            {step > 0 ? (
+              <button
+                type="button"
+                onClick={goBack}
+                className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+              >
+                Back
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+              >
+                Cancel
+              </button>
+            )}
+            {step < config.steps.length - 1 ? (
+              <button
+                type="button"
+                onClick={goNext}
+                className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
+              >
+                Next
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={submitting}
+                className="inline-flex items-center gap-2 rounded-2xl bg-accent px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {submitting ? (
+                  <>
+                    <ArrowPathIcon className="h-4 w-4 animate-spin" /> Submitting…
+                  </>
+                ) : (
+                  config.submitLabel
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+QuickActionModal.propTypes = {
+  actionId: PropTypes.string,
+  open: PropTypes.bool,
+  onClose: PropTypes.func,
+  onCompleted: PropTypes.func,
+  context: PropTypes.shape({
+    currencies: PropTypes.array,
+    projects: PropTypes.array,
+    projectTemplates: PropTypes.array,
+    escrowAccounts: PropTypes.array,
+    walletAccounts: PropTypes.array,
+    mentors: PropTypes.array,
+  }),
+  userId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+};
+
+QuickActionModal.defaultProps = {
+  actionId: undefined,
+  open: false,
+  onClose: undefined,
+  onCompleted: undefined,
+  context: {},
+};
+
+function ActivityFeed({ items }) {
+  if (!items.length) {
+    return (
+      <div className="rounded-3xl border border-dashed border-slate-200 bg-white/50 p-6 text-sm text-slate-500">
+        No recent activity yet. Actions you take will appear here.
+      </div>
+    );
+  }
+
+  return (
+    <ul className="space-y-3">
+      {items.map((item) => (
+        <li
+          key={item.id ?? item.reference ?? item.title}
+          className="flex items-start gap-3 rounded-3xl border border-slate-200 bg-white/80 px-4 py-3 shadow-soft"
+        >
+          <div className="mt-1 h-2 w-2 flex-shrink-0 rounded-full bg-accent" />
+          <div>
+            <p className="font-semibold text-slate-900">{item.title ?? item.summary ?? 'Activity'}</p>
+            {item.summary ? <p className="text-sm text-slate-500">{item.summary}</p> : null}
+            {item.timestamp ? (
+              <p className="text-xs text-slate-400">{new Date(item.timestamp).toLocaleString()}</p>
+            ) : null}
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+ActivityFeed.propTypes = {
+  items: PropTypes.arrayOf(PropTypes.object),
+};
+
+ActivityFeed.defaultProps = {
+  items: [],
+};
+
+export default function UserDashboardQuickActions({ userId, context, metrics, activity, onCompleted }) {
+  const [activeAction, setActiveAction] = useState(null);
+
+  const derivedMetrics = useMemo(() => {
+    const merged = metrics ?? {};
+    const format = (value, fallback = '0') => {
+      if (value == null) {
+        return fallback;
+      }
+      if (typeof value === 'number') {
+        return value.toLocaleString('en-GB');
+      }
+      return String(value);
+    };
+    return [
+      {
+        icon: BriefcaseIcon,
+        label: 'Active projects',
+        value: format(merged.projectsActive ?? context.projects?.length ?? 0),
+      },
+      {
+        icon: InboxStackIcon,
+        label: 'Open gig orders',
+        value: format(merged.gigOrdersOpen ?? context.gigOrders?.length ?? 0),
+      },
+      {
+        icon: ShieldCheckIcon,
+        label: 'Escrow in flight',
+        value: format(merged.escrowInFlight ?? context.escrowAccounts?.length ?? 0),
+      },
+      {
+        icon: BanknotesIcon,
+        label: 'Wallet balance',
+        value: merged.walletBalance
+          ? `${merged.walletCurrency ?? 'USD'} ${Number(merged.walletBalance).toLocaleString('en-GB')}`
+          : format(merged.walletBalance, '0'),
+      },
+    ];
+  }, [metrics, context.projects?.length, context.gigOrders?.length, context.escrowAccounts?.length, metrics?.walletCurrency]);
+
+  const actions = useMemo(() => Object.values(ACTION_CONFIG), []);
+
+  return (
+    <section className="rounded-4xl border border-slate-200 bg-gradient-to-br from-white via-white to-slate-50/60 p-6 shadow-soft">
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">Command actions</p>
-          <h2 className="mt-1 text-2xl font-semibold text-slate-900">Deploy workflows in seconds</h2>
-          <p className="mt-2 max-w-3xl text-sm text-slate-600">
-            Launch projects, secure payments, automate treasury, and organise mentoring without leaving the dashboard. Every
-            action triggers the underlying CRUD workflows and updates the live data views instantly.
+          <h3 className="text-2xl font-semibold text-slate-900">Quick actions</h3>
+          <p className="mt-1 max-w-2xl text-sm text-slate-500">
+            Launch projects, secure escrow, wire funds, and book mentors without leaving your dashboard.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="hidden h-12 w-12 items-center justify-center rounded-full bg-slate-900/90 text-white shadow-lg md:flex">
-            <span className="text-lg font-semibold">UX</span>
-          </div>
-          <div className="rounded-3xl border border-slate-200 bg-white px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-600 shadow-sm">
-            Live production
-          </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:w-[32rem]">
+          {derivedMetrics.map((stat) => (
+            <QuickActionStat key={stat.label} icon={stat.icon} label={stat.label} value={stat.value} />
+          ))}
         </div>
       </div>
 
-      {quickStats.length ? (
-        <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {quickStats.map((stat) => (
-            <MetricCard key={stat.id} label={stat.label} value={stat.value} hint={stat.hint} />
-          ))}
-        </dl>
-      ) : null}
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {ACTIONS.map((action) => (
-          <article
+      <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {actions.map((action) => (
+          <button
             key={action.id}
-            className={clsx(
-              'group relative flex h-full flex-col justify-between overflow-hidden rounded-3xl border p-6 shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg',
-              action.accent,
-            )}
+            type="button"
+            onClick={() => setActiveAction(action.id)}
+            className={`group flex h-full flex-col justify-between rounded-3xl px-5 py-6 text-left shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg ${action.accent}`}
           >
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-slate-900 shadow-sm">
-                  <action.icon className="h-6 w-6" aria-hidden="true" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-900">{action.title}</h3>
-                  <p className="text-sm text-slate-600">{action.description}</p>
-                </div>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <span className="inline-flex items-center gap-2 rounded-full bg-white/70 px-3 py-1 text-xs font-semibold text-slate-500">
+                  {action.title.split(' ')[0]}
+                </span>
+                <h4 className="mt-3 text-lg font-semibold text-slate-900 group-hover:text-slate-800">{action.title}</h4>
+                <p className="mt-2 text-sm text-slate-600 group-hover:text-slate-700">{action.description}</p>
+              </div>
+              <div className="rounded-2xl bg-white/80 p-3 text-slate-600">
+                <action.icon className="h-6 w-6" />
               </div>
             </div>
-            <div className="mt-6 flex items-center justify-between">
-              <button
-                type="button"
-                onClick={() => openAction(action.id)}
-                className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:bg-slate-700"
-              >
-                Launch workflow
-              </button>
-              <span className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">CRUD</span>
+            <div className="mt-6 flex items-center gap-2 text-sm font-semibold text-slate-700 group-hover:text-slate-900">
+              Launch flow
+              <PlayCircleIcon className="h-5 w-5" />
             </div>
-          </article>
+          </button>
         ))}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[2fr,3fr]">
-        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-soft">
-          <div className="border-b border-slate-200 bg-slate-900/90 px-5 py-4 text-white">
-            <h3 className="text-base font-semibold">Mentor spotlight</h3>
-            <p className="mt-1 text-sm text-slate-200">Clip your prep playback for upcoming engagements.</p>
-          </div>
-          <div className="relative aspect-video w-full bg-slate-900">
-            <video
-              className="h-full w-full object-cover"
-              controls
-              preload="metadata"
-              poster="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1200&q=80"
-            >
-              <source src="https://storage.googleapis.com/coverr-main/mp4/Mt_Baker.mp4" type="video/mp4" />
-              Your browser does not support the video tag.
-            </video>
-          </div>
+      <div className="mt-8 grid gap-6 lg:grid-cols-5">
+        <div className="lg:col-span-3 space-y-4 rounded-3xl border border-slate-200 bg-white/80 p-5 shadow-soft">
+          <h4 className="text-lg font-semibold text-slate-900">Operational checklist</h4>
+          <ul className="space-y-3 text-sm text-slate-600">
+            <li className="flex items-start gap-2">
+              <span className="mt-1 h-2 w-2 flex-shrink-0 rounded-full bg-emerald-500" />
+              Confirm profile readiness before inviting collaborators.
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-1 h-2 w-2 flex-shrink-0 rounded-full bg-emerald-500" />
+              Pair every gig order with an escrow milestone to keep payouts safe.
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-1 h-2 w-2 flex-shrink-0 rounded-full bg-emerald-500" />
+              Use wallet memos so finance and auditing stay aligned.
+            </li>
+          </ul>
         </div>
-        <div className="flex flex-col gap-4">
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="text-lg font-semibold text-slate-900">Operational guardrails</h3>
-                <p className="mt-2 text-sm text-slate-600">
-                  Every workflow above persists through the API, refreshes the cache, and updates the dashboard sections below.
-                  Audit events, notifications, and status feeds trigger automatically.
-                </p>
-              </div>
-              <div className="rounded-full bg-slate-900/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-slate-600">
-                {formatNumber(mentorsUpcoming)} mentor {mentorsUpcoming === 1 ? 'session' : 'sessions'} in queue
-              </div>
-            </div>
-            <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl bg-slate-50 p-4">
-                <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Escrow sync</dt>
-                <dd className="mt-1 text-lg font-semibold text-slate-900">Under 5s</dd>
-              </div>
-              <div className="rounded-2xl bg-slate-50 p-4">
-                <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Gig provisioning</dt>
-                <dd className="mt-1 text-lg font-semibold text-slate-900">Real-time</dd>
-              </div>
-              <div className="rounded-2xl bg-slate-50 p-4">
-                <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Finance analytics</dt>
-                <dd className="mt-1 text-lg font-semibold text-slate-900">Continuous</dd>
-              </div>
-              <div className="rounded-2xl bg-slate-50 p-4">
-                <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Mentor coverage</dt>
-                <dd className="mt-1 text-lg font-semibold text-slate-900">24 countries</dd>
-              </div>
-            </dl>
-          </div>
-          <ActivityList items={resolvedActivity} mentorsUpcoming={mentorsUpcoming} />
+        <div className="lg:col-span-2">
+          <h4 className="mb-3 text-lg font-semibold text-slate-900">Latest activity</h4>
+          <ActivityFeed items={activity ?? []} />
         </div>
       </div>
 
-      <Modal
-        open={Boolean(activeAction && modalConfig)}
-        onClose={closeModal}
-        title={modalConfig?.title}
-        description={modalConfig?.description}
-        wide
-      >
-        {renderForm()}
-      </Modal>
-    </div>
+      <QuickActionModal
+        actionId={activeAction}
+        open={Boolean(activeAction)}
+        onClose={() => setActiveAction(null)}
+        onCompleted={onCompleted}
+        context={context}
+        userId={userId}
+      />
+    </section>
   );
 }
 
 UserDashboardQuickActions.propTypes = {
   userId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-  onActionComplete: PropTypes.func,
-  className: PropTypes.string,
   context: PropTypes.shape({
     projects: PropTypes.array,
     projectTemplates: PropTypes.array,
-    walletAccounts: PropTypes.array,
-    fundingSources: PropTypes.array,
-    mentors: PropTypes.array,
+    gigOrders: PropTypes.array,
     escrowAccounts: PropTypes.array,
-    activityFeed: PropTypes.array,
-    metrics: PropTypes.shape({
-      activeProjects: PropTypes.number,
-      openGigOrders: PropTypes.number,
-      escrowHeld: PropTypes.number,
-      walletBalance: PropTypes.number,
-      mentorsUpcoming: PropTypes.number,
-      currency: PropTypes.string,
-    }),
+    walletAccounts: PropTypes.array,
+    mentors: PropTypes.array,
+    currencies: PropTypes.array,
   }),
+  metrics: PropTypes.shape({
+    projectsActive: PropTypes.number,
+    gigOrdersOpen: PropTypes.number,
+    escrowInFlight: PropTypes.number,
+    walletBalance: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    walletCurrency: PropTypes.string,
+  }),
+  activity: PropTypes.array,
+  onCompleted: PropTypes.func,
 };
 
 UserDashboardQuickActions.defaultProps = {
-  onActionComplete: undefined,
-  className: '',
-  context: null,
+  context: {},
+  metrics: undefined,
+  activity: undefined,
+  onCompleted: undefined,
 };

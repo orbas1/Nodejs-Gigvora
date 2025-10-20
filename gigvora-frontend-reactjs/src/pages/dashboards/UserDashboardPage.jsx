@@ -27,13 +27,13 @@ const MENU_SECTIONS = [
       {
         id: 'home-overview',
         name: 'Overview',
-        description: 'Hero messaging, goals, and personal brand.',
+        description: 'Hero messaging, quick actions, and readiness.',
         sectionId: 'home-overview',
       },
       {
         id: 'home-profile',
         name: 'Profile',
-        description: 'Identity, availability, and brand settings.',
+        description: 'Identity, availability, and collaboration settings.',
         sectionId: 'home-profile',
       },
     ],
@@ -43,9 +43,9 @@ const MENU_SECTIONS = [
     label: 'Gig management',
     items: [
       {
-        id: 'gig-management-workbench',
+        id: 'gig-management-section',
         name: 'Workspaces',
-        description: 'Projects, vendors, bids, and deliveries.',
+        description: 'Projects, bids, orders, and submissions.',
         sectionId: 'gig-management',
       },
     ],
@@ -55,7 +55,7 @@ const MENU_SECTIONS = [
     label: 'Escrow management',
     items: [
       {
-        id: 'escrow-accounts',
+        id: 'escrow-management-section',
         name: 'Escrow accounts',
         description: 'Balances, releases, disputes, and controls.',
         sectionId: 'escrow-management',
@@ -67,9 +67,9 @@ const MENU_SECTIONS = [
     label: 'Finance management',
     items: [
       {
-        id: 'finance-wallet',
+        id: 'finance-management-section',
         name: 'Wallet & analytics',
-        description: 'Funding sources, ledger, and control tower.',
+        description: 'Wallets, funding sources, and finance insights.',
         sectionId: 'finance-management',
       },
     ],
@@ -79,9 +79,9 @@ const MENU_SECTIONS = [
     label: 'Mentors booked',
     items: [
       {
-        id: 'mentoring-sessions',
+        id: 'mentors-booked-section',
         name: 'Mentoring hub',
-        description: 'Sessions, packages, reviews, and favourites.',
+        description: 'Sessions, favourites, reviews, and packages.',
         sectionId: 'mentors-booked',
       },
     ],
@@ -93,6 +93,26 @@ function resolveUserId(session) {
     return DEFAULT_USER_ID;
   }
   return session.userId ?? session.user?.id ?? session.id ?? DEFAULT_USER_ID;
+}
+
+function normalizeArray(value) {
+  if (Array.isArray(value)) {
+    return value;
+  }
+  if (value && typeof value === 'object') {
+    return Object.values(value);
+  }
+  return [];
+}
+
+function scrollToSection(sectionId) {
+  if (!sectionId) {
+    return;
+  }
+  const element = document.getElementById(sectionId);
+  if (element) {
+    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 
 function UserDashboardPage() {
@@ -109,196 +129,171 @@ function UserDashboardPage() {
   const profile = data?.profile ?? {};
   const profileHub = data?.profileHub ?? {};
   const overview = data?.overview ?? null;
+  const projectGigManagement = data?.projectGigManagement ?? {};
   const escrowManagement = data?.escrowManagement ?? {};
+  const finance = data?.finance ?? data?.wallet ?? {};
   const mentoring = data?.mentoring ?? {};
+  const activity = normalizeArray(data?.activity?.items ?? data?.activity ?? []);
 
   const quickActionContext = useMemo(() => {
-    const projectCollection = Array.isArray(data?.projectGigManagement?.projects)
-      ? data.projectGigManagement.projects
-      : Array.isArray(data?.projectGigManagement?.workspaces)
-      ? data.projectGigManagement.workspaces
-      : Array.isArray(data?.projectGigManagement?.items)
-      ? data.projectGigManagement.items
-      : [];
-
-    const projectTemplates = Array.isArray(data?.projectGigManagement?.templates)
-      ? data.projectGigManagement.templates
-      : Array.isArray(data?.projectGigManagement?.projectTemplates)
-      ? data.projectGigManagement.projectTemplates
-      : [];
-
-    const walletAccounts = Array.isArray(data?.finance?.wallets?.accounts)
-      ? data.finance.wallets.accounts
-      : Array.isArray(data?.wallet?.accounts)
-      ? data.wallet.accounts
-      : Array.isArray(data?.finance?.wallets)
-      ? data.finance.wallets
-      : [];
-
-    const fundingSources = Array.isArray(data?.finance?.fundingSources)
-      ? data.finance.fundingSources
-      : Array.isArray(data?.wallet?.fundingSources)
-      ? data.wallet.fundingSources
-      : [];
-
-    const mentorsCollection = Array.isArray(mentoring?.mentors)
-      ? mentoring.mentors
-      : Array.isArray(mentoring?.availableMentors)
-      ? mentoring.availableMentors
-      : Array.isArray(mentoring?.experts)
-      ? mentoring.experts
-      : [];
-
-    const escrowAccounts = Array.isArray(escrowManagement?.accounts)
-      ? escrowManagement.accounts
-      : Array.isArray(escrowManagement?.wallets)
-      ? escrowManagement.wallets
-      : [];
-
-    const activityFeed = Array.isArray(data?.activity?.items)
-      ? data.activity.items
-      : Array.isArray(data?.activityFeed)
-      ? data.activityFeed
-      : Array.isArray(data?.auditTrail)
-      ? data.auditTrail
-      : [];
-
-    const summary = data?.projectGigManagement?.summary ?? {};
-    const financeSummary = data?.finance?.summary ?? data?.wallet?.summary ?? {};
-    const escrowSummary = escrowManagement?.summary ?? {};
-    const mentoringSummary = mentoring?.summary ?? {};
-
-    const defaultCurrency =
-      financeSummary?.currency ??
-      financeSummary?.defaultCurrency ??
-      walletAccounts?.[0]?.currency ??
-      'USD';
+    const projects = normalizeArray(projectGigManagement.projects ?? projectGigManagement.workspaces);
+    const gigOrders = normalizeArray(projectGigManagement.gigOrders ?? projectGigManagement.orders);
+    const projectTemplates = normalizeArray(projectGigManagement.templates ?? projectGigManagement.projectTemplates);
+    const escrowAccounts = normalizeArray(escrowManagement.accounts ?? escrowManagement.wallets);
+    const walletAccounts = normalizeArray(
+      finance.accounts ??
+        finance.wallets?.accounts ??
+        finance.wallets?.items ??
+        finance.wallets,
+    );
+    const mentors = normalizeArray(mentoring.mentors ?? mentoring.availableMentors ?? mentoring.experts);
+    const currencies = normalizeArray(
+      finance.currencies ??
+        finance.wallets?.currencies ??
+        finance.supportedCurrencies ??
+        [],
+    );
 
     return {
-      projects: projectCollection,
+      projects,
+      gigOrders,
       projectTemplates,
-      walletAccounts,
-      fundingSources,
-      mentors: mentorsCollection,
       escrowAccounts,
-      activityFeed,
-      metrics: {
-        activeProjects:
-          summary?.activeProjects ?? summary?.projects?.active ?? projectCollection?.length ?? 0,
-        openGigOrders: summary?.openGigOrders ?? summary?.orders?.open ?? summary?.activeOrders ?? 0,
-        escrowHeld: escrowSummary?.totalHeld ?? escrowSummary?.heldAmount ?? 0,
-        walletBalance: financeSummary?.totalBalance ?? financeSummary?.available ?? 0,
-        mentorsUpcoming:
-          mentoringSummary?.upcomingSessions ?? mentoring?.upcomingSessions?.length ?? mentoring?.sessions?.upcoming?.length ?? 0,
-        currency: defaultCurrency,
-      },
+      walletAccounts,
+      mentors,
+      currencies,
     };
-  }, [data, escrowManagement, mentoring]);
+  }, [projectGigManagement, escrowManagement, finance, mentoring]);
 
-  const welcomeHeadline = useMemo(() => {
-    const name = profile?.name ?? session?.name ?? session?.user?.firstName;
-    if (!name) {
-      return 'Client dashboard';
+  const quickActionMetrics = useMemo(() => {
+    const metrics = data?.metrics ?? {};
+    const walletTotals = finance?.wallets?.totals ?? {};
+    const projectsActive =
+      metrics.projectsActive ?? projectGigManagement.summary?.activeProjects ?? quickActionContext.projects.length;
+    const gigOrdersOpen =
+      metrics.gigOrdersOpen ?? projectGigManagement.summary?.openGigOrders ?? quickActionContext.gigOrders.length;
+    const escrowInFlight =
+      metrics.escrowInFlight ?? escrowManagement.summary?.openMilestones ?? quickActionContext.escrowAccounts.length;
+    const walletBalance = metrics.walletBalance ?? walletTotals.balance ?? finance.totalBalance;
+    const walletCurrency =
+      metrics.walletCurrency ?? walletTotals.currency ?? finance.primaryCurrency ?? finance.defaultCurrency ?? 'USD';
+
+    return {
+      projectsActive,
+      gigOrdersOpen,
+      escrowInFlight,
+      walletBalance,
+      walletCurrency,
+    };
+  }, [
+    data?.metrics,
+    finance.defaultCurrency,
+    finance.primaryCurrency,
+    finance.totalBalance,
+    finance?.wallets?.totals,
+    projectGigManagement.summary,
+    escrowManagement.summary,
+    quickActionContext.projects.length,
+    quickActionContext.gigOrders.length,
+    quickActionContext.escrowAccounts.length,
+  ]);
+
+  const handleMenuSelect = (item) => {
+    if (!item?.sectionId) {
+      return;
     }
-    return `${name.split(' ')[0]}'s command center`;
-  }, [profile?.name, session?.name, session?.user?.firstName]);
-
-  const welcomeSubtitle = useMemo(() => {
-    const trust = profile?.metrics?.trustScore;
-    const projects = data?.projectGigManagement?.summary?.activeProjects;
-    const invites = data?.projectGigManagement?.invitations?.stats?.pending;
-    if (trust != null && projects != null) {
-      return `Trust score ${Number(trust).toFixed(1)} · ${projects} active engagements · ${invites ?? 0} invites awaiting.`;
-    }
-    return 'Manage every engagement, payout, and mentor relationship from one place.';
-  }, [data?.projectGigManagement?.invitations?.stats?.pending, data?.projectGigManagement?.summary?.activeProjects, profile?.metrics?.trustScore]);
-
-  const handleRefresh = (options = {}) => refresh({ force: options.force ?? true });
+    scrollToSection(item.sectionId);
+  };
 
   return (
-    <DashboardAccessGuard requiredRoles={ALLOWED_ROLES}>
+    <DashboardAccessGuard allowedRoles={ALLOWED_ROLES}>
       <DashboardLayout
         currentDashboard="user"
-        title={welcomeHeadline}
-        subtitle={welcomeSubtitle}
-        description="End-to-end control over gigs, finance, trust, and mentoring."
+        title="Client command center"
+        subtitle="Oversee gigs, escrow, finances, and expert support from a single workspace."
+        description="Every surface below stays wired into live services so your operations remain production-ready."
         menuSections={MENU_SECTIONS}
         availableDashboards={AVAILABLE_DASHBOARDS}
-        activeMenuItem="home-overview"
+        onMenuItemSelect={handleMenuSelect}
+        adSurface="user_dashboard"
       >
-        <div className="space-y-12">
-          <DataStatus
-            loading={loading}
-            error={error}
-            fromCache={fromCache}
-            lastUpdated={lastUpdated}
-            onRefresh={() => handleRefresh({ force: true })}
-            statusLabel="Live production data"
-          />
-
-          <div className="rounded-4xl border border-slate-200 bg-white/90 p-8 shadow-soft">
+        <div className="space-y-14 pb-16">
+          <section id="home-overview" className="space-y-8">
+            <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h2 className="text-3xl font-semibold text-slate-900">Home overview</h2>
+                <p className="text-sm text-slate-500">
+                  Keep your personal brand ready for prospects and collaborators.
+                </p>
+              </div>
+              <DataStatus
+                loading={loading}
+                error={error}
+                lastUpdated={lastUpdated}
+                fromCache={fromCache}
+                onRefresh={refresh}
+              />
+            </header>
+            <UserDashboardOverviewSection userId={userId} overview={overview} onOverviewUpdated={refresh} />
             <UserDashboardQuickActions
               userId={userId}
               context={quickActionContext}
-              onActionComplete={() => handleRefresh({ force: true })}
+              metrics={quickActionMetrics}
+              activity={activity}
+              onCompleted={refresh}
             />
-          </div>
-
-          <section id="home-overview" className="space-y-6">
-            <div className="rounded-4xl border border-slate-200 bg-gradient-to-br from-white via-white to-slate-50 p-8 shadow-soft">
-              <UserDashboardOverviewSection
-                userId={userId}
-                overview={overview}
-                onOverviewUpdated={() => handleRefresh({ force: true })}
-              />
-            </div>
           </section>
 
           <section id="home-profile" className="space-y-6">
-            <ProfileHubQuickPanel profileOverview={profile} profileHub={profileHub} />
-            <div className="rounded-4xl border border-slate-200 bg-white/90 p-8 shadow-soft">
-              <ProfileSettingsSection
-                profile={profile}
-                userId={userId}
-                onRefresh={handleRefresh}
-                session={session}
-              />
+            <div className="flex flex-col gap-2">
+              <h2 className="text-3xl font-semibold text-slate-900">Profile readiness</h2>
+              <p className="text-sm text-slate-500">
+                Update your availability, storytelling, and collaboration preferences so stakeholders have everything they need.
+              </p>
             </div>
+            <ProfileHubQuickPanel profileOverview={profile} profileHub={profileHub} />
+            <ProfileSettingsSection profile={profile} userId={userId} onRefresh={refresh} session={session} />
           </section>
 
           <section id="gig-management" className="space-y-6">
-            <div className="rounded-4xl border border-slate-200 bg-white p-8 shadow-soft">
-              <ProjectGigManagementContainer userId={userId} />
+            <div className="flex flex-col gap-2">
+              <h2 className="text-3xl font-semibold text-slate-900">Gig management</h2>
+              <p className="text-sm text-slate-500">
+                Run your project pipeline with full CRUD workflows for bids, orders, submissions, and reviews.
+              </p>
             </div>
+            <ProjectGigManagementContainer userId={userId} />
           </section>
 
           <section id="escrow-management" className="space-y-6">
-            <div className="rounded-4xl border border-slate-200 bg-white p-8 shadow-soft">
-              <EscrowManagementSection
-                data={escrowManagement}
-                userId={userId}
-                onRefresh={() => handleRefresh({ force: true })}
-              />
+            <div className="flex flex-col gap-2">
+              <h2 className="text-3xl font-semibold text-slate-900">Escrow management</h2>
+              <p className="text-sm text-slate-500">
+                Track balances, releases, and dispute guardrails with production-ready controls.
+              </p>
             </div>
+            <EscrowManagementSection userId={userId} data={escrowManagement} onRefresh={refresh} />
           </section>
 
           <section id="finance-management" className="space-y-6">
-            <div className="rounded-4xl border border-slate-200 bg-white p-8 shadow-soft">
-              <WalletManagementSection userId={userId} />
+            <div className="flex flex-col gap-2">
+              <h2 className="text-3xl font-semibold text-slate-900">Finance management</h2>
+              <p className="text-sm text-slate-500">
+                Manage wallets, funding sources, analytics, and treasury automations confidently.
+              </p>
             </div>
-            <div className="rounded-4xl border border-slate-200 bg-gradient-to-br from-blue-50 via-white to-white p-8 shadow-soft">
-              <FinanceControlTowerFeature userId={userId} />
-            </div>
+            <WalletManagementSection userId={userId} />
+            <FinanceControlTowerFeature userId={userId} currency={quickActionMetrics.walletCurrency} />
           </section>
 
           <section id="mentors-booked" className="space-y-6">
-            <div className="rounded-4xl border border-slate-200 bg-white p-8 shadow-soft">
-              <UserMentoringSection
-                mentoring={mentoring}
-                userId={userId}
-                onRefresh={() => handleRefresh({ force: true })}
-              />
+            <div className="flex flex-col gap-2">
+              <h2 className="text-3xl font-semibold text-slate-900">Mentors booked</h2>
+              <p className="text-sm text-slate-500">
+                Collaborate with your expert bench, manage packages, and capture post-session insights.
+              </p>
             </div>
+            <UserMentoringSection userId={userId} mentoring={mentoring} onRefresh={refresh} />
           </section>
         </div>
       </DashboardLayout>
