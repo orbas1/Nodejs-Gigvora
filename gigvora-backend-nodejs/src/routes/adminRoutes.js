@@ -42,6 +42,8 @@ import adminEmailRoutes from './adminEmailRoutes.js';
 import adminTwoFactorRoutes from './adminTwoFactorRoutes.js';
 import adminDatabaseRoutes from './adminDatabaseRoutes.js';
 import adminProfileRoutes from './adminProfileRoutes.js';
+import adminAgencyManagementRoutes from './adminAgencyManagementRoutes.js';
+import adminCompanyManagementRoutes from './adminCompanyManagementRoutes.js';
 
 const router = Router();
 
@@ -81,11 +83,13 @@ router.put(
   '/system-settings',
   validateRequest({ body: systemSettingsBodySchema }),
   asyncHandler(adminController.persistSystemSettings),
+);
 router.get('/gdpr-settings', asyncHandler(adminController.fetchGdprSettings));
 router.put(
   '/gdpr-settings',
   validateRequest({ body: gdprSettingsBodySchema }),
   asyncHandler(adminController.persistGdprSettings),
+);
 router.get('/seo-settings', asyncHandler(adminController.fetchSeoSettings));
 router.put(
   '/seo-settings',
@@ -122,5 +126,7 @@ router.use('/email', adminEmailRoutes);
 router.use('/security/two-factor', adminTwoFactorRoutes);
 router.use('/database-settings', adminDatabaseRoutes);
 router.use('/profiles', adminProfileRoutes);
+router.use('/agencies', adminAgencyManagementRoutes);
+router.use('/companies', adminCompanyManagementRoutes);
 
 export default router;
