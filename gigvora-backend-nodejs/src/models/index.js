@@ -3173,6 +3173,9 @@ FreelancerPortfolioSetting.prototype.toPublicObject = function toPublicObject() 
     lastSyncedAt: plain.lastSyncedAt ?? null,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
+  };
+};
+
 export const FreelancerCalendarEvent = sequelize.define(
   'FreelancerCalendarEvent',
   {

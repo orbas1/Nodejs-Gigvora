@@ -3,6 +3,7 @@ import request from 'supertest';
 import { jest } from '@jest/globals';
 
 process.env.LOG_LEVEL = 'silent';
+process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'true';
 
 const securityAuditModuleUrl = new URL('../../src/services/securityAuditService.js', import.meta.url);
 const perimeterMetricsModuleUrl = new URL('../../src/observability/perimeterMetrics.js', import.meta.url);
@@ -40,20 +41,23 @@ describe('httpSecurity configuration', () => {
       'https://app-preview.gigvora.com',
       'https://partners.gigvora.com',
       'https://*.gigvora-staging.com',
+      'https://*.gigvora.com',
       'https://app.gigvora.com',
     ]));
   });
 
   test('isOriginAllowed evaluates wildcard and exact matches', () => {
     const rules = compileAllowedOriginRules([
-      'https://app.gigvora.com',
+      'https://*.gigvora.com',
       'https://*.gigvora-staging.com',
     ]);
 
     expect(isOriginAllowed('https://app.gigvora.com', rules)).toBe(true);
-    expect(isOriginAllowed('https://admin.gigvora.com', rules)).toBe(false);
+    expect(isOriginAllowed('https://admin.gigvora.com', rules)).toBe(true);
+    expect(isOriginAllowed('https://gigvora.com', rules)).toBe(true);
     expect(isOriginAllowed('https://ops.gigvora-staging.com', rules)).toBe(true);
     expect(isOriginAllowed('https://malicious.example.com', rules)).toBe(false);
+    expect(isOriginAllowed('https://gigvora.com.evil.com', rules)).toBe(false);
   });
 
   test('createCorsMiddleware allows trusted origins and sets CORS headers', async () => {
@@ -74,6 +78,28 @@ describe('httpSecurity configuration', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers['access-control-allow-origin']).toBe('https://console.gigvora.com');
+  });
+
+  test('createCorsMiddleware allows wildcard subdomains defined in defaults', async () => {
+    const app = express();
+    const warn = jest.fn();
+    const middleware = createCorsMiddleware({
+      env: {},
+      logger: { child: () => ({ warn }) },
+    });
+
+    app.use(middleware);
+    app.get('/status', (req, res) => {
+      res.json({ status: 'ok' });
+    });
+
+    const response = await request(app)
+      .get('/status')
+      .set('Origin', 'https://marketing.gigvora.com');
+
+    expect(response.status).toBe(200);
+    expect(response.headers['access-control-allow-origin']).toBe('https://marketing.gigvora.com');
+    expect(warn).not.toHaveBeenCalled();
   });
 
   test('createCorsMiddleware blocks untrusted origins and records perimeter telemetry', async () => {
