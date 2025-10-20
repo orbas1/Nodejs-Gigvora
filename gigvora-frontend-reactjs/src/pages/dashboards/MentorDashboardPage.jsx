@@ -7,6 +7,12 @@ import {
   HomeOverviewSection,
   FinanceManagementSection,
   MentorshipManagementSection,
+  MentorshipClientsSection,
+  MentorCalendarSection,
+  MentorSupportSection,
+  MentorInboxSection,
+  MentorVerificationSection,
+  MentorWalletSection,
 } from './mentor/sections/index.js';
 import {
   fetchMentorDashboard,
@@ -16,6 +22,25 @@ import {
   createMentorBooking,
   updateMentorBooking,
   deleteMentorBooking,
+  createMentorClient,
+  updateMentorClient,
+  deleteMentorClient,
+  createMentorEvent,
+  updateMentorEvent,
+  deleteMentorEvent,
+  createMentorSupportTicket,
+  updateMentorSupportTicket,
+  deleteMentorSupportTicket,
+  createMentorMessage,
+  updateMentorMessage,
+  deleteMentorMessage,
+  updateMentorVerificationStatus,
+  createMentorVerificationDocument,
+  updateMentorVerificationDocument,
+  deleteMentorVerificationDocument,
+  createMentorWalletTransaction,
+  updateMentorWalletTransaction,
+  deleteMentorWalletTransaction,
   createMentorInvoice,
   updateMentorInvoice,
   deleteMentorInvoice,
@@ -29,6 +54,12 @@ const SECTION_COMPONENTS = {
   'home-overview': HomeOverviewSection,
   finance: FinanceManagementSection,
   mentorship: MentorshipManagementSection,
+  clients: MentorshipClientsSection,
+  calendar: MentorCalendarSection,
+  support: MentorSupportSection,
+  inbox: MentorInboxSection,
+  verification: MentorVerificationSection,
+  wallet: MentorWalletSection,
 };
 
 export default function MentorDashboardPage() {
@@ -43,6 +74,12 @@ export default function MentorDashboardPage() {
   const [bookingSaving, setBookingSaving] = useState(false);
   const [invoiceSaving, setInvoiceSaving] = useState(false);
   const [payoutSaving, setPayoutSaving] = useState(false);
+  const [clientSaving, setClientSaving] = useState(false);
+  const [eventSaving, setEventSaving] = useState(false);
+  const [supportSaving, setSupportSaving] = useState(false);
+  const [messageSaving, setMessageSaving] = useState(false);
+  const [verificationSaving, setVerificationSaving] = useState(false);
+  const [walletSaving, setWalletSaving] = useState(false);
   const [metadata, setMetadata] = useState(null);
 
   const menuSections = useMemo(() => MENU_GROUPS, []);
@@ -194,6 +231,310 @@ export default function MentorDashboardPage() {
     [applyDashboardUpdate],
   );
 
+  const handleCreateClient = useCallback(
+    async (payload) => {
+      setClientSaving(true);
+      try {
+        const response = await createMentorClient(payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.client;
+      } catch (clientError) {
+        throw clientError;
+      } finally {
+        setClientSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleUpdateClient = useCallback(
+    async (clientId, payload) => {
+      setClientSaving(true);
+      try {
+        const response = await updateMentorClient(clientId, payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.client;
+      } catch (clientError) {
+        throw clientError;
+      } finally {
+        setClientSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleDeleteClient = useCallback(
+    async (clientId) => {
+      setClientSaving(true);
+      try {
+        const response = await deleteMentorClient(clientId);
+        applyDashboardUpdate(response?.dashboard);
+        return response;
+      } catch (clientError) {
+        throw clientError;
+      } finally {
+        setClientSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleCreateEvent = useCallback(
+    async (payload) => {
+      setEventSaving(true);
+      try {
+        const response = await createMentorEvent(payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.event;
+      } catch (eventError) {
+        throw eventError;
+      } finally {
+        setEventSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleUpdateEvent = useCallback(
+    async (eventId, payload) => {
+      setEventSaving(true);
+      try {
+        const response = await updateMentorEvent(eventId, payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.event;
+      } catch (eventError) {
+        throw eventError;
+      } finally {
+        setEventSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleDeleteEvent = useCallback(
+    async (eventId) => {
+      setEventSaving(true);
+      try {
+        const response = await deleteMentorEvent(eventId);
+        applyDashboardUpdate(response?.dashboard);
+        return response;
+      } catch (eventError) {
+        throw eventError;
+      } finally {
+        setEventSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleCreateSupportTicket = useCallback(
+    async (payload) => {
+      setSupportSaving(true);
+      try {
+        const response = await createMentorSupportTicket(payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.ticket;
+      } catch (ticketError) {
+        throw ticketError;
+      } finally {
+        setSupportSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleUpdateSupportTicket = useCallback(
+    async (ticketId, payload) => {
+      setSupportSaving(true);
+      try {
+        const response = await updateMentorSupportTicket(ticketId, payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.ticket;
+      } catch (ticketError) {
+        throw ticketError;
+      } finally {
+        setSupportSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleDeleteSupportTicket = useCallback(
+    async (ticketId) => {
+      setSupportSaving(true);
+      try {
+        const response = await deleteMentorSupportTicket(ticketId);
+        applyDashboardUpdate(response?.dashboard);
+        return response;
+      } catch (ticketError) {
+        throw ticketError;
+      } finally {
+        setSupportSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleCreateMessage = useCallback(
+    async (payload) => {
+      setMessageSaving(true);
+      try {
+        const response = await createMentorMessage(payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.message;
+      } catch (messageError) {
+        throw messageError;
+      } finally {
+        setMessageSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleUpdateMessage = useCallback(
+    async (messageId, payload) => {
+      setMessageSaving(true);
+      try {
+        const response = await updateMentorMessage(messageId, payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.message;
+      } catch (messageError) {
+        throw messageError;
+      } finally {
+        setMessageSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleDeleteMessage = useCallback(
+    async (messageId) => {
+      setMessageSaving(true);
+      try {
+        const response = await deleteMentorMessage(messageId);
+        applyDashboardUpdate(response?.dashboard);
+        return response;
+      } catch (messageError) {
+        throw messageError;
+      } finally {
+        setMessageSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleUpdateVerificationStatus = useCallback(
+    async (payload) => {
+      setVerificationSaving(true);
+      try {
+        const response = await updateMentorVerificationStatus(payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.verification;
+      } catch (verificationError) {
+        throw verificationError;
+      } finally {
+        setVerificationSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleCreateVerificationDocument = useCallback(
+    async (payload) => {
+      setVerificationSaving(true);
+      try {
+        const response = await createMentorVerificationDocument(payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.document;
+      } catch (verificationError) {
+        throw verificationError;
+      } finally {
+        setVerificationSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleUpdateVerificationDocument = useCallback(
+    async (documentId, payload) => {
+      setVerificationSaving(true);
+      try {
+        const response = await updateMentorVerificationDocument(documentId, payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.document;
+      } catch (verificationError) {
+        throw verificationError;
+      } finally {
+        setVerificationSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleDeleteVerificationDocument = useCallback(
+    async (documentId) => {
+      setVerificationSaving(true);
+      try {
+        const response = await deleteMentorVerificationDocument(documentId);
+        applyDashboardUpdate(response?.dashboard);
+        return response;
+      } catch (verificationError) {
+        throw verificationError;
+      } finally {
+        setVerificationSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleCreateWalletTransaction = useCallback(
+    async (payload) => {
+      setWalletSaving(true);
+      try {
+        const response = await createMentorWalletTransaction(payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.transaction;
+      } catch (walletError) {
+        throw walletError;
+      } finally {
+        setWalletSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleUpdateWalletTransaction = useCallback(
+    async (transactionId, payload) => {
+      setWalletSaving(true);
+      try {
+        const response = await updateMentorWalletTransaction(transactionId, payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.transaction;
+      } catch (walletError) {
+        throw walletError;
+      } finally {
+        setWalletSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleDeleteWalletTransaction = useCallback(
+    async (transactionId) => {
+      setWalletSaving(true);
+      try {
+        const response = await deleteMentorWalletTransaction(transactionId);
+        applyDashboardUpdate(response?.dashboard);
+        return response;
+      } catch (walletError) {
+        throw walletError;
+      } finally {
+        setWalletSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
   const handleCreateInvoice = useCallback(
     async (payload) => {
       setInvoiceSaving(true);
@@ -338,6 +679,76 @@ export default function MentorDashboardPage() {
           onSavePackages={handleSavePackages}
           packagesSaving={packagesSaving}
           bookingSaving={bookingSaving}
+        />
+      );
+    }
+    if (Component === MentorshipClientsSection) {
+      return (
+        <MentorshipClientsSection
+          clients={dashboard?.clients ?? []}
+          summary={dashboard?.clientSummary}
+          onCreateClient={handleCreateClient}
+          onUpdateClient={handleUpdateClient}
+          onDeleteClient={handleDeleteClient}
+          saving={clientSaving}
+        />
+      );
+    }
+    if (Component === MentorCalendarSection) {
+      return (
+        <MentorCalendarSection
+          events={dashboard?.calendar?.events ?? []}
+          onCreateEvent={handleCreateEvent}
+          onUpdateEvent={handleUpdateEvent}
+          onDeleteEvent={handleDeleteEvent}
+          saving={eventSaving}
+        />
+      );
+    }
+    if (Component === MentorSupportSection) {
+      return (
+        <MentorSupportSection
+          tickets={dashboard?.support?.tickets ?? []}
+          summary={dashboard?.support?.summary}
+          onCreateTicket={handleCreateSupportTicket}
+          onUpdateTicket={handleUpdateSupportTicket}
+          onDeleteTicket={handleDeleteSupportTicket}
+          saving={supportSaving}
+        />
+      );
+    }
+    if (Component === MentorInboxSection) {
+      return (
+        <MentorInboxSection
+          messages={dashboard?.inbox?.messages ?? []}
+          summary={dashboard?.inbox?.summary}
+          onCreateMessage={handleCreateMessage}
+          onUpdateMessage={handleUpdateMessage}
+          onDeleteMessage={handleDeleteMessage}
+          saving={messageSaving}
+        />
+      );
+    }
+    if (Component === MentorVerificationSection) {
+      return (
+        <MentorVerificationSection
+          verification={dashboard?.verification}
+          onUpdateStatus={handleUpdateVerificationStatus}
+          onCreateDocument={handleCreateVerificationDocument}
+          onUpdateDocument={handleUpdateVerificationDocument}
+          onDeleteDocument={handleDeleteVerificationDocument}
+          saving={verificationSaving}
+        />
+      );
+    }
+    if (Component === MentorWalletSection) {
+      return (
+        <MentorWalletSection
+          wallet={dashboard?.wallet}
+          onCreateTransaction={handleCreateWalletTransaction}
+          onUpdateTransaction={handleUpdateWalletTransaction}
+          onDeleteTransaction={handleDeleteWalletTransaction}
+          saving={walletSaving}
         />
       );
     }
