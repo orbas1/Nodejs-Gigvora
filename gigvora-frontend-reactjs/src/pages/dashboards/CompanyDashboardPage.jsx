@@ -20,6 +20,7 @@ import CreationStudioSummary from '../../components/company/CreationStudioSummar
 import InterviewExperienceSection from '../../components/dashboard/InterviewExperienceSection.jsx';
 import AccessDeniedPanel from '../../components/dashboard/AccessDeniedPanel.jsx';
 import CompanyDashboardOverviewSection from '../../components/company/CompanyDashboardOverviewSection.jsx';
+import CompanyOperationalControlPanel from '../../components/company/CompanyOperationalControlPanel.jsx';
 import CompanyPagesManagementSection from '../../components/company/CompanyPagesManagementSection.jsx';
 import { useCompanyDashboard } from '../../hooks/useCompanyDashboard.js';
 import { useSession } from '../../context/SessionContext.jsx';
@@ -1099,6 +1100,14 @@ export default function CompanyDashboardPage() {
         />
 
         <BrandAndPeopleSection data={data} />
+
+        <CompanyOperationalControlPanel
+          workspaceId={companyWorkspaceId}
+          workspaceSlug={workspaceSlugParam ?? undefined}
+          lookbackDays={lookbackDays}
+          summaryCards={enrichedSummaryCards}
+          session={session}
+        />
 
         {sections.map((section) => (
           <section
