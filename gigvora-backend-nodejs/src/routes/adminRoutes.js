@@ -81,11 +81,13 @@ router.put(
   '/system-settings',
   validateRequest({ body: systemSettingsBodySchema }),
   asyncHandler(adminController.persistSystemSettings),
+);
 router.get('/gdpr-settings', asyncHandler(adminController.fetchGdprSettings));
 router.put(
   '/gdpr-settings',
   validateRequest({ body: gdprSettingsBodySchema }),
   asyncHandler(adminController.persistGdprSettings),
+);
 router.get('/seo-settings', asyncHandler(adminController.fetchSeoSettings));
 router.put(
   '/seo-settings',
