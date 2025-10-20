@@ -7,9 +7,13 @@ import useAgencyDashboard from '../../hooks/useAgencyDashboard.js';
 import useProjectGigManagement from '../../hooks/useProjectGigManagement.js';
 import useGigOrderDetail from '../../hooks/useGigOrderDetail.js';
 import DataStatus from '../../components/DataStatus.jsx';
-import AgencyProfileWorkspace from '../../components/dashboard/agency/AgencyProfileWorkspace.jsx';
 import FinanceControlTowerFeature from '../../components/dashboard/FinanceControlTowerFeature.jsx';
 import {
+  AgencyManagementSection,
+  AgencyHrManagementSection,
+  AgencyCrmLeadPipelineSection,
+  AgencyPaymentsManagementSection,
+  AgencyJobApplicationsSection,
   GigManagementSection,
   GigTimelineSection,
   GigCreationSection,
@@ -30,7 +34,11 @@ const MENU_SECTIONS = [
     label: 'Workspace',
     items: [
       { id: 'agency-overview', name: 'Home', sectionId: 'agency-overview' },
-      { id: 'agency-profile', name: 'Profile', sectionId: 'agency-profile' },
+      { id: 'agency-management', name: 'Agency management', sectionId: 'agency-management' },
+      { id: 'agency-hr', name: 'HR management', sectionId: 'agency-hr' },
+      { id: 'agency-crm', name: 'CRM pipeline', sectionId: 'agency-crm' },
+      { id: 'agency-payments', name: 'Payments', sectionId: 'agency-payments' },
+      { id: 'agency-job-applications', name: 'Job applications', sectionId: 'agency-job-applications' },
       { id: 'agency-gig-management', name: 'Gigs', sectionId: 'agency-gig-management' },
       { id: 'agency-escrow', name: 'Escrow', sectionId: 'agency-escrow' },
       { id: 'agency-finance', name: 'Finance', sectionId: 'agency-finance' },
@@ -49,7 +57,11 @@ const MENU_SECTIONS = [
 
 const SECTIONS = [
   { id: 'agency-overview', label: 'Home' },
-  { id: 'agency-profile', label: 'Profile' },
+  { id: 'agency-management', label: 'Agency management' },
+  { id: 'agency-hr', label: 'HR management' },
+  { id: 'agency-crm', label: 'CRM pipeline' },
+  { id: 'agency-payments', label: 'Payments' },
+  { id: 'agency-job-applications', label: 'Job applications' },
   { id: 'agency-gig-management', label: 'Gig management' },
   { id: 'agency-escrow', label: 'Escrow' },
   { id: 'agency-finance', label: 'Finance' },
@@ -377,20 +389,24 @@ export default function AgencyDashboardPage() {
           currentDate={overviewPayload?.currentDate}
         />
 
-        <section id="agency-profile" className="space-y-6 rounded-4xl border border-slate-200 bg-white p-8 shadow-soft">
-          <header className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Dashboard / Profile</p>
-              <h2 className="text-3xl font-semibold text-slate-900">Profile workspace</h2>
-            </div>
-            <span className="rounded-full bg-slate-100 px-4 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
-              Live
-            </span>
-          </header>
-          <div className="rounded-3xl border border-slate-100 bg-slate-50/60 p-4 shadow-inner">
-            <AgencyProfileWorkspace />
-          </div>
-        </section>
+        <AgencyManagementSection
+          overview={overview}
+          workspace={workspace}
+          loading={overviewLoading}
+          error={overviewError}
+          onRefresh={() => refreshOverview?.()}
+        />
+
+        <AgencyHrManagementSection workspaceId={workspace?.id ?? workspaceId} canEdit={canManageOverview} />
+
+        <AgencyCrmLeadPipelineSection workspaceId={workspace?.id ?? workspaceId} />
+
+        <AgencyPaymentsManagementSection
+          workspaceId={workspace?.id ?? workspaceId}
+          workspaceLabel={workspace?.name ?? overviewPayload?.workspace?.name ?? ''}
+        />
+
+        <AgencyJobApplicationsSection ownerId={ownerId} />
 
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>

@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, forwardRef, useImperativeHandle, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import DataStatus from '../../DataStatus.jsx';
@@ -18,7 +18,7 @@ function mapChecklistPayload(item) {
   };
 }
 
-export default function ClientKanbanBoard({ data, loading, error, actions }) {
+const ClientKanbanBoard = forwardRef(function ClientKanbanBoard({ data, loading, error, actions }, ref) {
   const columns = useMemo(() => data?.columns ?? [], [data?.columns]);
   const clients = useMemo(() => data?.clients ?? [], [data?.clients]);
   const metrics = data?.metrics ?? {};
@@ -185,6 +185,29 @@ export default function ClientKanbanBoard({ data, loading, error, actions }) {
     );
   }
 
+  useImperativeHandle(
+    ref,
+    () => ({
+      createLead(defaults = {}) {
+        const initialColumn = defaults.columnId || columns?.[0]?.id || null;
+        setWizardState({ open: true, mode: 'create', card: { columnId: initialColumn, ...defaults } });
+      },
+      createStage(initialValues = {}) {
+        setColumnState({ open: true, mode: 'create', column: Object.keys(initialValues).length ? initialValues : null });
+      },
+      createClient(initialValues = {}) {
+        setClientState({ open: true, mode: 'create', client: Object.keys(initialValues).length ? initialValues : null });
+      },
+      focusLead(cardId) {
+        if (!cardId) {
+          return;
+        }
+        setActiveCard({ id: cardId });
+      },
+    }),
+    [columns],
+  );
+
   return (
     <Fragment>
       <div className="flex flex-col gap-6">
@@ -294,7 +317,7 @@ export default function ClientKanbanBoard({ data, loading, error, actions }) {
       />
     </Fragment>
   );
-}
+});
 
 ClientKanbanBoard.propTypes = {
   data: PropTypes.shape({
@@ -327,3 +350,7 @@ ClientKanbanBoard.defaultProps = {
   loading: false,
   error: null,
 };
+
+ClientKanbanBoard.displayName = 'ClientKanbanBoard';
+
+export default ClientKanbanBoard;

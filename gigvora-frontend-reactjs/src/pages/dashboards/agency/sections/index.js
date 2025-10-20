@@ -5,3 +5,8 @@ export { default as OpenGigsSection } from './OpenGigsSection.jsx';
 export { default as ClosedGigsSection } from './ClosedGigsSection.jsx';
 export { default as GigSubmissionsSection } from './GigSubmissionsSection.jsx';
 export { default as GigChatSection } from './GigChatSection.jsx';
+export { default as AgencyManagementSection } from './AgencyManagementSection.jsx';
+export { default as AgencyHrManagementSection } from './AgencyHrManagementSection.jsx';
+export { default as AgencyCrmLeadPipelineSection } from './AgencyCrmLeadPipelineSection.jsx';
+export { default as AgencyPaymentsManagementSection } from './AgencyPaymentsManagementSection.jsx';
+export { default as AgencyJobApplicationsSection } from './AgencyJobApplicationsSection.jsx';
