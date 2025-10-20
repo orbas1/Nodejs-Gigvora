@@ -1,6 +1,6 @@
 import apiClient from './apiClient.js';
 
-export async function fetchBlogPosts(
+export function fetchBlogPosts(
   { page = 1, pageSize = 9, status, category, tag, search, includeUnpublished = false } = {},
   { signal } = {},
 ) {
@@ -16,7 +16,7 @@ export async function fetchBlogPosts(
   return apiClient.get('/blog/posts', { params, signal });
 }
 
-export async function fetchBlogPost(slug, { signal, includeUnpublished = false } = {}) {
+export function fetchBlogPost(slug, { signal, includeUnpublished = false } = {}) {
   if (!slug) {
     throw new Error('A blog identifier is required.');
   }
@@ -34,7 +34,7 @@ export async function fetchBlogTags({ signal } = {}) {
   return data?.results ?? [];
 }
 
-export async function fetchAdminBlogPosts(
+export function fetchAdminBlogPosts(
   { page = 1, pageSize = 20, status, category, tag, search } = {},
   { signal } = {},
 ) {
@@ -50,116 +50,125 @@ export async function fetchAdminBlogPosts(
   return apiClient.get('/admin/blog/posts', { params, signal });
 }
 
-export async function fetchAdminBlogPost(postId, { signal } = {}) {
+export function fetchAdminBlogPost(postId, { signal } = {}) {
   if (!postId) {
     throw new Error('A blog post id is required.');
   }
   return apiClient.get(`/admin/blog/posts/${postId}`, { signal });
 }
 
-export async function createAdminBlogPost(payload, { signal } = {}) {
+export function createAdminBlogPost(payload, { signal } = {}) {
   return apiClient.post('/admin/blog/posts', payload, { signal });
 }
 
-export async function updateAdminBlogPost(postId, payload, { signal } = {}) {
+export function updateAdminBlogPost(postId, payload, { signal } = {}) {
   if (!postId) {
     throw new Error('A blog post id is required.');
   }
   return apiClient.put(`/admin/blog/posts/${postId}`, payload, { signal });
 }
 
-export async function deleteAdminBlogPost(postId, { signal } = {}) {
+export function deleteAdminBlogPost(postId, { signal } = {}) {
   if (!postId) {
     throw new Error('A blog post id is required.');
   }
   return apiClient.delete(`/admin/blog/posts/${postId}`, { signal });
 }
 
-export async function createBlogCategory(payload, { signal } = {}) {
+export function createBlogCategory(payload, { signal } = {}) {
   return apiClient.post('/admin/blog/categories', payload, { signal });
 }
 
-export async function updateBlogCategory(categoryId, payload, { signal } = {}) {
+export function updateBlogCategory(categoryId, payload, { signal } = {}) {
+  if (!categoryId) {
+    throw new Error('A category id is required.');
+  }
   return apiClient.put(`/admin/blog/categories/${categoryId}`, payload, { signal });
 }
 
-export async function deleteBlogCategory(categoryId, { signal } = {}) {
+export function deleteBlogCategory(categoryId, { signal } = {}) {
+  if (!categoryId) {
+    throw new Error('A category id is required.');
+  }
   return apiClient.delete(`/admin/blog/categories/${categoryId}`, { signal });
 }
 
-export async function createBlogTag(payload, { signal } = {}) {
+export function createBlogTag(payload, { signal } = {}) {
   return apiClient.post('/admin/blog/tags', payload, { signal });
 }
 
-export async function updateBlogTag(tagId, payload, { signal } = {}) {
+export function updateBlogTag(tagId, payload, { signal } = {}) {
+  if (!tagId) {
+    throw new Error('A tag id is required.');
+  }
   return apiClient.put(`/admin/blog/tags/${tagId}`, payload, { signal });
 }
 
-export async function deleteBlogTag(tagId, { signal } = {}) {
+export function deleteBlogTag(tagId, { signal } = {}) {
+  if (!tagId) {
+    throw new Error('A tag id is required.');
+  }
   return apiClient.delete(`/admin/blog/tags/${tagId}`, { signal });
 }
 
-export async function createBlogMedia(payload, { signal } = {}) {
+export function createBlogMedia(payload, { signal } = {}) {
   return apiClient.post('/admin/blog/media', payload, { signal });
 }
 
-export async function fetchAdminBlogMetrics({ start, end } = {}, { signal } = {}) {
+export function fetchAdminBlogMetrics({ start, end } = {}, { signal } = {}) {
   const params = { start, end };
   return apiClient.get('/admin/blog/metrics/overview', { params, signal });
 }
 
-export async function fetchAdminBlogPostMetrics(postId, { signal } = {}) {
+export function fetchAdminBlogPostMetrics(postId, { signal } = {}) {
   if (!postId) {
     throw new Error('A blog post id is required.');
   }
   return apiClient.get(`/admin/blog/posts/${postId}/metrics`, { signal });
 }
 
-export async function updateAdminBlogPostMetrics(postId, payload, { signal } = {}) {
+export function updateAdminBlogPostMetrics(postId, payload, { signal } = {}) {
   if (!postId) {
     throw new Error('A blog post id is required.');
   }
   return apiClient.put(`/admin/blog/posts/${postId}/metrics`, payload, { signal });
 }
 
-export async function fetchAdminBlogComments({ postId, status, page = 1, pageSize = 25 } = {}, { signal } = {}) {
-  const params = {
-    postId,
-    status,
-    page,
-    pageSize,
-  };
+export function fetchAdminBlogComments({ postId, status, page = 1, pageSize = 25 } = {}, { signal } = {}) {
+  const params = { status, page, pageSize };
   if (postId) {
-    return apiClient.get(`/admin/blog/posts/${postId}/comments`, { params: { status, page, pageSize }, signal });
+    return apiClient.get(`/admin/blog/posts/${postId}/comments`, { params, signal });
   }
-  return apiClient.get('/admin/blog/comments', { params, signal });
+  return apiClient.get('/admin/blog/comments', { params: { postId, status, page, pageSize }, signal });
 }
 
-export async function createAdminBlogComment(postId, payload, { signal } = {}) {
+export function createAdminBlogComment(postId, payload, { signal } = {}) {
   if (!postId) {
     throw new Error('A blog post id is required.');
   }
   return apiClient.post(`/admin/blog/posts/${postId}/comments`, payload, { signal });
 }
 
-export async function updateAdminBlogComment(commentId, payload, { signal } = {}) {
+export function updateAdminBlogComment(commentId, payload, { signal } = {}) {
   if (!commentId) {
     throw new Error('A comment id is required.');
   }
   return apiClient.put(`/admin/blog/comments/${commentId}`, payload, { signal });
 }
 
-export async function deleteAdminBlogComment(commentId, { signal } = {}) {
+export function deleteAdminBlogComment(commentId, { signal } = {}) {
   if (!commentId) {
     throw new Error('A comment id is required.');
   }
   return apiClient.delete(`/admin/blog/comments/${commentId}`, { signal });
+}
+
 export async function fetchAgencyBlogWorkspaces({ signal } = {}) {
   const data = await apiClient.get('/agency/blog/workspaces', { signal });
   return data?.results ?? [];
 }
 
-export async function fetchAgencyBlogPosts(
+export function fetchAgencyBlogPosts(
   { workspaceId, page = 1, pageSize = 20, status, search } = {},
   { signal } = {},
 ) {
@@ -176,21 +185,21 @@ export async function fetchAgencyBlogPosts(
   return apiClient.get('/agency/blog/posts', { params, signal });
 }
 
-export async function createAgencyBlogPost(workspaceId, payload, { signal } = {}) {
+export function createAgencyBlogPost(workspaceId, payload, { signal } = {}) {
   if (!workspaceId) {
     throw new Error('workspaceId is required.');
   }
   return apiClient.post('/agency/blog/posts', { ...payload, workspaceId }, { signal });
 }
 
-export async function updateAgencyBlogPost(postId, workspaceId, payload, { signal } = {}) {
+export function updateAgencyBlogPost(postId, workspaceId, payload, { signal } = {}) {
   if (!postId || !workspaceId) {
     throw new Error('postId and workspaceId are required.');
   }
   return apiClient.put(`/agency/blog/posts/${postId}`, { ...payload, workspaceId }, { signal });
 }
 
-export async function deleteAgencyBlogPost(postId, workspaceId, { signal } = {}) {
+export function deleteAgencyBlogPost(postId, workspaceId, { signal } = {}) {
   if (!postId || !workspaceId) {
     throw new Error('postId and workspaceId are required.');
   }
@@ -213,22 +222,46 @@ export async function fetchAgencyBlogTags(workspaceId, { signal } = {}) {
   return data?.results ?? [];
 }
 
-export async function createAgencyBlogCategory(workspaceId, payload, { signal } = {}) {
+export function createAgencyBlogCategory(workspaceId, payload, { signal } = {}) {
   if (!workspaceId) {
     throw new Error('workspaceId is required.');
   }
   return apiClient.post('/agency/blog/categories', { ...payload, workspaceId }, { signal });
 }
 
-export async function createAgencyBlogTag(workspaceId, payload, { signal } = {}) {
+export function updateAgencyBlogCategory(categoryId, workspaceId, payload, { signal } = {}) {
+  if (!categoryId || !workspaceId) {
+    throw new Error('categoryId and workspaceId are required.');
+  }
+  return apiClient.put(`/agency/blog/categories/${categoryId}`, { ...payload, workspaceId }, { signal });
+}
+
+export function deleteAgencyBlogCategory(categoryId, workspaceId, { signal } = {}) {
+  if (!categoryId || !workspaceId) {
+    throw new Error('categoryId and workspaceId are required.');
+  }
+  return apiClient.delete(`/agency/blog/categories/${categoryId}`, { params: { workspaceId }, signal });
+}
+
+export function createAgencyBlogTag(workspaceId, payload, { signal } = {}) {
   if (!workspaceId) {
     throw new Error('workspaceId is required.');
   }
   return apiClient.post('/agency/blog/tags', { ...payload, workspaceId }, { signal });
 }
 
-export async function createAgencyBlogMedia(payload, { signal } = {}) {
-  return apiClient.post('/agency/blog/media', payload, { signal });
+export function updateAgencyBlogTag(tagId, workspaceId, payload, { signal } = {}) {
+  if (!tagId || !workspaceId) {
+    throw new Error('tagId and workspaceId are required.');
+  }
+  return apiClient.put(`/agency/blog/tags/${tagId}`, { ...payload, workspaceId }, { signal });
+}
+
+export function deleteAgencyBlogTag(tagId, workspaceId, { signal } = {}) {
+  if (!tagId || !workspaceId) {
+    throw new Error('tagId and workspaceId are required.');
+  }
+  return apiClient.delete(`/agency/blog/tags/${tagId}`, { params: { workspaceId }, signal });
 }
 
 export default {
@@ -263,6 +296,9 @@ export default {
   fetchAgencyBlogCategories,
   fetchAgencyBlogTags,
   createAgencyBlogCategory,
+  updateAgencyBlogCategory,
+  deleteAgencyBlogCategory,
   createAgencyBlogTag,
-  createAgencyBlogMedia,
+  updateAgencyBlogTag,
+  deleteAgencyBlogTag,
 };

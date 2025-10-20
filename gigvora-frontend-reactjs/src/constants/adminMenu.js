@@ -11,7 +11,6 @@ export const ADMIN_DASHBOARD_MENU_SECTIONS = [
   },
 ];
 
-export default ADMIN_DASHBOARD_MENU_SECTIONS;
 export const ADMIN_MENU_SECTIONS = [
   {
     label: 'Command modules',
@@ -32,24 +31,29 @@ export const ADMIN_MENU_SECTIONS = [
         name: 'Member health',
         description: 'Growth, activation, and readiness scores across the Gigvora network.',
         tags: ['growth', 'activation'],
+        sectionId: 'admin-member-health',
       },
       {
         name: 'Financial governance',
         description: 'Escrow flows, fee capture, and treasury risk posture.',
         tags: ['finance'],
+        sectionId: 'admin-finance-governance',
       },
       {
         name: 'Risk & trust',
         description: 'Dispute lifecycle, escalations, and marketplace safety monitoring.',
         tags: ['compliance'],
+        sectionId: 'admin-risk-trust',
       },
       {
         name: 'Support operations',
         description: 'Service desk load, SLAs, and sentiment guardrails.',
+        sectionId: 'admin-support-operations',
       },
       {
         name: 'Engagement & comms',
         description: 'Platform analytics, event telemetry, and notification delivery.',
+        sectionId: 'admin-engagement',
       },
       {
         name: 'Gigvora Ads',
@@ -60,6 +64,7 @@ export const ADMIN_MENU_SECTIONS = [
       {
         name: 'Launchpad performance',
         description: 'Talent placements, interview runway, and employer demand.',
+        sectionId: 'admin-launchpad',
       },
     ],
   },
@@ -70,14 +75,17 @@ export const ADMIN_MENU_SECTIONS = [
         name: 'Data exports',
         description: 'Pull CSV snapshots or schedule secure S3 drops.',
         tags: ['csv', 'api'],
+        sectionId: 'admin-data-exports',
       },
       {
         name: 'Incident response',
         description: 'Runbooks for security, privacy, and marketplace outages.',
+        sectionId: 'admin-incident-response',
       },
       {
         name: 'Audit center',
         description: 'Trace admin actions, approvals, and configuration changes.',
+        sectionId: 'admin-audit-center',
       },
     ],
   },

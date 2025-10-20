@@ -6,7 +6,7 @@ function sanitizeParams(params = {}) {
   );
 }
 
-export async function fetchInbox({
+export function fetchInbox({
   userId,
   channelTypes,
   states,
@@ -39,20 +39,29 @@ export async function fetchInbox({
   return apiClient.get('/messaging/threads', { params });
 }
 
-export async function fetchThread(
-  threadId,
-  { includeParticipants = true, includeSupport = true, includeLabels = false } = {},
-) {
+export function fetchThread(threadId, { includeParticipants = true, includeSupport = true, includeLabels = false } = {}) {
+  if (!threadId) {
+    throw new Error('threadId is required to load a thread.');
+  }
   const params = sanitizeParams({ includeParticipants, includeSupport, includeLabels });
   return apiClient.get(`/messaging/threads/${threadId}`, { params });
 }
 
-export async function fetchThreadMessages(threadId, { page = 1, pageSize = 50, includeSystem = false } = {}) {
+export function fetchThreadMessages(threadId, { page = 1, pageSize = 50, includeSystem = false } = {}) {
+  if (!threadId) {
+    throw new Error('threadId is required to load thread messages.');
+  }
   const params = sanitizeParams({ page, pageSize, includeSystem });
   return apiClient.get(`/messaging/threads/${threadId}/messages`, { params });
 }
 
-export async function sendMessage(threadId, { userId, messageType = 'text', body, attachments = [], metadata = {} } = {}) {
+export function sendMessage(threadId, { userId, messageType = 'text', body, attachments = [], metadata = {} } = {}) {
+  if (!threadId) {
+    throw new Error('threadId is required to send a message.');
+  }
+  if (!body && (!attachments || attachments.length === 0)) {
+    throw new Error('A message body or attachments are required to send a message.');
+  }
   return apiClient.post(`/messaging/threads/${threadId}/messages`, {
     userId,
     messageType,
@@ -62,7 +71,7 @@ export async function sendMessage(threadId, { userId, messageType = 'text', body
   });
 }
 
-export async function createThread({ userId, subject, channelType = 'direct', participantIds = [], metadata = {} } = {}) {
+export function createThread({ userId, subject, channelType = 'direct', participantIds = [], metadata = {} } = {}) {
   return apiClient.post('/messaging/threads', {
     userId,
     subject,
@@ -72,7 +81,10 @@ export async function createThread({ userId, subject, channelType = 'direct', pa
   });
 }
 
-export async function createCallSession(threadId, { userId, callType = 'video', callId, role } = {}) {
+export function createCallSession(threadId, { userId, callType = 'video', callId, role } = {}) {
+  if (!threadId) {
+    throw new Error('threadId is required to create a call session.');
+  }
   return apiClient.post(`/messaging/threads/${threadId}/calls`, {
     userId,
     callType,
@@ -81,36 +93,39 @@ export async function createCallSession(threadId, { userId, callType = 'video', 
   });
 }
 
-export async function markThreadRead(threadId, { userId } = {}) {
+export function markThreadRead(threadId, { userId } = {}) {
+  if (!threadId) {
+    throw new Error('threadId is required to mark a thread as read.');
+  }
   return apiClient.post(`/messaging/threads/${threadId}/read`, {
     userId,
   });
 }
 
-export async function updateThreadState(threadId, { state } = {}) {
+export function updateThreadState(threadId, { state, userId } = {}) {
+  if (!threadId) {
+    throw new Error('threadId is required to update thread state.');
+  }
   if (!state) {
     throw new Error('state is required to update a thread.');
   }
-  return apiClient.post(`/messaging/threads/${threadId}/state`, { state });
-}
-
-export async function muteThread(threadId, { userId, until } = {}) {
-  return apiClient.post(`/messaging/threads/${threadId}/mute`, {
-    userId,
-    until,
-  });
-}
-
-export async function escalateThread(threadId, { userId, reason, priority = 'medium', metadata = {} } = {}) {
-export async function updateThreadState(threadId, { state, userId } = {}) {
   return apiClient.post(`/messaging/threads/${threadId}/state`, { state, userId });
 }
 
-export async function muteThread(threadId, { userId, until } = {}) {
+export function muteThread(threadId, { userId, until } = {}) {
+  if (!threadId) {
+    throw new Error('threadId is required to mute a thread.');
+  }
   return apiClient.post(`/messaging/threads/${threadId}/mute`, { userId, until });
 }
 
-export async function escalateThread(threadId, { userId, reason, priority, metadata } = {}) {
+export function escalateThread(threadId, { userId, reason, priority = 'medium', metadata = {} } = {}) {
+  if (!threadId) {
+    throw new Error('threadId is required to escalate a thread.');
+  }
+  if (!reason) {
+    throw new Error('reason is required to escalate a thread.');
+  }
   return apiClient.post(`/messaging/threads/${threadId}/escalate`, {
     userId,
     reason,
@@ -119,11 +134,10 @@ export async function escalateThread(threadId, { userId, reason, priority, metad
   });
 }
 
-export async function assignSupportAgent(
-  threadId,
-  { userId, agentId, assignedBy, notifyAgent = true } = {},
-) {
-export async function assignSupport(threadId, { userId, agentId, assignedBy, notifyAgent } = {}) {
+export function assignSupport(threadId, { userId, agentId, assignedBy, notifyAgent = true } = {}) {
+  if (!threadId) {
+    throw new Error('threadId is required to assign support.');
+  }
   return apiClient.post(`/messaging/threads/${threadId}/assign-support`, {
     userId,
     agentId,
@@ -132,11 +146,17 @@ export async function assignSupport(threadId, { userId, agentId, assignedBy, not
   });
 }
 
-export async function updateSupportStatus(
-  threadId,
-  { userId, status, resolutionSummary, metadata = {} } = {},
-) {
-export async function updateSupportStatus(threadId, { userId, status, resolutionSummary, metadata } = {}) {
+export function assignSupportAgent(threadId, options = {}) {
+  return assignSupport(threadId, options);
+}
+
+export function updateSupportStatus(threadId, { userId, status, resolutionSummary, metadata = {} } = {}) {
+  if (!threadId) {
+    throw new Error('threadId is required to update support status.');
+  }
+  if (!status) {
+    throw new Error('status is required to update support status.');
+  }
   return apiClient.post(`/messaging/threads/${threadId}/support-status`, {
     userId,
     status,
@@ -145,17 +165,13 @@ export async function updateSupportStatus(threadId, { userId, status, resolution
   });
 }
 
-export async function assignSupportAgent(threadId, { userId, agentId, notifyAgent = true } = {}) {
-  return apiClient.post(`/messaging/threads/${threadId}/assign-support`, {
-    userId,
-    agentId,
-    notifyAgent,
-  });
-}
-
-export async function updateThreadState(threadId, { state } = {}) {
-  return apiClient.post(`/messaging/threads/${threadId}/state`, { state });
-export async function updateThreadSettings(threadId, { userId, subject, channelType, metadataPatch, metadata } = {}) {
+export function updateThreadSettings(
+  threadId,
+  { userId, subject, channelType, metadataPatch, metadata } = {},
+) {
+  if (!threadId) {
+    throw new Error('threadId is required to update thread settings.');
+  }
   return apiClient.post(`/messaging/threads/${threadId}/settings`, {
     userId,
     subject,
@@ -164,16 +180,25 @@ export async function updateThreadSettings(threadId, { userId, subject, channelT
   });
 }
 
-export async function addThreadParticipants(threadId, { userId, participantIds } = {}) {
+export function addThreadParticipants(threadId, { userId, participantIds } = {}) {
+  if (!threadId) {
+    throw new Error('threadId is required to add participants.');
+  }
+  if (!Array.isArray(participantIds) || participantIds.length === 0) {
+    throw new Error('participantIds must include at least one id.');
+  }
   return apiClient.post(`/messaging/threads/${threadId}/participants`, {
     userId,
     participantIds,
   });
 }
 
-export async function removeThreadParticipant(threadId, participantId, { userId } = {}) {
+export function removeThreadParticipant(threadId, participantId, { userId } = {}) {
+  if (!threadId || !participantId) {
+    throw new Error('threadId and participantId are required to remove a participant.');
+  }
   return apiClient.delete(`/messaging/threads/${threadId}/participants/${participantId}`, {
-    params: { userId },
+    params: sanitizeParams({ userId }),
   });
 }
 
@@ -185,17 +210,11 @@ export default {
   createThread,
   createCallSession,
   markThreadRead,
-  updateSupportStatus,
-  assignSupportAgent,
-  updateThreadState,
   updateThreadState,
   muteThread,
   escalateThread,
   assignSupport,
-  updateSupportStatus,
   assignSupportAgent,
-  updateSupportStatus,
-  assignSupport,
   updateSupportStatus,
   updateThreadSettings,
   addThreadParticipants,

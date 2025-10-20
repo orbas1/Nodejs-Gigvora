@@ -33,6 +33,9 @@ export const ADMIN_DASHBOARD_MENU_SECTIONS = [
       { name: 'General', sectionId: 'admin-settings-general' },
       { name: 'Payments', sectionId: 'admin-settings-payments' },
       { name: 'API', sectionId: 'admin-settings-api' },
+    ],
+  },
+  {
     label: 'Command modules',
     items: [
       {

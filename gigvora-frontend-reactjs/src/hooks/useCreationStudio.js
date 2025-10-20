@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import useCachedResource from './useCachedResource.js';
-import { fetchCreationStudioOverview } from '../services/creationStudio.js';
+import { fetchCompanyCreationStudioOverview } from '../services/creationStudio.js';
 
 export function useCreationStudio({ workspaceId, enabled = true } = {}) {
   const cacheKey = useMemo(() => {
@@ -9,7 +9,7 @@ export function useCreationStudio({ workspaceId, enabled = true } = {}) {
   }, [workspaceId]);
 
   const fetcher = useCallback(
-    ({ signal } = {}) => fetchCreationStudioOverview({ workspaceId, signal }),
+    ({ signal } = {}) => fetchCompanyCreationStudioOverview({ workspaceId, signal }),
     [workspaceId],
   );
 
