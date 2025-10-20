@@ -10,6 +10,7 @@ import SearchPage from './pages/SearchPage.jsx';
 import JobsPage from './pages/JobsPage.jsx';
 import GigsPage from './pages/GigsPage.jsx';
 import ProjectsPage from './pages/ProjectsPage.jsx';
+import CreationStudioWizardPage from './pages/CreationStudioWizardPage.jsx';
 import ProjectCreatePage from './pages/ProjectCreatePage.jsx';
 import ProjectDetailPage from './pages/ProjectDetailPage.jsx';
 import ProjectAutoMatchPage from './pages/ProjectAutoMatchPage.jsx';
@@ -176,6 +177,7 @@ const COMMUNITY_ROUTES = [
   { path: 'jobs', element: <JobsPage /> },
   { path: 'gigs', element: <GigsPage /> },
   { path: 'projects', element: <ProjectsPage /> },
+  { path: 'creation-studio', element: <CreationStudioWizardPage /> },
   { path: 'projects/new', element: <ProjectCreatePage /> },
   { path: 'projects/:projectId', element: <ProjectDetailPage /> },
   { path: 'projects/:projectId/auto-match', element: <ProjectAutoMatchPage /> },

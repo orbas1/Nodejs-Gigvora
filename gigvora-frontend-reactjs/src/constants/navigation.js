@@ -88,7 +88,7 @@ export const marketingNavigation = [
           {
             name: 'Creation Studio',
             description: 'Publish jobs, gigs, and resources with autosave, compliance scoring, and collaboration.',
-            to: '/dashboard/user/creation-studio',
+            to: '/creation-studio',
             icon: RocketLaunchIcon,
           },
         ],
