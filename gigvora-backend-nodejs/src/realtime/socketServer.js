@@ -3,7 +3,11 @@ import Redis from 'ioredis';
 import { createAdapter } from '@socket.io/redis-adapter';
 import baseLogger from '../utils/logger.js';
 import { getRuntimeConfig } from '../config/runtimeConfig.js';
-import { resolveAllowedOrigins } from '../config/httpSecurity.js';
+import {
+  resolveAllowedOrigins,
+  compileAllowedOriginRules,
+  isOriginAllowed,
+} from '../config/httpSecurity.js';
 import authenticateSocket from './socketAuth.js';
 import { createConnectionRegistry } from './connectionRegistry.js';
 import { createPresenceStore } from './presenceStore.js';
@@ -65,9 +69,21 @@ export async function attachSocketServer(httpServer, { logger = baseLogger } = {
   }
 
   const corsOrigins = resolveCorsOrigins(runtimeConfig);
+  const originRules = compileAllowedOriginRules(corsOrigins);
+  const corsLogger = typeof logger.child === 'function' ? logger.child({ component: 'realtime-cors' }) : logger;
   const io = new Server(httpServer, {
     cors: {
-      origin: corsOrigins,
+      origin(origin, callback) {
+        if (!origin || isOriginAllowed(origin, originRules)) {
+          callback(null, true);
+          return;
+        }
+
+        const error = new Error('Origin not allowed');
+        error.data = { origin };
+        corsLogger.warn({ origin }, 'Blocked realtime connection from untrusted origin');
+        callback(error, false);
+      },
       methods: ['GET', 'POST'],
       credentials: true,
     },
