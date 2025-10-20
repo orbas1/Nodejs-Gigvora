@@ -5,6 +5,7 @@ import 'package:gigvora_foundation/gigvora_foundation.dart';
 
 import '../../explorer/data/discovery_models.dart';
 import 'models/opportunity.dart';
+import 'models/opportunity_detail.dart';
 
 class DiscoveryRepository {
   DiscoveryRepository(this._apiClient, this._cache);
@@ -16,42 +17,6 @@ class DiscoveryRepository {
   static const _snapshotTtl = Duration(minutes: 3);
   static const _searchTtl = Duration(minutes: 4);
 
-  dynamic _normaliseForEncoding(dynamic value) {
-    if (value is Map) {
-      final sorted = SplayTreeMap<String, dynamic>.fromIterables(
-        value.keys.map((key) => key.toString()),
-        value.values.map(_normaliseForEncoding),
-      );
-      return sorted;
-    }
-    if (value is Iterable) {
-      final list = value.map(_normaliseForEncoding).toList();
-      list.sort((a, b) => jsonEncode(a).compareTo(jsonEncode(b)));
-      return list;
-    }
-    return value;
-  }
-
-  String _filtersCacheKey(Map<String, dynamic>? filters) {
-    if (filters == null || filters.isEmpty) {
-      return 'no-filters';
-    }
-    return jsonEncode(_normaliseForEncoding(filters));
-  }
-
-  Map<String, String>? _sanitizeHeaders(Map<String, String>? headers) {
-    if (headers == null || headers.isEmpty) {
-      return null;
-    }
-    final sanitized = <String, String>{};
-    headers.forEach((key, value) {
-      if (value.trim().isNotEmpty) {
-        sanitized[key] = value.trim();
-      }
-    });
-    return sanitized.isEmpty ? null : sanitized;
-  }
-
   Future<RepositoryResult<OpportunityPage>> fetchOpportunities(
     OpportunityCategory category, {
     String? query,
@@ -62,94 +27,54 @@ class DiscoveryRepository {
     String? sort,
     bool includeFacets = false,
     Map<String, String>? headers,
-    bool forceRefresh = false,
   }) async {
     final queryKey = (query ?? '').trim();
-    final filtersKey = _filtersCacheKey(filters);
-    final sortKey = (sort?.trim().isNotEmpty ?? false) ? sort!.trim() : 'default';
-    final facetKey = includeFacets ? 'facets' : 'no-facets';
-    final headerKey = headers == null || headers.isEmpty ? 'no-headers' : _filtersCacheKey(headers);
-    final cacheKey =
-        'opportunities:${categoryToPath(category)}:${queryKey.isEmpty ? 'all' : queryKey}:$filtersKey:$sortKey:$facetKey:$headerKey:$pageSize';
-
-    final cached = _cache.read<OpportunityPage>(cacheKey, (raw) {
-      if (raw is Map<String, dynamic>) {
-        return _mapToOpportunityPage(category, raw).copyWith(query: queryKey.isEmpty ? null : queryKey);
-      }
-      return null;
-  }) async {
-    final queryKey = (query ?? '').trim().toLowerCase();
-    final filterToken = _filtersCacheKey(filters);
+    final filterToken = _serialiseForCache(filters);
     final sortToken = (sort ?? '').trim().isEmpty ? 'default' : (sort ?? '').trim();
     final facetToken = includeFacets ? 'facets' : 'no-facets';
+    final headerToken = _serialiseHeaders(headers);
     final cacheKey =
-        'opportunities:${categoryToPath(category)}:${queryKey.isEmpty ? 'all' : queryKey}:$filterToken:$sortToken:$facetToken:page$page:size$pageSize';
-    final filterToken = _serialiseFilters(filters);
-    final sortToken = sort?.trim().isEmpty ?? true ? 'default' : sort!.trim();
-    final facetToken = includeFacets ? 'facets' : 'no-facets';
-    final cacheKey =
-        'opportunities:${categoryToPath(category)}:${queryKey.isEmpty ? 'all' : queryKey}:$filterToken:$sortToken:$facetToken:$pageSize';
+        'opportunities:${categoryToPath(category)}:${queryKey.isEmpty ? 'all' : queryKey}:$filterToken:$sortToken:$facetToken:$headerToken:page$page:size$pageSize';
 
     final cached = _cache.read<OpportunityPage>(cacheKey, (raw) {
       if (raw is Map<String, dynamic>) {
-        return _mapToOpportunityPage(category, raw);
+        return _mapToOpportunityPage(category, raw).copyWith(
+          query: queryKey.isEmpty ? null : queryKey,
+        );
       }
       return null;
-      return OpportunityPage(
-        category: category,
-        items: const <OpportunitySummary>[],
-        page: 1,
-        pageSize: pageSize,
-        total: 0,
-        totalPages: 1,
-        query: queryKey,
-      );
     });
 
     if (!forceRefresh && cached != null) {
       return RepositoryResult(
-        data: cached.value.copyWith(query: queryKey.isEmpty ? null : queryKey),
+        data: cached.value,
         fromCache: true,
         lastUpdated: cached.storedAt,
       );
     }
 
     try {
-      final endpoint = '/discovery/${categoryToPath(category)}';
-      final params = <String, dynamic>{
-        'page': page,
-        'pageSize': pageSize,
-        'q': queryKey.isEmpty ? null : queryKey,
-        'filters': filters == null || filters.isEmpty ? null : jsonEncode(filters),
-        'sort': sortToken == 'default' ? null : sortToken,
-        'includeFacets': includeFacets ? 'true' : null,
-      };
       final response = await _apiClient.get(
-        endpoint,
-        query: params,
-        headers: _sanitizeHeaders(headers),
-      final response = await _apiClient.get(
-        endpoint,
+        '/discovery/${categoryToPath(category)}',
         query: {
-          'q': queryKey.isEmpty ? null : queryKey,
+          'page': page,
           'pageSize': pageSize,
-          'filters': filtersKey == 'none' ? null : filtersKey,
-          'sort': sortKey == 'default' ? null : sortKey,
-          'filters': filterToken == 'none' ? null : filterToken,
+          'q': queryKey.isEmpty ? null : queryKey,
+          'filters': filters == null || filters.isEmpty ? null : jsonEncode(filters),
           'sort': sortToken == 'default' ? null : sortToken,
           'includeFacets': includeFacets ? 'true' : null,
         },
-        headers: headers,
+        headers: _sanitizeHeaders(headers),
       );
 
       if (response is! Map<String, dynamic>) {
-        throw Exception('Unexpected response from $endpoint');
+        throw Exception('Unexpected response from discovery endpoint');
       }
 
       await _cache.write(cacheKey, response, ttl: _opportunityTtl);
-      final page = _mapToOpportunityPage(category, response).copyWith(query: queryKey.isEmpty ? null : queryKey);
-      final pageData =
-          _mapToOpportunityPage(category, response).copyWith(query: queryKey.isEmpty ? null : queryKey);
+      final pageData = _mapToOpportunityPage(category, response).copyWith(
+        query: queryKey.isEmpty ? null : queryKey,
+      );
       return RepositoryResult(
         data: pageData,
         fromCache: false,
@@ -158,7 +83,7 @@ class DiscoveryRepository {
     } catch (error) {
       if (cached != null) {
         return RepositoryResult(
-          data: cached.value.copyWith(query: queryKey.isEmpty ? null : queryKey),
+          data: cached.value,
           fromCache: true,
           lastUpdated: cached.storedAt,
           error: error,
@@ -168,7 +93,80 @@ class DiscoveryRepository {
     }
   }
 
-  Future<RepositoryResult<DiscoverySnapshot>> fetchSnapshot({int limit = 8, bool forceRefresh = false}) async {
+  Future<OpportunityDetail> fetchOpportunityDetail(
+    OpportunityCategory category,
+    String id, {
+    Map<String, String>? headers,
+  }) async {
+    final response = await _apiClient.get(
+      '/discovery/${categoryToPath(category)}/$id',
+      headers: _sanitizeHeaders(headers),
+    );
+    if (response is! Map<String, dynamic>) {
+      throw Exception('Unexpected opportunity detail payload');
+    }
+    return OpportunityDetail.fromJson(category, Map<String, dynamic>.from(response));
+  }
+
+  Future<OpportunityDetail> createOpportunity(
+    OpportunityCategory category,
+    OpportunityDraft draft, {
+    Map<String, String>? headers,
+  }) async {
+    final response = await _apiClient.post(
+      '/discovery/${categoryToPath(category)}',
+      body: draft.toJson(),
+      headers: _sanitizeHeaders(headers),
+    );
+    if (response is! Map<String, dynamic>) {
+      throw Exception('Unexpected response creating opportunity');
+    }
+    await _invalidateCaches();
+    return OpportunityDetail.fromJson(category, Map<String, dynamic>.from(response));
+  }
+
+  Future<OpportunityDetail> updateOpportunity(
+    OpportunityCategory category,
+    String id,
+    OpportunityDraft draft, {
+    Map<String, String>? headers,
+  }) async {
+    final response = await _apiClient.patch(
+      '/discovery/${categoryToPath(category)}/$id',
+      body: draft.toJson(),
+      headers: _sanitizeHeaders(headers),
+    );
+    if (response is! Map<String, dynamic>) {
+      throw Exception('Unexpected response updating opportunity');
+    }
+    await _invalidateCaches();
+    return OpportunityDetail.fromJson(category, Map<String, dynamic>.from(response));
+  }
+
+  Future<void> deleteOpportunity(
+    OpportunityCategory category,
+    String id, {
+    Map<String, String>? headers,
+  }) async {
+    await _apiClient.delete(
+      '/discovery/${categoryToPath(category)}/$id',
+      headers: _sanitizeHeaders(headers),
+    );
+    await _invalidateCaches();
+  }
+
+  Future<void> _invalidateCaches() async {
+    try {
+      await _cache.clear();
+    } catch (_) {
+      // Ignore cache clear failures to avoid breaking core flows.
+    }
+  }
+
+  Future<RepositoryResult<DiscoverySnapshot>> fetchSnapshot({
+    int limit = 8,
+    bool forceRefresh = false,
+  }) async {
     final cacheKey = 'discovery:snapshot:$limit';
     final cached = _cache.read<DiscoverySnapshot>(cacheKey, (raw) {
       if (raw is Map<String, dynamic>) {
@@ -186,7 +184,10 @@ class DiscoveryRepository {
     }
 
     try {
-      final response = await _apiClient.get('/discovery/snapshot', query: {'limit': limit});
+      final response = await _apiClient.get(
+        '/discovery/snapshot',
+        query: {'limit': limit},
+      );
       if (response is! Map<String, dynamic>) {
         throw Exception('Unexpected snapshot payload');
       }
@@ -236,10 +237,13 @@ class DiscoveryRepository {
     }
 
     try {
-      final response = await _apiClient.get('/search', query: {
-        'q': trimmed,
-        'limit': limit,
-      });
+      final response = await _apiClient.get(
+        '/search',
+        query: {
+          'q': trimmed,
+          'limit': limit,
+        },
+      );
       if (response is! Map<String, dynamic>) {
         throw Exception('Unexpected search payload');
       }
@@ -265,16 +269,30 @@ class DiscoveryRepository {
     }
   }
 
-  String _serialiseFilters(Map<String, dynamic>? filters) {
-    if (filters == null || filters.isEmpty) {
+  Map<String, String>? _sanitizeHeaders(Map<String, String>? headers) {
+    if (headers == null || headers.isEmpty) {
+      return null;
+    }
+    final sanitized = <String, String>{};
+    headers.forEach((key, value) {
+      final trimmed = value.trim();
+      if (trimmed.isNotEmpty) {
+        sanitized[key] = trimmed;
+      }
+    });
+    return sanitized.isEmpty ? null : sanitized;
+  }
+
+  String _serialiseForCache(Map<String, dynamic>? values) {
+    if (values == null || values.isEmpty) {
       return 'none';
     }
 
     dynamic normalise(dynamic value) {
       if (value is Map) {
-        final sorted = SplayTreeMap<String, dynamic>.fromIterables(
+        final sorted = SplayTreeMap<String, dynamic>.fromIterable(
           value.keys.map((key) => key.toString()),
-          value.values.map(normalise),
+          value: (key) => normalise(value[key]),
         );
         return sorted;
       }
@@ -286,28 +304,21 @@ class DiscoveryRepository {
       return value;
     }
 
-    final normalised = normalise(filters);
+    final normalised = normalise(values);
     return jsonEncode(normalised);
+  }
+
+  String _serialiseHeaders(Map<String, String>? headers) {
+    if (headers == null || headers.isEmpty) {
+      return 'no-headers';
+    }
+    return _serialiseForCache(headers);
   }
 
   OpportunityPage _mapToOpportunityPage(
     OpportunityCategory category,
     Map<String, dynamic> payload,
   ) {
-    final items = (payload['items'] as List<dynamic>? ?? const [])
-        .whereType<Map<String, dynamic>>()
-        .map((item) => OpportunitySummary.fromJson(category, item))
-        .toList(growable: false);
-    return OpportunityPage(
-      category: category,
-      items: items,
-      page: (payload['page'] as num?)?.toInt() ?? 1,
-      pageSize: (payload['pageSize'] as num?)?.toInt() ?? items.length,
-      total: (payload['total'] as num?)?.toInt() ?? items.length,
-      totalPages: (payload['totalPages'] as num?)?.toInt() ?? 1,
-      query: payload['query'] as String?,
-      facets: payload['facets'] as Map<String, dynamic>?,
-    );
     return OpportunityPage.fromJson(category, payload);
   }
 }

@@ -61,6 +61,9 @@ class OpportunityTaxonomyTag {
 
   factory OpportunityTaxonomyTag.fromJson(Map<String, dynamic> json) {
     final slug = (json['slug'] as String? ?? '').trim();
+    if (slug.isEmpty) {
+      throw ArgumentError('taxonomy slug is required');
+    }
     return OpportunityTaxonomyTag(
       slug: slug,
       label: (json['label'] as String?)?.trim(),
@@ -103,24 +106,68 @@ class OpportunitySummary {
   final String? status;
   final String? track;
   final String? organization;
-  final bool? isRemote;
-  final List<String> taxonomyLabels;
-
-  factory OpportunitySummary.fromJson(
-    OpportunityCategory category,
-    Map<String, dynamic> json,
-  ) {
   final bool isRemote;
   final List<String> taxonomyLabels;
   final List<String> taxonomySlugs;
   final List<OpportunityTaxonomyTag> taxonomies;
 
-  factory OpportunitySummary.fromJson(OpportunityCategory category, Map<String, dynamic> json) {
+  OpportunitySummary copyWith({
+    String? title,
+    String? description,
+    DateTime? updatedAt,
+    String? location,
+    String? employmentType,
+    String? budget,
+    String? duration,
+    String? status,
+    String? track,
+    String? organization,
+    bool? isRemote,
+    List<String>? taxonomyLabels,
+    List<String>? taxonomySlugs,
+    List<OpportunityTaxonomyTag>? taxonomies,
+  }) {
+    return OpportunitySummary(
+      id: id,
+      category: category,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      updatedAt: updatedAt ?? this.updatedAt,
+      location: location ?? this.location,
+      employmentType: employmentType ?? this.employmentType,
+      budget: budget ?? this.budget,
+      duration: duration ?? this.duration,
+      status: status ?? this.status,
+      track: track ?? this.track,
+      organization: organization ?? this.organization,
+      isRemote: isRemote ?? this.isRemote,
+      taxonomyLabels: taxonomyLabels ?? this.taxonomyLabels,
+      taxonomySlugs: taxonomySlugs ?? this.taxonomySlugs,
+      taxonomies: taxonomies ?? this.taxonomies,
+    );
+  }
+
+  factory OpportunitySummary.fromJson(
+    OpportunityCategory category,
+    Map<String, dynamic> json,
+  ) {
+    String? normaliseString(String? value) {
+      final trimmed = value?.trim();
+      if (trimmed == null || trimmed.isEmpty) {
+        return null;
+      }
+      return trimmed;
+    }
+
     final rawTaxonomies = (json['taxonomies'] as List<dynamic>? ?? const <dynamic>[])
         .whereType<Map<String, dynamic>>()
-        .map(OpportunityTaxonomyTag.fromJson)
-        .where((tag) => tag.slug.isNotEmpty)
-        .toList(growable: false);
+        .map((entry) {
+      try {
+        return OpportunityTaxonomyTag.fromJson(entry);
+      } catch (_) {
+        return null;
+      }
+    }).whereType<OpportunityTaxonomyTag>().toList(growable: false);
 
     final labelSet = LinkedHashSet<String>()
       ..addAll((json['taxonomyLabels'] as List<dynamic>? ?? const <dynamic>[])
@@ -139,42 +186,27 @@ class OpportunitySummary {
           .map((slug) => slug.trim())
           .where((slug) => slug.isNotEmpty))
       ..addAll(rawTaxonomies.map((tag) => tag.slug).where((slug) => slug.isNotEmpty));
-    String? normaliseString(String? value) {
-      final trimmed = value?.trim();
-      if (trimmed == null || trimmed.isEmpty) {
-        return null;
+
+    final updatedAt = () {
+      final raw = json['updatedAt'];
+      if (raw is String) {
+        final parsed = DateTime.tryParse(raw);
+        if (parsed != null) {
+          return parsed;
+        }
       }
-      return trimmed;
-    }
+      if (raw is int) {
+        return DateTime.fromMillisecondsSinceEpoch(raw);
+      }
+      return DateTime.now();
+    }();
 
     return OpportunitySummary(
       id: '${json['id']}',
       category: category,
       title: (json['title'] as String? ?? '').trim(),
       description: (json['description'] as String? ?? '').trim(),
-      updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? '') ?? DateTime.now(),
-      location: json['location'] as String?,
-      employmentType: json['employmentType'] as String?,
-      budget: json['budget'] as String?,
-      duration: json['duration'] as String?,
-      status: json['status'] as String?,
-      track: json['track'] as String?,
-      organization: json['organization'] as String?,
-      location: (json['location'] as String?)?.trim().isEmpty ?? true
-          ? null
-          : (json['location'] as String).trim(),
-      employmentType: (json['employmentType'] as String?)?.trim().isEmpty ?? true
-          ? null
-          : (json['employmentType'] as String).trim(),
-      budget: (json['budget'] as String?)?.trim().isEmpty ?? true ? null : (json['budget'] as String).trim(),
-      duration: (json['duration'] as String?)?.trim().isEmpty ?? true ? null : (json['duration'] as String).trim(),
-      status: (json['status'] as String?)?.trim().isEmpty ?? true ? null : (json['status'] as String).trim(),
-      track: (json['track'] as String?)?.trim().isEmpty ?? true ? null : (json['track'] as String).trim(),
-      organization: (json['organization'] as String?)?.trim().isEmpty ?? true
-          ? null
-          : (json['organization'] as String).trim(),
-      isRemote: json['isRemote'] is bool ? json['isRemote'] as bool : null,
-      taxonomyLabels: (json['taxonomyLabels'] as List<dynamic>? ?? const <dynamic>[]) 
+      updatedAt: updatedAt,
       location: normaliseString(json['location'] as String?),
       employmentType: normaliseString(json['employmentType'] as String?),
       budget: normaliseString(json['budget'] as String?),
@@ -185,7 +217,7 @@ class OpportunitySummary {
       isRemote: json['isRemote'] == true,
       taxonomyLabels: List<String>.unmodifiable(labelSet),
       taxonomySlugs: List<String>.unmodifiable(slugSet),
-      taxonomies: rawTaxonomies,
+      taxonomies: List<OpportunityTaxonomyTag>.unmodifiable(rawTaxonomies),
     );
   }
 }
@@ -232,8 +264,11 @@ class OpportunityPage {
     );
   }
 
-  factory OpportunityPage.fromJson(OpportunityCategory category, Map<String, dynamic> json) {
-    final items = (json['items'] as List<dynamic>? ?? const <dynamic>[]) 
+  factory OpportunityPage.fromJson(
+    OpportunityCategory category,
+    Map<String, dynamic> json,
+  ) {
+    final items = (json['items'] as List<dynamic>? ?? const <dynamic>[])
         .whereType<Map<String, dynamic>>()
         .map((entry) => OpportunitySummary.fromJson(category, entry))
         .toList(growable: false);
