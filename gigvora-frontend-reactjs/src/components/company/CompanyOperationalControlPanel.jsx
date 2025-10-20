@@ -23,6 +23,7 @@ import JobHistoryTimeline from './jobManagement/JobHistoryTimeline.jsx';
 import useCompanyWallets from '../../hooks/useCompanyWallets.js';
 import useCompanyWalletDetail from '../../hooks/useCompanyWalletDetail.js';
 import useCompanyJobOperations from '../../hooks/useCompanyJobOperations.js';
+import UserAvatar from '../UserAvatar.jsx';
 import {
   createCompanyWallet,
   updateCompanyWallet,
@@ -102,8 +103,35 @@ function SummaryDeck({ cards = [], onOpenFinance, onOpenJobs }) {
     return null;
   }
 
+  const heroCard = cards.find((card) => card.imageUrl || card.mediaUrl || card.coverImage || card.illustrationUrl) ?? cards[0];
+  const heroUrl =
+    heroCard?.imageUrl ?? heroCard?.mediaUrl ?? heroCard?.coverImage ?? heroCard?.illustrationUrl ?? null;
+
   return (
     <div className="space-y-6">
+      {heroUrl ? (
+        <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-slate-900/80 shadow-soft">
+          <img
+            src={heroUrl}
+            alt={heroCard?.label ? `${heroCard.label} visual` : 'Dashboard highlight'}
+            className="h-48 w-full object-cover sm:h-60"
+            loading="lazy"
+            onError={(event) => {
+              event.currentTarget.onerror = null;
+              event.currentTarget.src =
+                "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 400'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%' stop-color='%231e40af'/%3E%3Cstop offset='100%' stop-color='%233b82f6'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='1200' height='400' rx='48' fill='url(%23g)'/%3E%3Ctext x='50%' y='54%' dominant-baseline='middle' text-anchor='middle' font-family='Inter, sans-serif' font-size='64' fill='white' font-weight='600'%3EGigvora Command Center%3C/text%3E%3C/svg%3E";
+            }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-900/20 via-slate-900/40 to-slate-900/10" aria-hidden="true" />
+          <div className="absolute inset-0 flex flex-col justify-end gap-2 p-6 text-white">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-100/80">{heroCard?.label}</span>
+            <p className="text-2xl font-semibold leading-tight">
+              {heroCard?.value ?? heroCard?.helper ?? 'Operational overview'}
+            </p>
+          </div>
+        </div>
+      ) : null}
+
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {cards.slice(0, 6).map((card, index) => (
           <div
@@ -158,6 +186,25 @@ function formatCandidateName(candidate) {
     return 'Candidate';
   }
   return candidate.candidate?.name ?? candidate.candidateName ?? candidate.name ?? 'Candidate';
+}
+
+function resolveCandidateAvatar(candidate) {
+  if (!candidate) {
+    return null;
+  }
+
+  const sources = [
+    candidate.candidate?.avatarUrl,
+    candidate.candidate?.photoUrl,
+    candidate.candidate?.profile?.avatarUrl,
+    candidate.candidate?.profileImage,
+    candidate.avatarUrl,
+    candidate.photoUrl,
+    candidate.profileImage,
+    candidate.imageUrl,
+  ];
+
+  return sources.find((value) => typeof value === 'string' && value.length > 0) ?? null;
 }
 
 function formatStatus(value) {
@@ -244,7 +291,11 @@ function CandidateDrawer({
                   <div className="flex h-full flex-col bg-white shadow-xl">
                     <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <UserCircleIcon className="h-10 w-10 text-blue-500" />
+                        <UserAvatar
+                          name={formatCandidateName(candidate)}
+                          imageUrl={resolveCandidateAvatar(candidate)}
+                          size="sm"
+                        />
                         <div>
                           <Dialog.Title className="text-base font-semibold text-slate-900">
                             {formatCandidateName(candidate)}
@@ -382,7 +433,7 @@ export default function CompanyOperationalControlPanel({
     workspaceId,
     workspaceSlug,
     includeInactive: showInactiveWallets,
-    enabled: Boolean(workspaceId),
+    enabled: Boolean(workspaceId ?? workspaceSlug),
   });
 
   const wallets = walletsData?.wallets ?? [];
@@ -414,7 +465,7 @@ export default function CompanyOperationalControlPanel({
   } = useCompanyWalletDetail(selectedWalletId, {
     workspaceId,
     workspaceSlug,
-    enabled: Boolean(workspaceId) && Boolean(selectedWalletId),
+    enabled: Boolean(workspaceId ?? workspaceSlug) && Boolean(selectedWalletId),
   });
 
   const walletWorkspaceIdentifier = useMemo(
@@ -520,7 +571,12 @@ export default function CompanyOperationalControlPanel({
     loading: jobOpsLoading,
     error: jobOpsError,
     refresh: refreshJobOps,
-  } = useCompanyJobOperations({ workspaceId, workspaceSlug, lookbackDays, enabled: Boolean(workspaceId) });
+  } = useCompanyJobOperations({
+    workspaceId,
+    workspaceSlug,
+    lookbackDays,
+    enabled: Boolean(workspaceId ?? workspaceSlug),
+  });
 
   const jobs = jobOpsData?.jobAdverts ?? [];
   const lookups = jobOpsData?.lookups ?? {};
