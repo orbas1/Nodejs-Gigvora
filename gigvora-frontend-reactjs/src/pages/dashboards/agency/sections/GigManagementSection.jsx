@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 
 const numberFormatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
@@ -52,6 +52,15 @@ const STATUS_STYLES = {
   completed: 'bg-emerald-100 text-emerald-700',
   cancelled: 'bg-rose-100 text-rose-700',
 };
+
+const FILTER_OPTIONS = [
+  { id: 'all', label: 'All orders' },
+  { id: 'active', label: 'Active' },
+  { id: 'in_delivery', label: 'In delivery' },
+  { id: 'in_revision', label: 'In revision' },
+  { id: 'completed', label: 'Completed' },
+  { id: 'cancelled', label: 'Cancelled' },
+];
 
 function OrderDetailModal({ open, onClose, order }) {
   const [previewMedia, setPreviewMedia] = useState(null);
@@ -373,6 +382,8 @@ export default function GigManagementSection({
   detail,
 }) {
   const [detailOpen, setDetailOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const metrics = useMemo(
     () => [
@@ -410,7 +421,7 @@ export default function GigManagementSection({
     [summary, deliverables],
   );
 
-  const orderedList = useMemo(
+  const normalizedOrders = useMemo(
     () =>
       [...(orders ?? [])]
         .map((order) => ({
@@ -436,7 +447,69 @@ export default function GigManagementSection({
     [orders],
   );
 
+  const filteredOrders = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return normalizedOrders.filter((order) => {
+      const matchesStatus =
+        statusFilter === 'all'
+        || (statusFilter === 'active'
+          ? !['completed', 'cancelled'].includes(order.status))
+        || order.status === statusFilter;
+
+      if (!matchesStatus) {
+        return false;
+      }
+
+      if (!term) {
+        return true;
+      }
+
+      return [order.serviceName, order.vendorName, order.orderNumber]
+        .filter(Boolean)
+        .some((field) => `${field}`.toLowerCase().includes(term));
+    });
+  }, [normalizedOrders, searchTerm, statusFilter]);
+
+  const handleExportOrders = useCallback(() => {
+    if (typeof window === 'undefined' || typeof document === 'undefined' || filteredOrders.length === 0) {
+      return;
+    }
+
+    const headers = ['Order ID', 'Service', 'Vendor', 'Status', 'Amount', 'Currency', 'Due date', 'Progress'];
+    const rows = filteredOrders.map((order) => [
+      order.id ?? '',
+      order.serviceName ?? '',
+      order.vendorName ?? '',
+      order.status ?? '',
+      order.amount ?? '',
+      order.currency ?? '',
+      order.dueAt ? formatDate(order.dueAt) : '',
+      order.progressPercent ?? '',
+    ]);
+
+    const csv = [headers, ...rows]
+      .map((row) => row.map((value) => `"${`${value ?? ''}`.replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'agency-gig-orders.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  }, [filteredOrders]);
+
+  const handleResetFilters = useCallback(() => {
+    setSearchTerm('');
+    setStatusFilter('all');
+  }, []);
+
   const activeDetail = selectedOrderId && detail?.id === selectedOrderId ? detail : null;
+  const totalCount = normalizedOrders.length;
+  const filteredCount = filteredOrders.length;
 
   return (
     <section id="agency-gig-management" className="space-y-8">
@@ -470,19 +543,84 @@ export default function GigManagementSection({
       </div>
 
       <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-          <h3 className="text-lg font-semibold text-slate-900">Order book</h3>
-          <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
-            {numberFormatter.format(orderedList.length)}
-          </span>
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 px-6 py-4">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900">Order book</h3>
+            <p className="text-xs text-slate-500">
+              Showing {numberFormatter.format(filteredCount)} of {numberFormatter.format(totalCount)} orders.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex overflow-hidden rounded-full border border-slate-200 bg-slate-50">
+              {FILTER_OPTIONS.map((option) => {
+                const active = statusFilter === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setStatusFilter(option.id)}
+                    className={`px-3 py-1 text-[11px] font-semibold uppercase tracking-wide transition ${
+                      active
+                        ? 'bg-slate-900 text-white'
+                        : 'text-slate-500 hover:bg-slate-100'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 shadow-sm focus-within:border-slate-300 focus-within:ring-2 focus-within:ring-accent/10">
+              <input
+                type="search"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Search orders"
+                className="w-40 border-none bg-transparent text-xs text-slate-700 focus:outline-none sm:w-52"
+              />
+              {searchTerm ? (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm('')}
+                  className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 transition hover:text-slate-700"
+                >
+                  Clear
+                </button>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={handleExportOrders}
+              disabled={filteredCount === 0}
+              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600 transition hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Export CSV
+            </button>
+            {(statusFilter !== 'all' || searchTerm) && (
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 transition hover:bg-slate-200 hover:text-slate-700"
+              >
+                Reset
+              </button>
+            )}
+          </div>
         </div>
         <div className="grid gap-4 p-6 sm:grid-cols-2">
-          {orderedList.length === 0 ? (
+          {filteredOrders.length === 0 ? (
             <div className="col-span-full rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-8 text-center text-sm text-slate-500">
-              No gigs yet.
+              No gigs match the current filters.
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="ml-2 inline-flex items-center gap-1 rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-white shadow-sm"
+              >
+                Reset filters
+              </button>
             </div>
           ) : (
-            orderedList.map((order) => {
+            filteredOrders.map((order) => {
               const statusClass = STATUS_STYLES[order.status] ?? 'bg-slate-100 text-slate-600';
               const isSelected = selectedOrderId === order.id;
               const progress = Math.max(0, Math.min(Number(order.progressPercent ?? 0), 100));
