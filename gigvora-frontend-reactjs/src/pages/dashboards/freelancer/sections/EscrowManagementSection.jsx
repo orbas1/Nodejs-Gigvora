@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
+import SectionShell from '../SectionShell.jsx';
 import useSession from '../../../../hooks/useSession.js';
 import useFreelancerEscrow from '../../../../hooks/useFreelancerEscrow.js';
 import MetricBoard from './escrow/components/MetricBoard.jsx';
@@ -112,27 +113,48 @@ export default function EscrowManagementSection() {
       default:
         return null;
     }
-  }, [accessGranted, view, accounts, createAccount, updateAccount, loading, actionState, transactions, createTransaction, releaseTransaction, refundTransaction, disputes, openDispute, appendDisputeEvent, activityLog]);
+  }, [
+    accessGranted,
+    view,
+    accounts,
+    createAccount,
+    updateAccount,
+    loading,
+    actionState,
+    transactions,
+    createTransaction,
+    releaseTransaction,
+    refundTransaction,
+    disputes,
+    openDispute,
+    appendDisputeEvent,
+    activityLog,
+  ]);
+
+  const actions = [
+    <button
+      key="sync"
+      type="button"
+      onClick={() => refresh({ force: true })}
+      className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-slate-400 hover:bg-slate-50"
+    >
+      <ArrowPathIcon className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+      Sync
+    </button>,
+  ];
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Escrow</h1>
-          <p className="text-sm text-slate-500">Control accounts, releases, and trust workflows in one place.</p>
+    <SectionShell
+      id="escrow-management"
+      title="Escrow"
+      description="Control accounts, releases, and trust workflows in one place."
+      actions={actions}
+    >
+      {error ? (
+        <div className="rounded-3xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-700">
+          {error.message}
         </div>
-        <div className="flex items-center gap-3">
-          {error ? <p className="text-sm text-rose-600">{error.message}</p> : null}
-          <button
-            type="button"
-            onClick={() => refresh({ force: true })}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-slate-400 hover:bg-slate-50"
-          >
-            <ArrowPathIcon className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Sync
-          </button>
-        </div>
-      </div>
+      ) : null}
 
       <MetricBoard metrics={metrics} />
 
@@ -151,9 +173,7 @@ export default function EscrowManagementSection() {
         ))}
       </div>
 
-      <div className="rounded-3xl bg-slate-50 p-6 shadow-inner">
-        {body}
-      </div>
-    </div>
+      <div className="rounded-3xl bg-slate-50 p-6 shadow-inner">{body}</div>
+    </SectionShell>
   );
 }
