@@ -244,8 +244,12 @@ export default function AdminOverviewPanel({ overview, saving = false, status = 
     if (typeof onSave !== 'function') {
       return;
     }
-    await onSave(payload);
-    setWizardOpen(false);
+    try {
+      await onSave(payload);
+      setWizardOpen(false);
+    } catch (submitError) {
+      console.warn('Admin overview update failed', submitError);
+    }
   };
 
   const profileSummaryRows = [

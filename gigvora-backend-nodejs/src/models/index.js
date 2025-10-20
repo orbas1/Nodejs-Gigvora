@@ -5792,32 +5792,6 @@ ProjectTemplate.prototype.toPublicObject = function toPublicObject() {
     updatedAt: plain.updatedAt,
   };
 };
-export const WORKSPACE_STATUSES = ['briefing', 'active', 'blocked', 'completed'];
-export const WORKSPACE_RISK_LEVELS = ['low', 'moderate', 'high', 'critical'];
-
-export const PROJECT_MILESTONE_STATUSES = ['planned', 'in_progress', 'at_risk', 'blocked', 'completed'];
-export const PROJECT_COLLABORATOR_STATUSES = ['invited', 'active', 'observer', 'removed'];
-export const PROJECT_COLLABORATOR_ROLES = [
-  'owner',
-  'project_manager',
-  'mentor',
-  'freelancer',
-  'client_sponsor',
-  'stakeholder',
-  'viewer',
-];
-export const PROJECT_INTEGRATION_PROVIDERS = ['github', 'notion', 'figma', 'google_drive', 'slack'];
-export const PROJECT_INTEGRATION_STATUSES = ['connected', 'syncing', 'error', 'disconnected', 'pending'];
-export const PROJECT_TEMPLATE_CATEGORIES = ['hackathon', 'bootcamp', 'consulting', 'product_launch', 'volunteering'];
-export const PROJECT_RETROSPECTIVE_THEMES = ['wins', 'risks', 'actions', 'metrics'];
-
-export const VENDOR_RISK_LEVELS = ['low', 'moderate', 'high', 'critical'];
-export const WORKSPACE_WHITEBOARD_STATUSES = ['active', 'pending_review', 'archived'];
-export const WORKSPACE_CONVERSATION_PRIORITIES = ['low', 'normal', 'high', 'urgent'];
-export const WORKSPACE_APPROVAL_STATUSES = ['pending', 'in_review', 'approved', 'changes_requested', 'rejected'];
-export const WORKSPACE_BUDGET_STATUSES = ['draft', 'approved', 'in_review', 'over_budget', 'closed'];
-export const WORKSPACE_OBJECT_TYPES = ['deliverable', 'asset', 'milestone', 'requirement', 'risk'];
-export const WORKSPACE_OBJECT_STATUSES = ['draft', 'active', 'blocked', 'completed'];
 export const WORKSPACE_TIMELINE_ENTRY_TYPES = ['milestone', 'phase', 'task', 'checkpoint'];
 export const WORKSPACE_MEETING_STATUSES = ['scheduled', 'in_progress', 'completed', 'cancelled'];
 export const WORKSPACE_ROLE_STATUSES = ['active', 'pending', 'inactive', 'offboarded'];
@@ -6788,34 +6762,6 @@ ProjectWorkspaceObjective.prototype.toPublicObject = function toPublicObject() {
     dueAt: plain.dueAt,
     progressPercent: plain.progressPercent == null ? null : Number(plain.progressPercent),
     keyResults: Array.isArray(plain.keyResults) ? plain.keyResults : [],
-    createdAt: plain.createdAt,
-    updatedAt: plain.updatedAt,
-  };
-};
-
-export const ProjectWorkspaceMessage = sequelize.define(
-  'ProjectWorkspaceMessage',
-  {
-    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
-    conversationId: { type: DataTypes.INTEGER, allowNull: false },
-    authorName: { type: DataTypes.STRING(255), allowNull: false },
-    body: { type: DataTypes.TEXT, allowNull: false },
-    postedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
-    attachments: { type: jsonType, allowNull: true },
-  },
-  { tableName: 'project_workspace_messages' },
-);
-
-ProjectWorkspaceMessage.prototype.toPublicObject = function toPublicObject() {
-  const plain = this.get({ plain: true });
-  return {
-    id: plain.id,
-    workspaceId: plain.workspaceId,
-    conversationId: plain.conversationId,
-    authorName: plain.authorName,
-    body: plain.body,
-    postedAt: plain.postedAt,
-    attachments: Array.isArray(plain.attachments) ? plain.attachments : [],
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };
