@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
+import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import SectionShell from '../../SectionShell.jsx';
 import DataStatus from '../../../../../components/DataStatus.jsx';
 import useProjectGigManagement from '../../../../../hooks/useProjectGigManagement.js';
@@ -24,6 +25,7 @@ export default function ProjectManagementSection({ freelancerId }) {
   const [sortKey, setSortKey] = useState('updated');
   const [showCreate, setShowCreate] = useState(false);
   const [activeProjectId, setActiveProjectId] = useState(null);
+  const [exporting, setExporting] = useState(false);
 
   const lifecycle = data?.projectLifecycle ?? { open: [], closed: [], stats: null };
   const currency = data?.summary?.currency ?? data?.projectLifecycle?.stats?.currency ?? 'USD';
@@ -54,6 +56,42 @@ export default function ProjectManagementSection({ freelancerId }) {
     [allProjects, activeProjectId],
   );
 
+  const handleExportProjects = useCallback(() => {
+    if (!allProjects.length || exporting) {
+      return;
+    }
+    setExporting(true);
+    try {
+      const header = ['ID', 'Title', 'Status', 'Client', 'Due', 'Budget Allocated', 'Budget Spent'];
+      const rows = allProjects.map((project) => [
+        project.id ?? '',
+        project.title ?? '',
+        project.status ?? '',
+        project.metadata?.clientName ?? '',
+        project.dueDate ? new Date(project.dueDate).toISOString() : '',
+        project.budgetAllocated ?? 0,
+        project.budgetSpent ?? 0,
+      ]);
+      const csv = [header, ...rows]
+        .map((line) => line.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+      if (typeof window === 'undefined' || typeof document === 'undefined') {
+        return;
+      }
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const href = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = href;
+      link.download = `gigvora-projects-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(href);
+    } finally {
+      setExporting(false);
+    }
+  }, [allProjects, exporting]);
+
   const handleArchive = async (project) => {
     await actions.archiveProject(project.id, {});
   };
@@ -69,6 +107,15 @@ export default function ProjectManagementSection({ freelancerId }) {
       description="Plan, track, and close out engagements without leaving mission control."
       actions={
         <>
+          <button
+            type="button"
+            onClick={handleExportProjects}
+            disabled={exporting || allProjects.length === 0}
+            className="mr-2 inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <ArrowDownTrayIcon className={`h-4 w-4 ${exporting ? 'animate-pulse' : ''}`} />
+            {exporting ? 'Exporting…' : 'Export CSV'}
+          </button>
           <div className="hidden lg:flex">
             <label className="sr-only" htmlFor="project-sort">
               Sort

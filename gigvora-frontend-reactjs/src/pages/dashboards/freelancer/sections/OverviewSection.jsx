@@ -3,8 +3,11 @@ import { Dialog, Transition } from '@headlessui/react';
 import {
   ArrowPathIcon,
   CalendarDaysIcon,
+  LinkIcon,
   MapPinIcon,
   PencilSquareIcon,
+  PhotoIcon,
+  PlayCircleIcon,
   PlusCircleIcon,
   TrashIcon,
 } from '@heroicons/react/24/outline';
@@ -43,6 +46,20 @@ const WEATHER_FIELD_KEYS = ['weather.latitude', 'weather.longitude'];
 const RELATIONSHIP_FIELD_KEYS = [
   'relationship.retentionScore',
   'relationship.advocacyInProgress',
+];
+const HIGHLIGHT_FIELD_KEYS = [
+  'highlight.title',
+  'highlight.summary',
+  'highlight.mediaUrl',
+  'highlight.ctaUrl',
+  'highlight.publishedAt',
+];
+
+const HIGHLIGHT_TYPES = [
+  { value: 'update', label: 'Update' },
+  { value: 'video', label: 'Video' },
+  { value: 'article', label: 'Article' },
+  { value: 'gallery', label: 'Gallery' },
 ];
 
 function classNames(...classes) {
@@ -84,6 +101,32 @@ function initialScheduleDraft() {
     startsAt: '',
     link: '',
   };
+}
+
+function initialHighlightDraft() {
+  return {
+    id: '',
+    title: '',
+    summary: '',
+    type: 'update',
+    mediaUrl: '',
+    ctaLabel: '',
+    ctaUrl: '',
+    publishedAt: '',
+  };
+}
+
+function highlightTone(type) {
+  switch (type) {
+    case 'video':
+      return 'bg-rose-50 text-rose-600 border-rose-200';
+    case 'article':
+      return 'bg-violet-50 text-violet-600 border-violet-200';
+    case 'gallery':
+      return 'bg-emerald-50 text-emerald-600 border-emerald-200';
+    default:
+      return 'bg-blue-50 text-blue-600 border-blue-200';
+  }
 }
 
 function buildMetricDisplay(profile) {
@@ -141,6 +184,27 @@ function formatScheduleTime(value, timezone) {
   }
 }
 
+function formatHighlightTimestamp(value) {
+  if (!value) {
+    return null;
+  }
+  try {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+    return date.toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  } catch (error) {
+    return null;
+  }
+}
+
 function firstName(profile) {
   if (!profile?.name) {
     return 'there';
@@ -174,6 +238,9 @@ export default function OverviewSection({ overview, loading, error, onRefresh, o
     longitude: '',
     units: 'metric',
   });
+  const [highlightItems, setHighlightItems] = useState([]);
+  const [highlightDraft, setHighlightDraft] = useState(initialHighlightDraft());
+  const [editingHighlightId, setEditingHighlightId] = useState(null);
   const [workstreamItems, setWorkstreamItems] = useState([]);
   const [workstreamDraft, setWorkstreamDraft] = useState(initialWorkstreamDraft());
   const [editingWorkstreamId, setEditingWorkstreamId] = useState(null);
@@ -197,6 +264,11 @@ export default function OverviewSection({ overview, loading, error, onRefresh, o
   const resetScheduleDraft = useCallback(() => {
     setScheduleDraft(initialScheduleDraft());
     setEditingScheduleId(null);
+  }, []);
+
+  const resetHighlightDraft = useCallback(() => {
+    setHighlightDraft(initialHighlightDraft());
+    setEditingHighlightId(null);
   }, []);
 
   const updateFormErrors = useCallback((fieldKeys, fieldErrors = null) => {
@@ -283,6 +355,11 @@ export default function OverviewSection({ overview, loading, error, onRefresh, o
   }, [overview?.upcomingSchedule, resetScheduleDraft]);
 
   useEffect(() => {
+    setHighlightItems(Array.isArray(overview?.highlights) ? overview.highlights : []);
+    resetHighlightDraft();
+  }, [overview?.highlights, resetHighlightDraft]);
+
+  useEffect(() => {
     setRelationshipDraft({
       retentionScore:
         relationship?.retentionScore != null && Number.isFinite(Number(relationship.retentionScore))
@@ -315,6 +392,9 @@ export default function OverviewSection({ overview, loading, error, onRefresh, o
     }
     if (openPanel !== 'relationship') {
       updateFormErrors(RELATIONSHIP_FIELD_KEYS);
+    }
+    if (openPanel !== 'highlight') {
+      updateFormErrors(HIGHLIGHT_FIELD_KEYS);
     }
   }, [openPanel, updateFormErrors]);
 
@@ -683,6 +763,136 @@ export default function OverviewSection({ overview, loading, error, onRefresh, o
     }
   };
 
+  const handleHighlightEdit = (item) => {
+    setHighlightDraft({
+      id: item.id,
+      title: item.title ?? '',
+      summary: item.summary ?? '',
+      type: item.type ?? 'update',
+      mediaUrl: item.mediaUrl ?? '',
+      ctaLabel: item.ctaLabel ?? '',
+      ctaUrl: item.ctaUrl ?? '',
+      publishedAt: item.publishedAt ? item.publishedAt.slice(0, 16) : '',
+    });
+    setEditingHighlightId(item.id);
+    setOpenPanel('highlight');
+  };
+
+  const handleHighlightSubmit = async (event) => {
+    event.preventDefault();
+    if (!onSave) return;
+
+    const errors = {};
+    const titleInput = highlightDraft.title?.trim?.() ?? '';
+    const summaryInput = highlightDraft.summary?.trim?.() ?? '';
+    const mediaUrlInput = highlightDraft.mediaUrl?.trim?.() ?? '';
+    const ctaUrlInput = highlightDraft.ctaUrl?.trim?.() ?? '';
+    const publishedInput = highlightDraft.publishedAt?.trim?.() ?? '';
+
+    if (!titleInput) {
+      errors['highlight.title'] = 'Title is required.';
+    }
+
+    if (!summaryInput) {
+      errors['highlight.summary'] = 'Add a short summary so clients understand the win.';
+    }
+
+    if (highlightDraft.type === 'video' && !mediaUrlInput) {
+      errors['highlight.mediaUrl'] = 'Video URL is required for video highlights.';
+    }
+
+    if (mediaUrlInput) {
+      try {
+        const url = new URL(mediaUrlInput);
+        if (!['http:', 'https:'].includes(url.protocol)) {
+          throw new Error('Invalid protocol');
+        }
+      } catch (error) {
+        errors['highlight.mediaUrl'] = 'Enter a valid URL (https://).';
+      }
+    }
+
+    if (ctaUrlInput) {
+      try {
+        const url = new URL(ctaUrlInput);
+        if (!['http:', 'https:'].includes(url.protocol)) {
+          throw new Error('Invalid protocol');
+        }
+      } catch (error) {
+        errors['highlight.ctaUrl'] = 'Enter a valid CTA link (https://).';
+      }
+    }
+
+    let publishedValue = null;
+    if (publishedInput) {
+      const parsedDate = new Date(publishedInput);
+      if (Number.isNaN(parsedDate.getTime())) {
+        errors['highlight.publishedAt'] = 'Publish timestamp must be valid.';
+      } else {
+        publishedValue = parsedDate.toISOString();
+      }
+    }
+
+    if (Object.keys(errors).length) {
+      updateFormErrors(HIGHLIGHT_FIELD_KEYS, errors);
+      const [[, firstMessage]] = Object.entries(errors);
+      setStatusMessage({ type: 'error', text: firstMessage });
+      return;
+    }
+
+    updateFormErrors(HIGHLIGHT_FIELD_KEYS);
+
+    const nextHighlight = {
+      id: editingHighlightId || createId(),
+      title: titleInput,
+      summary: summaryInput,
+      type: highlightDraft.type || 'update',
+      mediaUrl: mediaUrlInput || null,
+      ctaLabel: highlightDraft.ctaLabel?.trim?.() || null,
+      ctaUrl: ctaUrlInput || null,
+      publishedAt: publishedValue,
+    };
+
+    const previous = highlightItems;
+    const updated = editingHighlightId
+      ? highlightItems.map((item) => (item.id === editingHighlightId ? nextHighlight : item))
+      : [...highlightItems, nextHighlight];
+
+    setHighlightItems(updated);
+
+    try {
+      await onSave({ highlights: updated });
+      setStatusMessage({ type: 'success', text: 'Showcase updated.' });
+      setOpenPanel(null);
+      resetHighlightDraft();
+    } catch (submitError) {
+      setHighlightItems(previous);
+      setStatusMessage({
+        type: 'error',
+        text: submitError instanceof Error ? submitError.message : 'Unable to update highlight.',
+      });
+    }
+  };
+
+  const handleHighlightDelete = async (targetId) => {
+    if (!onSave) return;
+    const previous = highlightItems;
+    const updated = highlightItems.filter((item) => item.id !== targetId);
+    setHighlightItems(updated);
+    try {
+      await onSave({ highlights: updated });
+      setStatusMessage({ type: 'success', text: 'Highlight removed.' });
+      setOpenPanel(null);
+      resetHighlightDraft();
+    } catch (submitError) {
+      setHighlightItems(previous);
+      setStatusMessage({
+        type: 'error',
+        text: submitError instanceof Error ? submitError.message : 'Unable to remove highlight.',
+      });
+    }
+  };
+
   const handleRelationshipSubmit = async (event) => {
     event.preventDefault();
     if (!onSave) return;
@@ -827,6 +1037,168 @@ export default function OverviewSection({ overview, loading, error, onRefresh, o
                     >
                       Save changes
                     </button>
+                  </div>
+                </form>
+              </Dialog.Panel>
+            </Transition.Child>
+          </div>
+        </div>
+      </Dialog>
+    </Transition.Root>
+  );
+
+  const renderHighlightDialog = () => (
+    <Transition.Root show={openPanel === 'highlight'} as={Fragment}>
+      <Dialog as="div" className="relative z-50" onClose={closePanel}>
+        <Transition.Child
+          as={Fragment}
+          enter="ease-out duration-200"
+          enterFrom="opacity-0"
+          enterTo="opacity-100"
+          leave="ease-in duration-150"
+          leaveFrom="opacity-100"
+          leaveTo="opacity-0"
+        >
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" />
+        </Transition.Child>
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-6">
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-200"
+              enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+              enterTo="opacity-100 translate-y-0 sm:scale-100"
+              leave="ease-in duration-150"
+              leaveFrom="opacity-100 translate-y-0 sm:scale-100"
+              leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+            >
+              <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-3xl bg-white p-6 text-left shadow-xl transition-all">
+                <Dialog.Title className="text-lg font-semibold text-slate-900">
+                  {editingHighlightId ? 'Edit highlight' : 'New highlight'}
+                </Dialog.Title>
+                <p className="mt-1 text-sm text-slate-500">
+                  Celebrate a milestone, feature a resource, or share a video spotlight.
+                </p>
+                <form className="mt-6 space-y-4" onSubmit={handleHighlightSubmit}>
+                  <label className="block text-sm font-medium text-slate-700">
+                    Title
+                    <input
+                      type="text"
+                      value={highlightDraft.title}
+                      onChange={(event) => setHighlightDraft((prev) => ({ ...prev, title: event.target.value }))}
+                      className={`mt-1 w-full rounded-xl border bg-white px-3 py-2 text-sm text-slate-900 shadow-sm ${fieldControlTone('highlight.title')}`}
+                      placeholder="Secured a multi-year retainer"
+                      disabled={saving}
+                    />
+                    {renderFieldError('highlight.title')}
+                  </label>
+                  <label className="block text-sm font-medium text-slate-700">
+                    Summary
+                    <textarea
+                      value={highlightDraft.summary}
+                      onChange={(event) => setHighlightDraft((prev) => ({ ...prev, summary: event.target.value }))}
+                      className={`mt-1 w-full rounded-xl border bg-white px-3 py-2 text-sm text-slate-900 shadow-sm ${fieldControlTone('highlight.summary')}`}
+                      rows={4}
+                      placeholder="Outline the impact and outcome for your client."
+                      disabled={saving}
+                    />
+                    {renderFieldError('highlight.summary')}
+                  </label>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="block text-sm font-medium text-slate-700">
+                      Type
+                      <select
+                        value={highlightDraft.type}
+                        onChange={(event) => setHighlightDraft((prev) => ({ ...prev, type: event.target.value }))}
+                        className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                        disabled={saving}
+                      >
+                        {HIGHLIGHT_TYPES.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="block text-sm font-medium text-slate-700">
+                      Published
+                      <input
+                        type="datetime-local"
+                        value={highlightDraft.publishedAt ?? ''}
+                        onChange={(event) => setHighlightDraft((prev) => ({ ...prev, publishedAt: event.target.value }))}
+                        className={`mt-1 w-full rounded-xl border bg-white px-3 py-2 text-sm text-slate-900 shadow-sm ${fieldControlTone('highlight.publishedAt')}`}
+                        disabled={saving}
+                      />
+                      {renderFieldError('highlight.publishedAt')}
+                    </label>
+                  </div>
+                  <label className="block text-sm font-medium text-slate-700">
+                    Media URL
+                    <input
+                      type="url"
+                      value={highlightDraft.mediaUrl}
+                      onChange={(event) => setHighlightDraft((prev) => ({ ...prev, mediaUrl: event.target.value }))}
+                      className={`mt-1 w-full rounded-xl border bg-white px-3 py-2 text-sm text-slate-900 shadow-sm ${fieldControlTone('highlight.mediaUrl')}`}
+                      placeholder="https://video.example.com/showcase"
+                      disabled={saving}
+                    />
+                    {renderFieldError('highlight.mediaUrl')}
+                  </label>
+                  <div className="grid gap-4 sm:grid-cols-[1.2fr_1fr]">
+                    <label className="block text-sm font-medium text-slate-700">
+                      Button label
+                      <input
+                        type="text"
+                        value={highlightDraft.ctaLabel}
+                        onChange={(event) => setHighlightDraft((prev) => ({ ...prev, ctaLabel: event.target.value }))}
+                        className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                        placeholder="View case study"
+                        disabled={saving}
+                      />
+                    </label>
+                    <label className="block text-sm font-medium text-slate-700">
+                      Button link
+                      <input
+                        type="url"
+                        value={highlightDraft.ctaUrl}
+                        onChange={(event) => setHighlightDraft((prev) => ({ ...prev, ctaUrl: event.target.value }))}
+                        className={`mt-1 w-full rounded-xl border bg-white px-3 py-2 text-sm text-slate-900 shadow-sm ${fieldControlTone('highlight.ctaUrl')}`}
+                        placeholder="https://portfolio.example.com/case-study"
+                        disabled={saving}
+                      />
+                      {renderFieldError('highlight.ctaUrl')}
+                    </label>
+                  </div>
+                  <div className="mt-6 flex flex-wrap justify-between gap-3">
+                    {editingHighlightId ? (
+                      <button
+                        type="button"
+                        onClick={() => handleHighlightDelete(editingHighlightId)}
+                        disabled={saving}
+                        className="inline-flex items-center gap-2 rounded-full border border-rose-200 px-4 py-2 text-sm font-semibold text-rose-600 hover:border-rose-300 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                        Delete
+                      </button>
+                    ) : (
+                      <span />
+                    )}
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        onClick={closePanel}
+                        className="inline-flex items-center rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:border-blue-300 hover:text-blue-600"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={saving}
+                        className="inline-flex items-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Save highlight
+                      </button>
+                    </div>
                   </div>
                 </form>
               </Dialog.Panel>
@@ -1581,6 +1953,71 @@ export default function OverviewSection({ overview, loading, error, onRefresh, o
         <div className="space-y-6 xl:col-span-2">
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between gap-3">
+              <h3 className="text-lg font-semibold text-slate-900">Highlights</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  resetHighlightDraft();
+                  setOpenPanel('highlight');
+                }}
+                className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-blue-700"
+              >
+                <PlusCircleIcon className="h-4 w-4" />
+                Add highlight
+              </button>
+            </div>
+            {highlightItems.length ? (
+              <div className="mt-5 grid gap-4 md:grid-cols-2">
+                {highlightItems.map((item) => {
+                  const Icon = item.type === 'video' ? PlayCircleIcon : item.type === 'gallery' ? PhotoIcon : LinkIcon;
+                  const publishedLabel = formatHighlightTimestamp(item.publishedAt);
+                  return (
+                    <button
+                      key={item.id ?? item.title ?? item.summary}
+                      type="button"
+                      onClick={() => handleHighlightEdit(item)}
+                      className="group flex h-full flex-col rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow"
+                    >
+                      <div className={`flex items-start gap-3 rounded-2xl border p-4 ${highlightTone(item.type)}`}>
+                        <span className="mt-1 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/70 text-slate-700 shadow">
+                          <Icon className="h-5 w-5" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-slate-900">
+                            {item.title || 'Untitled highlight'}
+                          </p>
+                          <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-slate-600">
+                            {item.summary || 'Add a quick summary to share the win.'}
+                          </p>
+                          {publishedLabel ? (
+                            <p className="mt-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                              Published {publishedLabel}
+                            </p>
+                          ) : null}
+                          {item.ctaLabel ? (
+                            <span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-blue-600">
+                              {item.ctaLabel}
+                              <LinkIcon className="h-3.5 w-3.5" />
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                      {item.mediaUrl ? (
+                        <p className="mt-3 truncate text-[11px] text-slate-400 group-hover:text-slate-500">{item.mediaUrl}</p>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="mt-5 text-sm text-slate-500">
+                Curate wins, testimonials, or launches to greet clients when they land here.
+              </p>
+            )}
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
               <h3 className="text-lg font-semibold text-slate-900">Work lanes</h3>
               <button
                 type="button"
@@ -1694,6 +2131,7 @@ export default function OverviewSection({ overview, loading, error, onRefresh, o
       </div>
 
       {renderProfileDialog()}
+      {renderHighlightDialog()}
       {renderMetricsDialog()}
       {renderWeatherDialog()}
       {renderWorkstreamDialog()}
