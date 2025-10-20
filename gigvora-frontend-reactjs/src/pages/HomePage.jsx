@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowRightIcon,
@@ -13,6 +13,8 @@ import {
   UserGroupIcon,
 } from '@heroicons/react/24/outline';
 import useSession from '../hooks/useSession.js';
+import useHomeExperience from '../hooks/useHomeExperience.js';
+import DataStatus from '../components/DataStatus.jsx';
 
 const featureHighlights = [
   {
@@ -96,6 +98,35 @@ const creationStudioHighlights = [
 export default function HomePage() {
   const { isAuthenticated } = useSession();
   const navigate = useNavigate();
+  const { data: homeData, loading: homeLoading, error: homeError, refresh, fromCache, lastUpdated } =
+    useHomeExperience({ enabled: !isAuthenticated });
+
+  const heroHeadline = homeData?.settings?.heroHeadline ?? 'Build momentum with people who deliver.';
+  const heroSubheading =
+    homeData?.settings?.heroSubheading ??
+    'Gigvora unites clients, teams, and independent talent inside one calm workspace so every initiative moves forward with confidence.';
+
+  const communityStats = useMemo(() => {
+    if (!Array.isArray(homeData?.settings?.communityStats) || !homeData.settings.communityStats.length) {
+      return [
+        { label: 'Global specialists', value: '12,400+' },
+        { label: 'Average NPS', value: '68' },
+        { label: 'Completion rate', value: '97%' },
+      ];
+    }
+    return homeData.settings.communityStats.map((stat) => ({
+      label: stat.label ?? stat.name ?? 'Community stat',
+      value: stat.value ?? stat.metric ?? '—',
+    }));
+  }, [homeData?.settings?.communityStats]);
+
+  const trendingCreations = useMemo(
+    () =>
+      (Array.isArray(homeData?.creations) ? homeData.creations : [])
+        .filter((item) => item?.title && item?.type)
+        .slice(0, 6),
+    [homeData?.creations],
+  );
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -113,11 +144,9 @@ export default function HomePage() {
             </span>
             <div className="space-y-6">
               <h1 className="text-4xl font-bold leading-tight tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
-                Build momentum with people who deliver.
+                {heroHeadline}
               </h1>
-              <p className="text-lg text-slate-600 sm:text-xl">
-                Gigvora unites clients, teams, and independent talent inside one calm workspace so every initiative moves forward with confidence.
-              </p>
+              <p className="text-lg text-slate-600 sm:text-xl">{heroSubheading}</p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <Link
@@ -164,6 +193,19 @@ export default function HomePage() {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section className="bg-white">
+        <div className="mx-auto max-w-7xl px-6">
+          <DataStatus
+            loading={homeLoading}
+            error={homeError}
+            fromCache={fromCache}
+            lastUpdated={lastUpdated}
+            onRefresh={() => refresh().catch(() => {})}
+            statusLabel={isAuthenticated ? 'Redirecting to live experience' : 'Live community snapshot'}
+          />
         </div>
       </section>
 
@@ -229,6 +271,60 @@ export default function HomePage() {
                   <p>{testimonial.role}</p>
                   <p className="text-slate-500">{testimonial.highlight}</p>
                 </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-white py-20">
+        <div className="mx-auto max-w-6xl px-6">
+          <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-xl space-y-3">
+              <h2 className="text-3xl font-semibold text-slate-900 sm:text-4xl">Live marketplace launches</h2>
+              <p className="text-base text-slate-600">
+                New gigs, projects, volunteering missions, and mentorship offers are published every hour. Explore a curated
+                snapshot and jump straight into opportunities that match your goals.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-4">
+              {communityStats.map((stat) => (
+                <div
+                  key={stat.label}
+                  className="min-w-[10rem] flex-1 rounded-3xl border border-slate-200 bg-slate-50/60 p-5 text-left shadow-sm"
+                >
+                  <p className="text-3xl font-semibold text-slate-900">{stat.value}</p>
+                  <p className="mt-1 text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">{stat.label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-10 grid gap-6 lg:grid-cols-3">
+            {trendingCreations.length === 0 && (
+              <div className="col-span-full rounded-3xl border border-dashed border-slate-300 bg-slate-50/70 p-10 text-center text-sm text-slate-500">
+                Stay tuned—new opportunities are being prepared in the Creation Studio right now.
+              </div>
+            )}
+            {trendingCreations.map((item) => (
+              <article key={item.id ?? item.slug ?? item.title} className="flex h-full flex-col justify-between rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
+                <div className="space-y-3">
+                  <span className="inline-flex items-center gap-2 rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-accent">
+                    {item.type}
+                  </span>
+                  <h3 className="text-xl font-semibold text-slate-900">{item.title}</h3>
+                  <p className="text-sm text-slate-600">{item.summary ?? item.description ?? 'Explore the full brief inside the Creation Studio.'}</p>
+                </div>
+                <div className="mt-6 flex items-center justify-between text-xs text-slate-500">
+                  <span>{item.ownerName ?? item.authorName ?? 'Gigvora member'}</span>
+                  {item.publishedAt ? <span>{new Date(item.publishedAt).toLocaleDateString()}</span> : null}
+                </div>
+                <Link
+                  to={item.deepLink ?? `/creation-studio?item=${encodeURIComponent(item.id ?? '')}`}
+                  className="mt-6 inline-flex items-center justify-center rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-slate-800"
+                >
+                  Review opportunity
+                </Link>
               </article>
             ))}
           </div>

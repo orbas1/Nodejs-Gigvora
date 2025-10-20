@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowTopRightOnSquareIcon,
@@ -14,6 +14,10 @@ import PageHeader from '../components/PageHeader.jsx';
 import CreationStudioManager from '../components/creationStudio/CreationStudioManager.jsx';
 import useSession from '../hooks/useSession.js';
 import DataStatus from '../components/DataStatus.jsx';
+import {
+  createCreationStudioItem as createCommunityCreationItem,
+  publishCreationStudioItem as publishCommunityCreationItem,
+} from '../services/creationStudio.js';
 
 const creationTracks = [
   {
@@ -126,6 +130,14 @@ function TrackCard({ title, description, icon: Icon, to }) {
 
 export default function CreationStudioWizardPage() {
   const { isAuthenticated } = useSession();
+  const [quickDraft, setQuickDraft] = useState({
+    type: 'gig',
+    title: '',
+    summary: '',
+    audience: 'connections',
+    autoPublish: false,
+  });
+  const [quickState, setQuickState] = useState({ status: 'idle', message: null });
 
   const authenticatedCopy = useMemo(
     () =>
@@ -133,6 +145,44 @@ export default function CreationStudioWizardPage() {
         ? 'Manage drafts, publish opportunities, and collaborate with teammates in one orchestrated studio.'
         : 'Sign in to orchestrate gigs, projects, and documents from one collaborative studio.',
     [isAuthenticated],
+  );
+
+  const handleQuickLaunch = useCallback(
+    async (event) => {
+      event.preventDefault();
+      if (!quickDraft.title || !quickDraft.summary) {
+        setQuickState({ status: 'error', message: 'Add a title and summary to generate your workspace.' });
+        return;
+      }
+      setQuickState({ status: 'saving', message: null });
+      try {
+        const payload = {
+          type: quickDraft.type,
+          title: quickDraft.title,
+          summary: quickDraft.summary,
+          visibility: quickDraft.audience,
+          status: 'draft',
+          metadata: {
+            origin: 'quick-launch',
+          },
+        };
+        const created = await createCommunityCreationItem(payload);
+        if (quickDraft.autoPublish && created?.id) {
+          await publishCommunityCreationItem(created.id, {});
+        }
+        window.dispatchEvent(
+          new CustomEvent('creation-studio:refresh', { detail: { type: quickDraft.type, id: created?.id } }),
+        );
+        setQuickState({ status: 'success', message: 'Workspace created. Continue in the manager below to refine details.' });
+        setQuickDraft((current) => ({ ...current, title: '', summary: '' }));
+      } catch (error) {
+        setQuickState({
+          status: 'error',
+          message: error?.body?.message ?? error?.message ?? 'Unable to create the workspace right now.',
+        });
+      }
+    },
+    [quickDraft],
   );
 
   return (
@@ -166,6 +216,111 @@ export default function CreationStudioWizardPage() {
               <TrackCard key={track.id} {...track} />
             ))}
           </div>
+        </section>
+
+        <section className="mt-16 rounded-[2.5rem] border border-slate-200 bg-white/90 p-8 shadow-xl">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="max-w-2xl space-y-2">
+              <h2 className="text-2xl font-semibold text-slate-900">Quick launch an opportunity</h2>
+              <p className="text-sm text-slate-600">
+                Capture the essentials for a gig, project, mentorship offer, or volunteering mission. We&apos;ll create the
+                workspace instantly so you can continue refining details inside the Creation Studio.
+              </p>
+            </div>
+            {quickState.status === 'success' ? (
+              <p className="rounded-full bg-emerald-50 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">
+                Draft saved
+              </p>
+            ) : null}
+          </div>
+
+          <form className="mt-8 grid gap-4 lg:grid-cols-12" onSubmit={handleQuickLaunch}>
+            <div className="lg:col-span-2">
+              <label htmlFor="quick-type" className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                Opportunity type
+              </label>
+              <select
+                id="quick-type"
+                value={quickDraft.type}
+                onChange={(event) => setQuickDraft((current) => ({ ...current, type: event.target.value }))}
+                className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-soft focus:border-accent focus:outline-none"
+              >
+                {creationTracks.map((track) => (
+                  <option key={track.id} value={track.id}>
+                    {track.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="lg:col-span-4">
+              <label htmlFor="quick-title" className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                Title
+              </label>
+              <input
+                id="quick-title"
+                type="text"
+                value={quickDraft.title}
+                onChange={(event) => setQuickDraft((current) => ({ ...current, title: event.target.value }))}
+                placeholder="Launch a product marketing squad"
+                className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-soft focus:border-accent focus:outline-none"
+                required
+              />
+            </div>
+            <div className="lg:col-span-4">
+              <label htmlFor="quick-summary" className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                Summary
+              </label>
+              <textarea
+                id="quick-summary"
+                value={quickDraft.summary}
+                onChange={(event) => setQuickDraft((current) => ({ ...current, summary: event.target.value }))}
+                placeholder="Outline deliverables, timelines, or expectations in a few sentences."
+                className="mt-2 h-[120px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-soft focus:border-accent focus:outline-none"
+                required
+              />
+            </div>
+            <div className="lg:col-span-2">
+              <label htmlFor="quick-audience" className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                Visibility
+              </label>
+              <select
+                id="quick-audience"
+                value={quickDraft.audience}
+                onChange={(event) => setQuickDraft((current) => ({ ...current, audience: event.target.value }))}
+                className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-soft focus:border-accent focus:outline-none"
+              >
+                <option value="connections">Connections</option>
+                <option value="community">Community</option>
+                <option value="private">Private workspace</option>
+              </select>
+            </div>
+            <div className="lg:col-span-12 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <label className="inline-flex items-center gap-3 text-sm text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={quickDraft.autoPublish}
+                  onChange={(event) => setQuickDraft((current) => ({ ...current, autoPublish: event.target.checked }))}
+                  className="h-4 w-4 rounded border-slate-300 text-accent focus:ring-accent"
+                />
+                Publish immediately after creating
+              </label>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                {quickState.status === 'error' ? (
+                  <p className="text-sm font-medium text-rose-600">{quickState.message}</p>
+                ) : null}
+                {quickState.status === 'success' ? (
+                  <p className="text-sm font-medium text-emerald-600">{quickState.message}</p>
+                ) : null}
+                <button
+                  type="submit"
+                  className="inline-flex items-center justify-center rounded-full bg-accent px-6 py-3 text-sm font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-accentDark disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={quickState.status === 'saving'}
+                >
+                  {quickState.status === 'saving' ? 'Creating workspace…' : 'Create workspace'}
+                </button>
+              </div>
+            </div>
+          </form>
         </section>
 
         <section className="mt-16 rounded-[2.5rem] border border-slate-200 bg-white/90 p-8 shadow-xl" id="studio">

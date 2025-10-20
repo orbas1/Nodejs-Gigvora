@@ -1,5 +1,8 @@
 import { apiClient } from './apiClient.js';
 
+/**
+ * Company-scoped Creation Studio endpoints
+ */
 export function fetchCreationStudioOverview({ workspaceId, signal } = {}) {
   const params = {};
   if (workspaceId != null && `${workspaceId}`.length > 0) {
@@ -31,29 +34,34 @@ export function fetchCreationStudioItems({ workspaceId, type, status, search, li
   return apiClient.get('/company/creation-studio', { params, signal });
 }
 
-export function createCreationStudioItem(payload, { signal } = {}) {
+export function createCompanyCreationStudioItem(payload, { signal } = {}) {
   return apiClient.post('/company/creation-studio', payload, { signal });
 }
 
-export function updateCreationStudioItem(itemId, payload, { signal } = {}) {
+export function updateCompanyCreationStudioItem(itemId, payload, { signal } = {}) {
+  if (!itemId) {
+    throw new Error('An itemId is required to update a Creation Studio record.');
+  }
   return apiClient.put(`/company/creation-studio/${itemId}`, payload, { signal });
 }
 
-export function publishCreationStudioItem(itemId, payload = {}, { signal } = {}) {
+export function publishCompanyCreationStudioItem(itemId, payload = {}, { signal } = {}) {
+  if (!itemId) {
+    throw new Error('An itemId is required to publish a Creation Studio record.');
+  }
   return apiClient.post(`/company/creation-studio/${itemId}/publish`, payload, { signal });
 }
 
-export function deleteCreationStudioItem(itemId, { signal } = {}) {
+export function deleteCompanyCreationStudioItem(itemId, { signal } = {}) {
+  if (!itemId) {
+    throw new Error('An itemId is required to delete a Creation Studio record.');
+  }
   return apiClient.delete(`/company/creation-studio/${itemId}`, { signal });
 }
 
-export default {
-  fetchCreationStudioOverview,
-  fetchCreationStudioItems,
-  createCreationStudioItem,
-  updateCreationStudioItem,
-  publishCreationStudioItem,
-  deleteCreationStudioItem,
+/**
+ * User scoped Creation Studio workspace endpoints
+ */
 export async function fetchCreationWorkspace(userId, { includeArchived = false, signal } = {}) {
   if (!userId) {
     throw new Error('userId is required to load the creation studio workspace.');
@@ -102,13 +110,9 @@ export async function archiveCreationItem(userId, itemId, { signal } = {}) {
   return apiClient.delete(`/users/${userId}/creation-studio/${itemId}`, { signal });
 }
 
-export default {
-  fetchCreationWorkspace,
-  createCreationItem,
-  updateCreationItem,
-  saveCreationStep,
-  shareCreationItem,
-  archiveCreationItem,
+/**
+ * Community facing Creation Studio endpoints used by feed and wizard surfaces.
+ */
 export function listCreationStudioItems(params = {}, options = {}) {
   return apiClient.get('/creation-studio/items', { params, ...options });
 }
@@ -138,10 +142,47 @@ export function publishCreationStudioItem(itemId, payload = {}, options = {}) {
   return apiClient.post(`/creation-studio/items/${itemId}/publish`, payload, options);
 }
 
-export default {
+export function deleteCreationStudioItem(itemId, options = {}) {
+  if (!itemId) {
+    throw new Error('itemId is required to delete a Creation Studio item.');
+  }
+  return apiClient.delete(`/creation-studio/items/${itemId}`, options);
+}
+
+const companyCreationStudio = {
+  fetchCreationStudioOverview,
+  fetchCreationStudioItems,
+  createCompanyCreationStudioItem,
+  updateCompanyCreationStudioItem,
+  publishCompanyCreationStudioItem,
+  deleteCompanyCreationStudioItem,
+};
+
+const userCreationStudio = {
+  fetchCreationWorkspace,
+  createCreationItem,
+  updateCreationItem,
+  saveCreationStep,
+  shareCreationItem,
+  archiveCreationItem,
+};
+
+const communityCreationStudio = {
   listCreationStudioItems,
   getCreationStudioItem,
   createCreationStudioItem,
   updateCreationStudioItem,
   publishCreationStudioItem,
+  deleteCreationStudioItem,
 };
+
+export const creationStudioService = {
+  ...companyCreationStudio,
+  ...userCreationStudio,
+  ...communityCreationStudio,
+  company: companyCreationStudio,
+  user: userCreationStudio,
+  community: communityCreationStudio,
+};
+
+export default creationStudioService;
