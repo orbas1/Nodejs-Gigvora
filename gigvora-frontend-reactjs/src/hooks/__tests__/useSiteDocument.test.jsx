@@ -34,6 +34,7 @@ describe('useSiteDocument', () => {
     expect(result.current.sections[0].title).toBe('Fallback heading');
     expect(result.current.usingFallback).toBe(true);
     expect(result.current.metadata.version).toBe('1.0.0');
+    expect(result.current.hero.title).toBe('Fallback title');
   });
 
   it('prefers live content when the API request succeeds', async () => {
@@ -41,7 +42,8 @@ describe('useSiteDocument', () => {
       slug: 'sample-doc',
       version: '2.0.0',
       body: '## Live heading\nLive paragraph.',
-      hero: { title: 'Live hero' },
+      heroTitle: 'Live hero',
+      heroEyebrow: 'Policy',
     });
 
     const { result } = renderHook(() => useSiteDocument('sample-doc', fallback));
@@ -50,5 +52,7 @@ describe('useSiteDocument', () => {
 
     expect(result.current.sections[0].title).toBe('Live heading');
     expect(result.current.metadata.version).toBe('2.0.0');
+    expect(result.current.hero.title).toBe('Live hero');
+    expect(result.current.hero.eyebrow).toBe('Policy');
   });
 });

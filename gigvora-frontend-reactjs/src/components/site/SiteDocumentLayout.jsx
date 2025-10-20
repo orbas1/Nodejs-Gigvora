@@ -198,17 +198,76 @@ export default function SiteDocumentLayout({
     if (metadata?.lastUpdated) {
       items.push({ label: 'Last updated', value: formatDate(metadata.lastUpdated) });
     }
+    if (metadata?.lastReviewed) {
+      items.push({ label: 'Last reviewed', value: formatDate(metadata.lastReviewed) });
+    }
+    if (metadata?.publishedAt) {
+      items.push({ label: 'Published', value: formatDate(metadata.publishedAt) });
+    }
     if (metadata?.version) {
       items.push({ label: 'Version', value: metadata.version });
     }
     if (metadata?.jurisdiction) {
       items.push({ label: 'Jurisdiction', value: metadata.jurisdiction });
     }
+    if (metadata?.documentCode) {
+      items.push({ label: 'Document code', value: metadata.documentCode });
+    }
+    if (metadata?.contactEmail) {
+      items.push({ label: 'Email', value: metadata.contactEmail, href: `mailto:${metadata.contactEmail}` });
+    }
+    if (metadata?.contactPhone) {
+      const tel = metadata.contactPhone.replace(/\s+/g, '');
+      items.push({ label: 'Phone', value: metadata.contactPhone, href: `tel:${tel}` });
+    }
     if (usingFallback) {
       items.push({ label: 'Offline copy', value: 'Showing cached legal text' });
     }
     return items;
   }, [metadata, usingFallback]);
+
+  const headerActions = useMemo(() => {
+    const actions = [
+      <button
+        key="download"
+        type="button"
+        onClick={() => downloadDocument({ title: hero?.title, sections, fileName: `${metadata?.documentCode}.txt` })}
+        className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-accent/30 transition hover:-translate-y-0.5 hover:bg-accentDark"
+      >
+        <ArrowDownTrayIcon className="h-4 w-4" /> Download copy
+      </button>,
+      <button
+        key="print"
+        type="button"
+        onClick={handlePrint}
+        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+      >
+        <PrinterIcon className="h-4 w-4" /> Print
+      </button>,
+      <button
+        key="share"
+        type="button"
+        onClick={handleShare}
+        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+      >
+        <ShareIcon className="h-4 w-4" /> Copy link
+      </button>,
+    ];
+    if (hero?.ctaLabel && hero?.ctaUrl) {
+      actions.unshift(
+        <a
+          key="primary-cta"
+          href={hero.ctaUrl}
+          className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-slate-800"
+          target={hero.ctaUrl.startsWith('http') ? '_blank' : undefined}
+          rel={hero.ctaUrl.startsWith('http') ? 'noopener noreferrer' : undefined}
+        >
+          <CheckCircleIcon className="h-4 w-4" /> {hero.ctaLabel}
+        </a>,
+      );
+    }
+    return actions;
+  }, [handlePrint, handleShare, hero?.ctaLabel, hero?.ctaUrl, hero?.title, metadata?.documentCode, sections]);
 
   if (loading) {
     return (
@@ -304,7 +363,13 @@ export default function SiteDocumentLayout({
               {metadataItems.map((item) => (
                 <div key={item.label} className="flex flex-col rounded-2xl border border-slate-200 bg-slate-50/80 px-3 py-2">
                   <span className="font-semibold uppercase tracking-[0.2em] text-slate-500">{item.label}</span>
-                  <span className="text-slate-700">{item.value}</span>
+                  {item.href ? (
+                    <a href={item.href} className="text-slate-700 underline-offset-2 hover:underline">
+                      {item.value}
+                    </a>
+                  ) : (
+                    <span className="text-slate-700">{item.value}</span>
+                  )}
                 </div>
               ))}
             </div>
@@ -317,32 +382,7 @@ export default function SiteDocumentLayout({
             title={hero?.title}
             description={hero?.description || metadata?.heroSubtitle}
             meta={hero?.meta || metadata?.summary}
-            actions={[
-              <button
-                key="download"
-                type="button"
-                onClick={() => downloadDocument({ title: hero?.title, sections, fileName: `${metadata?.documentCode}.txt` })}
-                className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-accent/30 transition hover:-translate-y-0.5 hover:bg-accentDark"
-              >
-                <ArrowDownTrayIcon className="h-4 w-4" /> Download copy
-              </button>,
-              <button
-                key="print"
-                type="button"
-                onClick={handlePrint}
-                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
-              >
-                <PrinterIcon className="h-4 w-4" /> Print
-              </button>,
-              <button
-                key="share"
-                type="button"
-                onClick={handleShare}
-                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
-              >
-                <ShareIcon className="h-4 w-4" /> Copy link
-              </button>,
-            ]}
+            actions={headerActions}
           />
 
           {error ? (

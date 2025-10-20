@@ -124,11 +124,33 @@ export function normaliseDocumentMetadata(page = {}, fallback = {}) {
     jurisdiction: page.jurisdiction || fallback.jurisdiction || 'United Kingdom',
     summary: page.summary || fallback.summary || '',
     heroTitle: page.heroTitle || fallback.hero?.title || '',
-    heroSubtitle: page.heroSubtitle || fallback.hero?.subtitle || '',
+    heroSubtitle: page.heroSubtitle || fallback.hero?.description || fallback.hero?.subtitle || '',
+    heroEyebrow: page.heroEyebrow || fallback.hero?.eyebrow || '',
+    heroMeta: page.heroMeta || fallback.hero?.meta || '',
+    heroImageUrl: page.heroImageUrl || fallback.hero?.imageUrl || '',
+    heroImageAlt: page.heroImageAlt || fallback.hero?.imageAlt || '',
   };
+}
+
+export function buildHeroConfig(page = {}, fallback = {}) {
+  const fallbackHero = fallback?.hero ?? {};
+  const metadata = normaliseDocumentMetadata(page, fallback);
+  const hero = {
+    eyebrow: metadata.heroEyebrow,
+    title: metadata.heroTitle || page.title || fallbackHero.title || 'Document',
+    description:
+      page.heroSubtitle || fallbackHero.description || metadata.summary || fallbackHero.subtitle || '',
+    meta: page.heroMeta || fallbackHero.meta || metadata.summary || '',
+    imageUrl: page.heroImageUrl || fallbackHero.imageUrl || null,
+    imageAlt: page.heroImageAlt || fallbackHero.imageAlt || null,
+    ctaLabel: page.ctaLabel || fallbackHero.ctaLabel || null,
+    ctaUrl: page.ctaUrl || fallbackHero.ctaUrl || null,
+  };
+  return hero;
 }
 
 export default {
   parseDocumentSections,
   normaliseDocumentMetadata,
+  buildHeroConfig,
 };

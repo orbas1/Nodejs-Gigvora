@@ -3,12 +3,10 @@ import useSiteDocument from '../hooks/useSiteDocument.js';
 import privacyContent from '../content/site/privacy.js';
 
 export default function PrivacyPage() {
-  const { page, sections, metadata, loading, error, refresh, usingFallback } = useSiteDocument(
+  const { page, sections, metadata, loading, error, refresh, usingFallback, hero } = useSiteDocument(
     privacyContent.slug,
     privacyContent,
   );
-
-  const hero = page?.hero ?? privacyContent.hero;
 
   return (
     <SiteDocumentLayout

@@ -149,12 +149,11 @@ function formatDate(value) {
 }
 
 export default function AboutPage() {
-  const { page, sections, metadata, loading, error, refresh, usingFallback } = useSiteDocument(
+  const { page, sections, metadata, loading, error, refresh, usingFallback, hero } = useSiteDocument(
     aboutContent.slug,
     aboutContent,
   );
 
-  const hero = page?.hero ?? aboutContent.hero;
   const summary = metadata.summary || aboutContent.summary;
 
   const metadataItems = useMemo(() => {

@@ -3,12 +3,10 @@ import useSiteDocument from '../hooks/useSiteDocument.js';
 import faqContent from '../content/site/faq.js';
 
 export default function FaqPage() {
-  const { page, sections, metadata, loading, error, refresh, usingFallback } = useSiteDocument(
+  const { page, sections, metadata, loading, error, refresh, usingFallback, hero } = useSiteDocument(
     faqContent.slug,
     faqContent,
   );
-
-  const hero = page?.hero ?? faqContent.hero;
 
   return (
     <SiteDocumentLayout

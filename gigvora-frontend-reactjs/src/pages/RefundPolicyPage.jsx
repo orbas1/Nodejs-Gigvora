@@ -3,12 +3,10 @@ import useSiteDocument from '../hooks/useSiteDocument.js';
 import refundContent from '../content/site/refund.js';
 
 export default function RefundPolicyPage() {
-  const { page, sections, metadata, loading, error, refresh, usingFallback } = useSiteDocument(
+  const { page, sections, metadata, loading, error, refresh, usingFallback, hero } = useSiteDocument(
     refundContent.slug,
     refundContent,
   );
-
-  const hero = page?.hero ?? refundContent.hero;
 
   return (
     <SiteDocumentLayout

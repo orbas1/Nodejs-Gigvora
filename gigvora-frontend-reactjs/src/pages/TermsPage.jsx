@@ -3,12 +3,10 @@ import useSiteDocument from '../hooks/useSiteDocument.js';
 import termsContent from '../content/site/terms.js';
 
 export default function TermsPage() {
-  const { page, sections, metadata, loading, error, refresh, usingFallback } = useSiteDocument(
+  const { page, sections, metadata, loading, error, refresh, usingFallback, hero } = useSiteDocument(
     termsContent.slug,
     termsContent,
   );
-
-  const hero = page?.hero ?? termsContent.hero;
 
   return (
     <SiteDocumentLayout

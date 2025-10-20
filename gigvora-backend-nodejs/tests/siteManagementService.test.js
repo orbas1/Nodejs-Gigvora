@@ -58,13 +58,34 @@ describe('siteManagementService', () => {
       slug: 'operators',
       status: 'published',
       summary: 'High-trust teams',
+      heroEyebrow: 'Legal',
+      heroTitle: 'Operators legal overview',
+      heroSubtitle: 'How we govern operators',
+      heroMeta: 'Applies globally',
+      contactEmail: 'legal@gigvora.com',
+      contactPhone: '+44 20 0000 0000',
+      jurisdiction: 'United Kingdom',
+      version: '1.2.0',
+      lastReviewedAt: '2024-05-01T00:00:00.000Z',
     });
     expect(page.status).toBe('published');
     expect(page.publishedAt).toBeTruthy();
+    expect(page.heroEyebrow).toBe('Legal');
+    expect(page.heroMeta).toBe('Applies globally');
+    expect(page.contactEmail).toBe('legal@gigvora.com');
+    expect(page.version).toBe('1.2.0');
+    expect(new Date(page.lastReviewedAt).getUTCFullYear()).toBe(2024);
 
-    const updated = await updateSitePageById(page.id, { status: 'draft', heroTitle: 'New hero' });
+    const updated = await updateSitePageById(page.id, {
+      status: 'draft',
+      heroTitle: 'New hero',
+      heroEyebrow: 'Policy',
+      version: '1.3.0',
+    });
     expect(updated.status).toBe('draft');
     expect(updated.heroTitle).toBe('New hero');
+    expect(updated.heroEyebrow).toBe('Policy');
+    expect(updated.version).toBe('1.3.0');
 
     await deleteSitePageById(page.id);
     const overview = await getSiteManagementOverview();

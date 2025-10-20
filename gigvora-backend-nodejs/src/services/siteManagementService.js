@@ -66,6 +66,17 @@ function normalizeRoles(value) {
   return Array.from(unique);
 }
 
+function coerceDate(value) {
+  if (!value) {
+    return null;
+  }
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return date;
+}
+
 function slugify(value) {
   return coerceString(value, '')
     .toLowerCase()
@@ -224,12 +235,15 @@ function normalizePagePayload(payload = {}) {
   const seoKeywords = Array.isArray(payload.seoKeywords)
     ? payload.seoKeywords.map((item) => coerceString(item)).filter(Boolean)
     : [];
+  const lastReviewedAt = coerceDate(payload.lastReviewedAt);
   return {
     slug,
     title,
     summary: coerceString(payload.summary),
     heroTitle: coerceString(payload.heroTitle),
     heroSubtitle: coerceString(payload.heroSubtitle),
+    heroEyebrow: coerceString(payload.heroEyebrow),
+    heroMeta: coerceString(payload.heroMeta),
     heroImageUrl: coerceString(payload.heroImageUrl),
     heroImageAlt: coerceString(payload.heroImageAlt),
     ctaLabel: coerceString(payload.ctaLabel),
@@ -241,6 +255,11 @@ function normalizePagePayload(payload = {}) {
     seoDescription: coerceString(payload.seoDescription),
     seoKeywords,
     thumbnailUrl: coerceString(payload.thumbnailUrl),
+    contactEmail: coerceString(payload.contactEmail),
+    contactPhone: coerceString(payload.contactPhone),
+    jurisdiction: coerceString(payload.jurisdiction),
+    version: coerceString(payload.version),
+    lastReviewedAt,
     status,
     allowedRoles: normalizeRoles(payload.allowedRoles),
   };

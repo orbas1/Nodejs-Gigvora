@@ -3,12 +3,10 @@ import useSiteDocument from '../hooks/useSiteDocument.js';
 import communityGuidelinesContent from '../content/site/communityGuidelines.js';
 
 export default function CommunityGuidelinesPage() {
-  const { page, sections, metadata, loading, error, refresh, usingFallback } = useSiteDocument(
+  const { page, sections, metadata, loading, error, refresh, usingFallback, hero } = useSiteDocument(
     communityGuidelinesContent.slug,
     communityGuidelinesContent,
   );
-
-  const hero = page?.hero ?? communityGuidelinesContent.hero;
 
   return (
     <SiteDocumentLayout

@@ -45,6 +45,11 @@ describe('site routes', () => {
       status: 'published',
       summary: 'Community expectations',
       body: '## Welcome\nBe kind.',
+      heroEyebrow: 'Community',
+      heroTitle: 'Community Guidelines',
+      heroSubtitle: 'How to behave',
+      contactEmail: 'community@gigvora.com',
+      version: '3.0.0',
     });
 
     const response = await request(app).get(`/api/site/pages/${page.slug}`);
@@ -52,6 +57,8 @@ describe('site routes', () => {
     expect(response.status).toBe(200);
     expect(response.body.page.slug).toBe(page.slug);
     expect(response.body.page.body).toContain('Welcome');
+    expect(response.body.page.heroEyebrow).toBe('Community');
+    expect(response.body.page.version).toBe('3.0.0');
   });
 
   test('GET /api/site/pages respects limit parameter', async () => {

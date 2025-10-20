@@ -83,11 +83,19 @@ export default function SitePagesTable({ pages = [], stats, onCreateClick, onEdi
                         <p className="mt-1 text-xs text-slate-500">{page.summary}</p>
                       ) : null}
                     </td>
-                    <td className="px-4 py-4 text-slate-600">/{page.slug}</td>
+                    <td className="px-4 py-4 text-slate-600">
+                      /{page.slug}
+                      {page.jurisdiction ? (
+                        <div className="text-xs text-slate-400">{page.jurisdiction}</div>
+                      ) : null}
+                    </td>
                     <td className="px-4 py-4">
                       <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${statusClass}`}>
                         {humanizeStatus(page.status)}
                       </span>
+                      {page.version ? (
+                        <div className="mt-2 text-xs text-slate-500">Version {page.version}</div>
+                      ) : null}
                     </td>
                     <td className="px-4 py-4 text-slate-600">
                       <div>{formatDate(page.updatedAt || page.createdAt)}</div>
