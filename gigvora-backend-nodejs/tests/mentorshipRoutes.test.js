@@ -1,6 +1,41 @@
+process.env.SKIP_SEQUELIZE_BOOTSTRAP = process.env.SKIP_SEQUELIZE_BOOTSTRAP ?? 'true';
+
+import express from 'express';
 import request from 'supertest';
-import app from '../src/app.js';
+import mentorshipRoutes from '../src/routes/mentorshipRoutes.js';
 import { __resetMentorshipState } from '../src/services/mentorshipService.js';
+
+function createTestApp() {
+  const app = express();
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
+  app.use((req, res, next) => {
+    const userId = req.headers?.['x-user-id'];
+    const rolesHeader = req.headers?.['x-workspace-roles'] ?? req.headers?.['x-user-role'] ?? req.headers?.['x-role'];
+    if (userId || rolesHeader) {
+      req.user = {
+        ...(req.user ?? {}),
+        id: userId ? Number.parseInt(userId, 10) : undefined,
+        roles: rolesHeader ? rolesHeader.split(/[;,\s]+/).map((role) => role.trim()).filter(Boolean) : undefined,
+      };
+    }
+    next();
+  });
+  app.use('/api/mentors', mentorshipRoutes);
+  app.use((err, req, res, next) => {
+    if (res.headersSent) {
+      return next(err);
+    }
+    const status = err.status ?? err.statusCode ?? 500;
+    res.status(status).json({
+      message: err.message ?? 'Internal server error',
+      details: err.details,
+    });
+  });
+  return app;
+}
+
+const app = createTestApp();
 
 const mentorHeaders = {
   'x-workspace-roles': 'mentor',

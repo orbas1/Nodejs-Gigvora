@@ -4520,7 +4520,6 @@ export const JobPostAdminDetail = sequelize.define(
   { tableName: 'job_post_admin_details' },
 );
 
-CommunitySpotlight.prototype.toPublicObject = function toPublicObject() {
 SprintTaskDependency.prototype.toPublicObject = function toPublicObject() {
   const plain = this.get({ plain: true });
   return {
