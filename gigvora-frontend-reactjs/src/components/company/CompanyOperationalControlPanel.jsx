@@ -371,12 +371,19 @@ export default function CompanyOperationalControlPanel({
 }) {
   const [activeTab, setActiveTab] = useState('home');
 
+  const [showInactiveWallets, setShowInactiveWallets] = useState(false);
+
   const {
     data: walletsData,
     loading: walletsLoading,
     error: walletsError,
     refresh: refreshWallets,
-  } = useCompanyWallets({ workspaceId, workspaceSlug, enabled: Boolean(workspaceId) });
+  } = useCompanyWallets({
+    workspaceId,
+    workspaceSlug,
+    includeInactive: showInactiveWallets,
+    enabled: Boolean(workspaceId),
+  });
 
   const wallets = walletsData?.wallets ?? [];
   const walletSummary = walletsData?.summary ?? {};
@@ -385,7 +392,17 @@ export default function CompanyOperationalControlPanel({
   const [walletView, setWalletView] = useState('overview');
 
   useEffect(() => {
-    if (!selectedWalletId && wallets.length) {
+    if (!wallets.length) {
+      if (selectedWalletId !== null) {
+        setSelectedWalletId(null);
+      }
+      return;
+    }
+
+    const currentId = selectedWalletId != null ? `${selectedWalletId}` : null;
+    const activeWalletExists = wallets.some((wallet) => `${wallet.id}` === currentId);
+
+    if (!activeWalletExists) {
       setSelectedWalletId(`${wallets[0].id}`);
     }
   }, [wallets, selectedWalletId]);
@@ -758,8 +775,8 @@ export default function CompanyOperationalControlPanel({
         selectedWalletId={selectedWalletId}
         onSelect={(wallet) => setSelectedWalletId(wallet ? `${wallet.id}` : null)}
         onRefresh={() => refreshWallets({ force: true })}
-        includeInactive={false}
-        onToggleIncludeInactive={() => {}}
+        includeInactive={showInactiveWallets}
+        onToggleIncludeInactive={(include) => setShowInactiveWallets(include)}
         onCreateWallet={handleCreateWallet}
         busy={walletsLoading}
         error={walletsError}
