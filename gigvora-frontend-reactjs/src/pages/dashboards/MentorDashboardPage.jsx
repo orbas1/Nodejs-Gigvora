@@ -3,34 +3,60 @@ import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import { MENU_GROUPS, AVAILABLE_DASHBOARDS } from './mentor/menuConfig.js';
 import { DEFAULT_PROFILE, DEFAULT_DASHBOARD } from './mentor/sampleData.js';
 import {
-  OverviewSection,
-  PipelineSection,
-  AvailabilitySection,
-  PackagesSection,
-  ResourcesSection,
+  HomeProfileSection,
+  HomeOverviewSection,
+  FinanceManagementSection,
+  MentorshipManagementSection,
 } from './mentor/sections/index.js';
-import { fetchMentorDashboard, saveMentorAvailability, saveMentorPackages } from '../../services/mentorship.js';
+import {
+  fetchMentorDashboard,
+  saveMentorAvailability,
+  saveMentorPackages,
+  submitMentorProfile,
+  createMentorBooking,
+  updateMentorBooking,
+  deleteMentorBooking,
+  createMentorInvoice,
+  updateMentorInvoice,
+  deleteMentorInvoice,
+  createMentorPayout,
+  updateMentorPayout,
+  deleteMentorPayout,
+} from '../../services/mentorship.js';
 
 const SECTION_COMPONENTS = {
-  performance: OverviewSection,
-  pipeline: PipelineSection,
-  availability: AvailabilitySection,
-  packages: PackagesSection,
-  resources: ResourcesSection,
-  marketing: ResourcesSection,
+  'home-profile': HomeProfileSection,
+  'home-overview': HomeOverviewSection,
+  finance: FinanceManagementSection,
+  mentorship: MentorshipManagementSection,
 };
 
 export default function MentorDashboardPage() {
-  const [activeSection, setActiveSection] = useState('performance');
+  const [activeSection, setActiveSection] = useState('home-overview');
   const [dashboard, setDashboard] = useState(DEFAULT_DASHBOARD);
   const [profile, setProfile] = useState(DEFAULT_PROFILE);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [availabilitySaving, setAvailabilitySaving] = useState(false);
   const [packagesSaving, setPackagesSaving] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [bookingSaving, setBookingSaving] = useState(false);
+  const [invoiceSaving, setInvoiceSaving] = useState(false);
+  const [payoutSaving, setPayoutSaving] = useState(false);
   const [metadata, setMetadata] = useState(null);
 
   const menuSections = useMemo(() => MENU_GROUPS, []);
+
+  const applyDashboardUpdate = useCallback((snapshot) => {
+    if (!snapshot) {
+      return;
+    }
+    setDashboard({ ...DEFAULT_DASHBOARD, ...snapshot });
+    if (snapshot.profile) {
+      setProfile((current) => ({ ...current, ...snapshot.profile }));
+    }
+    setMetadata(snapshot.metadata ?? null);
+  }, []);
 
   const formatRelativeTime = useCallback((timestamp) => {
     if (!timestamp) {
@@ -66,18 +92,14 @@ export default function MentorDashboardPage() {
     setError(null);
     try {
       const data = await fetchMentorDashboard();
-      setDashboard({ ...DEFAULT_DASHBOARD, ...data });
-      if (data?.profile) {
-        setProfile((current) => ({ ...current, ...data.profile }));
-      }
-      setMetadata(data?.metadata ?? null);
+      applyDashboardUpdate(data);
     } catch (loadError) {
       const normalisedError = loadError instanceof Error ? loadError : new Error('Unable to load mentor dashboard.');
       setError(normalisedError);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [applyDashboardUpdate]);
 
   useEffect(() => {
     handleRefresh();
@@ -87,55 +109,239 @@ export default function MentorDashboardPage() {
     setAvailabilitySaving(true);
     try {
       await saveMentorAvailability(slots);
-      setDashboard((current) => ({ ...current, availability: slots }));
+      const snapshot = await fetchMentorDashboard();
+      applyDashboardUpdate(snapshot);
     } finally {
       setAvailabilitySaving(false);
     }
-  }, []);
+  }, [applyDashboardUpdate]);
 
   const handleSavePackages = useCallback(async (packages) => {
     setPackagesSaving(true);
     try {
       await saveMentorPackages(packages);
-      setDashboard((current) => ({ ...current, packages }));
+      const snapshot = await fetchMentorDashboard();
+      applyDashboardUpdate(snapshot);
     } finally {
       setPackagesSaving(false);
     }
-  }, []);
+  }, [applyDashboardUpdate]);
+
+  const handleSaveProfile = useCallback(
+    async (payload) => {
+      setProfileSaving(true);
+      try {
+        const response = await submitMentorProfile(payload);
+        if (response?.profile) {
+          setProfile((current) => ({ ...current, ...response.profile }));
+          setDashboard((current) => ({ ...current, profile: response.profile }));
+        }
+        return response;
+      } catch (saveError) {
+        throw saveError;
+      } finally {
+        setProfileSaving(false);
+      }
+    },
+    [],
+  );
+
+  const handleCreateBooking = useCallback(
+    async (payload) => {
+      setBookingSaving(true);
+      try {
+        const response = await createMentorBooking(payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.booking;
+      } catch (bookingError) {
+        throw bookingError;
+      } finally {
+        setBookingSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleUpdateBooking = useCallback(
+    async (bookingId, payload) => {
+      setBookingSaving(true);
+      try {
+        const response = await updateMentorBooking(bookingId, payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.booking;
+      } catch (bookingError) {
+        throw bookingError;
+      } finally {
+        setBookingSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleDeleteBooking = useCallback(
+    async (bookingId) => {
+      setBookingSaving(true);
+      try {
+        const response = await deleteMentorBooking(bookingId);
+        applyDashboardUpdate(response?.dashboard);
+        return response;
+      } catch (bookingError) {
+        throw bookingError;
+      } finally {
+        setBookingSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleCreateInvoice = useCallback(
+    async (payload) => {
+      setInvoiceSaving(true);
+      try {
+        const response = await createMentorInvoice(payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.invoice;
+      } catch (invoiceError) {
+        throw invoiceError;
+      } finally {
+        setInvoiceSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleUpdateInvoice = useCallback(
+    async (invoiceId, payload) => {
+      setInvoiceSaving(true);
+      try {
+        const response = await updateMentorInvoice(invoiceId, payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.invoice;
+      } catch (invoiceError) {
+        throw invoiceError;
+      } finally {
+        setInvoiceSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleDeleteInvoice = useCallback(
+    async (invoiceId) => {
+      setInvoiceSaving(true);
+      try {
+        const response = await deleteMentorInvoice(invoiceId);
+        applyDashboardUpdate(response?.dashboard);
+        return response;
+      } catch (invoiceError) {
+        throw invoiceError;
+      } finally {
+        setInvoiceSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleCreatePayout = useCallback(
+    async (payload) => {
+      setPayoutSaving(true);
+      try {
+        const response = await createMentorPayout(payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.payout;
+      } catch (payoutError) {
+        throw payoutError;
+      } finally {
+        setPayoutSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleUpdatePayout = useCallback(
+    async (payoutId, payload) => {
+      setPayoutSaving(true);
+      try {
+        const response = await updateMentorPayout(payoutId, payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.payout;
+      } catch (payoutError) {
+        throw payoutError;
+      } finally {
+        setPayoutSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleDeletePayout = useCallback(
+    async (payoutId) => {
+      setPayoutSaving(true);
+      try {
+        const response = await deleteMentorPayout(payoutId);
+        applyDashboardUpdate(response?.dashboard);
+        return response;
+      } catch (payoutError) {
+        throw payoutError;
+      } finally {
+        setPayoutSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
 
   const renderSection = () => {
-    const Component = SECTION_COMPONENTS[activeSection] ?? OverviewSection;
-    if (Component === OverviewSection) {
+    const Component = SECTION_COMPONENTS[activeSection] ?? HomeOverviewSection;
+    if (Component === HomeProfileSection) {
+      return <HomeProfileSection profile={profile} onSave={handleSaveProfile} saving={profileSaving} />;
+    }
+    if (Component === HomeOverviewSection) {
       return (
-        <OverviewSection
-          dashboard={dashboard}
-          loading={loading}
-          error={error}
-          onRefresh={handleRefresh}
+        <HomeOverviewSection
+          stats={dashboard?.stats}
+          conversion={dashboard?.conversion}
+          bookings={dashboard?.bookings}
+          explorerPlacement={dashboard?.explorerPlacement}
+          feedback={dashboard?.feedback}
+          finance={dashboard?.finance}
+          onRequestNewBooking={() => setActiveSection('mentorship')}
         />
       );
     }
-    if (Component === PipelineSection) {
-      return <PipelineSection bookings={dashboard?.bookings ?? []} segments={dashboard?.segments ?? []} />;
-    }
-    if (Component === AvailabilitySection) {
+    if (Component === FinanceManagementSection) {
       return (
-        <AvailabilitySection
+        <FinanceManagementSection
+          finance={dashboard?.finance}
+          onCreateInvoice={handleCreateInvoice}
+          onUpdateInvoice={handleUpdateInvoice}
+          onDeleteInvoice={handleDeleteInvoice}
+          onCreatePayout={handleCreatePayout}
+          onUpdatePayout={handleUpdatePayout}
+          onDeletePayout={handleDeletePayout}
+          invoiceSaving={invoiceSaving}
+          payoutSaving={payoutSaving}
+        />
+      );
+    }
+    if (Component === MentorshipManagementSection) {
+      return (
+        <MentorshipManagementSection
+          bookings={dashboard?.bookings ?? []}
           availability={dashboard?.availability ?? []}
-          onSave={handleSaveAvailability}
-          saving={availabilitySaving}
+          packages={dashboard?.packages ?? []}
+          segments={dashboard?.segments ?? []}
+          onCreateBooking={handleCreateBooking}
+          onUpdateBooking={handleUpdateBooking}
+          onDeleteBooking={handleDeleteBooking}
+          onSaveAvailability={handleSaveAvailability}
+          availabilitySaving={availabilitySaving}
+          onSavePackages={handleSavePackages}
+          packagesSaving={packagesSaving}
+          bookingSaving={bookingSaving}
         />
       );
     }
-    if (Component === PackagesSection) {
-      return (
-        <PackagesSection packages={dashboard?.packages ?? []} onSave={handleSavePackages} saving={packagesSaving} />
-      );
-    }
-    if (Component === ResourcesSection) {
-      return <ResourcesSection explorerPlacement={dashboard?.explorerPlacement} />;
-    }
-    return <Component />;
+    return null;
   };
 
   return (
@@ -151,6 +357,11 @@ export default function MentorDashboardPage() {
       onMenuItemSelect={(itemId) => setActiveSection(itemId)}
     >
       <div className="mx-auto w-full max-w-6xl space-y-12 px-6 py-10">
+        {error ? (
+          <div className="rounded-3xl border border-rose-200 bg-rose-50 px-5 py-3 text-sm text-rose-700">
+            {error.message}
+          </div>
+        ) : null}
         {metadata?.generatedAt ? (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-blue-100 bg-blue-50/80 px-5 py-3 text-sm text-slate-600">
             <div className="flex flex-col">

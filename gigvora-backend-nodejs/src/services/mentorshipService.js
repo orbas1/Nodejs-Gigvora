@@ -9,6 +9,11 @@ const MAX_PACKAGE_PRICE = 100000;
 const MAX_SESSION_CAPACITY = 30;
 const MIN_LOOKBACK_DAYS = 7;
 const MAX_LOOKBACK_DAYS = 365;
+const BOOKING_STATUSES = new Set(['Scheduled', 'Awaiting pre-work', 'Completed', 'Cancelled', 'Rescheduled']);
+const PAYMENT_STATUSES = new Set(['Paid', 'Pending', 'Refunded', 'Overdue']);
+const INVOICE_STATUSES = new Set(['Draft', 'Sent', 'Paid', 'Overdue', 'Cancelled']);
+const PAYOUT_STATUSES = new Set(['Scheduled', 'Processing', 'Paid', 'Failed']);
+const MAX_NOTES_LENGTH = 4000;
 
 const mentorStores = new Map();
 
@@ -200,6 +205,172 @@ function sanitisePackage(pack, index) {
   };
 }
 
+function sanitiseBooking(payload, { existing } = {}) {
+  const base = existing ?? {};
+  const mentee = `${payload.mentee ?? base.mentee ?? ''}`.trim();
+  if (!mentee) {
+    throw new ValidationError('Booking must include the mentee name.');
+  }
+
+  const scheduledAt = toIsoDate(payload.scheduledAt ?? base.scheduledAt ?? new Date());
+  const status = `${payload.status ?? base.status ?? 'Scheduled'}`.trim() || 'Scheduled';
+  if (!BOOKING_STATUSES.has(status)) {
+    throw new ValidationError(`Booking status must be one of: ${Array.from(BOOKING_STATUSES).join(', ')}.`);
+  }
+
+  const paymentStatus = `${payload.paymentStatus ?? base.paymentStatus ?? 'Pending'}`.trim() || 'Pending';
+  if (!PAYMENT_STATUSES.has(paymentStatus)) {
+    throw new ValidationError(`Payment status must be one of: ${Array.from(PAYMENT_STATUSES).join(', ')}.`);
+  }
+
+  const priceCandidate = payload.price ?? base.price ?? 0;
+  const price = Number.parseFloat(priceCandidate);
+  if (!Number.isFinite(price) || price < 0) {
+    throw new ValidationError('Booking price must be zero or a positive number.');
+  }
+
+  const currency = `${payload.currency ?? base.currency ?? '£'}`.trim() || '£';
+  const conferenceLink = `${payload.conferenceLink ?? base.conferenceLink ?? ''}`.trim();
+  if (conferenceLink && !/^https?:\/\//i.test(conferenceLink)) {
+    throw new ValidationError('Provide a valid URL for the video conference link.');
+  }
+
+  const notes = `${payload.notes ?? base.notes ?? ''}`.trim();
+
+  return {
+    id: base.id ?? generateId('booking'),
+    mentee,
+    role: `${payload.role ?? base.role ?? ''}`.trim(),
+    package: `${payload.package ?? base.package ?? ''}`.trim(),
+    focus: `${payload.focus ?? base.focus ?? ''}`.trim(),
+    scheduledAt,
+    status,
+    price: Math.round(price * 100) / 100,
+    currency,
+    paymentStatus,
+    channel: `${payload.channel ?? base.channel ?? 'Explorer'}`.trim() || 'Explorer',
+    segment: `${payload.segment ?? base.segment ?? 'active'}`.trim() || 'active',
+    conferenceLink: conferenceLink || undefined,
+    notes: notes ? notes.slice(0, MAX_NOTES_LENGTH) : undefined,
+  };
+}
+
+function generateInvoiceReference() {
+  const now = new Date();
+  return `INV-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${now.getDate()}-${Math.floor(
+    Math.random() * 900 + 100,
+  )}`;
+}
+
+function sanitiseInvoice(payload, { existing } = {}) {
+  const base = existing ?? {};
+  const reference = `${payload.reference ?? base.reference ?? ''}`.trim() || generateInvoiceReference();
+  const mentee = `${payload.mentee ?? base.mentee ?? ''}`.trim();
+  if (!mentee) {
+    throw new ValidationError('Invoice must include the mentee or organisation name.');
+  }
+
+  const amountCandidate = payload.amount ?? base.amount ?? 0;
+  const amount = Number.parseFloat(amountCandidate);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new ValidationError('Invoice amount must be greater than zero.');
+  }
+
+  const currency = `${payload.currency ?? base.currency ?? '£'}`.trim() || '£';
+  const status = `${payload.status ?? base.status ?? 'Draft'}`.trim() || 'Draft';
+  if (!INVOICE_STATUSES.has(status)) {
+    throw new ValidationError(`Invoice status must be one of: ${Array.from(INVOICE_STATUSES).join(', ')}.`);
+  }
+
+  const issuedOn = toIsoDate(payload.issuedOn ?? base.issuedOn ?? new Date());
+  const dueOn = toIsoDate(payload.dueOn ?? base.dueOn ?? issuedOn);
+  if (new Date(dueOn) < new Date(issuedOn)) {
+    throw new ValidationError('Invoice due date cannot be earlier than the issue date.');
+  }
+
+  let paidOn = payload.paidOn ?? base.paidOn;
+  if (paidOn) {
+    paidOn = toIsoDate(paidOn);
+  }
+  if (status === 'Paid' && !paidOn) {
+    paidOn = new Date().toISOString();
+  }
+  if (status !== 'Paid') {
+    paidOn = undefined;
+  }
+
+  const notes = `${payload.notes ?? base.notes ?? ''}`.trim();
+
+  return {
+    id: base.id ?? generateId('invoice'),
+    reference,
+    mentee,
+    package: `${payload.package ?? base.package ?? ''}`.trim(),
+    amount: Math.round(amount * 100) / 100,
+    currency,
+    status,
+    issuedOn,
+    dueOn,
+    paidOn,
+    notes: notes ? notes.slice(0, MAX_NOTES_LENGTH) : undefined,
+  };
+}
+
+function generatePayoutReference() {
+  const now = new Date();
+  return `PO-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${Math.floor(Math.random() * 900 + 100)}`;
+}
+
+function sanitisePayout(payload, { existing } = {}) {
+  const base = existing ?? {};
+  const amountCandidate = payload.amount ?? base.amount ?? 0;
+  const amount = Number.parseFloat(amountCandidate);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new ValidationError('Payout amount must be greater than zero.');
+  }
+
+  const currency = `${payload.currency ?? base.currency ?? '£'}`.trim() || '£';
+  const status = `${payload.status ?? base.status ?? 'Scheduled'}`.trim() || 'Scheduled';
+  if (!PAYOUT_STATUSES.has(status)) {
+    throw new ValidationError(`Payout status must be one of: ${Array.from(PAYOUT_STATUSES).join(', ')}.`);
+  }
+
+  const initiatedOn = toIsoDate(payload.initiatedOn ?? base.initiatedOn ?? new Date());
+  let expectedOn = payload.expectedOn ?? base.expectedOn;
+  if (expectedOn) {
+    expectedOn = toIsoDate(expectedOn);
+  }
+  let paidOn = payload.paidOn ?? base.paidOn;
+  if (paidOn) {
+    paidOn = toIsoDate(paidOn);
+  }
+  if (status === 'Paid' && !paidOn) {
+    paidOn = new Date().toISOString();
+  }
+  if (status !== 'Paid') {
+    paidOn = undefined;
+  }
+
+  const reference = `${payload.reference ?? base.reference ?? ''}`.trim() || generatePayoutReference();
+  const method = `${payload.method ?? base.method ?? 'Bank transfer'}`.trim() || 'Bank transfer';
+  const destination = `${payload.destination ?? base.destination ?? ''}`.trim();
+  const notes = `${payload.notes ?? base.notes ?? ''}`.trim();
+
+  return {
+    id: base.id ?? generateId('payout'),
+    reference,
+    amount: Math.round(amount * 100) / 100,
+    currency,
+    status,
+    initiatedOn,
+    expectedOn,
+    paidOn,
+    method,
+    destination: destination || undefined,
+    notes: notes ? notes.slice(0, MAX_NOTES_LENGTH) : undefined,
+  };
+}
+
 function sanitisePackages(packages) {
   if (!Array.isArray(packages)) {
     throw new ValidationError('Packages must be supplied as an array.');
@@ -285,6 +456,8 @@ function defaultBookings() {
       paymentStatus: 'Paid',
       channel: 'Explorer',
       segment: 'active',
+      conferenceLink: 'https://meet.gigvora.com/jordan/leadership',
+      notes: 'Bring promotion narrative draft and stakeholder map to review.',
     },
     {
       id: generateId('booking'),
@@ -299,6 +472,8 @@ function defaultBookings() {
       paymentStatus: 'Pending',
       channel: 'Referral',
       segment: 'pending',
+      conferenceLink: 'https://meet.gigvora.com/jordan/growth',
+      notes: 'Share Loom demo of latest onboarding flow before session.',
     },
   ];
 }
@@ -343,6 +518,83 @@ function defaultExplorerPlacement() {
   };
 }
 
+function defaultFinance() {
+  const now = Date.now();
+  const fiveDays = 5 * 24 * 60 * 60 * 1000;
+  const fifteenDays = 15 * 24 * 60 * 60 * 1000;
+  return {
+    invoices: [
+      {
+        id: generateId('invoice'),
+        reference: 'INV-2024-001',
+        mentee: 'Alex Rivera',
+        package: 'Leadership accelerator',
+        amount: 1800,
+        currency: '£',
+        status: 'Paid',
+        issuedOn: new Date(now - fifteenDays).toISOString(),
+        dueOn: new Date(now - fifteenDays + fiveDays).toISOString(),
+        paidOn: new Date(now - fifteenDays + 6 * 24 * 60 * 60 * 1000).toISOString(),
+        notes: 'Paid via Explorer checkout with corporate card.',
+      },
+      {
+        id: generateId('invoice'),
+        reference: 'INV-2024-002',
+        mentee: 'Linh Tran',
+        package: 'Product growth audit',
+        amount: 720,
+        currency: '£',
+        status: 'Sent',
+        issuedOn: new Date(now - fiveDays).toISOString(),
+        dueOn: new Date(now + fiveDays).toISOString(),
+        notes: 'Awaiting pre-work upload before payment triggers.',
+      },
+    ],
+    payouts: [
+      {
+        id: generateId('payout'),
+        reference: 'PO-2024-004',
+        amount: 2100,
+        currency: '£',
+        status: 'Processing',
+        initiatedOn: new Date(now - 2 * 24 * 60 * 60 * 1000).toISOString(),
+        expectedOn: new Date(now + 3 * 24 * 60 * 60 * 1000).toISOString(),
+        method: 'Stripe Express',
+        destination: 'GB33-STER-1234-9876',
+        notes: 'Explorer earnings payout in progress.',
+      },
+      {
+        id: generateId('payout'),
+        reference: 'PO-2024-003',
+        amount: 1200,
+        currency: '£',
+        status: 'Paid',
+        initiatedOn: new Date(now - 18 * 24 * 60 * 60 * 1000).toISOString(),
+        expectedOn: new Date(now - 15 * 24 * 60 * 60 * 1000).toISOString(),
+        paidOn: new Date(now - 15 * 24 * 60 * 60 * 1000).toISOString(),
+        method: 'Stripe Express',
+        destination: 'GB33-STER-1234-9876',
+      },
+    ],
+    forecast: {
+      monthlyTarget: 6000,
+      projected: 5400,
+    },
+    revenueStreams: [
+      { id: 'one-on-one', label: '1:1 Coaching', amount: 3200, currency: '£', change: 12 },
+      { id: 'cohorts', label: 'Cohort clinics', amount: 1400, currency: '£', change: 8 },
+      { id: 'async', label: 'Async reviews', amount: 800, currency: '£', change: 17 },
+    ],
+    summary: {
+      outstandingInvoices: 0,
+      paidInvoices: 0,
+      upcomingPayouts: 0,
+      availableBalance: 0,
+      variance: 0,
+    },
+  };
+}
+
 function defaultPerformanceHistory() {
   return [
     {
@@ -384,6 +636,7 @@ function defaultProfile(mentorId) {
     id: mentorId,
     name: 'Jordan Mentor',
     role: 'Mentor-in-residence',
+    headline: 'Product strategy mentor & operator',
     initials: 'JM',
     status: 'Accepting mentees',
     badges: ['Product strategy', 'Leadership pods'],
@@ -395,16 +648,20 @@ function defaultProfile(mentorId) {
     email: 'mentor@gigvora.com',
     timezone: 'GMT',
     focusAreas: ['Leadership sprints', 'Product strategy'],
+    bio: 'Former CPO helping product leaders scale rituals, decisions, and teams. 12+ years of shipping category-leading experiences.',
+    introVideoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+    socialLinks: ['https://www.linkedin.com/in/jordan-mentor', 'https://mentor.gigvora.com'],
     sessionFee: {
       amount: 180,
       currency: '£',
     },
     availabilityNotes: 'Tuesday & Thursday afternoons for deep dives, Friday mornings for async reviews.',
+    packagesOverview: 'Flagship leadership accelerator and product growth audit programmes available in hybrid formats.',
   };
 }
 
 function buildDefaultState(mentorId) {
-  return {
+  const state = {
     mentorId,
     profile: defaultProfile(mentorId),
     availability: defaultAvailability(),
@@ -413,10 +670,13 @@ function buildDefaultState(mentorId) {
     segments: defaultSegments(),
     feedback: defaultFeedback(),
     explorerPlacement: defaultExplorerPlacement(),
+    finance: defaultFinance(),
     performanceHistory: defaultPerformanceHistory(),
     conversionHistory: defaultConversionHistory(),
     updatedAt: new Date().toISOString(),
   };
+  recalculateFinance(state);
+  return state;
 }
 
 function getMentorState(mentorId) {
@@ -538,6 +798,73 @@ function computeConversion(state) {
   ];
 }
 
+function calculateFinanceSummary(finance) {
+  if (!finance) {
+    return {
+      outstandingInvoices: 0,
+      paidInvoices: 0,
+      upcomingPayouts: 0,
+      availableBalance: 0,
+      monthlyTarget: 0,
+      projected: 0,
+      variance: 0,
+    };
+  }
+
+  const invoices = Array.isArray(finance.invoices) ? finance.invoices : [];
+  const payouts = Array.isArray(finance.payouts) ? finance.payouts : [];
+
+  const sumAmounts = (items) =>
+    Math.round(
+      (items.reduce((total, item) => total + Number.parseFloat(item.amount ?? 0), 0) + Number.EPSILON) * 100,
+    ) / 100;
+
+  const outstandingInvoicesAmount = sumAmounts(
+    invoices.filter((invoice) => ['Sent', 'Overdue'].includes(invoice.status)),
+  );
+  const paidInvoicesAmount = sumAmounts(invoices.filter((invoice) => invoice.status === 'Paid'));
+  const upcomingPayoutsAmount = sumAmounts(payouts.filter((payout) => payout.status !== 'Paid'));
+  const completedPayoutsAmount = sumAmounts(payouts.filter((payout) => payout.status === 'Paid'));
+
+  const monthlyTarget = Number.parseFloat(finance.forecast?.monthlyTarget ?? 0) || 0;
+  const projected = Number.isFinite(finance.forecast?.projected)
+    ? Number.parseFloat(finance.forecast.projected)
+    : paidInvoicesAmount + outstandingInvoicesAmount;
+  const variance = Math.round((projected - monthlyTarget) * 100) / 100;
+  const availableBalance = Math.max(0, Math.round((paidInvoicesAmount - completedPayoutsAmount) * 100) / 100);
+
+  return {
+    outstandingInvoices: outstandingInvoicesAmount,
+    paidInvoices: paidInvoicesAmount,
+    upcomingPayouts: upcomingPayoutsAmount,
+    availableBalance,
+    monthlyTarget,
+    projected: Math.round(projected * 100) / 100,
+    variance,
+  };
+}
+
+function recalculateFinance(state) {
+  if (!state.finance) {
+    return;
+  }
+  const summary = calculateFinanceSummary(state.finance);
+  state.finance.summary = summary;
+  if (!state.finance.forecast) {
+    state.finance.forecast = { monthlyTarget: summary.monthlyTarget, projected: summary.projected, variance: summary.variance };
+  } else {
+    state.finance.forecast.projected = summary.projected;
+    state.finance.forecast.variance = summary.variance;
+  }
+}
+
+function refreshDerivedState(state) {
+  computeStats(state, 30);
+  computeConversion(state);
+  recalculateExplorerPlacement(state);
+  recalculateFinance(state);
+}
+
 function recalculateExplorerPlacement(state) {
   const availabilityScore = Math.min(state.availability.length * 4, 16);
   const packageScore = Math.min(state.packages.length * 6, 24);
@@ -584,6 +911,7 @@ export function getMentorDashboard(mentorId, { lookbackDays } = {}) {
   const stats = computeStats(state, days);
   const conversion = computeConversion(state);
   recalculateExplorerPlacement(state);
+  recalculateFinance(state);
 
   const orderedBookings = [...state.bookings].sort(
     (a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime(),
@@ -599,6 +927,7 @@ export function getMentorDashboard(mentorId, { lookbackDays } = {}) {
     segments: deepClone(state.segments),
     feedback: deepClone(state.feedback),
     explorerPlacement: deepClone(state.explorerPlacement),
+    finance: deepClone(state.finance),
     metadata: {
       lookbackDays: days,
       generatedAt: new Date().toISOString(),
@@ -698,6 +1027,170 @@ export function submitMentorProfile(mentorId, payload = {}) {
   return deepClone(state.profile);
 }
 
+export function createMentorBooking(mentorId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const state = getMentorState(normalisedMentorId);
+  const booking = sanitiseBooking(payload);
+  state.bookings.push(booking);
+  state.bookings.sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
+  state.updatedAt = new Date().toISOString();
+  refreshDerivedState(state);
+  return deepClone(booking);
+}
+
+export function updateMentorBooking(mentorId, bookingId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const state = getMentorState(normalisedMentorId);
+  const targetId = `${bookingId ?? ''}`.trim();
+  if (!targetId) {
+    throw new ValidationError('bookingId is required to update a mentorship booking.');
+  }
+  const index = state.bookings.findIndex((booking) => booking.id === targetId);
+  if (index === -1) {
+    throw new ValidationError('The selected mentorship booking could not be found.');
+  }
+  const updated = sanitiseBooking(payload, { existing: state.bookings[index] });
+  updated.id = state.bookings[index].id;
+  state.bookings[index] = updated;
+  state.bookings.sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
+  state.updatedAt = new Date().toISOString();
+  refreshDerivedState(state);
+  return deepClone(updated);
+}
+
+export function deleteMentorBooking(mentorId, bookingId) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const state = getMentorState(normalisedMentorId);
+  const targetId = `${bookingId ?? ''}`.trim();
+  if (!targetId) {
+    throw new ValidationError('bookingId is required to remove a mentorship booking.');
+  }
+  const index = state.bookings.findIndex((booking) => booking.id === targetId);
+  if (index === -1) {
+    throw new ValidationError('The selected mentorship booking could not be found.');
+  }
+  state.bookings.splice(index, 1);
+  state.updatedAt = new Date().toISOString();
+  refreshDerivedState(state);
+  return deepClone(state.bookings);
+}
+
+export function createMentorInvoice(mentorId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const state = getMentorState(normalisedMentorId);
+  const invoice = sanitiseInvoice(payload);
+  if (!state.finance) {
+    state.finance = defaultFinance();
+  }
+  state.finance.invoices = Array.isArray(state.finance.invoices) ? state.finance.invoices : [];
+  state.finance.invoices.push(invoice);
+  state.finance.invoices.sort((a, b) => new Date(b.issuedOn).getTime() - new Date(a.issuedOn).getTime());
+  state.updatedAt = new Date().toISOString();
+  refreshDerivedState(state);
+  return deepClone(invoice);
+}
+
+export function updateMentorInvoice(mentorId, invoiceId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const state = getMentorState(normalisedMentorId);
+  if (!state.finance?.invoices) {
+    throw new ValidationError('No invoices have been recorded yet.');
+  }
+  const targetId = `${invoiceId ?? ''}`.trim();
+  if (!targetId) {
+    throw new ValidationError('invoiceId is required to update a finance record.');
+  }
+  const index = state.finance.invoices.findIndex((invoice) => invoice.id === targetId);
+  if (index === -1) {
+    throw new ValidationError('The selected invoice could not be found.');
+  }
+  const updated = sanitiseInvoice(payload, { existing: state.finance.invoices[index] });
+  updated.id = state.finance.invoices[index].id;
+  state.finance.invoices[index] = updated;
+  state.finance.invoices.sort((a, b) => new Date(b.issuedOn).getTime() - new Date(a.issuedOn).getTime());
+  state.updatedAt = new Date().toISOString();
+  refreshDerivedState(state);
+  return deepClone(updated);
+}
+
+export function deleteMentorInvoice(mentorId, invoiceId) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const state = getMentorState(normalisedMentorId);
+  if (!state.finance?.invoices) {
+    throw new ValidationError('No invoices have been recorded yet.');
+  }
+  const targetId = `${invoiceId ?? ''}`.trim();
+  if (!targetId) {
+    throw new ValidationError('invoiceId is required to delete a finance record.');
+  }
+  const index = state.finance.invoices.findIndex((invoice) => invoice.id === targetId);
+  if (index === -1) {
+    throw new ValidationError('The selected invoice could not be found.');
+  }
+  state.finance.invoices.splice(index, 1);
+  state.updatedAt = new Date().toISOString();
+  refreshDerivedState(state);
+  return deepClone(state.finance.invoices);
+}
+
+export function createMentorPayout(mentorId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const state = getMentorState(normalisedMentorId);
+  const payout = sanitisePayout(payload);
+  if (!state.finance) {
+    state.finance = defaultFinance();
+  }
+  state.finance.payouts = Array.isArray(state.finance.payouts) ? state.finance.payouts : [];
+  state.finance.payouts.push(payout);
+  state.finance.payouts.sort((a, b) => new Date(b.initiatedOn).getTime() - new Date(a.initiatedOn).getTime());
+  state.updatedAt = new Date().toISOString();
+  refreshDerivedState(state);
+  return deepClone(payout);
+}
+
+export function updateMentorPayout(mentorId, payoutId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const state = getMentorState(normalisedMentorId);
+  if (!state.finance?.payouts) {
+    throw new ValidationError('No payouts have been recorded yet.');
+  }
+  const targetId = `${payoutId ?? ''}`.trim();
+  if (!targetId) {
+    throw new ValidationError('payoutId is required to update a payout.');
+  }
+  const index = state.finance.payouts.findIndex((payout) => payout.id === targetId);
+  if (index === -1) {
+    throw new ValidationError('The selected payout could not be found.');
+  }
+  const updated = sanitisePayout(payload, { existing: state.finance.payouts[index] });
+  updated.id = state.finance.payouts[index].id;
+  state.finance.payouts[index] = updated;
+  state.finance.payouts.sort((a, b) => new Date(b.initiatedOn).getTime() - new Date(a.initiatedOn).getTime());
+  state.updatedAt = new Date().toISOString();
+  refreshDerivedState(state);
+  return deepClone(updated);
+}
+
+export function deleteMentorPayout(mentorId, payoutId) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const state = getMentorState(normalisedMentorId);
+  if (!state.finance?.payouts) {
+    throw new ValidationError('No payouts have been recorded yet.');
+  }
+  const targetId = `${payoutId ?? ''}`.trim();
+  if (!targetId) {
+    throw new ValidationError('payoutId is required to delete a payout.');
+  }
+  const index = state.finance.payouts.findIndex((payout) => payout.id === targetId);
+  if (index === -1) {
+    throw new ValidationError('The selected payout could not be found.');
+  }
+  state.finance.payouts.splice(index, 1);
+  state.updatedAt = new Date().toISOString();
+  refreshDerivedState(state);
+  return deepClone(state.finance.payouts);
+}
+
 export function __resetMentorshipState() {
   mentorStores.clear();
 }
@@ -707,5 +1200,14 @@ export default {
   updateMentorAvailability,
   updateMentorPackages,
   submitMentorProfile,
+  createMentorBooking,
+  updateMentorBooking,
+  deleteMentorBooking,
+  createMentorInvoice,
+  updateMentorInvoice,
+  deleteMentorInvoice,
+  createMentorPayout,
+  updateMentorPayout,
+  deleteMentorPayout,
   __resetMentorshipState,
 };

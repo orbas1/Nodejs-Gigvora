@@ -1,27 +1,21 @@
 export const MENU_GROUPS = [
   {
-    id: 'overview',
-    label: 'Overview',
+    id: 'home',
+    label: 'Home',
     items: [
-      { id: 'performance', name: 'Performance summary' },
-      { id: 'pipeline', name: 'Booking pipeline' },
+      { id: 'home-profile', name: 'Profile' },
+      { id: 'home-overview', name: 'Home' },
     ],
   },
   {
-    id: 'commercials',
-    label: 'Commercials',
-    items: [
-      { id: 'availability', name: 'Availability & formats' },
-      { id: 'packages', name: 'Packages & pricing' },
-    ],
+    id: 'finance',
+    label: 'Finance management',
+    items: [{ id: 'finance', name: 'Finance management' }],
   },
   {
-    id: 'experience',
-    label: 'Experience',
-    items: [
-      { id: 'resources', name: 'Resources & feedback' },
-      { id: 'marketing', name: 'Explorer placement' },
-    ],
+    id: 'mentorship',
+    label: 'Mentorship management',
+    items: [{ id: 'mentorship', name: 'Mentorship management' }],
   },
 ];
 
