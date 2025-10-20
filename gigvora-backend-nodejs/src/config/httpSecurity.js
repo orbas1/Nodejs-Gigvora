@@ -11,6 +11,7 @@ import {
 } from './runtimeConfig.js';
 
 const DEFAULT_ALLOWED_ORIGINS = [
+  'https://*.gigvora.com',
   'https://app.gigvora.com',
   'https://admin.gigvora.com',
   'https://console.gigvora.com',

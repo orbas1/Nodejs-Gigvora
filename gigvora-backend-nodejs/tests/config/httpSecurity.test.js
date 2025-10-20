@@ -40,20 +40,22 @@ describe('httpSecurity configuration', () => {
       'https://app-preview.gigvora.com',
       'https://partners.gigvora.com',
       'https://*.gigvora-staging.com',
+      'https://*.gigvora.com',
       'https://app.gigvora.com',
     ]));
   });
 
   test('isOriginAllowed evaluates wildcard and exact matches', () => {
     const rules = compileAllowedOriginRules([
-      'https://app.gigvora.com',
+      'https://*.gigvora.com',
       'https://*.gigvora-staging.com',
     ]);
 
     expect(isOriginAllowed('https://app.gigvora.com', rules)).toBe(true);
-    expect(isOriginAllowed('https://admin.gigvora.com', rules)).toBe(false);
+    expect(isOriginAllowed('https://admin.gigvora.com', rules)).toBe(true);
     expect(isOriginAllowed('https://ops.gigvora-staging.com', rules)).toBe(true);
     expect(isOriginAllowed('https://malicious.example.com', rules)).toBe(false);
+    expect(isOriginAllowed('https://gigvora.com.evil.com', rules)).toBe(false);
   });
 
   test('createCorsMiddleware allows trusted origins and sets CORS headers', async () => {

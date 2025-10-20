@@ -3,6 +3,7 @@ import Redis from 'ioredis';
 import { createAdapter } from '@socket.io/redis-adapter';
 import baseLogger from '../utils/logger.js';
 import { getRuntimeConfig } from '../config/runtimeConfig.js';
+import { resolveAllowedOrigins } from '../config/httpSecurity.js';
 import authenticateSocket from './socketAuth.js';
 import { createConnectionRegistry } from './connectionRegistry.js';
 import { createPresenceStore } from './presenceStore.js';
@@ -16,7 +17,7 @@ let ioInstance = null;
 let redisClients = [];
 let connectionRegistry = null;
 
-function resolveCorsOrigins(runtimeConfig) {
+function resolveCorsOrigins(runtimeConfig, env = process.env) {
   const realtimeOrigins = runtimeConfig?.realtime?.cors?.allowedOrigins ?? [];
   if (realtimeOrigins.length > 0) {
     return realtimeOrigins;
@@ -25,7 +26,7 @@ function resolveCorsOrigins(runtimeConfig) {
   if (securityOrigins.length > 0) {
     return securityOrigins;
   }
-  return ['*'];
+  return resolveAllowedOrigins(env);
 }
 
 function buildRedisClients(redisConfig, logger) {
