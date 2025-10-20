@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import {
   ArrowPathIcon,
   ArrowUturnLeftIcon,
@@ -132,41 +133,94 @@ function TranscriptItem({ message }) {
   );
 }
 
-export default function SupportDeskPanel({ freelancerId, onClose }) {
-  const [state, setState] = useState({ loading: true, error: null, data: null, cachedAt: null });
+export default function SupportDeskPanel({ userId: userIdProp, freelancerId, initialSnapshot, onClose }) {
+  const resolvedUserId = useMemo(() => {
+    const candidates = [userIdProp, freelancerId];
+    for (const candidate of candidates) {
+      if (candidate == null) {
+        continue;
+      }
+      const parsed = Number.parseInt(candidate, 10);
+      if (Number.isInteger(parsed) && parsed > 0) {
+        return parsed;
+      }
+    }
+    return null;
+  }, [userIdProp, freelancerId]);
+
+  const seededSnapshot = useMemo(() => {
+    if (!initialSnapshot) {
+      return null;
+    }
+    if (initialSnapshot.data) {
+      return {
+        data: initialSnapshot.data,
+        cachedAt: initialSnapshot.cachedAt ?? null,
+        fromCache: initialSnapshot.fromCache ?? false,
+      };
+    }
+    return { data: initialSnapshot, cachedAt: null, fromCache: false };
+  }, [initialSnapshot]);
+
+  const [state, setState] = useState(() =>
+    seededSnapshot
+      ? { loading: false, error: null, data: seededSnapshot.data, cachedAt: seededSnapshot.cachedAt ?? null }
+      : { loading: true, error: null, data: null, cachedAt: null },
+  );
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadSnapshot = async ({ forceRefresh = false } = {}) => {
-    if (!Number.isInteger(Number(freelancerId)) || Number(freelancerId) <= 0) {
-      setState({ loading: false, error: 'Freelancer context is missing for the support desk module.', data: null, cachedAt: null });
-      return;
-    }
+  const loadSnapshot = useCallback(
+    async ({ forceRefresh = false } = {}) => {
+      if (!resolvedUserId) {
+        setState({
+          loading: false,
+          error: 'User context is missing for the support desk module.',
+          data: null,
+          cachedAt: null,
+        });
+        return;
+      }
 
-    if (forceRefresh) {
-      setRefreshing(true);
-    } else {
-      setState((prev) => ({ ...prev, loading: prev.data == null, error: null }));
-    }
+      if (forceRefresh) {
+        setRefreshing(true);
+      } else {
+        setState((prev) => ({ ...prev, loading: prev.data == null, error: null }));
+      }
 
-    try {
-      const result = await getSupportDeskSnapshot(freelancerId, { forceRefresh });
-      setState({ loading: false, error: null, data: result.data, cachedAt: result.cachedAt ?? null });
-    } catch (error) {
-      const message = error?.message ?? 'Unable to load support desk insights.';
-      setState((prev) => ({ ...prev, loading: false, error: message }));
-    } finally {
-      setRefreshing(false);
-    }
-  };
+      try {
+        const result = await getSupportDeskSnapshot(resolvedUserId, { forceRefresh });
+        setState({ loading: false, error: null, data: result.data, cachedAt: result.cachedAt ?? null });
+      } catch (error) {
+        const message = error?.message ?? 'Unable to load support desk insights.';
+        setState((prev) => ({ ...prev, loading: false, error: message }));
+      } finally {
+        setRefreshing(false);
+      }
+    },
+    [resolvedUserId],
+  );
 
   useEffect(() => {
-    if (!Number.isInteger(Number(freelancerId)) || Number(freelancerId) <= 0) {
-      setState({ loading: false, error: 'Freelancer context is missing for the support desk module.', data: null, cachedAt: null });
+    if (seededSnapshot) {
+      setState({
+        loading: false,
+        error: null,
+        data: seededSnapshot.data,
+        cachedAt: seededSnapshot.cachedAt ?? null,
+      });
+      return;
+    }
+    if (!resolvedUserId) {
+      setState({
+        loading: false,
+        error: 'User context is missing for the support desk module.',
+        data: null,
+        cachedAt: null,
+      });
       return;
     }
     loadSnapshot();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [freelancerId]);
+  }, [seededSnapshot, resolvedUserId, loadSnapshot]);
 
   const isLoading = state.loading && !state.data;
   const hasBlockingError = state.error && !state.data;
@@ -648,3 +702,17 @@ export default function SupportDeskPanel({ freelancerId, onClose }) {
     </section>
   );
 }
+
+SupportDeskPanel.propTypes = {
+  userId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  freelancerId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  initialSnapshot: PropTypes.oneOfType([PropTypes.object, PropTypes.shape({})]),
+  onClose: PropTypes.func,
+};
+
+SupportDeskPanel.defaultProps = {
+  userId: null,
+  freelancerId: null,
+  initialSnapshot: null,
+  onClose: null,
+};
