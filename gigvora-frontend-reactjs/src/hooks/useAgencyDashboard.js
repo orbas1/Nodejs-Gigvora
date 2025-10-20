@@ -1,60 +1,38 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import useCachedResource from './useCachedResource.js';
 import { fetchAgencyDashboard } from '../services/agency.js';
 
-export function useAgencyDashboard({ workspaceId, workspaceSlug, lookbackDays = 90, enabled = true } = {}) {
-  const cacheKey = useMemo(() => {
-    const identifier = workspaceSlug ?? workspaceId ?? 'default';
-    return `agency:dashboard:${identifier}:${lookbackDays}`;
-  }, [workspaceId, workspaceSlug, lookbackDays]);
+function buildCacheKey(workspaceId, workspaceSlug, lookbackDays) {
+  const identifier = workspaceSlug ?? workspaceId ?? 'default';
+  const normalizedLookback = Number.isFinite(Number(lookbackDays)) ? Number(lookbackDays) : '90';
+  return `agency:dashboard:${identifier}:${normalizedLookback}`;
+}
 
-  const fetcher = useCallback(
-    ({ signal } = {}) => fetchAgencyDashboard({ workspaceId, workspaceSlug, lookbackDays, signal }),
-    [workspaceId, workspaceSlug, lookbackDays],
+export function useAgencyDashboard({ workspaceId, workspaceSlug, lookbackDays = 90, enabled = true } = {}) {
+  const cacheKey = useMemo(() => buildCacheKey(workspaceId, workspaceSlug, lookbackDays), [
+    workspaceId,
+    workspaceSlug,
+    lookbackDays,
+  ]);
+
+  const resource = useCachedResource(
+    cacheKey,
+    ({ signal, force } = {}) =>
+      fetchAgencyDashboard({
+        workspaceId,
+        workspaceSlug,
+        lookbackDays,
+        signal,
+        fresh: force,
+      }),
+    {
+      enabled,
+      ttl: 1000 * 45,
+      dependencies: [workspaceId, workspaceSlug, lookbackDays],
+    },
   );
 
-  return useCachedResource(cacheKey, fetcher, {
-    enabled,
-    dependencies: [workspaceId, workspaceSlug, lookbackDays],
-    ttl: 1000 * 45,
-  });
+  return resource;
 }
 
 export default useAgencyDashboard;
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { fetchAgencyDashboard } from '../services/agency.js';
-
-export default function useAgencyDashboard(params = {}) {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-
-  const memoParams = useMemo(
-    () => ({
-      workspaceId: params.workspaceId,
-      workspaceSlug: params.workspaceSlug,
-      lookbackDays: params.lookbackDays,
-    }),
-    [params.workspaceId, params.workspaceSlug, params.lookbackDays],
-  );
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetchAgencyDashboard(memoParams);
-      setData(response ?? null);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error('Unable to load agency dashboard.'));
-      setData(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [memoParams]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  return { data, loading, error, refresh: load };
-}
