@@ -65,10 +65,16 @@ export default function JobApplicationWorkspaceContainer({ userId, initialData }
   }, [userId]);
 
   useEffect(() => {
-    if (!initialData) {
+    if (initialData) {
+      setWorkspace(initialData);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+    if (userId) {
       loadWorkspace();
     }
-  }, [initialData, loadWorkspace]);
+  }, [initialData, loadWorkspace, userId]);
 
   const openForm = useCallback((type, mode = 'create', record = null) => {
     setFormState({ open: true, type, mode, record, busy: false, error: null });
