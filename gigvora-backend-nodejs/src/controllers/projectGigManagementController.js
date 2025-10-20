@@ -6,6 +6,8 @@ import {
   updateProjectAsset,
   deleteProjectAsset,
   updateProjectWorkspace,
+  archiveProject,
+  restoreProject,
   createProjectMilestone,
   updateProjectMilestone,
   deleteProjectMilestone,
@@ -24,133 +26,20 @@ import {
   createProjectReview,
   createEscrowTransaction,
   updateEscrowSettings,
-  addGigOrderActivity,
-  createGigOrderMessage,
-  createGigOrderEscrowCheckpoint,
-  updateGigOrderEscrowCheckpoint,
-  archiveProject,
-  restoreProject,
   addGigTimelineEvent,
   updateGigTimelineEvent,
   addGigSubmission,
-  updateGigSubmission,
+  updateGigSubmission as updateGigSubmissionService,
   postGigChatMessage,
   getGigOrderDetail,
   createGigTimelineEvent,
   createGigSubmission,
-  updateGigSubmission,
-  postGigChatMessage,
   acknowledgeGigChatMessage,
+  createGigOrderMessage,
+  createGigOrderEscrowCheckpoint,
+  updateGigOrderEscrowCheckpoint,
 } from '../services/projectGigManagementWorkflowService.js';
 import { ensureManageAccess, ensureViewAccess, parseOwnerId } from '../utils/projectAccess.js';
-import { AuthorizationError } from '../utils/errors.js';
-import {
-  resolveRequestPermissions,
-  resolveRequestUserId,
-  resolveRequestUserRole,
-} from '../utils/requestContext.js';
-
-const PROJECT_GIG_ALLOWED_ROLES = new Set([
-  'client',
-  'client_admin',
-  'client_lead',
-  'operations_lead',
-  'operations_manager',
-  'program_manager',
-  'project_owner',
-  'project_operator',
-  'talent_lead',
-  'admin',
-]);
-
-function normalizeRole(role) {
-  return role?.toString().trim().toLowerCase().replace(/[^a-z0-9]+/g, '_') ?? null;
-}
-
-function resolveAccess(req, ownerId) {
-  const actorId = resolveRequestUserId(req);
-  const actorRoleRaw = resolveRequestUserRole(req);
-  const permissions = resolveRequestPermissions(req) ?? [];
-  const normalizedRole = normalizeRole(actorRoleRaw);
-
-  const isOwner = actorId != null && ownerId === actorId;
-  const permissionFlags = permissions
-    .map((permission) => permission.toString().toLowerCase())
-    .reduce(
-      (acc, permission) => {
-        if (permission === 'project-gig-management:manage') {
-          acc.manage = true;
-        }
-        if (permission === 'project-gig-management:read' || permission === 'project-gig-management:manage') {
-          acc.read = true;
-        }
-        return acc;
-      },
-      { read: false, manage: false },
-    );
-
-  const hasRoleAccess = normalizedRole
-    ? Array.from(PROJECT_GIG_ALLOWED_ROLES).some(
-        (role) => normalizedRole === role || normalizedRole.endsWith(role) || normalizedRole.includes(role),
-      )
-    : false;
-
-  const canManage = Boolean(isOwner || permissionFlags.manage || hasRoleAccess);
-  const canView = Boolean(canManage || permissionFlags.read);
-
-  const reason = canManage
-    ? null
-    : actorRoleRaw
-    ? `Gig operations are restricted for the ${actorRoleRaw.replace(/_/g, ' ')} role.`
-    : 'Gig operations are restricted for your current access level.';
-
-  return {
-    canManage,
-    canView,
-    actorId,
-    actorRole: normalizedRole,
-    allowedRoles: Array.from(PROJECT_GIG_ALLOWED_ROLES),
-    reason,
-  };
-}
-
-function ensureViewAccess(req, ownerId) {
-  const access = resolveAccess(req, ownerId);
-  if (!access.canView) {
-    throw new AuthorizationError('You do not have permission to view gig operations for this member.');
-  }
-  return access;
-}
-
-function ensureManageAccess(req, ownerId) {
-  const access = ensureViewAccess(req, ownerId);
-  if (!access.canManage) {
-    throw new AuthorizationError('You do not have permission to manage gig operations for this member.');
-  }
-  return access;
-}
-
-function parseOwnerId(req) {
-  const candidates = [req.params?.userId, req.params?.id, req.user?.id];
-  for (const candidate of candidates) {
-    const parsed = Number.parseInt(candidate, 10);
-    if (Number.isInteger(parsed) && parsed > 0) {
-      return parsed;
-    }
-  }
-  const fallback = resolveRequestUserId(req);
-  if (fallback != null) {
-    return fallback;
-  }
-  return null;
-}
-
-export async function overview(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureViewAccess(req, ownerId);
-  const snapshot = await getProjectGigManagementOverview(ownerId);
-  res.json({ ...snapshot, access });
-}
 
 async function withDashboardRefresh(ownerId, access, resolver) {
   const result = await resolver();
@@ -164,6 +53,13 @@ async function withOrderRefresh(ownerId, orderId, resolver) {
   return { result, detail };
 }
 
+export async function overview(req, res) {
+  const ownerId = parseOwnerId(req);
+  const access = ensureViewAccess(req, ownerId);
+  const snapshot = await getProjectGigManagementOverview(ownerId);
+  res.json({ ...snapshot, access });
+}
+
 export async function storeProject(req, res) {
   const ownerId = parseOwnerId(req);
   const access = ensureManageAccess(req, ownerId);
@@ -175,9 +71,7 @@ export async function patchProject(req, res) {
   const ownerId = parseOwnerId(req);
   const access = ensureManageAccess(req, ownerId);
   const projectId = Number.parseInt(req.params?.projectId, 10);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
-    updateProject(ownerId, projectId, req.body),
-  );
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () => updateProject(ownerId, projectId, req.body));
   res.json({ project: result, dashboard: snapshot });
 }
 
@@ -185,9 +79,7 @@ export async function storeAsset(req, res) {
   const ownerId = parseOwnerId(req);
   const access = ensureManageAccess(req, ownerId);
   const projectId = Number.parseInt(req.params?.projectId, 10);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
-    addProjectAsset(ownerId, projectId, req.body),
-  );
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () => addProjectAsset(ownerId, projectId, req.body));
   res.status(201).json({ asset: result, dashboard: snapshot });
 }
 
@@ -318,9 +210,7 @@ export async function patchGigOrder(req, res) {
   const ownerId = parseOwnerId(req);
   const access = ensureManageAccess(req, ownerId);
   const orderId = Number.parseInt(req.params?.orderId, 10);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
-    updateGigOrder(ownerId, orderId, req.body),
-  );
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () => updateGigOrder(ownerId, orderId, req.body));
   res.json({ order: result, dashboard: snapshot });
 }
 
@@ -368,7 +258,9 @@ export async function upsertAutoMatchSettings(req, res) {
 export async function storeAutoMatch(req, res) {
   const ownerId = parseOwnerId(req);
   const access = ensureManageAccess(req, ownerId);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () => recordAutoMatchCandidate(ownerId, req.body));
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
+    recordAutoMatchCandidate(ownerId, req.body),
+  );
   res.status(201).json({ match: result, dashboard: snapshot });
 }
 
@@ -392,7 +284,9 @@ export async function storeReview(req, res) {
 export async function storeEscrowTransaction(req, res) {
   const ownerId = parseOwnerId(req);
   const access = ensureManageAccess(req, ownerId);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () => createEscrowTransaction(ownerId, req.body));
+  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
+    createEscrowTransaction(ownerId, req.body),
+  );
   res.status(201).json({ transaction: result, dashboard: snapshot });
 }
 
@@ -401,18 +295,31 @@ export async function patchEscrowSettings(req, res) {
   const access = ensureManageAccess(req, ownerId);
   const { result, snapshot } = await withDashboardRefresh(ownerId, access, () => updateEscrowSettings(ownerId, req.body));
   res.json({ account: result, dashboard: snapshot });
+}
+
 export async function storeGigTimelineEvent(req, res) {
   const ownerId = parseOwnerId(req);
   const access = ensureManageAccess(req, ownerId);
   const orderId = Number.parseInt(req.params?.orderId, 10);
-  const actorContext = {
-    actorId: access.actorId,
-    actorRole: access.actorRole,
-  };
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
-    addGigOrderActivity(ownerId, orderId, req.body, actorContext),
+  const useNewPayload =
+    req.body.eventType != null || req.body.visibility != null || req.body.summary != null || req.body.attachments != null;
+  const handler = () =>
+    (useNewPayload
+      ? createGigTimelineEvent(ownerId, orderId, req.body, { actorId: access.actorId })
+      : addGigTimelineEvent(ownerId, orderId, req.body));
+  const { result, detail } = await withOrderRefresh(ownerId, orderId, handler);
+  res.status(201).json({ event: result, order: detail });
+}
+
+export async function patchGigTimelineEvent(req, res) {
+  const ownerId = parseOwnerId(req);
+  const access = ensureManageAccess(req, ownerId);
+  const orderId = Number.parseInt(req.params?.orderId, 10);
+  const eventId = Number.parseInt(req.params?.eventId, 10);
+  const { result, detail } = await withOrderRefresh(ownerId, orderId, () =>
+    updateGigTimelineEvent(ownerId, orderId, eventId, req.body),
   );
-  res.status(201).json({ activity: result, dashboard: snapshot });
+  res.json({ event: result, order: detail });
 }
 
 export async function storeGigMessage(req, res) {
@@ -434,10 +341,7 @@ export async function storeGigEscrowCheckpoint(req, res) {
   const ownerId = parseOwnerId(req);
   const access = ensureManageAccess(req, ownerId);
   const orderId = Number.parseInt(req.params?.orderId, 10);
-  const actorContext = {
-    actorId: access.actorId,
-    actorRole: access.actorRole,
-  };
+  const actorContext = { actorId: access.actorId, actorRole: access.actorRole };
   const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
     createGigOrderEscrowCheckpoint(ownerId, orderId, req.body, actorContext),
   );
@@ -448,58 +352,22 @@ export async function patchGigEscrowCheckpoint(req, res) {
   const ownerId = parseOwnerId(req);
   const access = ensureManageAccess(req, ownerId);
   const checkpointId = Number.parseInt(req.params?.checkpointId, 10);
-  const actorContext = {
-    actorId: access.actorId,
-    actorRole: access.actorRole,
-  };
+  const actorContext = { actorId: access.actorId, actorRole: access.actorRole };
   const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
     updateGigOrderEscrowCheckpoint(ownerId, checkpointId, req.body, actorContext),
   );
   res.json({ checkpoint: result, dashboard: snapshot });
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
-    addGigTimelineEvent(ownerId, orderId, req.body),
-  );
-  res.status(201).json({ event: result, dashboard: snapshot });
-}
-
-export async function patchGigTimelineEvent(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const orderId = Number.parseInt(req.params?.orderId, 10);
-  const eventId = Number.parseInt(req.params?.eventId, 10);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
-    updateGigTimelineEvent(ownerId, orderId, eventId, req.body),
-  );
-  res.json({ event: result, dashboard: snapshot });
-export async function showGigOrder(req, res) {
-  const ownerId = parseOwnerId(req);
-  ensureViewAccess(req, ownerId);
-  const orderId = Number.parseInt(req.params?.orderId, 10);
-  const detail = await getGigOrderDetail(ownerId, orderId);
-  res.json({ order: detail });
-}
-
-export async function storeGigTimelineEvent(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const orderId = Number.parseInt(req.params?.orderId, 10);
-  const { result, detail } = await withOrderRefresh(ownerId, orderId, () =>
-    createGigTimelineEvent(ownerId, orderId, req.body, { actorId: access.actorId }),
-  );
-  res.status(201).json({ event: result, order: detail });
 }
 
 export async function storeGigSubmission(req, res) {
   const ownerId = parseOwnerId(req);
   const access = ensureManageAccess(req, ownerId);
   const orderId = Number.parseInt(req.params?.orderId, 10);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
-    addGigSubmission(ownerId, orderId, req.body),
-  );
-  res.status(201).json({ submission: result, dashboard: snapshot });
-  const { result, detail } = await withOrderRefresh(ownerId, orderId, () =>
-    createGigSubmission(ownerId, orderId, req.body, { actorId: access.actorId }),
-  );
+  const handler = () =>
+    (req.body.eventType || req.body.attachments || req.body.description
+      ? createGigSubmission(ownerId, orderId, req.body, { actorId: access.actorId })
+      : addGigSubmission(ownerId, orderId, req.body));
+  const { result, detail } = await withOrderRefresh(ownerId, orderId, handler);
   res.status(201).json({ submission: result, order: detail });
 }
 
@@ -508,12 +376,8 @@ export async function patchGigSubmission(req, res) {
   const access = ensureManageAccess(req, ownerId);
   const orderId = Number.parseInt(req.params?.orderId, 10);
   const submissionId = Number.parseInt(req.params?.submissionId, 10);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
-    updateGigSubmission(ownerId, orderId, submissionId, req.body),
-  );
-  res.json({ submission: result, dashboard: snapshot });
   const { result, detail } = await withOrderRefresh(ownerId, orderId, () =>
-    updateGigSubmission(ownerId, orderId, submissionId, req.body, { actorId: access.actorId }),
+    updateGigSubmissionService(ownerId, orderId, submissionId, req.body, { actorId: access.actorId }),
   );
   res.json({ submission: result, order: detail });
 }
@@ -522,14 +386,19 @@ export async function storeGigChatMessage(req, res) {
   const ownerId = parseOwnerId(req);
   const access = ensureManageAccess(req, ownerId);
   const orderId = Number.parseInt(req.params?.orderId, 10);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
-    postGigChatMessage(ownerId, orderId, req.body),
-  );
-  res.status(201).json({ message: result, dashboard: snapshot });
+  const actorContext = { actorId: access.actorId, actorRole: access.actorRole };
   const { result, detail } = await withOrderRefresh(ownerId, orderId, () =>
-    postGigChatMessage(ownerId, orderId, req.body, { actorId: access.actorId, actorRole: access.actorRole }),
+    postGigChatMessage(ownerId, orderId, req.body, actorContext),
   );
   res.status(201).json({ message: result, order: detail });
+}
+
+export async function showGigOrder(req, res) {
+  const ownerId = parseOwnerId(req);
+  ensureViewAccess(req, ownerId);
+  const orderId = Number.parseInt(req.params?.orderId, 10);
+  const detail = await getGigOrderDetail(ownerId, orderId);
+  res.json({ order: detail });
 }
 
 export async function acknowledgeGigMessage(req, res) {
@@ -572,17 +441,13 @@ export default {
   storeEscrowTransaction,
   patchEscrowSettings,
   storeGigTimelineEvent,
+  patchGigTimelineEvent,
   storeGigMessage,
   storeGigEscrowCheckpoint,
   patchGigEscrowCheckpoint,
-  patchGigTimelineEvent,
   storeGigSubmission,
   patchGigSubmission,
   storeGigChatMessage,
   showGigOrder,
-  storeGigTimelineEvent,
-  storeGigSubmission,
-  patchGigSubmission,
-  storeGigChatMessage,
   acknowledgeGigMessage,
 };
