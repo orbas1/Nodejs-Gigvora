@@ -4,6 +4,11 @@ import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import AdminOverviewPanel from '../../components/admin/AdminOverviewPanel.jsx';
 import AdminAgencyManagementSection from '../../components/admin/agency-management/AdminAgencyManagementSection.jsx';
 import AdminCompanyManagementSection from '../../components/admin/company-management/AdminCompanyManagementSection.jsx';
+import AdminMentorManagementSection from '../../components/admin/mentor-management/AdminMentorManagementSection.jsx';
+import AdminFreelancerManagementSection from '../../components/admin/freelancer-management/AdminFreelancerManagementSection.jsx';
+import AdminUserManagementSection from '../../components/admin/user-management/AdminUserManagementSection.jsx';
+import AdminSettingsSection from '../../components/admin/settings/AdminSettingsSection.jsx';
+import AdminOperationsHubSection from '../../components/admin/hub/AdminOperationsHubSection.jsx';
 import AccessDeniedPanel from '../../components/dashboard/AccessDeniedPanel.jsx';
 import useSession from '../../hooks/useSession.js';
 import { fetchAdminDashboard, updateAdminOverview } from '../../services/admin.js';
@@ -22,6 +27,16 @@ const MENU_SECTIONS = [
     items: [
       { id: 'agency-management', name: 'Agency management', sectionId: 'admin-agency-management' },
       { id: 'company-management', name: 'Company management', sectionId: 'admin-company-management' },
+      { id: 'mentor-management', name: 'Mentors', sectionId: 'admin-mentors' },
+      { id: 'freelancer-management', name: 'Freelancers', sectionId: 'admin-freelancers' },
+      { id: 'user-management', name: 'Users', sectionId: 'admin-users' },
+    ],
+  },
+  {
+    label: 'Platform',
+    items: [
+      { id: 'settings', name: 'Settings', sectionId: 'admin-settings' },
+      { id: 'hub', name: 'Hub', sectionId: 'admin-hub' },
     ],
   },
 ];
@@ -30,6 +45,11 @@ const SECTIONS = [
   { id: 'overview-home', title: 'Start' },
   { id: 'admin-agency-management', title: 'Agency management' },
   { id: 'admin-company-management', title: 'Company management' },
+  { id: 'admin-mentors', title: 'Mentors' },
+  { id: 'admin-freelancers', title: 'Freelancers' },
+  { id: 'admin-users', title: 'Users' },
+  { id: 'admin-settings', title: 'Settings' },
+  { id: 'admin-hub', title: 'Hub' },
 ];
 
 const AVAILABLE_DASHBOARDS = ['admin', 'user', 'freelancer', 'company', 'agency', 'headhunter'];
@@ -160,6 +180,11 @@ export default function AdminDashboardPage() {
         {overviewContent}
         <AdminAgencyManagementSection />
         <AdminCompanyManagementSection />
+        <AdminMentorManagementSection />
+        <AdminFreelancerManagementSection />
+        <AdminUserManagementSection />
+        <AdminSettingsSection />
+        <AdminOperationsHubSection />
       </div>
     </DashboardLayout>
   );
