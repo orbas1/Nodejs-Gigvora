@@ -2,14 +2,16 @@ import apiClient from './apiClient.js';
 
 const BASE_PATH = '/users';
 
+const unwrap = (response) => (response?.data ?? response ?? null);
+
 export async function fetchProjectGigManagement(userId) {
   const response = await apiClient.get(`${BASE_PATH}/${userId}/project-gig-management`);
-  return response.data;
+  return unwrap(response);
 }
 
 export async function createProject(userId, payload) {
   const response = await apiClient.post(`${BASE_PATH}/${userId}/project-gig-management/projects`, payload);
-  return response.data;
+  return unwrap(response);
 }
 
 export async function updateProject(userId, projectId, payload) {
@@ -17,7 +19,7 @@ export async function updateProject(userId, projectId, payload) {
     `${BASE_PATH}/${userId}/project-gig-management/projects/${projectId}`,
     payload,
   );
-  return response.data;
+  return unwrap(response);
 }
 
 export async function addProjectAsset(userId, projectId, payload) {
@@ -25,7 +27,7 @@ export async function addProjectAsset(userId, projectId, payload) {
     `${BASE_PATH}/${userId}/project-gig-management/projects/${projectId}/assets`,
     payload,
   );
-  return response.data;
+  return unwrap(response);
 }
 
 export async function updateProjectAsset(userId, projectId, assetId, payload) {
@@ -33,14 +35,14 @@ export async function updateProjectAsset(userId, projectId, assetId, payload) {
     `${BASE_PATH}/${userId}/project-gig-management/projects/${projectId}/assets/${assetId}`,
     payload,
   );
-  return response.data;
+  return unwrap(response);
 }
 
 export async function deleteProjectAsset(userId, projectId, assetId) {
   const response = await apiClient.delete(
     `${BASE_PATH}/${userId}/project-gig-management/projects/${projectId}/assets/${assetId}`,
   );
-  return response.data;
+  return unwrap(response);
 }
 
 export async function updateWorkspace(userId, projectId, payload) {
@@ -48,7 +50,7 @@ export async function updateWorkspace(userId, projectId, payload) {
     `${BASE_PATH}/${userId}/project-gig-management/projects/${projectId}/workspace`,
     payload,
   );
-  return response.data;
+  return unwrap(response);
 }
 
 export async function createProjectMilestone(userId, projectId, payload) {
@@ -56,7 +58,7 @@ export async function createProjectMilestone(userId, projectId, payload) {
     `${BASE_PATH}/${userId}/project-gig-management/projects/${projectId}/milestones`,
     payload,
   );
-  return response.data;
+  return unwrap(response);
 }
 
 export async function updateProjectMilestone(userId, projectId, milestoneId, payload) {
@@ -64,14 +66,14 @@ export async function updateProjectMilestone(userId, projectId, milestoneId, pay
     `${BASE_PATH}/${userId}/project-gig-management/projects/${projectId}/milestones/${milestoneId}`,
     payload,
   );
-  return response.data;
+  return unwrap(response);
 }
 
 export async function deleteProjectMilestone(userId, projectId, milestoneId) {
   const response = await apiClient.delete(
     `${BASE_PATH}/${userId}/project-gig-management/projects/${projectId}/milestones/${milestoneId}`,
   );
-  return response.data;
+  return unwrap(response);
 }
 
 export async function createProjectCollaborator(userId, projectId, payload) {
@@ -79,7 +81,7 @@ export async function createProjectCollaborator(userId, projectId, payload) {
     `${BASE_PATH}/${userId}/project-gig-management/projects/${projectId}/collaborators`,
     payload,
   );
-  return response.data;
+  return unwrap(response);
 }
 
 export async function updateProjectCollaborator(userId, projectId, collaboratorId, payload) {
@@ -87,14 +89,14 @@ export async function updateProjectCollaborator(userId, projectId, collaboratorI
     `${BASE_PATH}/${userId}/project-gig-management/projects/${projectId}/collaborators/${collaboratorId}`,
     payload,
   );
-  return response.data;
+  return unwrap(response);
 }
 
 export async function deleteProjectCollaborator(userId, projectId, collaboratorId) {
   const response = await apiClient.delete(
     `${BASE_PATH}/${userId}/project-gig-management/projects/${projectId}/collaborators/${collaboratorId}`,
   );
-  return response.data;
+  return unwrap(response);
 }
 
 export async function archiveProject(userId, projectId, payload = {}) {
@@ -102,7 +104,7 @@ export async function archiveProject(userId, projectId, payload = {}) {
     `${BASE_PATH}/${userId}/project-gig-management/projects/${projectId}/archive`,
     payload,
   );
-  return response.data;
+  return unwrap(response);
 }
 
 export async function restoreProject(userId, projectId, payload = {}) {
@@ -110,12 +112,12 @@ export async function restoreProject(userId, projectId, payload = {}) {
     `${BASE_PATH}/${userId}/project-gig-management/projects/${projectId}/restore`,
     payload,
   );
-  return response.data;
+  return unwrap(response);
 }
 
 export async function createGigOrder(userId, payload) {
   const response = await apiClient.post(`${BASE_PATH}/${userId}/project-gig-management/gig-orders`, payload);
-  return response.data;
+  return unwrap(response);
 }
 
 export async function updateGigOrder(userId, orderId, payload) {
@@ -123,12 +125,12 @@ export async function updateGigOrder(userId, orderId, payload) {
     `${BASE_PATH}/${userId}/project-gig-management/gig-orders/${orderId}`,
     payload,
   );
-  return response.data;
+  return unwrap(response);
 }
 
 export async function createProjectBid(userId, payload) {
   const response = await apiClient.post(`${BASE_PATH}/${userId}/project-gig-management/project-bids`, payload);
-  return response.data;
+  return unwrap(response);
 }
 
 export async function updateProjectBid(userId, bidId, payload) {
@@ -136,7 +138,7 @@ export async function updateProjectBid(userId, bidId, payload) {
     `${BASE_PATH}/${userId}/project-gig-management/project-bids/${bidId}`,
     payload,
   );
-  return response.data;
+  return unwrap(response);
 }
 
 export async function addGigTimelineEvent(userId, orderId, payload) {
@@ -144,7 +146,7 @@ export async function addGigTimelineEvent(userId, orderId, payload) {
     `${BASE_PATH}/${userId}/project-gig-management/gig-orders/${orderId}/timeline`,
     payload,
   );
-  return response.data;
+  return unwrap(response);
 }
 
 export async function createGigTimelineEvent(userId, orderId, payload) {
@@ -152,7 +154,7 @@ export async function createGigTimelineEvent(userId, orderId, payload) {
     `${BASE_PATH}/${userId}/project-gig-management/gig-orders/${orderId}/timeline`,
     payload,
   );
-  return response.data;
+  return unwrap(response);
 }
 
 export async function postGigOrderMessage(userId, orderId, payload) {
@@ -160,7 +162,7 @@ export async function postGigOrderMessage(userId, orderId, payload) {
     `${BASE_PATH}/${userId}/project-gig-management/gig-orders/${orderId}/messages`,
     payload,
   );
-  return response.data;
+  return unwrap(response);
 }
 
 export async function updateGigTimelineEvent(userId, orderId, eventId, payload) {
@@ -168,12 +170,12 @@ export async function updateGigTimelineEvent(userId, orderId, eventId, payload) 
     `${BASE_PATH}/${userId}/project-gig-management/gig-orders/${orderId}/timeline/${eventId}`,
     payload,
   );
-  return response.data;
+  return unwrap(response);
 }
 
 export async function sendProjectInvitation(userId, payload) {
   const response = await apiClient.post(`${BASE_PATH}/${userId}/project-gig-management/invitations`, payload);
-  return response.data;
+  return unwrap(response);
 }
 
 export async function updateProjectInvitation(userId, invitationId, payload) {
@@ -181,7 +183,7 @@ export async function updateProjectInvitation(userId, invitationId, payload) {
     `${BASE_PATH}/${userId}/project-gig-management/invitations/${invitationId}`,
     payload,
   );
-  return response.data;
+  return unwrap(response);
 }
 
 export async function createGigEscrowCheckpoint(userId, orderId, payload) {
@@ -189,7 +191,7 @@ export async function createGigEscrowCheckpoint(userId, orderId, payload) {
     `${BASE_PATH}/${userId}/project-gig-management/gig-orders/${orderId}/escrow`,
     payload,
   );
-  return response.data;
+  return unwrap(response);
 }
 
 export async function updateGigEscrowCheckpoint(userId, orderId, checkpointId, payload) {
@@ -197,7 +199,7 @@ export async function updateGigEscrowCheckpoint(userId, orderId, checkpointId, p
     `${BASE_PATH}/${userId}/project-gig-management/gig-orders/${orderId}/escrow/${checkpointId}`,
     payload,
   );
-  return response.data;
+  return unwrap(response);
 }
 
 export async function createGigSubmission(userId, orderId, payload) {
@@ -205,7 +207,7 @@ export async function createGigSubmission(userId, orderId, payload) {
     `${BASE_PATH}/${userId}/project-gig-management/gig-orders/${orderId}/submissions`,
     payload,
   );
-  return response.data;
+  return unwrap(response);
 }
 
 export async function updateGigSubmission(userId, orderId, submissionId, payload) {
@@ -213,17 +215,17 @@ export async function updateGigSubmission(userId, orderId, submissionId, payload
     `${BASE_PATH}/${userId}/project-gig-management/gig-orders/${orderId}/submissions/${submissionId}`,
     payload,
   );
-  return response.data;
+  return unwrap(response);
 }
 
 export async function updateAutoMatchSettings(userId, payload) {
   const response = await apiClient.put(`${BASE_PATH}/${userId}/project-gig-management/auto-match/settings`, payload);
-  return response.data;
+  return unwrap(response);
 }
 
 export async function createAutoMatch(userId, payload) {
   const response = await apiClient.post(`${BASE_PATH}/${userId}/project-gig-management/auto-match/matches`, payload);
-  return response.data;
+  return unwrap(response);
 }
 
 export async function updateAutoMatch(userId, matchId, payload) {
@@ -231,22 +233,22 @@ export async function updateAutoMatch(userId, matchId, payload) {
     `${BASE_PATH}/${userId}/project-gig-management/auto-match/matches/${matchId}`,
     payload,
   );
-  return response.data;
+  return unwrap(response);
 }
 
 export async function createProjectReview(userId, payload) {
   const response = await apiClient.post(`${BASE_PATH}/${userId}/project-gig-management/reviews`, payload);
-  return response.data;
+  return unwrap(response);
 }
 
 export async function createEscrowTransaction(userId, payload) {
   const response = await apiClient.post(`${BASE_PATH}/${userId}/project-gig-management/escrow/transactions`, payload);
-  return response.data;
+  return unwrap(response);
 }
 
 export async function updateEscrowSettings(userId, payload) {
   const response = await apiClient.patch(`${BASE_PATH}/${userId}/project-gig-management/escrow/settings`, payload);
-  return response.data;
+  return unwrap(response);
 }
 
 export async function postGigChatMessage(userId, orderId, payload) {
@@ -254,7 +256,7 @@ export async function postGigChatMessage(userId, orderId, payload) {
     `${BASE_PATH}/${userId}/project-gig-management/gig-orders/${orderId}/chat`,
     payload,
   );
-  return response.data;
+  return unwrap(response);
 }
 
 export async function fetchGigOrderDetail(userId, orderId, { signal } = {}) {
@@ -262,7 +264,7 @@ export async function fetchGigOrderDetail(userId, orderId, { signal } = {}) {
     `${BASE_PATH}/${userId}/project-gig-management/gig-orders/${orderId}`,
     { signal },
   );
-  return response.data;
+  return unwrap(response);
 }
 
 export async function acknowledgeGigChatMessage(userId, orderId, messageId) {
@@ -270,7 +272,7 @@ export async function acknowledgeGigChatMessage(userId, orderId, messageId) {
     `${BASE_PATH}/${userId}/project-gig-management/gig-orders/${orderId}/chat/${messageId}/acknowledge`,
     {},
   );
-  return response.data;
+  return unwrap(response);
 }
 
 export default {
