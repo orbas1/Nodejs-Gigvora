@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -12,7 +13,26 @@ import '../../marketing/gigvora_ads.dart';
 import '../application/profile_controller.dart';
 import '../application/profile_reputation_controller.dart';
 import '../data/models/profile.dart';
+import '../data/models/profile_update.dart';
 import '../data/models/reputation.dart';
+
+const _profileAccessRoles = <String>{
+  'freelancer',
+  'mentor',
+  'agency',
+  'client',
+  'company',
+  'user',
+  'admin',
+  'headhunter',
+};
+
+const _availabilityStatusLabels = <String, String>{
+  'available_now': 'Available now',
+  'limited_capacity': 'Limited capacity',
+  'booked_out': 'Booked out',
+  'on_leave': 'On leave',
+};
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key, this.profileId});
@@ -25,13 +45,11 @@ class ProfileScreen extends ConsumerWidget {
     final session = sessionState.session;
     final config = ref.watch(appConfigProvider);
     final fallbackId = config.featureFlags['demoProfileId'] as String?;
-    final resolvedId = profileId ?? session?.profileId ?? fallbackId;
-    final hasProfileId = resolvedId?.isNotEmpty ?? false;
+    final resolvedProfileId = profileId ?? session?.profileId ?? fallbackId ?? 'usr_demo';
+    final hasProfileId = resolvedProfileId.isNotEmpty;
     final accessAllowed = sessionState.isAuthenticated &&
         session != null &&
-        (session.memberships.contains('freelancer') ||
-            session.memberships.contains('agency') ||
-            session.memberships.contains('admin'));
+        session.memberships.any(_profileAccessRoles.contains);
 
     if (!sessionState.isAuthenticated) {
       return GigvoraScaffold(
@@ -121,15 +139,15 @@ class ProfileScreen extends ConsumerWidget {
       );
     }
 
-    final state = ref.watch(profileControllerProvider(resolvedId!));
-    final controller = ref.read(profileControllerProvider(resolvedId!).notifier);
-    final resolvedId = profileId ?? (config.featureFlags['demoProfileId'] as String? ?? 'usr_demo');
-    final sessionState = ref.watch(sessionControllerProvider);
-    final session = sessionState.session;
+    final state = ref.watch(profileControllerProvider(resolvedProfileId));
+    final controller = ref.read(profileControllerProvider(resolvedProfileId).notifier);
+    final canEditProfile = sessionState.isAuthenticated &&
+        session != null &&
+        (session.profileId == resolvedProfileId || session.memberships.contains('admin'));
     const allowedReputationMemberships = <String>{'freelancer', 'agency', 'admin', 'trust'};
     final hasAuthorizedMembership =
         (session?.memberships ?? const <String>[]).any(allowedReputationMemberships.contains);
-    final hasValidProfileId = _isNumericProfileId(resolvedId);
+    final hasValidProfileId = _isNumericProfileId(resolvedProfileId);
     final canAccessReputation = sessionState.isAuthenticated && hasAuthorizedMembership && hasValidProfileId;
     final reputationAccessMessage = _reputationAccessMessage(
       isAuthenticated: sessionState.isAuthenticated,
@@ -137,19 +155,107 @@ class ProfileScreen extends ConsumerWidget {
       hasValidProfileId: hasValidProfileId,
     );
 
-    final state = ref.watch(profileControllerProvider(resolvedId));
-    final controller = ref.read(profileControllerProvider(resolvedId).notifier);
     final profile = state.data;
     late final ResourceState<ReputationOverview> reputationState;
     ProfileReputationController? reputationController;
     if (canAccessReputation) {
-      reputationState = ref.watch(profileReputationControllerProvider(resolvedId));
-      reputationController = ref.read(profileReputationControllerProvider(resolvedId).notifier);
+      reputationState = ref.watch(profileReputationControllerProvider(resolvedProfileId));
+      reputationController = ref.read(profileReputationControllerProvider(resolvedProfileId).notifier);
     } else {
       reputationState = const ResourceState<ReputationOverview>();
     }
 
     Future<void> refresh() => controller.refresh();
+
+    Future<void> openEditDetails(ProfileModel profile) async {
+      final request = await showModalBottomSheet<ProfileUpdateRequest>(
+        context: context,
+        isScrollControlled: true,
+        builder: (context) => _ProfileDetailsSheet(profile: profile),
+      );
+      if (request == null) {
+        return;
+      }
+      try {
+        await controller.updateProfileDetails(request);
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile updated successfully.')),
+        );
+      } catch (error) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unable to update profile. $error')),
+        );
+      }
+    }
+
+    Future<void> openExperienceEditor({ProfileExperience? experience}) async {
+      final result = await showModalBottomSheet<_ExperienceEditorResult>(
+        context: context,
+        isScrollControlled: true,
+        builder: (context) => _ExperienceEditorSheet(experience: experience),
+      );
+      if (result == null) {
+        return;
+      }
+      try {
+        await controller.saveExperience(
+          result.draft,
+          experienceId: result.experienceId,
+        );
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.experienceId == null
+                ? 'Experience added to your profile.'
+                : 'Experience updated successfully.'),
+          ),
+        );
+      } catch (error) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unable to save experience. $error')),
+        );
+      }
+    }
+
+    Future<void> confirmDeleteExperience(ProfileExperience experience) async {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: const Text('Delete experience'),
+            content: Text('Remove ${experience.title} at ${experience.organisation}?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton.tonal(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('Delete'),
+              ),
+            ],
+          );
+        },
+      );
+      if (confirmed != true) {
+        return;
+      }
+      try {
+        await controller.removeExperience(experience.id);
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Experience removed.')),
+        );
+      } catch (error) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unable to remove experience. $error')),
+        );
+      }
+    }
 
     return GigvoraScaffold(
       title: profile?.fullName ?? 'Profile',
@@ -181,7 +287,10 @@ class ProfileScreen extends ConsumerWidget {
             if (profile != null) ...[
               GigvoraAdBanner(data: profileAdBanner),
               const SizedBox(height: 16),
-              _ProfileHeaderCard(profile: profile),
+              _ProfileHeaderCard(
+                profile: profile,
+                onEdit: canEditProfile ? () => openEditDetails(profile) : null,
+              ),
               const SizedBox(height: 16),
               if (profile.metrics.isNotEmpty) ...[
                 _ProfileMetricsCard(metrics: profile.metrics),
@@ -229,10 +338,14 @@ class ProfileScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
               ],
-              if (profile.experiences.isNotEmpty) ...[
-                _ExperienceCard(experiences: profile.experiences),
-                const SizedBox(height: 16),
-              ],
+              _ExperienceCard(
+                experiences: profile.experiences,
+                canManage: canEditProfile,
+                onCreate: canEditProfile ? () => openExperienceEditor() : null,
+                onEdit: canEditProfile ? (experience) => openExperienceEditor(experience: experience) : null,
+                onDelete: canEditProfile ? (experience) => confirmDeleteExperience(experience) : null,
+              ),
+              const SizedBox(height: 16),
               GigvoraAdGrid(ads: profileAds, margin: const EdgeInsets.only(top: 8)),
             ],
           ],
@@ -608,61 +721,130 @@ class _ReferenceMetricChip extends StatelessWidget {
 }
 
 class _ProfileHeaderCard extends StatelessWidget {
-  const _ProfileHeaderCard({required this.profile});
+  const _ProfileHeaderCard({required this.profile, this.onEdit});
 
   final ProfileModel profile;
+  final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final statusLabel = _availabilityStatusLabels[profile.availability.status] ??
+        profile.availability.status.replaceAll('_', ' ');
+    final nextAvailability = profile.availability.nextAvailability != null
+        ? DateFormat('MMM d').format(profile.availability.nextAvailability!.toLocal())
+        : null;
+
     return GigvoraCard(
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            radius: 28,
-            backgroundImage: profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty
-                ? NetworkImage(profile.avatarUrl!)
-                : null,
-            child: profile.avatarUrl == null || profile.avatarUrl!.isEmpty
-                ? Text(
-                    profile.fullName.isNotEmpty ? profile.fullName[0] : '?',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  )
-                : null,
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(profile.fullName, style: Theme.of(context).textTheme.headlineSmall),
-                const SizedBox(height: 4),
-                if (profile.headline.isNotEmpty)
-                  Text(profile.headline, style: Theme.of(context).textTheme.bodySmall),
-                if (profile.location.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.location_on_outlined, size: 16),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            profile.location,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                radius: 32,
+                backgroundImage: profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty
+                    ? NetworkImage(profile.avatarUrl!)
+                    : null,
+                child: profile.avatarUrl == null || profile.avatarUrl!.isEmpty
+                    ? Text(
+                        profile.fullName.isNotEmpty ? profile.fullName[0] : '?',
+                        style: theme.textTheme.titleLarge,
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(profile.fullName, style: theme.textTheme.headlineSmall),
+                    const SizedBox(height: 4),
+                    if (profile.headline.isNotEmpty)
+                      Text(
+                        profile.headline,
+                        style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                    if (profile.location.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Row(
+                          children: [
+                            Icon(Icons.location_on_outlined, size: 18, color: colorScheme.primary),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                profile.location,
+                                style: theme.textTheme.bodySmall,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-                if (profile.bio.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Text(profile.bio, style: Theme.of(context).textTheme.bodyMedium),
-                  ),
+                      ),
+                    if (profile.bio.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Text(profile.bio, style: theme.textTheme.bodyMedium),
+                      ),
+                  ],
+                ),
+              ),
+              if (onEdit != null) ...[
+                const SizedBox(width: 12),
+                FilledButton.tonalIcon(
+                  onPressed: onEdit,
+                  icon: const Icon(Icons.edit_outlined),
+                  label: const Text('Edit profile'),
+                ),
               ],
-            ),
+            ],
           ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              Chip(
+                avatar: const Icon(Icons.av_timer, size: 18),
+                label: Text(statusLabel),
+                backgroundColor: colorScheme.secondaryContainer,
+              ),
+              if (nextAvailability != null)
+                Chip(
+                  avatar: const Icon(Icons.calendar_month, size: 18),
+                  label: Text('Next availability • $nextAvailability'),
+                ),
+              if (profile.availability.acceptingVolunteers)
+                Chip(
+                  avatar: const Icon(Icons.volunteer_activism, size: 18),
+                  label: const Text('Accepting volunteers'),
+                ),
+              if (profile.availability.acceptingLaunchpad)
+                Chip(
+                  avatar: const Icon(Icons.rocket_launch, size: 18),
+                  label: const Text('Open to launchpad'),
+                ),
+            ],
+          ),
+          if (profile.focusAreas.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Text('Focus areas', style: theme.textTheme.labelLarge),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: profile.focusAreas
+                  .map(
+                    (area) => Chip(
+                      label: Text(area),
+                      backgroundColor: colorScheme.surfaceVariant,
+                    ),
+                  )
+                  .toList(),
+            ),
+          ],
         ],
       ),
     );
@@ -1599,69 +1781,709 @@ class _AvailabilityCard extends StatelessWidget {
 }
 
 class _ExperienceCard extends StatelessWidget {
-  const _ExperienceCard({required this.experiences});
+  const _ExperienceCard({
+    required this.experiences,
+    required this.canManage,
+    this.onCreate,
+    this.onEdit,
+    this.onDelete,
+  });
 
   final List<ProfileExperience> experiences;
+  final bool canManage;
+  final VoidCallback? onCreate;
+  final ValueChanged<ProfileExperience>? onEdit;
+  final ValueChanged<ProfileExperience>? onDelete;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     return GigvoraCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Experience', style: theme.textTheme.titleMedium),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: Text('Experience', style: theme.textTheme.titleMedium)),
+              if (canManage)
+                FilledButton.tonalIcon(
+                  onPressed: onCreate,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add'),
+                ),
+            ],
+          ),
           const SizedBox(height: 12),
-          ...experiences.map(
-            (experience) => Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(experience.title, style: theme.textTheme.titleSmall),
-                  const SizedBox(height: 4),
-                  Text(experience.organisation, style: theme.textTheme.bodySmall),
-                  const SizedBox(height: 4),
-                  Text(
-                    _formatExperienceDates(experience),
-                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          if (experiences.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceVariant,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Text(
+                canManage
+                    ? 'Showcase your gigs, projects, and achievements by adding experience highlights.'
+                    : 'Experience history has not been published yet.',
+                style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+              ),
+            )
+          else
+            ...experiences.map(
+              (experience) => Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceVariant.withOpacity(0.6),
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                  if (experience.summary != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(experience.summary!),
-                    ),
-                  if (experience.achievements.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Column(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: experience.achievements
-                            .map(
-                              (achievement) => Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text('• '),
-                                  Expanded(child: Text(achievement)),
-                                ],
-                              ),
-                            )
-                            .toList(),
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(experience.title, style: theme.textTheme.titleSmall),
+                                const SizedBox(height: 4),
+                                Text(experience.organisation, style: theme.textTheme.bodySmall),
+                              ],
+                            ),
+                          ),
+                          if (canManage && (onEdit != null || onDelete != null))
+                            PopupMenuButton<String>(
+                              tooltip: 'Experience actions',
+                              onSelected: (value) {
+                                switch (value) {
+                                  case 'edit':
+                                    onEdit?.call(experience);
+                                    break;
+                                  case 'delete':
+                                    onDelete?.call(experience);
+                                    break;
+                                }
+                              },
+                              itemBuilder: (context) => [
+                                if (onEdit != null)
+                                  const PopupMenuItem<String>(
+                                    value: 'edit',
+                                    child: ListTile(
+                                      leading: Icon(Icons.edit_outlined),
+                                      title: Text('Edit'),
+                                    ),
+                                  ),
+                                if (onDelete != null)
+                                  const PopupMenuItem<String>(
+                                    value: 'delete',
+                                    child: ListTile(
+                                      leading: Icon(Icons.delete_outline),
+                                      title: Text('Delete'),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                        ],
                       ),
-                    ),
-                ],
+                      const SizedBox(height: 6),
+                      Text(
+                        _formatExperienceDates(experience),
+                        style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                      ),
+                      if (experience.summary != null && experience.summary!.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            experience.summary!,
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ),
+                      if (experience.achievements.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: experience.achievements
+                                .map(
+                                  (achievement) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 6),
+                                    child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Padding(
+                                          padding: EdgeInsets.only(top: 2),
+                                          child: Icon(Icons.circle, size: 6),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(child: Text(achievement)),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
   }
 
   String _formatExperienceDates(ProfileExperience experience) {
-    final start = experience.startDate.toLocal().toString().split(' ').first;
-    final end = experience.endDate?.toLocal().toString().split(' ').first ?? 'Present';
+    final format = DateFormat('MMM yyyy');
+    final start = format.format(experience.startDate.toLocal());
+    final end = experience.endDate != null
+        ? format.format(experience.endDate!.toLocal())
+        : 'Present';
     return '$start — $end';
+  }
+}
+
+class _ProfileDetailsSheet extends StatefulWidget {
+  const _ProfileDetailsSheet({required this.profile});
+
+  final ProfileModel profile;
+
+  @override
+  State<_ProfileDetailsSheet> createState() => _ProfileDetailsSheetState();
+}
+
+class _ProfileDetailsSheetState extends State<_ProfileDetailsSheet> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _headlineController;
+  late final TextEditingController _locationController;
+  late final TextEditingController _bioController;
+  late final TextEditingController _focusAreaController;
+  late String _availabilityStatus;
+  late bool _acceptingVolunteers;
+  late bool _acceptingLaunchpad;
+  final _formKey = GlobalKey<FormState>();
+  late List<String> _focusAreas;
+
+  @override
+  void initState() {
+    super.initState();
+    final profile = widget.profile;
+    _nameController = TextEditingController(text: profile.fullName);
+    _headlineController = TextEditingController(text: profile.headline);
+    _locationController = TextEditingController(text: profile.location);
+    _bioController = TextEditingController(text: profile.bio);
+    _focusAreaController = TextEditingController();
+    _availabilityStatus = profile.availability.status;
+    _acceptingVolunteers = profile.availability.acceptingVolunteers;
+    _acceptingLaunchpad = profile.availability.acceptingLaunchpad;
+    _focusAreas = List<String>.from(profile.focusAreas);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _headlineController.dispose();
+    _locationController.dispose();
+    _bioController.dispose();
+    _focusAreaController.dispose();
+    super.dispose();
+  }
+
+  void _addFocusArea() {
+    final value = _focusAreaController.text.trim();
+    if (value.isEmpty) {
+      return;
+    }
+    if (!_focusAreas.any((element) => element.toLowerCase() == value.toLowerCase())) {
+      setState(() {
+        _focusAreas = [..._focusAreas, value];
+      });
+    }
+    _focusAreaController.clear();
+  }
+
+  void _removeFocusArea(String value) {
+    setState(() {
+      _focusAreas = _focusAreas.where((element) => element != value).toList();
+    });
+  }
+
+  void _handleSubmit() {
+    final form = _formKey.currentState;
+    if (form == null || !form.validate()) {
+      return;
+    }
+
+    final profile = widget.profile;
+    final name = _nameController.text.trim();
+    final headline = _headlineController.text.trim();
+    final location = _locationController.text.trim();
+    final bio = _bioController.text.trim();
+    final focusAreas = _focusAreas.map((area) => area.trim()).where((area) => area.isNotEmpty).toList();
+
+    final request = ProfileUpdateRequest(
+      fullName: name != profile.fullName ? name : null,
+      headline: headline != profile.headline ? headline : null,
+      location: location != profile.location ? location : null,
+      bio: bio != profile.bio ? bio : null,
+      focusAreas: listEquals(focusAreas, profile.focusAreas) ? null : focusAreas,
+      acceptingVolunteers: _acceptingVolunteers == profile.availability.acceptingVolunteers
+          ? null
+          : _acceptingVolunteers,
+      acceptingLaunchpad: _acceptingLaunchpad == profile.availability.acceptingLaunchpad
+          ? null
+          : _acceptingLaunchpad,
+      availabilityStatus:
+          _availabilityStatus == profile.availability.status ? null : _availabilityStatus,
+    );
+
+    if (request.toJson().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No changes to update.')),
+      );
+      return;
+    }
+
+    Navigator.of(context).pop(request);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final bottomPadding = MediaQuery.of(context).viewInsets.bottom + 24;
+
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(bottom: bottomPadding),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Edit profile details', style: theme.textTheme.titleLarge),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Update how clients and collaborators discover your Gigvora presence.',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                TextFormField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(labelText: 'Full name'),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Enter your full name';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _headlineController,
+                  decoration: const InputDecoration(labelText: 'Headline'),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _locationController,
+                  decoration: const InputDecoration(labelText: 'Location'),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _bioController,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'Bio',
+                    hintText: 'Tell your story, major outcomes, and values.',
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text('Availability', style: theme.textTheme.titleSmall),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: _availabilityStatus,
+                  decoration: const InputDecoration(labelText: 'Status'),
+                  items: _availabilityStatusLabels.entries
+                      .map(
+                        (entry) => DropdownMenuItem<String>(
+                          value: entry.key,
+                          child: Text(entry.value),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _availabilityStatus = value);
+                    }
+                  },
+                ),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Accepting volunteers'),
+                  subtitle: const Text('Surface your profile to volunteer marketplaces.'),
+                  value: _acceptingVolunteers,
+                  onChanged: (value) => setState(() => _acceptingVolunteers = value),
+                ),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Accepting launchpad missions'),
+                  subtitle: const Text('Invite emerging talent to collaborate on projects.'),
+                  value: _acceptingLaunchpad,
+                  onChanged: (value) => setState(() => _acceptingLaunchpad = value),
+                ),
+                const SizedBox(height: 24),
+                Text('Focus areas', style: theme.textTheme.titleSmall),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _focusAreaController,
+                  decoration: InputDecoration(
+                    labelText: 'Add focus area',
+                    suffixIcon: IconButton(
+                      onPressed: _addFocusArea,
+                      icon: const Icon(Icons.add),
+                    ),
+                  ),
+                  onFieldSubmitted: (_) => _addFocusArea(),
+                ),
+                const SizedBox(height: 12),
+                if (_focusAreas.isEmpty)
+                  Text(
+                    'Focus areas help Gigvora route the right gigs and clients to you.',
+                    style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                  )
+                else
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _focusAreas
+                        .map(
+                          (area) => Chip(
+                            label: Text(area),
+                            onDeleted: () => _removeFocusArea(area),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _handleSubmit,
+                    icon: const Icon(Icons.save_outlined),
+                    label: const Text('Save profile'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ExperienceEditorResult {
+  const _ExperienceEditorResult({required this.draft, this.experienceId});
+
+  final ProfileExperienceDraft draft;
+  final String? experienceId;
+}
+
+class _ExperienceEditorSheet extends StatefulWidget {
+  const _ExperienceEditorSheet({this.experience});
+
+  final ProfileExperience? experience;
+
+  @override
+  State<_ExperienceEditorSheet> createState() => _ExperienceEditorSheetState();
+}
+
+class _ExperienceEditorSheetState extends State<_ExperienceEditorSheet> {
+  late final TextEditingController _titleController;
+  late final TextEditingController _organisationController;
+  late final TextEditingController _summaryController;
+  late final TextEditingController _achievementController;
+  late DateTime _startDate;
+  DateTime? _endDate;
+  bool _currentRole = false;
+  List<String> _achievements = const <String>[];
+  final _formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+    final experience = widget.experience;
+    _titleController = TextEditingController(text: experience?.title ?? '');
+    _organisationController = TextEditingController(text: experience?.organisation ?? '');
+    _summaryController = TextEditingController(text: experience?.summary ?? '');
+    _achievementController = TextEditingController();
+    _startDate = experience?.startDate ?? DateTime.now();
+    _endDate = experience?.endDate;
+    _currentRole = experience?.endDate == null;
+    _achievements = List<String>.from(experience?.achievements ?? const <String>[]);
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _organisationController.dispose();
+    _summaryController.dispose();
+    _achievementController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickStartDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _startDate,
+      firstDate: DateTime(1995),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+    );
+    if (picked != null) {
+      setState(() => _startDate = picked);
+    }
+  }
+
+  Future<void> _pickEndDate() async {
+    final initial = _endDate ?? DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: _startDate,
+      lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+    );
+    if (picked != null) {
+      setState(() => _endDate = picked);
+    }
+  }
+
+  void _addAchievement() {
+    final text = _achievementController.text.trim();
+    if (text.isEmpty) {
+      return;
+    }
+    setState(() {
+      _achievements = [..._achievements, text];
+    });
+    _achievementController.clear();
+  }
+
+  void _removeAchievement(String value) {
+    setState(() {
+      _achievements = _achievements.where((item) => item != value).toList();
+    });
+  }
+
+  void _handleSubmit() {
+    final form = _formKey.currentState;
+    if (form == null || !form.validate()) {
+      return;
+    }
+
+    final draft = ProfileExperienceDraft(
+      title: _titleController.text.trim(),
+      organisation: _organisationController.text.trim(),
+      startDate: _startDate,
+      endDate: _currentRole ? null : _endDate,
+      summary: _summaryController.text.trim().isEmpty ? null : _summaryController.text.trim(),
+      achievements: _achievements,
+    );
+
+    Navigator.of(context).pop(
+      _ExperienceEditorResult(
+        draft: draft,
+        experienceId: widget.experience?.id,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bottomPadding = MediaQuery.of(context).viewInsets.bottom + 24;
+    final dateFormat = DateFormat('MMM d, yyyy');
+
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(bottom: bottomPadding),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.experience == null
+                                ? 'Add experience highlight'
+                                : 'Edit experience',
+                            style: theme.textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Share the mission, results, and impact of this engagement.',
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                TextFormField(
+                  controller: _titleController,
+                  decoration: const InputDecoration(labelText: 'Role or title'),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Add a title';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _organisationController,
+                  decoration: const InputDecoration(labelText: 'Organisation'),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Add the organisation or client';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: _pickStartDate,
+                        borderRadius: BorderRadius.circular(16),
+                        child: InputDecorator(
+                          decoration: const InputDecoration(labelText: 'Start date'),
+                          child: Text(dateFormat.format(_startDate)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: InkWell(
+                        onTap: _currentRole ? null : _pickEndDate,
+                        borderRadius: BorderRadius.circular(16),
+                        child: InputDecorator(
+                          decoration: const InputDecoration(labelText: 'End date'),
+                          child: Text(
+                            _currentRole || _endDate == null
+                                ? 'Present'
+                                : dateFormat.format(_endDate!),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('I currently operate in this role'),
+                  value: _currentRole,
+                  onChanged: (value) => setState(() {
+                    _currentRole = value;
+                    if (value) {
+                      _endDate = null;
+                    }
+                  }),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _summaryController,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'Summary',
+                    hintText: 'Key outcomes, stakeholders, or deliverables.',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text('Achievements', style: theme.textTheme.titleSmall),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _achievementController,
+                  maxLines: 2,
+                  decoration: InputDecoration(
+                    hintText: 'Add measurable impact statements',
+                    suffixIcon: IconButton(
+                      onPressed: _addAchievement,
+                      icon: const Icon(Icons.add_task),
+                    ),
+                  ),
+                  onSubmitted: (_) => _addAchievement(),
+                ),
+                const SizedBox(height: 8),
+                if (_achievements.isNotEmpty)
+                  Column(
+                    children: _achievements
+                        .map(
+                          (item) => ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(item),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: () => _removeAchievement(item),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _handleSubmit,
+                    icon: const Icon(Icons.save_alt),
+                    label: Text(widget.experience == null ? 'Add experience' : 'Save changes'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

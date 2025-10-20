@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:gigvora_foundation/gigvora_foundation.dart';
 import 'package:gigvora_mobile/core/localization/gigvora_localizations.dart';
 import 'package:gigvora_mobile/core/localization/language_menu_button.dart';
 
@@ -14,6 +15,9 @@ import '../../blog/presentation/blog_spotlight_card.dart';
 import '../../governance/presentation/domain_governance_summary_card.dart';
 import '../../governance/presentation/user_consent_card.dart';
 import '../../governance/presentation/rbac_matrix_card.dart';
+import '../application/role_management_controller.dart';
+import '../data/models/role_membership.dart';
+import 'widgets/role_management_sheet.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -76,6 +80,105 @@ class HomeScreen extends ConsumerWidget {
     }
 
     final session = sessionState.session!;
+    final membershipState = ref.watch(roleManagementControllerProvider);
+    final membershipController = ref.read(roleManagementControllerProvider.notifier);
+    final resolvedMemberships = membershipState.data ??
+        session.memberships
+            .map(
+              (role) => RoleMembership(
+                id: role,
+                role: role,
+                label: session.roleLabel(role),
+                isActive: role == session.activeMembership,
+                isPrimary: role == session.activeMembership,
+              ),
+            )
+            .toList(growable: false);
+
+    Future<void> openRoleSheet({RoleMembership? membership}) {
+      return showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        builder: (context) {
+          return RoleManagementSheet(
+            initial: membership,
+            onSubmit: (draft) async {
+              if (membership == null) {
+                await membershipController.create(draft);
+              } else {
+                await membershipController.update(
+                  membership,
+                  RoleMembershipUpdate(
+                    label: draft.label,
+                    description: draft.description,
+                    permissions: draft.permissions,
+                    primary: draft.primary,
+                  ),
+                );
+              }
+            },
+          );
+        },
+      );
+    }
+
+    Future<void> activateMembership(RoleMembership membership) async {
+      try {
+        await membershipController.activate(membership);
+      } catch (error) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unable to activate role. $error')),
+        );
+      }
+    }
+
+    Future<void> deleteMembership(RoleMembership membership) async {
+      final currentMemberships = membershipState.data ?? resolvedMemberships;
+      if (currentMemberships.length <= 1) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('At least one role must remain linked to your account.')),
+        );
+        return;
+      }
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: const Text('Remove workspace role'),
+            content: Text(
+              'Remove ${membership.label}? Dashboards and automations for this workspace will no longer be available.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton.tonal(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('Remove role'),
+              ),
+            ],
+          );
+        },
+      );
+      if (confirmed != true) {
+        return;
+      }
+      try {
+        await membershipController.delete(membership);
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${membership.label} role removed.')),
+        );
+      } catch (error) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unable to remove role. $error')),
+        );
+      }
+    }
+
     final activeRole = session.activeMembership;
     final activeDashboard = session.dashboardFor(activeRole) ??
         session.dashboardFor(session.memberships.first) ??
@@ -104,8 +207,12 @@ class HomeScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             _RoleSwitcher(
-              session: session,
-              onChanged: controller.selectRole,
+              state: membershipState,
+              memberships: resolvedMemberships,
+              onCreate: () => openRoleSheet(),
+              onActivate: activateMembership,
+              onEdit: (membership) => openRoleSheet(membership: membership),
+              onDelete: deleteMembership,
             ),
             const SizedBox(height: 24),
             _DashboardHero(
@@ -154,30 +261,257 @@ class HomeScreen extends ConsumerWidget {
 }
 
 class _RoleSwitcher extends StatelessWidget {
-  const _RoleSwitcher({required this.session, required this.onChanged});
+  const _RoleSwitcher({
+    required this.state,
+    required this.memberships,
+    required this.onCreate,
+    required this.onActivate,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
-  final UserSession session;
-  final ValueChanged<String> onChanged;
+  final ResourceState<List<RoleMembership>> state;
+  final List<RoleMembership> memberships;
+  final VoidCallback onCreate;
+  final ValueChanged<RoleMembership> onActivate;
+  final ValueChanged<RoleMembership> onEdit;
+  final ValueChanged<RoleMembership> onDelete;
 
   @override
   Widget build(BuildContext context) {
-    final memberships = session.memberships;
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: memberships
-          .map(
-            (role) => ChoiceChip(
-              selected: role == session.activeMembership,
-              onSelected: (_) => onChanged(role),
-              showCheckmark: false,
-              label: Text(session.roleLabel(role)),
-              avatar: role == session.activeMembership
-                  ? const Icon(Icons.check_circle, size: 18)
-                  : const Icon(Icons.circle_outlined, size: 18),
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return GigvoraCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Workspace memberships', style: theme.textTheme.titleMedium),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Switch roles to unlock tailored dashboards, controls, and automations across Gigvora.',
+                      style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              FilledButton.tonalIcon(
+                onPressed: onCreate,
+                icon: const Icon(Icons.add),
+                label: const Text('Add role'),
+              ),
+            ],
+          ),
+          if (state.loading) ...[
+            const SizedBox(height: 16),
+            LinearProgressIndicator(
+              minHeight: 4,
+              backgroundColor: colorScheme.surfaceVariant,
             ),
-          )
-          .toList(),
+          ],
+          if (state.hasError && !state.loading) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colorScheme.errorContainer,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Text(
+                'We had trouble syncing memberships. Pull to refresh or try again later.',
+                style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onErrorContainer),
+              ),
+            ),
+          ],
+          if (memberships.isEmpty && !state.loading) ...[
+            const SizedBox(height: 16),
+            Text(
+              'No roles are linked to this account yet. Add a workspace role to begin.',
+              style: theme.textTheme.bodyMedium,
+            ),
+          ] else ...[
+            const SizedBox(height: 16),
+            for (final membership in memberships) ...[
+              _MembershipTile(
+                membership: membership,
+                onActivate: () => onActivate(membership),
+                onEdit: () => onEdit(membership),
+                onDelete: () => onDelete(membership),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MembershipTile extends StatelessWidget {
+  const _MembershipTile({
+    required this.membership,
+    required this.onActivate,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final RoleMembership membership;
+  final VoidCallback onActivate;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isActive = membership.isActive;
+    final isPrimary = membership.isPrimary;
+    final baseColor = isActive ? colorScheme.primaryContainer : colorScheme.surfaceVariant;
+    final borderColor = isActive ? colorScheme.primary : colorScheme.outlineVariant;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: baseColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                height: 44,
+                width: 44,
+                decoration: BoxDecoration(
+                  color: isActive ? colorScheme.primary.withOpacity(0.12) : colorScheme.surface,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(
+                  isActive ? Icons.rocket_launch : Icons.swap_horiz,
+                  color: isActive ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            membership.label,
+                            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        PopupMenuButton<String>(
+                          tooltip: 'Role actions',
+                          onSelected: (value) {
+                            switch (value) {
+                              case 'edit':
+                                onEdit();
+                                break;
+                              case 'delete':
+                                onDelete();
+                                break;
+                            }
+                          },
+                          itemBuilder: (context) => [
+                            const PopupMenuItem<String>(
+                              value: 'edit',
+                              child: ListTile(
+                                leading: Icon(Icons.edit_outlined),
+                                title: Text('Edit role'),
+                              ),
+                            ),
+                            const PopupMenuItem<String>(
+                              value: 'delete',
+                              child: ListTile(
+                                leading: Icon(Icons.delete_outline),
+                                title: Text('Remove role'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Text(
+                          'Identifier: ${membership.role}',
+                          style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                        ),
+                        const SizedBox(width: 12),
+                        if (isActive)
+                          Chip(
+                            label: const Text('Active'),
+                            avatar: const Icon(Icons.check_circle, size: 18),
+                            backgroundColor: colorScheme.primary.withOpacity(0.1),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        if (isPrimary)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 8),
+                            child: Chip(
+                              label: const Text('Primary'),
+                              avatar: const Icon(Icons.star, size: 18),
+                              backgroundColor: colorScheme.secondaryContainer,
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if ((membership.description ?? '').isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              membership.description!,
+              style: theme.textTheme.bodyMedium,
+            ),
+          ],
+          if (membership.permissions.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: membership.permissions
+                  .map(
+                    (permission) => Chip(
+                      label: Text(permission),
+                      backgroundColor: colorScheme.surfaceTint.withOpacity(0.1),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  )
+                  .toList(),
+            ),
+          ],
+          const SizedBox(height: 16),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton.icon(
+              onPressed: isActive ? null : onActivate,
+              icon: Icon(isActive ? Icons.workspace_premium : Icons.login),
+              label: Text(isActive ? 'Current workspace' : 'Switch to this role'),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

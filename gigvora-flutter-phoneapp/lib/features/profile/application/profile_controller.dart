@@ -5,6 +5,7 @@ import 'package:gigvora_foundation/gigvora_foundation.dart';
 
 import '../../../core/providers.dart';
 import '../data/models/profile.dart';
+import '../data/models/profile_update.dart';
 import '../data/profile_repository.dart';
 
 class ProfileController extends StateNotifier<ResourceState<ProfileModel>> {
@@ -199,6 +200,83 @@ class ProfileController extends StateNotifier<ResourceState<ProfileModel>> {
         },
         metadata: const {'source': 'mobile_app'},
       );
+      rethrow;
+    }
+  }
+
+  Future<void> updateProfileDetails(ProfileUpdateRequest request) async {
+    final current = state.data;
+    if (current == null) {
+      throw StateError('Profile not loaded');
+    }
+    try {
+      final updated = await _repository.updateProfile(profileId, request);
+      state = state.copyWith(data: updated);
+      await _analytics.track(
+        'mobile_profile_updated',
+        context: {
+          'profileId': profileId,
+          'headline': request.headline,
+          'focusAreaCount': request.focusAreas?.length ?? current.focusAreas.length,
+        },
+        metadata: const {'source': 'mobile_app'},
+      );
+    } catch (error) {
+      rethrow;
+    }
+  }
+
+  Future<void> saveExperience(ProfileExperienceDraft draft, {String? experienceId}) async {
+    final current = state.data;
+    if (current == null) {
+      throw StateError('Profile not loaded');
+    }
+    try {
+      ProfileExperience experience;
+      if (experienceId == null) {
+        experience = await _repository.createExperience(profileId, draft);
+      } else {
+        experience = await _repository.updateExperience(profileId, experienceId, draft);
+      }
+      final experiences = List<ProfileExperience>.from(current.experiences);
+      final index = experiences.indexWhere((item) => item.id == experience.id);
+      if (index >= 0) {
+        experiences[index] = experience;
+      } else {
+        experiences.insert(0, experience);
+      }
+      state = state.copyWith(data: current.copyWith(experiences: experiences));
+      await _analytics.track(
+        'mobile_experience_saved',
+        context: {
+          'profileId': profileId,
+          'experienceId': experience.id,
+        },
+        metadata: const {'source': 'mobile_app'},
+      );
+    } catch (error) {
+      rethrow;
+    }
+  }
+
+  Future<void> removeExperience(String experienceId) async {
+    final current = state.data;
+    if (current == null) {
+      throw StateError('Profile not loaded');
+    }
+    try {
+      await _repository.deleteExperience(profileId, experienceId);
+      final experiences = current.experiences.where((item) => item.id != experienceId).toList();
+      state = state.copyWith(data: current.copyWith(experiences: experiences));
+      await _analytics.track(
+        'mobile_experience_deleted',
+        context: {
+          'profileId': profileId,
+          'experienceId': experienceId,
+        },
+        metadata: const {'source': 'mobile_app'},
+      );
+    } catch (error) {
       rethrow;
     }
   }
