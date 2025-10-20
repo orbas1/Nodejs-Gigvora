@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import PageHeader from '../components/PageHeader.jsx';
 import {
   AcademicCapIcon,
@@ -12,6 +13,8 @@ import {
   SparklesIcon,
   UserGroupIcon,
 } from '@heroicons/react/24/outline';
+import useSiteDocument from '../hooks/useSiteDocument.js';
+import aboutContent from '../content/site/about.js';
 
 const HIGHLIGHTS = [
   { label: 'Talent profiles', value: '15k+' },
@@ -129,7 +132,64 @@ const TRUST_INDICATORS = [
   'SLA-backed onboarding and support',
 ];
 
+function formatDate(value) {
+  if (!value) {
+    return '';
+  }
+  try {
+    const date = value instanceof Date ? value : new Date(value);
+    return new Intl.DateTimeFormat('en-GB', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    }).format(date);
+  } catch (error) {
+    return '';
+  }
+}
+
 export default function AboutPage() {
+  const { page, sections, metadata, loading, error, refresh, usingFallback, hero } = useSiteDocument(
+    aboutContent.slug,
+    aboutContent,
+  );
+
+  const summary = metadata.summary || aboutContent.summary;
+
+  const metadataItems = useMemo(() => {
+    const items = [];
+    if (metadata?.lastUpdated) {
+      items.push({ label: 'Last updated', value: formatDate(metadata.lastUpdated) });
+    }
+    if (metadata?.contactEmail) {
+      items.push({ label: 'Email', value: metadata.contactEmail, href: `mailto:${metadata.contactEmail}` });
+    }
+    if (metadata?.contactPhone) {
+      items.push({ label: 'Phone', value: metadata.contactPhone, href: `tel:${metadata.contactPhone}` });
+    }
+    if (usingFallback) {
+      items.push({ label: 'Status', value: 'Showing trusted offline copy' });
+    }
+    return items;
+  }, [metadata?.contactEmail, metadata?.contactPhone, metadata?.lastUpdated, usingFallback]);
+
+  const renderBlock = (block, index) => {
+    if (block.type === 'list') {
+      return (
+        <ul key={`block-${index}`} className="ml-5 list-disc space-y-2 text-sm text-slate-700">
+          {block.items.map((item, itemIndex) => (
+            <li key={`${index}-${itemIndex}`}>{item}</li>
+          ))}
+        </ul>
+      );
+    }
+    return (
+      <p key={`block-${index}`} className="text-base leading-7 text-slate-700">
+        {block.text}
+      </p>
+    );
+  };
+
   return (
     <main className="relative overflow-hidden bg-slate-50 py-20">
       <div
@@ -139,10 +199,10 @@ export default function AboutPage() {
       <div className="pointer-events-none absolute -right-32 top-20 hidden h-96 w-96 rounded-full bg-accent/10 blur-[160px] lg:block" aria-hidden="true" />
       <div className="relative mx-auto max-w-6xl px-6">
         <PageHeader
-          eyebrow="Company"
-          title="About Gigvora"
-          description="Gigvora connects teams and independents through one hiring and collaboration platform."
-          meta="London HQ • Serving members in 32 countries"
+          eyebrow={hero?.eyebrow}
+          title={hero?.title}
+          description={hero?.description}
+          meta={hero?.meta || summary}
         />
 
         <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-4 text-sm text-slate-600">
@@ -176,6 +236,58 @@ export default function AboutPage() {
         </div>
 
         <div className="mt-16 space-y-14">
+          <section className="rounded-3xl border border-slate-200 bg-white/95 p-8 shadow-soft">
+            <div className="grid gap-10 lg:grid-cols-[2fr,1fr]">
+              <div className="space-y-8">
+                {sections.map((section) => (
+                  <div key={section.id} className="space-y-4">
+                    <h2 className="text-2xl font-semibold text-slate-900">{section.title}</h2>
+                    <div className="space-y-4">{section.blocks.map((block, index) => renderBlock(block, index))}</div>
+                  </div>
+                ))}
+              </div>
+              <aside className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50/80 p-6 text-sm text-slate-600">
+                <div>
+                  <h3 className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">At a glance</h3>
+                  <p className="mt-2 text-slate-700">{summary}</p>
+                </div>
+                <ul className="space-y-3">
+                  {metadataItems.map((item) => (
+                    <li key={item.label} className="flex flex-col rounded-2xl border border-slate-200 bg-white/90 px-4 py-3">
+                      <span className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500">{item.label}</span>
+                      {item.href ? (
+                        <a href={item.href} className="text-sm font-medium text-accent transition hover:text-accentDark">
+                          {item.value}
+                        </a>
+                      ) : (
+                        <span className="text-sm text-slate-700">{item.value}</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                {error ? (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-800">
+                    <p className="text-sm font-semibold">We could not load the live company profile.</p>
+                    <p className="mt-1 text-xs">Showing the offline overview until the network recovers.</p>
+                    <button
+                      type="button"
+                      onClick={refresh}
+                      className="mt-3 inline-flex items-center justify-center rounded-full border border-amber-300 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-amber-700 transition hover:border-amber-400"
+                    >
+                      Refresh
+                    </button>
+                  </div>
+                ) : null}
+                {loading ? (
+                  <div className="space-y-2 text-xs text-slate-500">
+                    <div className="h-3 w-24 animate-pulse rounded-full bg-slate-200" />
+                    <div className="h-3 w-32 animate-pulse rounded-full bg-slate-200" />
+                    <div className="h-3 w-20 animate-pulse rounded-full bg-slate-200" />
+                  </div>
+                ) : null}
+              </aside>
+            </div>
+          </section>
           <section className="rounded-3xl border border-slate-200 bg-white/95 p-8 shadow-soft">
             <div className="grid gap-10 lg:grid-cols-[2fr,1fr] lg:items-start">
               <div className="space-y-6 text-base leading-7 text-slate-700">

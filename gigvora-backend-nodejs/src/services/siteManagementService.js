@@ -1,5 +1,11 @@
 import { Op } from 'sequelize';
-import { SiteSetting, SitePage, SiteNavigationLink, SITE_PAGE_STATUSES, sequelize } from '../models/index.js';
+import {
+  SiteSetting,
+  SitePage,
+  SiteNavigationLink,
+  SITE_PAGE_STATUSES,
+  sequelize,
+} from '../models/index.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
 
 const SITE_SETTINGS_KEY = 'site:global';
@@ -58,6 +64,17 @@ function normalizeRoles(value) {
     unique.add(trimmed.toLowerCase());
   });
   return Array.from(unique);
+}
+
+function coerceDate(value) {
+  if (!value) {
+    return null;
+  }
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return date;
 }
 
 function slugify(value) {
@@ -218,12 +235,15 @@ function normalizePagePayload(payload = {}) {
   const seoKeywords = Array.isArray(payload.seoKeywords)
     ? payload.seoKeywords.map((item) => coerceString(item)).filter(Boolean)
     : [];
+  const lastReviewedAt = coerceDate(payload.lastReviewedAt);
   return {
     slug,
     title,
     summary: coerceString(payload.summary),
     heroTitle: coerceString(payload.heroTitle),
     heroSubtitle: coerceString(payload.heroSubtitle),
+    heroEyebrow: coerceString(payload.heroEyebrow),
+    heroMeta: coerceString(payload.heroMeta),
     heroImageUrl: coerceString(payload.heroImageUrl),
     heroImageAlt: coerceString(payload.heroImageAlt),
     ctaLabel: coerceString(payload.ctaLabel),
@@ -235,6 +255,11 @@ function normalizePagePayload(payload = {}) {
     seoDescription: coerceString(payload.seoDescription),
     seoKeywords,
     thumbnailUrl: coerceString(payload.thumbnailUrl),
+    contactEmail: coerceString(payload.contactEmail),
+    contactPhone: coerceString(payload.contactPhone),
+    jurisdiction: coerceString(payload.jurisdiction),
+    version: coerceString(payload.version),
+    lastReviewedAt,
     status,
     allowedRoles: normalizeRoles(payload.allowedRoles),
   };
@@ -274,6 +299,24 @@ export async function getSiteManagementOverview() {
 export async function getSiteSettings() {
   const model = await ensureSiteSetting();
   return model.value ?? buildDefaultSiteSettings();
+}
+
+export async function getSiteNavigation({ menuKey } = {}) {
+  const where = {};
+  if (menuKey) {
+    where.menuKey = `${menuKey}`.trim();
+  }
+
+  const links = await SiteNavigationLink.findAll({
+    where,
+    order: [
+      ['menuKey', 'ASC'],
+      ['orderIndex', 'ASC'],
+      ['id', 'ASC'],
+    ],
+  });
+
+  return links.map((link) => link.toPublicObject());
 }
 
 export async function saveSiteSettings(patch = {}) {
@@ -376,9 +419,56 @@ export async function deleteSitePageById(pageId) {
   return { success: true };
 }
 
+export async function listSitePages({
+  status = 'published',
+  includeDrafts = false,
+  limit = 50,
+  offset = 0,
+  order = [['publishedAt', 'DESC'], ['updatedAt', 'DESC']],
+} = {}) {
+  const where = {};
+  if (!includeDrafts) {
+    const statuses = Array.isArray(status) ? status : [status];
+    const sanitised = statuses.map((value) => coerceString(value)).filter((value) => value && value !== 'all');
+    where.status = sanitised.length ? sanitised : ['published'];
+  } else if (status && status !== 'all') {
+    where.status = Array.isArray(status)
+      ? status.map((value) => coerceString(value)).filter(Boolean)
+      : [coerceString(status)].filter(Boolean);
+  }
+
+  const pages = await SitePage.findAll({
+    where,
+    limit: Number.isFinite(limit) && limit > 0 ? limit : undefined,
+    offset: Number.isFinite(offset) && offset > 0 ? offset : undefined,
+    order,
+  });
+
+  return pages.map((page) => page.toPublicObject());
+}
+
+export async function getPublishedSitePage(slug, { allowDraft = false } = {}) {
+  const normalisedSlug = coerceString(slug);
+  if (!normalisedSlug) {
+    throw new ValidationError('A slug is required.');
+  }
+
+  const where = { slug: normalisedSlug };
+  if (!allowDraft) {
+    where.status = 'published';
+  }
+
+  const page = await SitePage.findOne({ where });
+  if (!page) {
+    throw new NotFoundError('Page not found.');
+  }
+  return page.toPublicObject();
+}
+
 export default {
   getSiteManagementOverview,
   getSiteSettings,
+  getSiteNavigation,
   saveSiteSettings,
   createNavigation,
   updateNavigation,
@@ -386,4 +476,6 @@ export default {
   createSitePage,
   updateSitePageById,
   deleteSitePageById,
+  listSitePages,
+  getPublishedSitePage,
 };

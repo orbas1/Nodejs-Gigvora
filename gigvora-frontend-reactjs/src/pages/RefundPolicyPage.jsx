@@ -1,11 +1,11 @@
 import SiteDocumentLayout from '../components/site/SiteDocumentLayout.jsx';
 import useSiteDocument from '../hooks/useSiteDocument.js';
-import termsContent from '../content/site/terms.js';
+import refundContent from '../content/site/refund.js';
 
-export default function TermsPage() {
+export default function RefundPolicyPage() {
   const { page, sections, metadata, loading, error, refresh, usingFallback, hero } = useSiteDocument(
-    termsContent.slug,
-    termsContent,
+    refundContent.slug,
+    refundContent,
   );
 
   return (

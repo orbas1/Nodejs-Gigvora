@@ -1,11 +1,11 @@
 import SiteDocumentLayout from '../components/site/SiteDocumentLayout.jsx';
 import useSiteDocument from '../hooks/useSiteDocument.js';
-import termsContent from '../content/site/terms.js';
+import communityGuidelinesContent from '../content/site/communityGuidelines.js';
 
-export default function TermsPage() {
+export default function CommunityGuidelinesPage() {
   const { page, sections, metadata, loading, error, refresh, usingFallback, hero } = useSiteDocument(
-    termsContent.slug,
-    termsContent,
+    communityGuidelinesContent.slug,
+    communityGuidelinesContent,
   );
 
   return (

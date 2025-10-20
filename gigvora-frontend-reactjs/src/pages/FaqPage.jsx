@@ -1,11 +1,11 @@
 import SiteDocumentLayout from '../components/site/SiteDocumentLayout.jsx';
 import useSiteDocument from '../hooks/useSiteDocument.js';
-import termsContent from '../content/site/terms.js';
+import faqContent from '../content/site/faq.js';
 
-export default function TermsPage() {
+export default function FaqPage() {
   const { page, sections, metadata, loading, error, refresh, usingFallback, hero } = useSiteDocument(
-    termsContent.slug,
-    termsContent,
+    faqContent.slug,
+    faqContent,
   );
 
   return (

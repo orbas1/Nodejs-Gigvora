@@ -16,7 +16,7 @@ const navigation = [
     links: [
       { label: 'About', to: '/about' },
       { label: 'Blog', to: '/blog' },
-      { label: 'Trust center', to: '/trust' },
+      { label: 'Trust centre', to: '/trust-center' },
       { label: 'Contact', to: '/support/contact' },
     ],
   },
@@ -24,9 +24,11 @@ const navigation = [
     title: 'Resources',
     links: [
       { label: 'Support centre', to: '/support' },
-      { label: 'Community guidelines', to: '/community' },
-      { label: 'Privacy', to: '/privacy' },
-      { label: 'Terms', to: '/terms' },
+      { label: 'FAQ', to: '/faq' },
+      { label: 'Community guidelines', to: '/community-guidelines' },
+      { label: 'Privacy policy', to: '/privacy' },
+      { label: 'Terms & conditions', to: '/terms' },
+      { label: 'Refund policy', to: '/refunds' },
     ],
   },
 ];

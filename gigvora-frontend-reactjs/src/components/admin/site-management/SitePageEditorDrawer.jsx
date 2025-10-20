@@ -49,6 +49,8 @@ const DEFAULT_PAGE = {
   summary: '',
   heroTitle: '',
   heroSubtitle: '',
+  heroEyebrow: '',
+  heroMeta: '',
   heroImageUrl: '',
   heroImageAlt: '',
   ctaLabel: '',
@@ -61,6 +63,11 @@ const DEFAULT_PAGE = {
   seoKeywords: [],
   thumbnailUrl: '',
   allowedRoles: [],
+  contactEmail: '',
+  contactPhone: '',
+  jurisdiction: '',
+  version: '',
+  lastReviewedAt: '',
 };
 
 export default function SitePageEditorDrawer({
@@ -83,7 +90,14 @@ export default function SitePageEditorDrawer({
       return;
     }
     const source = page ? { ...DEFAULT_PAGE, ...page } : { ...DEFAULT_PAGE };
-    setForm(source);
+    const normalised = { ...source };
+    if (source.lastReviewedAt) {
+      const date = new Date(source.lastReviewedAt);
+      if (!Number.isNaN(date.getTime())) {
+        normalised.lastReviewedAt = date.toISOString().slice(0, 10);
+      }
+    }
+    setForm(normalised);
     setFeatureDraft(toFeatureString(source.featureHighlights));
     setRolesDraft(rolesToString(source.allowedRoles));
   }, [open, page]);
@@ -187,6 +201,26 @@ export default function SitePageEditorDrawer({
                   ))}
                 </select>
               </label>
+              <label className="text-sm text-slate-700">
+                <span className="font-semibold text-slate-800">Version</span>
+                <input
+                  type="text"
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  value={form.version}
+                  onChange={handleFieldChange('version')}
+                  placeholder="2.1.0"
+                />
+              </label>
+              <label className="text-sm text-slate-700">
+                <span className="font-semibold text-slate-800">Jurisdiction</span>
+                <input
+                  type="text"
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  value={form.jurisdiction}
+                  onChange={handleFieldChange('jurisdiction')}
+                  placeholder="United Kingdom"
+                />
+              </label>
             </div>
 
             <label className="block text-sm text-slate-700">
@@ -201,6 +235,16 @@ export default function SitePageEditorDrawer({
             </label>
 
             <div className="grid gap-4 md:grid-cols-2">
+              <label className="text-sm text-slate-700">
+                <span className="font-semibold text-slate-800">Hero eyebrow</span>
+                <input
+                  type="text"
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  value={form.heroEyebrow}
+                  onChange={handleFieldChange('heroEyebrow')}
+                  placeholder="Legal"
+                />
+              </label>
               <label className="text-sm text-slate-700">
                 <span className="font-semibold text-slate-800">Hero title</span>
                 <input
@@ -267,6 +311,17 @@ export default function SitePageEditorDrawer({
             </div>
 
             <label className="block text-sm text-slate-700">
+              <span className="font-semibold text-slate-800">Hero meta tagline</span>
+              <input
+                type="text"
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                value={form.heroMeta}
+                onChange={handleFieldChange('heroMeta')}
+                placeholder="Registered office, company number, or contextual tagline"
+              />
+            </label>
+
+            <label className="block text-sm text-slate-700">
               <span className="font-semibold text-slate-800">Feature highlights</span>
               <textarea
                 rows={4}
@@ -322,6 +377,38 @@ export default function SitePageEditorDrawer({
                 placeholder="A few sentences optimised for search and social discovery."
               />
             </label>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="text-sm text-slate-700">
+                <span className="font-semibold text-slate-800">Contact email</span>
+                <input
+                  type="email"
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  value={form.contactEmail}
+                  onChange={handleFieldChange('contactEmail')}
+                  placeholder="legal@gigvora.com"
+                />
+              </label>
+              <label className="text-sm text-slate-700">
+                <span className="font-semibold text-slate-800">Contact phone</span>
+                <input
+                  type="tel"
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  value={form.contactPhone}
+                  onChange={handleFieldChange('contactPhone')}
+                  placeholder="+44 20 1234 5678"
+                />
+              </label>
+              <label className="text-sm text-slate-700">
+                <span className="font-semibold text-slate-800">Last reviewed</span>
+                <input
+                  type="date"
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  value={form.lastReviewedAt || ''}
+                  onChange={handleFieldChange('lastReviewedAt')}
+                />
+              </label>
+            </div>
 
             <label className="block text-sm text-slate-700">
               <span className="font-semibold text-slate-800">Allowed roles</span>

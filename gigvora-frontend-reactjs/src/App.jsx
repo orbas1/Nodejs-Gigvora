@@ -26,6 +26,9 @@ import AutoAssignQueuePage from './pages/AutoAssignQueuePage.jsx';
 import InboxPage from './pages/InboxPage.jsx';
 import TermsPage from './pages/TermsPage.jsx';
 import PrivacyPage from './pages/PrivacyPage.jsx';
+import RefundPolicyPage from './pages/RefundPolicyPage.jsx';
+import CommunityGuidelinesPage from './pages/CommunityGuidelinesPage.jsx';
+import FaqPage from './pages/FaqPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
 import FinanceHubPage from './pages/FinanceHubPage.jsx';
 import AboutPage from './pages/AboutPage.jsx';
@@ -157,6 +160,9 @@ const PUBLIC_ROUTES = [
   { path: 'profile/:id', element: <ProfilePage /> },
   { path: 'terms', element: <TermsPage /> },
   { path: 'privacy', element: <PrivacyPage /> },
+  { path: 'refunds', element: <RefundPolicyPage /> },
+  { path: 'community-guidelines', element: <CommunityGuidelinesPage /> },
+  { path: 'faq', element: <FaqPage /> },
   { path: 'about', element: <AboutPage /> },
   { path: 'preview/freelancer-reviews', element: <FreelancerReviewsPreviewPage /> },
   { path: 'blog', element: <BlogPage /> },
