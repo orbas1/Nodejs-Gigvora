@@ -26,7 +26,9 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
   String? _sort;
   bool _includeFacets = false;
 
-  Map<String, dynamic> get filters => _filters;
+  Map<String, dynamic> get filters => Map.unmodifiable(_filters);
+  String? get sort => _sort;
+  String get query => _query;
 
   Future<void> load({bool forceRefresh = false}) async {
     state = state.copyWith(loading: true, error: null);
@@ -90,89 +92,6 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
 
   Future<void> refresh() => load(forceRefresh: true);
 
-  Future<void> updateFilters(Map<String, dynamic> updates) async {
-  void updateFilters(Map<String, dynamic> updates) {
-    final next = Map<String, dynamic>.from(_filters);
-    updates.forEach((key, value) {
-      if (value == null) {
-        next.remove(key);
-        return;
-      }
-      if (value is String) {
-        final trimmed = value.trim();
-        if (trimmed.isEmpty) {
-          next.remove(key);
-          return;
-        }
-        next[key] = trimmed;
-        return;
-      }
-      if (value is Iterable) {
-        final cleaned = value.where((element) {
-          if (element == null) {
-            return false;
-          }
-          if (element is String) {
-            return element.trim().isNotEmpty;
-          }
-          return true;
-        }).toList(growable: false);
-        if (cleaned.isEmpty) {
-          next.remove(key);
-          return;
-        }
-        next[key] = cleaned;
-        return;
-      }
-      next[key] = value;
-      } else if (value is String && value.trim().isEmpty) {
-        next.remove(key);
-      } else if (value is Iterable && value.isEmpty) {
-        next.remove(key);
-      } else {
-        next[key] = value;
-      }
-    });
-
-    if (mapEquals(next, _filters)) {
-      return;
-    }
-
-    _filters = next;
-    _viewRecorded = false;
-    await load();
-    await _analytics.track(
-      'mobile_opportunity_filters_updated',
-      context: {
-        'category': categoryToPath(category),
-        'query': _query.isEmpty ? null : _query,
-        'filters': _filters,
-      },
-      metadata: const {'source': 'mobile_app'},
-    );
-    unawaited(_reloadWithFilterAnalytics());
-  }
-
-  Future<void> updateSort(String? sort) async {
-    final normalised = sort?.trim();
-    if ((_sort ?? '').trim() == (normalised ?? '')) {
-      return;
-    }
-    _sort = normalised?.isEmpty ?? true ? null : normalised;
-    _viewRecorded = false;
-    await load();
-    await _analytics.track(
-      'mobile_opportunity_sort_updated',
-      context: {
-        'category': categoryToPath(category),
-        'query': _query.isEmpty ? null : _query,
-        'sort': _sort ?? 'default',
-        'filters': _filters.isEmpty ? null : _filters,
-      },
-      metadata: const {'source': 'mobile_app'},
-    );
-  }
-
   void setIncludeFacets(bool value) {
     if (_includeFacets == value) {
       return;
@@ -207,6 +126,89 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
     });
   }
 
+  Future<void> updateSort(String? sort) async {
+    final normalised = sort?.trim();
+    if ((_sort ?? '').trim() == (normalised ?? '')) {
+      return;
+    }
+    _sort = normalised?.isEmpty ?? true ? null : normalised;
+    _viewRecorded = false;
+    await load();
+    await _analytics.track(
+      'mobile_opportunity_sort_updated',
+      context: {
+        'category': categoryToPath(category),
+        'query': _query.isEmpty ? null : _query,
+        'sort': _sort ?? 'default',
+        'filters': _filters.isEmpty ? null : _filters,
+      },
+      metadata: const {'source': 'mobile_app'},
+    );
+  }
+
+  void setFilters(Map<String, dynamic>? filters) {
+    if (filters == null || filters.isEmpty) {
+      _filters = const <String, dynamic>{};
+      _viewRecorded = false;
+      unawaited(load());
+      return;
+    }
+
+    final cleaned = <String, dynamic>{};
+    filters.forEach((key, value) {
+      final normalised = _normaliseFilterValue(value);
+      if (normalised != null) {
+        cleaned[key] = normalised;
+      }
+    });
+
+    if (mapEquals(cleaned, _filters)) {
+      return;
+    }
+
+    _filters = cleaned;
+    _viewRecorded = false;
+    unawaited(load());
+    unawaited(_analytics.track(
+      'mobile_opportunity_filters_updated',
+      context: {
+        'category': categoryToPath(category),
+        'query': _query.isEmpty ? null : _query,
+        'filters': _filters.isEmpty ? null : _filters,
+      },
+      metadata: const {'source': 'mobile_app'},
+    ));
+  }
+
+  void updateFilters(Map<String, dynamic> updates) {
+    final next = Map<String, dynamic>.from(_filters);
+    updates.forEach((key, value) {
+      final normalised = _normaliseFilterValue(value);
+      if (normalised == null) {
+        next.remove(key);
+      } else {
+        next[key] = normalised;
+      }
+    });
+
+    if (mapEquals(next, _filters)) {
+      return;
+    }
+
+    _filters = next;
+    _viewRecorded = false;
+    unawaited(load());
+    unawaited(_analytics.track(
+      'mobile_opportunity_filters_updated',
+      context: {
+        'category': categoryToPath(category),
+        'query': _query.isEmpty ? null : _query,
+        'filters': _filters.isEmpty ? null : _filters,
+      },
+      metadata: const {'source': 'mobile_app'},
+    ));
+  }
+
   Future<void> recordPrimaryCta(OpportunitySummary opportunity) {
     return _analytics.track(
       'mobile_opportunity_cta',
@@ -221,64 +223,10 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
     );
   }
 
-  Map<String, dynamic> get filters => Map.unmodifiable(_filters);
-
   @override
   void dispose() {
     _debounce?.cancel();
     super.dispose();
-  }
-
-  void setFilters(Map<String, dynamic>? filters) {
-    final next = filters == null
-        ? <String, dynamic>{}
-        : Map<String, dynamic>.from(filters)..removeWhere((key, value) => value == null);
-    if (mapEquals(next, _filters)) {
-      return;
-    }
-    _filters = next;
-    _viewRecorded = false;
-    unawaited(load());
-    unawaited(_analytics.track(
-  Future<void> _reloadWithFilterAnalytics() async {
-    await load();
-    await _analytics.track(
-      'mobile_opportunity_filters_updated',
-      context: {
-        'category': categoryToPath(category),
-        'query': _query.isEmpty ? null : _query,
-        'filters': _filters.isEmpty ? null : _filters,
-      },
-      metadata: const {'source': 'mobile_app'},
-    ));
-  }
-
-  void updateFilters(Map<String, dynamic> updates) {
-    final next = Map<String, dynamic>.from(_filters);
-    updates.forEach((key, value) {
-      if (value == null) {
-        next.remove(key);
-        return;
-      }
-      if (value is String && value.trim().isEmpty) {
-        next.remove(key);
-        return;
-      }
-      if (value is Iterable && value.isEmpty) {
-        next.remove(key);
-        return;
-      }
-      next[key] = value;
-    });
-
-    if (mapEquals(next, _filters)) {
-      return;
-    }
-
-    _filters = next;
-    _viewRecorded = false;
-    unawaited(load());
-    );
   }
 
   Future<void> _emitViewAnalytics(OpportunityPage page, {required bool fromCache}) async {
@@ -302,6 +250,34 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
       );
       _viewRecorded = true;
     }
+  }
+
+  dynamic _normaliseFilterValue(dynamic value) {
+    if (value == null) {
+      return null;
+    }
+    if (value is String) {
+      final trimmed = value.trim();
+      return trimmed.isEmpty ? null : trimmed;
+    }
+    if (value is Iterable) {
+      final cleaned = <dynamic>[];
+      for (final entry in value) {
+        if (entry == null) {
+          continue;
+        }
+        if (entry is String) {
+          final trimmed = entry.trim();
+          if (trimmed.isNotEmpty) {
+            cleaned.add(trimmed);
+          }
+        } else {
+          cleaned.add(entry);
+        }
+      }
+      return cleaned.isEmpty ? null : List<dynamic>.unmodifiable(cleaned);
+    }
+    return value;
   }
 }
 

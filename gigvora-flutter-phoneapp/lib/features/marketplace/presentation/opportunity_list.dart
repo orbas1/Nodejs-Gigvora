@@ -75,7 +75,6 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
   bool _defaultsApplied = false;
 
   bool get _isGigCategory => widget.category == OpportunityCategory.gig;
-  bool get _showVolunteerFilters => widget.category == OpportunityCategory.volunteering;
   bool get _isVolunteerCategory => widget.category == OpportunityCategory.volunteering;
 
   @override
@@ -86,7 +85,6 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
     if (_isGigCategory) {
       controller.setIncludeFacets(true);
     }
-    if (_showVolunteerFilters) {
     if (_isVolunteerCategory) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_defaultsApplied) {
@@ -112,7 +110,6 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
     final controller = ref.read(opportunityControllerProvider(widget.category).notifier);
     final items = state.data?.items ?? const <OpportunitySummary>[];
 
-    final organizationOptions = _showVolunteerFilters
     final organizationOptions = _isVolunteerCategory
         ? items
             .map((item) => item.organization?.trim())
@@ -137,6 +134,7 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
         });
       }
     }
+
     if (_isGigCategory) {
       final availableSlugs = tagOptions.map((option) => option.slug).toSet();
       final validTags = _selectedTagSlugs.where(availableSlugs.contains).toSet();
@@ -152,7 +150,7 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
       }
     }
 
-    final filtersActive = _remoteOnly || _freshness != '30d' || _selectedOrganizations.isNotEmpty;
+    final filtersActive = _remoteOnly || _freshness != '30d' || _selectedOrganizations.isNotEmpty || _selectedTagSlugs.isNotEmpty;
     final gigSignals = widget.category == OpportunityCategory.gig ? _deriveGigSignals(items) : null;
     final showGigLifecycle = _isGigCategory;
 
@@ -194,8 +192,7 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
               });
               _applyFilters(controller);
             },
-            filtersActive:
-                filtersActive || controller.filters.isNotEmpty || _searchController.text.trim().isNotEmpty,
+            filtersActive: filtersActive || controller.filters.isNotEmpty || _searchController.text.trim().isNotEmpty,
             activeResultCount: items.length,
           )
         else ...[
@@ -212,11 +209,6 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(28),
                 borderSide: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.4)),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(28),
-                borderSide: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.4)),
-                borderSide: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.3)),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(28),
@@ -335,91 +327,93 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
 
                           return Padding(
                             padding: EdgeInsets.only(bottom: addBottomSpacing ? 16 : 0),
-                            child: GigvoraCard(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Wrap(
-                                    alignment: WrapAlignment.spaceBetween,
-                                    runSpacing: 8,
-                                    children: [
-                                      if (meta.isNotEmpty)
-                                        Wrap(
-                                          spacing: 8,
-                                          runSpacing: 6,
-                                          children: meta
-                                              .map(
-                                                (entry) => Chip(
-                                                  backgroundColor: colorScheme.primary.withOpacity(0.08),
-                                                  label: Text(entry),
-                                                  labelStyle: theme.textTheme.labelSmall?.copyWith(
-                                                    color: colorScheme.primary,
-                                                    fontWeight: FontWeight.w600,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(28),
+                              onTap: () => _openDetails(context, controller, item),
+                              child: GigvoraCard(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Wrap(
+                                      alignment: WrapAlignment.spaceBetween,
+                                      runSpacing: 8,
+                                      children: [
+                                        if (meta.isNotEmpty)
+                                          Wrap(
+                                            spacing: 8,
+                                            runSpacing: 6,
+                                            children: meta
+                                                .map(
+                                                  (entry) => Chip(
+                                                    backgroundColor: primaryChipBackground,
+                                                    label: Text(entry),
+                                                    labelStyle: theme.textTheme.labelSmall?.copyWith(
+                                                      color: colorScheme.primary,
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
+                                                    shape: StadiumBorder(
+                                                      side: BorderSide(color: primaryChipBorder),
+                                                    ),
+                                                    visualDensity: VisualDensity.compact,
+                                                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                                   ),
-                                                  backgroundColor: primaryChipBackground,
-                                                  shape: StadiumBorder(
-                                                    side: BorderSide(color: primaryChipBorder),
-                                                  ),
-                                                  visualDensity: VisualDensity.compact,
-                                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                                  label: Text(entry),
+                                                )
+                                                .toList(),
+                                          ),
+                                        Text(
+                                          'Updated ${formatRelativeTime(item.updatedAt)}',
+                                          style: theme.textTheme.bodySmall?.copyWith(
+                                            color: colorScheme.onSurfaceVariant,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      item.title,
+                                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      item.description,
+                                      maxLines: 4,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.bodyMedium?.copyWith(
+                                        color: colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                    if (taxonomyLabels.isNotEmpty) ...[
+                                      const SizedBox(height: 12),
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 4,
+                                        children: taxonomyLabels
+                                            .map(
+                                              (label) => Chip(
+                                                label: Text(label),
+                                                backgroundColor: colorScheme.secondaryContainer,
+                                                labelStyle: theme.textTheme.labelSmall?.copyWith(
+                                                  color: colorScheme.onSecondaryContainer,
+                                                  fontWeight: FontWeight.w600,
                                                 ),
-                                              )
-                                              .toList(),
-                                        ),
-                                      Text(
-                                        'Updated ${formatRelativeTime(item.updatedAt)}',
-                                        style: theme.textTheme.bodySmall?.copyWith(
-                                          color: colorScheme.onSurfaceVariant,
-                                        ),
+                                                visualDensity: VisualDensity.compact,
+                                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                              ),
+                                            )
+                                            .toList(),
                                       ),
                                     ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    item.title,
-                                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    item.description,
-                                    maxLines: 4,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                  if (taxonomyLabels.isNotEmpty) ...[
-                                    const SizedBox(height: 12),
-                                    Wrap(
-                                      spacing: 8,
-                                      runSpacing: 4,
-                                      children: taxonomyLabels
-                                          .map(
-                                            (label) => Chip(
-                                              label: Text(label),
-                                              backgroundColor: colorScheme.secondaryContainer,
-                                              labelStyle: theme.textTheme.labelSmall?.copyWith(
-                                                color: colorScheme.onSecondaryContainer,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                              visualDensity: VisualDensity.compact,
-                                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                            ),
-                                          )
-                                          .toList(),
+                                    const SizedBox(height: 16),
+                                    Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: FilledButton(
+                                        onPressed: () => controller.recordPrimaryCta(item),
+                                        style: FilledButton.styleFrom(shape: const StadiumBorder()),
+                                        child: Text(widget.ctaLabel),
+                                      ),
                                     ),
                                   ],
-                                  const SizedBox(height: 16),
-                                  Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: FilledButton(
-                                      onPressed: () => controller.recordPrimaryCta(item),
-                                      style: FilledButton.styleFrom(shape: const StadiumBorder()),
-                                      child: Text(widget.ctaLabel),
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
                             ),
                           );
@@ -432,8 +426,8 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
   }
 
   void _applyFilters(OpportunityController controller) {
-    if (_showVolunteerFilters) {
-      controller.setFilters({
+    if (_isVolunteerCategory) {
+      controller.updateFilters({
         'isRemote': _remoteOnly ? true : null,
         'updatedWithin': _freshness == 'all' ? null : _freshness,
         'organizations': _selectedOrganizations.isEmpty
@@ -444,7 +438,7 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
     }
 
     if (_isGigCategory) {
-      controller.setFilters({
+      controller.updateFilters({
         'taxonomySlugs': _selectedTagSlugs.isEmpty
             ? null
             : _selectedTagSlugs.toList(growable: false),
@@ -453,11 +447,20 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
     }
 
     controller.setFilters(null);
-    controller.updateFilters({
-      'isRemote': _remoteOnly ? true : null,
-      'updatedWithin': _freshness == 'all' ? null : _freshness,
-      'organizations': _selectedOrganizations.isEmpty ? null : _selectedOrganizations.toList(growable: false),
-    });
+  }
+
+  void _openDetails(BuildContext context, OpportunityController controller, OpportunitySummary opportunity) {
+    controller.recordPrimaryCta(opportunity);
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => _OpportunityDetailSheet(
+        opportunity: opportunity,
+        primaryActionLabel: widget.ctaLabel,
+        onPrimaryTap: () => controller.recordPrimaryCta(opportunity),
+      ),
+    );
   }
 
   List<String> _buildMeta(OpportunitySummary item) {
@@ -467,7 +470,6 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
           if ((item.location ?? '').isNotEmpty) item.location!,
           if ((item.employmentType ?? '').isNotEmpty) item.employmentType!,
           if (item.isRemote) 'Remote',
-          if (item.isRemote == true) 'Remote',
         ];
       case OpportunityCategory.gig:
         return [
@@ -487,7 +489,6 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
       case OpportunityCategory.volunteering:
         return [
           if ((item.organization ?? '').isNotEmpty) item.organization!,
-          if (item.isRemote == true) 'Remote friendly',
           if (item.isRemote) 'Remote friendly',
           if ((item.location ?? '').isNotEmpty) item.location!,
         ];
@@ -508,7 +509,7 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
         fresh += 1;
       }
       final label = '${item.location ?? ''} ${item.status ?? ''}'.toLowerCase();
-      if (label.contains('remote') || label.contains('hybrid') || item.isRemote == true) {
+      if (label.contains('remote') || label.contains('hybrid') || item.isRemote) {
         remoteFriendly += 1;
       }
       if ((item.budget ?? '').trim().isNotEmpty) {
@@ -547,17 +548,53 @@ class _SignalTile extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          value.toString(),
-          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+          '$value',
+          style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 4),
         Text(
           label,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
+          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
       ],
+    );
+  }
+}
+
+class _StatusBanner extends StatelessWidget {
+  const _StatusBanner({
+    required this.icon,
+    required this.background,
+    required this.foreground,
+    required this.message,
+  });
+
+  final IconData icon;
+  final Color background;
+  final Color foreground;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: foreground),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              message,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: foreground),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -572,129 +609,99 @@ class _GigTagFilterBar extends StatelessWidget {
 
   final List<_TagOption> options;
   final Set<String> selected;
-  final void Function(String slug) onToggle;
+  final ValueChanged<String> onToggle;
   final VoidCallback onClear;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: options.take(12).map((option) {
-            final isSelected = selected.contains(option.slug);
-            return FilterChip(
-              label: Text('${option.label} (${option.count})'),
-              selected: isSelected,
-              onSelected: (_) => onToggle(option.slug),
-              labelStyle: theme.textTheme.labelSmall?.copyWith(
-                color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+    return GigvoraCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Filter by expertise tags',
+                  style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                ),
               ),
-              showCheckmark: false,
-              backgroundColor: colorScheme.surfaceVariant.withOpacity(0.6),
-              selectedColor: colorScheme.primary.withOpacity(0.18),
-              side: BorderSide(
-                color: isSelected
-                    ? colorScheme.primary.withOpacity(0.4)
-                    : colorScheme.outlineVariant.withOpacity(0.5),
-              ),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-              visualDensity: VisualDensity.compact,
-            );
-          }).toList(),
-        ),
-        if (selected.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: TextButton.icon(
-              onPressed: onClear,
-              icon: const Icon(Icons.clear),
-              label: const Text('Clear SEO tags'),
-            ),
+              TextButton(onPressed: onClear, child: const Text('Clear')),
+            ],
           ),
-      ],
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: options.map((option) {
+              final isSelected = selected.contains(option.slug);
+              return FilterChip(
+                label: Text('${option.label} (${option.count})'),
+                selected: isSelected,
+                onSelected: (_) => onToggle(option.slug),
+                shape: const StadiumBorder(),
+                selectedColor: colorScheme.primary.withOpacity(0.12),
+                labelStyle: theme.textTheme.labelMedium?.copyWith(
+                  color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _TagOption {
-  const _TagOption({required this.slug, required this.label, required this.count});
+class _OpportunitySkeleton extends StatelessWidget {
+  const _OpportunitySkeleton();
 
-  final String slug;
-  final String label;
-  final int count;
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(),
+      itemCount: 3,
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      itemBuilder: (context, index) {
+        return Padding(
+          padding: EdgeInsets.only(left: 4, right: 4, bottom: index == 2 ? 0 : 16),
+          child: const _ShimmerPlaceholder(height: 160, borderRadius: BorderRadius.all(Radius.circular(28))),
+        );
+      },
+    );
+  }
 }
 
-List<_TagOption> _deriveTagOptions(List<OpportunitySummary> items, Map<String, dynamic>? facets) {
-  if (items.isEmpty && facets == null) {
-    return const <_TagOption>[];
-  }
-
-  String formatLabel(String slug, [String? label]) {
-    final candidate = label?.trim();
-    if (candidate != null && candidate.isNotEmpty) {
-      return candidate;
-    }
-    return slug
-        .replaceAll(RegExp(r'[_-]+'), ' ')
-        .split(' ')
-        .where((part) => part.isNotEmpty)
-        .map((part) => part[0].toUpperCase() + part.substring(1))
-        .join(' ');
-  }
-
-  final Map<String, _TagOption> map = {};
-
-  void register(String slug, {String? label, int weight = 1}) {
-    if (slug.isEmpty) {
-      return;
-    }
-    final key = slug.toLowerCase();
-    final current = map[key];
-    final resolvedLabel = formatLabel(slug, label ?? current?.label);
-    final count = (current?.count ?? 0) + weight;
-    map[key] = _TagOption(slug: slug, label: resolvedLabel, count: count);
-  }
-
-  final taxonomyFacet = facets != null && facets['taxonomySlugs'] is Map<String, dynamic>
-      ? Map<String, dynamic>.from(facets['taxonomySlugs'] as Map)
-      : const <String, dynamic>{};
-  taxonomyFacet.forEach((slug, value) {
-    final count = value is num ? value.toInt() : 0;
-    if (slug is String && count > 0) {
-      register(slug, weight: count);
-    }
+class _ShimmerPlaceholder extends StatelessWidget {
+  const _ShimmerPlaceholder({
+    required this.height,
+    required this.borderRadius,
   });
 
-  for (final item in items) {
-    if (item.taxonomies.isNotEmpty) {
-      for (final taxonomy in item.taxonomies) {
-        register(taxonomy.slug, label: taxonomy.label);
-      }
-      continue;
-    }
-    for (var i = 0; i < item.taxonomySlugs.length; i++) {
-      final slug = item.taxonomySlugs[i];
-      final label = i < item.taxonomyLabels.length ? item.taxonomyLabels[i] : null;
-      register(slug, label: label);
-    }
+  final double height;
+  final BorderRadius borderRadius;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        borderRadius: borderRadius,
+        gradient: LinearGradient(
+          colors: [
+            colorScheme.surfaceVariant.withOpacity(0.4),
+            colorScheme.surfaceVariant.withOpacity(0.2),
+            colorScheme.surfaceVariant.withOpacity(0.4),
+          ],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+      ),
+    );
   }
-
-  final options = map.values.toList()
-    ..sort((a, b) {
-      final countComparison = b.count.compareTo(a.count);
-      if (countComparison != 0) {
-        return countComparison;
-      }
-      return a.label.toLowerCase().compareTo(b.label.toLowerCase());
-    });
-
-  return options;
 }
 
 class _VolunteerFilterCard extends StatelessWidget {
@@ -732,130 +739,89 @@ class _VolunteerFilterCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(
-              controller: searchController,
-              textInputAction: TextInputAction.search,
-              onChanged: onQueryChanged,
-              decoration: InputDecoration(
-                hintText: searchPlaceholder,
-                prefixIcon: Icon(Icons.search, color: colorScheme.onSurfaceVariant),
-                prefixIcon: Icon(Icons.search, color: colorScheme.primary),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(24)),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: freshness,
-                    decoration: const InputDecoration(
-                      labelText: 'Freshness',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: '24h', child: Text('Updated in 24h')),
-                      DropdownMenuItem(value: '7d', child: Text('Past week')),
-                      DropdownMenuItem(value: '30d', child: Text('Past 30 days')),
-                      DropdownMenuItem(value: 'all', child: Text('All time')),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) {
-                        onFreshnessChanged(value);
-                      }
-                    },
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: onRemoteToggle,
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: remoteOnly ? colorScheme.primary.withOpacity(0.1) : null,
-                      foregroundColor: remoteOnly ? colorScheme.primary : colorScheme.onSurfaceVariant,
-                      backgroundColor: remoteOnly ? colorScheme.primary.withOpacity(0.08) : null,
-                      shape: const StadiumBorder(),
-                    ),
-                    icon: Icon(remoteOnly ? Icons.cloud_done : Icons.cloud_queue),
-                    label: Text(remoteOnly ? 'Remote only' : 'Remote + onsite'),
-                  ),
-                ),
-              ],
-            ),
-            if (organizationOptions.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Text('Trusted causes', style: theme.textTheme.labelLarge),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: organizationOptions
-                    .map(
-                      (organization) => FilterChip(
-                        label: Text(organization),
-                        selected: selectedOrganizations.contains(organization),
-                        onSelected: (_) => onOrganizationToggled(organization),
-                      ),
-                    )
-                    .toList(),
-              ),
-            ],
-            if (filtersActive) ...[
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Text('Showing $activeResultCount matches', style: theme.textTheme.bodySmall),
-                  const Spacer(),
-                  TextButton(onPressed: onClearFilters, child: const Text('Clear filters')),
-                ],
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _StatusBanner extends StatelessWidget {
-  const _StatusBanner({
-    required this.icon,
-    required this.background,
-    required this.foreground,
-    required this.message,
-  });
-
-  final IconData icon;
-  final Color background;
-  final Color foreground;
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
+    return GigvoraCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: foreground),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              message,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: foreground),
+          TextField(
+            controller: searchController,
+            textInputAction: TextInputAction.search,
+            onChanged: onQueryChanged,
+            decoration: InputDecoration(
+              hintText: searchPlaceholder,
+              prefixIcon: Icon(Icons.search, color: colorScheme.primary),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(24)),
             ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  value: freshness,
+                  decoration: const InputDecoration(
+                    labelText: 'Freshness',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: '24h', child: Text('Updated in 24h')),
+                    DropdownMenuItem(value: '7d', child: Text('Past week')),
+                    DropdownMenuItem(value: '30d', child: Text('Past 30 days')),
+                    DropdownMenuItem(value: 'all', child: Text('All time')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      onFreshnessChanged(value);
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onRemoteToggle,
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: remoteOnly ? colorScheme.primary.withOpacity(0.08) : null,
+                    foregroundColor: remoteOnly ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                    shape: const StadiumBorder(),
+                  ),
+                  icon: Icon(remoteOnly ? Icons.cloud_done : Icons.cloud_queue),
+                  label: Text(remoteOnly ? 'Remote only' : 'Remote + onsite'),
+                ),
+              ),
+            ],
+          ),
+          if (organizationOptions.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Text('Trusted causes', style: theme.textTheme.labelLarge),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: organizationOptions
+                  .map(
+                    (option) => FilterChip(
+                      label: Text(option),
+                      selected: selectedOrganizations.contains(option),
+                      onSelected: (_) => onOrganizationToggled(option),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ],
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  filtersActive
+                      ? '$activeResultCount opportunities after filters'
+                      : 'Showing all available missions',
+                  style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                ),
+              ),
+              TextButton(onPressed: onClearFilters, child: const Text('Reset')),
+            ],
           ),
         ],
       ),
@@ -863,61 +829,209 @@ class _StatusBanner extends StatelessWidget {
   }
 }
 
-class _OpportunitySkeleton extends StatelessWidget {
-  const _OpportunitySkeleton();
+class _TagOption {
+  const _TagOption({required this.slug, required this.label, required this.count});
+
+  final String slug;
+  final String label;
+  final int count;
+}
+
+List<_TagOption> _deriveTagOptions(List<OpportunitySummary> items, Map<String, dynamic>? facets) {
+  final map = <String, _TagOption>{};
+  void register(String slug, {String? label, int count = 1}) {
+    final trimmedSlug = slug.trim();
+    if (trimmedSlug.isEmpty) {
+      return;
+    }
+    final entry = map[trimmedSlug];
+    if (entry == null) {
+      map[trimmedSlug] = _TagOption(
+        slug: trimmedSlug,
+        label: (label ?? trimmedSlug).trim().isEmpty ? trimmedSlug : (label ?? trimmedSlug),
+        count: count,
+      );
+    } else {
+      map[trimmedSlug] = _TagOption(
+        slug: entry.slug,
+        label: (label ?? entry.label).trim().isEmpty ? entry.label : (label ?? entry.label),
+        count: entry.count + count,
+      );
+    }
+  }
+
+  if (facets != null) {
+    final taxonomyFacet = facets['taxonomySlugs'];
+    if (taxonomyFacet is Map<String, dynamic>) {
+      taxonomyFacet.forEach((key, value) {
+        final count = value is num ? value.toInt() : 1;
+        register(key, count: count);
+      });
+    }
+  }
+
+  for (final item in items) {
+    for (var i = 0; i < item.taxonomySlugs.length; i++) {
+      final slug = item.taxonomySlugs[i];
+      final label = i < item.taxonomyLabels.length ? item.taxonomyLabels[i] : null;
+      register(slug, label: label);
+    }
+  }
+
+  final options = map.values.toList()
+    ..sort((a, b) {
+      final countComparison = b.count.compareTo(a.count);
+      if (countComparison != 0) {
+        return countComparison;
+      }
+      return a.label.toLowerCase().compareTo(b.label.toLowerCase());
+    });
+
+  return options;
+}
+
+class _OpportunityDetailSheet extends StatelessWidget {
+  const _OpportunityDetailSheet({
+    required this.opportunity,
+    required this.primaryActionLabel,
+    required this.onPrimaryTap,
+  });
+
+  final OpportunitySummary opportunity;
+  final String primaryActionLabel;
+  final VoidCallback onPrimaryTap;
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      physics: const AlwaysScrollableScrollPhysics(),
-      itemCount: 3,
-      itemBuilder: (context, index) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: GigvoraCard(
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final meta = <String>[
+      if ((opportunity.location ?? '').isNotEmpty) opportunity.location!,
+      if ((opportunity.organization ?? '').isNotEmpty) opportunity.organization!,
+      if (opportunity.isRemote) 'Remote friendly',
+    ];
+    return DraggableScrollableSheet(
+      initialChildSize: 0.8,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      builder: (context, scrollController) => Container(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.12),
+              blurRadius: 32,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            controller: scrollController,
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  height: 12,
-                  width: 160,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE2E8F0),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  height: 16,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE2E8F0),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  height: 16,
-                  width: MediaQuery.of(context).size.width * 0.7,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE2E8F0),
-                    borderRadius: BorderRadius.circular(8),
+                Center(
+                  child: Container(
+                    height: 4,
+                    width: 48,
+                    decoration: BoxDecoration(
+                      color: colorScheme.outlineVariant,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 24),
-                Container(
-                  height: 40,
-                  width: 140,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE2E8F0),
-                    borderRadius: BorderRadius.circular(999),
+                Text(
+                  opportunity.title,
+                  style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 12),
+                if (meta.isNotEmpty)
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: meta
+                        .map(
+                          (entry) => Chip(
+                            label: Text(entry),
+                            backgroundColor: colorScheme.secondaryContainer,
+                            labelStyle: theme.textTheme.labelMedium?.copyWith(
+                              color: colorScheme.onSecondaryContainer,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        )
+                        .toList(),
                   ),
+                const SizedBox(height: 16),
+                _DetailSection(
+                  title: 'Overview',
+                  child: Text(
+                    opportunity.description,
+                    style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
+                  ),
+                ),
+                if (opportunity.taxonomyLabels.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  _DetailSection(
+                    title: 'Tags',
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: opportunity.taxonomyLabels
+                          .map(
+                            (label) => Chip(
+                              label: Text(label),
+                              backgroundColor: colorScheme.primary.withOpacity(0.1),
+                              labelStyle: theme.textTheme.labelSmall?.copyWith(
+                                color: colorScheme.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 24),
+                FilledButton.icon(
+                  onPressed: onPrimaryTap,
+                  icon: const Icon(Icons.send),
+                  label: Text(primaryActionLabel),
+                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
                 ),
               ],
             ),
           ),
-        );
-      },
+        ),
+      ),
+    );
+  }
+}
+
+class _DetailSection extends StatelessWidget {
+  const _DetailSection({required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 12),
+        child,
+      ],
     );
   }
 }
