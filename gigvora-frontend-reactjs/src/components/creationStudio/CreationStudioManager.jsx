@@ -48,6 +48,19 @@ export default function CreationStudioManager() {
     loadItems();
   }, [loadItems]);
 
+  useEffect(() => {
+    const handleExternalRefresh = (event) => {
+      const { detail } = event ?? {};
+      const nextFilters = {};
+      if (detail?.type && typeof detail.type === 'string') {
+        nextFilters.type = detail.type;
+      }
+      loadItems(nextFilters);
+    };
+    window.addEventListener('creation-studio:refresh', handleExternalRefresh);
+    return () => window.removeEventListener('creation-studio:refresh', handleExternalRefresh);
+  }, [loadItems]);
+
   const handleFiltersChange = useCallback(
     (patch) => {
       setFilters((previous) => ({

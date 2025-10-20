@@ -20,6 +20,13 @@ import DataStatus from '../components/DataStatus.jsx';
 import UserAvatar from '../components/UserAvatar.jsx';
 import useCachedResource from '../hooks/useCachedResource.js';
 import { apiClient } from '../services/apiClient.js';
+import {
+  listFeedPosts,
+  createFeedPost,
+  updateFeedPost,
+  deleteFeedPost,
+  reactToFeedPost,
+} from '../services/liveFeed.js';
 import analytics from '../services/analytics.js';
 import { formatRelativeTime } from '../utils/date.js';
 import useSession from '../hooks/useSession.js';
@@ -74,6 +81,13 @@ const COMPOSER_OPTIONS = [
     icon: RocketLaunchIcon,
   },
 ];
+
+const DEFAULT_EDIT_DRAFT = {
+  title: '',
+  content: '',
+  link: '',
+  type: 'update',
+};
 
 const POST_TYPE_META = {
   update: {
@@ -875,7 +889,22 @@ function MediaAttachmentGrid({ attachments }) {
   );
 }
 
-function FeedPostCard({ post, onShare }) {
+function FeedPostCard({
+  post,
+  onShare,
+  canManage = false,
+  onEditStart,
+  onEditCancel,
+  onDelete,
+  isEditing = false,
+  editDraft = DEFAULT_EDIT_DRAFT,
+  onEditDraftChange,
+  onEditSubmit,
+  editSaving = false,
+  editError = null,
+  deleteLoading = false,
+  onToggleReaction,
+}) {
   const author = resolveAuthor(post);
   const postType = resolvePostType(post);
   const isNewsPost = postType.key === 'news';
@@ -883,7 +912,7 @@ function FeedPostCard({ post, onShare }) {
   const bodyText = isNewsPost ? post.summary || post.content || '' : post.content || '';
   const linkLabel = isNewsPost ? 'Read full story' : 'View attached resource';
   const publishedTimestamp = post.publishedAt || post.createdAt;
-  const [liked, setLiked] = useState(false);
+  const [liked, setLiked] = useState(Boolean(post.viewerHasLiked));
   const [likeCount, setLikeCount] = useState(() => {
     if (typeof post.reactions?.likes === 'number') {
       return post.reactions.likes;
@@ -895,6 +924,22 @@ function FeedPostCard({ post, onShare }) {
   });
   const [comments, setComments] = useState(() => normaliseComments(post));
   const [commentDraft, setCommentDraft] = useState('');
+
+  useEffect(() => {
+    setLiked(Boolean(post.viewerHasLiked));
+  }, [post.viewerHasLiked, post.id]);
+
+  useEffect(() => {
+    setLikeCount(() => {
+      if (typeof post.reactions?.likes === 'number') {
+        return post.reactions.likes;
+      }
+      if (typeof post.likes === 'number') {
+        return post.likes;
+      }
+      return Math.max(7, Math.round(Math.random() * 32));
+    });
+  }, [post.reactions?.likes, post.likes, post.id]);
 
   const totalConversationCount = useMemo(
     () =>
@@ -908,12 +953,18 @@ function FeedPostCard({ post, onShare }) {
   const handleLike = () => {
     setLiked((previous) => {
       const nextLiked = !previous;
-      setLikeCount((current) => current + (nextLiked ? 1 : -1));
+      setLikeCount((current) => {
+        const nextCount = nextLiked ? current + 1 : Math.max(0, current - 1);
+        return nextCount;
+      });
       analytics.track(
         'web_feed_reaction_click',
         { postId: post.id, action: 'like', like: nextLiked },
         { source: 'web_app' },
       );
+      if (typeof onToggleReaction === 'function') {
+        onToggleReaction(post, nextLiked);
+      }
       return nextLiked;
     });
   };
@@ -960,112 +1011,227 @@ function FeedPostCard({ post, onShare }) {
 
   return (
     <article className="space-y-6 rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-soft">
-      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
+      <div className="flex flex-wrap items-start justify-between gap-3 text-xs text-slate-400">
         <span className="inline-flex items-center gap-2">
           <UserAvatar name={author.name} seed={author.avatarSeed} size="xs" showGlow={false} />
           <span>{author.headline}</span>
         </span>
-        <span>{formatRelativeTime(publishedTimestamp)}</span>
-      </div>
-      <div className="flex flex-wrap items-center gap-3">
-        <h2 className="text-lg font-semibold text-slate-900">{heading}</h2>
-        <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${postType.badgeClassName}`}>
-          {postType.label}
-        </span>
-        {isNewsPost && post.source ? (
-          <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[0.7rem] font-semibold uppercase tracking-wide text-slate-600">
-            {post.source}
-          </span>
-        ) : null}
-      </div>
-      {bodyText ? (
-        <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">{bodyText}</p>
-      ) : null}
-      {isNewsPost && author.name && heading !== author.name ? (
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{author.name}</p>
-      ) : null}
-      <MediaAttachmentGrid attachments={post.mediaAttachments} />
-      {post.link ? (
-        <a
-          href={post.link}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-accent transition hover:border-accent/50 hover:bg-white"
-        >
-          <ArrowPathIcon className="h-4 w-4" />
-          {linkLabel}
-        </a>
-      ) : null}
-      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
-        <button
-          type="button"
-          onClick={handleLike}
-          className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 transition ${
-            liked ? 'border-rose-200 bg-rose-50 text-rose-600' : 'border-slate-200 hover:border-rose-200 hover:text-rose-600'
-          }`}
-        >
-          <HeartIcon className="h-4 w-4" />
-          {liked ? 'Liked' : 'Like'} · {likeCount}
-        </button>
-        <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-slate-500">
-          <ChatBubbleOvalLeftIcon className="h-4 w-4" /> {totalConversationCount}{' '}
-          {totalConversationCount === 1 ? 'comment' : 'conversations'}
-        </span>
-        <button
-          type="button"
-          onClick={() => {
-            analytics.track('web_feed_share_click', { postId: post.id, location: 'feed_item' }, { source: 'web_app' });
-            if (typeof onShare === 'function') {
-              onShare(post);
-            }
-          }}
-          className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 transition hover:border-accent hover:text-accent"
-        >
-          <ShareIcon className="h-4 w-4" /> Share externally
-        </button>
-      </div>
-      <form onSubmit={handleCommentSubmit} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-        <label htmlFor={`comment-${post.id}`} className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Join the conversation
-        </label>
-        <textarea
-          id={`comment-${post.id}`}
-          value={commentDraft}
-          onChange={(event) => setCommentDraft(event.target.value)}
-          rows={3}
-          className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-inner focus:border-accent focus:ring-2 focus:ring-accent/20"
-          placeholder="Offer context, signal interest, or tag a collaborator…"
-        />
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap gap-2 text-[0.65rem] uppercase tracking-wide text-slate-400">
-            {QUICK_REPLY_SUGGESTIONS.slice(0, 2).map((suggestion) => (
+        <div className="ml-auto flex items-center gap-2">
+          <span>{formatRelativeTime(publishedTimestamp)}</span>
+          {canManage ? (
+            isEditing ? (
               <button
-                key={suggestion}
                 type="button"
-                onClick={() => setCommentDraft((previous) => (previous ? `${previous}\n${suggestion}` : suggestion))}
-                className="rounded-full border border-slate-200 px-3 py-1 font-semibold transition hover:border-accent/60 hover:text-accent"
+                onClick={() => onEditCancel?.(post)}
+                className="rounded-full border border-slate-200 px-3 py-1 text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 transition hover:border-rose-200 hover:text-rose-500"
+                disabled={editSaving}
               >
-                {suggestion.slice(0, 22)}…
+                Cancel edit
               </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => onEditStart?.(post)}
+                  className="rounded-full border border-slate-200 px-3 py-1 text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 transition hover:border-accent hover:text-accent"
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDelete?.(post)}
+                  className={`rounded-full border px-3 py-1 text-[0.7rem] font-semibold uppercase tracking-wide transition ${
+                    deleteLoading
+                      ? 'border-rose-200 bg-rose-100 text-rose-500'
+                      : 'border-rose-200 text-rose-600 hover:bg-rose-50'
+                  }`}
+                  disabled={deleteLoading}
+                >
+                  {deleteLoading ? 'Removing…' : 'Delete'}
+                </button>
+              </>
+            )
+          ) : null}
+        </div>
+      </div>
+      {isEditing ? (
+        <form onSubmit={(event) => onEditSubmit?.(event, post)} className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block text-sm">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Title</span>
+              <input
+                type="text"
+                value={editDraft?.title ?? ''}
+                onChange={(event) => onEditDraftChange?.('title', event.target.value)}
+                placeholder="Optional headline"
+                className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-inner focus:border-accent focus:ring-2 focus:ring-accent/20"
+                disabled={editSaving}
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Type</span>
+              <select
+                value={editDraft?.type ?? 'update'}
+                onChange={(event) => onEditDraftChange?.('type', event.target.value)}
+                className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-accent focus:ring-2 focus:ring-accent/20"
+                disabled={editSaving}
+              >
+                {COMPOSER_OPTIONS.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <label className="block text-sm">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">External link</span>
+            <input
+              type="url"
+              value={editDraft?.link ?? ''}
+              onChange={(event) => onEditDraftChange?.('link', event.target.value)}
+              placeholder="https://example.com/resource"
+              className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-inner focus:border-accent focus:ring-2 focus:ring-accent/20"
+              disabled={editSaving}
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Content</span>
+            <textarea
+              value={editDraft?.content ?? ''}
+              onChange={(event) => onEditDraftChange?.('content', event.target.value)}
+              rows={6}
+              className="mt-1 w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-800 shadow-inner focus:border-accent focus:ring-2 focus:ring-accent/20"
+              placeholder="Share the full context for this update…"
+              disabled={editSaving}
+            />
+          </label>
+          {editError ? (
+            <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{editError}</p>
+          ) : null}
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => onEditCancel?.(post)}
+              className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 transition hover:border-slate-300"
+              disabled={editSaving}
+            >
+              Discard
+            </button>
+            <button
+              type="submit"
+              disabled={editSaving}
+              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white transition ${
+                editSaving ? 'bg-accent/50' : 'bg-accent hover:bg-accentDark'
+              }`}
+            >
+              {editSaving ? 'Saving…' : 'Save changes'}
+            </button>
+          </div>
+        </form>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-lg font-semibold text-slate-900">{heading}</h2>
+            <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${postType.badgeClassName}`}>
+              {postType.label}
+            </span>
+            {isNewsPost && post.source ? (
+              <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[0.7rem] font-semibold uppercase tracking-wide text-slate-600">
+                {post.source}
+              </span>
+            ) : null}
+          </div>
+          {bodyText ? (
+            <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">{bodyText}</p>
+          ) : null}
+          {isNewsPost && author.name && heading !== author.name ? (
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{author.name}</p>
+          ) : null}
+          <MediaAttachmentGrid attachments={post.mediaAttachments} />
+          {post.link ? (
+            <a
+              href={post.link}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-accent transition hover:border-accent/50 hover:bg-white"
+            >
+              <ArrowPathIcon className="h-4 w-4" />
+              {linkLabel}
+            </a>
+          ) : null}
+          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+            <button
+              type="button"
+              onClick={handleLike}
+              className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 transition ${
+                liked ? 'border-rose-200 bg-rose-50 text-rose-600' : 'border-slate-200 hover:border-rose-200 hover:text-rose-600'
+              }`}
+            >
+              <HeartIcon className="h-4 w-4" />
+              {liked ? 'Liked' : 'Like'} · {likeCount}
+            </button>
+            <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-slate-500">
+              <ChatBubbleOvalLeftIcon className="h-4 w-4" /> {totalConversationCount}{' '}
+              {totalConversationCount === 1 ? 'comment' : 'conversations'}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                analytics.track('web_feed_share_click', { postId: post.id, location: 'feed_item' }, { source: 'web_app' });
+                if (typeof onShare === 'function') {
+                  onShare(post);
+                }
+              }}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 transition hover:border-accent hover:text-accent"
+            >
+              <ShareIcon className="h-4 w-4" /> Share externally
+            </button>
+          </div>
+          <form onSubmit={handleCommentSubmit} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+            <label htmlFor={`comment-${post.id}`} className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Join the conversation
+            </label>
+            <textarea
+              id={`comment-${post.id}`}
+              value={commentDraft}
+              onChange={(event) => setCommentDraft(event.target.value)}
+              rows={3}
+              className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-inner focus:border-accent focus:ring-2 focus:ring-accent/20"
+              placeholder="Offer context, signal interest, or tag a collaborator…"
+            />
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap gap-2 text-[0.65rem] uppercase tracking-wide text-slate-400">
+                {QUICK_REPLY_SUGGESTIONS.slice(0, 2).map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    type="button"
+                    onClick={() => setCommentDraft((previous) => (previous ? `${previous}\n${suggestion}` : suggestion))}
+                    className="rounded-full border border-slate-200 px-3 py-1 font-semibold transition hover:border-accent/60 hover:text-accent"
+                  >
+                    {suggestion.slice(0, 22)}…
+                  </button>
+                ))}
+              </div>
+              <button
+                type="submit"
+                disabled={!commentDraft.trim()}
+                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold text-white transition ${
+                  commentDraft.trim() ? 'bg-accent hover:bg-accentDark' : 'cursor-not-allowed bg-accent/40'
+                }`}
+              >
+                <PaperAirplaneIcon className="h-4 w-4" />
+                Comment
+              </button>
+            </div>
+          </form>
+          <div className="space-y-3">
+            {comments.map((comment) => (
+              <FeedCommentThread key={comment.id} comment={comment} onReply={handleAddReply} />
             ))}
           </div>
-          <button
-            type="submit"
-            disabled={!commentDraft.trim()}
-            className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold text-white transition ${
-              commentDraft.trim() ? 'bg-accent hover:bg-accentDark' : 'cursor-not-allowed bg-accent/40'
-            }`}
-          >
-            <PaperAirplaneIcon className="h-4 w-4" />
-            Comment
-          </button>
-        </div>
-      </form>
-      <div className="space-y-3">
-        {comments.map((comment) => (
-          <FeedCommentThread key={comment.id} comment={comment} onReply={handleAddReply} />
-        ))}
-      </div>
+        </>
+      )}
     </article>
   );
 }
@@ -1326,9 +1492,15 @@ export default function FeedPage() {
   const navigate = useNavigate();
   const { session, isAuthenticated } = useSession();
   const [localPosts, setLocalPosts] = useState([]);
+  const [editingPostId, setEditingPostId] = useState(null);
+  const [editingDraft, setEditingDraft] = useState(DEFAULT_EDIT_DRAFT);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editingError, setEditingError] = useState(null);
+  const [removingPostId, setRemovingPostId] = useState(null);
+  const [feedActionError, setFeedActionError] = useState(null);
   const { data, error, loading, fromCache, lastUpdated, refresh } = useCachedResource(
     'feed:posts',
-    ({ signal }) => apiClient.get('/feed', { signal }),
+    ({ signal }) => listFeedPosts({ signal }),
     { ttl: 1000 * 60 * 2 },
   );
 
@@ -1388,6 +1560,39 @@ export default function FeedPage() {
     return Array.from(memberships);
   }, [session]);
 
+  const sessionIdentifier = useMemo(() => session?.userId ?? session?.id ?? null, [session?.id, session?.userId]);
+
+  const isAdminUser = useMemo(
+    () => membershipList.some((membership) => `${membership}`.toLowerCase() === 'admin'),
+    [membershipList],
+  );
+
+  const canManagePost = useCallback(
+    (post) => {
+      if (!post) {
+        return false;
+      }
+      if (isAdminUser) {
+        return true;
+      }
+      if (!sessionIdentifier) {
+        return false;
+      }
+      const authorId =
+        post?.User?.id ??
+        post?.userId ??
+        post?.authorId ??
+        post?.author?.id ??
+        post?.User?.userId ??
+        null;
+      if (authorId == null) {
+        return false;
+      }
+      return String(authorId) === String(sessionIdentifier);
+    },
+    [isAdminUser, sessionIdentifier],
+  );
+
   const hasFeedAccess = useMemo(
     () => membershipList.some((membership) => ALLOWED_FEED_MEMBERSHIPS.has(`${membership}`.toLowerCase())),
     [membershipList],
@@ -1445,8 +1650,7 @@ export default function FeedPage() {
       analytics.track('web_feed_post_created', { type: payload.type, optimistic: true }, { source: 'web_app' });
 
       try {
-        const response = await apiClient.post(
-          '/feed',
+        const response = await createFeedPost(
           {
             userId: session.id,
             content: payload.content,
@@ -1458,7 +1662,7 @@ export default function FeedPage() {
           { headers: { 'X-Feature-Surface': 'web-feed-composer' } },
         );
 
-        const normalised = normaliseFeedPost(response?.data ?? response, session);
+        const normalised = normaliseFeedPost(response, session);
 
         if (normalised) {
           setLocalPosts((previous) =>
@@ -1524,6 +1728,147 @@ export default function FeedPage() {
     [hasFeedAccess, session, refresh],
   );
 
+  const handleEditStart = useCallback(
+    (post) => {
+      if (!post) {
+        return;
+      }
+      if (!canManagePost(post)) {
+        setFeedActionError('You can only edit posts that belong to your workspace.');
+        return;
+      }
+      setEditingPostId(post.id);
+      setEditingDraft({
+        title: post.title ?? '',
+        content: post.content ?? post.summary ?? '',
+        link: post.link ?? '',
+        type: post.type ?? post.category ?? 'update',
+      });
+      setEditingError(null);
+      setFeedActionError(null);
+    },
+    [canManagePost],
+  );
+
+  const handleEditCancel = useCallback(() => {
+    setEditingPostId(null);
+    setEditingDraft(DEFAULT_EDIT_DRAFT);
+    setEditingError(null);
+  }, []);
+
+  const handleEditDraftChange = useCallback((field, value) => {
+    setEditingDraft((draft) => ({ ...draft, [field]: value }));
+  }, []);
+
+  const handleEditSubmit = useCallback(
+    async (event, post) => {
+      event.preventDefault();
+      if (!post?.id || editingPostId !== post.id) {
+        return;
+      }
+      if (!canManagePost(post)) {
+        setFeedActionError('You can only update posts that you created or manage.');
+        return;
+      }
+
+      const trimmedContent = (editingDraft.content ?? '').trim();
+      if (!trimmedContent) {
+        setEditingError('Share a few more details before saving this update.');
+        return;
+      }
+
+      const preparedLink = editingDraft.link ? sanitiseExternalLink(editingDraft.link) : null;
+      const payload = {
+        content: trimmedContent,
+        summary: trimmedContent,
+        title: editingDraft.title?.trim() || undefined,
+        link: preparedLink || undefined,
+        type: (editingDraft.type || 'update').toLowerCase(),
+      };
+
+      try {
+        setEditSaving(true);
+        setEditingError(null);
+        setFeedActionError(null);
+        moderateFeedComposerPayload({ ...payload, mediaAttachments: [] });
+        const response = await updateFeedPost(post.id, payload, {
+          headers: { 'X-Feature-Surface': 'web-feed-editor' },
+        });
+        const normalised = normaliseFeedPost(response, session);
+        if (normalised) {
+          setLocalPosts((previous) => previous.filter((existing) => existing.id !== normalised.id));
+        }
+        analytics.track('web_feed_post_updated', { postId: post.id, type: payload.type }, { source: 'web_app' });
+        await refresh({ force: true });
+        setLocalPosts((previous) => previous.filter((existing) => `${existing.id}`.startsWith('local-')));
+        setEditingPostId(null);
+        setEditingDraft(DEFAULT_EDIT_DRAFT);
+      } catch (submitError) {
+        const message =
+          submitError instanceof ContentModerationError
+            ? submitError.message
+            : submitError instanceof apiClient.ApiError
+            ? submitError.body?.message ?? 'Unable to update the post right now.'
+            : submitError?.message ?? 'Unable to update the post right now.';
+        setEditingError(message);
+        setFeedActionError(message);
+      } finally {
+        setEditSaving(false);
+      }
+    },
+    [canManagePost, editingDraft, editingPostId, refresh, session],
+  );
+
+  const handleDeletePost = useCallback(
+    async (post) => {
+      if (!post?.id) {
+        return;
+      }
+      if (!canManagePost(post)) {
+        setFeedActionError('You can only remove posts that you created or manage.');
+        return;
+      }
+      if (removingPostId) {
+        return;
+      }
+      if (typeof window !== 'undefined' && !window.confirm('Remove this update from the live feed?')) {
+        return;
+      }
+      setRemovingPostId(post.id);
+      setFeedActionError(null);
+      try {
+        await deleteFeedPost(post.id, { headers: { 'X-Feature-Surface': 'web-feed-editor' } });
+        setLocalPosts((previous) => previous.filter((existing) => existing.id !== post.id));
+        analytics.track('web_feed_post_deleted', { postId: post.id }, { source: 'web_app' });
+        await refresh({ force: true });
+        if (editingPostId === post.id) {
+          setEditingPostId(null);
+          setEditingDraft(DEFAULT_EDIT_DRAFT);
+        }
+      } catch (deleteError) {
+        const message =
+          deleteError instanceof apiClient.ApiError
+            ? deleteError.body?.message ?? 'Unable to remove the post right now.'
+            : deleteError?.message ?? 'Unable to remove the post right now.';
+        setFeedActionError(message);
+      } finally {
+        setRemovingPostId(null);
+      }
+    },
+    [canManagePost, editingPostId, refresh, removingPostId],
+  );
+
+  const handleToggleReaction = useCallback(async (post, liked) => {
+    if (!post?.id) {
+      return;
+    }
+    try {
+      await reactToFeedPost(post.id, 'like', { active: liked });
+    } catch (reactionError) {
+      console.warn('Failed to sync reaction', reactionError);
+    }
+  }, []);
+
   const renderSkeleton = () => (
     <div className="space-y-6">
       {Array.from({ length: 3 }).map((_, index) => (
@@ -1555,7 +1900,23 @@ export default function FeedPage() {
     return (
       <div className="space-y-6">
         {posts.map((post) => (
-          <FeedPostCard key={post.id} post={post} onShare={handleShareClick} />
+          <FeedPostCard
+            key={post.id}
+            post={post}
+            onShare={handleShareClick}
+            canManage={canManagePost(post)}
+            onEditStart={handleEditStart}
+            onEditCancel={handleEditCancel}
+            onDelete={handleDeletePost}
+            isEditing={editingPostId === post.id}
+            editDraft={editingPostId === post.id ? editingDraft : DEFAULT_EDIT_DRAFT}
+            onEditDraftChange={handleEditDraftChange}
+            onEditSubmit={handleEditSubmit}
+            editSaving={editSaving}
+            editError={editingPostId === post.id ? editingError : null}
+            deleteLoading={removingPostId === post.id}
+            onToggleReaction={handleToggleReaction}
+          />
         ))}
       </div>
     );
@@ -1656,6 +2017,11 @@ export default function FeedPage() {
             {error && !loading ? (
               <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
                 We’re showing the latest cached updates while we reconnect. {error.message || 'Please try again shortly.'}
+              </div>
+            ) : null}
+            {feedActionError ? (
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                {feedActionError}
               </div>
             ) : null}
             {loading && !posts.length ? renderSkeleton() : renderPosts()}
