@@ -169,6 +169,41 @@ export const marketingNavigation = [
           },
         ],
       },
+      {
+        title: 'Policies & help',
+        items: [
+          {
+            name: 'Community guidelines',
+            description: 'Rules, safety expectations, and escalation routes for every workspace.',
+            to: '/community-guidelines',
+            icon: UsersIcon,
+          },
+          {
+            name: 'Terms & conditions',
+            description: 'Contractual framework for using Gigvora’s marketplace and services.',
+            to: '/terms',
+            icon: ShieldCheckIcon,
+          },
+          {
+            name: 'Privacy policy',
+            description: 'How we collect, process, and protect personal data across the platform.',
+            to: '/privacy',
+            icon: SparklesIcon,
+          },
+          {
+            name: 'Refund policy',
+            description: 'Understand eligibility, timelines, and processes for refunds and credits.',
+            to: '/refunds',
+            icon: ChartBarIcon,
+          },
+          {
+            name: 'FAQ',
+            description: 'Quick answers about onboarding, payments, integrations, and support.',
+            to: '/faq',
+            icon: SwatchIcon,
+          },
+        ],
+      },
     ],
   },
 ];

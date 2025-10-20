@@ -1,14 +1,14 @@
 import SiteDocumentLayout from '../components/site/SiteDocumentLayout.jsx';
 import useSiteDocument from '../hooks/useSiteDocument.js';
-import privacyContent from '../content/site/privacy.js';
+import communityGuidelinesContent from '../content/site/communityGuidelines.js';
 
-export default function PrivacyPage() {
+export default function CommunityGuidelinesPage() {
   const { page, sections, metadata, loading, error, refresh, usingFallback } = useSiteDocument(
-    privacyContent.slug,
-    privacyContent,
+    communityGuidelinesContent.slug,
+    communityGuidelinesContent,
   );
 
-  const hero = page?.hero ?? privacyContent.hero;
+  const hero = page?.hero ?? communityGuidelinesContent.hero;
 
   return (
     <SiteDocumentLayout

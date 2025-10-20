@@ -1,5 +1,11 @@
 import { Op } from 'sequelize';
-import { SiteSetting, SitePage, SiteNavigationLink, SITE_PAGE_STATUSES, sequelize } from '../models/index.js';
+import {
+  SiteSetting,
+  SitePage,
+  SiteNavigationLink,
+  SITE_PAGE_STATUSES,
+  sequelize,
+} from '../models/index.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
 
 const SITE_SETTINGS_KEY = 'site:global';
@@ -276,6 +282,24 @@ export async function getSiteSettings() {
   return model.value ?? buildDefaultSiteSettings();
 }
 
+export async function getSiteNavigation({ menuKey } = {}) {
+  const where = {};
+  if (menuKey) {
+    where.menuKey = `${menuKey}`.trim();
+  }
+
+  const links = await SiteNavigationLink.findAll({
+    where,
+    order: [
+      ['menuKey', 'ASC'],
+      ['orderIndex', 'ASC'],
+      ['id', 'ASC'],
+    ],
+  });
+
+  return links.map((link) => link.toPublicObject());
+}
+
 export async function saveSiteSettings(patch = {}) {
   const sanitized = sanitizeSettingsCandidate(patch);
   const result = await sequelize.transaction(async (transaction) => {
@@ -376,9 +400,56 @@ export async function deleteSitePageById(pageId) {
   return { success: true };
 }
 
+export async function listSitePages({
+  status = 'published',
+  includeDrafts = false,
+  limit = 50,
+  offset = 0,
+  order = [['publishedAt', 'DESC'], ['updatedAt', 'DESC']],
+} = {}) {
+  const where = {};
+  if (!includeDrafts) {
+    const statuses = Array.isArray(status) ? status : [status];
+    const sanitised = statuses.map((value) => coerceString(value)).filter((value) => value && value !== 'all');
+    where.status = sanitised.length ? sanitised : ['published'];
+  } else if (status && status !== 'all') {
+    where.status = Array.isArray(status)
+      ? status.map((value) => coerceString(value)).filter(Boolean)
+      : [coerceString(status)].filter(Boolean);
+  }
+
+  const pages = await SitePage.findAll({
+    where,
+    limit: Number.isFinite(limit) && limit > 0 ? limit : undefined,
+    offset: Number.isFinite(offset) && offset > 0 ? offset : undefined,
+    order,
+  });
+
+  return pages.map((page) => page.toPublicObject());
+}
+
+export async function getPublishedSitePage(slug, { allowDraft = false } = {}) {
+  const normalisedSlug = coerceString(slug);
+  if (!normalisedSlug) {
+    throw new ValidationError('A slug is required.');
+  }
+
+  const where = { slug: normalisedSlug };
+  if (!allowDraft) {
+    where.status = 'published';
+  }
+
+  const page = await SitePage.findOne({ where });
+  if (!page) {
+    throw new NotFoundError('Page not found.');
+  }
+  return page.toPublicObject();
+}
+
 export default {
   getSiteManagementOverview,
   getSiteSettings,
+  getSiteNavigation,
   saveSiteSettings,
   createNavigation,
   updateNavigation,
@@ -386,4 +457,6 @@ export default {
   createSitePage,
   updateSitePageById,
   deleteSitePageById,
+  listSitePages,
+  getPublishedSitePage,
 };

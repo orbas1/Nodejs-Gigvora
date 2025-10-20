@@ -1,14 +1,14 @@
 import SiteDocumentLayout from '../components/site/SiteDocumentLayout.jsx';
 import useSiteDocument from '../hooks/useSiteDocument.js';
-import privacyContent from '../content/site/privacy.js';
+import faqContent from '../content/site/faq.js';
 
-export default function PrivacyPage() {
+export default function FaqPage() {
   const { page, sections, metadata, loading, error, refresh, usingFallback } = useSiteDocument(
-    privacyContent.slug,
-    privacyContent,
+    faqContent.slug,
+    faqContent,
   );
 
-  const hero = page?.hero ?? privacyContent.hero;
+  const hero = page?.hero ?? faqContent.hero;
 
   return (
     <SiteDocumentLayout

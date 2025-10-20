@@ -1,14 +1,14 @@
 import SiteDocumentLayout from '../components/site/SiteDocumentLayout.jsx';
 import useSiteDocument from '../hooks/useSiteDocument.js';
-import privacyContent from '../content/site/privacy.js';
+import refundContent from '../content/site/refund.js';
 
-export default function PrivacyPage() {
+export default function RefundPolicyPage() {
   const { page, sections, metadata, loading, error, refresh, usingFallback } = useSiteDocument(
-    privacyContent.slug,
-    privacyContent,
+    refundContent.slug,
+    refundContent,
   );
 
-  const hero = page?.hero ?? privacyContent.hero;
+  const hero = page?.hero ?? refundContent.hero;
 
   return (
     <SiteDocumentLayout
