@@ -16,8 +16,8 @@ import {
   parseDateInput,
 } from './formState.js';
 import {
-  createCreationStudioItem,
-  updateCreationStudioItem,
+  createCompanyCreationStudioItem,
+  updateCompanyCreationStudioItem,
 } from '../../../services/creationStudio.js';
 
 const steps = [
@@ -320,8 +320,8 @@ export default function CreationStudioFormDrawer({
 
       const saved =
         mode === 'edit' && item?.id
-          ? await updateCreationStudioItem(item.id, payload)
-          : await createCreationStudioItem(payload);
+          ? await updateCompanyCreationStudioItem(item.id, payload)
+          : await createCompanyCreationStudioItem(payload);
 
       setFeedback({ type: 'success', message: 'Saved.' });
       onSaved?.(saved);

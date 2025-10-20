@@ -1,301 +1,181 @@
-export const AGENCY_DASHBOARD_MENU_SECTIONS = [
-  {
-    label: 'Agency',
-    items: [
-      {
-    id: 'ops',
-    label: 'Ops',
-    label: 'Main',
-    items: [
-      { id: 'agency-overview', name: 'Home', sectionId: 'agency-overview' },
-      { id: 'creation-studio', name: 'Create', sectionId: 'creation-studio' },
-      { id: 'team-focus', name: 'Teams', sectionId: 'team-focus' },
-      { id: 'bench-signals', name: 'Bench', sectionId: 'bench-signals' },
-      { id: 'finance-snapshot', name: 'Money', sectionId: 'finance-snapshot' },
-    ],
-  },
-  {
-    label: 'Growth',
-    items: [
-      { id: 'marketplace-leadership', name: 'Market', sectionId: 'marketplace-leadership' },
-      { id: 'ads-operations', name: 'Ads', sectionId: 'ads-operations' },
-      { id: 'networking', name: 'Meets', href: '/dashboard/company/networking' },
-    ],
-  },
-  {
-    label: 'Delivery',
-    items: [
-      { id: 'projects-workspace', name: 'Projects', sectionId: 'projects-workspace' },
-      { id: 'gig-programs', name: 'Gigs', sectionId: 'gig-programs' },
-      { id: 'payments-distribution', name: 'Payouts', sectionId: 'payments-distribution' },
-    id: 'agency-section',
-    label: 'Agency',
-    items: [
-      { id: 'agency-home', name: 'Home', sectionId: 'agency-overview' },
-      { id: 'volunteer-home', name: 'Volunteer', sectionId: 'volunteering-home' },
-    ],
-  },
-  {
-    id: 'volunteer-section',
-    label: 'Volunteer',
-    items: [
-      { id: 'volunteer-deals', name: 'Deals', sectionId: 'volunteering-home' },
-      { id: 'volunteer-apply', name: 'Apply', sectionId: 'volunteering-home' },
-      { id: 'volunteer-replies', name: 'Replies', sectionId: 'volunteering-home' },
-      { id: 'volunteer-spend', name: 'Spend', sectionId: 'volunteering-home' },
-export const AGENCY_DASHBOARD_MENU = [
-  {
-    id: 'agency-workspace',
-    label: 'Workspace',
-    items: [
-      {
-        id: 'agency-overview',
-        name: 'Home',
-        sectionId: 'agency-overview',
-      },
-    ],
-  },
-];
-
-export default AGENCY_DASHBOARD_MENU_SECTIONS;
-  {
-    id: 'risk',
-    label: 'Risk',
-    items: [
-      {
-        id: 'agency-id-verification',
-        name: 'IDs',
-        sectionId: 'agency-id-verification',
-        href: '/dashboard/agency',
-      },
-      {
-        id: 'agency-projects',
-        name: 'Projects',
-        href: '/dashboard/agency/projects',
-      },
-    ],
-  },
-];
-
-export const AGENCY_AVAILABLE_DASHBOARDS = ['agency', 'company', 'freelancer', 'user'];
-
-export default {
-  AGENCY_DASHBOARD_MENU,
-  AGENCY_AVAILABLE_DASHBOARDS,
-};
-export const AGENCY_DASHBOARD_MENU_SECTIONS = [
-  {
-    id: 'agency-operations',
-    label: 'Operations',
-    items: [
-      {
-        id: 'overview',
-        name: 'Overview',
-        description: 'Pipeline signals, finance health, and delivery posture.',
-        href: '/dashboard/agency',
-      },
-      {
-        id: 'project-workspace',
-        name: 'Workspace',
-        description: 'Budgeting, delivery, and collaboration inside client projects.',
-        href: '/dashboard/agency/workspace',
-      },
-    ],
-  },
-  {
-    id: 'agency-collaboration',
-    label: 'Collab',
-    items: [
-      {
-        id: 'agency-inbox',
-        name: 'Inbox',
-        description: 'Share updates with finance, compliance, or delivery pods.',
-        href: '/inbox',
-      },
-      {
-        id: 'agency-finance',
-        name: 'Finance',
-        description: 'Invoices, payouts, and sponsorship health.',
-        href: '/finance',
 import {
+  BanknotesIcon,
+  BriefcaseIcon,
+  CalendarDaysIcon,
   ChartBarIcon,
-  UsersIcon,
-  PencilSquareIcon,
+  ChatBubbleLeftRightIcon,
+  ClipboardDocumentListIcon,
+  Cog6ToothIcon,
+  CurrencyDollarIcon,
+  HomeIcon,
+  HomeModernIcon,
   MegaphoneIcon,
+  RectangleStackIcon,
+  ShieldCheckIcon,
+  SparklesIcon,
+  UserGroupIcon,
+  UsersIcon,
+  WrenchScrewdriverIcon,
 } from '@heroicons/react/24/outline';
 
 export const AGENCY_DASHBOARD_MENU_SECTIONS = [
   {
-    id: 'main',
+    id: 'agency-main',
     label: 'Main',
     items: [
       {
         id: 'agency-overview',
         name: 'Overview',
         sectionId: 'agency-overview',
-        icon: ChartBarIcon,
+        icon: HomeModernIcon,
+        href: '/dashboard/agency',
+      },
+      {
+        id: 'creation-studio',
+        name: 'Create',
+        sectionId: 'creation-studio',
+        icon: SparklesIcon,
+        href: '/dashboard/agency#creation-studio',
       },
       {
         id: 'team-focus',
         name: 'Teams',
         sectionId: 'team-focus',
         icon: UsersIcon,
+        href: '/dashboard/agency#team-focus',
       },
       {
-        id: 'blog-management',
-        name: 'Blog',
-        href: '/dashboard/agency/blog',
-        icon: PencilSquareIcon,
+        id: 'bench-signals',
+        name: 'Bench',
+        sectionId: 'bench-signals',
+        icon: ClipboardDocumentListIcon,
+        href: '/dashboard/agency#bench-signals',
+      },
+      {
+        id: 'finance-snapshot',
+        name: 'Money',
+        sectionId: 'finance-snapshot',
+        icon: BanknotesIcon,
+        href: '/dashboard/agency#finance-snapshot',
       },
     ],
   },
   {
-    id: 'growth',
+    id: 'agency-growth',
     label: 'Growth',
     items: [
       {
-        id: 'campaigns-library',
-        name: 'Playbooks',
-        href: '/pages?category=agency-growth',
+        id: 'marketplace-leadership',
+        name: 'Market',
+        sectionId: 'marketplace-leadership',
         icon: MegaphoneIcon,
-        target: '_blank',
-export const AGENCY_DASHBOARD_MENU_SECTIONS = [
-  {
-    label: 'Ops',
-    items: [
-      {
-        name: 'Home',
-        sectionId: 'agency-home',
-        href: '/dashboard/agency',
+        href: '/dashboard/agency#marketplace-leadership',
       },
       {
-        name: 'Timeline',
-        sectionId: 'timeline',
-        href: '/dashboard/agency/timeline',
-      },
-    ],
-  },
-  {
-    label: 'Work',
-    items: [
-      {
-        name: 'Clients',
-        sectionId: 'clients',
+        id: 'ads-operations',
+        name: 'Ads',
+        sectionId: 'ads-operations',
+        icon: MegaphoneIcon,
+        href: '/dashboard/agency#ads-operations',
       },
       {
-        name: 'Delivery',
-        sectionId: 'delivery',
-      },
-      {
-        name: 'Finance',
-        sectionId: 'finance',
-import {
-  BanknotesIcon,
-  Cog6ToothIcon,
-  HomeIcon,
-  RectangleStackIcon,
-  ArrowPathIcon,
-} from '@heroicons/react/24/outline';
-
-export const AGENCY_DASHBOARD_MENU = [
-  {
-    label: 'Main',
-    items: [
-      {
-        id: 'agency-home',
-        name: 'Home',
-        href: '/dashboard/agency',
-        icon: HomeIcon,
-      },
-      {
-        id: 'wallet',
-        name: 'Wallet',
-        href: '/dashboard/agency/wallet',
-        icon: BanknotesIcon,
+        id: 'networking',
+        name: 'Networking',
+        sectionId: 'agency-networking',
+        icon: UserGroupIcon,
+        href: '/dashboard/agency/networking',
       },
     ],
   },
   {
-    label: 'Wallet',
+    id: 'agency-delivery',
+    label: 'Delivery',
     items: [
       {
-        id: 'wallet-summary',
-        name: 'Summary',
-        sectionId: 'wallet-summary',
-        icon: RectangleStackIcon,
+        id: 'projects-workspace',
+        name: 'Projects',
+        sectionId: 'projects-workspace',
+        icon: WrenchScrewdriverIcon,
+        href: '/dashboard/agency/projects',
       },
       {
-        id: 'wallet-accounts',
-        name: 'Accounts',
-        sectionId: 'wallet-accounts',
-        icon: RectangleStackIcon,
+        id: 'gig-programs',
+        name: 'Gigs',
+        sectionId: 'gig-programs',
+        icon: ClipboardDocumentListIcon,
+        href: '/dashboard/agency#delivery',
       },
       {
-        id: 'wallet-funds',
-        name: 'Funds',
-        sectionId: 'wallet-funding-sources',
-        icon: ArrowPathIcon,
-      },
-      {
-        id: 'wallet-payouts',
+        id: 'payments-distribution',
         name: 'Payouts',
-        sectionId: 'wallet-payouts',
-        icon: BanknotesIcon,
+        sectionId: 'payments-distribution',
+        icon: CurrencyDollarIcon,
+        href: '/dashboard/agency#finance-snapshot',
+      },
+    ],
+  },
+  {
+    id: 'agency-operations',
+    label: 'Operations',
+    items: [
+      {
+        id: 'inbox',
+        name: 'Inbox',
+        sectionId: 'inbox',
+        icon: ChatBubbleLeftRightIcon,
+        href: '/dashboard/agency/inbox',
       },
       {
-        id: 'wallet-settings',
-        name: 'Settings',
-        sectionId: 'wallet-controls',
-        icon: Cog6ToothIcon,
+        id: 'governance',
+        name: 'Governance',
+        sectionId: 'governance',
+        icon: ShieldCheckIcon,
+        href: '/dashboard/agency#governance',
+      },
+      {
+        id: 'volunteer',
+        name: 'Volunteer',
+        sectionId: 'volunteering-home',
+        icon: UserGroupIcon,
+        href: '/dashboard/agency#volunteering-home',
       },
     ],
   },
 ];
 
-export default AGENCY_DASHBOARD_MENU;
-import { BanknotesIcon, BriefcaseIcon, CurrencyDollarIcon, ShieldCheckIcon, SparklesIcon } from '@heroicons/react/24/outline';
-
 export const AGENCY_DASHBOARD_MENU = [
   {
-    id: 'agency-core',
-    label: 'Core',
+    id: 'workspace',
+    label: 'Workspace',
     items: [
+      { id: 'agency-home', name: 'Home', sectionId: 'agency-overview', href: '/dashboard/agency', icon: HomeIcon },
       {
-        id: 'agency-overview',
-        sectionId: 'agency-overview',
-        name: 'Home',
-        icon: BriefcaseIcon,
+        id: 'agency-events',
+        name: 'Events',
+        sectionId: 'agency-event-management',
+        href: '/dashboard/agency/events',
+        icon: ClipboardDocumentListIcon,
       },
-      {
-        id: 'agency-escrow',
-        name: 'Escrow',
-        href: '/dashboard/agency/escrow',
-        icon: CurrencyDollarIcon,
-      },
-      {
-        id: 'agency-projects',
-        sectionId: 'agency-projects',
-        name: 'Projects',
-        icon: BriefcaseIcon,
-      },
+      { id: 'agency-calendar', name: 'Schedule', sectionId: 'calendar', href: '/dashboard/agency/calendar', icon: CalendarDaysIcon },
     ],
   },
   {
-    id: 'agency-ops',
-    label: 'Ops',
+    id: 'operations',
+    label: 'Operations',
     items: [
-      {
-        id: 'agency-compliance',
-        sectionId: 'agency-compliance',
-        name: 'Risk',
-        icon: ShieldCheckIcon,
-      },
-      {
-        id: 'agency-automation',
-        sectionId: 'agency-automation',
-        name: 'Flows',
-        icon: SparklesIcon,
-      },
+      { id: 'agency-projects', name: 'Projects', href: '/dashboard/agency/projects', icon: WrenchScrewdriverIcon },
+      { id: 'agency-inbox', name: 'Inbox', href: '/dashboard/agency/inbox', icon: ChatBubbleLeftRightIcon },
+      { id: 'agency-settings', name: 'Governance', href: '/dashboard/agency#governance', icon: ShieldCheckIcon },
+    ],
+  },
+  {
+    id: 'finance',
+    label: 'Finance',
+    items: [
+      { id: 'wallet-summary', name: 'Wallet', sectionId: 'wallet-summary', icon: BanknotesIcon },
+      { id: 'wallet-accounts', name: 'Accounts', sectionId: 'wallet-accounts', icon: RectangleStackIcon },
+      { id: 'wallet-payouts', name: 'Payouts', sectionId: 'wallet-payouts', icon: CurrencyDollarIcon },
+      { id: 'wallet-controls', name: 'Settings', sectionId: 'wallet-controls', icon: Cog6ToothIcon },
     ],
   },
 ];
@@ -305,211 +185,36 @@ export const AGENCY_ESCROW_MENU = [
     id: 'escrow-ops',
     label: 'Escrow',
     items: [
-      {
-        id: 'escrow-summary',
-        sectionId: 'escrow-overview',
-        name: 'Home',
-        icon: CurrencyDollarIcon,
-      },
-      {
-        id: 'escrow-accounts',
-        sectionId: 'escrow-accounts',
-        name: 'Accounts',
-        icon: BanknotesIcon,
-      },
-      {
-        id: 'escrow-transactions',
-        sectionId: 'escrow-transactions',
-        name: 'Moves',
-        icon: CurrencyDollarIcon,
-      },
-      {
-        id: 'escrow-controls',
-        sectionId: 'escrow-controls',
-        name: 'Rules',
-        icon: ShieldCheckIcon,
-      },
-      {
-        id: 'escrow-audit',
-        sectionId: 'escrow-audit',
-        name: 'Audit',
-        icon: SparklesIcon,
-      },
-    ],
-  },
-];
-
-export default {
-  AGENCY_DASHBOARD_MENU,
-  AGENCY_ESCROW_MENU,
-};
-import {
-  ChartBarIcon,
-  ClipboardDocumentCheckIcon,
-  QueueListIcon,
-  RocketLaunchIcon,
-  UsersIcon,
-} from '@heroicons/react/24/outline';
-
-export const AGENCY_DASHBOARD_MENU_BASE = [
-  {
-    label: 'Agency',
-    items: [
-      {
-        name: 'Home',
-        description: '',
-        href: '/dashboard/agency',
-        id: 'agency-home',
-        icon: UsersIcon,
-      },
-      {
-        name: 'Pipeline',
-        description: '',
-        href: '/dashboard/agency/crm',
-        id: 'agency-pipeline',
-        icon: ChartBarIcon,
-      },
-    ],
-  },
-];
-
-export const AGENCY_OVERVIEW_MENU_SECTIONS = [
-  ...AGENCY_DASHBOARD_MENU_BASE,
-  {
-    label: 'Overview',
-    items: [
-      {
-        name: 'Focus',
-        description: '',
-        sectionId: 'overview-team-focus',
-        icon: ClipboardDocumentCheckIcon,
-      },
-      {
-        name: 'Bench',
-        description: '',
-        sectionId: 'overview-bench-signals',
-        icon: QueueListIcon,
-      },
-      {
-        name: 'Money',
-        description: '',
-        sectionId: 'overview-finance',
-        icon: RocketLaunchIcon,
-      },
+      { id: 'escrow-overview', name: 'Home', sectionId: 'escrow-overview', icon: CurrencyDollarIcon },
+      { id: 'escrow-accounts', name: 'Accounts', sectionId: 'escrow-accounts', icon: BanknotesIcon },
+      { id: 'escrow-payouts', name: 'Payouts', sectionId: 'escrow-payouts', icon: CurrencyDollarIcon },
+      { id: 'escrow-governance', name: 'Governance', sectionId: 'escrow-governance', icon: ShieldCheckIcon },
     ],
   },
 ];
 
 export const AGENCY_CRM_MENU_SECTIONS = [
-  ...AGENCY_DASHBOARD_MENU_BASE,
   {
+    id: 'agency-pipeline',
     label: 'Pipeline',
     items: [
-      {
-        name: 'Deals',
-        description: '',
-        sectionId: 'crm-deals',
-        icon: QueueListIcon,
-      },
-      {
-        name: 'Stats',
-        description: '',
-        sectionId: 'crm-stats',
-        icon: ChartBarIcon,
-      },
-      {
-        name: 'Tasks',
-        description: '',
-        sectionId: 'crm-tasks',
-        icon: ClipboardDocumentCheckIcon,
-      },
-      {
-        name: 'Docs',
-        description: '',
-        sectionId: 'crm-docs',
-        icon: UsersIcon,
-      },
-      {
-        name: 'Campaigns',
-        description: '',
-        sectionId: 'crm-campaigns',
-        icon: RocketLaunchIcon,
-      },
+      { id: 'crm-stats', name: 'Summary', sectionId: 'crm-stats', icon: ChartBarIcon },
+      { id: 'crm-deals', name: 'Deals', sectionId: 'crm-deals', icon: BriefcaseIcon },
+      { id: 'crm-campaigns', name: 'Campaigns', sectionId: 'crm-campaigns', icon: MegaphoneIcon },
+      { id: 'crm-intelligence', name: 'Signals', sectionId: 'crm-intelligence', icon: SparklesIcon },
+    ],
+  },
+  {
+    id: 'agency-accounts',
+    label: 'Accounts',
+    items: [
+      { id: 'crm-accounts', name: 'Accounts', sectionId: 'crm-accounts', icon: UsersIcon },
+      { id: 'crm-organisations', name: 'Organisations', sectionId: 'crm-organisations', icon: UserGroupIcon },
+      { id: 'crm-settings', name: 'Settings', sectionId: 'crm-settings', icon: Cog6ToothIcon },
     ],
   },
 ];
 
-export default AGENCY_DASHBOARD_MENU_BASE;
-export const AGENCY_DASHBOARD_MENU_SECTIONS = [
-  {
-    id: 'workforce',
-    label: 'Workforce',
-    items: [
-      { id: 'home', name: 'Home', sectionId: 'workforce-overview' },
-      { id: 'team', name: 'Team', sectionId: 'team' },
-      { id: 'pay', name: 'Pay', sectionId: 'pay' },
-      { id: 'projects', name: 'Projects', sectionId: 'projects' },
-      { id: 'gigs', name: 'Gigs', sectionId: 'gigs' },
-      { id: 'capacity', name: 'Capacity', sectionId: 'capacity' },
-      { id: 'availability', name: 'Availability', sectionId: 'availability' },
-    id: 'agency-ops',
-    label: 'Ops',
-    items: [
-      {
-        id: 'agency-overview',
-        name: 'Home',
-        description: '',
-        href: '/dashboard/agency',
-      },
-    ],
-  },
-  {
-    id: 'agency-profile',
-    label: 'Profile',
-    items: [
-      {
-        id: 'agency-profile-management',
-        name: 'Edit',
-        description: '',
-        href: '/dashboard/agency/profile',
-import {
-  Squares2X2Icon,
-  RectangleStackIcon,
-  ChartBarIcon,
-} from '@heroicons/react/24/outline';
+export const AGENCY_AVAILABLE_DASHBOARDS = ['agency', 'company', 'freelancer', 'user'];
 
-export const AGENCY_DASHBOARD_MENU_SECTIONS = [
-  {
-    id: 'ops',
-    label: 'Ops',
-    items: [
-      {
-        id: 'agency-control-tower',
-        name: 'Control',
-        href: '/dashboard/agency',
-        icon: Squares2X2Icon,
-      },
-      {
-        id: 'agency-client-kanban',
-        name: 'Kanban',
-        href: '/dashboard/agency/client-kanban',
-        icon: RectangleStackIcon,
-      },
-    ],
-  },
-  {
-    id: 'intel',
-    label: 'Intel',
-    items: [
-      {
-        id: 'agency-revenue-analytics',
-        name: 'Revenue',
-        href: '/dashboard/agency',
-        icon: ChartBarIcon,
-      },
-    ],
-  },
-];
-
-export default AGENCY_DASHBOARD_MENU_SECTIONS;
-
+export default AGENCY_DASHBOARD_MENU;

@@ -11,9 +11,9 @@ import {
   getCreationType,
 } from '../../constants/creationStudio.js';
 import {
-  fetchCreationStudioItems,
-  publishCreationStudioItem,
-  deleteCreationStudioItem,
+  fetchCompanyCreationStudioItems,
+  publishCompanyCreationStudioItem,
+  deleteCompanyCreationStudioItem,
 } from '../../services/creationStudio.js';
 
 function toArray(value) {
@@ -106,14 +106,13 @@ export default function CreationStudioSection({
     const controller = new AbortController();
     abortRef.current = controller;
     try {
-      const response = await fetchCreationStudioItems({
+      const response = await fetchCompanyCreationStudioItems({
         workspaceId: workspaceId || undefined,
         type: activeType,
         status: statusFilter !== 'all' ? statusFilter : undefined,
         search: search || undefined,
         limit: 60,
-        signal: controller.signal,
-      });
+      }, { signal: controller.signal });
       const nextItems = Array.isArray(response?.items)
         ? response.items
         : Array.isArray(response?.data?.items)
@@ -167,7 +166,7 @@ export default function CreationStudioSection({
       return;
     }
     try {
-      await publishCreationStudioItem(item.id, { publishAt: item.publishAt ?? null });
+      await publishCompanyCreationStudioItem(item.id, { publishAt: item.publishAt ?? null });
       setFeedback({ type: 'success', message: 'Item published.' });
       loadItems();
       onRefresh?.({ force: true });
@@ -185,7 +184,7 @@ export default function CreationStudioSection({
       return;
     }
     try {
-      await deleteCreationStudioItem(item.id);
+      await deleteCompanyCreationStudioItem(item.id);
       setFeedback({ type: 'success', message: 'Item deleted.' });
       loadItems();
       onRefresh?.({ force: true });
