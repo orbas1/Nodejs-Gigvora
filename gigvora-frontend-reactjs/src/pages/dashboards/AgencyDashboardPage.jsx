@@ -468,7 +468,7 @@ export default function AgencyDashboardPage() {
               Secure
             </span>
           </header>
-          <EscrowProvider>
+          <EscrowProvider workspaceId={workspaceId} workspaceSlug={workspaceSlugParam}>
             <EscrowShell />
           </EscrowProvider>
         </section>
