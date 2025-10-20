@@ -5,6 +5,7 @@ import 'package:gigvora_foundation/gigvora_foundation.dart';
 
 import '../../explorer/data/discovery_models.dart';
 import 'models/opportunity.dart';
+import 'models/opportunity_detail.dart';
 
 class DiscoveryRepository {
   DiscoveryRepository(this._apiClient, this._cache);
@@ -89,6 +90,76 @@ class DiscoveryRepository {
         );
       }
       rethrow;
+    }
+  }
+
+  Future<OpportunityDetail> fetchOpportunityDetail(
+    OpportunityCategory category,
+    String id, {
+    Map<String, String>? headers,
+  }) async {
+    final response = await _apiClient.get(
+      '/discovery/${categoryToPath(category)}/$id',
+      headers: _sanitizeHeaders(headers),
+    );
+    if (response is! Map<String, dynamic>) {
+      throw Exception('Unexpected opportunity detail payload');
+    }
+    return OpportunityDetail.fromJson(category, Map<String, dynamic>.from(response));
+  }
+
+  Future<OpportunityDetail> createOpportunity(
+    OpportunityCategory category,
+    OpportunityDraft draft, {
+    Map<String, String>? headers,
+  }) async {
+    final response = await _apiClient.post(
+      '/discovery/${categoryToPath(category)}',
+      body: draft.toJson(),
+      headers: _sanitizeHeaders(headers),
+    );
+    if (response is! Map<String, dynamic>) {
+      throw Exception('Unexpected response creating opportunity');
+    }
+    await _invalidateCaches();
+    return OpportunityDetail.fromJson(category, Map<String, dynamic>.from(response));
+  }
+
+  Future<OpportunityDetail> updateOpportunity(
+    OpportunityCategory category,
+    String id,
+    OpportunityDraft draft, {
+    Map<String, String>? headers,
+  }) async {
+    final response = await _apiClient.patch(
+      '/discovery/${categoryToPath(category)}/$id',
+      body: draft.toJson(),
+      headers: _sanitizeHeaders(headers),
+    );
+    if (response is! Map<String, dynamic>) {
+      throw Exception('Unexpected response updating opportunity');
+    }
+    await _invalidateCaches();
+    return OpportunityDetail.fromJson(category, Map<String, dynamic>.from(response));
+  }
+
+  Future<void> deleteOpportunity(
+    OpportunityCategory category,
+    String id, {
+    Map<String, String>? headers,
+  }) async {
+    await _apiClient.delete(
+      '/discovery/${categoryToPath(category)}/$id',
+      headers: _sanitizeHeaders(headers),
+    );
+    await _invalidateCaches();
+  }
+
+  Future<void> _invalidateCaches() async {
+    try {
+      await _cache.clear();
+    } catch (_) {
+      // Ignore cache clear failures to avoid breaking core flows.
     }
   }
 

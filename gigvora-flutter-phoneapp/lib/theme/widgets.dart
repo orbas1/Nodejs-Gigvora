@@ -10,6 +10,7 @@ class GigvoraScaffold extends ConsumerWidget {
     this.subtitle,
     required this.body,
     this.actions,
+    this.floatingActionButton,
     super.key,
   });
 
@@ -17,6 +18,7 @@ class GigvoraScaffold extends ConsumerWidget {
   final String? subtitle;
   final Widget body;
   final List<Widget>? actions;
+  final Widget? floatingActionButton;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -58,6 +60,7 @@ class GigvoraScaffold extends ConsumerWidget {
         ),
       ),
       backgroundColor: Theme.of(context).colorScheme.background,
+      floatingActionButton: floatingActionButton,
     );
   }
 }

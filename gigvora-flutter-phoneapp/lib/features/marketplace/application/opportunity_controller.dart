@@ -7,6 +7,7 @@ import 'package:gigvora_foundation/gigvora_foundation.dart';
 import '../../../core/providers.dart';
 import '../data/discovery_repository.dart';
 import '../data/models/opportunity.dart';
+import '../data/models/opportunity_detail.dart';
 
 class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>> {
   OpportunityController(this._repository, this._analytics, this.category, this._ref)
@@ -221,6 +222,87 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
       },
       metadata: const {'source': 'mobile_app'},
     );
+  }
+
+  Future<OpportunityDetail> loadDetail(String id) async {
+    final headers = _ref.read(membershipHeadersProvider);
+    final detail = await _repository.fetchOpportunityDetail(
+      category,
+      id,
+      headers: headers,
+    );
+    unawaited(_analytics.track(
+      'mobile_opportunity_detail_viewed',
+      context: {
+        'category': categoryToPath(category),
+        'id': detail.id,
+        'title': detail.title,
+      },
+      metadata: const {'source': 'mobile_app'},
+    ));
+    return detail;
+  }
+
+  Future<OpportunityDetail> createOpportunity(OpportunityDraft draft) async {
+    final headers = _ref.read(membershipHeadersProvider);
+    final detail = await _repository.createOpportunity(
+      category,
+      draft,
+      headers: headers,
+    );
+    await _analytics.track(
+      'mobile_opportunity_created',
+      context: {
+        'category': categoryToPath(category),
+        'id': detail.id,
+        'title': detail.title,
+      },
+      metadata: const {'source': 'mobile_app'},
+    );
+    await load(forceRefresh: true);
+    return detail;
+  }
+
+  Future<OpportunityDetail> updateOpportunity(
+    String id,
+    OpportunityDraft draft,
+  ) async {
+    final headers = _ref.read(membershipHeadersProvider);
+    final detail = await _repository.updateOpportunity(
+      category,
+      id,
+      draft,
+      headers: headers,
+    );
+    await _analytics.track(
+      'mobile_opportunity_updated',
+      context: {
+        'category': categoryToPath(category),
+        'id': detail.id,
+        'title': detail.title,
+      },
+      metadata: const {'source': 'mobile_app'},
+    );
+    await load(forceRefresh: true);
+    return detail;
+  }
+
+  Future<void> deleteOpportunity(String id) async {
+    final headers = _ref.read(membershipHeadersProvider);
+    await _repository.deleteOpportunity(
+      category,
+      id,
+      headers: headers,
+    );
+    await _analytics.track(
+      'mobile_opportunity_deleted',
+      context: {
+        'category': categoryToPath(category),
+        'id': id,
+      },
+      metadata: const {'source': 'mobile_app'},
+    );
+    await load(forceRefresh: true);
   }
 
   @override
