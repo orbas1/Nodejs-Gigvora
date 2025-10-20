@@ -2550,31 +2550,6 @@ export async function addGigSubmission(ownerId, orderId, payload) {
   return createGigSubmission(ownerId, orderId, payload, {});
 }
 
-export async function postGigChatMessage(ownerId, orderId, payload) {
-  await ensureInitialized();
-  const order = await GigOrder.findByPk(orderId);
-  assertOwnership(order, ownerId, 'Gig order not found');
-
-  if (!payload.body || !payload.body.trim()) {
-    throw new ValidationError('Message body is required.');
-  }
-
-  const sentAt = ensureDate(payload.sentAt ?? new Date(), { label: 'Sent at' }) ?? new Date();
-  const attachments = Array.isArray(payload.attachments) ? payload.attachments : payload.attachments ? [payload.attachments] : [];
-
-  return GigChatMessage.create({
-    orderId: order.id,
-    authorId: payload.authorId ?? ownerId,
-    authorName: payload.authorName ?? 'Workspace member',
-    authorRole: payload.authorRole ?? null,
-    body: payload.body.trim(),
-    attachments: attachments.length ? attachments : null,
-    sentAt,
-    pinned: Boolean(payload.pinned),
-    visibility: payload.visibility ?? 'internal',
-  });
-}
-
 export async function updateGigOrder(ownerId, orderId, payload) {
   await ensureInitialized();
   const order = await GigOrder.findByPk(orderId, {
