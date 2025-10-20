@@ -1,3 +1,5 @@
+import UserAvatar from '../../UserAvatar.jsx';
+
 function formatStatus(status) {
   if (!status) return 'Status';
   return status
@@ -13,6 +15,19 @@ function formatDate(value) {
     return '—';
   }
   return date.toLocaleDateString();
+}
+
+function resolveAvatar(candidate) {
+  const sources = [
+    candidate?.candidate?.avatarUrl,
+    candidate?.candidate?.photoUrl,
+    candidate?.candidate?.profile?.avatarUrl,
+    candidate?.avatarUrl,
+    candidate?.photoUrl,
+    candidate?.imageUrl,
+  ];
+
+  return sources.find((value) => typeof value === 'string' && value.length > 0) ?? null;
 }
 
 export default function CandidateList({ candidates, onSelect, selectedId }) {
@@ -40,9 +55,17 @@ export default function CandidateList({ candidates, onSelect, selectedId }) {
                   onClick={() => onSelect?.(candidate)}
                 >
                   <td className="px-4 py-3">
-                    <div className="flex flex-col">
-                      <span className="font-semibold text-slate-900">{candidate.candidate?.name ?? candidate.candidateName ?? 'Candidate'}</span>
-                      <span className="text-xs text-slate-500">{candidate.jobTitle ?? 'Application'}</span>
+                    <div className="flex items-center gap-3">
+                      <UserAvatar
+                        name={candidate.candidate?.name ?? candidate.candidateName ?? 'Candidate'}
+                        imageUrl={resolveAvatar(candidate)}
+                        size="xs"
+                        showGlow={false}
+                      />
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-slate-900">{candidate.candidate?.name ?? candidate.candidateName ?? 'Candidate'}</span>
+                        <span className="text-xs text-slate-500">{candidate.jobTitle ?? 'Application'}</span>
+                      </div>
                     </div>
                   </td>
                   <td className="px-4 py-3 text-slate-600">{formatStatus(candidate.status)}</td>
