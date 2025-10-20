@@ -79,6 +79,63 @@ class FeedScreen extends ConsumerWidget {
       );
     }
 
+    Future<void> openEditor(FeedPost post) {
+      return showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        builder: (context) {
+          return FeedPostEditorSheet(
+            post: post,
+            onSubmit: (type, content, link) async {
+              await controller.updatePost(
+                post,
+                content: content,
+                type: type,
+                link: link,
+              );
+            },
+          );
+        },
+      );
+    }
+
+    Future<void> removePost(FeedPost post) async {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: const Text('Remove post'),
+            content: const Text('Are you sure you want to remove this update from the timeline?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton.tonal(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('Remove'),
+              ),
+            ],
+          );
+        },
+      );
+      if (confirmed != true) {
+        return;
+      }
+      try {
+        await controller.deletePost(post);
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Post removed from the timeline.')),
+        );
+      } catch (error) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unable to remove post. $error')),
+        );
+      }
+    }
+
     final columnChildren = <Widget>[
       Wrap(
         spacing: 12,
@@ -87,6 +144,10 @@ class FeedScreen extends ConsumerWidget {
           FilledButton.tonal(
             onPressed: () => context.push('/operations'),
             child: const Text('Gig operations'),
+          ),
+          FilledButton.tonal(
+            onPressed: () => context.push('/creation-studio'),
+            child: const Text('Creation studio'),
           ),
           OutlinedButton(
             onPressed: () => context.push('/operations?section=buy'),
@@ -188,6 +249,8 @@ class FeedScreen extends ConsumerWidget {
     } else {
       for (var i = 0; i < posts.length; i++) {
         final post = posts[i];
+        final authorName = post.author.name.trim().toLowerCase();
+        final canManage = post.isLocal || authorName == 'you';
         listChildren.add(
           _FeedPostCard(
             post: post,
@@ -213,6 +276,8 @@ class FeedScreen extends ConsumerWidget {
                 ),
               );
             },
+            onEdit: canManage ? (target) => openEditor(target) : null,
+            onDelete: canManage ? (target) => removePost(target) : null,
           ),
         );
         if (i != posts.length - 1) {
@@ -831,12 +896,16 @@ class _FeedPostCard extends StatefulWidget {
     required this.onReact,
     required this.onComment,
     required this.onShare,
+    this.onEdit,
+    this.onDelete,
   });
 
   final FeedPost post;
   final Future<void> Function(FeedPost post, bool liked) onReact;
   final Future<void> Function(FeedPost post) onComment;
   final Future<void> Function(FeedPost post) onShare;
+  final Future<void> Function(FeedPost post)? onEdit;
+  final Future<void> Function(FeedPost post)? onDelete;
 
   @override
   State<_FeedPostCard> createState() => _FeedPostCardState();
@@ -907,6 +976,8 @@ class _FeedPostCardState extends State<_FeedPostCard> {
     final hasByline =
         isNews && widget.post.author.name.trim().isNotEmpty && widget.post.author.name.trim() != titleCandidate.trim();
     final imageUrl = widget.post.imageUrl?.trim();
+
+    final hasManagement = widget.onEdit != null || widget.onDelete != null;
 
     return GigvoraCard(
       child: Column(
@@ -984,11 +1055,53 @@ class _FeedPostCardState extends State<_FeedPostCard> {
                   ],
                 ),
               ),
-              Text(
-                formatRelativeTime(publishedAt),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (hasManagement)
+                    PopupMenuButton<String>(
+                      tooltip: 'Post actions',
+                      onSelected: (value) {
+                        switch (value) {
+                          case 'edit':
+                            if (widget.onEdit != null) {
+                              unawaited(widget.onEdit!(widget.post));
+                            }
+                            break;
+                          case 'delete':
+                            if (widget.onDelete != null) {
+                              unawaited(widget.onDelete!(widget.post));
+                            }
+                            break;
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        if (widget.onEdit != null)
+                          const PopupMenuItem<String>(
+                            value: 'edit',
+                            child: ListTile(
+                              leading: Icon(Icons.edit_outlined),
+                              title: Text('Edit post'),
+                            ),
+                          ),
+                        if (widget.onDelete != null)
+                          const PopupMenuItem<String>(
+                            value: 'delete',
+                            child: ListTile(
+                              leading: Icon(Icons.delete_outline),
+                              title: Text('Delete post'),
+                            ),
+                          ),
+                      ],
+                    ),
+                  const SizedBox(height: 4),
+                  Text(
+                    formatRelativeTime(publishedAt),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1146,6 +1259,160 @@ class _FeedLinkButton extends StatelessWidget {
         foregroundColor: theme.colorScheme.primary,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      ),
+    );
+  }
+}
+
+class FeedPostEditorSheet extends StatefulWidget {
+  const FeedPostEditorSheet({required this.post, required this.onSubmit, super.key});
+
+  final FeedPost post;
+  final Future<void> Function(FeedPostType type, String content, String? link) onSubmit;
+
+  @override
+  State<FeedPostEditorSheet> createState() => _FeedPostEditorSheetState();
+}
+
+class _FeedPostEditorSheetState extends State<FeedPostEditorSheet> {
+  late FeedPostType _selectedType;
+  late final TextEditingController _contentController;
+  late final TextEditingController _linkController;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedType = widget.post.type;
+    _contentController = TextEditingController(text: widget.post.content);
+    _linkController = TextEditingController(text: widget.post.link ?? '');
+  }
+
+  @override
+  void dispose() {
+    _contentController.dispose();
+    _linkController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleSubmit() async {
+    if (_saving) {
+      return;
+    }
+    FeedModerationResult moderated;
+    try {
+      moderated = FeedContentModeration.evaluate(
+        content: _contentController.text,
+        summary: _contentController.text,
+        link: _linkController.text,
+        type: _selectedType,
+      );
+    } on FeedModerationException catch (error) {
+      if (!mounted) return;
+      final buffer = StringBuffer(error.message);
+      if (error.reasons.isNotEmpty) {
+        for (final reason in error.reasons) {
+          buffer.write('\n• $reason');
+        }
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(buffer.toString()),
+          backgroundColor: Theme.of(context).colorScheme.errorContainer,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _saving = true);
+    try {
+      await widget.onSubmit(_selectedType, moderated.content, moderated.link);
+      if (!mounted) return;
+      Navigator.of(context).maybePop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Post updated.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to update post. $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 24,
+          right: 24,
+          top: 24,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Edit timeline post', style: theme.textTheme.titleLarge),
+            const SizedBox(height: 4),
+            Text(
+              'Update the content, category, or link attached to this update.',
+              style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 20),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: FeedPostType.values
+                  .where((type) => type != FeedPostType.news)
+                  .map(
+                    (type) => ChoiceChip(
+                      label: Text(type.label),
+                      selected: _selectedType == type,
+                      onSelected: (_) => setState(() => _selectedType = type),
+                    ),
+                  )
+                  .toList(),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _contentController,
+              maxLines: 5,
+              minLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Post content',
+                hintText: 'Share context, wins, or opportunities with your network.',
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _linkController,
+              decoration: const InputDecoration(
+                labelText: 'Attachment link',
+                hintText: 'https://…',
+              ),
+            ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: _saving ? null : _handleSubmit,
+              icon: _saving
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.check),
+              label: Text(_saving ? 'Saving…' : 'Save changes'),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,6 +1,7 @@
 import 'package:gigvora_foundation/gigvora_foundation.dart';
 
 import 'models/profile.dart';
+import 'models/profile_update.dart';
 
 class ProfileRepository {
   ProfileRepository({
@@ -192,5 +193,41 @@ class ProfileRepository {
     }
 
     return settings;
+  }
+
+  Future<ProfileModel> updateProfile(String profileId, ProfileUpdateRequest request) async {
+    final response = await _apiClient.put('/profiles/$profileId', request.toJson());
+    if (response is Map<String, dynamic>) {
+      await _cache.remove('$_cachePrefix$profileId');
+      return ProfileModel.fromJson(response);
+    }
+    throw StateError('Invalid profile update response');
+  }
+
+  Future<ProfileExperience> createExperience(String profileId, ProfileExperienceDraft draft) async {
+    final response = await _apiClient.post('/profiles/$profileId/experiences', draft.toJson());
+    if (response is Map<String, dynamic>) {
+      await _cache.remove('$_cachePrefix$profileId');
+      return ProfileExperience.fromJson(response);
+    }
+    throw StateError('Invalid experience payload');
+  }
+
+  Future<ProfileExperience> updateExperience(
+    String profileId,
+    String experienceId,
+    ProfileExperienceDraft draft,
+  ) async {
+    final response = await _apiClient.put('/profiles/$profileId/experiences/$experienceId', draft.toJson());
+    if (response is Map<String, dynamic>) {
+      await _cache.remove('$_cachePrefix$profileId');
+      return ProfileExperience.fromJson(response);
+    }
+    throw StateError('Invalid experience payload');
+  }
+
+  Future<void> deleteExperience(String profileId, String experienceId) async {
+    await _apiClient.delete('/profiles/$profileId/experiences/$experienceId');
+    await _cache.remove('$_cachePrefix$profileId');
   }
 }

@@ -43,6 +43,7 @@ import '../features/cv/presentation/cv_workspace_screen.dart';
 import '../features/security/presentation/security_operations_screen.dart';
 import '../features/company_analytics/presentation/company_analytics_screen.dart';
 import '../features/company_ats/presentation/company_ats_screen.dart';
+import '../features/creation_studio/presentation/creation_studio_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -112,6 +113,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           projectId: int.tryParse(state.pathParameters['id'] ?? ''),
         ),
       ),
+      GoRoute(path: '/creation-studio', builder: (context, state) => const CreationStudioScreen()),
       GoRoute(path: '/blog', builder: (context, state) => const BlogListScreen()),
       GoRoute(
         path: '/blog/:slug',

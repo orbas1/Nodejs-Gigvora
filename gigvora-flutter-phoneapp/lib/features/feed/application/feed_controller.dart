@@ -155,6 +155,7 @@ class FeedController extends StateNotifier<ResourceState<List<FeedPost>>> {
         ...state.metadata,
         'localPostCount': _localPosts.length,
         'lastComposerType': type.analyticsValue,
+        'publishingPostId': post.id,
       },
     );
 
@@ -166,6 +167,118 @@ class FeedController extends StateNotifier<ResourceState<List<FeedPost>>> {
       },
       metadata: const {'source': 'mobile_app'},
     );
+
+    unawaited(_persistLocalPost(post));
+  }
+
+  Future<void> updatePost(
+    FeedPost post, {
+    required String content,
+    required FeedPostType type,
+    String? link,
+  }) async {
+    if (post.isLocal) {
+      final index = _localPosts.indexWhere((item) => item.id == post.id);
+      if (index >= 0) {
+        _localPosts[index] = post.copyWith(
+          content: content,
+          type: type,
+          link: link,
+          summary: content,
+        );
+        _emitState(
+          metadata: {
+            ...state.metadata,
+            'localPostCount': _localPosts.length,
+            'lastComposerType': type.analyticsValue,
+          },
+        );
+      }
+      return;
+    }
+
+    final index = _remotePosts.indexWhere((item) => item.id == post.id);
+    if (index < 0) {
+      return;
+    }
+
+    final optimistic = post.copyWith(
+      content: content,
+      type: type,
+      link: link,
+      summary: content,
+    );
+    _remotePosts[index] = optimistic;
+    _emitState(lastUpdated: DateTime.now());
+
+    try {
+      final persisted = await _repository.updatePost(
+        post.id,
+        content: content,
+        type: type,
+        link: link,
+      );
+      _remotePosts[index] = persisted;
+      _emitState(lastUpdated: DateTime.now());
+      await _analytics.track(
+        'mobile_feed_post_updated',
+        context: {
+          'postId': post.id,
+          'type': type.analyticsValue,
+        },
+        metadata: const {'source': 'mobile_app'},
+      );
+    } catch (error) {
+      _remotePosts[index] = post;
+      _emitState(
+        metadata: {
+          ...state.metadata,
+          'lastUpdateError': '$error',
+        },
+      );
+      rethrow;
+    }
+  }
+
+  Future<void> deletePost(FeedPost post) async {
+    if (post.isLocal) {
+      _localPosts.removeWhere((item) => item.id == post.id);
+      _emitState(
+        metadata: {
+          ...state.metadata,
+          'localPostCount': _localPosts.length,
+        },
+      );
+      return;
+    }
+
+    final index = _remotePosts.indexWhere((item) => item.id == post.id);
+    if (index < 0) {
+      return;
+    }
+
+    final removed = _remotePosts.removeAt(index);
+    _emitState(lastUpdated: DateTime.now());
+
+    try {
+      await _repository.deletePost(post.id);
+      await _analytics.track(
+        'mobile_feed_post_deleted',
+        context: {
+          'postId': post.id,
+        },
+        metadata: const {'source': 'mobile_app'},
+      );
+    } catch (error) {
+      _remotePosts.insert(index, removed);
+      _emitState(
+        metadata: {
+          ...state.metadata,
+          'lastDeleteError': '$error',
+        },
+      );
+      rethrow;
+    }
   }
 
   Future<void> recordReaction(FeedPost post, String action) {
@@ -204,6 +317,34 @@ class FeedController extends StateNotifier<ResourceState<List<FeedPost>>> {
       'mobile_feed_explorer_opened',
       metadata: const {'source': 'mobile_app'},
     );
+  }
+
+  Future<void> _persistLocalPost(FeedPost localPost) async {
+    try {
+      final persisted = await _repository.createPost(
+        content: localPost.content,
+        type: localPost.type,
+        link: localPost.link,
+      );
+      _localPosts.removeWhere((item) => item.id == localPost.id);
+      _remotePosts.removeWhere((item) => item.id == persisted.id);
+      _remotePosts.insert(0, persisted);
+      _emitState(
+        lastUpdated: DateTime.now(),
+        metadata: {
+          ...state.metadata,
+          'localPostCount': _localPosts.length,
+          'lastCreatedPostId': persisted.id,
+        },
+      );
+    } catch (error) {
+      _emitState(
+        metadata: {
+          ...state.metadata,
+          'lastPublishError': '$error',
+        },
+      );
+    }
   }
 
   Future<void> _setupRealtime() async {

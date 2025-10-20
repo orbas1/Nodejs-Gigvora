@@ -46,6 +46,48 @@ class FeedRepository {
     }
   }
 
+  Future<FeedPost> createPost({
+    required String content,
+    required FeedPostType type,
+    String? link,
+  }) async {
+    final payload = <String, dynamic>{
+      'content': content.trim(),
+      'type': type.name,
+      if (link != null && link.trim().isNotEmpty) 'link': link.trim(),
+    };
+    final response = await _apiClient.post('/feed', body: payload);
+    if (response is Map<String, dynamic>) {
+      await _cache.remove(_cacheKey);
+      return FeedPost.fromJson(response);
+    }
+    throw StateError('Invalid feed post response');
+  }
+
+  Future<FeedPost> updatePost(
+    String id, {
+    required String content,
+    required FeedPostType type,
+    String? link,
+  }) async {
+    final payload = <String, dynamic>{
+      'content': content.trim(),
+      'type': type.name,
+      if (link != null && link.trim().isNotEmpty) 'link': link.trim(),
+    };
+    final response = await _apiClient.put('/feed/$id', body: payload);
+    if (response is Map<String, dynamic>) {
+      await _cache.remove(_cacheKey);
+      return FeedPost.fromJson(response);
+    }
+    throw StateError('Invalid feed post response');
+  }
+
+  Future<void> deletePost(String id) async {
+    await _apiClient.delete('/feed/$id');
+    await _cache.remove(_cacheKey);
+  }
+
   CacheEntry<List<FeedPost>>? _readCache() {
     try {
       final entry = _cache.read<List<FeedPost>>(_cacheKey, (raw) {
