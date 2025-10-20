@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useState } from 'react';
+import PropTypes from 'prop-types';
 import {
   createAgencyEscrowAccount,
   createAgencyEscrowTransaction,
@@ -191,10 +192,21 @@ const initialState = Object.freeze({
   activityDrawer: { open: false, title: '', payload: null },
 });
 
-export function EscrowProvider({ children }) {
+export function EscrowProvider({ children, workspaceId, workspaceSlug }) {
   const { session } = useSession();
   const [state, dispatch] = useReducer(reducer, initialState);
   const [refreshKeys, setRefreshKeys] = useState({ overview: 0, accounts: 0, transactions: 0 });
+
+  const workspaceParams = useMemo(() => {
+    const params = {};
+    if (workspaceId != null && workspaceId !== '') {
+      params.workspaceId = workspaceId;
+    }
+    if (workspaceSlug) {
+      params.workspaceSlug = workspaceSlug;
+    }
+    return params;
+  }, [workspaceId, workspaceSlug]);
 
   const triggerToast = useCallback((message, tone = 'success') => {
     if (!message) {
@@ -269,7 +281,7 @@ export function EscrowProvider({ children }) {
   useEffect(() => {
     const controller = new AbortController();
     dispatch({ type: 'OVERVIEW_REQUEST' });
-    fetchAgencyEscrowOverview({}, { signal: controller.signal })
+    fetchAgencyEscrowOverview(workspaceParams, { signal: controller.signal })
       .then((payload) => {
         dispatch({ type: 'OVERVIEW_SUCCESS', payload });
         dispatch({
@@ -289,13 +301,14 @@ export function EscrowProvider({ children }) {
       });
 
     return () => controller.abort();
-  }, [refreshKeys.overview]);
+  }, [refreshKeys.overview, workspaceParams]);
 
   useEffect(() => {
     const controller = new AbortController();
     dispatch({ type: 'ACCOUNTS_REQUEST' });
     fetchAgencyEscrowAccounts(
       {
+        ...workspaceParams,
         status: state.accounts.filters.status || undefined,
         search: state.accounts.filters.search || undefined,
         limit: state.accounts.pagination.limit,
@@ -318,6 +331,7 @@ export function EscrowProvider({ children }) {
     state.accounts.pagination.limit,
     state.accounts.pagination.offset,
     triggerToast,
+    workspaceParams,
   ]);
 
   useEffect(() => {
@@ -325,6 +339,7 @@ export function EscrowProvider({ children }) {
     dispatch({ type: 'TRANSACTIONS_REQUEST' });
     fetchAgencyEscrowTransactions(
       {
+        ...workspaceParams,
         status: state.transactions.filters.status || undefined,
         type: state.transactions.filters.type || undefined,
         search: state.transactions.filters.search || undefined,
@@ -349,6 +364,7 @@ export function EscrowProvider({ children }) {
     state.transactions.pagination.limit,
     state.transactions.pagination.offset,
     triggerToast,
+    workspaceParams,
   ]);
 
   const saveAccount = useCallback(
@@ -362,24 +378,24 @@ export function EscrowProvider({ children }) {
       };
 
       if (draft.id) {
-        await updateAgencyEscrowAccount(draft.id, payload);
+        await updateAgencyEscrowAccount(draft.id, payload, workspaceParams);
         triggerToast('Account updated');
       } else {
-        await createAgencyEscrowAccount(payload);
+        await createAgencyEscrowAccount(payload, workspaceParams);
         triggerToast('Account created');
       }
       refreshAccounts();
     },
-    [refreshAccounts, triggerToast],
+    [refreshAccounts, triggerToast, workspaceParams],
   );
 
   const reconcileAccount = useCallback(
     async (accountId) => {
-      await updateAgencyEscrowAccount(accountId, { lastReconciledAt: new Date().toISOString() });
+      await updateAgencyEscrowAccount(accountId, { lastReconciledAt: new Date().toISOString() }, workspaceParams);
       triggerToast('Reconciled');
       refreshAccounts();
     },
-    [refreshAccounts, triggerToast],
+    [refreshAccounts, triggerToast, workspaceParams],
   );
 
   const saveTransaction = useCallback(
@@ -403,51 +419,54 @@ export function EscrowProvider({ children }) {
       }
 
       if (draft.id) {
-        await updateAgencyEscrowTransaction(draft.id, payload);
+        await updateAgencyEscrowTransaction(draft.id, payload, workspaceParams);
         triggerToast('Move updated');
       } else {
-        await createAgencyEscrowTransaction(payload);
+        await createAgencyEscrowTransaction(payload, workspaceParams);
         triggerToast('Move logged');
       }
       refreshTransactions();
       refreshOverview();
     },
-    [refreshOverview, refreshTransactions, triggerToast],
+    [refreshOverview, refreshTransactions, triggerToast, workspaceParams],
   );
 
   const releaseTransaction = useCallback(
     async (transactionId) => {
-      await releaseAgencyEscrowTransaction(transactionId, { actorId: session?.id });
+      await releaseAgencyEscrowTransaction(transactionId, { actorId: session?.id }, workspaceParams);
       triggerToast('Released');
       refreshTransactions();
       refreshOverview();
     },
-    [refreshTransactions, refreshOverview, session?.id, triggerToast],
+    [refreshTransactions, refreshOverview, session?.id, triggerToast, workspaceParams],
   );
 
   const refundTransaction = useCallback(
     async (transactionId) => {
-      await refundAgencyEscrowTransaction(transactionId, { actorId: session?.id });
+      await refundAgencyEscrowTransaction(transactionId, { actorId: session?.id }, workspaceParams);
       triggerToast('Refunded');
       refreshTransactions();
       refreshOverview();
     },
-    [refreshTransactions, refreshOverview, session?.id, triggerToast],
+    [refreshTransactions, refreshOverview, session?.id, triggerToast, workspaceParams],
   );
 
   const saveSettings = useCallback(
     async (draft) => {
-      await updateAgencyEscrowSettings({
-        autoReleaseEnabled: Boolean(draft.autoReleaseEnabled),
-        autoReleaseAfterDays: Number(draft.autoReleaseAfterDays ?? 0),
-        requireDualApproval: Boolean(draft.requireDualApproval),
-        notifyHoursBeforeRelease: Number(draft.notifyHoursBeforeRelease ?? 0),
-        holdLargePaymentsThreshold: Number(draft.holdLargePaymentsThreshold ?? 0),
-      });
+      await updateAgencyEscrowSettings(
+        {
+          autoReleaseEnabled: Boolean(draft.autoReleaseEnabled),
+          autoReleaseAfterDays: Number(draft.autoReleaseAfterDays ?? 0),
+          requireDualApproval: Boolean(draft.requireDualApproval),
+          notifyHoursBeforeRelease: Number(draft.notifyHoursBeforeRelease ?? 0),
+          holdLargePaymentsThreshold: Number(draft.holdLargePaymentsThreshold ?? 0),
+        },
+        workspaceParams,
+      );
       triggerToast('Rules saved');
       refreshOverview();
     },
-    [refreshOverview, triggerToast],
+    [refreshOverview, triggerToast, workspaceParams],
   );
 
   const contextValue = useMemo(
@@ -496,6 +515,18 @@ export function EscrowProvider({ children }) {
 
   return <EscrowContext.Provider value={contextValue}>{children}</EscrowContext.Provider>;
 }
+
+EscrowProvider.propTypes = {
+  children: PropTypes.node,
+  workspaceId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  workspaceSlug: PropTypes.string,
+};
+
+EscrowProvider.defaultProps = {
+  children: null,
+  workspaceId: undefined,
+  workspaceSlug: undefined,
+};
 
 export function useEscrow() {
   const context = useContext(EscrowContext);
