@@ -2,15 +2,21 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import {
   ArrowsPointingOutIcon,
   BuildingLibraryIcon,
+  CalendarDaysIcon,
   ClipboardDocumentListIcon,
   Cog6ToothIcon,
   CurrencyDollarIcon,
+  EnvelopeOpenIcon,
+  LifebuoyIcon,
   UserCircleIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { Dialog, Transition } from '@headlessui/react';
 import WalletListPanel from './wallet/WalletListPanel.jsx';
 import CompanyWalletDetailPanel from './wallet/CompanyWalletDetailPanel.jsx';
+import DashboardCalendarPanel from './dashboard/DashboardCalendarPanel.jsx';
+import DashboardSupportPanel from './dashboard/DashboardSupportPanel.jsx';
+import DashboardInboxPanel from './dashboard/DashboardInboxPanel.jsx';
 import JobAdvertList from './jobManagement/JobAdvertList.jsx';
 import JobAdvertForm from './jobManagement/JobAdvertForm.jsx';
 import CandidateList from './jobManagement/CandidateList.jsx';
@@ -60,16 +66,34 @@ const PANEL_TABS = [
     icon: BuildingLibraryIcon,
   },
   {
-    id: 'finance',
-    label: 'Finance management',
+    id: 'wallet',
+    label: 'Wallet & treasury',
     description: 'Wallets, cash flow, and treasury automation.',
     icon: CurrencyDollarIcon,
   },
   {
     id: 'applications',
-    label: 'Job applications',
-    description: 'Manage pipelines, communication, and feedback.',
+    label: 'Job process',
+    description: 'Kanban pipelines, CRM, and hiring communication.',
     icon: ClipboardDocumentListIcon,
+  },
+  {
+    id: 'calendar',
+    label: 'Calendar',
+    description: 'Schedule interviews, milestones, and programs.',
+    icon: CalendarDaysIcon,
+  },
+  {
+    id: 'support',
+    label: 'Support',
+    description: 'Triage escalations, assign agents, and update SLAs.',
+    icon: LifebuoyIcon,
+  },
+  {
+    id: 'inbox',
+    label: 'Inbox',
+    description: 'Collaborate with recruiters, hiring managers, and partners.',
+    icon: EnvelopeOpenIcon,
   },
   {
     id: 'interviews',
@@ -98,7 +122,7 @@ function classNames(...values) {
   return values.filter(Boolean).join(' ');
 }
 
-function SummaryDeck({ cards = [], onOpenFinance, onOpenJobs }) {
+function SummaryDeck({ cards = [], onOpenWallet, onOpenJobs }) {
   if (!cards.length) {
     return null;
   }
@@ -159,10 +183,10 @@ function SummaryDeck({ cards = [], onOpenFinance, onOpenJobs }) {
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
-          onClick={onOpenFinance}
+          onClick={onOpenWallet}
           className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-blue-700"
         >
-          Open finance workspace
+          Open wallet workspace
         </button>
         <button
           type="button"
@@ -748,6 +772,17 @@ export default function CompanyOperationalControlPanel({
     await refreshJobOps({ force: true });
   };
 
+  const handleMoveApplication = async (applicationId, status) => {
+    if (!selectedJobId || !workspaceId || !applicationId || !status) {
+      return;
+    }
+    await updateJobApplication(selectedJobId, applicationId, {
+      workspaceId,
+      status,
+    });
+    await refreshJobOps({ force: true });
+  };
+
   const handleScheduleInterview = async ({ applicationId, interviewStage, scheduledAt, durationMinutes }) => {
     if (!selectedJobId || !workspaceId) {
       return;
@@ -818,12 +853,12 @@ export default function CompanyOperationalControlPanel({
   const renderHome = () => (
     <SummaryDeck
       cards={summaryCards}
-      onOpenFinance={() => setActiveTab('finance')}
+      onOpenWallet={() => setActiveTab('wallet')}
       onOpenJobs={() => setActiveTab('applications')}
     />
   );
 
-  const renderFinance = () => (
+  const renderWallet = () => (
     <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)] 2xl:grid-cols-[420px_minmax(0,1fr)]">
       <WalletListPanel
         summary={walletSummary}
@@ -864,6 +899,18 @@ export default function CompanyOperationalControlPanel({
         <p className="text-sm text-slate-500">Loading wallet details…</p>
       ) : null}
     </div>
+  );
+
+  const renderCalendar = () => (
+    <DashboardCalendarPanel workspaceId={workspaceId} workspaceSlug={workspaceSlug} />
+  );
+
+  const renderSupport = () => (
+    <DashboardSupportPanel workspaceId={workspaceId} workspaceSlug={workspaceSlug} session={session} />
+  );
+
+  const renderInbox = () => (
+    <DashboardInboxPanel workspaceId={workspaceId} workspaceSlug={workspaceSlug} session={session} />
   );
 
   const renderApplications = () => (
@@ -1059,15 +1106,25 @@ export default function CompanyOperationalControlPanel({
         </div>
       </div>
 
-      <ApplicantKanbanBoard columns={jobKanban} onSelectApplication={handleOpenCandidate} />
+      <ApplicantKanbanBoard
+        columns={jobKanban}
+        onSelectApplication={handleOpenCandidate}
+        onMoveApplication={handleMoveApplication}
+      />
     </div>
   );
 
   let tabContent;
-  if (activeTab === 'finance') {
-    tabContent = renderFinance();
+  if (activeTab === 'wallet') {
+    tabContent = renderWallet();
   } else if (activeTab === 'applications') {
     tabContent = renderApplications();
+  } else if (activeTab === 'calendar') {
+    tabContent = renderCalendar();
+  } else if (activeTab === 'support') {
+    tabContent = renderSupport();
+  } else if (activeTab === 'inbox') {
+    tabContent = renderInbox();
   } else if (activeTab === 'interviews') {
     tabContent = renderInterviews();
   } else if (activeTab === 'ats') {
@@ -1086,7 +1143,7 @@ export default function CompanyOperationalControlPanel({
         <div>
           <h2 className="text-2xl font-semibold text-slate-900">Company command center</h2>
           <p className="mt-1 text-sm text-slate-600">
-            Switch between the mission-critical workspaces powering hiring, finance, and ATS operations.
+            Switch between the mission-critical workspaces powering hiring, treasury, calendar, and ATS operations.
           </p>
         </div>
       </div>

@@ -88,8 +88,14 @@ export const marketingNavigation = [
           {
             name: 'Creation Studio',
             description: 'Publish jobs, gigs, and resources with autosave, compliance scoring, and collaboration.',
-            to: '/dashboard/user/creation-studio',
+            to: '/creation-studio',
             icon: RocketLaunchIcon,
+          },
+          {
+            name: 'Member profiles',
+            description: 'Deep dive into freelancer, mentor, and company work histories with live timelines.',
+            to: '/community/users/me',
+            icon: UsersIcon,
           },
         ],
       },

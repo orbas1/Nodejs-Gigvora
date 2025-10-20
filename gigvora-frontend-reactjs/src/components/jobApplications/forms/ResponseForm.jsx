@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
 
@@ -13,10 +13,15 @@ function toInputDateTime(value) {
   return adjusted.toISOString().slice(0, 16);
 }
 
+function sanitizeApplications(applications) {
+  return Array.isArray(applications) ? applications.filter((application) => application && application.id != null) : [];
+}
+
 function buildInitialValues(response, applications) {
+  const safeApplications = sanitizeApplications(applications);
   if (!response) {
     return {
-      applicationId: applications[0]?.id ?? '',
+      applicationId: safeApplications[0]?.id ?? '',
       direction: 'incoming',
       channel: 'email',
       status: 'pending',
@@ -79,6 +84,13 @@ export default function ResponseForm({
   const [touched, setTouched] = useState({});
   const errors = useMemo(() => validate(values), [values]);
   const showError = (name) => touched[name] && errors[name];
+  const safeApplications = useMemo(() => sanitizeApplications(applications), [applications]);
+  const hasApplicationOptions = safeApplications.length > 0;
+
+  useEffect(() => {
+    setValues(buildInitialValues(initialResponse, applications));
+    setTouched({});
+  }, [initialResponse, applications]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -95,6 +107,9 @@ export default function ResponseForm({
     setTouched((prev) => ({ ...prev, applicationId: true, sentAt: true }));
     const nextErrors = validate(values);
     if (Object.keys(nextErrors).length > 0) {
+      return;
+    }
+    if (!hasApplicationOptions) {
       return;
     }
     onSubmit(preparePayload(values));
@@ -115,13 +130,21 @@ export default function ResponseForm({
               showError('applicationId') ? 'border-rose-300' : 'border-slate-200'
             }`}
           >
-            {applications.map((application) => (
+            {mode === 'create' ? (
+              <option value="" disabled={!hasApplicationOptions}>
+                {hasApplicationOptions ? 'Select an application' : 'Create an application to log responses'}
+              </option>
+            ) : null}
+            {safeApplications.map((application) => (
               <option key={application.id} value={application.id}>
                 {application.detail?.title ?? 'Opportunity'} — {application.detail?.companyName ?? 'Company'}
               </option>
             ))}
           </select>
           {showError('applicationId') ? <span className="text-xs text-rose-500">{errors.applicationId}</span> : null}
+          {!hasApplicationOptions ? (
+            <span className="text-xs text-slate-500">Add an application to capture recruiter replies and follow-ups.</span>
+          ) : null}
         </label>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -247,7 +270,7 @@ export default function ResponseForm({
         </div>
         <button
           type="submit"
-          disabled={busy}
+          disabled={busy || !hasApplicationOptions}
           className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {busy ? <ArrowPathIcon className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}

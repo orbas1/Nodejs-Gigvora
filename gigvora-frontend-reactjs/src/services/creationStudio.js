@@ -152,4 +152,16 @@ export default {
   createCreationStudioItem,
   updateCreationStudioItem,
   publishCreationStudioItem,
+  deleteCreationStudioItem,
 };
+
+export const creationStudioService = {
+  ...companyCreationStudio,
+  ...userCreationStudio,
+  ...communityCreationStudio,
+  company: companyCreationStudio,
+  user: userCreationStudio,
+  community: communityCreationStudio,
+};
+
+export default creationStudioService;

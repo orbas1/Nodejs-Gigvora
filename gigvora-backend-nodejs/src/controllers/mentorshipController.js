@@ -8,6 +8,25 @@ import {
   createMentorBooking,
   updateMentorBooking,
   deleteMentorBooking,
+  createMentorClient,
+  updateMentorClient,
+  deleteMentorClient,
+  createMentorEvent,
+  updateMentorEvent,
+  deleteMentorEvent,
+  createMentorSupportTicket,
+  updateMentorSupportTicket,
+  deleteMentorSupportTicket,
+  createMentorMessage,
+  updateMentorMessage,
+  deleteMentorMessage,
+  updateMentorVerificationStatus,
+  createMentorVerificationDocument,
+  updateMentorVerificationDocument,
+  deleteMentorVerificationDocument,
+  createMentorWalletTransaction,
+  updateMentorWalletTransaction,
+  deleteMentorWalletTransaction,
   createMentorInvoice,
   updateMentorInvoice,
   deleteMentorInvoice,
@@ -110,6 +129,170 @@ export function deleteBooking(req, res) {
   res.json({ dashboard });
 }
 
+export function createClient(req, res) {
+  ensureMentorRole(req);
+  const mentorId = resolveMentorId(req);
+  const client = createMentorClient(mentorId, req.body ?? {});
+  const dashboard = getMentorDashboard(mentorId);
+  res.status(201).json({ client, dashboard });
+}
+
+export function updateClient(req, res) {
+  ensureMentorRole(req);
+  const mentorId = resolveMentorId(req);
+  const clientId = req.params?.clientId ?? req.body?.clientId;
+  const client = updateMentorClient(mentorId, clientId, req.body ?? {});
+  const dashboard = getMentorDashboard(mentorId);
+  res.json({ client, dashboard });
+}
+
+export function deleteClient(req, res) {
+  ensureMentorRole(req);
+  const mentorId = resolveMentorId(req);
+  const { clientId } = req.params ?? {};
+  deleteMentorClient(mentorId, clientId);
+  const dashboard = getMentorDashboard(mentorId);
+  res.json({ dashboard });
+}
+
+export function createEvent(req, res) {
+  ensureMentorRole(req);
+  const mentorId = resolveMentorId(req);
+  const event = createMentorEvent(mentorId, req.body ?? {});
+  const dashboard = getMentorDashboard(mentorId);
+  res.status(201).json({ event, dashboard });
+}
+
+export function updateEvent(req, res) {
+  ensureMentorRole(req);
+  const mentorId = resolveMentorId(req);
+  const eventId = req.params?.eventId ?? req.body?.eventId;
+  const event = updateMentorEvent(mentorId, eventId, req.body ?? {});
+  const dashboard = getMentorDashboard(mentorId);
+  res.json({ event, dashboard });
+}
+
+export function deleteEvent(req, res) {
+  ensureMentorRole(req);
+  const mentorId = resolveMentorId(req);
+  const { eventId } = req.params ?? {};
+  deleteMentorEvent(mentorId, eventId);
+  const dashboard = getMentorDashboard(mentorId);
+  res.json({ dashboard });
+}
+
+export function createSupportTicket(req, res) {
+  ensureMentorRole(req);
+  const mentorId = resolveMentorId(req);
+  const ticket = createMentorSupportTicket(mentorId, req.body ?? {});
+  const dashboard = getMentorDashboard(mentorId);
+  res.status(201).json({ ticket, dashboard });
+}
+
+export function updateSupportTicket(req, res) {
+  ensureMentorRole(req);
+  const mentorId = resolveMentorId(req);
+  const ticketId = req.params?.ticketId ?? req.body?.ticketId;
+  const ticket = updateMentorSupportTicket(mentorId, ticketId, req.body ?? {});
+  const dashboard = getMentorDashboard(mentorId);
+  res.json({ ticket, dashboard });
+}
+
+export function deleteSupportTicket(req, res) {
+  ensureMentorRole(req);
+  const mentorId = resolveMentorId(req);
+  const { ticketId } = req.params ?? {};
+  deleteMentorSupportTicket(mentorId, ticketId);
+  const dashboard = getMentorDashboard(mentorId);
+  res.json({ dashboard });
+}
+
+export function createMessage(req, res) {
+  ensureMentorRole(req);
+  const mentorId = resolveMentorId(req);
+  const message = createMentorMessage(mentorId, req.body ?? {});
+  const dashboard = getMentorDashboard(mentorId);
+  res.status(201).json({ message, dashboard });
+}
+
+export function updateMessage(req, res) {
+  ensureMentorRole(req);
+  const mentorId = resolveMentorId(req);
+  const messageId = req.params?.messageId ?? req.body?.messageId;
+  const message = updateMentorMessage(mentorId, messageId, req.body ?? {});
+  const dashboard = getMentorDashboard(mentorId);
+  res.json({ message, dashboard });
+}
+
+export function deleteMessage(req, res) {
+  ensureMentorRole(req);
+  const mentorId = resolveMentorId(req);
+  const { messageId } = req.params ?? {};
+  deleteMentorMessage(mentorId, messageId);
+  const dashboard = getMentorDashboard(mentorId);
+  res.json({ dashboard });
+}
+
+export function saveVerificationStatus(req, res) {
+  ensureMentorRole(req);
+  const mentorId = resolveMentorId(req);
+  const verification = updateMentorVerificationStatus(mentorId, req.body ?? {});
+  const dashboard = getMentorDashboard(mentorId);
+  res.json({ verification, dashboard });
+}
+
+export function createVerificationDocument(req, res) {
+  ensureMentorRole(req);
+  const mentorId = resolveMentorId(req);
+  const document = createMentorVerificationDocument(mentorId, req.body ?? {});
+  const dashboard = getMentorDashboard(mentorId);
+  res.status(201).json({ document, dashboard });
+}
+
+export function updateVerificationDocument(req, res) {
+  ensureMentorRole(req);
+  const mentorId = resolveMentorId(req);
+  const documentId = req.params?.documentId ?? req.body?.documentId;
+  const document = updateMentorVerificationDocument(mentorId, documentId, req.body ?? {});
+  const dashboard = getMentorDashboard(mentorId);
+  res.json({ document, dashboard });
+}
+
+export function deleteVerificationDocument(req, res) {
+  ensureMentorRole(req);
+  const mentorId = resolveMentorId(req);
+  const { documentId } = req.params ?? {};
+  deleteMentorVerificationDocument(mentorId, documentId);
+  const dashboard = getMentorDashboard(mentorId);
+  res.json({ dashboard });
+}
+
+export function createWalletTransaction(req, res) {
+  ensureMentorRole(req);
+  const mentorId = resolveMentorId(req);
+  const transaction = createMentorWalletTransaction(mentorId, req.body ?? {});
+  const dashboard = getMentorDashboard(mentorId);
+  res.status(201).json({ transaction, dashboard });
+}
+
+export function updateWalletTransaction(req, res) {
+  ensureMentorRole(req);
+  const mentorId = resolveMentorId(req);
+  const transactionId = req.params?.transactionId ?? req.body?.transactionId;
+  const transaction = updateMentorWalletTransaction(mentorId, transactionId, req.body ?? {});
+  const dashboard = getMentorDashboard(mentorId);
+  res.json({ transaction, dashboard });
+}
+
+export function deleteWalletTransaction(req, res) {
+  ensureMentorRole(req);
+  const mentorId = resolveMentorId(req);
+  const { transactionId } = req.params ?? {};
+  deleteMentorWalletTransaction(mentorId, transactionId);
+  const dashboard = getMentorDashboard(mentorId);
+  res.json({ dashboard });
+}
+
 export function createInvoice(req, res) {
   ensureMentorRole(req);
   const mentorId = resolveMentorId(req);
@@ -170,6 +353,25 @@ export default {
   createBooking,
   updateBooking,
   deleteBooking,
+  createClient,
+  updateClient,
+  deleteClient,
+  createEvent,
+  updateEvent,
+  deleteEvent,
+  createSupportTicket,
+  updateSupportTicket,
+  deleteSupportTicket,
+  createMessage,
+  updateMessage,
+  deleteMessage,
+  saveVerificationStatus,
+  createVerificationDocument,
+  updateVerificationDocument,
+  deleteVerificationDocument,
+  createWalletTransaction,
+  updateWalletTransaction,
+  deleteWalletTransaction,
   createInvoice,
   updateInvoice,
   deleteInvoice,

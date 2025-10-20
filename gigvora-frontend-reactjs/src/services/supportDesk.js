@@ -8,7 +8,7 @@ function buildCacheKey(userId) {
 
 export async function getSupportDeskSnapshot(userId, { forceRefresh = false } = {}) {
   if (!Number.isInteger(Number(userId)) || Number(userId) <= 0) {
-    throw new Error('A valid freelancerId is required to load the support desk snapshot.');
+    throw new Error('A valid userId is required to load the support desk snapshot.');
   }
 
   const cacheKey = buildCacheKey(userId);

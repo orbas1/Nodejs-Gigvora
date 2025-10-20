@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { ArrowPathIcon, PlusIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import PageHeader from '../components/PageHeader.jsx';
 import ProfileEditor from '../components/ProfileEditor.jsx';
 import TrustScoreBreakdown from '../components/TrustScoreBreakdown.jsx';
@@ -11,6 +12,7 @@ import {
   GIGVORA_PROFILE_BANNER,
 } from '../constants/marketing.js';
 import { fetchProfile, updateProfile, updateProfileAvailability } from '../services/profile.js';
+import { listFollowers, saveFollower, deleteFollower } from '../services/profileHub.js';
 import useSession from '../hooks/useSession.js';
 import { fetchFreelancerReputation } from '../services/reputation.js';
 import { formatAbsolute, formatRelativeTime } from '../utils/date.js';
@@ -74,6 +76,13 @@ export default function ProfilePage() {
     lastUpdated: null,
   });
   const [reputationReloadToken, setReputationReloadToken] = useState(0);
+  const [focusAreaInput, setFocusAreaInput] = useState('');
+  const [focusAreaFeedback, setFocusAreaFeedback] = useState({ message: null, tone: 'muted' });
+  const [followersState, setFollowersState] = useState({ items: [], loading: false, error: null, lastSynced: null });
+  const [followerForm, setFollowerForm] = useState({ name: '', email: '', note: '' });
+  const [followerSaving, setFollowerSaving] = useState(false);
+  const [followersReloadToken, setFollowersReloadToken] = useState(0);
+  const [removingFollowerId, setRemovingFollowerId] = useState(null);
 
   const membershipSet = useMemo(
     () => new Set(Array.isArray(session?.memberships) ? session.memberships : []),
@@ -102,6 +111,11 @@ export default function ProfilePage() {
     }
     return true;
   }, [canAccessProfile, isAdmin, resolvedProfileId, session?.profileId]);
+
+  const resolvedUserAccountId = useMemo(
+    () => profile?.userId ?? profile?.ownerId ?? session?.userId ?? null,
+    [profile?.ownerId, profile?.userId, session?.userId],
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -145,6 +159,37 @@ export default function ProfilePage() {
     return () => controller.abort();
   }, [canAccessProfile, id, isAuthenticated, reloadToken, resolvedProfileId]);
 
+  useEffect(() => {
+    if (!canManageProfile || !resolvedUserAccountId) {
+      setFollowersState((state) => ({ ...state, items: [], loading: false }));
+      return;
+    }
+    const controller = new AbortController();
+    setFollowersState((state) => ({ ...state, loading: true, error: null }));
+    listFollowers(resolvedUserAccountId, { signal: controller.signal })
+      .then((response) => {
+        const items = Array.isArray(response?.items)
+          ? response.items
+          : Array.isArray(response?.followers)
+          ? response.followers
+          : Array.isArray(response)
+          ? response
+          : [];
+        setFollowersState({ items, loading: false, error: null, lastSynced: new Date() });
+      })
+      .catch((followersError) => {
+        if (followersError?.name === 'AbortError') {
+          return;
+        }
+        setFollowersState((state) => ({
+          ...state,
+          loading: false,
+          error: followersError?.body?.message ?? followersError.message ?? 'Unable to load followers.',
+        }));
+      });
+    return () => controller.abort();
+  }, [canManageProfile, resolvedUserAccountId, followersReloadToken]);
+
   const metrics = profile?.metrics ?? {};
   const availability = useMemo(() => profile?.availability ?? {}, [profile]);
   const allowedReputationRoles = useMemo(
@@ -173,6 +218,11 @@ export default function ProfilePage() {
     }
     return null;
   }, [hasAuthorizedMembership, hasValidFreelancerId, isAuthenticated]);
+
+  const followerItems = useMemo(
+    () => (Array.isArray(followersState.items) ? followersState.items : []),
+    [followersState.items],
+  );
 
   const statCards = useMemo(
     () => [
@@ -259,19 +309,141 @@ export default function ProfilePage() {
     [canManageProfile, handleAvailabilityChange],
   );
 
-  const handleFocusAreasChange = useCallback((event) => {
-    const raw = event.target.value;
-    const parsed = raw
-      .split(',')
-      .map((item) => item.trim())
-      .filter((item) => item.length > 0);
-    setAvailabilityDraft((draft) => ({ ...draft, focusAreas: parsed }));
+  const handleFocusAreaInputChange = useCallback(
+    (event) => {
+      setFocusAreaInput(event.target.value);
+      if (focusAreaFeedback.message) {
+        setFocusAreaFeedback({ message: null, tone: 'muted' });
+      }
+    },
+    [focusAreaFeedback.message],
+  );
+
+  const handleFocusAreaAdd = useCallback(() => {
+    const value = focusAreaInput.trim();
+    if (!value) {
+      setFocusAreaFeedback({ message: 'Enter a focus area before adding.', tone: 'negative' });
+      return;
+    }
+    if (availabilityDraft.focusAreas.length >= 8) {
+      setFocusAreaFeedback({ message: 'You can highlight up to eight focus areas.', tone: 'negative' });
+      return;
+    }
+    const duplicate = availabilityDraft.focusAreas.some((existing) => existing.toLowerCase() === value.toLowerCase());
+    if (duplicate) {
+      setFocusAreaFeedback({ message: 'This focus area is already listed.', tone: 'negative' });
+      setFocusAreaInput('');
+      return;
+    }
+    const updatedAreas = [...availabilityDraft.focusAreas, value];
+    setAvailabilityDraft((draft) => ({ ...draft, focusAreas: updatedAreas }));
+    setFocusAreaInput('');
+    setFocusAreaFeedback({ message: 'Focus area added and synced.', tone: 'positive' });
+    if (canManageProfile) {
+      handleAvailabilityChange({ focusAreas: updatedAreas });
+    }
+  }, [availabilityDraft.focusAreas, canManageProfile, focusAreaInput, handleAvailabilityChange]);
+
+  const handleFocusAreaSubmit = useCallback(
+    (event) => {
+      event.preventDefault();
+      handleFocusAreaAdd();
+    },
+    [handleFocusAreaAdd],
+  );
+
+  const handleFocusAreaRemove = useCallback(
+    (area) => {
+      const updatedAreas = availabilityDraft.focusAreas.filter((existing) => existing !== area);
+      setAvailabilityDraft((draft) => ({ ...draft, focusAreas: updatedAreas }));
+      setFocusAreaFeedback({ message: 'Focus area removed.', tone: 'muted' });
+      if (canManageProfile) {
+        handleAvailabilityChange({ focusAreas: updatedAreas });
+      }
+    },
+    [availabilityDraft.focusAreas, canManageProfile, handleAvailabilityChange],
+  );
+
+  const handleFollowerFieldChange = useCallback((field, value) => {
+    setFollowerForm((form) => ({ ...form, [field]: value }));
   }, []);
 
-  const handleFocusAreasBlur = useCallback(() => {
-    if (!canManageProfile) return;
-    handleAvailabilityChange({ focusAreas: availabilityDraft.focusAreas });
-  }, [availabilityDraft.focusAreas, canManageProfile, handleAvailabilityChange]);
+  const handleFollowerSubmit = useCallback(
+    async (event) => {
+      event.preventDefault();
+      if (!canManageProfile || !resolvedUserAccountId) {
+        return;
+      }
+      const email = followerForm.email.trim();
+      const name = followerForm.name.trim();
+      if (!email) {
+        setFollowersState((state) => ({ ...state, error: 'Add an email address to invite a follower.' }));
+        return;
+      }
+      setFollowerSaving(true);
+      setFollowersState((state) => ({ ...state, error: null }));
+      try {
+        const response = await saveFollower(resolvedUserAccountId, {
+          email,
+          name: name || undefined,
+          note: followerForm.note.trim() || undefined,
+        });
+        const followerRecord = response?.follower ?? response;
+        setFollowersState((state) => ({
+          ...state,
+          items: [
+            followerRecord,
+            ...state.items.filter(
+              (existing) => (existing.id ?? existing.followerId) !== (followerRecord.id ?? followerRecord.followerId),
+            ),
+          ],
+          lastSynced: new Date(),
+        }));
+        setFollowerForm({ name: '', email: '', note: '' });
+      } catch (followersError) {
+        setFollowersState((state) => ({
+          ...state,
+          error: followersError?.body?.message ?? followersError.message ?? 'Unable to add the follower right now.',
+        }));
+      } finally {
+        setFollowerSaving(false);
+      }
+    },
+    [canManageProfile, followerForm.email, followerForm.name, followerForm.note, resolvedUserAccountId],
+  );
+
+  const handleFollowerRemove = useCallback(
+    async (follower) => {
+      if (!canManageProfile || !resolvedUserAccountId) {
+        return;
+      }
+      const followerId = follower?.id ?? follower?.followerId;
+      if (!followerId) {
+        return;
+      }
+      setRemovingFollowerId(followerId);
+      setFollowersState((state) => ({ ...state, error: null }));
+      try {
+        await deleteFollower(resolvedUserAccountId, followerId);
+        setFollowersState((state) => ({
+          ...state,
+          items: state.items.filter((existing) => (existing.id ?? existing.followerId) !== followerId),
+        }));
+      } catch (followersError) {
+        setFollowersState((state) => ({
+          ...state,
+          error: followersError?.body?.message ?? followersError.message ?? 'Unable to remove the follower right now.',
+        }));
+      } finally {
+        setRemovingFollowerId(null);
+      }
+    },
+    [canManageProfile, resolvedUserAccountId],
+  );
+
+  const handleFollowersRefresh = useCallback(() => {
+    setFollowersReloadToken((token) => token + 1);
+  }, []);
 
   const handleReputationRefresh = useCallback(() => {
     if (!canAccessReputation) {
@@ -807,18 +979,69 @@ export default function ProfilePage() {
                   />
                   Open to remote-friendly engagements
                 </label>
-                <label className="block">
+                <div>
                   <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Focus areas</span>
-                  <textarea
-                    rows={2}
-                    value={availabilityDraft.focusAreas.join(', ')}
-                    onChange={handleFocusAreasChange}
-                    onBlur={handleFocusAreasBlur}
-                    disabled={availabilityInputsDisabled}
-                    placeholder="e.g. Discovery sprints, Launchpad mentorship"
-                    className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-inner focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30 disabled:cursor-not-allowed disabled:bg-slate-100"
-                  />
-                </label>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Spotlight engagements and disciplines you are prioritising. These sync with Launchpad and auto-assign.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {availabilityDraft.focusAreas.map((area) => (
+                      <span
+                        key={area}
+                        className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-xs font-semibold text-accent"
+                      >
+                        {area}
+                        {canManageProfile ? (
+                          <button
+                            type="button"
+                            onClick={() => handleFocusAreaRemove(area)}
+                            disabled={availabilityInputsDisabled}
+                            className="rounded-full bg-white/80 p-1 text-accent transition hover:bg-white"
+                          >
+                            <XMarkIcon className="h-3 w-3" aria-hidden="true" />
+                            <span className="sr-only">Remove {area}</span>
+                          </button>
+                        ) : null}
+                      </span>
+                    ))}
+                    {!availabilityDraft.focusAreas.length ? (
+                      <span className="text-xs text-slate-400">No focus areas listed.</span>
+                    ) : null}
+                  </div>
+                  {canManageProfile ? (
+                    <form onSubmit={handleFocusAreaSubmit} className="mt-3 flex flex-wrap items-center gap-2">
+                      <input
+                        type="text"
+                        value={focusAreaInput}
+                        onChange={handleFocusAreaInputChange}
+                        disabled={availabilityInputsDisabled}
+                        placeholder="Add a focus area"
+                        className="flex-grow rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-inner focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30 disabled:cursor-not-allowed disabled:bg-slate-100"
+                      />
+                      <button
+                        type="submit"
+                        disabled={availabilityInputsDisabled}
+                        className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white transition hover:bg-accentDark disabled:cursor-not-allowed disabled:bg-accent/40"
+                      >
+                        <PlusIcon className="h-4 w-4" aria-hidden="true" />
+                        Add
+                      </button>
+                    </form>
+                  ) : null}
+                  {focusAreaFeedback.message ? (
+                    <p
+                      className={`mt-2 text-xs ${
+                        focusAreaFeedback.tone === 'negative'
+                          ? 'text-rose-500'
+                          : focusAreaFeedback.tone === 'positive'
+                          ? 'text-emerald-600'
+                          : 'text-slate-500'
+                      }`}
+                    >
+                      {focusAreaFeedback.message}
+                    </p>
+                  ) : null}
+                </div>
                 <p className="text-xs text-slate-400">
                   Last updated {availability.lastUpdatedAt ? new Date(availability.lastUpdatedAt).toLocaleString() : 'recently'}
                 </p>
@@ -826,6 +1049,128 @@ export default function ProfilePage() {
                   <p className="text-xs font-medium text-accent">Saving availability…</p>
                 ) : null}
               </div>
+            </section>
+
+            <section className="rounded-3xl border border-slate-200 bg-white/95 p-8 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold text-slate-900">Follower access</h2>
+                {canManageProfile ? (
+                  <button
+                    type="button"
+                    onClick={handleFollowersRefresh}
+                    disabled={followersState.loading}
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <ArrowPathIcon className={`h-4 w-4 ${followersState.loading ? 'animate-spin' : ''}`} aria-hidden="true" />
+                    Refresh
+                  </button>
+                ) : null}
+              </div>
+              <p className="mt-2 text-sm text-slate-500">
+                Manage who receives insider updates, pre-launch briefs, and private drops for this profile.
+              </p>
+              {followersState.error ? (
+                <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                  {followersState.error}
+                </div>
+              ) : null}
+              {canManageProfile ? (
+                <form onSubmit={handleFollowerSubmit} className="mt-5 grid gap-3">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="block text-sm">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Name</span>
+                      <input
+                        type="text"
+                        value={followerForm.name}
+                        onChange={(event) => handleFollowerFieldChange('name', event.target.value)}
+                        placeholder="Optional"
+                        className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-inner focus:border-accent focus:ring-2 focus:ring-accent/20"
+                      />
+                    </label>
+                    <label className="block text-sm">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Email</span>
+                      <input
+                        type="email"
+                        required
+                        value={followerForm.email}
+                        onChange={(event) => handleFollowerFieldChange('email', event.target.value)}
+                        placeholder="member@company.com"
+                        className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-inner focus:border-accent focus:ring-2 focus:ring-accent/20"
+                      />
+                    </label>
+                  </div>
+                  <label className="block text-sm">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Notes</span>
+                    <textarea
+                      rows={2}
+                      value={followerForm.note}
+                      onChange={(event) => handleFollowerFieldChange('note', event.target.value)}
+                      placeholder="What should they receive or monitor?"
+                      className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-inner focus:border-accent focus:ring-2 focus:ring-accent/20"
+                    />
+                  </label>
+                  <div className="flex justify-end">
+                    <button
+                      type="submit"
+                      disabled={followerSaving}
+                      className={`inline-flex items-center gap-2 rounded-full px-5 py-2 text-xs font-semibold uppercase tracking-wide text-white transition ${
+                        followerSaving ? 'bg-accent/50' : 'bg-accent hover:bg-accentDark'
+                      }`}
+                    >
+                      {followerSaving ? 'Sending…' : 'Invite follower'}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <p className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500">
+                  Only profile managers can update follower access. Request elevated permissions to make changes.
+                </p>
+              )}
+              <div className="mt-6 space-y-3">
+                {followersState.loading && !followerItems.length ? (
+                  <div className="space-y-2">
+                    {Array.from({ length: 3 }).map((_, index) => (
+                      <div key={index} className="animate-pulse rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <div className="h-3 w-32 rounded bg-slate-200" />
+                        <div className="mt-2 h-3 w-48 rounded bg-slate-200" />
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                {!followersState.loading && !followerItems.length ? (
+                  <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-6 text-center text-sm text-slate-500">
+                    No followers yet. Add a client, mentor, or teammate to share private updates.
+                  </div>
+                ) : null}
+                {followerItems.map((follower) => {
+                  const followerId = follower.id ?? follower.followerId;
+                  return (
+                    <article
+                      key={followerId ?? follower.email ?? follower.name}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-surfaceMuted/70 p-4"
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">{follower.name || follower.email || 'Follower'}</p>
+                        <p className="text-xs text-slate-500">{follower.email ?? 'Email pending'}</p>
+                        {follower.note ? <p className="mt-1 text-xs text-slate-500">{follower.note}</p> : null}
+                      </div>
+                      {canManageProfile ? (
+                        <button
+                          type="button"
+                          onClick={() => handleFollowerRemove(follower)}
+                          disabled={removingFollowerId === followerId}
+                          className="inline-flex items-center gap-2 rounded-full border border-rose-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {removingFollowerId === followerId ? 'Removing…' : 'Remove'}
+                        </button>
+                      ) : null}
+                    </article>
+                  );
+                })}
+              </div>
+              {followersState.lastSynced ? (
+                <p className="mt-3 text-xs text-slate-400">Last synced {followersState.lastSynced.toLocaleString()}.</p>
+              ) : null}
             </section>
 
             <section className="rounded-3xl border border-slate-200 bg-white/90 p-8 shadow-sm">

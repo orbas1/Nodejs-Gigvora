@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
 
@@ -113,6 +113,11 @@ export default function ApplicationForm({
   const [touched, setTouched] = useState({});
   const errors = useMemo(() => validate(values), [values]);
   const showError = (name) => touched[name] && errors[name];
+
+  useEffect(() => {
+    setValues(buildInitialValues(initialApplication));
+    setTouched({});
+  }, [initialApplication]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;

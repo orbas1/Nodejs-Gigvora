@@ -13,6 +13,18 @@ const BOOKING_STATUSES = new Set(['Scheduled', 'Awaiting pre-work', 'Completed',
 const PAYMENT_STATUSES = new Set(['Paid', 'Pending', 'Refunded', 'Overdue']);
 const INVOICE_STATUSES = new Set(['Draft', 'Sent', 'Paid', 'Overdue', 'Cancelled']);
 const PAYOUT_STATUSES = new Set(['Scheduled', 'Processing', 'Paid', 'Failed']);
+const CLIENT_STATUSES = new Set(['Active', 'Onboarding', 'Paused', 'Graduated', 'Churned']);
+const RELATIONSHIP_TIERS = new Set(['Flagship', 'Growth', 'Trial', 'Past']);
+const EVENT_TYPES = new Set(['Session', 'Office hours', 'Workshop', 'Cohort']);
+const EVENT_STATUSES = new Set(['Scheduled', 'Completed', 'Cancelled', 'Awaiting prep']);
+const SUPPORT_PRIORITIES = new Set(['Low', 'Normal', 'High', 'Urgent']);
+const SUPPORT_STATUSES = new Set(['Open', 'Awaiting mentor', 'Awaiting support', 'Resolved']);
+const MESSAGE_STATUSES = new Set(['Unread', 'Read', 'Archived']);
+const MESSAGE_CHANNELS = new Set(['Explorer', 'Email', 'Slack Connect', 'WhatsApp']);
+const DOCUMENT_TYPES = new Set(['Passport', 'National ID', 'Driving licence', 'Business certificate']);
+const VERIFICATION_STATUSES = new Set(['Not started', 'In review', 'Action required', 'Approved']);
+const WALLET_TRANSACTION_TYPES = new Set(['Payout', 'Mentorship earning', 'Adjustment']);
+const WALLET_TRANSACTION_STATUSES = new Set(['Pending', 'Completed', 'Failed', 'Processing']);
 const MAX_NOTES_LENGTH = 4000;
 
 const mentorStores = new Map();
@@ -252,6 +264,209 @@ function sanitiseBooking(payload, { existing } = {}) {
     segment: `${payload.segment ?? base.segment ?? 'active'}`.trim() || 'active',
     conferenceLink: conferenceLink || undefined,
     notes: notes ? notes.slice(0, MAX_NOTES_LENGTH) : undefined,
+  };
+}
+
+function sanitiseClient(payload, { existing } = {}) {
+  const base = existing ?? {};
+  const name = `${payload.name ?? base.name ?? ''}`.trim();
+  if (!name) {
+    throw new ValidationError('Client name is required.');
+  }
+  const status = `${payload.status ?? base.status ?? 'Active'}`.trim() || 'Active';
+  if (!CLIENT_STATUSES.has(status)) {
+    throw new ValidationError(`Client status must be one of: ${Array.from(CLIENT_STATUSES).join(', ')}.`);
+  }
+  const tier = `${payload.tier ?? base.tier ?? 'Growth'}`.trim() || 'Growth';
+  if (!RELATIONSHIP_TIERS.has(tier)) {
+    throw new ValidationError(`Client tier must be one of: ${Array.from(RELATIONSHIP_TIERS).join(', ')}.`);
+  }
+  const value = Number.parseFloat(payload.value ?? base.value ?? 0) || 0;
+  const currency = `${payload.currency ?? base.currency ?? '£'}`.trim() || '£';
+  const company = `${payload.company ?? base.company ?? ''}`.trim();
+  const role = `${payload.role ?? base.role ?? ''}`.trim();
+  const channel = `${payload.channel ?? base.channel ?? 'Explorer'}`.trim() || 'Explorer';
+  const tags = Array.isArray(payload.tags)
+    ? payload.tags.map((tag) => `${tag}`.trim()).filter(Boolean)
+    : `${payload.tags ?? base.tags ?? ''}`
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter(Boolean);
+  const notes = `${payload.notes ?? base.notes ?? ''}`.trim().slice(0, MAX_NOTES_LENGTH);
+  const onboardedAt = payload.onboardedAt ?? base.onboardedAt ?? null;
+  const lastSessionAt = payload.lastSessionAt ?? base.lastSessionAt ?? null;
+  const nextSessionAt = payload.nextSessionAt ?? base.nextSessionAt ?? null;
+
+  return {
+    id: base.id ?? generateId('client'),
+    name,
+    status,
+    tier,
+    value: Math.round(value * 100) / 100,
+    currency,
+    company,
+    role,
+    channel,
+    tags,
+    notes,
+    onboardedAt: onboardedAt ? toIsoDate(onboardedAt) : null,
+    lastSessionAt: lastSessionAt ? toIsoDate(lastSessionAt) : null,
+    nextSessionAt: nextSessionAt ? toIsoDate(nextSessionAt) : null,
+  };
+}
+
+function sanitiseEvent(payload, { existing } = {}) {
+  const base = existing ?? {};
+  const title = `${payload.title ?? base.title ?? ''}`.trim();
+  if (!title) {
+    throw new ValidationError('Event title is required.');
+  }
+  const type = `${payload.type ?? base.type ?? 'Session'}`.trim() || 'Session';
+  if (!EVENT_TYPES.has(type)) {
+    throw new ValidationError(`Event type must be one of: ${Array.from(EVENT_TYPES).join(', ')}.`);
+  }
+  const status = `${payload.status ?? base.status ?? 'Scheduled'}`.trim() || 'Scheduled';
+  if (!EVENT_STATUSES.has(status)) {
+    throw new ValidationError(`Event status must be one of: ${Array.from(EVENT_STATUSES).join(', ')}.`);
+  }
+  const startsAt = toIsoDate(payload.startsAt ?? base.startsAt ?? new Date());
+  const endsAt = toIsoDate(payload.endsAt ?? base.endsAt ?? new Date(new Date(startsAt).getTime() + 60 * 60 * 1000));
+  if (new Date(endsAt) <= new Date(startsAt)) {
+    throw new ValidationError('Event must end after it starts.');
+  }
+  const location = `${payload.location ?? base.location ?? ''}`.trim();
+  const notes = `${payload.notes ?? base.notes ?? ''}`.trim().slice(0, MAX_NOTES_LENGTH);
+  const clientId = payload.clientId ?? base.clientId ?? null;
+
+  return {
+    id: base.id ?? generateId('event'),
+    title,
+    type,
+    status,
+    startsAt,
+    endsAt,
+    location,
+    notes,
+    clientId: clientId ? `${clientId}` : null,
+  };
+}
+
+function sanitiseSupportTicket(payload, { existing } = {}) {
+  const base = existing ?? {};
+  const subject = `${payload.subject ?? base.subject ?? ''}`.trim();
+  if (!subject) {
+    throw new ValidationError('Support ticket subject is required.');
+  }
+  const priority = `${payload.priority ?? base.priority ?? 'Normal'}`.trim() || 'Normal';
+  if (!SUPPORT_PRIORITIES.has(priority)) {
+    throw new ValidationError(`Support priority must be one of: ${Array.from(SUPPORT_PRIORITIES).join(', ')}.`);
+  }
+  const status = `${payload.status ?? base.status ?? 'Open'}`.trim() || 'Open';
+  if (!SUPPORT_STATUSES.has(status)) {
+    throw new ValidationError(`Support status must be one of: ${Array.from(SUPPORT_STATUSES).join(', ')}.`);
+  }
+  const category = `${payload.category ?? base.category ?? 'General'}`.trim() || 'General';
+  const notes = `${payload.notes ?? base.notes ?? ''}`.trim().slice(0, MAX_NOTES_LENGTH);
+  const reference = `${payload.reference ?? base.reference ?? ''}`.trim();
+
+  return {
+    id: base.id ?? generateId('ticket'),
+    subject,
+    priority,
+    status,
+    category,
+    notes,
+    reference,
+    submittedAt: toIsoDate(payload.submittedAt ?? base.submittedAt ?? new Date()),
+    updatedAt: toIsoDate(payload.updatedAt ?? new Date()),
+  };
+}
+
+function sanitiseMessage(payload, { existing } = {}) {
+  const base = existing ?? {};
+  const from = `${payload.from ?? base.from ?? ''}`.trim();
+  if (!from) {
+    throw new ValidationError('Message sender is required.');
+  }
+  const channel = `${payload.channel ?? base.channel ?? 'Explorer'}`.trim() || 'Explorer';
+  if (!MESSAGE_CHANNELS.has(channel)) {
+    throw new ValidationError(`Message channel must be one of: ${Array.from(MESSAGE_CHANNELS).join(', ')}.`);
+  }
+  const status = `${payload.status ?? base.status ?? 'Unread'}`.trim() || 'Unread';
+  if (!MESSAGE_STATUSES.has(status)) {
+    throw new ValidationError(`Message status must be one of: ${Array.from(MESSAGE_STATUSES).join(', ')}.`);
+  }
+  const subject = `${payload.subject ?? base.subject ?? ''}`.trim();
+  const preview = `${payload.preview ?? base.preview ?? ''}`.trim().slice(0, 280);
+  const tags = Array.isArray(payload.tags)
+    ? payload.tags.map((tag) => `${tag}`.trim()).filter(Boolean)
+    : `${payload.tags ?? base.tags ?? ''}`
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter(Boolean);
+
+  return {
+    id: base.id ?? generateId('message'),
+    from,
+    channel,
+    status,
+    subject,
+    preview,
+    tags,
+    receivedAt: toIsoDate(payload.receivedAt ?? base.receivedAt ?? new Date()),
+  };
+}
+
+function sanitiseVerificationDocument(payload, { existing } = {}) {
+  const base = existing ?? {};
+  const type = `${payload.type ?? base.type ?? ''}`.trim();
+  if (!DOCUMENT_TYPES.has(type)) {
+    throw new ValidationError(`Document type must be one of: ${Array.from(DOCUMENT_TYPES).join(', ')}.`);
+  }
+  const status = `${payload.status ?? base.status ?? 'In review'}`.trim() || 'In review';
+  if (!['Pending', 'In review', 'Approved', 'Action required'].includes(status)) {
+    throw new ValidationError('Document status must be Pending, In review, Approved, or Action required.');
+  }
+  const reference = `${payload.reference ?? base.reference ?? ''}`.trim();
+  const notes = `${payload.notes ?? base.notes ?? ''}`.trim().slice(0, MAX_NOTES_LENGTH);
+
+  return {
+    id: base.id ?? generateId('document'),
+    type,
+    status,
+    reference,
+    notes,
+    submittedAt: toIsoDate(payload.submittedAt ?? base.submittedAt ?? new Date()),
+  };
+}
+
+function sanitiseWalletTransaction(payload, { existing } = {}) {
+  const base = existing ?? {};
+  const type = `${payload.type ?? base.type ?? 'Mentorship earning'}`.trim() || 'Mentorship earning';
+  if (!WALLET_TRANSACTION_TYPES.has(type)) {
+    throw new ValidationError(`Transaction type must be one of: ${Array.from(WALLET_TRANSACTION_TYPES).join(', ')}.`);
+  }
+  const status = `${payload.status ?? base.status ?? 'Completed'}`.trim() || 'Completed';
+  if (!WALLET_TRANSACTION_STATUSES.has(status)) {
+    throw new ValidationError(`Transaction status must be one of: ${Array.from(WALLET_TRANSACTION_STATUSES).join(', ')}.`);
+  }
+  const amount = Number.parseFloat(payload.amount ?? base.amount ?? 0);
+  if (!Number.isFinite(amount) || amount === 0) {
+    throw new ValidationError('Transaction amount must be a non-zero number.');
+  }
+  const currency = `${payload.currency ?? base.currency ?? '£'}`.trim() || '£';
+  const reference = `${payload.reference ?? base.reference ?? ''}`.trim() || generateId('txn');
+  const description = `${payload.description ?? base.description ?? ''}`.trim().slice(0, MAX_NOTES_LENGTH);
+
+  return {
+    id: base.id ?? generateId('txn'),
+    type,
+    status,
+    amount: Math.round(amount * 100) / 100,
+    currency,
+    reference,
+    description,
+    occurredAt: toIsoDate(payload.occurredAt ?? base.occurredAt ?? new Date()),
   };
 }
 
@@ -518,6 +733,190 @@ function defaultExplorerPlacement() {
   };
 }
 
+function defaultClients() {
+  const now = Date.now();
+  return [
+    {
+      id: generateId('client'),
+      name: 'Alex Rivera',
+      company: 'Northwind Labs',
+      role: 'Director of Product',
+      status: 'Active',
+      tier: 'Flagship',
+      channel: 'Explorer',
+      value: 1800,
+      currency: '£',
+      onboardedAt: new Date(now - 28 * 24 * 60 * 60 * 1000).toISOString(),
+      lastSessionAt: new Date(now - 2 * 24 * 60 * 60 * 1000).toISOString(),
+      nextSessionAt: new Date(now + 2 * 24 * 60 * 60 * 1000).toISOString(),
+      tags: ['Leadership', 'Executive influence'],
+      notes: 'Preparing for QBR presentation with executive team.',
+    },
+    {
+      id: generateId('client'),
+      name: 'Linh Tran',
+      company: 'Fluxwave',
+      role: 'Head of Product Marketing',
+      status: 'Onboarding',
+      tier: 'Growth',
+      channel: 'Referral',
+      value: 720,
+      currency: '£',
+      onboardedAt: new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      lastSessionAt: null,
+      nextSessionAt: new Date(now + 5 * 24 * 60 * 60 * 1000).toISOString(),
+      tags: ['Activation'],
+      notes: 'Awaiting positioning canvas upload before kickoff.',
+    },
+  ];
+}
+
+function defaultCalendar() {
+  const now = Date.now();
+  return {
+    events: [
+      {
+        id: generateId('event'),
+        title: 'Leadership accelerator session',
+        type: 'Session',
+        status: 'Scheduled',
+        startsAt: new Date(now + 2 * 60 * 60 * 1000).toISOString(),
+        endsAt: new Date(now + 3 * 60 * 60 * 1000).toISOString(),
+        location: 'Zoom',
+        clientId: null,
+        notes: 'Focus on executive stakeholder mapping.',
+      },
+      {
+        id: generateId('event'),
+        title: 'Async review window',
+        type: 'Office hours',
+        status: 'Awaiting prep',
+        startsAt: new Date(now + 24 * 60 * 60 * 1000).toISOString(),
+        endsAt: new Date(now + 25 * 60 * 60 * 1000).toISOString(),
+        location: 'Loom',
+        clientId: null,
+        notes: 'Review experiment backlog videos.',
+      },
+    ],
+  };
+}
+
+function defaultSupport() {
+  const now = Date.now();
+  return {
+    tickets: [
+      {
+        id: generateId('ticket'),
+        subject: 'Need to resend Explorer onboarding sequence',
+        category: 'Automation',
+        priority: 'Normal',
+        status: 'Awaiting mentor',
+        submittedAt: new Date(now - 2 * 60 * 60 * 1000).toISOString(),
+        updatedAt: new Date(now - 60 * 60 * 1000).toISOString(),
+        reference: 'SUP-4381',
+        notes: 'Support requested updated mentee onboarding flow.',
+      },
+      {
+        id: generateId('ticket'),
+        subject: 'Invoice syncing to Xero',
+        category: 'Finance',
+        priority: 'High',
+        status: 'Open',
+        submittedAt: new Date(now - 5 * 60 * 60 * 1000).toISOString(),
+        updatedAt: new Date(now - 4 * 60 * 60 * 1000).toISOString(),
+        reference: 'SUP-4374',
+        notes: 'Explorer payout awaiting reconciliation.',
+      },
+    ],
+  };
+}
+
+function defaultInbox() {
+  const now = Date.now();
+  return {
+    messages: [
+      {
+        id: generateId('message'),
+        from: 'Priya Desai',
+        channel: 'Explorer',
+        subject: 'Follow-up homework for session 2',
+        preview: 'Attached updated influence map and leadership narrative draft.',
+        status: 'Unread',
+        receivedAt: new Date(now - 30 * 60 * 1000).toISOString(),
+        tags: ['Leadership accelerator'],
+      },
+      {
+        id: generateId('message'),
+        from: 'Chris Osei',
+        channel: 'Email',
+        subject: 'Async loom review notes',
+        preview: 'Added context on product analytics rollout for upcoming session.',
+        status: 'Read',
+        receivedAt: new Date(now - 6 * 60 * 60 * 1000).toISOString(),
+        tags: ['Product growth audit'],
+      },
+    ],
+  };
+}
+
+function defaultVerification() {
+  const now = Date.now();
+  return {
+    status: 'In review',
+    lastSubmittedAt: new Date(now - 24 * 60 * 60 * 1000).toISOString(),
+    notes: 'Compliance team validating proof of address.',
+    documents: [
+      {
+        id: generateId('document'),
+        type: 'Passport',
+        status: 'Approved',
+        submittedAt: new Date(now - 3 * 24 * 60 * 60 * 1000).toISOString(),
+        reference: 'UK-PS-4820',
+      },
+      {
+        id: generateId('document'),
+        type: 'Business certificate',
+        status: 'Action required',
+        submittedAt: new Date(now - 24 * 60 * 60 * 1000).toISOString(),
+        reference: 'BC-10291',
+        notes: 'Please upload certified translation.',
+      },
+    ],
+  };
+}
+
+function defaultWallet() {
+  const now = Date.now();
+  return {
+    balance: 4200,
+    currency: '£',
+    available: 2600,
+    pending: 1600,
+    transactions: [
+      {
+        id: generateId('txn'),
+        reference: 'TXN-2024-118',
+        type: 'Mentorship earning',
+        status: 'Completed',
+        amount: 1800,
+        currency: '£',
+        occurredAt: new Date(now - 2 * 24 * 60 * 60 * 1000).toISOString(),
+        description: 'Leadership accelerator session with Alex Rivera',
+      },
+      {
+        id: generateId('txn'),
+        reference: 'TXN-2024-119',
+        type: 'Payout',
+        status: 'Processing',
+        amount: -1200,
+        currency: '£',
+        occurredAt: new Date(now - 24 * 60 * 60 * 1000).toISOString(),
+        description: 'Transfer to Stripe Express',
+      },
+    ],
+  };
+}
+
 function defaultFinance() {
   const now = Date.now();
   const fiveDays = 5 * 24 * 60 * 60 * 1000;
@@ -667,6 +1066,12 @@ function buildDefaultState(mentorId) {
     availability: defaultAvailability(),
     packages: defaultPackages(),
     bookings: defaultBookings(),
+    clients: defaultClients(),
+    calendar: defaultCalendar(),
+    support: defaultSupport(),
+    inbox: defaultInbox(),
+    verification: defaultVerification(),
+    wallet: defaultWallet(),
     segments: defaultSegments(),
     feedback: defaultFeedback(),
     explorerPlacement: defaultExplorerPlacement(),
@@ -858,11 +1263,121 @@ function recalculateFinance(state) {
   }
 }
 
+function recalculateClients(state) {
+  if (!Array.isArray(state.clients)) {
+    state.clients = [];
+  }
+  state.clients = state.clients.map((client) => ({ ...client })).sort((a, b) => {
+    const aTime = a.nextSessionAt ? new Date(a.nextSessionAt).getTime() : 0;
+    const bTime = b.nextSessionAt ? new Date(b.nextSessionAt).getTime() : 0;
+    return bTime - aTime;
+  });
+  const summary = {
+    total: state.clients.length,
+    byStatus: {},
+    flagship: 0,
+    pipelineValue: 0,
+  };
+  for (const client of state.clients) {
+    const status = CLIENT_STATUSES.has(client.status) ? client.status : 'Active';
+    summary.byStatus[status] = (summary.byStatus[status] ?? 0) + 1;
+    if (client.tier === 'Flagship') {
+      summary.flagship += 1;
+    }
+    const amount = Number.parseFloat(client.value ?? 0) || 0;
+    summary.pipelineValue = Math.round((summary.pipelineValue + amount) * 100) / 100;
+  }
+  state.clientSummary = summary;
+}
+
+function recalculateCalendar(state) {
+  if (!state.calendar || !Array.isArray(state.calendar.events)) {
+    state.calendar = { events: [] };
+  }
+  state.calendar.events = state.calendar.events
+    .map((event) => ({ ...event }))
+    .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+  const upcoming = state.calendar.events.find((event) => new Date(event.startsAt).getTime() >= Date.now());
+  state.calendar.nextEvent = upcoming ?? null;
+}
+
+function recalculateSupport(state) {
+  if (!state.support || !Array.isArray(state.support.tickets)) {
+    state.support = { tickets: [] };
+  }
+  state.support.tickets = state.support.tickets
+    .map((ticket) => ({ ...ticket }))
+    .sort((a, b) => new Date(b.updatedAt ?? b.submittedAt ?? 0).getTime() - new Date(a.updatedAt ?? a.submittedAt ?? 0).getTime());
+  state.support.summary = {
+    open: state.support.tickets.filter((ticket) => ticket.status !== 'Resolved').length,
+    awaitingMentor: state.support.tickets.filter((ticket) => ticket.status === 'Awaiting mentor').length,
+    urgent: state.support.tickets.filter((ticket) => ticket.priority === 'Urgent').length,
+  };
+}
+
+function recalculateInbox(state) {
+  if (!state.inbox || !Array.isArray(state.inbox.messages)) {
+    state.inbox = { messages: [] };
+  }
+  state.inbox.messages = state.inbox.messages
+    .map((message) => ({ ...message }))
+    .sort((a, b) => new Date(b.receivedAt ?? 0).getTime() - new Date(a.receivedAt ?? 0).getTime());
+  const unread = state.inbox.messages.filter((message) => message.status === 'Unread').length;
+  state.inbox.summary = {
+    unread,
+    total: state.inbox.messages.length,
+  };
+}
+
+function recalculateVerification(state) {
+  if (!state.verification) {
+    state.verification = defaultVerification();
+  }
+  if (!Array.isArray(state.verification.documents)) {
+    state.verification.documents = [];
+  }
+  state.verification.documents = state.verification.documents
+    .map((document) => ({ ...document }))
+    .sort((a, b) => new Date(b.submittedAt ?? 0).getTime() - new Date(a.submittedAt ?? 0).getTime());
+  const outstanding = state.verification.documents.filter((doc) => doc.status === 'Action required');
+  state.verification.nextAction = outstanding.length
+    ? `Provide updates for ${outstanding.length} document${outstanding.length > 1 ? 's' : ''}`
+    : state.verification.status === 'Approved'
+    ? 'All checks complete'
+    : 'Awaiting compliance review';
+}
+
+function recalculateWallet(state) {
+  if (!state.wallet) {
+    state.wallet = defaultWallet();
+  }
+  if (!Array.isArray(state.wallet.transactions)) {
+    state.wallet.transactions = [];
+  }
+  state.wallet.transactions = state.wallet.transactions
+    .map((transaction) => ({ ...transaction }))
+    .sort((a, b) => new Date(b.occurredAt ?? 0).getTime() - new Date(a.occurredAt ?? 0).getTime());
+  const balance = state.wallet.transactions.reduce((total, txn) => total + Number.parseFloat(txn.amount ?? 0), 0);
+  const pending = state.wallet.transactions
+    .filter((txn) => ['Pending', 'Processing'].includes(txn.status))
+    .reduce((total, txn) => total + Number.parseFloat(txn.amount ?? 0), 0);
+  const available = balance - pending;
+  state.wallet.balance = Math.round(balance * 100) / 100;
+  state.wallet.available = Math.round(available * 100) / 100;
+  state.wallet.pending = Math.round(pending * 100) / 100;
+}
+
 function refreshDerivedState(state) {
   computeStats(state, 30);
   computeConversion(state);
   recalculateExplorerPlacement(state);
   recalculateFinance(state);
+  recalculateClients(state);
+  recalculateCalendar(state);
+  recalculateSupport(state);
+  recalculateInbox(state);
+  recalculateVerification(state);
+  recalculateWallet(state);
 }
 
 function recalculateExplorerPlacement(state) {
@@ -924,6 +1439,13 @@ export function getMentorDashboard(mentorId, { lookbackDays } = {}) {
     availability: deepClone(state.availability),
     packages: deepClone(state.packages),
     bookings: deepClone(orderedBookings),
+    clients: deepClone(state.clients),
+    clientSummary: deepClone(state.clientSummary ?? {}),
+    calendar: deepClone(state.calendar),
+    support: deepClone(state.support),
+    inbox: deepClone(state.inbox),
+    verification: deepClone(state.verification),
+    wallet: deepClone(state.wallet),
     segments: deepClone(state.segments),
     feedback: deepClone(state.feedback),
     explorerPlacement: deepClone(state.explorerPlacement),
@@ -1075,6 +1597,331 @@ export function deleteMentorBooking(mentorId, bookingId) {
   return deepClone(state.bookings);
 }
 
+export function createMentorClient(mentorId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const state = getMentorState(normalisedMentorId);
+  const client = sanitiseClient(payload);
+  state.clients.push(client);
+  state.updatedAt = new Date().toISOString();
+  refreshDerivedState(state);
+  return deepClone(client);
+}
+
+export function updateMentorClient(mentorId, clientId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const state = getMentorState(normalisedMentorId);
+  const targetId = `${clientId ?? ''}`.trim();
+  if (!targetId) {
+    throw new ValidationError('clientId is required to update a mentorship client.');
+  }
+  const index = state.clients.findIndex((client) => client.id === targetId);
+  if (index === -1) {
+    throw new ValidationError('The selected mentorship client could not be found.');
+  }
+  const updated = sanitiseClient(payload, { existing: state.clients[index] });
+  updated.id = state.clients[index].id;
+  state.clients[index] = updated;
+  state.updatedAt = new Date().toISOString();
+  refreshDerivedState(state);
+  return deepClone(updated);
+}
+
+export function deleteMentorClient(mentorId, clientId) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const state = getMentorState(normalisedMentorId);
+  const targetId = `${clientId ?? ''}`.trim();
+  if (!targetId) {
+    throw new ValidationError('clientId is required to delete a mentorship client.');
+  }
+  const index = state.clients.findIndex((client) => client.id === targetId);
+  if (index === -1) {
+    throw new ValidationError('The selected mentorship client could not be found.');
+  }
+  state.clients.splice(index, 1);
+  state.updatedAt = new Date().toISOString();
+  refreshDerivedState(state);
+  return deepClone(state.clients);
+}
+
+export function createMentorEvent(mentorId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const state = getMentorState(normalisedMentorId);
+  const event = sanitiseEvent(payload);
+  state.calendar.events = Array.isArray(state.calendar.events) ? state.calendar.events : [];
+  state.calendar.events.push(event);
+  state.updatedAt = new Date().toISOString();
+  refreshDerivedState(state);
+  return deepClone(event);
+}
+
+export function updateMentorEvent(mentorId, eventId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const state = getMentorState(normalisedMentorId);
+  const targetId = `${eventId ?? ''}`.trim();
+  if (!targetId) {
+    throw new ValidationError('eventId is required to update a calendar event.');
+  }
+  const events = Array.isArray(state.calendar.events) ? state.calendar.events : [];
+  const index = events.findIndex((event) => event.id === targetId);
+  if (index === -1) {
+    throw new ValidationError('The selected calendar event could not be found.');
+  }
+  const updated = sanitiseEvent(payload, { existing: events[index] });
+  updated.id = events[index].id;
+  events[index] = updated;
+  state.calendar.events = events;
+  state.updatedAt = new Date().toISOString();
+  refreshDerivedState(state);
+  return deepClone(updated);
+}
+
+export function deleteMentorEvent(mentorId, eventId) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const state = getMentorState(normalisedMentorId);
+  const targetId = `${eventId ?? ''}`.trim();
+  if (!targetId) {
+    throw new ValidationError('eventId is required to delete a calendar event.');
+  }
+  const events = Array.isArray(state.calendar.events) ? state.calendar.events : [];
+  const index = events.findIndex((event) => event.id === targetId);
+  if (index === -1) {
+    throw new ValidationError('The selected calendar event could not be found.');
+  }
+  events.splice(index, 1);
+  state.calendar.events = events;
+  state.updatedAt = new Date().toISOString();
+  refreshDerivedState(state);
+  return deepClone(state.calendar.events);
+}
+
+export function createMentorSupportTicket(mentorId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const state = getMentorState(normalisedMentorId);
+  const ticket = sanitiseSupportTicket(payload);
+  state.support.tickets = Array.isArray(state.support.tickets) ? state.support.tickets : [];
+  state.support.tickets.push(ticket);
+  state.updatedAt = new Date().toISOString();
+  refreshDerivedState(state);
+  return deepClone(ticket);
+}
+
+export function updateMentorSupportTicket(mentorId, ticketId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const state = getMentorState(normalisedMentorId);
+  const targetId = `${ticketId ?? ''}`.trim();
+  if (!targetId) {
+    throw new ValidationError('ticketId is required to update a support ticket.');
+  }
+  const tickets = Array.isArray(state.support.tickets) ? state.support.tickets : [];
+  const index = tickets.findIndex((ticket) => ticket.id === targetId);
+  if (index === -1) {
+    throw new ValidationError('The selected support ticket could not be found.');
+  }
+  const updated = sanitiseSupportTicket(payload, { existing: tickets[index] });
+  updated.id = tickets[index].id;
+  tickets[index] = updated;
+  state.support.tickets = tickets;
+  state.updatedAt = new Date().toISOString();
+  refreshDerivedState(state);
+  return deepClone(updated);
+}
+
+export function deleteMentorSupportTicket(mentorId, ticketId) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const state = getMentorState(normalisedMentorId);
+  const targetId = `${ticketId ?? ''}`.trim();
+  if (!targetId) {
+    throw new ValidationError('ticketId is required to delete a support ticket.');
+  }
+  const tickets = Array.isArray(state.support.tickets) ? state.support.tickets : [];
+  const index = tickets.findIndex((ticket) => ticket.id === targetId);
+  if (index === -1) {
+    throw new ValidationError('The selected support ticket could not be found.');
+  }
+  tickets.splice(index, 1);
+  state.support.tickets = tickets;
+  state.updatedAt = new Date().toISOString();
+  refreshDerivedState(state);
+  return deepClone(state.support.tickets);
+}
+
+export function createMentorMessage(mentorId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const state = getMentorState(normalisedMentorId);
+  const message = sanitiseMessage(payload);
+  state.inbox.messages = Array.isArray(state.inbox.messages) ? state.inbox.messages : [];
+  state.inbox.messages.push(message);
+  state.updatedAt = new Date().toISOString();
+  refreshDerivedState(state);
+  return deepClone(message);
+}
+
+export function updateMentorMessage(mentorId, messageId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const state = getMentorState(normalisedMentorId);
+  const targetId = `${messageId ?? ''}`.trim();
+  if (!targetId) {
+    throw new ValidationError('messageId is required to update an inbox message.');
+  }
+  const messages = Array.isArray(state.inbox.messages) ? state.inbox.messages : [];
+  const index = messages.findIndex((message) => message.id === targetId);
+  if (index === -1) {
+    throw new ValidationError('The selected inbox message could not be found.');
+  }
+  const updated = sanitiseMessage(payload, { existing: messages[index] });
+  updated.id = messages[index].id;
+  messages[index] = updated;
+  state.inbox.messages = messages;
+  state.updatedAt = new Date().toISOString();
+  refreshDerivedState(state);
+  return deepClone(updated);
+}
+
+export function deleteMentorMessage(mentorId, messageId) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const state = getMentorState(normalisedMentorId);
+  const targetId = `${messageId ?? ''}`.trim();
+  if (!targetId) {
+    throw new ValidationError('messageId is required to delete an inbox message.');
+  }
+  const messages = Array.isArray(state.inbox.messages) ? state.inbox.messages : [];
+  const index = messages.findIndex((message) => message.id === targetId);
+  if (index === -1) {
+    throw new ValidationError('The selected inbox message could not be found.');
+  }
+  messages.splice(index, 1);
+  state.inbox.messages = messages;
+  state.updatedAt = new Date().toISOString();
+  refreshDerivedState(state);
+  return deepClone(state.inbox.messages);
+}
+
+export function updateMentorVerificationStatus(mentorId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const state = getMentorState(normalisedMentorId);
+  const status = `${payload.status ?? state.verification?.status ?? 'Not started'}`.trim() || 'Not started';
+  if (!VERIFICATION_STATUSES.has(status)) {
+    throw new ValidationError(`Verification status must be one of: ${Array.from(VERIFICATION_STATUSES).join(', ')}.`);
+  }
+  const notes = `${payload.notes ?? state.verification?.notes ?? ''}`.trim().slice(0, MAX_NOTES_LENGTH);
+  const lastSubmittedAt = payload.lastSubmittedAt
+    ? toIsoDate(payload.lastSubmittedAt)
+    : state.verification?.lastSubmittedAt ?? new Date().toISOString();
+
+  state.verification = {
+    ...state.verification,
+    status,
+    notes,
+    lastSubmittedAt,
+  };
+  state.updatedAt = new Date().toISOString();
+  refreshDerivedState(state);
+  return deepClone(state.verification);
+}
+
+export function createMentorVerificationDocument(mentorId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const state = getMentorState(normalisedMentorId);
+  const document = sanitiseVerificationDocument(payload);
+  state.verification.documents = Array.isArray(state.verification.documents) ? state.verification.documents : [];
+  state.verification.documents.push(document);
+  state.verification.lastSubmittedAt = document.submittedAt;
+  state.updatedAt = new Date().toISOString();
+  refreshDerivedState(state);
+  return deepClone(document);
+}
+
+export function updateMentorVerificationDocument(mentorId, documentId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const state = getMentorState(normalisedMentorId);
+  const targetId = `${documentId ?? ''}`.trim();
+  if (!targetId) {
+    throw new ValidationError('documentId is required to update a verification document.');
+  }
+  const documents = Array.isArray(state.verification.documents) ? state.verification.documents : [];
+  const index = documents.findIndex((document) => document.id === targetId);
+  if (index === -1) {
+    throw new ValidationError('The selected verification document could not be found.');
+  }
+  const updated = sanitiseVerificationDocument(payload, { existing: documents[index] });
+  updated.id = documents[index].id;
+  documents[index] = updated;
+  state.verification.documents = documents;
+  state.updatedAt = new Date().toISOString();
+  refreshDerivedState(state);
+  return deepClone(updated);
+}
+
+export function deleteMentorVerificationDocument(mentorId, documentId) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const state = getMentorState(normalisedMentorId);
+  const targetId = `${documentId ?? ''}`.trim();
+  if (!targetId) {
+    throw new ValidationError('documentId is required to delete a verification document.');
+  }
+  const documents = Array.isArray(state.verification.documents) ? state.verification.documents : [];
+  const index = documents.findIndex((document) => document.id === targetId);
+  if (index === -1) {
+    throw new ValidationError('The selected verification document could not be found.');
+  }
+  documents.splice(index, 1);
+  state.verification.documents = documents;
+  state.updatedAt = new Date().toISOString();
+  refreshDerivedState(state);
+  return deepClone(state.verification.documents);
+}
+
+export function createMentorWalletTransaction(mentorId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const state = getMentorState(normalisedMentorId);
+  const transaction = sanitiseWalletTransaction(payload);
+  state.wallet.transactions = Array.isArray(state.wallet.transactions) ? state.wallet.transactions : [];
+  state.wallet.transactions.push(transaction);
+  state.updatedAt = new Date().toISOString();
+  refreshDerivedState(state);
+  return deepClone(transaction);
+}
+
+export function updateMentorWalletTransaction(mentorId, transactionId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const state = getMentorState(normalisedMentorId);
+  const targetId = `${transactionId ?? ''}`.trim();
+  if (!targetId) {
+    throw new ValidationError('transactionId is required to update a wallet transaction.');
+  }
+  const transactions = Array.isArray(state.wallet.transactions) ? state.wallet.transactions : [];
+  const index = transactions.findIndex((transaction) => transaction.id === targetId);
+  if (index === -1) {
+    throw new ValidationError('The selected wallet transaction could not be found.');
+  }
+  const updated = sanitiseWalletTransaction(payload, { existing: transactions[index] });
+  updated.id = transactions[index].id;
+  transactions[index] = updated;
+  state.wallet.transactions = transactions;
+  state.updatedAt = new Date().toISOString();
+  refreshDerivedState(state);
+  return deepClone(updated);
+}
+
+export function deleteMentorWalletTransaction(mentorId, transactionId) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const state = getMentorState(normalisedMentorId);
+  const targetId = `${transactionId ?? ''}`.trim();
+  if (!targetId) {
+    throw new ValidationError('transactionId is required to delete a wallet transaction.');
+  }
+  const transactions = Array.isArray(state.wallet.transactions) ? state.wallet.transactions : [];
+  const index = transactions.findIndex((transaction) => transaction.id === targetId);
+  if (index === -1) {
+    throw new ValidationError('The selected wallet transaction could not be found.');
+  }
+  transactions.splice(index, 1);
+  state.wallet.transactions = transactions;
+  state.updatedAt = new Date().toISOString();
+  refreshDerivedState(state);
+  return deepClone(state.wallet.transactions);
+}
+
 export function createMentorInvoice(mentorId, payload = {}) {
   const normalisedMentorId = normaliseMentorId(mentorId);
   const state = getMentorState(normalisedMentorId);
@@ -1203,6 +2050,25 @@ export default {
   createMentorBooking,
   updateMentorBooking,
   deleteMentorBooking,
+  createMentorClient,
+  updateMentorClient,
+  deleteMentorClient,
+  createMentorEvent,
+  updateMentorEvent,
+  deleteMentorEvent,
+  createMentorSupportTicket,
+  updateMentorSupportTicket,
+  deleteMentorSupportTicket,
+  createMentorMessage,
+  updateMentorMessage,
+  deleteMentorMessage,
+  updateMentorVerificationStatus,
+  createMentorVerificationDocument,
+  updateMentorVerificationDocument,
+  deleteMentorVerificationDocument,
+  createMentorWalletTransaction,
+  updateMentorWalletTransaction,
+  deleteMentorWalletTransaction,
   createMentorInvoice,
   updateMentorInvoice,
   deleteMentorInvoice,
