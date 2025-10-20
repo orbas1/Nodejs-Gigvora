@@ -1,12 +1,26 @@
-import { describe, expect, it } from '@jest/globals';
-import {
-  createCompany,
-  listCompanies,
-  updateCompany,
-  archiveCompany,
-  getCompany,
-} from '../../src/services/adminCompanyManagementService.js';
-import { User } from '../../src/models/index.js';
+import { beforeAll, describe, expect, it } from '@jest/globals';
+
+process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'true';
+process.env.ADMIN_MANAGEMENT_MINIMAL_BOOTSTRAP = 'true';
+
+let createCompany;
+let listCompanies;
+let updateCompany;
+let archiveCompany;
+let getCompany;
+let User;
+
+beforeAll(async () => {
+  const service = await import('../../src/services/adminCompanyManagementService.js');
+  createCompany = service.createCompany;
+  listCompanies = service.listCompanies;
+  updateCompany = service.updateCompany;
+  archiveCompany = service.archiveCompany;
+  getCompany = service.getCompany;
+
+  const models = await import('../../src/models/adminManagementModels.js');
+  User = models.User;
+});
 
 describe('adminCompanyManagementService', () => {
   it('creates companies and reports summary insights', async () => {

@@ -43,10 +43,16 @@ async function loadCoreModels() {
   if (modelsLoaded) {
     return;
   }
+  const minimalAdminBootstrap = process.env.ADMIN_MANAGEMENT_MINIMAL_BOOTSTRAP === 'true';
   if (process.env.SKIP_SEQUELIZE_BOOTSTRAP === 'true') {
-    await import('../src/models/messagingModels.js');
-    await import('../src/models/moderationModels.js');
-    await import('../src/models/liveServiceTelemetryModels.js');
+    if (minimalAdminBootstrap) {
+      await import('../src/models/adminManagementModels.js');
+    } else {
+      await import('../src/models/messagingModels.js');
+      await import('../src/models/moderationModels.js');
+      await import('../src/models/liveServiceTelemetryModels.js');
+      await import('../src/models/adminManagementModels.js');
+    }
     modelsLoaded = true;
     return;
   }
@@ -54,12 +60,19 @@ async function loadCoreModels() {
     await import('../src/models/index.js');
     modelsLoaded = true;
   } catch (error) {
-    if (error instanceof SyntaxError && /Unexpected token/.test(error.message)) {
+    if (error instanceof SyntaxError) {
       // eslint-disable-next-line no-console
       console.warn('[tests] Falling back to targeted model bootstrap due to syntax error in aggregated model index.');
-      await import('../src/models/messagingModels.js');
-      await import('../src/models/moderationModels.js');
-      await import('../src/models/liveServiceTelemetryModels.js');
+      if (minimalAdminBootstrap) {
+        await import('../src/models/adminManagementModels.js');
+      } else {
+        await Promise.all([
+          import('../src/models/messagingModels.js'),
+          import('../src/models/moderationModels.js'),
+          import('../src/models/liveServiceTelemetryModels.js'),
+          import('../src/models/adminManagementModels.js'),
+        ]);
+      }
       modelsLoaded = true;
       return;
     }

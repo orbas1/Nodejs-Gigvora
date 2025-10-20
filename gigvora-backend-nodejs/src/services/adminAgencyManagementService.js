@@ -1,15 +1,9 @@
+import bcrypt from 'bcrypt';
 import { Op, fn, col, literal } from 'sequelize';
 
-import {
-  AgencyProfile,
-  Profile,
-  User,
-} from '../models/index.js';
+import { AgencyProfile, Profile, User } from '../models/adminManagementModels.js';
 import sequelize from '../models/sequelizeClient.js';
-import { getAuthDomainService } from '../domains/serviceCatalog.js';
 import { NotFoundError, ValidationError } from '../utils/errors.js';
-
-const authDomainService = getAuthDomainService();
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
@@ -24,6 +18,7 @@ const SORT_MAP = new Map([
 const INCLUDE_DEFINITION = [
   {
     model: User,
+    as: 'User',
     attributes: [
       'id',
       'firstName',
@@ -39,6 +34,7 @@ const INCLUDE_DEFINITION = [
     include: [
       {
         model: Profile,
+        as: 'Profile',
         attributes: ['headline', 'missionStatement', 'location', 'timezone'],
         required: false,
       },
@@ -153,6 +149,73 @@ function uniqueMemberships(existingMemberships = [], membershipToEnsure) {
   return Array.from(set);
 }
 
+function validateEmail(email) {
+  if (typeof email !== 'string') {
+    throw new ValidationError('A valid email address is required.');
+  }
+  const trimmed = email.trim().toLowerCase();
+  if (!trimmed) {
+    throw new ValidationError('A valid email address is required.');
+  }
+  const EMAIL_REGEX = /^(?:[A-Za-z0-9_'^&+{}=-]+(?:\.[A-Za-z0-9_'^&+{}=-]+)*)@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}$/u;
+  if (!EMAIL_REGEX.test(trimmed)) {
+    throw new ValidationError('A valid email address is required.');
+  }
+  return trimmed;
+}
+
+async function ensureEmailAvailable(email, { transaction, excludeUserId = null } = {}) {
+  const where = { email };
+  if (excludeUserId != null) {
+    where.id = { [Op.ne]: excludeUserId };
+  }
+  const existing = await User.findOne({
+    where,
+    transaction,
+    lock: transaction ? transaction.LOCK.UPDATE : undefined,
+  });
+  if (existing) {
+    throw new ValidationError('A user with this email already exists.');
+  }
+}
+
+async function hashPassword(password) {
+  if (typeof password !== 'string' || password.trim().length < 8) {
+    throw new ValidationError('Password must be at least 8 characters long.');
+  }
+  return bcrypt.hash(password, 10);
+}
+
+async function createOwnerAccount(
+  { email, password, firstName, lastName, phoneNumber, status, membership },
+  transaction,
+) {
+  if (!email) {
+    throw new ValidationError('Owner email is required.');
+  }
+  const normalisedEmail = validateEmail(email);
+  await ensureEmailAvailable(normalisedEmail, { transaction });
+
+  const hashedPassword = await hashPassword(password);
+
+  const user = await User.create(
+    {
+      email: normalisedEmail,
+      password: hashedPassword,
+      firstName: firstName ?? null,
+      lastName: lastName ?? null,
+      phoneNumber: phoneNumber ?? null,
+      status,
+      userType: membership,
+      memberships: uniqueMemberships([], membership),
+      primaryDashboard: membership,
+    },
+    { transaction },
+  );
+
+  return user;
+}
+
 function sanitizeAgencyRecord(instance) {
   if (!instance) {
     return null;
@@ -225,6 +288,7 @@ async function computeSummary() {
       include: [
         {
           model: AgencyProfile,
+          as: 'AgencyProfile',
           attributes: [],
           required: true,
         },
@@ -358,24 +422,24 @@ export async function createAgency(payload, { actorId } = {}) {
 
   const normalizedStatus = normaliseStatus(payload.status ?? 'active');
 
-  return sequelize.transaction(async (transaction) => {
-    const user = await authDomainService.registerUser(
+  const createdAgencyId = await sequelize.transaction(async (transaction) => {
+    const user = await createOwnerAccount(
       {
         email: payload.ownerEmail,
         password: payload.password,
         firstName: payload.ownerFirstName ?? 'Agency',
         lastName: payload.ownerLastName ?? 'Owner',
         phoneNumber: payload.ownerPhone ?? null,
-        userType: 'agency',
         status: normalizedStatus,
+        membership: 'agency',
       },
-      { transaction },
+      transaction,
     );
 
     const memberships = uniqueMemberships(user.memberships, 'agency');
-    await User.update(
+    await user.update(
       { memberships, primaryDashboard: 'agency' },
-      { where: { id: user.id }, transaction },
+      { transaction },
     );
 
     const profile = await ensureProfile(user.id, transaction);
@@ -429,9 +493,10 @@ export async function createAgency(payload, { actorId } = {}) {
       { transaction },
     );
 
-    await agency.reload({ include: INCLUDE_DEFINITION, transaction });
-    return sanitizeAgencyRecord(agency);
+    return agency.id;
   });
+
+  return getAgency(createdAgencyId);
 }
 
 export async function updateAgency(agencyId, payload = {}) {
@@ -446,7 +511,7 @@ export async function updateAgency(agencyId, payload = {}) {
     throw new NotFoundError('Agency not found.');
   }
 
-  return sequelize.transaction(async (transaction) => {
+  await sequelize.transaction(async (transaction) => {
     const user = agency.User;
     if (!user) {
       throw new NotFoundError('Agency owner could not be resolved.');
@@ -455,8 +520,8 @@ export async function updateAgency(agencyId, payload = {}) {
     const updates = {};
 
     if (payload.ownerEmail && payload.ownerEmail !== user.email) {
-      const email = authDomainService.validateEmail(payload.ownerEmail);
-      await authDomainService.ensureUniqueEmail(email, { transaction });
+      const email = validateEmail(payload.ownerEmail);
+      await ensureEmailAvailable(email, { transaction, excludeUserId: user.id });
       updates.email = email;
     }
     if (payload.ownerFirstName != null) {
@@ -571,9 +636,9 @@ export async function updateAgency(agencyId, payload = {}) {
       await profile.update(profileUpdates, { transaction });
     }
 
-    await agency.reload({ include: INCLUDE_DEFINITION, transaction });
-    return sanitizeAgencyRecord(agency);
   });
+
+  return getAgency(agencyId);
 }
 
 export async function archiveAgency(agencyId, { actorId } = {}) {
@@ -604,8 +669,7 @@ export async function archiveAgency(agencyId, { actorId } = {}) {
     );
   });
 
-  await agency.reload({ include: INCLUDE_DEFINITION });
-  return sanitizeAgencyRecord(agency);
+  return getAgency(agencyId);
 }
 
 export default {

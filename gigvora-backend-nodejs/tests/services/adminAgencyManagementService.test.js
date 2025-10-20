@@ -1,12 +1,28 @@
-import { describe, expect, it } from '@jest/globals';
-import {
-  createAgency,
-  listAgencies,
-  updateAgency,
-  archiveAgency,
-  getAgency,
-} from '../../src/services/adminAgencyManagementService.js';
-import { AgencyProfile, User } from '../../src/models/index.js';
+import { beforeAll, describe, expect, it } from '@jest/globals';
+
+process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'true';
+process.env.ADMIN_MANAGEMENT_MINIMAL_BOOTSTRAP = 'true';
+
+let createAgency;
+let listAgencies;
+let updateAgency;
+let archiveAgency;
+let getAgency;
+let AgencyProfile;
+let User;
+
+beforeAll(async () => {
+  const service = await import('../../src/services/adminAgencyManagementService.js');
+  createAgency = service.createAgency;
+  listAgencies = service.listAgencies;
+  updateAgency = service.updateAgency;
+  archiveAgency = service.archiveAgency;
+  getAgency = service.getAgency;
+
+  const models = await import('../../src/models/adminManagementModels.js');
+  AgencyProfile = models.AgencyProfile;
+  User = models.User;
+});
 
 describe('adminAgencyManagementService', () => {
   it('creates agencies and surfaces summary metrics', async () => {
