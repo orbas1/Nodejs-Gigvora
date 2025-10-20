@@ -6,6 +6,7 @@ import { requireProjectManagementRole } from '../middleware/authorization.js';
 const router = Router({ mergeParams: true });
 
 router.get('/', asyncHandler(projectGigManagementController.overview));
+
 router.post('/projects', requireProjectManagementRole, asyncHandler(projectGigManagementController.storeProject));
 router.patch('/projects/:projectId', requireProjectManagementRole, asyncHandler(projectGigManagementController.patchProject));
 router.post(
@@ -68,20 +69,24 @@ router.post(
   requireProjectManagementRole,
   asyncHandler(projectGigManagementController.restoreProjectAction),
 );
+
 router.post('/gig-orders', requireProjectManagementRole, asyncHandler(projectGigManagementController.storeGigOrder));
 router.patch(
   '/gig-orders/:orderId',
   requireProjectManagementRole,
   asyncHandler(projectGigManagementController.patchGigOrder),
 );
+
 router.post('/project-bids', requireProjectManagementRole, asyncHandler(projectGigManagementController.storeBid));
 router.patch('/project-bids/:bidId', requireProjectManagementRole, asyncHandler(projectGigManagementController.patchBid));
+
 router.post('/invitations', requireProjectManagementRole, asyncHandler(projectGigManagementController.storeInvitation));
 router.patch(
   '/invitations/:invitationId',
   requireProjectManagementRole,
   asyncHandler(projectGigManagementController.patchInvitation),
 );
+
 router.put(
   '/auto-match/settings',
   requireProjectManagementRole,
@@ -93,7 +98,9 @@ router.patch(
   requireProjectManagementRole,
   asyncHandler(projectGigManagementController.patchAutoMatch),
 );
+
 router.post('/reviews', requireProjectManagementRole, asyncHandler(projectGigManagementController.storeReview));
+
 router.post(
   '/escrow/transactions',
   requireProjectManagementRole,
@@ -103,11 +110,18 @@ router.patch(
   '/escrow/settings',
   requireProjectManagementRole,
   asyncHandler(projectGigManagementController.patchEscrowSettings),
+);
+
 router.get('/gig-orders/:orderId', asyncHandler(projectGigManagementController.showGigOrder));
 router.post(
   '/gig-orders/:orderId/timeline',
   requireProjectManagementRole,
   asyncHandler(projectGigManagementController.storeGigTimelineEvent),
+);
+router.patch(
+  '/gig-orders/:orderId/timeline/:eventId',
+  requireProjectManagementRole,
+  asyncHandler(projectGigManagementController.patchGigTimelineEvent),
 );
 router.post(
   '/gig-orders/:orderId/messages',
@@ -123,10 +137,6 @@ router.patch(
   '/gig-orders/:orderId/escrow/:checkpointId',
   requireProjectManagementRole,
   asyncHandler(projectGigManagementController.patchGigEscrowCheckpoint),
-router.patch(
-  '/gig-orders/:orderId/timeline/:eventId',
-  requireProjectManagementRole,
-  asyncHandler(projectGigManagementController.patchGigTimelineEvent),
 );
 router.post(
   '/gig-orders/:orderId/submissions',

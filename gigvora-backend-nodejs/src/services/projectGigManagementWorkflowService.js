@@ -28,9 +28,6 @@ import {
   ProjectReview,
   EscrowAccount,
   EscrowTransaction,
-  GigTimelineEvent,
-  GigSubmission,
-  GigChatMessage,
   PROJECT_STATUSES,
   PROJECT_RISK_LEVELS,
   PROJECT_COLLABORATOR_STATUSES,
@@ -47,7 +44,6 @@ import {
   GIG_TIMELINE_EVENT_STATUSES,
   GIG_SUBMISSION_STATUSES,
   GIG_TIMELINE_VISIBILITIES,
-  GIG_SUBMISSION_STATUSES,
   GIG_CHAT_VISIBILITIES,
   syncProjectGigManagementModels,
 } from '../models/projectGigManagementModels.js';
@@ -2463,42 +2459,19 @@ export async function createGigOrder(ownerId, payload) {
 }
 
 export async function addGigTimelineEvent(ownerId, orderId, payload) {
-  await ensureInitialized();
-  const order = await GigOrder.findByPk(orderId);
-  assertOwnership(order, ownerId, 'Gig order not found');
-
-  if (!payload.title || !payload.title.trim()) {
-    throw new ValidationError('Timeline event title is required.');
-  }
-
-  const type = payload.type ?? 'note';
-  if (!GIG_TIMELINE_EVENT_TYPES.includes(type)) {
-    throw new ValidationError('Invalid timeline event type provided.');
-  }
-
-  const status = payload.status ?? 'scheduled';
-  if (!GIG_TIMELINE_EVENT_STATUSES.includes(status)) {
-    throw new ValidationError('Invalid timeline event status provided.');
-  }
-
-  const scheduledAt = ensureDate(payload.scheduledAt, { label: 'Scheduled at' });
-  const completedAt = ensureDate(payload.completedAt, { label: 'Completed at' });
-
-  if (completedAt && !['completed'].includes(status)) {
-    throw new ValidationError('Completed at can only be supplied when the event is marked as completed.');
-  }
-
-  return GigTimelineEvent.create({
-    orderId: order.id,
-    title: payload.title.trim(),
-    type,
-    status,
-    scheduledAt,
-    completedAt: completedAt ?? null,
-    assignedTo: payload.assignedTo ?? null,
-    notes: payload.notes ?? null,
-    metadata: payload.metadata ?? {},
+  const event = await createGigTimelineEvent(ownerId, orderId, {
+    eventType: payload.type ?? payload.eventType ?? 'note',
+    title: payload.title,
+    summary: payload.notes ?? payload.summary ?? null,
+    occurredAt: payload.scheduledAt ?? payload.completedAt ?? payload.occurredAt ?? null,
+    visibility: payload.visibility ?? 'internal',
+    metadata: {
+      ...(payload.metadata ?? {}),
+      assignedTo: payload.assignedTo ?? undefined,
+      status: payload.status ?? undefined,
+    },
   });
+  return event;
 }
 
 export async function updateGigTimelineEvent(ownerId, orderId, eventId, payload) {
@@ -2511,176 +2484,70 @@ export async function updateGigTimelineEvent(ownerId, orderId, eventId, payload)
     throw new NotFoundError('Timeline event not found');
   }
 
-  let type = event.type;
-  if (payload.type) {
-    if (!GIG_TIMELINE_EVENT_TYPES.includes(payload.type)) {
+  const updates = {};
+
+  if (payload.title != null) {
+    const title = payload.title?.toString().trim();
+    if (!title) {
+      throw new ValidationError('Timeline event title cannot be empty.');
+    }
+    updates.title = title;
+  }
+
+  const eventType = payload.eventType ?? payload.type;
+  if (eventType != null) {
+    const normalized = eventType.toString().trim().toLowerCase();
+    if (!GIG_TIMELINE_EVENT_TYPES.includes(normalized)) {
       throw new ValidationError('Invalid timeline event type provided.');
     }
-    type = payload.type;
+    updates.eventType = normalized;
   }
 
-  let status = event.status;
-  if (payload.status) {
-    if (!GIG_TIMELINE_EVENT_STATUSES.includes(payload.status)) {
-      throw new ValidationError('Invalid timeline event status provided.');
+  const visibility = payload.visibility;
+  if (visibility != null) {
+    const normalized = visibility.toString().trim().toLowerCase();
+    if (!GIG_TIMELINE_VISIBILITIES.includes(normalized)) {
+      throw new ValidationError('Timeline visibility must be internal, client, or vendor.');
     }
-    status = payload.status;
+    updates.visibility = normalized;
   }
 
-  const scheduledAt = payload.scheduledAt ? ensureDate(payload.scheduledAt, { label: 'Scheduled at' }) : event.scheduledAt;
-  const completedAt = payload.completedAt ? ensureDate(payload.completedAt, { label: 'Completed at' }) : event.completedAt;
-
-  if (completedAt && !['completed'].includes(status)) {
-    throw new ValidationError('Completed at can only be supplied when the event is marked as completed.');
+  if (payload.summary != null || payload.notes != null) {
+    const summary = payload.summary ?? payload.notes;
+    updates.summary = summary == null ? null : summary.toString().trim() || null;
   }
 
-  await event.update({
-    title: payload.title?.trim() || event.title,
-    type,
-    status,
-    scheduledAt,
-    completedAt: completedAt ?? null,
-    assignedTo: payload.assignedTo ?? event.assignedTo,
-    notes: payload.notes ?? event.notes,
-    metadata: payload.metadata ?? event.metadata,
-  });
+  if (payload.occurredAt != null || payload.scheduledAt != null || payload.completedAt != null) {
+    const occurredAt = ensureDate(payload.occurredAt ?? payload.scheduledAt ?? payload.completedAt, {
+      label: 'Event time',
+    });
+    updates.occurredAt = occurredAt ?? new Date();
+  }
 
-  return event.reload();
+  if (payload.metadata != null || payload.assignedTo != null || payload.status != null) {
+    updates.metadata = {
+      ...(event.metadata ?? {}),
+      ...(payload.metadata ?? {}),
+    };
+    if (payload.assignedTo !== undefined) {
+      updates.metadata.assignedTo = payload.assignedTo;
+    }
+    if (payload.status !== undefined) {
+      updates.metadata.status = payload.status;
+    }
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return sanitizeTimelineEvent(event, order);
+  }
+
+  await event.update(updates);
+  const refreshed = await event.reload();
+  return sanitizeTimelineEvent(refreshed, order);
 }
 
 export async function addGigSubmission(ownerId, orderId, payload) {
-  await ensureInitialized();
-  const order = await GigOrder.findByPk(orderId);
-  assertOwnership(order, ownerId, 'Gig order not found');
-
-  if (!payload.title || !payload.title.trim()) {
-    throw new ValidationError('Submission title is required.');
-  }
-
-  const status = payload.status ?? 'submitted';
-  if (!GIG_SUBMISSION_STATUSES.includes(status)) {
-    throw new ValidationError('Invalid submission status provided.');
-  }
-
-  const submittedAt = ensureDate(payload.submittedAt ?? new Date(), { label: 'Submitted at' }) ?? new Date();
-  const reviewedAt = ensureDate(payload.reviewedAt, { label: 'Reviewed at' });
-
-  return projectGigManagementSequelize.transaction(async (transaction) => {
-    const submission = await GigSubmission.create(
-      {
-        orderId: order.id,
-        title: payload.title.trim(),
-        status,
-        submittedAt,
-        submittedBy: payload.submittedBy ?? null,
-        submittedByEmail: payload.submittedByEmail ?? null,
-        notes: payload.notes ?? null,
-        reviewNotes: payload.reviewNotes ?? null,
-        reviewedAt: reviewedAt ?? null,
-        reviewedBy: payload.reviewedBy ?? null,
-        metadata: payload.metadata ?? {},
-      },
-      { transaction },
-    );
-
-    if (Array.isArray(payload.assets) && payload.assets.length > 0) {
-      await GigSubmissionAsset.bulkCreate(
-        payload.assets
-          .filter((asset) => asset?.url)
-          .map((asset) => ({
-            submissionId: submission.id,
-            label: asset.label ?? asset.url,
-            url: asset.url,
-            previewUrl: asset.previewUrl ?? null,
-            sizeBytes: asset.sizeBytes ?? null,
-            metadata: asset.metadata ?? {},
-          })),
-        { transaction },
-      );
-    }
-
-    return submission;
-  });
-}
-
-export async function updateGigSubmission(ownerId, orderId, submissionId, payload) {
-  await ensureInitialized();
-  const order = await GigOrder.findByPk(orderId);
-  assertOwnership(order, ownerId, 'Gig order not found');
-
-  const submission = await GigSubmission.findByPk(submissionId, {
-    include: [{ model: GigSubmissionAsset, as: 'assets' }],
-  });
-
-  if (!submission || submission.orderId !== order.id) {
-    throw new NotFoundError('Gig submission not found');
-  }
-
-  let status = submission.status;
-  if (payload.status) {
-    if (!GIG_SUBMISSION_STATUSES.includes(payload.status)) {
-      throw new ValidationError('Invalid submission status provided.');
-    }
-    status = payload.status;
-  }
-
-  const submittedAt = payload.submittedAt ? ensureDate(payload.submittedAt, { label: 'Submitted at' }) : submission.submittedAt;
-  const reviewedAt = payload.reviewedAt ? ensureDate(payload.reviewedAt, { label: 'Reviewed at' }) : submission.reviewedAt;
-
-  await submission.update({
-    title: payload.title?.trim() || submission.title,
-    status,
-    submittedAt,
-    submittedBy: payload.submittedBy ?? submission.submittedBy,
-    submittedByEmail: payload.submittedByEmail ?? submission.submittedByEmail,
-    notes: payload.notes ?? submission.notes,
-    reviewNotes: payload.reviewNotes ?? submission.reviewNotes,
-    reviewedAt,
-    reviewedBy: payload.reviewedBy ?? submission.reviewedBy,
-    metadata: payload.metadata ?? submission.metadata,
-  });
-
-  if (Array.isArray(payload.appendAssets) && payload.appendAssets.length > 0) {
-    await GigSubmissionAsset.bulkCreate(
-      payload.appendAssets
-        .filter((asset) => asset?.url)
-        .map((asset) => ({
-          submissionId: submission.id,
-          label: asset.label ?? asset.url,
-          url: asset.url,
-          previewUrl: asset.previewUrl ?? null,
-          sizeBytes: asset.sizeBytes ?? null,
-          metadata: asset.metadata ?? {},
-        })),
-    );
-  }
-
-  return submission.reload({ include: [{ model: GigSubmissionAsset, as: 'assets' }] });
-}
-
-export async function postGigChatMessage(ownerId, orderId, payload) {
-  await ensureInitialized();
-  const order = await GigOrder.findByPk(orderId);
-  assertOwnership(order, ownerId, 'Gig order not found');
-
-  if (!payload.body || !payload.body.trim()) {
-    throw new ValidationError('Message body is required.');
-  }
-
-  const sentAt = ensureDate(payload.sentAt ?? new Date(), { label: 'Sent at' }) ?? new Date();
-  const attachments = Array.isArray(payload.attachments) ? payload.attachments : payload.attachments ? [payload.attachments] : [];
-
-  return GigChatMessage.create({
-    orderId: order.id,
-    authorId: payload.authorId ?? ownerId,
-    authorName: payload.authorName ?? 'Workspace member',
-    authorRole: payload.authorRole ?? null,
-    body: payload.body.trim(),
-    attachments: attachments.length ? attachments : null,
-    sentAt,
-    pinned: Boolean(payload.pinned),
-    visibility: payload.visibility ?? 'internal',
-  });
+  return createGigSubmission(ownerId, orderId, payload, {});
 }
 
 export async function updateGigOrder(ownerId, orderId, payload) {
@@ -2913,7 +2780,7 @@ export async function createGigTimelineEvent(ownerId, orderId, payload, { actorI
     metadata: payload.metadata ?? {},
   });
 
-  return sanitizeTimelineEvent(event);
+  return sanitizeTimelineEvent(event, order);
 }
 
 export async function createGigSubmission(ownerId, orderId, payload, { actorId } = {}) {
@@ -2930,30 +2797,61 @@ export async function createGigSubmission(ownerId, orderId, payload, { actorId }
     throw new ValidationError('Submission status is not recognised.');
   }
 
-  const submission = await GigSubmission.create({
-    orderId: order.id,
-    title,
-    description: typeof payload.description === 'string' ? payload.description.trim() || null : null,
-    status,
-    assetUrl: typeof payload.assetUrl === 'string' ? payload.assetUrl.trim() || null : null,
-    assetType: typeof payload.assetType === 'string' ? payload.assetType.trim() || null : null,
-    attachments: normalizeAttachments(payload.attachments),
-    submittedAt: ensureDate(payload.submittedAt ?? new Date(), { label: 'Submission time' }) ?? new Date(),
-    approvedAt:
-      status === 'approved'
-        ? ensureDate(payload.approvedAt ?? new Date(), { label: 'Approval time' }) ?? new Date()
-        : ensureDate(payload.approvedAt, { label: 'Approval time' }),
-    submittedById: actorId ?? ownerId,
-    reviewedById: payload.reviewedById ?? null,
-    metadata: payload.metadata ?? {},
-  });
+  return projectGigManagementSequelize.transaction(async (transaction) => {
+    const submission = await GigSubmission.create(
+      {
+        orderId: order.id,
+        title,
+        description: typeof payload.description === 'string' ? payload.description.trim() || null : null,
+        status,
+        assetUrl: typeof payload.assetUrl === 'string' ? payload.assetUrl.trim() || null : null,
+        assetType: typeof payload.assetType === 'string' ? payload.assetType.trim() || null : null,
+        attachments: normalizeAttachments(payload.attachments),
+        submittedAt: ensureDate(payload.submittedAt ?? new Date(), { label: 'Submission time' }) ?? new Date(),
+        approvedAt:
+          status === 'approved'
+            ? ensureDate(payload.approvedAt ?? new Date(), { label: 'Approval time' }) ?? new Date()
+            : ensureDate(payload.approvedAt, { label: 'Approval time' }),
+        submittedById: actorId ?? ownerId,
+        submittedBy: payload.submittedBy ?? null,
+        submittedByEmail: payload.submittedByEmail ?? null,
+        reviewedById: payload.reviewedById ?? null,
+        reviewNotes: payload.reviewNotes ?? null,
+        metadata: payload.metadata ?? {},
+      },
+      { transaction },
+    );
 
-  return sanitizeSubmission(submission);
+    if (Array.isArray(payload.assets) && payload.assets.length > 0) {
+      const assets = payload.assets
+        .filter((asset) => asset?.url)
+        .map((asset) => ({
+          submissionId: submission.id,
+          label: asset.label ?? asset.url,
+          url: asset.url,
+          previewUrl: asset.previewUrl ?? null,
+          sizeBytes: asset.sizeBytes ?? null,
+          metadata: asset.metadata ?? {},
+        }));
+      if (assets.length) {
+        await GigSubmissionAsset.bulkCreate(assets, { transaction });
+      }
+    }
+
+    const reloaded = await GigSubmission.findByPk(submission.id, {
+      include: [{ model: GigSubmissionAsset, as: 'assets' }],
+      transaction,
+    });
+
+    return sanitizeSubmission(reloaded ?? submission, order);
+  });
 }
 
-export async function updateGigSubmission(ownerId, orderId, submissionId, payload, { actorId } = {}) {
+async function updateGigSubmissionInternal(ownerId, orderId, submissionId, payload, { actorId } = {}) {
   await ensureInitialized();
-  const submission = await GigSubmission.findByPk(submissionId);
+  const submission = await GigSubmission.findByPk(submissionId, {
+    include: [{ model: GigSubmissionAsset, as: 'assets' }],
+  });
   if (!submission || submission.orderId !== orderId) {
     throw new NotFoundError('Gig submission not found.');
   }
@@ -2971,6 +2869,12 @@ export async function updateGigSubmission(ownerId, orderId, submissionId, payloa
   if (payload.description != null) {
     updates.description = typeof payload.description === 'string' ? payload.description.trim() || null : null;
   }
+  if (payload.notes != null) {
+    updates.notes = typeof payload.notes === 'string' ? payload.notes.trim() || null : null;
+  }
+  if (payload.reviewNotes != null) {
+    updates.reviewNotes = typeof payload.reviewNotes === 'string' ? payload.reviewNotes.trim() || null : null;
+  }
   if (payload.status != null) {
     const status = typeof payload.status === 'string' ? payload.status.trim().toLowerCase() : '';
     if (!GIG_SUBMISSION_STATUSES.includes(status)) {
@@ -2984,6 +2888,18 @@ export async function updateGigSubmission(ownerId, orderId, submissionId, payloa
       updates.approvedAt = ensureDate(payload.approvedAt, { label: 'Approval time' });
     }
   }
+  if (payload.submittedAt != null) {
+    updates.submittedAt = ensureDate(payload.submittedAt, { label: 'Submission time' });
+  }
+  if (payload.submittedBy != null) {
+    updates.submittedBy = payload.submittedBy;
+  }
+  if (payload.submittedByEmail != null) {
+    updates.submittedByEmail = payload.submittedByEmail;
+  }
+  if (payload.reviewedById != null) {
+    updates.reviewedById = payload.reviewedById;
+  }
   if (payload.assetUrl != null) {
     updates.assetUrl = typeof payload.assetUrl === 'string' ? payload.assetUrl.trim() || null : null;
   }
@@ -2996,12 +2912,54 @@ export async function updateGigSubmission(ownerId, orderId, submissionId, payloa
   if (payload.metadata != null) {
     updates.metadata = payload.metadata;
   }
-  if (Object.keys(updates).length === 0) {
-    return sanitizeSubmission(submission);
-  }
 
-  await submission.update(updates);
-  return sanitizeSubmission(submission);
+  return projectGigManagementSequelize.transaction(async (transaction) => {
+    if (Object.keys(updates).length > 0) {
+      await submission.update(updates, { transaction });
+    }
+
+    if (Array.isArray(payload.assets)) {
+      await GigSubmissionAsset.destroy({ where: { submissionId: submission.id }, transaction });
+      const replacement = payload.assets
+        .filter((asset) => asset?.url)
+        .map((asset) => ({
+          submissionId: submission.id,
+          label: asset.label ?? asset.url,
+          url: asset.url,
+          previewUrl: asset.previewUrl ?? null,
+          sizeBytes: asset.sizeBytes ?? null,
+          metadata: asset.metadata ?? {},
+        }));
+      if (replacement.length) {
+        await GigSubmissionAsset.bulkCreate(replacement, { transaction });
+      }
+    } else if (Array.isArray(payload.appendAssets) && payload.appendAssets.length > 0) {
+      const additional = payload.appendAssets
+        .filter((asset) => asset?.url)
+        .map((asset) => ({
+          submissionId: submission.id,
+          label: asset.label ?? asset.url,
+          url: asset.url,
+          previewUrl: asset.previewUrl ?? null,
+          sizeBytes: asset.sizeBytes ?? null,
+          metadata: asset.metadata ?? {},
+        }));
+      if (additional.length) {
+        await GigSubmissionAsset.bulkCreate(additional, { transaction });
+      }
+    }
+
+    const reloaded = await GigSubmission.findByPk(submission.id, {
+      include: [{ model: GigSubmissionAsset, as: 'assets' }],
+      transaction,
+    });
+
+    return sanitizeSubmission(reloaded ?? submission, order);
+  });
+}
+
+export async function updateGigSubmission(ownerId, orderId, submissionId, payload, context = {}) {
+  return updateGigSubmissionInternal(ownerId, orderId, submissionId, payload, context);
 }
 
 export async function postGigChatMessage(ownerId, orderId, payload, { actorId, actorRole } = {}) {
@@ -3034,7 +2992,7 @@ export async function postGigChatMessage(ownerId, orderId, payload, { actorId, a
     metadata: payload.metadata ?? {},
   });
 
-  return sanitizeChatMessage(message);
+  return sanitizeChatMessage(message, order);
 }
 
 export async function acknowledgeGigChatMessage(ownerId, orderId, messageId, { actorId } = {}) {
@@ -3051,7 +3009,7 @@ export async function acknowledgeGigChatMessage(ownerId, orderId, messageId, { a
     acknowledgedById: actorId ?? ownerId,
   });
 
-  return sanitizeChatMessage(message);
+  return sanitizeChatMessage(message, order);
 }
 
 export async function addGigOrderActivity(ownerId, orderId, payload, context = {}) {
@@ -3574,6 +3532,5 @@ export default {
   createGigTimelineEvent,
   createGigSubmission,
   updateGigSubmission,
-  postGigChatMessage,
   acknowledgeGigChatMessage,
 };
