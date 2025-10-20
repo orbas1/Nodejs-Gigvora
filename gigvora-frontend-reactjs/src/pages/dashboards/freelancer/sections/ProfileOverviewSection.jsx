@@ -11,6 +11,8 @@ import {
   SkillManagerDrawer,
   ConnectionsDialog,
   FollowersDialog,
+  ExperienceCard,
+  ExperienceDrawer,
 } from './profile-overview/index.js';
 
 function toNumber(value, fallback = null) {
@@ -44,7 +46,7 @@ function buildPayload(profile, changes = {}) {
     ? profile.hourlyRate
     : null;
 
-  return {
+  const payload = {
     firstName: changes.firstName ?? profile?.firstName ?? '',
     lastName: changes.lastName ?? profile?.lastName ?? '',
     headline: changes.headline ?? profile?.headline ?? '',
@@ -57,6 +59,14 @@ function buildPayload(profile, changes = {}) {
     availability: nextAvailability,
     skillTags: changes.skills ?? profile?.skills ?? [],
   };
+
+  if (has(changes, 'experience')) {
+    payload.experience = Array.isArray(changes.experience)
+      ? changes.experience
+      : profile?.experience ?? [];
+  }
+
+  return payload;
 }
 
 export default function ProfileOverviewSection({
@@ -79,12 +89,14 @@ export default function ProfileOverviewSection({
   const followers = followerSource.items ?? followerSource.preview ?? [];
   const connections = profile?.connections ?? {};
   const stats = profile?.stats ?? {};
+  const experience = profile?.experience ?? [];
 
   const [infoOpen, setInfoOpen] = useState(false);
   const [availabilityOpen, setAvailabilityOpen] = useState(false);
   const [skillsOpen, setSkillsOpen] = useState(false);
   const [connectionsOpen, setConnectionsOpen] = useState(false);
   const [followersOpen, setFollowersOpen] = useState(false);
+  const [experienceOpen, setExperienceOpen] = useState(false);
 
   const fileInputRef = useRef(null);
 
@@ -137,6 +149,14 @@ export default function ProfileOverviewSection({
     [handleSave],
   );
 
+  const handleSaveExperience = useCallback(
+    async (changes) => {
+      await handleSave(changes);
+      setExperienceOpen(false);
+    },
+    [handleSave],
+  );
+
   return (
     <SectionShell
       id="profile"
@@ -179,6 +199,8 @@ export default function ProfileOverviewSection({
             />
             <SkillCard skills={profile?.skills ?? []} onManage={() => setSkillsOpen(true)} />
           </div>
+
+          <ExperienceCard experience={experience} onManage={() => setExperienceOpen(true)} />
         </div>
 
         <div className="space-y-6">
@@ -235,6 +257,13 @@ export default function ProfileOverviewSection({
         skills={profile?.skills ?? []}
         onClose={() => setSkillsOpen(false)}
         onSave={handleSaveSkills}
+        saving={saving}
+      />
+      <ExperienceDrawer
+        open={experienceOpen}
+        experience={experience}
+        onClose={() => setExperienceOpen(false)}
+        onSave={handleSaveExperience}
         saving={saving}
       />
       <ConnectionsDialog

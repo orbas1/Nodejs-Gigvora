@@ -8,3 +8,5 @@ export { default as AvailabilityDrawer } from './AvailabilityDrawer.jsx';
 export { default as SkillManagerDrawer } from './SkillManagerDrawer.jsx';
 export { default as ConnectionsDialog } from './ConnectionsDialog.jsx';
 export { default as FollowersDialog } from './FollowersDialog.jsx';
+export { default as ExperienceCard } from './ExperienceCard.jsx';
+export { default as ExperienceDrawer } from './ExperienceDrawer.jsx';

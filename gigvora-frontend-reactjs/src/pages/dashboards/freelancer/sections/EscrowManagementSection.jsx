@@ -11,10 +11,12 @@ import DisputesPanel from './escrow/DisputesPanel.jsx';
 import ActivityPanel from './escrow/ActivityPanel.jsx';
 import SettingsPanel from './escrow/SettingsPanel.jsx';
 import ReleaseQueuePanel from './escrow/ReleaseQueuePanel.jsx';
+import StatementsPanel from './escrow/StatementsPanel.jsx';
 
 const VIEWS = [
   { id: 'accounts', label: 'Accounts' },
   { id: 'payments', label: 'Payments' },
+  { id: 'statements', label: 'Statements' },
   { id: 'release-queue', label: 'Release queue' },
   { id: 'disputes', label: 'Disputes' },
   { id: 'activity', label: 'Activity' },
@@ -70,6 +72,16 @@ export default function EscrowManagementSection() {
     appendDisputeEvent,
   } = useFreelancerEscrow({ freelancerId, enabled: accessGranted });
 
+  const currency = useMemo(() => {
+    return (
+      metrics?.currency ??
+      metrics?.accountsCurrency ??
+      accounts?.[0]?.currencyCode ??
+      transactions?.[0]?.currencyCode ??
+      'USD'
+    );
+  }, [metrics?.currency, metrics?.accountsCurrency, accounts, transactions]);
+
   const body = useMemo(() => {
     if (!accessGranted) {
       return (
@@ -102,6 +114,8 @@ export default function EscrowManagementSection() {
             actionState={actionState}
           />
         );
+      case 'statements':
+        return <StatementsPanel transactions={transactions} currency={currency} loading={loading} />;
       case 'release-queue':
         return (
           <ReleaseQueuePanel
@@ -146,6 +160,7 @@ export default function EscrowManagementSection() {
     appendDisputeEvent,
     activityLog,
     releaseQueue,
+    currency,
   ]);
 
   const actions = [
