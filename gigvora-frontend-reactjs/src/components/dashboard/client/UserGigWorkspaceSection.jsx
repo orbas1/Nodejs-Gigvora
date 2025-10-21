@@ -3,7 +3,6 @@ import PropTypes from 'prop-types';
 import DataStatus from '../../DataStatus.jsx';
 import useProjectGigManagement from '../../../hooks/useProjectGigManagement.js';
 import ProjectGigManagementContainer from '../../projectGigManagement/ProjectGigManagementContainer.jsx';
-import ProjectWizard from '../../projectGigManagement/ProjectWizard.jsx';
 import GigOrderComposer from '../../projectGigManagement/GigOrderComposer.jsx';
 
 function formatNumber(value) {
@@ -52,7 +51,6 @@ export default function UserGigWorkspaceSection({ userId, initialWorkspace }) {
   const gigResource = useProjectGigManagement(userId, { initialData: initialWorkspace });
   const { data, loading, error, reload, actions } = gigResource;
 
-  const [wizardOpen, setWizardOpen] = useState(false);
   const [orderComposerOpen, setOrderComposerOpen] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
@@ -75,25 +73,28 @@ export default function UserGigWorkspaceSection({ userId, initialWorkspace }) {
 
   const summary = data?.summary ?? {};
   const orderStats = data?.purchasedGigs?.stats ?? {};
+  const catalog = data?.catalog ?? {};
   const autoMatch = data?.autoMatch ?? {};
-  const templates = Array.isArray(data?.templates) ? data.templates : [];
   const boardMetrics = data?.board?.metrics ?? {};
   const lastUpdated = data?.summaryUpdatedAt ?? data?.lastSyncedAt ?? null;
   const fromCache = Boolean(data?.fromCache);
 
-  const activeProjects = summary.activeProjects ?? summary.totalProjects ?? 0;
+  const packagesLive = summary.gigPackagesLive ?? catalog.active ?? catalog.live ?? 0;
   const gigsActive = summary.gigsInDelivery ?? orderStats.active ?? 0;
-  const valueInPlay = summary.openGigValue ?? summary.budgetInPlay ?? 0;
+  const awaitingReview = orderStats.awaitingReview ?? orderStats.pendingClient ?? 0;
+  const valueInPlay = summary.openGigValue ?? orderStats.escrowInFlight ?? summary.budgetInPlay ?? 0;
   const primaryCurrency = summary.currency ?? 'USD';
   const readyCount = autoMatch.readyCount ?? (Array.isArray(autoMatch?.candidates) ? autoMatch.candidates.length : 0);
   const atRiskCount = boardMetrics.atRisk ?? boardMetrics.riskHigh ?? 0;
+  const averageTurnaroundHours = orderStats.averageTurnaroundHours ?? orderStats.averageTurnaround ?? null;
+  const satisfactionScore = summary.gigSatisfaction ?? orderStats.satisfactionScore ?? null;
 
   const metrics = useMemo(
     () => [
       {
-        label: 'Active projects',
-        value: formatNumber(activeProjects),
-        hint: 'Currently being delivered.',
+        label: 'Live gig packages',
+        value: formatNumber(packagesLive),
+        hint: 'Marketplace listings currently visible.',
       },
       {
         label: 'Gigs in delivery',
@@ -103,7 +104,12 @@ export default function UserGigWorkspaceSection({ userId, initialWorkspace }) {
       {
         label: 'Value in play',
         value: formatCurrency(valueInPlay, primaryCurrency),
-        hint: 'Escrow + deliverables awaiting review.',
+        hint: 'Escrow-backed revenue across open gigs.',
+      },
+      {
+        label: 'Awaiting client review',
+        value: formatNumber(awaitingReview),
+        hint: 'Deliveries pending approval.',
       },
       {
         label: 'Auto-match ready',
@@ -115,21 +121,34 @@ export default function UserGigWorkspaceSection({ userId, initialWorkspace }) {
         value: formatNumber(atRiskCount),
         hint: 'Projects requiring mitigation.',
       },
+      averageTurnaroundHours
+        ? {
+            label: 'Avg. turnaround',
+            value: `${formatNumber(averageTurnaroundHours)} hrs`,
+            hint: 'Median delivery time for completed gigs.',
+          }
+        : null,
+      satisfactionScore
+        ? {
+            label: 'Satisfaction score',
+            value: Number(satisfactionScore).toFixed(1),
+            hint: 'Client feedback across recent gigs.',
+          }
+        : null,
     ],
-    [activeProjects, atRiskCount, gigsActive, primaryCurrency, readyCount, valueInPlay],
+    [
+      atRiskCount,
+      averageTurnaroundHours,
+      awaitingReview,
+      gigsActive,
+      packagesLive,
+      primaryCurrency,
+      readyCount,
+      satisfactionScore,
+      valueInPlay,
+    ],
   );
-
-  const handleProjectSubmit = async (payload) => {
-    setErrorMessage(null);
-    try {
-      await actions.createProject(payload);
-      setStatusMessage('Workspace launched successfully.');
-    } catch (err) {
-      const message = err?.message ?? 'Unable to create project workspace.';
-      setErrorMessage(message);
-      throw err;
-    }
-  };
+  const filteredMetrics = useMemo(() => metrics.filter(Boolean).slice(0, 6), [metrics]);
 
   const handleOrderSubmit = async (payload) => {
     setErrorMessage(null);
@@ -151,10 +170,10 @@ export default function UserGigWorkspaceSection({ userId, initialWorkspace }) {
       <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-indigo-500">Gig workspace</p>
-          <h2 className="text-3xl font-semibold text-slate-900">Production-grade gig management</h2>
+          <h2 className="text-3xl font-semibold text-slate-900">Marketplace gig orchestration</h2>
           <p className="mt-2 max-w-2xl text-sm text-slate-500">
-            Launch orders, orchestrate milestones, collaborate on revisions, and settle escrow checkpoints without leaving the
-            dashboard.
+            Publish and fulfil catalogue-style gigs à la Fiverr, track every revision, and reconcile escrow-backed payments in
+            one unified control centre.
           </p>
         </div>
         <div className="flex flex-col items-start gap-3">
@@ -164,24 +183,15 @@ export default function UserGigWorkspaceSection({ userId, initialWorkspace }) {
             lastUpdated={lastUpdated}
             onRefresh={reload}
             fromCache={fromCache}
-            statusLabel="Gig workspace sync"
+            statusLabel="Gig marketplace sync"
           />
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setWizardOpen(true)}
-              className="inline-flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500"
-            >
-              Launch workspace
-            </button>
-            <button
-              type="button"
-              onClick={() => setOrderComposerOpen(true)}
-              className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-white px-4 py-2 text-sm font-semibold text-indigo-600 transition hover:border-indigo-300 hover:text-indigo-700"
-            >
-              New gig order
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setOrderComposerOpen(true)}
+            className="inline-flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500"
+          >
+            New gig order
+          </button>
         </div>
       </header>
 
@@ -198,7 +208,7 @@ export default function UserGigWorkspaceSection({ userId, initialWorkspace }) {
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        {metrics.map((metric) => (
+        {filteredMetrics.map((metric) => (
           <MetricCard key={metric.label} {...metric} />
         ))}
       </div>
@@ -206,13 +216,6 @@ export default function UserGigWorkspaceSection({ userId, initialWorkspace }) {
       <div className="rounded-3xl border border-white/60 bg-white/90 p-4 shadow-inner">
         <ProjectGigManagementContainer userId={userId} resource={gigResource} />
       </div>
-
-      <ProjectWizard
-        open={wizardOpen}
-        onClose={() => setWizardOpen(false)}
-        onSubmit={handleProjectSubmit}
-        templates={templates}
-      />
 
       <GigOrderComposer
         open={orderComposerOpen}
