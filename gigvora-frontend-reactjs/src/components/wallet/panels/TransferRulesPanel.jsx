@@ -6,6 +6,7 @@ function TransferRuleCard({ rule, onEdit, onArchive, onRestore, onRemove }) {
   const isActive = rule.status === 'active';
   const showArchive = isActive && onArchive;
   const showRestore = !isActive && onRestore;
+  const descriptor = `${rule.name} ${formatStatus(rule.transferType)} rule ${isActive ? 'active' : formatStatus(rule.status)}`;
 
   return (
     <div className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -40,6 +41,8 @@ function TransferRuleCard({ rule, onEdit, onArchive, onRestore, onRemove }) {
             type="button"
             onClick={() => onArchive(rule)}
             className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-rose-300 hover:text-rose-500"
+            aria-label={`Pause ${descriptor}`}
+            title={`Pause ${rule.name}`}
           >
             Pause
           </button>
@@ -49,6 +52,8 @@ function TransferRuleCard({ rule, onEdit, onArchive, onRestore, onRemove }) {
             type="button"
             onClick={() => onRestore(rule)}
             className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-emerald-300 hover:text-emerald-600"
+            aria-label={`Resume ${descriptor}`}
+            title={`Resume ${rule.name}`}
           >
             Resume
           </button>
@@ -58,6 +63,8 @@ function TransferRuleCard({ rule, onEdit, onArchive, onRestore, onRemove }) {
             type="button"
             onClick={() => onRemove(rule)}
             className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-rose-500 transition hover:border-rose-400 hover:bg-rose-50"
+            aria-label={`Remove ${descriptor}`}
+            title={`Remove ${rule.name}`}
           >
             Remove
           </button>
@@ -66,6 +73,8 @@ function TransferRuleCard({ rule, onEdit, onArchive, onRestore, onRemove }) {
           type="button"
           onClick={() => onEdit(rule)}
           className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+          aria-label={`Edit ${descriptor}`}
+          title={`Edit ${rule.name}`}
         >
           Edit
         </button>
@@ -89,8 +98,19 @@ TransferRuleCard.defaultProps = {
 };
 
 function TransferRulesPanel({ rules, onCreate, onEdit, onArchive, onRestore, onRemove }) {
+  const sortedRules = [...rules]
+    .filter((rule) => rule != null)
+    .sort((a, b) => {
+      const aActive = a.status === 'active';
+      const bActive = b.status === 'active';
+      if (aActive !== bActive) {
+        return aActive ? -1 : 1;
+      }
+      return a.name.localeCompare(b.name);
+    });
+
   return (
-    <div className="flex flex-col gap-4" id="wallet-rules">
+    <div className="flex flex-col gap-4" id="wallet-rules" aria-live="polite">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-lg font-semibold text-slate-900">Rules</h3>
         <button
@@ -101,9 +121,9 @@ function TransferRulesPanel({ rules, onCreate, onEdit, onArchive, onRestore, onR
           New rule
         </button>
       </div>
-      {rules.length ? (
+      {sortedRules.length ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {rules.map((rule) => (
+          {sortedRules.map((rule) => (
             <TransferRuleCard
               key={rule.id}
               rule={rule}

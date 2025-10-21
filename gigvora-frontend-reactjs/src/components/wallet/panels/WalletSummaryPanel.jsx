@@ -40,7 +40,7 @@ function AccountCard({ account, onSelect }) {
         <WalletStatusPill value={account.complianceStatus} />
       </div>
       <p className="mt-4 text-sm text-slate-500">Available</p>
-      <p className="text-xl font-semibold text-slate-900">{formatCurrency(account.availableBalance, account.currencyCode)}</p>
+      <p className="text-xl font-semibold text-slate-900">{formatCurrency(account.availableBalance, account.currencyCode ?? 'USD')}</p>
       <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-500">
         <span>{formatStatus(account.accountType)}</span>
         <span>•</span>
@@ -57,30 +57,35 @@ AccountCard.propTypes = {
 };
 
 function WalletSummaryPanel({ summary, accounts, pendingTransfers, onSelectAccount, onOpenTransfers }) {
+  const sanitizedAccounts = accounts.filter(Boolean);
+  const safeCurrency = summary?.currency ?? 'USD';
+  const safePendingTransfers = pendingTransfers?.filter(Boolean) ?? [];
+  const primaryAccount = sanitizedAccounts[0];
+
   const metrics = [
     {
       label: 'Total',
-      value: formatCurrency(summary.totalBalance, summary.currency),
+      value: formatCurrency(summary.totalBalance, safeCurrency),
       caption: 'Ledger balance',
       onClick: () => {
-        if (accounts[0]) {
-          onSelectAccount(accounts[0]);
+        if (primaryAccount) {
+          onSelectAccount(primaryAccount);
         }
       },
     },
     {
       label: 'Available',
-      value: formatCurrency(summary.availableBalance, summary.currency),
+      value: formatCurrency(summary.availableBalance, safeCurrency),
       caption: 'Ready to send',
       onClick: () => {
-        if (accounts[0]) {
-          onSelectAccount(accounts[0]);
+        if (primaryAccount) {
+          onSelectAccount(primaryAccount);
         }
       },
     },
     {
       label: 'On hold',
-      value: formatCurrency(summary.pendingHoldBalance, summary.currency),
+      value: formatCurrency(summary.pendingHoldBalance, safeCurrency),
       caption: 'Pending clearance',
     },
     {
@@ -90,7 +95,7 @@ function WalletSummaryPanel({ summary, accounts, pendingTransfers, onSelectAccou
     },
     {
       label: 'Pending',
-      value: summary.pendingTransferCount ?? 0,
+      value: summary.pendingTransferCount ?? safePendingTransfers.length,
       caption: 'Transfers in progress',
       onClick: onOpenTransfers,
     },
@@ -117,7 +122,7 @@ function WalletSummaryPanel({ summary, accounts, pendingTransfers, onSelectAccou
       <section className="flex flex-col gap-4" id="wallet-accounts">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-slate-900">Accounts</h3>
-          {pendingTransfers?.length ? (
+          {safePendingTransfers.length ? (
             <button
               type="button"
               onClick={onOpenTransfers}
@@ -127,9 +132,9 @@ function WalletSummaryPanel({ summary, accounts, pendingTransfers, onSelectAccou
             </button>
           ) : null}
         </div>
-        {accounts.length ? (
+        {sanitizedAccounts.length ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {accounts.map((account) => (
+            {sanitizedAccounts.map((account) => (
               <AccountCard key={account.id} account={account} onSelect={onSelectAccount} />
             ))}
           </div>
@@ -144,7 +149,18 @@ function WalletSummaryPanel({ summary, accounts, pendingTransfers, onSelectAccou
 }
 
 WalletSummaryPanel.propTypes = {
-  summary: PropTypes.object.isRequired,
+  summary: PropTypes.shape({
+    totalBalance: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+    availableBalance: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+    pendingHoldBalance: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+    accountCount: PropTypes.number,
+    pendingTransferCount: PropTypes.number,
+    nextScheduledTransferAt: PropTypes.string,
+    complianceStatus: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    ledgerIntegrity: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    appStoreCompliant: PropTypes.bool,
+    currency: PropTypes.string,
+  }).isRequired,
   accounts: PropTypes.arrayOf(PropTypes.object).isRequired,
   pendingTransfers: PropTypes.arrayOf(PropTypes.object),
   onSelectAccount: PropTypes.func.isRequired,

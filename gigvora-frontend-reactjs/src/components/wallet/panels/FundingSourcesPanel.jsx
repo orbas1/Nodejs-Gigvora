@@ -3,6 +3,16 @@ import WalletStatusPill from '../WalletStatusPill.jsx';
 import { formatCurrency, formatDate, formatStatus } from '../walletFormatting.js';
 
 function FundingSourceCard({ source, isPrimary, onEdit, onMakePrimary }) {
+  const currency = source.currencyCode ?? 'USD';
+  const descriptorParts = [formatStatus(source.type)];
+  if (isPrimary) {
+    descriptorParts.push('Primary funding source');
+  }
+  if (source.requiresManualReview) {
+    descriptorParts.push('Requires manual review');
+  }
+  const actionDescriptor = `${source.label} ${descriptorParts.join(' · ')}`.trim();
+
   return (
     <div className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between gap-3">
@@ -27,7 +37,7 @@ function FundingSourceCard({ source, isPrimary, onEdit, onMakePrimary }) {
         </div>
         <div className="flex flex-col gap-1">
           <span className="font-semibold text-slate-600">Limits</span>
-          <span>{source.limitAmount ? formatCurrency(source.limitAmount, source.currencyCode) : 'No limit'}</span>
+          <span>{source.limitAmount ? formatCurrency(source.limitAmount, currency) : 'No limit'}</span>
         </div>
       </div>
       <div className="mt-5 flex items-center justify-between">
@@ -36,11 +46,13 @@ function FundingSourceCard({ source, isPrimary, onEdit, onMakePrimary }) {
           {source.requiresManualReview ? <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-600">Review</span> : null}
         </div>
         <div className="flex items-center gap-2">
-          {!isPrimary ? (
+          {!isPrimary && onMakePrimary ? (
             <button
               type="button"
               onClick={() => onMakePrimary(source)}
               className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+              aria-label={`Set ${source.label} as the primary funding source`}
+              title={`Set ${source.label} as primary`}
             >
               Set primary
             </button>
@@ -49,6 +61,8 @@ function FundingSourceCard({ source, isPrimary, onEdit, onMakePrimary }) {
             type="button"
             onClick={() => onEdit(source)}
             className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+            aria-label={`Edit ${actionDescriptor}`}
+            title={`Edit ${source.label}`}
           >
             Edit
           </button>
@@ -71,8 +85,17 @@ FundingSourceCard.defaultProps = {
 };
 
 function FundingSourcesPanel({ sources, primaryId, onCreate, onEdit, onMakePrimary }) {
+  const sortedSources = [...sources].sort((a, b) => {
+    const aPrimary = primaryId === a.id || a.isPrimary;
+    const bPrimary = primaryId === b.id || b.isPrimary;
+    if (aPrimary !== bPrimary) {
+      return aPrimary ? -1 : 1;
+    }
+    return new Date(b.connectedAt ?? 0) - new Date(a.connectedAt ?? 0);
+  });
+
   return (
-    <div className="flex flex-col gap-4" id="wallet-sources">
+    <div className="flex flex-col gap-4" id="wallet-sources" aria-live="polite">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-lg font-semibold text-slate-900">Sources</h3>
         <button
@@ -83,9 +106,9 @@ function FundingSourcesPanel({ sources, primaryId, onCreate, onEdit, onMakePrima
           Add source
         </button>
       </div>
-      {sources.length ? (
+      {sortedSources.length ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {sources.map((source) => (
+          {sortedSources.map((source) => (
             <FundingSourceCard
               key={source.id}
               source={source}

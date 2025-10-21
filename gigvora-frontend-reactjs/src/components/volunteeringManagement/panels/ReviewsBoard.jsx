@@ -1,12 +1,31 @@
 import { PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
 import PropTypes from 'prop-types';
-import { formatDate } from '../utils.js';
+import { formatDate, formatRating } from '../utils.js';
 
 export default function ReviewsBoard({ reviews, onEdit, onDelete, onCreate }) {
+  const validRatings = reviews
+    .map((review) => Number.parseFloat(review.rating))
+    .filter((value) => Number.isFinite(value));
+  const averageRating = validRatings.length
+    ? validRatings.reduce((total, value) => total + value, 0) / validRatings.length
+    : null;
+  const averageLabel = averageRating != null ? formatRating(averageRating) : null;
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-slate-600">{reviews.length} reviews</span>
+        <div className="flex flex-wrap items-baseline gap-2 text-sm font-medium text-slate-600">
+          <span>{reviews.length} reviews</span>
+          {averageLabel ? (
+            <span
+              data-testid="reviews-average"
+              className="flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700"
+            >
+              <span aria-hidden="true">★</span>
+              <span>{averageLabel} / 5 average</span>
+            </span>
+          ) : null}
+        </div>
         {onCreate ? (
           <button
             type="button"
@@ -38,7 +57,12 @@ export default function ReviewsBoard({ reviews, onEdit, onDelete, onCreate }) {
                     <td className="px-4 py-3 align-top text-sm font-semibold text-slate-900">
                       {review.application?.role?.title ?? `Application #${review.applicationId}`}
                     </td>
-                    <td className="px-4 py-3 align-top text-sm text-slate-600">{review.rating}/5</td>
+                    <td className="px-4 py-3 align-top text-sm text-slate-600">
+                      {(() => {
+                        const ratingLabel = formatRating(review.rating);
+                        return ratingLabel === '—' ? ratingLabel : `${ratingLabel} / 5`;
+                      })()}
+                    </td>
                     <td className="px-4 py-3 align-top text-sm text-slate-600">
                       <span className="line-clamp-2">{review.headline || '—'}</span>
                     </td>

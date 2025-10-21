@@ -3,14 +3,23 @@ import WalletStatusPill from '../WalletStatusPill.jsx';
 import { formatCurrency, formatDate, formatStatus } from '../walletFormatting.js';
 
 function EscrowCard({ account, onSelect }) {
+  const label = account.name ?? account.label ?? 'Escrow';
+  const currency = account.currencyCode ?? 'USD';
+  const accessibilityLabel = `${label} escrow account, balance ${formatCurrency(
+    account.currentBalance,
+    currency,
+  )}, status ${formatStatus(account.status)}`;
+
   return (
     <button
       type="button"
       onClick={() => onSelect(account)}
       className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-1 hover:border-accent/60 hover:shadow-lg"
+      aria-label={accessibilityLabel}
+      title={accessibilityLabel}
     >
       <div className="flex items-center justify-between gap-3">
-        <h4 className="text-base font-semibold text-slate-900">{account.name ?? account.label ?? 'Escrow'}</h4>
+        <h4 className="text-base font-semibold text-slate-900">{label}</h4>
         <WalletStatusPill value={account.status} />
       </div>
       <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-slate-500">
@@ -43,14 +52,23 @@ EscrowCard.propTypes = {
 };
 
 function EscrowPanel({ accounts, onSelectAccount }) {
+  const sortedAccounts = [...accounts].sort((a, b) => {
+    const balanceA = Number(a.currentBalance ?? 0);
+    const balanceB = Number(b.currentBalance ?? 0);
+    if (balanceA === balanceB) {
+      return new Date(b.updatedAt ?? 0) - new Date(a.updatedAt ?? 0);
+    }
+    return balanceB - balanceA;
+  });
+
   return (
-    <div className="flex flex-col gap-4" id="wallet-escrow">
+    <div className="flex flex-col gap-4" id="wallet-escrow" aria-live="polite">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-lg font-semibold text-slate-900">Escrow</h3>
       </div>
-      {accounts.length ? (
+      {sortedAccounts.length ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {accounts.map((account) => (
+          {sortedAccounts.map((account) => (
             <EscrowCard key={account.id} account={account} onSelect={onSelectAccount} />
           ))}
         </div>

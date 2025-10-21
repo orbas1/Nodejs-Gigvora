@@ -3,11 +3,21 @@ import WalletStatusPill from '../WalletStatusPill.jsx';
 import { formatCurrency, formatDateTime, formatStatus } from '../walletFormatting.js';
 
 function TransferRow({ transfer, onSelect }) {
+  const currency = transfer.currencyCode ?? 'USD';
+  const descriptor = `${formatStatus(transfer.transferType)} transfer ${formatCurrency(
+    transfer.amount,
+    currency,
+  )} from ${transfer.fundingSource?.label ?? 'Default wallet'} scheduled ${formatDateTime(
+    transfer.scheduledAt ?? transfer.createdAt,
+  )}. Status ${formatStatus(transfer.status)}`;
+
   return (
     <button
       type="button"
       onClick={() => onSelect(transfer)}
       className="flex flex-col rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition hover:-translate-y-1 hover:border-accent/60 hover:shadow-lg"
+      aria-label={descriptor}
+      title={descriptor}
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex flex-col">
@@ -31,8 +41,12 @@ TransferRow.propTypes = {
 };
 
 function TransferMovesPanel({ transfers, onCreate, onSelectTransfer }) {
+  const sortedTransfers = [...transfers]
+    .filter((transfer) => transfer != null)
+    .sort((a, b) => new Date(b.scheduledAt ?? b.createdAt ?? 0) - new Date(a.scheduledAt ?? a.createdAt ?? 0));
+
   return (
-    <div className="flex flex-col gap-4" id="wallet-moves">
+    <div className="flex flex-col gap-4" id="wallet-moves" aria-live="polite">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-lg font-semibold text-slate-900">Moves</h3>
         <button
@@ -43,9 +57,9 @@ function TransferMovesPanel({ transfers, onCreate, onSelectTransfer }) {
           Schedule
         </button>
       </div>
-      {transfers.length ? (
+      {sortedTransfers.length ? (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {transfers.map((transfer) => (
+          {sortedTransfers.map((transfer) => (
             <TransferRow key={transfer.id} transfer={transfer} onSelect={onSelectTransfer} />
           ))}
         </div>

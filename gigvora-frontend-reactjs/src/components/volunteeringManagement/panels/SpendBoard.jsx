@@ -1,9 +1,13 @@
 import { PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
 import PropTypes from 'prop-types';
-import { formatCurrency, formatDate } from '../utils.js';
+import { formatCurrency, formatDate, humanizeCategory } from '../utils.js';
 
 export default function SpendBoard({ entries, totals, onEdit, onDelete, onCreate }) {
   const currencies = Object.entries(totals ?? {});
+  const formattedTotals = currencies.map(([currency, amount]) => ({
+    currency,
+    label: `${currency}: ${formatCurrency(amount, currency)}`,
+  }));
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between">
@@ -19,9 +23,9 @@ export default function SpendBoard({ entries, totals, onEdit, onDelete, onCreate
         ) : null}
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
-        {currencies.map(([currency, amount]) => (
+        {formattedTotals.map(({ currency, label }) => (
           <span key={currency} className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-            {currency}: {formatCurrency(amount, currency)}
+            {label}
           </span>
         ))}
       </div>
@@ -46,7 +50,7 @@ export default function SpendBoard({ entries, totals, onEdit, onDelete, onCreate
                     <td className="px-4 py-3 align-top text-sm font-semibold text-slate-900">
                       {entry.application?.role?.title ?? `Application #${entry.applicationId}`}
                     </td>
-                    <td className="px-4 py-3 align-top text-sm text-slate-600">{entry.category.replace(/_/g, ' ')}</td>
+                    <td className="px-4 py-3 align-top text-sm text-slate-600">{humanizeCategory(entry.category)}</td>
                     <td className="px-4 py-3 align-top text-sm text-slate-600">
                       {formatCurrency(entry.amount, entry.currencyCode ?? 'USD')}
                     </td>
@@ -84,7 +88,7 @@ export default function SpendBoard({ entries, totals, onEdit, onDelete, onCreate
 
 const spendEntryShape = PropTypes.shape({
   id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-  category: PropTypes.string.isRequired,
+  category: PropTypes.string,
   amount: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
   currencyCode: PropTypes.string,
   incurredAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
