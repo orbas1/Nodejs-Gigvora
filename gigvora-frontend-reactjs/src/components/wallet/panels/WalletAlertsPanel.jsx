@@ -10,7 +10,7 @@ const toneMap = {
 
 function WalletAlertsPanel({ alerts }) {
   return (
-    <div className="flex flex-col gap-4" id="wallet-alerts">
+    <div className="flex flex-col gap-4" id="wallet-alerts" aria-live="polite">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-lg font-semibold text-slate-900">Alerts</h3>
         <WalletStatusPill value={alerts.length ? 'attention' : 'clear'} />
@@ -19,8 +19,9 @@ function WalletAlertsPanel({ alerts }) {
         <div className="flex flex-col gap-3">
           {alerts.map((alert, index) => (
             <div
-              key={`${alert.message}-${index}`}
+              key={alert.id ?? `${alert.message}-${index}`}
               className={`rounded-2xl border px-4 py-3 text-sm font-medium ${toneMap[alert.severity] ?? toneMap.warning}`}
+              role={alert.severity === 'critical' ? 'alert' : undefined}
             >
               {alert.message}
             </div>
@@ -35,8 +36,14 @@ function WalletAlertsPanel({ alerts }) {
   );
 }
 
+const alertShape = PropTypes.shape({
+  id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  message: PropTypes.string.isRequired,
+  severity: PropTypes.oneOf(['critical', 'warning', 'info', 'success']),
+});
+
 WalletAlertsPanel.propTypes = {
-  alerts: PropTypes.arrayOf(PropTypes.object).isRequired,
+  alerts: PropTypes.arrayOf(alertShape).isRequired,
 };
 
 export default WalletAlertsPanel;

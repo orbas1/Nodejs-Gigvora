@@ -1,17 +1,63 @@
+import { useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 
 function WalletDrawer({ title, subtitle, open, onClose, children, footer }) {
+  const panelRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+
+    const previousOverflow = typeof document !== 'undefined' ? document.body.style.overflow : undefined;
+    if (typeof document !== 'undefined') {
+      document.body.style.overflow = 'hidden';
+    }
+
+    const handleKeydown = (event) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeydown);
+
+    if (panelRef.current && typeof panelRef.current.focus === 'function') {
+      panelRef.current.focus();
+    }
+
+    return () => {
+      window.removeEventListener('keydown', handleKeydown);
+      if (typeof document !== 'undefined') {
+        document.body.style.overflow = previousOverflow ?? '';
+      }
+    };
+  }, [open, onClose]);
+
   if (!open) {
     return null;
   }
 
+  const handleBackdropClick = (event) => {
+    if (event.target === event.currentTarget) {
+      onClose();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-stretch justify-end bg-slate-900/40 px-4 py-6 sm:px-8">
+    <div
+      className="fixed inset-0 z-50 flex items-stretch justify-end bg-slate-900/40 px-4 py-6 sm:px-8"
+      onMouseDown={handleBackdropClick}
+      role="presentation"
+      data-testid="wallet-drawer-backdrop"
+    >
       <div
-        className="relative flex h-full w-full max-w-xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"
+        ref={panelRef}
+        className="relative flex h-full w-full max-w-xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl focus:outline-none"
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        tabIndex={-1}
       >
         <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5">
           <div className="flex min-w-0 flex-col">
