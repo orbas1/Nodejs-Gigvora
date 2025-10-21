@@ -2,25 +2,16 @@ process.env.SKIP_SEQUELIZE_BOOTSTRAP = process.env.SKIP_SEQUELIZE_BOOTSTRAP ?? '
 
 import express from 'express';
 import request from 'supertest';
+import jwt from 'jsonwebtoken';
 import mentorshipRoutes from '../src/routes/mentorshipRoutes.js';
 import { __resetMentorshipState } from '../src/services/mentorshipService.js';
+
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret';
 
 function createTestApp() {
   const app = express();
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
-  app.use((req, res, next) => {
-    const userId = req.headers?.['x-user-id'];
-    const rolesHeader = req.headers?.['x-workspace-roles'] ?? req.headers?.['x-user-role'] ?? req.headers?.['x-role'];
-    if (userId || rolesHeader) {
-      req.user = {
-        ...(req.user ?? {}),
-        id: userId ? Number.parseInt(userId, 10) : undefined,
-        roles: rolesHeader ? rolesHeader.split(/[;,\s]+/).map((role) => role.trim()).filter(Boolean) : undefined,
-      };
-    }
-    next();
-  });
   app.use('/api/mentors', mentorshipRoutes);
   app.use((err, req, res, next) => {
     if (res.headersSent) {
@@ -37,9 +28,9 @@ function createTestApp() {
 
 const app = createTestApp();
 
+const mentorToken = jwt.sign({ id: 99, roles: ['mentor'] }, process.env.JWT_SECRET, { expiresIn: '1h' });
 const mentorHeaders = {
-  'x-workspace-roles': 'mentor',
-  'x-user-id': '99',
+  Authorization: `Bearer ${mentorToken}`,
 };
 
 describe('Mentorship routes', () => {
@@ -47,10 +38,10 @@ describe('Mentorship routes', () => {
     __resetMentorshipState();
   });
 
-  it('rejects access without mentor role', async () => {
+  it('requires authentication before enforcing mentor role', async () => {
     const response = await request(app).get('/api/mentors/dashboard');
-    expect(response.status).toBe(403);
-    expect(response.body?.message).toMatch(/mentor access required/i);
+    expect(response.status).toBe(401);
+    expect(response.body?.message).toMatch(/authentication required/i);
   });
 
   it('returns a mentor dashboard snapshot', async () => {

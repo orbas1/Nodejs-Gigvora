@@ -1,12 +1,34 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import asyncHandler from '../utils/asyncHandler.js';
 import * as siteController from '../controllers/siteController.js';
+import validateRequest from '../middleware/validateRequest.js';
+import { optionalNumber, optionalTrimmedString } from '../validation/primitives.js';
 
 const router = Router();
 
+const sitePagesQuerySchema = z
+  .object({
+    limit: optionalNumber({ min: 1, max: 50, integer: true }).transform((value) => value ?? undefined),
+  })
+  .strip();
+
+const sitePageParamsSchema = z
+  .object({
+    slug: optionalTrimmedString({ max: 180 })
+      .refine((value) => value != null, { message: 'slug is required.' })
+      .transform((value) => value ?? undefined),
+  })
+  .transform((value) => ({ slug: value.slug }))
+  .strip();
+
 router.get('/settings', asyncHandler(siteController.settings));
 router.get('/navigation', asyncHandler(siteController.navigation));
-router.get('/pages', asyncHandler(siteController.index));
-router.get('/pages/:slug', asyncHandler(siteController.show));
+router.get('/pages', validateRequest({ query: sitePagesQuerySchema }), asyncHandler(siteController.index));
+router.get(
+  '/pages/:slug',
+  validateRequest({ params: sitePageParamsSchema }),
+  asyncHandler(siteController.show),
+);
 
 export default router;

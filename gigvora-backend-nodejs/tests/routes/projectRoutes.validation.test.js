@@ -12,6 +12,7 @@ const events = jest.fn((req, res) => res.json({ projectId: req.params.projectId,
 
 const projectControllerModule = new URL('../../src/controllers/projectController.js', import.meta.url);
 const authorizationModule = new URL('../../src/middleware/authorization.js', import.meta.url);
+const authenticationModule = new URL('../../src/middleware/authentication.js', import.meta.url);
 
 jest.unstable_mockModule(projectControllerModule.pathname, () => ({
   __esModule: true,
@@ -28,6 +29,18 @@ jest.unstable_mockModule(authorizationModule.pathname, () => ({
     req.user = { roles: ['project_manager'] };
     next();
   }),
+}));
+
+jest.unstable_mockModule(authenticationModule.pathname, () => ({
+  authenticateRequest: () => (req, _res, next) => {
+    req.user = { id: 1, memberships: [], roles: ['project_manager'] };
+    next();
+  },
+  authenticate: () => (req, _res, next) => {
+    req.user = { id: 1, roles: ['project_manager'] };
+    next();
+  },
+  requireRoles: () => (_req, _res, next) => next(),
 }));
 
 let app;
