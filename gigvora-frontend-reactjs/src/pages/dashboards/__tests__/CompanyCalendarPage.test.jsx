@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import CompanyCalendarPage from '../CompanyCalendarPage.jsx';
 import useCompanyCalendar from '../../../hooks/useCompanyCalendar.js';
+import useSession from '../../../hooks/useSession.js';
 import {
   createCompanyCalendarEvent,
   updateCompanyCalendarEvent,
@@ -15,12 +16,26 @@ vi.mock('../../../layouts/DashboardLayout.jsx', () => ({
   default: ({ children }) => <div data-testid="dashboard-layout">{children}</div>,
 }));
 
+vi.mock('../../../components/dashboard/AccessDeniedPanel.jsx', () => ({
+  __esModule: true,
+  default: ({ children = null, ...props }) => (
+    <div data-testid="access-denied" data-props={JSON.stringify(props)}>
+      {children}
+    </div>
+  ),
+}));
+
 vi.mock('../../../components/company/calendar/CalendarEventDrawer.jsx', () => ({
   __esModule: true,
   default: ({ open, children }) => (open ? <div data-testid="calendar-drawer">{children}</div> : null),
 }));
 
 vi.mock('../../../hooks/useCompanyCalendar.js', () => ({
+  __esModule: true,
+  default: vi.fn(),
+}));
+
+vi.mock('../../../hooks/useSession.js', () => ({
   __esModule: true,
   default: vi.fn(),
 }));
@@ -85,6 +100,7 @@ async function renderPage(initialEntry = '/dashboard/company/calendar?workspaceI
       <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
           <Route path="/dashboard/company/calendar" element={<CompanyCalendarPage />} />
+          <Route path="/login" element={<div data-testid="login-page">Login</div>} />
         </Routes>
       </MemoryRouter>,
     );
@@ -100,6 +116,7 @@ describe('CompanyCalendarPage', () => {
     createCompanyCalendarEvent.mockResolvedValue({ id: 'evt-new' });
     updateCompanyCalendarEvent.mockResolvedValue({});
     deleteCompanyCalendarEvent.mockResolvedValue();
+    useSession.mockReturnValue({ isAuthenticated: true, memberships: ['company', 'admin'] });
   });
 
   it('creates a new calendar event through the drawer form', async () => {
@@ -164,5 +181,23 @@ describe('CompanyCalendarPage', () => {
     await waitFor(() => {
       expect(baseCalendarState.refresh).toHaveBeenCalledWith({ force: true });
     });
+  });
+
+  it('redirects unauthenticated users to login', async () => {
+    useSession.mockReturnValue({ isAuthenticated: false, memberships: [] });
+
+    await renderPage('/dashboard/company/calendar');
+
+    expect(screen.queryByTestId('dashboard-layout')).not.toBeInTheDocument();
+    expect(await screen.findByTestId('login-page')).toBeInTheDocument();
+  });
+
+  it('shows access denied panel when membership is missing', async () => {
+    useSession.mockReturnValue({ isAuthenticated: true, memberships: ['user'] });
+
+    await renderPage('/dashboard/company/calendar?workspaceId=101');
+
+    expect(screen.getByTestId('access-denied')).toBeInTheDocument();
+    expect(screen.queryByTestId('calendar-drawer')).not.toBeInTheDocument();
   });
 });

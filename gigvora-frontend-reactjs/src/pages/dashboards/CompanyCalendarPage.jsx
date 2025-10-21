@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   BriefcaseIcon,
   ChatBubbleLeftRightIcon,
@@ -17,6 +17,8 @@ import CalendarEventList from '../../components/company/calendar/CalendarEventLi
 import CalendarAutomationPanel from '../../components/company/calendar/CalendarAutomationPanel.jsx';
 import CalendarEventDetails from '../../components/company/calendar/CalendarEventDetails.jsx';
 import useCompanyCalendar from '../../hooks/useCompanyCalendar.js';
+import useSession from '../../hooks/useSession.js';
+import AccessDeniedPanel from '../../components/dashboard/AccessDeniedPanel.jsx';
 import {
   createCompanyCalendarEvent,
   updateCompanyCalendarEvent,
@@ -80,6 +82,8 @@ const MENU_SECTIONS = [
   },
 ];
 
+const AVAILABLE_DASHBOARDS = ['company', 'headhunter', 'agency', 'user'];
+
 function normalizeFilterState(filters) {
   return {
     from: filters?.from ?? null,
@@ -114,6 +118,7 @@ function normaliseWorkspaceId(value) {
 }
 
 export default function CompanyCalendarPage() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const workspaceIdParam = searchParams.get('workspaceId');
   const [workspaceId, setWorkspaceId] = useState(normaliseWorkspaceId(workspaceIdParam));
@@ -129,9 +134,22 @@ export default function CompanyCalendarPage() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [viewingEvent, setViewingEvent] = useState(null);
 
-  const calendar = useCompanyCalendar({ workspaceId: numericWorkspaceId, filters, enabled: Boolean(numericWorkspaceId) });
+  const session = useSession();
+  const { isAuthenticated, memberships = [] } = session ?? {};
+  const isCompanyMember = Array.isArray(memberships) && memberships.includes('company');
+
+  const calendar = useCompanyCalendar({
+    workspaceId: numericWorkspaceId,
+    filters,
+    enabled: Boolean(numericWorkspaceId) && isAuthenticated && isCompanyMember,
+  });
+
+  const membershipsList = useMemo(() => (Array.isArray(memberships) ? memberships : []), [memberships]);
 
   useEffect(() => {
+    if (!isAuthenticated || !isCompanyMember) {
+      return;
+    }
     if (!workspaceId && calendar.availableWorkspaces?.length) {
       const nextWorkspaceId = String(calendar.availableWorkspaces[0].id);
       setWorkspaceId(nextWorkspaceId);
@@ -141,7 +159,7 @@ export default function CompanyCalendarPage() {
         return next;
       });
     }
-  }, [workspaceId, calendar.availableWorkspaces, setSearchParams]);
+  }, [workspaceId, calendar.availableWorkspaces, setSearchParams, isAuthenticated, isCompanyMember]);
 
   useEffect(() => {
     if (workspaceIdParam && workspaceIdParam !== workspaceId) {
@@ -296,10 +314,14 @@ export default function CompanyCalendarPage() {
     if (!numericWorkspaceId) {
       throw new Error('Select a workspace to save events.');
     }
+    if (!isCompanyMember) {
+      console.warn('Blocked calendar mutation for non-company membership.');
+      return;
+    }
     setSaving(true);
     try {
       if (editingEvent) {
-        await updateCompanyCalendarEvent(editingEvent.id, payload);
+        await updateCompanyCalendarEvent(editingEvent.id, { workspaceId: numericWorkspaceId, ...payload });
       } else {
         await createCompanyCalendarEvent({ workspaceId: numericWorkspaceId, ...payload });
       }
@@ -316,6 +338,10 @@ export default function CompanyCalendarPage() {
   };
 
   const handleDeleteEvent = async (event) => {
+    if (!isCompanyMember) {
+      console.warn('Blocked calendar deletion for non-company membership.');
+      return;
+    }
     if (!event?.id) {
       return;
     }
@@ -364,6 +390,28 @@ export default function CompanyCalendarPage() {
   const ActiveTypeIcon = activePanel.eventType ? EVENT_TYPE_METADATA[activePanel.eventType]?.icon : null;
   const activeAccent = activePanel.eventType ? EVENT_TYPE_METADATA[activePanel.eventType]?.accent : null;
 
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace state={{ redirectTo: '/dashboard/company/calendar' }} />;
+  }
+
+  if (!isCompanyMember) {
+    return (
+      <DashboardLayout
+        currentDashboard="company"
+        title="Calendar"
+        subtitle="All key dates in one place"
+        description="Activate company membership to coordinate workforce timelines, interviews, and volunteering programs."
+        availableDashboards={AVAILABLE_DASHBOARDS}
+        menuSections={MENU_SECTIONS}
+      >
+        <AccessDeniedPanel
+          availableDashboards={membershipsList.filter((membership) => membership !== 'company')}
+          onNavigate={(dashboard) => navigate(`/dashboard/${dashboard}`)}
+        />
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout
       currentDashboard="company"
@@ -372,6 +420,7 @@ export default function CompanyCalendarPage() {
       menuSections={MENU_SECTIONS}
       activeMenuItem={activeMenuItem}
       onMenuItemSelect={(itemId) => handlePanelSelect(itemId)}
+      availableDashboards={AVAILABLE_DASHBOARDS}
     >
       <div className="space-y-8">
         <section className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
