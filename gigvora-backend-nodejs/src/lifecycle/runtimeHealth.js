@@ -1,14 +1,33 @@
-const state = {
-  startedAt: new Date().toISOString(),
-  http: {
+function createInitialHttpState() {
+  return {
     status: 'starting',
     port: null,
     updatedAt: new Date().toISOString(),
     reason: null,
-  },
-  dependencies: {},
-  workers: {},
-};
+  };
+}
+
+function createInitialState() {
+  return {
+    startedAt: new Date().toISOString(),
+    http: createInitialHttpState(),
+    dependencies: {},
+    workers: {},
+  };
+}
+
+const state = createInitialState();
+
+function deepClone(value) {
+  if (typeof globalThis.structuredClone === 'function') {
+    try {
+      return globalThis.structuredClone(value);
+    } catch (error) {
+      // Fallback to JSON strategy below.
+    }
+  }
+  return JSON.parse(JSON.stringify(value));
+}
 
 function serializeError(error) {
   if (!error) {
@@ -30,6 +49,12 @@ function serializeError(error) {
   if (error.status || error.statusCode) {
     plain.status = error.status || error.statusCode;
   }
+  if (error.details) {
+    plain.details = error.details;
+  }
+  if (error.meta) {
+    plain.meta = error.meta;
+  }
   return plain;
 }
 
@@ -42,40 +67,40 @@ function setStateSegment(collection, name, status, meta = {}) {
   };
 }
 
-export function markHttpServerStarting() {
+function setHttpState(status, { port = state.http.port, reason = null } = {}) {
   state.http = {
-    status: 'starting',
-    port: null,
+    status,
+    port,
     updatedAt: new Date().toISOString(),
-    reason: null,
+    reason,
   };
+}
+
+export function markHttpServerStarting() {
+  setHttpState('starting', { port: null, reason: null });
 }
 
 export function markHttpServerReady({ port } = {}) {
-  state.http = {
-    status: 'ready',
-    port: port ?? state.http.port,
-    updatedAt: new Date().toISOString(),
-    reason: null,
-  };
+  setHttpState('ready', { port: port ?? state.http.port, reason: null });
 }
 
 export function markHttpServerClosing({ reason } = {}) {
-  state.http = {
-    status: 'closing',
-    port: state.http.port,
-    updatedAt: new Date().toISOString(),
-    reason: reason ?? null,
-  };
+  setHttpState('closing', { reason: reason ?? null });
 }
 
 export function markHttpServerStopped({ reason } = {}) {
-  state.http = {
-    status: 'stopped',
-    port: state.http.port,
-    updatedAt: new Date().toISOString(),
-    reason: reason ?? null,
-  };
+  setHttpState('stopped', { reason: reason ?? null });
+}
+
+export function markHttpServerError(error, { port } = {}) {
+  const reason = error?.message ?? 'Server error';
+  const meta = serializeError(error);
+  setHttpState('error', { port: port ?? state.http.port, reason });
+  if (meta) {
+    state.http.error = meta;
+  } else {
+    delete state.http.error;
+  }
 }
 
 export function markDependencyHealthy(name, meta = {}) {
@@ -111,11 +136,7 @@ export function markWorkerFailed(name, error, meta = {}) {
 }
 
 export function getHealthState() {
-  return JSON.parse(
-    JSON.stringify({
-      ...state,
-    }),
-  );
+  return deepClone(state);
 }
 
 function evaluateStatuses(records) {
@@ -133,6 +154,9 @@ function evaluateStatuses(records) {
 }
 
 export function getOverallStatus() {
+  if (state.http.status === 'error') {
+    return 'error';
+  }
   if (state.http.status === 'closing' || state.http.status === 'stopped') {
     return 'degraded';
   }
@@ -155,8 +179,16 @@ export function buildHealthReport() {
     status: getOverallStatus(),
     timestamp: new Date().toISOString(),
     uptimeSeconds: process.uptime(),
-    http: { ...state.http },
-    dependencies: { ...state.dependencies },
-    workers: { ...state.workers },
+    http: deepClone(state.http),
+    dependencies: deepClone(state.dependencies),
+    workers: deepClone(state.workers),
   };
+}
+
+export function resetRuntimeHealthState() {
+  const initial = createInitialState();
+  state.startedAt = initial.startedAt;
+  state.http = initial.http;
+  state.dependencies = initial.dependencies;
+  state.workers = initial.workers;
 }

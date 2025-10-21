@@ -5,9 +5,12 @@ import {
   ProviderWorkspace,
 } from '../models/index.js';
 import { AuthenticationError, AuthorizationError } from '../utils/errors.js';
+import { resolveAccessTokenSecret } from '../utils/jwtSecrets.js';
 
-const DEFAULT_SECRET = process.env.JWT_SECRET || 'dev-insecure-secret';
 const HEADER_OVERRIDE_ENABLED = (process.env.AUTH_HEADER_OVERRIDE ?? '').toLowerCase() === 'true';
+const NODE_ENV = (process.env.NODE_ENV ?? '').toLowerCase();
+const HEADER_OVERRIDE_ALLOWED =
+  NODE_ENV === 'test' || (HEADER_OVERRIDE_ENABLED && NODE_ENV !== 'production');
 
 function extractToken(req) {
   const header = req.headers?.authorization ?? req.headers?.Authorization;
@@ -30,7 +33,7 @@ function extractToken(req) {
 }
 
 function parseHeaderOverride(req) {
-  if (!HEADER_OVERRIDE_ENABLED && process.env.NODE_ENV === 'production') {
+  if (!HEADER_OVERRIDE_ALLOWED) {
     return null;
   }
   const rawId = req.headers?.['x-user-id'] ?? req.headers?.['x-actor-id'];
@@ -106,7 +109,12 @@ async function hydrateUser(user, payload) {
 export async function resolveAuthenticatedUser(req, { optional }) {
   const token = extractToken(req);
   if (token) {
-    const payload = jwt.verify(token, DEFAULT_SECRET);
+    let payload;
+    try {
+      payload = jwt.verify(token, resolveAccessTokenSecret());
+    } catch (error) {
+      throw new AuthenticationError('Invalid or expired authentication token.', { cause: error });
+    }
     if (!payload?.id) {
       throw new AuthenticationError('Invalid authentication token.');
     }
@@ -119,16 +127,9 @@ export async function resolveAuthenticatedUser(req, { optional }) {
     return hydrateUser(user, payload);
   }
 
-  if (!optional) {
-    const override = parseHeaderOverride(req);
-    if (override) {
-      return override;
-    }
-  } else {
-    const override = parseHeaderOverride(req);
-    if (override) {
-      return override;
-    }
+  const override = parseHeaderOverride(req);
+  if (override) {
+    return override;
   }
 
   if (optional) {
