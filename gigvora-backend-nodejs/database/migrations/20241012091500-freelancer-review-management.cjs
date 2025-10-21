@@ -1,10 +1,43 @@
 'use strict';
 
+const STATUS_VALUES = ['draft', 'pending', 'published', 'archived'];
+const TABLE_NAME = 'freelancer_reviews';
+const RATING_CONSTRAINT = 'freelancer_reviews_rating_range';
+
+const resolveJsonType = (queryInterface, Sequelize) => {
+  const dialect = queryInterface.sequelize.getDialect();
+  return ['postgres', 'postgresql'].includes(dialect) ? Sequelize.JSONB : Sequelize.JSON;
+};
+
+const dropEnum = async (queryInterface, enumName, transaction) => {
+  const dialect = queryInterface.sequelize.getDialect();
+  if (dialect === 'postgres' || dialect === 'postgresql') {
+    await queryInterface.sequelize.query(`DROP TYPE IF EXISTS "${enumName}";`, { transaction });
+  }
+};
+
+const addRatingConstraint = async (queryInterface, transaction) => {
+  const dialect = queryInterface.sequelize.getDialect();
+  if (['postgres', 'postgresql'].includes(dialect)) {
+    await queryInterface.sequelize.query(
+      `ALTER TABLE "${TABLE_NAME}" ADD CONSTRAINT "${RATING_CONSTRAINT}" CHECK (rating IS NULL OR (rating >= 0 AND rating <= 5));`,
+      { transaction },
+    );
+  } else {
+    await queryInterface.sequelize.query(
+      `ALTER TABLE \`${TABLE_NAME}\` ADD CONSTRAINT \`${RATING_CONSTRAINT}\` CHECK (rating IS NULL OR (rating >= 0 AND rating <= 5));`,
+      { transaction },
+    );
+  }
+};
+
 module.exports = {
   async up(queryInterface, Sequelize) {
+    const jsonType = resolveJsonType(queryInterface, Sequelize);
+
     await queryInterface.sequelize.transaction(async (transaction) => {
       await queryInterface.createTable(
-        'freelancer_reviews',
+        TABLE_NAME,
         {
           id: { type: Sequelize.INTEGER, allowNull: false, autoIncrement: true, primaryKey: true },
           freelancerId: {
@@ -18,42 +51,68 @@ module.exports = {
           reviewerName: { type: Sequelize.STRING(180), allowNull: true },
           reviewerRole: { type: Sequelize.STRING(180), allowNull: true },
           reviewerCompany: { type: Sequelize.STRING(180), allowNull: true },
+          reviewerEmail: { type: Sequelize.STRING(255), allowNull: true },
           rating: { type: Sequelize.DECIMAL(3, 2), allowNull: true },
           status: {
-            type: Sequelize.ENUM('draft', 'pending', 'published', 'archived'),
+            type: Sequelize.ENUM(...STATUS_VALUES),
             allowNull: false,
             defaultValue: 'draft',
           },
           highlighted: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false },
-          reviewSource: { type: Sequelize.STRING(120), allowNull: true },
+          reviewSource: { type: Sequelize.STRING(180), allowNull: true },
           body: { type: Sequelize.TEXT, allowNull: false },
           capturedAt: { type: Sequelize.DATE, allowNull: true },
           publishedAt: { type: Sequelize.DATE, allowNull: true },
           previewUrl: { type: Sequelize.STRING(512), allowNull: true },
           heroImageUrl: { type: Sequelize.STRING(512), allowNull: true },
-          tags: { type: Sequelize.JSONB ?? Sequelize.JSON, allowNull: true },
-          attachments: { type: Sequelize.JSONB ?? Sequelize.JSON, allowNull: true },
-          responses: { type: Sequelize.JSONB ?? Sequelize.JSON, allowNull: true },
+          tags: { type: jsonType, allowNull: true, defaultValue: [] },
+          attachments: { type: jsonType, allowNull: true, defaultValue: [] },
+          responses: { type: jsonType, allowNull: true, defaultValue: [] },
           privateNotes: { type: Sequelize.TEXT, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          createdById: {
+            type: Sequelize.INTEGER,
+            allowNull: true,
+            references: { model: 'users', key: 'id' },
+            onDelete: 'SET NULL',
+            onUpdate: 'CASCADE',
+          },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
         },
         { transaction },
       );
 
-      await queryInterface.addIndex('freelancer_reviews', ['freelancerId'], { transaction });
-      await queryInterface.addIndex('freelancer_reviews', ['freelancerId', 'status'], { transaction });
-      await queryInterface.addIndex('freelancer_reviews', ['status'], { transaction });
-      await queryInterface.addIndex('freelancer_reviews', ['highlighted'], { transaction });
+      await addRatingConstraint(queryInterface, transaction);
+
+      await queryInterface.addIndex(TABLE_NAME, ['freelancerId'], {
+        transaction,
+        name: 'freelancer_reviews_freelancer_idx',
+      });
+      await queryInterface.addIndex(TABLE_NAME, ['status'], {
+        transaction,
+        name: 'freelancer_reviews_status_idx',
+      });
+      await queryInterface.addIndex(TABLE_NAME, ['highlighted'], {
+        transaction,
+        name: 'freelancer_reviews_highlighted_idx',
+      });
+      await queryInterface.addIndex(TABLE_NAME, ['publishedAt'], {
+        transaction,
+        name: 'freelancer_reviews_published_at_idx',
+      });
+      await queryInterface.addConstraint(TABLE_NAME, {
+        type: 'unique',
+        fields: ['freelancerId', 'title'],
+        name: 'freelancer_reviews_freelancer_title_unique',
+        transaction,
+      });
     });
   },
 
   async down(queryInterface) {
     await queryInterface.sequelize.transaction(async (transaction) => {
-      await queryInterface.dropTable('freelancer_reviews', { transaction });
-      await queryInterface.sequelize
-        .query('DROP TYPE IF EXISTS "enum_freelancer_reviews_status";', { transaction })
-        .catch(() => {});
+      await queryInterface.dropTable(TABLE_NAME, { transaction });
+      await dropEnum(queryInterface, 'enum_freelancer_reviews_status', transaction);
     });
   },
 };
