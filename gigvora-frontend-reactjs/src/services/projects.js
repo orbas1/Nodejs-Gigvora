@@ -1,247 +1,380 @@
 import apiClient from './apiClient.js';
 
-export async function createProject(payload) {
-  return apiClient.post('/projects', payload);
-}
+const PROJECTS_BASE_PATH = '/projects';
+const DEFAULT_EVENT_LIMIT = 20;
+const MAX_EVENT_LIMIT = 100;
 
-export async function updateProject(projectId, payload) {
-  return apiClient.patch(`/projects/${projectId}`, payload);
-}
-
-export async function updateProjectAutoAssign(projectId, payload) {
-  return apiClient.patch(`/projects/${projectId}/auto-assign`, payload);
-}
-
-export async function fetchProject(projectId, { signal } = {}) {
-  return apiClient.get(`/projects/${projectId}`, { signal });
-}
-
-export async function fetchProjectEvents(projectId, { limit } = {}) {
-  return apiClient.get(`/projects/${projectId}/events`, { params: { limit } });
-}
-
-export async function listProjectBlueprints() {
-  return apiClient.get('/projects/blueprints');
-}
-
-export async function fetchProjectBlueprint(projectId) {
-  return apiClient.get(`/projects/${projectId}/blueprint`);
-}
-
-export async function upsertProjectBlueprint(projectId, payload) {
-  return apiClient.put(`/projects/${projectId}/blueprint`, payload);
-}
-
-export async function fetchProjectWorkspace(projectId) {
-  return apiClient.get(`/projects/${projectId}/workspace`);
-}
-
-export async function updateProjectWorkspaceBrief(projectId, payload) {
-  return apiClient.put(`/projects/${projectId}/workspace/brief`, payload);
-}
-
-export async function updateProjectWorkspaceApproval(projectId, approvalId, payload) {
-  return apiClient.patch(`/projects/${projectId}/workspace/approvals/${approvalId}`, payload);
-}
-
-export async function acknowledgeProjectWorkspaceConversation(projectId, conversationId, payload) {
-  return apiClient.patch(`/projects/${projectId}/workspace/conversations/${conversationId}`, payload);
-}
-
-export function createProjectWorkspaceConversationMessage(projectId, conversationId, payload) {
-  if (!projectId || !conversationId) {
-    throw new Error('projectId and conversationId are required');
+function ensureIdentifier(name, value) {
+  if (value === null || value === undefined) {
+    throw new Error(`${name} is required`);
   }
-  return apiClient.post(`/projects/${projectId}/workspace/conversations/${conversationId}/messages`, payload);
+  const normalised = `${value}`.trim();
+  if (!normalised) {
+    throw new Error(`${name} is required`);
+  }
+  return normalised;
 }
 
-export function createProjectWorkspaceBudget(projectId, payload) {
-  if (!projectId) {
-    throw new Error('projectId is required');
-  }
-  return apiClient.post(`/projects/${projectId}/workspace/budgets`, payload);
+function ensureProjectId(projectId) {
+  return ensureIdentifier('projectId', projectId);
 }
 
-export function updateProjectWorkspaceBudget(projectId, budgetId, payload) {
-  if (!projectId || !budgetId) {
-    throw new Error('projectId and budgetId are required');
+function ensurePayload(payload) {
+  if (payload == null) {
+    return {};
   }
-  return apiClient.put(`/projects/${projectId}/workspace/budgets/${budgetId}`, payload);
+  if (typeof payload !== 'object') {
+    throw new Error('Payload must be an object.');
+  }
+  return payload;
 }
 
-export function deleteProjectWorkspaceBudget(projectId, budgetId, payload) {
-  if (!projectId || !budgetId) {
-    throw new Error('projectId and budgetId are required');
+function ensureOptions(options) {
+  if (options === undefined || options === null) {
+    return {};
   }
-  return apiClient.delete(`/projects/${projectId}/workspace/budgets/${budgetId}`, { body: payload });
+  if (typeof options !== 'object') {
+    throw new Error('Request options must be an object.');
+  }
+  const { params: _ignoredParams, ...rest } = options;
+  return rest;
 }
 
-export function createProjectWorkspaceObject(projectId, payload) {
-  if (!projectId) {
-    throw new Error('projectId is required');
-  }
-  return apiClient.post(`/projects/${projectId}/workspace/objects`, payload);
+function buildProjectPath(projectId, ...segments) {
+  const safeSegments = segments
+    .filter((segment) => segment !== undefined && segment !== null)
+    .map((segment) => `${segment}`.trim())
+    .filter((segment) => segment.length > 0)
+    .map((segment) => encodeURIComponent(segment));
+
+  const hasProjectId = projectId !== undefined && projectId !== null;
+  const prefix = hasProjectId ? `/${encodeURIComponent(ensureProjectId(projectId))}` : '';
+  const suffix = safeSegments.length ? `/${safeSegments.join('/')}` : '';
+  return `${PROJECTS_BASE_PATH}${prefix}${suffix}`;
 }
 
-export function updateProjectWorkspaceObject(projectId, objectId, payload) {
-  if (!projectId || !objectId) {
-    throw new Error('projectId and objectId are required');
-  }
-  return apiClient.put(`/projects/${projectId}/workspace/objects/${objectId}`, payload);
+function buildWorkspacePath(projectId, ...segments) {
+  return buildProjectPath(projectId, 'workspace', ...segments);
 }
 
-export function deleteProjectWorkspaceObject(projectId, objectId, payload) {
-  if (!projectId || !objectId) {
-    throw new Error('projectId and objectId are required');
+function sendMutation(method, path, payload, options) {
+  const client = apiClient[method];
+  if (typeof client !== 'function') {
+    throw new Error(`Unsupported method: ${method}`);
   }
-  return apiClient.delete(`/projects/${projectId}/workspace/objects/${objectId}`, { body: payload });
+
+  if (method === 'delete') {
+    const requestOptions = ensureOptions(options);
+    if (payload !== undefined) {
+      requestOptions.body = ensurePayload(payload);
+    }
+    return client(path, Object.keys(requestOptions).length ? requestOptions : undefined);
+  }
+
+  const requestOptions = ensureOptions(options);
+  const body = ensurePayload(payload);
+  return client(path, body, Object.keys(requestOptions).length ? requestOptions : undefined);
 }
 
-export function createProjectWorkspaceTimelineEntry(projectId, payload) {
-  if (!projectId) {
-    throw new Error('projectId is required');
-  }
-  return apiClient.post(`/projects/${projectId}/workspace/timeline`, payload);
+export async function createProject(payload, options) {
+  return sendMutation('post', buildProjectPath(), payload, options);
 }
 
-export function updateProjectWorkspaceTimelineEntry(projectId, entryId, payload) {
-  if (!projectId || !entryId) {
-    throw new Error('projectId and entryId are required');
-  }
-  return apiClient.put(`/projects/${projectId}/workspace/timeline/${entryId}`, payload);
+export async function updateProject(projectId, payload, options) {
+  return sendMutation('patch', buildProjectPath(projectId), payload, options);
 }
 
-export function deleteProjectWorkspaceTimelineEntry(projectId, entryId, payload) {
-  if (!projectId || !entryId) {
-    throw new Error('projectId and entryId are required');
-  }
-  return apiClient.delete(`/projects/${projectId}/workspace/timeline/${entryId}`, { body: payload });
+export async function updateProjectAutoAssign(projectId, payload, options) {
+  return sendMutation('patch', buildProjectPath(projectId, 'auto-assign'), payload, options);
 }
 
-export function createProjectWorkspaceMeeting(projectId, payload) {
-  if (!projectId) {
-    throw new Error('projectId is required');
+export async function fetchProject(projectId, options = {}) {
+  const safeOptions = ensureOptions(options);
+  const { signal, ...rest } = safeOptions;
+  const requestOptions = { ...rest };
+  if (signal) {
+    requestOptions.signal = signal;
   }
-  return apiClient.post(`/projects/${projectId}/workspace/meetings`, payload);
+  return apiClient.get(buildProjectPath(projectId), Object.keys(requestOptions).length ? requestOptions : undefined);
 }
 
-export function updateProjectWorkspaceMeeting(projectId, meetingId, payload) {
-  if (!projectId || !meetingId) {
-    throw new Error('projectId and meetingId are required');
+export async function fetchProjectEvents(projectId, options = {}) {
+  if (options !== undefined && options !== null && typeof options !== 'object') {
+    throw new Error('Options must be an object when provided.');
   }
-  return apiClient.put(`/projects/${projectId}/workspace/meetings/${meetingId}`, payload);
+  const { limit, ...rest } = options ?? {};
+  const safeOptions = ensureOptions(rest);
+  const { signal, ...other } = safeOptions;
+  const parsedLimit = Number.parseInt(limit, 10);
+  const safeLimit = Number.isFinite(parsedLimit)
+    ? Math.min(Math.max(parsedLimit, 1), MAX_EVENT_LIMIT)
+    : DEFAULT_EVENT_LIMIT;
+  const requestOptions = {
+    params: { limit: safeLimit },
+    ...other,
+  };
+  if (signal) {
+    requestOptions.signal = signal;
+  }
+  return apiClient.get(buildProjectPath(projectId, 'events'), requestOptions);
 }
 
-export function deleteProjectWorkspaceMeeting(projectId, meetingId, payload) {
-  if (!projectId || !meetingId) {
-    throw new Error('projectId and meetingId are required');
-  }
-  return apiClient.delete(`/projects/${projectId}/workspace/meetings/${meetingId}`, { body: payload });
+export async function listProjectBlueprints(options) {
+  const safeOptions = ensureOptions(options);
+  return apiClient.get(
+    `${PROJECTS_BASE_PATH}/blueprints`,
+    Object.keys(safeOptions).length ? safeOptions : undefined,
+  );
 }
 
-export function createProjectWorkspaceRole(projectId, payload) {
-  if (!projectId) {
-    throw new Error('projectId is required');
-  }
-  return apiClient.post(`/projects/${projectId}/workspace/roles`, payload);
+export async function fetchProjectBlueprint(projectId, options) {
+  const safeOptions = ensureOptions(options);
+  return apiClient.get(
+    buildProjectPath(projectId, 'blueprint'),
+    Object.keys(safeOptions).length ? safeOptions : undefined,
+  );
 }
 
-export function updateProjectWorkspaceRole(projectId, roleId, payload) {
-  if (!projectId || !roleId) {
-    throw new Error('projectId and roleId are required');
-  }
-  return apiClient.put(`/projects/${projectId}/workspace/roles/${roleId}`, payload);
+export async function upsertProjectBlueprint(projectId, payload, options) {
+  return sendMutation('put', buildProjectPath(projectId, 'blueprint'), payload, options);
 }
 
-export function deleteProjectWorkspaceRole(projectId, roleId, payload) {
-  if (!projectId || !roleId) {
-    throw new Error('projectId and roleId are required');
-  }
-  return apiClient.delete(`/projects/${projectId}/workspace/roles/${roleId}`, { body: payload });
+export async function fetchProjectWorkspace(projectId, options) {
+  const safeOptions = ensureOptions(options);
+  return apiClient.get(
+    buildWorkspacePath(projectId),
+    Object.keys(safeOptions).length ? safeOptions : undefined,
+  );
 }
 
-export function createProjectWorkspaceSubmission(projectId, payload) {
-  if (!projectId) {
-    throw new Error('projectId is required');
-  }
-  return apiClient.post(`/projects/${projectId}/workspace/submissions`, payload);
+export async function updateProjectWorkspaceBrief(projectId, payload, options) {
+  return sendMutation('put', buildWorkspacePath(projectId, 'brief'), payload, options);
 }
 
-export function updateProjectWorkspaceSubmission(projectId, submissionId, payload) {
-  if (!projectId || !submissionId) {
-    throw new Error('projectId and submissionId are required');
-  }
-  return apiClient.put(`/projects/${projectId}/workspace/submissions/${submissionId}`, payload);
+export async function updateProjectWorkspaceApproval(projectId, approvalId, payload, options) {
+  return sendMutation(
+    'patch',
+    buildWorkspacePath(projectId, 'approvals', ensureIdentifier('approvalId', approvalId)),
+    payload,
+    options,
+  );
 }
 
-export function deleteProjectWorkspaceSubmission(projectId, submissionId, payload) {
-  if (!projectId || !submissionId) {
-    throw new Error('projectId and submissionId are required');
-  }
-  return apiClient.delete(`/projects/${projectId}/workspace/submissions/${submissionId}`, { body: payload });
+export async function acknowledgeProjectWorkspaceConversation(projectId, conversationId, payload, options) {
+  return sendMutation(
+    'patch',
+    buildWorkspacePath(projectId, 'conversations', ensureIdentifier('conversationId', conversationId)),
+    payload,
+    options,
+  );
 }
 
-export function createProjectWorkspaceInvite(projectId, payload) {
-  if (!projectId) {
-    throw new Error('projectId is required');
-  }
-  return apiClient.post(`/projects/${projectId}/workspace/invites`, payload);
+export function createProjectWorkspaceConversationMessage(projectId, conversationId, payload, options) {
+  const path = buildWorkspacePath(
+    projectId,
+    'conversations',
+    ensureIdentifier('conversationId', conversationId),
+    'messages',
+  );
+  return sendMutation('post', path, payload, options);
 }
 
-export function updateProjectWorkspaceInvite(projectId, inviteId, payload) {
-  if (!projectId || !inviteId) {
-    throw new Error('projectId and inviteId are required');
-  }
-  return apiClient.put(`/projects/${projectId}/workspace/invites/${inviteId}`, payload);
+export function createProjectWorkspaceBudget(projectId, payload, options) {
+  return sendMutation('post', buildWorkspacePath(projectId, 'budgets'), payload, options);
 }
 
-export function deleteProjectWorkspaceInvite(projectId, inviteId, payload) {
-  if (!projectId || !inviteId) {
-    throw new Error('projectId and inviteId are required');
-  }
-  return apiClient.delete(`/projects/${projectId}/workspace/invites/${inviteId}`, { body: payload });
+export function updateProjectWorkspaceBudget(projectId, budgetId, payload, options) {
+  return sendMutation(
+    'put',
+    buildWorkspacePath(projectId, 'budgets', ensureIdentifier('budgetId', budgetId)),
+    payload,
+    options,
+  );
 }
 
-export function createProjectWorkspaceHrRecord(projectId, payload) {
-  if (!projectId) {
-    throw new Error('projectId is required');
-  }
-  return apiClient.post(`/projects/${projectId}/workspace/hr`, payload);
+export function deleteProjectWorkspaceBudget(projectId, budgetId, payload, options) {
+  return sendMutation(
+    'delete',
+    buildWorkspacePath(projectId, 'budgets', ensureIdentifier('budgetId', budgetId)),
+    payload,
+    options,
+  );
 }
 
-export function updateProjectWorkspaceHrRecord(projectId, recordId, payload) {
-  if (!projectId || !recordId) {
-    throw new Error('projectId and recordId are required');
-  }
-  return apiClient.put(`/projects/${projectId}/workspace/hr/${recordId}`, payload);
+export function createProjectWorkspaceObject(projectId, payload, options) {
+  return sendMutation('post', buildWorkspacePath(projectId, 'objects'), payload, options);
 }
 
-export function deleteProjectWorkspaceHrRecord(projectId, recordId, payload) {
-  if (!projectId || !recordId) {
-    throw new Error('projectId and recordId are required');
-  }
-  return apiClient.delete(`/projects/${projectId}/workspace/hr/${recordId}`, { body: payload });
+export function updateProjectWorkspaceObject(projectId, objectId, payload, options) {
+  return sendMutation(
+    'put',
+    buildWorkspacePath(projectId, 'objects', ensureIdentifier('objectId', objectId)),
+    payload,
+    options,
+  );
 }
 
-export function createProjectWorkspaceFile(projectId, payload) {
-  if (!projectId) {
-    throw new Error('projectId is required');
-  }
-  return apiClient.post(`/projects/${projectId}/workspace/files`, payload);
+export function deleteProjectWorkspaceObject(projectId, objectId, payload, options) {
+  return sendMutation(
+    'delete',
+    buildWorkspacePath(projectId, 'objects', ensureIdentifier('objectId', objectId)),
+    payload,
+    options,
+  );
 }
 
-export function updateProjectWorkspaceFile(projectId, fileId, payload) {
-  if (!projectId || !fileId) {
-    throw new Error('projectId and fileId are required');
-  }
-  return apiClient.put(`/projects/${projectId}/workspace/files/${fileId}`, payload);
+export function createProjectWorkspaceTimelineEntry(projectId, payload, options) {
+  return sendMutation('post', buildWorkspacePath(projectId, 'timeline'), payload, options);
 }
 
-export function deleteProjectWorkspaceFile(projectId, fileId, payload) {
-  if (!projectId || !fileId) {
-    throw new Error('projectId and fileId are required');
-  }
-  return apiClient.delete(`/projects/${projectId}/workspace/files/${fileId}`, { body: payload });
+export function updateProjectWorkspaceTimelineEntry(projectId, entryId, payload, options) {
+  return sendMutation(
+    'put',
+    buildWorkspacePath(projectId, 'timeline', ensureIdentifier('entryId', entryId)),
+    payload,
+    options,
+  );
+}
+
+export function deleteProjectWorkspaceTimelineEntry(projectId, entryId, payload, options) {
+  return sendMutation(
+    'delete',
+    buildWorkspacePath(projectId, 'timeline', ensureIdentifier('entryId', entryId)),
+    payload,
+    options,
+  );
+}
+
+export function createProjectWorkspaceMeeting(projectId, payload, options) {
+  return sendMutation('post', buildWorkspacePath(projectId, 'meetings'), payload, options);
+}
+
+export function updateProjectWorkspaceMeeting(projectId, meetingId, payload, options) {
+  return sendMutation(
+    'put',
+    buildWorkspacePath(projectId, 'meetings', ensureIdentifier('meetingId', meetingId)),
+    payload,
+    options,
+  );
+}
+
+export function deleteProjectWorkspaceMeeting(projectId, meetingId, payload, options) {
+  return sendMutation(
+    'delete',
+    buildWorkspacePath(projectId, 'meetings', ensureIdentifier('meetingId', meetingId)),
+    payload,
+    options,
+  );
+}
+
+export function createProjectWorkspaceRole(projectId, payload, options) {
+  return sendMutation('post', buildWorkspacePath(projectId, 'roles'), payload, options);
+}
+
+export function updateProjectWorkspaceRole(projectId, roleId, payload, options) {
+  return sendMutation(
+    'put',
+    buildWorkspacePath(projectId, 'roles', ensureIdentifier('roleId', roleId)),
+    payload,
+    options,
+  );
+}
+
+export function deleteProjectWorkspaceRole(projectId, roleId, payload, options) {
+  return sendMutation(
+    'delete',
+    buildWorkspacePath(projectId, 'roles', ensureIdentifier('roleId', roleId)),
+    payload,
+    options,
+  );
+}
+
+export function createProjectWorkspaceSubmission(projectId, payload, options) {
+  return sendMutation('post', buildWorkspacePath(projectId, 'submissions'), payload, options);
+}
+
+export function updateProjectWorkspaceSubmission(projectId, submissionId, payload, options) {
+  return sendMutation(
+    'put',
+    buildWorkspacePath(projectId, 'submissions', ensureIdentifier('submissionId', submissionId)),
+    payload,
+    options,
+  );
+}
+
+export function deleteProjectWorkspaceSubmission(projectId, submissionId, payload, options) {
+  return sendMutation(
+    'delete',
+    buildWorkspacePath(projectId, 'submissions', ensureIdentifier('submissionId', submissionId)),
+    payload,
+    options,
+  );
+}
+
+export function createProjectWorkspaceInvite(projectId, payload, options) {
+  return sendMutation('post', buildWorkspacePath(projectId, 'invites'), payload, options);
+}
+
+export function updateProjectWorkspaceInvite(projectId, inviteId, payload, options) {
+  return sendMutation(
+    'put',
+    buildWorkspacePath(projectId, 'invites', ensureIdentifier('inviteId', inviteId)),
+    payload,
+    options,
+  );
+}
+
+export function deleteProjectWorkspaceInvite(projectId, inviteId, payload, options) {
+  return sendMutation(
+    'delete',
+    buildWorkspacePath(projectId, 'invites', ensureIdentifier('inviteId', inviteId)),
+    payload,
+    options,
+  );
+}
+
+export function createProjectWorkspaceHrRecord(projectId, payload, options) {
+  return sendMutation('post', buildWorkspacePath(projectId, 'hr'), payload, options);
+}
+
+export function updateProjectWorkspaceHrRecord(projectId, recordId, payload, options) {
+  return sendMutation(
+    'put',
+    buildWorkspacePath(projectId, 'hr', ensureIdentifier('recordId', recordId)),
+    payload,
+    options,
+  );
+}
+
+export function deleteProjectWorkspaceHrRecord(projectId, recordId, payload, options) {
+  return sendMutation(
+    'delete',
+    buildWorkspacePath(projectId, 'hr', ensureIdentifier('recordId', recordId)),
+    payload,
+    options,
+  );
+}
+
+export function createProjectWorkspaceFile(projectId, payload, options) {
+  return sendMutation('post', buildWorkspacePath(projectId, 'files'), payload, options);
+}
+
+export function updateProjectWorkspaceFile(projectId, fileId, payload, options) {
+  return sendMutation(
+    'put',
+    buildWorkspacePath(projectId, 'files', ensureIdentifier('fileId', fileId)),
+    payload,
+    options,
+  );
+}
+
+export function deleteProjectWorkspaceFile(projectId, fileId, payload, options) {
+  return sendMutation(
+    'delete',
+    buildWorkspacePath(projectId, 'files', ensureIdentifier('fileId', fileId)),
+    payload,
+    options,
+  );
 }
 
 export default {

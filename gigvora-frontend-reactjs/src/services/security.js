@@ -96,9 +96,66 @@ const FALLBACK_TELEMETRY = {
   ],
 };
 
+function ensureOptions(options) {
+  if (options === undefined || options === null) {
+    return {};
+  }
+  if (typeof options !== 'object') {
+    throw new Error('Request options must be an object.');
+  }
+  const { params: _ignoredParams, ...rest } = options;
+  return rest;
+}
+
+function ensureAlertId(alertId) {
+  if (alertId === null || alertId === undefined) {
+    throw new Error('An alert identifier is required.');
+  }
+  const normalised = `${alertId}`.trim();
+  if (!normalised) {
+    throw new Error('An alert identifier is required.');
+  }
+  return normalised;
+}
+
+function ensurePayload(payload) {
+  if (payload == null) {
+    return {};
+  }
+  if (typeof payload !== 'object') {
+    throw new Error('Payload must be an object.');
+  }
+  return payload;
+}
+
+function withRequestOptions(options) {
+  const safeOptions = ensureOptions(options);
+  return Object.keys(safeOptions).length ? safeOptions : undefined;
+}
+
+async function postAlertAction(action, alertId, payload = {}, options = {}) {
+  const safeAlertId = ensureAlertId(alertId);
+  const body = ensurePayload(payload);
+  const requestOptions = withRequestOptions(options);
+
+  try {
+    const response = await apiClient.post(`/security/alerts/${encodeURIComponent(safeAlertId)}/${action}`, body, requestOptions);
+    return response?.alert ?? { id: safeAlertId, status: action === 'suppress' ? 'suppressed' : 'acknowledged' };
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw error;
+    }
+    return {
+      id: safeAlertId,
+      status: action === 'suppress' ? 'suppressed' : 'acknowledged',
+      fallback: true,
+    };
+  }
+}
+
 export async function fetchSecurityTelemetry(options = {}) {
   try {
-    const response = await apiClient.get('/security/telemetry', options);
+    const response = await apiClient.get('/security/telemetry', withRequestOptions(options));
     const payload = response?.telemetry || response;
     if (payload && typeof payload === 'object') {
       return {
@@ -120,40 +177,19 @@ export async function fetchSecurityTelemetry(options = {}) {
 }
 
 export async function acknowledgeSecurityAlert(alertId, payload = {}, options = {}) {
-  if (!alertId) {
-    throw new Error('An alert identifier is required to acknowledge.');
-  }
-
-  try {
-    const response = await apiClient.post(`/security/alerts/${alertId}/acknowledge`, payload, options);
-    return response?.alert ?? { id: alertId, status: 'acknowledged' };
-  } catch (error) {
-    if (error?.name === 'AbortError') {
-      throw error;
-    }
-    return { id: alertId, status: 'acknowledged', fallback: true };
-  }
+  return postAlertAction('acknowledge', alertId, payload, options);
 }
 
 export async function suppressSecurityAlert(alertId, payload = {}, options = {}) {
-  if (!alertId) {
-    throw new Error('An alert identifier is required to suppress.');
-  }
-
-  try {
-    const response = await apiClient.post(`/security/alerts/${alertId}/suppress`, payload, options);
-    return response?.alert ?? { id: alertId, status: 'suppressed' };
-  } catch (error) {
-    if (error?.name === 'AbortError') {
-      throw error;
-    }
-    return { id: alertId, status: 'suppressed', fallback: true };
-  }
+  return postAlertAction('suppress', alertId, payload, options);
 }
 
 export async function triggerThreatSweep(payload = {}, options = {}) {
+  const body = ensurePayload(payload);
+  const requestOptions = withRequestOptions(options);
+
   try {
-    const response = await apiClient.post('/security/threat-sweep', payload, options);
+    const response = await apiClient.post('/security/threat-sweep', body, requestOptions);
     return response ?? { status: 'queued' };
   } catch (error) {
     if (error?.name === 'AbortError') {

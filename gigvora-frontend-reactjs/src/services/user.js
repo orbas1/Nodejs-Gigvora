@@ -1,20 +1,67 @@
 import apiClient from './apiClient.js';
 
-export async function fetchUser(userId, { signal } = {}) {
-  if (!userId) {
-    throw new Error('A userId is required to fetch a user profile.');
+const USERS_BASE_PATH = '/users';
+
+function ensureUserId(userId) {
+  if (userId === null || userId === undefined) {
+    throw new Error('A userId is required to perform user operations.');
   }
-  return apiClient.get(`/users/${userId}`, { signal });
+  const normalised = `${userId}`.trim();
+  if (!normalised) {
+    throw new Error('A userId is required to perform user operations.');
+  }
+  return normalised;
 }
 
-export async function updateUserAccount(userId, payload) {
-  if (!userId) {
-    throw new Error('A userId is required to update an account.');
-  }
+function ensurePayload(payload) {
   if (payload == null || typeof payload !== 'object') {
     throw new Error('Update payload must be an object.');
   }
-  return apiClient.put(`/users/${userId}`, payload);
+  return payload;
+}
+
+function ensureOptions(options) {
+  if (options === undefined || options === null) {
+    return {};
+  }
+  if (typeof options !== 'object') {
+    throw new Error('Request options must be an object.');
+  }
+  const { params: _ignoredParams, ...rest } = options;
+  return rest;
+}
+
+function buildUserPath(userId, ...segments) {
+  const safeUserId = encodeURIComponent(ensureUserId(userId));
+  const safeSegments = segments
+    .filter((segment) => segment !== undefined && segment !== null)
+    .map((segment) => `${segment}`.trim())
+    .filter((segment) => segment.length > 0)
+    .map((segment) => encodeURIComponent(segment));
+  if (!safeSegments.length) {
+    return `${USERS_BASE_PATH}/${safeUserId}`;
+  }
+  return `${USERS_BASE_PATH}/${safeUserId}/${safeSegments.join('/')}`;
+}
+
+export async function fetchUser(userId, options = {}) {
+  const safeOptions = ensureOptions(options);
+  const { signal, ...rest } = safeOptions;
+  const requestOptions = { ...rest };
+  if (signal) {
+    requestOptions.signal = signal;
+  }
+  return apiClient.get(buildUserPath(userId), Object.keys(requestOptions).length ? requestOptions : undefined);
+}
+
+export async function updateUserAccount(userId, payload, options) {
+  const body = ensurePayload(payload);
+  const safeOptions = ensureOptions(options);
+  return apiClient.put(
+    buildUserPath(userId),
+    body,
+    Object.keys(safeOptions).length ? safeOptions : undefined,
+  );
 }
 
 export default {

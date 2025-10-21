@@ -1,13 +1,33 @@
 import apiClient from './apiClient.js';
 
-export async function searchPeople(query, { limit = 10, signal } = {}) {
-  const trimmed = query?.trim();
-  if (!trimmed) {
+const DEFAULT_LIMIT = 10;
+const MAX_LIMIT = 50;
+
+function normaliseQuery(query) {
+  return typeof query === 'string' ? query.trim() : `${query ?? ''}`.trim();
+}
+
+function clampLimit(limit) {
+  const parsed = Number.parseInt(limit, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return DEFAULT_LIMIT;
+  }
+  return Math.min(parsed, MAX_LIMIT);
+}
+
+export async function searchPeople(query, options = {}) {
+  const term = normaliseQuery(query);
+  if (!term) {
     return [];
   }
 
+  if (options !== null && typeof options !== 'object') {
+    throw new Error('Search options must be an object when provided.');
+  }
+  const { limit = DEFAULT_LIMIT, signal } = options ?? {};
+
   const response = await apiClient.get('/search', {
-    params: { q: trimmed, limit },
+    params: { q: term, limit: clampLimit(limit) },
     signal,
   });
 

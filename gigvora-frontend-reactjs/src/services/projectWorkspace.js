@@ -1,201 +1,429 @@
 import { apiClient } from './apiClient.js';
 
-function basePath(userId) {
-  if (!userId) {
-    throw new Error('userId is required for workspace operations.');
+function ensureString(value) {
+  if (value === undefined || value === null) {
+    return '';
   }
-  return `/users/${userId}/project-workspace`;
+  return `${value}`.trim();
 }
 
-export function fetchProjectWorkspace(userId, { signal } = {}) {
-  return apiClient.get(basePath(userId), { signal });
+function ensureIdentifier(name, value) {
+  const normalised = ensureString(value);
+  if (!normalised) {
+    throw new Error(`${name} is required`);
+  }
+  return normalised;
 }
 
-export function createWorkspaceProject(userId, payload) {
-  return apiClient.post(`${basePath(userId)}/projects`, payload);
+function ensureUserId(userId) {
+  return ensureIdentifier('userId', userId);
 }
 
-export function updateWorkspaceProject(userId, projectId, payload) {
-  return apiClient.patch(`${basePath(userId)}/projects/${projectId}`, payload);
+function ensurePayload(payload) {
+  if (payload == null) {
+    return {};
+  }
+  if (typeof payload !== 'object') {
+    throw new Error('Payload must be an object.');
+  }
+  return payload;
 }
 
-export function createBudgetLine(userId, projectId, payload) {
-  return apiClient.post(`${basePath(userId)}/projects/${projectId}/budget-lines`, payload);
+function ensureOptions(options = {}) {
+  if (options === null || options === undefined) {
+    return {};
+  }
+  if (typeof options !== 'object') {
+    throw new Error('Options must be an object.');
+  }
+  return options;
 }
 
-export function updateBudgetLine(userId, projectId, budgetLineId, payload) {
-  return apiClient.patch(
-    `${basePath(userId)}/projects/${projectId}/budget-lines/${budgetLineId}`,
+function buildBase(userId) {
+  return `/users/${encodeURIComponent(ensureUserId(userId))}/project-workspace`;
+}
+
+function buildPath(userId, ...segments) {
+  const base = buildBase(userId);
+  const encodedSegments = segments
+    .filter((segment) => segment !== undefined && segment !== null)
+    .map((segment) => ensureString(segment))
+    .filter((segment) => segment.length > 0)
+    .map((segment) => encodeURIComponent(segment));
+  return encodedSegments.length ? `${base}/${encodedSegments.join('/')}` : base;
+}
+
+function send(method, userId, segments, payload, options) {
+  const path = buildPath(userId, ...segments);
+  const safeOptions = ensureOptions(options);
+
+  if (method === 'get') {
+    return apiClient.get(path, Object.keys(safeOptions).length ? safeOptions : undefined);
+  }
+
+  if (method === 'delete') {
+    return apiClient.delete(path, Object.keys(safeOptions).length ? safeOptions : undefined);
+  }
+
+  const client = apiClient[method];
+  if (typeof client !== 'function') {
+    throw new Error(`Unsupported method: ${method}`);
+  }
+  const body = ensurePayload(payload);
+  return client(path, body, Object.keys(safeOptions).length ? safeOptions : undefined);
+}
+
+export function fetchProjectWorkspace(userId, options = {}) {
+  const { signal, ...rest } = ensureOptions(options);
+  const requestOptions = { ...rest };
+  if (signal) {
+    requestOptions.signal = signal;
+  }
+  return send('get', userId, [], undefined, requestOptions);
+}
+
+export function createWorkspaceProject(userId, payload, options = {}) {
+  return send('post', userId, ['projects'], payload, options);
+}
+
+export function updateWorkspaceProject(userId, projectId, payload, options = {}) {
+  return send('patch', userId, ['projects', ensureIdentifier('projectId', projectId)], payload, options);
+}
+
+export function createBudgetLine(userId, projectId, payload, options = {}) {
+  return send('post', userId, ['projects', ensureIdentifier('projectId', projectId), 'budget-lines'], payload, options);
+}
+
+export function updateBudgetLine(userId, projectId, budgetLineId, payload, options = {}) {
+  return send(
+    'patch',
+    userId,
+    ['projects', ensureIdentifier('projectId', projectId), 'budget-lines', ensureIdentifier('budgetLineId', budgetLineId)],
     payload,
+    options,
   );
 }
 
-export function deleteBudgetLine(userId, projectId, budgetLineId) {
-  return apiClient.delete(`${basePath(userId)}/projects/${projectId}/budget-lines/${budgetLineId}`);
+export function deleteBudgetLine(userId, projectId, budgetLineId, options = {}) {
+  return send(
+    'delete',
+    userId,
+    ['projects', ensureIdentifier('projectId', projectId), 'budget-lines', ensureIdentifier('budgetLineId', budgetLineId)],
+    undefined,
+    options,
+  );
 }
 
-export function createDeliverable(userId, projectId, payload) {
-  return apiClient.post(`${basePath(userId)}/projects/${projectId}/deliverables`, payload);
+export function createDeliverable(userId, projectId, payload, options = {}) {
+  return send('post', userId, ['projects', ensureIdentifier('projectId', projectId), 'deliverables'], payload, options);
 }
 
-export function updateDeliverable(userId, projectId, deliverableId, payload) {
-  return apiClient.patch(
-    `${basePath(userId)}/projects/${projectId}/deliverables/${deliverableId}`,
+export function updateDeliverable(userId, projectId, deliverableId, payload, options = {}) {
+  return send(
+    'patch',
+    userId,
+    ['projects', ensureIdentifier('projectId', projectId), 'deliverables', ensureIdentifier('deliverableId', deliverableId)],
     payload,
+    options,
   );
 }
 
-export function deleteDeliverable(userId, projectId, deliverableId) {
-  return apiClient.delete(`${basePath(userId)}/projects/${projectId}/deliverables/${deliverableId}`);
+export function deleteDeliverable(userId, projectId, deliverableId, options = {}) {
+  return send(
+    'delete',
+    userId,
+    ['projects', ensureIdentifier('projectId', projectId), 'deliverables', ensureIdentifier('deliverableId', deliverableId)],
+    undefined,
+    options,
+  );
 }
 
-export function createTask(userId, projectId, payload) {
-  return apiClient.post(`${basePath(userId)}/projects/${projectId}/tasks`, payload);
+export function createTask(userId, projectId, payload, options = {}) {
+  return send('post', userId, ['projects', ensureIdentifier('projectId', projectId), 'tasks'], payload, options);
 }
 
-export function updateTask(userId, projectId, taskId, payload) {
-  return apiClient.patch(`${basePath(userId)}/projects/${projectId}/tasks/${taskId}`, payload);
-}
-
-export function deleteTask(userId, projectId, taskId) {
-  return apiClient.delete(`${basePath(userId)}/projects/${projectId}/tasks/${taskId}`);
-}
-
-export function createTaskAssignment(userId, projectId, taskId, payload) {
-  return apiClient.post(
-    `${basePath(userId)}/projects/${projectId}/tasks/${taskId}/assignments`,
+export function updateTask(userId, projectId, taskId, payload, options = {}) {
+  return send(
+    'patch',
+    userId,
+    ['projects', ensureIdentifier('projectId', projectId), 'tasks', ensureIdentifier('taskId', taskId)],
     payload,
+    options,
   );
 }
 
-export function updateTaskAssignment(userId, projectId, taskId, assignmentId, payload) {
-  return apiClient.patch(
-    `${basePath(userId)}/projects/${projectId}/tasks/${taskId}/assignments/${assignmentId}`,
+export function deleteTask(userId, projectId, taskId, options = {}) {
+  return send(
+    'delete',
+    userId,
+    ['projects', ensureIdentifier('projectId', projectId), 'tasks', ensureIdentifier('taskId', taskId)],
+    undefined,
+    options,
+  );
+}
+
+export function createTaskAssignment(userId, projectId, taskId, payload, options = {}) {
+  return send(
+    'post',
+    userId,
+    ['projects', ensureIdentifier('projectId', projectId), 'tasks', ensureIdentifier('taskId', taskId), 'assignments'],
     payload,
+    options,
   );
 }
 
-export function deleteTaskAssignment(userId, projectId, taskId, assignmentId) {
-  return apiClient.delete(
-    `${basePath(userId)}/projects/${projectId}/tasks/${taskId}/assignments/${assignmentId}`,
-  );
-}
-
-export function createTaskDependency(userId, projectId, taskId, payload) {
-  return apiClient.post(
-    `${basePath(userId)}/projects/${projectId}/tasks/${taskId}/dependencies`,
+export function updateTaskAssignment(userId, projectId, taskId, assignmentId, payload, options = {}) {
+  return send(
+    'patch',
+    userId,
+    [
+      'projects',
+      ensureIdentifier('projectId', projectId),
+      'tasks',
+      ensureIdentifier('taskId', taskId),
+      'assignments',
+      ensureIdentifier('assignmentId', assignmentId),
+    ],
     payload,
+    options,
   );
 }
 
-export function deleteTaskDependency(userId, projectId, taskId, dependencyId) {
-  return apiClient.delete(
-    `${basePath(userId)}/projects/${projectId}/tasks/${taskId}/dependencies/${dependencyId}`,
+export function deleteTaskAssignment(userId, projectId, taskId, assignmentId, options = {}) {
+  return send(
+    'delete',
+    userId,
+    [
+      'projects',
+      ensureIdentifier('projectId', projectId),
+      'tasks',
+      ensureIdentifier('taskId', taskId),
+      'assignments',
+      ensureIdentifier('assignmentId', assignmentId),
+    ],
+    undefined,
+    options,
   );
 }
 
-export function createChatMessage(userId, projectId, payload) {
-  return apiClient.post(`${basePath(userId)}/projects/${projectId}/chat/messages`, payload);
-}
-
-export function updateChatMessage(userId, projectId, messageId, payload) {
-  return apiClient.patch(
-    `${basePath(userId)}/projects/${projectId}/chat/messages/${messageId}`,
+export function createTaskDependency(userId, projectId, taskId, payload, options = {}) {
+  return send(
+    'post',
+    userId,
+    ['projects', ensureIdentifier('projectId', projectId), 'tasks', ensureIdentifier('taskId', taskId), 'dependencies'],
     payload,
+    options,
   );
 }
 
-export function deleteChatMessage(userId, projectId, messageId) {
-  return apiClient.delete(`${basePath(userId)}/projects/${projectId}/chat/messages/${messageId}`);
+export function deleteTaskDependency(userId, projectId, taskId, dependencyId, options = {}) {
+  return send(
+    'delete',
+    userId,
+    [
+      'projects',
+      ensureIdentifier('projectId', projectId),
+      'tasks',
+      ensureIdentifier('taskId', taskId),
+      'dependencies',
+      ensureIdentifier('dependencyId', dependencyId),
+    ],
+    undefined,
+    options,
+  );
 }
 
-export function createTimelineEntry(userId, projectId, payload) {
-  return apiClient.post(`${basePath(userId)}/projects/${projectId}/timeline`, payload);
+export function createChatMessage(userId, projectId, payload, options = {}) {
+  return send('post', userId, ['projects', ensureIdentifier('projectId', projectId), 'chat', 'messages'], payload, options);
 }
 
-export function updateTimelineEntry(userId, projectId, entryId, payload) {
-  return apiClient.patch(`${basePath(userId)}/projects/${projectId}/timeline/${entryId}`, payload);
-}
-
-export function deleteTimelineEntry(userId, projectId, entryId) {
-  return apiClient.delete(`${basePath(userId)}/projects/${projectId}/timeline/${entryId}`);
-}
-
-export function createMeeting(userId, projectId, payload) {
-  return apiClient.post(`${basePath(userId)}/projects/${projectId}/meetings`, payload);
-}
-
-export function updateMeeting(userId, projectId, meetingId, payload) {
-  return apiClient.patch(`${basePath(userId)}/projects/${projectId}/meetings/${meetingId}`, payload);
-}
-
-export function deleteMeeting(userId, projectId, meetingId) {
-  return apiClient.delete(`${basePath(userId)}/projects/${projectId}/meetings/${meetingId}`);
-}
-
-export function createCalendarEvent(userId, projectId, payload) {
-  return apiClient.post(`${basePath(userId)}/projects/${projectId}/calendar-events`, payload);
-}
-
-export function updateCalendarEvent(userId, projectId, eventId, payload) {
-  return apiClient.patch(
-    `${basePath(userId)}/projects/${projectId}/calendar-events/${eventId}`,
+export function updateChatMessage(userId, projectId, messageId, payload, options = {}) {
+  return send(
+    'patch',
+    userId,
+    ['projects', ensureIdentifier('projectId', projectId), 'chat', 'messages', ensureIdentifier('messageId', messageId)],
     payload,
+    options,
   );
 }
 
-export function deleteCalendarEvent(userId, projectId, eventId) {
-  return apiClient.delete(
-    `${basePath(userId)}/projects/${projectId}/calendar-events/${eventId}`,
+export function deleteChatMessage(userId, projectId, messageId, options = {}) {
+  return send(
+    'delete',
+    userId,
+    ['projects', ensureIdentifier('projectId', projectId), 'chat', 'messages', ensureIdentifier('messageId', messageId)],
+    undefined,
+    options,
   );
 }
 
-export function createRoleDefinition(userId, projectId, payload) {
-  return apiClient.post(`${basePath(userId)}/projects/${projectId}/roles`, payload);
+export function createTimelineEntry(userId, projectId, payload, options = {}) {
+  return send('post', userId, ['projects', ensureIdentifier('projectId', projectId), 'timeline'], payload, options);
 }
 
-export function updateRoleDefinition(userId, projectId, roleId, payload) {
-  return apiClient.patch(`${basePath(userId)}/projects/${projectId}/roles/${roleId}`, payload);
-}
-
-export function deleteRoleDefinition(userId, projectId, roleId) {
-  return apiClient.delete(`${basePath(userId)}/projects/${projectId}/roles/${roleId}`);
-}
-
-export function createRoleAssignment(userId, projectId, roleId, payload) {
-  return apiClient.post(
-    `${basePath(userId)}/projects/${projectId}/roles/${roleId}/assignments`,
+export function updateTimelineEntry(userId, projectId, entryId, payload, options = {}) {
+  return send(
+    'patch',
+    userId,
+    ['projects', ensureIdentifier('projectId', projectId), 'timeline', ensureIdentifier('entryId', entryId)],
     payload,
+    options,
   );
 }
 
-export function updateRoleAssignment(userId, projectId, roleId, assignmentId, payload) {
-  return apiClient.patch(
-    `${basePath(userId)}/projects/${projectId}/roles/${roleId}/assignments/${assignmentId}`,
+export function deleteTimelineEntry(userId, projectId, entryId, options = {}) {
+  return send(
+    'delete',
+    userId,
+    ['projects', ensureIdentifier('projectId', projectId), 'timeline', ensureIdentifier('entryId', entryId)],
+    undefined,
+    options,
+  );
+}
+
+export function createMeeting(userId, projectId, payload, options = {}) {
+  return send('post', userId, ['projects', ensureIdentifier('projectId', projectId), 'meetings'], payload, options);
+}
+
+export function updateMeeting(userId, projectId, meetingId, payload, options = {}) {
+  return send(
+    'patch',
+    userId,
+    ['projects', ensureIdentifier('projectId', projectId), 'meetings', ensureIdentifier('meetingId', meetingId)],
     payload,
+    options,
   );
 }
 
-export function deleteRoleAssignment(userId, projectId, roleId, assignmentId) {
-  return apiClient.delete(
-    `${basePath(userId)}/projects/${projectId}/roles/${roleId}/assignments/${assignmentId}`,
+export function deleteMeeting(userId, projectId, meetingId, options = {}) {
+  return send(
+    'delete',
+    userId,
+    ['projects', ensureIdentifier('projectId', projectId), 'meetings', ensureIdentifier('meetingId', meetingId)],
+    undefined,
+    options,
   );
 }
 
-export function createSubmission(userId, projectId, payload) {
-  return apiClient.post(`${basePath(userId)}/projects/${projectId}/submissions`, payload);
+export function createCalendarEvent(userId, projectId, payload, options = {}) {
+  return send('post', userId, ['projects', ensureIdentifier('projectId', projectId), 'calendar-events'], payload, options);
 }
 
-export function updateSubmission(userId, projectId, submissionId, payload) {
-  return apiClient.patch(
-    `${basePath(userId)}/projects/${projectId}/submissions/${submissionId}`,
+export function updateCalendarEvent(userId, projectId, eventId, payload, options = {}) {
+  return send(
+    'patch',
+    userId,
+    ['projects', ensureIdentifier('projectId', projectId), 'calendar-events', ensureIdentifier('eventId', eventId)],
     payload,
+    options,
   );
 }
 
-export function deleteSubmission(userId, projectId, submissionId) {
-  return apiClient.delete(
-    `${basePath(userId)}/projects/${projectId}/submissions/${submissionId}`,
+export function deleteCalendarEvent(userId, projectId, eventId, options = {}) {
+  return send(
+    'delete',
+    userId,
+    ['projects', ensureIdentifier('projectId', projectId), 'calendar-events', ensureIdentifier('eventId', eventId)],
+    undefined,
+    options,
+  );
+}
+
+export function createRoleDefinition(userId, projectId, payload, options = {}) {
+  return send('post', userId, ['projects', ensureIdentifier('projectId', projectId), 'roles'], payload, options);
+}
+
+export function updateRoleDefinition(userId, projectId, roleId, payload, options = {}) {
+  return send(
+    'patch',
+    userId,
+    ['projects', ensureIdentifier('projectId', projectId), 'roles', ensureIdentifier('roleId', roleId)],
+    payload,
+    options,
+  );
+}
+
+export function deleteRoleDefinition(userId, projectId, roleId, options = {}) {
+  return send(
+    'delete',
+    userId,
+    ['projects', ensureIdentifier('projectId', projectId), 'roles', ensureIdentifier('roleId', roleId)],
+    undefined,
+    options,
+  );
+}
+
+export function createRoleAssignment(userId, projectId, roleId, payload, options = {}) {
+  return send(
+    'post',
+    userId,
+    [
+      'projects',
+      ensureIdentifier('projectId', projectId),
+      'roles',
+      ensureIdentifier('roleId', roleId),
+      'assignments',
+    ],
+    payload,
+    options,
+  );
+}
+
+export function updateRoleAssignment(userId, projectId, roleId, assignmentId, payload, options = {}) {
+  return send(
+    'patch',
+    userId,
+    [
+      'projects',
+      ensureIdentifier('projectId', projectId),
+      'roles',
+      ensureIdentifier('roleId', roleId),
+      'assignments',
+      ensureIdentifier('assignmentId', assignmentId),
+    ],
+    payload,
+    options,
+  );
+}
+
+export function deleteRoleAssignment(userId, projectId, roleId, assignmentId, options = {}) {
+  return send(
+    'delete',
+    userId,
+    [
+      'projects',
+      ensureIdentifier('projectId', projectId),
+      'roles',
+      ensureIdentifier('roleId', roleId),
+      'assignments',
+      ensureIdentifier('assignmentId', assignmentId),
+    ],
+    undefined,
+    options,
+  );
+}
+
+export function createSubmission(userId, projectId, payload, options = {}) {
+  return send('post', userId, ['projects', ensureIdentifier('projectId', projectId), 'submissions'], payload, options);
+}
+
+export function updateSubmission(userId, projectId, submissionId, payload, options = {}) {
+  return send(
+    'patch',
+    userId,
+    ['projects', ensureIdentifier('projectId', projectId), 'submissions', ensureIdentifier('submissionId', submissionId)],
+    payload,
+    options,
+  );
+}
+
+export function deleteSubmission(userId, projectId, submissionId, options = {}) {
+  return send(
+    'delete',
+    userId,
+    ['projects', ensureIdentifier('projectId', projectId), 'submissions', ensureIdentifier('submissionId', submissionId)],
+    undefined,
+    options,
   );
 }
 
