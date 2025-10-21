@@ -17,6 +17,9 @@ import collaborationRoutes from './collaborationRoutes.js';
 import companyRoutes from './companyRoutes.js';
 import creationStudioRoutes from './creationStudioRoutes.js';
 import companyJobRoutes from './companyJobRoutes.js';
+import companyLaunchpadRoutes from './companyLaunchpadRoutes.js';
+import companyAdsRoutes from './companyAdsRoutes.js';
+import companyOrdersRoutes from './companyOrdersRoutes.js';
 import companyVolunteeringRoutes from './companyVolunteeringRoutes.js';
 import companyIntegrationRoutes from './companyIntegrationRoutes.js';
 import complianceRoutes from './complianceRoutes.js';
@@ -76,6 +79,9 @@ const routeDefinitions = [
   ['/company/id-verifications', companyIdentityVerificationRoutes],
   ['/company/integrations', companyIntegrationRoutes],
   ['/company/jobs', companyJobRoutes],
+  ['/company/launchpad', companyLaunchpadRoutes],
+  ['/company/ads', companyAdsRoutes],
+  ['/company/orders', companyOrdersRoutes],
   ['/company/volunteering', companyVolunteeringRoutes],
   ['/company', companyRoutes],
   ['/compliance', complianceRoutes],

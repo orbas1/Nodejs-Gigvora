@@ -71,6 +71,9 @@ import CompanySystemPreferencesPage from './pages/dashboards/CompanySystemPrefer
 import CompanyJobManagementPage from './pages/dashboards/CompanyJobManagementPage.jsx';
 import CompanyGroupManagementPage from './pages/dashboards/CompanyGroupManagementPage.jsx';
 import CompanyVolunteeringManagementPage from './pages/dashboards/CompanyVolunteeringManagementPage.jsx';
+import CompanyLaunchpadJobManagementPage from './pages/dashboards/CompanyLaunchpadJobManagementPage.jsx';
+import CompanyOrdersPage from './pages/dashboards/CompanyOrdersPage.jsx';
+import CompanyAdsPage from './pages/dashboards/CompanyAdsPage.jsx';
 import CompanyCrmIntegrationsPage from './pages/dashboards/CompanyCrmIntegrationsPage.jsx';
 import CompanyByokAutoReplyPage from './pages/dashboards/CompanyByokAutoReplyPage.jsx';
 import CompanyProjectWorkspacePage from './pages/dashboards/company/CompanyProjectWorkspacePage.jsx';
@@ -252,6 +255,9 @@ const companyRoutes = [
   { path: 'dashboard/company/ats', element: <CompanyAtsOperationsPage /> },
   { path: 'dashboard/company/calendar', element: <CompanyCalendarPage /> },
   { path: 'dashboard/company/job-management', element: <CompanyJobManagementPage /> },
+  { path: 'dashboard/company/launchpad-jobs', element: <CompanyLaunchpadJobManagementPage /> },
+  { path: 'dashboard/company/orders', element: <CompanyOrdersPage /> },
+  { path: 'dashboard/company/ads', element: <CompanyAdsPage /> },
   { path: 'dashboard/company/groups', element: <CompanyGroupManagementPage /> },
   { path: 'dashboard/company/integrations', element: <CompanyIntegrationsPage /> },
   { path: 'dashboard/company/escrow', element: <CompanyEscrowManagementPage /> },
