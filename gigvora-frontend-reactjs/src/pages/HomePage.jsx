@@ -10,6 +10,7 @@ import {
   TestimonialsSection,
   MarketplaceLaunchesSection,
   CreationStudioSection,
+  FeesShowcaseSection,
   JoinCommunitySection,
 } from './home/index.js';
 
@@ -73,6 +74,7 @@ export default function HomePage() {
         trendingCreations={trendingCreations}
       />
       <CreationStudioSection loading={homeLoading} error={homeError} />
+      <FeesShowcaseSection />
       <JoinCommunitySection />
     </div>
   );
