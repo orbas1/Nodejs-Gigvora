@@ -24,9 +24,10 @@ import {
 } from '../validation/schemas/volunteeringSchemas.js';
 
 const router = Router();
+const MANAGER_ROLES = ['company', 'company_admin', 'workspace_admin', 'volunteer_manager', 'admin'];
 
 router.use(authenticateRequest());
-router.use(requireRoles(['company', 'admin']));
+router.use(requireRoles(...MANAGER_ROLES));
 
 router.get(
   '/dashboard',
@@ -48,7 +49,7 @@ router.put(
 
 router.delete(
   '/posts/:postId',
-  validateRequest({ params: volunteeringPostIdParamsSchema, body: volunteeringDashboardQuerySchema }),
+  validateRequest({ params: volunteeringPostIdParamsSchema }),
   asyncHandler(controller.removePost),
 );
 
@@ -66,7 +67,7 @@ router.put(
 
 router.delete(
   '/applications/:applicationId',
-  validateRequest({ params: volunteeringApplicationIdParamsSchema, body: volunteeringDashboardQuerySchema }),
+  validateRequest({ params: volunteeringApplicationIdParamsSchema }),
   asyncHandler(controller.removeApplication),
 );
 
@@ -84,7 +85,7 @@ router.put(
 
 router.delete(
   '/responses/:responseId',
-  validateRequest({ params: volunteeringResponseIdParamsSchema, body: volunteeringDashboardQuerySchema }),
+  validateRequest({ params: volunteeringResponseIdParamsSchema }),
   asyncHandler(controller.removeResponse),
 );
 
@@ -102,7 +103,7 @@ router.put(
 
 router.delete(
   '/interviews/:interviewId',
-  validateRequest({ params: volunteeringInterviewIdParamsSchema, body: volunteeringDashboardQuerySchema }),
+  validateRequest({ params: volunteeringInterviewIdParamsSchema }),
   asyncHandler(controller.removeInterview),
 );
 
@@ -132,7 +133,7 @@ router.put(
 
 router.delete(
   '/spend/:spendId',
-  validateRequest({ params: volunteeringSpendIdParamsSchema, body: volunteeringDashboardQuerySchema }),
+  validateRequest({ params: volunteeringSpendIdParamsSchema }),
   asyncHandler(controller.removeSpend),
 );
 

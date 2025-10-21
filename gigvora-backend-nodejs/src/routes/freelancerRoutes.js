@@ -1,116 +1,52 @@
 import { Router } from 'express';
-
-import {
-  enroll as enrollClient,
-  overview as clientSuccessOverview,
-  storeAffiliateLink,
-  storePlaybook,
-  storeReferral,
-  updatePlaybook,
-} from '../controllers/clientSuccessController.js';
-import { collaborationsOverview } from '../controllers/freelancerAgencyController.js';
-import {
-  communitySpotlight,
-  createGig,
-  createOrder,
-  createOrderEscrowCheckpoint,
-  createOrderRequirement,
-  createOrderRevision,
-  dashboard,
-  getPurchasedGigWorkspace,
-  orderPipeline,
-  publish,
-  show,
-  updateGig,
-  updateOrder,
-  updateOrderEscrowCheckpoint,
-  updateOrderRequirement,
-  updateOrderRevision,
-} from '../controllers/freelancerController.js';
-import {
-  getProfileHub,
-  updateExpertiseAreas,
-  updateHeroBanners,
-  updateProfileHub,
-  updateSuccessMetrics,
-  updateTestimonials,
-} from '../controllers/freelancerProfileController.js';
-import {
-  appendDisputeEvent as appendEscrowDisputeEvent,
-  createAccount as createEscrowAccount,
-  createTransaction as createEscrowTransaction,
-  openDispute as openEscrowDispute,
-  overview as escrowOverview,
-  refundTransaction as refundEscrowTransaction,
-  releaseTransaction as releaseEscrowTransaction,
-  updateAccount as updateEscrowAccount,
-} from '../controllers/freelancerEscrowController.js';
-  overview as autoMatchOverview,
-  matches as autoMatchMatches,
-  updatePreferences as autoMatchUpdatePreferences,
-  respond as autoMatchRespond,
-} from '../controllers/freelancerAutoMatchController.js';
-  listPortfolio,
-  createPortfolioItem,
-  updatePortfolioItem,
-  deletePortfolioItem,
-  createPortfolioAsset,
-  updatePortfolioAsset,
-  deletePortfolioAsset,
-  updatePortfolioSettings,
-} from '../controllers/freelancerPortfolioController.js';
-  listCalendarEvents,
-  createCalendarEvent,
-  updateCalendarEvent,
-  deleteCalendarEvent,
-} from '../controllers/freelancerCalendarController.js';
-  listDisputes,
-  createDispute,
-  showDispute,
-  appendEvent,
-} from '../controllers/freelancerDisputeController.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import validateRequest from '../middleware/validateRequest.js';
-import {
-  freelancerDashboardParamsSchema,
-  freelancerDashboardOverviewUpdateSchema,
-} from '../validation/schemas/freelancerSchemas.js';
+import { authenticateRequest, requireRoles } from '../middleware/authentication.js';
+import * as freelancerController from '../controllers/freelancerController.js';
+import * as freelancerProfileController from '../controllers/freelancerProfileController.js';
+import * as freelancerEscrowController from '../controllers/freelancerEscrowController.js';
+import * as freelancerAutoMatchController from '../controllers/freelancerAutoMatchController.js';
+import * as freelancerPortfolioController from '../controllers/freelancerPortfolioController.js';
+import * as freelancerCalendarController from '../controllers/freelancerCalendarController.js';
+import * as freelancerDisputeController from '../controllers/freelancerDisputeController.js';
+import freelancerNetworkingController from '../controllers/freelancerNetworkingController.js';
+import freelancerTimelineController from '../controllers/freelancerTimelineController.js';
+import volunteeringController from '../controllers/volunteeringController.js';
+import * as clientSuccessController from '../controllers/clientSuccessController.js';
+import { collaborationsOverview } from '../controllers/freelancerAgencyController.js';
 import {
   showOverview as showFreelancerDashboardOverview,
   updateOverview as updateFreelancerDashboardOverview,
 } from '../controllers/freelancerDashboardOverviewController.js';
-import { authenticateRequest } from '../middleware/authentication.js';
-import freelancerNetworkingController from '../controllers/freelancerNetworkingController.js';
 import {
-  getTimelineWorkspace,
-  updateTimelineSettings,
-  createTimelineEntry as createTimelineEntryController,
-  updateTimelineEntry as updateTimelineEntryController,
-  deleteTimelineEntry as deleteTimelineEntryController,
-  createTimelinePost as createTimelinePostController,
-  updateTimelinePost as updateTimelinePostController,
-  deleteTimelinePost as deleteTimelinePostController,
-  publishTimelinePost as publishTimelinePostController,
-  recordTimelinePostMetrics,
-} from '../controllers/freelancerTimelineController.js';
-
-import volunteeringController from '../controllers/volunteeringController.js';
+  freelancerDashboardParamsSchema,
+  freelancerDashboardOverviewUpdateSchema,
+} from '../validation/schemas/freelancerSchemas.js';
 
 const router = Router();
+const ACTOR_ROLES = ['freelancer', 'agency', 'company', 'mentor', 'operations', 'admin'];
+const NETWORK_ROLES = ['freelancer', 'agency', 'company', 'mentor', 'admin'];
+const DISPUTE_ROLES = ['freelancer', 'agency', 'company', 'admin'];
 
-router.get('/dashboard', asyncHandler(dashboard));
-router.get('/gigs/:gigId', asyncHandler(show));
-router.post('/gigs', asyncHandler(createGig));
-router.put('/gigs/:gigId', asyncHandler(updateGig));
-router.post('/gigs/:gigId/publish', asyncHandler(publish));
+const requireActor = [authenticateRequest(), requireRoles(...ACTOR_ROLES)];
+const requireNetwork = [authenticateRequest(), requireRoles(...NETWORK_ROLES)];
+const requireDisputeAccess = [authenticateRequest(), requireRoles(...DISPUTE_ROLES)];
+
+router.get('/dashboard', ...requireActor, asyncHandler(freelancerController.dashboard));
+router.get('/gigs/:gigId', authenticateRequest({ optional: true }), asyncHandler(freelancerController.show));
+router.post('/gigs', ...requireActor, asyncHandler(freelancerController.createGig));
+router.put('/gigs/:gigId', ...requireActor, asyncHandler(freelancerController.updateGig));
+router.post('/gigs/:gigId/publish', ...requireActor, asyncHandler(freelancerController.publish));
 
 router.get(
   '/:freelancerId/dashboard-overview',
+  ...requireActor,
   validateRequest({ params: freelancerDashboardParamsSchema }),
   asyncHandler(showFreelancerDashboardOverview),
 );
 router.put(
   '/:freelancerId/dashboard-overview',
+  ...requireActor,
   validateRequest({
     params: freelancerDashboardParamsSchema,
     body: freelancerDashboardOverviewUpdateSchema,
@@ -118,233 +54,400 @@ router.put(
   asyncHandler(updateFreelancerDashboardOverview),
 );
 
-router.get('/order-pipeline', asyncHandler(orderPipeline));
-router.post('/order-pipeline/orders', asyncHandler(createOrder));
-router.patch('/order-pipeline/orders/:orderId', asyncHandler(updateOrder));
-router.post('/order-pipeline/orders/:orderId/requirement-forms', asyncHandler(createOrderRequirement));
+router.get('/order-pipeline', ...requireActor, asyncHandler(freelancerController.orderPipeline));
+router.post('/order-pipeline/orders', ...requireActor, asyncHandler(freelancerController.createOrder));
+router.patch('/order-pipeline/orders/:orderId', ...requireActor, asyncHandler(freelancerController.updateOrder));
+router.post(
+  '/order-pipeline/orders/:orderId/requirement-forms',
+  ...requireActor,
+  asyncHandler(freelancerController.createOrderRequirement),
+);
 router.patch(
   '/order-pipeline/orders/:orderId/requirement-forms/:formId',
-  asyncHandler(updateOrderRequirement),
+  ...requireActor,
+  asyncHandler(freelancerController.updateOrderRequirement),
 );
-router.post('/order-pipeline/orders/:orderId/revisions', asyncHandler(createOrderRevision));
+router.post(
+  '/order-pipeline/orders/:orderId/revisions',
+  ...requireActor,
+  asyncHandler(freelancerController.createOrderRevision),
+);
 router.patch(
   '/order-pipeline/orders/:orderId/revisions/:revisionId',
-  asyncHandler(updateOrderRevision),
+  ...requireActor,
+  asyncHandler(freelancerController.updateOrderRevision),
 );
 router.post(
   '/order-pipeline/orders/:orderId/escrow-checkpoints',
-  asyncHandler(createOrderEscrowCheckpoint),
+  ...requireActor,
+  asyncHandler(freelancerController.createOrderEscrowCheckpoint),
 );
 router.patch(
   '/order-pipeline/orders/:orderId/escrow-checkpoints/:checkpointId',
-  asyncHandler(updateOrderEscrowCheckpoint),
+  ...requireActor,
+  asyncHandler(freelancerController.updateOrderEscrowCheckpoint),
 );
 
-router.get('/:freelancerId/escrow/overview', asyncHandler(escrowOverview));
-router.post('/:freelancerId/escrow/accounts', asyncHandler(createEscrowAccount));
-router.patch('/:freelancerId/escrow/accounts/:accountId', asyncHandler(updateEscrowAccount));
-router.post('/:freelancerId/escrow/transactions', asyncHandler(createEscrowTransaction));
+router.get(
+  '/:freelancerId/escrow/overview',
+  ...requireActor,
+  asyncHandler(freelancerEscrowController.overview),
+);
+router.post(
+  '/:freelancerId/escrow/accounts',
+  ...requireActor,
+  asyncHandler(freelancerEscrowController.createAccount),
+);
+router.patch(
+  '/:freelancerId/escrow/accounts/:accountId',
+  ...requireActor,
+  asyncHandler(freelancerEscrowController.updateAccount),
+);
+router.post(
+  '/:freelancerId/escrow/transactions',
+  ...requireActor,
+  asyncHandler(freelancerEscrowController.createTransaction),
+);
 router.post(
   '/:freelancerId/escrow/transactions/:transactionId/release',
-  asyncHandler(releaseEscrowTransaction),
+  ...requireActor,
+  asyncHandler(freelancerEscrowController.releaseTransaction),
 );
 router.post(
   '/:freelancerId/escrow/transactions/:transactionId/refund',
-  asyncHandler(refundEscrowTransaction),
+  ...requireActor,
+  asyncHandler(freelancerEscrowController.refundTransaction),
 );
 router.post(
   '/:freelancerId/escrow/transactions/:transactionId/disputes',
-  asyncHandler(openEscrowDispute),
+  ...requireActor,
+  asyncHandler(freelancerEscrowController.openDispute),
 );
 router.post(
   '/:freelancerId/escrow/disputes/:disputeId/events',
-  asyncHandler(appendEscrowDisputeEvent),
-router.get('/:freelancerId/auto-match/overview', asyncHandler(autoMatchOverview));
-router.get('/:freelancerId/auto-match/matches', asyncHandler(autoMatchMatches));
-router.patch('/:freelancerId/auto-match/preferences', asyncHandler(autoMatchUpdatePreferences));
-router.post(
-  '/:freelancerId/auto-match/matches/:entryId/decision',
-  asyncHandler(autoMatchRespond),
-router.get('/:freelancerId/calendar/events', asyncHandler(listCalendarEvents));
-router.post('/:freelancerId/calendar/events', asyncHandler(createCalendarEvent));
-router.put('/:freelancerId/calendar/events/:eventId', asyncHandler(updateCalendarEvent));
-router.delete('/:freelancerId/calendar/events/:eventId', asyncHandler(deleteCalendarEvent));
-router.get(
-  '/:freelancerId/networking/dashboard',
-  authenticateRequest(),
-  asyncHandler(freelancerNetworkingController.dashboard),
+  ...requireActor,
+  asyncHandler(freelancerEscrowController.appendDisputeEvent),
+);
+
+router.get('/:freelancerId/auto-match/overview', ...requireActor, asyncHandler(freelancerAutoMatchController.overview));
+router.get('/:freelancerId/auto-match/matches', ...requireActor, asyncHandler(freelancerAutoMatchController.matches));
+router.patch(
+  '/:freelancerId/auto-match/preferences',
+  ...requireActor,
+  asyncHandler(freelancerAutoMatchController.updatePreferences),
 );
 router.post(
+  '/:freelancerId/auto-match/matches/:entryId/decision',
+  ...requireActor,
+  asyncHandler(freelancerAutoMatchController.respond),
+);
+
+router.get(
+  '/:freelancerId/calendar/events',
+  ...requireActor,
+  asyncHandler(freelancerCalendarController.listCalendarEvents),
+);
+router.post(
+  '/:freelancerId/calendar/events',
+  ...requireActor,
+  asyncHandler(freelancerCalendarController.createCalendarEvent),
+);
+router.put(
+  '/:freelancerId/calendar/events/:eventId',
+  ...requireActor,
+  asyncHandler(freelancerCalendarController.updateCalendarEvent),
+);
+router.delete(
+  '/:freelancerId/calendar/events/:eventId',
+  ...requireActor,
+  asyncHandler(freelancerCalendarController.deleteCalendarEvent),
+);
+
+router.get('/:freelancerId/networking/dashboard', ...requireNetwork, asyncHandler(freelancerNetworkingController.dashboard));
+router.post(
   '/:freelancerId/networking/sessions/:sessionId/book',
-  authenticateRequest(),
+  ...requireNetwork,
   asyncHandler(freelancerNetworkingController.book),
 );
 router.patch(
   '/:freelancerId/networking/signups/:signupId',
-  authenticateRequest(),
+  ...requireNetwork,
   asyncHandler(freelancerNetworkingController.updateSignup),
 );
 router.delete(
   '/:freelancerId/networking/signups/:signupId',
-  authenticateRequest(),
+  ...requireNetwork,
   asyncHandler(freelancerNetworkingController.cancelSignup),
 );
 router.get(
   '/:freelancerId/networking/connections',
-  authenticateRequest(),
+  ...requireNetwork,
   asyncHandler(freelancerNetworkingController.listConnections),
 );
 router.post(
   '/:freelancerId/networking/connections',
-  authenticateRequest(),
+  ...requireNetwork,
   asyncHandler(freelancerNetworkingController.createConnection),
 );
 router.patch(
   '/:freelancerId/networking/connections/:connectionId',
-  authenticateRequest(),
+  ...requireNetwork,
   asyncHandler(freelancerNetworkingController.updateConnection),
 );
 router.delete(
   '/:freelancerId/networking/connections/:connectionId',
-  authenticateRequest(),
+  ...requireNetwork,
   asyncHandler(freelancerNetworkingController.deleteConnection),
 );
 router.get(
   '/:freelancerId/networking/metrics',
-  authenticateRequest(),
+  ...requireNetwork,
   asyncHandler(freelancerNetworkingController.metrics),
 );
 router.get(
   '/:freelancerId/networking/orders',
-  authenticateRequest(),
+  ...requireNetwork,
   asyncHandler(freelancerNetworkingController.listOrders),
 );
 router.post(
   '/:freelancerId/networking/orders',
-  authenticateRequest(),
+  ...requireNetwork,
   asyncHandler(freelancerNetworkingController.createOrder),
 );
 router.patch(
   '/:freelancerId/networking/orders/:orderId',
-  authenticateRequest(),
+  ...requireNetwork,
   asyncHandler(freelancerNetworkingController.updateOrder),
 );
 router.delete(
   '/:freelancerId/networking/orders/:orderId',
-  authenticateRequest(),
+  ...requireNetwork,
   asyncHandler(freelancerNetworkingController.deleteOrder),
 );
 router.get(
   '/:freelancerId/networking/settings',
-  authenticateRequest(),
+  ...requireNetwork,
   asyncHandler(freelancerNetworkingController.getSettings),
 );
 router.patch(
   '/:freelancerId/networking/settings',
-  authenticateRequest(),
+  ...requireNetwork,
   asyncHandler(freelancerNetworkingController.patchSettings),
 );
 router.patch(
   '/:freelancerId/networking/preferences',
-  authenticateRequest(),
+  ...requireNetwork,
   asyncHandler(freelancerNetworkingController.patchPreferences),
 );
-router.get(
-  '/:freelancerId/networking/ads',
-  authenticateRequest(),
-  asyncHandler(freelancerNetworkingController.listAds),
-);
-router.post(
-  '/:freelancerId/networking/ads',
-  authenticateRequest(),
-  asyncHandler(freelancerNetworkingController.createAd),
-);
+router.get('/:freelancerId/networking/ads', ...requireNetwork, asyncHandler(freelancerNetworkingController.listAds));
+router.post('/:freelancerId/networking/ads', ...requireNetwork, asyncHandler(freelancerNetworkingController.createAd));
 router.patch(
   '/:freelancerId/networking/ads/:campaignId',
-  authenticateRequest(),
+  ...requireNetwork,
   asyncHandler(freelancerNetworkingController.updateAd),
 );
 router.delete(
   '/:freelancerId/networking/ads/:campaignId',
-  authenticateRequest(),
+  ...requireNetwork,
   asyncHandler(freelancerNetworkingController.deleteAd),
 );
-router.get('/:freelancerId/volunteering', asyncHandler(volunteeringController.workspace));
-router.post('/:freelancerId/volunteering/applications', asyncHandler(volunteeringController.storeApplication));
-router.put('/:freelancerId/volunteering/applications/:applicationId', asyncHandler(volunteeringController.patchApplication));
-router.delete('/:freelancerId/volunteering/applications/:applicationId', asyncHandler(volunteeringController.destroyApplication));
-router.post('/:freelancerId/volunteering/applications/:applicationId/responses', asyncHandler(volunteeringController.storeResponse));
-router.put('/:freelancerId/volunteering/responses/:responseId', asyncHandler(volunteeringController.patchResponse));
-router.delete('/:freelancerId/volunteering/responses/:responseId', asyncHandler(volunteeringController.destroyResponse));
-router.post('/:freelancerId/volunteering/contracts', asyncHandler(volunteeringController.storeContract));
-router.put('/:freelancerId/volunteering/contracts/:contractId', asyncHandler(volunteeringController.patchContract));
-router.delete('/:freelancerId/volunteering/contracts/:contractId', asyncHandler(volunteeringController.destroyContract));
-router.post('/:freelancerId/volunteering/contracts/:contractId/spend', asyncHandler(volunteeringController.storeSpend));
-router.put('/:freelancerId/volunteering/spend/:spendId', asyncHandler(volunteeringController.patchSpend));
-router.delete('/:freelancerId/volunteering/spend/:spendId', asyncHandler(volunteeringController.destroySpend));
-router.get('/:freelancerId/timeline', asyncHandler(getTimelineWorkspace));
-router.put('/:freelancerId/timeline/settings', asyncHandler(updateTimelineSettings));
-router.post('/:freelancerId/timeline/entries', asyncHandler(createTimelineEntryController));
-router.put('/:freelancerId/timeline/entries/:entryId', asyncHandler(updateTimelineEntryController));
-router.delete('/:freelancerId/timeline/entries/:entryId', asyncHandler(deleteTimelineEntryController));
-router.post('/:freelancerId/timeline/posts', asyncHandler(createTimelinePostController));
-router.put('/:freelancerId/timeline/posts/:postId', asyncHandler(updateTimelinePostController));
-router.delete('/:freelancerId/timeline/posts/:postId', asyncHandler(deleteTimelinePostController));
+
+router.get('/:freelancerId/volunteering', ...requireActor, asyncHandler(volunteeringController.workspace));
+router.post(
+  '/:freelancerId/volunteering/applications',
+  ...requireActor,
+  asyncHandler(volunteeringController.storeApplication),
+);
+router.put(
+  '/:freelancerId/volunteering/applications/:applicationId',
+  ...requireActor,
+  asyncHandler(volunteeringController.patchApplication),
+);
+router.delete(
+  '/:freelancerId/volunteering/applications/:applicationId',
+  ...requireActor,
+  asyncHandler(volunteeringController.destroyApplication),
+);
+router.post(
+  '/:freelancerId/volunteering/applications/:applicationId/responses',
+  ...requireActor,
+  asyncHandler(volunteeringController.storeResponse),
+);
+router.put(
+  '/:freelancerId/volunteering/responses/:responseId',
+  ...requireActor,
+  asyncHandler(volunteeringController.patchResponse),
+);
+router.delete(
+  '/:freelancerId/volunteering/responses/:responseId',
+  ...requireActor,
+  asyncHandler(volunteeringController.destroyResponse),
+);
+router.post(
+  '/:freelancerId/volunteering/contracts',
+  ...requireActor,
+  asyncHandler(volunteeringController.storeContract),
+);
+router.put(
+  '/:freelancerId/volunteering/contracts/:contractId',
+  ...requireActor,
+  asyncHandler(volunteeringController.patchContract),
+);
+router.delete(
+  '/:freelancerId/volunteering/contracts/:contractId',
+  ...requireActor,
+  asyncHandler(volunteeringController.destroyContract),
+);
+router.post(
+  '/:freelancerId/volunteering/contracts/:contractId/spend',
+  ...requireActor,
+  asyncHandler(volunteeringController.storeSpend),
+);
+router.put(
+  '/:freelancerId/volunteering/spend/:spendId',
+  ...requireActor,
+  asyncHandler(volunteeringController.patchSpend),
+);
+router.delete(
+  '/:freelancerId/volunteering/spend/:spendId',
+  ...requireActor,
+  asyncHandler(volunteeringController.destroySpend),
+);
+
+router.get('/:freelancerId/timeline', ...requireActor, asyncHandler(freelancerTimelineController.getTimelineWorkspace));
+router.put(
+  '/:freelancerId/timeline/settings',
+  ...requireActor,
+  asyncHandler(freelancerTimelineController.updateTimelineSettings),
+);
+router.post(
+  '/:freelancerId/timeline/entries',
+  ...requireActor,
+  asyncHandler(freelancerTimelineController.createTimelineEntry),
+);
+router.put(
+  '/:freelancerId/timeline/entries/:entryId',
+  ...requireActor,
+  asyncHandler(freelancerTimelineController.updateTimelineEntry),
+);
+router.delete(
+  '/:freelancerId/timeline/entries/:entryId',
+  ...requireActor,
+  asyncHandler(freelancerTimelineController.deleteTimelineEntry),
+);
+router.post(
+  '/:freelancerId/timeline/posts',
+  ...requireActor,
+  asyncHandler(freelancerTimelineController.createTimelinePost),
+);
+router.put(
+  '/:freelancerId/timeline/posts/:postId',
+  ...requireActor,
+  asyncHandler(freelancerTimelineController.updateTimelinePost),
+);
+router.delete(
+  '/:freelancerId/timeline/posts/:postId',
+  ...requireActor,
+  asyncHandler(freelancerTimelineController.deleteTimelinePost),
+);
 router.post(
   '/:freelancerId/timeline/posts/:postId/publish',
-  asyncHandler(publishTimelinePostController),
+  ...requireActor,
+  asyncHandler(freelancerTimelineController.publishTimelinePost),
 );
 router.post(
   '/:freelancerId/timeline/posts/:postId/metrics',
-  asyncHandler(recordTimelinePostMetrics),
+  ...requireActor,
+  asyncHandler(freelancerTimelineController.recordTimelinePostMetrics),
 );
 
-router.get('/:freelancerId/community-spotlight', asyncHandler(communitySpotlight));
-router.get('/:freelancerId/client-success/overview', asyncHandler(clientSuccessOverview));
-router.post('/:freelancerId/client-success/playbooks', asyncHandler(storePlaybook));
+router.get('/:freelancerId/community-spotlight', authenticateRequest({ optional: true }), asyncHandler(freelancerController.communitySpotlight));
+router.get(
+  '/:freelancerId/client-success/overview',
+  ...requireActor,
+  asyncHandler(clientSuccessController.overview),
+);
+router.post(
+  '/:freelancerId/client-success/playbooks',
+  ...requireActor,
+  asyncHandler(clientSuccessController.storePlaybook),
+);
 router.put(
   '/:freelancerId/client-success/playbooks/:playbookId',
-  asyncHandler(updatePlaybook),
+  ...requireActor,
+  asyncHandler(clientSuccessController.updatePlaybook),
 );
 router.post(
   '/:freelancerId/client-success/playbooks/:playbookId/enrollments',
-  asyncHandler(enrollClient),
+  ...requireActor,
+  asyncHandler(clientSuccessController.enroll),
 );
 router.post(
   '/:freelancerId/client-success/gigs/:gigId/referrals',
-  asyncHandler(storeReferral),
+  ...requireActor,
+  asyncHandler(clientSuccessController.storeReferral),
 );
 router.post(
   '/:freelancerId/client-success/gigs/:gigId/affiliate-links',
-  asyncHandler(storeAffiliateLink),
+  ...requireActor,
+  asyncHandler(clientSuccessController.storeAffiliateLink),
 );
 
+router.get('/:freelancerId/agency-collaborations', ...requireActor, asyncHandler(collaborationsOverview));
+
+router.get('/:freelancerId/disputes', ...requireDisputeAccess, asyncHandler(freelancerDisputeController.listDisputes));
+router.post('/:freelancerId/disputes', ...requireDisputeAccess, asyncHandler(freelancerDisputeController.createDispute));
 router.get(
-  '/:freelancerId/agency-collaborations',
-  asyncHandler(collaborationsOverview),
+  '/:freelancerId/disputes/:disputeId',
+  ...requireDisputeAccess,
+  asyncHandler(freelancerDisputeController.showDispute),
+);
+router.post(
+  '/:freelancerId/disputes/:disputeId/events',
+  ...requireDisputeAccess,
+  asyncHandler(freelancerDisputeController.appendEvent),
 );
 
-router.get('/:freelancerId/disputes', asyncHandler(listDisputes));
-router.post('/:freelancerId/disputes', asyncHandler(createDispute));
-router.get('/:freelancerId/disputes/:disputeId', asyncHandler(showDispute));
-router.post('/:freelancerId/disputes/:disputeId/events', asyncHandler(appendEvent));
+router.get('/:userId/profile-hub', ...requireActor, asyncHandler(freelancerProfileController.getProfileHub));
+router.put('/:userId/profile-hub', ...requireActor, asyncHandler(freelancerProfileController.updateProfileHub));
+router.put('/:userId/expertise-areas', ...requireActor, asyncHandler(freelancerProfileController.updateExpertiseAreas));
+router.put('/:userId/success-metrics', ...requireActor, asyncHandler(freelancerProfileController.updateSuccessMetrics));
+router.put('/:userId/testimonials', ...requireActor, asyncHandler(freelancerProfileController.updateTestimonials));
+router.put('/:userId/hero-banners', ...requireActor, asyncHandler(freelancerProfileController.updateHeroBanners));
 
-router.get('/:userId/profile-hub', asyncHandler(getProfileHub));
-router.put('/:userId/profile-hub', asyncHandler(updateProfileHub));
-router.put('/:userId/expertise-areas', asyncHandler(updateExpertiseAreas));
-router.put('/:userId/success-metrics', asyncHandler(updateSuccessMetrics));
-router.put('/:userId/testimonials', asyncHandler(updateTestimonials));
-router.put('/:userId/hero-banners', asyncHandler(updateHeroBanners));
+router.get('/:id/purchased-gigs', ...requireActor, asyncHandler(freelancerController.getPurchasedGigWorkspace));
 
-router.get('/:id/purchased-gigs', asyncHandler(getPurchasedGigWorkspace));
-
-router.get('/:userId/portfolio', asyncHandler(listPortfolio));
-router.post('/:userId/portfolio', asyncHandler(createPortfolioItem));
-router.put('/:userId/portfolio/:portfolioId', asyncHandler(updatePortfolioItem));
-router.delete('/:userId/portfolio/:portfolioId', asyncHandler(deletePortfolioItem));
-router.post('/:userId/portfolio/:portfolioId/assets', asyncHandler(createPortfolioAsset));
-router.put('/:userId/portfolio/:portfolioId/assets/:assetId', asyncHandler(updatePortfolioAsset));
-router.delete('/:userId/portfolio/:portfolioId/assets/:assetId', asyncHandler(deletePortfolioAsset));
-router.put('/:userId/portfolio-settings', asyncHandler(updatePortfolioSettings));
+router.get('/:userId/portfolio', authenticateRequest({ optional: true }), asyncHandler(freelancerPortfolioController.listPortfolio));
+router.post('/:userId/portfolio', ...requireActor, asyncHandler(freelancerPortfolioController.createPortfolioItem));
+router.put(
+  '/:userId/portfolio/:portfolioId',
+  ...requireActor,
+  asyncHandler(freelancerPortfolioController.updatePortfolioItem),
+);
+router.delete(
+  '/:userId/portfolio/:portfolioId',
+  ...requireActor,
+  asyncHandler(freelancerPortfolioController.deletePortfolioItem),
+);
+router.post(
+  '/:userId/portfolio/:portfolioId/assets',
+  ...requireActor,
+  asyncHandler(freelancerPortfolioController.createPortfolioAsset),
+);
+router.put(
+  '/:userId/portfolio/:portfolioId/assets/:assetId',
+  ...requireActor,
+  asyncHandler(freelancerPortfolioController.updatePortfolioAsset),
+);
+router.delete(
+  '/:userId/portfolio/:portfolioId/assets/:assetId',
+  ...requireActor,
+  asyncHandler(freelancerPortfolioController.deletePortfolioAsset),
+);
+router.put(
+  '/:userId/portfolio-settings',
+  ...requireActor,
+  asyncHandler(freelancerPortfolioController.updatePortfolioSettings),
+);
 
 export default router;

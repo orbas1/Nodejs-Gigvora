@@ -2,6 +2,7 @@ import { Router } from 'express';
 import asyncHandler from '../utils/asyncHandler.js';
 import * as controller from '../controllers/adminProjectManagementController.js';
 import validateRequest from '../middleware/validateRequest.js';
+import { requireAdmin } from '../middleware/authenticate.js';
 import {
   projectPortfolioQuerySchema,
   createProjectBodySchema,
@@ -23,6 +24,8 @@ import {
 } from '../validation/schemas/adminProjectManagementSchemas.js';
 
 const router = Router();
+
+router.use(requireAdmin);
 
 router.get('/', validateRequest({ query: projectPortfolioQuerySchema }), asyncHandler(controller.overview));
 router.get('/summary', asyncHandler(controller.summary));

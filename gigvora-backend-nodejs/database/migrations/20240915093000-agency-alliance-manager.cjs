@@ -362,19 +362,22 @@ module.exports = {
         await queryInterface.dropTable(table, { transaction }).catch(() => {});
       }
 
-      await queryInterface.sequelize.query(
-        "DROP TYPE IF EXISTS \"enum_agency_alliance_members_role\";"
-        + "DROP TYPE IF EXISTS \"enum_agency_alliance_members_status\";"
-        + "DROP TYPE IF EXISTS \"enum_agency_alliance_pods_podType\";"
-        + "DROP TYPE IF EXISTS \"enum_agency_alliance_pods_status\";"
-        + "DROP TYPE IF EXISTS \"enum_agency_alliances_status\";"
-        + "DROP TYPE IF EXISTS \"enum_agency_alliances_allianceType\";"
-        + "DROP TYPE IF EXISTS \"enum_agency_alliance_rate_cards_status\";"
-        + "DROP TYPE IF EXISTS \"enum_agency_alliance_rate_card_approvals_status\";"
-        + "DROP TYPE IF EXISTS \"enum_agency_alliance_revenue_splits_splitType\";"
-        + "DROP TYPE IF EXISTS \"enum_agency_alliance_revenue_splits_status\";",
-        { transaction },
-      );
+      const dialect = queryInterface.sequelize.getDialect();
+      if (dialect === 'postgres' || dialect === 'postgresql') {
+        await queryInterface.sequelize.query(
+          "DROP TYPE IF EXISTS \"enum_agency_alliance_members_role\";"
+            + "DROP TYPE IF EXISTS \"enum_agency_alliance_members_status\";"
+            + "DROP TYPE IF EXISTS \"enum_agency_alliance_pods_podType\";"
+            + "DROP TYPE IF EXISTS \"enum_agency_alliance_pods_status\";"
+            + "DROP TYPE IF EXISTS \"enum_agency_alliances_status\";"
+            + "DROP TYPE IF EXISTS \"enum_agency_alliances_allianceType\";"
+            + "DROP TYPE IF EXISTS \"enum_agency_alliance_rate_cards_status\";"
+            + "DROP TYPE IF EXISTS \"enum_agency_alliance_rate_card_approvals_status\";"
+            + "DROP TYPE IF EXISTS \"enum_agency_alliance_revenue_splits_splitType\";"
+            + "DROP TYPE IF EXISTS \"enum_agency_alliance_revenue_splits_status\";",
+          { transaction },
+        );
+      }
     });
   },
 };

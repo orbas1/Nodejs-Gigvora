@@ -1,13 +1,14 @@
 import { Router } from 'express';
 import asyncHandler from '../utils/asyncHandler.js';
+import { authenticateRequest, requireRoles } from '../middleware/authentication.js';
 import jobApplicationController from '../controllers/jobApplicationController.js';
-import authenticate from '../middleware/authenticate.js';
 
 const router = Router();
 
 const ALLOWED_ROLES = ['user', 'freelancer', 'agency', 'company', 'headhunter', 'mentor', 'admin'];
 
-router.use(authenticate({ roles: ALLOWED_ROLES, allowAdminOverride: true }));
+router.use(authenticateRequest());
+router.use(requireRoles(...ALLOWED_ROLES));
 
 router.get('/workspace', asyncHandler(jobApplicationController.workspace));
 router.post('/', asyncHandler(jobApplicationController.storeApplication));

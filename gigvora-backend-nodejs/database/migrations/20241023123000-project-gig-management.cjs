@@ -1,5 +1,24 @@
 'use strict';
 
+const ENUM_TYPES = [
+  'enum_pgm_projects_status',
+  'enum_pgm_project_workspaces_status',
+  'enum_pgm_project_workspaces_riskLevel',
+  'enum_pgm_project_milestones_status',
+  'enum_pgm_project_collaborators_status',
+  'enum_pgm_project_integrations_status',
+  'enum_pgm_gig_orders_status',
+  'enum_pgm_gig_order_requirements_status',
+  'enum_pgm_gig_order_revisions_status',
+];
+
+const dropEnumType = async (queryInterface, typeName, transaction) => {
+  const dialect = queryInterface.sequelize.getDialect();
+  if (dialect === 'postgres' || dialect === 'postgresql') {
+    await queryInterface.sequelize.query(`DROP TYPE IF EXISTS "${typeName}";`, { transaction });
+  }
+};
+
 module.exports = {
   async up(queryInterface, Sequelize) {
     const transaction = await queryInterface.sequelize.transaction();
@@ -418,6 +437,10 @@ module.exports = {
 
       for (const table of dropOrder) {
         await queryInterface.dropTable(table, { transaction });
+      }
+
+      for (const enumType of ENUM_TYPES) {
+        await dropEnumType(queryInterface, enumType, transaction);
       }
 
       await transaction.commit();

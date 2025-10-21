@@ -159,12 +159,15 @@ module.exports = {
       await queryInterface.removeColumn(companyProfilesTable, 'logoUrl', { transaction });
       await queryInterface.removeColumn(companyProfilesTable, 'tagline', { transaction });
 
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_company_profile_followers_status";', {
-        transaction,
-      });
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_company_profile_connections_status";', {
-        transaction,
-      });
+      const dialect = queryInterface.sequelize.getDialect();
+      if (dialect === 'postgres' || dialect === 'postgresql') {
+        await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_company_profile_followers_status";', {
+          transaction,
+        });
+        await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_company_profile_connections_status";', {
+          transaction,
+        });
+      }
     });
   },
 };
